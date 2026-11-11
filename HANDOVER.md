@@ -47,14 +47,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `main` and `dev` are networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
+  - *The branches.* `dev` is networks-v136 (FORMAT networks-42, the v136 entry below), on `dev` only, for the owner to
+    try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
     both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
     is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
     fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
     Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
     https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
     networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v135 are the entries below. The AI agents' working branch,
+    (`5524684`, 7 November); v122 to v136 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -101,6 +102,58 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v136 (11 November 2026; FORMAT networks-42, shell 136), on `dev` only: the frame rate everywhere, the
+  studio's edit mode, trigger cubes that start things, and Update the room.** The owner: "The edit mode still has worse
+  framerates than not editing, why?", "Trigger cube should also be able to trigger things like an animation or a
+  soundfile being played on a character or prop", "It needs a: update this room on the relay switch that just tells
+  everyone to reload, after updates rooms otherwise get lost sometimes", "We need to do a performance review and make
+  sure that we get a good framerate everywhere, even in the lobby with only the stations visible i could not reach
+  90fps". A diagnosis first (pretend headsets in headless Chromium, every story swept, the lobby and the studio's edit
+  mode profiled), then five builds in three lanes, one review and a fix round each, then the integration.
+  - Why the lobby missed 90 fps, most likely: Quest Browser runs a WebXR session at 72 Hz unless the page asks, and
+    nothing asked (the read-out painted 72 green). Every new session now asks for 90 (`HOST.xr.hz()`, the Debug tab's
+    *Refresh rate* row, 72, 80, 90 or 120 where the headset lists them; the read-out says *88 fps of 90 Hz*). Besides,
+    every playing station's card was drawn and sent to the GPU every second (6 cards, 4.4 MB in one frame), the menu's
+    Debug tab sent its whole 5.5 MB canvas each time its frame-rate line changed, the cards' back faces drew nothing
+    twice a frame, and the story left loaded worked out its hidden scene while you were away from every circle. Now the
+    cards say *Playing* or *Paused at 1:03* (no running clock) and at most one is drawn a frame; the Debug tab's lines
+    are sent alone (652 x 30); back faces show only without a head pose; after a second away the story's frame only
+    renders (`xrIdle`, the same lines in every story, the design room and the studio). Two experiments, off by default:
+    *Foveation* and *Resolution* on the Debug tab.
+  - Why edit mode was slower: the label of what is pointed at or selected was made again every frame (a canvas, a
+    texture and a shader program link: `labelSet` compared two words with three), the scene's matrices were made again
+    for every pick, the whole 4.9 MB panel was sent for every item or button the ray crossed, and every tag and line was
+    a draw of its own, twice in a headset. Now labels change only when their words do, picks use the frame's matrices, a
+    hover sends only the button's rectangles, and tags and lines are drawn together (one draw for every tag, one a kind
+    of line). A pretend headset on a 400,000-triangle scan: editing 7.6 to 14.7 ms of script a frame down to 4.2 to 6.9
+    (viewing 2.9 to 3.4), draws 210 down to 132 (viewing 104); the batch costs 0.02 ms a frame while viewing.
+  - Stories: the design room's miniatures merged (235 draws an eye down to 70, 4.4 to 1.5 ms of script); background
+    builds share a budget of about 1 ms a frame in a headset (ovary 9 to 2.6 ms a frame at its start, micro 4.8 to 2.8,
+    nmd 5.0 to 3.6; the heart's coronaries still one 24 ms step once); the tissue topology, qubits, mutation and soil
+    stories' pools send only what changed (8.6 MB/s to nothing while paused); the robots' floor sends cleaned boxes
+    (5.5 to 0.8 MB/s).
+  - Trigger cubes that start things (`plays` on a cube, `tools/studio/engine/e6n_plays.js`, FORMAT networks-42): a clip,
+    a sound, a recorded path or a motion on an item, once, loop, hold or stop, as you walk in or out, each person's own
+    as everything a cube does. Decisions taken by default (say if any should change): per person; clips blended over
+    0.3 s; walking in and out debounced 0.3 s; paths and motions included; copies gain entries; nothing older resumes.
+  - Update the room and rooms across updates: a room's version is the app's `FORMAT`, and after a deploy the old pages
+    came back first and made the room again under the old version, locking every updated device out. Now the relay moves
+    a room on to a newer version once nobody of the old one is connected, a device refused by an older room waits and
+    one refused by a newer room reloads, a page in a room takes a format update by itself after 20 s, and *Update the
+    room* (two presses, anyone, never refused by a lock) reloads every device in turn. Decisions taken by default: anyone
+    may press; pages take a format update by themselves; peer to peer does not look on the old id for stragglers.
+  - **Owner action, Coolify**: for rooms to survive a deploy itself, give both relay resources a persistent volume at
+    `/data` and add `--keep /data/rooms.json` to `RELAY_ARGS` (`relay/README.md`, "Rooms across updates", step 6).
+    Without it rooms are rebuilt from the devices' copies as before.
+  - Fixed at integration: a cube's entry taken away left its cube's inside stale (a leave put back by Undo then fired)
+    and a sound's run going on (a new smoke step, red on the code before); relay capabilities are asked again after a
+    minute (a relay redeployed with versions would otherwise be thought unable to move a room on).
+  - Checked: each lane's own blocks and rounds (the frame rate, update the room, studio edit speed, studio cube starts,
+    away idle, uploads, the design room, collab `--menus`, `--circles`, `--reload`, `--studio`, `--design`, `--ask`,
+    `relay/test.mjs` whole, `tools/live.mjs`), the stories lane's whole smoke test (352 steps) and, after the merge, the
+    cheap checks. Not run on the merged code: the whole release run (before `main` moves). Untested on a headset:
+    everything about the frame rate on a real Quest (what it lists, whether it takes 90 or 120, foveation, the patches),
+    Update the room with real headsets, `--keep` on Coolify, a blended clip on a real character.
 - **networks-v135 (11 November 2026; FORMAT networks-41, shell 135), on `dev` and `main`: the whole release run on v134,
   and what it found in the spaceships fought together.** The owner: "push all to main and run the full tests afterwards, in case there is anything to
   fix also push that to dev and main".

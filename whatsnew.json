@@ -1,20 +1,28 @@
 {
-  "version": "networks-v135",
+  "version": "networks-v136",
   "date": "11 November 2026",
   "new": [
-    "Spaceships fought together: a hit on a drone or a crystal is no longer lost, and a pickup taken does not come back, when a headset misses the leading headset for a moment (a Wi-Fi hiccup, the Quest menu open for 2 s). Before, that headset's bolt could vanish on the leader and the drone kept its shield.",
-    "Everything from v134 is here too: loops with the right stick held back, the arena's floor and ceiling bouncing the ship, and no black halo round the glows in AR.",
-    "The main site has this release too."
+    "Headsets now ask for 90 Hz (Quest Browser runs at 72 unless asked). The Debug tab has a Refresh rate row, and the frame-rate read-out says 'fps of 90 Hz'.",
+    "The lobby is lighter: station cards no longer show a running clock, are redrawn one at a time, and the story left loaded does nothing while you are away from every circle.",
+    "The studio's edit mode no longer remakes labels, panels and picks every frame, and draws its tags and lines together: editing costs little more than viewing.",
+    "Trigger cubes can start things: an animation clip, a sound, a recorded path or a motion on an item, once, looping, held while inside, or stopped, as you walk in or out. Each person's own.",
+    "Update the room (Shared dialog, the menu's Circles tab, the update bar): two presses reload every device in the room in turn. Rooms no longer get lost after an update: the relay moves a room on to the new version.",
+    "A page in a room takes a new version by itself after 20 s (Not now holds it 5 minutes).",
+    "Stories: the design room draws about a third as much, background builds take about 1 ms a frame in a headset, and paused stories send nothing to the GPU.",
+    "Debug experiments, off by default: Foveation and Resolution rows on the Debug tab."
   ],
   "test": [
-    "Two or more people fly ships in one room and shoot the same drone: does every hit count, and is the drone destroyed for everyone at once?",
-    "While one person opens the Quest menu for a few seconds, the other keeps shooting a drone: after they come back, do the drones' bars agree on both headsets?",
-    "Hold the stick back: does the ship loop smoothly, and does a loop fit in your room?",
-    "In AR, look at the ship's engine, the drones' red eyes, the crystals and the pickups: any dark square or ring round them now?"
+    "Lobby with only the stations visible: turn on the frame-rate read-out (double press B or Y). Does it say about 90 fps of 90 Hz now?",
+    "Debug tab, Refresh rate: what does 'offers' list on your Quest, and does 120 Hz hold in a light story?",
+    "Studio: edit a big scan and compare the read-out with viewing. Is the gap gone?",
+    "Studio: put a cube that plays a clip or a sound on a character, then walk in and out. Does it start, blend and stop as expected?",
+    "After the next deploy, press Update the room: do all headsets and pages reload one after another and come back into the same room?",
+    "Try Foveation 1 and Resolution 80 % on the Debug tab: do they look acceptable and raise the frame rate?"
   ],
   "untested": [
-    "Spaceships fought together over real Wi-Fi with real headsets (checked only with pretend headsets in a headless browser).",
-    "How loops feel on a Quest and whether 140 degrees a second is the right speed for them.",
-    "The glows over a real passthrough."
+    "Everything on a real Quest: the 90 Hz request, the frame rates, foveation and resolution, the batched studio tags, the bar and hover patches.",
+    "Update the room with ten real headsets on one Wi-Fi, and Enter VR to continue after it.",
+    "Rooms kept across deploys (--keep) need a volume on Coolify, not set up yet.",
+    "How a clip blended in by a cube looks on a real character, and a cube's sound through HRTF."
   ]
 }
