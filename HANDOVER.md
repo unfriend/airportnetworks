@@ -47,12 +47,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `main` is networks-v129 (FORMAT networks-40), released on 10 November 2026 after the first whole
-    release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/ (GitHub Pages)
-    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v133 (FORMAT networks-41,
-    the v133 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
-    `dev`; v130 to v133 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
-    networks-v121 (`5524684`, 7 November); v122 to v133 are the entries below. The AI agents' working branch,
+  - *The branches.* `main` and `dev` are networks-v134 (FORMAT networks-41, the v134 entry below), released to both on
+    11 November 2026 at the owner's word ("push all to main and run the full tests afterwards"), the whole release run
+    right after it (the v134 entry says what it found): what visitors get at https://stories.lbi-netmed.com/ (GitHub
+    Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
+    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
+    networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
+    (`5524684`, 7 November); v122 to v134 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -97,6 +98,25 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v134 (11 November 2026; FORMAT networks-41, shell 134), on `dev` and `main`: loops, and no black halos in
+  AR.** The owner, after flying v133 ("looks good"): "the sticks should have more freedom so that one can do a looping,
+  ships and pickups have a black halo around glowing stuff in ar which looks like a bug, please fix these then push all
+  to main and run the full tests afterwards".
+  - The stick's up and down is a rate now (`STEER.climb`, 140 degrees a second, no limit): held back the ship loops
+    (about 2.6 s, about 1 m across at cruise). Let go the right way up, its nose eases back to level (`STEER.level`, 0.5
+    s); let go upside down, it holds. Upside down the turn about the vertical goes the other way, so right still turns
+    it to its own right. The arena's floor and ceiling bounce it (its pitch mirrored) instead of holding it level, the
+    soft turn back and the bounce at the edge go by where it really heads (backwards when upside down), and a bounce off
+    the room scan keeps it upside down when it was.
+  - The halos: the glows (engines, drones' eyes, crystals, pickups, bursts) and the shield's ring were drawn with
+    three.js's `AdditiveBlending`, which adds the glow's alpha too; the glow's shader wrote alpha 1 over its whole point
+    square, so in AR the square, black at its corners, went opaque over the passthrough. They now add their colour and
+    leave the alpha alone (`ADD` in `ships.js`: `CustomBlending`, One and One for the colour, Zero and One for the alpha),
+    so in AR they are light over the room and in VR they look as before.
+  - Tests: the smoke test's `--only spaceship` (14 steps, a loop, the levelling, the bounces, the turn upside down, and a
+    render over a see-through background whose alpha must stay 0). Untested on a headset: how loops feel, the glows over a
+    real passthrough (a compositor that took the layer's alpha as straight rather than premultiplied would show no glow
+    over the room at all; Chromium's is premultiplied, as far as we know).
 - **networks-v133 (11 November 2026; FORMAT networks-41, shell 133), on `dev`: the spaceships steered by the right stick.**
   The owner, after trying v132: "please also add joystick controls for the ships, right joystick should control left right
   with left right and up down with up down", then "the pitch of the up down should be reversed like in flightsim" and

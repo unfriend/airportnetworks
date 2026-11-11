@@ -1,21 +1,20 @@
 {
-  "version": "networks-v133",
+  "version": "networks-v134",
   "date": "11 November 2026",
   "new": [
-    "Spaceships are now steered with the right stick: left and right turn, forward dives and back climbs, as in a flight simulator. Let go and it flies level.",
-    "Tilting the controller no longer steers: how you hold it does not matter any more.",
-    "While a ship flies, a click of the right stick counts only with the stick at its middle, so a hard push that clicks does not land the ship or open the menu. Two clicks at the middle still land it.",
-    "Everything else about the ships is as in v132: launch and land with two clicks of the right stick, the grip brakes, A boosts, the trigger shoots, drones, targets and pickups shared in a room."
+    "Spaceships can loop: the right stick's up and down now turns the nose at a steady rate with no limit, so held back the ship goes round in a loop (about 2.6 s, about 1 m across). Forward still dives, back still climbs.",
+    "Let go of the stick the right way up and the ship eases back to level flight; let go upside down and it keeps flying upside down. Upside down, right still turns it to its own right.",
+    "The arena's floor and ceiling now bounce the ship back instead of holding it level.",
+    "No more black halo round the glows of ships, drones and pickups in AR: the glows now only add light over your room.",
+    "The main site has this release too."
   ],
   "test": [
-    "Launch with two clicks of the right stick. Do the stick's turn and climb feel right: the dead zone in the middle, how fast a full push turns, forward to dive and back to climb?",
-    "Push the stick hard and click it by accident while flying: the ship should keep flying and the menu stay shut. Two clicks with the stick at its middle should still land it.",
-    "Hold the controller at any angle while flying: the ship should not care.",
-    "The left stick clicked twice should still turn moving with the sticks on and off (VR), in the studio too."
+    "Hold the stick back: does the ship loop smoothly, and does a loop fit in your room? Let go at different points of it.",
+    "Fly upside down and push the stick right: does it turn the way you expect?",
+    "In AR, look at the ship's engine, the drones' red eyes, the crystals and the pickups: any dark square or ring round them now?"
   ],
   "untested": [
-    "Everything on a real headset: how the stick feels and its numbers (a dead zone of 0.15, a full turn of 140 degrees a second, 60 degrees of climb), and whether 0.5 is the right point for ignoring a pushed click.",
-    "Two headsets flying together: v133 changes only how each ship is steered, but the shared room's ship round was not run again here.",
-    "On dev only the quick checks ran, with the spaceship smoke steps; the full suites run before the main site moves."
+    "How loops feel on a Quest and whether 140 degrees a second is the right speed for them.",
+    "The glows over a real passthrough (checked only in a headless browser with a see-through background)."
   ]
 }
