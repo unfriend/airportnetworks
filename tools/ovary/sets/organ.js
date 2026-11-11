@@ -421,8 +421,12 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
   return Object.assign(set, {
     params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0 },
     update,
-    idle() { step(3); },
+    // (by the engine's build budget: ms for this frame, 0 nothing but the answer; true while there is more to build)
+    idle(dt, ms) { if (ms === undefined) ms = 3; if (ms > 0) step(ms); return !built; },
     finish() { step(Infinity); },
+    // (the story shows the ovary from its first second, so its two meshes are built during the load, a slice a step, behind
+    // the loading card: v136, until then 4 ms a frame of the story's first seconds, a stand-in meanwhile)
+    early(ms) { return step(ms); },
     built: () => built,
     anchors,
     labels: [

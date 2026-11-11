@@ -377,7 +377,7 @@ vec4 over(vec4 b, vec3 c, float a) { float A = 1.0 - (1.0 - b.a) * (1.0 - a); re
 
   // ---------------------------------------------------------------- the floor's dust map
   // R: cleaned (0..255), G: shade near walls and under furniture (fixed per room), B: counts for coverage
-  const MAP = { tex: null, data: null, w: 1, h: 1, x0: 0, z0: 0, cs: 0.025, count: 0, done: 0, dirty: false, age: 0, move: null };
+  const MAP = { tex: null, data: null, w: 1, h: 1, x0: 0, z0: 0, cs: 0.025, count: 0, done: 0, dirty: false, age: 0, move: null, boxes: [], full: true };
   const uMap = { value: null }, uBox = { value: new THREE.Vector4(0, 0, 1, 1) };
 
   // ---------------------------------------------------------------- materials of the room
@@ -796,7 +796,7 @@ void main() {
   function buildMap(x0, x1, z0, z1, keep) {
     const cs = Math.max(0.025, (x1 - x0) / 256, (z1 - z0) / 256), w = Math.ceil((x1 - x0) / cs / 4) * 4, h = Math.ceil((z1 - z0) / cs);
     const old = keep && MAP.data ? { D: MAP.data, w: MAP.w, h: MAP.h, x0: MAP.x0, z0: MAP.z0, cs: MAP.cs } : null, mv = MAP.move;
-    Object.assign(MAP, { cs, w, h, x0, z0, done: 0, count: 0, dirty: true, age: 9, move: null });
+    Object.assign(MAP, { cs, w, h, x0, z0, done: 0, count: 0, dirty: true, age: 9, move: null, boxes: [], full: true });
     MAP.data = new Uint8Array(w * h * 4);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const x = x0 + (i + 0.5) * cs, z = z0 + (j + 0.5) * cs, o = (j * w + i) * 4;
@@ -822,13 +822,44 @@ void main() {
   function clean(x, z) {
     const r = 0.16, cs = MAP.cs, i0 = Math.max(0, Math.floor((x - r - MAP.x0) / cs)), i1 = Math.min(MAP.w - 1, Math.floor((x + r - MAP.x0) / cs)),
       j0 = Math.max(0, Math.floor((z - r - MAP.z0) / cs)), j1 = Math.min(MAP.h - 1, Math.floor((z + r - MAP.z0) / cs)), D = MAP.data;
+    let hit = false;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const dx = MAP.x0 + (i + 0.5) * cs - x, dz = MAP.z0 + (j + 0.5) * cs - z, o = (j * MAP.w + i) * 4;
       if (dx * dx + dz * dz > r * r || D[o]) continue;
-      D[o] = 255; MAP.dirty = true; if (D[o + 2]) MAP.done++;
+      D[o] = 255; MAP.dirty = hit = true; if (D[o + 2]) MAP.done++;
+    }
+    // (the cells cleaned since the map last went to the GPU, in boxes sent alone by mapSend: a disc joins the box it
+    // touches, so a robot's trail grows one box, and a disc far from every box starts its own)
+    if (!hit) return;
+    const L = MAP.boxes, m = 6;
+    for (const B of L) if (i0 <= B[2] + m && i1 >= B[0] - m && j0 <= B[3] + m && j1 >= B[1] - m) {
+      if (i0 < B[0]) B[0] = i0; if (j0 < B[1]) B[1] = j0; if (i1 > B[2]) B[2] = i1; if (j1 > B[3]) B[3] = j1;
+      return;
+    }
+    if (L.length < 32) L.push([i0, j0, i1, j1]); else MAP.full = true;
+  }
+  function dustAgain() { for (let o = 0; o < MAP.data.length; o += 4) MAP.data[o] = 0; MAP.done = 0; MAP.dirty = MAP.full = true; }
+  // the cleaned cells to the GPU (v136): only the boxes of those cleaned since the last time, each through the
+  // renderer's copyTextureToTexture (texSubImage2D from a copy of its rows: a few KB a box, not the whole map, about 335
+  // KB); a new map, the dust again, boxes over half the map together or no renderer to hand (the set's harness): all of
+  // it, as before
+  const MAPSUB = { isDataTexture: true, image: { data: null, width: 0, height: 0 }, buf: null }, MAPAT = new THREE.Vector2();
+  function mapSend(R) {
+    const L = MAP.boxes, full = MAP.full;
+    MAP.boxes = []; MAP.full = false;
+    let area = 0;
+    for (const b of L) area += (b[2] - b[0] + 1) * (b[3] - b[1] + 1);
+    if (full || !L.length || !R || !R.copyTextureToTexture || area * 2 > MAP.w * MAP.h) { MAP.tex.needsUpdate = true; return; }
+    const D = MAP.data;
+    for (const b of L) {
+      const w = b[2] - b[0] + 1, h = b[3] - b[1] + 1, n = w * h * 4;
+      if (!MAPSUB.buf || MAPSUB.buf.length < n) MAPSUB.buf = new Uint8Array(n);
+      const S = MAPSUB.buf.subarray(0, n);
+      for (let j = 0; j < h; j++) { const o = ((b[1] + j) * MAP.w + b[0]) * 4; S.set(D.subarray(o, o + w * 4), j * w * 4); }
+      MAPSUB.image.data = S; MAPSUB.image.width = w; MAPSUB.image.height = h;
+      R.copyTextureToTexture(MAPAT.set(b[0], b[1]), MAPSUB, MAP.tex);
     }
   }
-  function dustAgain() { for (let o = 0; o < MAP.data.length; o += 4) MAP.data[o] = 0; MAP.done = 0; MAP.dirty = true; }
 
   // ---------------------------------------------------------------- paths: distance fields over the grid
   let HK = new Float32Array(1024), HV = new Int32Array(1024), HN = 0, HPK = 0;
@@ -1890,9 +1921,10 @@ void main() {
       lnGeo.attributes.position.needsUpdate = lnGeo.attributes.aA.needsUpdate = lnGeo.attributes.aT.needsUpdate = true;
       dtGeo.attributes.position.needsUpdate = dtGeo.attributes.aA.needsUpdate = true;
     }
-    // the dust map goes to the GPU at most ten times a second
+    // the dust map goes to the GPU at most ten times a second, in a headset every 0.4 s (v136), only what was cleaned
     MAP.age += d;
-    if (MAP.dirty && MAP.age >= 0.1) { MAP.tex.needsUpdate = true; MAP.dirty = false; MAP.age = 0; }
+    const RR = typeof GL !== 'undefined' && GL.renderer ? GL.renderer : null, inXR = !!(RR && RR.xr && RR.xr.isPresenting);
+    if (MAP.dirty && MAP.age >= (inXR ? 0.4 : 0.1)) { mapSend(RR); MAP.dirty = false; MAP.age = 0; }
   }
 
   // ---------------------------------------------------------------- start: the model room, six robots at the dock

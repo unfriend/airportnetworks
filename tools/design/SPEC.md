@@ -27,6 +27,12 @@ shared-room, headset-setting and subtitle lines are the same as in every story.
 - The models: `feed(LOWPOLY_MODELS)` queues them; `update` builds for up to 5 ms a frame (at least one), the picked one
   first. `built()` and `total()` say how far it has got (the panes too). Each miniature has an unseen box round it
   (`pickables()`) for the pointer, sized to the model.
+- Draws (v136): a miniature is merged as it is built into at most two meshes (`mergeMini`: its opaque parts, its
+  see-through ones), each part's colour, roughness, metalness, glow (in its own colour), opacity and whether it adds its
+  light carried per vertex (`aMat`, `aSee`) and drawn by two materials shared by every miniature (`miniMat`; the
+  see-through one premultiplied); two-sided parts are doubled with their faces turned. The plates, edges, place cards'
+  faces and backs and the homes' discs and rings are one mesh each (`merged`), and what never moves keeps its matrices
+  (`still`). About 70 draws an eye for the whole table, from 235.
 - Hover: the miniature grows 15 %, a cyan ring and a soft glow under it, its name over it. Picked: a ring in its
   story's colour under it.
 

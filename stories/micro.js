@@ -566,6 +566,7 @@ const ORGAN3D = (() => {
       if (n * dir >= 0) I.push(a, b, c, a, c, d); else I.push(a, c, b, a, d, c);
     };
     for (let i = 1; i < nx - 1; i++) for (let j = 1; j < ny - 1; j++) for (let k = 1; k < nz - 1; k++) {
+      if (k === 1 && j === 1) yield;   // (a plane at a time: v136, the quads went in one go, 1 to 2 ms)
       const v0 = F[id3(i, j, k)];
       if (i < nx - 1 && (v0 < 0) !== (F[id3(i + 1, j, k)] < 0)) quad(VI[id3(i, j - 1, k - 1)], VI[id3(i, j, k - 1)], VI[id3(i, j, k)], VI[id3(i, j - 1, k)], v0 < 0 ? 1 : -1, 0);
       if (j < ny - 1 && (v0 < 0) !== (F[id3(i, j + 1, k)] < 0)) quad(VI[id3(i - 1, j, k - 1)], VI[id3(i - 1, j, k)], VI[id3(i, j, k)], VI[id3(i, j, k - 1)], v0 < 0 ? 1 : -1, 1);
@@ -732,7 +733,7 @@ void main() {
       ctx.beginPath();
       ctx.moveTo(ox + X[a] * sc, oy - Y[a] * sc); ctx.lineTo(ox + X[b] * sc, oy - Y[b] * sc); ctx.lineTo(ox + X[c] * sc, oy - Y[c] * sc); ctx.closePath();
       ctx.fillStyle = st; ctx.strokeStyle = st; ctx.lineWidth = 0.7; ctx.fill(); ctx.stroke();
-      if (q % 100 === 99) yield;
+      if (q % 25 === 24) yield;   // (v136: a hundred of them, 2 to 5 ms in a software canvas, now a quarter)
     }
     const out = document.createElement('canvas');
     out.width = out.height = px;
@@ -5521,7 +5522,9 @@ void main() {
     params: { hier_a: 1, hier_grow: 1, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 },
     update, anchors, labels, cam, controls, explore,
     // (the organ models build between frames while the set is hidden; the harness and the sweeps build them at once)
-    idle() { orgStep(3); },
+    // (by the engine's build budget: ms for this frame, 0 nothing but the answer; work here once the engine's models are
+    // ready, or while nobody else steps them)
+    idle(dt, ms) { if (ms === undefined) ms = 3; if (ms > 0) orgStep(ms); return !orgMesh && !!O3 && (!O3.driven || O3.ready()); },
     finish() { if (O3) O3.step(Infinity); buildOrgans(); },
     api: () => API,
   });
@@ -5645,23 +5648,36 @@ function makeDots() {
     },
   });
 }
+// what the sets still building may take of a frame, all of them together (v136; each hidden one took 3 or 4 ms a frame
+// before, two at a time in some stories: 5 to 10 ms a frame in a story's first seconds): in a headset about 1 ms, on a
+// page an eighth of the frame, 2 to 8 ms (more where frames are slow anyway). The hidden ones take it by turns, one a
+// frame (buildTurn; each of the others is only asked whether it still has work: idle(dt, 0) builds nothing, and returns
+// false once it has none); a set on show builds on demand in its update, and finish() at once, as before
+const BUILD = { i: 0 };
+const ORGJOB = { idle: (dt, ms) => { if (ms > 0) GL.orgDone = ORGAN3D.step(ms); return !GL.orgDone; } };
+const buildMs = dt => (GL.renderer && GL.renderer.xr.isPresenting ? 1 : clamp((dt || 0) * 125, 2, 8));
+function buildTurn(jobs, dt) {
+  const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
+  for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
+  const hid = [];
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
+    else if (s.idle) hid.push(s);   // a hidden set may build in slices (buildTurn, below)
   }
   // the organs' 3D models and their pictures build between frames from the start, one organ after another (the one a
-  // pane or the body wants first): a short slice a frame in a headset (3 ms), elsewhere a quarter of the frame, 4 to
-  // 8 ms (a little more where frames are slow anyway). Each picture goes into the HTML chips waiting for it as it is
-  // done, and the headset's panels redraw on GL.orgV (at most twice a second while they come)
-  if (!GL.orgDone) {
-    ORGAN3D.driven = true;
-    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 250, 4, 8));
+  // pane or the body wants first), a job of the build budget's (ORGJOB, by turns with the hidden sets: v136; until then
+  // 3 ms a frame in a headset, 4 to 8 elsewhere, on top of theirs). Each picture goes into the HTML chips waiting for it
+  // as it is done, and the headset's panels redraw on GL.orgV (at most twice a second while they come)
+  if (!GL.orgDone) { ORGAN3D.driven = true; hid.push(ORGJOB); }
+  buildTurn(hid, dt);
+  if (!GL.orgDone || GL.orgV !== ORGAN3D.version()) {
     const v = ORGAN3D.version();
     if (v !== GL.orgSeen) { GL.orgSeen = v; fillOrganPics(); }
     const now = performance.now();
@@ -7115,6 +7131,19 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
+// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
+// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
+// simulation goes on from where it was); called after xrBegin in frame, every frame
+const _xrNoWalk = () => {};
+function xrIdle(xr, dt) {
+  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const idle = XR.awayT > 1;
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (!idle) return false;
+  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
+  return true;
+}
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
 // circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
@@ -8571,6 +8600,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

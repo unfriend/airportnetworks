@@ -1370,7 +1370,9 @@ void main() {
     params: { organs_a: 1, organs_seg: 1, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_scatter: 1,
       organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_measures: 0, organs_ghost: 0 },
     update, anchors, labels, cam, controls, explore, api: () => API,
-    idle: () => jobStep(4),            // while the set is hidden, the shells go on building
+    // while the set is hidden, the shells go on building (by the engine's build budget, v136: ms for this frame, 0 nothing
+    // but the answer, true while there is more)
+    idle: (dt, ms) => { if (ms === undefined) ms = 4; if (ms > 0) jobStep(ms); return !!job; },
     finish: () => jobStep(Infinity),   // for screenshots and tests: build them now
   });
 };

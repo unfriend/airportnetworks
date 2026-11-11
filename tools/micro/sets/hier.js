@@ -856,7 +856,9 @@ void main() {
     params: { hier_a: 1, hier_grow: 1, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 },
     update, anchors, labels, cam, controls, explore,
     // (the organ models build between frames while the set is hidden; the harness and the sweeps build them at once)
-    idle() { orgStep(3); },
+    // (by the engine's build budget: ms for this frame, 0 nothing but the answer; work here once the engine's models are
+    // ready, or while nobody else steps them)
+    idle(dt, ms) { if (ms === undefined) ms = 3; if (ms > 0) orgStep(ms); return !orgMesh && !!O3 && (!O3.driven || O3.ready()); },
     finish() { if (O3) O3.step(Infinity); buildOrgans(); },
     api: () => API,
   });

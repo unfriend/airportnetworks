@@ -142,8 +142,11 @@ controls.
   (MICRO_DATA, its sets, the organ points and models, the Organs/Domains tabs) are gone, and `build.mjs` no longer
   includes `tools/micro/sets/organs.js`. The shared-room hooks, the headset code, the slideshow and the narration lines
   are the shared ones, unchanged (the headset arc and its title now make room for thirteen stories, in every story).
-- `organ` and `section` build between frames: the engine calls `idle()` while a set is hidden; `sweep.mjs` and the
-  smoke test call `finish()`.
+- `organ` and `section` build between frames: the engine calls `idle(dt, ms)` while a set is hidden, by turns within
+  its build budget (v136: about 1 ms a frame in a headset, on a page an eighth of the frame, 2 to 8 ms; `BUILD` in
+  `engine/e2_scene.js`, as in the muscle story's `tools/nmd/SPEC.md`), and a set on show builds 4 ms a frame in its
+  `update`; `sweep.mjs` and the smoke test call `finish()`. The organ, shown from the story's first second, builds
+  during the load (`early(ms)`, a step of `LOAD` after its `buildSet`, 30 ms a slice behind the loading card).
 - The story (`e3_story.js`): `FACTS` and the text helpers read `OVARY_DATA` and `OVARY_TREND` (`KD` by kind, `KCOL` the
   poster's colors lifted for the dark scene, `KINDS4`, `CHART`, `onLine(kind, method, age)`); `FIT` and `NARROW` frame
   each view beside the panel; labels whose text is a function are read again while they show (`labelText`, the qubits

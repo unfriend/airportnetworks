@@ -322,6 +322,36 @@ SETS.table = function (K) {
     return keep(new THREE.CanvasTexture(cv));
   })();
   const glowMat = (col, o) => basic({ map: glowTex, color: col, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending });
+  // (v136) what never moves on the table: its matrices worked out once (three.js otherwise does it again every frame)
+  const still = o => o.traverse(x => { x.updateMatrix(); x.matrixAutoUpdate = false; });
+  // many meshes in one (v136: a draw each, 235 draws an eye on the table before): each part's geometry carried into the
+  // group's frame by its matrix, with its colour per vertex (col: one, or the part's own vertex colours)
+  function merged(parts) {
+    let n = 0;
+    for (const p of parts) n += p.g.attributes.position.count;
+    const pos = new Float32Array(3 * n), nor = new Float32Array(3 * n), col = new Float32Array(3 * n), uv = parts[0].g.attributes.uv && parts.every(p => p.g.attributes.uv) ? new Float32Array(2 * n) : null;
+    const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+    let o = 0;
+    for (const p of parts) {
+      const P = p.g.attributes.position, N = p.g.attributes.normal, C = p.g.attributes.color, U = p.g.attributes.uv;
+      nm.getNormalMatrix(p.m);
+      for (let i = 0; i < P.count; i++, o++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(p.m).toArray(pos, 3 * o);
+        v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize().toArray(nor, 3 * o);
+        if (p.col) p.col.toArray(col, 3 * o); else if (C) { col[3 * o] = C.getX(i); col[3 * o + 1] = C.getY(i); col[3 * o + 2] = C.getZ(i); } else col[3 * o] = col[3 * o + 1] = col[3 * o + 2] = 1;
+        if (uv) { uv[2 * o] = U.getX(i); uv[2 * o + 1] = U.getY(i); }
+      }
+      p.g.dispose();
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    if (uv) g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.computeBoundingSphere();
+    return g;
+  }
+  const part = (geo, m, col) => { const g = geo.index ? geo.toNonIndexed() : geo; if (g !== geo) geo.dispose(); return { g, m: m.clone(), col: col ? new THREE.Color(col) : null }; };
+  const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(), _pe = new THREE.Euler(), _one = new THREE.Vector3(1, 1, 1);
+  const placeM = (p, e) => _pm.compose(p, e ? _pq.setFromEuler(e) : _pq.identity(), _one);
 
   // ---- the floor (hidden in passthrough: table_floor 0) and the table
   const floor = new THREE.Group(), floorDisc = mesh(flat(new THREE.CircleGeometry(5, 72)), std({ color: 0x070d19, roughness: 0.95, metalness: 0 }));
@@ -378,6 +408,9 @@ SETS.table = function (K) {
     cardsCv = document.createElement('canvas'); cardsCv.width = 512; cardsCv.height = 128 * Math.max(1, G.length);
     cardsTex = keep(new THREE.CanvasTexture(cardsCv)); cardsTex.anisotropy = 4;
     const cardMat = basic({ map: cardsTex }), backMat = std({ color: 0x0b1526 });
+    // (each kind of thing on the plates merged into one mesh as it is laid out: the plates, their glowing edges, the
+    // place cards' faces and backs, the homes' discs and rings; v136)
+    const PL = { plate: [], edge: [], card: [], back: [], disc: [], ring: [] };
     let a = -unit * (G[0] ? (G[0].keys.length + 1.2) / 2 : 0);   // the first story's middle at the front
     G.forEach((g, gi) => {
       const span = unit * (g.keys.length + 1.2), a0 = a, a1 = a + span, mid = (a0 + a1) / 2, m = 0.018;
@@ -390,30 +423,25 @@ SETS.table = function (K) {
         for (let j = 0; j < n; j++) slots.push([r, mid + (j - (n - 1) / 2) * STEP / r]);
         left -= n; rin = r; ri++;
       }
-      const col = new THREE.Color(g.col), plate = mesh(sector(rin - 0.085, R - 0.075, a0 + m, a1 - m, PLATE), std({ color: col.clone().lerp(NAVY, 0.7), roughness: 0.5 }), [0, TOP, 0]);
-      group.add(plate);
-      const edge = mesh(flat(new THREE.RingGeometry(R - 0.083, R - 0.075, Math.max(8, Math.round(span * 40)), 1, a0 + m - Math.PI / 2, span - 2 * m)), basic({ color: col }), [0, TOP + PLATE + 0.0008, 0]);
-      group.add(edge);
+      const col = new THREE.Color(g.col), up = new THREE.Vector3();
+      PL.plate.push(part(sector(rin - 0.085, R - 0.075, a0 + m, a1 - m, PLATE), placeM(up.set(0, TOP, 0)), col.clone().lerp(NAVY, 0.7)));
+      PL.edge.push(part(flat(new THREE.RingGeometry(R - 0.083, R - 0.075, Math.max(8, Math.round(span * 40)), 1, a0 + m - Math.PI / 2, span - 2 * m)), placeM(up.set(0, TOP + PLATE + 0.0008, 0)), col));
       // the place card at the rim, leaning back, facing out
       const cw = Math.min(CARD_W, (span - 2 * m) * CARD_R - 0.02);
       g.cardW = cw;
       const geo = new THREE.PlaneGeometry(cw, CARD_H), uv = geo.attributes.uv, v0 = 1 - (gi + 1) / G.length, v1 = 1 - gi / G.length, u1 = cw / CARD_W;
       for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * u1, v0 + (v1 - v0) * uv.getY(i));
-      const card = new THREE.Group(), lean = 0.42;
-      card.position.copy(at(CARD_R, mid, TOP + PLATE + Math.cos(lean) * CARD_H / 2));
-      card.rotation.set(-lean, mid, 0, 'YXZ');
-      card.add(new THREE.Mesh(geo, cardMat));
-      const back = new THREE.Mesh(new THREE.PlaneGeometry(cw, CARD_H), backMat); back.rotation.y = Math.PI; card.add(back);
-      group.add(card);
-      plates.push({ key: g.key, mid, r: (rin + R) / 2, plate, card });
+      const lean = 0.42, cm = placeM(at(CARD_R, mid, TOP + PLATE + Math.cos(lean) * CARD_H / 2), _pe.set(-lean, mid, 0, 'YXZ'));
+      PL.card.push(part(geo, cm, 0xffffff));
+      PL.back.push(part(new THREE.PlaneGeometry(cw, CARD_H).rotateY(Math.PI), cm, 0xffffff));
+      plates.push({ key: g.key, mid, r: (rin + R) / 2 });
       g.keys.forEach((k, j) => {
         const [r, sa] = slots[j], home = at(r, sa, TOP + PLATE), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), sa);
         const holder = new THREE.Group();
         holder.position.copy(home); holder.quaternion.copy(q); holder.scale.setScalar(MINI);
         // its home: a dark disc ringed in the story's colour (seen while the miniature is built, or moved away)
-        const mark = mesh(flat(new THREE.CircleGeometry(0.058, 28)), std({ color: 0x0a1424, roughness: 0.7 }), [home.x, TOP + PLATE + 0.0006, home.z]);
-        mark.add(mesh(flat(new THREE.RingGeometry(0.054, 0.06, 28)), basic({ color: col, transparent: true, opacity: 0.7 }), [0, 0.0004, 0]));
-        group.add(mark);
+        PL.disc.push(part(flat(new THREE.CircleGeometry(0.058, 28)), placeM(up.set(home.x, TOP + PLATE + 0.0006, home.z)), 0xffffff));
+        PL.ring.push(part(flat(new THREE.RingGeometry(0.054, 0.06, 28)), placeM(up.set(home.x, TOP + PLATE + 0.001, home.z)), col));
         // what the pointer finds: an unseen box round the model (sized once it is built)
         const proxy = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), basic({ visible: false }));
         proxy.position.y = 0.5; proxy.userData.key = k;
@@ -423,17 +451,98 @@ SETS.table = function (K) {
         order.push(k);
       });
     });
+    const vc = { vertexColors: true };
+    for (const [k, mat] of [['plate', std(Object.assign({ roughness: 0.5 }, vc))], ['edge', basic(vc)], ['card', cardMat], ['back', backMat],
+      ['disc', std({ color: 0x0a1424, roughness: 0.7 })], ['ring', basic(Object.assign({ transparent: true, opacity: 0.7 }, vc))]]) {
+      if (!PL[k].length) continue;
+      const one = new THREE.Mesh(merged(PL[k]), mat);
+      group.add(one); still(one);
+      if (k === 'plate') for (const p of plates) p.plate = one;
+      if (k === 'card') for (const p of plates) p.card = one;
+    }
     drawCards();
   }
 
   // ---- the models
+  // a miniature in at most two meshes (v136: one per material before): its opaque parts in one and its see-through ones
+  // in another, every part's colour, light and look carried per vertex: aMat = [its material's colour (a grey), roughness,
+  // metalness, glow in the part's own colour (as lowpoly.js's glowing materials add it)] and, see-through, aSee = [its
+  // opacity, 1 if it adds its light (haze)]; two materials shared by every miniature draw them (the see-through one
+  // premultiplied, so a part that adds its light leaves what is behind it as it was, alpha too). A two-sided part is
+  // doubled, its copy's faces and normals turned the other way, so both materials stay one-sided; see-through parts are
+  // drawn in their renderOrder (glass before haze)
+  const MINI_MAT = {};
+  function miniMat(see) {
+    const k = see ? 'see' : 'solid';
+    if (MINI_MAT[k]) return MINI_MAT[k];
+    const m = std({ vertexColors: true, roughness: 0.6, metalness: 0.05 });
+    if (see) Object.assign(m, { transparent: true, depthWrite: false, premultipliedAlpha: true });
+    m.onBeforeCompile = sh => {
+      sh.vertexShader = 'attribute vec4 aMat; varying vec4 vMat;\n' + (see ? 'attribute vec2 aSee; varying vec2 vSee;\n' : '') +
+        sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n  vMat = aMat;' + (see ? ' vSee = aSee;' : ''));
+      sh.fragmentShader = 'varying vec4 vMat;\n' + (see ? 'varying vec2 vSee;\n' : '') + sh.fragmentShader
+        .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vMat.x;' + (see ? ' diffuseColor.a *= vSee.x;' : ''))
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = vMat.y;')
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = vMat.z;')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance = vColor.rgb * vMat.w;')
+        .replace('#include <premultiplied_alpha_fragment>', '#include <premultiplied_alpha_fragment>' + (see ? '\n  gl_FragColor.a *= 1.0 - vSee.y;' : ''));
+    };
+    m.customProgramCacheKey = () => 'design-mini-' + k;
+    return (MINI_MAT[k] = m);
+  }
+  function mergeMini(g) {
+    g.updateMatrixWorld(true);
+    const P = { solid: [], see: [] }, out = new THREE.Group();
+    g.traverse(o => {
+      if (!o.isMesh) return;
+      const m = o.material, geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry, add = m.blending === THREE.AdditiveBlending;
+      if (!geo.attributes.normal) geo.computeVertexNormals();
+      const e = m.emissive && m.emissive.getHex() ? (m.emissive.r + m.emissive.g + m.emissive.b) / 3 * (m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity) : 0;
+      (m.transparent || add ? P.see : P.solid).push({ g: geo, own: geo !== o.geometry, mx: o.matrixWorld, two: m.side === THREE.DoubleSide, ro: o.renderOrder,
+        mat: [m.color ? (m.color.r + m.color.g + m.color.b) / 3 : 1, m.roughness === undefined ? 0.6 : m.roughness, m.metalness || 0, e], see: [m.transparent ? m.opacity : 1, add ? 1 : 0] });
+    });
+    P.see.sort((a, b) => a.ro - b.ro);
+    const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+    for (const k of ['solid', 'see']) {
+      const L = P[k];
+      if (!L.length) continue;
+      let n = 0;
+      for (const p of L) n += p.g.attributes.position.count * (p.two ? 2 : 1);
+      const pos = new Float32Array(3 * n), nor = new Float32Array(3 * n), col = new Float32Array(3 * n), am = new Float32Array(4 * n), as = k === 'see' ? new Float32Array(2 * n) : null;
+      let o = 0;
+      for (const p of L) {
+        const A = p.g.attributes.position, N = p.g.attributes.normal, C = p.g.attributes.color, cnt = A.count;
+        nm.getNormalMatrix(p.mx);
+        for (let face = 0; face < (p.two ? 2 : 1); face++) for (let i = 0; i < cnt; i++, o++) {
+          const j = face ? i - i % 3 + [0, 2, 1][i % 3] : i;   // (the copy: each triangle wound the other way)
+          v.fromBufferAttribute(A, j).applyMatrix4(p.mx).toArray(pos, 3 * o);
+          v.fromBufferAttribute(N, j).applyMatrix3(nm).normalize().multiplyScalar(face ? -1 : 1).toArray(nor, 3 * o);
+          if (C) { col[3 * o] = C.getX(j); col[3 * o + 1] = C.getY(j); col[3 * o + 2] = C.getZ(j); } else col[3 * o] = col[3 * o + 1] = col[3 * o + 2] = 1;
+          am.set(p.mat, 4 * o); if (as) as.set(p.see, 2 * o);
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('aMat', new THREE.BufferAttribute(am, 4));
+      if (as) geo.setAttribute('aSee', new THREE.BufferAttribute(as, 2));
+      geo.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geo, miniMat(k === 'see'));
+      mesh.name = k; if (k === 'see') mesh.renderOrder = 1;
+      out.add(mesh);
+    }
+    for (const L of [P.solid, P.see]) for (const p of L) if (p.own) p.g.dispose();
+    g.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    still(out);
+    out.userData.tris = g.userData.tris;
+    return out;
+  }
   let MODELS = null;
   const queue = [];
   const feed = M => { MODELS = M; queue.length = 0; for (const k of order) if (M[k] && !minis.get(k).model) queue.push(k); };
   function buildOne(k) {
     const m = minis.get(k);
     if (!m || m.model || !MODELS || !MODELS[k]) return false;
-    const g = MODELS[k].build(THREE);
+    const g = mergeMini(MODELS[k].build(THREE));
     const bb = new THREE.Box3().setFromObject(g), sz = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
     m.proxy.scale.set(Math.max(0.35, sz.x), Math.max(0.35, sz.y), Math.max(0.35, sz.z)); m.proxy.position.copy(c);
     m.h = Math.max(0.2, bb.max.y);
@@ -468,7 +577,7 @@ SETS.table = function (K) {
     if (!k) return;
     buildOne(k);
     const m = minis.get(k);
-    if (m.model) { stageModel = m.model.clone(); stage.add(stageModel); stageGrow = 0; }
+    if (m.model) { stageModel = m.model.clone(); stageModel.matrixAutoUpdate = true; stage.add(stageModel); stageGrow = 0; }
     pickRing.material.color.set(storyCol(k));
   }
   let storyCol = () => '#ffffff';
@@ -555,7 +664,7 @@ SETS.table = function (K) {
     // a close view of a story's plate, from outside the table
     groupView(key) { const p = plates.find(x => x.key === key); if (!p) return null; const d = p.mid / D2R; return [d, 36, 1.05, Math.sin(p.mid) * p.r * 0.92, TOP + 0.04, Math.cos(p.mid) * p.r * 0.92]; },
     plateOf: key => plates.find(x => x.key === key) || null,
-    dispose() { for (const x of disposable) x.dispose(); },
+    dispose() { for (const x of disposable) x.dispose(); for (const m of minis.values()) if (m.model) m.model.traverse(o => { if (o.geometry) o.geometry.dispose(); }); },
     solid: [tableTop, floorDisc],   // (the pointer's dot lands on these)
     TOP, STAGE_Y,
   };
@@ -1207,6 +1316,19 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
+// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
+// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
+// simulation goes on from where it was); called after xrBegin in frame, every frame
+const _xrNoWalk = () => {};
+function xrIdle(xr, dt) {
+  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const idle = XR.awayT > 1;
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (!idle) return false;
+  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
+  return true;
+}
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
 // circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
@@ -2487,6 +2609,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

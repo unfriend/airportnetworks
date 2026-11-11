@@ -304,6 +304,7 @@ const ORGAN3D = (() => {
       if (n * dir >= 0) I.push(a, b, c, a, c, d); else I.push(a, c, b, a, d, c);
     };
     for (let i = 1; i < nx - 1; i++) for (let j = 1; j < ny - 1; j++) for (let k = 1; k < nz - 1; k++) {
+      if (k === 1 && j === 1) yield;   // (a plane at a time: v136, the quads went in one go, 1 to 2 ms)
       const v0 = F[id3(i, j, k)];
       if (i < nx - 1 && (v0 < 0) !== (F[id3(i + 1, j, k)] < 0)) quad(VI[id3(i, j - 1, k - 1)], VI[id3(i, j, k - 1)], VI[id3(i, j, k)], VI[id3(i, j - 1, k)], v0 < 0 ? 1 : -1, 0);
       if (j < ny - 1 && (v0 < 0) !== (F[id3(i, j + 1, k)] < 0)) quad(VI[id3(i - 1, j, k - 1)], VI[id3(i - 1, j, k)], VI[id3(i, j, k)], VI[id3(i, j, k - 1)], v0 < 0 ? 1 : -1, 1);
@@ -470,7 +471,7 @@ void main() {
       ctx.beginPath();
       ctx.moveTo(ox + X[a] * sc, oy - Y[a] * sc); ctx.lineTo(ox + X[b] * sc, oy - Y[b] * sc); ctx.lineTo(ox + X[c] * sc, oy - Y[c] * sc); ctx.closePath();
       ctx.fillStyle = st; ctx.strokeStyle = st; ctx.lineWidth = 0.7; ctx.fill(); ctx.stroke();
-      if (q % 100 === 99) yield;
+      if (q % 25 === 24) yield;   // (v136: a hundred of them, 2 to 5 ms in a software canvas, now a quarter)
     }
     const out = document.createElement('canvas');
     out.width = out.height = px;

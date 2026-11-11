@@ -2586,7 +2586,9 @@ if (position.x > uBuildX) vA = 0.0;` });
     params: { motor_a: 1, motor_build: 1, motor_signal: 0, motor_open: 0, motor_contract: 0, motor_heart: 0, motor_groups: 0, motor_site: 0 },
     update, anchors, labels, cam, controls, explore,
     keepClear: true,   // drawn where its geometry is: a headset keeps it clear of your head
-    idle: dt => { heartStep(sliceMs(dt)); if (!heartJob) heartIn = 1; },   // while the set is hidden, the heart goes on building
+    // while the set is hidden, the heart goes on building (by the engine's build budget, v136: ms for this frame, 0 nothing
+    // but the answer, true while there is more)
+    idle: (dt, ms) => { if (ms === undefined) ms = sliceMs(dt); if (ms > 0) heartStep(ms); if (!heartJob) heartIn = 1; return !!heartJob; },
     finish: () => { while (heartJob) heartStep(Infinity); heartIn = 1; },     // for screenshots and tests: build it now
   });
 };
@@ -3059,16 +3061,29 @@ function buildSet(k) {
 }
 // once every set is built (a step of the load): what joins them (nothing here)
 function sceneJoin() {}
+// what the sets still building may take of a frame, all of them together (v136; each hidden one took 3 or 4 ms a frame
+// before, two at a time in some stories: 5 to 10 ms a frame in a story's first seconds): in a headset about 1 ms, on a
+// page an eighth of the frame, 2 to 8 ms (more where frames are slow anyway). The hidden ones take it by turns, one a
+// frame (buildTurn; each of the others is only asked whether it still has work: idle(dt, 0) builds nothing, and returns
+// false once it has none); a set on show builds on demand in its update, and finish() at once, as before
+const BUILD = { i: 0 };
+const buildMs = dt => (GL.renderer && GL.renderer.xr.isPresenting ? 1 : clamp((dt || 0) * 125, 2, 8));
+function buildTurn(jobs, dt) {
+  const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
+  for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
+  const hid = [];
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
+    else if (s.idle) hid.push(s);   // a hidden set may build in slices (buildTurn, below)
   }
+  buildTurn(hid, dt);
 }
 
 // ---------------------------------------------------------------- camera --
@@ -4545,6 +4560,19 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
+// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
+// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
+// simulation goes on from where it was); called after xrBegin in frame, every frame
+const _xrNoWalk = () => {};
+function xrIdle(xr, dt) {
+  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const idle = XR.awayT > 1;
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (!idle) return false;
+  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
+  return true;
+}
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
 // circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
@@ -6038,6 +6066,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

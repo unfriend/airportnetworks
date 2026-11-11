@@ -520,8 +520,25 @@ void main() {
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
-  // only the part of a buffer in use goes to the graphics card (a count of 0 would mean all of it: skipped)
-  const upload = (attr, n) => { attr.updateRange.offset = 0; attr.updateRange.count = n * attr.itemSize; attr.needsUpdate = true; };
+  // only the part of a buffer in use goes to the graphics card (a count of 0 would mean all of it: skipped), and only
+  // what changed since it last went (v136: a story paused or at rest uploads nothing; the tower re-sent 630 KB a frame):
+  // the used range's 32-bit words against a copy of what last went, the stretch from the first change to the last sent
+  // (with a range set before and not sent yet, both: three.js sets its count back to -1 once it has gone)
+  function upload(attr, n) {
+    const len = n * attr.itemSize, a = attr.array, R = attr.updateRange, k = attr.itemSize;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
   // per-instance attributes on an instanced mesh (extra: { name: size }; size 0 drops one of the defaults)
   function pool(geo, material, max, extra) {
     const g = new THREE.BufferGeometry();
@@ -3002,7 +3019,7 @@ void main() {
     [[-0.28, -0.41], [0.28, -0.41], [-0.28, 0.41], [0.28, 0.41]].forEach(([dx, dz], i) => putI(boxP, 1 + i, [BX + dx * kk, -0.135 + 0.115 * (1 - kk), dz * kk], [0.03 * kk, 0.23 * kk, 0.03 * kk], LEG));
     boxP.instanceMatrix.needsUpdate = true;
   }
-  let jarKey = '', benchK = -1;
+  let jarKey = '', benchK = -1, postK = -1;
   function layoutJars(jday, show) {
     const key = jday + '|' + (show > 0.004);
     if (key === jarKey) return;
@@ -3166,8 +3183,13 @@ void main() {
     slabMat.depthWrite = no3 < 0.02 && set.uA.value > 0.97;
     // the netting, drawn across
     net.m.uniforms.uReveal.value = netA; net.mesh.visible = netA > 0.004;
-    for (let i = 0; i < nCylFixed; i++) { _m.compose(_t.set(POSTS[i][0], -0.002, POSTS[i][1]), _q.set(0, 0, 0, 1), _s.set(0.009, (NY + 0.02) * Math.max(1e-3, prog(netA, 0, 0.3)), 0.009)); cylP.setMatrixAt(i, _m); }
-    cylP.instanceMatrix.needsUpdate = true;
+    // (the posts rise with the netting: written and sent only when it moves, v136)
+    const pk = Math.max(1e-3, prog(netA, 0, 0.3));
+    if (pk !== postK) {
+      postK = pk;
+      for (let i = 0; i < nCylFixed; i++) { _m.compose(_t.set(POSTS[i][0], -0.002, POSTS[i][1]), _q.set(0, 0, 0, 1), _s.set(0.009, (NY + 0.02) * pk, 0.009)); cylP.setMatrixAt(i, _m); }
+      cylP.instanceMatrix.needsUpdate = true;
+    }
     // the jars
     layoutJars(jday, jarsA);
     const bk = smooth(prog(jarsA, 0, 0.5));
@@ -5522,6 +5544,19 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
+// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
+// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
+// simulation goes on from where it was); called after xrBegin in frame, every frame
+const _xrNoWalk = () => {};
+function xrIdle(xr, dt) {
+  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const idle = XR.awayT > 1;
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (!idle) return false;
+  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
+  return true;
+}
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
 // circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
@@ -6999,6 +7034,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

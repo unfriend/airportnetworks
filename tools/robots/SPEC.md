@@ -39,7 +39,9 @@ Shots go to `tools/robots/shots/` (git-ignored). Narration file (optional): `aud
 - Performance (Quest 2 at 72 fps, stereo): instanced meshes for the robots' parts (one `InstancedMesh` per part, a
   per-instance colour where needed), at most ~40 draw calls for the whole set including the model room, ~150k
   triangles, build under ~300 ms in headless Chromium. Up to 24 robots. The floor texture (dust/cleaned) updates at
-  most 10 times a second.
+  most 10 times a second, in a headset every 0.4 s, and then only the boxes of the cells cleaned since, a box per trail
+  (`MAP.boxes`, `mapSend`: texSubImage2D through the renderer's `copyTextureToTexture`; a new map, the dust again, more
+  than 32 boxes or boxes over half the map together: all of it).
 - Units: 1 unit = 1 m. Floor at y = 0 in the set's frame. Life size everywhere (screen and headset).
 
 ## The set `robots` (`sets/robots.js`)

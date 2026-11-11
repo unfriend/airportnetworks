@@ -35,7 +35,9 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
   this story no longer uses; an organ's model is found by its name, `ORGAN3D.idOf`): a small
   lit procedural model of each of the 29 organs (`ORGAN3D`: a signed distance field of a few blended primitives,
   polygonised by surface nets, about 1,000 to 3,000 triangles each, built between frames from the start, one organ
-  after another, model then picture, the one a pane or the body shows first). The sets draw them as meshes
+  after another, model then picture, the one a pane or the body shows first; since v136 a job of the engine's build
+  budget, `ORGJOB`, by turns with the hidden sets: about 1 ms a frame in a headset, on a page an eighth of the frame, 2
+  to 8 ms, as in the muscle story's `tools/nmd/SPEC.md`). The sets draw them as meshes
   (the network's organ ring, the atlas's plates; the engine on the body, beside the picked organ's point) and the
   panes as pictures drawn once onto a 2D canvas (no WebGL, so also inside a headset session). The harness always
   loads them; `set=organs` shows them all (`organs_pics:1`: the pictures).

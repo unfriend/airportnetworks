@@ -100,6 +100,25 @@ void main() {
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
+  // only the part of a buffer in use goes to the graphics card, and only what changed since it last went (v136: a story
+  // paused or at rest uploads nothing; every pool re-sent its whole buffers each frame): the used range's 32-bit words
+  // against a copy of what last went, the stretch from the first change to the last sent (with a range set before and
+  // not sent yet, both: three.js sets its count back to -1 once it has gone); a count of 0 sends nothing
+  function upload(attr, n) {
+    const len = n * attr.itemSize, a = attr.array, R = attr.updateRange, k = attr.itemSize;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
   // per-instance attributes on an instanced mesh
   function pool(geo, material, max, extra) {
     const g = new THREE.BufferGeometry();
@@ -115,8 +134,8 @@ void main() {
     const P = { mesh, attrs, n: 0, max };
     P.begin = () => { P.n = 0; };
     P.end = () => {
-      mesh.count = P.n; mesh.visible = P.n > 0; mesh.instanceMatrix.needsUpdate = true;
-      for (const k in attrs) { attrs[k].needsUpdate = true; }
+      mesh.count = P.n; mesh.visible = P.n > 0; upload(mesh.instanceMatrix, P.n);
+      for (const k in attrs) upload(attrs[k], P.n);
     };
     P.put = (m, col, a, dash) => {
       if (P.n >= max) return -1;
@@ -227,7 +246,7 @@ void main() {
     };
     P.end = () => {
       g.setDrawRange(0, P.n); pts.visible = P.n > 0;
-      for (const k of ['position', 'aCol', 'aSize', 'aA']) g.attributes[k].needsUpdate = true;
+      for (const k of ['position', 'aCol', 'aSize', 'aA']) upload(g.attributes[k], P.n);
     };
     return P;
   }

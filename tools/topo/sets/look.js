@@ -140,8 +140,25 @@ void main() {
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
-  // only the part of a buffer in use goes to the graphics card (a count of 0 would mean all of it: skipped)
-  const upload = (attr, n) => { attr.updateRange.offset = 0; attr.updateRange.count = n * attr.itemSize; attr.needsUpdate = true; };
+  // only the part of a buffer in use goes to the graphics card (a count of 0 would mean all of it: skipped), and only
+  // what changed since it last went (v136: a story paused or at rest uploads nothing; the tower re-sent 630 KB a frame):
+  // the used range's 32-bit words against a copy of what last went, the stretch from the first change to the last sent
+  // (with a range set before and not sent yet, both: three.js sets its count back to -1 once it has gone)
+  function upload(attr, n) {
+    const len = n * attr.itemSize, a = attr.array, R = attr.updateRange, k = attr.itemSize;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
   // per-instance attributes on an instanced mesh (extra: { name: size }; size 0 drops one of the defaults)
   function pool(geo, material, max, extra) {
     const g = new THREE.BufferGeometry();
