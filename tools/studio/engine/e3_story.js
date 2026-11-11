@@ -131,10 +131,14 @@ function labelEl(html, cls) {
 function buildSetLabels() {
   for (const at of ['hover', 'sel']) LBL.extra.push({ kind: 'extra', el: labelEl('', at === 'hover' ? 'cyn' : ''), set: 'stage', at: () => itemTop(at === 'hover' ? STU.hover : STU.sel), txt: null, o: -1, show: 0 });
 }
-// a label's words: [bold, rest]; the headset's picture is drawn again when they change
+// a label's words: [bold, rest]; the headset's picture (and the page's HTML) made again only when they change. (Until
+// v136 the words were compared with the three it keeps, [bold, rest, class], so they never matched: every frame with
+// something pointed at or selected while editing made its canvas, texture and material again, and three.js linked a new
+// shader program for it, and the page laid its label out again; in a room scan that was every frame of editing)
 function labelSet(L, txt) {
-  const s = txt ? txt.join('|') : '';
-  if (s === (L.txt ? L.txt.join('|') : '')) return;
+  const s = txt ? txt[0] + '|' + txt[1] : '';
+  if (s === (L.key || '')) return;
+  L.key = s;
   L.txt = txt ? [txt[0], txt[1], L.el.classList.contains('cyn') ? 'cyn' : ''] : null;
   L.el.innerHTML = txt ? `<b>${esc(txt[0])}</b> ${esc(txt[1])}` : '';
   L.w = 0;

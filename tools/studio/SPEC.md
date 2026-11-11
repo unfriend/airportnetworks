@@ -410,6 +410,51 @@ see-through (lines). Not editing, nothing changes: what a cube shows or hides fa
   the edges, the grey ghosts and the tags read life size, and the cost of a tag per model (a draw call each) in a scene of
   many models.
 
+
+### Editing without the cost (the owner, 11 November 2026)
+
+"The edit mode still has worse framerates than not editing, why?" Measured with a pretend headset through three.js's own
+WebXR path on a scene of 40 items round a 400,000-triangle scan (the harness of the v136 diagnosis): viewing 2.9 ms of
+script a frame, editing 7.6 to 14.7. Since v136 edit mode no longer does these every frame:
+- **The labels made again.** The names of what is pointed at and what is selected (`labelSet`, `e3_story.js`) compared
+  their two words with the three they keep, so they never matched: every frame with something pointed at or selected (in
+  a room scan, every frame: the scan you stand in is pointed at) a new canvas, texture and sprite material, three.js
+  linking a new shader program for it, and on a page the label's HTML written and laid out again. Now they are made again
+  only when their words change (`L.key`).
+- **The scene's matrices made again for each pick.** `rayPick` made the whole scene's world matrices on every call (twice
+  a frame in a headset, just after `xrBegin` had). It now takes them as they are: a headset's picks come after `xrBegin`
+  made them current, made again only when the other hand's press or carry moved something since (`XR.pickStale`); a
+  page's pick, an event between frames, through `pagePick`, which makes them once.
+- **The panel drawn whole as the ray moved.** The item pointed at in the scene was in the panel's signature (`sigMain`)
+  though nothing on the panel shows it: every item the ray crossed drew the whole card again (1,024 x 1,200 px, 4.9 MB sent
+  with its mipmaps). It is out. And when only the button pointed at changes (the same signature, `P.base`), only the
+  rectangles of what it lights, before and after (`panelHover`: every button drawn with that id, `P.drawn`, and its
+  regions, padded 8 px; near ones joined), are drawn again, each by the same draw as the whole card on a small canvas of
+  its own clipped to it, put on the card's canvas and sent on its own (`panelPatch`, texSubImage2D, mipmaps once), as a
+  timeline's bar is; most of the card lit (a Stories screen's card) draws it whole. The menu's Story tab draws the same
+  texture, so it shows the patches too; the card's texture version does not change for them (`P.full`, `P.hovPatched`,
+  `P.hovRects`, `P.patchPx` for tests).
+- **The page's panes built in a headset.** `renderPanes` builds nothing while the headset presents (`X.dirty` stays set,
+  `X.skipped` counts); the panes are built once the session ends.
+- **A draw for every tag and line.** Every look keeps its own objects as before (where they are, shown or not, their
+  colours: the engine and the tests read them), but the tags and lines are drawn together (`LOOKS.batch`, `BT` in
+  `sets/looks.js`): each is marked (`userData.bt`, `LOOKS.batched`) and put on a layer no camera sees, and each time the
+  scene is drawn (`GL.scene.onBeforeRender`, after three.js has made every matrix current, before it lists what to draw)
+  the ones shown (`traverseVisible`) are gathered: every tag in one draw (their pictures on one canvas, `BT.atlas`, 2,048
+  px wide in rows of 64 px, 512 to 4,096 px tall; a tag's picture drawn there and sent on its own when its words change; an
+  instanced quad each, sized and turned to the eye as a sprite, back to front, over everything, its clear corners cut
+  away), the lines in one draw a kind (in the scene's depth or over everything, by their order: cubes' and shapes' edges,
+  hidden models' outlines, cut-outs' dashes (as their dashes) and ticks, groups' boxes, empties' crosses, sounds' lines,
+  loading boxes, the ghosts' outlines and the selected and pointed-at outlines; each in its colour). On the heavy scene a
+  headset frame's draws while editing went from 210 to 132 (viewing: 104), texture binds from 24 to 7. Left drawn one by
+  one: the speakers (a ball and a cone), their rings, empties' dots, the corner balls of what is selected, the flash from
+  a cube's card (it pulses see-through), the lines from a selected cube to its items (one draw already) and the two
+  labels. `LOOKS.BT.stats` (`{ tags, lines, draws, uploads, grew }`) for tests.
+- Nothing in a layout, `collab.state()` or `FORMAT` changes.
+- Untested on a headset: the frame rate on a Quest (the shell's read-out: its draw calls and code time, editing against
+  viewing), how the tags read drawn from one canvas (their smaller pictures at a distance), a hover patch's look and cost
+  there (Chrome's GPU canvas, the copy and its mipmaps), and how much the draws saved are worth in its GPU process.
+
 In a headset (editing on):
 - Pointing at an item lights it and names it; the trigger (or a pinch) selects it (its card on the panel). Pointing at
   nothing and pressing clears the selection.
@@ -2193,6 +2238,8 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- Editing without the cost (v136): the smoke test's *studio edit speed* steps (`--only 'studio edit speed'`, a minute):
+  "Testing" in `AGENTS.md`.
 - The smoke test's step for the Add pane's grid and pictures (v120, on the test scene, no relay), relay/test.mjs's
   `previews:` steps (the folder and R2) and `tools/collab.mjs --studio`'s pictures step: "Testing" in `AGENTS.md`.
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,

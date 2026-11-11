@@ -887,6 +887,9 @@ function blockHTML(b) {
 }
 function renderPanes() {
   if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
+  // (a headset presenting: nobody sees the page's panes, the headset's panels are drawn from the same blocks; they are
+  // drawn once the session ends. v136: every change in a session built the page's HTML again)
+  if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
   X.dirty = false; X.drawn = performance.now();
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
@@ -947,9 +950,11 @@ function pickables() {
 // cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
 // trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model. o.inside: when the
 // ray finds nothing at all and starts inside an object's unseen box (you stand in a room scan: its box's faces point away
-// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick)
+// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick). It takes the
+// scene's matrices as they are (v136: it made the whole scene's again on every call, twice a frame in a headset while
+// editing, just after xrBegin had): a headset's picks come after xrBegin made them current (xrPoint), a page's from its
+// events through pagePick
 function rayPick(ray, o) {
-  GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
   const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
@@ -975,6 +980,9 @@ function insidePick(r) {
   const point = p ? p.applyMatrix4(m) : r.origin.clone();
   return { id: best.id, corner: undefined, point, dist: point.distanceTo(r.origin), ray: r.clone(), inside: true };
 }
+// a page's pick (an event, between frames): the scene's matrices made current first, for what its handlers moved since
+// the frame drew (the arrows' drag), once a pick
+function pagePick(ray) { GL.world.updateMatrixWorld(true); return rayPick(ray, { inside: walkInside(ray) }); }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_m2, GL.camera);
@@ -996,7 +1004,7 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
-        const ray = pointerRay(ev.clientX, ev.clientY), h = rayPick(ray, { inside: walkInside(ray) });
+        const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
         STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
       }
       return;
@@ -1101,7 +1109,7 @@ function grabLook(ev) {
   if (APP.mode !== 'explore' || X.view !== 'walk') return;
   walkLook(clamp(ev.movementX || 0, -200, 200), clamp(ev.movementY || 0, -200, 200), LOOK_GRAB);
   if (editOn() && !(GL.tc && GL.tc.axis)) {
-    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = rayPick(ray, { inside: walkInside(ray) });
+    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = pagePick(ray);
     STU.hover = h ? h.id : '';
   }
 }
@@ -1133,7 +1141,7 @@ function grabEnd() {
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
 function clickAt(mx, my) {
-  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray, { inside: walkInside(ray) }) : null;
+  const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
     const p = walkFloor(ray);

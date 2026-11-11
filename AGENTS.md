@@ -5069,6 +5069,22 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     says the story's triangles, draw calls and code time: compare a scan hidden by a cube, or a cube round you, with
     v130), how the edges, the light grey ghosts and the tags read life size, and the cost of a tag per model (one draw
     call each) in a scene of many models.
+- **Editing without the cost** (v136; the owner, 11 November 2026: "The edit mode still has worse framerates than not
+  editing, why?"; `tools/studio/SPEC.md`, "Editing without the cost"). Edit mode no longer does these every frame: the
+  labels of what is pointed at and selected made again (`labelSet` compared two words with the three it keeps, so a new
+  canvas, texture, sprite material and shader program link every frame something was pointed at, every frame in a room
+  scan; now only when their words change, `L.key`); the scene's matrices made again for each pick (`rayPick` takes them as
+  they are: a headset's after `xrBegin`, again only after the other hand moved something, `XR.pickStale`; a page's through
+  `pagePick`, once); the whole panel drawn and sent (4.9 MB) for every item or button the ray crossed (the item pointed at
+  in the scene is out of `sigMain`; a change of the button pointed at alone draws again and sends only its rectangles,
+  before and after, `panelHover`, each on a small canvas of its own as a timeline's bar is, texSubImage2D; the menu's Story
+  tab draws that texture too); the page's panes built while a headset presents (`renderPanes`, then once the session
+  ends); a draw for every tag and line (each keeps its own objects, as the engine and tests know them, but on a layer no
+  camera sees, and `GL.scene.onBeforeRender` gathers those shown into a few draws: every tag in one, its pictures on one
+  canvas, `LOOKS.BT.atlas`, and the lines in one a kind, dashes as dashes, `LOOKS.batch`). Measured with a pretend headset
+  on a 400,000-triangle scan with 40 items: script a frame editing 7.6 to 14.7 ms down to 4.2 to 6.9 (viewing 2.9 to 3.4,
+  SwiftShader), draws 210 down to 132 (viewing 104). No layout, `state()` or `FORMAT` change. Untested on a headset: the
+  frame rate on a Quest, how the tags read from one canvas, a hover patch's cost there.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -5951,6 +5967,23 @@ box and *Lime*) copied (the cube's copy on the box's copy, *Magenta* gaining an 
 swapped by meshes and names, by names, none known) and `texSwitched` (a material's index changed in a switch's change,
 Undo); and the figure, with an entry, converted to a GLB in the page and switched to it: its entry kept, its material found
 again (`[0]`), put on its GLB's model in the cube and off outside.
+
+Its *studio edit speed* steps (v136; `--only 'studio edit speed'`, a minute) run on a page of their own at `&scene=test`
+with editing on, what edit mode no longer does every frame ("Editing without the cost" under "The studio"): a hover (the
+figure) and a selection (the box) held 60 frames drawn as a headset draws its labels (sprites, the scene rendered each
+frame): no `texImage2D`, no `linkProgram`, the same sprites, pictures, shader programs and HTML, and the hover moved to the
+sound made again once (one upload) and then held; `rayPick` making no world matrices (GL.world's `updateMatrixWorld` not
+called) and still finding the box, `pagePick` once, a pretend headset's `xrPoint` none with `XR.pickStale` false and once
+with it true; the panel's signature the same whatever item is pointed at; on the main panel, a tab pointed at: no
+`texImage2D`, the texture's version and full draws unchanged, one `texSubImage2D` a rectangle (pixels sent the rectangles'
+area, under 4 % of the card), one `generateMipmap`, nothing outside the rectangles changed and within them a full redraw's
+pixels (a mean difference under 1), the GPU texture there the canvas's (read back through a framebuffer) and the menu's
+Story tab drawing that texture; pointing off it a patch too, another pane a full redraw; an Items card's face pointed at
+(a cube selected) drawing its whole background (taller than its face) again; the tags and lines drawn together (those
+shown gathered, `LOOKS.BT.stats`, each on the layer no camera sees, the tags' draw an instance each, the figure's where its
+sprite is and its size, its picture its own on the tags' canvas, the selected cube's edges in their colour in the depth-tested
+lines' draw; ten more empties adding at most ten draws, their dots, where each was three); and the page's panes not built
+while `GL.renderer.xr.isPresenting` (the HTML unchanged, `X.dirty` kept, `X.skipped` counting) and built once it is not.
 
 Its *studio trackers* steps (v126; `--only 'studio trackers'`, about a minute) run on a page of their own at `&scene=test`,
 a pretend studio station (`HOST.collab.live`) and its trackers given in the page (`HOST.collab.trackers` stubbed, so each

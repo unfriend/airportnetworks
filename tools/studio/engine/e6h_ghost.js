@@ -71,7 +71,7 @@ function ghostBuild(it) {
     // mixer: three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving
     // (Pause, a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in
     // its rest pose. Its edges alone need no pose: its unseen box)
-    if (ghostLine(it)) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
+    if (ghostLine(it)) add(LOOKS.batched(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), 'line'), it.proxy, 8);   // (drawn with the other lines: LOOKS' batches)
     else {
       const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
       if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
@@ -83,7 +83,7 @@ function ghostBuild(it) {
   else {
     for (const n of H.children) {
       if (n === it.look.hit || n.isSprite || !n.geometry) continue;
-      if (n.isLine) add(new THREE.LineSegments(n.geometry, lmat), n, 8);
+      if (n.isLine) add(LOOKS.batched(new THREE.LineSegments(n.geometry, lmat), 'line'), n, 8);
       else if (n.isMesh) add(new THREE.Mesh(n.geometry, mat), n, 3);
     }
     hit(it.look.hit, it.look.hit.geometry);

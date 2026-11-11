@@ -15967,15 +15967,208 @@ const LOOKS = (function () {
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
   const box = new THREE.BoxGeometry(1, 1, 1), edges = new THREE.EdgesGeometry(box), ball = new THREE.SphereGeometry(1, 16, 12);
   const cone = new THREE.ConeGeometry(0.5, 1, 20, 1, true);
-  // a line of text on a canvas, as a sprite (drawn over the scene) or a plain picture; redrawn only when it changes. Its
-  // band is opaque and the sprite drawn with the opaque things (v131: no blending), after the items (renderOrder 12) and
-  // without a depth test, so it still shows over everything they draw
+  // ---- drawn together (v136; the owner, of editing: "The edit mode still has worse framerates than not editing, why?").
+  // Every look below is its own objects, as the engine and the tests know them (where they are, shown or not, their
+  // colours), but the tags and the lines are not drawn one by one: each marked (userData.bt) and put on a layer no camera
+  // sees (BT.layer), and each time the scene is drawn (its onBeforeRender, after three.js has made every matrix current
+  // and before it lists what to draw) the ones shown are gathered (traverseVisible: what is hidden, or under something
+  // hidden, is left out) and drawn in a few draws: every tag in one (their pictures on one canvas, BT.atlas, an instanced
+  // quad each, turned to the eye as a sprite is), the lines in one a kind (each drawn as before: in the scene's depth or
+  // over everything, by its order; a dashed one as its dashes). Until then each tag, edge, tick and cross was a draw of its
+  // own, twice in a headset (one an eye): about a hundred more a frame while editing a scene of forty items
+  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0 } };
+  const _bm = new THREE.Matrix4(), _bv = new THREE.Vector3(), _bc = new THREE.Color(), _bcam = new THREE.Vector3();
+  function batched(o, kind) { o.userData.bt = kind; o.layers.set(BT.layer); return o; }
+  // the tags' canvas: rows 64 px tall (8 px apart, and 8 px between tags, so their smaller pictures keep apart), 2,048 px
+  // wide, as tall as needed (512 to 4,096 px, doubling); each tag a place on it while it has words to show, drawn there
+  // and sent on its own when its words change (texSubImage2D, as the panels' patches), the whole canvas only when it grows
+  const AT = { w: 2048, row: 64, gap: 8, max: 4096 };
+  function atlas() {
+    if (BT.atlas) return BT.atlas;
+    const cv = document.createElement('canvas'); cv.width = AT.w; cv.height = 512;
+    const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+    return (BT.atlas = { cv, ctx: cv.getContext('2d'), tex, rows: [], sent: [] });
+  }
+  // a place of width w (rows of places, first fit in their gaps); null when the canvas is full at its largest
+  function atPlace(w) {
+    const A = atlas(), rh = AT.row + AT.gap, n = Math.floor(A.cv.height / rh);
+    for (let r = 0; r < n; r++) {
+      const row = A.rows[r] || (A.rows[r] = []);
+      let x = 0;
+      for (const p of row) { if (p.x - x >= w + AT.gap) break; x = p.x + p.w + AT.gap; }
+      if (x + w <= A.cv.width) { const p = { r, x, y: r * rh, w }; row.push(p); row.sort((a, b) => a.x - b.x); return p; }
+    }
+    if (A.cv.height >= AT.max) return null;
+    // grown: a canvas twice as tall with what the old one held, sent whole
+    const old = A.cv, cv = document.createElement('canvas'); cv.width = old.width; cv.height = old.height * 2;
+    cv.getContext('2d').drawImage(old, 0, 0);
+    A.cv = cv; A.ctx = cv.getContext('2d'); A.tex.image = cv; A.tex.needsUpdate = true; A.sent.length = 0; BT.stats.grew++;
+    return atPlace(w);
+  }
+  function atFree(p) { if (!p || !BT.atlas) return; const row = BT.atlas.rows[p.r]; const k = row ? row.indexOf(p) : -1; if (k >= 0) row.splice(k, 1); }
+  // a tag's picture on the canvas, at its place (a new place when its width changed), and to be sent
+  function atDraw(T) {
+    const A = atlas(), cv = T.cv;
+    if (!T.at || T.at.w !== cv.width) { atFree(T.at); T.at = atPlace(cv.width); if (!T.at) return; }
+    const p = T.at;
+    A.ctx.clearRect(p.x, p.y, p.w, AT.row); A.ctx.drawImage(cv, p.x, p.y);
+    A.sent.push([cv, p.x, p.y]);
+  }
+  // the canvas's changed places sent (or, not on the GPU yet or grown, the whole canvas as it goes there)
+  function atSend() {
+    const A = BT.atlas, R = BT.renderer;
+    if (!A || !A.sent.length) return;
+    const T = A.tex, list = A.sent.splice(0);
+    try {
+      const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+      if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the canvas as it is now)
+      if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+      R.state.bindTexture(gl.TEXTURE_2D, wt);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      for (const [cv, x, y] of list) gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? A.cv.height - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      BT.stats.uploads += list.length;
+    } catch (e) { T.needsUpdate = true; }
+  }
+  // every tag: an instanced quad at the tag's place, its size the sprite's (as three.js sizes a sprite: its scale in the
+  // world, in the eye's frame), its bottom's middle at that place (the sprites' centre, 0.5, 0), its picture its place on
+  // the canvas; opaque, its clear corners cut away (as the sprites' alphaTest 0.5), over everything (no depth test), after
+  // the items (renderOrder 12)
+  const TAG_VS = 'attribute vec3 iPos; attribute vec2 iSize; attribute vec4 iUV; varying vec2 vUv;\n' +
+    'void main() { vec4 mv = viewMatrix * vec4(iPos, 1.0); mv.xy += vec2(position.x, position.y + 0.5) * iSize; vUv = mix(iUV.xy, iUV.zw, uv); gl_Position = projectionMatrix * mv; }';
+  const TAG_FS = 'uniform sampler2D map; varying vec2 vUv;\nvoid main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; gl_FragColor = t; }';
+  function tagMesh(n) {
+    const M = BT.tagMesh;
+    if (M && M.cap >= n) return M;
+    if (M) { M.mesh.parent && M.mesh.parent.remove(M.mesh); M.mesh.geometry.dispose(); }
+    const cap = Math.max(64, (M ? M.cap : 0) * 2, n), g = new THREE.InstancedBufferGeometry(), q = new THREE.PlaneGeometry(1, 1);
+    g.setIndex(q.index); g.setAttribute('position', q.attributes.position); g.setAttribute('uv', q.attributes.uv);
+    const A = { iPos: 3, iSize: 2, iUV: 4 };
+    for (const k in A) g.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(cap * A[k]), A[k]).setUsage(THREE.DynamicDrawUsage));
+    const mat = M ? M.mesh.material : new THREE.ShaderMaterial({ uniforms: { map: { value: atlas().tex } }, vertexShader: TAG_VS, fragmentShader: TAG_FS, depthTest: false, depthWrite: false });
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.frustumCulled = false; mesh.renderOrder = 12; mesh.matrixAutoUpdate = false; mesh.visible = false; mesh.userData.btMesh = 'tags';
+    BT.scene.add(mesh);
+    return (BT.tagMesh = { mesh, cap });
+  }
+  // a dashed line as its dashes (as LineDashedMaterial draws it: along the line's own distance, dash on, gap off), once
+  // for each geometry and dash
+  function dashed(g, dash, gap) {
+    const k = g.uuid + '|' + dash + '|' + gap;
+    if (BT.dash.has(k)) return BT.dash.get(k);
+    const P = g.attributes.position, D = g.attributes.lineDistance, out = [], a = new THREE.Vector3(), b = new THREE.Vector3(), all = dash + gap;
+    for (let i = 0; i + 1 < P.count; i += 2) {
+      a.fromBufferAttribute(P, i); b.fromBufferAttribute(P, i + 1);
+      const d0 = D ? D.getX(i) : 0, d1 = D ? D.getX(i + 1) : a.distanceTo(b), L = d1 - d0;
+      if (L <= 0) continue;
+      for (let s = Math.floor(d0 / all) * all; s < d1; s += all) {
+        const u0 = Math.max(s, d0), u1 = Math.min(s + dash, d1);
+        if (u1 > u0) out.push(a.x + (b.x - a.x) * (u0 - d0) / L, a.y + (b.y - a.y) * (u0 - d0) / L, a.z + (b.z - a.z) * (u0 - d0) / L, a.x + (b.x - a.x) * (u1 - d0) / L, a.y + (b.y - a.y) * (u1 - d0) / L, a.z + (b.z - a.z) * (u1 - d0) / L);
+      }
+    }
+    const r = new Float32Array(out);
+    BT.dash.set(k, r);
+    return r;
+  }
+  // the lines of one kind (in the scene's depth or over everything, and their order): one LineSegments with each line's
+  // points in the world and its colour, as large as needed
+  function lineBatch(depth, order, n) {
+    const key = (depth ? 'd' : 'o') + order;
+    let B = BT.lines.get(key);
+    if (B && B.cap >= n) return B;
+    const cap = Math.max(4096, B ? B.cap * 2 : 0, n), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    if (B) { B.mesh.geometry.dispose(); B.mesh.geometry = g; B.cap = cap; return B; }
+    const mesh = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: depth, depthWrite: depth }));
+    mesh.frustumCulled = false; mesh.renderOrder = order; mesh.matrixAutoUpdate = false; mesh.visible = false; mesh.userData.btMesh = 'lines ' + key;
+    BT.scene.add(mesh);
+    B = { mesh, cap, key };
+    BT.lines.set(key, B);
+    return B;
+  }
+  // a line's points (pairs of them) in its geometry's frame: a dashed one's dashes, else its points' numbers (kept for
+  // each geometry while its points and range stay)
+  const PTS = new WeakMap();
+  function linePts(o) {
+    const m = o.material, g = o.geometry;
+    if (m.isLineDashedMaterial) return dashed(g, m.dashSize, m.gapSize);
+    const P = g.attributes.position, I = g.index, s = g.drawRange.start, e = Math.min(I ? I.count : P.count, s + g.drawRange.count);
+    const k = (o.isLineSegments ? 's' : 'l') + s + ':' + e + ':' + P.count + ':' + (I ? I.version : -1), c = PTS.get(g);
+    if (c && c.k === k) return c.a;
+    const out = [], at = q => (I ? I.getX(q) : q);
+    if (o.isLineSegments) for (let q = s; q + 1 < e; q += 2) out.push(at(q), at(q + 1));
+    else for (let q = s; q + 1 < e; q++) out.push(at(q), at(q + 1));
+    PTS.set(g, { k, a: out });
+    return out;
+  }
+  const TAGS = [], LINES = [];
+  function fill(renderer, scene, camera) {
+    if (scene !== BT.scene) return;
+    TAGS.length = 0; LINES.length = 0;
+    scene.traverseVisible(o => { const b = o.userData.bt; if (b === 'tag') TAGS.push(o); else if (b === 'line') LINES.push(o); });
+    BT.stats.tags = TAGS.length; BT.stats.lines = LINES.length; BT.stats.draws = 0;
+    // the tags: drawn back to front (over everything, so the nearest on top), each its picture's place
+    const M = tagMesh(TAGS.length), g = M.mesh.geometry, iP = g.attributes.iPos.array, iS = g.attributes.iSize.array, iU = g.attributes.iUV.array;
+    for (const sp of TAGS) { const T = sp.userData.bt$; if (T.dirty || !T.at) { T.dirty = false; atDraw(T); } }
+    const A = atlas(), W = A.cv.width, H = A.cv.height;
+    _bcam.setFromMatrixPosition(camera.matrixWorld);
+    let n = 0;
+    const L = TAGS.filter(sp => sp.userData.bt$.at).map(sp => [sp, _bv.setFromMatrixPosition(sp.matrixWorld).distanceToSquared(_bcam)]).sort((a, b) => b[1] - a[1]);
+    for (const [sp] of L) {
+      const e = sp.matrixWorld.elements, p = sp.userData.bt$.at, cw = sp.userData.bt$.cv.width;
+      iP[n * 3] = e[12]; iP[n * 3 + 1] = e[13]; iP[n * 3 + 2] = e[14];
+      iS[n * 2] = Math.hypot(e[0], e[1], e[2]); iS[n * 2 + 1] = Math.hypot(e[4], e[5], e[6]);
+      iU[n * 4] = (p.x + 0.5) / W; iU[n * 4 + 1] = 1 - (p.y + AT.row - 0.5) / H; iU[n * 4 + 2] = (p.x + cw - 0.5) / W; iU[n * 4 + 3] = 1 - (p.y + 0.5) / H;
+      n++;
+    }
+    g.instanceCount = n;
+    for (const k of ['iPos', 'iSize', 'iUV']) { const a = g.attributes[k]; a.updateRange.offset = 0; a.updateRange.count = n * a.itemSize; a.needsUpdate = n > 0; }
+    M.mesh.visible = n > 0;
+    if (n) BT.stats.draws++;
+    atSend();
+    // the lines: by kind, each line's points in the world, in its colour (times its points' own, where it has them)
+    const by = new Map();
+    for (const o of LINES) { const k = (o.material.depthTest ? 'd' : 'o') + o.renderOrder; if (!by.has(k)) by.set(k, []); by.get(k).push(o); }
+    for (const B of BT.lines.values()) if (!by.has(B.key)) B.mesh.visible = false;
+    for (const [k, list] of by) {
+      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0);
+      const B = lineBatch(k[0] === 'd', +k.slice(1), cnt), pos = B.mesh.geometry.attributes.position, col = B.mesh.geometry.attributes.color, PA = pos.array, CA = col.array;
+      let v = 0;
+      list.forEach((o, i) => {
+        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color;
+        _bm.copy(o.matrixWorld); _bc.copy(m.color);
+        const put = (x, y, z, ci) => {
+          _bv.set(x, y, z).applyMatrix4(_bm);
+          PA[v * 3] = _bv.x; PA[v * 3 + 1] = _bv.y; PA[v * 3 + 2] = _bv.z;
+          CA[v * 3] = _bc.r * (VC && ci >= 0 ? VC.getX(ci) : 1); CA[v * 3 + 1] = _bc.g * (VC && ci >= 0 ? VC.getY(ci) : 1); CA[v * 3 + 2] = _bc.b * (VC && ci >= 0 ? VC.getZ(ci) : 1);
+          v++;
+        };
+        if (P instanceof Float32Array) for (let q = 0; q < P.length; q += 3) put(P[q], P[q + 1], P[q + 2], -1);
+        else for (const k2 of P) put(G.getX(k2), G.getY(k2), G.getZ(k2), k2);
+      });
+      B.mesh.geometry.setDrawRange(0, v);
+      for (const a of [pos, col]) { a.updateRange.offset = 0; a.updateRange.count = v * 3; a.needsUpdate = v > 0; }
+      B.mesh.visible = v > 0;
+      if (v) BT.stats.draws++;
+    }
+  }
+  // the engine's: where they are drawn together (the scene the studio draws), and to draw a line of its own that way
+  function batch(scene, renderer) {
+    BT.scene = scene; BT.renderer = renderer;
+    scene.onBeforeRender = fill;
+  }
+
+  // a line of text on a canvas, as a sprite (drawn over the scene, with every other tag: BT) or a plain picture; redrawn
+  // only when it changes. Its band is opaque and drawn with the opaque things (v131: no blending), after the items
+  // (renderOrder 12) and without a depth test, so it still shows over everything they draw
   const white = new THREE.Color(1, 1, 1);
   function tag(px) {
-    const cv = document.createElement('canvas'), ctx = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
     cv.width = 512; cv.height = 64;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: false, alphaTest: 0.5, depthTest: false, depthWrite: false }));
+    const sp = batched(new THREE.Sprite(new THREE.SpriteMaterial({ transparent: false, alphaTest: 0.5, depthTest: false, depthWrite: false })), 'tag');
     sp.renderOrder = 12; sp.center.set(0.5, 0);
+    const T = sp.userData.bt$ = { cv, at: null, dirty: false };
     let last = '';
     sp.userData.set = (text, col, h) => {
       const k = text + '|' + col;
@@ -15989,12 +16182,12 @@ const LOOKS = (function () {
         ctx.fillStyle = col || '#e7eef8'; ctx.fillRect(0, 0, 6, cv.height);
         ctx.font = `700 ${px || 34}px B612, "Segoe UI", Arial, sans-serif`; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f2f6fc';
         ctx.fillText(text, 20, cv.height / 2 + 1);
-        tex.needsUpdate = true;
+        T.dirty = true;   // (put on the tags' canvas when it is next drawn)
       }
       sp.userData.text = text;   // (what it says: the tests read it)
       sp.scale.set((h || 0.09) * cv.width / cv.height, h || 0.09, 1);
     };
-    sp.userData.drop = () => { tex.dispose(); sp.material.dispose(); };
+    sp.userData.drop = () => { atFree(T.at); T.at = null; sp.material.dispose(); };
     return sp;
   }
   // a cube: its box (scaled to its size) under `body`, the name and the corners under `deco` (not scaled, so they keep
@@ -16005,7 +16198,7 @@ const LOOKS = (function () {
     const col = new THREE.Color(colOf(id));
     const body = new THREE.Group(), deco = new THREE.Group();
     const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(CUBE_EDGE.plain) }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(CUBE_EDGE.plain) })), 'line');
     line.renderOrder = 6;
     body.add(fill, line);
     const name = tag(30);
@@ -16047,7 +16240,7 @@ const LOOKS = (function () {
     g.add(name); name.position.y = 0.12;
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
-    const link = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(0.55), depthTest: false, depthWrite: false }));
+    const link = batched(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(0.55), depthTest: false, depthWrite: false })), 'line');
     link.renderOrder = 7; link.frustumCulled = false; link.visible = false;
     link.userData.set = (a, z) => { const P = lg.attributes.position; P.setXYZ(0, a.x, a.y, a.z); P.setXYZ(1, z.x, z.y, z.z); P.needsUpdate = true; };
     return {
@@ -16094,9 +16287,9 @@ const LOOKS = (function () {
     const col = new THREE.Color(CUT_COL), white = new THREE.Color(1, 1, 1);
     const body = new THREE.Group(), deco = new THREE.Group();
     const hit = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ visible: false }));
-    const line = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col, dashSize: 0.07, gapSize: 0.05 }));
+    const line = batched(new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col, dashSize: 0.07, gapSize: 0.05 })), 'line');
     line.renderOrder = 6;
-    const ticks = new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(white, 0.3), depthTest: false, depthWrite: false }));
+    const ticks = batched(new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(white, 0.3), depthTest: false, depthWrite: false })), 'line');
     ticks.renderOrder = 8; ticks.frustumCulled = false;
     body.add(hit, line, ticks);
     const name = tag(30);
@@ -16130,7 +16323,7 @@ const LOOKS = (function () {
   // colour a little darker; `deco` is placed at the box's middle and `box` scaled to its size
   function group(id) {
     const col = new THREE.Color(colOf(id)), deco = new THREE.Group();
-    const box = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col.clone().lerp(white, 0.25).multiplyScalar(0.6), dashSize: 0.05, gapSize: 0.06, depthTest: false, depthWrite: false }));
+    const box = batched(new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col.clone().lerp(white, 0.25).multiplyScalar(0.6), dashSize: 0.05, gapSize: 0.06, depthTest: false, depthWrite: false })), 'line');
     box.renderOrder = 7; box.frustumCulled = false;
     deco.add(box); deco.visible = false;
     return { deco, box, col: '#' + col.getHexString(), drop() { box.material.dispose(); } };
@@ -16163,7 +16356,7 @@ const LOOKS = (function () {
     const hide = new THREE.MeshBasicMaterial({ colorWrite: false });
     const mesh = new THREE.Mesh(box, lit);
     const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xc9d1dc, visible: false, side: THREE.DoubleSide }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff })), 'line');
     line.renderOrder = 6;
     body.add(mesh, fill, line);
     const name = tag(30);
@@ -16229,7 +16422,7 @@ const LOOKS = (function () {
   })();
   function empty(id) {
     const col = new THREE.Color(colOf(id)), g = new THREE.Group();
-    const axes = new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, color: 0xbfbfbf, depthTest: false, depthWrite: false }));
+    const axes = batched(new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, color: 0xbfbfbf, depthTest: false, depthWrite: false })), 'line');
     axes.renderOrder = 8; axes.frustumCulled = false;
     const dot = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: col, depthTest: false, depthWrite: false }));
     dot.scale.setScalar(0.025); dot.renderOrder = 8;
@@ -16246,7 +16439,7 @@ const LOOKS = (function () {
   function grey() {
     const g = new THREE.Group();
     const fill = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x4f5d70, roughness: 0.9 }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xb8c4d4 }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xb8c4d4 })), 'line');
     const body = new THREE.Group(); body.add(fill, line); body.scale.setScalar(0.4); body.position.y = 0.2;
     g.add(body);
     const name = tag(28); name.position.y = 0.48;
@@ -16257,9 +16450,9 @@ const LOOKS = (function () {
   // see-through layer over the whole view): not drawn, its unseen box's edges instead, in a muted grey-blue (one material
   // for all of them; the engine puts it where the model's unseen box is)
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
-  const hidBox = () => { const l = new THREE.LineSegments(edges, HID_MAT); l.visible = false; l.renderOrder = 6; return l; };
-  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE,
-    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
+  const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
+    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();
 
 
@@ -16510,10 +16703,14 @@ function labelEl(html, cls) {
 function buildSetLabels() {
   for (const at of ['hover', 'sel']) LBL.extra.push({ kind: 'extra', el: labelEl('', at === 'hover' ? 'cyn' : ''), set: 'stage', at: () => itemTop(at === 'hover' ? STU.hover : STU.sel), txt: null, o: -1, show: 0 });
 }
-// a label's words: [bold, rest]; the headset's picture is drawn again when they change
+// a label's words: [bold, rest]; the headset's picture (and the page's HTML) made again only when they change. (Until
+// v136 the words were compared with the three it keeps, [bold, rest, class], so they never matched: every frame with
+// something pointed at or selected while editing made its canvas, texture and material again, and three.js linked a new
+// shader program for it, and the page laid its label out again; in a room scan that was every frame of editing)
 function labelSet(L, txt) {
-  const s = txt ? txt.join('|') : '';
-  if (s === (L.txt ? L.txt.join('|') : '')) return;
+  const s = txt ? txt[0] + '|' + txt[1] : '';
+  if (s === (L.key || '')) return;
+  L.key = s;
   L.txt = txt ? [txt[0], txt[1], L.el.classList.contains('cyn') ? 'cyn' : ''] : null;
   L.el.innerHTML = txt ? `<b>${esc(txt[0])}</b> ${esc(txt[1])}` : '';
   L.w = 0;
@@ -20817,6 +21014,7 @@ function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
   for (const [k, col, o] of [['selBox', 0x46d9ff, 1], ['hoverBox', 0x5d8b9b, 1], ['flashBox', 0x3ee08f, 0]]) {
     const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: !o, depthTest: false, depthWrite: false }));
+    if (o) LOOKS.batched(B, 'line');   // (the two outlines drawn with the other lines; the flash, which pulses see-through, on its own)
     B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
     GL.scene.add(B); GL[k] = B;
   }
@@ -20826,6 +21024,8 @@ function editLooks() {
   GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false }));
   GL.links.frustumCulled = false; GL.links.renderOrder = 8; GL.links.visible = false;
   GL.edit.add(GL.links);
+  // the looks' tags and lines drawn together, each time the scene is drawn (LOOKS.batch: a few draws in place of one each)
+  LOOKS.batch(GL.scene, GL.renderer);
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {
@@ -23716,7 +23916,7 @@ function ghostBuild(it) {
     // mixer: three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving
     // (Pause, a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in
     // its rest pose. Its edges alone need no pose: its unseen box)
-    if (ghostLine(it)) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
+    if (ghostLine(it)) add(LOOKS.batched(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), 'line'), it.proxy, 8);   // (drawn with the other lines: LOOKS' batches)
     else {
       const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
       if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
@@ -23728,7 +23928,7 @@ function ghostBuild(it) {
   else {
     for (const n of H.children) {
       if (n === it.look.hit || n.isSprite || !n.geometry) continue;
-      if (n.isLine) add(new THREE.LineSegments(n.geometry, lmat), n, 8);
+      if (n.isLine) add(LOOKS.batched(new THREE.LineSegments(n.geometry, lmat), 'line'), n, 8);
       else if (n.isMesh) add(new THREE.Mesh(n.geometry, mat), n, 3);
     }
     hit(it.look.hit, it.look.hit.geometry);
@@ -26158,6 +26358,9 @@ function blockHTML(b) {
 }
 function renderPanes() {
   if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
+  // (a headset presenting: nobody sees the page's panes, the headset's panels are drawn from the same blocks; they are
+  // drawn once the session ends. v136: every change in a session built the page's HTML again)
+  if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
   X.dirty = false; X.drawn = performance.now();
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
@@ -26218,9 +26421,11 @@ function pickables() {
 // cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
 // trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model. o.inside: when the
 // ray finds nothing at all and starts inside an object's unseen box (you stand in a room scan: its box's faces point away
-// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick)
+// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick). It takes the
+// scene's matrices as they are (v136: it made the whole scene's again on every call, twice a frame in a headset while
+// editing, just after xrBegin had): a headset's picks come after xrBegin made them current (xrPoint), a page's from its
+// events through pagePick
 function rayPick(ray, o) {
-  GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
   const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
@@ -26246,6 +26451,9 @@ function insidePick(r) {
   const point = p ? p.applyMatrix4(m) : r.origin.clone();
   return { id: best.id, corner: undefined, point, dist: point.distanceTo(r.origin), ray: r.clone(), inside: true };
 }
+// a page's pick (an event, between frames): the scene's matrices made current first, for what its handlers moved since
+// the frame drew (the arrows' drag), once a pick
+function pagePick(ray) { GL.world.updateMatrixWorld(true); return rayPick(ray, { inside: walkInside(ray) }); }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_m2, GL.camera);
@@ -26267,7 +26475,7 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
-        const ray = pointerRay(ev.clientX, ev.clientY), h = rayPick(ray, { inside: walkInside(ray) });
+        const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
         STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
       }
       return;
@@ -26372,7 +26580,7 @@ function grabLook(ev) {
   if (APP.mode !== 'explore' || X.view !== 'walk') return;
   walkLook(clamp(ev.movementX || 0, -200, 200), clamp(ev.movementY || 0, -200, 200), LOOK_GRAB);
   if (editOn() && !(GL.tc && GL.tc.axis)) {
-    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = rayPick(ray, { inside: walkInside(ray) });
+    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = pagePick(ray);
     STU.hover = h ? h.id : '';
   }
 }
@@ -26404,7 +26612,7 @@ function grabEnd() {
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
 function clickAt(mx, my) {
-  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray, { inside: walkInside(ray) }) : null;
+  const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
     const p = walkFloor(ray);
@@ -29581,6 +29789,8 @@ function xrPoint(c, dt) {
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
     // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
+    // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
+    if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
     const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
     if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
@@ -29593,8 +29803,8 @@ function xrPoint(c, dt) {
   const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
-  if (c.wantPress) { c.wantPress = false; xrPress(c); }
-  if (c.grab) carry(c, dt);
+  if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
+  if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // the sticks walk and turn (VR)
   const gp = c.src.gamepad;
@@ -29651,6 +29861,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) moved = stickMove(c, dt) || moved;
   if (moved) xrPlace();
   GL.rig.updateMatrixWorld(true);
+  XR.pickStale = false;   // (the scene's matrices current for the controllers' picks: rayPick makes none of its own)
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
@@ -29952,6 +30163,7 @@ function fitTitle(ctx, text, x, y, maxW, px, lh, color, weight, min, two) {
 }
 function vButton(ctx, P, id, x, y, w, h, label, fn, o = {}) {
   const hov = P.hover === id;
+  if (P.drawn) P.drawn.push(id, x, y, w, h);   // (where it is drawn, lit when pointed at: panelHover)
   rr(ctx, x, y, w, h, o.r !== undefined ? o.r : 10);
   ctx.fillStyle = o.primary ? (hov ? '#8ce9ff' : VC.cyan) : o.on ? VC.on : hov ? VC.chipHi : VC.chip;
   ctx.fill();
@@ -29998,22 +30210,75 @@ function panelDepth(P, inScene) {
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
 // redraw only when what the panel shows has changed (texture uploads are not free); a timeline's bar (drawBar) moves on
-// its own strip, not the whole card
+// its own strip, not the whole card; and when only the button pointed at has changed (v136), only its old and new
+// rectangles are drawn again and sent (panelHover), not the whole card (4.9 MB and its mipmaps for every button a ray
+// crossed)
 function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
+  const base = P.sig() + '|' + XR.fontOK, s = base + '|' + P.hover;
   if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
   if (now - P.t < 60) return;
-  P.last = s; P.t = now;
+  P.t = now;
+  if (P.last && base === P.base && panelHover(P, P.hov, P.hover)) { P.last = s; P.hov = P.hover; return; }
+  P.last = s; P.base = base; P.hov = P.hover;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = []; P.bars = [];
+  P.regions = []; P.bars = []; P.drawn = [];
+  panelPaint(ctx, P);
+  P.tex.needsUpdate = true;
+  P.full = (P.full || 0) + 1;
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// the button pointed at changed, nothing else (the same signature): the rectangles of what is drawn lit by it (its
+// buttons, wherever the same id is drawn, and its regions: a card's face, a timeline's bar) before and after, padded a
+// little for strokes and a playhead that grows, each drawn again by the same draw as the whole card on a small canvas of
+// its own, clipped to it (so it is as a full redraw would make it; the regions, bars and buttons' places kept from the
+// full draw, which the same signature lays out alike), put on the card's in its place and sent to the texture as it is,
+// as a timeline's bar is (the card's canvas never read back). Near ones drawn as one. False: a full redraw instead
+// (nothing known of the full draw yet, or most of the card lit: a Stories screen's card)
+const HOV = { pad: 8, most: 0.35 };
+let HOVCV = null;
+function panelHover(P, a, b) {
+  if (!P.drawn) return false;
+  let R = [];
+  const add = (x, y, w, h) => {
+    const x0 = Math.max(0, Math.floor(x - HOV.pad)), y0 = Math.max(0, Math.floor(y - HOV.pad)), x1 = Math.min(P.w, Math.ceil(x + w + HOV.pad)), y1 = Math.min(P.h, Math.ceil(y + h + HOV.pad));
+    if (x1 > x0 && y1 > y0) R.push([x0, y0, x1 - x0, y1 - y0]);
+  };
+  const ids = [a, b].filter(v => v !== null && v !== undefined);
+  for (let k = 0; k < P.drawn.length; k += 5) if (ids.includes(P.drawn[k])) add(P.drawn[k + 1], P.drawn[k + 2], P.drawn[k + 3], P.drawn[k + 4]);
+  for (const r of P.regions) if (ids.includes(r.id)) add(r.x, r.y, r.w, r.h);
+  // two that overlap, or whose box together is not much more than the two (a row of buttons), drawn as one
+  const join = (p, q) => { const x0 = Math.min(p[0], q[0]), y0 = Math.min(p[1], q[1]); return [x0, y0, Math.max(p[0] + p[2], q[0] + q[2]) - x0, Math.max(p[1] + p[3], q[1] + q[3]) - y0]; };
+  for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
+    const u = join(R[i], R[j]);
+    if (u[2] * u[3] <= 1.5 * (R[i][2] * R[i][3] + R[j][2] * R[j][3])) { R[i] = u; R.splice(j, 1); i = -1; break; }
+  }
+  if (!R.length) return true;   // (nothing drawn by it: nothing to change)
+  if (R.reduce((n, r) => n + r[2] * r[3], 0) > HOV.most * P.w * P.h) return false;
+  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn], cv = HOVCV = HOVCV || document.createElement('canvas');
+  try {
+    R.forEach((r, k) => {
+      const [rx, ry, rw, rh] = r;
+      if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+      const c = cv.getContext('2d');
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+      c.save(); c.beginPath(); c.rect(0, 0, rw, rh); c.clip(); c.setTransform(1, 0, 0, 1, -rx, -ry);
+      P.regions = []; P.bars = []; P.drawn = null;
+      panelPaint(c, P);
+      c.restore();
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+      panelPatch(P, cv, rx, ry, k < R.length - 1);   // (its mipmaps made once, after the last)
+    });
+  } finally { [P.regions, P.bars, P.drawn] = keep; }
+  P.hovPatched = (P.hovPatched || 0) + 1; P.hovRects = R;
+  return true;
 }
 
 // ------------------------------------------------------------ main panel --
@@ -30029,7 +30294,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
+  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;
@@ -30539,7 +30804,7 @@ function barsTick(P, now) {
 // then its mipmaps), not the whole card (a bar's strip ten times a second: some 400 KB, not the card's 4.9 MB). A texture
 // not on the GPU yet, or with the whole card still to go there, takes it as it goes; one without WebGL2 (a mipmapped
 // texture of any size) is sent whole
-function panelPatch(P, cv, x, y) {
+function panelPatch(P, cv, x, y, noMip) {
   const R = GL.renderer, T = P.tex;
   try {
     const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
@@ -30548,8 +30813,9 @@ function panelPatch(P, cv, x, y) {
     R.state.bindTexture(gl.TEXTURE_2D, wt);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-    if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
     P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
   } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {

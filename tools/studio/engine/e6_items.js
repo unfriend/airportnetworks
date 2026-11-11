@@ -807,6 +807,7 @@ function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
   for (const [k, col, o] of [['selBox', 0x46d9ff, 1], ['hoverBox', 0x5d8b9b, 1], ['flashBox', 0x3ee08f, 0]]) {
     const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: !o, depthTest: false, depthWrite: false }));
+    if (o) LOOKS.batched(B, 'line');   // (the two outlines drawn with the other lines; the flash, which pulses see-through, on its own)
     B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
     GL.scene.add(B); GL[k] = B;
   }
@@ -816,6 +817,8 @@ function editLooks() {
   GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false }));
   GL.links.frustumCulled = false; GL.links.renderOrder = 8; GL.links.visible = false;
   GL.edit.add(GL.links);
+  // the looks' tags and lines drawn together, each time the scene is drawn (LOOKS.batch: a few draws in place of one each)
+  LOOKS.batch(GL.scene, GL.renderer);
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {

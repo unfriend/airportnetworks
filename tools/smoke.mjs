@@ -5,6 +5,7 @@
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
+// --only 'studio edit speed': what the studio's edit mode no longer does every frame, a minute;
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -1718,7 +1719,7 @@ if (runs('studio')) {
       // Walk view on a page: the camera inside the figure's box, looking up: a click selects it; down at the floor it walks
       setView('walk'); WALK.pos.set(c0.x, 1.6, c0.z); WALK.yaw = 0; WALK.pitch = 1.1; WALK.to = null; walkStep(0); GL.camera.updateMatrixWorld(true);
       const inFig = fb.containsPoint(GL.camera.position);
-      const cx = window.innerWidth / 2, cy = window.innerHeight / 2, hv = rayPick(pointerRay(cx, cy), { inside: walkInside(pointerRay(cx, cy)) });
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2, hv = pagePick(pointerRay(cx, cy));
       clickAt(cx, cy);
       if (!inFig || !hv || hv.id !== 'fig001' || STU.sel !== 'fig001' || WALK.to) out.push('Walk view inside the figure\\'s box, a click on nothing: ' + JSON.stringify({ inFig, hv: hv && hv.id, sel: STU.sel, to: !!WALK.to }));
       WALK.pitch = -1.1; walkStep(0); GL.camera.updateMatrixWorld(true); clickAt(cx, cy);
@@ -3856,7 +3857,7 @@ if (runs('studio cuts')) {
       const out = {}, V = (a, b, c) => new THREE.Vector3(a, b, c), step = () => itemsStep(0, performance.now()), u0 = UNDO.length;
       step();
       GL.world.updateMatrixWorld(true);
-      const pick = (o, d) => { const rc = new THREE.Raycaster(GL.items.localToWorld(V(...o)), V(...d).transformDirection(GL.items.matrixWorld)); const h = rayPick(rc); return h ? h.id : ''; };
+      const pick = (o, d) => { GL.world.updateMatrixWorld(true); const rc = new THREE.Raycaster(GL.items.localToWorld(V(...o)), V(...d).transformDirection(GL.items.matrixWorld)); const h = rayPick(rc); return h ? h.id : ''; };   // (a pick's caller makes the matrices current: v136)
       // a thin box inside the wall (its faces behind the wall's): the ray meets the wall's unseen box first, then it
       const tid = newId();
       change(() => putItem(tid, 'x', norm('x', { name: 'Thin', on: 'wal001', p: [-0.8, 1, 0], size: [0.5, 0.5, 0.1] })));
@@ -4745,6 +4746,219 @@ if (runs('studio tint')) {
     await ss(`setRec('box001', { tint: undefined, bright: undefined })`);
     bad(out);
     await tp.close();
+  });
+}
+// The studio's edit mode as fast as viewing (v136; the owner: "The edit mode still has worse framerates than not
+// editing, why?"; tools/studio/SPEC.md, "Editing without the cost"), on a page of its own at the test scene: what edit mode
+// no longer does every frame. The labels of what is pointed at and selected made once while their words stay (a hover and
+// a selection held for 60 frames, drawn as a headset draws them: no new texture, no shader program linked, the sprites,
+// their pictures and the page's HTML the same); a pick (rayPick) making no matrices of its own (a page's, pagePick, once;
+// a headset's again only after the other hand moved something); the item pointed at in the scene no longer in the panel's
+// signature; only the button pointed at changed: its old and new rectangles drawn again and sent (texSubImage2D, the card's
+// texture version kept), the canvas exactly a full redraw's and the GPU texture (which the menu's Story tab draws) the
+// same there, an Items card's whole background with its face; the tags and lines drawn together (a few draws); the page's
+// panes not built while a headset presents
+if (runs('studio edit speed')) {
+  const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  ep.on('pageerror', e => errors.push('studio edit speed: ' + (e.stack || e.message)));
+  ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio edit speed: ' + m.text()); });
+  const ss = s => ep.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => ep.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio edit speed: ' + b)); };
+  // (in the page: the WebGL calls counted while a function runs)
+  const HELP = `window.__es = window.__es || {
+    count: (f, keys) => { const gl = GL.renderer.getContext(), n = {}, keep = {};
+      for (const k of keys) { n[k] = 0; n[k + 'Px'] = 0; keep[k] = gl[k]; gl[k] = function (...a) { n[k]++; const c = a.find(x => x && x.width && x.height); if (c) n[k + 'Px'] += c.width * c.height; return keep[k].apply(this, a); }; }
+      try { f(); } finally { for (const k of keys) gl[k] = keep[k]; }
+      return n; },
+  }`;
+  await step('studio edit speed: a hover and a selection held 60 frames make no label again (no texture, no program linked, the same sprites and HTML); new words make it once', async () => {
+    await ep.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await ep.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model && !!STU.items.get('fig001').model`, 120000)) { errors.push('studio edit speed: the test scene did not load'); return; }
+    const r = await ss(`(${HELP}, (() => {
+      const out = [], [Lh, Ls] = LBL.extra;
+      GL.renderer.setAnimationLoop(null);   // (the frames driven here, each as a headset's labels are drawn: on top, sprites)
+      setEdit(true); select('box001'); STU.hover = 'fig001'; XR.on = true; XR.lm = 'face';
+      orbit.cur = [30, 20, 6, 0, 0.6, -1.5]; orbit.to = null; applyCamera(orbit.cur); GL.camera.updateMatrixWorld();
+      const step = () => { itemsStep(1 / 60, performance.now()); updateExtraLabels(); for (const L of LBL.extra) { if (L.txt) placeLabelXR(L, L.show, XS); else hideLabelXR(L); } GL.world.updateMatrixWorld(true); GL.renderer.render(GL.scene, GL.camera); };
+      try {
+        step(); step();
+        const s0 = [Lh.sprite, Ls.sprite], m0 = s0.map(s => s && s.material.map), b0 = [Lh.el.firstChild, Ls.el.firstChild], p0 = GL.renderer.info.programs.map(p => p.id).join();
+        if (!s0[0] || !s0[1] || !Lh.sprite.visible || !Ls.sprite.visible) out.push('the two labels are not drawn as sprites: ' + JSON.stringify([!!s0[0], !!s0[1], Lh.txt, Ls.txt]));
+        const n = window.__es.count(() => { for (let i = 0; i < 60; i++) step(); }, ['texImage2D', 'linkProgram']);
+        if (n.texImage2D || n.linkProgram) out.push('60 frames made textures or linked programs: ' + JSON.stringify(n));
+        if (Lh.sprite !== s0[0] || Ls.sprite !== s0[1] || Lh.sprite.material.map !== m0[0] || Ls.sprite.material.map !== m0[1]) out.push('a label\\'s sprite or its picture was made again');
+        if (Lh.el.firstChild !== b0[0] || Ls.el.firstChild !== b0[1]) out.push('a label\\'s HTML was written again');
+        if (GL.renderer.info.programs.map(p => p.id).join() !== p0) out.push('the shader programs changed');
+        if (!/^Figure$/.test(Lh.txt[0]) || !/^Box$/.test(Ls.txt[0]) || !/selected$/.test(Ls.txt[1])) out.push('the labels\\' words: ' + JSON.stringify([Lh.txt, Ls.txt]));
+        // new words (the hover on another item): made again once, then held
+        STU.hover = 'snd001';
+        const n2 = window.__es.count(() => { step(); }, ['texImage2D']), s1 = Lh.sprite;
+        const n3 = window.__es.count(() => { for (let i = 0; i < 10; i++) step(); }, ['texImage2D']);
+        if (!/^Tone$/.test(Lh.txt[0]) || s1 === s0[0] || n2.texImage2D !== 1 || n3.texImage2D || Lh.sprite !== s1 || Ls.sprite !== s0[1]) out.push('the hover on the sound: ' + JSON.stringify({ txt: Lh.txt, n2, n3, again: s1 === s0[0], held: Lh.sprite === s1 }));
+      } finally { XR.on = false; STU.hover = ''; select(''); for (const L of LBL.extra) hideLabelXR(L); GL.renderer.setAnimationLoop(frame); }
+      return out;
+    })())`);
+    bad(r);
+  });
+  await step('studio edit speed: a pick makes no matrices of its own (a page\'s pick once, a headset\'s again only after the other hand moved something), and still finds the box', async () => {
+    const r = await ss(`(() => {
+      const out = [], W = GL.world, keep = W.updateMatrixWorld;
+      let n = 0;
+      W.updateMatrixWorld = function (f) { n++; return keep.call(this, f); };
+      try {
+        setEdit(true); select('');
+        GL.world.updateMatrixWorld(true);
+        const at = GL.items.localToWorld(objBox(STU.items.get('box001')).getCenter(new THREE.Vector3())), from = at.clone().add(new THREE.Vector3(0, 0.2, 3)), rc = new THREE.Raycaster(from, at.clone().sub(from).normalize());
+        n = 0; const h = rayPick(rc);
+        if (n || !h || h.id !== 'box001') out.push('rayPick: ' + JSON.stringify({ updates: n, id: h && h.id }));
+        const cv = GL.canvas.getBoundingClientRect(), v = at.clone().project(GL.camera), px = (v.x + 1) / 2 * innerWidth, py = (1 - v.y) / 2 * innerHeight;
+        n = 0; pagePick(pointerRay(px, py));
+        if (n !== 1) out.push('a page\\'s pick (pagePick) made the matrices ' + n + ' times, not once');
+        // a headset: the controller at the box (xrBegin made the matrices current: none); after the other hand's carry, once
+        const c = XR.ctrls[0];
+        XR.on = true; APP.mode = 'explore'; XR.stories = false;
+        c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true;
+        c.g.matrix.compose(from, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), at.clone().sub(from).normalize()), new THREE.Vector3(1, 1, 1)); c.g.matrixWorldNeedsUpdate = true;
+        GL.rig.updateMatrixWorld(true);
+        XR.pickStale = false; n = 0; xrPoint(c, 0.016);
+        const a0 = [n, c.hover && c.hover.id];
+        XR.pickStale = true; n = 0; xrPoint(c, 0.016);
+        const a1 = [n, c.hover && c.hover.id, XR.pickStale];
+        if (a0[0] || a0[1] !== 'box001' || a1[0] !== 1 || a1[1] !== 'box001' || a1[2]) out.push('a headset\\'s pick: ' + JSON.stringify({ current: a0, stale: a1 }));
+        c.src = null; c.g.visible = false; c.hover = null;
+      } finally { W.updateMatrixWorld = keep; XR.on = false; }
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio edit speed: the item pointed at is not in the panel\'s signature; only the button pointed at changed: its rectangles drawn again and sent, exactly a full redraw\'s, on the GPU as on the canvas', async () => {
+    const r = await ss(`(${HELP}, (() => {
+      const out = [], P = XR.main, gl = GL.renderer.getContext();
+      GL.renderer.setAnimationLoop(null);
+      const full = () => { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); };
+      const tick = () => { P.t = -1e9; panelTick(P, performance.now() + 1e6); };
+      const px = () => P.ctx.getImageData(0, 0, P.w, P.h).data;
+      const diff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d; };
+      // the texture's pixels at a canvas point (flipped: the canvas's top row is the texture's last)
+      const gpu = (x, y) => { const T = P.tex, wt = GL.renderer.properties.get(T).__webglTexture, fb = gl.createFramebuffer(), b = new Uint8Array(4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, wt, 0);
+        gl.readPixels(x, T.flipY ? P.h - 1 - y : y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb); GL.renderer.state.reset(); return [...b]; };
+      try {
+        XR.on = true; setEdit(true); select(''); X.tab = 'scene'; X.scroll = {}; P.hover = null;
+        // the item pointed at in the scene changes nothing the panel shows
+        STU.hover = ''; const g0 = sigMain(); STU.hover = 'fig001'; const g1 = sigMain(); STU.hover = '';
+        if (g0 !== g1) out.push('the panel\\'s signature follows the item pointed at in the scene');
+        full(); GL.renderer.initTexture(P.tex);
+        const tabs = P.regions.filter(r => /^tab:/.test(r.id) && r.fn);
+        if (tabs.length < 3) { out.push('no tabs to point at: ' + P.regions.map(r => r.id).join()); return out; }
+        const go = (id, what, most) => {
+          const v0 = P.tex.version, f0 = P.full, h0 = P.hovPatched || 0, was = px();
+          P.hover = id;
+          const n = window.__es.count(tick, ['texImage2D', 'texSubImage2D', 'generateMipmap']);
+          const R = P.hovRects || [], area = R.reduce((a, r) => a + r[2] * r[3], 0), got = px();
+          if (P.tex.version !== v0 || P.full !== f0 || (P.hovPatched || 0) !== h0 + 1 || n.texImage2D || n.texSubImage2D !== R.length || n.texSubImage2DPx !== area || n.generateMipmap !== 1 || area > most * P.w * P.h)
+            out.push(what + ': not a patch of its rectangles: ' + JSON.stringify({ n, rects: R, version: P.tex.version - v0, full: P.full - f0, area }));
+          // nothing else on the canvas changed; within the rectangles it is as a full redraw with that hover makes it (to
+          // a little: the patch is drawn on a canvas of its own, which may smooth edges a hair otherwise)
+          const want = (full(), px()), inR = i => { const p = i >> 2, x = p % P.w, y = (p - x) / P.w; return R.some(r => x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3]); };
+          let out1 = 0, sum = 0, worst = 0, n1 = 0;
+          for (let i = 0; i < got.length; i++) { if (inR(i)) { const d = Math.abs(got[i] - want[i]); sum += d; n1++; worst = Math.max(worst, d); } else if (got[i] !== was[i]) out1++; }
+          if (out1) out.push(what + ': the patch changed ' + out1 + ' bytes outside its rectangles');
+          if (!n1 || sum / n1 > 1 || worst > 96) out.push(what + ': within its rectangles it is not as a full redraw makes it: ' + JSON.stringify({ mean: n1 && +(sum / n1).toFixed(2), worst }));
+          GL.renderer.initTexture(P.tex);
+          return R;
+        };
+        const R1 = go(tabs[1].id, 'pointing at a tab', 0.04);   // (a tab and its neighbours' padding: a few % of the card)
+        // its pixels on the GPU: patched (a full redraw put aside: the canvas drawn without the hover, then patched)
+        P.hover = null; full(); GL.renderer.initTexture(P.tex);
+        const t = tabs[2], cx = Math.round(t.x + t.w / 2), cy = Math.round(t.y + 6);
+        const before = gpu(cx, cy); P.hover = t.id; tick();
+        const c = [...P.ctx.getImageData(cx, cy, 1, 1).data], after = gpu(cx, cy);
+        if (c.some((v, i) => Math.abs(v - after[i]) > 3) || before.every((v, i) => Math.abs(v - after[i]) <= 3)) out.push('the texture where the button was sent: ' + JSON.stringify({ before, after, canvas: c }));
+        if (!HOST.cur.panels || HOST.cur.panels().main.tex !== P.tex) out.push('the menu\\'s Story tab does not draw the panel\\'s own texture');
+        // off the button: its rectangle again; another signature: the whole card
+        P.hover = null; const v1 = P.tex.version, h1 = P.hovPatched; tick();
+        if (P.hovPatched !== h1 + 1 || P.tex.version !== v1) out.push('pointing off the button was not a patch');
+        X.tab = 'add'; tick();
+        if (P.tex.version === v1) out.push('another pane did not draw the whole card again');
+        // an Items card: its face pointed at lights its whole background (taller than its face): all of it drawn again
+        select('cube01'); X.tab = 'items'; X.scroll = {}; P.hover = null; full(); GL.renderer.initTexture(P.tex);
+        const face = P.regions.find(r => r.id === 'sel:box001');
+        if (!face) out.push('no Items card for the box: ' + P.regions.map(r => r.id).slice(0, 30).join());
+        else {
+          const R = go(face.id, 'an Items card', 0.2);   // (a card, three a row: about an eighth of the panel)
+          const bg = []; for (let k = 0; k < P.drawn.length; k += 5) if (P.drawn[k] === face.id) bg.push(P.drawn.slice(k + 1, k + 5));
+          if (!bg.some(b => R.some(r => r[0] <= b[0] && r[1] <= b[1] && r[0] + r[2] >= b[0] + b[2] && r[1] + r[3] >= b[1] + b[3]) && b[3] > face.h)) out.push('the card\\'s background was not drawn again with its face: ' + JSON.stringify({ face: [face.x, face.y, face.w, face.h], bg, R }));
+        }
+      } finally { XR.on = false; P.hover = null; select(''); X.tab = 'scene'; GL.renderer.setAnimationLoop(frame); }
+      return out;
+    })())`);
+    bad(r);
+  });
+  await step('studio edit speed: the tags and lines drawn together: each its own object as before but on a layer no camera sees, the tags in one draw from one canvas (each where its sprite is), the lines in their colours; ten more empties add a draw each (their dots), not three', async () => {
+    const r = await ss(`(() => {
+      const out = [], R = GL.renderer, B = LOOKS.BT, info = R.info, V = THREE.Vector3;
+      GL.renderer.setAnimationLoop(null);
+      const draws = ed => { setEdit(ed); itemsStep(1 / 60, performance.now()); updateExtraLabels(); GL.world.updateMatrixWorld(true); info.autoReset = true; R.render(GL.scene, GL.camera); return info.render.calls; };
+      const ids = [];
+      try {
+        select('cube01'); STU.hover = '';
+        orbit.cur = [30, 20, 6, 0, 0.6, -1.5]; orbit.to = null; applyCamera(orbit.cur); GL.camera.updateMatrixWorld();
+        const off = draws(false), on = draws(true), st = Object.assign({}, B.stats);
+        const shown = []; GL.scene.traverseVisible(o => { if (o.userData.bt) shown.push(o); });
+        const tags = shown.filter(o => o.userData.bt === 'tag'), lines = shown.filter(o => o.userData.bt === 'line');
+        if (st.tags !== tags.length || st.lines !== lines.length || tags.length < 3 || lines.length < 2) out.push('gathered: ' + JSON.stringify({ st, tags: tags.length, lines: lines.length }));
+        if (shown.some(o => o.layers.mask !== 1 << B.layer)) out.push('a tag or a line is drawn on its own');
+        if (!B.tagMesh || !B.tagMesh.mesh.visible || B.tagMesh.mesh.geometry.instanceCount !== tags.length) out.push('the tags\\' draw: ' + JSON.stringify(B.tagMesh && [B.tagMesh.mesh.visible, B.tagMesh.mesh.geometry.instanceCount]));
+        // the figure's tag: an instance where its sprite is, its size the sprite's, its picture its own on the canvas
+        const ft = STU.items.get('fig001').tag, T = ft && ft.userData.bt$;
+        if (!ft || !ft.visible || !T || !T.at) out.push('the figure\\'s tag: ' + JSON.stringify(ft && [ft.visible, !!T, T && T.at]));
+        else {
+          const g = B.tagMesh.mesh.geometry, P = g.attributes.iPos.array, S = g.attributes.iSize.array, w = new V().setFromMatrixPosition(ft.matrixWorld);
+          let k = -1; for (let i = 0; i < g.instanceCount; i++) if (Math.abs(P[i * 3] - w.x) + Math.abs(P[i * 3 + 1] - w.y) + Math.abs(P[i * 3 + 2] - w.z) < 1e-5) k = i;
+          const sx = new V().setFromMatrixColumn(ft.matrixWorld, 0).length(), sy = new V().setFromMatrixColumn(ft.matrixWorld, 1).length();
+          if (k < 0 || Math.abs(S[k * 2] - sx) > 1e-6 || Math.abs(S[k * 2 + 1] - sy) > 1e-6) out.push('no instance where the figure\\'s tag is, its size: ' + JSON.stringify({ k, size: k >= 0 && [S[k * 2], S[k * 2 + 1]], want: [sx, sy] }));
+          const a = B.atlas.ctx.getImageData(T.at.x, T.at.y, T.cv.width, 64).data, c = T.cv.getContext('2d').getImageData(0, 0, T.cv.width, 64).data;
+          let d = 0; for (let i = 0; i < a.length; i++) d = Math.max(d, Math.abs(a[i] - c[i]));
+          if (d > 2) out.push('the figure\\'s tag on the tags\\' canvas is not its picture: ' + d);
+        }
+        // the lines: the selected cube's edges in the scene's depth, in its colour
+        const cl = STU.items.get('cube01').look.line, cb = B.lines.get('d' + cl.renderOrder), col = cl.material.color;
+        let found = false;
+        if (cb) { const C = cb.mesh.geometry.attributes.color.array, n = cb.mesh.geometry.drawRange.count; for (let i = 0; i < n; i++) if (Math.abs(C[i * 3] - col.r) + Math.abs(C[i * 3 + 1] - col.g) + Math.abs(C[i * 3 + 2] - col.b) < 1e-6) { found = true; break; } }
+        if (!cb || !cb.mesh.visible || !found || cb.mesh.material.depthTest !== true) out.push('the cube\\'s edges: ' + JSON.stringify({ batch: !!cb, shown: cb && cb.mesh.visible, found }));
+        // ten more empties (each a cross, a dot and a name): only their dots add a draw each
+        for (let i = 0; i < 10; i++) { const id = 'esp00' + i; ids.push(id); putItem(id, 'e', norm('e', { name: 'Spot ' + i, p: [-1 + i * 0.3, 1.2, -1.5] })); }
+        for (const id of ids) STU.items.get(id).a = 1;
+        const on2 = draws(true), st2 = Object.assign({}, B.stats);
+        if (on2 - on > 10 || st2.tags < st.tags + 10 || st2.lines < st.lines + 10) out.push('ten more empties: ' + JSON.stringify({ draws: [off, on, on2], st, st2 }));
+      } finally { for (const id of ids) removeItem(id); select(''); GL.renderer.setAnimationLoop(frame); }
+      return out;
+    })()`);
+    bad(r);
+  });
+  await step('studio edit speed: the page\'s panes are not built while a headset presents, and are once it ends', async () => {
+    const r = await ss(`(() => {
+      const out = [], xr = GL.renderer.xr, pane = () => document.querySelector('#pane-scene').innerHTML;
+      GL.renderer.setAnimationLoop(null);
+      try {
+        X.tab = 'scene'; STU.note = ''; renderPanes();
+        const h0 = pane(), k0 = X.skipped || 0;
+        xr.isPresenting = true;
+        STU.note = 'Edit speed: a note'; dirty(true); paneStep(performance.now() + 1e6);
+        const r1 = [pane() === h0, X.dirty, (X.skipped || 0) > k0];
+        xr.isPresenting = false;
+        paneStep(performance.now() + 2e6);
+        const r2 = [/Edit speed: a note/.test(pane()), X.dirty];
+        if (!r1[0] || !r1[1] || !r1[2] || !r2[0] || r2[1]) out.push(JSON.stringify({ presenting: r1, after: r2 }));
+      } finally { xr.isPresenting = false; STU.note = ''; dirty(true); GL.renderer.setAnimationLoop(frame); }
+      return out;
+    })()`);
+    bad(r);
+    await ep.close();
   });
 }
 // The studio's viewer (v125; tools/studio/SPEC.md, "The viewer"), on a page of its own at the test scene: a model over the
