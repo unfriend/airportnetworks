@@ -280,7 +280,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -290,7 +290,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.gpick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -760,6 +760,8 @@ function xrPoint(c, dt) {
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
     // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
+    // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
+    if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
     const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
     if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
@@ -772,8 +774,8 @@ function xrPoint(c, dt) {
   const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
-  if (c.wantPress) { c.wantPress = false; xrPress(c); }
-  if (c.grab) carry(c, dt);
+  if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
+  if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // the sticks walk and turn (VR)
   const gp = c.src.gamepad;
@@ -830,6 +832,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) moved = stickMove(c, dt) || moved;
   if (moved) xrPlace();
   GL.rig.updateMatrixWorld(true);
+  XR.pickStale = false;   // (the scene's matrices current for the controllers' picks: rayPick makes none of its own)
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();

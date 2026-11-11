@@ -143,6 +143,13 @@ its circle) moves every item there again, for everyone (one Undo step).
   the picture switches at once, walk out and its own is back (a cube that stays
   keeps it); the one entered last wins. Only that object changes, not others of
   the same file, and each person sees what their own place does.
+- A trigger cube can start things (v136): on the cube's card Start
+  something..., point at a character or a prop (or pick it), then what (one of
+  its animations, its sound, its recorded path or its motion), how (Once, Loop
+  or Hold while you are inside, or Stop) and when (walking in or walking out).
+  A clip blends in and out over its own animation; a sound a cube starts, and a
+  path or motion, waits until then. The last thing started on an item decides.
+  Each person gets it as they walk in (nothing is sent); Try plays it here.
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

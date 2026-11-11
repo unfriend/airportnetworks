@@ -72,6 +72,7 @@ function fitTitle(ctx, text, x, y, maxW, px, lh, color, weight, min, two) {
 }
 function vButton(ctx, P, id, x, y, w, h, label, fn, o = {}) {
   const hov = P.hover === id;
+  if (P.drawn) P.drawn.push(id, x, y, w, h);   // (where it is drawn, lit when pointed at: panelHover)
   rr(ctx, x, y, w, h, o.r !== undefined ? o.r : 10);
   ctx.fillStyle = o.primary ? (hov ? '#8ce9ff' : VC.cyan) : o.on ? VC.on : hov ? VC.chipHi : VC.chip;
   ctx.fill();
@@ -118,22 +119,75 @@ function panelDepth(P, inScene) {
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
 // redraw only when what the panel shows has changed (texture uploads are not free); a timeline's bar (drawBar) moves on
-// its own strip, not the whole card
+// its own strip, not the whole card; and when only the button pointed at has changed (v136), only its old and new
+// rectangles are drawn again and sent (panelHover), not the whole card (4.9 MB and its mipmaps for every button a ray
+// crossed)
 function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
+  const base = P.sig() + '|' + XR.fontOK, s = base + '|' + P.hover;
   if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
   if (now - P.t < 60) return;
-  P.last = s; P.t = now;
+  P.t = now;
+  if (P.last && base === P.base && panelHover(P, P.hov, P.hover)) { P.last = s; P.hov = P.hover; return; }
+  P.last = s; P.base = base; P.hov = P.hover;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = []; P.bars = [];
+  P.regions = []; P.bars = []; P.drawn = [];
+  panelPaint(ctx, P);
+  P.tex.needsUpdate = true;
+  P.full = (P.full || 0) + 1;
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// the button pointed at changed, nothing else (the same signature): the rectangles of what is drawn lit by it (its
+// buttons, wherever the same id is drawn, and its regions: a card's face, a timeline's bar) before and after, padded a
+// little for strokes and a playhead that grows, each drawn again by the same draw as the whole card on a small canvas of
+// its own, clipped to it (so it is as a full redraw would make it; the regions, bars and buttons' places kept from the
+// full draw, which the same signature lays out alike), put on the card's in its place and sent to the texture as it is,
+// as a timeline's bar is (the card's canvas never read back). Near ones drawn as one. False: a full redraw instead
+// (nothing known of the full draw yet, or most of the card lit: a Stories screen's card)
+const HOV = { pad: 8, most: 0.35 };
+let HOVCV = null;
+function panelHover(P, a, b) {
+  if (!P.drawn) return false;
+  let R = [];
+  const add = (x, y, w, h) => {
+    const x0 = Math.max(0, Math.floor(x - HOV.pad)), y0 = Math.max(0, Math.floor(y - HOV.pad)), x1 = Math.min(P.w, Math.ceil(x + w + HOV.pad)), y1 = Math.min(P.h, Math.ceil(y + h + HOV.pad));
+    if (x1 > x0 && y1 > y0) R.push([x0, y0, x1 - x0, y1 - y0]);
+  };
+  const ids = [a, b].filter(v => v !== null && v !== undefined);
+  for (let k = 0; k < P.drawn.length; k += 5) if (ids.includes(P.drawn[k])) add(P.drawn[k + 1], P.drawn[k + 2], P.drawn[k + 3], P.drawn[k + 4]);
+  for (const r of P.regions) if (ids.includes(r.id)) add(r.x, r.y, r.w, r.h);
+  // two that overlap, or whose box together is not much more than the two (a row of buttons), drawn as one
+  const join = (p, q) => { const x0 = Math.min(p[0], q[0]), y0 = Math.min(p[1], q[1]); return [x0, y0, Math.max(p[0] + p[2], q[0] + q[2]) - x0, Math.max(p[1] + p[3], q[1] + q[3]) - y0]; };
+  for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
+    const u = join(R[i], R[j]);
+    if (u[2] * u[3] <= 1.5 * (R[i][2] * R[i][3] + R[j][2] * R[j][3])) { R[i] = u; R.splice(j, 1); i = -1; break; }
+  }
+  if (!R.length) return true;   // (nothing drawn by it: nothing to change)
+  if (R.reduce((n, r) => n + r[2] * r[3], 0) > HOV.most * P.w * P.h) return false;
+  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn], cv = HOVCV = HOVCV || document.createElement('canvas');
+  try {
+    R.forEach((r, k) => {
+      const [rx, ry, rw, rh] = r;
+      if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+      const c = cv.getContext('2d');
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+      c.save(); c.beginPath(); c.rect(0, 0, rw, rh); c.clip(); c.setTransform(1, 0, 0, 1, -rx, -ry);
+      P.regions = []; P.bars = []; P.drawn = null;
+      panelPaint(c, P);
+      c.restore();
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+      panelPatch(P, cv, rx, ry, k < R.length - 1);   // (its mipmaps made once, after the last)
+    });
+  } finally { [P.regions, P.bars, P.drawn] = keep; }
+  P.hovPatched = (P.hovPatched || 0) + 1; P.hovRects = R;
+  return true;
 }
 
 // ------------------------------------------------------------ main panel --
@@ -149,7 +203,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
+  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;
@@ -659,7 +713,7 @@ function barsTick(P, now) {
 // then its mipmaps), not the whole card (a bar's strip ten times a second: some 400 KB, not the card's 4.9 MB). A texture
 // not on the GPU yet, or with the whole card still to go there, takes it as it goes; one without WebGL2 (a mipmapped
 // texture of any size) is sent whole
-function panelPatch(P, cv, x, y) {
+function panelPatch(P, cv, x, y, noMip) {
   const R = GL.renderer, T = P.tex;
   try {
     const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
@@ -668,8 +722,9 @@ function panelPatch(P, cv, x, y) {
     R.state.bindTexture(gl.TEXTURE_2D, wt);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-    if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
     P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
   } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {

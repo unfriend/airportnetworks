@@ -15967,15 +15967,208 @@ const LOOKS = (function () {
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
   const box = new THREE.BoxGeometry(1, 1, 1), edges = new THREE.EdgesGeometry(box), ball = new THREE.SphereGeometry(1, 16, 12);
   const cone = new THREE.ConeGeometry(0.5, 1, 20, 1, true);
-  // a line of text on a canvas, as a sprite (drawn over the scene) or a plain picture; redrawn only when it changes. Its
-  // band is opaque and the sprite drawn with the opaque things (v131: no blending), after the items (renderOrder 12) and
-  // without a depth test, so it still shows over everything they draw
+  // ---- drawn together (v136; the owner, of editing: "The edit mode still has worse framerates than not editing, why?").
+  // Every look below is its own objects, as the engine and the tests know them (where they are, shown or not, their
+  // colours), but the tags and the lines are not drawn one by one: each marked (userData.bt) and put on a layer no camera
+  // sees (BT.layer), and each time the scene is drawn (its onBeforeRender, after three.js has made every matrix current
+  // and before it lists what to draw) the ones shown are gathered (traverseVisible: what is hidden, or under something
+  // hidden, is left out) and drawn in a few draws: every tag in one (their pictures on one canvas, BT.atlas, an instanced
+  // quad each, turned to the eye as a sprite is), the lines in one a kind (each drawn as before: in the scene's depth or
+  // over everything, by its order; a dashed one as its dashes). Until then each tag, edge, tick and cross was a draw of its
+  // own, twice in a headset (one an eye): about a hundred more a frame while editing a scene of forty items
+  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0 } };
+  const _bm = new THREE.Matrix4(), _bv = new THREE.Vector3(), _bc = new THREE.Color(), _bcam = new THREE.Vector3();
+  function batched(o, kind) { o.userData.bt = kind; o.layers.set(BT.layer); return o; }
+  // the tags' canvas: rows 64 px tall (8 px apart, and 8 px between tags, so their smaller pictures keep apart), 2,048 px
+  // wide, as tall as needed (512 to 4,096 px, doubling); each tag a place on it while it has words to show, drawn there
+  // and sent on its own when its words change (texSubImage2D, as the panels' patches), the whole canvas only when it grows
+  const AT = { w: 2048, row: 64, gap: 8, max: 4096 };
+  function atlas() {
+    if (BT.atlas) return BT.atlas;
+    const cv = document.createElement('canvas'); cv.width = AT.w; cv.height = 512;
+    const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+    return (BT.atlas = { cv, ctx: cv.getContext('2d'), tex, rows: [], sent: [] });
+  }
+  // a place of width w (rows of places, first fit in their gaps); null when the canvas is full at its largest
+  function atPlace(w) {
+    const A = atlas(), rh = AT.row + AT.gap, n = Math.floor(A.cv.height / rh);
+    for (let r = 0; r < n; r++) {
+      const row = A.rows[r] || (A.rows[r] = []);
+      let x = 0;
+      for (const p of row) { if (p.x - x >= w + AT.gap) break; x = p.x + p.w + AT.gap; }
+      if (x + w <= A.cv.width) { const p = { r, x, y: r * rh, w }; row.push(p); row.sort((a, b) => a.x - b.x); return p; }
+    }
+    if (A.cv.height >= AT.max) return null;
+    // grown: a canvas twice as tall with what the old one held, sent whole
+    const old = A.cv, cv = document.createElement('canvas'); cv.width = old.width; cv.height = old.height * 2;
+    cv.getContext('2d').drawImage(old, 0, 0);
+    A.cv = cv; A.ctx = cv.getContext('2d'); A.tex.image = cv; A.tex.needsUpdate = true; A.sent.length = 0; BT.stats.grew++;
+    return atPlace(w);
+  }
+  function atFree(p) { if (!p || !BT.atlas) return; const row = BT.atlas.rows[p.r]; const k = row ? row.indexOf(p) : -1; if (k >= 0) row.splice(k, 1); }
+  // a tag's picture on the canvas, at its place (a new place when its width changed), and to be sent
+  function atDraw(T) {
+    const A = atlas(), cv = T.cv;
+    if (!T.at || T.at.w !== cv.width) { atFree(T.at); T.at = atPlace(cv.width); if (!T.at) return; }
+    const p = T.at;
+    A.ctx.clearRect(p.x, p.y, p.w, AT.row); A.ctx.drawImage(cv, p.x, p.y);
+    A.sent.push([cv, p.x, p.y]);
+  }
+  // the canvas's changed places sent (or, not on the GPU yet or grown, the whole canvas as it goes there)
+  function atSend() {
+    const A = BT.atlas, R = BT.renderer;
+    if (!A || !A.sent.length) return;
+    const T = A.tex, list = A.sent.splice(0);
+    try {
+      const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+      if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the canvas as it is now)
+      if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+      R.state.bindTexture(gl.TEXTURE_2D, wt);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      for (const [cv, x, y] of list) gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? A.cv.height - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      BT.stats.uploads += list.length;
+    } catch (e) { T.needsUpdate = true; }
+  }
+  // every tag: an instanced quad at the tag's place, its size the sprite's (as three.js sizes a sprite: its scale in the
+  // world, in the eye's frame), its bottom's middle at that place (the sprites' centre, 0.5, 0), its picture its place on
+  // the canvas; opaque, its clear corners cut away (as the sprites' alphaTest 0.5), over everything (no depth test), after
+  // the items (renderOrder 12)
+  const TAG_VS = 'attribute vec3 iPos; attribute vec2 iSize; attribute vec4 iUV; varying vec2 vUv;\n' +
+    'void main() { vec4 mv = viewMatrix * vec4(iPos, 1.0); mv.xy += vec2(position.x, position.y + 0.5) * iSize; vUv = mix(iUV.xy, iUV.zw, uv); gl_Position = projectionMatrix * mv; }';
+  const TAG_FS = 'uniform sampler2D map; varying vec2 vUv;\nvoid main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; gl_FragColor = t; }';
+  function tagMesh(n) {
+    const M = BT.tagMesh;
+    if (M && M.cap >= n) return M;
+    if (M) { M.mesh.parent && M.mesh.parent.remove(M.mesh); M.mesh.geometry.dispose(); }
+    const cap = Math.max(64, (M ? M.cap : 0) * 2, n), g = new THREE.InstancedBufferGeometry(), q = new THREE.PlaneGeometry(1, 1);
+    g.setIndex(q.index); g.setAttribute('position', q.attributes.position); g.setAttribute('uv', q.attributes.uv);
+    const A = { iPos: 3, iSize: 2, iUV: 4 };
+    for (const k in A) g.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(cap * A[k]), A[k]).setUsage(THREE.DynamicDrawUsage));
+    const mat = M ? M.mesh.material : new THREE.ShaderMaterial({ uniforms: { map: { value: atlas().tex } }, vertexShader: TAG_VS, fragmentShader: TAG_FS, depthTest: false, depthWrite: false });
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.frustumCulled = false; mesh.renderOrder = 12; mesh.matrixAutoUpdate = false; mesh.visible = false; mesh.userData.btMesh = 'tags';
+    BT.scene.add(mesh);
+    return (BT.tagMesh = { mesh, cap });
+  }
+  // a dashed line as its dashes (as LineDashedMaterial draws it: along the line's own distance, dash on, gap off), once
+  // for each geometry and dash
+  function dashed(g, dash, gap) {
+    const k = g.uuid + '|' + dash + '|' + gap;
+    if (BT.dash.has(k)) return BT.dash.get(k);
+    const P = g.attributes.position, D = g.attributes.lineDistance, out = [], a = new THREE.Vector3(), b = new THREE.Vector3(), all = dash + gap;
+    for (let i = 0; i + 1 < P.count; i += 2) {
+      a.fromBufferAttribute(P, i); b.fromBufferAttribute(P, i + 1);
+      const d0 = D ? D.getX(i) : 0, d1 = D ? D.getX(i + 1) : a.distanceTo(b), L = d1 - d0;
+      if (L <= 0) continue;
+      for (let s = Math.floor(d0 / all) * all; s < d1; s += all) {
+        const u0 = Math.max(s, d0), u1 = Math.min(s + dash, d1);
+        if (u1 > u0) out.push(a.x + (b.x - a.x) * (u0 - d0) / L, a.y + (b.y - a.y) * (u0 - d0) / L, a.z + (b.z - a.z) * (u0 - d0) / L, a.x + (b.x - a.x) * (u1 - d0) / L, a.y + (b.y - a.y) * (u1 - d0) / L, a.z + (b.z - a.z) * (u1 - d0) / L);
+      }
+    }
+    const r = new Float32Array(out);
+    BT.dash.set(k, r);
+    return r;
+  }
+  // the lines of one kind (in the scene's depth or over everything, and their order): one LineSegments with each line's
+  // points in the world and its colour, as large as needed
+  function lineBatch(depth, order, n) {
+    const key = (depth ? 'd' : 'o') + order;
+    let B = BT.lines.get(key);
+    if (B && B.cap >= n) return B;
+    const cap = Math.max(4096, B ? B.cap * 2 : 0, n), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    if (B) { B.mesh.geometry.dispose(); B.mesh.geometry = g; B.cap = cap; return B; }
+    const mesh = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: depth, depthWrite: depth }));
+    mesh.frustumCulled = false; mesh.renderOrder = order; mesh.matrixAutoUpdate = false; mesh.visible = false; mesh.userData.btMesh = 'lines ' + key;
+    BT.scene.add(mesh);
+    B = { mesh, cap, key };
+    BT.lines.set(key, B);
+    return B;
+  }
+  // a line's points (pairs of them) in its geometry's frame: a dashed one's dashes, else its points' numbers (kept for
+  // each geometry while its points and range stay)
+  const PTS = new WeakMap();
+  function linePts(o) {
+    const m = o.material, g = o.geometry;
+    if (m.isLineDashedMaterial) return dashed(g, m.dashSize, m.gapSize);
+    const P = g.attributes.position, I = g.index, s = g.drawRange.start, e = Math.min(I ? I.count : P.count, s + g.drawRange.count);
+    const k = (o.isLineSegments ? 's' : 'l') + s + ':' + e + ':' + P.count + ':' + (I ? I.version : -1), c = PTS.get(g);
+    if (c && c.k === k) return c.a;
+    const out = [], at = q => (I ? I.getX(q) : q);
+    if (o.isLineSegments) for (let q = s; q + 1 < e; q += 2) out.push(at(q), at(q + 1));
+    else for (let q = s; q + 1 < e; q++) out.push(at(q), at(q + 1));
+    PTS.set(g, { k, a: out });
+    return out;
+  }
+  const TAGS = [], LINES = [];
+  function fill(renderer, scene, camera) {
+    if (scene !== BT.scene) return;
+    TAGS.length = 0; LINES.length = 0;
+    scene.traverseVisible(o => { const b = o.userData.bt; if (b === 'tag') TAGS.push(o); else if (b === 'line') LINES.push(o); });
+    BT.stats.tags = TAGS.length; BT.stats.lines = LINES.length; BT.stats.draws = 0;
+    // the tags: drawn back to front (over everything, so the nearest on top), each its picture's place
+    const M = tagMesh(TAGS.length), g = M.mesh.geometry, iP = g.attributes.iPos.array, iS = g.attributes.iSize.array, iU = g.attributes.iUV.array;
+    for (const sp of TAGS) { const T = sp.userData.bt$; if (T.dirty || !T.at) { T.dirty = false; atDraw(T); } }
+    const A = atlas(), W = A.cv.width, H = A.cv.height;
+    _bcam.setFromMatrixPosition(camera.matrixWorld);
+    let n = 0;
+    const L = TAGS.filter(sp => sp.userData.bt$.at).map(sp => [sp, _bv.setFromMatrixPosition(sp.matrixWorld).distanceToSquared(_bcam)]).sort((a, b) => b[1] - a[1]);
+    for (const [sp] of L) {
+      const e = sp.matrixWorld.elements, p = sp.userData.bt$.at, cw = sp.userData.bt$.cv.width;
+      iP[n * 3] = e[12]; iP[n * 3 + 1] = e[13]; iP[n * 3 + 2] = e[14];
+      iS[n * 2] = Math.hypot(e[0], e[1], e[2]); iS[n * 2 + 1] = Math.hypot(e[4], e[5], e[6]);
+      iU[n * 4] = (p.x + 0.5) / W; iU[n * 4 + 1] = 1 - (p.y + AT.row - 0.5) / H; iU[n * 4 + 2] = (p.x + cw - 0.5) / W; iU[n * 4 + 3] = 1 - (p.y + 0.5) / H;
+      n++;
+    }
+    g.instanceCount = n;
+    for (const k of ['iPos', 'iSize', 'iUV']) { const a = g.attributes[k]; a.updateRange.offset = 0; a.updateRange.count = n * a.itemSize; a.needsUpdate = n > 0; }
+    M.mesh.visible = n > 0;
+    if (n) BT.stats.draws++;
+    atSend();
+    // the lines: by kind, each line's points in the world, in its colour (times its points' own, where it has them)
+    const by = new Map();
+    for (const o of LINES) { const k = (o.material.depthTest ? 'd' : 'o') + o.renderOrder; if (!by.has(k)) by.set(k, []); by.get(k).push(o); }
+    for (const B of BT.lines.values()) if (!by.has(B.key)) B.mesh.visible = false;
+    for (const [k, list] of by) {
+      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0);
+      const B = lineBatch(k[0] === 'd', +k.slice(1), cnt), pos = B.mesh.geometry.attributes.position, col = B.mesh.geometry.attributes.color, PA = pos.array, CA = col.array;
+      let v = 0;
+      list.forEach((o, i) => {
+        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color;
+        _bm.copy(o.matrixWorld); _bc.copy(m.color);
+        const put = (x, y, z, ci) => {
+          _bv.set(x, y, z).applyMatrix4(_bm);
+          PA[v * 3] = _bv.x; PA[v * 3 + 1] = _bv.y; PA[v * 3 + 2] = _bv.z;
+          CA[v * 3] = _bc.r * (VC && ci >= 0 ? VC.getX(ci) : 1); CA[v * 3 + 1] = _bc.g * (VC && ci >= 0 ? VC.getY(ci) : 1); CA[v * 3 + 2] = _bc.b * (VC && ci >= 0 ? VC.getZ(ci) : 1);
+          v++;
+        };
+        if (P instanceof Float32Array) for (let q = 0; q < P.length; q += 3) put(P[q], P[q + 1], P[q + 2], -1);
+        else for (const k2 of P) put(G.getX(k2), G.getY(k2), G.getZ(k2), k2);
+      });
+      B.mesh.geometry.setDrawRange(0, v);
+      for (const a of [pos, col]) { a.updateRange.offset = 0; a.updateRange.count = v * 3; a.needsUpdate = v > 0; }
+      B.mesh.visible = v > 0;
+      if (v) BT.stats.draws++;
+    }
+  }
+  // the engine's: where they are drawn together (the scene the studio draws), and to draw a line of its own that way
+  function batch(scene, renderer) {
+    BT.scene = scene; BT.renderer = renderer;
+    scene.onBeforeRender = fill;
+  }
+
+  // a line of text on a canvas, as a sprite (drawn over the scene, with every other tag: BT) or a plain picture; redrawn
+  // only when it changes. Its band is opaque and drawn with the opaque things (v131: no blending), after the items
+  // (renderOrder 12) and without a depth test, so it still shows over everything they draw
   const white = new THREE.Color(1, 1, 1);
   function tag(px) {
-    const cv = document.createElement('canvas'), ctx = cv.getContext('2d'), tex = new THREE.CanvasTexture(cv);
+    const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
     cv.width = 512; cv.height = 64;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: false, alphaTest: 0.5, depthTest: false, depthWrite: false }));
+    const sp = batched(new THREE.Sprite(new THREE.SpriteMaterial({ transparent: false, alphaTest: 0.5, depthTest: false, depthWrite: false })), 'tag');
     sp.renderOrder = 12; sp.center.set(0.5, 0);
+    const T = sp.userData.bt$ = { cv, at: null, dirty: false };
     let last = '';
     sp.userData.set = (text, col, h) => {
       const k = text + '|' + col;
@@ -15989,12 +16182,12 @@ const LOOKS = (function () {
         ctx.fillStyle = col || '#e7eef8'; ctx.fillRect(0, 0, 6, cv.height);
         ctx.font = `700 ${px || 34}px B612, "Segoe UI", Arial, sans-serif`; ctx.textBaseline = 'middle'; ctx.fillStyle = '#f2f6fc';
         ctx.fillText(text, 20, cv.height / 2 + 1);
-        tex.needsUpdate = true;
+        T.dirty = true;   // (put on the tags' canvas when it is next drawn)
       }
       sp.userData.text = text;   // (what it says: the tests read it)
       sp.scale.set((h || 0.09) * cv.width / cv.height, h || 0.09, 1);
     };
-    sp.userData.drop = () => { tex.dispose(); sp.material.dispose(); };
+    sp.userData.drop = () => { atFree(T.at); T.at = null; sp.material.dispose(); };
     return sp;
   }
   // a cube: its box (scaled to its size) under `body`, the name and the corners under `deco` (not scaled, so they keep
@@ -16005,7 +16198,7 @@ const LOOKS = (function () {
     const col = new THREE.Color(colOf(id));
     const body = new THREE.Group(), deco = new THREE.Group();
     const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(CUBE_EDGE.plain) }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(CUBE_EDGE.plain) })), 'line');
     line.renderOrder = 6;
     body.add(fill, line);
     const name = tag(30);
@@ -16047,7 +16240,7 @@ const LOOKS = (function () {
     g.add(name); name.position.y = 0.12;
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
-    const link = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(0.55), depthTest: false, depthWrite: false }));
+    const link = batched(new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col.clone().multiplyScalar(0.55), depthTest: false, depthWrite: false })), 'line');
     link.renderOrder = 7; link.frustumCulled = false; link.visible = false;
     link.userData.set = (a, z) => { const P = lg.attributes.position; P.setXYZ(0, a.x, a.y, a.z); P.setXYZ(1, z.x, z.y, z.z); P.needsUpdate = true; };
     return {
@@ -16094,9 +16287,9 @@ const LOOKS = (function () {
     const col = new THREE.Color(CUT_COL), white = new THREE.Color(1, 1, 1);
     const body = new THREE.Group(), deco = new THREE.Group();
     const hit = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ visible: false }));
-    const line = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col, dashSize: 0.07, gapSize: 0.05 }));
+    const line = batched(new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col, dashSize: 0.07, gapSize: 0.05 })), 'line');
     line.renderOrder = 6;
-    const ticks = new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(white, 0.3), depthTest: false, depthWrite: false }));
+    const ticks = batched(new THREE.LineSegments(cutGeo.ticks, new THREE.LineBasicMaterial({ color: col.clone().lerp(white, 0.3), depthTest: false, depthWrite: false })), 'line');
     ticks.renderOrder = 8; ticks.frustumCulled = false;
     body.add(hit, line, ticks);
     const name = tag(30);
@@ -16130,7 +16323,7 @@ const LOOKS = (function () {
   // colour a little darker; `deco` is placed at the box's middle and `box` scaled to its size
   function group(id) {
     const col = new THREE.Color(colOf(id)), deco = new THREE.Group();
-    const box = new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col.clone().lerp(white, 0.25).multiplyScalar(0.6), dashSize: 0.05, gapSize: 0.06, depthTest: false, depthWrite: false }));
+    const box = batched(new THREE.LineSegments(cutGeo.dash, new THREE.LineDashedMaterial({ color: col.clone().lerp(white, 0.25).multiplyScalar(0.6), dashSize: 0.05, gapSize: 0.06, depthTest: false, depthWrite: false })), 'line');
     box.renderOrder = 7; box.frustumCulled = false;
     deco.add(box); deco.visible = false;
     return { deco, box, col: '#' + col.getHexString(), drop() { box.material.dispose(); } };
@@ -16163,7 +16356,7 @@ const LOOKS = (function () {
     const hide = new THREE.MeshBasicMaterial({ colorWrite: false });
     const mesh = new THREE.Mesh(box, lit);
     const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xc9d1dc, visible: false, side: THREE.DoubleSide }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff })), 'line');
     line.renderOrder = 6;
     body.add(mesh, fill, line);
     const name = tag(30);
@@ -16229,7 +16422,7 @@ const LOOKS = (function () {
   })();
   function empty(id) {
     const col = new THREE.Color(colOf(id)), g = new THREE.Group();
-    const axes = new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, color: 0xbfbfbf, depthTest: false, depthWrite: false }));
+    const axes = batched(new THREE.LineSegments(axGeo, new THREE.LineBasicMaterial({ vertexColors: true, color: 0xbfbfbf, depthTest: false, depthWrite: false })), 'line');
     axes.renderOrder = 8; axes.frustumCulled = false;
     const dot = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ color: col, depthTest: false, depthWrite: false }));
     dot.scale.setScalar(0.025); dot.renderOrder = 8;
@@ -16246,7 +16439,7 @@ const LOOKS = (function () {
   function grey() {
     const g = new THREE.Group();
     const fill = new THREE.Mesh(box, new THREE.MeshStandardMaterial({ color: 0x4f5d70, roughness: 0.9 }));
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xb8c4d4 }));
+    const line = batched(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xb8c4d4 })), 'line');
     const body = new THREE.Group(); body.add(fill, line); body.scale.setScalar(0.4); body.position.y = 0.2;
     g.add(body);
     const name = tag(28); name.position.y = 0.48;
@@ -16257,9 +16450,9 @@ const LOOKS = (function () {
   // see-through layer over the whole view): not drawn, its unseen box's edges instead, in a muted grey-blue (one material
   // for all of them; the engine puts it where the model's unseen box is)
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
-  const hidBox = () => { const l = new THREE.LineSegments(edges, HID_MAT); l.visible = false; l.renderOrder = 6; return l; };
-  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE,
-    dispose() { box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
+  const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
+    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();
 
 
@@ -16510,10 +16703,14 @@ function labelEl(html, cls) {
 function buildSetLabels() {
   for (const at of ['hover', 'sel']) LBL.extra.push({ kind: 'extra', el: labelEl('', at === 'hover' ? 'cyn' : ''), set: 'stage', at: () => itemTop(at === 'hover' ? STU.hover : STU.sel), txt: null, o: -1, show: 0 });
 }
-// a label's words: [bold, rest]; the headset's picture is drawn again when they change
+// a label's words: [bold, rest]; the headset's picture (and the page's HTML) made again only when they change. (Until
+// v136 the words were compared with the three it keeps, [bold, rest, class], so they never matched: every frame with
+// something pointed at or selected while editing made its canvas, texture and material again, and three.js linked a new
+// shader program for it, and the page laid its label out again; in a room scan that was every frame of editing)
 function labelSet(L, txt) {
-  const s = txt ? txt.join('|') : '';
-  if (s === (L.txt ? L.txt.join('|') : '')) return;
+  const s = txt ? txt[0] + '|' + txt[1] : '';
+  if (s === (L.key || '')) return;
+  L.key = s;
   L.txt = txt ? [txt[0], txt[1], L.el.classList.contains('cyn') ? 'cyn' : ''] : null;
   L.el.innerHTML = txt ? `<b>${esc(txt[0])}</b> ${esc(txt[1])}` : '';
   L.w = 0;
@@ -16835,7 +17032,7 @@ function openScene(name, how, again) {
   pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, badTex: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    bad: 0, badTex: 0, badPlay: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
@@ -16861,7 +17058,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
@@ -16924,10 +17121,11 @@ async function refreshFiles(changed) {
 // An object's, a shape's, an empty's and a sound's recorded path (v120, e6f_path.js) is part of its record: a bad one makes
 // its item bad, and so does one that would take the scene's paths past 6,000 keys. A cube's texture changes (v124,
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
-// its lists drop such ids
+// its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
+// naming an item the layout lacks, or one of the wrong kind, dropped
 const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, texBad: 0, at: 0, by: '', settings: normSettings() };
+  const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
@@ -16945,6 +17143,7 @@ function readLayout(j) {
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
       ids.add(id); n++; if (rec.path) keys += pathN(rec.path);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
+      if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
       out.items.push({ id, kind, rec });
     }
   }
@@ -16952,6 +17151,7 @@ function readLayout(j) {
   for (const x of out.items) if (x.kind === 'c') {
     x.rec.show = x.rec.show.filter(i => ids.has(i)); x.rec.hide = x.rec.hide.filter(i => ids.has(i));
     if (x.rec.tex) { const t = x.rec.tex.filter(e => kinds.get(e.on) === 'o'); if (t.length) x.rec.tex = t; else delete x.rec.tex; }
+    if (x.rec.plays) { const t = x.rec.plays.filter(e => PLAY_KINDS[e.what].includes(kinds.get(e.on))); if (t.length) x.rec.plays = t; else delete x.rec.plays; }
   }
   out.items = out.items.filter(x => {
     if (x.kind !== 'g') return true;
@@ -17026,7 +17226,7 @@ async function loadSaved() {
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
     putLayout(L.items, L.settings);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -17046,7 +17246,7 @@ function uploadLayout(text) {
   if (!j || j.studio !== 1) { STU.upNote = 'That file is not a studio layout (layout.json with "studio": 1).'; dirty(true); return; }
   const L = readLayout(j);
   putLayout(L.items, L.settings);
-  STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (L.texBad ? ` ${L.texBad} of the cubes' texture changes could not be read.` : '') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
+  STU.upNote = `Read ${L.items.length} item${L.items.length === 1 ? '' : 's'}` + (L.bad ? `; ${L.bad} could not be read.` : '.') + (L.texBad ? ` ${L.texBad} of the cubes' texture changes could not be read.` : '') + (L.playBad ? ` ${L.playBad} of the cubes' starts could not be read.` : '') + (j.scene && j.scene !== STU.scene ? ` (It was saved for the scene ${String(j.scene).slice(0, 64)}.)` : '');
   dirty(true);
 }
 
@@ -20027,6 +20227,7 @@ const STU = {
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
   txp: null,   // (a cube picking an object, its material, a slot and a picture for its texture changes: { id, step, on, mat, slot, page }; e6i_tex.js)
+  plp: null, badPlay: 0,   // (a cube picking what it starts: { id, step, on, what, clip, how, when, page }; the starts a layout lost: e6n_plays.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
   trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
@@ -20092,6 +20293,9 @@ function norm(kind, x) {
     // the pictures it puts on objects while it is active for you, kept only when there are any (an entry that is not one
     // dropped, at most 16: e6i_tex.js); not a list (and not null) makes the record bad
     if (x.tex != null) { const t = Array.isArray(x.tex) ? normTex(x.tex) : null; if (!t) return null; if (t.length) r.tex = t; }
+    // what it starts as you walk in or out, kept only when there is something (an entry that is not one dropped, at most
+    // 16: e6n_plays.js); not a list (and not null) makes the record bad
+    if (x.plays != null) { const t = Array.isArray(x.plays) ? normPlays(x.plays) : null; if (!t) return null; if (t.length) r.plays = t; }
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -20268,6 +20472,8 @@ function removeItem(id) {
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
   if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
+  if (STU.plp && (STU.plp.id === id || STU.plp.on === id)) STU.plp = null;   // (a cube's pick of what it starts: e6n_plays.js)
+  TRG.on.delete(it);
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
@@ -20331,6 +20537,9 @@ function dropModel(it) {
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
   it.txOn = null; it.txSig = '';   // (a cube's pictures were on its materials, gone with them: e6i_tex.js)
+  // (a clip a cube plays on it: its layers went with its mixer, and the run goes on by its clock on the new model: e6n_plays.js)
+  it.tl = null; it.tAct = null;
+  if (it.tr && it.tr.clip) it.tr.clip.layer = null;
 }
 function buildModel(it) {
   const E = it.E;
@@ -20427,10 +20636,11 @@ function setObjAlpha(it, a) {
   }
 }
 // its animation: the clip named in its record, looped, once (to its end, then held) or off (its rest pose), on the
-// scene's clock (the same moment for everyone at a station) or from when a cube showed it to you
+// scene's clock (the same moment for everyone at a station) or from when a cube showed it to you; and over it, the clips a
+// cube plays on it (v136, e6n_plays.js: blended in and out, its own animation getting the rest of the weight)
 function animStep(it, now, clockS) {
   const r = it.rec, E = it.E;
-  if (!it.mixer || !E) return;
+  if (!it.mixer || !E) { if (it.model && it.tr && it.tr.clip) trgDone(it, 'clip', it.tr.clip, 'missing'); return; }   // (a model with no animations: a cube's clip has nothing to play)
   const key = r.clip + '|' + r.anim;
   if (key !== it.animKey) {
     it.animKey = key;
@@ -20441,13 +20651,17 @@ function animStep(it, now, clockS) {
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
   } else if (motionsPaused() && !animHold(it)) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows)
-  if (!it.action || !(it.dur > 0)) return;
   // (held from a card's timeline, here or by someone at this circle: e6m_anim.js)
-  const H = animHold(it);
-  let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
-  if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
-  it.action.time = t;
-  it.mixer.update(0);
+  const H = animHold(it), own = !!it.action && it.dur > 0;
+  if (own) {
+    let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
+    if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
+    it.action.time = t;
+  }
+  // (a cube's clips on it: none named and none fading, nothing done; held from its timeline, its own clip alone shows)
+  const w = (it.tgM & 1) || it.tl || (it.tr && it.tr.clip) ? trgClipStep(it, !!H) : 0;
+  if (it.action) it.action.setEffectiveWeight(1 - w);
+  if (own || w > 0) it.mixer.update(0);
 }
 // the scene's clock (s): at a shared room's station the room's (the same moment everywhere), else since it opened
 function sceneClock(now) {
@@ -20502,9 +20716,10 @@ function triggerStep(now) {
   for (const it of STU.items.values()) {
     if (it.kind !== 's') continue;
     const ob = followOf(it), heard = it.shown && (!ob || ob.shown);
-    if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown') emitStop(it); }
+    if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown' && !trgOn(it)) emitStop(it); }   // (one a cube starts: from its run's moment, e6n_plays.js)
     it.heard = heard;
   }
+  trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
 function shownFor(p) {
@@ -20512,7 +20727,7 @@ function shownFor(p) {
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
-function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
+function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -20772,7 +20987,7 @@ function editStep(editing) {
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
   // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it, amber
-  // for a picture the cube puts on it
+  // for a picture the cube puts on it, blue for something it starts
   const fl = editing && STU.flash && performance.now() - STU.flash.at < FLASH_MS ? STU.items.get(STU.flash.id) : null, FB = GL.flashBox;
   FB.visible = !!fl;
   if (fl) {
@@ -20780,14 +20995,14 @@ function editStep(editing) {
     else { const b = _flb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fls.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fls).max(_flm); FB.matrix.compose(_sw, _flq, _fls); }
     FB.matrixWorldNeedsUpdate = true;
     const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
-    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it)
+    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : STU.flash.play ? 0x5ab8ff : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it; blue: something it starts)
     FB.material.opacity = 0.35 + 0.65 * Math.abs(Math.cos((performance.now() - STU.flash.at) / FLASH_MS * Math.PI * 4));
   } else if (STU.flash && !editing) STU.flash = null;
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
   if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]]]) for (const id of list) {
+    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]]) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -20817,6 +21032,7 @@ function editLooks() {
   const edges = new THREE.EdgesGeometry(BOX1);
   for (const [k, col, o] of [['selBox', 0x46d9ff, 1], ['hoverBox', 0x5d8b9b, 1], ['flashBox', 0x3ee08f, 0]]) {
     const B = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col, transparent: !o, depthTest: false, depthWrite: false }));
+    if (o) LOOKS.batched(B, 'line');   // (the two outlines drawn with the other lines; the flash, which pulses see-through, on its own)
     B.matrixAutoUpdate = false; B.visible = false; B.renderOrder = 8; B.frustumCulled = false;
     GL.scene.add(B); GL[k] = B;
   }
@@ -20826,6 +21042,8 @@ function editLooks() {
   GL.links = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false }));
   GL.links.frustumCulled = false; GL.links.renderOrder = 8; GL.links.visible = false;
   GL.edit.add(GL.links);
+  // the looks' tags and lines drawn together, each time the scene is drawn (LOOKS.batch: a few draws in place of one each)
+  LOOKS.batch(GL.scene, GL.renderer);
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {
@@ -20878,7 +21096,7 @@ function emitStep(now) {
     if (it.kind !== 's') continue;
     const F = it.F;
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
-    const want = quiet ? 0 : it.fa * it.rec.vol;   // (its own fade times that of the object it follows)
+    const tg = trgSound(it), want = quiet ? 0 : it.fa * it.rec.vol * (tg == null ? 1 : tg);   // (its own fade times that of the object it follows; a cube's run on it: e6n_plays.js)
     if (it.ended && it.rec.sync && syncOf(it)) it.ended = false;   // (a voice playing with a path is never over: it starts with each pass)
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now, want);
     else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now, want);
@@ -20921,6 +21139,7 @@ function listen(ctx, p, q) {
 // where a sound starts: a loop of 'always' in a room at the room's time, else from when the scene opened (or, 'shown',
 // from when a cube showed it), modulo its length; a sound that does not loop and is over: -1
 function emitOffset(it, dur, now) {
+  if (trgOn(it)) return trgSoundAt(it, dur);   // (one a cube starts: from its run's start, e6n_plays.js)
   const r = it.rec;
   let t = r.start === 'shown' ? (now - it.shownAt) / 1000 : r.loop ? sceneClock(now) : (now - STU.t0) / 1000;
   if (r.loop) return ((t % dur) + dur) % dur;
@@ -20931,22 +21150,23 @@ function emitStart(it, ctx, buf, now, want) {
   // (a voice that plays with a path: where its path will be as it starts, 20 ms on; none: it waits for the next start)
   const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now + 20, buf.duration || 1) : null;
   if (sync && !sy) return;
-  const off = sy ? Math.max(0, sy.at) : emitOffset(it, buf.duration || 1, now);
+  const off = sy ? Math.max(0, sy.at) : emitOffset(it, buf.duration || 1, now), tr = !sy && trgOn(it);
   if (off < 0) { it.ended = true; return; }
   try {
     const src = ctx.createBufferSource(), g = ctx.createGain(), p = ctx.createPanner();
-    src.buffer = buf; src.loop = !sy && !!it.rec.loop;
-    g.gain.value = sy ? want || 0 : 0;   // (a voice with a path at its level at once: its first word is not faded in)
+    src.buffer = buf; src.loop = !sy && sLoop(it);
+    g.gain.value = sy || tr ? want || 0 : 0;   // (a voice with a path, and a sound a cube starts, at its level at once: its first word is not faded in)
     p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
     it.holder.getWorldPosition(_ep); setPos(p, _ep);
     src.connect(g); g.connect(p); p.connect(ctx.destination);
-    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; };
+    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!sLoop(it) && !syncOf(it)) it.ended = true; };
     if (sy) {
       const when = ctx.currentTime + 0.02 + Math.max(0, -sy.at);   // (a voice that starts after its path: that much later)
       src.start(when, off, Math.max(0.05, sy.left - Math.max(0, -sy.at)));
       it.syncPass = sy.pass; it.syncLog = { c0: when, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
     } else src.start(ctx.currentTime + 0.02, off);
-    Object.assign(it, { src, gain: g, pan: p, gt: sy ? want || 0 : -1, zeroAt: 0 });
+    if (tr) it.trgLog = { at: off, loop: src.loop, c0: ctx.currentTime + 0.02, g0: g.gain.value };   // (for tests: e6n_plays.js)
+    Object.assign(it, { src, gain: g, pan: p, gt: sy || tr ? want || 0 : -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
 // stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
@@ -20972,7 +21192,7 @@ function streamStart(it, ctx, F, now, want) {
   // (a voice that plays with a path: where its path is now; it waits until its moment in its file has come)
   const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now, F.dur || 1) : null;
   if (sync && (!sy || sy.at < 0)) return;
-  const off = sy ? sy.at : emitOffset(it, F.dur || 1, now);
+  const off = sy ? sy.at : emitOffset(it, F.dur || 1, now), tr = !sy && trgOn(it);
   if (off < 0) { it.ended = true; return; }
   if (!S) {
     try {
@@ -20982,7 +21202,7 @@ function streamStart(it, ctx, F, now, want) {
       g.gain.value = 0;
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
-      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; } });
+      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!sLoop(it) && !syncOf(it)) it.ended = true; } });
       el.addEventListener('playing', () => { if (it.st && it.st.el === el) it.st.playAt = performance.now(); });
       // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
       el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
@@ -20992,7 +21212,8 @@ function streamStart(it, ctx, F, now, want) {
     } catch (e) { it.ended = true; return; }
   }
   const el = S.el;
-  el.loop = !sy && !!it.rec.loop;
+  el.loop = !sy && sLoop(it);
+  if (tr) { try { S.gain.gain.setValueAtTime(want || 0, ctx.currentTime); } catch (e) { /* closed */ } it.trgLog = { at: off, loop: el.loop, c0: ctx.currentTime, g0: want || 0 }; }   // (a sound a cube starts: at its level at once)
   if (sy) {
     it.syncPass = sy.pass; it.syncLog = { c0: ctx.currentTime, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
     S.playAt = 0; S.chk = 0; S.fixAt = 0;
@@ -21008,7 +21229,7 @@ function streamStart(it, ctx, F, now, want) {
   if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
   const pr = el.play();
   if (pr && pr.catch) pr.catch(() => { if (it.src === el) { emitStop(it); it.stFail = performance.now(); } });   // (not allowed yet: again in 2 s)
-  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: sy ? want || 0 : -1, zeroAt: 0 });
+  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: sy || tr ? want || 0 : -1, zeroAt: 0 });
 }
 // a streamed voice kept on its path's clock (the room's at a station, so every device hears it at the same moment): once it
 // has played 150 ms, about twice a second its element's moment against where the path says it should be; more than 80 ms
@@ -21052,7 +21273,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -21218,6 +21439,8 @@ function deleteItems(list) {
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
   // (and the pictures they put on a deleted object: e6i_tex.js)
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
+  // (and what they start on a deleted item: e6n_plays.js)
+  for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.plays && c.rec.plays.some(e => gone.has(e.on))) { const t = c.rec.plays.filter(e => !gone.has(e.on)); setRec(c.id, { plays: t.length ? t : undefined }); }
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -21243,6 +21466,8 @@ function duplicateItem(id) {
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
     if (it.kind === 'o') texCopy(id, nid);
+    // (and what a cube starts on it, on its copy too, beside the original's: e6n_plays.js)
+    if (PLAY_ITEMS.includes(it.kind)) playCopy(id, nid);
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -21292,7 +21517,7 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; },   // (one pick at a time: its texture pick ends, e6i_tex.js)
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -21364,6 +21589,7 @@ function select(id) {
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
+  if (STU.plp && STU.plp.id !== id) STU.plp = null;   // (and its pick of what it starts)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
@@ -21967,8 +22193,9 @@ function duplicateGroup(g) {
     for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
+    // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
     const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), locked: undefined })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
@@ -21985,6 +22212,8 @@ function duplicateGroup(g) {
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
       // (and a picture it puts on an object of the group, on that object's copy too, beside it)
       if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: texWithCopies(c.rec.tex, e => map.get(e.on) || '') });
+      // (and what it starts on an item of the group, on that item's copy too, beside it: e6n_plays.js)
+      if (c.rec.plays && c.rec.plays.some(e => map.has(e.on))) setRec(c.id, { plays: withCopies(c.rec.plays, e => map.get(e.on) || '', PLAY_MAX) });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
@@ -22466,7 +22695,12 @@ function drawnPose(it, now, clockS, out) {
   if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
   if (rest) return out;   // (paused, its path held: its path's moment alone)
   const mo = it.rec && it.rec.motion;
-  if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
+  if (mo) {
+    // (a motion a cube starts: at rest until a run, then the run's moment, e6n_plays.js; else its own clock)
+    const tm = trgMotion(it, mo);
+    if (tm === undefined) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
+    else if (tm) out.premultiply(motionDelta(it, tm.mo, tm.t, out, _mD));
+  }
   return out;
 }
 // how much bigger its motion draws it now (a pulse), for an object's followers' offsets (followAt): 1 at rest
@@ -22521,6 +22755,7 @@ function motionBlocks(it, B, dis) {
   if (m.kind !== 'pulse') B.push({ label: 'Axis', row: [['y', 'Upright (y)'], ['x', 'Side to side (x)'], ['z', 'Front to back (z)']].map(([v, n]) => ({ id: 'maxis:' + v, label: n, act: 'i:maxis', v, on: m.axis === v, dis })) });
   B.push({ label: 'Starts', row: [{ id: 'mstart:always', label: 'Always', act: 'i:mstart', v: 'always', on: m.start === 'always', dis }, { id: 'mstart:shown', label: 'When shown', act: 'i:mstart', v: 'shown', on: m.start === 'shown', dis }] },
     { p: 'Drawn over where it stands: its place is not changed. Always: in step for everyone at a circle. When shown: from when a cube shows it to you. It keeps moving while selected, a ghost where it is placed; carried, it rests there, so it can be placed (Pause stands everything still).', c: 'faint' });
+  playNote(it, 'motion', B);   // (a cube that starts it: e6n_plays.js)
 }
 // the card's actions (one Undo step each): a kind (its own speed and amount, the axis and start kept; None takes it
 // away), its speed and amount a step up or down, the other way, its axis, when it starts
@@ -22688,7 +22923,9 @@ const pathT = (it, P, now, clockS) => { const H = animHold(it, 'path'); return H
 POSE.path = (it, now, clockS, m) => {
   const P = pathOf(it);
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
-  pathAt(P, pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
+  // (a path a cube starts: where its run has it, waiting at its start until one, e6n_plays.js; its timeline's hold wins)
+  const tm = (it.tgM & 4) && !animHold(it, 'path') ? trgPathAt(it, P) : null;
+  pathAt(P, tm != null ? tm : pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -23106,6 +23343,7 @@ function pathBlocks(it, B, dis, mv) {
       { row: [{ id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
       { p: 'Played from where it stands: moving or turning it moves its whole path. It plays on while selected (a ghost where it is placed); carried, it rests there. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
     animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
+    playNote(it, 'path', B);   // (a cube that starts it: e6n_plays.js)
   }
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)
@@ -23716,9 +23954,9 @@ function ghostBuild(it) {
     // mixer: three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving
     // (Pause, a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in
     // its rest pose. Its edges alone need no pose: its unseen box)
-    if (ghostLine(it)) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
+    if (ghostLine(it)) add(LOOKS.batched(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), 'line'), it.proxy, 8);   // (drawn with the other lines: LOOKS' batches)
     else {
-      const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
+      const rest = !!((it.action || it.tl) && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
       if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
       it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, matOf(n.geometry)), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
       if (was) { it.model.rest.forEach(([n], i) => { n.position.copy(was[i][0]); n.quaternion.copy(was[i][1]); n.scale.copy(was[i][2]); }); H.updateWorldMatrix(true, true); }
@@ -23728,7 +23966,7 @@ function ghostBuild(it) {
   else {
     for (const n of H.children) {
       if (n === it.look.hit || n.isSprite || !n.geometry) continue;
-      if (n.isLine) add(new THREE.LineSegments(n.geometry, lmat), n, 8);
+      if (n.isLine) add(LOOKS.batched(new THREE.LineSegments(n.geometry, lmat), 'line'), n, 8);
       else if (n.isMesh) add(new THREE.Mesh(n.geometry, mat), n, 3);
     }
     hit(it.look.hit, it.look.hit.geometry);
@@ -23768,7 +24006,7 @@ GHOST.build = 4;
 // of models whose animation moves them while their place stays): while editing its ghost stands where it is placed, in
 // its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
 // ghostFar alone would hide it)
-const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn);   // (worn with trackers too: e6l_puppet.js)
+const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn || !!(it.tl && it.tl.length));   // (worn with trackers too: e6l_puppet.js; a clip a cube plays on it, e6n_plays.js)
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
@@ -24014,13 +24252,15 @@ function texCopy(from, to) {
     setRec(c.id, { tex: texWithCopies(c.rec.tex, e => (e.on === from ? to : '')) });
   }
 }
-// a cube's entries and, after them, a copy of each entry whose object was copied (to(e): the copy's id, '' none), only as
-// many as its 16 leave room for: its own entries are never pushed out (the review of v124)
-function texWithCopies(L, to) {
+// a cube's entries and, after them, a copy of each entry whose item was copied (to(e): the copy's id, '' none), only as
+// many as its most (max: 16) leave room for: its own entries are never pushed out (the review of v124). Its texture
+// changes' (texWithCopies) and what it starts (e6n_plays.js)
+function withCopies(L, to, max) {
   const out = L.slice();
-  for (const e of L) { const t = to(e); if (t && out.length < TXS_MAX) out.push(Object.assign({}, e, { on: t })); }
+  for (const e of L) { const t = to(e); if (t && out.length < max) out.push(Object.assign({}, e, { on: t })); }
   return out;
 }
+const texWithCopies = (L, to) => withCopies(L, to, TXS_MAX);
 // what a model's materials are, for a conversion (CONV.matsOf's, with texture coordinates: Change texture's order) by
 // their names and their meshes' names
 const texMatsOf = root => CONV.matsOf(root).filter(e => e.uv).map(e => ({ name: e.name || '', meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))] }));
@@ -24089,7 +24329,7 @@ Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
   // material, the slot and a page of pictures; a picture adds the entry (one for that object, material and slot: another
   // there takes its place)
-  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; } },   // (one pick at a time)
+  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; } },   // (one pick at a time)
   txOn: (c, oid) => {
     const o = STU.items.get(oid);
     if (!STU.txp || STU.txp.id !== c.id || !o || o.kind !== 'o') return;
@@ -24446,11 +24686,15 @@ const syncOf = it => { const o = it.kind === 's' && it.rec.sync ? STU.items.get(
 function syncAt(it, now, dur) {
   const ob = syncOf(it), P = ob && pathOf(ob), H = ob && animHold(ob, 'path');
   if (!P || !pathK(P) || (H ? !H.p || REST.ids.has(ob.id) : motionRests(ob))) return null;
+  // (its path started by a cube: its voice starts with each run, silent while the path waits or a hold goes back; a run's
+  // passes counted as its how says: e6n_plays.js)
+  const tr = H ? undefined : trgPathTime(ob, now);
+  if (tr === null) return null;
   // (a hold's time not wrapped, so its passes count on as it plays; now may be a moment ahead, as a decoded voice starts)
-  const T = H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
+  const T = tr ? tr.T : H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
   const D = pathLen(P), u = Math.max(0, T * P.speed);
   if (!(D > 0)) return null;
-  const per = P.play === 'bounce' ? 2 * D : D, n = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = H ? 'h' + H.n + ':' + n : n;
+  const per = P.play === 'bounce' ? 2 * D : D, n = (tr ? !tr.loop : P.play === 'once') ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = tr ? 'r' + tr.n + ':' + n : H ? 'h' + H.n + ':' + n : n;
   const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - skip);   // (in the path's time: its file ends at dur - skip)
   return e < len - 0.05 ? { at: skip + e, left: len - e, pass, e } : null;
 }
@@ -24806,7 +25050,7 @@ function pupClock() {
 function pupStep(it, now, dt) {
   const P = it.rec.puppet, rig = P && P.on && pupReady(P) ? pupRig(it) : null;
   if (!rig || !rig.ok) { if (it.pupOn) pupOff(it); it.pupWhy = rig ? rig.why : ''; return false; }
-  if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; pupRest(it); it.pupOn = true; it.pst = {}; it.pstRec = null; }
+  if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; it.tl = null; pupRest(it); it.pupOn = true; it.pst = {}; it.pstRec = null; }   // (a cube's clips on it too: none while worn, e6n_plays.js)
   if (motionsPaused()) return true;   // (Pause: it holds the pose it shows, as the models' animations hold their frame)
   if (it.pstRec !== P) { it.pstRec = P; it.pst = {}; }   // (a new record: the solve starts afresh)
   const W = pupW(), r = IK.solve(rig, pupCal(P, W), pupTargets(P.by, P.map, W), dt, it.pst);
@@ -25269,6 +25513,532 @@ function animBar(ch) {
   return { t: animTime(it, ch), d: ANIM_C[ch].dur(it), held: !!H, p: H ? H.p : true, mine: !!(m && m.id === it.id) };
 }
 const animState = () => ({ mine: ANIM.mine && Object.assign({}, ANIM.mine), mineP: ANIM.mineP && Object.assign({}, ANIM.mineP), heard: Object.fromEntries([...ANIM.heard].map(([k, v]) => [k, Object.assign({}, v)])) });
+// =================================================== CUBES THAT START THINGS ==
+// A trigger cube may start things on a character or a prop as you walk in or out (v136; the owner, 11 November 2026:
+// "Trigger cube should also be able to trigger things like an animation or a soundfile being played on a character or
+// prop"; tools/studio/SPEC.md, "Trigger cubes that start things"). Its record's plays: up to 16 entries
+// { on, what, clip?, how, when? }:
+// - on: the item it starts something on (an object's, a sound's, a shape's or an empty's id);
+// - what: 'clip' (one of an object's animations, named in clip), 'sound' (a sound), 'path' (an object's, a shape's, an
+//   empty's or a sound's recorded path) or 'motion' (an object's, a shape's or an empty's motion);
+// - how: 'once' (from its start to its end, even after you leave), 'loop' (again and again while the cube is active for
+//   you: a while cube until you have left, a stay cube from then on; then it comes off), 'hold' (clips and paths: once to
+//   its end, held there while the cube is active, then it comes off) or 'stop' (ends what runs on that item now, whatever
+//   started it);
+// - when: 'leave' (once and stop only: as you leave the cube), else as you walk in.
+// Each person's own, as everything a cube does: nothing is sent and nothing is stored but the cube's record. An entry
+// fires as its cube is entered (each time: a stay cube walked into again too, and the head inside as the scene opens, the
+// cube appears or the entry is added), or left; both debounced 0.3 s (PLAY_EDGE: out for 0.3 s counts as having left, and
+// in again within that is no new entry), so a head on a cube's face never restarts a wave. Show and hide are not
+// debounced (no scene changes).
+// On each item and what is started on it, the last start decides: it replaces the run under way, and when a run ends
+// nothing older comes back (an object's own animation is back; a sound, a path or a motion waits). How each comes off:
+// a clip blends over the object's own animation, or its rest pose, in and out over 0.3 s (PLAY_BLEND; a new run on it
+// crossfades from the old one's frame); a sound fades out over 0.4 s (a new run starts it again at its level at once); a
+// path that loops finishes the pass under way and waits there, one held goes back along its path to its start, one
+// stopped while once stays where it is; a motion finishes the period under way (a wobble's or an orbit's amount eased in
+// and out). What a cube names waits until a cube starts it: a sound silent, a path at its start (or where its last run
+// left it), a motion at rest; its own Starts (and a sound's own Loop) no longer apply. An object's own animation goes on
+// until a cube plays a clip over it. A sound that plays with a recorded path (sync) is no target: starting that path
+// starts its voice. Pause, a timeline's hold, a carry and a character worn with trackers win over a run, as over
+// everything that moves
+const PLAY_WHAT = ['clip', 'sound', 'path', 'motion'], PLAY_HOW = ['once', 'loop', 'hold', 'stop'], PLAY_MAX = 16, PLAY_BLEND = 300, PLAY_FADE = 400, PLAY_EDGE = 300, PLAY_TRY = 10000;
+// (what each can be started on, by item kind, and its bit in an item's tgM: what a cube names on it)
+const PLAY_KINDS = { clip: ['o'], sound: ['s'], path: ['o', 'p', 'e', 's'], motion: ['o', 'p', 'e'] }, PLAY_BIT = { clip: 1, sound: 2, path: 4, motion: 8 };
+const PLAY_ITEMS = ['o', 's', 'p', 'e'];
+// list: every entry { c (its cube), e, ek }; cubes: the cubes with plays; seen: the entries already known (one new while
+// its cube is active fires at once); on: the items with a run; log: the last 100 starts and ends (tests); n: runs started
+// (a voice's pass); rev2: moves on at each start and end; said: a missing clip logged once a scene opening
+const TRG = { gen: -1, rev: -1, list: [], cubes: [], seen: new Map(), on: new Set(), log: [], n: 0, rev2: 0, said: new Set() };
+// its clock (ms; the tests set their own, as recClock)
+let trgClock = () => performance.now();
+const playEk = (c, e) => c.id + '|' + e.on + '|' + e.what + '|' + (e.when || 'enter') + '|' + e.how + '|' + (e.clip || '');
+const playKey = e => e.on + '|' + e.what + '|' + (e.when || 'enter');
+const plog = (ev, d) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, d); } catch (e) { /* no log */ } };
+const trgPush = x => { TRG.log.push(x); if (TRG.log.length > 100) TRG.log.shift(); };
+// a cube's entries as a record keeps them: one that is not one is dropped, as is a second for the same item, what and
+// moment; a clip's name required (but for a stop), cut to 120 characters; at most 16. Fields in this order: on, what,
+// clip, how, when (how always written, when only for 'leave')
+function normPlays(list) {
+  const out = [], seen = new Set();
+  for (const e of list) {
+    if (out.length >= PLAY_MAX) break;
+    if (!e || typeof e !== 'object' || Array.isArray(e) || !okId(e.on) || !PLAY_WHAT.includes(e.what)) continue;
+    const how = e.how === undefined ? 'once' : e.how, when = e.when === undefined || e.when === null || e.when === 'enter' ? '' : e.when;
+    if (!PLAY_HOW.includes(how) || (when && when !== 'leave')) continue;
+    if (how === 'hold' && e.what !== 'clip' && e.what !== 'path') continue;
+    if (when === 'leave' && how !== 'once' && how !== 'stop') continue;
+    const clip = e.what === 'clip' && how !== 'stop' ? (typeof e.clip === 'string' && e.clip.trim() ? e.clip.slice(0, 120) : null) : '';
+    if (clip === null) continue;
+    const r = { on: e.on, what: e.what };
+    if (clip) r.clip = clip;
+    r.how = how;
+    if (when) r.when = when;
+    const k = playKey(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+// ------------------------------------------------------------ each frame --
+// the entries, made again only when the items change (STU.rev) or the scene opens again (STU.gen: nothing runs then)
+function trgList() {
+  if (TRG.rev === STU.rev && TRG.gen === STU.gen) return;
+  if (TRG.gen !== STU.gen) { TRG.seen.clear(); TRG.on.clear(); TRG.said.clear(); for (const it of STU.items.values()) it.tr = null; }
+  TRG.gen = STU.gen; TRG.rev = STU.rev;
+  TRG.list = []; TRG.cubes = [];
+  for (const it of STU.items.values()) it.tgM = 0;
+  const keys = new Set();
+  for (const c of STU.items.values()) {
+    if (c.kind !== 'c' || !c.rec.plays) continue;
+    TRG.cubes.push(c);
+    for (const e of c.rec.plays) {
+      const ek = playEk(c, e);
+      keys.add(ek);
+      TRG.list.push({ c, e, ek });
+      const t = STU.items.get(e.on);
+      if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what];
+    }
+  }
+  for (const k of [...TRG.seen.keys()]) if (!keys.has(k)) TRG.seen.delete(k);
+}
+// once the cubes are worked out for this frame (the end of triggerStep): each cube's entering and leaving, debounced
+// (c.pl: in, out (when the head went out; -1 in), lt (the moment it counts as having left: out + 0.3 s), act (active for
+// you, debounced)); the entries that fire (leaving first, then entering); and the loops and holds whose cube is no longer
+// active for you (or gone, or the entry gone) come off
+function trgFire() {
+  trgList();
+  if (!TRG.list.length && !TRG.on.size) return;
+  const T = trgClock();
+  let left = false;
+  for (const c of TRG.cubes) {
+    const P = c.pl || (c.pl = { in: false, out: -1, lt: 0, act: false, enter: false, leave: false });
+    P.enter = P.leave = false;
+    if (c.inside) {
+      // (out long enough with no frame between, and in again: it left, then came in)
+      if (P.in && P.out >= 0 && T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+      P.out = -1;
+      if (!P.in) P.in = P.enter = true;
+    } else if (P.in) {
+      if (P.out < 0) P.out = T;
+      else if (T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+    }
+    if (P.leave) left = true;
+    P.act = c.rec.mode === 'stay' ? !!c.act : P.in;
+  }
+  if (left) for (const x of TRG.list) if (x.e.when === 'leave' && x.c.pl.leave) { TRG.seen.set(x.ek, 1); trgStart(x, Math.min(T, x.c.pl.lt || T), false); }
+  for (const x of TRG.list) {
+    if (x.e.when === 'leave') { if (!TRG.seen.has(x.ek)) TRG.seen.set(x.ek, 1); continue; }
+    const P = x.c.pl, fresh = !TRG.seen.has(x.ek);
+    if (fresh) TRG.seen.set(x.ek, 1);
+    if (P.enter || (fresh && P.act)) trgStart(x, T, false);
+  }
+  for (const t of TRG.on) {
+    if (STU.items.get(t.id) !== t) { TRG.on.delete(t); continue; }
+    for (const k of PLAY_WHAT) {
+      const R = t.tr && t.tr[k];
+      if (!R || R.off || (R.e.how !== 'loop' && R.e.how !== 'hold') || R.try > T) continue;
+      const C = R.c, here = STU.items.get(C.id) === C && C.pl && C.pl.act && TRG.seen.has(R.ek);
+      if (!here) trgOff(R, C.pl && C.pl.leave && C.pl.lt ? Math.min(T, C.pl.lt) : T, 'left');
+    }
+  }
+}
+// an entry fires: its run on its item from now (tried: by its card's Try, a loop or a hold coming off after 10 s unless
+// its cube is active for you); a stop ends the run on that item and starts nothing
+function trgStart(x, T, tried) {
+  const { c, e, ek } = x, t = STU.items.get(e.on);
+  if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return false;
+  if (e.what === 'sound' && syncOf(t)) return false;   // (a voice that plays with a path: started with its path)
+  trgPush(['start', c.id, e.on, e.what, e.clip || '', e.how, e.when || 'enter', T]);
+  plog('studio play', { cube: c.id, on: e.on, what: e.what, clip: e.clip || '', how: e.how, when: e.when || 'enter' });
+  const was = t.tr && t.tr[e.what];
+  if (e.how === 'stop') { if (was && !was.off) trgOff(was, T, 'stop'); return true; }
+  if (!t.tr) t.tr = {};
+  t.tr[e.what] = { c, e, ek, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
+  TRG.on.add(t); TRG.rev2++;
+  return true;
+}
+// a run comes off (left, stopped, tried long enough): each kind as it does (its clip blends out, its sound fades, its path
+// finishes its pass or goes back, its motion its period)
+function trgOff(R, T, why) {
+  if (R.off) return;
+  R.off = T;
+  trgPush(['off', R.e.on, R.e.what, why, T]);
+  TRG.rev2++;
+}
+// a run over: its item waits again (or plays its own animation)
+function trgDone(it, what, R, why) {
+  if (!it.tr || it.tr[what] !== R) return;
+  it.tr[what] = null;
+  trgPush(['end', it.id, what, why]);
+  TRG.rev2++;
+  if (!PLAY_WHAT.some(k => it.tr[k])) { it.tr = null; if (!it.tl || !it.tl.length) TRG.on.delete(it); }
+}
+// everything forgotten (Reset what I have seen, the lobby): every run stopped at once, a cube you stand in fires again on
+// the next frame
+function trgReset(why) {
+  for (const t of TRG.on) {
+    if (t.tl) { for (const y of t.tl) try { y.a.stop(); } catch (e) { /* its mixer gone */ } t.tl = null; }
+    if (t.kind === 's' && t.tr && t.tr.sound) emitStop(t);
+  }
+  for (const it of STU.items.values()) { it.tr = null; it.pw = 0; it.pl = null; if (it.tl) { for (const y of it.tl) try { y.a.stop(); } catch (e) { /* gone */ } it.tl = null; } }
+  TRG.on.clear();
+  trgPush(['reset', why || '']);
+  TRG.rev2++;
+}
+
+// ----------------------------------------------------------------- clips --
+// its layers (it.tl, at most 2: { a, R, dur, t, w, t0, w0, fadeAt }), each frame from animStep: a new run's layer blends
+// in over 0.3 s, the one before it frozen at its frame and fading out meanwhile; a once fades out from its end, a loop or a
+// hold from when it came off; held (a timeline's hold shows its own clip alone): every layer at weight 0. Returns the
+// layers' weight (0 to 1: the object's own animation gets the rest)
+function trgAction(it, clip, L) {
+  const M = it.tAct || (it.tAct = new Map());
+  let pair = M.get(clip.name);
+  if (!pair) { pair = [it.mixer.clipAction(clip.clone()), it.mixer.clipAction(clip.clone())]; M.set(clip.name, pair); }
+  return L && L.some(y => y.a === pair[0]) ? pair[1] : pair[0];
+}
+// a layer's moment and weight at T (the current one, not fading)
+function trgLayerAt(y, T) {
+  const R = y.R, e = Math.max(0, (T - R.at) / 1000);
+  y.t = R.e.how === 'loop' ? e % y.dur : Math.min(e, y.dur - 1e-4);
+  const inW = Math.min(1, (T - R.at) / PLAY_BLEND), endAt = R.off || (R.e.how === 'once' ? R.at + y.dur * 1000 : 0);
+  y.w = inW * (endAt && T > endAt ? Math.max(0, 1 - (T - endAt) / PLAY_BLEND) : 1);
+  return endAt;
+}
+function trgClipStep(it, held) {
+  const R = it.tr && it.tr.clip, T = trgClock();
+  let L = it.tl;
+  if (R && R.layer && !(L && L.includes(R.layer))) R.layer = null;   // (its layers dropped, a model built again: on by its clock)
+  if (R && !R.layer) {
+    // (the run before, if any: frozen where it is now, fading out; the last start decides, also one with nothing to play)
+    if (L) for (const y of L) if (!y.fadeAt && y.R !== R) { trgLayerAt(y, T); y.t0 = y.t; y.w0 = y.w; y.fadeAt = T; }
+    const clip = it.E && it.E.clips ? it.E.clips.find(k => k.name === R.e.clip) : null;
+    if (!clip || !(clip.duration > 0)) {
+      if (!TRG.said.has(R.ek)) { TRG.said.add(R.ek); plog('studio play missing', { cube: R.c.id, on: it.id, clip: R.e.clip }); }
+      trgDone(it, 'clip', R, 'missing');
+    } else {
+      while (L && L.length >= 2) { const o = L.shift(); try { o.a.stop(); } catch (e) { /* gone */ } }
+      const a = trgAction(it, clip, L);
+      a.reset(); a.setEffectiveWeight(0); a.play();
+      const y = { a, R, dur: clip.duration, t: 0, w: 0, t0: 0, w0: 0, fadeAt: 0 };
+      L = it.tl = (L || []).concat(y);
+      R.layer = y;
+      TRG.on.add(it);
+    }
+  }
+  if (!L || !L.length) return 0;
+  for (let i = L.length - 1; i >= 0; i--) {
+    const y = L[i];
+    let gone = false;
+    if (y.fadeAt) { y.t = y.t0; y.w = y.w0 * Math.max(0, 1 - (T - y.fadeAt) / PLAY_BLEND); gone = T - y.fadeAt >= PLAY_BLEND; }
+    else {
+      const endAt = trgLayerAt(y, T);
+      gone = !!endAt && T - endAt >= PLAY_BLEND;
+      if (gone) trgDone(it, 'clip', y.R, 'end');
+    }
+    if (gone) { try { y.a.stop(); } catch (e) { /* gone */ } L.splice(i, 1); if (y.R.layer === y) y.R.layer = null; }
+  }
+  if (!L.length) { it.tl = null; if (!it.tr) TRG.on.delete(it); return 0; }
+  let sum = 0;
+  for (const y of L) sum += y.w;
+  const k = sum > 1 ? 1 / sum : 1;
+  for (const y of L) {
+    if (!y.a.isRunning()) y.a.play();
+    y.a.setEffectiveWeight(held ? 0 : y.w * k);
+    y.a.time = y.t;
+  }
+  return held ? 0 : Math.min(1, sum);
+}
+
+// ---------------------------------------------------------------- sounds --
+// a sound a cube names (not one that plays with a path): silent until a run starts it, from its start at its level at
+// once; a run that came off fades out over 0.4 s; a once over at its end
+const trgOn = it => !!(it.tgM & 2) && !syncOf(it);
+// whether it loops now: a run's how, else its record's Loop
+const sLoop = it => (trgOn(it) ? !!(it.tr && it.tr.sound && it.tr.sound.e.how === 'loop') : !!it.rec.loop);
+// its gain factor now (emitStep, every sound), or null when no cube names it
+function trgSound(it) {
+  if (!trgOn(it)) return null;
+  const R = it.tr && it.tr.sound;
+  if (!R) { it.tg = 0; return 0; }
+  const T = trgClock();
+  if (!R.seen) { R.seen = true; emitStop(it); it.ended = false; }
+  let g = 1;
+  if (R.off) g = Math.max(0, 1 - (T - R.off) / PLAY_FADE);
+  else if (R.e.how !== 'loop' && it.F && it.F.dur > 0 && T - R.at >= it.F.dur * 1000) g = 0;
+  it.tg = g;
+  if (g <= 0) trgDone(it, 'sound', R, R.off ? 'off' : 'end');
+  return g;
+}
+// where its run is now (s into its file), -1 over: emitOffset's for a sound a cube names
+function trgSoundAt(it, dur) {
+  const R = it.tr && it.tr.sound;
+  if (!R) return -1;
+  const e = Math.max(0, (trgClock() - R.at) / 1000);
+  return R.e.how === 'loop' ? e % dur : e < dur - 0.05 ? e : -1;
+}
+
+// ----------------------------------------------------------------- paths --
+// a path a cube names: its moment (s of the path) for POSE.path. No run: where its last run left it (it.pw; its start at
+// first). Once: from its start to its end (there and back for Back and forth), then waits there; stopped, where it is.
+// Loop: again and again; come off, it finishes the pass under way and waits at its end. Hold: to its end and held there;
+// come off, back along its path at its speed to its start
+function trgPathAt(it, P) {
+  const R = it.tr && it.tr.path;
+  if (!R) return it.pw || 0;
+  const T = trgClock(), D = pathLen(P), sp = P.speed, bounce = P.play === 'bounce', cyc = bounce ? 2 * D : D;
+  if (!(D > 0)) return 0;
+  const u = Math.max(0, (T - R.at) / 1000 * sp), uo = R.off ? Math.max(0, (R.off - R.at) / 1000 * sp) : Infinity;
+  const bnc = v => { const w = v % (2 * D); return w <= D ? w : 2 * D - w; }, endOf = bounce ? 0 : D;
+  let m, done = false;
+  if (R.e.how === 'hold') {
+    if (R.off) { m = Math.max(0, Math.min(uo, D) - (T - R.off) / 1000 * sp); done = m <= 0; } else m = Math.min(u, D);
+  } else if (R.e.how === 'loop') {
+    const end = R.off ? Math.max(cyc, Math.ceil(uo / cyc - 1e-9) * cyc) : Infinity;
+    if (u >= end) { m = endOf; done = true; } else m = bounce ? bnc(u) : u % D;
+  } else if (R.off) { m = it.pw || 0; done = true; }
+  else if (u >= cyc) { m = endOf; done = true; }
+  else m = bounce ? bnc(u) : u;
+  it.pw = m;
+  if (done) trgDone(it, 'path', R, R.off ? 'off' : 'end');
+  return m;
+}
+// a voice recorded with a path a cube names (syncAt): the run's time (s, at now) and number, or null while it waits (no
+// run) or a hold goes back; undefined: no cube names the path (its own clock)
+function trgPathTime(ob, now) {
+  if (!(ob.tgM & 4)) return undefined;
+  const R = ob.tr && ob.tr.path;
+  if (!R || (R.e.how === 'hold' && R.off)) return null;
+  return { T: (trgClock() + now - performance.now() - R.at) / 1000, n: R.n, loop: R.e.how === 'loop' };
+}
+
+// --------------------------------------------------------------- motions --
+// a motion a cube names (drawnPose): undefined no cube names it (its own clock); null it rests (no run, or over); else
+// { mo, t }: its moment. Once: one period (60 / |speed| s); a loop that came off (or was stopped) finishes the period under
+// way; a wobble's and an orbit's amount eased in and out (they stand away from their place at the period's start)
+const _tm2 = {}, _tmo = { mo: null, t: 0 };
+function trgMotion(it, mo) {
+  if (!(it.tgM & 8)) return undefined;
+  const R = it.tr && it.tr.motion;
+  if (!R) return null;
+  const T = trgClock(), per = 60 / Math.max(0.1, Math.abs(mo.speed)), t = Math.max(0, (T - R.at) / 1000);
+  const end = R.e.how === 'once' ? per : R.off ? Math.max(per, Math.ceil(Math.max(0, R.off - R.at) / 1000 / per - 1e-9) * per) : Infinity;
+  if (t >= end) { trgDone(it, 'motion', R, R.off ? 'off' : 'end'); return null; }
+  let m = mo;
+  if (mo.kind === 'wobble' || mo.kind === 'orbit') {
+    const ez = Math.min(0.5, per / 4), k = Math.min(1, t / ez, (end - t) / ez);
+    if (k < 1) { m = Object.assign(_tm2, mo); _tm2.amount = mo.amount * Math.max(0, k); }
+  }
+  _tmo.mo = m; _tmo.t = t;
+  return _tmo;
+}
+
+// ------------------------------------------------------------ words --
+const HOW_WORD = { once: 'Once', loop: 'Loop', hold: 'Hold', stop: 'Stop' };
+const whatWord = e => (e.what === 'clip' ? e.clip || 'its animation' : e.what === 'sound' ? 'the sound' : e.what === 'path' ? 'its recorded path' : 'its motion');
+// an entry in words: "Dancer · Wave · once", "Voice · the sound · loops while you are inside", "Radio · stops · on leaving"
+function playWords(e, c) {
+  const t = STU.items.get(e.on), stay = c && c.rec.mode === 'stay', nm = t ? t.rec.name : 'an item not in the scene';
+  const how = e.how === 'once' ? 'once' : e.how === 'loop' ? (stay ? 'loops from then on' : 'loops while you are inside') : e.how === 'hold' ? (stay ? 'held from then on' : 'held while inside') : '';
+  const body = e.how === 'stop' ? (e.what === 'sound' ? 'stops' : 'stops ' + (e.what === 'clip' ? 'its animation' : whatWord(e))) : whatWord(e) + ' · ' + how;
+  return `${nm} · ${body}` + (e.when === 'leave' ? ' · on leaving' : '');
+}
+// what can be started on an item: [{ what, clip, label, dis, why }] (a voice that plays with a path: none it can take)
+function playOpts(t) {
+  if (!t || !PLAY_ITEMS.includes(t.kind)) return [];
+  const out = [];
+  if (t.kind === 'o') for (const k of (t.E && t.E.clips) || []) if (k.duration > 0) out.push({ what: 'clip', clip: k.name, label: k.name, sub: secs(k.duration) });
+  if (t.kind === 's') {
+    const sy = syncOf(t);
+    out.push(sy ? { what: 'sound', label: 'The sound', dis: true, why: `It plays with ${sy.rec.name}'s recorded path: start the path instead.` } : { what: 'sound', label: 'The sound' });
+  }
+  if (pathOf(t)) out.push({ what: 'path', label: 'Its recorded path' });
+  if (t.kind !== 's' && t.rec.motion && MOTION[t.rec.motion.kind]) out.push({ what: 'motion', label: 'Its motion: ' + MOTION[t.rec.motion.kind].word });
+  return out;
+}
+// an item's options in a line: "animations: Spin, Bob · recorded path"
+function optsLine(t, o) {
+  const cl = o.filter(x => x.what === 'clip').map(x => x.clip), rest = o.filter(x => x.what !== 'clip').map(x => x.what === 'sound' ? 'sound' : x.what === 'path' ? 'recorded path' : 'motion');
+  return [cl.length ? (cl.length > 1 ? 'animations: ' : 'animation: ') + cl.slice(0, 6).join(', ') + (cl.length > 6 ? '...' : '') : ''].concat(rest).filter(Boolean).join(' · ');
+}
+// why an entry cannot play now ('' it can)
+function playWhy(e) {
+  const t = STU.items.get(e.on);
+  if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return 'It names an item not in the scene.';
+  if (e.what === 'clip' && e.how !== 'stop' && t.model && !((t.E && t.E.clips) || []).some(k => k.name === e.clip)) return `${t.rec.name} has no animation ${e.clip} now.`;
+  if (e.what === 'sound' && syncOf(t)) return `${t.rec.name} plays with ${syncOf(t).rec.name}'s recorded path: start the path instead.`;
+  if (e.what === 'path' && !pathOf(t)) return t.kind === 's' && t.rec.on && t.rec.path ? `${t.rec.name} follows something: its own recorded path waits until it follows nothing.` : `${t.rec.name} has no recorded path.`;
+  if (e.what === 'motion' && !t.rec.motion) return `${t.rec.name} has no motion.`;
+  return '';
+}
+// what a draft entry will do, in a sentence: "As you walk in, Dancer plays Wave once from its start, then its own
+// animation again."
+function playSentence(d, c) {
+  const t = STU.items.get(d.on);
+  if (!t || !d.what) return 'Pick what to start.';
+  const nm = t.rec.name, stay = c.rec.mode === 'stay', dur = stay ? 'from then on' : 'while you are inside', when = d.when === 'leave' ? 'As you walk out' : 'As you walk in';
+  const own = t.kind === 'o' && t.rec.anim !== 'off' && t.rec.clip ? 'then its own animation again' : 'then it stands still again';
+  // (a loop or a hold on a cube that stays never comes off: until Reset what I have seen, or the lobby)
+  const after = x => (stay ? '' : ', ' + x), M = t.rec.motion && MOTION[t.rec.motion.kind];
+  let s = '';
+  if (d.what === 'clip') s = d.how === 'stop' ? `the animation a cube plays on ${nm} blends out, ${own}` : d.how === 'once' ? `${nm} plays ${d.clip} once from its start, ${own}` : d.how === 'loop' ? `${nm} plays ${d.clip} again and again ${dur}` + after(own) : `${nm} plays ${d.clip} once and holds its last frame ${dur}` + after(own);
+  else if (d.what === 'sound') s = d.how === 'stop' ? `${nm} fades out` : d.how === 'once' ? `${nm} plays once from its start` : `${nm} plays again and again ${dur}` + after('then fades out');
+  else if (d.what === 'path') s = d.how === 'stop' ? `${nm} stops on its recorded path where it is` : d.how === 'once' ? `${nm} plays its recorded path once from its start, and waits at its end` : d.how === 'loop' ? `${nm} plays its recorded path again and again ${dur}` + after('then finishes the pass under way') : `${nm} plays its recorded path to its end and holds there ${dur}` + after('then goes back to its start');
+  else s = !M ? `${nm} has no motion` : d.how === 'stop' ? `${nm} finishes the ${M.one} under way and rests` : d.how === 'once' ? `${nm} ${M.does} once (one ${M.one}), then rests` : `${nm} ${M.does} ${dur}` + after(`then finishes the ${M.one} under way and rests`);
+  return `${when}, ${s}.`;
+}
+// whether an entry's run is the one on its item now (for you)
+function playing(c, e) {
+  const t = STU.items.get(e.on), R = t && t.tr && t.tr[e.what];
+  return !!R && !R.off && R.ek === playEk(c, e);
+}
+const holdOk = what => what === 'clip' || what === 'path';
+// the cubes that name an item for a what, in words (a target's card): '' none
+function playNote(it, what, B) {
+  if (!(it.tgM & PLAY_BIT[what])) return;
+  const cs = TRG.list.filter(x => x.e.on === it.id && x.e.what === what && x.e.how !== 'stop');
+  const names = [...new Set(cs.map(x => x.c.rec.name))].join(', ') || [...new Set(TRG.list.filter(x => x.e.on === it.id && x.e.what === what).map(x => x.c.rec.name))].join(', ');
+  const R = it.tr && it.tr[what], now = R && !R.off ? ' Playing for you now.' : '';
+  if (what === 'clip') {
+    const cl = [...new Set(cs.map(x => `${x.e.clip} (${x.e.how})`))].join(', ');
+    B.push({ p: `${names} play${cs.length > 1 ? '' : 's'} ${cl || 'nothing'} on it: its own animation goes on otherwise; Off keeps it still until then.` + now, c: 'faint' });
+  } else if (what === 'sound') B.push({ p: `A cube starts it (${names}): silent until then; its Plays and Starts do not apply.` + now, c: 'faint' });
+  else if (what === 'path') B.push({ p: `A cube starts its path (${names}): it waits at its start (or where its last run left it); its Plays says what one pass is, Starts does not apply.` + now, c: 'faint' });
+  else B.push({ p: `A cube starts its motion (${names}): it rests until then; Starts does not apply.` + now, c: 'faint' });
+}
+// the card's signature part: the selected cube's entries' playing flags, or the selected item's tgM ('' otherwise)
+function playSig() {
+  const it = STU.items.get(STU.sel);
+  if (!it) return '';
+  if (it.kind === 'c') return it.rec.plays ? it.rec.plays.map(e => +playing(it, e)).join('') : '';
+  if (!it.tgM) return '';
+  return it.tgM + ':' + PLAY_WHAT.map(k => +!!(it.tr && it.tr[k] && !it.tr[k].off)).join('');
+}
+
+// ------------------------------------------------------------ copies --
+// an item's copy (Duplicate): beside each entry on the original, in every cube, one for the copy (a cube's 16 kept)
+function playCopy(from, to) {
+  for (const c of [...STU.items.values()]) {
+    if (c.kind !== 'c' || !c.rec.plays || !c.rec.plays.some(e => e.on === from)) continue;
+    setRec(c.id, { plays: withCopies(c.rec.plays, e => (e.on === from ? to : ''), PLAY_MAX) });
+  }
+}
+
+// ------------------------------------------------------------ the cube's card --
+// Starts: each entry (a press flashes its item in blue; Try plays it here now; ✕ takes it off, one Undo step), and Start
+// something...: an item (pointed at, or from the card's list), what to start on it, how and when; Add (one Undo step)
+const PLAY_PARA = 'What a cube starts is for you only, as everything a cube does. The last thing started on an item decides. A sound, a path or a motion a cube starts waits until then; an object\'s own animation goes on until a cube plays a clip on it (Animation Off keeps it still).';
+function playCubeBlocks(c, B, dis) {
+  const L = c.rec.plays || [], P = STU.plp && STU.plp.id === c.id ? STU.plp : null, full = L.length >= PLAY_MAX;
+  const cands = [...STU.items.values()].filter(t => t.id !== c.id && PLAY_ITEMS.includes(t.kind)), any = cands.some(t => playOpts(t).some(o => !o.dis));
+  if (!L.length) B.push({ kv: [['Starts', 'nothing']] });
+  L.forEach((e, k) => {
+    const on = playing(c, e), why = playWhy(e);
+    B.push({ label: k ? '' : `Starts (${L.length})`, row: [
+      { id: `plflash:${k}`, label: playWords(e, c) + (on ? ' · playing for you' : ''), act: 'i:plFlash', v: e.on, on },
+      { id: `pltry:${k}`, label: on && e.how !== 'stop' ? 'Stop' : 'Try', act: 'i:plTry', v: k, dis: dis || !!why },
+      { id: `unplay:${k}`, label: '✕', act: 'i:unplay', v: k, dis }] });
+    if (why) B.push({ p: why, c: 'amber' });
+  });
+  B.push({ row: [{ id: 'plpick', label: P ? 'Cancel' : 'Start something...', act: 'i:plPick', on: !!P, dis: dis || (!P && (full || !any)) }] });
+  if (full) B.push({ p: `${PLAY_MAX} starts: the most a cube takes.`, c: 'amber' });
+  else if (!any && !L.length) B.push({ p: 'A cube can start an animation, a sound, a recorded path or a motion as you walk in or out: place something that has one first.', c: 'faint' });
+  if (P && P.step === 'obj') {
+    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': an object, a sound, a shape or an empty with something to start.', c: 'amber' });
+    const rows = cands.map(t => { const o = playOpts(t), ok = o.filter(x => !x.dis); return o.length ? { id: 'plon:' + t.id, label: t.rec.name, sub: ok.length ? optsLine(t, ok) : o[0].why, act: 'i:plOn', v: t.id, dis: dis || !ok.length } : null; }).filter(Boolean);
+    B.push({ list: rows });
+  } else if (P) {
+    const t = STU.items.get(P.on), opts = t ? playOpts(t).filter(o => !o.dis) : [];
+    B.push({ kv: [['Target', t ? `${t.rec.name} · ${KIND_NAME[t.kind]}` : 'not in the scene']] }, { row: [{ id: 'plback', label: 'Another item...', act: 'i:plBack', dis }] });
+    const clips = opts.filter(o => o.what === 'clip'), others = opts.filter(o => o.what !== 'clip');
+    if (t && t.kind === 'o' && !t.model) B.push({ p: `${t.rec.name}'s model is not here yet: its animations show once it is.`, c: 'faint' });
+    if (clips.length) {
+      const row = o => ({ id: 'plwhat:clip:' + o.clip, label: o.clip, sub: o.sub, act: 'i:plWhat', v: 'clip:' + o.clip, on: P.what === 'clip' && P.clip === o.clip, dis });
+      const per = 8, pages = Math.max(1, Math.ceil(clips.length / per)), pg = Math.min(P.page, pages - 1);
+      B.push({ page: true, label: `Its animations (${clips.length})`, list: clips.map(row) }, { xr: true, label: `Its animations (${clips.length})`, list: clips.slice(pg * per, pg * per + per).map(row) });
+      if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(clips.length, pg * per + per)} of ${clips.length}`, row: [{ id: 'plpg:-', label: '◂ Previous', act: 'i:plPg', v: -1, dis: pg <= 0 }, { id: 'plpg:+', label: 'Next ▸', act: 'i:plPg', v: 1, dis: pg >= pages - 1 }] });
+    }
+    if (others.length) B.push({ label: clips.length ? 'Or' : 'What', row: others.map(o => ({ id: 'plwhat:' + o.what, label: o.label, act: 'i:plWhat', v: o.what, on: P.what === o.what, dis })) });
+    if (!opts.length) B.push({ p: 'Nothing on it to start now.', c: 'amber' });
+    else {
+      B.push({ label: 'How', row: PLAY_HOW.map(h => ({ id: 'plhow:' + h, label: HOW_WORD[h], act: 'i:plHow', v: h, on: P.how === h, dis: dis || (h === 'hold' && !holdOk(P.what)) })) });
+      if (P.how === 'once' || P.how === 'stop') B.push({ label: 'When', row: [{ id: 'plwhen:enter', label: 'Walking in', act: 'i:plWhen', v: 'enter', on: P.when !== 'leave', dis }, { id: 'plwhen:leave', label: 'Walking out', act: 'i:plWhen', v: 'leave', on: P.when === 'leave', dis }] });
+      B.push({ kv: [['It will', playSentence(P, c)]] });
+      const same = L.some(e => playKey(e) === playKey(playDraft(P)));
+      B.push({ row: [{ id: 'pladd', label: same ? 'Replace' : 'Add', act: 'i:pladd', primary: true, dis: dis || !P.what || (!same && full) }] });
+    }
+  }
+  B.push({ p: PLAY_PARA, c: 'faint' });
+}
+// the pick's draft as an entry
+const playDraft = P => ({ on: P.on, what: P.what, clip: P.what === 'clip' && P.how !== 'stop' ? P.clip : undefined, how: P.how, when: P.when === 'leave' ? 'leave' : undefined });
+Object.assign(ITEM_ACT, {
+  // the pick: on, or off (Cancel; one pick at a time: Pick what it shows and Change a texture... end); an item chosen (its
+  // first option); another item; what, how, when; a page of its animations (a headset's card)
+  plPick: c => { if (c.kind === 'c') { STU.plp = STU.plp && STU.plp.id === c.id ? null : { id: c.id, step: 'obj', on: '', what: '', clip: '', how: 'once', when: 'enter', page: 0 }; STU.pick = null; STU.txp = null; } },
+  plOn: (c, id) => {
+    const P = STU.plp, t = STU.items.get(id);
+    if (!P || P.id !== c.id || !t || t.id === c.id) return;
+    const o = playOpts(t).filter(x => !x.dis);
+    if (!o.length) return;
+    Object.assign(P, { step: 'how', on: id, what: o[0].what, clip: o[0].clip || '', page: 0 });
+    if (P.how === 'hold' && !holdOk(P.what)) P.how = 'once';
+  },
+  plBack: c => { if (STU.plp && STU.plp.id === c.id) Object.assign(STU.plp, { step: 'obj', on: '', what: '', clip: '' }); },
+  plWhat: (c, v) => {
+    const P = STU.plp, t = P && P.id === c.id ? STU.items.get(P.on) : null;
+    if (!t) return;
+    const s = String(v), what = s.startsWith('clip:') ? 'clip' : s, clip = what === 'clip' ? s.slice(5) : '';
+    if (!playOpts(t).some(o => !o.dis && o.what === what && (what !== 'clip' || o.clip === clip))) return;
+    P.what = what; P.clip = clip;
+    if (P.how === 'hold' && !holdOk(what)) P.how = 'once';
+  },
+  plHow: (c, v) => {
+    const P = STU.plp;
+    if (!P || P.id !== c.id || !PLAY_HOW.includes(v) || (v === 'hold' && !holdOk(P.what))) return;
+    P.how = v;
+    if (v !== 'once' && v !== 'stop') P.when = 'enter';
+  },
+  plWhen: (c, v) => { const P = STU.plp; if (P && P.id === c.id && (v === 'enter' || v === 'leave') && (P.how === 'once' || P.how === 'stop')) P.when = v; },
+  plPg: (c, d) => { if (STU.plp && STU.plp.id === c.id) STU.plp.page = Math.max(0, STU.plp.page + (+d || 0)); },
+  plFlash: (c, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now(), play: true } : null; },
+  // Try: the entry fired here now as if entered (a loop or a hold comes off after 10 s, unless its cube is active for you);
+  // pressed while it plays, it comes off. This device's own: no Undo step, nothing written
+  plTry: (c, k) => {
+    const e = (c.rec.plays || [])[+k];
+    if (!e) return;
+    trgList();
+    const T = trgClock(), t = STU.items.get(e.on), R = t && t.tr && t.tr[e.what];
+    if (R && !R.off && R.ek === playEk(c, e) && e.how !== 'stop') { trgOff(R, T, 'try'); return; }
+    if (!TRG.seen.has(playEk(c, e))) TRG.seen.set(playEk(c, e), 1);
+    trgStart({ c, e, ek: playEk(c, e) }, T, true);
+  },
+  pladd: c => {
+    const P = STU.plp;
+    if (c.kind !== 'c' || !P || P.id !== c.id || P.step !== 'how' || !P.what) return;
+    const d = normPlays([playDraft(P)])[0];
+    if (!d) return;
+    const L = (c.rec.plays || []).slice(), i = L.findIndex(e => playKey(e) === playKey(d));
+    if (i >= 0) L[i] = d; else if (L.length >= PLAY_MAX) return; else L.push(d);
+    setRec(c.id, { plays: L });
+    STU.plp = null;
+  },
+  unplay: (c, k) => { const L = (c.rec.plays || []).slice(); if (!(+k >= 0 && +k < L.length)) return; L.splice(+k, 1); setRec(c.id, { plays: L.length ? L : undefined }); },
+});
+PANE_ONLY.push('plPick', 'plOn', 'plBack', 'plWhat', 'plHow', 'plWhen', 'plPg', 'plFlash', 'plTry');
+// for tests: what fired, the items with runs, and with an item's id what runs on it now
+function playState(id) {
+  const it = id && STU.items.get(id), out = { log: TRG.log.slice(), on: [...TRG.on].map(t => t.id) };
+  if (it) {
+    const tr = {};
+    for (const k of PLAY_WHAT) { const R = it.tr && it.tr[k]; if (R) tr[k] = { cube: R.c.id, clip: R.e.clip || '', how: R.e.how, when: R.e.when || 'enter', at: R.at, off: R.off, try: R.try, n: R.n }; }
+    out.item = { tgM: it.tgM || 0, tr, layers: it.tl ? it.tl.map(y => [y.R.e.clip, +y.w.toFixed(3), +y.t.toFixed(3), !!y.fadeAt]) : [], pw: it.pw || 0, tg: it.tg == null ? null : it.tg, trgLog: it.trgLog || null };
+  }
+  return out;
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -25396,6 +26166,7 @@ function paneBlocks(tab) {
     if (STU.note) B.push({ p: STU.note, c: 'amber' });
     if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
     if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
+    if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -25567,7 +26338,7 @@ function itemCard(it, C) {
     on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: it.kind !== 'c' ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
-    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : ''];
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
@@ -25583,7 +26354,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
-  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
@@ -25634,6 +26405,7 @@ function itemBlocks(it, B, ed) {
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
       animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
+    playNote(it, 'clip', B);   // (a cube that plays a clip on it: e6n_plays.js)
     puppetBlocks(it, B, dis, mv);   // (a Mixamo character worn with trackers, lined up with its performer, its takes: e6l_puppet.js)
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'stand', label: 'Stand up', act: 'i:stand', dis: mv || !info || (recording(it) && REC.floor) }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv || !info }] },
       { label: 'Size', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'size:' + k, label: '×' + k, act: 'i:size', v: k, dis: rs })) });
@@ -25686,7 +26458,8 @@ function itemBlocks(it, B, ed) {
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
     texCubeBlocks(it, B, dis);   // (the pictures it puts on objects while you are in it: e6i_tex.js)
-    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides, amber to what it changes the pictures of.', c: 'faint' });
+    playCubeBlocks(it, B, dis);   // (what it starts as you walk in or out: e6n_plays.js)
+    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides, amber to what it changes the pictures of, blue to what it starts.', c: 'faint' });
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
@@ -25730,6 +26503,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Plays', row: [{ id: 'loop:on', label: 'Loop', act: 'i:loop', v: 'on', on: r.loop, dis }, { id: 'loop:off', label: 'Once', act: 'i:loop', v: 'off', on: !r.loop, dis },
         { id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] },
       { p: SOUND_NOTE, c: 'faint' });
+    playNote(it, 'sound', B);   // (a cube that starts it: e6n_plays.js)
     pathBlocks(it, B, dis, mv);   // (a recorded path: a sound may move along one too)
   }
   // (a cut-out's copy goes on its object: refused once that object has 16, or the scene 100)
@@ -25996,7 +26770,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -26158,6 +26932,9 @@ function blockHTML(b) {
 }
 function renderPanes() {
   if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
+  // (a headset presenting: nobody sees the page's panes, the headset's panels are drawn from the same blocks; they are
+  // drawn once the session ends. v136: every change in a session built the page's HTML again)
+  if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
   X.dirty = false; X.drawn = performance.now();
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
@@ -26218,11 +26995,13 @@ function pickables() {
 // cut-out cuts (STU.follow, STU.cutTo), cut-outs are passed through. An object found carries the ray: the click (or the
 // trigger) that selects it keeps it (pressItem, cutRay), and a new cut-out goes where it met the model. o.inside: when the
 // ray finds nothing at all and starts inside an object's unseen box (you stand in a room scan: its box's faces point away
-// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick)
+// from you, so the ray meets none of them), that object, the smallest such box if several (insidePick). It takes the
+// scene's matrices as they are (v136: it made the whole scene's again on every call, twice a frame in a headset while
+// editing, just after xrBegin had): a headset's picks come after xrBegin made them current (xrPoint), a page's from its
+// events through pagePick
 function rayPick(ray, o) {
-  GL.world.updateMatrixWorld(true);
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
-  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp || STU.plp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   const gh = !!c.object.userData.ghost;   // (its ghost: the ray met it where it is placed, not where it is drawn)
@@ -26246,6 +27025,9 @@ function insidePick(r) {
   const point = p ? p.applyMatrix4(m) : r.origin.clone();
   return { id: best.id, corner: undefined, point, dist: point.distanceTo(r.origin), ray: r.clone(), inside: true };
 }
+// a page's pick (an event, between frames): the scene's matrices made current first, for what its handlers moved since
+// the frame drew (the arrows' drag), once a pick
+function pagePick(ray) { GL.world.updateMatrixWorld(true); return rayPick(ray, { inside: walkInside(ray) }); }
 function pointerRay(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
   _rc.setFromCamera(_m2, GL.camera);
@@ -26267,7 +27049,7 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
-        const ray = pointerRay(ev.clientX, ev.clientY), h = rayPick(ray, { inside: walkInside(ray) });
+        const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
         STU.hover = h ? h.id : ''; cv.style.cursor = h ? 'pointer' : 'grab';
       }
       return;
@@ -26319,7 +27101,7 @@ function bindCanvas() {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
     if (k === 'escape' && (GRAB.on || performance.now() - GRAB.gone < 400)) return;   // (Esc lets go of the mouse: the browser's own, nothing else)
-    if (k === 'escape' && (STU.pick || STU.txp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
+    if (k === 'escape' && (STU.pick || STU.txp || STU.plp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.plp) STU.plp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
     else if (k === 'd' && STU.sel) duplicateItem(STU.sel);
@@ -26372,7 +27154,7 @@ function grabLook(ev) {
   if (APP.mode !== 'explore' || X.view !== 'walk') return;
   walkLook(clamp(ev.movementX || 0, -200, 200), clamp(ev.movementY || 0, -200, 200), LOOK_GRAB);
   if (editOn() && !(GL.tc && GL.tc.axis)) {
-    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = rayPick(ray, { inside: walkInside(ray) });
+    const ray = pointerRay(window.innerWidth / 2, window.innerHeight / 2), h = pagePick(ray);
     STU.hover = h ? h.id : '';
   }
 }
@@ -26404,13 +27186,13 @@ function grabEnd() {
 // a click: editing, what is under it is selected (or, picking for a cube, goes in or out of its list); in Walk view a
 // click on the floor walks there
 function clickAt(mx, my) {
-  const ray = pointerRay(mx, my), h = editOn() ? rayPick(ray, { inside: walkInside(ray) }) : null;
+  const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   if (X.view === 'walk') {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.cutTo && !STU.gpick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.cutTo && !STU.gpick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -26428,6 +27210,7 @@ function pressItem(id, ray) {
   if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
   if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
+  if (STU.plp && id !== STU.plp.id) { if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
   if (ray && it.kind === 'o') cutRay(id, ray);
@@ -29101,7 +29884,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -29111,7 +29894,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.gpick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -29581,6 +30364,8 @@ function xrPoint(c, dt) {
   } else if (!XR.stories && APP.mode === 'explore') {
     // an item (editing: lit, its name shown), else the floor (the dot only)
     // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
+    // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
+    if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
     const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
     if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
@@ -29593,8 +30378,8 @@ function xrPoint(c, dt) {
   const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
-  if (c.wantPress) { c.wantPress = false; xrPress(c); }
-  if (c.grab) carry(c, dt);
+  if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
+  if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // the sticks walk and turn (VR)
   const gp = c.src.gamepad;
@@ -29651,6 +30436,7 @@ function xrBegin(frame, dt) {
   for (const c of XR.ctrls) moved = stickMove(c, dt) || moved;
   if (moved) xrPlace();
   GL.rig.updateMatrixWorld(true);
+  XR.pickStale = false;   // (the scene's matrices current for the controllers' picks: rayPick makes none of its own)
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
@@ -29952,6 +30738,7 @@ function fitTitle(ctx, text, x, y, maxW, px, lh, color, weight, min, two) {
 }
 function vButton(ctx, P, id, x, y, w, h, label, fn, o = {}) {
   const hov = P.hover === id;
+  if (P.drawn) P.drawn.push(id, x, y, w, h);   // (where it is drawn, lit when pointed at: panelHover)
   rr(ctx, x, y, w, h, o.r !== undefined ? o.r : 10);
   ctx.fillStyle = o.primary ? (hov ? '#8ce9ff' : VC.cyan) : o.on ? VC.on : hov ? VC.chipHi : VC.chip;
   ctx.fill();
@@ -29998,22 +30785,75 @@ function panelDepth(P, inScene) {
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
 // redraw only when what the panel shows has changed (texture uploads are not free); a timeline's bar (drawBar) moves on
-// its own strip, not the whole card
+// its own strip, not the whole card; and when only the button pointed at has changed (v136), only its old and new
+// rectangles are drawn again and sent (panelHover), not the whole card (4.9 MB and its mipmaps for every button a ray
+// crossed)
 function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
+  const base = P.sig() + '|' + XR.fontOK, s = base + '|' + P.hover;
   if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
   if (now - P.t < 60) return;
-  P.last = s; P.t = now;
+  P.t = now;
+  if (P.last && base === P.base && panelHover(P, P.hov, P.hover)) { P.last = s; P.hov = P.hover; return; }
+  P.last = s; P.base = base; P.hov = P.hover;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = []; P.bars = [];
+  P.regions = []; P.bars = []; P.drawn = [];
+  panelPaint(ctx, P);
+  P.tex.needsUpdate = true;
+  P.full = (P.full || 0) + 1;
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// the button pointed at changed, nothing else (the same signature): the rectangles of what is drawn lit by it (its
+// buttons, wherever the same id is drawn, and its regions: a card's face, a timeline's bar) before and after, padded a
+// little for strokes and a playhead that grows, each drawn again by the same draw as the whole card on a small canvas of
+// its own, clipped to it (so it is as a full redraw would make it; the regions, bars and buttons' places kept from the
+// full draw, which the same signature lays out alike), put on the card's in its place and sent to the texture as it is,
+// as a timeline's bar is (the card's canvas never read back). Near ones drawn as one. False: a full redraw instead
+// (nothing known of the full draw yet, or most of the card lit: a Stories screen's card)
+const HOV = { pad: 8, most: 0.35 };
+let HOVCV = null;
+function panelHover(P, a, b) {
+  if (!P.drawn) return false;
+  let R = [];
+  const add = (x, y, w, h) => {
+    const x0 = Math.max(0, Math.floor(x - HOV.pad)), y0 = Math.max(0, Math.floor(y - HOV.pad)), x1 = Math.min(P.w, Math.ceil(x + w + HOV.pad)), y1 = Math.min(P.h, Math.ceil(y + h + HOV.pad));
+    if (x1 > x0 && y1 > y0) R.push([x0, y0, x1 - x0, y1 - y0]);
+  };
+  const ids = [a, b].filter(v => v !== null && v !== undefined);
+  for (let k = 0; k < P.drawn.length; k += 5) if (ids.includes(P.drawn[k])) add(P.drawn[k + 1], P.drawn[k + 2], P.drawn[k + 3], P.drawn[k + 4]);
+  for (const r of P.regions) if (ids.includes(r.id)) add(r.x, r.y, r.w, r.h);
+  // two that overlap, or whose box together is not much more than the two (a row of buttons), drawn as one
+  const join = (p, q) => { const x0 = Math.min(p[0], q[0]), y0 = Math.min(p[1], q[1]); return [x0, y0, Math.max(p[0] + p[2], q[0] + q[2]) - x0, Math.max(p[1] + p[3], q[1] + q[3]) - y0]; };
+  for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
+    const u = join(R[i], R[j]);
+    if (u[2] * u[3] <= 1.5 * (R[i][2] * R[i][3] + R[j][2] * R[j][3])) { R[i] = u; R.splice(j, 1); i = -1; break; }
+  }
+  if (!R.length) return true;   // (nothing drawn by it: nothing to change)
+  if (R.reduce((n, r) => n + r[2] * r[3], 0) > HOV.most * P.w * P.h) return false;
+  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn], cv = HOVCV = HOVCV || document.createElement('canvas');
+  try {
+    R.forEach((r, k) => {
+      const [rx, ry, rw, rh] = r;
+      if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+      const c = cv.getContext('2d');
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+      c.save(); c.beginPath(); c.rect(0, 0, rw, rh); c.clip(); c.setTransform(1, 0, 0, 1, -rx, -ry);
+      P.regions = []; P.bars = []; P.drawn = null;
+      panelPaint(c, P);
+      c.restore();
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+      panelPatch(P, cv, rx, ry, k < R.length - 1);   // (its mipmaps made once, after the last)
+    });
+  } finally { [P.regions, P.bars, P.drawn] = keep; }
+  P.hovPatched = (P.hovPatched || 0) + 1; P.hovRects = R;
+  return true;
 }
 
 // ------------------------------------------------------------ main panel --
@@ -30029,7 +30869,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : '', STU.hover].join('|');
+  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;
@@ -30539,7 +31379,7 @@ function barsTick(P, now) {
 // then its mipmaps), not the whole card (a bar's strip ten times a second: some 400 KB, not the card's 4.9 MB). A texture
 // not on the GPU yet, or with the whole card still to go there, takes it as it goes; one without WebGL2 (a mipmapped
 // texture of any size) is sent whole
-function panelPatch(P, cv, x, y) {
+function panelPatch(P, cv, x, y, noMip) {
   const R = GL.renderer, T = P.tex;
   try {
     const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
@@ -30548,8 +31388,9 @@ function panelPatch(P, cv, x, y) {
     R.state.bindTexture(gl.TEXTURE_2D, wt);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-    if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
     P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
   } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {
@@ -30950,6 +31791,7 @@ const STUDIO = {
     pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
     badTex: STU.badTex, txp: STU.txp,   // (the cubes' texture changes a layout lost; a cube's texture pick: e6i_tex.js)
+    badPlay: STU.badPlay, plp: STU.plp,   // (the cubes' starts a layout lost; a cube's pick of what it starts: e6n_plays.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
@@ -30997,6 +31839,10 @@ const STUDIO = {
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
   // entries on, and every material's pictures by slot, lit and as scanned)
   tex: id => texState(id),
+  // what the trigger cubes start (e6n_plays.js): the last starts and ends, the items with a run, and with an item's id what
+  // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
+  // path it waits is, a sound's gain factor and how it last started
+  plays: id => playState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },

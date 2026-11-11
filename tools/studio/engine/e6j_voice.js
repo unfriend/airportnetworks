@@ -321,11 +321,15 @@ const syncOf = it => { const o = it.kind === 's' && it.rec.sync ? STU.items.get(
 function syncAt(it, now, dur) {
   const ob = syncOf(it), P = ob && pathOf(ob), H = ob && animHold(ob, 'path');
   if (!P || !pathK(P) || (H ? !H.p || REST.ids.has(ob.id) : motionRests(ob))) return null;
+  // (its path started by a cube: its voice starts with each run, silent while the path waits or a hold goes back; a run's
+  // passes counted as its how says: e6n_plays.js)
+  const tr = H ? undefined : trgPathTime(ob, now);
+  if (tr === null) return null;
   // (a hold's time not wrapped, so its passes count on as it plays; now may be a moment ahead, as a decoded voice starts)
-  const T = H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
+  const T = tr ? tr.T : H ? H.t + (animNow() + now - performance.now() - H.at) / 1000 : pathClock(ob, P, now, sceneClock(now));
   const D = pathLen(P), u = Math.max(0, T * P.speed);
   if (!(D > 0)) return null;
-  const per = P.play === 'bounce' ? 2 * D : D, n = P.play === 'once' ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = H ? 'h' + H.n + ':' + n : n;
+  const per = P.play === 'bounce' ? 2 * D : D, n = (tr ? !tr.loop : P.play === 'once') ? 0 : Math.floor(u / per), e = (u - n * per) / P.speed, pass = tr ? 'r' + tr.n + ':' + n : H ? 'h' + H.n + ':' + n : n;
   const skip = it.rec.skip || 0, len = Math.min(it.rec.len || Infinity, (dur || Infinity) - skip);   // (in the path's time: its file ends at dur - skip)
   return e < len - 0.05 ? { at: skip + e, left: len - e, pass, e } : null;
 }

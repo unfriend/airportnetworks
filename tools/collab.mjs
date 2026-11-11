@@ -5541,7 +5541,8 @@ async function tokenRound() {
 // itself: a station picks a scene only when the listing has exactly one); three pages and a pretend headset at a studio
 // station. The headset menu's Studio here puts the circle at its feet; the scene picked on one page reaches all; an
 // object moved by the arrows on one page and a cube added on another at once both kept; the headset inside the cube sees
-// the figure (and not the box) while a page walking outside it does not; Save from the headset's panel writes layout.json
+// the figure (and not the box) while a page walking outside it does not; a cube that starts something (Bob on the box, v136)
+// plays it for the headset that walks into it alone, its record everywhere and nothing else sent; Save from the headset's panel writes layout.json
 // (the old one in .history/, a second save a second), every page then saved by its name; a file copied into the scene's
 // folder appears in the Add lists within a few seconds; the station's story locked refuses a page's edits and the
 // headset's grip; Convert to GLB on a page writes models/figure.glb and every page's and the headset's figure switches to
@@ -5743,6 +5744,55 @@ async function studioRound(dir) {
         '(HOST.renderer.xr.isPresenting = true, (() => { try { xrPlace(orbit.cur); GL.world.updateMatrixWorld(true); itemsStep(0.5, performance.now()); itemsStep(0.5, performance.now()); xrUpdate(XS); } finally { HOST.renderer.xr.isPresenting = false; } })())');
     }
     await sp(B, `(setView('orbit'), 0)`);
+
+    // ---- a cube that starts something (v136, e6n_plays.js), each person's own: page A adds Bobber (Bob looping on the box
+    // while you are inside it); every device holds its record, plays included; the headset walking into it plays Bob on
+    // its box (one layer, at full weight once blended in, the box where Bob puts it), the pages (B walking outside it, A
+    // in Orbit view) play nothing; nothing goes to the room but the cube's record (no effect, no key of the room's added);
+    // page C deletes it: gone everywhere, the headset's box back to its own Spin
+    {
+      const keys0 = await Promise.all([A, B, C, H].map(p => sp(p, `Object.keys(collabState()).sort().join()`)));
+      const roomKeys = async () => Object.keys((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys).sort().join();
+      const rk0 = await roomKeys();
+      await sp(H, `(window.__plFx = [], window.__plFxKeep = HOST.collab.effect, HOST.collab.effect = (t, d, q) => { window.__plFx.push(t); return window.__plFxKeep(t, d, q); }, 0)`);
+      await sp(A, `(change(() => putItem('ply001', 'c', norm('c', { name: 'Bobber', p: [0, 1, 4], size: [1.2, 2, 1.2], plays: [{ on: 'box001', what: 'clip', clip: 'Bob', how: 'loop' }] }))), 0)`);
+      const recA = await sp(A, `JSON.stringify(STU.items.get('ply001').rec)`);
+      const held = [], hasIt = `!!STU.items.get('ply001') && JSON.stringify(STU.items.get('ply001').rec) === ${JSON.stringify(recA)}`;
+      for (const p of [B, C]) held.push(await sUntil(p, hasIt, 10000));
+      // (the pretend headset takes the room's state in its frames: driven while it waits)
+      let hHas = false;
+      for (let k = 0; k < 30 && !hHas; k++) { await frames(H, 300); hHas = !!await sp(H, hasIt); }
+      held.push(hHas);
+      if (!hHas) held.push(await sp(H, `JSON.stringify(STU.items.get('ply001') ? STU.items.get('ply001').rec : null)`), recA);
+      await sp(B, `(setView('walk'), WALK.pos.set(0, 1.6, 6.5), WALK.yaw = 0, WALK.pitch = -0.08, WALK.to = null, 0)`);
+      // (the headset walks in by its head; held there while the test waits, as its own frames have no head between steps)
+      const hIn2 = await hShown([0, 1.6, 4]);
+      await sp(H, `(STU.head = [0, 1.6, 4], 0)`);
+      await sleep(700);
+      const hp = await sp(H, `(itemsStep(0.1, performance.now()), (() => {
+        const it = STU.items.get('box001'), P = STUDIO.plays('box001'), R = P.item.tr.clip, L = P.item.layers, n = it.model.o.getObjectByName('box'), clip = it.E.clips.find(c => c.name === 'Bob');
+        const t = L.length ? L[0][2] : -1, v = clip.tracks.find(k => /position$/.test(k.name)).createInterpolant().evaluate(t)[1];
+        return { cube: R ? R.cube : '', how: R ? R.how : '', layers: L, y: +n.position.y.toFixed(5), want: +v.toFixed(5), el: R ? +(((trgClock() - R.at) / 1000) % 1).toFixed(3) : -1, inside: STU.items.get('ply001').inside };
+      })())`);
+      const others = await Promise.all([A, B, C].map(p => sp(p, `(() => { const P = STUDIO.plays('box001'); return { tr: Object.keys(P.item.tr).length, layers: P.item.layers.length, inside: STU.items.get('ply001').inside }; })()`)));
+      const keys1 = await Promise.all([A, B, C, H].map(p => sp(p, `Object.keys(collabState()).sort().join()`)));
+      const rk1 = await roomKeys();
+      const fx = await sp(H, `window.__plFx.filter(t => t === 'anim' || t === 'beh' || t === 'play')`);
+      const plusOne = keys0.every((k, i) => keys1[i] === k.split(',').concat('c.ply001').sort().join());
+      check('studio: a cube that starts something is each person\'s own: its record (plays included) reaches every page and the headset; the headset walking into it plays Bob on its box (one layer at full weight, the box where Bob puts it), the pages outside it and in Orbit view play nothing; nothing goes to the room but the cube\'s record',
+        held.every(Boolean) && hIn2.inside.includes('ply001') && hp.cube === 'ply001' && hp.how === 'loop' && hp.layers.length === 1 && hp.layers[0][1] === 1 && Math.abs(hp.y - hp.want) < 0.001 && hp.inside &&
+          others.every(o => o.tr === 0 && o.layers === 0 && !o.inside) && plusOne && rk1 === rk0 && fx.length === 0, JSON.stringify({ held, hIn: hIn2.inside, hp, others, plusOne, rk: rk1 === rk0, fx }));
+      // page C deletes it: gone everywhere; the headset's box back to its own Spin (its layer blended out)
+      await sp(C, `(setEdit(true), change(() => deleteItems(['ply001'])), setEdit(false), 0)`);
+      const gone = [];
+      for (const p of [A, B, C, H]) gone.push(await sUntil(p, `!STU.items.has('ply001')`, 10000));
+      await sUntil(H, `(itemsStep(0.1, performance.now()), !Object.keys(STUDIO.plays('box001').item.tr).length && !STUDIO.plays('box001').item.layers.length)`, 5000);
+      const back = await sp(H, `(itemsStep(0.1, performance.now()), (() => { const it = STU.items.get('box001'), P = STUDIO.plays('box001'); return { tr: Object.keys(P.item.tr).length, layers: P.item.layers.length, own: it.action ? it.action.getEffectiveWeight() : -1, clip: it.rec.clip, y: +it.model.o.getObjectByName('box').position.y.toFixed(5) }; })())`);
+      await sp(H, `(STU.head = null, HOST.collab.effect = window.__plFxKeep, 0)`);
+      await sp(B, `(setView('orbit'), 0)`);
+      check('studio: the cube deleted on a page goes everywhere, and the headset\'s box goes back to its own animation (no layers, its own Spin at full weight, at rest in height)',
+        gone.every(Boolean) && back.tr === 0 && back.layers === 0 && back.own === 1 && back.clip === 'Spin' && Math.abs(back.y) < 0.001, JSON.stringify({ gone, back }));
+    }
 
     // ---- Save from the headset's panel: layout.json written (the old one in .history/), every page saved; a second
     // (a button below the card's fold, as a model's Turn 90° under its timeline since v127: scrolled down to, as a person would)

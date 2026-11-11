@@ -248,7 +248,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   pictures on objects; `engine/e6j_voice.js` (v125) recordings past 2 minutes kept as files of the scene and a voice
   recorded with the movement; `engine/e6k_trk.js` (v126) props that follow one of the PC's Vive trackers;
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
-  selected model's timeline while editing, held for its circle, and since v128 a recorded path's), two sets (`stage`, the
+  selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
+  trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -1645,7 +1646,9 @@ it faces: *Them* or *Where they look*, *The item* or *As placed*), which an olde
 the room's areas, a key each, `rp.<id>` (more tape crosses in one room: "Areas" below; an older device would take an
 area's crosses for spots A and B and write the room's floor from them, moving everyone's origin), a frame published for
 a shared space whose `m` may be an area's `{ k, a, b }`, `rm` gaining `t` (when spots A and B were taped) and `trk.m`
-gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
+gaining `k`, `ra` and `rb`; networks-42 in v136: the studio's `state()` gained an optional `plays` on a cube's record (what
+it starts as you walk in or out: "Trigger cubes that start things" under "The studio"), which an older device would drop).
+The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
   like the single player story menu and that should be the default for new shared rooms in ar and vr, placed directly
@@ -3428,7 +3431,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, and what it starts, `plays`, when it has anything, v136), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, what a cube has started for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -4632,10 +4635,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown', faces, tint, bright }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `tint` (`'#rrggbb'`) and `bright` (0.25 to 4, 1 never kept) optional, v125: "Tint and brightness" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex }` (lists of item
+  start: 'always' | 'shown', faces, tint, bright }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `tint` (`'#rrggbb'`) and `bright` (0.25 to 4, 1 never kept) optional, v125: "Tint and brightness" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex, plays }` (lists of item
   ids; `tex` optional, kept only when it has an entry, v124: up to 16 `{ on, mat, slot, file }`, "Trigger cubes that change
   textures" below; an entry that is not one dropped, and counted when read from a layout; a layout without it reads as
-  before), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o, sync, skip, len }` (the last six optional, kept
+  before; `plays` likewise, v136: up to 16 `{ on, what: 'clip' | 'sound' | 'path' | 'motion', clip, how: 'once' | 'loop' |
+  'hold' | 'stop', when: 'leave' }`, "Trigger cubes that start things" below, an entry that is not one dropped and counted,
+  one naming an item the layout lacks, or of the wrong kind, dropped), a sound `{ id, name, file, p, vol, r, loop, start, on, bone, o, sync, skip, len }` (the last six optional, kept
   only when set: the object it follows, its bone's name, the offset in the target's frame, "Sounds" below; and, v125, a
   voice recorded with a movement: the item whose recorded path it plays with, the seconds into its file where that path's
   start is, -10 to 600, and how long of it plays, "Recorded paths" below), a cut-out `{ id, name, on,
@@ -4715,6 +4720,74 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   is found again there (`texRemap`, `texSwitched`, in the switch's change; glTF may list a mesh with several materials in
   another order); *Switch to the GLB* on a card keeps the index. `STUDIO.tex(id)` for tests. FORMAT `networks-36`. Untested
   on a headset: how the switch looks on a Quest, the memory with many 2,048 px pictures there.
+- **Trigger cubes that start things** (v136; the owner, 11 November 2026: "Trigger cube should also be able to trigger
+  things like an animation or a soundfile being played on a character or prop"; `tools/studio/SPEC.md`, "Trigger cubes that
+  start things"; `engine/e6n_plays.js`). A cube's record may hold `plays`, up to 16 entries (`PLAY_MAX`) `{ on, what, clip,
+  how, when }`: the item (`on`: an object's id for a clip; a sound's for the sound; an object's, a shape's, an empty's or a
+  sound's for its recorded path; an object's, a shape's or an empty's for its motion: `PLAY_KINDS`), what is started
+  (`what`: `'clip'` with `clip` one of the object's animations by name, `'sound'`, `'path'` or `'motion'`), how (`once`:
+  from its start to its end, even after you leave; `loop`: again and again while the cube is active for you, a while cube
+  until you have left, a stay cube from then on, then it comes off; `hold`, clips and paths only: once to its end, held
+  there while the cube is active, then it comes off; `stop`: ends the run on that item now, whatever started it) and when
+  (absent: as you walk in; `'leave'`, once and stop only: as you leave). `normPlays`: an entry that is not one is dropped
+  (an id that is not one, an unknown what, how or when, hold on a sound or a motion, leave with loop or hold, a clip entry
+  with no clip; a clip named on a stop dropped), one entry per item, what and moment (`on|what|when`), 16 at most; how
+  always written, when only for leave; not a list (and not null) makes the cube bad. Each person's own, as everything a
+  cube does: nothing is sent and nothing stored but the cube's record (no effect, no room key). An entry fires as its cube
+  is entered (each time, a stay cube walked into again too; the head inside as the scene opens, the cube appears or the
+  entry is added fires at once) or left; both edges debounced 0.3 s (`PLAY_EDGE`: out for 0.3 s counts as having left, in
+  again within that is no new entry; show and hide are not debounced, so no scene changes), the moment of leaving that
+  edge plus 0.3 s. On one item and what, the last start decides: it replaces the run under way, and when a run ends nothing
+  older comes back. How each comes off (`trgFire`, `trgStart`, `trgOff`, `trgDone` on `it.tr`, the runs per what):
+  - a clip (`trgClipStep`, from `animStep`): a layer of its own (`it.tl`, at most 2: a clip's clone's action, two kept per
+    clip name, `it.tAct`) blended in over 0.3 s (`PLAY_BLEND`) over the object's own animation, which gets the rest of the
+    weight (three.js r128's weighted mix; at full weight the cube's clip is the whole pose, properties it does not move at
+    their rest), or over its rest pose with Animation Off; a new run on it crossfades from the old one's frame (frozen
+    there, fading out meanwhile); a once fades out from its end, a loop or a hold from when it came off; the last layer
+    stopped puts its rest pose back (three.js's own). A clip it lacks ends the run (`'missing'`, logged once a scene's
+    opening, the card's amber line). A timeline's hold (e6m_anim.js) shows its own clip alone; Pause holds the frame;
+    worn with trackers (pupStep) it plays none. Its model built again (a file changed, a GLB switch), the run goes on by
+    its clock on the new model;
+  - a sound (`trgSound` from `emitStep`, `trgSoundAt` in `emitOffset`, `sLoop`): one a cube names waits silent until a run
+    starts it, from its start at its level at once (decoded or streamed), looping only for a loop; a run that came off
+    fades out over 0.4 s (`PLAY_FADE`), a once is over at its end; its own Loop and Starts no longer apply; hidden mid-run
+    it is silent, and shown again on its run's clock. A sound that plays with a recorded path (`sync`) is no target (the
+    entry is ignored; the card says to start the path, which starts its voice);
+  - a recorded path (`trgPathAt` in `POSE.path`): one a cube names waits at its start, or where its last run left it
+    (`it.pw`); once: from its start to its end (there and back for Back and forth: its Plays says what one pass is), then
+    it waits there; loop: again and again, coming off it finishes the pass under way and waits at its end; hold: to its end
+    and held, coming off back along its path at its speed to its start; stopped mid-once: where it is. A voice recorded
+    with it (`syncAt`, `trgPathTime`) starts with each run (its pass `'r<n>:<k>'`), silent while the path waits or a hold
+    goes back. Its timeline's hold wins; carried or paused it rests at its placed pose;
+  - a motion (`trgMotion` in `drawnPose`): one a cube names rests until a run; once: one period (60 / |speed| s); a loop
+    that came off (or was stopped) finishes the period under way; a wobble's and an orbit's amount eased in and out over
+    min(0.5 s, a quarter period) (they stand away from their place at the period's start).
+  An object's own animation goes on until a cube plays a clip on it (Animation Off keeps it still until then). Show and
+  hide still decide what is seen and heard: a run on a hidden item goes on by its clock, unseen or silent. Textures are
+  independent. The cube's card (page and headset, `playCubeBlocks`; not with editing off, nor for a visitor; a cube locked
+  in place still takes them): *Starts*, a row per entry (*Dancer · Wave · once*, *Voice · the sound · loops while you are
+  inside*, *Radio · stops · on leaving*, with *· playing for you* while its run is the one on its item; a press flashes the
+  item in blue; *Try* fires it here now as if entered, no Undo step, a tried loop or hold coming off after 10 s,
+  `PLAY_TRY`, or pressed again, its label then *Stop*; ✕, one Undo step) with an amber line under one that cannot play now
+  (`playWhy`), and *Start something...* (`STU.plp`: an item pointed at, the trigger or a click, `pressItem`, or from the
+  card's list with what it offers, *animations: Spin, Bob · recorded path*; then *Another item...*, what (its animations, a
+  headset's eight at a time, *Its recorded path*, *Its motion: Spin*, *The sound*), How (Once, Loop, Hold, Stop), When
+  (Walking in, Walking out: once and stop only), *It will* in a sentence (`playSentence`: *As you walk in, Dancer plays
+  Wave once from its start, then its own animation again.*) and *Add*, or *Replace* in its place for the same item, what
+  and moment; one pick at a time with Pick what it shows and Change a texture...; Escape, another selection and editing off
+  end it), and a faint paragraph. A selected cube's lines run blue to what it starts; the Items card *Cube · shows 2, hides
+  1, starts 2*, and a target's faint line *started by a cube*; a target's card says which cube starts it and what waits
+  (`playNote`: under its Animation rows, a sound's Plays, its Recorded path and Motion rows). Deleting an item takes its
+  entries out of every cube in the same step; duplicating it adds, in every cube, an entry for the copy beside each of its
+  own (`playCopy`, `withCopies` as texture changes do); a cube's copy keeps its entries; a group's copy maps them. A GLB
+  switch keeps them (the object keeps its id; its clips' names come through the converter). Reset what I have seen and the
+  lobby stop every run at once (`trgReset`: layers stopped, sounds stopped, paths back to their start); a cube you stand
+  in fires again the next frame; opening the scene again forgets everything. Nothing is done per frame in a scene whose
+  cubes start nothing (`trgList` is made again only when the items change). Logged: `studio play` (one line a start: its
+  cube, item, what, clip, how, when) and `studio play missing`. `STUDIO.plays(id)` (`{ log, on, item: { tgM, tr, layers,
+  pw, tg, trgLog } }`) and `trgClock` (the tests set their own) for tests. FORMAT `networks-42`. Untested on a headset: how
+  a blended clip looks on a character there, the 0.3 s debounce with a real head, a voice started on entering through
+  HRTF, a path's Hold going back, and how often a stay cube's restart feels right in a real room.
 - **Sounds** (emitters): a sound file placed at a point, played through the shell's context (`HOST.audio.fx()`, never
   one of its own), each through an HRTF `PannerNode` (inverse distance, full volume within `r`, `rolloff` 1,
   `maxDistance` 50 m) and its own gain. The listener is the head in a headset (the shell's `HOST.sfx.listen`) and the
@@ -5214,6 +5287,22 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     says the story's triangles, draw calls and code time: compare a scan hidden by a cube, or a cube round you, with
     v130), how the edges, the light grey ghosts and the tags read life size, and the cost of a tag per model (one draw
     call each) in a scene of many models.
+- **Editing without the cost** (v136; the owner, 11 November 2026: "The edit mode still has worse framerates than not
+  editing, why?"; `tools/studio/SPEC.md`, "Editing without the cost"). Edit mode no longer does these every frame: the
+  labels of what is pointed at and selected made again (`labelSet` compared two words with the three it keeps, so a new
+  canvas, texture, sprite material and shader program link every frame something was pointed at, every frame in a room
+  scan; now only when their words change, `L.key`); the scene's matrices made again for each pick (`rayPick` takes them as
+  they are: a headset's after `xrBegin`, again only after the other hand moved something, `XR.pickStale`; a page's through
+  `pagePick`, once); the whole panel drawn and sent (4.9 MB) for every item or button the ray crossed (the item pointed at
+  in the scene is out of `sigMain`; a change of the button pointed at alone draws again and sends only its rectangles,
+  before and after, `panelHover`, each on a small canvas of its own as a timeline's bar is, texSubImage2D; the menu's Story
+  tab draws that texture too); the page's panes built while a headset presents (`renderPanes`, then once the session
+  ends); a draw for every tag and line (each keeps its own objects, as the engine and tests know them, but on a layer no
+  camera sees, and `GL.scene.onBeforeRender` gathers those shown into a few draws: every tag in one, its pictures on one
+  canvas, `LOOKS.BT.atlas`, and the lines in one a kind, dashes as dashes, `LOOKS.batch`). Measured with a pretend headset
+  on a 400,000-triangle scan with 40 items: script a frame editing 7.6 to 14.7 ms down to 4.2 to 6.9 (viewing 2.9 to 3.4,
+  SwiftShader), draws 210 down to 132 (viewing 104). No layout, `state()` or `FORMAT` change. Untested on a headset: the
+  frame rate on a Quest, how the tags read from one canvas, a hover patch's cost there.
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -6128,6 +6217,61 @@ swapped by meshes and names, by names, none known) and `texSwitched` (a material
 Undo); and the figure, with an entry, converted to a GLB in the page and switched to it: its entry kept, its material found
 again (`[0]`), put on its GLB's model in the cube and off outside.
 
+Its *studio cube starts* steps (v136; `--only 'studio cube starts'`, about three minutes) run on a page of their own at
+`&scene=test` with editing on: *Lift* (1 s, up 0.4 m) added to `box.glb`'s clips in the page, *Twin* (a second object of
+`box.glb`, Animation Off) and four cubes apart from Doorway (*W*, *S* a cube that stays, *D*, *H*), the studio's clock held
+by the test (`trgClock`) and a pretend head moved about. Clips (the box's node read back): a once from its start (y 0.03 at
+150 ms, half blended in; 0.2 at 500 ms; on after leaving; fading from its end; gone with no layers and its end logged), Twin
+still throughout; a new run 360 ms after leaving crossfading from the old one's frame (0.222: half Lift(0.96), half
+Lift(0.15)); out 100 ms and in again one start; a loop on the stay cube on after leaving until Reset what I have seen
+(at rest at once, logged); a hold at its end, coming off 0.3 s after leaving, fading, gone; H's stop blending S's loop out,
+not back while S stays active, again as S is entered again; a stop as you leave 0.3 s after; over the box's own Spin (at
+full weight no turn, its own weight 0; after it its own Spin again on its clock); a timeline's hold showing its own Spin
+alone, the layer back once let go; Pause holding the frame; a clip it lacks (nothing, its end logged as missing, the card's
+amber line); the ghost while a cube plays a clip with Animation Off its outline only. Sounds (the real clock, the sound on):
+a sound a cube names shown but silent; the tone's once from its start at its level at once, over at its end, again from its
+start entered again; a long once (streamed) on after leaving; a loop in the stay cube replacing it, its element looping on
+its run's clock (within 0.3 s), on after leaving; a stop fading it to 0 and stopping it; hidden 2 s into a run silent, shown
+again back on its run's clock. Paths and motions (a shape on a 2 s path, an empty spinning, a shape wobbling, a voice
+recorded with the path): waiting at its start; once 1 then 2 (its end logged), waiting at its end, the next run from 0; the
+voice from each run's start (`'r<n>:0'`), silent past its 0.6 s; carried and paused at its placed pose; a loop off 0.3 s
+after leaving finishing its pass (1.5 at 3.5 s, 2 at 4.1 s); a hold held at its end, going back (1.5 at 3.9 s, 0 at 5.5 s);
+a stop mid-once where it is; a spin once (90° at 0.5 s, 180° at 1 s, at rest at 2.1 s), a loop finishing its turn (270° at
+3.5 s, at rest at 4.1 s); a wobble at most 2° 50 ms in and 20° mid-run; an entry on the voice ignored, the card saying to
+start the path. The state and `layout.json` carry `plays` and give them back; `norm`'s rules (each bad entry dropped, one
+per item, what and moment, 16 at most, a clip on a stop dropped, how written as once, `when: 'enter'` dropped, `null` or `[]`
+absent, a string or an object a bad cube); a layout's four bad entries counted (`playBad`), one naming an item it lacks or
+of the wrong kind dropped, a cube whose `plays` is a string bad, the Scene pane's sentence. The page's card: one pick at a
+time (Pick what it shows, Change a texture..., Start something...); *Start something...*, the shape from the list (its
+path), *Another item...*, the box by a click in the scene (`pressItem`, its first animation), *Lift*, *Hold*, no When, the
+sentence, *Add* (one Undo step); *Replace* in its place; a second entry on the sound; its row flashing the box in blue (no
+Undo step); ✕ and Undo; *Try* (the box's Bob here, no Undo step; a tried loop off after 10 s, and pressed again at once:
+*Stop*); the Items card *Cube · shows 0, hides 0, starts 2* and the box's *started by a cube*; editing off and a visitor:
+no pick, no change, the button greyed. The headset's card: its rows, *Start something...* pressed, the trigger on the box,
+*Bob*, *Loop* and *Add* pressed on the panel (Replace in its place), ✕. Deleting the box taking its entries out of both
+cubes (one Undo step, Undo bringing them back), duplicating it adding entries for the copy beside its own, a cube's copy
+keeping its entries, a group (the box and *S*) copied (the cube's copy on the box's copy, *W* gaining an entry); the
+figure with an entry on its take converted to a GLB in the page and switched to it: its entry kept, its take played on its
+GLB's model; and the lobby stopping every run at once (the box at rest, the sound stopped, logged) and a cube you stand in
+firing again the next frame.
+
+Its *studio edit speed* steps (v136; `--only 'studio edit speed'`, a minute) run on a page of their own at `&scene=test`
+with editing on, what edit mode no longer does every frame ("Editing without the cost" under "The studio"): a hover (the
+figure) and a selection (the box) held 60 frames drawn as a headset draws its labels (sprites, the scene rendered each
+frame): no `texImage2D`, no `linkProgram`, the same sprites, pictures, shader programs and HTML, and the hover moved to the
+sound made again once (one upload) and then held; `rayPick` making no world matrices (GL.world's `updateMatrixWorld` not
+called) and still finding the box, `pagePick` once, a pretend headset's `xrPoint` none with `XR.pickStale` false and once
+with it true; the panel's signature the same whatever item is pointed at; on the main panel, a tab pointed at: no
+`texImage2D`, the texture's version and full draws unchanged, one `texSubImage2D` a rectangle (pixels sent the rectangles'
+area, under 4 % of the card), one `generateMipmap`, nothing outside the rectangles changed and within them a full redraw's
+pixels (a mean difference under 1), the GPU texture there the canvas's (read back through a framebuffer) and the menu's
+Story tab drawing that texture; pointing off it a patch too, another pane a full redraw; an Items card's face pointed at
+(a cube selected) drawing its whole background (taller than its face) again; the tags and lines drawn together (those
+shown gathered, `LOOKS.BT.stats`, each on the layer no camera sees, the tags' draw an instance each, the figure's where its
+sprite is and its size, its picture its own on the tags' canvas, the selected cube's edges in their colour in the depth-tested
+lines' draw; ten more empties adding at most ten draws, their dots, where each was three); and the page's panes not built
+while `GL.renderer.xr.isPresenting` (the HTML unchanged, `X.dirty` kept, `X.skipped` counting) and built once it is not.
+
 Its *studio trackers* steps (v126; `--only 'studio trackers'`, about a minute) run on a page of their own at `&scene=test`,
 a pretend studio station (`HOST.collab.live`) and its trackers given in the page (`HOST.collab.trackers` stubbed, so each
 frame's poses are exact; the shell's stream is the shell lane's), with a shape, a sound following it and an empty put in
@@ -6725,7 +6869,11 @@ about three minutes): relays of its own from port 8790 up, `--static .` with `--
 menu's *Studio here* putting the circle at its feet, its clock in explore mode, the headset standing in it and the
 pages following, none asked to update; the scene picked on one page reaching all; a move by the arrows on one page and a
 cube added on another at once, both kept; the headset inside the cube seeing the figure and its sound and not the box,
-while a page walking outside and one in Orbit view see the box; *Save* from the headset's panel writing `layout.json`
+while a page walking outside and one in Orbit view see the box; a cube that starts something (v136: *Bobber*, Bob looping
+on the box, added on a page) held alike by every page and the headset, `plays` included, the headset walking into it
+playing Bob on its box (one layer at full weight, the box where Bob puts it) while the pages (one walking outside it, one in
+Orbit view) play nothing, the room's keys and every device's state's keys unchanged but for the cube and no effect sent;
+deleted on another page, gone everywhere and the headset's box back to its own Spin; *Save* from the headset's panel writing `layout.json`
 *by* its name, `.history/` holding 1 file and then 2, every page then *Saved*; a file copied into the folder in the Add
 lists within a few seconds; the story's lock refusing a page's edits and the headset's grip; *Convert to GLB* writing
 `models/figure.glb`, every device's figure switching to it (corners within 1 mm), the FBX under *Originals*, and its

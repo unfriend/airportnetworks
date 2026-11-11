@@ -71,9 +71,9 @@ function ghostBuild(it) {
     // mixer: three.js's mixer writes a value only when it differs from the one it wrote last, so with its clip not moving
     // (Pause, a held timeline, a clip played once to its end, a clock held) mixer.update(0) wrote nothing and left it in
     // its rest pose. Its edges alone need no pose: its unseen box)
-    if (ghostLine(it)) add(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), it.proxy, 8);
+    if (ghostLine(it)) add(LOOKS.batched(new THREE.LineSegments(GHOST.edges || (GHOST.edges = new THREE.EdgesGeometry(BOX1)), lmat), 'line'), it.proxy, 8);   // (drawn with the other lines: LOOKS' batches)
     else {
-      const rest = !!(it.action && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
+      const rest = !!((it.action || it.tl) && it.model.rest), was = rest ? it.model.rest.map(([n]) => [n.position.clone(), n.quaternion.clone(), n.scale.clone()]) : null;
       if (rest) { for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); } H.updateWorldMatrix(true, true); }
       it.model.o.traverse(n => { if (n.isMesh && n.visible && n.geometry) add(new THREE.Mesh(n.geometry, matOf(n.geometry)), n, 3); });   // (a skinned mesh as a plain one: its rest pose)
       if (was) { it.model.rest.forEach(([n], i) => { n.position.copy(was[i][0]); n.quaternion.copy(was[i][1]); n.scale.copy(was[i][2]); }); H.updateWorldMatrix(true, true); }
@@ -83,7 +83,7 @@ function ghostBuild(it) {
   else {
     for (const n of H.children) {
       if (n === it.look.hit || n.isSprite || !n.geometry) continue;
-      if (n.isLine) add(new THREE.LineSegments(n.geometry, lmat), n, 8);
+      if (n.isLine) add(LOOKS.batched(new THREE.LineSegments(n.geometry, lmat), 'line'), n, 8);
       else if (n.isMesh) add(new THREE.Mesh(n.geometry, mat), n, 3);
     }
     hit(it.look.hit, it.look.hit.geometry);
@@ -123,7 +123,7 @@ GHOST.build = 4;
 // of models whose animation moves them while their place stays): while editing its ghost stands where it is placed, in
 // its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
 // ghostFar alone would hide it)
-const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn);   // (worn with trackers too: e6l_puppet.js)
+const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn || !!(it.tl && it.tl.length));   // (worn with trackers too: e6l_puppet.js; a clip a cube plays on it, e6n_plays.js)
 function ghostStep(editing, now) {
   const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');

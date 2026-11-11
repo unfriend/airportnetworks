@@ -354,6 +354,7 @@ const STUDIO = {
     pics: pvState(),   // (the Add pane's pictures: e7e_pics.js)
     lite: liteState(),   // (Fewer triangles and Change texture: e7d_lite.js)
     badTex: STU.badTex, txp: STU.txp,   // (the cubes' texture changes a layout lost; a cube's texture pick: e6i_tex.js)
+    badPlay: STU.badPlay, plp: STU.plp,   // (the cubes' starts a layout lost; a cube's pick of what it starts: e6n_plays.js)
     settings: STU.settings, hooks: Object.assign({}, HOOK), lobbyAt: STU.lobbyAt,   // (the scene's settings and what the shell was told: e6d_shapes.js)
   }),
   // how many triangles an object's model draws now (Fewer triangles' preview gives it fewer)
@@ -401,6 +402,10 @@ const STUDIO = {
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
   // entries on, and every material's pictures by slot, lit and as scanned)
   tex: id => texState(id),
+  // what the trigger cubes start (e6n_plays.js): the last starts and ends, the items with a run, and with an item's id what
+  // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
+  // path it waits is, a sound's gain factor and how it last started
+  plays: id => playState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
