@@ -2466,7 +2466,7 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 1120 (v132: the Spaceship row), Debug about 870; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1780 with a ship flying outside a room (v133: the Steering row; the smoke test's spaceship steps print it), Debug about 870; What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
