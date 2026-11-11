@@ -14,7 +14,8 @@ server for devices that link to each other directly (peer to peer, PeerJS's prot
 machine. GitHub Pages serves static files only, so it cannot run the relay; the app keeps working there for everyone
 else, and only shared rooms need the relay. Public hosting: [Public hosting on Coolify](#public-hosting-on-coolify).
 
-**No accounts; one shared password if you want it.** Rooms live in memory: a restart empties them. On a laptop at an
+**No accounts; one shared password if you want it.** Rooms live in memory: a restart empties them, unless `--keep <file>`
+(v136) keeps them in a file across restarts ([Rooms across updates](#rooms-across-updates-v136)). On a laptop at an
 event the relay trusts everyone who can reach it; on the internet `--public` narrows that down (only the app's pages, no
 list of rooms or names, limits per address). With a password (`COLLAB_TOKEN`, as asdf10k-collab-backend has it: [The
 shared password](#the-shared-password-collab_token)) only devices that have entered it can use the relay at all;
@@ -55,6 +56,7 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--no-ffmpeg` | off | never use `ffmpeg` (the studio then keeps long sounds as they are) |
 | `--ffmpeg-limit <s>` | 180 | one conversion may take this long, then it is stopped |
 | `--app <url>` | the `--origin`, else `https://stories.lbi-netmed.com/` | where `/upload` sends people when the relay does not serve the app itself |
+| `--keep <file>` | off | keep the rooms in `<file>` (JSON, written atomically every 5 s when they changed and as the relay stops, read back as it starts; its folder made): a restart, such as a deploy, no longer empties them ([Rooms across updates](#rooms-across-updates-v136)). Not `--store`, which is only a cap on their size |
 | `--trackers [<port>]` | off (47800 when given without a port) | the PC's Vive trackers: take the bridge's readings (`tools/trackers/bridge.py`) on UDP `127.0.0.1:<port>` (`0` picks a free one, which the start line says), list them at `/api/trackers` and send them, lined up, to the rooms that turn them on ([The PC's Vive trackers](#the-pcs-vive-trackers---trackers)). A port another program holds stops the start with a sentence |
 
 The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
@@ -381,6 +383,13 @@ November 2026): there, skip step 1, and the domain in step 5 works at once. A na
      enters it once: the Shared dialog on a page (also the Quest's 2D page before VR or AR), or the headset menu's
      **Circles** > **Relay password** keypad. Changing it later (edit the variable, redeploy) means every device enters
      the new one.
+   - **`--keep /data/rooms.json`** (v136), added to `RELAY_ARGS` (`--proxy 1 --public --keep /data/rooms.json`), with a
+     *Persistent Storage* volume mounted at `/data` (the resource's *Storages* tab: **+ Add**, *Volume Mount*, a name
+     such as `relay-rooms`, *Destination Path* **`/data`**; the user `node` the image runs as must be able to write
+     there: Coolify's named volumes are, a bind mount of a host folder needs `chown 1000` on the host). Then a deploy no
+     longer empties the rooms: the relay writes them there every 5 s when they change and as it stops, and the new one
+     reads them back, so the pages still open simply reconnect to their room ([Rooms across updates](#rooms-across-updates-v136)).
+     Without the volume the file is the container's own and goes with each deploy (nothing worse than before).
    - Logs stay off (they are off unless asked for), and that is right for now: the app sends no log token, so a
      public relay could not take a headset's alignment log anyway. To turn them on later (for a test that needs two
      headsets' numbers): a second variable **`RELAY_LOG_TOKEN`** = a long random string (`openssl rand -hex 24`; at least
@@ -390,8 +399,8 @@ November 2026): there, skip step 1, and the domain in step 5 works at once. A na
 7. **Limits.** Under *Resource Limits*: memory **512 MB** (`512m`; swap the same), CPUs 1 is plenty. Node sizes its
    heap to the container's limit; the rooms hold at most 64 MB of data together (`--store`), so a limit stops a flood
    of large rooms from taking the server down with it. **Restart policy**: Coolify's containers restart unless stopped (its
-   default); keep it, so a relay that ran out of memory comes back by itself (a restart empties the rooms; the
-   pages in them bring them back within seconds).
+   default); keep it, so a relay that ran out of memory comes back by itself (a restart empties the rooms unless
+   `--keep`; the pages in them bring them back within seconds).
 8. **Health check.** The image has its own (`GET http://127.0.0.1:8787/api/health` every 30 s: open with a password
    and with `--public`, as it sends no `Origin`). Leave Coolify's *Healthcheck* tab off, or point it at path
    `/api/health`, port `8787`.
@@ -410,8 +419,12 @@ November 2026): there, skip step 1, and the domain in step 5 works at once. A na
    Then turn on **Auto Deploy** in the resource's settings (with a public repository Coolify needs a webhook: copy
    the GitHub webhook address and secret from the resource's *Webhooks* page into the repository's *Settings* >
    *Webhooks*, content type `application/json`, push events; with the GitHub App it needs nothing more). Every push to `main` then rebuilds the relay, so it
-   serves the same app as GitHub Pages and accepts its rooms (a room refuses another `FORMAT`). Each deploy restarts
-   the relay: open rooms empty and come back from the pages within seconds; avoid pushing during an event.
+   serves the same app as GitHub Pages and accepts its rooms (a room moves on to a newer `FORMAT` by itself once nobody
+   of the old one is in it, and refuses an older one). Each deploy restarts the relay: with `--keep` and its volume the
+   rooms stay; without, open rooms empty and come back from the pages within seconds. After a deploy that changed the
+   app, press **Update the room** in a room (the Shared dialog, or the headset menu's *Circles* tab) so every device in
+   it reloads into the new version at once ([Rooms across updates](#rooms-across-updates-v136)); avoid pushing during an
+   event.
 10. **Test it.**
     - `curl -s https://rooms.lbi-netmed.com/api/health` answers `{"ok":true,"protocol":1,"rooms":0}`, and
       `curl -s https://rooms.lbi-netmed.com/api/ping` (no password) `{"error":"missing or wrong token"}`.
@@ -456,7 +469,8 @@ proxy answers 502 Bad Gateway though the relay runs, as it did at first), `RELAY
 (no quote marks; since v116 the relay drops them anyway), `COLLAB_TOKEN` (locked) and the R2 variables
 ([Scenes in Cloudflare R2](#scenes-in-cloudflare-r2), with `R2_PREFIX` as chosen, such as `main`). A GitHub webhook
 with *Auto Deploy* (step 9) makes it follow every push to `dev` within a minute or two (the image's layers with Node and
-ffmpeg stay cached; each deploy restarts the relay, and open rooms come back from the pages within seconds).
+ffmpeg stay cached; each deploy restarts the relay, and open rooms come back from the pages within seconds, or stay with
+`--keep /data/rooms.json` and a volume at `/data`, step 6, which both Coolify resources should have since v136).
 
 **Releases.** Work goes to `dev` first: the test place takes it by itself. Once the owner has tried it there, `main` moves
 forward to it: GitHub Pages publishes it, and the main relay rebuilds from it (by itself with *Auto Deploy* and a webhook
@@ -1005,12 +1019,13 @@ shared password](#the-shared-password-collab_token)).
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
+| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
-| `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
+| `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken', version }` if not, the room's version since v136): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
+| `POST /api/rooms/XYZ/reload` `{ n, to?, shell?, from? }` | (v136, Update the room) sends every member, whatever its version, the reload order: the effect `{ t: 'fx', k: 'q.reload', v: { n, to, shell, by: '', from, at }, by: '' }` (`n` the order's id, 1 to 16 letters, digits, `_` and `-`; `to` the version to come back with; `shell` `{ n, id }` the release; `from` who pressed it), and for 2 minutes lets the room move on to `to` from its first newcomer of that version, even while members of the old one are still there (they get the order again and are refused afterwards, 12 s after they were told when their hello said `reload: 1`, else 3 s after the move: [Rooms across updates](#rooms-across-updates-v136)). 200 `{ ok, members, version }`; 400 for a bad body, 404 for no such room (a lookup, `--guesses`), 405 for another method, 429 (`Retry-After`) within 10 s of the last order to the room. Never stored; with a password it needs it, as every call; its log line names no one |
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
@@ -1066,7 +1081,7 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 | --- | --- | --- | --- |
 | relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto` | first message on every socket: the whole room |
 | relay | `members` | `members [...]` | to everybody after any join, leave, hello or timeout (the joiner too) |
-| client | `hello` | `name, color, kind, here, version` (`proto` optional) | who I am; again after any change |
+| client | `hello` | `name, color, kind, here, version` (`proto`, `dev` and `reload` optional) | who I am; again after any change (`reload: 1`, v136: this app obeys the room's reload orders in its turn, [Rooms across updates](#rooms-across-updates-v136)) |
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
 | relay | `set` | `batch, seq, by, cid` | to everybody, the writer included (its acknowledgement) |
 | client | `fx` | `k, v` | ephemeral, not stored |
@@ -1077,8 +1092,8 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 
 A member is `{ id, name, color, kind, here, version, since }`. `hello` is tidied, not refused: `name` trimmed to
 32 characters, `color` kept only as `#rgb` to `#rrggbbaa`, `kind` one of `ar`, `vr`, `desktop` (else
-`desktop`), `here` true only if `true`, `version` up to 64 characters. Before its hello a member is listed with
-empty values.
+`desktop`), `here` true only if `true`, `version` up to 64 characters; `reload` is kept by the relay (true only if `1`)
+and never listed. Before its hello a member is listed with empty values.
 
 **Writes.** A batch has 1 to 500 `[key, value]` pairs and an optional `cid` (string or number, echoed; else
 null). Keys are `[A-Za-z0-9_-]+` parts joined by dots (later parts may also hold `:`), at most 128 characters;
@@ -1112,7 +1127,7 @@ log counts them).
 | `bad` (on connect) | no valid room code or client id | closed, 4000 |
 | `room` | no such room (never made, or expired, or the relay restarted) | closed, 4004 |
 | `proto` | another protocol number (query or hello) | closed, 4005 |
-| `version` | the hello's `version` differs from the room's (a room made without one takes the first) | closed, 4006 |
+| `version` | the hello's `version` differs from the room's and the room does not move on to it (a room made without one takes the first; since v136 a room of `networks-<n>` takes a newer `networks-<m>` once nobody of its own version is connected, or a reload order asked for it, and never an older one: [Rooms across updates](#rooms-across-updates-v136)); `text` names the room's version (`the room runs version networks-42`) | closed, 4006 |
 | `replaced` | the same client id connected again; the new socket stays | closed, 4008 |
 | `timeout` | silent for `--timeout` seconds | closed, 4009 |
 | `token` | the relay has a password and the socket brought none, or a wrong one (`&token=`) | closed, 4401, before anything of a room |
@@ -1131,8 +1146,63 @@ message over 1 MB, refused as soon as its header says so). 1001: the relay is st
 automatic pong keeps an idle member in. A member silent for 40 s is dropped (`timeout`). A room is deleted
 6 hours after its last member left (or after it was made, if nobody joined).
 
-**A restart** empties the rooms. A client whose room has gone (`room` on reconnecting) can make it again
+**A restart** empties the rooms (unless `--keep`). A client whose room has gone (`room` on reconnecting) can make it again
 under the same code (`POST /api/rooms` with `code`) and fill it from its own state.
+
+## Rooms across updates (v136)
+
+The owner, 11 November 2026: "It needs a: update this room on the relay switch that just tells everyone to reload, after
+updates rooms otherwise get lost sometimes". Why they were lost: a room's version is the app's shared-state format
+(`shared.js`'s `FORMAT`, `networks-<n>`; it changed in 12 of the 24 releases from v112 to v131), and until v136 it never
+changed once the room was made. A deploy restarts the relay, which said goodbye with 1001; the pages still open, running
+the old app, came back within a second and made the room again under the old version (`revive`), so every device that
+took the update was refused (4006) and stopped trying, for as long as the room lived (6 hours after it emptied). Peer to
+peer the room's id names the version, so the first updated device hosted a second room and the two drifted apart. Now:
+
+- **A room moves on, never back** (`takeOver` in `server.mjs`): a newcomer whose hello names a newer `networks-<m>` than
+  the room's `networks-<n>` takes the room to it once no other connected member has said hello with the room's version
+  (a member that has not said hello yet does not count), or while a reload order named that version (below). The log
+  says `XYZ version networks-41 -> networks-42`. Members still on the old version then get the relay's own order and are
+  refused (4006): one whose hello said `reload: 1` (an app that obeys orders, v136 on) only 12 s after it was first told
+  (`ORDER_GRACE`, from the order, else from the move; at least 3 s after the move), since it reloads in its turn, up to 8
+  s after the order, and one refused before its turn reloaded at once (a page) or was asked (a headset) mid-countdown, so
+  the stagger that spares the router was lost (the review of v136); an older app, which ignores the order, 3 s after the
+  move. An app refused all the same while its order counts down (a slow reload) keeps its turn. An older newcomer is
+  refused with 4006 as before (a device that missed the update, waking in an upgraded room, would otherwise turn it
+  back); its words name the room's version. Versions
+  that are not `networks-<n>` (the tests' `v1`) only ever match exactly. The keys are kept as they are (every bump so far
+  only added fields and keys, which the app reads leniently; `shared.js` has a `MIGRATE` table for one that does not).
+- **The app waits or reloads** (`shared.js`, `versionRefused`): refused by an older room, a device says so (*Room XYZ
+  still runs version networks-41 on a device that has not updated: joining as soon as it has*, status `older`) and tries
+  again every 3 s, so it is in as soon as the last old device has reloaded (an older relay without `versions` in its ping
+  cannot move a room on, and each try keeps the room from expiring: it gives up after 2 minutes there). Refused by a newer
+  room, it reloads (outside a headset at once, at most once in ten minutes; in one the update panel asks), or, while a
+  reload order counts down there, in its turn as it was going to (40 s after its turn without a reload, as above). Pages outside
+  a headset in a room also take a new `FORMAT` by themselves after a 20 s countdown on the update bar (*Not now* holds it
+  off for 5 minutes), so a page left on Later no longer holds a room back.
+- **Update the room** (the switch: the page's Shared dialog under the room's code, the headset menu's *Circles* tab under
+  the room's heading, and the update bar's and panel's *Reload every device*; two presses, the first arming it for 3 s;
+  anyone in the room, never refused by a lock, never from a camera; *Reload this device* in a room on one device): the
+  device that presses asks the release (`version.json`) for the version and shell to come back with, writes its own copy
+  of the room, and, on a relay, posts `POST /api/rooms/<code>/reload` (bringing the room back first when the relay lost it),
+  which reaches every member whatever its version; on an older relay, peer to peer, or as an effect in the room
+  (`q.reload`). Every device then reloads in turn (by when it came into the room, the presser last: 0.4 s, then 0.5 s more
+  each, at most 8 s; a headset at least 3 s, with a notice, and *Enter VR to continue* after it; back in its next session
+  at its station without walking in), keeping its place, and comes back by the room's code in its address. Back, it
+  checks it got the release the order named (the service worker answers from its old cache after 4 s or a network
+  error): if not, once more, twice at most, then it says *This device could not fetch the new version: reload it by
+  hand*. An app older than v136 ignores the order; once the room has moved on it is refused (4006), and its own live
+  updates ask it to reload.
+- **`--keep <file>`** keeps the rooms across restarts (above): with it a deploy no longer empties them, so the old pages
+  never make them again. On Coolify: step 6 of [Public hosting on Coolify](#public-hosting-on-coolify).
+- **Peer to peer** (no relay): every device that gets the order lets go of the old id as it reloads and claims the new
+  version's (`lbinet-<FORMAT>-<code>`); the first back hosts from its copy, written as it went, and the rest link to it,
+  so the room does not split as long as every device got the order. Not yet: a device of a newer version that finds no
+  host on the new id does not look for one on the old id to send it the order; a straggler that missed the order stays on
+  the old id until its own live update reloads it.
+- What is still untested until tried on real devices: the timings over real Wi-Fi with ten headsets (the service worker's
+  4 s fallback there), *Enter VR to continue* after an order on a Quest, `--keep` on Coolify's volume through a rolling
+  deploy, and frozen tabs on Android.
 
 ## Introduction server for peer to peer (`/peerjs`)
 
@@ -1247,7 +1317,8 @@ does not yet:
   alignment logs), `POST /api/rooms { app, version, code? }`, the introduction server at `/peerjs` (the token as PeerJS's
   key) and the app's own files. Its: `POST /api/rooms { appVersion, dataset? }`, `/api/rooms/<code>/ice` (voice chat's
   STUN and TURN), `/api/archive`, `/api/logs` (a debug timeline).
-- **Persistence.** Ours keeps rooms in memory (a restart empties them; the pages bring them back from their copies). Its
+- **Persistence.** Ours keeps rooms in memory (a restart empties them; the pages bring them back from their copies), and
+  with `--keep <file>` (v136) in one JSON file written every 5 s when they changed and as it stops. Its
   snapshots every room to `COLLAB_DATA_DIR`, archives expired ones and keeps a debug log there.
 - **The token's place in the app.** Its app reads the token from its deployment's `index.json`. Ours is public on GitHub
   Pages, so each device enters it once and keeps it per relay origin (never in the app's files).
@@ -1270,7 +1341,13 @@ It starts the relay on a free port (timeouts of 1 s, serving the repository), an
 its refusals, welcome and members, ordering and acknowledgement, last writer wins, null refused outside the
 deletable families, the epoch rule, `fx` (not stored, not echoed, rate capped), ping and pong, a late joiner,
 malformed and oversized messages, hand-made frames (masking, fragmentation with a ping inside, control frames,
-close), member timeouts, version and protocol mismatches, replaced sockets, room expiry, the room's limits
+close), member timeouts, version and protocol mismatches (since v136 a room moving on to a newer `networks-<n>` once
+nobody of its own is connected, never back, other versions only the same; the reload order: its answers 404, 400, 405
+and 429, every member of every version getting it from the relay, the room moving on with old members there, who get it
+again and are refused, 3 s later for one that ignores orders and about 12 s after the order for one whose hello says
+`reload: 1`; and `--keep`: written within 6 s of a change and as it stops, read back with its seq,
+version and keys, expired rooms and bad keys left out, a bad file kept aside as `.bad`, another relay's write taken;
+`node relay/test.mjs --rooms` runs only these, in seconds), replaced sockets, room expiry, the room's limits
 (5000 keys; 4 MB with the keys counted), the static files (types, gzip, byte ranges, 304, path traversal
 attempts, every file `sw.js` caches served and nothing else of the repository, links, no file left open by a
 download cut short), the start lines (no `http://` address for headsets), `--lan`, the log, and the introduction

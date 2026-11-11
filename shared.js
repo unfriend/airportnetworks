@@ -27,6 +27,20 @@
 (function () {
   const PROTO = 1;
   const FORMAT = 'networks-41';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
+  // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
+  const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
+  // a room's keys as an older format wrote them, brought to this one (a kept copy, collabRoom.<code>, written by an older
+  // app; a room on the relay still of an older version as this device joins it): one step per format from the key's, each
+  // a function of the Map of keys giving it back. Empty: every bump so far (29 to 41) only added fields and keys, which the
+  // stories' apply() and the shell read leniently; a bump that changes what a value means adds its step here
+  const MIGRATE = {};
+  function migrate(keys, from) {
+    const a = fmtN(from), b = fmtN(FORMAT);
+    if (!a || a >= b) return keys;
+    for (let n = a; n < b; n++) { const f = MIGRATE['networks-' + n]; if (typeof f === 'function') try { keys = f(keys) || keys; } catch (e) { /* that step's own slip: the keys as they were */ } }
+    return keys;
+  }
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -159,6 +173,9 @@
     // the room's arc (arcStep): a page's own (arcFor: the room it was made in, arcAt: since when), this page leaving it by
     // hand ('code|id': not followed again by itself) and the live station taken as the arc ('': walked into, or followed)
     arcFor: '', arcAt: 0, arcOff: '', arcd: '',
+    // the room's version as the relay last said it (its welcome, its refusal, a 409), and since when this device has waited
+    // for an older room to move on (status 'older'); what the relay can do (its /api/ping: versions, reload) and for which
+    roomVer: '', olderAt: 0, caps: null, capsFor: '', capsBusy: null,
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
@@ -432,7 +449,7 @@
   const peopleIn = r => (r.members ? `${r.members} ${r.members === 1 ? 'person' : 'people'}${r.names && r.names.length ? ': ' + r.names.join(', ') : ''}` : 'empty');
   // a room on this network: who started it (the relay: the first one in it; peer to peer: its host), people, stations
   const nearLine = r => [r.name ? (C.relay ? 'with ' : 'hosted by ') + r.name : '', r.members ? `${r.members} ${r.members === 1 ? 'person' : 'people'}` : 'empty',
-    r.stations ? `${r.stations} station${r.stations === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+    r.stations ? `${r.stations} station${r.stations === 1 ? '' : 's'}` : '', r.ver === 'older' ? 'older: it updates as you join' : r.ver === 'newer' ? 'newer: this device needs the update' : ''].filter(Boolean).join(' · ');
   // no room on this network to show: why
   function nearNone() {
     if (C.relay && authAsk()) return AUTH_TEXT;
@@ -477,7 +494,7 @@
     C.auto = self ? code : ''; C.autoRid = self && typeof rid === 'string' ? rid : ''; C.stranger = ''; C.byPlace = how === 'place' ? code : '';
     if (how === 'new') C.made = code;
     const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how === true ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
-    Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0,
+    Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0, roomVer: '', olderAt: 0,
       probeAt: 0, want: true, welcomed: false, note: '', tries: 0, status: 'connecting', keys: new Map(), synced: new Map(), pending: new Map(),
       members: [], st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', xb: null, rm: null,
       hereSet: typeof h === 'boolean' ? h : null });
@@ -600,9 +617,10 @@
       if (!HOST.session) dialog(true);
       changed(); return;
     }
-    if (code === 4005 || code === 4006 || code === 4000) {
+    if (code === 4006) { versionRefused(); return; }
+    if (code === 4005 || code === 4000) {
       C.want = false; C.status = 'refused';
-      C.note = code === 4000 ? 'The relay refused this room code.' : 'This room runs another version of the app. Reload the page on every device, then join again.';
+      C.note = code === 4000 ? 'The relay refused this room code.' : 'This relay speaks another version of the protocol: the devices need the same release.';
       changed(); return;
     }
     // a relay's limits (4429, as asdf10k-collab-backend's; 4029 from a relay of v109: --public): too many wrong passwords,
@@ -634,11 +652,76 @@
     }
     later(); changed();
   }
+  // Refused for another version (4006, v136). Until then a device stopped trying for good, and a room made again by the old
+  // app after a deploy locked every updated device out. Now an older room is waited for (its old devices have not reloaded
+  // yet: the relay moves it on to this version as the last of them goes, takeOver), trying again every 3 s; a newer room
+  // means this device missed the update, so it reloads (outside a headset at once, in one the Update panel asks: HOST.live);
+  // a version that is not networks-<n>: as before, refused
+  const olderNote = () => `Room ${C.code} still runs version ${C.roomVer} on a device that has not updated: joining as soon as it has.`;
+  function versionRefused() {
+    const rv = C.roomVer, a = fmtN(rv), b = fmtN(FORMAT), code = C.code;
+    if (a && b && a < b) {
+      const t = performance.now();
+      if (!C.olderAt) { C.olderAt = t; log('room older', { room: rv, mine: FORMAT }); }
+      capsGet();
+      // (an older relay cannot move a room on, and each try keeps its old room from expiring: given up after 2 minutes)
+      if (C.caps && C.capsFor === C.relay && !C.caps.versions && t - C.olderAt > 120000) {
+        C.want = false; C.status = 'refused'; C.olderAt = 0;
+        C.note = `Room ${code} runs version ${rv} on this relay, which cannot move it on: reload every device on the older version, or start a new room.`;
+        changed(); return;
+      }
+      C.status = 'older'; C.note = olderNote();
+      clearTimeout(C.timer); C.timer = setTimeout(connect, 3000);
+      changed(); return;
+    }
+    C.olderAt = 0;
+    if (a && b && a > b) {
+      log('room newer', { room: rv, mine: FORMAT });
+      C.want = false; C.status = 'newer';
+      // (a reload order counting down here: this device reloads in its turn as it was going to, neither at once nor asked
+      // in a headset mid-countdown, so the stagger that spares the router holds; a reload that has not come 40 s after its
+      // turn, which the studio's wait for an upload stays within, falls back to what follows)
+      const P = RL.pend, left = P ? P.until + 40000 - performance.now() : 0;
+      if (left > 0) {
+        log('room newer: reloading in turn', { n: P.n, in: Math.max(0, Math.round(P.until - performance.now())) });
+        C.note = `Room ${code} has moved to a newer version of the app (${rv}): this device reloads in its turn.`;
+        clearTimeout(C.newerTimer);
+        C.newerTimer = setTimeout(() => { if (C.status === 'newer' && C.code === code && RL.pend === P) { log('room newer: no reload in turn'); RL.pend = null; versionRefused(); } }, left);
+        changed(); return;
+      }
+      const goes = !!(HOST.live && HOST.live.roomNewer && HOST.live.roomNewer(code));
+      C.note = `Room ${code} has moved to a newer version of the app (${rv}): ` + (goes ? 'this device reloads to go back in.' : 'reload this device to go back in.');
+      changed(); return;
+    }
+    C.want = false; C.status = 'refused';
+    C.note = 'This room runs another version of the app' + (rv ? ' (' + rv + ')' : '') + ': the devices need the same release.';
+    changed();
+  }
+  // an older room took this device in after all (its last old device has gone: the relay moved it on)
+  function movedOn() {
+    log('room moved on', { from: C.roomVer, to: FORMAT, waited: Math.round(performance.now() - C.olderAt) });
+    C.status = 'open'; C.note = ''; C.roomVer = FORMAT; C.olderAt = 0;
+  }
+  // what the relay can do (its /api/ping, asked once per relay): versions (it moves a room on to a newer version), reload
+  // (the reload order's endpoint, POST /api/rooms/<code>/reload); null: not known (no relay, or it did not answer)
+  function capsGet() {
+    if (!C.relay) return Promise.resolve(null);
+    if (C.capsFor === C.relay && C.caps) return Promise.resolve(C.caps);
+    if (C.capsBusy) return C.capsBusy;
+    const base = C.relay;
+    return (C.capsBusy = api('ping', undefined, 5000).then(r => {
+      C.capsBusy = null;
+      if (r.ok && r.j && r.j.proto) { C.caps = { versions: !!r.j.versions, reload: !!r.j.reload }; C.capsFor = base; }
+      return C.capsFor === C.relay ? C.caps : null;
+    }, () => { C.capsBusy = null; return null; }));
+  }
   // the relay restarted and forgot the room: bring it back under its code, with what this page knew
   async function revive() {
     try {
       const r = await api('rooms', { app: 'networks', version: FORMAT, code: C.code });
       if (!r.ok && r.status !== 409) throw new Error('answer ' + r.status);   // 409: someone else brought it back first
+      // (v136: the relay says which version came back first; joining settles it, versionRefused)
+      if (r.status === 409 && r.j && typeof r.j.version === 'string' && r.j.version) { C.roomVer = r.j.version; if (r.j.version !== FORMAT) log('revive: there already', { version: r.j.version }); }
       // what this page knew goes back in where the room lacks it (a page that was never in it: this device's copy)
       C.refill = new Map(C.keys.size ? C.keys : locLoad(C.code).keys);
       log('revived', { code: C.code, keys: C.refill.size, first: r.ok });
@@ -662,9 +745,10 @@
       drop('no answer');
     }, 3000);
   }
-  // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen)
+  // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen; reload: 1, this app
+  // obeys the room's reload orders in its turn, so a relay that moves the room on refuses it only after its turn, v136)
   function hello() {
-    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV });   // (a camera: named so in the lists)
+    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 });   // (a camera: named so in the lists)
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
@@ -682,7 +766,11 @@
     if (m.t === 'welcome') welcome(m);
     else if (m.t === 'set') onSet(m);
     else if (m.t === 'fx') onFx(m);
-    else if (m.t === 'members') { const was = C.members; C.members = m.members || []; comeGo(was, C.members); changed(); }
+    else if (m.t === 'members') {
+      const was = C.members; C.members = m.members || []; comeGo(was, C.members);
+      if (C.status === 'older' && C.members.some(x => x.id === C.id && x.version === FORMAT)) movedOn();   // (the relay moved the room on with this device)
+      changed();
+    }
     else if (m.t === 'pong') pong(m);
     else if (m.t === 'error') onError(m);
     else if (m.t === 'host') { C.next = typeof m.to === 'string' ? m.to : ''; log('handing over', { to: C.next }); }   // (peer to peer: who takes the room next)
@@ -705,7 +793,13 @@
     C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0; C.peerNew = false; C.lastRole = '';
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
+    // (v136: the room's version as the relay has it; an older room waited for stays 'older' until the relay takes this
+    // device in after all, its members then saying so, or refuses it again: no flicker every 3 s)
+    C.roomVer = typeof m.version === 'string' ? m.version : '';
+    const older = fmtN(C.roomVer) > 0 && fmtN(C.roomVer) < fmtN(FORMAT);
+    if (older && C.olderAt) { C.status = 'older'; C.note = olderNote(); }
     C.keys = new Map(Object.entries(m.keys || {}));
+    if (older) C.keys = migrate(C.keys, C.roomVer);   // (an older room's keys, as this version reads them)
     // a room joined by itself that turns out to be another room under the same code (its rid), or one joined by itself
     // with no id to tell it by (never: rejoinable asks for one): left at once, and nothing of it is kept here (this
     // device's copy of its own room stays). No rid there yet is the room come back from a copy (revive): joined
@@ -731,6 +825,7 @@
     }
     roomChanged(null, false);
     mirror();
+    if (RL.keep && HOST.session) reloadKeep();   // (a headset back from Update the room, in its session before the room came)
     // the network this room is used on, kept with it (rejoin): found once per room, or again a minute after none was
     if (!C.net && !C.netBusy && (C.netState !== 'none' || performance.now() - C.netAt > 60000)) netFind('room');
     // the room's own id (key rid), written once by the page that made it or holds it: a room joined again by itself can be
@@ -782,6 +877,8 @@
   // writes the relay did not store: drop them here, and show the room's value again
   function onError(m) {
     log('error', { code: m.code, text: m.text, cid: m.cid, keys: m.keys });
+    // (refused for another version: which, from the relay's words, "the room runs version networks-42": versionRefused)
+    if (m.code === 'version' && typeof m.text === 'string') { const v = /version (\S+)/.exec(m.text); if (v) C.roomVer = v[1]; }
     if (!Array.isArray(m.keys) || (m.code !== 'refused' && m.code !== 'rate')) return;
     const back = [];
     for (const k of m.keys) {
@@ -830,10 +927,12 @@
     locFlush();
     let o = null;
     try { o = JSON.parse(get(LR + code) || 'null'); } catch (e) { o = null; }
-    const keys = new Map();
+    let keys = new Map();
     if (o && o.keys && typeof o.keys === 'object') {
       for (const [k, e] of Object.entries(o.keys)) if (LKEY.test(k) && e && typeof e === 'object' && e.v !== undefined && e.v !== null) keys.set(k, { v: e.v, seq: +e.seq || 0, by: String(e.by || '') });
     }
+    // (v136: a copy says the format it was written in, f; one an older app wrote is brought to this one: MIGRATE)
+    if (o && typeof o.f === 'string' && o.f !== FORMAT) keys = migrate(keys, o.f);
     Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, net: o && typeof o.net === 'string' ? o.net : '',
       relay: o && typeof o.relay === 'string' ? o.relay : '', left: !!(o && o.left), gone: !!(o && o.gone) });
     return LOC;
@@ -849,7 +948,7 @@
     LOC.mirror = false;
     // in the room now: used now, on this network, through this relay, and no longer left (joined again by hand)
     if (C.code === LOC.code && C.want && C.welcomed && C.stranger !== C.code) { LOC.left = LOC.gone = false; LOC.relay = C.relay; if (C.net) LOC.net = C.net; }
-    put(LR + LOC.code, J({ seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined, gone: LOC.gone || undefined }));
+    put(LR + LOC.code, J({ f: FORMAT, seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined, gone: LOC.gone || undefined }));
     LOC.list = null;
     for (const r of localRooms().slice(LR_MAX)) put(LR + r.code, null);
     LOC.list = null;
@@ -1412,6 +1511,190 @@
     connect(); changed();
   }
 
+  // ------------------------------------------------------- updating the room --
+  // Update the room (v136; the owner, 11 November 2026: "It needs a: update this room on the relay switch that just tells
+  // everyone to reload, after updates rooms otherwise get lost sometimes"). Two presses (as Remove: the first arms it for
+  // 3 s), on the page's Shared dialog (the room's row), the headset menu's Circles tab (under the room's heading) and the
+  // update bar and panel (HOST.live, while in a room); anyone in the room, never refused by either lock (it moves nothing),
+  // never from a camera; one order a room every 20 s from here. The presser asks the release (version.json) for the version
+  // and shell to come back with, writes its own copy of the room (locFlush), then sends the order, { n, to, shell, by,
+  // name, at }, as the quiet effect q.reload: through the relay's endpoint (POST /api/rooms/<code>/reload), which reaches
+  // every member whatever its version and lets the room move on to the new version as soon as the first device comes back
+  // with it, even while others of the old one are still there (relay/server.mjs: takeOver); on an older relay, peer to peer
+  // and from a device the relay refuses, as an effect in the room; a room on this device tells its other tabs (localStorage
+  // collabReload). A relay that lost the room (restarted) gets it back from here first (revive). Never stored: no FORMAT
+  // change; an older app ignores the key. Each device then reloads in turn (by when it came into the room, the presser
+  // last: 0.4 s, then 0.5 s more each, at most 8 s; a headset at least 3 s, with a notice), its place kept (HOST.live's
+  // livePlace) and its station too (roomReload in sessionStorage: a headset at its circle again in its next session, without
+  // walking in); it comes back by the code in its address. Back, it checks it got the release the order named (the service
+  // worker answers from its cache after 4 s or a network error): once more, twice at most, else it says so
+  const RL = { arm: 0, at: 0, busy: false, pend: null, mine: '', back: null, keep: false, note: '', test: null };
+  const RL_KEY = 'collabReload';   // (a room on this device: its order, for the other tabs)
+  const sesGet = k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+  const sesPut = (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+  const reloadArmed = () => performance.now() < RL.arm;
+  const reloadCan = () => !!C.code && !CAM.on;   // (a camera writes nothing: never)
+  const reloadLabel = () => (RL.busy ? 'Sending the order...' : reloadArmed() ? (C.local ? 'Reload this device? Press again' : 'Reload every device? Press again') : C.local ? 'Reload this device' : 'Update the room');
+  const reloadWhat = () => (C.local ? 'This device reloads into the newest version of the app and comes back into this room.' :
+    'Every device here reloads into the newest version of the app, one after another, and comes back into this room.');
+  function reloadAsk(why) {
+    if (!reloadCan() || RL.busy) return false;
+    if (reloadArmed()) { RL.arm = 0; roomUpdate(why); changed(); return true; }
+    RL.arm = performance.now() + 3000;
+    setTimeout(changed, 3050);
+    changed();
+    return false;
+  }
+  // the orders seen here (this tab: their ids, the last 8) and when this device last obeyed one
+  const seenGet = () => { try { const o = JSON.parse(sesGet('roomReloadSeen') || 'null'); return o && Array.isArray(o.seen) ? o : { seen: [], at: 0 }; } catch (e) { return { seen: [], at: 0 }; } };
+  const seenPut = o => { o.seen = o.seen.slice(-8); sesPut('roomReloadSeen', J(o)); };
+  // a studio upload, conversion, save or recording under way: waited for before reloading (30 s at most)
+  const studioBusy = () => { try { return HOST.curKey === 'studio' && !!HOST.cur && !!HOST.cur.peek('!!((typeof UP !== "undefined" && UP.busy) || (typeof CV !== "undefined" && CV.busy) || (typeof REC !== "undefined" && REC) || (typeof FT !== "undefined" && FT.saving) || (typeof CT !== "undefined" && CT.saving))'); } catch (e) { return false; } };
+  async function roomUpdate(why) {
+    if (!reloadCan() || RL.busy) return false;
+    const t = performance.now(), code = C.code;
+    if (RL.at && t - RL.at < 20000) { log('room reload dropped', { why: 'an order went out from here ' + Math.round((t - RL.at) / 1000) + ' s ago' }); return false; }
+    RL.at = t; RL.busy = true; changed();
+    const done = ok => { RL.busy = false; changed(); return ok; };
+    let v = null;
+    try {
+      const ab = new AbortController(), to = setTimeout(() => ab.abort(), 3000);
+      const r = await fetch(appRoot() + 'version.json?t=' + Date.now(), { cache: 'no-store', signal: ab.signal }).finally(() => clearTimeout(to));
+      if (r.ok) v = await r.json();
+    } catch (e) { /* offline, or no version file: this device's own release */ }
+    if (C.code !== code) return done(false);
+    const me = HOST.shell || {};
+    const to = { format: (v && typeof v.format === 'string' && v.format) || FORMAT,
+      shell: v && v.shell && typeof v.shell.id === 'string' ? { n: +v.shell.n || 0, id: v.shell.id } : { n: +me.n || 0, id: String(me.id || '') } };
+    locFlush();
+    const order = { n: rid(8), to: to.format, shell: to.shell, by: C.id, name: C.name, at: C.local ? Date.now() : now() };
+    RL.mine = order.n;
+    let via = C.via, revived = false, endpoint = false, members = C.members.length, inIt = C.status === 'open';
+    if (C.local) { put(RL_KEY, J({ code, order })); via = 'tabs'; members = 1; }
+    else if (C.via === 'relay') {
+      const caps = await capsGet();
+      // (a relay that lost the room, restarted meanwhile: brought back from here first, and its welcome waited for)
+      const g = await api('rooms/' + code).catch(() => null);
+      if (g && g.status === 404 && C.code === code) {
+        revived = true; log('room reload: the relay lost the room, bringing it back first', { code });
+        revive();
+        for (let k = 0; k < 30 && !(C.status === 'open' && C.ws) && C.code === code; k++) await new Promise(r => setTimeout(r, 200));
+        inIt = C.status === 'open'; members = C.members.length;
+      }
+      if (C.code !== code) return done(false);
+      if (caps && caps.reload) {
+        const r = await api('rooms/' + code + '/reload', { n: order.n, to: order.to, shell: order.shell, from: C.id }).catch(() => null);
+        if (r && r.ok && r.j) { endpoint = true; members = +r.j.members || 0; inIt = inIt && members > 0; }
+        else if (r && r.status === 429) { log('room reload dropped', { why: 'another order went to the room just now' }); return done(false); }
+      }
+      if (!endpoint) {
+        if (C.status !== 'open') { C.note = 'Could not update the room: the relay did not take the order. Try again in a moment.'; log('room reload failed', { code }); return done(false); }
+        fx('q.reload', order);
+      }
+    } else fx('q.reload', order);   // (peer to peer: the host's hub passes it to every member, from a guest or the host)
+    log('room reload asked', { n: order.n, to: order.to, via, members, revived, endpoint, why });
+    done(true);
+    reloadIn(order, C.id, Math.max(0, members - (inIt ? 1 : 0)));   // (this device last)
+    return true;
+  }
+  // why an order is not obeyed here ('' it is)
+  function reloadSkip(v) {
+    const S = seenGet();
+    if (S.seen.includes(v.n)) return 'seen';
+    if (RL.pend) return 'one under way';
+    if (Date.now() - (+S.at || 0) < 30000) return 'one obeyed just now';
+    if (!(Math.abs(v.at - (C.local ? Date.now() : now())) <= 120000)) return 'too old';
+    if (CAM.on && !C.who && !C.live) return 'a camera following nothing';
+    return '';
+  }
+  // an order heard (q.reload; from the relay by '', from a member by its id; a room on this device's other tab), or this
+  // device's own (rank: the presser's, last)
+  function reloadIn(v, by, rank) {
+    if (!v || typeof v !== 'object' || typeof v.n !== 'string' || !/^[\w-]{1,16}$/.test(v.n)) return false;
+    if (rank === undefined && v.n === RL.mine) return false;   // (this device's own, as the relay sends it to everyone: obeyed in its turn)
+    const why = reloadSkip(v);
+    if (why) { log('room reload skipped', { n: v.n, why }); return false; }
+    const S = seenGet(); S.seen.push(v.n); seenPut(S);
+    // the order of reloading: by when each came into the room (the relay's since), then by id, the presser left out (last)
+    const presser = (typeof v.from === 'string' && v.from) || (typeof v.by === 'string' && v.by) || by || '';
+    const ms = C.members.filter(m => m.id !== presser).sort((a, b) => (+a.since || 0) - (+b.since || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    if (rank === undefined) { rank = ms.findIndex(m => m.id === C.id); if (rank < 0) rank = ms.length; }
+    const wait = Math.max(HOST.session ? 3000 : 0, Math.min(8000, 400 + rank * 500)), sec = Math.max(1, Math.round(wait / 1000));
+    RL.pend = { n: v.n, until: performance.now() + wait };
+    log('room reload', { n: v.n, by: presser, rank, in: wait, session: !!HOST.session });
+    if (HOST.session) notice('Updating the room', `This headset reloads in ${sec} s. Then press Enter ${HOST.mode === 'immersive-ar' ? 'AR' : 'VR'} to continue.`, wait + 2000);
+    else toastSay(`Updating the room: reloading in ${sec} s.`, wait + 3000);
+    setTimeout(() => reloadGo(v, rank, wait), wait);
+    changed();
+    return true;
+  }
+  async function reloadGo(v, rank, wait) {
+    for (let k = 0; k < 60 && studioBusy(); k++) await new Promise(r => setTimeout(r, 500));   // (an upload or a recording first)
+    locFlush();
+    const S = seenGet(); S.at = Date.now(); seenPut(S);
+    const sh = v.shell && typeof v.shell === 'object' && typeof v.shell.id === 'string' ? { n: +v.shell.n || 0, id: v.shell.id } : null;
+    sesPut('roomReload', J({ code: C.code, n: v.n, to: typeof v.to === 'string' ? v.to : '', shell: sh, live: C.live, zone: C.zone, from: (HOST.shell && HOST.shell.id) || '', at: Date.now(), tries: 0, rank, wait }));
+    log('room reload now', { n: v.n, live: C.live });
+    if (RL.test) { RL.pend = null; RL.test(v); return; }   // (tests: what would reload)
+    if (HOST.live && HOST.live.reload) HOST.live.reload('room'); else location.reload();
+  }
+  // Back from a reload by an order (roomReload, at the boot, before anything joins): did it bring the release the order
+  // named? (the service worker answers from its old cache after 4 s or a network error, file by file: ten headsets reloading
+  // together on one router can come back old). Not: once more (its place kept), twice at most, then it says so. true: it
+  // reloads again (nothing joins meanwhile)
+  function reloadBack() {
+    let o = null;
+    try { o = JSON.parse(sesGet('roomReload') || 'null'); } catch (e) { o = null; }
+    if (!o || typeof o !== 'object' || !(Date.now() - (+o.at || 0) < 600000)) { if (o) sesPut('roomReload', null); return false; }
+    RL.back = o;
+    if (o.checked) return false;   // (a reload by hand since: checked already)
+    const me = HOST.shell || {}, sh = o.shell && typeof o.shell === 'object' ? o.shell : null;
+    const ok = !sh || !sh.id || sh.id === me.id || +me.n > +sh.n;
+    if (!ok && (+o.tries || 0) < 2) {
+      o.tries = (+o.tries || 0) + 1;
+      sesPut('roomReload', J(o));
+      log('room reload again', { n: o.n, want: sh.id, got: me.id || '', tries: o.tries });
+      const lp = sesGet('livePlace');   // (the boot goes on meanwhile and takes it: put back for the next load)
+      setTimeout(() => { if (lp) sesPut('livePlace', lp); if (RL.test) RL.test(o, 'again'); else location.reload(); }, 600 * o.tries);
+      return true;
+    }
+    o.checked = true; sesPut('roomReload', J(o));
+    log('room reload back', { n: o.n, from: o.from || '', to: (sh && sh.id) || '', ok, ms: Date.now() - (+o.at || 0) });
+    if (!ok) { RL.note = 'This device could not fetch the new version: reload it by hand.'; setTimeout(() => { if (HOST.live && HOST.live.note) HOST.live.note(RL.note); }, 0); }
+    return false;
+  }
+  // a headset's first session after such a reload, in that room within 10 minutes: its station kept (it had walked into
+  // it), not dropped as for any new session; the room not in yet: as it comes (welcome). Alignment comes back as for any
+  // session (the marks by their anchors, places, the check by eye)
+  function reloadKeep() {
+    const o = RL.back;
+    if (!o || !HOST.session || CAM.on) return false;
+    if (!(Date.now() - (+o.at || 0) < 600000)) { reloadDone(); return false; }
+    if (!C.code || !C.welcomed) { RL.keep = true; return false; }
+    if (o.code !== C.code) { reloadDone(); return false; }
+    const s = o.live && C.stById.get(o.live);
+    if (s && !s.arc) { choose(s.id, 'reload'); if (o.zone && C.stById.has(o.zone)) C.zone = o.zone; log('station kept after the reload', { st: s.id }); }
+    reloadDone();
+    return !!s;
+  }
+  function reloadDone() { RL.back = null; RL.keep = false; sesPut('roomReload', null); }
+  // another tab of a room on this device gave the order
+  window.addEventListener('storage', e => {
+    if (e.key !== RL_KEY || !e.newValue || !C.local || !C.code) return;
+    let o = null;
+    try { o = JSON.parse(e.newValue); } catch (er) { return; }
+    if (o && o.code === C.code && o.order) reloadIn(o.order, o.order.by || '');
+  });
+  // the page's notice for an order (the rejoin toast's box, with only its words)
+  function toastSay(text, ms) {
+    if (!toastEl()) return;
+    TOAST.el.innerHTML = `<span style="flex:1 1 240px">${esc(text)}</span>`;
+    TOAST.el.hidden = false; TOAST.el.style.display = 'flex';
+    log('notice', { title: 'Updating the room' });
+    sfx('notice');
+    clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, ms || 6000);
+  }
+
   // ------------------------------------------------- rooms on this network --
   // Browsers cannot search the local network, so devices meet through the address they share on the internet (the owner,
   // 29 October 2026). A network's id is a short hash of it, never the address itself (kept only on this device, with the
@@ -1594,8 +1877,11 @@
         C.nearBusy = false;
         if (C.code) return;
         if (!r.ok || !r.j || !Array.isArray(r.j.rooms)) { C.near = []; C.nearErr = r.status === 404 ? 'This relay does not list rooms by network (an older relay).' : r.status === 401 ? AUTH_TEXT : 'The relay answered ' + r.status + '.'; changed(); return; }
-        const list = r.j.rooms.filter(o => o && /^[A-Z]{3}$/.test(o.code) && (!o.version || o.version === FORMAT))
-          .map(o => ({ code: o.code, name: String(o.name || '').slice(0, 32), members: +o.members || 0, stations: +o.stations || 0 }));
+        // (v136: a room of another version too, marked: an older one moves on as this device joins it, the last of its old
+        // devices gone; a newer one: this device needs the update. One not networks-<n>: left out, as ever)
+        const verOf = o => (!o.version || o.version === FORMAT ? '' : fmtN(o.version) && fmtN(FORMAT) ? (fmtN(o.version) < fmtN(FORMAT) ? 'older' : 'newer') : 'other');
+        const list = r.j.rooms.filter(o => o && /^[A-Z]{3}$/.test(o.code) && verOf(o) !== 'other')
+          .map(o => Object.assign({ code: o.code, name: String(o.name || '').slice(0, 32), members: +o.members || 0, stations: +o.stations || 0 }, verOf(o) ? { ver: verOf(o) } : {}));
         const net = NET_RE.test(r.j.net || '') ? r.j.net : '';
         if (net !== C.net || C.netState !== 'found') netSet(net, 'relay', why);   // (the network as the relay sees it: known now)
         C.near = list;
@@ -1688,7 +1974,17 @@
   // hidden by its display (its own display: flex outranks the hidden attribute, so that alone left it up for good)
   const TOAST = { el: null, timer: 0 };
   function toast(code) {
-    if (!document.body) return;
+    if (!toastEl()) return;
+    TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in room <b>${esc(code)}</b>: this device was in it on this network, so it joined it again by itself.</span>` +
+      '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>' +
+      '<button class="btn" type="button" data-toast="close" aria-label="Close" title="Close">\u00d7</button>';
+    TOAST.el.hidden = false; TOAST.el.style.display = 'flex';
+    log('notice', { title: 'Back in room' });
+    sfx('notice');
+    clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 20000);
+  }
+  function toastEl() {
+    if (!document.body) return null;
     if (!TOAST.el) {
       const el = TOAST.el = document.createElement('div');
       el.id = 'shToast'; el.setAttribute('role', 'status');
@@ -1703,13 +1999,7 @@
       }));
       document.body.appendChild(el);
     }
-    TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in room <b>${esc(code)}</b>: this device was in it on this network, so it joined it again by itself.</span>` +
-      '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>' +
-      '<button class="btn" type="button" data-toast="close" aria-label="Close" title="Close">\u00d7</button>';
-    TOAST.el.hidden = false; TOAST.el.style.display = 'flex';
-    log('notice', { title: 'Back in room' });
-    sfx('notice');
-    clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 20000);
+    return TOAST.el;
   }
   function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) { TOAST.el.hidden = true; TOAST.el.style.display = 'none'; } }
 
@@ -1926,6 +2216,7 @@
       if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
     } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
     } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
+    } else if (m.k === 'q.reload') { reloadIn(m.v, m.by);   // Update the room: this device reloads in its turn (v136)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k === 'q.check') { checkIn(m.v, m.by);   // someone's Touch the spot: where their room puts the spot
     } else if (m.k.startsWith('e.')) {
@@ -3422,14 +3713,21 @@
     // people come from (Arrange all faces its stations away from you)
     const S = shown(s), cx = S.x, cz = S.z;
     o.mesh.position.set(cx, CARD_Y, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
+    // (its back face only while it stands at its station's yaw, with no head pose: turned to you, the back faces away and
+    // would be a draw of nothing, twice a frame, every card: v136)
+    o.back.visible = !R.headOK;
     return o;
   }
-  function stationLine(s) {
+  // a station's line: on its card (card) no running clock (v136: the card was drawn again and sent to the GPU once a
+  // second while its story played, every playing station's card in the same frame), 'Playing' while it plays; the page's
+  // Shared dialog keeps the time
+  function stationLine(s, card) {
     if (s.kind === LOBBY_ST) return askFirst() ? 'Walk in or press: back to every circle' : 'Walk in: back to every circle';
     if (s.kind === ALL && !runs(s)) return 'Choosing a story';
     const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
     if (P.mode === 'explore') return 'Exploring';
+    if (card && P.playing) return 'Playing';
     const t = expected(P);
     return (P.playing ? 'Playing at ' : t < 0.5 ? 'Ready to start' : 'Paused at ') + (P.playing || t >= 0.5 ? mmss(t) : '');
   }
@@ -3439,10 +3737,13 @@
     for (const [pid, P] of C.pres) if (P.st === id) { const m = member(pid); if (m && m.name) out.push(m.name); }
     return out;
   }
-  function drawCard(o, s) {
-    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk, s.sync, askFirst(), title].join('|');
-    if (sig === o.sig) return;
-    o.sig = sig;
+  // what a card shows (drawn again only when it changes): cardSig; drawCard draws it (drawPreviews: at most one card a
+  // frame, v136)
+  const cardSig = (o, s) => [s.story, stationLine(s, true), whoAt(s.id).join(','), o.hover, MV.id === s.id, circlesLocked(), s.sync, askFirst(), stTitle(s)].join('|');
+  function drawCard(o, s, sig) {
+    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s);
+    o.sig = sig || cardSig(o, s);
+    o.drawn = (o.drawn || 0) + 1;
     const ctx = o.ctx, W = o.w, H = o.h;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     rr(ctx, 4, 4, W - 8, H - 8, 22); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
@@ -3455,7 +3756,7 @@
     for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(big).width <= W - 64) break; }
     ctx.fillStyle = INK; ctx.fillText(fit(ctx, big, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
     // (an All stories circle: the story picked there, and whether it runs with the room's circle of it)
-    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s) : stationLine(s);
+    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s, true) : stationLine(s, true);
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(fit(ctx, line, W - 64), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
@@ -3605,6 +3906,7 @@
   const CARD_Y = 1.45;   // a station's card: its middle over the floor (its top edge at 1.6 m, under the icon at ICON.y)
   // the card fades as your head comes within CARD_NEAR of its ring's middle (walking in, it would be in your face)
   const CARD_NEAR = [0.45, 0.8];
+  const DIRTY = [];   // (the cards whose content changed this frame: one of them drawn, drawPreviews)
   function drawPreviews(dt) {
     const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
@@ -3644,11 +3946,21 @@
       if (live || arc || r.hid) { const c = OV.cards.get(s.id); if (c) c.mesh.visible = false; continue; }
       // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
       const c = cardFor(s, cm), k = r.peek * Math.min(1, Math.max(0, ((R.headOK ? d : 9) - CARD_NEAR[0]) / (CARD_NEAR[1] - CARD_NEAR[0])));
-      c.mesh.visible = cm !== 'hidden' && k > 0.02;
+      const shows = cm !== 'hidden' && k > 0.02;
+      c.mesh.visible = shows && !!c.sig;   // (a card never drawn yet waits for its turn: nothing blank goes to the GPU)
       c.mesh.material.opacity = k;
-      if (!c.mesh.visible) continue;
+      if (!shows) continue;
       c.hover = hov;
-      drawCard(c, s);
+      const sg = cardSig(c, s);
+      if (sg !== c.sig) DIRTY.push({ c, s, sg, pri: hov || MV.id === s.id ? -1 : d });
+    }
+    // at most one card drawn again (and so sent to the GPU) a frame (v136: twenty cards with mipmaps in one frame were a
+    // dropped frame on a headset), the one pointed at or carried first, then the nearest; the others wait their turn
+    if (DIRTY.length) {
+      let b = DIRTY[0];
+      for (const e of DIRTY) if (e.pri < b.pri) b = e;
+      drawCard(b.c, b.s, b.sg); b.c.mesh.visible = true;
+      DIRTY.length = 0;
     }
   }
 
@@ -3759,11 +4071,14 @@
   // (hov: what is pointed at, lit; null: the same without it, what the menu shows to your circle goes by: menuSig)
   function panelSig(hov = OV.panel.hover) {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, hov, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
-      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
+      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
+      // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
+      // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
+      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st) : '', C.via, hosting(), C.takeover, C.peer,
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4130,6 +4445,7 @@
     if (sig === S.sig) return;
     S.sig = sig;
     { const c = S.hover ? panelSig(null) : sig; if (c !== S.csig) { S.csig = c; S.cver = (S.cver || 0) + 1; } }   // (what it shows, the light of what is pointed at aside)
+    PNL.strip = null;   // (the Debug tab's read-outs, drawn on their own as they change: stripStep)
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -4406,16 +4722,37 @@
       button(S, 'trackers', x, y, bw, 56, ts ? 'Trackers: shown' : 'Trackers: hidden', () => trkShow(!ts), { px: 21, on: ts });
       note(trkMenuLine(), y);
       y += 72;
+      // the refresh rate this headset asks for (v136, HOST.xr.hz: kept; each press the next rate the session lists), greyed
+      // with the reason where the browser has no frame-rate API; then two developer experiments, fixed foveation (from the
+      // next frame) and the resolution (from the next session), each press the next value
+      if (HOST.xr.hzState) {
+        const H = HOST.xr.hzState(), can = !!(H.api && H.list && H.list.length);
+        button(S, 'hz', x, y, bw, 56, 'Refresh rate: ' + (can && H.asked ? H.asked : H.want) + ' Hz', can ? () => HOST.xr.setHz(hzNext(H)) : null, { px: 21 });
+        note(hzLine(H), y);
+        y += 72;
+      }
+      if (HOST.xr.setFov && HOST.xr.setScale) {
+        const fv = HOST.xr.fov(), fs = HOST.xr.fovs(), sc = HOST.xr.scale(), ss = HOST.xr.scales(), fn = HOST.xr.fovNow(), sn = HOST.xr.scaleNow();
+        button(S, 'fov', x, y, bw, 56, 'Foveation: ' + (fv === 'story' ? 'the story\'s' : fv), () => HOST.xr.setFov(fs[(fs.indexOf(fv) + 1) % fs.length]), { px: 21, on: fv !== 'story' });
+        button(S, 'scale', x + bw + 16, y, bw, 56, 'Resolution: ' + Math.round(sc * 100) + ' %', () => HOST.xr.setScale(ss[(ss.indexOf(sc) + 1) % ss.length]), { px: 21, on: sc !== 1 });
+        y += 66;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, (fv === 'story' ? 'Foveation as the story sets it' : 'Foveation ' + fv) + (fn !== null ? ' (now ' + Math.round(fn * 100) / 100 + ')' : '') +
+          '. Resolution from the next session' + (sn !== sc ? ' (this one ' + Math.round(sn * 100) + ' %)' : '') + '. Experiments, this headset\'s own.', x, y, w, 28, 2) + 16;
+      }
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
         button(S, 'whatsnew', x, y, bw, 56, 'What is new', () => devOpen('hand'), { px: 23 });
         note('This release: what changed and what to test', y);
         y += 72;
       }
-      // what to tell someone helping: the release, the room's connection, the browser, the frame rate
-      ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      for (const l of debugLines()) { ctx.fillText(fit(ctx, l, w), x, y); y += 30; }
-      finish(y + 18);
+      // what to tell someone helping: the release, the room's connection, the browser, the frame rate. Drawn here, and
+      // then line by line as they change (stripStep, v136: the frame rate and the round trip change every second or so,
+      // and the whole menu went to the GPU each time, 5.5 MB with its mipmaps)
+      const sy = Math.ceil(y), DL = debugLines();
+      PNL.strip = { x, y: sy, w, lh: STRIP.lh, lines: DL.slice() };
+      DL.forEach((l, k) => stripText(ctx, l, x, sy + k * STRIP.lh, w));
+      finish(sy + DL.length * STRIP.lh + 18);
       return;
     }
     // Circles: a room's code typed in (a keypad: headsets cannot type), in place of the rest of the tab
@@ -4433,6 +4770,14 @@
     // (how this headset lines up: here, or in the Room setup row below for a headset in the room with the others)
     ctx.fillText(fit(ctx, C.code ? connLine() + (R.status() && !guideOn() ? ' · ' + R.status() : '') : C.relay ? 'Join others in a room' : 'Place the stories in your room', w), x, y); y += 42;
     if (C.note) { ctx.font = FONT(23); ctx.fillStyle = '#ffb43b'; y += wrapText(ctx, C.note, x, y, w, 31, 3) + 10; }
+    // Update the room (v136): every device here reloads into the newest version, one after another (two presses; never
+    // refused by a lock; never from a camera)
+    if (reloadCan()) {
+      const ra = reloadArmed();
+      button(S, 'room:reload', x, y, bw, 56, reloadLabel(), RL.busy ? null : () => reloadAsk('menu'), { px: ra ? 19 : 22, color: ra ? '#ffb43b' : undefined, on: ra });
+      ctx.font = FONT(20); ctx.fillStyle = MUTED; wrapText(ctx, reloadWhat(), x + bw + 16, y, bw, 26, 3);
+      y += 82;
+    }
     // the relay wants its password (no room starts or is joined there without it): its keypad page. A headset that has it
     // already (typed on its 2D page before VR) never sees this
     if (authAsk()) {
@@ -4613,6 +4958,61 @@
     y += 46 + 28;
     finish(y);
   }
+  // the refresh rate's row on the Debug tab: the next rate the session lists after the one asked for (round again), and
+  // what the session says (v136)
+  const hzNext = H => H.list[(H.list.indexOf(H.asked) + 1) % H.list.length];
+  function hzLine(H) {
+    if (H.api === null) return 'Asked for as each session starts';
+    if (!H.api) return 'This browser cannot set it (no frame-rate API)' + (H.got ? ': it runs at ' + H.got + ' Hz' : '');
+    if (!H.list || !H.list.length) return 'The browser lists no rates' + (H.got ? ': it runs at ' + H.got + ' Hz' : '');
+    return 'Now ' + (H.got ? H.got + ' Hz' : 'not said') + ' · offers ' + H.list.join(', ') + (H.err ? ' · refused: ' + H.err : '');
+  }
+  // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
+  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()]]); };
+  // The Debug tab's read-outs (debugLines) drawn on their own as they change (v136): stripStep, each frame while the menu
+  // shows the tab, compares them with what was drawn at most every STRIP.ms, and a line that changed is drawn again on a
+  // small canvas of its own (its row of the menu: the menu's background, then the line), put on the menu's canvas in its
+  // place (so the menu as shared with your circle, menuShot, shows it) and sent to the menu's texture alone
+  // (sheetPatch: texSubImage2D of that row, then its mipmaps), not the whole menu; another number of lines draws the tab
+  // again. A texture not on the GPU yet, or with the whole menu still to go there, takes it as it goes
+  const STRIP = { lh: 30, ms: 200, at: 0, cv: null, rows: 0 };
+  function stripText(ctx, l, x, y, w) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillText(fit(ctx, l, w), x, y); }
+  function stripStep(t) {
+    const P = PNL.strip, S = OV.panel;
+    if (!P || S.sig === '' || t - STRIP.at < STRIP.ms) return;
+    STRIP.at = t;
+    const L = debugLines();
+    if (L.length !== P.lines.length) { S.sig = ''; return; }   // (drawn again whole next frame)
+    for (let k = 0; k < L.length; k++) if (L[k] !== P.lines[k]) { P.lines[k] = L[k]; stripRow(P, k); }
+  }
+  function stripRow(P, k) {
+    const S = OV.panel, rw = Math.ceil(P.w), rh = P.lh, rx = Math.floor(P.x), ry = P.y + k * P.lh;
+    if (ry + rh > S.h) return;
+    const cv = STRIP.cv = STRIP.cv || document.createElement('canvas');
+    if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, rw, rh);
+    c.fillStyle = 'rgba(8,15,28,0.95)'; c.fillRect(0, 0, rw, rh);   // (the menu's background, as finish lays it under what it shows)
+    stripText(c, P.lines[k], rx - P.x, 0, P.w);
+    const ctx = S.ctx;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+    sheetPatch(S, cv, rx, ry);
+    STRIP.rows++;
+  }
+  function sheetPatch(S, cv, x, y) {
+    const R = HOST.renderer, T = S.tex;
+    try {
+      const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+      if (!wt || pr.__version !== T.version) return false;   // (its upload to come carries the canvas as it is now)
+      if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return false; }
+      R.state.bindTexture(gl.TEXTURE_2D, wt);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? S.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+      S.patched = (S.patched || 0) + 1;
+      return true;
+    } catch (e) { T.needsUpdate = true; return false; }
+  }
   // the Debug tab's read-outs
   function debugLines() {
     const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^\w+:\/\//, '').replace(/\/.*$/, '') : 'no relay known';
@@ -4621,7 +5021,7 @@
       'App: release ' + (sh.n || '?') + ' · rooms ' + FORMAT,
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
-      'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
+      'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...') + (hzTarget() ? ' · the headset at ' + hzTarget() + ' Hz' : ''),
     ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : [], HOST.ships && HOST.ships.line ? ['Spaceships: ' + HOST.ships.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
@@ -4707,7 +5107,8 @@
       const h = C.members.find(m => m.host);
       return 'peer to peer · ' + (hosting() ? 'hosted here' : h ? 'hosted by ' + (h.name || 'someone') : 'connected');
     }
-    return { open: 'connected', connecting: 'connecting...', refused: 'refused', off: 'not connected', auth: 'waiting for the relay\'s password' }[C.status] || C.status;
+    return { open: 'connected', connecting: 'connecting...', refused: 'refused', off: 'not connected', auth: 'waiting for the relay\'s password',
+      older: 'waiting for a device on an older version', newer: 'this device needs the update' }[C.status] || C.status;
   }
   // a room on this device: why (shown in the dialog and the headset's menu)
   const whyLocal = () => (C.peer === 'off' && !C.relay ? 'peer to peer is off and no relay is known' : C.peerFail ? 'neither a relay nor the peer-to-peer introduction server answered' : 'no relay was reached');
@@ -5233,12 +5634,19 @@
   const FPSV = { down: 22 * Math.PI / 180, left: 14 * Math.PI / 180, dist: 1 };
   const _e = new THREE.Euler(0, 0, 0, 'YXZ'), _q2 = new THREE.Quaternion();
   const fpsOn = () => !!(HOST.xr && HOST.xr.fps && HOST.xr.fps());
+  // the refresh rate the session runs at (the browser's word, else the rate asked for), 0 where neither is known
+  const hzState = () => (HOST.xr && HOST.xr.hzState ? HOST.xr.hzState() : null);
+  const hzTarget = () => { const H = hzState(); return H ? Math.round(H.got || H.asked || 0) : 0; };
+  const FPS_COL = { good: '#3ee08f', near: '#ffb43b', bad: '#ff7a59' };
+  const fpsColour = (v, hz) => (!v ? MUTED : hz ? (v >= hz * 0.97 ? FPS_COL.good : v >= hz * 0.8 ? FPS_COL.near : FPS_COL.bad) : v >= 70 ? FPS_COL.good : v >= 55 ? FPS_COL.near : FPS_COL.bad);
   function drawFps() {
     const S = OV.fps, on = fpsOn() && HD.ok && !CAM.on;
     S.mesh.visible = on;
     if (!on) return;
-    const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500;
-    const l1 = (FPS.v ? FPS.v + ' fps' : 'Measuring') + (FPS.mean ? ` · ${FPS.mean.toFixed(1)} ms a frame, worst ${FPS.worst.toFixed(1)} ms` : '');
+    const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500, hz = hzTarget();
+    // (v136: against the session's refresh rate where the browser says it, "72 fps of 90 Hz", coloured by it: green within
+    // 3 % of it, amber within 20 %, else red; a browser that does not say it as before, green from 70 fps)
+    const l1 = (FPS.v ? FPS.v + ' fps' + (hz ? ' of ' + hz + ' Hz' : '') : 'Measuring') + (FPS.mean ? ` · ${FPS.mean.toFixed(1)} ms a frame, worst ${FPS.worst.toFixed(1)} ms` : '');
     const l2 = fresh ? `${Math.round(st.tri).toLocaleString('en-GB')} triangles · ${Math.round(st.calls)} draw calls · code ${st.js.toFixed(1)} ms` : 'Triangles and draw calls: waiting for the story\'s frames';
     const txt = l1 + '\n' + l2;
     if (txt !== S.text) {
@@ -5246,7 +5654,7 @@
       const ctx = S.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
       rr(ctx, 2, 2, S.w - 4, S.h - 4, 18); ctx.fillStyle = 'rgba(8,15,28,0.8)'; ctx.fill();
-      ctx.font = FONT(30, 700); ctx.fillStyle = !FPS.v ? MUTED : FPS.v >= 70 ? '#3ee08f' : FPS.v >= 55 ? '#ffb43b' : '#ff7a59';
+      ctx.font = FONT(30, 700); ctx.fillStyle = S.col = fpsColour(FPS.v, hz);
       ctx.fillText(fit(ctx, l1, S.w - 44), 22, 18);
       ctx.font = FONT(24); ctx.fillStyle = INK; ctx.fillText(fit(ctx, l2, S.w - 44), 22, 70);
       S.tex.needsUpdate = true;
@@ -6482,6 +6890,7 @@
       OV.panel.hover = POKE.hov;
       for (const h of HOV) if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r) OV.panel.hover = r.id; }
       drawPanel();
+      stripStep(t);   // (the Debug tab's read-outs, line by line as they change: v136)
       if (!C.code && t - C.roomsAt > 4000) listRooms();
       // in use while a ray or a fingertip is at it, it is carried, or while calibrating (the tip goes to the tape marks);
       // unused for IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by
@@ -6508,7 +6917,7 @@
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {
-      for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
+      for (const o of OV.cards.values()) if (o.mesh.visible) { OV.hit.push(o.mesh); if (o.back.visible) OV.hit.push(o.back); }
       for (const o of OV.rings.values()) {
         if (o.ring.visible && o.ring.userData.shell && !o.noRing) OV.hit.push(o.ring);
         if (o.icon.g.visible && o.icon.k > 0.5 && !o.hid) OV.hit.push(o.ball);
@@ -8881,6 +9290,10 @@
     // meshes and parts posed, renews of the depth and of the room
     const Oc = HOST.occlusion && HOST.occlusion.sample ? HOST.occlusion.sample() : null;
     if (Oc) S.occl = Oc;
+    // the refresh rate (v136): the session's (f), the one asked for (a, 0 none) and this headset's setting (w), and the
+    // frames a second measured over the last second (v)
+    const Hz = hzState();
+    if (Hz) S.hz = { f: Hz.got, a: Hz.asked, w: Hz.want, v: FPS.v };
     log('sample', S);
   }
   // the log goes to the relay every 10 s while a headset is in a room (kept in relay/logs/ with --lan or --logs):
@@ -8956,6 +9369,7 @@
     // (a camera keeps what it follows, a person or a station: it walks into nothing, camera mode)
     if ((C.live || C.follow) && !CAM.on) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; C.liveSig = ''; C.cardsOpen = false; }
     if (!CAM.on) whoStop('headset');   // (a headset walks: following a person is for pages)
+    reloadKeep();   // (back from Update the room: the station it was at kept, v136)
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -9633,6 +10047,7 @@
       else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
       else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
+      else if (act === 'reload') { reloadAsk('dialog'); setTimeout(renderDialog, 3050); }   // (Update the room: never refused by a lock)
       else if (act === 'trkon') setTrk({ on: !trkKey().on });   // (the PC's trackers in this room: anyone, never refused by a lock)
       else if (act === 'trkspot') { trkSpot(arg); return; }   // (lining up by hand: spot A, then spot B)
       else if (act === 'add') { const k = $('#shAdd').value, id = addOne(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
@@ -9769,6 +10184,8 @@
       const L = C.stById.get(C.follow);
       $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(stTitle(L)) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
+        // Update the room (v136): every device here reloads into the newest version, one after another (two presses)
+        (reloadCan() ? `<div class="row sh-reload"><button class="btn${reloadArmed() ? ' armed' : ''}" type="button" data-sh="reload" aria-pressed="${reloadArmed()}"${RL.busy ? ' disabled' : ''} title="${esc(reloadWhat())}">${esc(reloadLabel())}</button><span>${esc(reloadWhat())}</span></div>` : '') +
         // camera mode: a phone that has AR shows the room through its camera, for filming
         (camOffered() && !HOST.session ? `<div class="row sh-cam"><button class="btn primary" type="button" data-sh="camera">Camera mode</button><span>Show this room through this phone's camera, as the headsets see it, for filming: Android's screen recorder records it.</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
@@ -10031,6 +10448,12 @@
     // on whichever tab has it (that tab shown; null when none has it, or it is greyed: a greyed button has no region)
     menuTab: t => { if (t !== undefined) { setTab(t); OV.panel && (OV.panel.sig = ''); } return PNL.tab; },
     menuIdle: ms => { if (ms !== undefined) IDLE.ms = +ms; return IDLE.ms; },
+    // for tests (v136): the frame rate as measured (FPS.v set as a second's count would set it), and the Debug tab's
+    // read-outs drawn on their own (rows drawn again, rows sent to the menu's texture alone, the lines shown, the
+    // texture's version: a whole upload moves it on; at: their row's top on the canvas)
+    fpsTest: v => { if (v !== undefined) { FPS.v = +v; FPS.t0 = FPS.last = performance.now(); FPS.n = FPS.k = FPS.sum = FPS.wmax = 0; } return FPS.v; },
+    strip: () => ({ rows: STRIP.rows, patched: OV.panel ? OV.panel.patched || 0 : 0, lines: PNL.strip ? PNL.strip.lines.slice() : null, at: PNL.strip ? PNL.strip.y : -1, x: PNL.strip ? PNL.strip.x : 0, w: PNL.strip ? PNL.strip.w : 0, lh: STRIP.lh, ver: OV.panel ? OV.panel.tex.version : 0 }),
+    stripMs: ms => { if (ms !== undefined) STRIP.ms = +ms; return STRIP.ms; },
     menuFind: id => {
       if (!PNL.open || !OV.panel) return null;
       const S = OV.panel, find = () => { S.sig = ''; drawPanel(); return S.regions.find(r => r.id === id) || null; };
@@ -10157,6 +10580,7 @@
     // the console. With no room in the link, a room used on this network in the last week is joined again by itself
     boot(hp) {
       if (hp.has('debug')) DEBUG = true;
+      if (reloadBack()) return;   // (back from Update the room with the old release: once more before anything joins)
       if (hp.has('camera')) CAM.link = true;   // (camera mode's link: one big button, Start the camera)
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
       if (hp.has('peer')) setPeer(hp.get('peer'), 'link');
@@ -10172,6 +10596,14 @@
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);
       });
     },
+    // Update the room (v136): the switch (two presses: ask; now: the order at once), what it says; and for tests an order
+    // heard as from the room, where it stands, what would reload instead of reloading (fn(order, why)), and a fresh start
+    roomReload: { ask: why => reloadAsk(why || 'api'), now: why => roomUpdate(why || 'api'), armed: () => reloadArmed(), label: () => reloadLabel(), can: () => reloadCan() },
+    reloadIn: (v, by) => reloadIn(v, by || ''),
+    reloadState: () => ({ armed: reloadArmed(), busy: RL.busy, pend: RL.pend, mine: RL.mine, back: RL.back, keep: RL.keep, note: RL.note, roomVer: C.roomVer, older: C.olderAt > 0, status: C.status, seen: seenGet(), caps: C.caps }),
+    reloadTest: fn => { RL.test = typeof fn === 'function' ? fn : null; },
+    reloadClear: () => { RL.at = 0; RL.pend = null; RL.arm = 0; sesPut('roomReloadSeen', null); },
+    format: FORMAT,
     internals: () => C,
     smooth: () => ({ SMOOTH, BUF, RT }),   // (for tests: others' moves, smoothed)
     // camera mode (a phone filming the room in AR): whether this device is in it now (other parts of the shell guard on it),

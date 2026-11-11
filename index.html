@@ -427,6 +427,7 @@ body.xr #labels, body.xr #tip { display: none; }
 }
 #livebar[hidden], #xrgo[hidden] { display: none; }
 #livebar span { flex: 1 1 14rem; }
+#livebar .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #xrgo { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; font-size: 20px; padding: 16px 28px; }
 
 @media (max-width: 899px) {
@@ -767,7 +768,7 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
 </div>
-<div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="later">Later</button></div>
+<div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="room" hidden>Reload every device</button><button class="btn" type="button" data-live="later">Later</button></div>
 <button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
 <div id="loading"><div><span id="ldLine">Loading</span><div id="ldBar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="ldStep"></span></div></div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
@@ -1465,6 +1466,7 @@ HOST.xr = (function () {
   function watch(s) {
     if (!s || s === cur) return;   // a story taking over a running session sets it again
     cur = s;
+    try { layerWatch(s); } catch (e) { console.warn('The refresh rate and resolution were not asked for:', e); }   // (v136: the frame rate asked for, the resolution set before three.js makes the layer)
     const mode = asked; asked = '';
     if (mode !== 'immersive-vr') return;
     const t0 = performance.now();
@@ -1525,6 +1527,82 @@ HOST.xr = (function () {
   // low in the view (shared.js, drawFps) with the frame rate and HOST.perf's counts of the story's frame
   let fps = false;
   try { fps = localStorage.getItem('xrFps') === 'on'; } catch (e) { /* storage blocked */ }
+  // The refresh rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
+  // lobby with only the stations visible i could not reach 90fps"): Quest Browser runs a WebXR session at 72 Hz unless the
+  // page asks for more (Meta's docs; Browser 16.4 and later have session.supportedFrameRates and updateTargetFrameRate),
+  // and nothing asked until v136. This headset's own, never a room's and not in sig(): xrHz, 90 by default, #hz=72|90|120
+  // in a link; on each new session (watch) and again whenever it changes, the highest listed rate at or below it is asked
+  // for (else the lowest listed), logged as 'frame rate' { want, list, asked, got }, and the session's frameratechange
+  // logged too. hz() the rate wanted, setHz(n), hzState() { want, list, asked, got, err, api } for tests and the menu's
+  // Debug tab (shared.js: Refresh rate, each press the next listed rate)
+  const HZ = { want: 90, list: null, asked: 0, got: 0, err: '', api: null, s: null };
+  try { const v = Math.round(+localStorage.getItem('xrHz')); if (v >= 30 && v <= 240) HZ.want = v; } catch (e) { /* storage blocked */ }
+  const hzLog = (ev, o) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, o); } catch (e) { /* no log */ } };
+  const hzPick = (list, want) => { const lo = list.filter(r => r <= want + 0.5); return lo.length ? lo[lo.length - 1] : list[0]; };
+  const hzNow = s => { try { const v = Number(s && s.frameRate); return Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0; } catch (e) { return 0; } };
+  function hzAsk(s, why) {
+    if (!s) return;
+    HZ.s = s; HZ.got = hzNow(s); HZ.err = '';
+    HZ.api = typeof s.updateTargetFrameRate === 'function' && !!s.supportedFrameRates;
+    let list = [];
+    if (HZ.api) try { list = Array.from(s.supportedFrameRates, Number).filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b); } catch (e) { list = []; }
+    HZ.list = HZ.api ? list : null;
+    if (!list.length) { HZ.asked = 0; hzLog('frame rate', { want: HZ.want, list: HZ.list, asked: 0, got: HZ.got, why, api: HZ.api }); return; }
+    const r = HZ.asked = hzPick(list, HZ.want), done = e => {
+      if (HZ.s !== s) return;   // (a session gone meanwhile)
+      if (e) HZ.err = String((e && (e.name || e.message)) || e);
+      HZ.got = hzNow(s) || HZ.got;
+      hzLog('frame rate', Object.assign({ want: HZ.want, list, asked: r, got: HZ.got, why }, e ? { err: HZ.err } : {}));
+    };
+    let p = null;
+    try { p = s.updateTargetFrameRate(r); } catch (e) { done(e); return; }
+    Promise.resolve(p).then(() => done(null), done);
+  }
+  // Two developer experiments on the Debug tab, each headset's own, never a room's, the defaults as before v136. Fixed
+  // foveation (xrFov: 'story', as the story sets it, 0.5 in every story's first xrBegin, the default; or 0, 0.5, 1;
+  // #fov=story|0|0.5|1): set on the session's layer after the story's frame (layerStep, from HOST.loading.wrap), only when
+  // its value or the layer changes; back to 'story', the layer's value from before is put back once. Resolution (xrScale:
+  // 1, 0.9 or 0.8 of the browser's own; #scale=1|0.9|0.8 or 100|90|80): three.js r128's framebuffer scale, read as it makes
+  // the layer, so set as each new session is first seen (watch, before the story hands it to three.js) and while none runs:
+  // it applies from the next session
+  const FOVS = ['story', 0, 0.5, 1], SCALES = [1, 0.9, 0.8];
+  const FV = { v: 'story', layer: null, orig: null, set: null, seen: null }, SC = { v: 1, cur: 1 };
+  const fovOf = v => (v === 'story' ? 'story' : FOVS.find(x => x !== 'story' && Math.abs(x - +v) < 1e-6));
+  const scaleOf = v => { let n = +v; if (n > 2) n /= 100; return SCALES.find(x => Math.abs(x - n) < 1e-6); };
+  try {
+    const f = localStorage.getItem('xrFov'), c = localStorage.getItem('xrScale');
+    if (f !== null && fovOf(f) !== undefined) FV.v = fovOf(f);
+    if (c !== null && scaleOf(c) !== undefined) SC.v = scaleOf(c);
+  } catch (e) { /* storage blocked */ }
+  const presenting = () => { try { return !!(HOST.renderer && HOST.renderer.xr.isPresenting); } catch (e) { return false; } };
+  function scaleSet() {
+    const r = HOST.renderer;
+    if (!r || !r.xr || typeof r.xr.setFramebufferScaleFactor !== 'function' || presenting()) return false;
+    r.xr.setFramebufferScaleFactor(SC.v);
+    return true;
+  }
+  function layerWatch(s) {
+    if (scaleSet()) SC.cur = SC.v;
+    hzAsk(s, 'session');
+    const q = HOST.quiet; HOST.quiet = true;   // (the shell's own listener: a story change never takes it)
+    try {
+      if (s.addEventListener) s.addEventListener('frameratechange', () => { if (HZ.s !== s) return; HZ.got = hzNow(s); hzLog('frame rate change', { got: HZ.got, asked: HZ.asked, want: HZ.want }); });
+    } finally { HOST.quiet = q; }
+  }
+  // after the story's frame: this headset's fixed foveation on the session's layer, when its value or the layer changes
+  // (the story sets 0.5 at its first xrBegin; a story that takes over the session sets it again, and it is set back)
+  function layerStep() {
+    const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer;
+    if (!bl || !('fixedFoveation' in bl)) return;
+    if (bl !== FV.layer) { FV.layer = bl; FV.orig = FV.set = FV.seen = null; }
+    if (FV.v === 'story') {
+      if (FV.set !== null) { if (FV.orig !== null && bl.fixedFoveation === FV.seen) bl.fixedFoveation = FV.orig; FV.set = FV.seen = null; }
+      return;
+    }
+    if (FV.set === FV.v && bl.fixedFoveation === FV.seen) return;
+    if (FV.set === null) FV.orig = bl.fixedFoveation;
+    bl.fixedFoveation = FV.v; FV.set = FV.v; FV.seen = bl.fixedFoveation;
+  }
   const keepOwn = () => {
     try {
       localStorage.setItem('xrLabels2', own.labels); localStorage.setItem('xrCards', own.cards); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
@@ -1635,6 +1713,41 @@ HOST.xr = (function () {
     sig: () => { const L = look(); return L.labels + '/' + L.cards + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     fps: () => fps,
     setFps(on) { fps = !!on; try { localStorage.setItem('xrFps', fps ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
+    // the refresh rate this headset asks for (v136): the rate wanted, set (kept, and asked for again in a running
+    // session), and what the session said ({ want, list, asked, got, err, api }: got its frameRate now; api null before a
+    // session has been seen, false for a browser without the frame-rate API)
+    hz: () => HZ.want,
+    setHz(n) {
+      n = Math.round(+n);
+      if (!(n >= 30 && n <= 240)) return;
+      HZ.want = n;
+      try { localStorage.setItem('xrHz', String(n)); } catch (e) { /* storage blocked */ }
+      if (HOST.session && HOST.session === cur) hzAsk(HOST.session, 'setting');
+    },
+    hzState: () => ({ want: HZ.want, list: HZ.list ? HZ.list.slice() : null, asked: HZ.asked, got: HOST.session && HOST.session === HZ.s ? hzNow(HZ.s) || HZ.got : HZ.got, err: HZ.err, api: HZ.api }),
+    // fixed foveation and resolution (v136, developer experiments; this headset's own): fov() 'story' or 0, 0.5, 1;
+    // scale() 1, 0.9 or 0.8 (scaleNow(): the one this session was made with); layerStep() after the story's frame
+    // (HOST.loading.wrap)
+    fov: () => FV.v,
+    setFov(v) {
+      const f = fovOf(v);
+      if (f === undefined) return;
+      FV.v = f;
+      try { localStorage.setItem('xrFov', String(f)); } catch (e) { /* storage blocked */ }
+    },
+    fovs: () => FOVS.slice(),
+    fovNow() { const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer; return bl && 'fixedFoveation' in bl ? bl.fixedFoveation : null; },
+    scale: () => SC.v,
+    scaleNow: () => SC.cur,
+    scales: () => SCALES.slice(),
+    setScale(v) {
+      const c = scaleOf(v);
+      if (c === undefined) return;
+      SC.v = c;
+      try { localStorage.setItem('xrScale', String(c)); } catch (e) { /* storage blocked */ }
+      scaleSet();
+    },
+    layerStep,
     // this device's own value (shared.js: a sound switch a room never wrote stays each device's)
     mine: k => own[k],
     // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving (a sound
@@ -2289,6 +2402,7 @@ HOST.loading = (() => {
     // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
     wrap(fn) {
       if (!fn || fn === loop) return fn;
+      if (HOST.xr && HOST.xr.layerStep) fn = (inner => function (t, f) { try { return inner(t, f); } finally { if (f) try { HOST.xr.layerStep(); } catch (e) { /* never in the way */ } } })(fn);   // (this headset's fixed foveation, after the story's frame: v136)
       if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
@@ -3375,7 +3489,12 @@ HOST.live = (function () {
     v: null, seen: {}, stale: new Set(), pending: '', urgent: false, ask: null, later: '', note: '', missing: {},
     checking: null, checkAt: -1e9, listFp: '', rereading: null, watch: null, watching: false, shellSeen: null,
     endsFor: null, ends: [], timer: 0, back: null,
+    // in a shared room, a page outside a headset takes a new FORMAT by itself (v136): cd, when its countdown ends; hold, until
+    // when Not now holds it off (then it asks again); left, the seconds the bar says; their lengths (tests shorten them)
+    cd: 0, hold: 0, left: -1, cdMs: 20000, holdMs: 300000, cdOff: false,
   };
+  // (tests that do not look at the countdown turn it off before the page loads: localStorage liveCountdown = off)
+  try { L.cdOff = localStorage.getItem('liveCountdown') === 'off'; } catch (e) { /* storage blocked */ }
   const ses = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
     put: (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
@@ -3460,7 +3579,7 @@ HOST.live = (function () {
   }
 
   // ---- the question (a bar on the page, a panel in the headset) and notes
-  const RANK = { missing: 1, needs: 2, shell: 3, format: 4 };
+  const RANK = { missing: 1, needs: 2, shell: 3, format: 4, room: 5 };
   function ask(kind, key, again) {
     if (L.ask && RANK[L.ask.kind] > RANK[kind]) return;
     const text = {
@@ -3468,6 +3587,7 @@ HOST.live = (function () {
       format: 'A new version of the app is ready. Shared rooms need it: devices on different versions cannot share a room.',
       needs: `The ${title(key)} story needs a new version of the app.`,
       missing: `A station in this room has a story this device does not know yet (${key}): this device needs an update.`,
+      room: `Room ${key} has moved to a newer version of the app: reload to go back in.`,
     }[kind];
     if (L.ask && L.ask.text === text && !(again && L.ask.hidden)) return;
     L.ask = { kind, key: key || '', text, hidden: L.later === text && !again };
@@ -3475,19 +3595,44 @@ HOST.live = (function () {
     setTimeout(() => HOST.reloadIfUpdated(), 0);   // (on the page's Stories screen it is taken at once)
   }
   function later() {
+    // (a new FORMAT in a room, counting down or not: Not now holds it off for 5 minutes, then it asks again, cdStep)
+    if (L.ask && !L.ask.hidden && L.ask.kind === 'format' && inRoom()) { L.hold = performance.now() + L.holdMs; L.cd = 0; }
     if (L.ask && !L.ask.hidden) { L.later = L.ask.text; L.ask.hidden = true; } else L.note = '';
     show();
   }
   function note(text) { L.note = text; show(); if (text) console.warn(text); }
+  // Update the room (shared.js, v136): every device in the room reloads, one after another; the bar's and the headset
+  // panel's third button while this device is in a room, two presses as everywhere
+  // (a room on this device: Reload now is all there is to it)
+  const roomR = () => { const C = HOST.collab; return C && C.code && !C.local && C.roomReload && C.roomReload.can() ? C.roomReload : null; };
+  const inRoom = () => !!(HOST.collab && HOST.collab.code);
+  function roomPress() { const R = roomR(); if (!R) return; R.ask('update bar'); show(); setTimeout(show, 3050); }
   function show() {
     const bar = document.getElementById('livebar');
     if (!bar) return;
-    const q = L.ask && !L.ask.hidden;
+    const q = L.ask && !L.ask.hidden, R = q ? roomR() : null;
     bar.hidden = !q && !L.note;
-    bar.querySelector('span').textContent = q ? L.ask.text : L.note;
+    bar.querySelector('span').textContent = q ? L.ask.text + (L.cd ? ` Reloading by itself in ${Math.max(0, L.left)} s.` : '') : L.note;
     bar.querySelector('[data-live="reload"]').hidden = !q;
-    bar.querySelector('[data-live="later"]').textContent = q ? 'Later' : 'Close';
+    const rb = bar.querySelector('[data-live="room"]');
+    if (rb) { rb.hidden = !R; rb.textContent = R && R.armed() ? 'Reload every device? Press again' : 'Reload every device'; rb.classList.toggle('armed', !!(R && R.armed())); }
+    bar.querySelector('[data-live="later"]').textContent = q ? (L.cd || (L.ask.kind === 'format' && inRoom()) ? 'Not now' : 'Later') : 'Close';
     XQ.sig = '';
+  }
+  // A new FORMAT on a page outside a headset, in a shared room (v136): taken by itself after a 20 s countdown on the bar,
+  // unless Not now (which holds it off for 5 minutes): a page left on Later held the room on the old version for everyone.
+  // At most once in ten minutes (liveReloadAt: a host that still serves the old files must not reload it in a loop)
+  function cdOn() {
+    return !!(!L.cdOff && L.ask && !L.ask.hidden && L.ask.kind === 'format' && inRoom() && !HOST.session && !HOST.busy && Date.now() - (+ses.get('liveReloadAt') || 0) > 600000);
+  }
+  function cdStep() {
+    const t = performance.now();
+    if (L.hold && t > L.hold) { L.hold = 0; if (L.ask && L.ask.kind === 'format' && L.ask.hidden) { L.ask.hidden = false; L.later = ''; show(); } }   // (asked again)
+    if (!cdOn()) { if (L.cd) { L.cd = 0; L.left = -1; show(); } return; }
+    if (!L.cd) L.cd = t + L.cdMs;
+    const left = Math.max(0, Math.ceil((L.cd - t) / 1000));
+    if (left !== L.left) { L.left = left; show(); }
+    if (t >= L.cd) { L.cd = 0; L.left = -1; reload('format-room'); }
   }
   // a reload that keeps this device's place (put back as the story starts: restoring)
   function reload(why) {
@@ -3537,14 +3682,19 @@ HOST.live = (function () {
       line += w + ' ';
     }
     c.fillText(line.trim(), 44, y);
-    XQ.btn = [{ id: 'reload', label: 'Reload now', x: 44, fn: () => reload('asked') }, { id: 'later', label: 'Later', x: 532, fn: later }];
+    // (in a shared room a third: Reload every device, Update the room's two presses)
+    const R = roomR();
+    XQ.btn = R ? [{ id: 'reload', label: 'Reload now', x: 44, w: 260, fn: () => reload('asked') }, { id: 'room', label: R.armed() ? 'Every device? Press again' : 'Reload every device', x: 328, w: 400, fn: roomPress, arm: R.armed() },
+      { id: 'later', label: 'Later', x: 752, w: 228, fn: later }] : [{ id: 'reload', label: 'Reload now', x: 44, w: 448, fn: () => reload('asked') }, { id: 'later', label: 'Later', x: 532, w: 448, fn: later }];
     for (const b of XQ.btn) {
-      Object.assign(b, { y: H - 128, w: 448, h: 88 });
+      Object.assign(b, { y: H - 128, h: 88 });
       rr(c, b.x, b.y, b.w, b.h, 18);
-      c.fillStyle = b.id === 'reload' ? (hv === b.id ? '#8debff' : '#46d9ff') : hv === b.id ? 'rgba(70, 217, 255, 0.28)' : 'rgba(140, 170, 210, 0.14)';
-      c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(140, 170, 210, 0.5)'; c.stroke();
-      c.fillStyle = b.id === 'reload' ? '#04101e' : '#e7eef8'; c.font = '700 36px B612, "Segoe UI", Arial, sans-serif';
-      c.textAlign = 'center'; c.fillText(b.label, b.x + b.w / 2, b.y + 24); c.textAlign = 'left';
+      c.fillStyle = b.id === 'reload' ? (hv === b.id ? '#8debff' : '#46d9ff') : b.arm ? 'rgba(255, 180, 59, 0.30)' : hv === b.id ? 'rgba(70, 217, 255, 0.28)' : 'rgba(140, 170, 210, 0.14)';
+      c.fill(); c.lineWidth = 3; c.strokeStyle = b.arm ? '#ffb43b' : 'rgba(140, 170, 210, 0.5)'; c.stroke();
+      c.fillStyle = b.id === 'reload' ? '#04101e' : '#e7eef8';
+      let px = 36;
+      do c.font = `700 ${px}px B612, "Segoe UI", Arial, sans-serif`; while (c.measureText(b.label).width > b.w - 28 && --px > 20);
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1); c.textAlign = 'left'; c.textBaseline = 'top';
     }
     XQ.tex.needsUpdate = true;
   }
@@ -3579,7 +3729,7 @@ HOST.live = (function () {
     if (XQ.moving) { m.position.lerp(_to, 0.12); if (m.position.distanceTo(_to) < 0.02) XQ.moving = false; }
     m.lookAt(_h);
     m.visible = true;
-    const hv = hovered(), sig = L.ask.text + '|' + hv;
+    const R = roomR(), hv = hovered(), sig = L.ask.text + '|' + hv + '|' + (R ? (R.armed() ? 'a' : 'r') : '');
     if (sig !== XQ.sig) { XQ.sig = sig; draw(hv); }
   }
   function xrLoop(s) {
@@ -3651,6 +3801,7 @@ HOST.live = (function () {
       else if (!HOST.busy && (L.urgent || quiet())) { L.pending = ''; L.urgent = false; HOST.swap(k); }
     }
     if (L.ask && !L.ask.hidden && HOST.session) xrLoop(HOST.session);
+    cdStep();
     const t = performance.now();
     if (t - L.checkAt > 60000 && document.visibilityState !== 'hidden') check('minute');
     // a shared room's station whose story this device does not know yet (its card says so: shared.js's meta)
@@ -3674,7 +3825,7 @@ HOST.live = (function () {
       quietly(() => {
         document.getElementById('livebar').addEventListener('click', ev => {
           const b = ev.target.closest('[data-live]');
-          if (b && b.dataset.live === 'reload') reload('asked'); else if (b) later();
+          if (b && b.dataset.live === 'reload') reload('asked'); else if (b && b.dataset.live === 'room') roomPress(); else if (b) later();
         });
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && performance.now() - L.checkAt > 5000) check('visible'); });
       });
@@ -3725,6 +3876,18 @@ HOST.live = (function () {
     },
     check, reread, missing, note, reload, later, watch,
     ask: (kind, key) => ask(kind, key, true),
+    // a shared room moved on to a newer version of the app than this device runs (shared.js: refused with 4006, v136):
+    // outside a headset a reload at once, at most once in ten minutes (liveReloadAt: a host that still serves the old files,
+    // as GitHub Pages behind the relay for a minute, must not reload it in a loop); in one, or within those ten minutes,
+    // asked (the bar, the headset's panel). true: it reloads
+    roomNewer(code) {
+      check('room');
+      if (!HOST.session && Date.now() - (+ses.get('liveReloadAt') || 0) > 600000) { setTimeout(() => reload('room-newer'), 300); return true; }
+      ask('room', code, true);
+      return false;
+    },
+    // (tests: the countdown's and Not now's lengths, ms; null: as ever)
+    times(o) { o = o || {}; L.cdMs = o.countdown > 0 ? o.countdown : 20000; L.holdMs = o.hold > 0 ? o.hold : 300000; },
     // may this story start? (one never loaded here that needs a newer shell is asked about first)
     allowed(key) {
       const e = L.v && L.v.stories && L.v.stories[key], me = HOST.shell;
@@ -3830,6 +3993,9 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
+  if (hp.has('hz')) HOST.xr.setHz(hp.get('hz'));   // (the refresh rate a headset session asks for: this headset's own)
+  if (hp.has('fov')) HOST.xr.setFov(hp.get('fov'));   // (fixed foveation and resolution, developer experiments: this headset's own)
+  if (hp.has('scale')) HOST.xr.setScale(hp.get('scale'));
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');

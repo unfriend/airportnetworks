@@ -50,7 +50,10 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   'r2-check': false,
   // --trackers [port]: the Vive trackers' bridge on UDP 127.0.0.1 (47800 when no port is given; 0 picks a free one);
   // -1: off
-  trackers: -1 };
+  trackers: -1,
+  // --keep <file>: every room written there (atomically, every 5 s when changed and as the relay stops) and read back as
+  // it starts, so a restart (a deploy) no longer empties the rooms; '' none (as ever: rooms in memory only)
+  keep: '' };
 // the environment first (asdf10k-collab-backend's names: COLLAB_* only, since shells and conda set PORT and HOST), the
 // command's flags and RELAY_ARGS over it
 {
@@ -90,6 +93,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --ffmpeg <path>  with --scenes: the ffmpeg that makes long sounds MP3 (found on the PATH by itself; --no-ffmpeg: none)
   --ffmpeg-limit <s>  one conversion may take this long (180)
   --app <url>      where /upload sends people when the relay does not serve the app (the --origin, else ${APP_ORIGIN}/)
+  --keep <file>    keep the rooms in <file> (written every 5 s when they changed and as the relay stops, read back as it
+                   starts): a restart, such as a deploy, no longer empties them (off: rooms live in memory only)
   --trackers [<port>]  the PC's Vive trackers: take tools/trackers/bridge.py's readings on UDP 127.0.0.1:<port> (${TRK_PORT};
                    0 picks a free one), list them at /api/trackers and send them, lined up, to the rooms that use them
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
@@ -398,11 +403,21 @@ function upgrade(req, socket, head) {
 const rooms = new Map();
 let stored = 0;   // every room's size together (keys and values, as JSON), for --store
 function makeRoom(code, app, version) {
-  // (nets: the networks of the members it has had, the last few: an empty room stays listed on its network)
-  const r = { code, app, version, created: Date.now(), seq: 0, keys: new Map(), size: 0, members: new Map(), empty: Date.now(), nets: new Set() };
+  // (nets: the networks of the members it has had, the last few: an empty room stays listed on its network; next: the
+  // version a reload order moves it to, until nextUntil, with that order, nextN and nextShell, v136)
+  const r = { code, app, version, created: Date.now(), seq: 0, keys: new Map(), size: 0, members: new Map(), empty: Date.now(), nets: new Set(),
+    next: '', nextUntil: 0, nextN: '', nextShell: null, reloadAt: 0 };
   rooms.set(code, r);
+  keepTouch();
   return r;
 }
+// A room's version is the shared state's format of the app that made it (shared.js's FORMAT, networks-<n>). Until v136
+// it never changed, so after a deploy that bumped it the pages still running the old app (back within a second of the
+// relay's restart) made the room again under the old one, and every device that took the update was refused (4006) for
+// as long as the room lived (6 hours after it emptied). So a room takes a newer networks-<n> from a newcomer once nobody of
+// its own version is connected (or a reload order asked for it: next), and never an older one (a device that missed the
+// update, waking in an upgraded room, is refused and reloads). Other versions: only the same one, as ever
+const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
 const pub = m => ({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since });
 const people = r => [...r.members.values()].map(pub);
 const stations = r => [...r.keys.keys()].filter(k => /^st\.[^.]+$/.test(k)).length;
@@ -453,7 +468,7 @@ function leave(room, m, why = 'leave') {
   if (room.members.get(m.id) !== m) return;
   m.ws.onmessage = m.ws.onclose = () => {};
   room.members.delete(m.id);
-  if (!room.members.size) room.empty = Date.now();
+  if (!room.members.size) { room.empty = Date.now(); keepTouch(); }
   broadcast(room, { t: 'members', members: people(room) });
   log(`${room.code} ${why} ${m.id} (${room.members.size} in the room)`);
 }
@@ -488,14 +503,43 @@ function message(room, m, text) {
   if (msg.t === 'hello') {
     const version = str(msg.version, 64);
     if (msg.proto !== undefined && msg.proto !== PROTO) return kick(room, m, 'proto', `this relay speaks protocol ${PROTO}`, 4005);
-    if (version && room.version && version !== room.version) return kick(room, m, 'version', `the room runs version ${room.version}`, 4006);
-    if (version && !room.version) room.version = version;   // a room made without a version takes the first one
+    if (version && room.version && version !== room.version && !takeOver(room, m, version)) return kick(room, m, 'version', `the room runs version ${room.version}`, 4006);
+    if (version && !room.version) { room.version = version; keepTouch(); }   // a room made without a version takes the first one
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
-      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version });
+      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1 });
     broadcast(room, { t: 'members', members: people(room) });
     return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''} ${version}`);
   }
   refuse(room, m, null, [], `bad message: unknown t ${JSON.stringify(String(msg.t)).slice(0, 40)}`, 'bad');
+}
+
+// a newcomer of another version: the room moves to it when it is newer and nobody of the room's own version is connected, or
+// when a reload order (POST /api/rooms/<code>/reload) asked for it in the last two minutes; then the members still on the
+// old version get the relay's own reload order (they reload by it; an older app ignores it) and are refused afterwards, so
+// their own live updates ask them to reload (true: taken). When: an app that obeys reload orders (its hello says reload: 1,
+// v136) reloads in its turn, up to 8 s after it got the order (by when it came into the room, so ten devices do not hit
+// the router at once; a headset at least 3 s), so it is refused only ORDER_GRACE after it was first told (the order, else
+// now), never before its turn: refused earlier, it reloaded at once (a page) or was asked (a headset) mid-countdown, and the
+// stagger was lost (review of v136). An older app, which ignores the order, 3 s later as before
+const ORDER_GRACE = 12000;
+function takeOver(room, m, version) {
+  const was = room.version, a = fmtN(was), b = fmtN(version), t = Date.now();
+  if (!a || !(b > a)) return false;
+  const old = [...room.members.values()].filter(x => x !== m && x.version === was), asked = room.next === version && t < room.nextUntil;
+  if (old.length && !asked) return false;
+  room.version = version;
+  keepTouch();
+  log(`${room.code} version ${was} -> ${version}${old.length ? ` (${old.length} on ${was} told to reload)` : ''}`);
+  if (old.length) {
+    const buf = Ws.frame(1, Buffer.from(JSON.stringify({ t: 'fx', k: 'q.reload', v: { n: room.nextN || crypto.randomBytes(6).toString('base64url'), to: version, shell: room.nextShell, by: '', at: t }, by: '' })));
+    for (const x of old) {
+      if (!x.ws.closing) x.ws.write(buf);
+      const told = x.toldAt && t - x.toldAt < 120000 ? Math.min(x.toldAt, t) : t;
+      setTimeout(() => { if (room.members.get(x.id) === x && x.version === was) kick(room, x, 'version', `the room runs version ${version} now`, 4006); },
+        x.obeys ? Math.max(3000, told + ORDER_GRACE - t) : 3000);
+    }
+  }
+  return true;
 }
 
 function check(k, v) {   // why a [key, value] pair cannot be stored, or ''
@@ -559,10 +603,102 @@ function set(room, m, msg) {
       out.push([k, v]);
     }
     stored += room.size;
+    keepTouch();
     broadcast(room, { t: 'set', batch: out, seq, by: m.id, cid });
     log(`${room.code} set #${seq} by ${m.id}: ${cut(out.map(([k, v]) => (v === null ? k + '=null' : k)))}`);
   }
   if (bad.length) refuse(room, m, cid, bad.map(b => b[0]), bad.map(([k, w]) => `${k}: ${w}`).join('; ').slice(0, 500));
+}
+
+// ---- --keep <file>: the rooms kept across restarts (v136). Until then a restart (every deploy on Coolify) emptied every
+// room, and the pages still open made them again within a second, under the old app's version. Every room's code, app,
+// version, seq, keys and when it was last occupied (empty: as of writing, for one with members) go to <file> as JSON,
+// written to a temporary file beside it and renamed (never half a file), every 5 s when something changed and as the relay
+// stops (SIGINT, SIGTERM: a container stop), and read back as it starts (rooms expired meanwhile left out, every key
+// checked as a write is). With a rolling update the new relay may read the file before the old one wrote it as it stopped:
+// so for 2 minutes after the start the file is looked at every second, and what another relay wrote there is taken (a room
+// this relay does not have; one it read and that nobody has changed here since, when the file's is newer: its members
+// reconnect to it, 1012)
+const KEEP = OPT.keep ? path.resolve(String(OPT.keep)) : '';
+const KP = { dirty: false, busy: false, id: crypto.randomBytes(6).toString('hex'), mtime: 0, final: false, start: Date.now() };
+function keepTouch() { if (KEEP) KP.dirty = true; }
+function keepOut() {
+  const now = Date.now();
+  return JSON.stringify({ keep: 1, by: KP.id, at: now, rooms: [...rooms.values()].map(r => ({ code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq,
+    empty: r.members.size ? now : r.empty, keys: Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }])) })) });
+}
+function keepWrite(final) {
+  if (!KEEP || KP.final || (KP.busy && !final)) return;
+  KP.dirty = false;
+  const text = keepOut(), tmp = `${KEEP}.${KP.id}${final ? '-stop' : ''}.tmp`;
+  const done = err => {
+    KP.busy = false;
+    if (err) { KP.dirty = true; log(`--keep: cannot write ${KEEP} (${err.code || err.message})`); return; }
+    try { KP.mtime = fs.statSync(KEEP).mtimeMs; } catch { /* gone */ }
+  };
+  if (final) { KP.final = true; try { fs.writeFileSync(tmp, text); fs.renameSync(tmp, KEEP); done(); } catch (err) { done(err); } return; }
+  KP.busy = true;
+  fs.promises.writeFile(tmp, text).then(() => (KP.final ? fs.promises.unlink(tmp) : fs.promises.rename(tmp, KEEP))).then(() => done(), done);
+}
+// the file read back: its rooms, each key checked as a write is (anything else left out); null: none, or not one
+function keepRead() {
+  let text = '';
+  try { text = fs.readFileSync(KEEP, 'utf8'); KP.mtime = fs.statSync(KEEP).mtimeMs; } catch (err) { return err.code === 'ENOENT' ? null : { error: err.code || err.message }; }
+  let o;
+  try { o = JSON.parse(text); } catch { return { error: 'not JSON' }; }
+  if (!o || o.keep !== 1 || !Array.isArray(o.rooms)) return { error: 'not a file of rooms' };
+  const now = Date.now(), out = [];
+  for (const e of o.rooms) {
+    if (!e || typeof e !== 'object' || typeof e.code !== 'string' || !CODE.test(e.code) || !e.keys || typeof e.keys !== 'object') continue;
+    const empty = Number.isFinite(e.empty) ? e.empty : +o.at || now;
+    if (now - empty > OPT.expire * 1000) continue;   // (expired meanwhile)
+    const keys = new Map();
+    let size = 0, seq = Number.isInteger(e.seq) && e.seq >= 0 ? e.seq : 0;
+    for (const [k, x] of Object.entries(e.keys)) {
+      if (!x || typeof x !== 'object' || x.v === undefined || x.v === null || check(k, x.v)) continue;
+      const n = k.length + JSON.stringify(x.v).length, q = Number.isInteger(x.seq) && x.seq >= 0 ? x.seq : 0;
+      if (keys.size >= MAX_KEYS || size + n > MAX_ROOM) break;
+      keys.set(k, { v: x.v, seq: q, by: typeof x.by === 'string' ? x.by.slice(0, 64) : '', n });
+      size += n; seq = Math.max(seq, q);
+    }
+    out.push({ code: e.code, app: str(e.app, 32), version: str(e.version, 64), created: Number.isFinite(e.created) ? e.created : now, seq, empty, keys, size });
+  }
+  return { by: typeof o.by === 'string' ? o.by : '', rooms: out };
+}
+function keepLoad(first) {
+  const got = keepRead();
+  if (!got) { if (first) log(`--keep: no ${KEEP} yet (it is written once there is a room)`); return; }
+  if (got.error) {
+    log(`--keep: ${KEEP} could not be read (${got.error})${first ? ': starting with no rooms, the file kept as ' + path.basename(KEEP) + '.bad' : ''}`);
+    if (first) try { fs.renameSync(KEEP, KEEP + '.bad'); } catch { /* gone */ }
+    return;
+  }
+  if (!first && got.by === KP.id) return;   // (this relay's own)
+  let n = 0;
+  for (const e of got.rooms) {
+    const r = rooms.get(e.code);
+    if (r && !(e.seq > r.seq && r.seq === r.keptSeq)) continue;   // (changed here since it was read: ours stands)
+    if ((!r && rooms.size >= MAX_ROOMS) || (STORE && stored - (r ? r.size : 0) + e.size > STORE)) continue;
+    const x = r || makeRoom(e.code, e.app, e.version);
+    stored += e.size - (r ? r.size : 0);
+    Object.assign(x, { app: e.app, version: e.version, created: e.created, seq: e.seq, keys: e.keys, size: e.size, keptSeq: e.seq }, r ? {} : { empty: e.empty });
+    if (r) for (const m of r.members.values()) m.ws.close(1012, 'room read again');   // (they come back to it as it is now)
+    n++;
+  }
+  if (first) KP.dirty = false;   // (the file has them as they are)
+  if (n || first) log(`--keep: ${n} room${n === 1 ? '' : 's'} read ${first ? 'back' : 'again'} from ${KEEP}${first ? '' : ' (written by another relay)'}`);
+}
+if (KEEP) {
+  try { fs.mkdirSync(path.dirname(KEEP), { recursive: true }); } catch { /* said as it is written */ }
+  keepLoad(true);
+  setInterval(() => { if (KP.dirty) keepWrite(false); }, 5000).unref();
+  const look = setInterval(() => {
+    if (Date.now() - KP.start > 120000) return clearInterval(look);
+    let mt = 0;
+    try { mt = fs.statSync(KEEP).mtimeMs; } catch { return; }
+    if (mt !== KP.mtime && !KP.busy) keepLoad(false);
+  }, 1000);
+  look.unref();
 }
 
 // ---- an introduction server for peer to peer: what PeerJS 1.5.5's client expects of a PeerServer, at /peerjs
@@ -651,7 +787,7 @@ setInterval(() => {
       if (now - m.ws.pinged >= OPT.ping * 1000) { m.ws.send(9, EMPTY); m.ws.pinged = now; }
       if (m.fxDropped) { log(`${room.code} refused ${m.fxDropped} fx from ${m.id} (more than ${FX_RATE} a second)`); m.fxDropped = 0; }
     }
-    if (!room.members.size && now - room.empty > OPT.expire * 1000) { rooms.delete(room.code); stored -= room.size; log(`${room.code} expired`); }
+    if (!room.members.size && now - room.empty > OPT.expire * 1000) { rooms.delete(room.code); stored -= room.size; keepTouch(); log(`${room.code} expired`); }
   }
   // the limits per address: forgotten once nothing of an address is open and its buckets are full again; the
   // refusals said in one line each (a crowd of them must not fill the log)
@@ -813,17 +949,19 @@ function cors(req, res) {   // the API and the introduction server, for pages on
 const tooMany = (res, text, s) => json(res, 429, { error: text }, { 'Retry-After': String(s) });
 function api(req, res, url) {
   if (cors(req, res)) return;
-  const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
+  const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p), order = /^\/api\/rooms\/([A-Za-z]{3})\/reload$/.exec(p);
   // (open, as asdf10k-collab-backend's: whether it runs, and how many rooms; nothing more)
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
+  // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
     return json(res, 200, UNLISTED ? [] : [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
+  if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
@@ -892,7 +1030,8 @@ function createRoom(req, res) {
     // a chosen code is a lookup too (taken says it exists): from the same budget as the others
     const who = LIM.guesses || LIM.creates ? clientOf(req) : null;
     if (code && !canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
-    if (code && rooms.has(code)) { guessed(who); return json(res, 409, { error: 'taken' }); }
+    // (the room's version too, v136: a page bringing a room back after a restart knows what came back first)
+    if (code && rooms.has(code)) { guessed(who); return json(res, 409, { error: 'taken', version: rooms.get(code).version }); }
     if (who && !canCreate(who)) { tally('requests refused: too many new rooms from one address'); return tooMany(res, 'too many new rooms from your network: wait a minute', wait(who, 'c', LIM.creates)); }
     if (rooms.size >= MAX_ROOMS) return json(res, 503, { error: 'too many rooms' });
     if (who) created(who);
@@ -900,6 +1039,42 @@ function createRoom(req, res) {
     const r = makeRoom(code, str(b.app, 32), str(b.version, 64));
     log(`${code} created (${r.app || 'no app'} ${r.version || 'no version'})`);
     json(res, 201, { code });
+  });
+}
+
+// Update the room (v136; the owner, 11 November 2026: "update this room on the relay switch that just tells everyone to
+// reload, after updates rooms otherwise get lost sometimes"): POST /api/rooms/<code>/reload { n, to, shell, from } sends
+// every member, whatever its version, the reload order (the quiet effect q.reload, by '': the relay's own), and the room
+// takes the version it names from the first newcomer of it in the next two minutes (takeOver), even while members of the
+// old one are still connected. An order is no stored key and moves nothing: anyone in the room may give it (the API's
+// password, as every call); one a room every 10 s. n: the order's id (each device obeys an id once); to: the shared
+// state's format the devices reload into; shell: the release ({ n, id }) they should come back with; from: who pressed it
+const ORDER_ID = /^[\w-]{1,16}$/;
+function reloadOrder(req, res, code) {
+  const parts = [];
+  let n = 0;
+  req.on('data', c => { if ((n += c.length) <= 4096) parts.push(c); else if (!res.headersSent) { res.setHeader('Connection', 'close'); json(res, 413, { error: 'body too big' }); } });
+  req.on('end', () => {
+    if (res.headersSent) return;
+    let b;
+    try { b = n ? JSON.parse(Buffer.concat(parts).toString()) : {}; } catch { return json(res, 400, { error: 'body is not JSON' }); }
+    if (!b || typeof b !== 'object' || Array.isArray(b) || typeof b.n !== 'string' || !ORDER_ID.test(b.n)) return json(res, 400, { error: 'n: the order\'s id is needed' });
+    if (b.to !== undefined && (typeof b.to !== 'string' || b.to.length > 64)) return json(res, 400, { error: 'to: a version' });
+    const sh = b.shell && typeof b.shell === 'object' && !Array.isArray(b.shell) && Number.isInteger(b.shell.n) && typeof b.shell.id === 'string' && b.shell.id.length <= 32 ? { n: b.shell.n, id: b.shell.id } : null;
+    // (a lookup of a code: from the same budget as the others, --guesses)
+    const who = LIM.guesses ? clientOf(req) : null;
+    if (!canGuess(who)) { tally('requests refused: too many unknown room codes from one address'); return tooMany(res, GUESS_TEXT, wait(who, 'g', LIM.guesses)); }
+    const r = rooms.get(code);
+    if (!r) { guessed(who); return json(res, 404, { error: 'no such room' }); }
+    const t = Date.now();
+    if (t - r.reloadAt < 10000) return tooMany(res, 'a reload order went to this room less than 10 s ago', Math.ceil((10000 - (t - r.reloadAt)) / 1000));
+    r.reloadAt = t;
+    const to = str(b.to, 64), from = typeof b.from === 'string' && ID.test(b.from) ? b.from : '';
+    if (to) Object.assign(r, { next: to, nextUntil: t + 120000, nextN: b.n, nextShell: sh });
+    for (const x of r.members.values()) x.toldAt = t;   // (when each was told: takeOver refuses an old one only after its turn)
+    broadcast(r, { t: 'fx', k: 'q.reload', v: { n: b.n, to, shell: sh, by: '', from, at: t }, by: '' });
+    log(`${code} reload to ${to || 'the same version'} (${r.members.size} member${r.members.size === 1 ? '' : 's'})`);
+    json(res, 200, { ok: true, members: r.members.size, version: r.version });
   });
 }
 
@@ -2163,6 +2338,7 @@ server.listen(OPT.port, OPT.host, () => {
   if (STORE) console.log(`All rooms together hold at most ${+(STORE / (1 << 20)).toFixed(2)} MB`);
   if (OPT.logs && LOG_TOKEN) console.log('Logs need the relay\'s log token (header X-Log-Token)');
   // (never the password itself)
+  if (KEEP) console.log(`Rooms are kept in ${KEEP} (written every 5 s when they changed and as the relay stops): a restart does not empty them`);
   if (TOKEN) console.log(`A password is needed (COLLAB_TOKEN or --token): everything but GET /api/health and the app's files; ${FAIL_MAX} failed attempts a minute from one address, then 429`);
   else if (PUB) console.log('No password (COLLAB_TOKEN): anyone who can reach the relay may use it');
   if ((per.length || PUB) && !OPT.proxy) console.log('No --proxy: behind a reverse proxy (Coolify\'s) every device would seem to be the proxy, one address for all (add --proxy 1)');
@@ -2171,6 +2347,7 @@ server.listen(OPT.port, OPT.host, () => {
 process.on('unhandledRejection', err => log('error', 'unhandled:', scrub(String((err && err.message) || err)).slice(0, 300)));
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
+    keepWrite(true);   // (--keep: the rooms as they are now, each one's members counted as here until now)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     for (const res of [...W.clients, ...SW.clients]) res.end();

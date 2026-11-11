@@ -531,8 +531,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     appears counting nothing; a notice says *Frame rate: on* or *off*; no story uses that button). While on, in
     a headset session only, the shell draws a small read-out low in the view (`drawFps`, `OV.fps`, 0.36 m wide, 1 m away,
     22 degrees under the gaze and 14 to the left, fixed to the head, `renderOrder` 52: over the story and the subtitles,
-    under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (in
-    green from 70, amber from 55, else red) and the time between frames, the mean and the worst of the last second (the
+    under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (since
+    v136 *88 fps of 90 Hz* against the session's refresh rate, below, coloured by it: green within 3 % of it, amber within
+    20 %, else red; where the browser says no rate, as before: *88 fps*, green from 70, amber from 55) and the time between frames, the mean and the worst of the last second (the
     shell's own frame callback, `FPS`, as the Debug tab's line), and the story's frame's triangles, draw calls and how
     long its code took (`HOST.perf` in `index.html`: the story's frame function is wrapped inside `HOST.loading.wrap`, so
     the loading scene's fade after it is not counted; while measuring, `renderer.info.autoReset` is off for the whole
@@ -540,6 +541,32 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     in the story's scene, rings, icons, the menu and the read-out itself, are in the numbers; each second's means as
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
+  - The refresh rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
+    lobby with only the stations visible i could not reach 90fps"). Quest Browser runs a WebXR session at 72 Hz unless the
+    page asks for more (Meta's docs; Browser 16.4 and later: `session.supportedFrameRates`, `frameRate`,
+    `updateTargetFrameRate(rate)`), and until v136 nothing asked, while the read-out painted 72 green. Each headset's own,
+    never the room's, not in `HOST.xr.sig()` (`HOST.xr.hz()`, `setHz(n)`, `xrHz` in `localStorage`, 90 by default,
+    `#hz=72|90|120` in a link): on each new session (`HOST.xr.watch`, `layerWatch`) and again whenever it changes, the
+    highest rate the session lists at or below it is asked for (else the lowest listed); logged through `HOST.collab.log`
+    as `frame rate` `{ want, list, asked, got, why }` (`got` the session's `frameRate` once the request has settled, `err`
+    a refusal), and the session's `frameratechange` as `frame rate change` (its listener added with `HOST.quiet` set). The
+    Debug tab's *Refresh rate: 90 Hz* row (each press the next listed rate, round again; greyed where the browser has no
+    frame-rate API, the line beside it saying so) says beside it the session's rate and what it offers (*Now 90 Hz · offers
+    72, 80, 90, 120*); the Debug tab's *Frame rate* line and the alignment samples (`sample()`'s `hz`: `{ f, a, w, v }`,
+    the session's rate, the one asked for, the setting and the frames a second measured) carry it too.
+    `HOST.xr.hzState()` (`{ want, list, asked, got, err, api }`: `api` null before a session was seen, false without the
+    API) is for tests. Two developer experiments beside it on the Debug tab, each headset's own, never the room's, their
+    defaults as before v136: *Foveation: the story's* / *0* / *0.5* / *1* (`HOST.xr.fov()`, `setFov(v)`, `xrFov`,
+    `#fov=story|0|0.5|1`: as the story sets it, 0.5 at every story's first `xrBegin`, by default; else the shell sets
+    `session.renderState.baseLayer.fixedFoveation` after the story's frame, `HOST.xr.layerStep` from `HOST.loading.wrap`,
+    only when its value or the layer changes, so a story that sets its own again is set back; back to the story's, the
+    layer's value from before is put back once; `fovNow()` the layer's now) and *Resolution: 100 %* / *90 %* / *80 %*
+    (`HOST.xr.scale()`, `setScale(v)`, `xrScale`, `#scale=1|0.9|0.8` or `100|90|80`: three.js r128's
+    `renderer.xr.setFramebufferScaleFactor`, read as it makes the layer, so set as each new session is first seen, before
+    the story hands it to three.js, and while none runs; the row's line says it applies from the next session,
+    `scaleNow()` the one this session was made with). Antialiasing is unchanged. Untested on a headset: what a Quest 3 or
+    3S lists and runs at by default, whether it takes 90 or 120 from the page, how heavy stories hold 11.1 ms, and how
+    foveation and a lower resolution look and what they save there.
   - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
     and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
     see "Real-world occlusion" below.
@@ -563,8 +590,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     left out, the mirrored panels' texture versions and the height shown) and at most every 1.5 s (`MSH.picMs`), or when
     only that light changed at most every 4 s (`MSH.hovMs`: a ray moving over the buttons redraws the menu all the time,
     and every picture goes to everyone in the room), encoded with `toBlob` off the frame, and never sent when its bytes are
-    those of the last one made (v121: what `cver` follows, people walking between circles among it, changes more often
-    than what a tab shows; `menuSent().same` counts them); and `{ k: 'closed' }` once
+    those of the last one made (v121: what `cver` follows, people walking between circles among it until v136, which
+    keeps them to Circles, changes more often than what a tab shows; `menuSent().same` counts them; the Debug tab's
+    read-outs, drawn on their own since v136, move no `cver`: a picture shows them as they were when it was made); and `{ k: 'closed' }` once
     when the menu closes, the setting goes off, the station changes or the session ends (`menuShareEnd`). A headset at
     that station whose latest picture is older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every
     1.5 s) and gets the last one made (also when a newer one did not fit); only a headset at that station keeps a
@@ -1531,6 +1559,15 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   station followed again. A headset session cannot survive a reload, so the page
   then shows one button, *Enter VR to continue* (or AR), which enters as Enter VR
   does and plays on as before.
+- **In a shared room** (v136; "Updating a room" under "Shared rooms"): the bar and the headset's panel have a third
+  button, *Reload every device* (Update the room's two presses: *Reload every device? Press again*), while this device is
+  in a room that is not on this device alone. A new `FORMAT` asked about on a page outside a headset in a room is taken
+  by itself after a 20 s countdown on the bar (*Reloading by itself in n s.*; *Not now* holds it off for 5 minutes, then
+  it asks again), at most once in ten minutes (`liveReloadAt`, as `waiting()`): a page left on Later held the room on the
+  old version for everyone (`cdOn`, `cdStep` in `HOST.live`; `HOST.live.times({ countdown, hold })` and `localStorage`
+  `liveCountdown` = `off` for tests). A room that moved on to a newer version than this device's (`shared.js`, refused
+  with 4006) asks as the question `room` (*Room XYZ has moved to a newer version of the app: reload to go back in.*, the
+  highest of the kinds), or outside a headset reloads at once, at most once in ten minutes (`HOST.live.roomNewer`).
 - **A shared room with an older device**: a station whose story this device's
   list does not have shows on its card and in the page's dialog as *A newer
   story*, "Update needed" (`shared.js`'s `meta` takes `HOST.unknown`), cannot be
@@ -2098,7 +2135,16 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
-  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). Walking in still goes by where
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card (v136, the frame rate:
+  "even in the lobby with only the stations visible i could not reach 90fps") says no running clock (`stationLine(s,
+  true)`: *Playing* while its story plays, *Paused at 1:03* as it stopped; the page's Shared dialog keeps the time): it
+  was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every playing station, all in
+  one frame. A card whose content changed (`cardSig`: its story, line, people, light, carrying, lock, sync, the circles
+  asked first, its title) waits in a queue (`DIRTY`), and at most one card is drawn a frame, the one pointed at or
+  carried first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
+  `o.drawn` counts its drawings, for tests); mipmaps kept. Its back face (`o.back`, for reading it from behind) shows,
+  and is pointable, only while there is no head pose and the card stands at its station's yaw; turned to you it would
+  face away, a draw of nothing twice a frame for every card. Walking in still goes by where
   you stand on the floor (within 1.1 m of its spot). With the circles asked first no ring is drawn (above). At a studio
   station the studio can hide every other station (`HOST.collab.hideOthers(on)`, v119, the studio's switch; `HIDE`,
   `hidingOthers`): while on and this headset's live station runs the studio, the other stations' rings, cards and icons
@@ -2468,11 +2514,23 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
     Back), *Trackers: shown / hidden* (v126: the PC's trackers as small pucks, this headset's own, a line beside it: "Vive
-    trackers"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
+    trackers"), *Refresh rate: 90 Hz* and *Foveation* and *Resolution* side by side (v136, this headset's own: "The refresh
+    rate" under "Four headset settings"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
-    trip, Quest Browser's version, the frame rate, `FPS`, once a second).
+    trip, Quest Browser's version, the frame rate, `FPS`, once a second, with the session's refresh rate). The read-outs
+    are drawn on their own as they change (v136; `stripStep`, `stripRow`, `sheetPatch`): the frame rate and the round trip
+    are out of the menu's signature (`panelSig`), so the whole canvas (720 x 1920, 5.5 MB with its mipmaps) is no longer
+    drawn and sent to the GPU each time they change; at most every 200 ms (`STRIP.ms`) a line that changed is drawn again
+    on a small canvas of its own (its row: the menu's background, then the line), put on the menu's canvas in its place
+    (so the picture shown to your circle, `menuShot`, has it; `cver` does not move for it) and sent to the menu's texture
+    alone (`texSubImage2D` of that row, 652 x 30, then its mipmaps; a texture still to be sent whole carries it; without
+    WebGL2 the whole texture), another number of lines drawing the tab again. Likewise (v136) the members are in the
+    signature only on Circles and Debug (which name them) and the people's stations only on Circles (its people rows):
+    someone walking between circles drew the whole menu again whatever tab it showed. `HOST.collab.strip()` (`{ rows,
+    patched, lines, at, x, w, lh, ver }`), `stripMs(ms)` and `fpsTest(v)` (the frame rate as a second's count would set
+    it) are for tests.
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870 (v136's three rows add about 210 px: 1384 px in a room on this device with 20 stations and no places; the smoke test's frame rate steps print it and fail past 1500); What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
@@ -3008,7 +3066,94 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   4029 until v109, and the app takes both), 10 new rooms a minute and 64 sockets
   (`busy`, 4429), every room together 64 MB, and logs only with a token
   (`X-Log-Token`; the app sends none). Off unless asked: a laptop at an event
-  runs as before.
+  runs as before. A room's version (the app's `FORMAT`, given as it is made or by its first hello) moves on to a newer
+  `networks-<n>` from a newcomer once nobody of its own version is connected, or while a reload order names it, and
+  never back (v136, `takeOver`; "Updating a room" below); `--keep <file>` keeps every room in a file across restarts.
+- Updating a room (v136; the owner, 11 November 2026: "It needs a: update this room on the relay switch that just tells
+  everyone to reload, after updates rooms otherwise get lost sometimes"; `relay/README.md`, "Rooms across updates"). Why
+  rooms were lost: a room's version is the app's `FORMAT` (it changed in 12 of the 24 releases from v112 to v131) and never
+  changed once made; a deploy restarts the relay (1001), the pages still running the old app came back within a second and
+  made the room again under the old version (`revive`), and every device that took the update was refused (4006) and
+  stopped trying, for as long as the room lived (6 hours after it emptied); peer to peer the room's id names the version,
+  so the first updated device hosted a second room. Owner's decisions: anyone in the room may press, never refused by
+  either lock, never a camera; the relay moves a room on by itself; pages take a format update by themselves in a room
+  (the countdown under "Hot reload and live updates"); `--keep` implemented, off by default; after a reload a headset's
+  check by eye asks as for any new session; peer to peer does not look for a host on the previous format's id (a gap).
+  No `FORMAT` change: nothing stored changes shape (the studio lane's bump to networks-42 in v136 is its own).
+  - The relay (`relay/server.mjs`): a newcomer of a newer `networks-<m>` takes a room of `networks-<n>` once no other
+    connected member has said hello with the room's version, or while a reload order named that version (2 minutes);
+    then the members still on the old one get the relay's own order and are refused (4006), so their own live updates ask
+    them: an app that obeys orders (its hello says `reload: 1`, this release on) 12 s after it was first told
+    (`ORDER_GRACE`: the order, else the move), at least 3 s after the move, so never before its turn (up to 8 s); an older
+    app, which ignores the order, 3 s after the move (the review of v136: all were refused 3 s after the first newcomer,
+    and a device whose turn came later reloaded at once on a page or was asked in a headset mid-countdown, losing the
+    stagger); an older newcomer is refused (4006, its words naming the room's version: `the room runs version
+    networks-42`); other versions only the same; the log `XYZ version networks-41 -> networks-42`. `/api/ping` says
+    `versions: 1` and `reload: true` (and `keep: true` with `--keep`); a taken code's 409 names its `version`. `POST
+    /api/rooms/<code>/reload { n, to, shell, from }`: the order `{ t: 'fx', k: 'q.reload', v: { n, to, shell, by: '',
+    from, at }, by: '' }` to every member whatever its version, `room.next` = `to` for 2 minutes; 200 `{ ok, members,
+    version }`, 404, 400, 405, 429 within 10 s of the last order to the room; the password as every call; the log `XYZ
+    reload to networks-42 (n members)`, no names. `--keep <file>`: every room's code, app, version, seq, keys and when it
+    was last occupied written atomically (a temporary file renamed) every 5 s when something changed and as the relay
+    stops (SIGTERM), read back as it starts (expired rooms and keys a write would refuse left out; a file that cannot be
+    read kept aside as `.bad`), and for 2 minutes after the start the file looked at every second, another relay's write
+    taken (a rolling update: a room missing here, or one nobody changed here since it was read, its members reconnecting).
+  - Waiting or reloading (`shared.js`, `versionRefused`, `movedOn`): the welcome's `version` is kept (`C.roomVer`, also
+    from the refusal's words and a revive's 409). Refused (4006) by an older room: status `older`, the note *Room XYZ
+    still runs version networks-41 on a device that has not updated: joining as soon as it has.*, tried again every 3 s
+    (`C.want` kept; the welcome then keeps `older` until the relay takes it in, its members saying so, so the note does
+    not flicker), given up after 2 minutes on a relay whose ping lacks `versions` (each try would keep the old room from
+    expiring: `capsGet`). By a newer room: status `newer`, `HOST.live.roomNewer` (above); log `room newer`; but while a
+    reload order counts down here (`RL.pend`) it reloads in its turn as it was going to, neither at once nor asked in a
+    headset (log `room newer: reloading in turn`, the note *... this device reloads in its turn.*), falling back to
+    `roomNewer` if that reload has not come 40 s after its turn (`room newer: no reload in turn`). Another
+    version that is not `networks-<n>`: refused, *the devices need the same release*. The connection line says *waiting
+    for a device on an older version* or *this device needs the update*. Rooms on this network list rooms of other
+    versions too, marked *older: it updates as you join* or *newer: this device needs the update* (peer to peer the
+    slots name the format, so only the same). Kept copies (`collabRoom.<code>`) say their format, `f`, and `locLoad` and a
+    welcome from an older room run `MIGRATE` (`{ 'networks-<n>': keys => keys }`, empty: every bump so far only added
+    fields and keys).
+  - The switch (*Update the room*; *Reload this device* in a room on this device): the page's Shared dialog under the
+    room's code (`data-sh="reload"`, with a line saying what it does; also while `older`), the headset menu's Circles tab
+    under the room's heading (`room:reload`, with the same line) and the update bar's and panel's *Reload every device*.
+    Two presses (the first arms it for 3 s: *Reload every device? Press again*), anyone in the room, never refused by
+    either lock (it moves nothing, as `look`, `near` and `trk`), never from a camera (`reloadCan`); one order a room every
+    20 s from here (a second press is dropped and logged). The presser (`roomUpdate`): `version.json` (3 s at most) for
+    `to` (its `format`) and `shell` (`{ n, id }`; else this device's), its own copy written (`locFlush`), then on a relay
+    `GET /api/rooms/<code>` (404: the relay lost it, so `revive` first and its welcome waited for, 6 s at most) and the
+    endpoint (an older relay: the order as the effect `q.reload` in the room; a 429: another order is out, nothing more);
+    peer to peer the effect `q.reload`, which the host's hub passes to every member; a room on this device its other tabs
+    (`localStorage` `collabReload`, the `storage` event). The order: `{ n: rid(8), to, shell, by, name, at }`, never
+    stored, so no `FORMAT` change; an older app ignores the key. The presser obeys its own last (its rank the number of
+    other members).
+  - Obeying (`reloadIn`, `reloadGo`): skipped (logged `room reload skipped`) when its `n` was seen in this tab
+    (`sessionStorage` `roomReloadSeen`, the last 8), one is under way, this device obeyed one in the last 30 s, its `at`
+    is more than 2 minutes from the relay's time, or a camera follows nothing; this device's own as the relay sends it back
+    (`RL.mine`). The order of reloading: the members by when they came into the room (the relay's `since`), then by id,
+    the presser left out: 0.4 s, then 0.5 s more for each, at most 8 s, a headset session at least 3 s (about 1 MB
+    gzipped a device: ten together on one router can pass the service worker's 4 s fallback). A headset says *This
+    headset reloads in 3 s. Then press Enter VR to continue.* (a notice), a page the toast *Updating the room: reloading
+    in n s.*. Then its copy written, `sessionStorage` `roomReload` = `{ code, n, to, shell, live, zone, from, at, tries,
+    rank, wait }` and `HOST.live.reload('room')` (livePlace as ever: the story, mode, clock, explore state, view, the
+    station or person followed, a headset's *Enter VR to continue*); a studio upload, conversion, save or recording under
+    way first (30 s at most). It comes back by the room's code in its address.
+  - Back (`reloadBack`, first in `HOST.collab.boot`, before anything joins): the shell checked against the order's (the
+    same id, or a newer `n`); not (the service worker's old cache after 4 s or a network error): once more, its
+    `livePlace` put back, twice at most (`room reload again`), then the bar's note *This device could not fetch the new
+    version: reload it by hand.*; log `room reload back { n, from, to, ok, ms }`. A headset's next session in that room
+    within 10 minutes keeps the station it was at (`reloadKeep`: `choose(live, 'reload')`, log `station kept after the
+    reload`; the room not in yet: as its welcome comes; not the room's arc, which `arcStep` takes), instead of dropping it
+    as every new session does; then `roomReload` goes. Alignment comes back as for any session (marks by their anchors,
+    places, the check by eye).
+  - Peer to peer: each device that gets the order lets go of the old id as it reloads (`pagehide`) and claims the new
+    version's; the first back hosts from its copy (written as it went), the rest link to it, so the room does not split
+    as long as every device got the order. Not yet: a newer device finding no host on the new id does not look on the
+    old id to send it the order; a straggler that missed it stays on the old id until its own live update reloads it.
+  - For tests: `HOST.collab.roomReload` (`{ ask(why), now(why), armed(), label(), can() }`), `reloadIn(v, by)`,
+    `reloadState()`, `reloadTest(fn)` (fn(order) in place of the reload), `reloadClear()` and `format`; `HOST.live.roomNewer(code)`,
+    `HOST.live.times(...)`. Untested on real devices: *Enter VR to continue* after an order on a Quest, the timings over
+    real Wi-Fi with ten headsets and the service worker's 4 s fallback there, `--keep` on Coolify's volume through a
+    rolling deploy, frozen tabs on Android.
 - The relay's password (v110; the owner, 3 November 2026: "i would like to add a
   secret to the relay like how this project does it: menchelab/asdf10k-collab-backend
   ... like one word like networksofthefuture2037 that i can use and enter on each
@@ -5506,6 +5651,25 @@ additive glows, each adding its colour and keeping the alpha (v134), and drawn o
 as in AR, on a canvas of its own) the glow and the shield's ring leaving the alpha at 0 everywhere while adding light; the
 ship under 600 triangles.
 
+Its *frame rate* steps (v136, `--only 'frame rate'`, a page of its own, about five minutes; `FPS_FAKE`: a pretend Quest
+driven through three.js r128's own WebXR path, a layer with a framebuffer of its own, two controllers; its session lists
+72, 80, 90 and 120 Hz and records what `updateTargetFrameRate` is asked, which fires `frameratechange`; its layer records
+what `fixedFoveation` is set to and what three.js made it with; every 2D texture upload counted per frame): a session
+asking for 90 Hz and logging it (`frame rate`, `frame rate change`); the Debug tab's Refresh rate row going 90, 120, 72,
+80, 90 Hz and asking each again; 100 asking 90 and 60 asking 72; nothing in `HOST.xr.sig()`; 120 kept across a reload and
+asked; `#hz=72`; a session without the API asking nothing, the row greyed, logged; the read-out's words (*NN fps of 90
+Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
+with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
+floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
+distances never falling), no back face shown or pointable; every story's station playing: each card *Playing*, none
+drawn again or sent over 2.6 s; paused, *Paused at 1:03*. The menu on the Debug tab: the frame rate changed three times,
+its line (*... · the headset at 90 Hz*) drawn and sent alone (`texSubImage2D 652x30`), the whole menu never, the texture's
+version unchanged, the row read back from the GPU the canvas's and not the line before; someone walking between two
+circles drawing the Settings and Debug tabs not at all and Circles each time; the Debug tab's height printed (under 1500
+px). Foveation: the story's 0.5, then the row 0, 0.5, 1 and the story's again (each set once, the 0.5 from before put
+back), a story's own set back; Resolution 90, 80, 100 % from the next session (its layer made at 0.9); both kept across a
+reload; `#fov=1&scale=80` and `#fov=story&scale=1`.
+
 Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
 nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories
 screen with the served file's lists; Got it keeping it away for that version across a reload, a stand-in file of another
@@ -5518,6 +5682,18 @@ moment into the session; developer mode off, never; the Settings row and the Deb
 Without the file (404, on a page that has fetched none) the card has Later alone, focused, and the headset's page Back
 alone; while it is fetched by hand (the server slowed down 1.5 s) the card says *Fetching what is new...* with Later
 alone, then Got it once it has come; the page's card open as a headset session starts closes, as Later.
+
+Its *update the room* steps (v136, `--only 'update the room'`, a page of its own in a room on this device, a minute or
+two): the Shared dialog's button (*Reload this device* there, with its line) armed by a first press for 3 s (*Reload this
+device? Press again*, then back), a second press within it sending the order to the room's other tabs and obeying it at
+once here (rank 0, 0.4 s; the toast *Updating the room: reloading in 1 s.*), kept for the reload (`roomReload`), the
+reload itself replaced by a test hook; the labels in a room with others (*Update the room*, *Reload every device? Press
+again*); an order heard twice obeyed once (*one obeyed just now*), one 3 minutes old skipped (*too old*); the headset
+menu's `room:reload` on the Circles tab of a pretend session, two presses within 3 s; a real reload by an order: back
+in the story in explore mode (livePlace), in the room, `room reload back` with its shell matching; and refused (4006, the
+relay's words naming a newer version) while an order counts down: status `newer`, *reloads in its turn*,
+`HOST.live.roomNewer` not called and the order's own reload coming at its turn; with none under way `roomNewer` at once;
+with one whose reload never came, `roomNewer` once its 40 s are up.
 
 Its *phone ar* steps (v125, `--only 'phone ar'`, two pages of their own, a minute or two): a pretend Android phone
 (Chrome's user agent, touch, 412 x 860; a pretend `navigator.xr` that records what it is asked for; the airports story's
@@ -6050,8 +6226,9 @@ the shell's hooks) and the place restored after Reload now, `version.json` throu
 the service worker uncached; with the relay's `--watch --build`: a story file
 touched swapping within about 2 s, a set's source touched building and swapping
 its story, the list read again, a swap at a station writing nothing to the room, a
-station of a story this device does not know, and a shell file reloading the page
-with its place.
+station of a story this device does not know, in a shared room (v136) a new `FORMAT` asked about with the bar's third
+button *Reload every device* (its first press arming it), the countdown, *Not now* holding it off and then the page
+taking it by itself, back in the room with its place, and a shell file reloading the page with its place.
 
 After changing `sw.js` or how files are loaded, run the update test with an
 earlier version checked out next to this one:
@@ -6120,7 +6297,15 @@ crosses (`m.k`, `ra`, `rb`) against the room's truth and `shared.js`'s own `fitF
 `shared.js`'s own `fromMarks`, `floorUnder` and `basis` run with three.js; a room lined up by hand getting `@trk` about 60
 times a second, every pose within 1 mm and 0.05 degrees of the truth; only rooms with `trk.on` and `m`, `l: ''` without;
 the bridge silent; bad datagrams counted; the password; `RELAY_ARGS`; a UDP port held; `bridge.py --fake` where
-`python3` is); no browser, seconds; `node tools/peer.mjs` links two pages of
+`python3` is), and rooms across updates (v136; `node relay/test.mjs --rooms` runs only these, seconds: `/api/ping`'s
+`versions` and `reload`, a room of networks-41 refusing networks-42 while one of its own is connected and taking it once
+none is (one that has said no hello not counted), never an older one, versions that are not networks-<n> only the same,
+a taken code's 409 naming its version; the reload order: 404, 400, 405, 200 with every member of every version getting
+`q.reload` by the relay, 429 within 10 s, the newcomer it names (half a second after the order) moving the room on with
+two old members there, who get the order again: one that ignores orders refused 3 s later, one whose hello says
+`reload: 1` not within 9 s of its order and refused about 12 s after it; `--keep`: written within 6 s of a change, atomically, and as the relay stops,
+read back with its seq, version and keys, another relay's write taken, expired rooms and bad keys left out, a bad file
+kept aside as `.bad`, nothing without it; and the order needing the password); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -6259,7 +6444,25 @@ Lab's marks through the shared space never compared or split, one from spots A a
 presses on the Debug tab): its tombstone, headset 2's Lab place and anchors gone at its next session; another area,
 Hall, C and D again, stale once spots A and B are taped again and its place dropped at the next session; a socket of
 networks-40 refused), camera mode on an area's crosses (in the camera round: the overlay's *Spots: C and D (Lab)*, Set
-spot C and D, the phone's room still the headset's, no place kept), the design room (the Shared dialog's picker listing it after
+spot C and D, the phone's room still the headset's, no place kept; and Update the room not offered in camera mode), rooms
+across updates and Update the room (`reloadRound`, v136, after the areas round in the main run; `--reload` runs only it, a
+few minutes, `--cases 2,5` only those of its six: a relay of its own on port 8712, restarted serving another copy of the app as a deploy; three copies made in a
+temporary folder by `tools/release.mjs`: this code at its `FORMAT`, this code at `FORMAT` + 1, and v135 (git `7c32b37`) at
+`FORMAT`; service workers blocked, every page on a story (the Stories screen takes a waiting update by itself) with
+`liveCountdown` off: (1) a deploy bumping the format with two old pages in a room, which make it again under the old one;
+a new page joining waits (`older`), one old page reloaded by hand waits too, and once the last has reloaded all three are
+in the same room with its stations and explore state, the room on the new format; (2) the switch for the same version:
+three pages and a pretend AR headset lined up and at a station, the first press arming it, the headset's notice, every
+device reloading once in its turn (ranks 0, 1, 2 and the presser 3; waits 0.4, 0.9, at least 3 s for the headset, 1.9 s),
+all back with new ids, the page that followed the station following it again at its paused clock, the headset showing
+*Enter AR to continue* and, entered, at its station without walking in; (3) across the format: a new page refused by the
+old room offering *Update the room* and pressing it, the endpoint reaching the old pages (this code), everyone back new and
+the room moved on; then v135 pages, which ignore the order, refused once the new page is back, and new after a reload by
+hand; (4) the relay restarted between press and reloads: the presser bringing the room back first; (5) peer to peer, the
+order from a guest, everyone back on the new id, one host, every station; (6) a v135 page in a room with a page of this
+code ignoring the order, an order older than 2 minutes ignored, two presses at once giving one order and one reload per
+device, and a reload that comes back with a stale `index.html` (`page.route`) reloading twice more and then saying so),
+the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches

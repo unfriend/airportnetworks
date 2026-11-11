@@ -1,4 +1,5 @@
-// Test of the relay: node relay/test.mjs (--trackers: only the Vive trackers' steps)
+// Test of the relay: node relay/test.mjs (--trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
+// reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
 import { spawn, execFileSync } from 'node:child_process';
@@ -393,6 +394,149 @@ async function trackerSteps() {
   });
 }
 
+// ---- rooms across updates (v136): a room moves on to a newer networks-<n> once nobody of its own is connected (or a reload
+// order asked for it), never back; POST /api/rooms/<code>/reload; --keep <file>. `node relay/test.mjs --rooms` runs only these
+async function roomSteps() {
+  const at = (P, room, id) => socket(`ws://127.0.0.1:${P.port}/api/ws?room=${room}&id=${id}`);
+  const joinAt = async (P, room, id, hello) => { const c = at(P, room, id); c.welcome = await c.next(is('welcome')); if (hello) c.send({ t: 'hello', ...hello }); return c; };
+  const N41 = { app: 'networks', version: 'networks-41' };
+  await step('versions (v136): /api/ping says versions and reload; a room takes a newer networks-<n> once nobody of its own is connected, never an older one; other versions need the same; a taken code\'s 409 names its version', async () => {
+    const pj = (await req('GET', '/api/ping')).json();
+    ok(pj.versions === 1 && pj.reload === true && !('keep' in pj), '/api/ping: versions 1, reload true (no keep without --keep)');
+    const Q = await newRoom(N41);
+    const a = await joined(Q, 'va', { name: 'Ann', version: 'networks-41' });
+    await a.next(is('members'));
+    const b = await joined(Q, 'vb', { name: 'Bea', version: 'networks-42' });
+    const be = await b.next(is('error'));
+    ok(be?.code === 'version' && /version networks-41/.test(be.text) && (await b.closedIn(2000))?.code === 4006, 'a newer newcomer while one of the room\'s version is there: refused (4006), the room\'s version in its words');
+    ok((await state(Q)).version === 'networks-41', 'the room still networks-41');
+    const silent = await joined(Q, 'vs');   // (connected, no hello yet: of no version)
+    a.ws.close(); await a.done; await sleep(50);
+    const c = await joined(Q, 'vc', { name: 'Cy', version: 'networks-42' });
+    ok(await c.none(is('error'), 400), 'the old one gone (one with no hello yet does not count): the newer one is let in');
+    const st = await state(Q);
+    ok(st.version === 'networks-42' && st.members.some(m => m.id === 'vc' && m.version === 'networks-42'), 'the room moved on to networks-42');
+    ok(relay.out.includes(`${Q} version networks-41 -> networks-42`), 'the log says so: version networks-41 -> networks-42');
+    const d = await joined(Q, 'vd', { name: 'Dee', version: 'networks-41' });
+    const de = await d.next(is('error'));
+    ok(de?.code === 'version' && /version networks-42/.test(de.text) && (await d.closedIn(2000))?.code === 4006 && (await state(Q)).version === 'networks-42', 'an older newcomer: refused, never back (its words name networks-42)');
+    const e = await joined(Q, 've', { name: 'Eli', version: 'networks-40' });
+    ok((await e.closedIn(2000))?.code === 4006, 'networks-40 too');
+    const t = await req('POST', '/api/rooms', { body: { ...N41, code: Q } });
+    ok(t.status === 409 && t.json().version === 'networks-42', 'POST /api/rooms with its code: 409, the room\'s version in the body');
+    const V = await newRoom({ app: 'networks', version: 'v1' });
+    const f = await joined(V, 'vf', { name: 'Fay', version: 'v2' });
+    ok((await f.closedIn(2000))?.code === 4006 && (await state(V)).version === 'v1', 'versions that are not networks-<n>: only the same (v1 room, v2 refused, nobody there)');
+    const g = await joined(V, 'vg', { name: 'Gil', version: 'networks-42' });
+    ok((await g.closedIn(2000))?.code === 4006, 'v1 never takes networks-42');
+    for (const x of [c, silent]) x.ws.close();
+  });
+  await step('the reload order (v136): POST /api/rooms/<code>/reload reaches every member whatever its version (q.reload by the relay), 404, 400, 429 within 10 s; the newcomer it names moves the room on with old members there, who get the order and 4006: 3 s later for an app that ignores orders, 12 s after its order for one that obeys them (its hello\'s reload: 1), never in its turn', async () => {
+    const Q = await newRoom(N41);
+    const a = await joined(Q, 'ra', { name: 'Ann', version: 'networks-41' }), w = await joined(Q, 'rw');   // (w: no hello, no version)
+    const o = await joined(Q, 'ro', { name: 'Obi', version: 'networks-41', reload: 1 });   // (o: an app that obeys orders, reloading in its turn)
+    await a.next(is('members')); await o.next(is('members'));
+    const unknown = ['ZZZ', 'ZZY', 'ZZX'].find(x => x !== Q);
+    ok((await req('POST', `/api/rooms/${unknown}/reload`, { body: { n: 'x1' } })).status === 404, 'no such room: 404');
+    ok((await req('POST', `/api/rooms/${Q}/reload`, { body: {} })).status === 400 && (await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'bad id!' } })).status === 400 &&
+      (await req('POST', `/api/rooms/${Q}/reload`, { body: 'not json' })).status === 400, 'no order id, a bad one, not JSON: 400');
+    ok((await req('GET', `/api/rooms/${Q}/reload`)).status === 405, 'GET: 405');
+    const tOrder = Date.now();
+    const r = await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'ord1', to: 'networks-42', shell: { n: 136, id: 'abcdef0123456789' }, from: 'ra' } });
+    ok(r.status === 200 && r.json().ok === true && r.json().members === 3, '200 { ok, members: 3 }');
+    const fa = await a.next(is('fx', m => m.k === 'q.reload')), fw = await w.next(is('fx', m => m.k === 'q.reload')), fo = await o.next(is('fx', m => m.k === 'q.reload'));
+    const good = m => m && m.by === '' && m.v.n === 'ord1' && m.v.to === 'networks-42' && m.v.by === '' && m.v.from === 'ra' && m.v.shell.id === 'abcdef0123456789' && m.v.shell.n === 136 && Math.abs(m.v.at - Date.now()) < 5000;
+    ok(good(fa) && good(fw) && good(fo), 'every member (networks-41 twice, and one of no version yet) gets q.reload by \'\' with n, to, shell, from and at');
+    const again = await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'ord2' } });
+    ok(again.status === 429 && +again.headers['retry-after'] >= 1, 'another within 10 s: 429 with Retry-After');
+    ok(relay.out.includes(`${Q} reload to networks-42 (3 members)`), 'the log says so');
+    await sleep(500);   // (the newcomer half a second after the order, as the first device back)
+    const n = await joined(Q, 'rn', { name: 'Neo', version: 'networks-42' });
+    ok(await n.none(is('error'), 400), 'a newcomer of the version the order names: let in, though two of networks-41 are there');
+    ok((await state(Q)).version === 'networks-42' && relay.out.includes(`${Q} version networks-41 -> networks-42 (2 on networks-41 told to reload)`), 'the room moved on (the log: 2 on networks-41 told to reload)');
+    const fa2 = await a.next(is('fx', m => m.k === 'q.reload')), fo2 = await o.next(is('fx', m => m.k === 'q.reload'));
+    ok(fa2 && fa2.by === '' && fa2.v.n === 'ord1' && fa2.v.to === 'networks-42' && fo2 && fo2.v.n === 'ord1', 'the old members get the relay\'s own order again (the same n)');
+    ok(await a.none(m => m.t === 'error', 2000), 'not refused at once (3 s to reload)');
+    const ae = await a.next(is('error'), 2500);
+    ok(ae?.code === 'version' && /networks-42/.test(ae.text) && (await a.closedIn(1500))?.code === 4006, 'an app that ignores orders (no reload: 1 in its hello): refused, 4006, about 3 s later');
+    // (an app that obeys reloads in its turn, up to 8 s after its order (a headset at least 3 s): refused 3 s after the
+    // newcomer it was cut short, a page reloading at once and a headset asked mid-countdown; now 12 s after its order)
+    ok(!o.closed && !o.q.some(is('error')) && await o.none(is('error'), Math.max(0, tOrder + 9000 - Date.now())), `one that obeys orders (reload: 1) not refused 3 s after the newcomer, nor within 9 s of its order (${Date.now() - tOrder} ms)`);
+    const oe = await o.next(is('error'), 5500), dt = Date.now() - tOrder;
+    ok(oe?.code === 'version' && /networks-42/.test(oe.text) && (await o.closedIn(1500))?.code === 4006 && dt > 11000 && dt < 14500, `then refused, 4006, about 12 s after its order (${dt} ms)`);
+    ok(!w.closed, 'one of no version is left alone');
+    for (const x of [n, w]) x.ws.close();
+  });
+  await step('--keep <file> (v136): rooms written every 5 s when they changed and as the relay stops, read back as it starts with their seq, version and keys; expired and bad ones left out; a bad file kept aside; another relay\'s write taken (a rolling update)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-keep-')), file = path.join(dir, 'data', 'rooms.json');
+    const args = ['--keep', file, '--timeout', '5', '--ping', '0.5', '--expire', '60'];
+    const K1 = await start(args), rq = (P, m, p, o = {}) => req(m, p, { ...o, at: P.port });
+    ok((await rq(K1, 'GET', '/api/ping')).json().keep === true, '/api/ping says keep');
+    ok(/--keep: no .*rooms\.json yet/.test(K1.out), 'no file yet: said');
+    const code = (await rq(K1, 'POST', '/api/rooms', { body: N41 })).json().code;
+    const m = await joinAt(K1, code, 'k1', { name: 'Kim', version: 'networks-41' });
+    m.send({ t: 'set', batch: [['st.s1', { story: 'flock', x: 1, z: -2, yaw: 0 }], ['st.s1.x', { birds: 300 }]], cid: 'k-1' });
+    await m.next(is('set', x => x.cid === 'k-1'));
+    for (let i = 0; i < 60 && !fs.existsSync(file); i++) await sleep(200);
+    let o = null;
+    try { o = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* not yet */ }
+    const row = o && o.rooms.find(r => r.code === code);
+    ok(row && row.seq === 1 && row.version === 'networks-41' && row.keys['st.s1.x'].v.birds === 300, 'written within 6 s of the change (its folder made), atomically (no temporary file left)');
+    ok(!fs.readdirSync(path.dirname(file)).some(f => f.endsWith('.tmp')), 'no temporary file left');
+    m.send({ t: 'set', batch: [['look', { labels: 'face', by: 'k1', at: 1 }]], cid: 'k-2' });
+    await m.next(is('set', x => x.cid === 'k-2'));
+    await new Promise(r => { K1.once('exit', r); K1.kill('SIGTERM'); });
+    o = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const r2 = o.rooms.find(r => r.code === code);
+    ok(r2 && r2.seq === 2 && r2.keys.look && Math.abs(r2.empty - Date.now()) < 5000, 'written as it stops (SIGTERM): the last write in, the room counted as occupied until then');
+    const K2 = await start(args);
+    ok(new RegExp(`--keep: 1 room read back from`).test(K2.out), 'read back as it starts (the log)');
+    const s2 = (await rq(K2, 'GET', '/api/rooms/' + code)).json();
+    ok(s2.seq === 2 && s2.version === 'networks-41' && s2.keys['st.s1'].v.story === 'flock' && s2.keys['st.s1.x'].v.birds === 300 && s2.keys.look.seq === 2, 'the room after a restart: its seq, version and keys');
+    const m2 = await joinAt(K2, code, 'k2', { name: 'Kai', version: 'networks-41' });
+    ok(m2.welcome && m2.welcome.seq === 2 && m2.welcome.keys['st.s1.x'], 'a member joins it (no revive needed)');
+    m2.send({ t: 'set', batch: [['st.s1.x', { birds: 200 }]], cid: 'k-3' });
+    ok((await m2.next(is('set', x => x.cid === 'k-3')))?.seq === 3, 'writes go on from its seq (3)');
+    m2.ws.close(); await m2.done;
+    // (rolling: another relay writes the file while this one runs: taken within a second or two, for 2 minutes; first this
+    // one's own write of the change, so it has nothing more to write over it)
+    const seqIn = () => { try { return (JSON.parse(fs.readFileSync(file, 'utf8')).rooms.find(r => r.code === code) || {}).seq; } catch { return 0; } };
+    for (let i = 0; i < 40 && seqIn() !== 3; i++) await sleep(200);
+    await sleep(300);
+    const other = JSON.parse(fs.readFileSync(file, 'utf8'));
+    other.by = 'another'; other.rooms.push({ code: code === 'QQQ' ? 'QQR' : 'QQQ', app: 'networks', version: 'networks-41', seq: 4, empty: Date.now(), keys: { 'st.z': { v: { story: 'robots', x: 0, z: 0, yaw: 0 }, seq: 4, by: 'x' } } });
+    fs.writeFileSync(file + '.x', JSON.stringify(other)); fs.renameSync(file + '.x', file);
+    const extra = code === 'QQQ' ? 'QQR' : 'QQQ';
+    let got = 0;
+    for (let i = 0; i < 30 && got !== 200; i++) { await sleep(200); got = (await rq(K2, 'GET', '/api/rooms/' + extra)).status; }
+    ok(got === 200 && (await rq(K2, 'GET', '/api/rooms/' + code)).json().seq === 3, 'another relay\'s write taken (a room this one lacks), the room changed here since kept as it is here');
+    await new Promise(r => { K2.once('exit', r); K2.kill('SIGTERM'); });
+    // expired, bad keys and a bad file
+    const now = Date.now();
+    fs.writeFileSync(file, JSON.stringify({ keep: 1, by: 'x', at: now, rooms: [
+      { code: 'OLD', app: 'networks', version: 'networks-41', seq: 1, empty: now - 3600 * 1000, keys: { 'st.a': { v: { story: 'flock', x: 0, z: 0, yaw: 0 }, seq: 1, by: 'x' } } },
+      { code: 'NEW', app: 'networks', version: 'networks-41', seq: 3, empty: now, keys: { 'st.a': { v: { story: 'flock', x: 0, z: 0, yaw: 0 }, seq: 3, by: 'x' }, 'bad key!': { v: 1, seq: 2 }, 'st.b': { v: { x: 1 }, seq: 2 }, 'gone': { v: null, seq: 1 } } },
+      { code: 'bad', keys: {} }, 'nonsense'] }));
+    const K3 = await start(args);
+    ok((await rq(K3, 'GET', '/api/rooms/OLD')).status === 404, 'a room expired meanwhile (empty longer than --expire): left out');
+    const s3 = (await rq(K3, 'GET', '/api/rooms/NEW')).json();
+    ok(s3.seq === 3 && Object.keys(s3.keys).join() === 'st.a', 'its keys checked as writes are (a bad key, a station without a story, null: left out)');
+    await new Promise(r => { K3.once('exit', r); K3.kill('SIGTERM'); });
+    fs.writeFileSync(file, '{ not json');
+    const K4 = await start(args);
+    ok(/could not be read/.test(K4.out) && fs.existsSync(file + '.bad') && (await rq(K4, 'GET', '/api/health')).json().rooms === 0, 'a file that is not JSON: said, kept aside as .bad, the relay starts with no rooms');
+    await new Promise(r => { K4.once('exit', r); K4.kill('SIGTERM'); });
+    const K5 = await start(['--timeout', '5']);
+    ok(!('keep' in (await rq(K5, 'GET', '/api/ping')).json()) && !/--keep/.test(K5.out), 'without --keep nothing of it');
+    K5.kill();
+  });
+}
+if (process.argv.includes('--rooms')) {   // only the rooms' steps (v136)
+  try { await roomSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
 if (process.argv.includes('--trackers')) {   // only the trackers' steps
   try { await trackerSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
@@ -649,6 +793,8 @@ try {
     ok(await e2.next(is('pong')), 'the new socket works');
     e2.ws.close();
   });
+
+  await roomSteps();   // (v136: versions, the reload order, --keep)
 
   await step('a room holds at most 5000 keys and 4 MB, keys counted', async () => {
     const write = async (c, batch, cid) => { c.send({ t: 'set', batch, cid }); return Promise.race([c.next(is('set', m => m.cid === cid), 5000), c.next(is('error', m => m.cid === cid), 5000)]); };
@@ -1401,6 +1547,9 @@ try {
     const p1 = await get('/api/ping', { headers: bearer() }), p2 = await get('/api/ping?token=' + PASS);
     ok(p1.status === 200 && p1.json().proto === 1 && p2.status === 200, 'Authorization: Bearer and ?token= both work');
     ok((await get('/api/rooms/' + code, { headers: bearer() })).json().code === code && (await get('/api/near?token=' + PASS)).status === 200, 'a room and near with it');
+    ok(no(await get('/api/rooms/' + code + '/reload', { method: 'POST', body: { n: 'pw1' } })), 'the reload order (v136) without it: 401');
+    const ro = await get('/api/rooms/' + code + '/reload', { method: 'POST', body: { n: 'pw1' }, headers: bearer() });
+    ok(ro.status === 200 && ro.json().ok === true, 'the reload order with it: 200');
     const pre = await get('/api/ping', { method: 'OPTIONS', headers: { Origin: 'https://x.example', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' } });
     ok(pre.status === 204 && /Authorization/.test(pre.headers['access-control-allow-headers']), 'a preflight needs no password and allows the Authorization header');
     s = [];

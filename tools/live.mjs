@@ -287,6 +287,33 @@ try {
     await dev.evaluate(() => { HOST.live.later(); HOST.collab.leave(); });
     await wait(500);
   }
+  // in a shared room (v136): a new FORMAT asked about on a page outside a headset: the bar's third button, Reload every
+  // device (Update the room's two presses), and a countdown (20 s; 4 s here) to taking it by itself; Not now holds it off
+  // (5 minutes; 3 s here), then it asks again and counts down; by itself it reloads with its place, back in the room
+  {
+    await dev.evaluate(() => HOST.collab.create());
+    await until(dev, () => HOST.collab.code && HOST.collab.status === 'open', null, 15000);
+    const code = await dev.evaluate(() => HOST.collab.code);
+    await dev.evaluate(() => { window.__mark = 1; HOST.live.times({ countdown: 4000, hold: 3000 }); HOST.live.ask('format'); });
+    const bar = () => dev.evaluate(() => { const b = document.getElementById('livebar'), q = s => b.querySelector(s), r = q('[data-live="room"]');
+      return { shown: !b.hidden, text: q('span').textContent, room: r.hidden ? '' : r.textContent, later: q('[data-live="later"]').textContent }; });
+    await until(dev, () => /Reloading by itself in/.test(document.querySelector('#livebar span').textContent), null, 3000);   // (counted from the next tick)
+    const b0 = await bar();
+    await dev.click('#livebar [data-live="room"]');
+    const b1 = await bar(), armed = await dev.evaluate(() => HOST.collab.roomReload.armed());
+    report('in a shared room, a new FORMAT asked about: the bar\'s third button Reload every device (the first press arms it), a countdown to taking it by itself, Not now',
+      b0.shown && b0.room === 'Reload every device' && /Reloading by itself in [34] s\./.test(b0.text) && b0.later === 'Not now' && b1.room === 'Reload every device? Press again' && armed, { b0, b1, armed });
+    await dev.click('#livebar [data-live="later"]');
+    const b2 = await bar();
+    await wait(1500);
+    const b3 = await bar();
+    const again = await until(dev, () => !document.getElementById('livebar').hidden && /Reloading by itself in/.test(document.querySelector('#livebar span').textContent), null, 6000);
+    report('... Not now holds it off (3 s here, 5 minutes in the app), then it asks again, counting down', !b2.shown && !b3.shown && again && await dev.evaluate(() => window.__mark === 1), { b2, b3, again });
+    const back = await until(dev, c => typeof HOST !== 'undefined' && !window.__mark && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && HOST.collab.code === c && HOST.collab.status === 'open', code, 30000);
+    report('... and the page takes it by itself (nothing pressed), reloading back into the room with its place', back, await dev.evaluate(() => typeof HOST !== 'undefined' && { mark: window.__mark, key: HOST.curKey, code: HOST.collab.code, status: HOST.collab.status }));
+    await dev.evaluate(() => { HOST.collab.leave(); window.__mark = 1; });
+    await wait(500);
+  }
   // a shell file touched: the page reloads with its place
   {
     await dev.evaluate(() => { const c = HOST.cur.collab; c.APP.enterExplore(); const s = c.state(); s.sel = 'JFK'; c.apply(s); window.__mark = 1; });

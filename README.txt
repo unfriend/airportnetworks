@@ -381,7 +381,14 @@ from the start), or calibrate it on the spots. If two calibrated headsets find t
 far apart (each headset can keep its own copy of it), Fresh shared space in the
 menu (twice) moves the whole room to a new address where the headsets
 make a new one: start AR on one headset first, then the others. The relay keeps the headsets' logs in
-relay/logs/ for checking alignment. People elsewhere and
+relay/logs/ for checking alignment. After an update of the app (a deploy, a new release)
+press Update the room (twice: the Shared dialog under the room's code, or the
+headset menu's Circles tab): every device in the room reloads into the new
+version, one after another, and comes back into the room; headsets then press
+Enter VR to continue and are at their circle again (v136). A room also moves on
+to a newer version by itself once the last device of the old one has reloaded,
+and a device that joins it meanwhile waits rather than being refused. A relay
+started with --keep <file> keeps its rooms across restarts. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:
@@ -440,7 +447,7 @@ Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
 for every story; Frame rate, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
-Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, What is new, the version,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, Refresh rate, Foveation and Resolution, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over
@@ -465,7 +472,16 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. Moving
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. It
+says the headset's refresh rate too ("88 fps of 90 Hz") and is green within
+3 % of it, amber within 20 %, else red. Refresh rate (the Debug tab; 90 Hz by
+default, this headset's own; #hz=72, 90 or 120 in a link): what each session
+asks the browser for (Quest Browser runs a page at 72 Hz unless asked), each
+press the next rate the headset offers; greyed in a browser that cannot set it.
+Two experiments on the Debug tab, this headset's own: Foveation (as the story
+sets it, the default, or 0, 0.5 or 1: less detail at the edges of the view,
+less work for the headset; #fov=) and Resolution (100 %, the default, 90 % or
+80 %, from the next session; #scale=). Moving
 with the sticks (off by default, this headset's own, never the room's; #walk=on
 in a link): click the left stick twice quickly, or use its row on the Settings tab,
 and in VR the left stick moves you along the floor where you look and a flick of
