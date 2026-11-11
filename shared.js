@@ -10126,8 +10126,8 @@
     authTry: t => authTry(t), authForget: () => authForget(),
     notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
     notice: (title, text, ms) => notice(title, text, ms),   // (a notice in front of you in a headset: real-world occlusion's)
-    get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos), menuVis: () => (OV.panel ? OV.panel.vis : 0),   // (the canvas's height the tab shown uses, px)
-      // (the menu carried by the grip; where it opens)
+    get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
+    menuVis: () => (OV.panel ? OV.panel.vis : 0),   // (the height of the canvas the tab shown uses, px)
     // the room setup guide: what it shows ({ open, step, status: how this headset lines up, check: what the check says,
     // lined: [headsets lined up, headsets, checked], flow: the startup flow this session ('' not yet, 'on', 'done',
     // 'skipped'), case: what Line up says to do (lineCase), ok: this session's check that stood, red: the last one out,
