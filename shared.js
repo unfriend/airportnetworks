@@ -6112,7 +6112,7 @@
       const was = STK.get(src);
       STK.set(src, b);
       if (b && was === false) {
-        const ax = HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && HOST.ships.axes ? HOST.ships.axes(gp) : null;
+        const ax = HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && !(HOST.ships.down && HOST.ships.down()) && HOST.ships.axes ? HOST.ships.axes(gp) : null;   // (flying, not down)
         if (ax && Math.hypot(ax[0], ax[1]) >= SHIPCLK.mid) {
           if (t - SHIPCLK.logAt > 1000) { SHIPCLK.logAt = t; log('ship stick click ignored', { x: +ax[0].toFixed(2), y: +ax[1].toFixed(2) }); }
         } else clicks.push(src);

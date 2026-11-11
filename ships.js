@@ -1321,7 +1321,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // each frame of a headset session, before any of its callbacks (index.html's moving with the sticks, frame), after
     // the frame is dressed: the frame's poses are three.js's
     frame(s, t, f) { try { frame(s, t, f); } catch (e) { console.warn('Spaceships:', e); } },
-    flying: () => S.on, claims, toggle, out, presIn, fxIn, person, detach, whyNot,
+    flying: () => S.on, down: () => !!(S.on && S.down), claims, toggle, out, presIn, fxIn, person, detach, whyNot,
     // for tests: the relay's time taken from the frames' (a test's own clock), or the relay's again
     testClock(on) { TC.on = !!on; return TC.on; },
     // for tests: launch (true) or land (false) at the next frame

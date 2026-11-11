@@ -9051,7 +9051,7 @@ if (runs('spaceship')) {
     if (JSON.stringify(seen) !== JSON.stringify(['Steering: tilt and stick', 'Steering: stick only', 'Steering: tilt only', 'Steering: tilt and stick'])) bad.push('the row\'s words: ' + JSON.stringify(seen));
     const vis = await sp.evaluate(() => HOST.collab.menuVis());
     console.log('    the Settings tab with a ship flying: ' + vis + ' px of 1920');
-    if (!(vis > 900 && vis < 1920)) bad.push('the Settings tab is ' + vis + ' px tall');
+    if (!(vis > 1500 && vis < 1900)) bad.push('the Settings tab is ' + vis + ' px tall (of 1920: little margin left)');
     await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(2);
     const rate = async (x, roll) => {
       await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
@@ -9083,7 +9083,7 @@ if (runs('spaceship')) {
     await stk(0.8, -0.2); await click('R', 2); await stk(0, 0);
     await sp.waitForTimeout(500); await tick(2);
     const a = await sp.evaluate(() => [HOST.ships.flying(), HOST.collab.menu, window.__collabLog.filter(e => e.ev === 'ship stick click ignored').length]);
-    if (!a[0] || a[1] || a[2] !== ign0 + 1) bad.push('two clicks pushed: flying ' + a[0] + ', the menu ' + a[1] + ', logged ' + (a[2] - ign0) + ' (once a second)');
+    if (!a[0] || a[1] || a[2] < ign0 + 1 || a[2] > ign0 + 2) bad.push('two clicks pushed: flying ' + a[0] + ', the menu ' + a[1] + ', logged ' + (a[2] - ign0) + ' (once or twice: at most once a second)');
     // one pushed, then one at its middle at once: the second a single click (the menu), never paired with the first
     await stk(0, -0.9); await click('R', 1); await stk(0.2, 0.1); await click('R', 1); await stk(0, 0);
     await sp.waitForTimeout(500); await tick(2);
@@ -9093,6 +9093,11 @@ if (runs('spaceship')) {
     // two at its middle (within 0.5): it lands
     await stk(0.3, 0.3); await click('R', 2); await stk(0, 0); await tick(2);
     if ((await st()).flying) bad.push('two clicks at the stick\'s middle did not land');
+    // down (destroyed, the new ship to come): a pushed stick's clicks count as ever, so two land it
+    await sp.evaluate(() => { HOST.ships.launch(true); window.__wtick(2); }); await tick(2);
+    const dn = await sp.evaluate(() => { HOST.ships.debug.hurt(1000); return HOST.ships.down(); });
+    await stk(0.8, 0); await click('R', 2); await stk(0, 0); await tick(2);
+    if (!dn || (await st()).flying) bad.push('down, two pushed clicks did not land (down ' + dn + ')');
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 

@@ -1321,7 +1321,8 @@ ships or look).
   a ship flies (v133) its right stick steers and is pushed hard, so a press of it counts as a click (the menu's, both at
   once, the double click that lands) only with the stick within 0.5 of its middle as it goes down (`SHIPCLK` in
   `sticks`); pushed further it is a steer that clicked and counts for nothing (log `ship stick click ignored`, at most once
-  a second), leaving nothing half counted. Not flying, and the left stick always, as before.
+  a second), leaving nothing half counted. Not flying, while it is down (`HOST.ships.down()`: destroyed, the new ship to
+  come) and the left stick always, as before.
 - **Each frame.** `index.html`'s moving with the sticks hooks the session's own `requestAnimationFrame`; once a frame,
   after it has dressed the frame (so the poses are three.js's), it calls `HOST.ships.frame(s, t, f)`, before any callback
   draws. The ship's clocks are that frame's time (ms) and the relay's (`now()`; for tests the frame's: `testClock`).
@@ -2466,7 +2467,7 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 1780 with a ship flying outside a room (v133: the Steering row; the smoke test's spaceship steps print it), Debug about 870; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1780 with a ship flying outside a room (v133: the Steering row; the smoke test's spaceship steps print it and fail past 1900; the Steering row half width with its note beside it, not under it, to keep that margin), Debug about 870; What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
@@ -5474,9 +5475,9 @@ right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about
 right with the stick full left the two summed (about 78 to the left), tilted 40 with it full right held at 140; full up
 climbing at 60 degrees, full down diving at 60, released level; the state's stick and the mapping (`stick`, `axes`,
 `STICK`). The Steering row going round in its words (*tilt and stick*, *stick only*, *tilt only*), the Settings tab's
-height under 1,920 px (printed); *stick only*: tilted 40 degrees turning nothing, the stick 140; *tilt only*: the stick
+height between 1,500 and 1,900 px (printed: the canvas is 1,920); *stick only*: tilted 40 degrees turning nothing, the stick 140; *tilt only*: the stick
 nothing, tilted 20 degrees 62; landed the row still there; *stick only* kept across a reload (`xrShipSteer`), then back
-to both. Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged once); a pushed click then
+to both. Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a second); a pushed click then
 one at its middle at once the menu alone (never paired); two at its middle landing. Cruise
 1.2 m/s, half grip 0.72, full grip -0.5, at most 2.5 m/s2; A boosting to 3.2 m/s for 0.8 s, not again until 4 s of
 recharge, braking ending it. The trigger held a second: 5 bolts at 9.2 m/s (8 plus the ship's), none older than 1.25 s.
