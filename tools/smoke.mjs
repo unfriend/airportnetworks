@@ -5,7 +5,8 @@
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
-// --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell)
+// --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
+// --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -8261,7 +8262,7 @@ if (!ONLY) {
       window.__tick(1);
     });
     const st = await sp.evaluate(() => HOST.perf.stats()), f1 = await FP();
-    const tri = f1.text && /([\d,]+) triangles · (\d+) draw calls · code ([\d.]+) ms/.exec(f1.text), fp = f1.text && /^(\d+) fps · ([\d.]+) ms a frame, worst ([\d.]+) ms/.exec(f1.text);
+    const tri = f1.text && /([\d,]+) triangles · (\d+) draw calls · code ([\d.]+) ms/.exec(f1.text), fp = f1.text && /^(\d+) fps(?: of \d+ Hz)? · ([\d.]+) ms a frame, worst ([\d.]+) ms/.exec(f1.text);
     if (!(st && st.tri > 50 && st.calls > 2 && st.js > 0 && st.n > 1)) bad.push('the story\'s frames were not measured: ' + JSON.stringify(st));
     if (!(f1.vis && f1.top && tri && +tri[1].replace(/,/g, '') > 50 && +tri[2] > 2 && fp && +fp[1] > 0 && +fp[3] >= +fp[2])) bad.push('the read-out does not show plausible numbers: ' + JSON.stringify(f1));
     if (!(Math.abs(f1.down - 22) < 1 && Math.abs(f1.left - 14) < 1 && Math.abs(f1.dist - 1) < 0.01)) bad.push('the read-out is not about 22 degrees down and 14 to the left, 1 m away: ' + JSON.stringify(f1));
@@ -8377,6 +8378,340 @@ if (!ONLY) {
     if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
   });
   await sp.close();
+}
+// The frame rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
+// lobby with only the stations visible i could not reach 90fps"). A pretend Quest (FPS_FAKE: three.js r128's own WebXR
+// path, a layer with a framebuffer of its own, two controllers; its session lists 72, 80, 90 and 120 Hz and records what
+// updateTargetFrameRate is asked, and its layer what fixedFoveation is set to; every texture upload counted per frame),
+// in a page of its own: the refresh rate asked for as a session starts (90; the highest listed at or below the setting,
+// else the lowest), the Debug tab's Refresh rate row going round and asking again, kept across a reload, #hz=72, a
+// session without the API greyed; the read-out's words and colour by the target; in a room on this device with every
+// story's station and four more, the station cards: no running clock while they play, at most one card drawn (and sent
+// to the GPU) a frame, their back faces hidden while the head is known; the menu: the Debug tab's read-outs sent line by
+// line (the whole menu not sent as the frame rate changes; the row on the GPU the canvas's), the people's stations in
+// the signature only on Circles; the Foveation and Resolution rows
+function FPS_FAKE() {
+  try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ }
+  const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+  const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
+  const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
+  const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
+  // (o.api: the frame-rate API; o.rates: what the session lists; asks: what updateTargetFrameRate was asked; fov: what
+  // fixedFoveation was set to; up: the texture uploads of the frames counted, [frame][name w x h])
+  const F = window.__fp = { o: { api: true, rates: [72, 80, 90, 120] }, session: null, time: 0, asks: [], fov: [], inits: [], layerInit: null, count: false, up: [], cur: null };
+  const W2 = WebGL2RenderingContext.prototype;
+  for (const name of ['texImage2D', 'texSubImage2D']) {
+    const fn = W2[name];
+    W2[name] = function (...a) {
+      if (F.count && F.cur && a[0] === this.TEXTURE_2D) {
+        let w = 0, h = 0;
+        if (name === 'texImage2D') { if (a.length >= 8) { w = a[3]; h = a[4]; } else if (a[5]) { w = a[5].width; h = a[5].height; } }
+        else if (a.length >= 8) { w = a[4]; h = a[5]; } else if (a[6]) { w = a[6].width; h = a[6].height; }
+        F.cur.push(name + ' ' + w + 'x' + h);
+      }
+      return fn.apply(this, a);
+    };
+  }
+  const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+  const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
+  const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
+  const ctrlM = x => rotX(-0.35, x, -0.35, -0.3);
+  class Session extends EventTarget {
+    constructor(mode, feats) {
+      super(); this.mode = mode; this.renderState = { depthNear: 0.1, depthFar: 1000, baseLayer: null }; this.visibilityState = 'visible';
+      this.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque'; this.enabledFeatures = feats; this.cbs = new Map(); this.n = 0;
+      const mk = (h, x) => ({ handedness: h, targetRayMode: 'tracked-pointer', profiles: ['oculus-touch-v3'], targetRaySpace: space({ matrix: ctrlM(x) }), gripSpace: space({ matrix: ctrlM(x) }), gamepad: pad(), hand: null });
+      this.inputSources = [mk('right', 0.2), mk('left', -0.2)];
+      this._fr = 72;
+      // (the frame-rate API, as Quest Browser 16.4 and later have it; without it neither the list nor the rate)
+      if (F.o.api) {
+        this.supportedFrameRates = new Float32Array(F.o.rates);
+        this.updateTargetFrameRate = r => { F.asks.push(r); return Promise.resolve().then(() => { this._fr = r; this.dispatchEvent(new Event('frameratechange')); }); };
+        Object.defineProperty(this, 'frameRate', { get: () => this._fr });
+      }
+    }
+    updateRenderState(s) { Object.assign(this.renderState, s); }
+    async requestReferenceSpace(type) { if (type !== 'local' && type !== 'viewer' && !this.enabledFeatures.includes(type)) throw new DOMException('no ' + type, 'NotSupportedError'); return space({ type, floor: type === 'local-floor' }); }
+    requestAnimationFrame(cb) { const id = ++this.n; this.cbs.set(id, cb); return id; }
+    cancelAnimationFrame(id) { this.cbs.delete(id); }
+    async end() { if (this.ended) return; this.ended = true; this.dispatchEvent(new Event('end')); }
+  }
+  window.XRSession = Session;
+  WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
+  window.XRWebGLLayer = class { constructor(s, gl, init) {
+    F.layerInit = init ? JSON.parse(JSON.stringify(init)) : null;
+    const W = this.framebufferWidth = gl.drawingBufferWidth, H = this.framebufferHeight = gl.drawingBufferHeight;
+    const pf = gl.getParameter(gl.FRAMEBUFFER_BINDING), pr = gl.getParameter(gl.RENDERBUFFER_BINDING), fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    for (const [fmt, att] of [[gl.RGBA8, gl.COLOR_ATTACHMENT0], [gl.DEPTH24_STENCIL8, gl.DEPTH_STENCIL_ATTACHMENT]]) {
+      const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb); gl.renderbufferStorage(gl.RENDERBUFFER, fmt, W, H);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, att, gl.RENDERBUFFER, rb);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pf); gl.bindRenderbuffer(gl.RENDERBUFFER, pr);
+    this.framebuffer = fb; this.antialias = true; this._ff = 0; }
+    get fixedFoveation() { return this._ff; } set fixedFoveation(v) { this._ff = v; F.fov.push(v); }
+    getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(96, 1, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
+  F.frame = () => ({ session: F.session, getViewerPose: () => Object.assign(pose(ident()), { views }), getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? pose(s.matrix) : null), detectedPlanes: undefined, detectedMeshes: new Set() });
+  F.step = (n = 1) => {
+    for (let i = 0; i < n; i++) {
+      F.time += 1000 / 72;
+      const cbs = [...F.session.cbs.values()]; F.session.cbs.clear();
+      const fr = F.frame();
+      F.cur = []; for (const cb of cbs) cb(F.time, fr);
+      if (F.count) F.up.push(F.cur);
+      F.cur = null;
+      if (F.onFrame) F.onFrame();
+    }
+  };
+  // frames for a while of real time (the shell's clocks are performance.now()), or until fn holds
+  F.runUntil = async (fn, ms) => { const t0 = performance.now(); let n = 0; do { F.step(1); n++; await new Promise(r => setTimeout(r, 4)); } while (!(fn && fn()) && performance.now() - t0 < ms); return n; };
+  Object.defineProperty(navigator, 'xr', { configurable: true, value: {
+    isSessionSupported: async () => true, addEventListener() {}, removeEventListener() {},
+    requestSession: async (mode, init) => { F.inits.push(JSON.parse(JSON.stringify({ mode, init }))); const s = new Session(mode, ['viewer', 'local', ...((init && init.optionalFeatures) || [])]); F.session = s; return s; } } });
+}
+if (runs('frame rate')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const fp = await ctx.newPage();
+  fp.on('pageerror', e => errors.push('frame rate: ' + (e.stack || e.message)));
+  fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('frame rate: ' + m.text()); });
+  await fp.addInitScript(FPS_FAKE);
+  // (leaving a page whose headset session has ended takes a few seconds in headless Chromium, more on a loaded machine)
+  const open = async hash => {
+    await fp.goto('about:blank', { timeout: 90000 });
+    await fp.goto(base + 'index.html#' + hash, { timeout: 90000 });
+    await fp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+  };
+  const start = async (o = {}) => {
+    await fp.evaluate(o => { Object.assign(window.__fp.o, o); window.__fp.asks = []; window.__fp.fov = []; HOST.cur.peek('xrStart("immersive-vr")'); }, o);
+    await fp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+    await fp.evaluate(() => window.__fp.runUntil(null, 300));
+  };
+  const end = () => fp.evaluate(async () => { const s = HOST.session; if (s) { await s.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); } });
+  const run = (ms, fn) => fp.evaluate(([ms, fn]) => window.__fp.runUntil(fn ? new Function('return (' + fn + ')')() : null, ms), [ms, fn ? String(fn) : '']);
+  // a button of the open menu by its id on whichever tab has it (null: none, or greyed), pressed
+  const press = id => fp.evaluate(async id => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 120); return r ? r.label : null; }, id);
+  const label = id => fp.evaluate(id => { HOST.collab.panelOpen(true); const r = HOST.collab.menuFind(id); return r ? r.label : null; }, id);
+  const st = () => fp.evaluate(() => HOST.xr.hzState());
+  const logs = ev => fp.evaluate(ev => window.__collabLog.filter(e => e.ev === ev).map(e => ({ want: e.want, list: e.list, asked: e.asked, got: e.got, why: e.why })), ev);
+  await step('frame rate: a session asks for 90 Hz (of 72, 80, 90 and 120), the highest listed at or below the setting, and logs it; the Debug tab\'s row goes round the listed rates, asking again', async () => {
+    const bad = [];
+    await open('airports');
+    if (await fp.evaluate(() => HOST.xr.hz()) !== 90 || await fp.evaluate(() => localStorage.getItem('xrHz')) !== null) bad.push('the default is not 90 Hz');
+    await start();
+    const s0 = await st(), a0 = await fp.evaluate(() => window.__fp.asks.slice()), l0 = await logs('frame rate');
+    if (a0.join() !== '90' || s0.asked !== 90 || s0.got !== 90 || s0.list.join() !== '72,80,90,120' || !s0.api) bad.push('the session asked ' + JSON.stringify(a0) + ', state ' + JSON.stringify(s0));
+    if (!l0.some(e => e.want === 90 && e.asked === 90 && e.got === 90 && (e.list || []).join() === '72,80,90,120')) bad.push('not logged: ' + JSON.stringify(l0));
+    // (the session's frameratechange heard and logged)
+    if (!(await logs('frame rate change')).some(e => e.got === 90)) bad.push('frameratechange not logged: ' + JSON.stringify(await logs('frame rate change')));
+    // the Debug tab's row: Refresh rate: 90 Hz, each press the next listed rate, asked again at once
+    const seen = [await label('hz')];
+    for (let k = 0; k < 4; k++) { await press('hz'); seen.push(await label('hz')); }
+    const a1 = await fp.evaluate(() => window.__fp.asks.slice());
+    if (seen.join('|') !== 'Refresh rate: 90 Hz|Refresh rate: 120 Hz|Refresh rate: 72 Hz|Refresh rate: 80 Hz|Refresh rate: 90 Hz') bad.push('the row went ' + seen.join(' -> '));
+    if (a1.join() !== '90,120,72,80,90') bad.push('the presses asked ' + a1);
+    if (await fp.evaluate(() => localStorage.getItem('xrHz')) !== '90') bad.push('the setting is not kept');
+    // a setting the session does not list: the highest at or below it (100: 90), else the lowest (60: 72)
+    await fp.evaluate(() => HOST.xr.setHz(100)); await run(60);
+    await fp.evaluate(() => HOST.xr.setHz(60)); await run(60);
+    const a2 = await fp.evaluate(() => window.__fp.asks.slice(5)), s2 = await st();
+    if (a2.join() !== '90,72' || s2.want !== 60 || s2.asked !== 72) bad.push('100 and 60 asked ' + a2 + ': ' + JSON.stringify(s2));
+    // (never a room's: not in HOST.xr.sig(), nothing in collab.state())
+    if (/\b(60|72|90)\b/.test(await fp.evaluate(() => HOST.xr.sig()))) bad.push('in HOST.xr.sig(): ' + await fp.evaluate(() => HOST.xr.sig()));
+    await fp.evaluate(() => HOST.xr.setHz(120));
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  await step('frame rate: kept across a reload; #hz=72 in a link; a session without the frame-rate API asks nothing and the row is greyed', async () => {
+    const bad = [];
+    await open('airports');   // (the page loaded again)
+    if (await fp.evaluate(() => HOST.xr.hz()) !== 120) bad.push('120 Hz not kept across a reload');
+    await start();
+    if ((await fp.evaluate(() => window.__fp.asks.slice())).join() !== '120') bad.push('the kept 120 Hz not asked: ' + await fp.evaluate(() => window.__fp.asks.join()));
+    await end();
+    await open('airports&hz=72');
+    await start();
+    const a = await fp.evaluate(() => window.__fp.asks.slice()), s = await st();
+    if (a.join() !== '72' || s.want !== 72 || await fp.evaluate(() => localStorage.getItem('xrHz')) !== '72') bad.push('#hz=72: asked ' + a + ', ' + JSON.stringify(s));
+    await end();
+    await start({ api: false });
+    const s3 = await st(), a3 = await fp.evaluate(() => window.__fp.asks.slice()), r3 = await label('hz');
+    if (a3.length || s3.api !== false || s3.asked !== 0 || s3.list !== null) bad.push('without the API: asked ' + a3 + ', ' + JSON.stringify(s3));
+    if (r3 !== null) bad.push('without the API the row is not greyed (it has a region: ' + r3 + ')');
+    if (!(await logs('frame rate')).some(e => e.asked === 0 && e.list === null)) bad.push('without the API nothing logged');
+    await end();
+    await fp.evaluate(() => { window.__fp.o.api = true; HOST.xr.setHz(90); });
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  await step('frame rate: the read-out says "NN fps of RR Hz" and is coloured by the session\'s rate (green within 3 %, amber within 20 %, else red); without a rate as before', async () => {
+    const bad = [];
+    await start();
+    const look = v => fp.evaluate(async v => { HOST.xr.setFps(true); HOST.collab.fpsTest(v); window.__fp.step(1); const S = HOST.collab.overlay().fps; return { text: S.text, col: S.col, vis: S.mesh.visible }; }, v);
+    const G = '#3ee08f', A = '#ffb43b', Rd = '#ff7a59';
+    for (const [v, col] of [[90, G], [88, G], [86, A], [72, A], [71, Rd], [40, Rd]]) {
+      const r = await look(v);
+      if (!r.vis || !r.text.startsWith(v + ' fps of 90 Hz') || r.col !== col) bad.push(`${v} of 90: ${JSON.stringify(r)} (want ${col})`);
+    }
+    await end();
+    await start({ api: false });
+    for (const [v, col] of [[72, G], [60, A], [50, Rd]]) {
+      const r = await look(v);
+      if (!r.text.startsWith(v + ' fps · ') && !r.text.startsWith(v + ' fps\n') || /Hz/.test(r.text.split('\n')[0]) || r.col !== col) bad.push(`${v} with no rate known: ${JSON.stringify(r)} (want ${col})`);
+    }
+    await fp.evaluate(() => HOST.xr.setFps(false));
+    await end();
+    await fp.evaluate(() => { window.__fp.o.api = true; });
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  // a room on this device with every story's station (Arrange all), the design room, the studio, All stories and Back to
+  // the lobby; the headset lined up on its floor, in no circle
+  await step('frame rate: station cards: at most one card drawn and sent to the GPU a frame, the nearest first; no running clock while their stories play; back faces hidden while the head is known', async () => {
+    const bad = [];
+    await open('airports&s=LCL&peer=off');
+    await fp.waitForFunction(() => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
+    await fp.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('design', { x: -3.2, z: 1.0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 0, z: 0, yaw: 0 }); });
+    await fp.waitForFunction(() => HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size, null, { timeout: 10000 });
+    // (each frame: how many cards were drawn in it; the uploads of the cards in view, three.js sending only what it draws)
+    await fp.evaluate(() => { const F = window.__fp; F.count = true; F.up = []; F.drawsPF = []; F.drawsAt = 0; F.order = []; F.seen = new Map();
+      F.onFrame = () => {
+        const O = HOST.collab.overlay(), n = O && O.cards ? [...O.cards.values()].reduce((a, c) => a + (c.drawn || 0), 0) : 0; F.drawsPF.push(n - F.drawsAt); F.drawsAt = n;
+        if (O && O.cards) for (const [id, c] of O.cards) if ((c.drawn || 0) !== (F.seen.get(id) || 0)) { F.seen.set(id, c.drawn || 0); F.order.push(id); }
+      }; });
+    await start();
+    // every card that shows (the lobby's at your feet fades away) shown and drawn, one a frame, nearest first (each
+    // drawn card in view uploaded in its own frame, never two in one)
+    const shows = 'c => c.mesh.material.opacity > 0.02';
+    const n = await fp.evaluate(s => window.__fp.runUntil(() => { const O = HOST.collab.overlay(), on = [...O.cards.values()].filter(eval(s)); return HOST.room.aligned && on.length > 15 && on.every(c => c.mesh.visible); }, 40000), shows);
+    const c0 = await fp.evaluate(s => { const O = HOST.collab.overlay(), F = window.__fp, cards = F.up.map(u => u.filter(x => x === 'texImage2D 560x330').length), on = [...O.cards.values()].filter(eval(s));
+      return { aligned: HOST.room.aligned, n: on.length, shown: on.filter(c => c.mesh.visible).length, most: Math.max(0, ...cards), frames: cards.length, total: cards.reduce((a, b) => a + b, 0), drawsMost: Math.max(0, ...F.drawsPF), drawsAll: F.drawsPF.reduce((a, b) => a + b, 0),
+        backs: [...O.cards.values()].filter(c => c.back.visible).length, hitBacks: [...O.cards.values()].filter(c => O.hit.includes(c.back)).length, drawn: on.map(c => c.drawn || 0),
+        // (how far from the head each card drawn first stood, in the order they were drawn: the nearest first)
+        dist: F.order.map(id => { const s = HOST.collab.stations().find(x => x.id === id), h = HOST.room.internals().hr; return s ? +Math.hypot(s.x - h.x, s.z - h.z).toFixed(2) : -1; }) }; }, shows);
+    if (!c0.aligned || c0.n < 16 || c0.shown !== c0.n) bad.push(`the cards did not all show in ${n} frames: ` + JSON.stringify(c0));
+    if (c0.most > 1 || c0.drawsMost > 1 || c0.drawsAll < c0.n || !c0.total) bad.push(`${c0.drawsMost} cards were drawn and ${c0.most} sent to the GPU in one frame (${c0.drawsAll} drawn, ${c0.total} in view sent, in ${c0.frames} frames)`);
+    if (c0.backs || c0.hitBacks) bad.push(`${c0.backs} back faces shown, ${c0.hitBacks} pointable, with the head known`);
+    if (c0.dist.length < c0.n || c0.dist.some((d, k) => d < 0 || (k && d < c0.dist[k - 1] - 0.01))) bad.push('the cards were not drawn nearest first: ' + JSON.stringify(c0.dist));
+    // every story's station playing: each card says Playing (no clock), drawn again once, and not again while they play
+    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 3, playing: true, at: now }])); window.__fp.up = []; });
+    // (the stations' cards in turn, one a frame: until each says what its station does, however slowly frames come)
+    const lineIs = w => `() => HOST.collab.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').every(s => { const c = HOST.collab.overlay().cards.get(s.id); return !c || c.mesh.material.opacity <= 0.02 || c.sig.split('|')[1] === ${JSON.stringify(w)}; })`;
+    await run(20000, lineIs('Playing')); await run(300);
+    const d1 = await fp.evaluate(() => [...HOST.collab.overlay().cards.values()].map(c => c.drawn || 0));
+    await fp.evaluate(() => { window.__fp.up = []; });
+    await run(2600);
+    const c1 = await fp.evaluate(() => { const O = HOST.collab.overlay(), st = HOST.collab.stations(), cards = window.__fp.up.map(u => u.filter(x => x === 'texImage2D 560x330').length);
+      return { lines: st.filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => (O.cards.get(s.id) || { sig: '' }).sig.split('|')[1]), drawn: [...O.cards.values()].map(c => c.drawn || 0), sent: cards.reduce((a, b) => a + b, 0), frames: cards.length, drawsMost: Math.max(0, ...window.__fp.drawsPF) }; });
+    if (c1.drawsMost > 1) bad.push(`${c1.drawsMost} cards were drawn in one frame as the stations started playing`);
+    if (!c1.lines.length || c1.lines.some(l => l !== 'Playing')) bad.push('the playing stations\' cards say ' + JSON.stringify([...new Set(c1.lines)]));
+    if (c1.drawn.join() !== d1.join() || c1.sent) bad.push(`while they play, cards were drawn again (${d1.reduce((a, b) => a + b, 0)} -> ${c1.drawn.reduce((a, b) => a + b, 0)}) and ${c1.sent} sent to the GPU in ${c1.frames} frames over 2.6 s`);
+    // paused: the time they stopped at, which does not change
+    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 63, playing: false, at: now }])); });
+    await run(20000, lineIs('Paused at 1:03'));
+    const p1 = await fp.evaluate(() => [...new Set(HOST.collab.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => (HOST.collab.overlay().cards.get(s.id) || { sig: '' }).sig.split('|')[1]))]);
+    if (p1.join() !== 'Paused at 1:03') bad.push('paused, the cards say ' + JSON.stringify(p1));
+    await fp.evaluate(() => { window.__fp.onFrame = null; });
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  await step('frame rate: the menu: the Debug tab\'s read-outs sent line by line as the frame rate changes, the whole menu not (the row on the GPU the canvas\'s); people walking into circles redraw only Circles', async () => {
+    const bad = [];
+    await start();
+    await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('debug'); HOST.collab.stripMs(0); await window.__fp.runUntil(null, 400); window.__fp.up = []; });
+    const s0 = await fp.evaluate(() => HOST.collab.strip());
+    if (!s0.lines || !s0.lines.some(l => l.startsWith('Frame rate: '))) bad.push('the Debug tab has no read-outs: ' + JSON.stringify(s0));
+    // the frame rate changes three times (a frame each, after the second's own count would)
+    const rows = await fp.evaluate(async () => {
+      const O = HOST.collab.overlay(), S = O.panel, R = HOST.renderer, gl = R.getContext(), out = [];
+      const gpu = (x, y, w, h) => {   // (the menu's texture as the GPU has it: a row read back, top row first, as on the canvas)
+        const wt = R.properties.get(S.tex).__webglTexture, prev = gl.getParameter(gl.FRAMEBUFFER_BINDING), fb = gl.createFramebuffer(), px = new Uint8Array(w * h * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, wt, 0);
+        gl.readPixels(x, S.h - y - h, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, prev); gl.deleteFramebuffer(fb);
+        const o = new Uint8ClampedArray(w * h * 4); for (let r = 0; r < h; r++) o.set(px.subarray((h - 1 - r) * w * 4, (h - r) * w * 4), r * w * 4); return o;
+      };
+      // (how many pixels of two rows differ by more than 30 in a colour)
+      const diff = (a, b) => { let d = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 30 || Math.abs(a[i + 1] - b[i + 1]) > 30 || Math.abs(a[i + 2] - b[i + 2]) > 30) d++; return d; };
+      for (const v of [61, 47, 88]) {
+        const P = HOST.collab.strip(), k = P.lines.findIndex(l => l.startsWith('Frame rate: ')), x = P.x, y = P.at + k * P.lh, w = Math.ceil(P.w), h = P.lh;
+        const before = S.ctx.getImageData(x, y, w, h).data.slice(), v0 = S.tex.version;
+        HOST.collab.fpsTest(v); window.__fp.step(2);
+        const after = S.ctx.getImageData(x, y, w, h).data, g = gpu(x, y, w, h), P2 = HOST.collab.strip();
+        out.push({ v, line: P2.lines[k], ver: S.tex.version - v0, rows: P2.rows - P.rows, patched: P2.patched - P.patched, canvasChanged: diff(before, after), gpuVsCanvas: diff(g, after), gpuVsOld: diff(g, before) });
+      }
+      return { out, up: window.__fp.up.flat() };
+    });
+    for (const r of rows.out) {
+      if (!r.line.startsWith('Frame rate: ' + r.v + ' frames a second · the headset at 90 Hz')) bad.push('the line says ' + r.line + ' for ' + r.v);
+      if (r.ver || !r.patched || !(r.canvasChanged > 20) || r.gpuVsCanvas > 2 || !(r.gpuVsOld > 20)) bad.push('the read-out row ' + JSON.stringify(r));
+    }
+    const whole = rows.up.filter(x => x === 'texImage2D 720x1920').length, part = rows.up.filter(x => /^texSubImage2D 652x30$/.test(x)).length;
+    if (whole || part < 3) bad.push(`as the frame rate changed: the whole menu sent ${whole} times, its row ${part} times (${rows.up.join(', ')})`);
+    // presence: someone at a station, then another: on Settings and Debug nothing drawn again, on Circles the menu is
+    const ver = tab => fp.evaluate(async tab => {
+      const C = HOST.collab.internals(), S = HOST.collab.overlay().panel;
+      HOST.collab.menuTab(tab); window.__fp.step(2);
+      const v0 = S.tex.version, st = HOST.collab.stations()[0].id, st2 = HOST.collab.stations()[1].id;
+      if (!C.members.some(m => m.id === 'zz-walker')) C.members.push({ id: 'zz-walker', name: 'Walker', color: '#ff8a65', kind: 'vr', here: true });
+      window.__fp.step(1);
+      const v1 = S.tex.version;
+      for (const s of [st, st2]) { C.pres.set('zz-walker', { id: 'zz-walker', st: s, at: performance.now(), head: [0, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__fp.step(2); }
+      return [v1 - v0, S.tex.version - v1];
+    }, tab);
+    const vs = await ver('settings'), vd = await ver('debug'), vc = await ver('circles');
+    if (vs[1] || vd[1]) bad.push(`someone walking between circles drew the Settings tab ${vs[1]} and the Debug tab ${vd[1]} times`);
+    if (!(vc[1] >= 2)) bad.push(`someone walking between circles drew the Circles tab ${vc[1]} times (not each time)`);
+    // and the Debug tab well under the canvas: its height as drawn
+    const hd = await fp.evaluate(() => { HOST.collab.menuTab('debug'); window.__fp.step(2); return HOST.collab.overlay().panel.vis; });
+    console.log('      (the Debug tab in a room on this device with 20 stations is ' + hd + ' px tall)');
+    if (hd > 1500) bad.push('the Debug tab is ' + hd + ' px tall');
+    await fp.evaluate(() => { HOST.collab.stripMs(200); HOST.collab.panelOpen(false); window.__fp.count = false; });
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  await step('frame rate: Foveation (as the story sets it, 0, 0.5, 1; set on the layer after the story\'s frame, once each) and Resolution (100, 90, 80 %, from the next session); kept, set by a link', async () => {
+    const bad = [];
+    await open('airports');
+    if (await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()) !== 'story,1') bad.push('the defaults are ' + await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()));
+    await start();
+    const f0 = await fp.evaluate(() => window.__fp.fov.slice()), init0 = await fp.evaluate(() => window.__fp.layerInit);
+    if (f0.join() !== '0.5' || !init0 || init0.framebufferScaleFactor !== 1) bad.push('as the story sets it: foveation set ' + JSON.stringify(f0) + ', the layer ' + JSON.stringify(init0));
+    const seen = [];
+    for (let k = 0; k < 4; k++) {
+      await press('fov');
+      const r = await fp.evaluate(async () => { const n = window.__fp.fov.length; await window.__fp.runUntil(null, 150); return { label: HOST.collab.menuFind('fov') && HOST.collab.menuFind('fov').label, sets: window.__fp.fov.slice(), now: HOST.xr.fovNow(), fov: HOST.xr.fov(), more: window.__fp.fov.length - n }; });
+      seen.push(r);
+    }
+    const sets = seen[3].sets, labels = seen.map(r => r.label).join('|');
+    if (labels !== 'Foveation: 0|Foveation: 0.5|Foveation: 1|Foveation: the story\'s') bad.push('the row went ' + labels);
+    // (0.5, then 0, 0.5, 1 and the story's 0.5 back: each set once, nothing set frame after frame)
+    if (sets.join() !== '0.5,0,0.5,1,0.5' || seen.some(r => r.more)) bad.push('foveation set ' + JSON.stringify(sets) + ' (more frame by frame: ' + seen.map(r => r.more) + ')');
+    // a story that sets its own again (as one taking over the session does) is set back
+    await press('fov');
+    await fp.evaluate(async () => { const bl = HOST.session.renderState.baseLayer; bl.fixedFoveation = 0.5; await window.__fp.runUntil(null, 150); });
+    if (await fp.evaluate(() => HOST.xr.fovNow()) !== 0) bad.push('a story\'s own foveation was not set back: ' + await fp.evaluate(() => HOST.xr.fovNow()));
+    // Resolution: each press the next, from the next session
+    const rs = [];
+    for (let k = 0; k < 3; k++) { await press('scale'); rs.push(await label('scale') + ' ' + await fp.evaluate(() => HOST.xr.scale() + '/' + HOST.xr.scaleNow())); }
+    if (rs.join('|') !== 'Resolution: 90 % 0.9/1|Resolution: 80 % 0.8/1|Resolution: 100 % 1/1') bad.push('the resolution row went ' + rs.join(' -> '));
+    await press('scale');
+    await end();
+    await start();
+    const init1 = await fp.evaluate(() => window.__fp.layerInit), now1 = await fp.evaluate(() => [HOST.xr.scale(), HOST.xr.scaleNow(), HOST.xr.fov(), HOST.xr.fovNow()]);
+    if (!init1 || init1.framebufferScaleFactor !== 0.9 || now1.join() !== '0.9,0.9,0,0') bad.push('the next session: the layer ' + JSON.stringify(init1) + ', ' + JSON.stringify(now1));
+    await end();
+    // kept across a reload; links
+    await open('airports');
+    const k1 = await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale(), localStorage.getItem('xrFov'), localStorage.getItem('xrScale')].join());
+    if (k1 !== '0,0.9,0,0.9') bad.push('not kept across a reload: ' + k1);
+    await open('airports&fov=1&scale=80');
+    const k2 = await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join());
+    await open('airports&fov=story&scale=1');
+    const k3 = await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join());
+    if (k2 !== '1,0.8' || k3 !== 'story,1') bad.push('links: #fov=1&scale=80 gave ' + k2 + ', #fov=story&scale=1 ' + k3);
+    if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
+  });
+  await ctx.close();
 }
 // Moving with the sticks in VR (v125: HOST.xr.walk, walking and walkWhy in index.html; a stick clicked twice, shared.js's
 // sticks; the owner, 8 November 2026: "Add Movement in vr mode, maybe with sticks, switchable by double pressing a

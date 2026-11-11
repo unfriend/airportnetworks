@@ -3422,14 +3422,21 @@
     // people come from (Arrange all faces its stations away from you)
     const S = shown(s), cx = S.x, cz = S.z;
     o.mesh.position.set(cx, CARD_Y, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
+    // (its back face only while it stands at its station's yaw, with no head pose: turned to you, the back faces away and
+    // would be a draw of nothing, twice a frame, every card: v136)
+    o.back.visible = !R.headOK;
     return o;
   }
-  function stationLine(s) {
+  // a station's line: on its card (card) no running clock (v136: the card was drawn again and sent to the GPU once a
+  // second while its story played, every playing station's card in the same frame), 'Playing' while it plays; the page's
+  // Shared dialog keeps the time
+  function stationLine(s, card) {
     if (s.kind === LOBBY_ST) return askFirst() ? 'Walk in or press: back to every circle' : 'Walk in: back to every circle';
     if (s.kind === ALL && !runs(s)) return 'Choosing a story';
     const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
     if (P.mode === 'explore') return 'Exploring';
+    if (card && P.playing) return 'Playing';
     const t = expected(P);
     return (P.playing ? 'Playing at ' : t < 0.5 ? 'Ready to start' : 'Paused at ') + (P.playing || t >= 0.5 ? mmss(t) : '');
   }
@@ -3439,10 +3446,13 @@
     for (const [pid, P] of C.pres) if (P.st === id) { const m = member(pid); if (m && m.name) out.push(m.name); }
     return out;
   }
-  function drawCard(o, s) {
-    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk, s.sync, askFirst(), title].join('|');
-    if (sig === o.sig) return;
-    o.sig = sig;
+  // what a card shows (drawn again only when it changes): cardSig; drawCard draws it (drawPreviews: at most one card a
+  // frame, v136)
+  const cardSig = (o, s) => [s.story, stationLine(s, true), whoAt(s.id).join(','), o.hover, MV.id === s.id, circlesLocked(), s.sync, askFirst(), stTitle(s)].join('|');
+  function drawCard(o, s, sig) {
+    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s);
+    o.sig = sig || cardSig(o, s);
+    o.drawn = (o.drawn || 0) + 1;
     const ctx = o.ctx, W = o.w, H = o.h;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     rr(ctx, 4, 4, W - 8, H - 8, 22); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
@@ -3455,7 +3465,7 @@
     for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(big).width <= W - 64) break; }
     ctx.fillStyle = INK; ctx.fillText(fit(ctx, big, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
     // (an All stories circle: the story picked there, and whether it runs with the room's circle of it)
-    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s) : stationLine(s);
+    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s, true) : stationLine(s, true);
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(fit(ctx, line, W - 64), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
@@ -3605,6 +3615,7 @@
   const CARD_Y = 1.45;   // a station's card: its middle over the floor (its top edge at 1.6 m, under the icon at ICON.y)
   // the card fades as your head comes within CARD_NEAR of its ring's middle (walking in, it would be in your face)
   const CARD_NEAR = [0.45, 0.8];
+  const DIRTY = [];   // (the cards whose content changed this frame: one of them drawn, drawPreviews)
   function drawPreviews(dt) {
     const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
@@ -3644,11 +3655,21 @@
       if (live || arc || r.hid) { const c = OV.cards.get(s.id); if (c) c.mesh.visible = false; continue; }
       // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
       const c = cardFor(s, cm), k = r.peek * Math.min(1, Math.max(0, ((R.headOK ? d : 9) - CARD_NEAR[0]) / (CARD_NEAR[1] - CARD_NEAR[0])));
-      c.mesh.visible = cm !== 'hidden' && k > 0.02;
+      const shows = cm !== 'hidden' && k > 0.02;
+      c.mesh.visible = shows && !!c.sig;   // (a card never drawn yet waits for its turn: nothing blank goes to the GPU)
       c.mesh.material.opacity = k;
-      if (!c.mesh.visible) continue;
+      if (!shows) continue;
       c.hover = hov;
-      drawCard(c, s);
+      const sg = cardSig(c, s);
+      if (sg !== c.sig) DIRTY.push({ c, s, sg, pri: hov || MV.id === s.id ? -1 : d });
+    }
+    // at most one card drawn again (and so sent to the GPU) a frame (v136: twenty cards with mipmaps in one frame were a
+    // dropped frame on a headset), the one pointed at or carried first, then the nearest; the others wait their turn
+    if (DIRTY.length) {
+      let b = DIRTY[0];
+      for (const e of DIRTY) if (e.pri < b.pri) b = e;
+      drawCard(b.c, b.s, b.sg); b.c.mesh.visible = true;
+      DIRTY.length = 0;
     }
   }
 
@@ -3759,11 +3780,14 @@
   // (hov: what is pointed at, lit; null: the same without it, what the menu shows to your circle goes by: menuSig)
   function panelSig(hov = OV.panel.hover) {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, hov, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
-      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
+      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
+      // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
+      // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
+      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st) : '', C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4130,6 +4154,7 @@
     if (sig === S.sig) return;
     S.sig = sig;
     { const c = S.hover ? panelSig(null) : sig; if (c !== S.csig) { S.csig = c; S.cver = (S.cver || 0) + 1; } }   // (what it shows, the light of what is pointed at aside)
+    PNL.strip = null;   // (the Debug tab's read-outs, drawn on their own as they change: stripStep)
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -4406,16 +4431,37 @@
       button(S, 'trackers', x, y, bw, 56, ts ? 'Trackers: shown' : 'Trackers: hidden', () => trkShow(!ts), { px: 21, on: ts });
       note(trkMenuLine(), y);
       y += 72;
+      // the refresh rate this headset asks for (v136, HOST.xr.hz: kept; each press the next rate the session lists), greyed
+      // with the reason where the browser has no frame-rate API; then two developer experiments, fixed foveation (from the
+      // next frame) and the resolution (from the next session), each press the next value
+      if (HOST.xr.hzState) {
+        const H = HOST.xr.hzState(), can = !!(H.api && H.list && H.list.length);
+        button(S, 'hz', x, y, bw, 56, 'Refresh rate: ' + (can && H.asked ? H.asked : H.want) + ' Hz', can ? () => HOST.xr.setHz(hzNext(H)) : null, { px: 21 });
+        note(hzLine(H), y);
+        y += 72;
+      }
+      if (HOST.xr.setFov && HOST.xr.setScale) {
+        const fv = HOST.xr.fov(), fs = HOST.xr.fovs(), sc = HOST.xr.scale(), ss = HOST.xr.scales(), fn = HOST.xr.fovNow(), sn = HOST.xr.scaleNow();
+        button(S, 'fov', x, y, bw, 56, 'Foveation: ' + (fv === 'story' ? 'the story\'s' : fv), () => HOST.xr.setFov(fs[(fs.indexOf(fv) + 1) % fs.length]), { px: 21, on: fv !== 'story' });
+        button(S, 'scale', x + bw + 16, y, bw, 56, 'Resolution: ' + Math.round(sc * 100) + ' %', () => HOST.xr.setScale(ss[(ss.indexOf(sc) + 1) % ss.length]), { px: 21, on: sc !== 1 });
+        y += 66;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, (fv === 'story' ? 'Foveation as the story sets it' : 'Foveation ' + fv) + (fn !== null ? ' (now ' + Math.round(fn * 100) / 100 + ')' : '') +
+          '. Resolution from the next session' + (sn !== sc ? ' (this one ' + Math.round(sn * 100) + ' %)' : '') + '. Experiments, this headset\'s own.', x, y, w, 28, 2) + 16;
+      }
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
         button(S, 'whatsnew', x, y, bw, 56, 'What is new', () => devOpen('hand'), { px: 23 });
         note('This release: what changed and what to test', y);
         y += 72;
       }
-      // what to tell someone helping: the release, the room's connection, the browser, the frame rate
-      ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      for (const l of debugLines()) { ctx.fillText(fit(ctx, l, w), x, y); y += 30; }
-      finish(y + 18);
+      // what to tell someone helping: the release, the room's connection, the browser, the frame rate. Drawn here, and
+      // then line by line as they change (stripStep, v136: the frame rate and the round trip change every second or so,
+      // and the whole menu went to the GPU each time, 5.5 MB with its mipmaps)
+      const sy = Math.ceil(y), DL = debugLines();
+      PNL.strip = { x, y: sy, w, lh: STRIP.lh, lines: DL.slice() };
+      DL.forEach((l, k) => stripText(ctx, l, x, sy + k * STRIP.lh, w));
+      finish(sy + DL.length * STRIP.lh + 18);
       return;
     }
     // Circles: a room's code typed in (a keypad: headsets cannot type), in place of the rest of the tab
@@ -4613,6 +4659,61 @@
     y += 46 + 28;
     finish(y);
   }
+  // the refresh rate's row on the Debug tab: the next rate the session lists after the one asked for (round again), and
+  // what the session says (v136)
+  const hzNext = H => H.list[(H.list.indexOf(H.asked) + 1) % H.list.length];
+  function hzLine(H) {
+    if (H.api === null) return 'Asked for as each session starts';
+    if (!H.api) return 'This browser cannot set it (no frame-rate API)' + (H.got ? ': it runs at ' + H.got + ' Hz' : '');
+    if (!H.list || !H.list.length) return 'The browser lists no rates' + (H.got ? ': it runs at ' + H.got + ' Hz' : '');
+    return 'Now ' + (H.got ? H.got + ' Hz' : 'not said') + ' · offers ' + H.list.join(', ') + (H.err ? ' · refused: ' + H.err : '');
+  }
+  // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
+  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()]]); };
+  // The Debug tab's read-outs (debugLines) drawn on their own as they change (v136): stripStep, each frame while the menu
+  // shows the tab, compares them with what was drawn at most every STRIP.ms, and a line that changed is drawn again on a
+  // small canvas of its own (its row of the menu: the menu's background, then the line), put on the menu's canvas in its
+  // place (so the menu as shared with your circle, menuShot, shows it) and sent to the menu's texture alone
+  // (sheetPatch: texSubImage2D of that row, then its mipmaps), not the whole menu; another number of lines draws the tab
+  // again. A texture not on the GPU yet, or with the whole menu still to go there, takes it as it goes
+  const STRIP = { lh: 30, ms: 200, at: 0, cv: null, rows: 0 };
+  function stripText(ctx, l, x, y, w) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillText(fit(ctx, l, w), x, y); }
+  function stripStep(t) {
+    const P = PNL.strip, S = OV.panel;
+    if (!P || S.sig === '' || t - STRIP.at < STRIP.ms) return;
+    STRIP.at = t;
+    const L = debugLines();
+    if (L.length !== P.lines.length) { S.sig = ''; return; }   // (drawn again whole next frame)
+    for (let k = 0; k < L.length; k++) if (L[k] !== P.lines[k]) { P.lines[k] = L[k]; stripRow(P, k); }
+  }
+  function stripRow(P, k) {
+    const S = OV.panel, rw = Math.ceil(P.w), rh = P.lh, rx = Math.floor(P.x), ry = P.y + k * P.lh;
+    if (ry + rh > S.h) return;
+    const cv = STRIP.cv = STRIP.cv || document.createElement('canvas');
+    if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, rw, rh);
+    c.fillStyle = 'rgba(8,15,28,0.95)'; c.fillRect(0, 0, rw, rh);   // (the menu's background, as finish lays it under what it shows)
+    stripText(c, P.lines[k], rx - P.x, 0, P.w);
+    const ctx = S.ctx;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+    sheetPatch(S, cv, rx, ry);
+    STRIP.rows++;
+  }
+  function sheetPatch(S, cv, x, y) {
+    const R = HOST.renderer, T = S.tex;
+    try {
+      const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+      if (!wt || pr.__version !== T.version) return false;   // (its upload to come carries the canvas as it is now)
+      if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return false; }
+      R.state.bindTexture(gl.TEXTURE_2D, wt);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? S.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+      if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+      S.patched = (S.patched || 0) + 1;
+      return true;
+    } catch (e) { T.needsUpdate = true; return false; }
+  }
   // the Debug tab's read-outs
   function debugLines() {
     const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^\w+:\/\//, '').replace(/\/.*$/, '') : 'no relay known';
@@ -4621,7 +4722,7 @@
       'App: release ' + (sh.n || '?') + ' · rooms ' + FORMAT,
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
-      'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
+      'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...') + (hzTarget() ? ' · the headset at ' + hzTarget() + ' Hz' : ''),
     ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : [], HOST.ships && HOST.ships.line ? ['Spaceships: ' + HOST.ships.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
@@ -5233,12 +5334,19 @@
   const FPSV = { down: 22 * Math.PI / 180, left: 14 * Math.PI / 180, dist: 1 };
   const _e = new THREE.Euler(0, 0, 0, 'YXZ'), _q2 = new THREE.Quaternion();
   const fpsOn = () => !!(HOST.xr && HOST.xr.fps && HOST.xr.fps());
+  // the refresh rate the session runs at (the browser's word, else the rate asked for), 0 where neither is known
+  const hzState = () => (HOST.xr && HOST.xr.hzState ? HOST.xr.hzState() : null);
+  const hzTarget = () => { const H = hzState(); return H ? Math.round(H.got || H.asked || 0) : 0; };
+  const FPS_COL = { good: '#3ee08f', near: '#ffb43b', bad: '#ff7a59' };
+  const fpsColour = (v, hz) => (!v ? MUTED : hz ? (v >= hz * 0.97 ? FPS_COL.good : v >= hz * 0.8 ? FPS_COL.near : FPS_COL.bad) : v >= 70 ? FPS_COL.good : v >= 55 ? FPS_COL.near : FPS_COL.bad);
   function drawFps() {
     const S = OV.fps, on = fpsOn() && HD.ok && !CAM.on;
     S.mesh.visible = on;
     if (!on) return;
-    const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500;
-    const l1 = (FPS.v ? FPS.v + ' fps' : 'Measuring') + (FPS.mean ? ` · ${FPS.mean.toFixed(1)} ms a frame, worst ${FPS.worst.toFixed(1)} ms` : '');
+    const st = HOST.perf && HOST.perf.stats(), fresh = !!st && performance.now() - st.at < 2500, hz = hzTarget();
+    // (v136: against the session's refresh rate where the browser says it, "72 fps of 90 Hz", coloured by it: green within
+    // 3 % of it, amber within 20 %, else red; a browser that does not say it as before, green from 70 fps)
+    const l1 = (FPS.v ? FPS.v + ' fps' + (hz ? ' of ' + hz + ' Hz' : '') : 'Measuring') + (FPS.mean ? ` · ${FPS.mean.toFixed(1)} ms a frame, worst ${FPS.worst.toFixed(1)} ms` : '');
     const l2 = fresh ? `${Math.round(st.tri).toLocaleString('en-GB')} triangles · ${Math.round(st.calls)} draw calls · code ${st.js.toFixed(1)} ms` : 'Triangles and draw calls: waiting for the story\'s frames';
     const txt = l1 + '\n' + l2;
     if (txt !== S.text) {
@@ -5246,7 +5354,7 @@
       const ctx = S.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
       rr(ctx, 2, 2, S.w - 4, S.h - 4, 18); ctx.fillStyle = 'rgba(8,15,28,0.8)'; ctx.fill();
-      ctx.font = FONT(30, 700); ctx.fillStyle = !FPS.v ? MUTED : FPS.v >= 70 ? '#3ee08f' : FPS.v >= 55 ? '#ffb43b' : '#ff7a59';
+      ctx.font = FONT(30, 700); ctx.fillStyle = S.col = fpsColour(FPS.v, hz);
       ctx.fillText(fit(ctx, l1, S.w - 44), 22, 18);
       ctx.font = FONT(24); ctx.fillStyle = INK; ctx.fillText(fit(ctx, l2, S.w - 44), 22, 70);
       S.tex.needsUpdate = true;
@@ -6482,6 +6590,7 @@
       OV.panel.hover = POKE.hov;
       for (const h of HOV) if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r) OV.panel.hover = r.id; }
       drawPanel();
+      stripStep(t);   // (the Debug tab's read-outs, line by line as they change: v136)
       if (!C.code && t - C.roomsAt > 4000) listRooms();
       // in use while a ray or a fingertip is at it, it is carried, or while calibrating (the tip goes to the tape marks);
       // unused for IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by
@@ -6508,7 +6617,7 @@
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {
-      for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
+      for (const o of OV.cards.values()) if (o.mesh.visible) { OV.hit.push(o.mesh); if (o.back.visible) OV.hit.push(o.back); }
       for (const o of OV.rings.values()) {
         if (o.ring.visible && o.ring.userData.shell && !o.noRing) OV.hit.push(o.ring);
         if (o.icon.g.visible && o.icon.k > 0.5 && !o.hid) OV.hit.push(o.ball);
@@ -8881,6 +8990,10 @@
     // meshes and parts posed, renews of the depth and of the room
     const Oc = HOST.occlusion && HOST.occlusion.sample ? HOST.occlusion.sample() : null;
     if (Oc) S.occl = Oc;
+    // the refresh rate (v136): the session's (f), the one asked for (a, 0 none) and this headset's setting (w), and the
+    // frames a second measured over the last second (v)
+    const Hz = hzState();
+    if (Hz) S.hz = { f: Hz.got, a: Hz.asked, w: Hz.want, v: FPS.v };
     log('sample', S);
   }
   // the log goes to the relay every 10 s while a headset is in a room (kept in relay/logs/ with --lan or --logs):
@@ -10031,6 +10144,12 @@
     // on whichever tab has it (that tab shown; null when none has it, or it is greyed: a greyed button has no region)
     menuTab: t => { if (t !== undefined) { setTab(t); OV.panel && (OV.panel.sig = ''); } return PNL.tab; },
     menuIdle: ms => { if (ms !== undefined) IDLE.ms = +ms; return IDLE.ms; },
+    // for tests (v136): the frame rate as measured (FPS.v set as a second's count would set it), and the Debug tab's
+    // read-outs drawn on their own (rows drawn again, rows sent to the menu's texture alone, the lines shown, the
+    // texture's version: a whole upload moves it on; at: their row's top on the canvas)
+    fpsTest: v => { if (v !== undefined) { FPS.v = +v; FPS.t0 = FPS.last = performance.now(); FPS.n = FPS.k = FPS.sum = FPS.wmax = 0; } return FPS.v; },
+    strip: () => ({ rows: STRIP.rows, patched: OV.panel ? OV.panel.patched || 0 : 0, lines: PNL.strip ? PNL.strip.lines.slice() : null, at: PNL.strip ? PNL.strip.y : -1, x: PNL.strip ? PNL.strip.x : 0, w: PNL.strip ? PNL.strip.w : 0, lh: STRIP.lh, ver: OV.panel ? OV.panel.tex.version : 0 }),
+    stripMs: ms => { if (ms !== undefined) STRIP.ms = +ms; return STRIP.ms; },
     menuFind: id => {
       if (!PNL.open || !OV.panel) return null;
       const S = OV.panel, find = () => { S.sig = ''; drawPanel(); return S.regions.find(r => r.id === id) || null; };

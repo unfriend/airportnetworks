@@ -1465,6 +1465,7 @@ HOST.xr = (function () {
   function watch(s) {
     if (!s || s === cur) return;   // a story taking over a running session sets it again
     cur = s;
+    try { layerWatch(s); } catch (e) { console.warn('The refresh rate and resolution were not asked for:', e); }   // (v136: the frame rate asked for, the resolution set before three.js makes the layer)
     const mode = asked; asked = '';
     if (mode !== 'immersive-vr') return;
     const t0 = performance.now();
@@ -1525,6 +1526,82 @@ HOST.xr = (function () {
   // low in the view (shared.js, drawFps) with the frame rate and HOST.perf's counts of the story's frame
   let fps = false;
   try { fps = localStorage.getItem('xrFps') === 'on'; } catch (e) { /* storage blocked */ }
+  // The refresh rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
+  // lobby with only the stations visible i could not reach 90fps"): Quest Browser runs a WebXR session at 72 Hz unless the
+  // page asks for more (Meta's docs; Browser 16.4 and later have session.supportedFrameRates and updateTargetFrameRate),
+  // and nothing asked until v136. This headset's own, never a room's and not in sig(): xrHz, 90 by default, #hz=72|90|120
+  // in a link; on each new session (watch) and again whenever it changes, the highest listed rate at or below it is asked
+  // for (else the lowest listed), logged as 'frame rate' { want, list, asked, got }, and the session's frameratechange
+  // logged too. hz() the rate wanted, setHz(n), hzState() { want, list, asked, got, err, api } for tests and the menu's
+  // Debug tab (shared.js: Refresh rate, each press the next listed rate)
+  const HZ = { want: 90, list: null, asked: 0, got: 0, err: '', api: null, s: null };
+  try { const v = Math.round(+localStorage.getItem('xrHz')); if (v >= 30 && v <= 240) HZ.want = v; } catch (e) { /* storage blocked */ }
+  const hzLog = (ev, o) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, o); } catch (e) { /* no log */ } };
+  const hzPick = (list, want) => { const lo = list.filter(r => r <= want + 0.5); return lo.length ? lo[lo.length - 1] : list[0]; };
+  const hzNow = s => { try { const v = Number(s && s.frameRate); return Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : 0; } catch (e) { return 0; } };
+  function hzAsk(s, why) {
+    if (!s) return;
+    HZ.s = s; HZ.got = hzNow(s); HZ.err = '';
+    HZ.api = typeof s.updateTargetFrameRate === 'function' && !!s.supportedFrameRates;
+    let list = [];
+    if (HZ.api) try { list = Array.from(s.supportedFrameRates, Number).filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b); } catch (e) { list = []; }
+    HZ.list = HZ.api ? list : null;
+    if (!list.length) { HZ.asked = 0; hzLog('frame rate', { want: HZ.want, list: HZ.list, asked: 0, got: HZ.got, why, api: HZ.api }); return; }
+    const r = HZ.asked = hzPick(list, HZ.want), done = e => {
+      if (HZ.s !== s) return;   // (a session gone meanwhile)
+      if (e) HZ.err = String((e && (e.name || e.message)) || e);
+      HZ.got = hzNow(s) || HZ.got;
+      hzLog('frame rate', Object.assign({ want: HZ.want, list, asked: r, got: HZ.got, why }, e ? { err: HZ.err } : {}));
+    };
+    let p = null;
+    try { p = s.updateTargetFrameRate(r); } catch (e) { done(e); return; }
+    Promise.resolve(p).then(() => done(null), done);
+  }
+  // Two developer experiments on the Debug tab, each headset's own, never a room's, the defaults as before v136. Fixed
+  // foveation (xrFov: 'story', as the story sets it, 0.5 in every story's first xrBegin, the default; or 0, 0.5, 1;
+  // #fov=story|0|0.5|1): set on the session's layer after the story's frame (layerStep, from HOST.loading.wrap), only when
+  // its value or the layer changes; back to 'story', the layer's value from before is put back once. Resolution (xrScale:
+  // 1, 0.9 or 0.8 of the browser's own; #scale=1|0.9|0.8 or 100|90|80): three.js r128's framebuffer scale, read as it makes
+  // the layer, so set as each new session is first seen (watch, before the story hands it to three.js) and while none runs:
+  // it applies from the next session
+  const FOVS = ['story', 0, 0.5, 1], SCALES = [1, 0.9, 0.8];
+  const FV = { v: 'story', layer: null, orig: null, set: null, seen: null }, SC = { v: 1, cur: 1 };
+  const fovOf = v => (v === 'story' ? 'story' : FOVS.find(x => x !== 'story' && Math.abs(x - +v) < 1e-6));
+  const scaleOf = v => { let n = +v; if (n > 2) n /= 100; return SCALES.find(x => Math.abs(x - n) < 1e-6); };
+  try {
+    const f = localStorage.getItem('xrFov'), c = localStorage.getItem('xrScale');
+    if (f !== null && fovOf(f) !== undefined) FV.v = fovOf(f);
+    if (c !== null && scaleOf(c) !== undefined) SC.v = scaleOf(c);
+  } catch (e) { /* storage blocked */ }
+  const presenting = () => { try { return !!(HOST.renderer && HOST.renderer.xr.isPresenting); } catch (e) { return false; } };
+  function scaleSet() {
+    const r = HOST.renderer;
+    if (!r || !r.xr || typeof r.xr.setFramebufferScaleFactor !== 'function' || presenting()) return false;
+    r.xr.setFramebufferScaleFactor(SC.v);
+    return true;
+  }
+  function layerWatch(s) {
+    if (scaleSet()) SC.cur = SC.v;
+    hzAsk(s, 'session');
+    const q = HOST.quiet; HOST.quiet = true;   // (the shell's own listener: a story change never takes it)
+    try {
+      if (s.addEventListener) s.addEventListener('frameratechange', () => { if (HZ.s !== s) return; HZ.got = hzNow(s); hzLog('frame rate change', { got: HZ.got, asked: HZ.asked, want: HZ.want }); });
+    } finally { HOST.quiet = q; }
+  }
+  // after the story's frame: this headset's fixed foveation on the session's layer, when its value or the layer changes
+  // (the story sets 0.5 at its first xrBegin; a story that takes over the session sets it again, and it is set back)
+  function layerStep() {
+    const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer;
+    if (!bl || !('fixedFoveation' in bl)) return;
+    if (bl !== FV.layer) { FV.layer = bl; FV.orig = FV.set = FV.seen = null; }
+    if (FV.v === 'story') {
+      if (FV.set !== null) { if (FV.orig !== null && bl.fixedFoveation === FV.seen) bl.fixedFoveation = FV.orig; FV.set = FV.seen = null; }
+      return;
+    }
+    if (FV.set === FV.v && bl.fixedFoveation === FV.seen) return;
+    if (FV.set === null) FV.orig = bl.fixedFoveation;
+    bl.fixedFoveation = FV.v; FV.set = FV.v; FV.seen = bl.fixedFoveation;
+  }
   const keepOwn = () => {
     try {
       localStorage.setItem('xrLabels2', own.labels); localStorage.setItem('xrCards', own.cards); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
@@ -1635,6 +1712,41 @@ HOST.xr = (function () {
     sig: () => { const L = look(); return L.labels + '/' + L.cards + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     fps: () => fps,
     setFps(on) { fps = !!on; try { localStorage.setItem('xrFps', fps ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
+    // the refresh rate this headset asks for (v136): the rate wanted, set (kept, and asked for again in a running
+    // session), and what the session said ({ want, list, asked, got, err, api }: got its frameRate now; api null before a
+    // session has been seen, false for a browser without the frame-rate API)
+    hz: () => HZ.want,
+    setHz(n) {
+      n = Math.round(+n);
+      if (!(n >= 30 && n <= 240)) return;
+      HZ.want = n;
+      try { localStorage.setItem('xrHz', String(n)); } catch (e) { /* storage blocked */ }
+      if (HOST.session && HOST.session === cur) hzAsk(HOST.session, 'setting');
+    },
+    hzState: () => ({ want: HZ.want, list: HZ.list ? HZ.list.slice() : null, asked: HZ.asked, got: HOST.session && HOST.session === HZ.s ? hzNow(HZ.s) || HZ.got : HZ.got, err: HZ.err, api: HZ.api }),
+    // fixed foveation and resolution (v136, developer experiments; this headset's own): fov() 'story' or 0, 0.5, 1;
+    // scale() 1, 0.9 or 0.8 (scaleNow(): the one this session was made with); layerStep() after the story's frame
+    // (HOST.loading.wrap)
+    fov: () => FV.v,
+    setFov(v) {
+      const f = fovOf(v);
+      if (f === undefined) return;
+      FV.v = f;
+      try { localStorage.setItem('xrFov', String(f)); } catch (e) { /* storage blocked */ }
+    },
+    fovs: () => FOVS.slice(),
+    fovNow() { const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer; return bl && 'fixedFoveation' in bl ? bl.fixedFoveation : null; },
+    scale: () => SC.v,
+    scaleNow: () => SC.cur,
+    scales: () => SCALES.slice(),
+    setScale(v) {
+      const c = scaleOf(v);
+      if (c === undefined) return;
+      SC.v = c;
+      try { localStorage.setItem('xrScale', String(c)); } catch (e) { /* storage blocked */ }
+      scaleSet();
+    },
+    layerStep,
     // this device's own value (shared.js: a sound switch a room never wrote stays each device's)
     mine: k => own[k],
     // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving (a sound
@@ -2289,6 +2401,7 @@ HOST.loading = (() => {
     // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
     wrap(fn) {
       if (!fn || fn === loop) return fn;
+      if (HOST.xr && HOST.xr.layerStep) fn = (inner => function (t, f) { try { return inner(t, f); } finally { if (f) try { HOST.xr.layerStep(); } catch (e) { /* never in the way */ } } })(fn);   // (this headset's fixed foveation, after the story's frame: v136)
       if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
@@ -3830,6 +3943,9 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
+  if (hp.has('hz')) HOST.xr.setHz(hp.get('hz'));   // (the refresh rate a headset session asks for: this headset's own)
+  if (hp.has('fov')) HOST.xr.setFov(hp.get('fov'));   // (fixed foveation and resolution, developer experiments: this headset's own)
+  if (hp.has('scale')) HOST.xr.setScale(hp.get('scale'));
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');

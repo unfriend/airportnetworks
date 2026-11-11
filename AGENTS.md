@@ -531,8 +531,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     appears counting nothing; a notice says *Frame rate: on* or *off*; no story uses that button). While on, in
     a headset session only, the shell draws a small read-out low in the view (`drawFps`, `OV.fps`, 0.36 m wide, 1 m away,
     22 degrees under the gaze and 14 to the left, fixed to the head, `renderOrder` 52: over the story and the subtitles,
-    under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (in
-    green from 70, amber from 55, else red) and the time between frames, the mean and the worst of the last second (the
+    under the menu and the notices), drawn again when its numbers change (about once a second): the frames a second (since
+    v136 *88 fps of 90 Hz* against the session's refresh rate, below, coloured by it: green within 3 % of it, amber within
+    20 %, else red; where the browser says no rate, as before: *88 fps*, green from 70, amber from 55) and the time between frames, the mean and the worst of the last second (the
     shell's own frame callback, `FPS`, as the Debug tab's line), and the story's frame's triangles, draw calls and how
     long its code took (`HOST.perf` in `index.html`: the story's frame function is wrapped inside `HOST.loading.wrap`, so
     the loading scene's fade after it is not counted; while measuring, `renderer.info.autoReset` is off for the whole
@@ -540,6 +541,32 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     in the story's scene, rings, icons, the menu and the read-out itself, are in the numbers; each second's means as
     `HOST.perf.stats()` `{ tri, calls, js, n, at }`; off, nothing is measured or changed). How the read-out reads and the
     numbers on a real Quest are untested.
+  - The refresh rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
+    lobby with only the stations visible i could not reach 90fps"). Quest Browser runs a WebXR session at 72 Hz unless the
+    page asks for more (Meta's docs; Browser 16.4 and later: `session.supportedFrameRates`, `frameRate`,
+    `updateTargetFrameRate(rate)`), and until v136 nothing asked, while the read-out painted 72 green. Each headset's own,
+    never the room's, not in `HOST.xr.sig()` (`HOST.xr.hz()`, `setHz(n)`, `xrHz` in `localStorage`, 90 by default,
+    `#hz=72|90|120` in a link): on each new session (`HOST.xr.watch`, `layerWatch`) and again whenever it changes, the
+    highest rate the session lists at or below it is asked for (else the lowest listed); logged through `HOST.collab.log`
+    as `frame rate` `{ want, list, asked, got, why }` (`got` the session's `frameRate` once the request has settled, `err`
+    a refusal), and the session's `frameratechange` as `frame rate change` (its listener added with `HOST.quiet` set). The
+    Debug tab's *Refresh rate: 90 Hz* row (each press the next listed rate, round again; greyed where the browser has no
+    frame-rate API, the line beside it saying so) says beside it the session's rate and what it offers (*Now 90 Hz · offers
+    72, 80, 90, 120*); the Debug tab's *Frame rate* line and the alignment samples (`sample()`'s `hz`: `{ f, a, w, v }`,
+    the session's rate, the one asked for, the setting and the frames a second measured) carry it too.
+    `HOST.xr.hzState()` (`{ want, list, asked, got, err, api }`: `api` null before a session was seen, false without the
+    API) is for tests. Two developer experiments beside it on the Debug tab, each headset's own, never the room's, their
+    defaults as before v136: *Foveation: the story's* / *0* / *0.5* / *1* (`HOST.xr.fov()`, `setFov(v)`, `xrFov`,
+    `#fov=story|0|0.5|1`: as the story sets it, 0.5 at every story's first `xrBegin`, by default; else the shell sets
+    `session.renderState.baseLayer.fixedFoveation` after the story's frame, `HOST.xr.layerStep` from `HOST.loading.wrap`,
+    only when its value or the layer changes, so a story that sets its own again is set back; back to the story's, the
+    layer's value from before is put back once; `fovNow()` the layer's now) and *Resolution: 100 %* / *90 %* / *80 %*
+    (`HOST.xr.scale()`, `setScale(v)`, `xrScale`, `#scale=1|0.9|0.8` or `100|90|80`: three.js r128's
+    `renderer.xr.setFramebufferScaleFactor`, read as it makes the layer, so set as each new session is first seen, before
+    the story hands it to three.js, and while none runs; the row's line says it applies from the next session,
+    `scaleNow()` the one this session was made with). Antialiasing is unchanged. Untested on a headset: what a Quest 3 or
+    3S lists and runs at by default, whether it takes 90 or 120 from the page, how heavy stories hold 11.1 ms, and how
+    foveation and a lower resolution look and what they save there.
   - Real-world occlusion (v119): a sixth setting that is each headset's own, never the room's, *Real world hides: room
     and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
     see "Real-world occlusion" below.
@@ -563,8 +590,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     left out, the mirrored panels' texture versions and the height shown) and at most every 1.5 s (`MSH.picMs`), or when
     only that light changed at most every 4 s (`MSH.hovMs`: a ray moving over the buttons redraws the menu all the time,
     and every picture goes to everyone in the room), encoded with `toBlob` off the frame, and never sent when its bytes are
-    those of the last one made (v121: what `cver` follows, people walking between circles among it, changes more often
-    than what a tab shows; `menuSent().same` counts them); and `{ k: 'closed' }` once
+    those of the last one made (v121: what `cver` follows, people walking between circles among it until v136, which
+    keeps them to Circles, changes more often than what a tab shows; `menuSent().same` counts them; the Debug tab's
+    read-outs, drawn on their own since v136, move no `cver`: a picture shows them as they were when it was made); and `{ k: 'closed' }` once
     when the menu closes, the setting goes off, the station changes or the session ends (`menuShareEnd`). A headset at
     that station whose latest picture is older than the pose says (`n`) asks for it (`{ k: 'want', to }`, at most every
     1.5 s) and gets the last one made (also when a newer one did not fit); only a headset at that station keeps a
@@ -2098,7 +2126,16 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
-  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). Walking in still goes by where
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card (v136, the frame rate:
+  "even in the lobby with only the stations visible i could not reach 90fps") says no running clock (`stationLine(s,
+  true)`: *Playing* while its story plays, *Paused at 1:03* as it stopped; the page's Shared dialog keeps the time): it
+  was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every playing station, all in
+  one frame. A card whose content changed (`cardSig`: its story, line, people, light, carrying, lock, sync, the circles
+  asked first, its title) waits in a queue (`DIRTY`), and at most one card is drawn a frame, the one pointed at or
+  carried first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
+  `o.drawn` counts its drawings, for tests); mipmaps kept. Its back face (`o.back`, for reading it from behind) shows,
+  and is pointable, only while there is no head pose and the card stands at its station's yaw; turned to you it would
+  face away, a draw of nothing twice a frame for every card. Walking in still goes by where
   you stand on the floor (within 1.1 m of its spot). With the circles asked first no ring is drawn (above). At a studio
   station the studio can hide every other station (`HOST.collab.hideOthers(on)`, v119, the studio's switch; `HIDE`,
   `hidingOthers`): while on and this headset's live station runs the studio, the other stations' rings, cards and icons
@@ -2468,11 +2505,23 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
     Back), *Trackers: shown / hidden* (v126: the PC's trackers as small pucks, this headset's own, a line beside it: "Vive
-    trackers"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
+    trackers"), *Refresh rate: 90 Hz* and *Foveation* and *Resolution* side by side (v136, this headset's own: "The refresh
+    rate" under "Four headset settings"), *What is new* (v125: this release's lists, a page in place of the rest of the tab, with Got it and Back:
     "Developer mode"), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
-    trip, Quest Browser's version, the frame rate, `FPS`, once a second).
+    trip, Quest Browser's version, the frame rate, `FPS`, once a second, with the session's refresh rate). The read-outs
+    are drawn on their own as they change (v136; `stripStep`, `stripRow`, `sheetPatch`): the frame rate and the round trip
+    are out of the menu's signature (`panelSig`), so the whole canvas (720 x 1920, 5.5 MB with its mipmaps) is no longer
+    drawn and sent to the GPU each time they change; at most every 200 ms (`STRIP.ms`) a line that changed is drawn again
+    on a small canvas of its own (its row: the menu's background, then the line), put on the menu's canvas in its place
+    (so the picture shown to your circle, `menuShot`, has it; `cver` does not move for it) and sent to the menu's texture
+    alone (`texSubImage2D` of that row, 652 x 30, then its mipmaps; a texture still to be sent whole carries it; without
+    WebGL2 the whole texture), another number of lines drawing the tab again. Likewise (v136) the members are in the
+    signature only on Circles and Debug (which name them) and the people's stations only on Circles (its people rows):
+    someone walking between circles drew the whole menu again whatever tab it showed. `HOST.collab.strip()` (`{ rows,
+    patched, lines, at, x, w, lh, ver }`), `stripMs(ms)` and `fpsTest(v)` (the frame rate as a second's count would set
+    it) are for tests.
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
-  guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870; What is new as tall as its lists, up to the
+  guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870 (v136's three rows add about 210 px: 1384 px in a room on this device with 20 stations and no places; the smoke test's frame rate steps print it and fail past 1500); What is new as tall as its lists, up to the
   canvas; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
@@ -5505,6 +5554,25 @@ pretend wall (a plane of the room scan 1 m ahead) bouncing it back; nothing see-
 additive glows, each adding its colour and keeping the alpha (v134), and drawn over a see-through background (alpha 0,
 as in AR, on a canvas of its own) the glow and the shield's ring leaving the alpha at 0 everywhere while adding light; the
 ship under 600 triangles.
+
+Its *frame rate* steps (v136, `--only 'frame rate'`, a page of its own, about five minutes; `FPS_FAKE`: a pretend Quest
+driven through three.js r128's own WebXR path, a layer with a framebuffer of its own, two controllers; its session lists
+72, 80, 90 and 120 Hz and records what `updateTargetFrameRate` is asked, which fires `frameratechange`; its layer records
+what `fixedFoveation` is set to and what three.js made it with; every 2D texture upload counted per frame): a session
+asking for 90 Hz and logging it (`frame rate`, `frame rate change`); the Debug tab's Refresh rate row going 90, 120, 72,
+80, 90 Hz and asking each again; 100 asking 90 and 60 asking 72; nothing in `HOST.xr.sig()`; 120 kept across a reload and
+asked; `#hz=72`; a session without the API asking nothing, the row greyed, logged; the read-out's words (*NN fps of 90
+Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
+with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
+floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
+distances never falling), no back face shown or pointable; every story's station playing: each card *Playing*, none
+drawn again or sent over 2.6 s; paused, *Paused at 1:03*. The menu on the Debug tab: the frame rate changed three times,
+its line (*... · the headset at 90 Hz*) drawn and sent alone (`texSubImage2D 652x30`), the whole menu never, the texture's
+version unchanged, the row read back from the GPU the canvas's and not the line before; someone walking between two
+circles drawing the Settings and Debug tabs not at all and Circles each time; the Debug tab's height printed (under 1500
+px). Foveation: the story's 0.5, then the row 0, 0.5, 1 and the story's again (each set once, the 0.5 from before put
+back), a story's own set back; Resolution 90, 80, 100 % from the next session (its layer made at 0.9); both kept across a
+reload; `#fov=1&scale=80` and `#fov=story&scale=1`.
 
 Its *developer mode* steps (v125, `--only 'developer mode'`, a page of their own, a few minutes): off by default with
 nothing shown and the switch and What is new at the Stories screen's foot; `#dev=on` showing the card over the Stories

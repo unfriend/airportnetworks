@@ -440,7 +440,7 @@ Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
 for every story; Frame rate, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
-Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, What is new, the version,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, Refresh rate, Foveation and Resolution, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over
@@ -465,7 +465,16 @@ turned for everyone there.
 by default, this headset's own, never the room's; #fps=on in a link): a small
 read-out low in your view with the frames a second, the time a frame takes (on
 average and at worst) and the story's triangles and draw calls, for checking
-how heavy a scene is; pressing B or Y twice quickly turns it on and off. Moving
+how heavy a scene is; pressing B or Y twice quickly turns it on and off. It
+says the headset's refresh rate too ("88 fps of 90 Hz") and is green within
+3 % of it, amber within 20 %, else red. Refresh rate (the Debug tab; 90 Hz by
+default, this headset's own; #hz=72, 90 or 120 in a link): what each session
+asks the browser for (Quest Browser runs a page at 72 Hz unless asked), each
+press the next rate the headset offers; greyed in a browser that cannot set it.
+Two experiments on the Debug tab, this headset's own: Foveation (as the story
+sets it, the default, or 0, 0.5 or 1: less detail at the edges of the view,
+less work for the headset; #fov=) and Resolution (100 %, the default, 90 % or
+80 %, from the next session; #scale=). Moving
 with the sticks (off by default, this headset's own, never the room's; #walk=on
 in a link): click the left stick twice quickly, or use its row on the Settings tab,
 and in VR the left stick moves you along the floor where you look and a flick of
