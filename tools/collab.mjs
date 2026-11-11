@@ -134,6 +134,13 @@
 // with two anchors drops the one used least recently; one anchor per room found again within 1 cm and 0.5 degrees on a
 // floor that moved, its turn steadied against a wobble and following a turn of local-floor at once, and eight such places
 // fitting; an older single calibration taken by the first room it lines up in; eight or nine minutes);
+// --reload only rooms across updates and Update the room (reloadRound, v136, also in the main run after the areas round: a
+// relay of its own on port 8712, restarted serving another copy of the app as a deploy; copies old (this code), new (its
+// FORMAT one more) and v135 (git 7c32b37) made by tools/release.mjs in a temporary folder: a deploy bumping FORMAT with old
+// pages in a room, the new page waiting and everyone back once the old ones reload; the switch for the same version (the
+// order of reloading, a pretend headset back at its station without walking in); across FORMAT from a refused page, with
+// old pages of this code and v135 pages, which ignore it; the relay restarted between press and reloads; peer to peer; two
+// presses at once, an old order, a stale shell; a few minutes; --cases 2,5 runs only those of its six cases);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -146,7 +153,7 @@
 //   sound (optional): the sound effects the effect plays on the others (their SFXQ.log), e.g. the flock's falcon
 // The first entry starts on every page's Stories screen with its story already loaded (Follow must close it);
 // the last is the station page A follows last, so it is the pretend headset's (HEADSET_STORY).
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import { connect as tcpConnect } from 'net';
 import http from 'http';
 import path from 'path';
@@ -6840,6 +6847,9 @@ async function cameraRound(dir) {
       ov.shown && ov.live && !ov.dlg && ov.aim && /Move the phone slowly so it finds the floor/.test(ov.step) && ov.set === true && c0.on && c0.calib === 'a' && !c0.lined, JSON.stringify({ ov, c0 }));
     const mA = await A.evaluate(id => { const m = HOST.collab.members.find(x => x.id === id); return m && { kind: m.kind, name: m.name }; }, pId);
     check('camera: the page hears the phone as a camera (kind cam, named Camera)', !!mA && mA.kind === 'cam' && mA.name === 'Camera', JSON.stringify(mA));
+    // (Update the room, v136: never from a camera, which writes nothing; offered on its page again once it exits)
+    const rlc = await P.evaluate(() => HOST.collab.roomReload ? [HOST.collab.roomReload.can(), HOST.collab.roomReload.ask('test'), HOST.collab.roomReload.armed()] : null);
+    check('camera: Update the room is not offered in camera mode (a press does nothing)', !!rlc && rlc.join() === 'false,false,false', JSON.stringify(rlc));
     // aimed at spot A, then spot B: the floor found, Set spot A and Set spot B
     // the phone carried smoothly to eye, looking at target (a frame every 4 cm or so: a pose that jumps is taken for the
     // origin moving, which starts a calibration again, as it should on a phone)
@@ -7065,6 +7075,328 @@ async function cameraRound(dir) {
   }
 }
 
+// ---- rooms across updates (v136; reloadRound, --reload): a relay that serves a copy of the app restarted serving
+// another, as a deploy on Coolify, and Update the room. Three copies made in a temporary folder by tools/release.mjs (as
+// tools/live.mjs does): old (this code, its FORMAT F), new (this code, F + 1) and v135 (the release before, git 7c32b37,
+// its FORMAT made F: an older app that knows nothing of the order). Service workers blocked (each page fetches the files
+// the relay serves now; every page on a story, not the Stories screen, where a waiting new version is taken by itself);
+// every case in a room of its own:
+// (1) a deploy that bumps FORMAT with two old pages in a room: they make it again under F (as before v136); a new page
+//     joining waits ('older'), not refused; the old pages reloaded by hand: all three in the same room, its stations and
+//     explore state kept, the room moved on to F + 1 (the relay's takeOver);
+// (2) Update the room, the same version: three pages and a pretend headset at a station; each reloads in its turn (ranks
+//     0..2, the presser last, a headset at least 3 s), all back in the room, the page that followed the station following
+//     it again at its clock, the headset showing Enter AR to continue and, entered, at its station without walking in;
+// (3) across FORMAT: a new page refused by the old room presses, the endpoint reaches the old pages (this code), all come
+//     back new, the room moves; then with v135 pages, which ignore the order: the room moves all the same once the new page
+//     comes back, they are refused (4006) and, reloaded by hand (as their own live updates ask them), come back new;
+// (4) the relay restarted between the press and the reloads: the presser brings the room back first, then everyone is in it;
+// (5) peer to peer (no relay: /api aborted, the relay's /peerjs): an order from a guest, host and guests reload into F + 1,
+//     one room on the new id with every station (a station added just before the press too), no split;
+// (6) a v135 page in a room with a page of this code ignores the order; two people pressing at once give one reload per
+//     device; an order older than 2 minutes is ignored; a reload that comes back with a stale shell (the page's
+//     index.html served old through page.route, as a service worker's cache would) reloads once more, twice at most, then
+//     says so
+const RELOAD_ONLY = argv.includes('--reload');
+async function reloadRound() {
+  const fmtN = v => +((/^networks-(\d+)$/.exec(v || '') || [])[1] || 0), J = v => JSON.stringify(v);
+  const F = FORMAT, G = 'networks-' + (fmtN(F) + 1), RP = 8712;
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-reload-'));
+  const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
+  const copy = (name, format, v, git) => {
+    const d = path.join(T, name);
+    fs.mkdirSync(d, { recursive: true });
+    if (git) execFileSync('sh', ['-c', `git -C "${root}" archive ${git} ${[...FILES, 'stories', 'icons'].join(' ')} | tar -x -C "${d}"`]);
+    else { for (const f of FILES) fs.copyFileSync(path.join(root, f), path.join(d, f)); for (const x of ['stories', 'icons']) fs.cpSync(path.join(root, x), path.join(d, x), { recursive: true }); }
+    const ed = (f, re, to) => fs.writeFileSync(path.join(d, f), fs.readFileSync(path.join(d, f), 'utf8').replace(re, to));
+    ed('shared.js', /const FORMAT = '[^']+'/, `const FORMAT = '${format}'`);
+    ed('sw.js', /const VERSION = '[^']+'/, `const VERSION = 'networks-v${v}'`);
+    fs.rmSync(path.join(d, 'version.json'), { force: true });
+    execFileSync(process.execPath, [path.join(root, 'tools/release.mjs'), '--root', d], { encoding: 'utf8' });
+    return d;
+  };
+  const OLD = copy('old', F, 9001), NEW = copy('new', G, 9002);
+  let V135 = '';
+  try { V135 = copy('v135', F, 9000, '7c32b37'); } catch (e) { console.log('     (reload: the v135 copy could not be made from git 7c32b37: its cases are skipped) ' + (e.message || '').split('\n')[0]); }
+  const shellOf = d => (/shell: \{ n: (\d+), id: '([0-9a-f]*)'/.exec(fs.readFileSync(path.join(d, 'index.html'), 'utf8')) || []).slice(1);
+  // ---- the relay, on one port, restarted on it as a deploy (its log kept)
+  let RLY = null;
+  const rlog = [];
+  const serve = async dir => {
+    for (let k = 0; k < 40; k++) {
+      const r = { proc: null, out: '' };
+      const ok = await new Promise(res => {
+        r.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(RP), '--host', '127.0.0.1', '--static', dir], { cwd: root, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
+        const t = setTimeout(() => res(false), 15000);
+        r.proc.stdout.on('data', d => { r.out += d; for (const l of String(d).split('\n')) if (l.trim()) rlog.push(l.trim()); if (/listening on/.test(r.out)) { clearTimeout(t); res(true); } });
+        r.proc.stderr.on('data', d => { r.out += d; });
+        r.proc.on('exit', () => { clearTimeout(t); res(false); });
+      });
+      if (ok) { RLY = r; r.dir = dir; return; }
+      if (!/EADDRINUSE/.test(r.out)) throw new Error('the relay did not start: ' + r.out);
+      await sleep(300);
+    }
+    throw new Error('port ' + RP + ' stayed taken');
+  };
+  const unserve = () => new Promise(res => { if (!RLY || RLY.proc.exitCode !== null) { RLY = null; return res(); } RLY.proc.once('exit', res); RLY.proc.kill('SIGTERM'); RLY = null; });
+  const deploy = async dir => { await unserve(); await sleep(400); await serve(dir); };
+  const serving = async dir => { if (!RLY || RLY.dir !== dir) await deploy(dir); };
+  // (--cases 2,5: only those cases, for a builder's own runs)
+  const CASES = argv.includes('--cases') ? String(argv[argv.indexOf('--cases') + 1] || '').split(',') : null, want = k => !CASES || CASES.includes(String(k));
+  const info = async c => { try { const r = await fetch(`http://127.0.0.1:${RP}/api/rooms/${c}`); return r.ok ? r.json() : { status: r.status }; } catch (e) { return null; } };
+  // ---- pages (each a device; its loads counted in its tab, sessionStorage __loads)
+  const ctxs = [];
+  const ropen = async (name, hash, o = {}) => {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 200 }, serviceWorkers: 'block' });
+    ctxs.push(ctx);
+    // (an old page takes a new FORMAT by itself after a countdown while in a room, v136: off here, so the cases decide when
+    // a page reloads; live.mjs checks the countdown)
+    await ctx.addInitScript(n => { try { localStorage.setItem('collabName', n); localStorage.setItem('liveCountdown', 'off'); sessionStorage.setItem('__loads', String(+(sessionStorage.getItem('__loads') || 0) + 1)); } catch (e) { /* storage blocked */ } }, name);
+    const page = await ctx.newPage();
+    if (o.peer) await page.route(/\/api\//, r => r.abort());   // (as on GitHub Pages: no relay, peer to peer through /peerjs)
+    page.on('pageerror', e => errors.push('reload ' + name + ': ' + (e.stack || e.message)));
+    page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|WebSocket|ERR_FAILED/.test(m.text())) errors.push('reload ' + name + ': ' + m.text()); });
+    await page.goto(`http://127.0.0.1:${o.port || RP}/index.html${hash}`, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    return page;
+  };
+  const closeAll = async () => { for (const c of ctxs.splice(0)) await c.close().catch(() => {}); };
+  // a value from a page that may be reloading meanwhile (fn guards against a page not booted yet)
+  const ev = async (p, fn, arg) => {
+    for (let i = 0; i < 60; i++) {
+      try { return await p.evaluate(fn, arg); } catch (e) { if (!/context|navigat|Target|destroyed/i.test(String(e && e.message))) throw e; await sleep(250); }
+    }
+    return undefined;
+  };
+  const S = p => ev(p, () => {
+    if (typeof HOST === 'undefined' || !HOST.collab || !HOST.collab.internals) return null;
+    const C = HOST.collab, I = C.internals(), rr = sessionStorage.getItem('roomReload');
+    return { fmt: (HOST.shell && HOST.shell.format) || '', shell: HOST.shell && HOST.shell.id, code: C.code, status: C.status, note: I.note || '', want: !!I.want, st: C.stations().map(s => s.id).sort().join(),
+      id: C.id, via: C.via || '', members: C.members.length, hosts: C.members.filter(m => m.host).length, loads: +sessionStorage.getItem('__loads'), rr: rr ? JSON.parse(rr) : null };
+  });
+  const until2 = async (p, pred, ms) => { const t0 = Date.now(); let s = null; while (Date.now() - t0 < ms) { s = await S(p); if (s && pred(s)) return s; await sleep(300); } return null; };
+  const every = async (ps, pred, ms) => { const t0 = Date.now(); let ss = []; while (Date.now() - t0 < ms) { ss = await Promise.all(ps.map(S)); if (ss.every(s => s && pred(s))) return ss; await sleep(300); } return null; };
+  const sAll = ps => Promise.all(ps.map(S)).then(ss => JSON.stringify(ss.map(s => s && { fmt: s.fmt, code: s.code, status: s.status, via: s.via, members: s.members, hosts: s.hosts, st: s.st, loads: s.loads, note: s.note.slice(0, 80), rank: s.rr && s.rr.rank })));
+  // a reload by hand (as Reload now): after this evaluate has returned
+  const byHand = p => p.evaluate(() => { setTimeout(() => HOST.live.reload('asked'), 50); });
+  const press = p => p.evaluate(() => { HOST.collab.roomReload.ask('test'); return HOST.collab.roomReload.ask('test'); });
+  const pending = p => ev(p, () => new Promise(r => { const t0 = performance.now(); const k = () => (!HOST.collab.internals().pending.size || performance.now() - t0 > 5000 ? r() : setTimeout(k, 50)); k(); }));
+  const room = async (P, pairs) => {
+    await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until2(P, s => s.status === 'open' && /^[A-Z]{3}$/.test(s.code), 20000);
+    const c = (await S(P)).code;
+    await P.evaluate(st => HOST.collab.publish(st), pairs);
+    await pending(P);
+    return c;
+  };
+  const ST = [['st.t1', { story: 'flock', x: 0, z: -2, yaw: 0 }], ['st.t1.x', { birds: 300 }], ['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]];
+  const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] };
+  const lineUp = async H => {
+    await ev(H, () => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    for (let k = 0; k < 30 && !(await ev(H, () => HOST.room.aligned)); k++) await frames(H, 250);
+    return ev(H, () => HOST.room.aligned);
+  };
+  try {
+    // ------------------------------------------------------------------ (1)
+    if (want(1)) {
+    await serving(OLD);
+    const P1 = await ropen('P1', '#airports');
+    const c1 = await room(P1, ST);
+    const P2 = await ropen('P2', '#airports&s=' + c1);
+    await until2(P2, s => s.status === 'open' && s.st === 't1,t2', 20000);
+    await deploy(NEW);
+    const back = await every([P1, P2], s => s.status === 'open' && s.st === 't1,t2', 25000), i0 = await info(c1);
+    check(`reload (1): a deploy bumping FORMAT (${F} to ${G}), two old pages in a room: they make it again under ${F}, as ever`, !!back && !!i0 && i0.version === F, JSON.stringify({ i0: i0 && i0.version, s: await sAll([P1, P2]) }));
+    const P3 = await ropen('P3', '#airports&s=' + c1);
+    const p3 = await until2(P3, s => s.status === 'older', 20000);
+    check('reload (1): a page of the new version joining it waits (status older, trying again: its note says the room still runs the old version), not refused', !!p3 && p3.want && /still runs version/.test(p3.note), JSON.stringify(await S(P3)));
+    await byHand(P1);
+    const p1 = await until2(P1, s => s.loads === 2 && s.fmt === G && s.status === 'older', 40000);
+    check('reload (1): one old page reloaded into the new version waits too (the other old one is still there)', !!p1, JSON.stringify(await S(P1)));
+    await byHand(P2);
+    const t0 = Date.now();
+    const p2n = await until2(P2, s => s.loads === 2 && s.fmt === G, 40000), t1 = Date.now();
+    const ok1 = await every([P1, P2, P3], s => s.fmt === G && s.status === 'open' && s.code === c1 && s.st === 't1,t2', 20000), t2 = Date.now(), i1 = await info(c1);
+    check(`reload (1): once the last old page has reloaded, all three open in the same room (${t2 - t1} ms after it came back, ${t2 - t0} ms after it reloaded), stations and explore state kept, the room on ${G}`,
+      !!p2n && !!ok1 && i1.version === G && i1.keys['st.t1.x'] && i1.keys['st.t1.x'].v.birds === 300 && rlog.some(l => l.includes(`${c1} version ${F} -> ${G}`)), JSON.stringify({ v: i1 && i1.version, s: await sAll([P1, P2, P3]) }));
+    await closeAll();
+    }
+    // ------------------------------------------------------------------ (2)
+    if (want(2)) {
+    await serving(NEW);
+    const A = await ropen('A', '#airports');
+    const c2 = await room(A, [['st.s1', { story: 'airports', x: 0, z: -2, yaw: 0 }], ['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }], ['st.s1.play', { mode: 'story', t: 5, playing: false, at: Date.now() }]]);
+    const B = await ropen('B', '#airports&s=' + c2);
+    await until2(B, s => s.status === 'open' && s.st === 's1,t2', 20000);
+    const Cp = await ropen('C', '#airports&s=' + c2);
+    await until2(Cp, s => s.status === 'open' && s.st === 's1,t2', 20000);
+    await B.evaluate(() => { HOST.collab.follow('s1'); HOST.collab.dialog(false); });
+    await until(B, () => HOST.curKey === 'airports' && HOST.collab.following() === 's1' && HOST.cur && HOST.collab.internals().ready, null, 30000);
+    const H = await ropen('H', '#proteins&s=' + c2);   // (on another story: walking into s1 switches it, as walk() checks)
+    await until2(H, s => s.status === 'open' && s.st === 's1,t2', 20000);
+    const aId = await A.evaluate(() => HOST.collab.id);
+    await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+    await pending(A);
+    await H.evaluate(installXR, xrOpts);
+    await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
+    const al = await lineUp(H), S1 = await A.evaluate(() => HOST.collab.station('s1'));
+    const atS1 = al && await walk(H, S1, 'airports');
+    check('reload (2): set up: three pages in a room, B following its station s1 (paused at 5 s), a pretend headset lined up and walked into it', al && atS1 && (await ev(H, () => (HOST.collab.live() || {}).id)) === 's1', JSON.stringify({ al, atS1 }));
+    const ids2 = await Promise.all([A, B, Cp, H].map(p => p.evaluate(() => HOST.collab.id)));
+    const armed = await A.evaluate(() => { const a = HOST.collab.roomReload.ask('test'); return [a, HOST.collab.roomReload.armed(), HOST.collab.roomReload.label()]; });
+    const fired = await A.evaluate(() => HOST.collab.roomReload.ask('test'));
+    // (the headset says so as the order comes, and reloads 3 s later: looked at every 150 ms until then)
+    let hn = false;
+    for (let k = 0; k < 50 && !hn; k++) {
+      hn = await H.evaluate(() => typeof HOST !== 'undefined' && (HOST.collab.notes() || []).some(n => n.title === 'Updating the room' && /reloads in 3 s\. Then press Enter AR to continue/.test(n.text))).catch(() => null);
+      if (hn === null) break;   // (reloaded meanwhile)
+      if (!hn) await sleep(150);
+    }
+    check('reload (2): the first press arms it (Reload every device? Press again), the second sends the order; the headset says it reloads and how to go back in', !armed[0] && armed[1] && armed[2] === 'Reload every device? Press again' && fired && hn,
+      JSON.stringify({ armed, fired, hn }));
+    const ok2 = await every([A, B, Cp, H], s => s.loads === 2 && s.status === 'open' && s.code === c2 && s.st === 's1,t2', 60000);
+    const rr = ok2 ? ok2.map(s => s.rr && [s.rr.rank, s.rr.wait]) : null;
+    check('reload (2): every device reloaded once in its turn (B, C, the headset: ranks 0, 1, 2 by when they came in; the presser last, rank 3), the headset at least 3 s, and all are back in the room with its stations',
+      !!ok2 && J(rr) === J([[3, 1900], [0, 400], [1, 900], [2, 3000]]), JSON.stringify({ rr, s: await sAll([A, B, Cp, H]) }));
+    const ids2b = await Promise.all([A, B, Cp, H].map(p => ev(p, () => HOST.collab.id)));
+    const bt = await until(B, () => HOST.collab.following() === 's1' && HOST.cur && HOST.collab.internals().ready && Math.abs(HOST.cur.collab.APP.t - 5) < 1, null, 40000);
+    check('reload (2): each a new member (its id made afresh); B follows its station again, at the station\'s clock (paused at 5 s, within 1 s)', bt && ids2b.every((x, i) => x && x !== ids2[i]), JSON.stringify({ bt, t: await ev(B, () => [HOST.collab.following(), HOST.cur && HOST.cur.collab.APP.t]) }));
+    const xg = await ev(H, () => { const b = document.getElementById('xrgo'); return b && !b.hidden ? b.textContent : ''; });
+    await H.evaluate(installXR, xrOpts);
+    await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
+    const al2 = await lineUp(H);
+    await frames(H, 600);
+    const hk = await ev(H, () => ({ live: (HOST.collab.live() || {}).id || '', kept: window.__collabLog.some(e => e.ev === 'station kept after the reload'), rr: sessionStorage.getItem('roomReload'), shown: !HOST.room.away() }));
+    check('reload (2): the headset shows Enter AR to continue; entered (and lined up), it is at its station without walking in (station kept after the reload), its place in the room forgotten after',
+      xg === 'Enter AR to continue' && al2 && hk.live === 's1' && hk.kept && !hk.rr && hk.shown, JSON.stringify({ xg, al2, hk }));
+    await ev(H, () => window.__xr && window.__xr.end());
+    await closeAll();
+    }
+    // ------------------------------------------------------------------ (3)
+    if (want(3)) {
+    await deploy(OLD);
+    const Q1 = await ropen('Q1', '#airports'), c3 = await room(Q1, ST), Q2 = await ropen('Q2', '#airports&s=' + c3);
+    await until2(Q2, s => s.status === 'open' && s.st === 't1,t2', 20000);
+    await deploy(NEW);
+    await every([Q1, Q2], s => s.status === 'open' && s.st === 't1,t2', 25000);
+    const Q3 = await ropen('Q3', '#airports&s=' + c3);
+    const q3 = await until2(Q3, s => s.status === 'older', 20000);
+    const lab3 = await Q3.evaluate(() => HOST.collab.roomReload.can() ? HOST.collab.roomReload.label() : '');
+    await press(Q3);
+    const ok3 = await every([Q1, Q2, Q3], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c3 && s.st === 't1,t2', 60000), i3 = await info(c3);
+    check(`reload (3): a new page refused by the old room (older) offers Update the room, presses it: the relay's endpoint reaches the old pages, they reload (ranks 0, 1) and come back new, the presser too (rank 2), the room on ${G} with its stations`,
+      !!q3 && lab3 === 'Update the room' && !!ok3 && i3.version === G && J(ok3.map(s => s.rr && s.rr.rank)) === J([0, 1, 2]) && rlog.some(l => l.includes(`${c3} reload to ${G} (2 members)`)), JSON.stringify({ lab3, v: i3 && i3.version, s: await sAll([Q1, Q2, Q3]) }));
+    await closeAll();
+    if (V135) {
+      await deploy(V135);
+      const W1 = await ropen('W1', '#airports'), c4 = await room(W1, ST), W2 = await ropen('W2', '#airports&s=' + c4);
+      await until2(W2, s => s.status === 'open' && s.st === 't1,t2', 20000);
+      await deploy(NEW);
+      await every([W1, W2], s => s.status === 'open' && s.st === 't1,t2', 25000);
+      const N = await ropen('N', '#airports&s=' + c4);
+      await until2(N, s => s.status === 'older', 20000);
+      await press(N);
+      const nb = await until2(N, s => s.loads === 2 && s.status === 'open' && s.code === c4, 40000);
+      const wr = await every([W1, W2], s => s.loads === 1 && s.status === 'refused', 20000), i4 = await info(c4);
+      check(`reload (3): v135 pages ignore the order (they do not reload); the new page that pressed it comes back and the room moves on to ${G} all the same; the v135 pages are refused (4006) 3 s later`,
+        !!nb && !!wr && i4.version === G && rlog.some(l => l.includes(`${c4} version ${F} -> ${G} (2 on ${F} told to reload)`)), JSON.stringify({ v: i4 && i4.version, s: await sAll([W1, W2, N]) }));
+      for (const W of [W1, W2]) await byHand(W);
+      const ok4 = await every([W1, W2, N], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c4 && s.st === 't1,t2', 60000);
+      check('reload (3): reloaded by hand (as their own live updates ask them), the v135 pages come back new into the room, its stations kept', !!ok4, await sAll([W1, W2, N]));
+      await closeAll();
+    }
+    }
+    // ------------------------------------------------------------------ (4)
+    if (want(4)) {
+    await serving(NEW);
+    const R1 = await ropen('R1', '#airports'), c5 = await room(R1, ST), R2 = await ropen('R2', '#airports&s=' + c5);
+    await until2(R2, s => s.status === 'open' && s.st === 't1,t2', 20000);
+    for (const p of [R1, R2]) await p.evaluate(() => { HOST.collab.internals().tries = 10; });   // (after the restart they come back only after 15 s)
+    await deploy(NEW);
+    await sleep(300);
+    const gone = await info(c5);
+    await press(R1);
+    const r1b = await until2(R1, s => s.loads === 2 && s.status === 'open' && s.code === c5 && s.st === 't1,t2', 40000);
+    const r2b = await until2(R2, s => s.status === 'open' && s.code === c5 && s.st === 't1,t2', 30000);
+    check('reload (4): the relay restarted between the press and the reloads (the room gone there): the presser brings it back first (its copy), then gives the order and reloads; the other page is back in it too',
+      gone && gone.status === 404 && !!r1b && !!r2b && rlog.some(l => l.includes(`${c5} reload to ${G} (1 member)`)), JSON.stringify({ gone, s: await sAll([R1, R2]) }));
+    await closeAll();
+    }
+    // ------------------------------------------------------------------ (5)
+    if (want(5)) {
+    await deploy(OLD);
+    const peer = '&peer=127.0.0.1:' + RP + '/peerjs';
+    const H1 = await ropen('H1', '#airports' + peer, { peer: true });
+    await H1.evaluate(() => HOST.collab.create());
+    await until2(H1, s => s.status === 'open' && s.via === 'peer', 30000);
+    const c6 = (await S(H1)).code;
+    await H1.evaluate(st => HOST.collab.publish(st), ST.slice(0, 2));
+    const G1 = await ropen('G1', '#airports&s=' + c6 + peer, { peer: true }), G2 = await ropen('G2', '#airports&s=' + c6 + peer, { peer: true });
+    const p5 = await every([H1, G1, G2], s => s.status === 'open' && s.members === 3 && s.st === 't1', 40000);
+    await deploy(NEW);
+    await sleep(3000);
+    await H1.evaluate(() => HOST.collab.publish([['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]]));
+    await every([H1, G1, G2], s => s.st === 't1,t2', 10000);
+    await press(G2);
+    const ok5 = await every([H1, G1, G2], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c6 && s.via === 'peer' && s.members === 3 && s.hosts === 1 && s.st === 't1,t2', 90000);
+    const plog = p => ev(p, () => window.__collabLog.filter(e => /peer|host|guest|local|take|join|welcome|close/.test(e.ev)).slice(-10).map(e => e.ev + (e.code ? ' ' + e.code : '') + (e.reason ? ' ' + e.reason : '')));
+    check(`reload (5): peer to peer, an order from a guest: host and guests reload into ${G}, one room on the new id with every station (one added just before the press too), one host, no split`,
+      !!p5 && !!ok5, (await sAll([H1, G1, G2])) + ' ' + JSON.stringify({ p5: !!p5, logs: await Promise.all([H1, G1, G2].map(plog)) }));
+    await closeAll();
+    }
+    // ------------------------------------------------------------------ (6)
+    // (a) a v135 page in a room with a page of this code (the same FORMAT): it ignores the order
+    if (V135 && want(6)) {
+      await deploy(V135);
+      const srv = http.createServer((req, res) => {   // (the old copy of this code, from another origin: it joins the relay by &relay=)
+        const f = path.join(OLD, decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/\/$/, '/index.html'));
+        fs.readFile(f, (err, body) => { if (err) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': /\.html$/.test(f) ? 'text/html' : /\.js$/.test(f) ? 'text/javascript' : /\.json$/.test(f) ? 'application/json' : 'application/octet-stream' }); res.end(body); });
+      });
+      await new Promise(r => srv.listen(8713, '127.0.0.1', r));
+      try {
+        const V = await ropen('V', '#airports'), c7 = await room(V, ST);
+        const O = await ropen('O', `#airports&s=${c7}&relay=ws://127.0.0.1:${RP}`, { port: 8713 });
+        await every([V, O], s => s.status === 'open' && s.code === c7 && s.st === 't1,t2' && s.members === 2, 30000);
+        await press(O);
+        const ob = await until2(O, s => s.loads === 2 && s.status === 'open' && s.code === c7, 40000);
+        await sleep(2500);
+        const vs = await S(V);
+        check('reload (6): a v135 page in the room ignores the order (stays, open, not reloaded); the page of this code that pressed it reloads and is back', !!ob && vs.loads === 1 && vs.status === 'open', JSON.stringify({ vs, ob }));
+      } finally { await new Promise(r => srv.close(r)); await closeAll(); }
+    }
+    // (b) two people pressing at once: one order, one reload per device; (c) an order older than 2 minutes: ignored
+    if (want(6)) {
+    await deploy(NEW);
+    const D1 = await ropen('D1', '#airports'), c8 = await room(D1, ST), D2 = await ropen('D2', '#airports&s=' + c8), D3 = await ropen('D3', '#airports&s=' + c8);
+    await every([D1, D2, D3], s => s.status === 'open' && s.members === 3, 30000);
+    const old = await D3.evaluate(() => [HOST.collab.reloadIn({ n: 'old00001', at: HOST.collab.now() - 180000, by: 'x' }, 'x'), window.__collabLog.filter(e => e.ev === 'room reload skipped').map(e => e.why)]);
+    const n0 = rlog.filter(l => l.includes(`${c8} reload to`)).length;
+    await Promise.all([D1, D2].map(p => p.evaluate(() => { HOST.collab.roomReload.now('test'); })));   // (not waited for: the other's order may reload it first)
+    const ok8 = await every([D1, D2, D3], s => s.loads === 2 && s.status === 'open' && s.code === c8, 60000);
+    await sleep(4000);
+    const once = await Promise.all([D1, D2, D3].map(S));
+    check('reload (6): an order older than 2 minutes is ignored (too old); two people pressing at once: one order (the relay takes the first, 429 for the second), one reload per device',
+      old[0] === false && old[1].includes('too old') && !!ok8 && once.every(s => s.loads === 2) && rlog.filter(l => l.includes(`${c8} reload to`)).length - n0 === 1, JSON.stringify({ old, s: await sAll([D1, D2, D3]) }));
+    await closeAll();
+    // (d) a reload that comes back with a stale shell (its index.html old, as a service worker's cache would give it)
+    const E = await ropen('E', '#airports'), c9 = await room(E, ST);
+    const [nn] = shellOf(NEW), staleIdx = fs.readFileSync(path.join(NEW, 'index.html'), 'utf8').replace(/shell: \{ n: \d+, id: '[0-9a-f]*'/, `shell: { n: ${+nn - 1}, id: 'ffffffffffffffff'`);
+    // (the page's address is the app's root, its index.html dropped: both served stale)
+    await E.route(u => /^\/(index\.html)?$/.test(new URL(u).pathname), r => r.fulfill({ status: 200, contentType: 'text/html', body: staleIdx }));
+    await press(E);
+    const e9 = await until2(E, s => s.loads === 4 && s.status === 'open' && s.code === c9 && s.rr && s.rr.tries === 2 && s.rr.checked, 60000);
+    const en = await ev(E, () => [HOST.live.state().note, HOST.shell.id]);
+    check('reload (6): a reload that came back with a stale shell (its index.html old) reloads once more, twice at most, then says so (This device could not fetch the new version) and joins the room again',
+      !!e9 && en[1] === 'ffffffffffffffff' && /could not fetch the new version/.test(en[0] || ''), JSON.stringify({ e9, en, s: await S(E) }));
+    await closeAll();
+    }
+  } finally {
+    await closeAll();
+    await unserve();
+    fs.rmSync(T, { recursive: true, force: true });
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -7093,6 +7425,7 @@ try {
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
   if (AREAS_ONLY) { await areasRound(); break main; }
+  if (RELOAD_ONLY) { await reloadRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -9361,6 +9694,8 @@ try {
   // ------------------------------------------ places: a calibration kept per room (rooms of their own) --
   await placesRound();
   await areasRound();
+  // -------------------------- rooms across updates and Update the room (a relay of its own, restarted as a deploy) --
+  await reloadRound();
   // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
   await studioRound(shots);
   // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
@@ -9453,8 +9788,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

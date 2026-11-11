@@ -381,7 +381,14 @@ from the start), or calibrate it on the spots. If two calibrated headsets find t
 far apart (each headset can keep its own copy of it), Fresh shared space in the
 menu (twice) moves the whole room to a new address where the headsets
 make a new one: start AR on one headset first, then the others. The relay keeps the headsets' logs in
-relay/logs/ for checking alignment. People elsewhere and
+relay/logs/ for checking alignment. After an update of the app (a deploy, a new release)
+press Update the room (twice: the Shared dialog under the room's code, or the
+headset menu's Circles tab): every device in the room reloads into the new
+version, one after another, and comes back into the room; headsets then press
+Enter VR to continue and are at their circle again (v136). A room also moves on
+to a newer version by itself once the last device of the old one has reloaded,
+and a device that joins it meanwhile waits rather than being refused. A relay
+started with --keep <file> keeps its rooms across restarts. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:

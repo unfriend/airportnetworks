@@ -6,7 +6,8 @@
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
-// --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution)
+// --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
+// --only 'update the room': Update the room's buttons, the order and a reload by it, v136)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -11595,6 +11596,104 @@ if (runs('trackers')) {
     if (bad.length) errors.push(...bad.map(b => 'trackers body: ' + b));
   });
   await tp.evaluate(() => { try { HOST.session = null; } catch (e) { /* gone */ } });
+  await ctx.close();
+}
+// Update the room (v136): the Shared dialog's button and the headset menu's (room:reload), two presses within 3 s as Remove
+// (the first arming it for 3 s), Reload this device in a room on this device, Update the room in one on a relay or peer to
+// peer; the order kept for the reload (roomReload: the room, the station, its turn) with livePlace; a real reload by an
+// order coming back with its place, in the room, its shell checked (room reload back); an order heard twice obeyed once.
+// In a page of its own, a room on this device (#...&peer=off), the reload itself replaced by a test hook until the last
+// step
+if (runs('update the room')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 760 } });
+  const up = await ctx.newPage();
+  up.on('pageerror', e => errors.push('update the room: ' + (e.stack || e.message)));
+  up.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('update the room: ' + m.text()); });
+  await up.goto(base + 'index.html#airports&peer=off');
+  await up.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), null, { timeout: 60000 });
+  await up.evaluate(() => { HOST.collab.autoAll(false); HOST.collab.autoGuide(false); HOST.collab.create(); });
+  await up.waitForFunction(() => HOST.collab.code && HOST.collab.local && HOST.collab.internals().welcomed && HOST.collab.internals().ready, null, { timeout: 20000 });
+  const code = await up.evaluate(() => HOST.collab.code);
+  await up.evaluate(() => { HOST.renderer.setAnimationLoop(null); HOST.collab.reloadTest(v => { (window.__orders = window.__orders || []).push(v); }); });   // (its frames stopped: the page's timers run)
+  await step('update the room: the Shared dialog\'s button, Reload this device in a room on this device: two presses within 3 s (the first arms it for 3 s), then the order, kept for the reload with its place', async () => {
+    const r = await up.evaluate(async () => {
+      const w = ms => new Promise(x => setTimeout(x, ms)), b = () => document.querySelector('#shared [data-sh="reload"]');
+      HOST.collab.dialog(true); await w(200);
+      const t0 = b() ? b().textContent : null, note = (document.querySelector('#shared .sh-reload span') || {}).textContent || '';
+      b().click(); await w(100);
+      const t1 = b().textContent, a1 = HOST.collab.roomReload.armed(), cls = b().classList.contains('armed');
+      await w(3200);
+      const t2 = b().textContent, a2 = HOST.collab.roomReload.armed();
+      b().click(); await w(100); b().click();
+      for (let k = 0; k < 60 && !(window.__orders || []).length; k++) await w(100);
+      HOST.collab.dialog(false);
+      const rr = JSON.parse(sessionStorage.getItem('roomReload') || 'null'), L = window.__collabLog;
+      return { t0, note, t1, a1, cls, t2, a2, orders: window.__orders || [], rr, asked: L.filter(e => e.ev === 'room reload asked').map(e => e.via), rl: L.filter(e => e.ev === 'room reload').map(e => [e.rank, e.in]),
+        notice: L.some(e => e.ev === 'notice' && e.title === 'Updating the room'), toast: (document.getElementById('shToast') || {}).textContent || '' };
+    });
+    const o = r.orders[0] || {};
+    if (r.t0 !== 'Reload this device' || !/This device reloads into the newest version/.test(r.note)) errors.push('update the room: the dialog\'s button in a room on this device: ' + JSON.stringify([r.t0, r.note]));
+    if (r.t1 !== 'Reload this device? Press again' || !r.a1 || !r.cls || r.t2 !== 'Reload this device' || r.a2) errors.push('update the room: two presses within 3 s, the first arming it for 3 s: ' + JSON.stringify(r));
+    if (r.orders.length !== 1 || !/^[a-z0-9]{8}$/.test(o.n || '') || o.to !== await up.evaluate(() => HOST.collab.format) || !o.shell || r.asked.join() !== 'tabs' || r.rl.length !== 1 || r.rl[0].join() !== '0,400')
+      errors.push('update the room: the order (one, for this room\'s other tabs, this device at once, rank 0, 0.4 s): ' + JSON.stringify(r));
+    if (!r.rr || r.rr.code !== code || r.rr.n !== o.n || r.rr.rank !== 0 || r.rr.wait !== 400 || r.rr.tries !== 0 || !r.notice || !/Updating the room: reloading in 1 s/.test(r.toast)) errors.push('update the room: kept for the reload (roomReload) and said on the page: ' + JSON.stringify(r));
+  });
+  await step('update the room: Update the room in a room on a relay or peer to peer (Reload every device? Press again); an order heard twice, another just after one was obeyed, one too old: skipped', async () => {
+    const r = await up.evaluate(async () => {
+      const w = ms => new Promise(x => setTimeout(x, ms)), C = HOST.collab, I = C.internals();
+      I.local = false;
+      const l0 = C.roomReload.label(); C.roomReload.ask('test'); const l1 = C.roomReload.label();
+      await w(3200);
+      const l2 = C.roomReload.label();
+      I.local = true;
+      C.reloadClear();
+      const n = 'abcd1234', a = C.reloadIn({ n, at: Date.now(), by: 'x' }, 'x');
+      await w(600);
+      const b = C.reloadIn({ n, at: Date.now(), by: 'x' }, 'x'), b2 = C.reloadIn({ n: 'efgh5678', at: Date.now(), by: 'x' }, 'x');
+      C.reloadClear();
+      const c = C.reloadIn({ n: 'old00001', at: Date.now() - 180000, by: 'x' }, 'x');
+      return { l0, l1, l2, a, b, b2, c, skipped: window.__collabLog.filter(e => e.ev === 'room reload skipped').map(e => e.why), orders: (window.__orders || []).length };
+    });
+    if (r.l0 !== 'Update the room' || r.l1 !== 'Reload every device? Press again' || r.l2 !== 'Update the room') errors.push('update the room: the labels in a room with others: ' + JSON.stringify(r));
+    if (!r.a || r.b || r.b2 || r.c || r.skipped.join() !== 'seen,one obeyed just now,too old' || r.orders !== 2) errors.push('update the room: an order heard twice obeyed once, another just after it and one too old skipped: ' + JSON.stringify(r));
+    await up.evaluate(() => HOST.collab.reloadClear());
+  });
+  await step('update the room: the headset menu\'s Circles tab (room:reload, under the room\'s heading): two presses within 3 s; offered outside camera mode (in camera mode: tools/collab.mjs --camera)', async () => {
+    const r = await up.evaluate(async () => {
+      const w = ms => new Promise(x => setTimeout(x, ms)), C = HOST.collab;
+      // a pretend headset session (the menu is drawn in the shell's frame callback)
+      const raf = [], fr = { getViewerPose: () => ({ transform: { position: { x: 0, y: 1.6, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }) };
+      HOST.renderer.xr.getReferenceSpace = () => ({});
+      const s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => raf.push(cb) };
+      HOST.session = s;
+      HOST.cur.peek('(XR.session = HOST.session, XR.mode = "immersive-vr", xrEnterScene())');
+      const tick = n => { for (let i = 0; i < n; i++) { HOST.cur.peek('xrBegin')(fr, 0.016); for (const cb of raf.splice(0)) cb(performance.now(), fr); } };
+      tick(3); C.panelOpen(true); C.menuTab('circles'); tick(3);
+      const f0 = C.menuFind('room:reload'), l0 = f0 && f0.label;
+      if (f0 && f0.fn) f0.fn();
+      tick(2);
+      const f1 = C.menuFind('room:reload'), l1 = f1 && f1.label;
+      await w(3200); tick(2);
+      const l2 = (C.menuFind('room:reload') || {}).label;
+      C.panelOpen(false); tick(1);
+      HOST.session = null;
+      return { l0, l1, l2, fn: !!(f0 && f0.fn), can: C.roomReload.can(), cam: C.cameraMode() };
+    });
+    if (!r.fn || r.l0 !== 'Reload this device' || r.l1 !== 'Reload this device? Press again' || r.l2 !== 'Reload this device') errors.push('update the room: the menu\'s button: ' + JSON.stringify(r));
+    // (a camera: roomReload.can() is false while camera mode runs, checked in tools/collab.mjs --camera; here none runs)
+    if (!r.can || r.cam) errors.push('update the room: offered outside camera mode: ' + JSON.stringify(r));
+  });
+  await step('update the room: a real reload by an order keeps the place (livePlace: the story, explore mode) and the room, and checks the shell it came back with (room reload back)', async () => {
+    await up.evaluate(() => { HOST.collab.reloadTest(null); HOST.collab.reloadClear(); sessionStorage.removeItem('roomReload'); HOST.cur.collab.APP.enterExplore(); });
+    await up.waitForTimeout(500);
+    await up.evaluate(() => { HOST.collab.reloadIn({ n: 'real0001', to: HOST.collab.format, shell: { n: HOST.shell.n, id: HOST.shell.id }, at: Date.now(), by: 'x' }, 'x'); });
+    const ok = await up.waitForFunction(c => typeof HOST !== 'undefined' && HOST.cur && HOST.curKey === 'airports' && HOST.cur.collab.APP.mode === 'explore' && HOST.collab.code === c && HOST.collab.internals().welcomed &&
+      window.__collabLog.some(e => e.ev === 'room reload back'), code, { timeout: 60000 }).then(() => true, () => false);
+    const r = await up.evaluate(() => ({ back: window.__collabLog.filter(e => e.ev === 'room reload back').map(e => ({ ok: e.ok, n: e.n })), rr: JSON.parse(sessionStorage.getItem('roomReload') || 'null'), lp: sessionStorage.getItem('livePlace'), seen: JSON.parse(sessionStorage.getItem('roomReloadSeen') || 'null') }));
+    if (!ok || r.back.length !== 1 || !r.back[0].ok || r.back[0].n !== 'real0001' || !r.rr || !r.rr.checked || r.lp || !r.seen || !r.seen.seen.includes('real0001')) errors.push('update the room: a real reload by an order: ' + JSON.stringify({ ok, r }));
+  });
+  await up.evaluate(() => { try { sessionStorage.removeItem('roomReload'); HOST.collab.leave(); } catch (e) { /* gone */ } });
   await ctx.close();
 }
 await step('old links forward to the app', async () => {

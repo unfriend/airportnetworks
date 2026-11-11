@@ -427,6 +427,7 @@ body.xr #labels, body.xr #tip { display: none; }
 }
 #livebar[hidden], #xrgo[hidden] { display: none; }
 #livebar span { flex: 1 1 14rem; }
+#livebar .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #xrgo { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; font-size: 20px; padding: 16px 28px; }
 
 @media (max-width: 899px) {
@@ -767,7 +768,7 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
 </div>
-<div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="later">Later</button></div>
+<div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="room" hidden>Reload every device</button><button class="btn" type="button" data-live="later">Later</button></div>
 <button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
 <div id="loading"><div><span id="ldLine">Loading</span><div id="ldBar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="ldStep"></span></div></div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
@@ -3488,7 +3489,12 @@ HOST.live = (function () {
     v: null, seen: {}, stale: new Set(), pending: '', urgent: false, ask: null, later: '', note: '', missing: {},
     checking: null, checkAt: -1e9, listFp: '', rereading: null, watch: null, watching: false, shellSeen: null,
     endsFor: null, ends: [], timer: 0, back: null,
+    // in a shared room, a page outside a headset takes a new FORMAT by itself (v136): cd, when its countdown ends; hold, until
+    // when Not now holds it off (then it asks again); left, the seconds the bar says; their lengths (tests shorten them)
+    cd: 0, hold: 0, left: -1, cdMs: 20000, holdMs: 300000, cdOff: false,
   };
+  // (tests that do not look at the countdown turn it off before the page loads: localStorage liveCountdown = off)
+  try { L.cdOff = localStorage.getItem('liveCountdown') === 'off'; } catch (e) { /* storage blocked */ }
   const ses = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
     put: (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
@@ -3573,7 +3579,7 @@ HOST.live = (function () {
   }
 
   // ---- the question (a bar on the page, a panel in the headset) and notes
-  const RANK = { missing: 1, needs: 2, shell: 3, format: 4 };
+  const RANK = { missing: 1, needs: 2, shell: 3, format: 4, room: 5 };
   function ask(kind, key, again) {
     if (L.ask && RANK[L.ask.kind] > RANK[kind]) return;
     const text = {
@@ -3581,6 +3587,7 @@ HOST.live = (function () {
       format: 'A new version of the app is ready. Shared rooms need it: devices on different versions cannot share a room.',
       needs: `The ${title(key)} story needs a new version of the app.`,
       missing: `A station in this room has a story this device does not know yet (${key}): this device needs an update.`,
+      room: `Room ${key} has moved to a newer version of the app: reload to go back in.`,
     }[kind];
     if (L.ask && L.ask.text === text && !(again && L.ask.hidden)) return;
     L.ask = { kind, key: key || '', text, hidden: L.later === text && !again };
@@ -3588,19 +3595,44 @@ HOST.live = (function () {
     setTimeout(() => HOST.reloadIfUpdated(), 0);   // (on the page's Stories screen it is taken at once)
   }
   function later() {
+    // (a new FORMAT in a room, counting down or not: Not now holds it off for 5 minutes, then it asks again, cdStep)
+    if (L.ask && !L.ask.hidden && L.ask.kind === 'format' && inRoom()) { L.hold = performance.now() + L.holdMs; L.cd = 0; }
     if (L.ask && !L.ask.hidden) { L.later = L.ask.text; L.ask.hidden = true; } else L.note = '';
     show();
   }
   function note(text) { L.note = text; show(); if (text) console.warn(text); }
+  // Update the room (shared.js, v136): every device in the room reloads, one after another; the bar's and the headset
+  // panel's third button while this device is in a room, two presses as everywhere
+  // (a room on this device: Reload now is all there is to it)
+  const roomR = () => { const C = HOST.collab; return C && C.code && !C.local && C.roomReload && C.roomReload.can() ? C.roomReload : null; };
+  const inRoom = () => !!(HOST.collab && HOST.collab.code);
+  function roomPress() { const R = roomR(); if (!R) return; R.ask('update bar'); show(); setTimeout(show, 3050); }
   function show() {
     const bar = document.getElementById('livebar');
     if (!bar) return;
-    const q = L.ask && !L.ask.hidden;
+    const q = L.ask && !L.ask.hidden, R = q ? roomR() : null;
     bar.hidden = !q && !L.note;
-    bar.querySelector('span').textContent = q ? L.ask.text : L.note;
+    bar.querySelector('span').textContent = q ? L.ask.text + (L.cd ? ` Reloading by itself in ${Math.max(0, L.left)} s.` : '') : L.note;
     bar.querySelector('[data-live="reload"]').hidden = !q;
-    bar.querySelector('[data-live="later"]').textContent = q ? 'Later' : 'Close';
+    const rb = bar.querySelector('[data-live="room"]');
+    if (rb) { rb.hidden = !R; rb.textContent = R && R.armed() ? 'Reload every device? Press again' : 'Reload every device'; rb.classList.toggle('armed', !!(R && R.armed())); }
+    bar.querySelector('[data-live="later"]').textContent = q ? (L.cd || (L.ask.kind === 'format' && inRoom()) ? 'Not now' : 'Later') : 'Close';
     XQ.sig = '';
+  }
+  // A new FORMAT on a page outside a headset, in a shared room (v136): taken by itself after a 20 s countdown on the bar,
+  // unless Not now (which holds it off for 5 minutes): a page left on Later held the room on the old version for everyone.
+  // At most once in ten minutes (liveReloadAt: a host that still serves the old files must not reload it in a loop)
+  function cdOn() {
+    return !!(!L.cdOff && L.ask && !L.ask.hidden && L.ask.kind === 'format' && inRoom() && !HOST.session && !HOST.busy && Date.now() - (+ses.get('liveReloadAt') || 0) > 600000);
+  }
+  function cdStep() {
+    const t = performance.now();
+    if (L.hold && t > L.hold) { L.hold = 0; if (L.ask && L.ask.kind === 'format' && L.ask.hidden) { L.ask.hidden = false; L.later = ''; show(); } }   // (asked again)
+    if (!cdOn()) { if (L.cd) { L.cd = 0; L.left = -1; show(); } return; }
+    if (!L.cd) L.cd = t + L.cdMs;
+    const left = Math.max(0, Math.ceil((L.cd - t) / 1000));
+    if (left !== L.left) { L.left = left; show(); }
+    if (t >= L.cd) { L.cd = 0; L.left = -1; reload('format-room'); }
   }
   // a reload that keeps this device's place (put back as the story starts: restoring)
   function reload(why) {
@@ -3650,14 +3682,19 @@ HOST.live = (function () {
       line += w + ' ';
     }
     c.fillText(line.trim(), 44, y);
-    XQ.btn = [{ id: 'reload', label: 'Reload now', x: 44, fn: () => reload('asked') }, { id: 'later', label: 'Later', x: 532, fn: later }];
+    // (in a shared room a third: Reload every device, Update the room's two presses)
+    const R = roomR();
+    XQ.btn = R ? [{ id: 'reload', label: 'Reload now', x: 44, w: 260, fn: () => reload('asked') }, { id: 'room', label: R.armed() ? 'Every device? Press again' : 'Reload every device', x: 328, w: 400, fn: roomPress, arm: R.armed() },
+      { id: 'later', label: 'Later', x: 752, w: 228, fn: later }] : [{ id: 'reload', label: 'Reload now', x: 44, w: 448, fn: () => reload('asked') }, { id: 'later', label: 'Later', x: 532, w: 448, fn: later }];
     for (const b of XQ.btn) {
-      Object.assign(b, { y: H - 128, w: 448, h: 88 });
+      Object.assign(b, { y: H - 128, h: 88 });
       rr(c, b.x, b.y, b.w, b.h, 18);
-      c.fillStyle = b.id === 'reload' ? (hv === b.id ? '#8debff' : '#46d9ff') : hv === b.id ? 'rgba(70, 217, 255, 0.28)' : 'rgba(140, 170, 210, 0.14)';
-      c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(140, 170, 210, 0.5)'; c.stroke();
-      c.fillStyle = b.id === 'reload' ? '#04101e' : '#e7eef8'; c.font = '700 36px B612, "Segoe UI", Arial, sans-serif';
-      c.textAlign = 'center'; c.fillText(b.label, b.x + b.w / 2, b.y + 24); c.textAlign = 'left';
+      c.fillStyle = b.id === 'reload' ? (hv === b.id ? '#8debff' : '#46d9ff') : b.arm ? 'rgba(255, 180, 59, 0.30)' : hv === b.id ? 'rgba(70, 217, 255, 0.28)' : 'rgba(140, 170, 210, 0.14)';
+      c.fill(); c.lineWidth = 3; c.strokeStyle = b.arm ? '#ffb43b' : 'rgba(140, 170, 210, 0.5)'; c.stroke();
+      c.fillStyle = b.id === 'reload' ? '#04101e' : '#e7eef8';
+      let px = 36;
+      do c.font = `700 ${px}px B612, "Segoe UI", Arial, sans-serif`; while (c.measureText(b.label).width > b.w - 28 && --px > 20);
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 1); c.textAlign = 'left'; c.textBaseline = 'top';
     }
     XQ.tex.needsUpdate = true;
   }
@@ -3692,7 +3729,7 @@ HOST.live = (function () {
     if (XQ.moving) { m.position.lerp(_to, 0.12); if (m.position.distanceTo(_to) < 0.02) XQ.moving = false; }
     m.lookAt(_h);
     m.visible = true;
-    const hv = hovered(), sig = L.ask.text + '|' + hv;
+    const R = roomR(), hv = hovered(), sig = L.ask.text + '|' + hv + '|' + (R ? (R.armed() ? 'a' : 'r') : '');
     if (sig !== XQ.sig) { XQ.sig = sig; draw(hv); }
   }
   function xrLoop(s) {
@@ -3764,6 +3801,7 @@ HOST.live = (function () {
       else if (!HOST.busy && (L.urgent || quiet())) { L.pending = ''; L.urgent = false; HOST.swap(k); }
     }
     if (L.ask && !L.ask.hidden && HOST.session) xrLoop(HOST.session);
+    cdStep();
     const t = performance.now();
     if (t - L.checkAt > 60000 && document.visibilityState !== 'hidden') check('minute');
     // a shared room's station whose story this device does not know yet (its card says so: shared.js's meta)
@@ -3787,7 +3825,7 @@ HOST.live = (function () {
       quietly(() => {
         document.getElementById('livebar').addEventListener('click', ev => {
           const b = ev.target.closest('[data-live]');
-          if (b && b.dataset.live === 'reload') reload('asked'); else if (b) later();
+          if (b && b.dataset.live === 'reload') reload('asked'); else if (b && b.dataset.live === 'room') roomPress(); else if (b) later();
         });
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && performance.now() - L.checkAt > 5000) check('visible'); });
       });
@@ -3838,6 +3876,18 @@ HOST.live = (function () {
     },
     check, reread, missing, note, reload, later, watch,
     ask: (kind, key) => ask(kind, key, true),
+    // a shared room moved on to a newer version of the app than this device runs (shared.js: refused with 4006, v136):
+    // outside a headset a reload at once, at most once in ten minutes (liveReloadAt: a host that still serves the old files,
+    // as GitHub Pages behind the relay for a minute, must not reload it in a loop); in one, or within those ten minutes,
+    // asked (the bar, the headset's panel). true: it reloads
+    roomNewer(code) {
+      check('room');
+      if (!HOST.session && Date.now() - (+ses.get('liveReloadAt') || 0) > 600000) { setTimeout(() => reload('room-newer'), 300); return true; }
+      ask('room', code, true);
+      return false;
+    },
+    // (tests: the countdown's and Not now's lengths, ms; null: as ever)
+    times(o) { o = o || {}; L.cdMs = o.countdown > 0 ? o.countdown : 20000; L.holdMs = o.hold > 0 ? o.hold : 300000; },
     // may this story start? (one never loaded here that needs a newer shell is asked about first)
     allowed(key) {
       const e = L.v && L.v.stories && L.v.stories[key], me = HOST.shell;
