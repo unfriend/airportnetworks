@@ -505,9 +505,9 @@ tab), but A boosts a spaceship. Spaceships (v132, a small game over every story,
 VR or AR with a controller in your right hand): click the right stick twice (or
 Spaceship: launch on the Settings tab) and a little ship flies from your right
 controller. Steer it with the right stick (v133): right and left turn, forward
-dives and back climbs, as in a flight simulator; held back it loops (v134), let go
-the right way up it levels out; how you hold the controller does not matter
-(v132's steering by tilting the controller went). While it flies a
+dives and back climbs, as in a flight simulator (at most 60 degrees: v134's
+loops went again in v137); how you hold the controller does not matter (v132's
+steering by tilting the controller went). While it flies a
 click of the right stick counts only at its middle, so a hard push that clicks
 does not land the ship. It always
 flies forward; the grip brakes, held fully it backs off slowly; A boosts for a

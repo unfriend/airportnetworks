@@ -1362,13 +1362,13 @@ ships or look).
   controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0 and 1), each axis on its own: a
   dead zone of 0.15, past it the push's share to the power 1.5 (fine near the middle, full at the edge). Pushed right it
   turns right about the vertical (full: 140 degrees a second, round as often as you like), pushed forward (away from you,
-  `axes[3]` -1) its nose turns down and pulled back up, as a flight simulator's stick, at a rate (full: 140 degrees a
-  second, `STEER.climb`), with no limit, so held back it loops (v134; the owner, 11 November 2026: "the sticks should have
-  more freedom so that one can do a looping"; v133 set a flight pitch of at most 60 degrees): at cruise a loop takes
-  about 2.6 s and is about 1 m across. Upside down (past the top of a loop, `cos(pitch) < 0`) the turn about the vertical
-  goes the other way, so right still turns it to its own right. Let go the right way up, its nose eases back to level
-  (`STEER.level`, 0.5 s); let go upside down, it holds its attitude. The ship banks into its turns (up to 50 degrees,
-  eased), which does not change its path. How the controller is held, tilted or pointed counts for nothing: v132 flew by its tilt like a
+  `axes[3]` -1) it dives and pulled back it climbs (full: 60 degrees, the flight pitch eased with 0.25 s; no loops), as a
+  flight simulator's stick; released, level flight. v134 let it loop (the owner, 11 November 2026: "the sticks should have
+  more freedom so that one can do a looping": the stick's pitch a rate with no limit, bounced off the arena's floor and
+  ceiling), and v137 took that out again (the owner, the same day, after trying it: "Airplanes should not be able to do a
+  looping after all, switch them back to how they were before"): the flight is v133's again (in the history at v134). The
+  ship banks into its turns (up to 50 degrees, eased), which does not change its path. How the controller is held, tilted
+  or pointed counts for nothing: v132 flew by its tilt like a
   joystick (its roll turned, its pitch from the angle held at launch climbed and dived: in the history at v132), taken out
   in v133 with the Steering setting its first build had (`xrShipSteer`, removed from `localStorage` as `ships.js` loads).
   The launch notice and the Spaceship row's note say how (`steerWords()`).
@@ -1379,8 +1379,8 @@ ships or look).
 - **The arena** (`ARENA`): round where the pilot stood at launch, 5 m along the floor, from 0.15 to 3 m above it (in a
   room the room's floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less
   1.6 m, taken at launch). Within 0.6 m of its edge, heading out, it is turned back gently (up to 90 degrees a second at
-  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it bounces too, its pitch mirrored
-  (v134, as a loop may reach them; until then held level), with a bump. In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
+  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it is held, level, until steered
+  away (v134 bounced it there, as a loop could reach them; v137 holds it again). In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
   the ship crossing a plane inside its polygon, its heading reflected about the plane), with a bump and no damage. Ships
   pass through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's
   level forward, at its height (both clamped into the arena), flying where the head faces, level.
@@ -1484,8 +1484,8 @@ ships or look).
   `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
   `bolt`, `claim`, `track`, `materials`).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
-- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second each
-  way, forward to dive, loops, the levelling as it is let go, the turn upside down), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
+- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second, 60
+  degrees of climb, forward to dive), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
   read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
@@ -5779,14 +5779,12 @@ turned by the test; the drones frozen, `debug.freeze`): the right stick clicked 
 ship 0.5 m ahead of the controller facing where the head does; the left stick twice still moving with the sticks, both at
 once one menu; the right stick twice again landing; a tracked right hand refused in words. The controller's tilt
 steering nothing (v133: rolled 40 degrees either way, nose up or down 40, turned 75 about the vertical, the ship flying
-straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; held back
-a whole loop (v134: 359 degrees in 2.57 s, upside down at its top 1.58 m up from 0.6, back where it began within 8 cm,
-its yaw unchanged); let go climbing 40 degrees level within 2.5 s, let go upside down holding; the ceiling and the floor
-bouncing it (its pitch mirrored, never past 3 m or under 0.15 m); upside down the stick right turning it about the
-vertical the other way; nothing of the tilt left (no `steer`, `angles`,
+straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; pulled back
+climbing at 60 to its 3 m ceiling and held there, released level (v134's loop steps went with the loops in v137); nothing
+of the tilt left (no `steer`, `angles`,
 `steering`, `setSteering`, no `neutral` or `roll` in the state, `xrShipSteer` gone). The stick's numbers: full right 140
 degrees a second to the right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing;
-pulled back its nose turning up 35 degrees in 0.25 s (140 a second), pushed forward down, released level; the state's stick and the mapping
+pulled back climbing at 60 degrees, pushed forward diving at 60, released level; the state's stick and the mapping
 (`stick`, `axes`, `STICK`). No Steering row on the Settings tab, its height between 1,500 and 1,900 px (printed: the
 canvas is 1,920). Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a
 second); a pushed click then

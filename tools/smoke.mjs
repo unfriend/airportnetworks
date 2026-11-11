@@ -10192,7 +10192,7 @@ if (runs('spaceship')) {
 
   // the controller's tilt steers nothing since v133 (the owner, 11 November 2026: "remove the controller motion steering
   // from the ships for now, its not working well anyway"): the stick alone
-  await step('spaceship: the controller\'s tilt steers nothing (rolled 40 degrees, nose up 40, turned 75: straight and level); the stick full right all the way round, banking; held back a whole loop (v134), back where it began, released it flies level; its ceiling and floor bounce it', async () => {
+  await step('spaceship: the controller\'s tilt steers nothing (rolled 40 degrees, nose up 40, turned 75: straight and level); the stick full right all the way round, banking; pulled back it climbs to its ceiling and is held there, released it flies level', async () => {
     const bad = [];
     await fresh();
     for (const [name, yaw, pitch, roll] of [['rolled 40 degrees right', 0, 0, 40], ['rolled 40 degrees left', 0, 0, -40], ['nose up 40 degrees', 0, 40, 0], ['nose down 40 degrees', 0, -40, 0], ['turned 75 degrees about the vertical', 75, 0, 0]]) {
@@ -10210,39 +10210,17 @@ if (runs('spaceship')) {
     if (Math.abs(turned * D - 140 * 14 * 12 / 60) > 8) bad.push('the stick full right: turned ' + (turned * D).toFixed(0) + ' degrees in 2.8 s, not ' + (140 * 2.8).toFixed(0));
     const bk = await st();
     if (Math.abs(bk.bank * D - 50) > 1) bad.push('its bank at full turn: ' + (bk.bank * D).toFixed(1) + ' degrees, not 50');
-    // held back (v134; the owner, 11 November 2026: "the sticks should have more freedom so that one can do a looping"):
-    // its nose turns up at 140 degrees a second, round and round: a whole loop in 360 / 140 s, at cruise a circle about
-    // 0.98 m across (1.2 m/s over 2.443 rad/s), upside down at its top, back where it began; its yaw never moves
-    await sp.evaluate(() => HOST.ships.debug.place([0, 0.6, 0], 0, 0));
-    await stk(0, 1);
-    let pt = 0, pl = 0, topY = 0, inv = false;
-    const p0 = (await st()).p;
-    for (let k = 0; k < 154; k += 2) { await tick(2); const x = await st(); pt += turnBy(pl, x.pitch); pl = x.pitch; topY = Math.max(topY, x.p[1]); if (Math.cos(x.pitch) < -0.9) inv = true; }
-    await stk(0, 0); await tick(1);
-    const lp = await st();
-    if (Math.abs(pt * D - 360 * 154 / 60 * 140 / 360) > 6 || !inv || Math.abs(topY - 0.6 - 0.982) > 0.08 || Math.hypot(lp.p[1] - p0[1], lp.p[2] - p0[2]) > 0.08 || Math.abs(lp.p[0]) > 0.01 || Math.abs(turnBy(0, lp.yaw)) > 0.01)
-      bad.push('a loop: its nose turned ' + (pt * D).toFixed(0) + ' degrees in 2.57 s (360), upside down ' + inv + ', its top ' + topY.toFixed(3) + ' (1.58), back at ' + lp.p.map(v => v.toFixed(3)) + ' from ' + p0.map(v => v.toFixed(3)) + ', its yaw ' + lp.yaw.toFixed(3));
-    // released the right way up, climbing 40 degrees: it eases back to level (0.5 s) and flies on level
-    await sp.evaluate(() => HOST.ships.debug.place([0, 1.2, 0], 0, 40 * Math.PI / 180)); await secs(2.5);
+    // pulled back: it climbs at 60 degrees until its ceiling, held there; released, it flies level
+    await sp.evaluate(() => HOST.ships.debug.place([0, 0.5, 0], 0, 0));
+    await stk(0, 1); await secs(1.2);
+    const g = await st();
+    if (Math.abs(g.pitch * D - 60) > 1) bad.push('pulled back: its pitch ' + (g.pitch * D).toFixed(1) + ', not 60');
+    await secs(2.5);
+    const h = await st();
+    if (Math.abs(h.p[1] - 3.0) > 0.01) bad.push('climbing: its height ' + h.p[1].toFixed(3) + ', not held at the ceiling of 3 m');
+    await stk(0, 0); await secs(1.5);
     const i1 = await st(); await secs(0.5); const i2 = await st();
     if (Math.abs(i2.pitch) > 0.01 || Math.abs(i2.p[1] - i1.p[1]) > 0.01) bad.push('released: pitch ' + (i2.pitch * D).toFixed(2) + ', height ' + i1.p[1].toFixed(3) + ' then ' + i2.p[1].toFixed(3));
-    // released upside down: it holds its attitude
-    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, Math.PI)); await secs(0.5);
-    const iv = await st();
-    if (Math.abs(turnBy(Math.PI, iv.pitch)) > 0.01 || Math.abs(iv.p[1] - 1.5) > 0.01) bad.push('released upside down: its pitch ' + (iv.pitch * D).toFixed(1) + ' (180), its height ' + iv.p[1].toFixed(3));
-    // its ceiling and floor bounce it (its pitch mirrored), never past them
-    await sp.evaluate(() => HOST.ships.debug.place([0, 2.95, 0], 0, 30 * Math.PI / 180)); await stk(0, 0.2);
-    let hy = 0; for (let k = 0; k < 12; k++) { await tick(2); hy = Math.max(hy, (await st()).p[1]); }
-    const cb = await st(); await stk(0, 0);
-    if (hy > 3.0 + 1e-6 || !(cb.pitch < 0)) bad.push('the ceiling: the highest ' + hy.toFixed(3) + ', its pitch then ' + (cb.pitch * D).toFixed(1) + ' (bounced: below 0)');
-    await sp.evaluate(() => HOST.ships.debug.place([0, 0.2, 0], 0, -30 * Math.PI / 180)); await stk(0, -0.2);
-    let ly = 9; for (let k = 0; k < 12; k++) { await tick(2); ly = Math.min(ly, (await st()).p[1]); }
-    const fb = await st(); await stk(0, 0);
-    if (ly < 0.15 - 1e-6 || !(fb.pitch > 0)) bad.push('the floor: the lowest ' + ly.toFixed(3) + ', its pitch then ' + (fb.pitch * D).toFixed(1) + ' (bounced: above 0)');
-    // upside down the stick right still turns it to its own right: about the vertical the other way
-    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, Math.PI)); await stk(1, 0); await secs(0.5);
-    const ur = await st(); await stk(0, 0);
-    if (!(turnBy(0, ur.yaw) > 0.5)) bad.push('upside down, the stick right: its yaw ' + ur.yaw.toFixed(3) + ' (turned the other way about the vertical, to its own right: above 0.5)');
     // nothing of the tilt left: no steering setting, no tilt in the API or the state
     const gone = await sp.evaluate(() => { const S = HOST.ships, x = S.state(); return [typeof S.steer, typeof S.angles, typeof S.steering, typeof S.setSteering, 'neutral' in x, 'roll' in x.ctrl, 'steering' in x, localStorage.getItem('xrShipSteer'), S.steerWords()]; });
     if (JSON.stringify(gone) !== JSON.stringify(['undefined', 'undefined', 'undefined', 'undefined', false, false, false, null, 'Right stick: left and right turn, forward dives, back climbs.'])) bad.push('what is left of the tilt: ' + JSON.stringify(gone));
@@ -10252,7 +10230,7 @@ if (runs('spaceship')) {
   // the right thumbstick (v133; the owner, 11 November 2026: "right joystick should control left right with left right and
   // up down with up down", then "the pitch of the up down should be reversed like in flightsim"): a dead zone of 0.15, past
   // it the push's share to the power 1.5; forward dives and back climbs
-  await step('spaceship: the right stick steers: full right turns right at 140 degrees a second, full left left, 0.5 at the shaped rate, 0.1 nothing; pulled back its nose turns up at 140 degrees a second, pushed forward down, released level', async () => {
+  await step('spaceship: the right stick steers: full right turns right at 140 degrees a second, full left left, 0.5 at the shaped rate, 0.1 nothing; pulled back climbs to 60 degrees, pushed forward dives, released level', async () => {
     const bad = [];
     await fresh();
     // the turn rate (degrees a second to the right) over a second from the middle of the arena, the bank settled first
@@ -10270,21 +10248,20 @@ if (runs('spaceship')) {
     }
     const s0 = await st();
     if (!s0.stick || s0.stick.x !== 0.1 || s0.stick.k !== 0) bad.push('the state\'s stick: ' + JSON.stringify(s0.stick));
-    // pulled back (+1) its nose turns up at 140 degrees a second; pushed forward (-1) down, as a flight simulator's stick
-    // (v134: a rate, so it can loop); released, level again
-    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0)); await stk(0, 1); await secs(0.25);
+    // pulled back (+1) climbs to 60 degrees; pushed forward (-1) dives, as a flight simulator's stick; released, level again
+    await sp.evaluate(() => HOST.ships.debug.place([0, 0.6, 0], 0, 0)); await stk(0, 1); await secs(1.2);
     const u = await st();
-    if (Math.abs(u.pitch * D - 35) > 1.5 || Math.abs(u.climb - 140) > 1e-9 || !(u.p[1] > 1.5)) bad.push('the stick pulled back 0.25 s: pitch ' + (u.pitch * D).toFixed(1) + ' (35), its climb ' + u.climb + ', height ' + u.p[1].toFixed(3));
-    await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0)); await stk(0, -1); await secs(0.25);
+    if (Math.abs(u.pitch * D - 60) > 1 || !(u.p[1] > 0.9)) bad.push('the stick pulled back: pitch ' + (u.pitch * D).toFixed(1) + ', height ' + u.p[1].toFixed(2) + ' (from 0.6)');
+    await sp.evaluate(() => HOST.ships.debug.place([0, 2.6, 0], 0, 0)); await stk(0, -1); await secs(1.2);
     const dn = await st();
-    if (Math.abs(dn.pitch * D + 35) > 1.5 || Math.abs(dn.climb + 140) > 1e-9 || !(dn.p[1] < 1.5)) bad.push('the stick pushed forward 0.25 s: pitch ' + (dn.pitch * D).toFixed(1) + ' (-35), its climb ' + dn.climb + ', height ' + dn.p[1].toFixed(3));
-    await stk(0, 0); await secs(2.5);
+    if (Math.abs(dn.pitch * D + 60) > 1 || !(dn.p[1] < 2.3)) bad.push('the stick pushed forward: pitch ' + (dn.pitch * D).toFixed(1) + ', height ' + dn.p[1].toFixed(2) + ' (from 2.6)');
+    await sp.evaluate(p => HOST.ships.debug.place([0, 1.5, 0], 0, p), dn.pitch); await stk(0, 0); await secs(1.5);
     const lv = await st();
     if (Math.abs(lv.pitch) > 0.01 || Math.abs(lv.turn) > 1e-9) bad.push('released: pitch ' + (lv.pitch * D).toFixed(2) + ', turn ' + lv.turn);
     // the mapping and the axes read
-    const m = await sp.evaluate(() => { const S = HOST.ships; return [S.stick(0.5, 0).turn, S.stick(0.1, -0.1).turn, S.stick(0, -1).climb, S.stick(0, 1).climb, S.stick(1, 0).bank,
+    const m = await sp.evaluate(() => { const S = HOST.ships; return [S.stick(0.5, 0).turn, S.stick(0.1, -0.1).turn, S.stick(0, -1).pitch, S.stick(0, 1).pitch, S.stick(1, 0).bank,
       S.axes({ axes: [0.3, -0.4] }), S.axes({ axes: [0.9, 0.9, NaN, 1] }), S.axes(null), S.STICK]; });
-    if (Math.abs(m[0] - shaped) > 1e-9 || m[1] !== 0 || m[2] !== -140 || m[3] !== 140 || m[4] !== 50 ||
+    if (Math.abs(m[0] - shaped) > 1e-9 || m[1] !== 0 || m[2] !== -60 || m[3] !== 60 || m[4] !== 50 ||
       JSON.stringify(m.slice(5, 8)) !== JSON.stringify([[0.3, -0.4], [0, 1], [0, 0]]) || m[8].dz !== 0.15 || m[8].expo !== 1.5) bad.push('the mapping: ' + JSON.stringify(m));
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
