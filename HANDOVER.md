@@ -49,18 +49,19 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **At the handover (9 November 2026): where each branch is and what comes next.**
   - *The branches.* `main` is networks-v129 (FORMAT networks-40), released on 10 November 2026 after the first whole
     release run since v121 (the v129 entry below): what visitors get at https://stories.lbi-netmed.com/ (GitHub Pages)
-    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v132 (FORMAT networks-41,
-    the v132 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
-    `dev`; v130 to v132 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
-    networks-v121 (`5524684`, 7 November); v122 to v132 are the entries below. The AI agents' working branch,
+    and what the main site's relay runs (https://main.lab.lbi-netmed.com/). `dev` is networks-v133 (FORMAT networks-41,
+    the v133 entry below), the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to
+    `dev`; v130 to v133 had only the cheap checks, so their full suites run before `main` moves. Until then `main` was
+    networks-v121 (`5524684`, 7 November); v122 to v133 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
     recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
-    rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. `whatsnew.json`
-    (developer mode's box, `#dev=on`) lists what to try for v131; the others' are in their entries below.
+    rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
+    which made v133's stick steering. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v133; the
+    others' are in their entries below.
   - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
     cheap checks and to `main` after the full suites (step 7 there). Timings to keep an eye on in the suites: the studio
@@ -96,6 +97,27 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v133 (11 November 2026; FORMAT networks-41, shell 133), on `dev`: the spaceships steered by the right stick.**
+  The owner, after trying v132: "please also add joystick controls for the ships, right joystick should control left right
+  with left right and up down with up down", then "the pitch of the up down should be reversed like in flightsim" and
+  "also remove the controller motion steering from the ships for now, its not working well anyway".
+  - Steering is the right thumbstick alone (`stick(x, y)`, `axes(gp)` in `ships.js`; its numbers `STICK`, a dead zone of
+    0.15 and a curve of 1.5, with `STEER`'s 140 degrees a second and 60 degrees of climb): right turns right, forward
+    dives, back climbs, released level. v132's steering by the controller's tilt (roll and pitch from a neutral taken at
+    launch) is gone, as is the Steering setting the first build had (tilt and stick, stick only, tilt only; its
+    `xrShipSteer` is removed from `localStorage` as `ships.js` loads). The tilt code is in the history at v132 if it is
+    wanted back.
+  - While a ship flies (not while it is down), a right-stick press counts as a click only with the stick within 0.5 of
+    its middle (`SHIPCLK` in `shared.js`'s `sticks`), so a hard push that clicks neither lands the ship nor opens the
+    menu (logged `ship stick click ignored`). The menu canvas's Settings tab is about 1700 of its 1920 px with a ship
+    flying (the smoke test fails past 1900).
+  - Built in one lane (a workflow: a builder, two Sonnet reviews, a verify and a fix round, about 1.5M tokens; four lows
+    fixed or kept on purpose), then the pitch reversed and the tilt taken out by hand, and one more review (two Sonnet
+    reviewers and a verifier: nothing confirmed). The smoke test's `--only spaceship` (14 steps), `--only 'stick moving'`
+    and `--only 'controllers after standby'` ran in the lane; `collab --ships` failed three co-op steps there identically
+    on v132 (pre-existing on that machine, not chased: it never moves the stick).
+  - Untested on devices: how the stick feels on a Quest and its numbers, the 0.5 click threshold on real controllers.
+    On `dev` only the cheap checks ran.
 - **networks-v132 (10 November 2026; FORMAT networks-41, shell 132), on `dev`: spaceships in the headsets.** The owner:
   "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right
   controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting,
