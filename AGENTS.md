@@ -2127,9 +2127,9 @@ The plan is `docs/shared-space-plan.md`.
     live station). The story stays at its circle: the rig at its spot as ever, wherever you stand (a person who goes in
     from across the room sees it there, small, and hears it faintly until they walk over). Nothing is written to the
     room but `look` (asking, Not now and the time running out write nothing).
-  - The station cards' tips say *Point here and press to go in* (the lobby: *Walk in, or press here, to leave your
-    story*; All stories: *to choose a story*), the menu's Stations line *Point at a circle and press to go in* (its note:
-    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
+  - The menu's Stations line says *Point at a circle and press to go in* (its note:
+    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle* (the station
+    cards said it in their tips until v137, which took the tips off them). Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
     shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
     it stands and how the fingertip presses it on a real headset is untested.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
@@ -2138,13 +2138,20 @@ The plan is `docs/shared-space-plan.md`.
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
-  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card (v136, the frame rate:
-  "even in the lobby with only the stations visible i could not reach 90fps") says no running clock (`stationLine(s,
-  true)`: *Playing* while its story plays, *Paused at 1:03* as it stopped; the page's Shared dialog keeps the time): it
-  was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every playing station, all in
-  one frame. A card whose content changed (`cardSig`: its story, line, people, light, carrying, lock, sync, the circles
-  asked first, its title) waits in a queue (`DIRTY`), and at most one card is drawn a frame, the one pointed at or
-  carried first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card says only what does not
+  change while its station stands (v137; the owner, 11 November 2026, of v136's cards: "remove everything that is updated
+  from these cards for now or only leave how many persons are in and only update if this number changes"; `cardText`):
+  its kicker and title (`stTitle`: a studio circle's scene, *Studio: <scene>*; an All stories circle its own title, never
+  the story picked there) and how many people are at it (*Nobody here*, *1 person here*, *3 people here*: the count
+  `whoAt` gives, pages and a camera among them, never their names). No play state, no names, no tips, nothing about
+  moving it or the locks; the page's Shared dialog keeps its own lines (the time, the names). Until v136 it said the
+  station's time and was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every
+  playing station, all in one frame; v136 said *Playing* or *Paused at 1:03* and still drew it again whenever it was
+  pointed at or carried. Its signature (`cardSig`) is that content alone (its look, kicker, title and count), so it is
+  drawn again only when its title or its count changes; pointed at or carried, its edge lights (`o.edge`: a band round the
+  card in the story's colour, a mesh shown and hidden, never pointable; nothing drawn or sent to the GPU). A card whose
+  content changed waits in a queue (`DIRTY`), and at most one card is drawn a frame (v136), the one pointed at or carried
+  first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
   `o.drawn` counts its drawings, for tests); mipmaps kept. Its back face (`o.back`, for reading it from behind) shows,
   and is pointable, only while there is no head pose and the card stands at its station's yaw; turned to you it would
   face away, a draw of nothing twice a frame for every card. Walking in still goes by where
@@ -2247,8 +2254,8 @@ The plan is `docs/shared-space-plan.md`.
     among the headsets that line up (`linedUp`, `othersIn`, the pages' guide list) or offered Follow (only kinds `ar` and
     `vr`); what a headset shows of its own (the welcome toast) guards on `cameraMode()`. The pages' people list and the
     headset menu's people rows say *camera (filming)* (never *here* or *elsewhere*), and the room map draws a small box
-    for it. A station card's *Here:* line names it *Camera*, as it names the pages at that circle: people can see a
-    camera films there.
+    for it. The page's Shared dialog names it *Camera* among the people at its circle, and a station card counts it among
+    them (v137: the cards give only a count, never names; until then their *Here:* line named it).
   - Taps on the camera image press nothing: the overlay root covers the screen and cancels every select
     (`beforexrselect`), and `ray()` takes a camera's rays as the shell's with nothing to press (a guard for a browser
     that does not honour it). Taps on the overlay's buttons are the overlay's. A double tap on the image (two within
@@ -2381,7 +2388,8 @@ The plan is `docs/shared-space-plan.md`.
     anyone unlocks them. While on, the grip on a station's ring or card, the
     room map's drag and turn, Arrange all, Add, Move here, Design room here
     and Remove are refused (`refused()`, `circlesLocked()`), a station being
-    carried stops where it was last sent, and the cards say so. It never
+    carried stops where it was last sent (the cards said so until v137, which took everything but their title and
+    count off them). It never
     locks a scene or a panel. A room from v96 locked then reads as circles
     locked only: its stories need locking once.
   - A story's lock (*Lock this story*; `lock` in `st.<id>.ui`, with its
@@ -5820,8 +5828,11 @@ asked; `#hz=72`; a session without the API asking nothing, the row greyed, logge
 Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
 with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
 floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
-distances never falling), no back face shown or pointable; every story's station playing: each card *Playing*, none
-drawn again or sent over 2.6 s; paused, *Paused at 1:03*. The menu on the Debug tab: the frame rate changed three times,
+distances never falling), each drawn once, saying its look, kicker, title and *Nobody here* (an All stories circle *All
+stories*), no back face or edge shown or pointable; (v137) every story's station playing for 2.6 s, then paused at 1:03,
+a card pointed at for a second (its edge lit, gone once it is not) and another carried by the grip (its edge lit, its
+ring larger, put down again): no card drawn again or sent to the GPU; someone walking into a circle drawing its card
+once more (*1 person here*) and no other, and out again once more (*Nobody here*). The menu on the Debug tab: the frame rate changed three times,
 its line (*... · the headset at 90 Hz*) drawn and sent alone (`texSubImage2D 652x30`), the whole menu never, the texture's
 version unchanged, the row read back from the GPU the canvas's and not the line before; someone walking between two
 circles drawing the Settings and Debug tabs not at all and Circles each time; the Debug tab's height printed (under 1500

@@ -293,7 +293,8 @@ asks the same way, and walking into it still takes you back to the lobby. For
 walking in instead, turn the circles to walk in (Circles: walk in, in the
 headset menu's Circles tab or the Shared dialog, for everyone in the room): then
 walk into a station's circle and after a second its story plays there; the
-others show as rings floating half a metre over the floor with a card over each.
+others show as rings floating half a metre over the floor with a card over each
+(its story and how many people are there; it lights up while you point at it).
 Above each circle a small turning model of its story in its colour lets you
 tell the circles apart from across the room. Away from every station no story shows, only the cards,
 the models (and with the circles walked into, the rings), the other people and

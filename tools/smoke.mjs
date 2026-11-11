@@ -9135,8 +9135,10 @@ if (!ONLY) {
 // in a page of its own: the refresh rate asked for as a session starts (90; the highest listed at or below the setting,
 // else the lowest), the Debug tab's Refresh rate row going round and asking again, kept across a reload, #hz=72, a
 // session without the API greyed; the read-out's words and colour by the target; in a room on this device with every
-// story's station and four more, the station cards: no running clock while they play, at most one card drawn (and sent
-// to the GPU) a frame, their back faces hidden while the head is known; the menu: the Debug tab's read-outs sent line by
+// story's station and four more, the station cards: their title and how many people are there only (v137), drawn once
+// each and again only when that count changes (never as their stories play or pause, as one is pointed at or carried:
+// its edge lights instead), at most one card drawn (and sent to the GPU) a frame, their back faces hidden while the head
+// is known; the menu: the Debug tab's read-outs sent line by
 // line (the whole menu not sent as the frame rate changes; the row on the GPU the canvas's), the people's stations in
 // the signature only on Circles; the Foveation and Resolution rows
 function FPS_FAKE() {
@@ -9315,51 +9317,94 @@ if (runs('frame rate')) {
   });
   // a room on this device with every story's station (Arrange all), the design room, the studio, All stories and Back to
   // the lobby; the headset lined up on its floor, in no circle
-  await step('frame rate: station cards: at most one card drawn and sent to the GPU a frame, the nearest first; no running clock while their stories play; back faces hidden while the head is known', async () => {
+  await step('frame rate: station cards: each drawn once, at most one a frame, the nearest first, saying only their title and how many people are there; playing, pausing, pointing at one and carrying it draw nothing (its edge lit instead); someone walking into a circle draws its card once more; back faces hidden while the head is known', async () => {
     const bad = [];
     await open('airports&s=LCL&peer=off');
     await fp.waitForFunction(() => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
     await fp.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('design', { x: -3.2, z: 1.0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 0, z: 0, yaw: 0 }); });
     await fp.waitForFunction(() => HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size, null, { timeout: 10000 });
-    // (each frame: how many cards were drawn in it; the uploads of the cards in view, three.js sending only what it draws)
-    await fp.evaluate(() => { const F = window.__fp; F.count = true; F.up = []; F.drawsPF = []; F.drawsAt = 0; F.order = []; F.seen = new Map();
+    // (each frame: how many cards were drawn in it; the uploads of the cards in view, three.js sending only what it draws;
+    // F.point: a station pointed at, as a controller's ray would (an index no controller has, so the story's rays leave it);
+    // F.walk: someone at a station, their presence kept fresh)
+    await fp.evaluate(() => { const F = window.__fp; F.count = true; F.up = []; F.drawsPF = []; F.drawsAt = 0; F.order = []; F.seen = new Map(); F.point = ''; F.walk = '';
       F.onFrame = () => {
-        const O = HOST.collab.overlay(), n = O && O.cards ? [...O.cards.values()].reduce((a, c) => a + (c.drawn || 0), 0) : 0; F.drawsPF.push(n - F.drawsAt); F.drawsAt = n;
+        const O = HOST.collab.overlay(), C = HOST.collab.internals(), n = O && O.cards ? [...O.cards.values()].reduce((a, c) => a + (c.drawn || 0), 0) : 0; F.drawsPF.push(n - F.drawsAt); F.drawsAt = n;
         if (O && O.cards) for (const [id, c] of O.cards) if ((c.drawn || 0) !== (F.seen.get(id) || 0)) { F.seen.set(id, c.drawn || 0); F.order.push(id); }
+        if (F.point) C.hov.set(7, { target: { kind: 'station', id: F.point }, at: performance.now() }); else C.hov.delete(7);
+        if (F.walk) C.pres.set('zz-walker', { id: 'zz-walker', st: F.walk, at: performance.now(), head: [0, 1.6, -2, 0, 0, 0, 1], hands: [] });
       }; });
     await start();
-    // every card that shows (the lobby's at your feet fades away) shown and drawn, one a frame, nearest first (each
+    // every card that shows (the lobby's at your feet fades away) shown and drawn once, one a frame, nearest first (each
     // drawn card in view uploaded in its own frame, never two in one)
     const shows = 'c => c.mesh.material.opacity > 0.02';
     const n = await fp.evaluate(s => window.__fp.runUntil(() => { const O = HOST.collab.overlay(), on = [...O.cards.values()].filter(eval(s)); return HOST.room.aligned && on.length > 15 && on.every(c => c.mesh.visible); }, 40000), shows);
+    await run(300);
     const c0 = await fp.evaluate(s => { const O = HOST.collab.overlay(), F = window.__fp, cards = F.up.map(u => u.filter(x => x === 'texImage2D 560x330').length), on = [...O.cards.values()].filter(eval(s));
       return { aligned: HOST.room.aligned, n: on.length, shown: on.filter(c => c.mesh.visible).length, most: Math.max(0, ...cards), frames: cards.length, total: cards.reduce((a, b) => a + b, 0), drawsMost: Math.max(0, ...F.drawsPF), drawsAll: F.drawsPF.reduce((a, b) => a + b, 0),
         backs: [...O.cards.values()].filter(c => c.back.visible).length, hitBacks: [...O.cards.values()].filter(c => O.hit.includes(c.back)).length, drawn: on.map(c => c.drawn || 0),
+        // (what each says: its kind or story, its kicker, its title, how many are there)
+        says: [...O.cards].filter(([id, c]) => c.sig).map(([id, c]) => { const st = HOST.collab.stations().find(x => x.id === id); return { id, kind: st.kind || '', story: st.story, on: eval(s)(c), sig: c.sig.split('|') }; }),
+        edges: [...O.cards.values()].filter(c => c.edge.visible).length, hitEdges: [...O.cards.values()].filter(c => O.hit.includes(c.edge)).length,
         // (how far from the head each card drawn first stood, in the order they were drawn: the nearest first)
         dist: F.order.map(id => { const s = HOST.collab.stations().find(x => x.id === id), h = HOST.room.internals().hr; return s ? +Math.hypot(s.x - h.x, s.z - h.z).toFixed(2) : -1; }) }; }, shows);
     if (!c0.aligned || c0.n < 16 || c0.shown !== c0.n) bad.push(`the cards did not all show in ${n} frames: ` + JSON.stringify(c0));
     if (c0.most > 1 || c0.drawsMost > 1 || c0.drawsAll < c0.n || !c0.total) bad.push(`${c0.drawsMost} cards were drawn and ${c0.most} sent to the GPU in one frame (${c0.drawsAll} drawn, ${c0.total} in view sent, in ${c0.frames} frames)`);
+    if (c0.drawn.some(d => d !== 1)) bad.push('the cards were drawn more than once each: ' + JSON.stringify(c0.drawn));
     if (c0.backs || c0.hitBacks) bad.push(`${c0.backs} back faces shown, ${c0.hitBacks} pointable, with the head known`);
+    if (c0.edges || c0.hitEdges) bad.push(`${c0.edges} edges lit with nothing pointed at, ${c0.hitEdges} pointable`);
     if (c0.dist.length < c0.n || c0.dist.some((d, k) => d < 0 || (k && d < c0.dist[k - 1] - 0.01))) bad.push('the cards were not drawn nearest first: ' + JSON.stringify(c0.dist));
-    // every story's station playing: each card says Playing (no clock), drawn again once, and not again while they play
-    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 3, playing: true, at: now }])); window.__fp.up = []; });
-    // (the stations' cards in turn, one a frame: until each says what its station does, however slowly frames come)
-    const lineIs = w => `() => HOST.collab.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').every(s => { const c = HOST.collab.overlay().cards.get(s.id); return !c || c.mesh.material.opacity <= 0.02 || c.sig.split('|')[1] === ${JSON.stringify(w)}; })`;
-    await run(20000, lineIs('Playing')); await run(300);
-    const d1 = await fp.evaluate(() => [...HOST.collab.overlay().cards.values()].map(c => c.drawn || 0));
-    await fp.evaluate(() => { window.__fp.up = []; });
+    // what they say: four parts (its look, kicker, title, Nobody here), an All stories circle its own title
+    const say = c0.says.filter(x => x.sig.length !== 4 || x.sig[3] !== 'Nobody here' || !x.sig[2] || (x.kind === 'all' && x.sig[2] !== 'All stories') || (!x.kind && x.sig[0] !== x.story));
+    if (say.length) bad.push('the cards say ' + JSON.stringify(say));
+    const story = c0.says.filter(x => x.on && !x.kind && x.story !== 'design' && x.story !== 'studio').map(x => x.id);
+    const drawnNow = () => fp.evaluate(() => Object.fromEntries([...HOST.collab.overlay().cards].map(([id, c]) => [id, c.drawn || 0])));
+    const sent = () => fp.evaluate(() => { const u = window.__fp.up.map(x => x.filter(y => y === 'texImage2D 560x330').length); window.__fp.up = []; return { sent: u.reduce((a, b) => a + b, 0), frames: u.length }; });
+    const same = (a, b) => Object.keys(a).filter(id => a[id] !== b[id]);
+    // every story's station playing, then paused at 1:03: no card drawn again or sent to the GPU
+    const d0 = await drawnNow(); await sent();
+    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 3, playing: true, at: now }])); });
     await run(2600);
-    const c1 = await fp.evaluate(() => { const O = HOST.collab.overlay(), st = HOST.collab.stations(), cards = window.__fp.up.map(u => u.filter(x => x === 'texImage2D 560x330').length);
-      return { lines: st.filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => (O.cards.get(s.id) || { sig: '' }).sig.split('|')[1]), drawn: [...O.cards.values()].map(c => c.drawn || 0), sent: cards.reduce((a, b) => a + b, 0), frames: cards.length, drawsMost: Math.max(0, ...window.__fp.drawsPF) }; });
-    if (c1.drawsMost > 1) bad.push(`${c1.drawsMost} cards were drawn in one frame as the stations started playing`);
-    if (!c1.lines.length || c1.lines.some(l => l !== 'Playing')) bad.push('the playing stations\' cards say ' + JSON.stringify([...new Set(c1.lines)]));
-    if (c1.drawn.join() !== d1.join() || c1.sent) bad.push(`while they play, cards were drawn again (${d1.reduce((a, b) => a + b, 0)} -> ${c1.drawn.reduce((a, b) => a + b, 0)}) and ${c1.sent} sent to the GPU in ${c1.frames} frames over 2.6 s`);
-    // paused: the time they stopped at, which does not change
+    const d1 = await drawnNow(), s1 = await sent();
+    if (same(d0, d1).length || s1.sent) bad.push(`while every story played, ${same(d0, d1).length} cards were drawn again and ${s1.sent} sent to the GPU in ${s1.frames} frames over 2.6 s`);
     await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 63, playing: false, at: now }])); });
-    await run(20000, lineIs('Paused at 1:03'));
-    const p1 = await fp.evaluate(() => [...new Set(HOST.collab.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => (HOST.collab.overlay().cards.get(s.id) || { sig: '' }).sig.split('|')[1]))]);
-    if (p1.join() !== 'Paused at 1:03') bad.push('paused, the cards say ' + JSON.stringify(p1));
-    await fp.evaluate(() => { window.__fp.onFrame = null; });
+    await run(1500);
+    const d2 = await drawnNow(), s2 = await sent();
+    if (same(d1, d2).length || s2.sent) bad.push(`paused, ${same(d1, d2).length} cards were drawn again and ${s2.sent} sent to the GPU`);
+    // pointed at: its edge lit, the card not drawn again; let go, the edge goes
+    const pid = story[0];
+    await fp.evaluate(id => { window.__fp.point = id; }, pid);
+    await run(1000);
+    const pt = await fp.evaluate(id => { const c = HOST.collab.overlay().cards.get(id); return { edge: c.edge.visible, op: +c.edge.material.opacity.toFixed(2), hover: c.hover, others: [...HOST.collab.overlay().cards].filter(([k, x]) => k !== id && x.edge.visible).length }; }, pid);
+    await fp.evaluate(() => { window.__fp.point = ''; });
+    await run(500);
+    const ptOff = await fp.evaluate(id => HOST.collab.overlay().cards.get(id).edge.visible, pid);
+    const d3 = await drawnNow(), s3 = await sent();
+    if (!pt.edge || pt.op < 0.5 || !pt.hover || pt.others || ptOff) bad.push('pointed at, its edge: ' + JSON.stringify(pt) + ', let go ' + ptOff);
+    if (same(d2, d3).length || s3.sent) bad.push(`pointing at a card drew ${same(d2, d3).length} cards again and sent ${s3.sent} to the GPU`);
+    // carried by the grip (the right controller's squeezestart while it points at the card, its grip held): its edge lit,
+    // the station moving, no card drawn again; put down, the edge goes
+    const cid = story[1];
+    const st0 = await fp.evaluate(id => { const s = HOST.collab.stations().find(x => x.id === id); return [s.x, s.z]; }, cid);
+    await fp.evaluate(id => { const F = window.__fp, src = F.session.inputSources[0]; HOST.collab.internals().hov.set(0, { target: { kind: 'station', id }, at: performance.now() }); src.gamepad.buttons[1].pressed = true; src.gamepad.buttons[1].value = 1;
+      F.session.dispatchEvent(Object.assign(new Event('squeezestart'), { inputSource: src })); }, cid);
+    await run(800);
+    const cr = await fp.evaluate(id => { const O = HOST.collab.overlay(), c = O.cards.get(id); return { edge: c.edge.visible, held: O.rings.get(id).g.scale.x > 1.1, grab: window.__collabLog.some(e => e.ev === 'station grab' && e.st === id) }; }, cid);
+    await fp.evaluate(() => { const F = window.__fp, src = F.session.inputSources[0]; src.gamepad.buttons[1].pressed = false; src.gamepad.buttons[1].value = 0; F.session.dispatchEvent(Object.assign(new Event('squeezeend'), { inputSource: src })); });
+    await run(500);
+    const crOff = await fp.evaluate(id => { const O = HOST.collab.overlay(); return { edge: O.cards.get(id).edge.visible, held: O.rings.get(id).g.scale.x > 1.1, put: window.__collabLog.some(e => e.ev === 'station put' && e.st === id) }; }, cid);
+    const d4 = await drawnNow(), s4 = await sent();
+    if (!cr.edge || !cr.held || !cr.grab || crOff.edge || crOff.held || !crOff.put) bad.push('carried, its edge: ' + JSON.stringify(cr) + ', put down: ' + JSON.stringify(crOff) + ' (it stood at ' + st0 + ')');
+    if (same(d3, d4).length || s4.sent) bad.push(`carrying a station drew ${same(d3, d4).length} cards again and sent ${s4.sent} to the GPU`);
+    // someone walks into a circle: its card drawn once more (1 person here), no other; out again, once more (Nobody here)
+    await fp.evaluate(id => { const C = HOST.collab.internals(); if (!C.members.some(m => m.id === 'zz-walker')) C.members.push({ id: 'zz-walker', name: 'Walker', color: '#ff8a65', kind: 'vr', here: true }); window.__fp.walk = id; }, pid);
+    await run(4000, `() => HOST.collab.overlay().cards.get(${JSON.stringify(pid)}).sig.split('|')[3] === '1 person here'`); await run(800);
+    const w1 = await fp.evaluate(id => HOST.collab.overlay().cards.get(id).sig.split('|')[3], pid), d5 = await drawnNow(), s5 = await sent();
+    if (w1 !== '1 person here' || JSON.stringify(same(d4, d5)) !== JSON.stringify([pid]) || d5[pid] !== d4[pid] + 1 || s5.sent > 1) bad.push(`someone walked into a circle: its card says ${w1}, drawn ${d5[pid] - d4[pid]} times more, ${same(d4, d5).length} cards drawn again, ${s5.sent} sent to the GPU`);
+    await fp.evaluate(() => { const C = HOST.collab.internals(); window.__fp.walk = ''; C.pres.delete('zz-walker'); C.members = C.members.filter(m => m.id !== 'zz-walker'); });
+    await run(4000, `() => HOST.collab.overlay().cards.get(${JSON.stringify(pid)}).sig.split('|')[3] === 'Nobody here'`); await run(500);
+    const d6 = await drawnNow();
+    if (JSON.stringify(same(d5, d6)) !== JSON.stringify([pid]) || d6[pid] !== d5[pid] + 1) bad.push(`they walked out: ${same(d5, d6).length} cards drawn again (${d6[pid] - d5[pid]} times its own)`);
+    await fp.evaluate(() => { window.__fp.onFrame = null; HOST.collab.internals().hov.delete(7); });
     await end();
     if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
   });
