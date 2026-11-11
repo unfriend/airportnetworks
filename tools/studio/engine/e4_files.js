@@ -11,6 +11,7 @@ const HP0 = new URLSearchParams(location.hash.slice(1));
 const okFolder = s => { s = String(s || '').trim().replace(/\/+$/, ''); return s && s.length < 200 && !/^\//.test(s) && !/\/\//.test(s) && !/(^|\/)\.\.(\/|$)/.test(s) && !/[:\\?#%]/.test(s) ? s : ''; };
 const OPT = {
   visit: HP0.has('visit'), edit: HP0.has('edit'), scene: HP0.get('scene') || '', scenes: okFolder(HP0.get('scenes')),
+  examples: okFolder(HP0.get('examples')) || 'examples',   // (the scenes that ship with the app, v137: e7g_examples.js)
   maxtex: clamp(Math.round(+HP0.get('maxtex') || 4096), 512, 8192),
 };
 const okScene = s => typeof s === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(s);
@@ -137,6 +138,7 @@ async function findSource() {
   unlater(SRC.retry); SRC.retry = 0;
   SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false; SRC.held = false;
   dirty();
+  exLoad();   // (the examples that ship with the app, once: e7g_examples.js)
   let r = null;
   if (!OPT.scenes) {
     try { r = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : await ownRelay(); } catch (e) { r = null; }

@@ -1,0 +1,9 @@
+{
+  "name": "tiny",
+  "files": [
+    {"path":"models/box.glb","bytes":3208,"at":1794436466181,"kind":"model"},
+    {"path":"sounds/tone.wav","bytes":26504,"at":1794436466181,"kind":"audio"}
+  ],
+  "layoutAt": 1794436466187,
+  "save": false
+}

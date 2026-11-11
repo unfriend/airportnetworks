@@ -36,8 +36,8 @@
 // drawn by the pipeline (those without a behaviour where they stand). A person's behaviour keeps a move along the floor
 // (tx, tz) and a turn about the vertical through its placed middle (d) from its placed pose, so it holds whatever the
 // room does to the record (the samples carry these three); an item's keeps a whole pose.
-const BEH_KINDS = ['look', 'follow', 'avoid', 'item'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
-const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side', 'face'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed', 'face'] };
+const BEH_KINDS = ['look', 'follow', 'avoid', 'item', 'wall'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
+const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side', 'face'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed', 'face'], wall: ['at', 'who', 'range', 'speed', 'gap'] };
 // where Follow keeps it (v127; the owner, 9 November 2026: "follow mode should also be able to be behind someone", "should
 // be able to just walk behind them and left right sounds good too"): in front of them, turned to them (the default, kept
 // as no side at all, as before v127); behind them or at their left or right, facing the way they look (it walks with them)
@@ -58,15 +58,31 @@ const BEH_NUM = {
   dist: { d: 1, min: 0.2, max: 10, steps: [0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10] },
   speed: { d: 0.6, min: 0.05, max: 5, steps: [0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1, 1.5, 2, 3, 4, 5] },
   area: { d: 2, min: 0.2, max: 20, steps: [0.2, 0.5, 1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20] },
+  gap: { d: 0.03, min: 0, max: 0.5, steps: [0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5] },   // (on a wall, v137: e6o_walls.js)
 };
 const BEH_DIST = { follow: 1, avoid: 1.5 };   // (a distance's default by kind: in front of them, away from them)
-const BEH_WORD = { look: 'Look at', follow: 'Follow', avoid: 'Keep away', item: 'Follow an item' };
-const BEH_DOES = { look: 'looks at people', follow: 'follows people', avoid: 'keeps away', item: 'follows an item' };
+const BEH_WORD = { look: 'Look at', follow: 'Follow', avoid: 'Keep away', item: 'Follow an item', wall: 'On a wall' };
+const BEH_DOES = { look: 'looks at people', follow: 'follows people', avoid: 'keeps away', item: 'follows an item', wall: 'on a wall' };
 // a behaviour as a record keeps it (null: bad, which makes the record bad). Its kind is required, and an item's target (an
 // id); the rest take their defaults when left out; fields its kind does not use are dropped
 function normBehaviour(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x) || !BEH_KINDS.includes(x.kind)) return null;
   const r = { kind: x.kind };
+  // on a wall (v137, e6o_walls.js): where (at, 'direction' when left out), and only for a person who, range and speed;
+  // its gap from the wall written only when not the default
+  if (x.kind === 'wall') {
+    const at = x.at === undefined ? 'direction' : x.at;
+    if (!WALL_AT.includes(at)) return null;
+    r.at = at;
+    const num = k => { const N = BEH_NUM[k], v = x[k]; if (v !== undefined && !fin(v)) return null; return clamp(r2(v !== undefined ? v : N.d), N.min, N.max); };
+    if (at === 'person') {
+      if (x.who !== undefined && !BEH_WHO.includes(x.who)) return null;
+      r.who = x.who !== undefined ? x.who : 'nearest'; r.range = num('range'); r.speed = num('speed');
+      if (r.range === null || r.speed === null) return null;
+    }
+    if (x.gap !== undefined) { const g = num('gap'); if (g === null) return null; if (g !== BEH_NUM.gap.d) r.gap = g; }
+    return r;
+  }
   for (const k of BEH_FIELDS[x.kind]) {
     const v = x[k], has = v !== undefined;
     if (k === 'who') { if (has && !BEH_WHO.includes(v)) return null; r.who = has ? v : 'nearest'; }
@@ -208,7 +224,7 @@ function behWant(it, b, B, h, M0) {
   }
   return { tx, tz, d: 0 };
 }
-const behReset = B => { B.tx = B.tz = B.d = 0; B.p = null; B.src = ''; B.on = false; };
+const behReset = B => { B.tx = B.tz = B.d = B.ty = 0; B.p = null; B.src = ''; B.on = false; };
 // (driving here stopped: its last sample says so, so the others go home, or to whoever drives it next, at once)
 function behStop(id, B) { if (!B.drive) return; B.drive = false; BEH.ends.add(id); }
 
@@ -224,7 +240,7 @@ function behaveStep(dt, pn) {
   POSE.base = TRK.any ? poseBase : items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
     const it = STU.items.get(id), b = it && it.rec.behaviour;
-    if (!b || b.kind !== B.kind) { behStop(id, B); BEH.st.delete(id); }
+    if (!b || b.kind !== B.kind || (b.at || '') !== (B.at || '')) { behStop(id, B); BEH.st.delete(id); }
   }
   for (const id of BEH.heard.keys()) if (!STU.items.has(id)) BEH.heard.delete(id);   // (samples of items gone: another scene)
   // (in a room or not: the times are the relay's or this page's, so who came when starts again)
@@ -244,12 +260,13 @@ function behaveStep(dt, pn) {
 function behOne(it, hs, me, T, pn, dt) {
   const b = it.rec.behaviour;
   let B = BEH.st.get(it.id);
-  if (!B) BEH.st.set(it.id, (B = { kind: b.kind, tx: 0, tz: 0, d: 0, p: null, q: null, s: null, who: '', inAt: new Map(), drive: false, since: 0, src: '', age: 0, on: false, n: 0 }));
+  if (!B) BEH.st.set(it.id, (B = { kind: b.kind, at: b.at || '', tx: 0, tz: 0, ty: 0, d: 0, p: null, q: null, s: null, who: '', inAt: new Map(), drive: false, since: 0, src: '', age: 0, on: false, n: 0 }));
   // resting (held here, or paused): at its placed pose, driving no more; not drawn last frame: from there
   if (motionRests(it)) { behStop(it.id, B); behReset(B); B.n = BEH.n; return; }
   if (B.n !== BEH.n - 1) behReset(B);
   B.n = BEH.n;
   if (b.kind === 'item') { behItem(it, b, B, dt); behLog(it, B, T); return; }
+  if (b.kind === 'wall') { wallOne(it, b, B, hs, dt); behLog(it, B, T); return; }   // (on this device's own walls, nothing sent: e6o_walls.js)
   const M0 = behHome(it, _beM), Mc = _beM2.set(M0.x + B.tx, M0.y, M0.z + B.tz);
   // a driver's claim heard: who it reacts to, as the driver says (its arrival too); one that beats this device's stops it
   const w = behWinner(it.id, b, pn), mine = { by: me, since: B.drive ? B.since : b.who === 'first' ? (B.inAt.has(me) ? B.inAt.get(me) : T) : T };
@@ -327,7 +344,7 @@ function behaveBase(it, now, clockS, out) {
   out.compose(H.position, H.quaternion, H.scale);
   const M = motionMiddle(it, out, _beM2);
   _beR.makeRotationY(B.d);
-  out.premultiply(_beT.makeTranslation(-M.x, -M.y, -M.z)).premultiply(_beR).premultiply(_beT.makeTranslation(M.x + B.tx, M.y, M.z + B.tz));
+  out.premultiply(_beT.makeTranslation(-M.x, -M.y, -M.z)).premultiply(_beR).premultiply(_beT.makeTranslation(M.x + B.tx, M.y + (B.ty || 0), M.z + B.tz));   // (ty: on a wall, its height)
   return true;
 }
 // about ten times a second at a station: where this device put each item it drives ([id, tx, tz, d, since], and once
@@ -376,7 +393,7 @@ function behaveInfo(id) {
   const it = STU.items.get(id), B = BEH.st.get(id);
   if (!it || !it.rec.behaviour) return null;
   const H = BEH.heard.get(id);
-  return { kind: it.rec.behaviour.kind, who: B ? B.who : '', drive: !!(B && B.drive), src: B ? B.src : '', t: B ? [r3(B.tx), r3(B.tz)] : [0, 0], d: B ? r3(B.d) : 0, on: !!(B && B.on), since: B ? B.since : 0,
+  return { kind: it.rec.behaviour.kind, who: B ? B.who : '', drive: !!(B && B.drive), src: B ? B.src : '', t: B ? [r3(B.tx), r3(B.tz)] : [0, 0], ty: B ? r3(B.ty || 0) : 0, wall: B && B.wall !== undefined ? B.wall : -1, d: B ? r3(B.d) : 0, on: !!(B && B.on), since: B ? B.since : 0,
     p: B && B.p ? B.p.toArray().map(r3) : null, inAt: B ? Object.fromEntries(B.inAt) : {}, heard: H ? [...H.keys()] : [], base: POSE.base === behaveBase || POSE.base === poseBase, me: behMe() };
 }
 
@@ -387,7 +404,8 @@ function behaveBlocks(it, B, dis) {
   const b = it.rec.behaviour, picking = STU.follow === it.id;
   B.push({ label: 'Behaviour', row: [{ id: 'beh:none', label: 'None', act: 'i:beh', v: 'none', on: !b && !picking, dis }]
     .concat(BEH_PEOPLE.map(k => ({ id: 'beh:' + k, label: BEH_WORD[k], act: 'i:beh', v: k, on: !!b && b.kind === k, dis })),
-      { id: 'beh:item', label: picking ? 'Cancel' : b && b.kind === 'item' ? 'Follow another item...' : 'Follow an item...', act: 'i:bpick', on: picking || (!!b && b.kind === 'item'), dis }) });
+      { id: 'beh:item', label: picking ? 'Cancel' : b && b.kind === 'item' ? 'Follow another item...' : 'Follow an item...', act: 'i:bpick', on: picking || (!!b && b.kind === 'item'), dis },
+      { id: 'beh:wall', label: BEH_WORD.wall, act: 'i:beh', v: 'wall', on: !!b && b.kind === 'wall', dis }) });
   if (picking) {
     const can = [...STU.items.values()].filter(x => MOTION_ITEMS.includes(x.kind) && x !== it);
     B.push({ p: (XR.on ? 'Point at an object, a shape or an empty and pull the trigger' : 'Click an object, a shape or an empty, or pick it here') + ': it follows that one, keeping the offset they are placed at.', c: 'amber' },
@@ -395,12 +413,13 @@ function behaveBlocks(it, B, dis) {
         : { p: 'Nothing else is placed here to follow.', c: 'faint' });
   }
   if (!b) {
-    if (!picking) B.push({ p: 'It can react to the people here: Look at turns it to face them, Follow brings it along, Keep away keeps it at a distance; or it can follow another item. Drawn over where it stands: its place is not changed.', c: 'faint' });
+    if (!picking) B.push({ p: 'It can react to the people here: Look at turns it to face them, Follow brings it along, Keep away keeps it at a distance; or it can follow another item, or stand on a wall of the room. Drawn over where it stands: its place is not changed.', c: 'faint' });
     return;
   }
   const num = (k, words, less, more) => ({ label: words + ': ' + (k === 'speed' ? b.speed + ' m/s' : metres(b[k])), row: [{ id: 'b' + k + ':-', label: less, act: 'i:bnum', v: k + ':-1', dis }, { id: 'b' + k + ':+', label: more, act: 'i:bnum', v: k + ':1', dis }] });
   // (Faces, v128: to them or the way they look; to the item or as placed)
   const fc = behFaceOf(b), faces = (them, along) => ({ label: 'Faces', row: [{ id: 'bface:them', label: them, act: 'i:bface', v: 'them', on: fc === 'them', dis }, { id: 'bface:along', label: along, act: 'i:bface', v: 'along', on: fc === 'along', dis }] });
+  if (b.kind === 'wall') { wallBlocks(it, b, B, dis, num); return; }   // (on a wall: e6o_walls.js)
   if (b.kind === 'item') {
     const T = STU.items.get(b.target);
     B.push({ kv: [['Follows', T ? T.rec.name : 'an item that is not here (it stays where it is placed)']] }, faces('The item', 'As placed'), num('speed', 'Moves at most', 'Slower', 'Faster'),
@@ -429,6 +448,7 @@ Object.assign(ITEM_ACT, {
     if (!MOTION_ITEMS.includes(it.kind)) return;
     if (STU.follow === it.id) STU.follow = '';
     const b = it.rec.behaviour;
+    if (v === 'wall') { if (!b || b.kind !== 'wall') setRec(it.id, { behaviour: { kind: 'wall', at: 'direction' } }); return; }   // (on a wall: e6o_walls.js)
     if (!BEH_PEOPLE.includes(v)) { if (b) setRec(it.id, { behaviour: undefined }); return; }
     if (b && b.kind === v) return;
     setRec(it.id, { behaviour: { kind: v, who: b && b.who, range: b && b.range, speed: b && b.speed, area: b && b.area } });
@@ -453,7 +473,9 @@ Object.assign(ITEM_ACT, {
     if (!BEH_FACE.includes(v) || !b || !BEH_FIELDS[b.kind].includes('face') || !MOTION_ITEMS.includes(it.kind) || b.face === v) return;
     setRec(it.id, { behaviour: Object.assign({}, b, { face: v }) });
   },
-  bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => (b[k] !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, b[k], +d) } : {})); },
+  bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => { const cur = k === 'gap' && b.kind === 'wall' && b.gap === undefined ? BEH_NUM.gap.d : b[k]; return cur !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, cur, +d) } : {}; }); },   // (a wall's gap: its default when not written)
+  // on a wall: which wall (e6o_walls.js; a person's who, range and speed come with 'person' and go with the others)
+  bwall: (it, v) => { const b = it.rec.behaviour; if (WALL_AT.includes(v) && b && b.kind === 'wall' && b.at !== v) setRec(it.id, { behaviour: { kind: 'wall', at: v, gap: b.gap } }); },
 });
 PANE_ONLY.push('bpick');
 // (the scene's pointer while an item picks what it follows: pressItem hands a click or the trigger to ITEM_ACT.follow, a

@@ -16836,6 +16836,7 @@ const HP0 = new URLSearchParams(location.hash.slice(1));
 const okFolder = s => { s = String(s || '').trim().replace(/\/+$/, ''); return s && s.length < 200 && !/^\//.test(s) && !/\/\//.test(s) && !/(^|\/)\.\.(\/|$)/.test(s) && !/[:\\?#%]/.test(s) ? s : ''; };
 const OPT = {
   visit: HP0.has('visit'), edit: HP0.has('edit'), scene: HP0.get('scene') || '', scenes: okFolder(HP0.get('scenes')),
+  examples: okFolder(HP0.get('examples')) || 'examples',   // (the scenes that ship with the app, v137: e7g_examples.js)
   maxtex: clamp(Math.round(+HP0.get('maxtex') || 4096), 512, 8192),
 };
 const okScene = s => typeof s === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(s);
@@ -16962,6 +16963,7 @@ async function findSource() {
   unlater(SRC.retry); SRC.retry = 0;
   SRC.state = 'looking'; SRC.note = ''; SRC.noScenes = false; SRC.held = false;
   dirty();
+  exLoad();   // (the examples that ship with the app, once: e7g_examples.js)
   let r = null;
   if (!OPT.scenes) {
     try { r = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : await ownRelay(); } catch (e) { r = null; }
@@ -20281,7 +20283,7 @@ function norm(kind, x) {
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'c') {
     const sz = has('size') ? vecOf(x.size, 3, 1000) : [1.2, 2, 1.2];
@@ -20296,6 +20298,9 @@ function norm(kind, x) {
     // what it starts as you walk in or out, kept only when there is something (an entry that is not one dropped, at most
     // 16: e6n_plays.js); not a list (and not null) makes the record bad
     if (x.plays != null) { const t = Array.isArray(x.plays) ? normPlays(x.plays) : null; if (!t) return null; if (t.length) r.plays = t; }
+    // works for everyone here (v137), kept only when set: true; absent, false or null: each person's own; anything else
+    // makes it bad
+    if (x.all === true) r.all = true; else if (x.all != null && x.all !== false) r.all = null;
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -20325,7 +20330,7 @@ function norm(kind, x) {
       if (has('len')) r.len = r3(Math.min(600, Math.max(0.001, x.len)));
     }
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'x') {
     // a cut-out: the object it cuts (on, required), and its middle, turn and size in that object's frame, turned but not
@@ -20348,7 +20353,7 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'e') {
     // an empty: a point and a full turn (and a motion: a sound following it moves with it)
@@ -20359,9 +20364,15 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   return null;
+}
+// in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
+// null: both; anything else makes it bad (shownHere)
+function showsOf(x, r) {
+  if (x.shows === 'ar' || x.shows === 'vr') r.shows = x.shows; else if (x.shows != null) r.shows = null;
+  return r;
 }
 // a record's lock, kept only when set (locked: true; absent, false or null: not locked; anything else makes it bad), last
 // of its fields; and the record itself checked (null when a field was bad)
@@ -20383,6 +20394,8 @@ const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-out
 const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
+// (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
+const SHOWS_KINDS = ['o', 's', 'p', 'e'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -20670,12 +20683,20 @@ function sceneClock(now) {
 }
 
 // --------------------------------------------------------- trigger cubes --
-// Each person's own (never shared): a cube is active for you while your head is inside it (the headset's head; on a
-// page the camera in Walk view; nobody in Orbit view); a 'stay' cube, once entered, until the scene opens again or
+// Each person's own by default (never shared): a cube is active for you while your head is inside it (the headset's head;
+// on a page the camera in Walk view; nobody in Orbit view); a 'stay' cube, once entered, until the scene opens again or
 // Reset what I have seen. For an item: the active cubes that list it in show (S) and in hide (H): shown if S has any and
 // H none, hidden if H has any and S none, both: the one entered last decides (a 'stay' cube walked into again counts as
 // entered again: the owner's show and hide pair of stay cubes works every time); neither: hidden if any cube shows it
-// (it waits for its cube), else shown
+// (it waits for its cube), else shown.
+// A cube that works for everyone here (all: true, v137; the owner, 11 November 2026: "it should also be possible to have a
+// cube that triggers things for everyone in the same studio scene") is active for every device at the station while any
+// person's head is inside it (the heads the behaviours react to: behHeads, people in a headset at its circle, this device's
+// own; outside a room this device's own head), a 'stay' one from the first time any head was inside (each device's memory,
+// cleared as Reset what I have seen and the lobby clear it). Everything it does follows it (show, hide, its pictures, what
+// it starts). Its entering and leaving are taken in the room's time from the heads' samples (h.ts), so every device puts
+// them at the same room moment (c.inT, c.outT: on this device's clock for what a cube starts, e6n_plays.js), and "entered
+// last" is decided alike everywhere: by the entry time (the room's), then by the cube's id
 const _hp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
@@ -20688,25 +20709,55 @@ function inCube(r, p) {
   const dx = p.x - r.p[0], dz = p.z - r.p[2], c = Math.cos(r.yaw), s = Math.sin(r.yaw);
   return Math.abs(c * dx - s * dz) <= r.size[0] / 2 && Math.abs(p.y - r.p[1]) <= r.size[1] / 2 && Math.abs(s * dx + c * dz) <= r.size[2] / 2;
 }
-const LISTS = { rev: -1, shown: new Set() };
+// which session this device is in for an item's shows (v137): 'ar' (passthrough), 'vr' (a headset's VR, and a page, which
+// shows what VR shows); STU.sess pretends one (tests)
+const sessKind = () => STU.sess || (XR.on && !XR.clear ? 'ar' : 'vr');
+// shown in this session (its record's shows: 'ar' only in AR, 'vr' only in VR and on a page; absent both)
+const shownHere = it => !it.rec || !it.rec.shows || it.rec.shows === sessKind();
+// the later of two entries (a cube's: { since, id }): by the entry time, then the id, the same on every device
+const enteredLater = (a, b) => !b || a.since > b.since || (a.since === b.since && a.id > b.id);
+const LISTS = { rev: -1, shown: new Set(), all: false };
 function triggerStep(now) {
   const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
-  if (LISTS.rev !== STU.rev) { LISTS.rev = STU.rev; LISTS.shown = new Set(); for (const c of STU.items.values()) if (c.kind === 'c') for (const i of c.rec.show) LISTS.shown.add(i); }
+  if (LISTS.rev !== STU.rev) {
+    LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
+    for (const c of STU.items.values()) if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; }
+  }
+  // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
+  // ts - off; the heads only while a cube works for everyone)
+  const Tr = behNow(), off = Tr - trgClock(), hs = LISTS.all && !away ? behHeads(Tr) : null, sess = sessKind();
   for (const c of STU.items.values()) {
     if (c.kind !== 'c') continue;
-    c.inside = !!hp && inCube(c.rec, hp);
+    let inside, at = Tr;
+    if (c.rec.all) {
+      // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of
+      // those inside before; a head gone from the list left now)
+      const ins = hs ? hs.filter(h => inCube(c.rec, h.p)) : [], was = c.allIn || new Map(), now = new Map(ins.map(h => [h.id, h.ts]));
+      inside = ins.length > 0;
+      if (inside && !c.wasIn) at = Math.min(...ins.map(h => h.ts));
+      else if (!inside && c.wasIn) { at = 0; for (const id of was.keys()) { const h = hs && hs.find(x => x.id === id); at = Math.max(at, h ? h.ts : Tr); } }
+      c.allIn = now;
+    } else { inside = !!hp && inCube(c.rec, hp); c.allIn = null; }
+    c.inside = inside;
+    if (inside && !c.wasIn) c.inT = at - off;
+    else if (!inside && c.wasIn) c.outT = at - off;
     if (c.inside && c.rec.mode === 'stay') STU.seen.add(c.id);
     const act = c.inside || (c.rec.mode === 'stay' && STU.seen.has(c.id));
-    if ((act && !c.act) || (c.inside && !c.wasIn)) c.since = ++STU.act;   // (entered, also again while it stays active)
+    // (entered, also again while it stays active: each person's own at this device's moment, kept after the last so that
+    // two entered one after the other keep their order; everyone's at its room moment)
+    if ((act && !c.act) || (c.inside && !c.wasIn)) { c.since = c.rec.all ? at : Math.max(Tr, STU.act + 1e-3); STU.act = Math.max(STU.act, c.since); }
     c.act = act; c.wasIn = c.inside;
     if (!act) continue;
-    for (const i of c.rec.show) S.set(i, Math.max(S.get(i) || 0, c.since));
-    for (const i of c.rec.hide) H.set(i, Math.max(H.get(i) || 0, c.since));
+    for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
+    for (const i of c.rec.hide) if (enteredLater(c, H.get(i))) H.set(i, c);
   }
   for (const it of STU.items.values()) {
     if (it.kind === 'c' || it.kind === 'g') continue;
-    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back)
-    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = !away && (s || h ? s >= h : !LISTS.shown.has(it.id));
+    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back; an
+    // item only for the other kind of session, v137: not shown here, it.notHere)
+    const s = S.get(it.id), h = H.get(it.id);
+    it.notHere = !!(it.rec.shows && it.rec.shows !== sess);
+    const shown = !away && !it.notHere && (s || h ? (s && h ? s === h || enteredLater(s, h) : !!s) : !LISTS.shown.has(it.id));
     if (MOTION_ITEMS.includes(it.kind) && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }   // (an animation's and a motion's start when shown)
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
@@ -20721,13 +20772,15 @@ function triggerStep(now) {
   }
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
+// why an item is hidden, in a tag's words: only for the other kind of session (v137), or a cube hides it from you
+const hidWord = it => (it.notHere ? (it.rec.shows === 'ar' ? ' · AR only' : ' · VR only') : ' · hidden');
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
 function shownFor(p) {
   STU.head = p ? p.slice(0, 3) : null;
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
-function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
+function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = false; c.allIn = null; } dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -20947,7 +21000,7 @@ function greyStep(it) {
   g.group.position.copy(it.holder.position);
   const st = STU.listing !== 'ok' ? (STU.listing === 'missing' ? 'not on this device' : 'waiting') : !E || E.state === 'idle' ? (STU.fileMap.has(it.rec.file) ? 'waiting' : 'not in the scene\'s folder')
     : E.state === 'loading' ? `loading ${Math.round(E.p * 100)} %` : E.state === 'parsing' ? 'reading' : E.state === 'failed' ? 'cannot be read' : E.state === 'missing' ? 'not in the scene\'s folder' : '';
-  g.name.userData.set(tagName(it.rec) + triWords(trisNow(it)) + (st ? ': ' + st : '') + (it.hid ? ' · hidden' : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
+  g.name.userData.set(tagName(it.rec) + triWords(trisNow(it)) + (st ? ': ' + st : '') + (it.hid ? hidWord(it) : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
 }
 // the triangles in words for a tag (none: no count)
 const triWords = n => (n > 0 ? ' · ' + kTris(n) + ' ▲' : '');
@@ -20968,8 +21021,8 @@ function modelTag(it, editing) {
   const on = editing && !!it.model && it.holder.visible && STU.hover !== it.id && STU.sel !== it.id;
   if (!on) { if (it.tag) it.tag.visible = false; return; }
   if (!it.tag) { it.tag = LOOKS.tag(30); GL.edit.add(it.tag); }
-  const n = trisNow(it), h = !it.shown;
-  if (it.tagR !== it.rec || it.tagN !== n || it.tagH !== h) { it.tagR = it.rec; it.tagN = n; it.tagH = h; it.tag.userData.set(tagName(it.rec) + triWords(n) + (h ? ' · hidden' : ''), h ? '#6c7d94' : '#9fb0c4', 0.075); }
+  const n = trisNow(it), h = !it.shown, hw = h ? hidWord(it) : '';
+  if (it.tagR !== it.rec || it.tagN !== n || it.tagH !== hw) { it.tagR = it.rec; it.tagN = n; it.tagH = hw; it.tag.userData.set(tagName(it.rec) + triWords(n) + hw, h ? '#6c7d94' : '#9fb0c4', 0.075); }
   it.tag.visible = true;
   itemTopInto(it, it.tag.position, false); it.tag.position.y += 0.04;
 }
@@ -21517,6 +21570,10 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
+  // who a cube works for (v137): each person's own (no field), or everyone here (all: true)
+  all: (it, v) => { if (it.kind === 'c' && (v === 'all') !== !!it.rec.all) setRec(it.id, { all: v === 'all' ? true : undefined }); },
+  // in which sessions an item shows (v137): AR and VR (no field), only AR, only VR
+  shows: (it, v) => { const w = v === 'ar' || v === 'vr' ? v : undefined; if (SHOWS_KINDS.includes(it.kind) && w !== it.rec.shows) setRec(it.id, { shows: w }); },
   pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
@@ -22301,8 +22358,8 @@ function shapeStep(it, editing) {
   L.look({ a: it.a, hid: it.hid, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
   L.deco.visible = editing && H.visible;
   if (!L.deco.visible) return;
-  const h = !it.shown;
-  if (it.tagR !== r || it.tagH !== h) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + triWords(L.tris()) + (r.look === 'hide' ? ' · hides things' : '') + (h ? ' · hidden' : ''), L.col, 0.075); }
+  const h = it.shown ? '' : hidWord(it);   // (" · hidden", or " · AR only" / " · VR only": v137)
+  if (it.tagR !== r || it.tagH !== h) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + triWords(L.tris()) + (r.look === 'hide' ? ' · hides things' : '') + h, L.col, 0.075); }
   decoAt(H, L.deco);   // (where it is drawn: a motion; e6e_motion.js)
   const sz = H.scale, b = shapeBox(it, _shb);
   L.name.position.set(0, b.max.y - L.deco.position.y + 0.04, 0).applyQuaternion(_shi.copy(L.deco.quaternion).invert());   // (over it, whichever way it is turned)
@@ -23457,8 +23514,8 @@ PANE_ONLY.push('recFloor');
 // drawn by the pipeline (those without a behaviour where they stand). A person's behaviour keeps a move along the floor
 // (tx, tz) and a turn about the vertical through its placed middle (d) from its placed pose, so it holds whatever the
 // room does to the record (the samples carry these three); an item's keeps a whole pose.
-const BEH_KINDS = ['look', 'follow', 'avoid', 'item'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
-const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side', 'face'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed', 'face'] };
+const BEH_KINDS = ['look', 'follow', 'avoid', 'item', 'wall'], BEH_WHO = ['nearest', 'first'], BEH_PEOPLE = ['look', 'follow', 'avoid'];
+const BEH_FIELDS = { look: ['who', 'range'], follow: ['who', 'range', 'dist', 'speed', 'side', 'face'], avoid: ['who', 'range', 'dist', 'speed', 'area'], item: ['target', 'speed', 'face'], wall: ['at', 'who', 'range', 'speed', 'gap'] };
 // where Follow keeps it (v127; the owner, 9 November 2026: "follow mode should also be able to be behind someone", "should
 // be able to just walk behind them and left right sounds good too"): in front of them, turned to them (the default, kept
 // as no side at all, as before v127); behind them or at their left or right, facing the way they look (it walks with them)
@@ -23479,15 +23536,31 @@ const BEH_NUM = {
   dist: { d: 1, min: 0.2, max: 10, steps: [0.2, 0.3, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 5, 7, 10] },
   speed: { d: 0.6, min: 0.05, max: 5, steps: [0.05, 0.1, 0.2, 0.3, 0.45, 0.6, 0.8, 1, 1.5, 2, 3, 4, 5] },
   area: { d: 2, min: 0.2, max: 20, steps: [0.2, 0.5, 1, 1.5, 2, 3, 4, 5, 7, 10, 15, 20] },
+  gap: { d: 0.03, min: 0, max: 0.5, steps: [0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5] },   // (on a wall, v137: e6o_walls.js)
 };
 const BEH_DIST = { follow: 1, avoid: 1.5 };   // (a distance's default by kind: in front of them, away from them)
-const BEH_WORD = { look: 'Look at', follow: 'Follow', avoid: 'Keep away', item: 'Follow an item' };
-const BEH_DOES = { look: 'looks at people', follow: 'follows people', avoid: 'keeps away', item: 'follows an item' };
+const BEH_WORD = { look: 'Look at', follow: 'Follow', avoid: 'Keep away', item: 'Follow an item', wall: 'On a wall' };
+const BEH_DOES = { look: 'looks at people', follow: 'follows people', avoid: 'keeps away', item: 'follows an item', wall: 'on a wall' };
 // a behaviour as a record keeps it (null: bad, which makes the record bad). Its kind is required, and an item's target (an
 // id); the rest take their defaults when left out; fields its kind does not use are dropped
 function normBehaviour(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x) || !BEH_KINDS.includes(x.kind)) return null;
   const r = { kind: x.kind };
+  // on a wall (v137, e6o_walls.js): where (at, 'direction' when left out), and only for a person who, range and speed;
+  // its gap from the wall written only when not the default
+  if (x.kind === 'wall') {
+    const at = x.at === undefined ? 'direction' : x.at;
+    if (!WALL_AT.includes(at)) return null;
+    r.at = at;
+    const num = k => { const N = BEH_NUM[k], v = x[k]; if (v !== undefined && !fin(v)) return null; return clamp(r2(v !== undefined ? v : N.d), N.min, N.max); };
+    if (at === 'person') {
+      if (x.who !== undefined && !BEH_WHO.includes(x.who)) return null;
+      r.who = x.who !== undefined ? x.who : 'nearest'; r.range = num('range'); r.speed = num('speed');
+      if (r.range === null || r.speed === null) return null;
+    }
+    if (x.gap !== undefined) { const g = num('gap'); if (g === null) return null; if (g !== BEH_NUM.gap.d) r.gap = g; }
+    return r;
+  }
   for (const k of BEH_FIELDS[x.kind]) {
     const v = x[k], has = v !== undefined;
     if (k === 'who') { if (has && !BEH_WHO.includes(v)) return null; r.who = has ? v : 'nearest'; }
@@ -23629,7 +23702,7 @@ function behWant(it, b, B, h, M0) {
   }
   return { tx, tz, d: 0 };
 }
-const behReset = B => { B.tx = B.tz = B.d = 0; B.p = null; B.src = ''; B.on = false; };
+const behReset = B => { B.tx = B.tz = B.d = B.ty = 0; B.p = null; B.src = ''; B.on = false; };
 // (driving here stopped: its last sample says so, so the others go home, or to whoever drives it next, at once)
 function behStop(id, B) { if (!B.drive) return; B.drive = false; BEH.ends.add(id); }
 
@@ -23645,7 +23718,7 @@ function behaveStep(dt, pn) {
   POSE.base = TRK.any ? poseBase : items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
     const it = STU.items.get(id), b = it && it.rec.behaviour;
-    if (!b || b.kind !== B.kind) { behStop(id, B); BEH.st.delete(id); }
+    if (!b || b.kind !== B.kind || (b.at || '') !== (B.at || '')) { behStop(id, B); BEH.st.delete(id); }
   }
   for (const id of BEH.heard.keys()) if (!STU.items.has(id)) BEH.heard.delete(id);   // (samples of items gone: another scene)
   // (in a room or not: the times are the relay's or this page's, so who came when starts again)
@@ -23665,12 +23738,13 @@ function behaveStep(dt, pn) {
 function behOne(it, hs, me, T, pn, dt) {
   const b = it.rec.behaviour;
   let B = BEH.st.get(it.id);
-  if (!B) BEH.st.set(it.id, (B = { kind: b.kind, tx: 0, tz: 0, d: 0, p: null, q: null, s: null, who: '', inAt: new Map(), drive: false, since: 0, src: '', age: 0, on: false, n: 0 }));
+  if (!B) BEH.st.set(it.id, (B = { kind: b.kind, at: b.at || '', tx: 0, tz: 0, ty: 0, d: 0, p: null, q: null, s: null, who: '', inAt: new Map(), drive: false, since: 0, src: '', age: 0, on: false, n: 0 }));
   // resting (held here, or paused): at its placed pose, driving no more; not drawn last frame: from there
   if (motionRests(it)) { behStop(it.id, B); behReset(B); B.n = BEH.n; return; }
   if (B.n !== BEH.n - 1) behReset(B);
   B.n = BEH.n;
   if (b.kind === 'item') { behItem(it, b, B, dt); behLog(it, B, T); return; }
+  if (b.kind === 'wall') { wallOne(it, b, B, hs, dt); behLog(it, B, T); return; }   // (on this device's own walls, nothing sent: e6o_walls.js)
   const M0 = behHome(it, _beM), Mc = _beM2.set(M0.x + B.tx, M0.y, M0.z + B.tz);
   // a driver's claim heard: who it reacts to, as the driver says (its arrival too); one that beats this device's stops it
   const w = behWinner(it.id, b, pn), mine = { by: me, since: B.drive ? B.since : b.who === 'first' ? (B.inAt.has(me) ? B.inAt.get(me) : T) : T };
@@ -23748,7 +23822,7 @@ function behaveBase(it, now, clockS, out) {
   out.compose(H.position, H.quaternion, H.scale);
   const M = motionMiddle(it, out, _beM2);
   _beR.makeRotationY(B.d);
-  out.premultiply(_beT.makeTranslation(-M.x, -M.y, -M.z)).premultiply(_beR).premultiply(_beT.makeTranslation(M.x + B.tx, M.y, M.z + B.tz));
+  out.premultiply(_beT.makeTranslation(-M.x, -M.y, -M.z)).premultiply(_beR).premultiply(_beT.makeTranslation(M.x + B.tx, M.y + (B.ty || 0), M.z + B.tz));   // (ty: on a wall, its height)
   return true;
 }
 // about ten times a second at a station: where this device put each item it drives ([id, tx, tz, d, since], and once
@@ -23797,7 +23871,7 @@ function behaveInfo(id) {
   const it = STU.items.get(id), B = BEH.st.get(id);
   if (!it || !it.rec.behaviour) return null;
   const H = BEH.heard.get(id);
-  return { kind: it.rec.behaviour.kind, who: B ? B.who : '', drive: !!(B && B.drive), src: B ? B.src : '', t: B ? [r3(B.tx), r3(B.tz)] : [0, 0], d: B ? r3(B.d) : 0, on: !!(B && B.on), since: B ? B.since : 0,
+  return { kind: it.rec.behaviour.kind, who: B ? B.who : '', drive: !!(B && B.drive), src: B ? B.src : '', t: B ? [r3(B.tx), r3(B.tz)] : [0, 0], ty: B ? r3(B.ty || 0) : 0, wall: B && B.wall !== undefined ? B.wall : -1, d: B ? r3(B.d) : 0, on: !!(B && B.on), since: B ? B.since : 0,
     p: B && B.p ? B.p.toArray().map(r3) : null, inAt: B ? Object.fromEntries(B.inAt) : {}, heard: H ? [...H.keys()] : [], base: POSE.base === behaveBase || POSE.base === poseBase, me: behMe() };
 }
 
@@ -23808,7 +23882,8 @@ function behaveBlocks(it, B, dis) {
   const b = it.rec.behaviour, picking = STU.follow === it.id;
   B.push({ label: 'Behaviour', row: [{ id: 'beh:none', label: 'None', act: 'i:beh', v: 'none', on: !b && !picking, dis }]
     .concat(BEH_PEOPLE.map(k => ({ id: 'beh:' + k, label: BEH_WORD[k], act: 'i:beh', v: k, on: !!b && b.kind === k, dis })),
-      { id: 'beh:item', label: picking ? 'Cancel' : b && b.kind === 'item' ? 'Follow another item...' : 'Follow an item...', act: 'i:bpick', on: picking || (!!b && b.kind === 'item'), dis }) });
+      { id: 'beh:item', label: picking ? 'Cancel' : b && b.kind === 'item' ? 'Follow another item...' : 'Follow an item...', act: 'i:bpick', on: picking || (!!b && b.kind === 'item'), dis },
+      { id: 'beh:wall', label: BEH_WORD.wall, act: 'i:beh', v: 'wall', on: !!b && b.kind === 'wall', dis }) });
   if (picking) {
     const can = [...STU.items.values()].filter(x => MOTION_ITEMS.includes(x.kind) && x !== it);
     B.push({ p: (XR.on ? 'Point at an object, a shape or an empty and pull the trigger' : 'Click an object, a shape or an empty, or pick it here') + ': it follows that one, keeping the offset they are placed at.', c: 'amber' },
@@ -23816,12 +23891,13 @@ function behaveBlocks(it, B, dis) {
         : { p: 'Nothing else is placed here to follow.', c: 'faint' });
   }
   if (!b) {
-    if (!picking) B.push({ p: 'It can react to the people here: Look at turns it to face them, Follow brings it along, Keep away keeps it at a distance; or it can follow another item. Drawn over where it stands: its place is not changed.', c: 'faint' });
+    if (!picking) B.push({ p: 'It can react to the people here: Look at turns it to face them, Follow brings it along, Keep away keeps it at a distance; or it can follow another item, or stand on a wall of the room. Drawn over where it stands: its place is not changed.', c: 'faint' });
     return;
   }
   const num = (k, words, less, more) => ({ label: words + ': ' + (k === 'speed' ? b.speed + ' m/s' : metres(b[k])), row: [{ id: 'b' + k + ':-', label: less, act: 'i:bnum', v: k + ':-1', dis }, { id: 'b' + k + ':+', label: more, act: 'i:bnum', v: k + ':1', dis }] });
   // (Faces, v128: to them or the way they look; to the item or as placed)
   const fc = behFaceOf(b), faces = (them, along) => ({ label: 'Faces', row: [{ id: 'bface:them', label: them, act: 'i:bface', v: 'them', on: fc === 'them', dis }, { id: 'bface:along', label: along, act: 'i:bface', v: 'along', on: fc === 'along', dis }] });
+  if (b.kind === 'wall') { wallBlocks(it, b, B, dis, num); return; }   // (on a wall: e6o_walls.js)
   if (b.kind === 'item') {
     const T = STU.items.get(b.target);
     B.push({ kv: [['Follows', T ? T.rec.name : 'an item that is not here (it stays where it is placed)']] }, faces('The item', 'As placed'), num('speed', 'Moves at most', 'Slower', 'Faster'),
@@ -23850,6 +23926,7 @@ Object.assign(ITEM_ACT, {
     if (!MOTION_ITEMS.includes(it.kind)) return;
     if (STU.follow === it.id) STU.follow = '';
     const b = it.rec.behaviour;
+    if (v === 'wall') { if (!b || b.kind !== 'wall') setRec(it.id, { behaviour: { kind: 'wall', at: 'direction' } }); return; }   // (on a wall: e6o_walls.js)
     if (!BEH_PEOPLE.includes(v)) { if (b) setRec(it.id, { behaviour: undefined }); return; }
     if (b && b.kind === v) return;
     setRec(it.id, { behaviour: { kind: v, who: b && b.who, range: b && b.range, speed: b && b.speed, area: b && b.area } });
@@ -23874,7 +23951,9 @@ Object.assign(ITEM_ACT, {
     if (!BEH_FACE.includes(v) || !b || !BEH_FIELDS[b.kind].includes('face') || !MOTION_ITEMS.includes(it.kind) || b.face === v) return;
     setRec(it.id, { behaviour: Object.assign({}, b, { face: v }) });
   },
-  bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => (b[k] !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, b[k], +d) } : {})); },
+  bnum: (it, v) => { const [k, d] = String(v).split(':'); if (BEH_NUM[k]) behSet(it, b => { const cur = k === 'gap' && b.kind === 'wall' && b.gap === undefined ? BEH_NUM.gap.d : b[k]; return cur !== undefined ? { [k]: stepOf(BEH_NUM[k].steps, cur, +d) } : {}; }); },   // (a wall's gap: its default when not written)
+  // on a wall: which wall (e6o_walls.js; a person's who, range and speed come with 'person' and go with the others)
+  bwall: (it, v) => { const b = it.rec.behaviour; if (WALL_AT.includes(v) && b && b.kind === 'wall' && b.at !== v) setRec(it.id, { behaviour: { kind: 'wall', at: v, gap: b.gap } }); },
 });
 PANE_ONLY.push('bpick');
 // (the scene's pointer while an item picks what it follows: pressItem hands a click or the trigger to ITEM_ACT.follow, a
@@ -24183,7 +24262,7 @@ function texStep() {
       let m = want.get(e.on);
       if (!m) want.set(e.on, (m = new Map()));
       const k = e.mat + '|' + e.slot, w = m.get(k);
-      if (!w || c.since > w.since) m.set(k, { e, since: c.since });
+      if (!w || enteredLater(c, w)) m.set(k, { e, since: c.since, id: c.id });   // (ties by the cube's id, alike everywhere)
     }
   }
   for (const it of STU.items.values()) {
@@ -24323,7 +24402,7 @@ function texCubeBlocks(c, B, dis) {
       if (['roughnessMap', 'metalnessMap'].includes(P.slot) && !ctTargets(o, m).some(x => x.mat.isMeshStandardMaterial)) B.push({ p: 'Its material shows no roughness or metalness here (a GLB\'s does: Convert to GLB first).', c: 'faint' });
     }
   }
-  B.push({ p: 'While you are in the cube, its pictures are shown on those objects in place of their own, for you only (as everything a cube does); they go back as you leave it (a cube that stays keeps them). As scanned shows only a Colour picture.', c: 'faint' });
+  B.push({ p: 'While you are in the cube, its pictures are shown on those objects in place of their own, for you only (as everything a cube does; for everyone here when it works for everyone); they go back as you leave it (a cube that stays keeps them). As scanned shows only a Colour picture.', c: 'faint' });
 }
 Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
@@ -25627,16 +25706,19 @@ function trgFire() {
   const T = trgClock();
   let left = false;
   for (const c of TRG.cubes) {
-    const P = c.pl || (c.pl = { in: false, out: -1, lt: 0, act: false, enter: false, leave: false });
+    const P = c.pl || (c.pl = { in: false, out: -1, lt: 0, at: 0, act: false, enter: false, leave: false });
     P.enter = P.leave = false;
+    // (when it went in and out: now for each person's cube; an everyone cube's at the room moment its heads' samples say,
+    // on this clock, triggerStep's c.inT and c.outT, so every device starts a run at the same room moment)
+    const tin = c.rec.all && fin(c.inT) ? Math.min(T, c.inT) : T, tout = c.rec.all && fin(c.outT) ? Math.min(T, c.outT) : T;
     if (c.inside) {
       // (out long enough with no frame between, and in again: it left, then came in)
-      if (P.in && P.out >= 0 && T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+      if (P.in && P.out >= 0 && tin - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
       P.out = -1;
-      if (!P.in) P.in = P.enter = true;
+      if (!P.in) { P.in = P.enter = true; P.at = tin; }
     } else if (P.in) {
-      if (P.out < 0) P.out = T;
-      else if (T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+      if (P.out < 0) P.out = tout;
+      if (T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
     }
     if (P.leave) left = true;
     P.act = c.rec.mode === 'stay' ? !!c.act : P.in;
@@ -25646,7 +25728,7 @@ function trgFire() {
     if (x.e.when === 'leave') { if (!TRG.seen.has(x.ek)) TRG.seen.set(x.ek, 1); continue; }
     const P = x.c.pl, fresh = !TRG.seen.has(x.ek);
     if (fresh) TRG.seen.set(x.ek, 1);
-    if (P.enter || (fresh && P.act)) trgStart(x, T, false);
+    if (P.enter || (fresh && P.act)) trgStart(x, P.enter ? P.at : T, false);
   }
   for (const t of TRG.on) {
     if (STU.items.get(t.id) !== t) { TRG.on.delete(t); continue; }
@@ -25943,7 +26025,7 @@ function playCopy(from, to) {
 // ------------------------------------------------------------ the cube's card --
 // Starts: each entry (a press flashes its item in blue; Try plays it here now; ✕ takes it off, one Undo step), and Start
 // something...: an item (pointed at, or from the card's list), what to start on it, how and when; Add (one Undo step)
-const PLAY_PARA = 'What a cube starts is for you only, as everything a cube does. The last thing started on an item decides. A sound, a path or a motion a cube starts waits until then; an object\'s own animation goes on until a cube plays a clip on it (Animation Off keeps it still).';
+const PLAY_PARA = 'What a cube starts is for you only, as everything a cube does (a cube that works for everyone here starts it for everyone at this circle at once). The last thing started on an item decides. A sound, a path or a motion a cube starts waits until then; an object\'s own animation goes on until a cube plays a clip on it (Animation Off keeps it still).';
 function playCubeBlocks(c, B, dis) {
   const L = c.rec.plays || [], P = STU.plp && STU.plp.id === c.id ? STU.plp : null, full = L.length >= PLAY_MAX;
   const cands = [...STU.items.values()].filter(t => t.id !== c.id && PLAY_ITEMS.includes(t.kind)), any = cands.some(t => playOpts(t).some(o => !o.dis));
@@ -25951,7 +26033,7 @@ function playCubeBlocks(c, B, dis) {
   L.forEach((e, k) => {
     const on = playing(c, e), why = playWhy(e);
     B.push({ label: k ? '' : `Starts (${L.length})`, row: [
-      { id: `plflash:${k}`, label: playWords(e, c) + (on ? ' · playing for you' : ''), act: 'i:plFlash', v: e.on, on },
+      { id: `plflash:${k}`, label: playWords(e, c) + (on ? (c.rec.all ? ' · playing' : ' · playing for you') : ''), act: 'i:plFlash', v: e.on, on },
       { id: `pltry:${k}`, label: on && e.how !== 'stop' ? 'Stop' : 'Try', act: 'i:plTry', v: k, dis: dis || !!why },
       { id: `unplay:${k}`, label: '✕', act: 'i:unplay', v: k, dis }] });
     if (why) B.push({ p: why, c: 'amber' });
@@ -26051,6 +26133,207 @@ function playState(id) {
     out.item = { tgM: it.tgM || 0, tr, layers: it.tl ? it.tl.map(y => [y.R.e.clip, +y.w.toFixed(3), +y.t.toFixed(3), !!y.fadeAt]) : [], pw: it.pw || 0, tg: it.tg == null ? null : it.tg, trgLog: it.trgLog || null };
   }
   return out;
+}
+// ================================================================ ON WALLS ==
+// Things on the room's walls (v137; the owner, 11 November 2026, of a room built as a studio scene: its elements
+// "dynamisch auf detected walls", "losgelöst und auf raum gemappt", and "it may need to be reactive and react to user
+// movements, where the user goes, instead of a static variant"; tools/studio/SPEC.md, "Things on walls"). An object's, a
+// shape's or an empty's behaviour may be of the kind 'wall':
+// - { kind: 'wall', at: 'direction' }: on the first wall a ray meets from the walls' middle along its placed direction
+//   from the scene's origin (its placed middle's x and z; at the origin -z);
+// - { kind: 'wall', at: 'nearest' }: on the point of the walls nearest its placed middle, along the floor;
+// - { kind: 'wall', at: 'person', who, range, speed }: on the point of the walls nearest the person it reacts to (chosen as
+//   Follow and Look at choose, alike on every device from the heads: behChoose), moving along there at most speed m/s;
+//   with nobody, back to its 'direction' place;
+// each with gap (m, 0 to 0.5, 0.03 by default, written only when not the default).
+// There its back is against the wall (its middle the gap plus its own depth behind its middle off the wall), its height its
+// placed middle's held within the wall's bottom and top where it fits, its front (+z as placed) facing out of the wall into
+// the room, its placed tilt kept. It eases there (about 0.4 s) when the walls change, never jumping each frame.
+// The walls are this device's own: in an AR session whose frame has detectedPlanes (plane-detection on), every vertical
+// plane (its orientation 'vertical', or labelled a wall; not a door) taken into the scene's frame as a segment along the
+// floor (its polygon's extent), its bottom and top and its normal turned towards the walls' middle (the middle of their
+// box along the floor); read when the planes change and at most twice a second (once a second besides: a recentre moves
+// the scene), as the robots read theirs. Nothing is sent and nothing stored but the record: the same record maps onto each
+// headset's own room. No walls (VR, a page, no room scan yet): it stays where it is placed. It is a base stage of the pose
+// pipeline as the other behaviours are (behaveBase), so a path and a motion draw over it, the record never changes, and it
+// rests at its placed pose while held here or paused (its ghost there while editing).
+const WALL_AT = ['direction', 'nearest', 'person'];
+const WALL_AT_WORD = { direction: 'In its direction', nearest: 'Nearest', person: 'Follows the person' };
+const WALL_EASE = 0.15;   // (the easing's time constant, s: there in about 0.4 s)
+// list: [{ a: [x, z], b: [x, z], y0, y1, n: [nx, nz] }] in the scene's frame; mid: the walls' middle; src: 'xr', 'fake' or
+// ''; seen: the planes and their change times last frame (a change reads them again); t: when they were read last
+const WALLS = { list: [], mid: [0, 0], src: '', seen: [], ns: 0, dirty: false, t: 0, n: 0, fake: null };
+const _wlm = new THREE.Matrix4(), _wli = new THREE.Matrix4(), _wlv = new THREE.Vector3(), _wlq = new THREE.Quaternion(), _wls = new THREE.Vector3(1, 1, 1);
+const wallSem = o => { try { return String(o.semanticLabel || '').toLowerCase(); } catch (e) { return ''; } };
+// a session feature on? (an older browser does not say: try it, and catch)
+function wallFeature(f) {
+  const ef = XR.session && XR.session.enabledFeatures;
+  if (!ef) return true;
+  try { return Array.from(ef).indexOf(f) >= 0; } catch (e) { return true; }
+}
+// walls given as [{ a, b, y0, y1 }] (or null: none), each a segment and its height, their normals and middle worked out
+function wallsSet(list, src) {
+  const L = [];
+  for (const w of Array.isArray(list) ? list : []) {
+    if (!w || !Array.isArray(w.a) || !Array.isArray(w.b) || ![w.a[0], w.a[1], w.b[0], w.b[1], w.y0, w.y1].every(fin)) continue;
+    if (Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) < 0.2 || w.y1 <= w.y0) continue;
+    L.push({ a: [w.a[0], w.a[1]], b: [w.b[0], w.b[1]], y0: w.y0, y1: w.y1, n: [0, 0] });
+  }
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const w of L) for (const p of [w.a, w.b]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const mx = L.length ? (x0 + x1) / 2 : 0, mz = L.length ? (z0 + z1) / 2 : 0;
+  for (const w of L) {
+    // (its normal along the floor, turned towards the walls' middle)
+    const dx = w.b[0] - w.a[0], dz = w.b[1] - w.a[1], l = Math.hypot(dx, dz);
+    let nx = -dz / l, nz = dx / l;
+    if ((mx - (w.a[0] + w.b[0]) / 2) * nx + (mz - (w.a[1] + w.b[1]) / 2) * nz < 0) { nx = -nx; nz = -nz; }
+    w.n = [nx, nz];
+  }
+  const sig = JSON.stringify(L.map(w => [w.a, w.b, w.y0, w.y1].flat().map(v => Math.round(v * 1000))));
+  if (sig !== WALLS.sig) WALLS.n++;   // (the walls changed: how many times, for tests)
+  WALLS.sig = sig; WALLS.list = L; WALLS.mid = [mx, mz]; WALLS.src = L.length ? src : '';
+}
+// pretend walls (tests): [{ a: [x, z], b: [x, z], y0, y1 }] in the scene's frame; null gives the headset's own back
+function wallsFake(list) {
+  WALLS.fake = list ? list : null;
+  wallsSet(list || [], list ? 'fake' : '');
+  return wallsInfo();
+}
+// each frame of an AR session (xrBegin, with the frame and the renderer's reference space): the vertical planes into
+// the scene's frame, when they changed and at most twice a second (once a second besides); none outside AR
+function wallsXR(frame, ref) {
+  if (WALLS.fake) return;
+  if (!XR.on || XR.clear || !frame || !ref || !wallFeature('plane-detection')) { if (WALLS.src === 'xr') wallsSet([], ''); return; }
+  let planes = null;
+  try { planes = frame.detectedPlanes; } catch (e) { planes = null; }   // (Chromium throws when the feature is off)
+  if (!planes || typeof planes.forEach !== 'function') return;
+  const S = WALLS.seen;
+  WALLS.ns = 0;
+  planes.forEach(pl => {
+    const k = WALLS.ns, t = pl.lastChangedTime || 0;
+    if (S[k] !== pl || S[k + 1] !== t) { S[k] = pl; S[k + 1] = t; WALLS.dirty = true; }
+    WALLS.ns = k + 2;
+  });
+  if (S.length !== WALLS.ns) { S.length = WALLS.ns; WALLS.dirty = true; }
+  const now = performance.now();
+  if (!(WALLS.dirty || now - WALLS.t > 1000) || now - WALLS.t < 500) return;
+  WALLS.dirty = false; WALLS.t = now;
+  GL.world.updateMatrixWorld(true);
+  _wli.copy(GL.world.matrixWorld).invert();
+  const out = [];
+  planes.forEach(pl => {
+    const lab = wallSem(pl);
+    let vert = false, poly = null, pose = null;
+    try { vert = pl.orientation === 'vertical' || lab === 'wall'; poly = pl.polygon; pose = frame.getPose(pl.planeSpace, ref); } catch (e) { return; }
+    if (!vert || lab === 'door' || !poly || poly.length < 2 || !pose) return;
+    const P = pose.transform.position, Q = pose.transform.orientation;
+    _wlm.compose(_wlv.set(P.x, P.y, P.z), _wlq.set(Q.x, Q.y, Q.z, Q.w), _wls).premultiply(_wli);
+    // (its normal is its space's +y; the segment between its polygon's two extreme points along the wall)
+    const n = _wlv.set(0, 1, 0).transformDirection(_wlm), ux = n.z, uz = -n.x, ul = Math.hypot(ux, uz);
+    if (ul < 0.5) return;   // (a wall leaning more than 60 degrees: not one)
+    const pts = Array.from(poly, p => new THREE.Vector3(p.x, p.y, p.z).applyMatrix4(_wlm));
+    let cx = 0, cz = 0, s0 = Infinity, s1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of pts) { cx += p.x / pts.length; cz += p.z / pts.length; y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    for (const p of pts) { const s = ((p.x - cx) * ux + (p.z - cz) * uz) / ul; s0 = Math.min(s0, s); s1 = Math.max(s1, s); }
+    out.push({ a: [cx + ux / ul * s0, cz + uz / ul * s0], b: [cx + ux / ul * s1, cz + uz / ul * s1], y0, y1 });
+  });
+  wallsSet(out, 'xr');
+}
+// the point of segment w nearest (x, z), and how far
+function wallNear(w, x, z) {
+  const dx = w.b[0] - w.a[0], dz = w.b[1] - w.a[1], u = clamp(((x - w.a[0]) * dx + (z - w.a[1]) * dz) / (dx * dx + dz * dz), 0, 1);
+  const px = w.a[0] + dx * u, pz = w.a[1] + dz * u;
+  return { w, x: px, z: pz, d: Math.hypot(px - x, pz - z) };
+}
+// the walls' point nearest (x, z): { w, x, z, d }, or null with no walls
+function wallsNearest(x, z) {
+  let best = null;
+  for (const w of WALLS.list) { const h = wallNear(w, x, z); if (!best || h.d < best.d - 1e-9) best = h; }
+  return best;
+}
+// the first wall a ray from the walls' middle along (dx, dz) meets ({ w, x, z }), else the walls' point nearest where it
+// points from there (an open side)
+function wallsAlong(dx, dz) {
+  const [cx, cz] = WALLS.mid, l = Math.hypot(dx, dz);
+  if (l < 1e-6) { dx = 0; dz = -1; } else { dx /= l; dz /= l; }
+  let best = null;
+  for (const w of WALLS.list) {
+    const ex = w.b[0] - w.a[0], ez = w.b[1] - w.a[1], den = dx * ez - dz * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const ax = w.a[0] - cx, az = w.a[1] - cz, t = (ax * ez - az * ex) / den, u = (ax * dz - az * dx) / den;
+    if (t > 1e-6 && u >= -1e-9 && u <= 1 + 1e-9 && (!best || t < best.t)) best = { w, x: cx + dx * t, z: cz + dz * t, t };
+  }
+  return best || wallsNearest(cx + dx * 50, cz + dz * 50);
+}
+// how it stands at its placed pose: its middle (into M), its front's turn about the vertical (yaw), how far its back is
+// behind its middle along its front (back) and its half height (hh), from its own box (an object's model's, a shape's
+// unit box, an empty's point), so turned about the vertical its back meets the wall
+const _wbc = new THREE.Vector3(), _wbh = new THREE.Vector3(), _wbm = new THREE.Matrix4(), _wbv = new THREE.Vector3(), _wbf = new THREE.Vector3();
+function wallStand(it, M) {
+  const H = it.holder, Mp = _wbm.compose(H.position, H.quaternion, H.scale);
+  if (it.kind === 'o' && it.model) { _wbc.copy(it.proxy.position); _wbh.copy(it.proxy.scale).multiplyScalar(0.5); }
+  else if (it.kind === 'p') { _wbc.set(0, 0, 0); _wbh.set(0.5, 0.5, it.rec.shape === 'plane' ? 0 : 0.5); }
+  else { _wbc.set(0, 0, 0); _wbh.set(0, 0, 0); }
+  M.copy(_wbc).applyMatrix4(Mp);
+  _wbf.set(0, 0, 1).transformDirection(Mp);
+  const fl = Math.hypot(_wbf.x, _wbf.z), fx = fl > 1e-3 ? _wbf.x / fl : 0, fz = fl > 1e-3 ? _wbf.z / fl : 1;
+  let back = 0, hh = 0;
+  for (let k = 0; k < 8; k++) {
+    _wbv.set(_wbc.x + (k & 1 ? 1 : -1) * _wbh.x, _wbc.y + (k & 2 ? 1 : -1) * _wbh.y, _wbc.z + (k & 4 ? 1 : -1) * _wbh.z).applyMatrix4(Mp).sub(M);
+    back = Math.max(back, -(_wbv.x * fx + _wbv.z * fz)); hh = Math.max(hh, Math.abs(_wbv.y));
+  }
+  return { yaw: Math.atan2(fx, fz), back, hh };
+}
+// where it wants to be on the wall hit h ({ w, x, z }): a move (tx, ty, tz) of its middle and a turn d about the vertical
+// through it, from its placed pose
+function wallWant(b, h, M0, st) {
+  const w = h.w, g = b.gap === undefined ? BEH_NUM.gap.d : b.gap, off = g + st.back;
+  const lo = w.y0 + st.hh, hi = w.y1 - st.hh, y = hi >= lo ? clamp(M0.y, lo, hi) : lo;   // (too tall for it: standing on its bottom)
+  return { tx: h.x + w.n[0] * off - M0.x, ty: y - M0.y, tz: h.z + w.n[1] * off - M0.z, d: wrapA(Math.atan2(w.n[0], w.n[1]) - st.yaw), w: WALLS.list.indexOf(w) };
+}
+// each frame (behOne): where it is on the walls now, eased there (a person's: along there at most its speed)
+const _wM0 = new THREE.Vector3();
+function wallOne(it, b, B, hs, dt) {
+  const st = wallStand(it, _wM0), M0 = _wM0;
+  let v = null, cap = Infinity;
+  B.who = '';
+  if (WALLS.list.length) {
+    if (b.at === 'person') {
+      const who = behChoose(b, B, hs, _beM2.set(M0.x + (B.tx || 0), M0.y, M0.z + (B.tz || 0))), hd = who ? hs.find(x => x.id === who) : null;
+      B.who = who;
+      if (hd) { v = wallWant(b, wallsNearest(hd.p.x, hd.p.z), M0, st); cap = b.speed * dt; }
+    }
+    if (!v) v = wallWant(b, b.at === 'nearest' ? wallsNearest(M0.x, M0.z) : wallsAlong(M0.x, M0.z), M0, st);
+  }
+  if (!v) v = { tx: 0, ty: 0, tz: 0, d: 0, w: -1 };
+  // (eased: about 0.4 s; along the floor at most its speed while it follows a person)
+  const k = dt > 0 ? 1 - Math.exp(-dt / WALL_EASE) : 0, ex = v.tx - B.tx, ez = v.tz - B.tz, e = Math.hypot(ex, ez);
+  if (e < 1e-4) { B.tx = v.tx; B.tz = v.tz; } else { const s = Math.min(cap, e * k); B.tx += ex / e * s; B.tz += ez / e * s; }
+  B.ty = Math.abs(v.ty - B.ty) < 1e-4 ? v.ty : B.ty + (v.ty - B.ty) * k;
+  const ed = wrapA(v.d - B.d);
+  B.d = Math.abs(ed) < 1e-4 ? wrapA(v.d) : wrapA(B.d + ed * k);
+  B.wall = v.w; B.src = v.w >= 0 ? 'wall' : 'home';
+  B.on = Math.hypot(B.tx, B.ty, B.tz) > 1e-4 || Math.abs(B.d) > 1e-4;
+}
+// for tests and the console (STUDIO.walls): the walls here, their middle and where they come from
+function wallsInfo() {
+  return { src: WALLS.src, n: WALLS.n, mid: WALLS.mid.map(r3), list: WALLS.list.map(w => ({ a: w.a.map(r3), b: w.b.map(r3), y0: r3(w.y0), y1: r3(w.y1), n: w.n.map(r3) })) };
+}
+// the card's rows for one on a wall (behaveBlocks, page and headset alike): which wall, its gap, and for a person who it
+// reacts to, how far and how fast; a line on the walls this device has now
+function wallBlocks(it, b, B, dis, num) {
+  const g = b.gap === undefined ? BEH_NUM.gap.d : b.gap, n = WALLS.list.length, st = BEH.st.get(it.id);
+  B.push({ label: 'Which wall', row: WALL_AT.map(k => ({ id: 'bwall:' + k, label: WALL_AT_WORD[k], act: 'i:bwall', v: k, on: b.at === k, dis })) },
+    { label: 'Gap from the wall: ' + (g ? cmOrM(g) : 'none'), row: [{ id: 'bgap:-', label: 'Less', act: 'i:bnum', v: 'gap:-1', dis }, { id: 'bgap:+', label: 'More', act: 'i:bnum', v: 'gap:1', dis }] });
+  if (b.at === 'person') {
+    B.push({ label: 'Reacts to', row: [{ id: 'bwho:nearest', label: 'Nearest', act: 'i:bwho', v: 'nearest', on: b.who === 'nearest', dis }, { id: 'bwho:first', label: 'First to come close', act: 'i:bwho', v: 'first', on: b.who === 'first', dis }] },
+      num('range', 'Notices people within', 'Less', 'More'), num('speed', 'Moves at most', 'Slower', 'Faster'));
+  }
+  B.push({ p: n ? `This headset has ${n} wall${n > 1 ? 's' : ''} from its room scan` + (WALLS.src === 'fake' ? ' (pretend walls)' : '') + (st && st.wall >= 0 ? `: it stands on wall ${st.wall + 1}.` : '.')
+    : 'No walls here: it stays where it is placed. In AR a headset finds its room\'s walls in its room scan (Space Setup), and it goes onto one there.', c: n ? 'muted' : 'amber' },
+    { p: (b.at === 'direction' ? 'On the wall it points at from the middle of the room, in the direction it is placed from the scene\'s middle.' : b.at === 'nearest' ? 'On the wall nearest where it is placed.'
+      : 'On the wall nearest the person it reacts to (' + (b.who === 'first' ? 'the first to come within range' : 'the nearest within range') + ', the same for everyone at a circle), sliding along there; with nobody, back on the wall in its direction.') +
+      ' Its back against the wall, its front into the room, at its own height where the wall has room. Each headset puts it on its own room\'s walls; on a page, and in VR, it stands where it is placed.', c: 'faint' });
 }
 
 // ================================================================ EXPLORE ==
@@ -26167,6 +26450,7 @@ function paneBlocks(tab) {
       if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
       else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
       if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+      exBlocks(B);   // (the scenes that ship with the app: Open, Copy to the relay; e7g_examples.js)
       // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
       if (canMake()) {
         B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
@@ -26352,7 +26636,7 @@ function itemCard(it, C) {
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
     r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : ''];
-  const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : 'hidden for you');
+  const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : it.notHere ? (r.shows === 'ar' ? 'only in AR' : 'only in VR') : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
     card.pic = g ? [g, r.file] : [r.file]; card.kind = extOf(r.file).toUpperCase();
@@ -26367,7 +26651,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
-  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', it.act ? 'active for you' : ''); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
@@ -26379,7 +26663,7 @@ function itemBlocks(it, B, ed) {
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
-    B.push({ h: r.name, sub: 'Object' + (it.shown ? '' : ' · hidden for you now') });
+    B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
     const st = !E ? 'Waiting for the scene\'s files.' : E.state === 'loading' ? `Loading: ${Math.round(E.p * 100)} %.` : E.state === 'parsing' ? 'Reading the file...' : E.state === 'failed' ? E.err : E.state === 'idle' && !f ? 'Its file is not in the scene\'s folder.' : E.state === 'missing' ? 'Its file is not in the scene\'s folder any more.' : '';
     if (st) B.push({ p: st, c: E && E.state === 'failed' ? 'red' : 'muted' });
     const kv = [['File', r.file + (f ? ' · ' + mb(f.bytes) : '')]];
@@ -26456,7 +26740,7 @@ function itemBlocks(it, B, ed) {
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] },
       { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
-    B.push({ h: r.name, sub: 'Trigger cube' + (it.act ? ' · active for you' : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
+    B.push({ h: r.name, sub: 'Trigger cube' + (r.all ? ' · for everyone here' : '') + (it.act ? (r.all ? ' · active' : ' · active for you') : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
     // what it shows and hides, each a button (it flashes in the scene), its card, and ✕ (off the list) (the owner, 5 November 2026)
     for (const [l, word] of [['show', 'Shows'], ['hide', 'Hides']]) {
       if (!r[l].length) { B.push({ kv: [[word, 'nothing']] }); continue; }
@@ -26467,6 +26751,9 @@ function itemBlocks(it, B, ed) {
     }
     B.push({ label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `grow:${i}:-`, label: n + ' −', act: 'i:grow', v: i + ':-0.1', dis: mv }, { id: `grow:${i}:+`, label: n + ' +', act: 'i:grow', v: i + ':0.1', dis: mv }]) },
       { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
+      // (who it works for, v137: each person's own, or everyone here as soon as anyone is inside)
+      { label: 'Works for', row: [{ id: 'all:each', label: 'Each person', act: 'i:all', v: 'each', on: !r.all, dis }, { id: 'all:all', label: 'Everyone here', act: 'i:all', v: 'all', on: !!r.all, dis }] },
+      { p: r.all ? 'Everyone here: as soon as anyone in a headset is inside it, it works for everyone at this circle, at the same moment (what it shows, hides, changes and starts)' + (r.mode === 'stay' ? ', and stays so once anyone has been inside.' : '.') : 'Each person: it works only for whoever is inside it; the others see nothing change.', c: 'faint' },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
@@ -26476,7 +26763,7 @@ function itemBlocks(it, B, ed) {
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
-    B.push({ h: r.name, sub: 'Shape' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
+    B.push({ h: r.name, sub: 'Shape' + hiddenSub(it, it.shown) }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
       { label: 'Shape', row: SHAPE_KINDS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) },
       { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
       { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
@@ -26492,7 +26779,7 @@ function itemBlocks(it, B, ed) {
   } else if (it.kind === 'e') {
     // an empty (e6d_shapes.js): where it is, the sounds that follow it, its place
     const fs = followersOf(it.id);
-    B.push({ h: r.name, sub: 'Empty' + (it.shown ? '' : ' · hidden for you now') }, { kv: [['Place', r.p.map(v => v.toFixed(2)).join(', ') + ' (x, height, z, m)'], ['Followed by', fs.length ? fs.map(f => f.rec.name).join(', ') : 'nothing yet']] },
+    B.push({ h: r.name, sub: 'Empty' + hiddenSub(it, it.shown) }, { kv: [['Place', r.p.map(v => v.toFixed(2)).join(', ') + ' (x, height, z, m)'], ['Followed by', fs.length ? fs.map(f => f.rec.name).join(', ') : 'nothing yet']] },
       { p: 'A point seen only while editing: a sound can follow it (on the sound\'s card: Follow an object..., then point at it), a cube can show or hide it (and so the sounds that follow it), and it moves and groups as anything else.', c: 'faint' });
     if (fs.length) B.push({ list: fs.map(f => ({ id: 'sel:' + f.id, label: f.rec.name, sub: 'sound · follows it', act: 'sel', v: f.id, col: f.look.col })) });
     B.push({ label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] });
@@ -26502,7 +26789,7 @@ function itemBlocks(it, B, ed) {
     pathBlocks(it, B, dis, mv);
   } else {
     const F = it.F;
-    B.push({ h: r.name, sub: 'Sound' + (it.heard ? '' : ' · hidden for you now') }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
+    B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
       ['Follows', r.on ? followWords(it) + (r.o ? `, ${cmOrM(Math.hypot(...r.o))} from it` : ', on it') : 'nothing']] });
     followBlocks(it, B, dis);
     syncBlocks(it, B);   // (a voice recorded with a movement: e6j_voice.js)
@@ -26522,6 +26809,7 @@ function itemBlocks(it, B, ed) {
   // (a cut-out's copy goes on its object: refused once that object has 16, or the scene 100)
   const full = it.kind === 'x' && !canCut(cutObj(it));
   if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
+  if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -26533,6 +26821,16 @@ function itemBlocks(it, B, ed) {
   B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: dis || full }, { id: 'del', label: 'Delete', act: 'i:del', dis: dl, col: 'red' }] });
   if (!XR.on && ed) B.push({ label: 'Arrows (W, E, R)', page: true, row: [['translate', 'Move'], ['rotate', 'Turn'], ['scale', 'Size']].map(([m, n]) => ({ id: 'tc:' + m, label: n, act: 'tc', v: m, on: X.tcMode === m, dis: mv || (it.kind === 's' && m !== 'translate') || (it.kind === 'e' && m === 'scale') || (m === 'scale' && recording(it)) })) });
   B.splice(1, 0, ...lockTop(it), ...lockBlocks(it, dis));   // (at the card's top, under its heading: what holds it in place, then Lock in place; e6d_shapes.js)
+}
+// a card's heading's words for an item not shown for you now: only for the other kind of session (v137), or a cube
+const hiddenSub = (it, on) => (on ? '' : it.notHere ? (it.rec.shows === 'ar' ? ' · only in AR: not shown here' : ' · only in VR: not shown here') : ' · hidden for you now');
+// in which sessions it shows (v137; the owner, 11 November 2026, of a room built as a studio scene: its elements "detached
+// and mapped onto the room"): AR and VR (no field), only AR (passthrough: things for the real room), only VR (and on a
+// page: a stand-in for the real room, its walls and floor); one Undo step each, for everyone, saved
+function showsBlocks(it, B, dis) {
+  const v = it.rec.shows || '';
+  B.push({ label: 'Shows in', row: [['', 'AR and VR'], ['ar', 'Only AR'], ['vr', 'Only VR']].map(([k, n]) => ({ id: 'shows:' + (k || 'both'), label: n, act: 'i:shows', v: k, on: v === k, dis })) },
+    { p: v === 'ar' ? 'Only in AR (passthrough): not drawn, heard or pointed at in VR or on a page.' : v === 'vr' ? 'Only in VR and on a page: not drawn, heard or pointed at in AR (where the real room is there instead).' : 'In AR and VR alike (a page shows what VR shows).', c: 'faint' });
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -26762,6 +27060,9 @@ function act(a, v) {
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
+    exopen: () => exOpen(v),   // (an example: opened read only, or copied to the relay, a page's; e7g_examples.js)
+    excopy: () => { if (!XR.on) exCopy(v); },
+    exback: () => exBack(),
     scenemake: () => sceneMake(NS.name),
     from: () => { FROM.open = !FROM.open && canCopy(); const o = SRC.scenes.filter(s => s.name !== STU.scene); if (FROM.open && !FROM.scene && o.length === 1) fromScene(o[0].name); },
     fromScene: () => fromScene(v),
@@ -26783,7 +27084,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -26973,7 +27274,7 @@ function paneStep(now) {
 }
 // the two labels: the name of what you point at, and of what is selected (a model's and a shape's with its triangles,
 // v131: "object · 397k ▲ · selected"; "· hidden" while a cube hides it from you)
-const triOf = it => (it.kind === 'o' ? triWords(trisNow(it)) + (it.shown ? '' : ' · hidden') : it.kind === 'p' ? triWords(it.look.tris()) + (it.shown ? '' : ' · hidden') : '');
+const triOf = it => (it.kind === 'o' ? triWords(trisNow(it)) + (it.shown ? '' : hidWord(it)) : it.kind === 'p' ? triWords(it.look.tris()) + (it.shown ? '' : hidWord(it)) : '');
 function updateExtraLabels() {
   const [Lh, Ls] = LBL.extra;
   if (!Lh) return;
@@ -29615,6 +29916,118 @@ function vwClose() {
 // for tests and the console
 const vwState = () => ({ open: VW.open, kind: VW.src ? VW.src.kind : '', title: VW.title, busy: VW.busy, note: VW.note, lite: VW.lite, mode: VW.mode, keep: VW.keep, k: VW.k, n0: VW.n0, cur: VW.cur, n1: VW.n1,
   wire: VW.wire, tex: VW.tex, light: VW.light, spin: VW.spin, az: VW.az, el: VW.el, dist: VW.dist, R: VW.R, size: VW.size && VW.size.map(r3), fill: VW.fmap ? VW.fmap.size : 0, drew: VW.drew, tgt: VW.tgt.toArray(), grid: VW.grid ? VW.grid.userData.step : 0 });
+// ========================================================= EXAMPLE SCENES ==
+// Scenes that ship with the app (v137; tools/studio/SPEC.md, "Example scenes"): a folder examples/ at the app's root holding
+// scene folders and their listings exactly as tools/studio/scan.mjs writes them (examples/index.json and
+// examples/<name>/files.json; &examples=<a relative folder> picks another, as the tests do). The first is bliss-xp, the XP
+// room (tools/studio/xp/make.mjs). The Scene pane lists them, page and headset:
+// - Open: the scene from that folder, read only, as &scenes=examples&scene=<name> opens it (editing works on this device;
+//   Download layout.json keeps what was changed); Back to your scenes returns to where scenes came from before. Not at a
+//   shared room's circle (its scene is the room's, and the others' relay may not have it): copy it to the relay there;
+// - Copy to the relay (a page only, with a relay that takes uploads): a free scene name (the example's, else numbered),
+//   POST /api/scenes, every listed file fetched from the example and uploaded to the same path through the studio's own
+//   upload path (upSend: straight into R2 where it can), its pictures too, then its layout.json saved through the layout
+//   endpoint, the progress on the pane; then the copy opened from the relay with editing on.
+// Nothing of it in the layout or the room (no FORMAT change).
+const EX = { list: null, got: false, note: '', noteC: 'muted', busy: '', done: 0, of: 0, p: 0, path: '', prev: null };
+const exBase = () => OPT.examples;
+// the source is the examples' folder now (an example open)
+const exHere = () => SRC.kind === 'folder' && SRC.folder === OPT.examples;
+// the examples' listing, read once (none: no examples next to this copy of the app)
+async function exLoad() {
+  if (EX.got) return;
+  EX.got = true;
+  try {
+    const j = await getJSON(exBase() + '/index.json');
+    EX.list = (j && Array.isArray(j.scenes) ? j.scenes : []).filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0 }));
+  } catch (e) { EX.list = []; }
+  dirty(true);
+}
+// Open: the scenes from the examples' folder, this one opened (read only); where they came from kept for Back
+function exOpen(name) {
+  if (atStation() || !EX.list || !EX.list.some(s => s.name === name) || (exHere() && STU.scene === name)) return;
+  if (!EX.prev) EX.prev = { scenes: OPT.scenes, scene: STU.scene };
+  OPT.scenes = OPT.examples; OPT.scene = name;
+  openScene('', 'pick');
+  findSource();
+  sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 });
+}
+// Back to your scenes: the source as it was before the first example was opened
+function exBack() {
+  if (!EX.prev) return;
+  OPT.scenes = EX.prev.scenes; OPT.scene = EX.prev.scene || ''; EX.prev = null;
+  openScene('', 'pick');
+  findSource();
+}
+// a scene name the relay has not got: the example's, else numbered ("bliss-xp 2")
+function exFree(name) {
+  const taken = new Set(SRC.scenes.map(s => s.name.toLowerCase()));
+  let to = name, k = 2;
+  while (taken.has(to.toLowerCase()) || !okScene(to)) to = `${name.slice(0, 58)} ${k++}`;
+  return to;
+}
+const exCan = () => !XR.on && !OPT.visit && canWrite() && !exHere();
+// Copy to the relay: made there file by file, its layout last, then opened from the relay with editing on
+async function exCopy(name) {
+  if (!exCan() || EX.busy || !EX.list || !EX.list.some(s => s.name === name)) return;
+  const to = exFree(name), from = `${exBase()}/${encodeURIComponent(name)}/`;
+  Object.assign(EX, { busy: name, note: `Copying ${name} to the relay as ${to}...`, noteC: 'muted', done: 0, of: 0, p: 0, path: '' });
+  dirty(true);
+  const failed = [];
+  try {
+    const j = await getJSON(from + 'files.json');
+    const files = (j && Array.isArray(j.files) ? j.files : []).filter(f => f && okFile(f.path)).map(f => f.path);
+    let layout = null;
+    if (+(j && j.layoutAt) > 0) { try { layout = await getJSON(from + 'layout.json'); } catch (e) { layout = null; } }
+    EX.of = files.length + (layout ? 1 : 0);
+    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: to }) });
+    for (const p of files) {
+      if (GL.gone) return;
+      EX.path = p; EX.p = 0; dirty(true);
+      try {
+        const bytes = await getBytes(from + encPath(p));
+        await upSend(fileApi(to, p), bytes, f => { EX.p = f; dirty(); });
+      } catch (e) {
+        if (e.status === 401) throw e;
+        failed.push(`${p} (${e.message})`);
+      }
+      EX.done++;
+    }
+    if (layout) {
+      EX.path = 'layout.json'; dirty(true);
+      layout.scene = to;
+      await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(to)}/layout`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(layout) });
+      EX.done++;
+    }
+    await listScenes(SRC.gen);
+    if (GL.gone) return;
+    if (!editLocked() && !atStation()) { openScene(to, 'pick'); if (!STU.edit) setEdit(true); }
+    EX.note = `Copied ${name} to the relay as ${to}` + (failed.length ? `, but ${failed.length} file${failed.length > 1 ? 's' : ''} could not be: ${failed.slice(0, 3).join('; ')}${failed.length > 3 ? '...' : ''}` : ': it is yours to change and save.');
+    EX.noteC = failed.length ? 'amber' : 'green';
+    sfxAct('ping', 'stage', 'centre', { gain: 0.6 });
+  } catch (e) {
+    EX.note = e.status === 401 ? AUTH_NOTE : e.status === 409 ? `The relay has a scene called ${to} already: pick it above.` : e.status === 403 ? 'This relay takes no uploads (it runs with --scenes-readonly).' : `${name} could not be copied: ${e.message}`;
+    EX.noteC = 'red';
+  } finally { EX.busy = ''; EX.path = ''; dirty(true); }
+}
+// the Scene pane's Examples (page and headset; Copy to the relay a page's only)
+function exBlocks(B) {
+  if (!EX.list || !EX.list.length) return;
+  const here = exHere(), st = atStation(), can = exCan();
+  B.push({ label: 'Examples (they come with the app)', p: here ? 'An example is open, read only: what you change stays on this device (Download layout.json keeps it).' : 'Scenes to try. Open one as it is, read only' + (can ? ', or copy it to the relay to make it yours.' : '.'), c: 'faint' });
+  for (const s of EX.list) {
+    const open = here && STU.scene === s.name;
+    B.push({ row: [{ id: 'exopen:' + s.name, label: (open ? '✓ ' : '') + s.name, act: 'exopen', v: s.name, on: open, dis: st || !!EX.busy },
+      { id: 'excopy:' + s.name, label: EX.busy === s.name ? 'Copying...' : 'Copy to the relay', act: 'excopy', v: s.name, page: true, dis: !can || !!EX.busy, primary: can && open }] });
+  }
+  if (st) B.push({ p: 'At a circle the scene is for everyone here: copy an example to the relay (on a page) and pick it above.', c: 'muted' });
+  if (here && EX.prev) B.push({ row: [{ id: 'exback', label: 'Back to your scenes', act: 'exback', dis: !!EX.busy }] });
+  if (EX.busy) B.push({ p: `Copying ${EX.busy}: ${EX.done} of ${EX.of} files` + (EX.path ? ` (${EX.path}${EX.p > 0 && EX.p < 1 ? ', ' + Math.round(EX.p * 100) + ' %' : ''})` : '') + '.', c: 'muted' });
+  else if (EX.note) B.push({ p: EX.note, c: EX.noteC });
+}
+const exSig = () => [EX.list ? EX.list.length : -1, EX.busy, EX.done, EX.of, EX.path, Math.round(EX.p * 20), EX.note, !!EX.prev, exHere(), exCan()].join(',');
+// for tests (STUDIO.examples): the list, what is open, and a copy under way or its note
+const exState = () => ({ list: EX.list ? EX.list.map(s => s.name) : null, here: exHere(), folder: OPT.examples, busy: EX.busy, done: EX.done, of: EX.of, note: EX.note, prev: !!EX.prev, can: exCan() });
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
@@ -30464,6 +30877,7 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   XR.pickStale = false;   // (the scene's matrices current for the controllers' picks: rayPick makes none of its own)
   _xinv.copy(GL.world.matrixWorld).invert();
+  wallsXR(frame, ref);   // (the room's walls from the room scan in AR, for things on walls: e6o_walls.js)
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
   holdStep();
@@ -30640,6 +31054,7 @@ function xrEnded() {
   const away = xrAway();   // (asked while the session is still the shell's)
   XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
   HOST.session = null;
+  if (WALLS.src === 'xr') wallsSet([], '');   // (the room scan's walls go with the session: things on walls back where they are placed)
   document.body.classList.remove('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
@@ -31872,6 +32287,16 @@ const STUDIO = {
   plays: id => playState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
+  // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
+  // (its since: the room's time for an everyone cube), and when it went in and out on the clock of what cubes start
+  cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [] } : null; },
+  // the scenes that ship with the app (e7g_examples.js): their list, whether one is open, a copy under way
+  examples: () => exState(),
+  // the walls here for things on walls (v137, e6o_walls.js): with a list ([{ a: [x, z], b: [x, z], y0, y1 }] in the scene's
+  // frame) pretend walls, null the headset's own again; without one, as they are
+  walls: list => (list !== undefined ? wallsFake(list) : wallsInfo()),
+  // the session this device pretends to be in for what shows only in AR or only in VR (v137): 'ar', 'vr' or '' (as it is)
+  sess: k => { if (k !== undefined) STU.sess = k === 'ar' || k === 'vr' ? k : ''; return sessKind(); },
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
 };
 LOAD.t = setTimeout(init, 40);

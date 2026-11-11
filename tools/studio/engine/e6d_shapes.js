@@ -50,8 +50,8 @@ function shapeStep(it, editing) {
   L.look({ a: it.a, hid: it.hid, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
   L.deco.visible = editing && H.visible;
   if (!L.deco.visible) return;
-  const h = !it.shown;
-  if (it.tagR !== r || it.tagH !== h) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + triWords(L.tris()) + (r.look === 'hide' ? ' · hides things' : '') + (h ? ' · hidden' : ''), L.col, 0.075); }
+  const h = it.shown ? '' : hidWord(it);   // (" · hidden", or " · AR only" / " · VR only": v137)
+  if (it.tagR !== r || it.tagH !== h) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + triWords(L.tris()) + (r.look === 'hide' ? ' · hides things' : '') + h, L.col, 0.075); }
   decoAt(H, L.deco);   // (where it is drawn: a motion; e6e_motion.js)
   const sz = H.scale, b = shapeBox(it, _shb);
   L.name.position.set(0, b.max.y - L.deco.position.y + 0.04, 0).applyQuaternion(_shi.copy(L.deco.quaternion).invert());   // (over it, whichever way it is turned)

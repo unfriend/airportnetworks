@@ -409,6 +409,16 @@ const STUDIO = {
   plays: id => playState(id),
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
+  // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
+  // (its since: the room's time for an everyone cube), and when it went in and out on the clock of what cubes start
+  cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [] } : null; },
+  // the scenes that ship with the app (e7g_examples.js): their list, whether one is open, a copy under way
+  examples: () => exState(),
+  // the walls here for things on walls (v137, e6o_walls.js): with a list ([{ a: [x, z], b: [x, z], y0, y1 }] in the scene's
+  // frame) pretend walls, null the headset's own again; without one, as they are
+  walls: list => (list !== undefined ? wallsFake(list) : wallsInfo()),
+  // the session this device pretends to be in for what shows only in AR or only in VR (v137): 'ar', 'vr' or '' (as it is)
+  sess: k => { if (k !== undefined) STU.sess = k === 'ar' || k === 'vr' ? k : ''; return sessKind(); },
   shownFor, find: name => { const it = [...STU.items.values()].find(x => x.rec.name === name); return it ? it.id : ''; },
 };
 LOAD.t = setTimeout(init, 40);

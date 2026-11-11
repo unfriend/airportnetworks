@@ -26,13 +26,13 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-42';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-43';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
   // a room's keys as an older format wrote them, brought to this one (a kept copy, collabRoom.<code>, written by an older
   // app; a room on the relay still of an older version as this device joins it): one step per format from the key's, each
-  // a function of the Map of keys giving it back. Empty: every bump so far (29 to 42) only added fields and keys, which the
+  // a function of the Map of keys giving it back. Empty: every bump so far (29 to 43) only added fields and keys, which the
   // stories' apply() and the shell read leniently; a bump that changes what a value means adds its step here
   const MIGRATE = {};
   function migrate(keys, from) {
