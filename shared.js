@@ -4239,12 +4239,10 @@
         // tilt alone, each press the next; shown whether a ship flies or not
         if (HOST.ships.setSteering) {
           const sm = HOST.ships.steering(), nx = { both: 'stick', stick: 'tilt', tilt: 'both' }[sm] || 'both';
-          button(S, 'shipsteer', x, y, w, 60, 'Steering: ' + ({ both: 'tilt and stick', stick: 'stick only', tilt: 'tilt only' }[sm] || 'tilt and stick'), () => HOST.ships.setSteering(nx), { px: 23 });
-          y += 68;
-          ctx.font = FONT(21); ctx.fillStyle = MUTED;
-          y += wrapText(ctx, { both: 'Tilt the right controller or push its stick: both turn and climb, added up. This headset\'s own.',
-            stick: 'Only the right stick turns and climbs: rest your hand at any angle. This headset\'s own.',
-            tilt: 'Only the right controller\'s tilt turns and climbs; its stick does nothing. This headset\'s own.' }[sm] || '', x + 4, y, w - 8, 28, 3) + 14;
+          button(S, 'shipsteer', x, y, bw, 60, 'Steering: ' + ({ both: 'tilt and stick', stick: 'stick only', tilt: 'tilt only' }[sm] || 'tilt and stick'), () => HOST.ships.setSteering(nx), { px: 22 });
+          note({ both: 'Tilt the controller or push its stick, added up. This headset\'s own', stick: 'Only the right stick: rest your hand at any angle',
+            tilt: 'Only the controller\'s tilt: its stick does nothing' }[sm] || '', y);
+          y += 76;
         }
       }
       // the frame-rate read-out low in your view (this headset's own, never the room's)

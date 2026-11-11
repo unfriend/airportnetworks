@@ -589,7 +589,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     and never in `collab.state()` (`HOST.xr.walk()`, `setWalk(on)`, `xrWalk` in `localStorage`, off by default,
     `#walk=on|off` in a link; not in `HOST.xr.sig()`). Turned on and off by the left stick clicked twice within 0.4 s
     (`sticks` in `shared.js`, a notice *Moving with the sticks: on* / *off*; until v132 either stick, since then the right
-    stick clicked twice launches or lands a spaceship: "Spaceships" below) or by the menu's *Moving with the sticks*
+    stick clicked twice launches or lands a spaceship, and since v133 while one flies the right stick's press counts only
+    at its middle: "Spaceships" below) or by the menu's *Moving with the sticks*
     row (Settings, under Moving and Subtitles). Both clicks must be on the same stick: a click of each within 0.4 s (or
     both at once) counts as one click, which opens or closes the menu; a single click acts only once 0.4 s have passed
     with no second click of that stick. While a spaceship flies the right stick's 30 degree turn rests (the thumb sits on
@@ -1316,7 +1317,11 @@ ships or look).
   right input source; never in camera mode or a phone's AR (`whyNot`: a tracked hand there is told *It needs a controller
   in your right hand*, the row greyed with the reason). The notices say what happens (launch: the controls in a line).
   It acts at the ship's next frame (`toggle`, `S.want`). A story change keeps it flying: its objects hang in the story's
-  scene and are taken out before a story is disposed (`HOST.teardown`, `HOST.ships.detach`), as occlusion's are.
+  scene and are taken out before a story is disposed (`HOST.teardown`, `HOST.ships.detach`), as occlusion's are. While
+  a ship flies (v133) its right stick steers and is pushed hard, so a press of it counts as a click (the menu's, both at
+  once, the double click that lands) only with the stick within 0.5 of its middle as it goes down (`SHIPCLK` in
+  `sticks`); pushed further it is a steer that clicked and counts for nothing (log `ship stick click ignored`, at most once
+  a second), leaving nothing half counted. Not flying, and the left stick always, as before.
 - **Each frame.** `index.html`'s moving with the sticks hooks the session's own `requestAnimationFrame`; once a frame,
   after it has dressed the frame (so the poses are three.js's), it calls `HOST.ships.frame(s, t, f)`, before any callback
   draws. The ship's clocks are that frame's time (ms) and the relay's (`now()`; for tests the frame's: `testClock`).
@@ -1328,6 +1333,17 @@ ships or look).
   degrees, at most 60 up or down: neutral is level flight, nose up climbs; no loops. Where the controller points (its
   yaw) counts for nothing, so turning to follow the ship changes nothing. The ship banks into its turns (up to 50
   degrees, eased), which does not change its path.
+- **The thumbstick** (v133; the owner, 11 November 2026: "please also add joystick controls for the ships, right joystick
+  should control left right with left right and up down with up down"; `stick(x, y)`, `axes(gp)`, its numbers `STICK`, to
+  be tuned on a Quest): the right controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0
+  and 1) steers too, each axis on its own: a dead zone of 0.15, past it the push's share to the power 1.5 (fine near the
+  middle, full at the edge). Pushed right turns right (full: 140 degrees a second and the full bank), pushed up (forward,
+  away from you) climbs (full: 60 degrees, eased as the tilt's), down dives: up is up, not a flight simulator's;
+  released, level again. With the tilt the two shares are added and held at the most (`steerBoth`), so both work at once.
+  *Steering* (`HOST.ships.steering()`, `setSteering(m)`; this headset's own, `xrShipSteer` in `localStorage`, never the
+  room's, nothing sent): *tilt and stick* (`'both'`, the default), *stick only* (`'stick'`: the tilt counts for nothing,
+  so the hand can rest at any angle) or *tilt only* (`'tilt'`, as v132); the menu's row under Spaceship, the launch
+  notice and the Spaceship row's note say it in words that match; the Debug tab's line names it.
 - **Speed** (`FLY`): always forward at 1.2 m/s; the right grip (`buttons[1].value`) brakes, below 0.9 to 1.2 x (1 - 0.8 g),
   from 0.9 slowly backwards (-0.5 m/s); at most 2.5 m/s2. A (`buttons[4]`, its rising edge; nothing else of the shell or
   any story reads it) boosts when its meter is full: 3.2 m/s at once for 0.8 s, then it recharges for 4 s; braking ends
@@ -2354,7 +2370,8 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes; since v125 it opens or closes once 0.4 s have passed with no second click of
   that stick, `CLK`: the left stick clicked twice turns moving with the sticks on or off (the right stick clicked twice
-  launches or lands a spaceship since v132) and never the menu, the other
+  launches or lands a spaceship since v132; while one flies, since v133, a press of the right stick pushed past 0.5 from
+  its middle counts for nothing) and never the menu, the other
   stick clicked meanwhile counts as the same click, so both at once still toggle it once; "Moving with the sticks" under
   "Four headset settings"; `buttons[4]`, A and X, plays and pauses nothing since v125), or with tracked hands two
   pinches of the left hand within 0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
@@ -2403,7 +2420,9 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     `HOST.xr`), *Moving with the sticks: on/off* (v125, this headset's own, the whole width with a note under it,
     greyed with the reason in AR, in a shared room and in the studio: "Moving with the sticks" under "Four headset
     settings"), *Spaceship: launch* / *Spaceship: land* (v132, the whole width with a note under it that the right stick
-    clicked twice does the same, greyed with the reason where no ship can fly: "Spaceships"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
+    clicked twice does the same, greyed with the reason where no ship can fly: "Spaceships"), *Steering: tilt and stick* ->
+    *stick only* -> *tilt only* (v133, under it, a note beside it, each press the next, this headset's own,
+    shown whether a ship flies or not: "The thumbstick" under "Spaceships"), *Frame rate: on/off* (the frame-rate read-out, this headset's own, a note beside it: "Four headset
     settings"), *Developer mode: on/off* (v125, this device's own, a note beside it: "Developer mode"), *My menu: only me* / *my circle* (this menu shown to the others at your circle, this headset's own, a note
     beside it: "Your menu shown to your circle" under "Four headset settings"), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
     for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
@@ -5449,7 +5468,16 @@ ship 0.5 m ahead of the controller facing where the head does; the left stick tw
 once one menu; the right stick twice again landing; a tracked right hand refused in words. Rolled 20 degrees right it
 turns right at 62.2 degrees a second (within 2), banking; 40 degrees all the way round (392 degrees in 2.8 s); rolled
 left the other way; the controller turned 75 degrees about the vertical changing nothing; nose up 40 degrees from the
-neutral climbing at 60 to its 3 m ceiling and held there, back inside the dead zone level; the mapping's numbers. Cruise
+neutral climbing at 60 to its 3 m ceiling and held there, back inside the dead zone level; the mapping's numbers. The
+right stick (v133, steering *tilt and stick* by default, the controller level): full right 140 degrees a second to the
+right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing; tilted 20 degrees
+right with the stick full left the two summed (about 78 to the left), tilted 40 with it full right held at 140; full up
+climbing at 60 degrees, full down diving at 60, released level; the state's stick and the mapping (`stick`, `axes`,
+`STICK`). The Steering row going round in its words (*tilt and stick*, *stick only*, *tilt only*), the Settings tab's
+height under 1,920 px (printed); *stick only*: tilted 40 degrees turning nothing, the stick 140; *tilt only*: the stick
+nothing, tilted 20 degrees 62; landed the row still there; *stick only* kept across a reload (`xrShipSteer`), then back
+to both. Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged once); a pushed click then
+one at its middle at once the menu alone (never paired); two at its middle landing. Cruise
 1.2 m/s, half grip 0.72, full grip -0.5, at most 2.5 m/s2; A boosting to 3.2 m/s for 0.8 s, not again until 4 s of
 recharge, braking ending it. The trigger held a second: 5 bolts at 9.2 m/s (8 plus the ship's), none older than 1.25 s.
 Alone: 3 targets and 2 drones, led here; two bolts destroying a target (counted); a drone's bolt taking 10 of the shield

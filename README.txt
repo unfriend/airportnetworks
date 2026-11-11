@@ -482,7 +482,11 @@ tab), but A boosts a spaceship. Spaceships (v132, a small game over every story,
 VR or AR with a controller in your right hand): click the right stick twice (or
 Spaceship: launch on the Settings tab) and a little ship flies from your right
 controller. Hold the controller like a joystick: tilt it right or left to turn,
-nose up or down to climb or dive (where it points does not matter). It always
+nose up or down to climb or dive (where it points does not matter), or push the
+right stick: right and left turn, up climbs, down dives (v133; both work at once,
+added up; Steering on the Settings tab picks tilt and stick, stick only or tilt
+only, this headset's own). While it flies a click of the right stick counts only
+at its middle, so a hard push that clicks does not land the ship. It always
 flies forward; the grip brakes, held fully it backs off slowly; A boosts for a
 moment; the trigger shoots. Shield and health 100 each: hits take the shield first,
 which refills 2 s after the last hit; health does not. Destroyed, a new ship comes

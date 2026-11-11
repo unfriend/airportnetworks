@@ -8917,6 +8917,8 @@ if (runs('spaceship')) {
     for (let k = 0; k < times; k++) { b.pressed = true; window.__wtick(1); b.pressed = false; window.__wtick(1); } }, [hand, times || 1]);
   const btn = (hand, i, v) => sp.evaluate(([hand, i, v]) => { const b = window.__w[hand].gamepad.buttons[i]; b.value = v; b.pressed = v > 0.5; }, [hand, i, v]);
   const hold = (hand, p, yaw, pitch, roll) => sp.evaluate(a => window.__w.hold(...a), [hand, p, yaw || 0, pitch || 0, roll || 0]);
+  // the right stick pushed (x: +1 right; y: -1 up, forward), as xr-standard gives it in axes 2 and 3
+  const stk = (x, y) => sp.evaluate(([x, y]) => { const a = window.__w.R.gamepad.axes; a[2] = x; a[3] = y; }, [x || 0, y || 0]);
   const note = () => sp.evaluate(() => { const n = HOST.collab.notes().slice(-1)[0] || {}; return [n.title || '', n.text || ''].join(': '); });
   const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const D = 180 / Math.PI, turnBy = (a, b) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return d; };
@@ -8937,7 +8939,7 @@ if (runs('spaceship')) {
     await sp.waitForTimeout(500); await tick(1);
     const m0 = await sp.evaluate(() => HOST.collab.menu);
     if (!s0.flying || m0) bad.push('the right stick twice: flying ' + s0.flying + ', the menu ' + m0);
-    if (!/^Spaceship: Tilt the right controller to turn/.test(n0)) bad.push('the launch notice: ' + n0);
+    if (!/^Spaceship: Right controller: tilt it or push its stick to turn and climb/.test(n0)) bad.push('the launch notice: ' + n0);
     const want = [0.2, 1.1, -0.3 - 0.5];
     if (dist(s0.p, want) > 0.1 || Math.abs(s0.yaw) > 0.01 || Math.abs(s0.pitch) > 0.01) bad.push('the ship at ' + s0.p.map(v => v.toFixed(3)) + ' yaw ' + s0.yaw.toFixed(3) + ', not 0.5 m ahead of the controller facing -z');
     await click('L', 2); await tick(1);
@@ -8994,6 +8996,103 @@ if (runs('spaceship')) {
     if (Math.abs(i2.pitch) > 0.01 || Math.abs(i2.p[1] - i1.p[1]) > 0.01) bad.push('back near neutral (2 degrees up, inside the dead zone): pitch ' + (i2.pitch * D).toFixed(2) + ', height ' + i1.p[1].toFixed(3) + ' then ' + i2.p[1].toFixed(3));
     const sa = await sp.evaluate(() => [HOST.ships.steer(20, 0, 0).turn, HOST.ships.steer(3, 0, 0).turn, HOST.ships.steer(90, 0, 0).turn, HOST.ships.steer(0, 50, 10).pitch, HOST.ships.steer(0, 12, 10).pitch]);
     if (Math.abs(sa[0] - wantR) > 1e-6 || sa[1] !== 0 || sa[2] !== 140 || sa[3] !== 60 || sa[4] !== 0) bad.push('the mapping: ' + JSON.stringify(sa));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  // the right thumbstick (v133; the owner, 11 November 2026: "right joystick should control left right with left right and
+  // up down with up down"): a dead zone of 0.15, past it the push's share to the power 1.5; summed with the tilt, held at
+  // the most
+  await step('spaceship: the right stick steers too: full right turns right at 140 degrees a second, full left left, 0.5 at the shaped rate, 0.1 nothing; up climbs to 60 degrees, down dives, released level; summed with the tilt and held at 140', async () => {
+    const bad = [];
+    await fresh();
+    if (await sp.evaluate(() => HOST.ships.steering()) !== 'both') bad.push('steering by default: ' + await sp.evaluate(() => HOST.ships.steering()));
+    // the turn rate (degrees a second to the right) over a second from the middle of the arena, the bank settled first
+    const rateOf = async (x, roll) => {
+      await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+      await hold('R', [0.2, 1.1, -0.3], 0, 0, roll || 0); await stk(x, 0); await tick(20);
+      const a = await st(); await secs(1); const b = await st();
+      return -turnBy(a.yaw, b.yaw) * D;
+    };
+    const shaped = Math.pow(0.35 / 0.85, 1.5) * 140, tilt20 = (20 - 4) / 36;
+    const cases = [['full right', 1, 0, 140], ['full left', -1, 0, -140], ['0.5 right', 0.5, 0, shaped], ['0.1 right (the dead zone)', 0.1, 0, 0],
+      ['tilted 20 right, the stick full left', -1, 20, (tilt20 - 1) * 140], ['tilted 40 right, the stick full right', 1, 40, 140]];
+    for (const [name, x, roll, want] of cases) {
+      const r = await rateOf(x, roll);
+      if (Math.abs(r - want) > 3) bad.push(name + ': ' + r.toFixed(1) + ' degrees a second, not ' + want.toFixed(1));
+    }
+    const s0 = await st();
+    if (!s0.stick || s0.stick.x !== 1 || s0.stick.k !== 1 || s0.steering !== 'both') bad.push('the state\'s stick: ' + JSON.stringify([s0.stick, s0.steering]));
+    // up (forward, -1) climbs to 60 degrees; down dives; released, level again
+    await hold('R', [0.2, 1.1, -0.3]);
+    await sp.evaluate(() => HOST.ships.debug.place([0, 0.6, 0], 0, 0)); await stk(0, -1); await secs(1.2);
+    const u = await st();
+    if (Math.abs(u.pitch * D - 60) > 1 || !(u.p[1] > 0.9)) bad.push('the stick full up: pitch ' + (u.pitch * D).toFixed(1) + ', height ' + u.p[1].toFixed(2) + ' (from 0.6)');
+    await sp.evaluate(() => HOST.ships.debug.place([0, 2.6, 0], 0, 0)); await stk(0, 1); await secs(1.2);
+    const dn = await st();
+    if (Math.abs(dn.pitch * D + 60) > 1 || !(dn.p[1] < 2.3)) bad.push('the stick full down: pitch ' + (dn.pitch * D).toFixed(1) + ', height ' + dn.p[1].toFixed(2) + ' (from 2.6)');
+    await sp.evaluate(p => HOST.ships.debug.place([0, 1.5, 0], 0, p), dn.pitch); await stk(0, 0); await secs(1.5);
+    const lv = await st();
+    if (Math.abs(lv.pitch) > 0.01 || Math.abs(lv.turn) > 1e-9) bad.push('released: pitch ' + (lv.pitch * D).toFixed(2) + ', turn ' + lv.turn);
+    // the mapping and the axes read
+    const m = await sp.evaluate(() => { const S = HOST.ships; return [S.stick(0.5, 0).turn, S.stick(0.1, -0.1).turn, S.stick(0, -1).pitch, S.stick(0, 1).pitch, S.stick(1, 0).bank,
+      S.steer(20, 0, 0).turn, S.axes({ axes: [0.3, -0.4] }), S.axes({ axes: [0.9, 0.9, NaN, 1] }), S.axes(null), S.STICK]; });
+    if (Math.abs(m[0] - shaped) > 1e-9 || m[1] !== 0 || m[2] !== 60 || m[3] !== -60 || m[4] !== 50 || Math.abs(m[5] - tilt20 * 140) > 1e-9 ||
+      JSON.stringify(m.slice(6, 9)) !== JSON.stringify([[0.3, -0.4], [0, 1], [0, 0]]) || m[9].dz !== 0.15 || m[9].expo !== 1.5) bad.push('the mapping: ' + JSON.stringify(m));
+    if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
+  });
+
+  await step('spaceship: the Steering row goes round (tilt and stick, stick only, tilt only), kept across a reload; stick only ignores the tilt, tilt only the stick; the Settings tab fits; a right-stick click pushed past 0.5 counts for nothing, at its middle it lands', async () => {
+    const bad = [];
+    await fresh();
+    const row = () => sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); window.__wtick(2); const r = HOST.collab.menuFind('shipsteer'); return r ? r.label : ''; });
+    const pressRow = () => sp.evaluate(() => { const r = HOST.collab.menuFind('shipsteer'); if (r && r.fn) r.fn(); window.__wtick(2); return HOST.ships.steering(); });
+    const seen = [await row()];
+    for (let k = 0; k < 3; k++) { await pressRow(); seen.push(await row()); }
+    if (JSON.stringify(seen) !== JSON.stringify(['Steering: tilt and stick', 'Steering: stick only', 'Steering: tilt only', 'Steering: tilt and stick'])) bad.push('the row\'s words: ' + JSON.stringify(seen));
+    const vis = await sp.evaluate(() => HOST.collab.menuVis());
+    console.log('    the Settings tab with a ship flying: ' + vis + ' px of 1920');
+    if (!(vis > 900 && vis < 1920)) bad.push('the Settings tab is ' + vis + ' px tall');
+    await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(2);
+    const rate = async (x, roll) => {
+      await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
+      await hold('R', [0.2, 1.1, -0.3], 0, 0, roll); await stk(x, 0); await tick(20);
+      const a = await st(); await secs(0.5); const b = await st();
+      return -turnBy(a.yaw, b.yaw) * D * 2;
+    };
+    await sp.evaluate(() => HOST.ships.setSteering('stick'));
+    const r1 = await rate(0, 40), r2 = await rate(1, 40);
+    if (Math.abs(r1) > 1 || Math.abs(r2 - 140) > 3) bad.push('stick only: tilted 40 right ' + r1.toFixed(1) + ', and the stick full right ' + r2.toFixed(1) + ' degrees a second');
+    await sp.evaluate(() => HOST.ships.setSteering('tilt'));
+    const r3 = await rate(1, 0), r4 = await rate(0, 20);
+    if (Math.abs(r3) > 1 || Math.abs(r4 - (20 - 4) / 36 * 140) > 3) bad.push('tilt only: the stick full right ' + r3.toFixed(1) + ', and tilted 20 right ' + r4.toFixed(1) + ' degrees a second');
+    await stk(0, 0);
+    // landed, the row is still there (and pressable); kept across a reload
+    await sp.evaluate(() => { HOST.ships.launch(false); window.__wtick(2); });
+    const landed = await row();
+    if (landed !== 'Steering: tilt only') bad.push('landed, the row: ' + JSON.stringify(landed));
+    await pressRow(); await pressRow();   // (stick only)
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    await openS('qubits');
+    const kept = await sp.evaluate(() => [HOST.ships.steering(), localStorage.getItem('xrShipSteer')]);
+    if (kept[0] !== 'stick' || kept[1] !== 'stick') bad.push('after a reload: ' + JSON.stringify(kept));
+    await sp.evaluate(() => HOST.ships.setSteering('both'));
+    // clicks of the right stick while flying: pushed past 0.5 nothing (two within 0.4 s neither land nor open the menu)
+    await hold('R', [0.2, 1.1, -0.3]);
+    await sp.evaluate(() => { HOST.ships.debug.freeze(true); HOST.ships.launch(true); window.__wtick(2); });
+    const ign0 = await sp.evaluate(() => window.__collabLog.filter(e => e.ev === 'ship stick click ignored').length);
+    await stk(0.8, -0.2); await click('R', 2); await stk(0, 0);
+    await sp.waitForTimeout(500); await tick(2);
+    const a = await sp.evaluate(() => [HOST.ships.flying(), HOST.collab.menu, window.__collabLog.filter(e => e.ev === 'ship stick click ignored').length]);
+    if (!a[0] || a[1] || a[2] !== ign0 + 1) bad.push('two clicks pushed: flying ' + a[0] + ', the menu ' + a[1] + ', logged ' + (a[2] - ign0) + ' (once a second)');
+    // one pushed, then one at its middle at once: the second a single click (the menu), never paired with the first
+    await stk(0, -0.9); await click('R', 1); await stk(0.2, 0.1); await click('R', 1); await stk(0, 0);
+    await sp.waitForTimeout(500); await tick(2);
+    const b = await sp.evaluate(() => [HOST.ships.flying(), HOST.collab.menu]);
+    if (!b[0] || !b[1]) bad.push('a pushed click then one at its middle: flying ' + b[0] + ', the menu ' + b[1] + ' (one menu, still flying)');
+    await sp.evaluate(() => HOST.collab.panelOpen(false)); await sp.waitForTimeout(500); await tick(1);
+    // two at its middle (within 0.5): it lands
+    await stk(0.3, 0.3); await click('R', 2); await stk(0, 0); await tick(2);
+    if ((await st()).flying) bad.push('two clicks at the stick\'s middle did not land');
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
