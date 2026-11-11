@@ -126,23 +126,34 @@ function makeLiver() {
   });
 }
 const TW_TILE = 1.6;   // the tile as the slide set lies it (its TW)
+// what the sets still building may take of a frame, all of them together (v136; each hidden one took 3 or 4 ms a frame
+// before, two at a time in some stories: 5 to 10 ms a frame in a story's first seconds): in a headset about 1 ms, on a
+// page an eighth of the frame, 2 to 8 ms (more where frames are slow anyway). The hidden ones take it by turns, one a
+// frame (buildTurn; each of the others is only asked whether it still has work: idle(dt, 0) builds nothing, and returns
+// false once it has none); a set on show builds on demand in its update, and finish() at once, as before
+const BUILD = { i: 0 };
+const LIVJOB = { idle: (dt, ms) => { if (ms > 0) { ORGAN3D.step(ms); GL.livDone = ORGAN3D.has(LIVER); } return !GL.livDone; } };
+const buildMs = dt => (GL.renderer && GL.renderer.xr.isPresenting ? 1 : clamp((dt || 0) * 125, 2, 8));
+function buildTurn(jobs, dt) {
+  const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
+  for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
+  const hid = [];
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
+    else if (s.idle) hid.push(s);   // a hidden set may build in slices (buildTurn, below)
   }
-  // the liver's model builds between frames from the start (a short slice a frame in a headset, 3 ms; elsewhere a
-  // quarter of the frame, 4 to 8 ms): only the liver, wanted first, so the queue of the other organs is left alone
-  if (!GL.livDone) {
-    ORGAN3D.driven = true; ORGAN3D.want(LIVER);
-    ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 250, 4, 8));
-    GL.livDone = ORGAN3D.has(LIVER);
-  }
+  // the liver's model builds between frames from the start, a job of the build budget's (LIVJOB, by turns with the
+  // hidden sets: v136; until then 3 ms a frame in a headset, 4 to 8 elsewhere): only the liver, wanted first, so the
+  // queue of the other organs is left alone
+  if (!GL.livDone) { ORGAN3D.driven = true; ORGAN3D.want(LIVER); hid.push(LIVJOB); }
+  buildTurn(hid, dt);
   const la = S.liver_a || 0;
   GL.liver.group.rotation.y = story ? setYaw('body', t) * D2R : 0;
   GL.liver.setAlpha(la);

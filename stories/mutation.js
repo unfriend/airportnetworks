@@ -1052,6 +1052,25 @@ void main() {
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
+  // only the part of a buffer in use goes to the graphics card, and only what changed since it last went (v136: a story
+  // paused or at rest uploads nothing; every pool re-sent its whole buffers each frame): the used range's 32-bit words
+  // against a copy of what last went, the stretch from the first change to the last sent (with a range set before and
+  // not sent yet, both: three.js sets its count back to -1 once it has gone); a count of 0 sends nothing
+  function upload(attr, n) {
+    const len = n * attr.itemSize, a = attr.array, R = attr.updateRange, k = attr.itemSize;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
   // per-instance attributes on an instanced mesh
   function pool(geo, material, max, extra) {
     const g = new THREE.BufferGeometry();
@@ -1067,8 +1086,8 @@ void main() {
     const P = { mesh, attrs, n: 0, max };
     P.begin = () => { P.n = 0; };
     P.end = () => {
-      mesh.count = P.n; mesh.visible = P.n > 0; mesh.instanceMatrix.needsUpdate = true;
-      for (const k in attrs) { attrs[k].needsUpdate = true; }
+      mesh.count = P.n; mesh.visible = P.n > 0; upload(mesh.instanceMatrix, P.n);
+      for (const k in attrs) upload(attrs[k], P.n);
     };
     P.put = (m, col, a, dash) => {
       if (P.n >= max) return -1;
@@ -1179,7 +1198,7 @@ void main() {
     };
     P.end = () => {
       g.setDrawRange(0, P.n); pts.visible = P.n > 0;
-      for (const k of ['position', 'aCol', 'aSize', 'aA']) g.attributes[k].needsUpdate = true;
+      for (const k of ['position', 'aCol', 'aSize', 'aA']) upload(g.attributes[k], P.n);
     };
     return P;
   }
@@ -5025,6 +5044,19 @@ const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
+// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
+// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
+// simulation goes on from where it was); called after xrBegin in frame, every frame
+const _xrNoWalk = () => {};
+function xrIdle(xr, dt) {
+  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const idle = XR.awayT > 1;
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (!idle) return false;
+  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
+  return true;
+}
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
 // circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
@@ -6494,6 +6526,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

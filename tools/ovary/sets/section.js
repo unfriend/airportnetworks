@@ -77,6 +77,7 @@ SETS.section = function (K) {
       const RS = K.rng(o.seed + 9);
       for (let j = 0; j < TX; j++) {
         for (let i = 0; i < TX; i++) {
+          if ((i & 127) === 127) yield;   // (v136: a few hundred pixels between yields; it was eight rows, 10 ms and more)
           const x = ((i + 0.5) / TX * 2 - 1) * ext, y = ((j + 0.5) / TX * 2 - 1) * ext, e = inside(x, y);
           if (e < -0.02) continue;
           const k = 4 * (j * TX + i);
@@ -87,7 +88,6 @@ SETS.section = function (K) {
           if (e < 0.012) c = mix(c, C.eosin, 0.6);
           D[k] = c[0] * 255; D[k + 1] = c[1] * 255; D[k + 2] = c[2] * 255;
         }
-        if ((j & 7) === 7) yield;
       }
       const NN = Math.round(TX * TX * 0.03);
       for (let n = 0; n < NN; n++) {
@@ -103,7 +103,7 @@ SETS.section = function (K) {
           const k = 4 * (jj * TX + ii), a = 0.75;
           D[k] = D[k] * (1 - a) + col[0] * 255 * a; D[k + 1] = D[k + 1] * (1 - a) + col[1] * 255 * a; D[k + 2] = D[k + 2] * (1 - a) + col[2] * 255 * a;
         }
-        if ((n & 4095) === 4095) yield;
+        if ((n & 511) === 511) yield;
       }
       tex.needsUpdate = true;
     }
@@ -806,7 +806,8 @@ void main() {
     params: { section_a: 1, section_age: 30, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
       section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0, section_names: 0 },
     update,
-    idle() { step(3); },
+    // (by the engine's build budget: ms for this frame, 0 nothing but the answer; true while there is more to build)
+    idle(dt, ms) { if (ms === undefined) ms = 3; if (ms > 0) step(ms); return !built; },
     finish() { step(Infinity); },
     built: () => built,
     anchors,

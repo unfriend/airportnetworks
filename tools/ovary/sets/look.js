@@ -250,7 +250,8 @@ void main() {
   // surface (their fine points take the sign without evaluating), then a grid of `res` cells along the longest side;
   // each cell the surface crosses gets a vertex (the mean of the crossings, pulled onto the surface), a quad joins the
   // four cells round every crossed grid edge. Normals from the field's gradient, colors from col(x, y, z), darkened in
-  // creases. A generator: run it in slices (yield after each row) or at once. Returns { pos, nrm, col, idx }.
+  // creases. A generator: run it in slices (yield after each row of cells: v136, it was each plane, 5 to 15 ms between
+  // yields, and the quads in one go) or at once. Returns { pos, nrm, col, idx }.
   function* nets(f, col, lo, hi, res) {
     const span = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]), h = span / res;
     const nx = Math.ceil((hi[0] - lo[0]) / h) + 2, ny = Math.ceil((hi[1] - lo[1]) / h) + 2, nz = Math.ceil((hi[2] - lo[2]) / h) + 2;
@@ -266,11 +267,12 @@ void main() {
       return s === 8 ? 1 : s === -8 ? -1 : 0;
     };
     const F = new Float32Array(nx * ny * nz), id3 = (i, j, k) => (i * ny + j) * nz + k;
-    for (let i = 0; i < nx; i++) { for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) { const fr = farOf(i, j, k); F[id3(i, j, k)] = fr ? fr * M : f(o[0] + i * h, o[1] + j * h, o[2] + k * h); } yield; }
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) { for (let k = 0; k < nz; k++) { const fr = farOf(i, j, k); F[id3(i, j, k)] = fr ? fr * M : f(o[0] + i * h, o[1] + j * h, o[2] + k * h); } yield; }
     const VI = new Int32Array(nx * ny * nz).fill(-1), P = [], N = [], Cl = [];
     const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]], cv = new Float64Array(8), e = h * 0.15;
     for (let i = 0; i < nx - 1; i++) {
       for (let j = 0; j < ny - 1; j++) for (let k = 0; k < nz - 1; k++) {
+        if (k === 0 && j) yield;
         let neg = 0;
         for (let c = 0; c < 8; c++) { cv[c] = F[id3(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
         if (neg === 0 || neg === 8) continue;
@@ -300,6 +302,7 @@ void main() {
       if (n * dir >= 0) I.push(a, b, c, a, c, d); else I.push(a, c, b, a, d, c);
     };
     for (let i = 1; i < nx - 1; i++) for (let j = 1; j < ny - 1; j++) for (let k = 1; k < nz - 1; k++) {
+      if (k === 1 && j === 1) yield;
       const v0 = F[id3(i, j, k)];
       if ((v0 < 0) !== (F[id3(i + 1, j, k)] < 0)) quad(VI[id3(i, j - 1, k - 1)], VI[id3(i, j, k - 1)], VI[id3(i, j, k)], VI[id3(i, j - 1, k)], v0 < 0 ? 1 : -1, 0);
       if ((v0 < 0) !== (F[id3(i, j + 1, k)] < 0)) quad(VI[id3(i - 1, j, k - 1)], VI[id3(i - 1, j, k)], VI[id3(i, j, k)], VI[id3(i, j, k - 1)], v0 < 0 ? 1 : -1, 1);

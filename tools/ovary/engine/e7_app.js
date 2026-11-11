@@ -253,6 +253,7 @@ function frame(now, xrFrame) {
   lastNow = now;
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
@@ -315,7 +316,9 @@ const LOAD = { steps: [], i: 0, t: 0, gone: false, done: false, warm: null, seen
 function init() {
   const S = LOAD.steps, n = SET_ORDER.length;
   S.push(['Setting up the scene', () => buildScene($('#gl')), true]);
-  SET_ORDER.forEach((k, i) => { const l = `Building the scenes: ${i + 1} of ${n}`; S.push([l, () => buildSet(k), true], [l, () => warm(GL.sets[k].group)]); });
+  // (a set the story shows from its first second builds what it builds between frames now, a slice a step: early, the
+  // organ's; v136)
+  SET_ORDER.forEach((k, i) => { const l = `Building the scenes: ${i + 1} of ${n}`; S.push([l, () => buildSet(k), true], [l, () => !!(GL.sets[k].early && !GL.sets[k].early(30))], [l, () => warm(GL.sets[k].group)]); });
   S.push(['Putting the scenes together', sceneJoin, true], ['Putting the scenes together', () => warm(GL.scene)],
     ['Writing the story', () => {
       resize();

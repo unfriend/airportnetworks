@@ -322,7 +322,7 @@ void main() {
     [[-0.28, -0.41], [0.28, -0.41], [-0.28, 0.41], [0.28, 0.41]].forEach(([dx, dz], i) => putI(boxP, 1 + i, [BX + dx * kk, -0.135 + 0.115 * (1 - kk), dz * kk], [0.03 * kk, 0.23 * kk, 0.03 * kk], LEG));
     boxP.instanceMatrix.needsUpdate = true;
   }
-  let jarKey = '', benchK = -1;
+  let jarKey = '', benchK = -1, postK = -1;
   function layoutJars(jday, show) {
     const key = jday + '|' + (show > 0.004);
     if (key === jarKey) return;
@@ -486,8 +486,13 @@ void main() {
     slabMat.depthWrite = no3 < 0.02 && set.uA.value > 0.97;
     // the netting, drawn across
     net.m.uniforms.uReveal.value = netA; net.mesh.visible = netA > 0.004;
-    for (let i = 0; i < nCylFixed; i++) { _m.compose(_t.set(POSTS[i][0], -0.002, POSTS[i][1]), _q.set(0, 0, 0, 1), _s.set(0.009, (NY + 0.02) * Math.max(1e-3, prog(netA, 0, 0.3)), 0.009)); cylP.setMatrixAt(i, _m); }
-    cylP.instanceMatrix.needsUpdate = true;
+    // (the posts rise with the netting: written and sent only when it moves, v136)
+    const pk = Math.max(1e-3, prog(netA, 0, 0.3));
+    if (pk !== postK) {
+      postK = pk;
+      for (let i = 0; i < nCylFixed; i++) { _m.compose(_t.set(POSTS[i][0], -0.002, POSTS[i][1]), _q.set(0, 0, 0, 1), _s.set(0.009, (NY + 0.02) * pk, 0.009)); cylP.setMatrixAt(i, _m); }
+      cylP.instanceMatrix.needsUpdate = true;
+    }
     // the jars
     layoutJars(jday, jarsA);
     const bk = smooth(prog(jarsA, 0, 0.5));

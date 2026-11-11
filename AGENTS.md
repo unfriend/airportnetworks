@@ -3241,6 +3241,19 @@ reference, `tools/flock/engine/`):
   `const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';` (`XR.main`
   `pv && pm === 'shown'`, `XR.foot` `pv && pm !== 'hidden'`: panels per story; the cards' mode, not the labels') and
   `GL.world.visible = !land && !away;`.
+- Away a second, the frame idles (v136; the lobby diagnosis: the story left loaded went on working out its hidden scene,
+  0.1 to 0.45 ms a frame here, the pass story's fish the most, and three.js walked the hidden `GL.world`'s matrices):
+  `if (xrIdle(xr, dt)) return;` right after `if (xr) xrBegin(xrFrame, dt);` in `frame`, and `xrIdle` beside `xrAway`
+  (with `_xrNoWalk`), the same lines in all sixteen, the design room and the studio. While `xrAway()` holds it counts the
+  time away (`XR.awayT`); after a second (the frames meanwhile are full ones, so `xrUpdate` has hidden the scene, the
+  panels and the labels and every fade is done: the studio's emitters fade out over 0.4 s) the frame does only xrBegin
+  (the rays at the shell's things, its presses), `audioSync()` (the narration kept quiet) and the render: no sets, no
+  state or camera, no labels, no `panelTick`, no sound cues. Meanwhile `GL.world.updateMatrixWorld` is a no-op of its own
+  (`_xrNoWalk`, deleted again on the first frame back, when the session ends or away no longer holds), so three.js does
+  not walk the hidden world (it recurses into invisible groups). Back at a station the first frame is a full one; a live
+  simulation (the flock, the robots, the pass story's fish) goes on from where it was, a station's flock and school
+  joining their leader as on any arrival. The smoke test's `away idle` steps check the lines in every story and page and
+  drive a hand-written story, one built from sets and the flock through it.
 - `xrEnterScene`: `XR.inRoom = xrRoomOnly(); const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;`.
 - `xrEnded`: `const away = xrAway();` first, and
   `if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }`.
@@ -3652,9 +3665,25 @@ and `hpc` (the supercomputer and the stress test).
 - The heart (in `motor`) is one smooth surface: a signed distance field (round
   cones and ellipsoids blended softly) polygonised by surface nets. That is too
   slow for load time, so it runs as a job in slices between frames: a set may
-  return `idle(dt)` (the engine calls it while the set is hidden) and
+  return `idle(dt, ms)` (the engine calls it while the set is hidden) and
   `finish()` (build now: the harness and `sweep.mjs` call it before
   screenshots). The heart fades in once built.
+- The build budget (v136; the sweep found 5 to 10 ms of building a frame in the first seconds of the ovary, microanatomy,
+  muscle and endotype stories, each hidden set taking 3 or 4 ms and two at a time): every engine whose sets build between
+  frames (the muscle, endotype, PET, microanatomy, ovary and tissue topology stories) shares one budget a frame among all
+  of them (`BUILD`, `buildMs(dt)`, `buildTurn(jobs, dt)` in `engine/e2_scene.js`, the same lines in each): in a headset
+  about 1 ms, on a page an eighth of the frame, 2 to 8 ms (more where frames are slow anyway, as in headless Chromium).
+  The hidden sets take it by turns, one a frame (round robin, `BUILD.i`); each of the others is asked `idle(dt, 0)`,
+  which builds nothing and answers whether it still has work (`true`) or not (`false`: it is passed over until it says
+  `true` again). The organs' models that the microanatomy and tissue topology engines step themselves (`ORGAN3D`) are a
+  job of the same budget (`ORGJOB`, `LIVJOB`), no longer on top of it. A set on show still builds on demand in its
+  `update` (its own slice, as before: the heart 12 ms once it is wanted), and `finish()` at once. The ovary's organ,
+  which the story shows from its first second, builds during the load instead (`early(ms)`, a slice a step behind the
+  loading card), so its first seconds no longer pay 4 ms a frame for it. `idle(dt)` without `ms` keeps a set's old
+  slice (the harnesses). The jobs yield finely enough for it (v136: the ovary's surface nets after each row of cells and
+  its stain every 128 pixels, `ORGAN3D`'s quads a plane at a time and its pictures every 25 triangles; they ran 5 to 15
+  ms between yields). How much longer the builds take in wall time on a Quest, and whether a story's set is ready when
+  its chapter comes, is untested there.
 - A set may also export `keepOut(p)` (the camera's position in its own frame,
   returned moved if need be) and `still(p)` (explore's sway rests there): the
   engine's `keepCamera` applies them every frame outside a headset. The
@@ -3908,6 +3937,14 @@ cells, the network with triangles, pieces joining and loops opening and closing,
 `cohort`, the 123 slides as a rack of glass slides with their curves, the main shapes, the space of scores, the
 classifier's wall, the held-out stacks and the weight for every radius on a column of radii; each with a manifest) and
 engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the contract.
+
+- The instance pools send only what changed (v136; the sweep found the tower re-sending 630 KB of instance buffers a
+  frame, 31 calls, even paused, and the qubits and mutation stories' pools their whole buffers every frame): `upload` in
+  `tools/topo/sets/look.js` (and the same function in `tools/qubits/sets/look.js` and `tools/mutation/sets/look.js`; the
+  soil story draws with this look's pools) compares a pool's used range, as 32-bit words, with a copy of what last went
+  and sends the stretch from the first change to the last (a range set and not yet sent is merged in, since three.js
+  sets its count back to -1 once it has gone), nothing when it is the same: a story paused or at rest uploads nothing,
+  one moving sends what moves. The soil field's posts are written only when the netting moves.
 
 - **Every number is topocyte's** (the owner: "use the topocyte code for all calculations").
   `tools/topo/data/gen_data.py` runs the authors' package topocyte and the poster's own figure scripts on the authors'
@@ -4239,6 +4276,12 @@ is the contract between them.
   crumbs there, and the grip moves only the panel (outside a shared room). In passthrough
   (`robots_room` 0) nothing opaque is drawn: a glowing line along each wall's
   base, ripples where a robot bumps it, and the cleaned trail.
+- The cleaned floor (a DataTexture of the room's cells, about 335 KB) goes to the GPU at most ten times a second, in a
+  headset every 0.4 s (v136), and only the boxes of the cells cleaned since the last time (a box per trail: a disc
+  joins the box it touches, `MAP.boxes`; `mapSend` sends each through the renderer's `copyTextureToTexture`,
+  texSubImage2D from a small copy of its rows); a new map, the dust again, more than 32 boxes or boxes over half the map
+  together send all of it, as before (also in the set's harness, which has no `GL.renderer`). How the trail's 0.4 s
+  steps look on a headset is untested.
 
 ## The design room (`stories/design.js`) is built the same way
 
@@ -4259,6 +4302,19 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   colour with a place card (kicker and title), its miniatures (12 cm, from `lowpoly.js`, built a few per frame so the
   table fills in without a stall) on rings from the rim in; in the middle the stage, where the picked prop stands 40 cm
   tall and turns. Lit as the props are (sky light, a light over your shoulder, a cool rim light), dark navy.
+- **Few draws** (v136; the sweep found 235 draws an eye and 5.4 ms of script a frame, a mesh per material of every
+  miniature): each miniature is merged as it is built into at most two meshes (`mergeMini` in `sets/table.js`: its
+  opaque parts and its see-through ones), every part's colour and look carried per vertex (`aMat`: its material's
+  colour, roughness, metalness and its glow in its own colour; `aSee`: its opacity and whether it adds its light), drawn
+  by two `MeshStandardMaterial`s shared by every miniature (`miniMat`, their shaders patched in `onBeforeCompile`; the
+  see-through one premultiplied, so a part that adds its light, haze, leaves what is behind it as it was, its alpha too);
+  a two-sided part is doubled with its faces and normals turned, so both stay one-sided, and see-through parts keep their
+  order (glass before haze). The plates, their glowing edges, the place cards' faces and backs and the homes' discs and
+  rings are one mesh each (`merged`), and what never moves has its matrices worked out once (`still`). The picking
+  proxy, the hover rings and glow and the stage's copy (`clone()` of the merged group, its own matrix updated again) are
+  as before. Measured in a pretend headset: 70 draws an eye (from 235), 1.5 ms of script a frame (from 4.4), 313
+  objects (from 573), pictures of the table, a plate, from above and the stage as before (under 1 % of pixels apart,
+  the stage's turning prop aside). How the merged miniatures look on a headset is untested.
 - **Pointing** at a miniature (the mouse, a controller's ray, a hand) lights it and shows its name; a click, the
   trigger or a pinch puts it on the stage and its card on the panel (Prop: its name, story, what it shows, size and
   frame, params with range and meaning, named views, what reuses it, source and manifest; All props: every story's
@@ -5430,6 +5486,22 @@ of steps is guarded by its name, `runs(...)`; the headset settings, a block of m
 mode and phones and tablets run with `--only 'focus mode'`, `phones`, `tablets` or `iPhone`): `--only studio` the
 studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own steps; the release run is the
 whole test.
+
+Its *away idle* steps (v136, `--only 'away idle'`, a page of their own, a minute or two): the away lines (`xrIdle` and
+its call right after `xrBegin` in `frame`) in every story and every page in `STORY_EXTRA`; then for the airports (written
+by hand), the qubits (built from sets) and the flock (a live simulation) a pretend VR headset driving the story's real
+frame function through three.js's ArrayCamera path, `HOST.room.away` and `inRoom` stubbed: at a station every frame a
+full one (`xrUpdate` each frame, the world shown and walked, the birds flying); away, a second of full frames with the
+world and the panels hidden; then frames that only render (no `xrUpdate`, no set's `update`, `window.__frames` counting
+on), `GL.world.updateMatrixWorld` its own no-op (moving the world and walking the scene's matrices leaves its matrix as
+it was), the birds still; back, the first frame a full one, the world shown and walked again, the birds flying on from
+where they were; away again and the session ending while idle: the walk given back. Its *uploads* steps (v136,
+`--only uploads`, a page of their own with WebGL2's calls counted, a minute or two): the tissue topology story paused at
+212 s (the tower), the qubits at 267 s and the mutation story at 253 s sending no buffer in six frames (they sent 186,
+102 and 258 before), and playing on; the robots in explore mode with 12 robots for four seconds: their cleaned floor
+sent as boxes through `copyTextureToTexture` and no whole map. The design room's *few draws* step (with its other
+steps, `--only design`): every miniature in one or two meshes of the two shared materials, static and with `aMat`, at
+most 110 meshes shown on the table and 110 draws for it (337 and 334 before).
 
 Its *stick moving* steps (v125, `--only 'stick moving'`, a page of their own, a minute or two; a pretend VR headset whose
 frames go first through the session's own `requestAnimationFrame`, the shell's hook and its own callback, and then the

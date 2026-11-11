@@ -181,6 +181,7 @@ function frame(now, xrFrame) {
   if (PV.jobs.length) pvJobs();   // (a model's picture asked for in a headset session: drawn here, inside its frame; e7e_pics.js)
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
+  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
   let S, tSet;
   const t0 = APP.t;
   const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)

@@ -1198,7 +1198,9 @@ if (position.x > uBuildX) vA = 0.0;` });
     params: { motor_a: 1, motor_build: 1, motor_signal: 0, motor_open: 0, motor_contract: 0, motor_heart: 0, motor_groups: 0, motor_site: 0 },
     update, anchors, labels, cam, controls, explore,
     keepClear: true,   // drawn where its geometry is: a headset keeps it clear of your head
-    idle: dt => { heartStep(sliceMs(dt)); if (!heartJob) heartIn = 1; },   // while the set is hidden, the heart goes on building
+    // while the set is hidden, the heart goes on building (by the engine's build budget, v136: ms for this frame, 0 nothing
+    // but the answer, true while there is more)
+    idle: (dt, ms) => { if (ms === undefined) ms = sliceMs(dt); if (ms > 0) heartStep(ms); if (!heartJob) heartIn = 1; return !!heartJob; },
     finish: () => { while (heartJob) heartStep(Infinity); heartIn = 1; },     // for screenshots and tests: build it now
   });
 };

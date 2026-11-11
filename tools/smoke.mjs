@@ -1136,6 +1136,26 @@ await step('design: not on the Stories screen; #design opens the table and all 4
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
   if (n[0] !== 48 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 48 miniatures in explore mode at #design)');
 });
+// few draws (v136: 235 an eye before, a mesh per material of every miniature): each miniature in at most two meshes of
+// the two materials every miniature shares, the plates, edges, cards and homes one mesh each, what never moves its
+// matrices kept; the meshes drawn in a frame counted by the renderer
+await step('design: every miniature in at most two meshes of two shared materials; about 70 draws for the table', async () => {
+  const r = await page.evaluate(() => HOST.cur.peek(`(() => {
+    const T = GL.sets.table, mats = new Set(), out = [];
+    for (const k of T.keys()) {
+      const m = T.mini(k), ms = [];
+      if (!m.model) { out.push(k + ': not built'); continue; }
+      m.model.traverse(o => { if (o.isMesh) ms.push(o); });
+      if (!ms.length || ms.length > 2 || ms.some(o => o.matrixAutoUpdate || !o.geometry.attributes.aMat)) out.push(k + ': ' + ms.length + ' meshes');
+      for (const o of ms) mats.add(o.material);
+    }
+    let shown = 0;
+    T.group.traverse(o => { if (o.isMesh && o.material.visible !== false) shown++; });
+    const I = GL.renderer.info, ar = I.autoReset; I.autoReset = false; I.reset(); GL.renderer.render(GL.scene, GL.camera); const calls = I.render.calls; I.autoReset = ar;
+    return { out, mats: mats.size, shown, calls };
+  })()`));
+  if (r.out.length || r.mats !== 2 || r.shown > 110 || r.calls > 110) errors.push('design: few draws: ' + JSON.stringify(r));
+});
 await step('design: a click on a miniature puts it on the stage, its card matching props.json', async () => {
   const fs = await import('fs');
   const props = JSON.parse(fs.readFileSync(new URL('./design/props.json', import.meta.url), 'utf8'));
@@ -8377,6 +8397,150 @@ if (!ONLY) {
     if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
   });
   await sp.close();
+}
+// Away from every station (v136): a headset in a shared room that has walked into no circle (HOST.room.away) has its
+// story hidden, paused and silent, and once it has been away a second (its fades done) the story's frame works nothing
+// of it out: xrIdle, the same lines in every story and every page in STORY_EXTRA, right after xrBegin in frame. In a
+// page of its own with a pretend VR headset driving the story's real frame function (three.js's ArrayCamera path), the
+// shell's HOST.room.away and inRoom stubbed: a hand-written story, one built from sets and a live simulation
+if (runs('away idle')) {
+  await step('away idle: every story and page keeps the away lines (xrIdle after xrBegin in frame)', async () => {
+    const lines = ['function xrIdle(xr, dt) {', "  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;", '  const idle = XR.awayT > 1;',
+      '  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }',
+      '  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;',
+      '  if (xr) xrBegin(xrFrame, dt);\n  if (xrIdle(xr, dt)) return;'];
+    const miss = await page.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+      [[...STORY_KEYS, ...EXTRA], lines]);
+    if (miss.length) errors.push('away idle: the away lines are missing in ' + miss.join(', '));
+  });
+  const ap = await browser.newPage({ viewport: { width: 480, height: 300 } });
+  ap.on('pageerror', e => errors.push('away idle: ' + (e.stack || e.message)));
+  ap.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('away idle: ' + m.text()); });
+  for (const key of ['airports', 'qubits', 'flock']) await step(`away idle: ${key}: away a second, its frame only renders; back, it goes on`, async () => {
+    await ap.goto('about:blank');
+    await ap.goto(base + 'index.html#' + key);
+    await ap.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof LOAD !== "undefined" && LOAD.done === true && !!XR.panelGroup'), key, { timeout: 90000 });
+    const bad = await ap.evaluate(async key => {
+      const out = [], V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion, r = HOST.renderer, xr = r.xr, P = s => HOST.cur.peek(s);
+      const W = { t: 5000, raf: [] }, sp = name => ({ name, addEventListener() {}, removeEventListener() {} }), REF = sp('local');
+      const at = (x, y, z) => new M4().makeTranslation(x, y, z);
+      const pose = m => { const p = new V3(), q = new Q(); m.decompose(p, q, new V3()); return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) }, views: [], emulatedPosition: false }; };
+      const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
+      const L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('L'), gripSpace: sp('Lg'), gamepad: pad() }, R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('R'), gripSpace: sp('Rg'), gamepad: pad() };
+      const real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)]]);
+      const frameOf = () => ({ getViewerPose: s => (s === REF ? pose(at(0, 1.6, 0)) : null), getPose: (s, b) => (b === REF && real.has(s) ? pose(real.get(s)) : null), getJointPose: () => null });
+      const S = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb) };
+      const cw = r.domElement.width, ch = r.domElement.height, cams = [0, 1].map(i => { const c = new THREE.PerspectiveCamera(); c.viewport = new THREE.Vector4(i * cw / 2, 0, cw / 2, ch); return c; }), ac = new THREE.ArrayCamera(cams);
+      const keep = { ref: xr.getReferenceSpace, cam: xr.getCamera, render: r.render, away: HOST.room.away, inRoom: HOST.room.inRoom };
+      let renders = 0, ups = 0, sets = 0;
+      try {
+        r.setAnimationLoop(null);
+        xr.getReferenceSpace = () => REF; xr.isPresenting = true;
+        xr.getCamera = cam => { cam.updateMatrixWorld(); for (const c of [ac, ...cams]) { c.matrixWorld.copy(cam.matrixWorld); c.matrixWorldInverse.copy(cam.matrixWorldInverse); c.projectionMatrix.copy(cam.projectionMatrix); c.projectionMatrixInverse.copy(cam.projectionMatrixInverse); } return ac; };
+        HOST.session = S; HOST.mode = 'immersive-vr';
+        window.__away = false;
+        HOST.room.away = () => window.__away; HOST.room.inRoom = () => true;
+        P('(XR.session = HOST.session, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.mode !== "explore" && APP.enterExplore(), 0)');
+        r.render = function (a, b) { renders++; return keep.render.call(this, a, b); };
+        window.__xu = 0; P('(xrUpdate = (o => function (S) { window.__xu++; return o(S); })(xrUpdate), 0)');
+        const SETS = P('typeof GL.sets === "object" ? GL.sets : null');
+        if (SETS) for (const k in SETS) { const s = SETS[k], u = s.update; s.update = function () { sets++; return u.apply(this, arguments); }; }
+        const fr = P('frame');
+        const run = (n, ms) => { for (let i = 0; i < n; i++) { W.t += ms; const f = frameOf(); for (const cb of W.raf.splice(0)) cb(W.t, f); fr(W.t, f); } };
+        const birds = () => (key === 'flock' ? Array.from(GL_SETS().flock.state().P.slice(0, 30)) : null), GL_SETS = () => P('GL.sets');
+        const moved = (a, b) => a && b && a.some((v, i) => Math.abs(v - b[i]) > 1e-4);
+        const own = () => Object.prototype.hasOwnProperty.call(P('GL.world'), 'updateMatrixWorld');
+        // at a station: the story's frame does all of it
+        run(3, 33);
+        const b0 = birds(), xu0 = window.__xu;
+        run(3, 33);
+        if (window.__xu - xu0 !== 3 || !P('GL.world.visible') || own()) out.push('at a station: not a full frame each time ' + JSON.stringify({ xu: window.__xu - xu0, vis: P('GL.world.visible'), own: own() }));
+        if (key === 'flock' && !moved(b0, birds())) out.push('at a station: the birds did not fly');
+        // away: a second of full frames (its fades), hidden
+        window.__away = true;
+        const xu1 = window.__xu; run(9, 100);
+        if (window.__xu - xu1 !== 9 || P('GL.world.visible') || own() || P('XR.main.mesh.visible')) out.push('away, its first second: not hidden with full frames ' + JSON.stringify({ xu: window.__xu - xu1, vis: P('GL.world.visible'), own: own() }));
+        // then nothing but the render
+        run(2, 100);
+        const xu2 = window.__xu, r2 = renders, s2 = sets, b2 = birds(), f2 = window.__frames;
+        run(6, 100);
+        if (window.__xu !== xu2 || sets !== s2 || renders - r2 !== 6 || window.__frames - f2 !== 6) out.push('away: the frame did more than render ' + JSON.stringify({ xrUpdate: window.__xu - xu2, sets: sets - s2, renders: renders - r2, frames: window.__frames - f2 }));
+        if (!own() || !(P('XR.awayT') > 1)) out.push('away: GL.world\'s matrices still walked, or not idle ' + JSON.stringify({ own: own(), awayT: P('XR.awayT') }));
+        const w = P('GL.world'), before = w.matrixWorld.elements.slice(); w.position.x += 5; P('GL.scene').updateMatrixWorld(true); const after = w.matrixWorld.elements.slice(); w.position.x -= 5;
+        if (before.join() !== after.join()) out.push('away: three.js still walked GL.world\'s matrices');
+        if (key === 'flock' && moved(b2, birds())) out.push('away: the birds flew on (their simulation ran)');
+        // back at a station: the first frame is a full one, the world shown and walked again, the simulation going on
+        window.__away = false;
+        const xu3 = window.__xu, s3 = sets;
+        run(1, 33);
+        if (window.__xu - xu3 !== 1 || own() || !P('GL.world.visible') || P('XR.awayT') !== 0 || (SETS && sets === s3)) out.push('back: its first frame not a full one ' + JSON.stringify({ xu: window.__xu - xu3, own: own(), vis: P('GL.world.visible'), sets: sets - s3 }));
+        run(4, 33);
+        if (key === 'flock') { const b4 = birds(); if (!moved(b2, b4) || !b4.every(Number.isFinite)) out.push('back: the birds did not fly on'); }
+        // a session that ends while idle: the walk comes back too
+        window.__away = true; run(14, 100);
+        if (!own()) out.push('away again: not idle');
+        xr.isPresenting = false; run(1, 33);
+        if (own()) out.push('the session ended while idle: GL.world\'s walk not given back');
+      } catch (e) { out.push('threw: ' + (e.stack || e.message)); } finally {
+        xr.getReferenceSpace = keep.ref; xr.getCamera = keep.cam; xr.isPresenting = false; r.render = keep.render; HOST.room.away = keep.away; HOST.room.inRoom = keep.inRoom; HOST.session = null;
+      }
+      return out;
+    }, key);
+    if (bad.length) errors.push(...bad.map(b => `away idle: ${key}: ${b}`));
+  });
+  await ap.close();
+}
+// What goes to the graphics card (v136): the instance pools of the tissue topology, qubits and mutation stories send
+// only what changed, so a paused story sends no buffer at all (the tower re-sent 630 KB a frame); the robots' cleaned
+// floor goes as the boxes of its trails (texSubImage2D through copyTextureToTexture), not the whole map. In a page of
+// its own, WebGL2's calls counted
+if (runs('uploads')) {
+  const up = await browser.newPage({ viewport: { width: 480, height: 300 } });
+  up.on('pageerror', e => errors.push('uploads: ' + (e.stack || e.message)));
+  up.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('uploads: ' + m.text()); });
+  await up.addInitScript(() => {
+    const G = window.__gl = { buf: 0, bufB: 0, tex: 0, texB: 0, sub: 0 }, P = WebGL2RenderingContext.prototype;
+    const wrap = (n, f) => { const o = P[n]; P[n] = function () { f.apply(this, arguments); return o.apply(this, arguments); }; };
+    wrap('bufferSubData', function () { G.buf++; const d = arguments[2]; G.bufB += (d && d.byteLength) || 0; });
+    wrap('texImage2D', function () { G.tex++; const d = arguments[arguments.length - 1]; G.texB += (d && d.byteLength) || 0; });
+    wrap('texSubImage2D', function () { G.sub++; });
+  });
+  const openUp = async (key, hash) => {
+    await up.goto('about:blank');
+    await up.goto(base + 'index.html#' + key + hash);
+    await up.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof LOAD !== "undefined" && LOAD.done === true'), key, { timeout: 90000 });
+    await up.waitForTimeout(2500);
+  };
+  // n frames of the page's own loop: the counts over them
+  const over = n => up.evaluate(async n => {
+    const G = window.__gl, g0 = Object.assign({}, G), f0 = window.__frames || 0;
+    const t0 = performance.now(); while ((window.__frames || 0) - f0 < n && performance.now() - t0 < 20000) await new Promise(r => setTimeout(r, 50));
+    const d = {}; for (const k in G) d[k] = G[k] - g0[k]; d.frames = (window.__frames || 0) - f0; return d;
+  }, n);
+  for (const [key, t] of [['topo', 212], ['qubits', 267], ['mutation', 253]]) await step(`uploads: ${key}, paused at ${t} s, sends no buffer`, async () => {
+    await openUp(key, '&t=' + t);
+    const d = await over(6);
+    if (d.frames < 6 || d.buf) errors.push(`uploads: ${key} paused at ${t} s: ${d.buf} buffer uploads (${d.bufB} bytes) in ${d.frames} frames`);
+    // playing on: what moves goes, and the frames still differ
+    await up.evaluate(() => HOST.cur.peek('(APP.playing = true, 0)'));
+    const p = await over(6);
+    await up.evaluate(() => HOST.cur.peek('(APP.playing = false, 0)'));
+    if (p.frames < 6) errors.push(`uploads: ${key} playing: only ${p.frames} frames`);
+  });
+  await step('uploads: the robots\' cleaned floor goes as the boxes of its trails, not the whole map', async () => {
+    await openUp('robots', '&explore&robots=12');
+    const r = await up.evaluate(async () => {
+      const R = HOST.renderer, c = R.copyTextureToTexture, out = { copies: 0, px: 0, big: 0 };
+      R.copyTextureToTexture = function (p, s, d, l) { out.copies++; out.px += s.image.width * s.image.height; return c.call(this, p, s, d, l); };
+      const G = window.__gl, t0 = G.tex, b0 = G.texB, f0 = window.__frames || 0, w0 = performance.now();
+      while (performance.now() - w0 < 4000 || (window.__frames || 0) - f0 < 8) await new Promise(r => setTimeout(r, 50));
+      R.copyTextureToTexture = c;
+      out.frames = (window.__frames || 0) - f0; out.texB = G.texB - b0; out.tex = G.tex - t0;
+      return out;
+    });
+    if (!(r.copies > 0) || r.texB > 300000 || r.px > 60000 * Math.max(1, r.copies)) errors.push('uploads: the robots\' floor: ' + JSON.stringify(r));
+  });
+  await up.close();
 }
 // Moving with the sticks in VR (v125: HOST.xr.walk, walking and walkWhy in index.html; a stick clicked twice, shared.js's
 // sticks; the owner, 8 November 2026: "Add Movement in vr mode, maybe with sticks, switchable by double pressing a

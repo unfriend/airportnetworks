@@ -17,10 +17,13 @@ exports, labels, controls, camera views, performance budget, harness, palette), 
   `tools/nmd/data/gen_data.mjs`; never edit it by hand). It is loaded before the sets, in the harness and in the
   story. Its header comment documents every field. Decode it once per set (base64 to typed arrays).
 - No patient data and no variants appear anywhere, and nothing about zebrafish.
-- A set whose geometry is too slow to build at load may build it in slices: return `idle(dt)` (called every frame
-  while the set is hidden; keep each call to a millisecond or two) and `finish()` (build the rest now; the harness
-  calls it after building the set, `sweep.mjs` after loading the story), and slice in `update` too, showing the part
-  only once it is ready. The motor set's heart does this.
+- A set whose geometry is too slow to build at load may build it in slices: return `idle(dt, ms)` (called every frame
+  while the set is hidden: build for about `ms`, nothing when it is 0, and return whether there is still work; without
+  `ms`, its own slice) and `finish()` (build the rest now; the harness calls it after building the set, `sweep.mjs`
+  after loading the story), and slice in `update` too, showing the part only once it is ready. The motor set's heart
+  does this. Keep each step of the job (between its `yield`s) well under a millisecond. The engine shares one budget a
+  frame among the hidden sets (v136: `BUILD`, `buildMs`, `buildTurn` in `engine/e2_scene.js`: about 1 ms in a headset,
+  on a page an eighth of the frame, 2 to 8 ms; one set a frame by turns, the others asked `idle(dt, 0)`).
 - A set drawn where its geometry is (no positions computed in its shaders, as the tower's and the tree's are) may export
   `keepClear: true`: in a headset the engine then never lets a close view bring it nearer than 0.35 m to your head
   (`xrClear` in `engine/e5_xr.js` caps the view's scale, eased, from a sample of each of its visible meshes: a point per
