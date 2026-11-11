@@ -1402,7 +1402,13 @@ ships or look).
     frame's and this frame's places against its own ship (exact, a sphere of 0.18 m; one heard late swept from its start
     against where the ship was meanwhile, its last 0.6 s kept); the leader also against the targets and drones. A ship's
     own bolts never hit it; drones' hit ships only. A hit goes out (what, by whom, the bolt, the new shield and health),
-    and so does a destruction; every device shows the flash and the bars from it.
+    and so does a destruction; every device shows the flash and the bars from it. A hit marks its bolt spent everywhere,
+    but a hit on a drone or a target only from the leader (or a hit on a ship): a device that missed the leader's presence
+    for 2 s (Wi-Fi, the system menu) leads its own copy for that moment and says its hits, and the leader, which never
+    takes them, still sweeps that bolt itself, so it counts there (v135; before, the bolt was lost). A pickup given goes
+    from whatever set a headset holds, its own copy of that moment too (v135; before, it came back there 3 s later). A
+    pilot heard is stamped with the page's clock, not the frame's, so a headset whose frames paused (its system menu) does
+    not take everyone for gone on its first frame back (v135).
   - Kills: each device counts, from the destructions it hears, per member the ships and the drones and targets destroyed
     since it joined.
   - Nothing stored: no room key, no `FORMAT` change. Peer to peer and a room on this device the same (the Hub passes
@@ -6457,12 +6463,16 @@ story circles, a page and two pretend AR headsets lined up through the shared sp
 A's ship where A had it at the relay time it draws (against A's own track, `debug.track`: the median within 3 cm); A
 leads 2 drones and 3 targets (frozen, `debug.freeze`: still, holding fire, their shields not refilling), which B draws where A has them; B launches, a third drone, the set
 kept, A still leading; A and B each hit the same drone, A deciding (its shield 10 after A's bolt, then 0 and its health
-50 after B's, on both devices), and B's last bolt destroying it, credited to B on A, B and the page (its people list); a
-pickup B flies through given to B by A (B's rapid fire on, gone for everyone), and one claimed by both at once given to
+50 after B's, on both devices), and B's last bolt destroying it, credited to B on A, B and the page (its people list); B
+whose frames pause 2.6 s while A flies on keeping A the leader on its first frame back; B missing A's presence (its quiet
+time made 0) and taking itself for the leader: a pickup A gives away meanwhile gone from
+B's own copy, and its bolt on a drone said by B and A taking no frames until B's word has come: the drone's shield 30 to
+10 on A all the same, and once B hears A again A leads on both (v135); a pickup B flies through given to B by A (B's rapid fire on, gone for everyone), and one claimed by both at once given to
 one only; A lands, B leading and taking the set over where it was (the drones within 5 cm, their shield and health, a
 destroyed one's time, a pickup's time left), back to two drones; A, back in the air, fires at B's ship from behind: B
 decides, its shield 80 on B, on A and in the page's people list; nine more and B is destroyed, credited to A on every
-device and the page; B back 5 s later full, seen so by A; no room key written by the game while it played, and no effect
+device and the page; B back 5 s later full, seen so by A (frames until it is, 8 s more at most on a loaded machine; the 5 s
+itself is the smoke test's); no room key written by the game while it played, and no effect
 reaching a story's effect hook. `--camera` runs only camera mode (`cameraRound`, also in
 the main run after the studio's behaviours; a room of its own with two story circles, a page, a pretend headset with
 Quest Browser's user agent and a pretend Android phone with Chrome's (`openDevice`: a pretend `navigator.xr` offering

@@ -113,7 +113,8 @@
 // --ships only the spaceships in a shared room (shipsRound, v132, also in the main run after the walk round: a room of its
 // own with two story circles, a page and two pretend AR headsets with controllers, each at its own circle: A's ship drawn
 // by B where A had it at the relay's time; A leads 2 drones and 3 targets, B sees them; B launches, a third drone, the set
-// kept; both hit one drone, A deciding, credited to the one whose bolt destroyed it; pickups given by A, one claimed by both
+// kept; both hit one drone, A deciding, credited to the one whose bolt destroyed it; B, missing A's presence a moment and
+// taking itself for the leader, its bolt on a drone still counted by A (v135); pickups given by A, one claimed by both
 // given once; A lands and B takes the set over where it was; A fires at B, B decides (shield 80 everywhere), B destroyed and
 // A credited (the page's people list), B back 5 s later; no room key written, no effect at a story's hook; a few minutes);
 // --trackers only the PC's Vive trackers end to end (trackersRound, also in the main run after the studio's behaviours: a
@@ -1005,12 +1006,16 @@ async function p2p() {
     const link = await PA.evaluate(() => location.hash), pcode = await PA.evaluate(() => HOST.collab.code);
     check('peer to peer: with no relay a page starts a room and hosts it, and its link carries the introduction server', aHost && link === `#s=${pcode}&peer=${server}`, JSON.stringify([await way(PA), link]));
     const PB = await popen(link, { skew: 3000 });
-    const bIn = await inRoom(PB, 'guest', 2);
+    let tj = Date.now();
+    const bIn = await inRoom(PB, 'guest', 2), tB = (Date.now() - tj) / 1000;
     const PC = await popen(link);
-    const cIn = await inRoom(PC, 'guest', 3);
+    tj = Date.now();
+    const cIn = await inRoom(PC, 'guest', 3), tC = (Date.now() - tj) / 1000;
+    // (all three open together at one moment: a guest that was in may be linking again a moment on a loaded machine)
+    const aIn = await inRoom(PA, 'host', 3, 5000), bNow = await inRoom(PB, 'guest', 3, 10000), cNow = await inRoom(PC, 'guest', 3, 10000);
     const aId = await idOf(PA), hostIs = (p, id) => p.evaluate(id => { const h = HOST.collab.members.filter(m => m.host); return h.length === 1 && h[0].id === id; }, id);
-    check('peer to peer: two more pages join by the link as guests, and every page lists the three with the host marked', bIn && cIn && await inRoom(PA, 'host', 3, 5000) &&
-      await hostIs(PA, aId) && await hostIs(PB, aId) && await hostIs(PC, aId), JSON.stringify([await way(PA), await way(PB), await way(PC)]));
+    check(`peer to peer: two more pages join by the link as guests (in ${tB.toFixed(1)} s and ${tC.toFixed(1)} s), and every page lists the three with the host marked`, bIn && cIn && aIn && bNow && cNow &&
+      await hostIs(PA, aId) && await hostIs(PB, aId) && await hostIs(PC, aId), JSON.stringify({ bIn, cIn, aIn, bNow, cNow, way: [await way(PA), await way(PB), await way(PC)] }));
     // the Shared dialog: how the room runs and who hosts it, the people (the host marked) and Copy link
     const dlgOf = p => p.evaluate(async () => {
       HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
@@ -1072,7 +1077,9 @@ async function p2p() {
     await playing(PB); await playing(PC);
     await sleep(1500);
     // the station's clock as a page reckons it from the room (and its own time), and the story's
-    const stClock = (p, id) => p.evaluate(id => { const v = HOST.collab.val('st.' + id + '.play'); return { at: Date.now(), t: v.t + (v.playing ? (HOST.collab.now() - v.at) / 1000 : 0), app: HOST.cur.peek('APP.t'), keys: HOST.collab.internals().keys.size }; }, id);
+    // (the other guest may still be a key behind the new host as the host leaves: the keys compared after the hand-over; a
+    // page with no clock for the station yet says so rather than throwing)
+    const stClock = (p, id) => p.evaluate(id => { const v = HOST.collab.val('st.' + id + '.play'); return { at: Date.now(), t: v ? v.t + (v.playing ? (HOST.collab.now() - v.at) / 1000 : 0) : NaN, app: HOST.cur.peek('APP.t'), keys: HOST.collab.internals().keys.size }; }, id);
     const [b0, c0] = [await stClock(PB, sid), await stClock(PC, sid)];
     const t0 = Date.now();
     await PA.evaluate(() => HOST.collab.leave());
@@ -1086,7 +1093,7 @@ async function p2p() {
     const jump = (x0, x1) => x1.t - (x0.t + (x1.at - x0.at) / 1000);
     const [jb, jc] = [jump(b0, b1), jump(c0, c1)];
     check(`peer to peer: the stations and keys are kept, and the station's clock goes on without a jump (${jb.toFixed(2)} s, ${jc.toFixed(2)} s; the new host's own clock is 3 s off)`,
-      Math.abs(jb) < 0.5 && Math.abs(jc) < 0.5 && Math.abs(c1.app - c1.t) < 0.5 && b1.keys === b0.keys && c1.keys === c0.keys &&
+      Math.abs(jb) < 0.5 && Math.abs(jc) < 0.5 && Math.abs(c1.app - c1.t) < 0.5 && b1.keys === b0.keys && c1.keys === b1.keys &&
       (await PB.evaluate(() => HOST.collab.stations().length)) === (await PC.evaluate(() => HOST.collab.stations().length)), JSON.stringify({ b0, b1, c0, c1 }));
     await peek(PC, 'APP.togglePlay()');
     const cPaused = await still(PB);
@@ -2290,34 +2297,83 @@ async function shipsRound() {
     await A.evaluate(c => { HOST.ships.debug.drone('d1', { p: c }); HOST.ships.debug.target('t1', { p: [c[0] + 3, 2.2, c[2] + 3] }); }, c);
     await both(400);
     const aim = (H, from, yaw) => H.evaluate(([p, y]) => HOST.ships.debug.place(p, y, 0), [from, yaw]);
-    const shot = H => H.evaluate(() => { const X = window.__xr, b = X.R.gamepad.buttons[0]; b.pressed = true; b.value = 1; X.step(); b.pressed = false; b.value = 0; X.step(); });
+    // (A out of the way before B shoots: after its own shots A flies on along its line through the drone's spot, where B's
+    // bolt could hit A's ship first; 1.2 m above B's line, flying across it)
+    const clearA = () => aim(A, [-2, 2.6, 3], Math.PI / 2);
+    // (the trigger held until a bolt of this ship's is in the air, a few frames at most: a frame of a page drawing in
+    // software may pass without the ship's step; false when none went)
+    const shot = H => H.evaluate(async () => {
+      const X = window.__xr, b = X.R.gamepad.buttons[0], me = HOST.ships.state().me, mine = () => HOST.ships.state().bolts.filter(B => B.pilot === me && !B.dr).length, n0 = mine();
+      let went = false;
+      b.pressed = true; b.value = 1;
+      for (let k = 0; k < 8 && !went; k++) { X.step(); went = mine() > n0; if (!went) await new Promise(r => setTimeout(r, 16)); }
+      b.pressed = false; b.value = 0; X.step();
+      return went;
+    });
     // (B's view of the drone comes with A's presence: frames on both until it does, at most 6 s, a page drawing in software
     // taking its frames far apart)
-    const seen = (sh, h) => Promise.all([frames(A, 400), until(B, ([sh, h]) => { window.__xr.step(); const d = HOST.ships.state().drones.find(x => x.id === 'd1'); return !!d && d.s === sh && d.h === h; }, [sh, h], 6000)]);
+    // (frames on both throughout: A's presence goes out from its frames, and B missing it for 2 s would take itself for
+    // the leader)
+    const seen = async (sh, h) => { for (let k = 0; k < 20; k++) { await both(300); const d = (await ss(B)).drones.find(x => x.id === 'd1'); if (d && d.s === sh && d.h === h) return true; } return false; };
     await aim(A, [c[0] + 1.4, c[1], c[2]], Math.PI / 2); await shot(A);
     await both(500); await seen(10, 60);
     const a3 = await ss(A), b3 = await ss(B), d3a = a3.drones.find(d => d.id === 'd1'), d3b = b3.drones.find(d => d.id === 'd1');
-    await aim(B, [c[0], c[1], c[2] + 2.4], 0); await shot(B);
+    await clearA(); await aim(B, [c[0], c[1], c[2] + 2.4], 0); const went4 = await shot(B);
     await both(500); await seen(0, 50);
     const a4 = await ss(A), b4 = await ss(B), d4a = a4.drones.find(d => d.id === 'd1'), d4b = b4.drones.find(d => d.id === 'd1');
     check('ships: A and B hit the same drone; A, the leader, decides: its shield falls by A\'s bolt, then by B\'s and its health, on both devices',
-      !!d3a && d3a.s === 10 && d3a.h === 60 && !!d3b && d3b.s === 10 && !!d4a && d4a.s === 0 && d4a.h === 50 && !!d4b && d4b.h === 50, JSON.stringify({ d3a, d3b, d4a, d4b }));
+      !!d3a && d3a.s === 10 && d3a.h === 60 && !!d3b && d3b.s === 10 && !!d4a && d4a.s === 0 && d4a.h === 50 && !!d4b && d4b.h === 50, JSON.stringify({ went4, d3a, d3b, d4a, d4b }));
     // two more of A's, then B's last: destroyed, credited to B on every device and the page
     for (const H of [A, A]) { await aim(H, [c[0] + 1.4, c[1], c[2]], Math.PI / 2); await shot(H); await all3(350); }
-    await aim(B, [c[0], c[1], c[2] + 2.4], 0); await shot(B);
+    await clearA(); await aim(B, [c[0], c[1], c[2] + 2.4], 0); const went5 = await shot(B);
     await all3(800);
     const a5 = await ss(A), b5 = await ss(B), p5 = await P.evaluate(([b]) => [HOST.ships.state().kills[b] || null, HOST.ships.person(b)], [bid]);
     const d5 = a5.drones.find(d => d.id === 'd1');
     check('ships: B\'s bolt destroys it: credited to B on A, B and the page (its people list), not to A',
       !!d5 && !d5.a && (a5.kills[bid] || {}).bots === 1 && !(a5.kills[aid] || {}).bots && (b5.kills[bid] || {}).bots === 1 && !!p5[0] && p5[0].bots === 1 && /destroyed 0 ships and 1 drone or target/.test(p5[1]),
-      JSON.stringify({ d5, ka: a5.kills, kb: b5.kills, p5 }));
+      JSON.stringify({ went5, d5, ka: a5.kills, kb: b5.kills, p5 }));
+    // ---- B's frames pause 2.6 s (its system menu open) while A flies on: B heard A meanwhile, so its first frame back
+    // keeps A the leader (until v134 a pilot's presence was stamped with the frame's time, stale while frames paused)
+    await frames(A, 2600);
+    const pause = await B.evaluate(() => { window.__xr.step(); const s = HOST.ships.state(); return { lead: s.lead, leader: s.leader }; });
+    await both(400);
+    check('ships: B\'s frames pause 2.6 s while A flies on (B hearing A meanwhile): its first frame back keeps A the leader', !pause.lead && pause.leader === aid, JSON.stringify(pause));
+    // ---- B misses A's presence a moment (a Wi-Fi hiccup, A's system menu open; here B's quiet time made 0, so A goes quiet
+    // on B at once) and takes itself for the leader; its bolt on a drone, which B then decides itself and says so, still
+    // counts on A, the leader: what B says never stops A's own sweep of that bolt. A takes no frames until B's word has
+    // come (a page drawing in software, a headset busy a moment: the bolt and B's word both in before A's next frame)
+    // (a pickup far from both, which B's copy of the set takes with it: given away by A meanwhile, it goes from B's copy
+    // too, or it would come back there once B forgets it was given)
+    await A.evaluate(c => HOST.ships.debug.drone('d2', { p: c, s: 30, h: 60, a: true }), c);
+    const kp = await A.evaluate(() => HOST.ships.debug.pickup('b', [-3, 2.5, -3], 60000));
+    for (let k = 0; k < 20; k++) { await both(300); if ((await ss(B)).pickups.some(x => x.id === kp)) break; }
+    await B.evaluate(() => HOST.ships.times({ quiet: 0 }));
+    const bLed = await until(B, () => { window.__xr.step(); return HOST.ships.state().lead; }, null, 6000);
+    const kIn = (await ss(B)).pickups.some(x => x.id === kp);
+    await A.evaluate(id => HOST.ships.debug.claim(id), kp); await frames(A, 400);
+    const kOut = await until(B, id => { window.__xr.step(); const s = HOST.ships.state(); return s.lead && !s.pickups.some(x => x.id === id); }, kp, 4000);
+    // (B 0.5 m behind the drone, so B decides within a frame or two: a bolt the leader first sees more than 2.75 s after it
+    // was fired is dropped unswept, and A takes no frames meanwhile)
+    await clearA(); await aim(B, [c[0], c[1], c[2] + 0.5], 0); const tShot = Date.now(), went6 = await shot(B);
+    const bSaid = await until(B, () => { window.__xr.step(); const d = HOST.ships.state().drones.find(x => x.id === 'd2'); return !!d && d.s === 10; }, null, 6000);
+    await sleep(250);
+    const held = (Date.now() - tShot) / 1000;
+    await frames(A, 800);
+    const dA = (await ss(A)).drones.find(d => d.id === 'd2');
+    await B.evaluate(() => HOST.ships.times(null));
+    // (A's presence, its ship and its set in it, goes out from its frames)
+    const back = (await Promise.all([frames(A, 4000), until(B, a => { window.__xr.step(); const s = HOST.ships.state(); return s.leader === a && !s.lead; }, aid, 8000)]))[1];
+    await both(800);
+    const dB = (await ss(B)).drones.find(d => d.id === 'd2');
+    check('ships: B, missing A\'s presence a moment, takes itself for the leader; its bolt on a drone still counts on A, the leader (its shield 30 to 10), a pickup A gives away meanwhile goes from B\'s own copy, and once B hears A again A leads on both and B draws it so',
+      bLed && kIn && kOut && bSaid && !!dA && dA.s === 10 && dA.h === 60 && back && !!dB && dB.s === 10 && dB.h === 60, JSON.stringify({ went6, held, bLed, kp, kIn, kOut, bSaid, dA, back, dB }));
     // ---- a pickup B flies through: B claims, A gives it to B (rapid fire on B, gone for all)
     // (B at a known place in its arena, flying -z; the pickup 1.4 m ahead of it; none coming by themselves meanwhile; frames
     // until B has flown past it: a page drawing in software takes its frames far apart, and a frame moves at most 0.1 s)
     await A.evaluate(() => { HOST.ships.debug.clearPicks(); HOST.ships.debug.next(1e9); });
     await B.evaluate(() => HOST.ships.debug.place([4, 1.5, 3], 0, 0));
     const kid = await A.evaluate(() => HOST.ships.debug.pickup('r', [4, 1.5, 1.6]));
-    await Promise.all([frames(A, 600), until(B, () => { window.__xr.step(); const s = HOST.ships.state(); return s.p[2] < 1.2 || s.rapid > 0; }, null, 10000)]);
+    for (let k = 0; k < 34; k++) { await both(300); const s = await ss(B); if (s.p[2] < 1.2 || s.rapid > 0) break; }
     await both(800);
     const a6 = await ss(A), b6 = await ss(B), p6 = await P.evaluate(() => HOST.ships.state().pickups.length);
     check('ships: a pickup B flies through is given to B by A: B\'s rapid fire on, the pickup gone for everyone',
@@ -2367,6 +2423,13 @@ async function shipsRound() {
       !!downAt && b9.down && b9.killer === aid && (a9.kills[aid] || {}).ships === 1 && (b9.kills[aid] || {}).ships === 1 && !!p9[0] && p9[0].ships === 1 && /destroyed 1 ship and/.test(p9[1]) && /destroyed, back soon/.test(p9[2]),
       JSON.stringify({ downAt, b9: { down: b9.down, killer: b9.killer, kills: b9.kills }, ka: a9.kills, p9 }));
     await all3(Math.max(0, 5600 - (Date.now() - downAt)));
+    // (on a loaded machine a page's frame can take seconds, so its frame's clock, by which B comes back, may lag the
+    // test's: frames on both until B is back and A has heard so, 8 s more at most; the 5 s itself is the smoke test's)
+    for (let k = 0; k < 20; k++) {
+      const [b, a] = [await ss(B), await ss(A)], r = a.remote.find(x => x.id === bid);
+      if (!b.down && r && r.h === 100 && !r.dn) break;
+      await all3(400);
+    }
     const b10 = await ss(B), a10 = await ss(A), r10 = a10.remote.find(r => r.id === bid);
     check('ships: B back 5 s later with full shield and health, seen so by A', !b10.down && b10.shield === 100 && b10.health === 100 && !!r10 && r10.s === 100 && r10.h === 100 && !r10.dn,
       JSON.stringify({ b: [b10.down, b10.shield, b10.health], r10 }));
@@ -9148,9 +9211,11 @@ try {
   await Fp2.evaluate(() => window.__xr.end());
   const Fp3 = await open('?probe=1#s=' + fcode);
   const fp3 = await Fp3.waitForURL(/\/s\/1\/\?probe=1#/, { timeout: 15000 }).then(() => true, () => false);
-  const f3In = fp3 && await Fp3.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.code === c && HOST.collab.status === 'open', fcode, { timeout: 20000, polling: 100 }).then(() => true, () => false);
+  // (a page loaded afresh and joining: up to a minute on a loaded machine, as the other pages here)
+  const f3In = fp3 && await Fp3.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.code === c && HOST.collab.status === 'open', fcode, { timeout: 60000, polling: 100 }).then(() => true, () => false);
+  const f3 = f3In ? null : await Fp3.evaluate(() => typeof HOST === 'undefined' || !HOST.collab ? 'no HOST' : { code: HOST.collab.code, status: HOST.collab.status, via: HOST.collab.via, href: location.href }).catch(e => String(e));
   check('fresh shared space: a headset there is told to start one headset first, its log has the whole address; a page opened at the old address is moved too (its query kept)',
-    fXr.told && /\/s\/1\/$/.test(fXr.page || '') && fXr.sg === 1 && fXr.search === '' && fp3 && f3In, JSON.stringify({ fXr, fp3, f3In }));
+    fXr.told && /\/s\/1\/$/.test(fXr.page || '') && fXr.sg === 1 && fXr.search === '' && fp3 && f3In, JSON.stringify({ fXr, fp3, f3In, f3 }));
   // a page at a fresh address in a room with no generation (a relay restarted, a link to a new room) stays there and
   // gives the room its generation, instead of going back to the old address
   const Fp4 = await (await browser.newContext({ viewport: { width: 640, height: 400 } })).newPage();

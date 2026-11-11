@@ -432,7 +432,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (moved) { W = null; VW = null; LEAD = ''; BOLTS.clear(); RS.clear(); }   // (another frame: the set and the bolts were in the old one)
     if (S.on && moved) { log('ship frame', { kind: F.kind }); spawn(true); }   // (the room joined or left while flying: anew there)
     if (S.on) shipStep(dt, pt, tn, f, ref);
-    expireRemote(pt);
+    expireRemote();
     leadStep(dt, tn);
     boltStep(tp, tn);
     if (S.on && !S.down) pickTouch(pt, tn);
@@ -654,8 +654,10 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       return;
     }
     if (ev.k === 'h') {   // a hit: the bolt goes everywhere; the ship's (the sender's), a drone's or a target's new bars
-      if (typeof ev.b === 'string' && HOST.session) { const B = BOLTS.get(ev.b); if (B) B.hit = true; else BOLTS.set(ev.b, { hit: true, t0: tn, o: [0, 0, 0], d: [0, 0, 1], v: 0 }); }
       const w = typeof ev.w === 'string' ? ev.w : '';
+      // (a drone or a target is the leader's to decide: a hit on one that another device says, as when it missed the
+      // leader's presence a moment and took itself for the leader, never stops the leader's own sweep of that bolt)
+      if (typeof ev.b === 'string' && HOST.session && (w === 'me' || mine || by === LEAD || LEAD !== me())) { const B = BOLTS.get(ev.b); if (B) B.hit = true; else BOLTS.set(ev.b, { hit: true, t0: tn, o: [0, 0, 0], d: [0, 0, 1], v: 0 }); }
       const ent = w === 'me' ? 'ship:' + by : w.slice(0, 24);
       FLASH.set(ent, { t: pnow(), kind: ev.fx === 's' ? 'spark' : 'ring' });
       if (w === 'me' && by !== me()) {
@@ -687,7 +689,10 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (ev.k === 'g') {   // a pickup given: gone for everyone, its effect on for the one it was given to
       if (typeof ev.i !== 'string') return;
       GONE.set(ev.i, pnow()); PEND.delete(ev.i);
-      if (VW && VW !== W) VW.k = VW.k.filter(k => k.id !== ev.i);
+      // (out of whatever set this headset holds: also its own copy while it took itself for the leader a moment, or the
+      // pickup would come back there once GONE forgets it)
+      if (VW) VW.k = VW.k.filter(k => k.id !== ev.i);
+      if (W && W !== VW) W.k = W.k.filter(k => k.id !== ev.i);
       const at = posOfPick(ev.i);
       if (ev.to === me() && S.on) { if (S.down) S.gift = ev.kind; else take(ev.kind); }   // (claimed just before it went down: at the new ship)
       else if (at) play('pickup', at, 0.6);
@@ -729,7 +734,9 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // since the shield's refill changes them in nearly every presence)
     const pt = pnow(), dn = !R.last || !R.last.dn !== !v.dn, bars = R.last && (R.last.s !== v.s || R.last.x !== v.x || R.last.h !== v.h);
     if (dn || (bars && pt - (R.chAt || 0) > 1000)) { R.chAt = pt; if (L && L.changed) L.changed(); }
-    R.at = pnow(); R.lt = v.lt; R.last = v;
+    // (when it was heard, by the page's clock, not the frame's: a headset whose frames paused a moment (its system menu)
+    // heard everyone meanwhile, and on its first frame back must not take them for gone and lead a set of its own)
+    R.at = performance.now(); R.lt = v.lt; R.last = v;
     const s = R.s, last = s[s.length - 1];
     if (last && ts <= last.ts) return;
     // (after a pause, or destroyed and a new ship: anew, never gliding from where the old one was)
@@ -755,13 +762,14 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     const c = fin(w.c) && w.c.length === 2 ? w.c.slice() : [0, 0];
     return { c, n: Number.isFinite(w.n) ? w.n : 0, t, d, k };
   }
-  function expireRemote(pt) {
+  function expireRemote() {
+    const t = performance.now();
     let n = 0;
-    for (const [id, R] of RS) if (pt - R.at > T.quiet) { RS.delete(id); n++; }
+    for (const [id, R] of RS) if (t - R.at > T.quiet) { RS.delete(id); n++; }
     if (n && L && L.changed) L.changed();   // (a pilot gone quiet: the people lists say so)
   }
   // a page has no frames: its others' ships go quiet by a timer (a headset's in its frames)
-  setInterval(() => { if (!HOST.session && RS.size) try { expireRemote(pnow()); } catch (e) { /* never in the way */ } }, 1000);
+  setInterval(() => { if (!HOST.session && RS.size) try { expireRemote(); } catch (e) { /* never in the way */ } }, 1000);
   // where another ship is drawn now: NET.delay behind the relay's time, between its samples (places in a line, turns by
   // slerp), carried on at most NET.carry past the last
   const _qa = new Q4(), _qb = new Q4();

@@ -47,13 +47,14 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `main` and `dev` are networks-v134 (FORMAT networks-41, the v134 entry below), released to both on
-    11 November 2026 at the owner's word ("push all to main and run the full tests afterwards"), the whole release run
-    right after it (the v134 entry says what it found): what visitors get at https://stories.lbi-netmed.com/ (GitHub
+  - *The branches.* `main` and `dev` are networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
+    both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
+    is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
+    fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
     Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
     https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
     networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v134 are the entries below. The AI agents' working branch,
+    (`5524684`, 7 November); v122 to v135 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -61,7 +62,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
     rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
-    which made v133's stick steering. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v133; the
+    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v135; the
     others' are in their entries below.
   - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
@@ -86,7 +87,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
       block's Undo check in `collab --studio` may count a following sound; a take recorded on a page that draws in
       software gets only a few keys a second.
     - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run (red in both of
-      v129's whole runs, a different check each time, good alone), the studio behaviours round's Pause and looker checks
+      v129's whole runs, a different check each time, good alone; two reads of the test's own made sturdier in v135), the
+      shared-room run under heavy load in general (v134's: 12 red, all good alone but the spaceships' bug, v135 entry),
+      the studio behaviours round's Pause and looker checks
       (red once in v129's runs, good alone), the robots not
       docking in the smoke test about one run in eight, "a circle made for one scene" in the studio round ("When the
       tests run" below). What is untested on devices is listed in each entry below and, for v126, in `whatsnew.json`.
@@ -98,6 +101,57 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v135 (11 November 2026; FORMAT networks-41, shell 135), on `dev` and `main`: the whole release run on v134,
+  and what it found in the spaceships fought together.** The owner: "push all to main and run the full tests afterwards, in case there is anything to
+  fix also push that to dev and main".
+  - The run on v134 (the list in `docs/setup-and-release.md`, step 7): the builds', release, scan and data checks, the
+    studio's solver and picture tests, `relay/test.mjs` (726 checks), the smoke test whole (343 steps), `tools/update.mjs`
+    against v129, `tools/live.mjs`, `tools/collab.mjs --token` and `tools/peer.mjs` were good the first time. The
+    shared-room run (1.5 hours on a 4-core machine whose software drawing took most of it) had 12 red results and
+    stopped in its peer-to-peer part on an error of the test's own, so rooms on this network did not run there;
+    `tools/audio.mjs` had 1 red (a button's click not heard within 5 s of the first tap). Each was run again alone on the
+    idle machine: the sound test (61 good), the spaceships (12), rooms on this network (19), your menu shown to your
+    circle (15), the studio's behaviours (9) and the ten-headset round (17) were good; peer to peer failed twice again,
+    both the test's own (below).
+  - The bug, in the spaceships fought together (v132): a hit on a drone or a target is the leader's to decide, and every
+    device marked a bolt spent as soon as anyone said it hit something. A headset that missed the leader's presence for
+    2 s (Wi-Fi, the Quest's system menu; in the test, a page drawing in software) leads its own copy of the set for that
+    moment and says its hits; the leader, which never takes another's word for a drone, then also never swept that bolt
+    itself, so the hit was lost there and the drone kept its shield (the shared-room run's three red spaceship checks,
+    under load; the same three red in v133's lane on v132's code). Now a hit on a drone or a target marks the bolt spent
+    only when the leader says it (a hit on a ship as before), so the leader counts that bolt itself (`handle` in
+    `ships.js`). A new step in `collab --ships` makes B miss A's presence (its quiet time made 0), shoot a drone it then
+    decides itself, and keeps A's frames back until B's word is in: on v134's code A's drone kept its shield of 30; now
+    30 to 10 on A, and on B once it hears A again.
+  - Two more of the same kind, found while making that step sturdy. A pilot's presence was stamped with the frame's time
+    (`R.at`), which stands still while a headset's frames pause (its system menu): on its first frame back it took every
+    other pilot for gone and led a set of its own for a moment, though it had heard them all along. Now the page's clock
+    (`presIn`, `expireRemote`); a step pauses B's frames 2.6 s while A flies on and checks that B's first frame back keeps
+    A the leader. And a pickup the leader gave away left only the set a headset draws, not the copy it leads for such a
+    moment (hidden 3 s, then back there); now it goes from either. The claim itself reaches that headset too, which then
+    gives it away from its copy, so the step's pickup part passes on v134's code as well: it guards, it does not
+    reproduce (the gift without its claim is not made in a test).
+  - The tests' own, fixed in the tests: the spaceship round's shot pressed the trigger for one pretend-headset frame,
+    which a page drawing in software can pass without the ship's step (now held until a bolt of its own is out, a few
+    frames at most, and the checks say whether it went); its waits stepped B alone for seconds, so A's presence lapsed and
+    B took itself for the leader (now both step throughout); A's ship, flying on after its own shots along its line
+    through the drone's spot, could take B's bolt before the drone (now A is moved clear before B shoots); the new step's
+    B shoots from 0.5 m behind the drone, so the
+    leader sees its bolt well within the 2.75 s after which a bolt heard late is dropped unswept; B's return 5 s after it
+    was destroyed was read 0.6 s after by the test's clock (now frames until it is back, 8 s more at most; the 5 s itself
+    is the smoke test's). Peer to peer:
+    the guests' join is read again once all three are in (a guest linking again a moment on a loaded machine) and says
+    how long each took; the keys kept through the hand-over are compared after it (the other guest could be a key behind
+    as the host left); a page with no clock for the station yet no longer throws (which had stopped the shared-room run).
+    The fresh shared space's page moved to `s/1/` gets a minute to join, as the other pages there, and says how it
+    stands when it does not. `--p2p` 18 good after them.
+  - Then, on v135: `tools/smoke.mjs --only spaceship` (all good), `tools/collab.mjs --ships` twice (14 good each; on
+    v134's code with the same test 12 good, the two new steps red) and `--p2p` (18 good); the cheap checks. The
+    shared-room run's main part (the fresh shared space's longer wait) was not run again whole.
+  - Left open (low): a destruction (`'x'`) that a headset says while it takes itself for the leader is still counted
+    and burst on every device (the kills' counters may count that drone twice); gating it by the leader, as the hits
+    now are, would add a race at a real hand-over, so it was left.
+  - Untested on devices: spaceships fought together over real Wi-Fi with real headsets, and what v134 lists.
 - **networks-v134 (11 November 2026; FORMAT networks-41, shell 134), on `dev` and `main`: loops, and no black halos in
   AR.** The owner, after flying v133 ("looks good"): "the sticks should have more freedom so that one can do a looping,
   ships and pickups have a black halo around glowing stuff in ar which looks like a bug, please fix these then push all
