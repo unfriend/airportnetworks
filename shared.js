@@ -678,6 +678,17 @@
     if (a && b && a > b) {
       log('room newer', { room: rv, mine: FORMAT });
       C.want = false; C.status = 'newer';
+      // (a reload order counting down here: this device reloads in its turn as it was going to, neither at once nor asked
+      // in a headset mid-countdown, so the stagger that spares the router holds; a reload that has not come 40 s after its
+      // turn, which the studio's wait for an upload stays within, falls back to what follows)
+      const P = RL.pend, left = P ? P.until + 40000 - performance.now() : 0;
+      if (left > 0) {
+        log('room newer: reloading in turn', { n: P.n, in: Math.max(0, Math.round(P.until - performance.now())) });
+        C.note = `Room ${code} has moved to a newer version of the app (${rv}): this device reloads in its turn.`;
+        clearTimeout(C.newerTimer);
+        C.newerTimer = setTimeout(() => { if (C.status === 'newer' && C.code === code && RL.pend === P) { log('room newer: no reload in turn'); RL.pend = null; versionRefused(); } }, left);
+        changed(); return;
+      }
       const goes = !!(HOST.live && HOST.live.roomNewer && HOST.live.roomNewer(code));
       C.note = `Room ${code} has moved to a newer version of the app (${rv}): ` + (goes ? 'this device reloads to go back in.' : 'reload this device to go back in.');
       changed(); return;
@@ -734,9 +745,10 @@
       drop('no answer');
     }, 3000);
   }
-  // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen)
+  // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen; reload: 1, this app
+  // obeys the room's reload orders in its turn, so a relay that moves the room on refuses it only after its turn, v136)
   function hello() {
-    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV });   // (a camera: named so in the lists)
+    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 });   // (a camera: named so in the lists)
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A

@@ -506,7 +506,7 @@ function message(room, m, text) {
     if (version && room.version && version !== room.version && !takeOver(room, m, version)) return kick(room, m, 'version', `the room runs version ${room.version}`, 4006);
     if (version && !room.version) { room.version = version; keepTouch(); }   // a room made without a version takes the first one
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
-      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version });
+      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1 });
     broadcast(room, { t: 'members', members: people(room) });
     return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''} ${version}`);
   }
@@ -515,8 +515,13 @@ function message(room, m, text) {
 
 // a newcomer of another version: the room moves to it when it is newer and nobody of the room's own version is connected, or
 // when a reload order (POST /api/rooms/<code>/reload) asked for it in the last two minutes; then the members still on the
-// old version get the relay's own reload order (they reload by it; an older app ignores it) and are refused 3 s later, so
-// their own live updates ask them to reload (true: taken)
+// old version get the relay's own reload order (they reload by it; an older app ignores it) and are refused afterwards, so
+// their own live updates ask them to reload (true: taken). When: an app that obeys reload orders (its hello says reload: 1,
+// v136) reloads in its turn, up to 8 s after it got the order (by when it came into the room, so ten devices do not hit
+// the router at once; a headset at least 3 s), so it is refused only ORDER_GRACE after it was first told (the order, else
+// now), never before its turn: refused earlier, it reloaded at once (a page) or was asked (a headset) mid-countdown, and the
+// stagger was lost (review of v136). An older app, which ignores the order, 3 s later as before
+const ORDER_GRACE = 12000;
 function takeOver(room, m, version) {
   const was = room.version, a = fmtN(was), b = fmtN(version), t = Date.now();
   if (!a || !(b > a)) return false;
@@ -527,8 +532,12 @@ function takeOver(room, m, version) {
   log(`${room.code} version ${was} -> ${version}${old.length ? ` (${old.length} on ${was} told to reload)` : ''}`);
   if (old.length) {
     const buf = Ws.frame(1, Buffer.from(JSON.stringify({ t: 'fx', k: 'q.reload', v: { n: room.nextN || crypto.randomBytes(6).toString('base64url'), to: version, shell: room.nextShell, by: '', at: t }, by: '' })));
-    for (const x of old) if (!x.ws.closing) x.ws.write(buf);
-    setTimeout(() => { for (const x of old) if (room.members.get(x.id) === x && x.version === was) kick(room, x, 'version', `the room runs version ${version} now`, 4006); }, 3000);
+    for (const x of old) {
+      if (!x.ws.closing) x.ws.write(buf);
+      const told = x.toldAt && t - x.toldAt < 120000 ? Math.min(x.toldAt, t) : t;
+      setTimeout(() => { if (room.members.get(x.id) === x && x.version === was) kick(room, x, 'version', `the room runs version ${version} now`, 4006); },
+        x.obeys ? Math.max(3000, told + ORDER_GRACE - t) : 3000);
+    }
   }
   return true;
 }
@@ -1062,6 +1071,7 @@ function reloadOrder(req, res, code) {
     r.reloadAt = t;
     const to = str(b.to, 64), from = typeof b.from === 'string' && ID.test(b.from) ? b.from : '';
     if (to) Object.assign(r, { next: to, nextUntil: t + 120000, nextN: b.n, nextShell: sh });
+    for (const x of r.members.values()) x.toldAt = t;   // (when each was told: takeOver refuses an old one only after its turn)
     broadcast(r, { t: 'fx', k: 'q.reload', v: { n: b.n, to, shell: sh, by: '', from, at: t }, by: '' });
     log(`${code} reload to ${to || 'the same version'} (${r.members.size} member${r.members.size === 1 ? '' : 's'})`);
     json(res, 200, { ok: true, members: r.members.size, version: r.version });

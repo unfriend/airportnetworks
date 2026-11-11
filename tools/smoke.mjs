@@ -11693,6 +11693,50 @@ if (runs('update the room')) {
     const r = await up.evaluate(() => ({ back: window.__collabLog.filter(e => e.ev === 'room reload back').map(e => ({ ok: e.ok, n: e.n })), rr: JSON.parse(sessionStorage.getItem('roomReload') || 'null'), lp: sessionStorage.getItem('livePlace'), seen: JSON.parse(sessionStorage.getItem('roomReloadSeen') || 'null') }));
     if (!ok || r.back.length !== 1 || !r.back[0].ok || r.back[0].n !== 'real0001' || !r.rr || !r.rr.checked || r.lp || !r.seen || !r.seen.seen.includes('real0001')) errors.push('update the room: a real reload by an order: ' + JSON.stringify({ ok, r }));
   });
+  // (review of v136: a relay that moved the room on refused the old members 3 s after the first newcomer, whatever their
+  // turn: a page then reloaded at once and a headset was asked mid-countdown, so the stagger was lost; now the relay waits
+  // for their turn (relay/test.mjs --rooms) and the app keeps it when refused all the same)
+  await step('update the room: refused by a room that moved on to a newer version (4006) while a reload order counts down here: no reload at once and no question, this device reloads in its turn; with none under way, or one whose reload never came, as before (HOST.live.roomNewer)', async () => {
+    const ok0 = await up.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab.code === c && HOST.collab.internals().welcomed && !!HOST.collab.internals().ws, code, { timeout: 30000 }).then(() => true, () => false);
+    const r = await up.evaluate(async c => {
+      const w = ms => new Promise(x => setTimeout(x, ms)), C = HOST.collab, I = C.internals(), L = () => window.__collabLog;
+      const newer = 'networks-' + (+/(\d+)$/.exec(C.format)[1] + 1), calls = [], orders = [];
+      HOST.renderer.setAnimationLoop(null);
+      HOST.live.roomNewer = k => { calls.push(k); return false; };   // (what it would do: reload at once, or ask in a headset)
+      C.reloadTest(v => orders.push(v.n));
+      // the relay's refusal as it comes: its words name the room's newer version, then the socket closes with 4006
+      const refuse = () => { I.roomVer = newer; I.ws.onclose({ code: 4006, reason: 'version' }); };
+      const back = async () => { C.reloadClear(); C.join(c); for (let k = 0; k < 100 && !(I.welcomed && I.ws && I.status === 'open'); k++) await w(100); return I.status === 'open'; };
+      const got = () => ({ status: I.status, note: I.note, calls: calls.length, orders: orders.slice(), want: I.want });
+      // (1) an order counting down here (rank 0 in a room of one: 0.4 s), refused meanwhile
+      C.reloadClear();
+      C.reloadIn({ n: 'turn0001', at: Date.now(), by: 'x' }, 'x');
+      refuse();
+      const a = got(), aHeld = L().some(e => e.ev === 'room newer: reloading in turn' && e.n === 'turn0001');
+      await w(800);
+      const a2 = got();
+      // (2) none under way: as before
+      const in2 = await back();
+      calls.length = 0; orders.length = 0;
+      refuse();
+      const b = got();
+      // (3) one whose reload never came (its turn 40 s gone, here made 0.3 s from now; its own reload 0.4 s away)
+      const in3 = await back();
+      calls.length = 0; orders.length = 0;
+      C.reloadIn({ n: 'turn0002', at: Date.now(), by: 'x' }, 'x');
+      C.reloadState().pend.until = performance.now() - 39700;
+      refuse();
+      const d = got();
+      await w(800);
+      const d2 = got(), dNo = L().some(e => e.ev === 'room newer: no reload in turn');
+      C.reloadTest(null);
+      return { a, aHeld, a2, in2, b, in3, d, d2, dNo, newer };
+    }, code);
+    const okA = r.a.status === 'newer' && !r.a.want && r.a.calls === 0 && r.a.orders.length === 0 && /reloads in its turn/.test(r.a.note) && r.aHeld && r.a2.calls === 0 && r.a2.orders.join() === 'turn0001';
+    if (!ok0 || !okA) errors.push('update the room: refused (4006) by a newer room while an order counts down: no reload at once, the order\'s reload in its turn: ' + JSON.stringify({ ok0, r }));
+    if (!r.in2 || r.b.status !== 'newer' || r.b.calls !== 1 || r.b.orders.length !== 0 || /in its turn/.test(r.b.note)) errors.push('update the room: refused (4006) by a newer room with no order under way: HOST.live.roomNewer at once, as before: ' + JSON.stringify(r));
+    if (!r.in3 || r.d.calls !== 0 || !/in its turn/.test(r.d.note) || r.d2.calls !== 1 || !r.dNo) errors.push('update the room: an order whose reload never came falls back to HOST.live.roomNewer once its time is up: ' + JSON.stringify(r));
+  });
   await up.evaluate(() => { try { sessionStorage.removeItem('roomReload'); HOST.collab.leave(); } catch (e) { /* gone */ } });
   await ctx.close();
 }

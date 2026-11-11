@@ -3082,8 +3082,12 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
   No `FORMAT` change: nothing stored changes shape (the studio lane's bump to networks-42 in v136 is its own).
   - The relay (`relay/server.mjs`): a newcomer of a newer `networks-<m>` takes a room of `networks-<n>` once no other
     connected member has said hello with the room's version, or while a reload order named that version (2 minutes);
-    then the members still on the old one get the relay's own order and are refused 3 s later (4006), so their own live
-    updates ask them; an older newcomer is refused (4006, its words naming the room's version: `the room runs version
+    then the members still on the old one get the relay's own order and are refused (4006), so their own live updates ask
+    them: an app that obeys orders (its hello says `reload: 1`, this release on) 12 s after it was first told
+    (`ORDER_GRACE`: the order, else the move), at least 3 s after the move, so never before its turn (up to 8 s); an older
+    app, which ignores the order, 3 s after the move (the review of v136: all were refused 3 s after the first newcomer,
+    and a device whose turn came later reloaded at once on a page or was asked in a headset mid-countdown, losing the
+    stagger); an older newcomer is refused (4006, its words naming the room's version: `the room runs version
     networks-42`); other versions only the same; the log `XYZ version networks-41 -> networks-42`. `/api/ping` says
     `versions: 1` and `reload: true` (and `keep: true` with `--keep`); a taken code's 409 names its `version`. `POST
     /api/rooms/<code>/reload { n, to, shell, from }`: the order `{ t: 'fx', k: 'q.reload', v: { n, to, shell, by: '',
@@ -3099,7 +3103,10 @@ gaining `k`, `ra` and `rb`). The plan is `docs/shared-space-plan.md`.
     still runs version networks-41 on a device that has not updated: joining as soon as it has.*, tried again every 3 s
     (`C.want` kept; the welcome then keeps `older` until the relay takes it in, its members saying so, so the note does
     not flicker), given up after 2 minutes on a relay whose ping lacks `versions` (each try would keep the old room from
-    expiring: `capsGet`). By a newer room: status `newer`, `HOST.live.roomNewer` (above); log `room newer`. Another
+    expiring: `capsGet`). By a newer room: status `newer`, `HOST.live.roomNewer` (above); log `room newer`; but while a
+    reload order counts down here (`RL.pend`) it reloads in its turn as it was going to, neither at once nor asked in a
+    headset (log `room newer: reloading in turn`, the note *... this device reloads in its turn.*), falling back to
+    `roomNewer` if that reload has not come 40 s after its turn (`room newer: no reload in turn`). Another
     version that is not `networks-<n>`: refused, *the devices need the same release*. The connection line says *waiting
     for a device on an older version* or *this device needs the update*. Rooms on this network list rooms of other
     versions too, marked *older: it updates as you join* or *newer: this device needs the update* (peer to peer the
@@ -5682,8 +5689,11 @@ device? Press again*, then back), a second press within it sending the order to 
 once here (rank 0, 0.4 s; the toast *Updating the room: reloading in 1 s.*), kept for the reload (`roomReload`), the
 reload itself replaced by a test hook; the labels in a room with others (*Update the room*, *Reload every device? Press
 again*); an order heard twice obeyed once (*one obeyed just now*), one 3 minutes old skipped (*too old*); the headset
-menu's `room:reload` on the Circles tab of a pretend session, two presses within 3 s; and a real reload by an order: back
-in the story in explore mode (livePlace), in the room, `room reload back` with its shell matching.
+menu's `room:reload` on the Circles tab of a pretend session, two presses within 3 s; a real reload by an order: back
+in the story in explore mode (livePlace), in the room, `room reload back` with its shell matching; and refused (4006, the
+relay's words naming a newer version) while an order counts down: status `newer`, *reloads in its turn*,
+`HOST.live.roomNewer` not called and the order's own reload coming at its turn; with none under way `roomNewer` at once;
+with one whose reload never came, `roomNewer` once its 40 s are up.
 
 Its *phone ar* steps (v125, `--only 'phone ar'`, two pages of their own, a minute or two): a pretend Android phone
 (Chrome's user agent, touch, 412 x 860; a pretend `navigator.xr` that records what it is asked for; the airports story's
@@ -6291,8 +6301,9 @@ the bridge silent; bad datagrams counted; the password; `RELAY_ARGS`; a UDP port
 `versions` and `reload`, a room of networks-41 refusing networks-42 while one of its own is connected and taking it once
 none is (one that has said no hello not counted), never an older one, versions that are not networks-<n> only the same,
 a taken code's 409 naming its version; the reload order: 404, 400, 405, 200 with every member of every version getting
-`q.reload` by the relay, 429 within 10 s, the newcomer it names moving the room on with an old member there, who gets the
-order again and is refused 3 s later; `--keep`: written within 6 s of a change, atomically, and as the relay stops,
+`q.reload` by the relay, 429 within 10 s, the newcomer it names (half a second after the order) moving the room on with
+two old members there, who get the order again: one that ignores orders refused 3 s later, one whose hello says
+`reload: 1` not within 9 s of its order and refused about 12 s after it; `--keep`: written within 6 s of a change, atomically, and as the relay stops,
 read back with its seq, version and keys, another relay's write taken, expired rooms and bad keys left out, a bad file
 kept aside as `.bad`, nothing without it; and the order needing the password); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and

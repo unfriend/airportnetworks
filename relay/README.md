@@ -1025,7 +1025,7 @@ shared password](#the-shared-password-collab_token)).
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken', version }` if not, the room's version since v136): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in). With `--unlisted` (`--public`): `[]` |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging; a page asks it before it joins a room again by itself, or brings one back), or 404. With `--unlisted`, `members` is a count. With `--guesses`, a 404 is a lookup of an unknown code, and past the budget any code gets 429 (`Retry-After`) |
-| `POST /api/rooms/XYZ/reload` `{ n, to?, shell?, from? }` | (v136, Update the room) sends every member, whatever its version, the reload order: the effect `{ t: 'fx', k: 'q.reload', v: { n, to, shell, by: '', from, at }, by: '' }` (`n` the order's id, 1 to 16 letters, digits, `_` and `-`; `to` the version to come back with; `shell` `{ n, id }` the release; `from` who pressed it), and for 2 minutes lets the room move on to `to` from its first newcomer of that version, even while members of the old one are still there (they get the order again and are refused 3 s later: [Rooms across updates](#rooms-across-updates-v136)). 200 `{ ok, members, version }`; 400 for a bad body, 404 for no such room (a lookup, `--guesses`), 405 for another method, 429 (`Retry-After`) within 10 s of the last order to the room. Never stored; with a password it needs it, as every call; its log line names no one |
+| `POST /api/rooms/XYZ/reload` `{ n, to?, shell?, from? }` | (v136, Update the room) sends every member, whatever its version, the reload order: the effect `{ t: 'fx', k: 'q.reload', v: { n, to, shell, by: '', from, at }, by: '' }` (`n` the order's id, 1 to 16 letters, digits, `_` and `-`; `to` the version to come back with; `shell` `{ n, id }` the release; `from` who pressed it), and for 2 minutes lets the room move on to `to` from its first newcomer of that version, even while members of the old one are still there (they get the order again and are refused afterwards, 12 s after they were told when their hello said `reload: 1`, else 3 s after the move: [Rooms across updates](#rooms-across-updates-v136)). 200 `{ ok, members, version }`; 400 for a bad body, 404 for no such room (a lookup, `--guesses`), 405 for another method, 429 (`Retry-After`) within 10 s of the last order to the room. Never stored; with a password it needs it, as every call; its log line names no one |
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
@@ -1081,7 +1081,7 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 | --- | --- | --- | --- |
 | relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto` | first message on every socket: the whole room |
 | relay | `members` | `members [...]` | to everybody after any join, leave, hello or timeout (the joiner too) |
-| client | `hello` | `name, color, kind, here, version` (`proto` optional) | who I am; again after any change |
+| client | `hello` | `name, color, kind, here, version` (`proto`, `dev` and `reload` optional) | who I am; again after any change (`reload: 1`, v136: this app obeys the room's reload orders in its turn, [Rooms across updates](#rooms-across-updates-v136)) |
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
 | relay | `set` | `batch, seq, by, cid` | to everybody, the writer included (its acknowledgement) |
 | client | `fx` | `k, v` | ephemeral, not stored |
@@ -1092,8 +1092,8 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 
 A member is `{ id, name, color, kind, here, version, since }`. `hello` is tidied, not refused: `name` trimmed to
 32 characters, `color` kept only as `#rgb` to `#rrggbbaa`, `kind` one of `ar`, `vr`, `desktop` (else
-`desktop`), `here` true only if `true`, `version` up to 64 characters. Before its hello a member is listed with
-empty values.
+`desktop`), `here` true only if `true`, `version` up to 64 characters; `reload` is kept by the relay (true only if `1`)
+and never listed. Before its hello a member is listed with empty values.
 
 **Writes.** A batch has 1 to 500 `[key, value]` pairs and an optional `cid` (string or number, echoed; else
 null). Keys are `[A-Za-z0-9_-]+` parts joined by dots (later parts may also hold `:`), at most 128 characters;
@@ -1162,15 +1162,22 @@ peer the room's id names the version, so the first updated device hosted a secon
 - **A room moves on, never back** (`takeOver` in `server.mjs`): a newcomer whose hello names a newer `networks-<m>` than
   the room's `networks-<n>` takes the room to it once no other connected member has said hello with the room's version
   (a member that has not said hello yet does not count), or while a reload order named that version (below). The log
-  says `XYZ version networks-41 -> networks-42`. An older newcomer is refused with 4006 as before (a device that missed
-  the update, waking in an upgraded room, would otherwise turn it back); its words name the room's version. Versions
+  says `XYZ version networks-41 -> networks-42`. Members still on the old version then get the relay's own order and are
+  refused (4006): one whose hello said `reload: 1` (an app that obeys orders, v136 on) only 12 s after it was first told
+  (`ORDER_GRACE`, from the order, else from the move; at least 3 s after the move), since it reloads in its turn, up to 8
+  s after the order, and one refused before its turn reloaded at once (a page) or was asked (a headset) mid-countdown, so
+  the stagger that spares the router was lost (the review of v136); an older app, which ignores the order, 3 s after the
+  move. An app refused all the same while its order counts down (a slow reload) keeps its turn. An older newcomer is
+  refused with 4006 as before (a device that missed the update, waking in an upgraded room, would otherwise turn it
+  back); its words name the room's version. Versions
   that are not `networks-<n>` (the tests' `v1`) only ever match exactly. The keys are kept as they are (every bump so far
   only added fields and keys, which the app reads leniently; `shared.js` has a `MIGRATE` table for one that does not).
 - **The app waits or reloads** (`shared.js`, `versionRefused`): refused by an older room, a device says so (*Room XYZ
   still runs version networks-41 on a device that has not updated: joining as soon as it has*, status `older`) and tries
   again every 3 s, so it is in as soon as the last old device has reloaded (an older relay without `versions` in its ping
   cannot move a room on, and each try keeps the room from expiring: it gives up after 2 minutes there). Refused by a newer
-  room, it reloads (outside a headset at once, at most once in ten minutes; in one the update panel asks). Pages outside
+  room, it reloads (outside a headset at once, at most once in ten minutes; in one the update panel asks), or, while a
+  reload order counts down there, in its turn as it was going to (40 s after its turn without a reload, as above). Pages outside
   a headset in a room also take a new `FORMAT` by themselves after a 20 s countdown on the update bar (*Not now* holds it
   off for 5 minutes), so a page left on Later no longer holds a room back.
 - **Update the room** (the switch: the page's Shared dialog under the room's code, the headset menu's *Circles* tab under
@@ -1337,7 +1344,8 @@ malformed and oversized messages, hand-made frames (masking, fragmentation with 
 close), member timeouts, version and protocol mismatches (since v136 a room moving on to a newer `networks-<n>` once
 nobody of its own is connected, never back, other versions only the same; the reload order: its answers 404, 400, 405
 and 429, every member of every version getting it from the relay, the room moving on with old members there, who get it
-again and are refused 3 s later; and `--keep`: written within 6 s of a change and as it stops, read back with its seq,
+again and are refused, 3 s later for one that ignores orders and about 12 s after the order for one whose hello says
+`reload: 1`; and `--keep`: written within 6 s of a change and as it stops, read back with its seq,
 version and keys, expired rooms and bad keys left out, a bad file kept aside as `.bad`, another relay's write taken;
 `node relay/test.mjs --rooms` runs only these, in seconds), replaced sockets, room expiry, the room's limits
 (5000 keys; 4 MB with the keys counted), the static files (types, gzip, byte ranges, 304, path traversal

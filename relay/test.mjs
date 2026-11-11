@@ -431,31 +431,39 @@ async function roomSteps() {
     ok((await g.closedIn(2000))?.code === 4006, 'v1 never takes networks-42');
     for (const x of [c, silent]) x.ws.close();
   });
-  await step('the reload order (v136): POST /api/rooms/<code>/reload reaches every member whatever its version (q.reload by the relay), 404, 400, 429 within 10 s; the newcomer it names moves the room on with old members there, who get the order and 4006 3 s later', async () => {
+  await step('the reload order (v136): POST /api/rooms/<code>/reload reaches every member whatever its version (q.reload by the relay), 404, 400, 429 within 10 s; the newcomer it names moves the room on with old members there, who get the order and 4006: 3 s later for an app that ignores orders, 12 s after its order for one that obeys them (its hello\'s reload: 1), never in its turn', async () => {
     const Q = await newRoom(N41);
     const a = await joined(Q, 'ra', { name: 'Ann', version: 'networks-41' }), w = await joined(Q, 'rw');   // (w: no hello, no version)
-    await a.next(is('members'));
+    const o = await joined(Q, 'ro', { name: 'Obi', version: 'networks-41', reload: 1 });   // (o: an app that obeys orders, reloading in its turn)
+    await a.next(is('members')); await o.next(is('members'));
     const unknown = ['ZZZ', 'ZZY', 'ZZX'].find(x => x !== Q);
     ok((await req('POST', `/api/rooms/${unknown}/reload`, { body: { n: 'x1' } })).status === 404, 'no such room: 404');
     ok((await req('POST', `/api/rooms/${Q}/reload`, { body: {} })).status === 400 && (await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'bad id!' } })).status === 400 &&
       (await req('POST', `/api/rooms/${Q}/reload`, { body: 'not json' })).status === 400, 'no order id, a bad one, not JSON: 400');
     ok((await req('GET', `/api/rooms/${Q}/reload`)).status === 405, 'GET: 405');
+    const tOrder = Date.now();
     const r = await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'ord1', to: 'networks-42', shell: { n: 136, id: 'abcdef0123456789' }, from: 'ra' } });
-    ok(r.status === 200 && r.json().ok === true && r.json().members === 2, '200 { ok, members: 2 }');
-    const fa = await a.next(is('fx', m => m.k === 'q.reload')), fw = await w.next(is('fx', m => m.k === 'q.reload'));
+    ok(r.status === 200 && r.json().ok === true && r.json().members === 3, '200 { ok, members: 3 }');
+    const fa = await a.next(is('fx', m => m.k === 'q.reload')), fw = await w.next(is('fx', m => m.k === 'q.reload')), fo = await o.next(is('fx', m => m.k === 'q.reload'));
     const good = m => m && m.by === '' && m.v.n === 'ord1' && m.v.to === 'networks-42' && m.v.by === '' && m.v.from === 'ra' && m.v.shell.id === 'abcdef0123456789' && m.v.shell.n === 136 && Math.abs(m.v.at - Date.now()) < 5000;
-    ok(good(fa) && good(fw), 'both members (networks-41, and one of no version yet) get q.reload by \'\' with n, to, shell, from and at');
+    ok(good(fa) && good(fw) && good(fo), 'every member (networks-41 twice, and one of no version yet) gets q.reload by \'\' with n, to, shell, from and at');
     const again = await req('POST', `/api/rooms/${Q}/reload`, { body: { n: 'ord2' } });
     ok(again.status === 429 && +again.headers['retry-after'] >= 1, 'another within 10 s: 429 with Retry-After');
-    ok(relay.out.includes(`${Q} reload to networks-42 (2 members)`), 'the log says so');
+    ok(relay.out.includes(`${Q} reload to networks-42 (3 members)`), 'the log says so');
+    await sleep(500);   // (the newcomer half a second after the order, as the first device back)
     const n = await joined(Q, 'rn', { name: 'Neo', version: 'networks-42' });
-    ok(await n.none(is('error'), 400), 'a newcomer of the version the order names: let in, though one of networks-41 is there');
-    ok((await state(Q)).version === 'networks-42' && relay.out.includes(`${Q} version networks-41 -> networks-42 (1 on networks-41 told to reload)`), 'the room moved on (the log: 1 on networks-41 told to reload)');
-    const fa2 = await a.next(is('fx', m => m.k === 'q.reload'));
-    ok(fa2 && fa2.by === '' && fa2.v.n === 'ord1' && fa2.v.to === 'networks-42', 'the old member gets the relay\'s own order again (the same n)');
+    ok(await n.none(is('error'), 400), 'a newcomer of the version the order names: let in, though two of networks-41 are there');
+    ok((await state(Q)).version === 'networks-42' && relay.out.includes(`${Q} version networks-41 -> networks-42 (2 on networks-41 told to reload)`), 'the room moved on (the log: 2 on networks-41 told to reload)');
+    const fa2 = await a.next(is('fx', m => m.k === 'q.reload')), fo2 = await o.next(is('fx', m => m.k === 'q.reload'));
+    ok(fa2 && fa2.by === '' && fa2.v.n === 'ord1' && fa2.v.to === 'networks-42' && fo2 && fo2.v.n === 'ord1', 'the old members get the relay\'s own order again (the same n)');
     ok(await a.none(m => m.t === 'error', 2000), 'not refused at once (3 s to reload)');
     const ae = await a.next(is('error'), 2500);
-    ok(ae?.code === 'version' && /networks-42/.test(ae.text) && (await a.closedIn(1500))?.code === 4006, 'then refused, 4006, about 3 s later');
+    ok(ae?.code === 'version' && /networks-42/.test(ae.text) && (await a.closedIn(1500))?.code === 4006, 'an app that ignores orders (no reload: 1 in its hello): refused, 4006, about 3 s later');
+    // (an app that obeys reloads in its turn, up to 8 s after its order (a headset at least 3 s): refused 3 s after the
+    // newcomer it was cut short, a page reloading at once and a headset asked mid-countdown; now 12 s after its order)
+    ok(!o.closed && !o.q.some(is('error')) && await o.none(is('error'), Math.max(0, tOrder + 9000 - Date.now())), `one that obeys orders (reload: 1) not refused 3 s after the newcomer, nor within 9 s of its order (${Date.now() - tOrder} ms)`);
+    const oe = await o.next(is('error'), 5500), dt = Date.now() - tOrder;
+    ok(oe?.code === 'version' && /networks-42/.test(oe.text) && (await o.closedIn(1500))?.code === 4006 && dt > 11000 && dt < 14500, `then refused, 4006, about 12 s after its order (${dt} ms)`);
     ok(!w.closed, 'one of no version is left alone');
     for (const x of [n, w]) x.ws.close();
   });
