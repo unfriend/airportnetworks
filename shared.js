@@ -702,16 +702,17 @@
     log('room moved on', { from: C.roomVer, to: FORMAT, waited: Math.round(performance.now() - C.olderAt) });
     C.status = 'open'; C.note = ''; C.roomVer = FORMAT; C.olderAt = 0;
   }
-  // what the relay can do (its /api/ping, asked once per relay): versions (it moves a room on to a newer version), reload
-  // (the reload order's endpoint, POST /api/rooms/<code>/reload); null: not known (no relay, or it did not answer)
+  // what the relay can do (its /api/ping, asked once per relay; a relay that said it cannot move rooms on asked again after
+  // a minute, since a deploy may bring one that can): versions (it moves a room on to a newer version), reload (the reload
+  // order's endpoint, POST /api/rooms/<code>/reload); null: not known (no relay, or it did not answer)
   function capsGet() {
     if (!C.relay) return Promise.resolve(null);
-    if (C.capsFor === C.relay && C.caps) return Promise.resolve(C.caps);
+    if (C.capsFor === C.relay && C.caps && (C.caps.versions || performance.now() - C.capsAt < 60000)) return Promise.resolve(C.caps);
     if (C.capsBusy) return C.capsBusy;
     const base = C.relay;
     return (C.capsBusy = api('ping', undefined, 5000).then(r => {
       C.capsBusy = null;
-      if (r.ok && r.j && r.j.proto) { C.caps = { versions: !!r.j.versions, reload: !!r.j.reload }; C.capsFor = base; }
+      if (r.ok && r.j && r.j.proto) { C.caps = { versions: !!r.j.versions, reload: !!r.j.reload }; C.capsFor = base; C.capsAt = performance.now(); }
       return C.capsFor === C.relay ? C.caps : null;
     }, () => { C.capsBusy = null; return null; }));
   }

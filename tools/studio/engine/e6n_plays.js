@@ -88,6 +88,19 @@ function trgList() {
     }
   }
   for (const k of [...TRG.seen.keys()]) if (!keys.has(k)) TRG.seen.delete(k);
+  for (const it of STU.items.values()) {
+    // (a cube with no starts left keeps no edge: entries put back by Undo start from where the head is then, never a stale
+    // inside; trgFire works out only the cubes that have starts)
+    if (it.kind === 'c' && !(it.rec.plays && it.rec.plays.length)) it.pl = null;
+    // (a sound, path or motion no cube names any more: its run ends here, the item back on its own record; trgSound,
+    // trgPathAt and trgMotion are never asked for it again. A clip's layers blend out by themselves: animStep goes on
+    // stepping them while it has any)
+    if (!it.tr) continue;
+    for (const k of ['sound', 'path', 'motion']) {
+      const R = it.tr && it.tr[k];
+      if (R && !(it.tgM & PLAY_BIT[k])) { if (k === 'sound') emitStop(it); trgDone(it, k, R, 'gone'); }
+    }
+  }
 }
 // once the cubes are worked out for this frame (the end of triggerStep): each cube's entering and leaving, debounced
 // (c.pl: in, out (when the head went out; -1 in), lt (the moment it counts as having left: out + 0.3 s), act (active for

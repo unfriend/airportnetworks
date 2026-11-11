@@ -7779,6 +7779,36 @@ if (runs('studio cube starts')) {
     if (JSON.stringify(xr) !== JSON.stringify(want)) bad(['the headset\'s card: ' + JSON.stringify(xr) + ' (wanted ' + JSON.stringify(want) + ')']);
   });
 
+  await step('studio cube starts: an entry taken away: its cube keeps no inside, so a leave put back after you walked out fires nothing; a sound whose only entry goes ends its run there (not playing for you any more)', async () => {
+    const r = await ss(`(() => {
+      trgClock = () => window.__T; resetSeen();
+      const T0 = (window.__T || 1e6) + 60000, r = {}, L = [{ on: 'box001', what: 'clip', clip: 'Lift', how: 'once', when: 'leave' }];
+      const n = () => window.__pl.log().filter(x => x[0] === 'start' && x[1] === 'plw001' && x[6] === 'leave').length;
+      window.__pl.plays('plw001', L);
+      window.__pl.at(${JSON.stringify(W)}, T0); window.__pl.at(${JSON.stringify(W)}, T0 + 100);
+      r.inside = !!(STU.items.get('plw001').pl && STU.items.get('plw001').pl.in);
+      window.__pl.plays('plw001', undefined);
+      window.__pl.at(${JSON.stringify(W)}, T0 + 200);
+      r.pl = STU.items.get('plw001').pl || null;
+      window.__pl.at(${JSON.stringify(OUT)}, T0 + 300); window.__pl.at(${JSON.stringify(OUT)}, T0 + 1000);
+      const n0 = n();
+      window.__pl.plays('plw001', L);
+      for (let k = 1; k <= 6; k++) window.__pl.at(${JSON.stringify(OUT)}, T0 + 1000 + 200 * k);
+      r.leaves = n() - n0;
+      // (a sound no other cube names, its loop started by W; then W's only entry taken away)
+      putItem('snq001', 's', norm('s', { name: 'Quiet', file: 'tone.wav', p: [3, 1.2, 1], vol: 1, loop: false }));
+      window.__pl.plays('plw001', [{ on: 'snq001', what: 'sound', how: 'loop' }]);
+      window.__pl.at(${JSON.stringify(W)}, T0 + 3000); window.__pl.at(${JSON.stringify(W)}, T0 + 3100);
+      r.run = !!STUDIO.plays('snq001').item.tr.sound;
+      window.__pl.plays('plw001', undefined);
+      window.__pl.at(${JSON.stringify(W)}, T0 + 3200); window.__pl.at(${JSON.stringify(W)}, T0 + 3300);
+      const s = STUDIO.plays('snq001');
+      r.after = { sound: s.item.tr.sound || null, on: s.on.includes('snq001'), tgM: s.item.tgM };
+      window.__pl.at(${JSON.stringify(OUT)}, T0 + 4000); deleteItem('snq001'); resetSeen();
+      return r;
+    })()`);
+    if (!r.inside || r.pl || r.leaves !== 0 || !r.run || r.after.sound || r.after.on || r.after.tgM) bad(['an entry taken away: ' + JSON.stringify(r)]);
+  });
   await step('studio cube starts: deleting the box takes its entries out of every cube (one Undo step brings them back); duplicating it adds entries for the copy beside its own; a cube\'s copy keeps its entries; a group\'s copy maps them; the figure switched to its GLB keeps its entry and plays it there; the lobby stops every run at once and a cube you stand in fires again', async () => {
     const out = [];
     await setPlays('plw001', [E(), { on: 'snp001', what: 'sound', how: 'once' }]);

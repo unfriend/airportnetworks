@@ -6320,7 +6320,10 @@ sentence, *Add* (one Undo step); *Replace* in its place; a second entry on the s
 Undo step); ✕ and Undo; *Try* (the box's Bob here, no Undo step; a tried loop off after 10 s, and pressed again at once:
 *Stop*); the Items card *Cube · shows 0, hides 0, starts 2* and the box's *started by a cube*; editing off and a visitor:
 no pick, no change, the button greyed. The headset's card: its rows, *Start something...* pressed, the trigger on the box,
-*Bob*, *Loop* and *Add* pressed on the panel (Replace in its place), ✕. Deleting the box taking its entries out of both
+*Bob*, *Loop* and *Add* pressed on the panel (Replace in its place), ✕. An entry taken away: its cube keeps no inside
+(`trgList` drops the edge of a cube with no starts left), so a leave entry put back after you walked out fires nothing, and
+a sound whose only entry goes ends its run there (`trgList` ends a sound's, path's or motion's run no cube names any
+more). Deleting the box taking its entries out of both
 cubes (one Undo step, Undo bringing them back), duplicating it adding entries for the copy beside its own, a cube's copy
 keeping its entries, a group (the box and *S*) copied (the cube's copy on the box's copy, *W* gaining an entry); the
 figure with an entry on its take converted to a GLB in the page and switched to it: its entry kept, its take played on its
