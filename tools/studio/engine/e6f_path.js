@@ -147,7 +147,9 @@ const pathT = (it, P, now, clockS) => { const H = animHold(it, 'path'); return H
 POSE.path = (it, now, clockS, m) => {
   const P = pathOf(it);
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
-  pathAt(P, pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
+  // (a path a cube starts: where its run has it, waiting at its start until one, e6n_plays.js; its timeline's hold wins)
+  const tm = (it.tgM & 4) && !animHold(it, 'path') ? trgPathAt(it, P) : null;
+  pathAt(P, tm != null ? tm : pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -565,6 +567,7 @@ function pathBlocks(it, B, dis, mv) {
       { row: [{ id: 'recdel', label: 'Delete recording', act: 'i:recDel', dis: dis || rec, col: 'red' }] },
       { p: 'Played from where it stands: moving or turning it moves its whole path. It plays on while selected (a ghost where it is placed); carried, it rests there. Once with Always plays once from when the scene opened (at a circle, the room\'s clock has long passed it): pair Once with When shown.', c: 'faint' });
     animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
+    playNote(it, 'path', B);   // (a cube that starts it: e6n_plays.js)
   }
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)

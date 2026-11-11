@@ -177,13 +177,15 @@ function texCopy(from, to) {
     setRec(c.id, { tex: texWithCopies(c.rec.tex, e => (e.on === from ? to : '')) });
   }
 }
-// a cube's entries and, after them, a copy of each entry whose object was copied (to(e): the copy's id, '' none), only as
-// many as its 16 leave room for: its own entries are never pushed out (the review of v124)
-function texWithCopies(L, to) {
+// a cube's entries and, after them, a copy of each entry whose item was copied (to(e): the copy's id, '' none), only as
+// many as its most (max: 16) leave room for: its own entries are never pushed out (the review of v124). Its texture
+// changes' (texWithCopies) and what it starts (e6n_plays.js)
+function withCopies(L, to, max) {
   const out = L.slice();
-  for (const e of L) { const t = to(e); if (t && out.length < TXS_MAX) out.push(Object.assign({}, e, { on: t })); }
+  for (const e of L) { const t = to(e); if (t && out.length < max) out.push(Object.assign({}, e, { on: t })); }
   return out;
 }
+const texWithCopies = (L, to) => withCopies(L, to, TXS_MAX);
 // what a model's materials are, for a conversion (CONV.matsOf's, with texture coordinates: Change texture's order) by
 // their names and their meshes' names
 const texMatsOf = root => CONV.matsOf(root).filter(e => e.uv).map(e => ({ name: e.name || '', meshes: [...new Set(e.meshes.map(n => n.name).filter(Boolean))] }));
@@ -252,7 +254,7 @@ Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
   // material, the slot and a page of pictures; a picture adds the entry (one for that object, material and slot: another
   // there takes its place)
-  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; } },   // (one pick at a time)
+  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; } },   // (one pick at a time)
   txOn: (c, oid) => {
     const o = STU.items.get(oid);
     if (!STU.txp || STU.txp.id !== c.id || !o || o.kind !== 'o') return;

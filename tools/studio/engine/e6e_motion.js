@@ -127,7 +127,12 @@ function drawnPose(it, now, clockS, out) {
   if (it.pre) it.pre.copy(out);   // (where it is before its motion: what an item following it follows, e6g_behave.js)
   if (rest) return out;   // (paused, its path held: its path's moment alone)
   const mo = it.rec && it.rec.motion;
-  if (mo) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
+  if (mo) {
+    // (a motion a cube starts: at rest until a run, then the run's moment, e6n_plays.js; else its own clock)
+    const tm = trgMotion(it, mo);
+    if (tm === undefined) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
+    else if (tm) out.premultiply(motionDelta(it, tm.mo, tm.t, out, _mD));
+  }
   return out;
 }
 // how much bigger its motion draws it now (a pulse), for an object's followers' offsets (followAt): 1 at rest
@@ -182,6 +187,7 @@ function motionBlocks(it, B, dis) {
   if (m.kind !== 'pulse') B.push({ label: 'Axis', row: [['y', 'Upright (y)'], ['x', 'Side to side (x)'], ['z', 'Front to back (z)']].map(([v, n]) => ({ id: 'maxis:' + v, label: n, act: 'i:maxis', v, on: m.axis === v, dis })) });
   B.push({ label: 'Starts', row: [{ id: 'mstart:always', label: 'Always', act: 'i:mstart', v: 'always', on: m.start === 'always', dis }, { id: 'mstart:shown', label: 'When shown', act: 'i:mstart', v: 'shown', on: m.start === 'shown', dis }] },
     { p: 'Drawn over where it stands: its place is not changed. Always: in step for everyone at a circle. When shown: from when a cube shows it to you. It keeps moving while selected, a ghost where it is placed; carried, it rests there, so it can be placed (Pause stands everything still).', c: 'faint' });
+  playNote(it, 'motion', B);   // (a cube that starts it: e6n_plays.js)
 }
 // the card's actions (one Undo step each): a kind (its own speed and amount, the axis and start kept; None takes it
 // away), its speed and amount a step up or down, the other way, its axis, when it starts

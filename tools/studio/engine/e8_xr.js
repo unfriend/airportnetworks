@@ -280,7 +280,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -290,7 +290,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.follow && !STU.gpick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick) select('');
 }
 function xrRelease(c) {
   const p = c.press;

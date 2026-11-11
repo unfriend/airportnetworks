@@ -17,6 +17,7 @@ const STU = {
   cutTo: '', whole: new Set(), cutF: new Set(), ray: null,   // (a cut-out picking the object it cuts; the cut-outs previewed whole here, and cut; the click that selected an object)
   gpick: null,   // (a group picking its members: { id, made, step })
   txp: null,   // (a cube picking an object, its material, a slot and a picture for its texture changes: { id, step, on, mat, slot, page }; e6i_tex.js)
+  plp: null, badPlay: 0,   // (a cube picking what it starts: { id, step, on, what, clip, how, when, page }; the starts a layout lost: e6n_plays.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
   trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
@@ -82,6 +83,9 @@ function norm(kind, x) {
     // the pictures it puts on objects while it is active for you, kept only when there are any (an entry that is not one
     // dropped, at most 16: e6i_tex.js); not a list (and not null) makes the record bad
     if (x.tex != null) { const t = Array.isArray(x.tex) ? normTex(x.tex) : null; if (!t) return null; if (t.length) r.tex = t; }
+    // what it starts as you walk in or out, kept only when there is something (an entry that is not one dropped, at most
+    // 16: e6n_plays.js); not a list (and not null) makes the record bad
+    if (x.plays != null) { const t = Array.isArray(x.plays) ? normPlays(x.plays) : null; if (!t) return null; if (t.length) r.plays = t; }
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -258,6 +262,8 @@ function removeItem(id) {
   if (STU.follow === id) STU.follow = '';
   if (STU.cutTo === id) STU.cutTo = '';
   if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
+  if (STU.plp && (STU.plp.id === id || STU.plp.on === id)) STU.plp = null;   // (a cube's pick of what it starts: e6n_plays.js)
+  TRG.on.delete(it);
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
   STU.whole.delete(id); STU.cutF.delete(id);
@@ -321,6 +327,9 @@ function dropModel(it) {
   it.slot.remove(it.model.o);
   it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
   it.txOn = null; it.txSig = '';   // (a cube's pictures were on its materials, gone with them: e6i_tex.js)
+  // (a clip a cube plays on it: its layers went with its mixer, and the run goes on by its clock on the new model: e6n_plays.js)
+  it.tl = null; it.tAct = null;
+  if (it.tr && it.tr.clip) it.tr.clip.layer = null;
 }
 function buildModel(it) {
   const E = it.E;
@@ -417,10 +426,11 @@ function setObjAlpha(it, a) {
   }
 }
 // its animation: the clip named in its record, looped, once (to its end, then held) or off (its rest pose), on the
-// scene's clock (the same moment for everyone at a station) or from when a cube showed it to you
+// scene's clock (the same moment for everyone at a station) or from when a cube showed it to you; and over it, the clips a
+// cube plays on it (v136, e6n_plays.js: blended in and out, its own animation getting the rest of the weight)
 function animStep(it, now, clockS) {
   const r = it.rec, E = it.E;
-  if (!it.mixer || !E) return;
+  if (!it.mixer || !E) { if (it.model && it.tr && it.tr.clip) trgDone(it, 'clip', it.tr.clip, 'missing'); return; }   // (a model with no animations: a cube's clip has nothing to play)
   const key = r.clip + '|' + r.anim;
   if (key !== it.animKey) {
     it.animKey = key;
@@ -431,13 +441,17 @@ function animStep(it, now, clockS) {
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
   } else if (motionsPaused() && !animHold(it)) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows)
-  if (!it.action || !(it.dur > 0)) return;
   // (held from a card's timeline, here or by someone at this circle: e6m_anim.js)
-  const H = animHold(it);
-  let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
-  if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
-  it.action.time = t;
-  it.mixer.update(0);
+  const H = animHold(it), own = !!it.action && it.dur > 0;
+  if (own) {
+    let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
+    if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
+    it.action.time = t;
+  }
+  // (a cube's clips on it: none named and none fading, nothing done; held from its timeline, its own clip alone shows)
+  const w = (it.tgM & 1) || it.tl || (it.tr && it.tr.clip) ? trgClipStep(it, !!H) : 0;
+  if (it.action) it.action.setEffectiveWeight(1 - w);
+  if (own || w > 0) it.mixer.update(0);
 }
 // the scene's clock (s): at a shared room's station the room's (the same moment everywhere), else since it opened
 function sceneClock(now) {
@@ -492,9 +506,10 @@ function triggerStep(now) {
   for (const it of STU.items.values()) {
     if (it.kind !== 's') continue;
     const ob = followOf(it), heard = it.shown && (!ob || ob.shown);
-    if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown') emitStop(it); }
+    if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown' && !trgOn(it)) emitStop(it); }   // (one a cube starts: from its run's moment, e6n_plays.js)
     it.heard = heard;
   }
+  trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
 function shownFor(p) {
@@ -502,7 +517,7 @@ function shownFor(p) {
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
-function resetSeen() { STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
+function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -762,7 +777,7 @@ function editStep(editing) {
     B.matrix.copy(t.matrixWorld); B.matrixWorldNeedsUpdate = true;
   }
   // an item flashed from a cube's card: its box pulses for 1.6 s, green if the cube shows it, red if it hides it, amber
-  // for a picture the cube puts on it
+  // for a picture the cube puts on it, blue for something it starts
   const fl = editing && STU.flash && performance.now() - STU.flash.at < FLASH_MS ? STU.items.get(STU.flash.id) : null, FB = GL.flashBox;
   FB.visible = !!fl;
   if (fl) {
@@ -770,14 +785,14 @@ function editStep(editing) {
     else { const b = _flb.setFromObject(fl.holder); if (b.isEmpty()) b.setFromCenterAndSize(fl.holder.getWorldPosition(_sw), _fls.set(0.2, 0.2, 0.2)); b.getCenter(_sw); b.getSize(_fls).max(_flm); FB.matrix.compose(_sw, _flq, _fls); }
     FB.matrixWorldNeedsUpdate = true;
     const hid = sel && sel.kind === 'c' && sel.rec.hide.includes(fl.id) && !sel.rec.show.includes(fl.id);
-    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it)
+    FB.material.color.setHex(STU.flash.tex ? 0xffc24a : STU.flash.play ? 0x5ab8ff : hid ? 0xff5a4b : 0x3ee08f);   // (amber: a picture the cube puts on it; blue: something it starts)
     FB.material.opacity = 0.35 + 0.65 * Math.abs(Math.cos((performance.now() - STU.flash.at) / FLASH_MS * Math.PI * 4));
   } else if (STU.flash && !editing) STU.flash = null;
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
   if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]]]) for (const id of list) {
+    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]]) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -871,7 +886,7 @@ function emitStep(now) {
     if (it.kind !== 's') continue;
     const F = it.F;
     if (F && (F.state === 'bytes' || (F.state === 'ready' && F.ctx !== ctx))) sndDecode(F, ctx);
-    const want = quiet ? 0 : it.fa * it.rec.vol;   // (its own fade times that of the object it follows)
+    const tg = trgSound(it), want = quiet ? 0 : it.fa * it.rec.vol * (tg == null ? 1 : tg);   // (its own fade times that of the object it follows; a cube's run on it: e6n_plays.js)
     if (it.ended && it.rec.sync && syncOf(it)) it.ended = false;   // (a voice playing with a path is never over: it starts with each pass)
     if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'ready' && F.ctx === ctx) emitStart(it, ctx, F.buf, now, want);
     else if (!it.src && want > 0.0005 && !it.ended && F && F.state === 'stream' && !(now - (it.stFail || -1e9) < 2000)) streamStart(it, ctx, F, now, want);
@@ -914,6 +929,7 @@ function listen(ctx, p, q) {
 // where a sound starts: a loop of 'always' in a room at the room's time, else from when the scene opened (or, 'shown',
 // from when a cube showed it), modulo its length; a sound that does not loop and is over: -1
 function emitOffset(it, dur, now) {
+  if (trgOn(it)) return trgSoundAt(it, dur);   // (one a cube starts: from its run's start, e6n_plays.js)
   const r = it.rec;
   let t = r.start === 'shown' ? (now - it.shownAt) / 1000 : r.loop ? sceneClock(now) : (now - STU.t0) / 1000;
   if (r.loop) return ((t % dur) + dur) % dur;
@@ -924,22 +940,23 @@ function emitStart(it, ctx, buf, now, want) {
   // (a voice that plays with a path: where its path will be as it starts, 20 ms on; none: it waits for the next start)
   const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now + 20, buf.duration || 1) : null;
   if (sync && !sy) return;
-  const off = sy ? Math.max(0, sy.at) : emitOffset(it, buf.duration || 1, now);
+  const off = sy ? Math.max(0, sy.at) : emitOffset(it, buf.duration || 1, now), tr = !sy && trgOn(it);
   if (off < 0) { it.ended = true; return; }
   try {
     const src = ctx.createBufferSource(), g = ctx.createGain(), p = ctx.createPanner();
-    src.buffer = buf; src.loop = !sy && !!it.rec.loop;
-    g.gain.value = sy ? want || 0 : 0;   // (a voice with a path at its level at once: its first word is not faded in)
+    src.buffer = buf; src.loop = !sy && sLoop(it);
+    g.gain.value = sy || tr ? want || 0 : 0;   // (a voice with a path, and a sound a cube starts, at its level at once: its first word is not faded in)
     p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
     it.holder.getWorldPosition(_ep); setPos(p, _ep);
     src.connect(g); g.connect(p); p.connect(ctx.destination);
-    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; };
+    src.onended = () => { if (it.src !== src) return; emitStop(it); if (!sLoop(it) && !syncOf(it)) it.ended = true; };
     if (sy) {
       const when = ctx.currentTime + 0.02 + Math.max(0, -sy.at);   // (a voice that starts after its path: that much later)
       src.start(when, off, Math.max(0.05, sy.left - Math.max(0, -sy.at)));
       it.syncPass = sy.pass; it.syncLog = { c0: when, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
     } else src.start(ctx.currentTime + 0.02, off);
-    Object.assign(it, { src, gain: g, pan: p, gt: sy ? want || 0 : -1, zeroAt: 0 });
+    if (tr) it.trgLog = { at: off, loop: src.loop, c0: ctx.currentTime + 0.02, g0: g.gain.value };   // (for tests: e6n_plays.js)
+    Object.assign(it, { src, gain: g, pan: p, gt: sy || tr ? want || 0 : -1, zeroAt: 0 });
   } catch (e) { it.ended = true; }
 }
 // stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
@@ -965,7 +982,7 @@ function streamStart(it, ctx, F, now, want) {
   // (a voice that plays with a path: where its path is now; it waits until its moment in its file has come)
   const sync = !!(it.rec.sync && syncOf(it)), sy = sync ? syncAt(it, now, F.dur || 1) : null;
   if (sync && (!sy || sy.at < 0)) return;
-  const off = sy ? sy.at : emitOffset(it, F.dur || 1, now);
+  const off = sy ? sy.at : emitOffset(it, F.dur || 1, now), tr = !sy && trgOn(it);
   if (off < 0) { it.ended = true; return; }
   if (!S) {
     try {
@@ -975,7 +992,7 @@ function streamStart(it, ctx, F, now, want) {
       g.gain.value = 0;
       p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = it.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
       node.connect(g); g.connect(p); p.connect(ctx.destination);
-      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!it.rec.loop && !syncOf(it)) it.ended = true; } });
+      el.addEventListener('ended', () => { if (it.st && it.st.el === el && it.src === el) { emitStop(it); if (!sLoop(it) && !syncOf(it)) it.ended = true; } });
       el.addEventListener('playing', () => { if (it.st && it.st.el === el) it.st.playAt = performance.now(); });
       // (R2: a signed link that may have lapsed (not read just now): the listing read again, and a new element 2 s later)
       el.addEventListener('error', () => { if (SRC.linkTtl > 0 && it.st && it.st.el === el && linksAge() > 60000) { emitStop(it, true); it.stFail = performance.now(); linksFresh(); } });
@@ -985,7 +1002,8 @@ function streamStart(it, ctx, F, now, want) {
     } catch (e) { it.ended = true; return; }
   }
   const el = S.el;
-  el.loop = !sy && !!it.rec.loop;
+  el.loop = !sy && sLoop(it);
+  if (tr) { try { S.gain.gain.setValueAtTime(want || 0, ctx.currentTime); } catch (e) { /* closed */ } it.trgLog = { at: off, loop: el.loop, c0: ctx.currentTime, g0: want || 0 }; }   // (a sound a cube starts: at its level at once)
   if (sy) {
     it.syncPass = sy.pass; it.syncLog = { c0: ctx.currentTime, at: off, pass: sy.pass, skip: it.rec.skip || 0, e: sy.e };
     S.playAt = 0; S.chk = 0; S.fixAt = 0;
@@ -1001,7 +1019,7 @@ function streamStart(it, ctx, F, now, want) {
   if (el.readyState >= 1) seek(); else el.addEventListener('loadedmetadata', seek, { once: true });
   const pr = el.play();
   if (pr && pr.catch) pr.catch(() => { if (it.src === el) { emitStop(it); it.stFail = performance.now(); } });   // (not allowed yet: again in 2 s)
-  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: sy ? want || 0 : -1, zeroAt: 0 });
+  Object.assign(it, { src: el, gain: S.gain, pan: S.pan, gt: sy || tr ? want || 0 : -1, zeroAt: 0 });
 }
 // a streamed voice kept on its path's clock (the room's at a station, so every device hears it at the same moment): once it
 // has played 150 ms, about twice a second its element's moment against where the path says it should be; more than 80 ms
@@ -1045,7 +1063,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -1211,6 +1229,8 @@ function deleteItems(list) {
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && (c.rec.show.some(i => gone.has(i)) || c.rec.hide.some(i => gone.has(i)))) setRec(c.id, { show: out(c.rec.show), hide: out(c.rec.hide) });
   // (and the pictures they put on a deleted object: e6i_tex.js)
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
+  // (and what they start on a deleted item: e6n_plays.js)
+  for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.plays && c.rec.plays.some(e => gone.has(e.on))) { const t = c.rec.plays.filter(e => !gone.has(e.on)); setRec(c.id, { plays: t.length ? t : undefined }); }
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -1236,6 +1256,8 @@ function duplicateItem(id) {
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
     if (it.kind === 'o') texCopy(id, nid);
+    // (and what a cube starts on it, on its copy too, beside the original's: e6n_plays.js)
+    if (PLAY_ITEMS.includes(it.kind)) playCopy(id, nid);
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -1285,7 +1307,7 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; },   // (one pick at a time: its texture pick ends, e6i_tex.js)
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -1357,6 +1379,7 @@ function select(id) {
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
+  if (STU.plp && STU.plp.id !== id) STU.plp = null;   // (and its pick of what it starts)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)

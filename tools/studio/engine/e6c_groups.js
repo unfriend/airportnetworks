@@ -249,8 +249,9 @@ function duplicateGroup(g) {
     for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
+    // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
     const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), locked: undefined })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined })));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
@@ -267,6 +268,8 @@ function duplicateGroup(g) {
       if (sh.length !== c.rec.show.length || hi.length !== c.rec.hide.length) setRec(c.id, { show: sh, hide: hi });
       // (and a picture it puts on an object of the group, on that object's copy too, beside it)
       if (c.rec.tex && c.rec.tex.some(e => map.has(e.on))) setRec(c.id, { tex: texWithCopies(c.rec.tex, e => map.get(e.on) || '') });
+      // (and what it starts on an item of the group, on that item's copy too, beside it: e6n_plays.js)
+      if (c.rec.plays && c.rec.plays.some(e => map.has(e.on))) setRec(c.id, { plays: withCopies(c.rec.plays, e => map.get(e.on) || '', PLAY_MAX) });
     }
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });

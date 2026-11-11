@@ -5,6 +5,7 @@
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
+// --only 'studio cube starts': the trigger cubes that start a clip, a sound, a recorded path or a motion;
 // --only 'studio edit speed': what the studio's edit mode no longer does every frame, a minute;
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
@@ -7331,6 +7332,489 @@ if (runs('studio texture swaps')) {
     await tp.unroute(pat);
     bad(out);
     await tp.close();
+  });
+}
+// Trigger cubes that start things (v136, e6n_plays.js), on a page of their own: a clip, a sound, a recorded path and a
+// motion started as a pretend head walks in and out, on the studio's own clock for starts held by the test (trgClock),
+// the sounds on the real one; the record's plays through the state, layout.json and norm; the cube's card on the page and
+// in the headset; copies, deletions, a GLB switch and the lobby
+if (runs('studio cube starts')) {
+  const cp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  cp.on('pageerror', e => errors.push('studio cube starts: ' + (e.stack || e.message)));
+  cp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio cube starts: ' + m.text()); });
+  const ss = s => cp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => cp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio cube starts: ' + b)); };
+  // (in the page: a pretend head at p at the studio's clock T (ms), one frame's steps; the box's node (its clips move it)
+  // and Twin's; an item's drawn place and turn against its placed one)
+  const HELP = `window.__pl = window.__pl || {
+    at: (p, T) => { if (T !== undefined) window.__T = T; shownFor(p); itemsStep(0, performance.now()); return 0; },
+    y: id => +STU.items.get(id || 'box001').model.o.getObjectByName('box').position.y.toFixed(4),
+    q: id => STU.items.get(id || 'box001').model.o.getObjectByName('box').quaternion.toArray().map(v => +v.toFixed(4)),
+    dx: id => { const p = STUDIO.pose(id); return p && p.drawn ? +(p.drawn[12] - p.placed[12]).toFixed(4) : 0; },
+    yaw: id => { const p = STUDIO.pose(id); if (!p || !p.drawn) return 0; const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(p.drawn)); return +(((2 * Math.atan2(q.y, q.w) * 180 / Math.PI) % 360 + 360) % 360).toFixed(2); },
+    tilt: id => { const p = STUDIO.pose(id); if (!p || !p.drawn) return 0; const m = new THREE.Matrix4().fromArray(p.drawn), y = new THREE.Vector3().setFromMatrixColumn(m, 1).normalize(); return +(Math.acos(Math.min(1, y.y)) * 180 / Math.PI).toFixed(2); },
+    log: () => STUDIO.plays().log,
+    plays: (id, L) => { setRec(id, { plays: L }); return 0; },
+  }`;
+  const OUT = [3, 1, 6], W = [3, 1, 2], S = [7, 1, 2], D = [11, 1, 2], H = [15, 1, 2];
+  const at = (p, T) => ss(`window.__pl.at(${JSON.stringify(p)}, ${T})`);
+  const y = id => ss(`window.__pl.y(${JSON.stringify(id || 'box001')})`);
+  const near = (a, b, e) => typeof a === 'number' && Math.abs(a - b) <= (e || 1e-3);
+  const E = o => Object.assign({ on: 'box001', what: 'clip', clip: 'Lift', how: 'once' }, o);
+  const setPlays = (id, L) => ss(`window.__pl.plays(${JSON.stringify(id)}, ${L ? JSON.stringify(L) : 'undefined'})`);
+
+  await step('studio cube starts: clips: a cube plays a clip once from its start (blended in and out over 0.3 s, Twin of the same file unchanged), crossfades a new run from the old one\'s frame, debounces its edges, loops on a stay cube until Reset, holds while inside, stops from another cube (on walking in or out), plays over the object\'s own animation, gives way to a timeline\'s hold and Pause; a clip it lacks; the ghost', async () => {
+    await cp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await cp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio cube starts: the test scene did not load'); return; }
+    // Lift (1 s, up 0.4 m; it ends away from the rest pose), Twin (box.glb, Animation Off) and four cubes apart from Doorway
+    await ss(`(${HELP}, trgClock = () => window.__T, window.__T = 1e6,
+      STU.items.get('box001').E.clips.push(new THREE.AnimationClip('Lift', 1, [new THREE.VectorKeyframeTrack('box.position', [0, 1], [0, 0, 0, 0, 0.4, 0])])),
+      setRec('box001', { anim: 'off' }),
+      putItem('twn001', 'o', norm('o', { name: 'Twin', file: 'box.glb', p: [0.4, 0.25, -2], anim: 'off' })),
+      putItem('plw001', 'c', norm('c', { name: 'W', p: [3, 1, 2], size: [1, 2, 1], plays: [${JSON.stringify(E())}] })),
+      putItem('pls001', 'c', norm('c', { name: 'S', p: [7, 1, 2], size: [1, 2, 1], mode: 'stay', plays: [${JSON.stringify(E({ clip: 'Bob', how: 'loop' }))}] })),
+      putItem('pld001', 'c', norm('c', { name: 'D', p: [11, 1, 2], size: [1, 2, 1], plays: [${JSON.stringify(E({ how: 'hold' }))}] })),
+      putItem('plh001', 'c', norm('c', { name: 'H', p: [15, 1, 2], size: [1, 2, 1], plays: [${JSON.stringify({ on: 'box001', what: 'clip', how: 'stop' })}] })), 0)`);
+    if (!await until(`!!STU.items.get('twn001').model`, 30000)) { errors.push('studio cube starts: Twin did not load'); return; }
+    const out = [], T0 = 1e6, tw = [];
+    const chk = async (w, p, T, want, e) => { await at(p, T); const v = await y(); tw.push(await y('twn001')); if (!near(v, want, e)) out.push(`${w}: y ${v} (wanted ${want})`); return v; };
+    // once
+    await chk('outside', OUT, T0, 0);
+    await at(W, T0);
+    await chk('in W, 150 ms (half blended in)', W, T0 + 150, 0.03);
+    await chk('in W, 500 ms', W, T0 + 500, 0.2);
+    await chk('out at 600 ms (a once goes on)', OUT, T0 + 600, 0.24);
+    await chk('out, 800 ms', OUT, T0 + 800, 0.32);
+    await chk('out, 1150 ms (fading from its end)', OUT, T0 + 1150, 0.2);
+    await chk('out, 1350 ms (gone)', OUT, T0 + 1350, 0);
+    const e1 = await ss(`[STUDIO.plays('box001').item.layers.length, JSON.stringify(window.__pl.log().filter(x => x[0] === 'end' && x[1] === 'box001'))]`);
+    if (e1[0] !== 0 || !e1[1].includes('"end","box001","clip","end"')) out.push('the once over: no layers left, its end in the log: ' + JSON.stringify(e1));
+    // a new run crossfades from the old one's frame (out 360 ms: entered again)
+    const T2 = T0 + 5000;
+    await at(W, T2); await at(OUT, T2 + 600);
+    await at(W, T2 + 960);
+    await chk('crossfade, 150 ms into the second run: half Lift(0.96), half Lift(0.15)', W, T2 + 1110, 0.222);
+    const lay = await ss(`STUDIO.plays('box001').item.layers`);
+    if (lay.length !== 2 || !lay[0][3] || lay[1][3]) out.push('the crossfade\'s layers (the old one frozen and fading, the new one coming in): ' + JSON.stringify(lay));
+    await at(OUT, T2 + 1300); await at(OUT, T2 + 3000);
+    // debounce: out 100 ms and in again is no new entry
+    const T3 = T0 + 10000, n0 = await ss(`window.__pl.log().filter(x => x[0] === 'start' && x[1] === 'plw001').length`);
+    await at(W, T3); await at(OUT, T3 + 200); await at(W, T3 + 300);
+    await chk('debounced: the first run goes on', W, T3 + 500, 0.2);
+    const n1 = await ss(`window.__pl.log().filter(x => x[0] === 'start' && x[1] === 'plw001').length`);
+    if (n1 - n0 !== 1) out.push(`out 100 ms and in again: ${n1 - n0} starts (wanted 1)`);
+    await at(OUT, T3 + 1500); await at(OUT, T3 + 2500);
+    // a loop on a stay cube: on after leaving, until Reset what I have seen
+    const T4 = T0 + 20000;
+    await at(S, T4);
+    await chk('S\'s loop of Bob, 500 ms', S, T4 + 500, 0.3);
+    await chk('S\'s loop, 1250 ms', S, T4 + 1250, 0.15);
+    await at(OUT, T4 + 1300);
+    await chk('out of S (it stays): still looping', OUT, T4 + 2500, 0.3);
+    const rs = await ss(`(resetSeen(), [window.__pl.y(), JSON.stringify(window.__pl.log().slice(-1))])`);
+    if (!near(rs[0], 0) || !rs[1].includes('reset')) out.push('Reset what I have seen: at rest at once, its reset in the log: ' + JSON.stringify(rs));
+    await chk('after Reset, outside', OUT, T4 + 2600, 0);
+    // a hold: to its end, held while inside, then it comes off 0.3 s after leaving
+    const T5 = T0 + 30000;
+    await at(D, T5);
+    await chk('D\'s hold at its end', D, T5 + 2000, 0.4);
+    await at(OUT, T5 + 2100); await at(OUT, T5 + 2400);
+    const off = await ss(`(STUDIO.plays('box001').item.tr.clip || {}).off`);
+    if (off !== T5 + 2400) out.push(`the hold came off at ${off - T5} ms (wanted 2400: 0.3 s after leaving)`);
+    await chk('the hold fading', OUT, T5 + 2550, 0.2);
+    await chk('the hold gone', OUT, T5 + 2750, 0);
+    // stop: H ends S's loop; it does not come back while S stays active, and starts again as S is entered again
+    const T6 = T0 + 40000;
+    await at(S, T6);
+    await chk('S\'s loop again', S, T6 + 500, 0.3);
+    await at(H, T6 + 600);
+    await chk('H stops it: blending out', H, T6 + 750, 0.075);
+    await chk('H stopped it', H, T6 + 900, 0);
+    await chk('it does not come back (S still active)', H, T6 + 1500, 0);
+    await at(S, T6 + 1600);
+    await chk('S entered again: it starts again', S, T6 + 2100, 0.3);
+    // a stop as you leave H
+    await setPlays('plh001', [{ on: 'box001', what: 'clip', how: 'stop', when: 'leave' }]);
+    const T7 = T0 + 45600;   // (S's loop began at T6 + 1600: whole seconds of Bob since)
+    await at(H, T7);
+    await chk('in H (stops as you leave): still looping', H, T7 + 250, 0.15);
+    await at(OUT, T7 + 300);
+    await chk('out of H 200 ms: still looping', OUT, T7 + 500, 0.3);
+    await at(OUT, T7 + 600);
+    const lg = await ss(`JSON.stringify(window.__pl.log().slice(-3))`);
+    if (!lg.includes(`"start","plh001","box001","clip","","stop","leave",${T7 + 600}`) || !lg.includes('"off","box001","clip","stop"')) out.push('the stop as you leave, 0.3 s after: ' + lg);
+    await chk('stopped as you left H', OUT, T7 + 1000, 0);
+    await ss(`(resetSeen(), 0)`);
+    // over the object's own animation (Spin, a loop on the scene's clock): the cube's clip at full weight is the whole pose
+    await ss(`(setRec('box001', { anim: 'loop' }), 0)`);
+    const T8 = T0 + 50000;
+    await at(OUT, T8 - 1000); await at(W, T8);
+    await at(W, T8 + 500);
+    const own = await ss(`[window.__pl.y(), JSON.stringify(window.__pl.q()), STU.items.get('box001').action.getEffectiveWeight()]`);
+    if (!near(own[0], 0.2) || own[1] !== '[0,0,0,1]' || own[2] !== 0) out.push('Lift over its own Spin at full weight: y 0.2 and no turn, its own weight 0: ' + JSON.stringify(own));
+    await at(OUT, T8 + 600); await at(OUT, T8 + 1400);
+    const sp = await ss(`(() => { const it = STU.items.get('box001'), t = it.action.time, v = it.action.getClip().tracks[0].createInterpolant().evaluate(t); const q = window.__pl.q(); return [it.action.getEffectiveWeight(), STUDIO.plays('box001').item.layers.length, Math.max(...q.map((c, i) => Math.abs(Math.abs(c) - Math.abs(v[i])))) < 2e-3, window.__pl.y()]; })()`);
+    if (sp[0] !== 1 || sp[1] !== 0 || !sp[2] || !near(sp[3], 0)) out.push('after the once its own Spin again (its weight, no layers, the turn its clip\'s): ' + JSON.stringify(sp));
+    // a timeline's hold shows its own clip alone; let go, the layer is back; Pause holds the frame
+    const T9 = T0 + 55000;
+    await at(OUT, T9 - 1000); await at(W, T9); await at(W, T9 + 500);
+    await ss(`(select('box001'), animSet(STU.items.get('box001'), 0.4, false), 0)`);
+    await at(W, T9 + 550);
+    const hd = await ss(`(() => { const it = STU.items.get('box001'), v = it.action.getClip().tracks[0].createInterpolant().evaluate(0.4), q = window.__pl.q(); return [window.__pl.y(), Math.max(...q.map((c, i) => Math.abs(c - v[i]))) < 2e-3]; })()`);
+    await ss(`(animFree('test'), 0)`);
+    await at(W, T9 + 600);
+    const fr = await y();
+    if (!near(hd[0], 0) || !hd[1] || !near(fr, 0.24)) out.push('a timeline\'s hold: its own Spin at 0.4 alone, then Lift back: ' + JSON.stringify([hd, fr]));
+    await ss(`(pauseSet(true), 0)`);
+    await at(W, T9 + 700); const pa = await y(); await at(W, T9 + 900); const pb = await y();
+    await ss(`(pauseSet(false), select(''), 0)`);
+    if (!near(pa, 0.24) || pa !== pb) out.push('Pause holds the frame: ' + JSON.stringify([pa, pb]));
+    await at(OUT, T9 + 1500); await at(OUT, T9 + 3000);
+    // a clip it lacks: nothing plays, said once in the log and on the card
+    await ss(`(setRec('box001', { anim: 'off' }), 0)`);
+    await setPlays('plw001', [E({ clip: 'Wave' })]);
+    const T10 = T0 + 60000;
+    await at(W, T10); await at(W, T10 + 500);
+    const ms = await ss(`[window.__pl.y(), JSON.stringify(window.__pl.log().filter(x => x[0] === 'end' && x[3] === 'missing')), (select('plw001'), paneBlocks('item').some(b => b.c === 'amber' && /Box has no animation Wave now/.test(b.p || '')))]`);
+    if (!near(ms[0], 0) || !ms[1].includes('"end","box001","clip","missing"') || !ms[2]) out.push('a clip it lacks: ' + JSON.stringify(ms));
+    // the ghost while a clip plays on it (Animation Off): its outline only, as a model its own clip moves
+    await ss(`(select(''), 0)`);
+    await setPlays('plw001', [E()]);
+    await at(OUT, T10 + 1000); await at(OUT, T10 + 1500);
+    await at(W, T10 + 2000); await at(W, T10 + 2200); await at(W, T10 + 2300);
+    const gh = await ss(`STUDIO.ghost('box001')`);
+    if (!gh || !gh.outline) out.push('the ghost while a cube plays a clip on it (Animation Off): its outline only: ' + JSON.stringify(gh));
+    await at(OUT, T10 + 3000); await at(OUT, T10 + 4500);
+    if (tw.some(v => !near(v, 0))) out.push('Twin (the same file, no entry) moved: ' + JSON.stringify(tw.filter(v => !near(v, 0))));
+    bad(out);
+  });
+
+  await step('studio cube starts: sounds: a sound a cube names waits silent; a once from its start at its level at once, over at its end; a long one goes on after you leave; a loop streamed on its run\'s clock; a stop fades it; hidden mid-run it is silent and comes back on its clock; a voice that plays with a path is no target', async () => {
+    const out = [];
+    await cp.evaluate(() => HOST.audio.mute(false));
+    await cp.click('#explore .tabs button[data-tab="scene"]');   // (a tap: the sound may start)
+    await ss(`(trgClock = () => performance.now(), resetSeen(), setRec('box001', { anim: 'loop' }),
+      putItem('snp001', 's', norm('s', { name: 'Ping', file: 'tone.wav', p: [3, 1.2, 1], vol: 1, loop: true })),
+      putItem('snl001', 's', norm('s', { name: 'Long', file: 'sounds/long.wav', p: [7, 1.2, 1], vol: 1, loop: false })),
+      window.__pl.plays('plw001', [{ on: 'snp001', what: 'sound', how: 'once' }]), window.__pl.plays('pls001', [{ on: 'snl001', what: 'sound', how: 'loop' }]),
+      window.__pl.plays('pld001', [{ on: 'snl001', what: 'sound', how: 'once' }]), window.__pl.plays('plh001', [{ on: 'snl001', what: 'sound', how: 'stop' }]), window.__pl.at(${JSON.stringify(OUT)}), 0)`);
+    if (!await until(`['tone.wav', 'sounds/long.wav'].every(p => { const F = STUDIO.state().sounds[p]; return F && F.state !== 'loading' && F.state !== 'idle'; }) && !!HOST.audio.fx()`, 20000)) { bad(['the sounds were not fetched, or no sound context: ' + JSON.stringify(await ss(`[STUDIO.state().sounds, !!HOST.audio.fx()]`))]); return; }
+    const S1 = id => `(() => { const it = STU.items.get('${id}'); return { shown: it.shown, src: !!it.src, gt: it.gt, sa: it.sa, tg: it.tg, ended: it.ended, log: it.trgLog, el: it.st ? { loop: it.st.el.loop, t: it.st.el.currentTime, paused: it.st.el.paused } : null, run: (STUDIO.plays('${id}').item.tr.sound || null) }; })()`;
+    await cp.waitForTimeout(1000);
+    await until(`STU.items.get('snp001').sa > 0.99 && STU.items.get('snl001').sa > 0.99`, 8000);   // (shown in full: a slow page's frames fade them in)
+    const w0 = await ss(`[${S1('snp001')}, ${S1('snl001')}]`);
+    if (!w0[0].shown || w0[0].src || w0[1].src || w0[0].tg !== 0) out.push('named by a cube, outside: shown but silent: ' + JSON.stringify(w0));
+    // a once of the short tone: from its start at its level at once; over at its end; entered again, again from its start
+    await ss(`(window.__pl.at(${JSON.stringify(W)}), 0)`);
+    if (!await until(`!!STU.items.get('snp001').src`, 3000)) out.push('in W the tone did not start: ' + JSON.stringify(await ss(S1('snp001'))));
+    else {
+      const a = await ss(S1('snp001'));
+      if (!a.log || a.log.at >= 0.1 || a.log.loop !== false || !(a.log.g0 > 0.9)) out.push('the tone\'s once: from its start, not looping, at its level at once: ' + JSON.stringify(a));
+      if (!await until(`(() => { const it = STU.items.get('snp001'); return it.ended && !it.src && !STUDIO.plays('snp001').item.tr.sound; })()`, 4000)) out.push('the tone\'s once is not over after its 0.6 s: ' + JSON.stringify(await ss(S1('snp001'))));
+      await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`); await cp.waitForTimeout(500); await ss(`(window.__pl.at(${JSON.stringify(OUT)}), window.__pl.at(${JSON.stringify(W)}), 0)`);
+      if (!await until(`!!STU.items.get('snp001').src && STU.items.get('snp001').trgLog.at < 0.1`, 3000)) out.push('entered again, the tone did not start again from its start: ' + JSON.stringify(await ss(S1('snp001'))));
+    }
+    await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`); await cp.waitForTimeout(400);
+    // a long once (streamed) goes on after you leave
+    await ss(`(window.__pl.at(${JSON.stringify(D)}), 0)`);
+    if (!await until(`(() => { const it = STU.items.get('snl001'); return !!it.src && !!it.st && !it.st.el.paused; })()`, 6000)) out.push('in D the long sound did not start: ' + JSON.stringify(await ss(S1('snl001'))));
+    await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`); await cp.waitForTimeout(1000); await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`);
+    const o1 = await ss(S1('snl001'));
+    if (!o1.src || !o1.el || o1.el.paused || !o1.run) out.push('a once goes on after you leave: ' + JSON.stringify(o1));
+    // a loop in S (it replaces D's once: from its start), its element looping on the run's clock; out of S (it stays) on
+    await ss(`(window.__pl.at(${JSON.stringify(S)}), 0)`);
+    await until(`(() => { const it = STU.items.get('snl001'), R = STUDIO.plays('snl001').item.tr.sound; return R && R.how === 'loop' && !!it.src && !!it.st && !it.st.el.paused && it.st.el.currentTime > 0; })()`, 6000);
+    await cp.waitForTimeout(1500);
+    const lp = await ss(`(() => { const it = STU.items.get('snl001'), R = STUDIO.plays('snl001').item.tr.sound; return [!!it.st && it.st.el.loop, it.st ? it.st.el.currentTime : -1, R ? (performance.now() - R.at) / 1000 : -1]; })()`);
+    if (!lp[0] || !(Math.abs(lp[1] - lp[2]) < 0.3)) out.push('the loop streamed: looping, on its run\'s clock (within 0.3 s): ' + JSON.stringify(lp));
+    await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`); await cp.waitForTimeout(600); await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`);
+    const o2 = await ss(S1('snl001'));
+    if (!o2.src || !o2.run || o2.run.off) out.push('out of S (it stays), the loop goes on: ' + JSON.stringify(o2));
+    // into H: a stop fades it out (0.4 s) and it stops
+    const h0 = await ss(`(window.__pl.at(${JSON.stringify(H)}), performance.now())`);
+    const g0 = await until(`STU.items.get('snl001').gt === 0`, 1500), h1 = await ss(`performance.now()`);
+    const s0 = await until(`!STU.items.get('snl001').src`, 2500);
+    if (!g0 || h1 - h0 > 900 || !s0) out.push('H\'s stop: faded to 0 within 0.6 s and stopped: ' + JSON.stringify([g0, Math.round(h1 - h0), s0, await ss(S1('snl001'))]));
+    // hidden 2 s into a run: silent; shown again, it comes back on its run's clock
+    await ss(`(window.__pl.at(${JSON.stringify(OUT)}), 0)`); await cp.waitForTimeout(500); await ss(`(window.__pl.at(${JSON.stringify(OUT)}), resetSeen(), window.__pl.at(${JSON.stringify(S)}), 0)`);
+    await until(`!!STU.items.get('snl001').src`, 6000);
+    await cp.waitForTimeout(2000);
+    await ss(`(setRec('pls001', { hide: ['snl001'] }), window.__pl.at(${JSON.stringify(S)}), 0)`);
+    const hid = await until(`!STU.items.get('snl001').src`, 3000);
+    await ss(`(setRec('pls001', { hide: [] }), window.__pl.at(${JSON.stringify(S)}), 0)`);
+    await until(`(() => { const it = STU.items.get('snl001'); return !!it.src && !!it.st && !it.st.el.paused && it.st.el.currentTime > 0; })()`, 6000);
+    await cp.waitForTimeout(500);
+    const back = await ss(`(() => { const it = STU.items.get('snl001'), R = STUDIO.plays('snl001').item.tr.sound; return [it.st ? it.st.el.currentTime : -1, R ? (performance.now() - R.at) / 1000 : -1]; })()`);
+    if (!hid || !(back[0] > 2) || !(Math.abs(back[0] - back[1]) < 0.3)) out.push('hidden mid-run: silent; shown again, back on its run\'s clock (within 0.3 s): ' + JSON.stringify({ hid, back }));
+    await ss(`(window.__pl.at(${JSON.stringify(OUT)}), resetSeen(), 0)`);
+    await until(`!STU.items.get('snl001').src && !STU.items.get('snp001').src`, 3000);
+    bad(out);
+  });
+
+  await step('studio cube starts: paths and motions: a path a cube names waits at its start; once, loop (finishing its pass), hold (going back) and a stop where it is; a voice recorded with it starts with each run; carried or paused at its placed pose; a motion\'s once and loop (finishing its period), a wobble eased in', async () => {
+    const out = [], P0 = 2e6;
+    await ss(`(trgClock = () => window.__T, window.__T = ${P0 - 5000}, resetSeen(), ['plw001', 'pls001', 'pld001', 'plh001'].forEach(id => window.__pl.plays(id, undefined)),
+      putItem('shp001', 'p', norm('p', { name: 'Slider', shape: 'cube', p: [-4, 0.5, 0], size: [0.3, 0.3, 0.3], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [1, 1, 0, 0, 0, 0, 0, 1], [2, 2, 0, 0, 0, 0, 0, 1]], play: 'loop', start: 'always', speed: 1 } })),
+      putItem('emp001', 'e', norm('e', { name: 'Spinner', p: [-6, 1, 0], motion: { kind: 'spin', speed: 30 } })),
+      putItem('shw001', 'p', norm('p', { name: 'Wobbler', shape: 'cube', p: [-8, 0.5, 0], size: [0.3, 0.3, 0.3], motion: { kind: 'wobble', amount: 20 } })),
+      putItem('snv001', 's', norm('s', { name: 'Voice', file: 'tone.wav', p: [-4, 1.2, 0], vol: 1, loop: false, sync: 'shp001' })), 0)`);
+    const dx = (p, T) => ss(`(window.__pl.at(${JSON.stringify(p)}, ${T}), window.__pl.dx('shp001'))`);
+    const leaveW = async T => { await at(OUT, T - 1000); await at(OUT, T - 600); };
+    const want = async (w, p, T, v, e) => { const g = await dx(p, T); if (!near(g, v, e || 2e-3)) out.push(`${w}: ${g} m (wanted ${v})`); };
+    await setPlays('plw001', [{ on: 'shp001', what: 'path', how: 'once' }]);
+    await want('a path a cube names, before any run: at its start', OUT, P0 - 4000, 0);
+    // once
+    let B = P0;
+    await at(W, B);
+    const v0 = await ss(`STUDIO.voice('snv001')`);
+    await want('once, 1 s', W, B + 1000, 1);
+    const v1 = await ss(`STUDIO.voice('snv001')`);
+    await want('once, 2.5 s: at its end', OUT, B + 2500, 2);
+    const endLog = await ss(`JSON.stringify(window.__pl.log().filter(x => x[0] === 'end' && x[1] === 'shp001'))`);
+    if (!endLog.includes('"end","shp001","path","end"')) out.push('the once\'s end not in the log: ' + endLog);
+    await want('once over: it waits at its end', OUT, B + 4000, 2);
+    await want('the next run from its start', W, B + 5000, 0);
+    await want('the next run, 0.5 s', W, B + 5500, 0.5);
+    // the voice that plays with the path: silent while it waits, from each run's start (its pass 'r<n>:0')
+    const n = await ss(`STUDIO.plays('shp001').item.tr.path.n`);
+    const v2 = await ss(`STUDIO.voice('snv001')`);
+    if (!v0 || !v0.now || !/^r\d+:0$/.test(v0.now.pass) || !v1 || v1.now !== null || !v2.now || v2.now.pass !== 'r' + n + ':0') out.push('the voice with the path: from each run\'s start, silent past its 0.6 s: ' + JSON.stringify([v0 && v0.now, v1 && v1.now, v2 && v2.now, n]));
+    // carried, and paused: at its placed pose
+    const cr = await ss(`(STU.items.get('shp001').carry = true, window.__pl.at(${JSON.stringify(W)}, ${B + 5800}), [window.__pl.dx('shp001'), (STU.items.get('shp001').carry = false, pauseSet(true), window.__pl.at(${JSON.stringify(W)}, ${B + 5900}), window.__pl.dx('shp001')), (pauseSet(false), window.__pl.at(${JSON.stringify(W)}, ${B + 6000}), window.__pl.dx('shp001'))])`);
+    if (!near(cr[0], 0) || !near(cr[1], 0) || !near(cr[2], 1)) out.push('carried, then paused, at its placed pose; then on its run again: ' + JSON.stringify(cr));
+    // loop, coming off 0.3 s after you leave: the pass under way finished, then it waits at its end
+    B = P0 + 20000; await leaveW(B);
+    await setPlays('plw001', [{ on: 'shp001', what: 'path', how: 'loop' }]);
+    await at(W, B);
+    await want('loop, 1.5 s', W, B + 1500, 1.5);
+    await want('loop, 2.5 s (its second pass)', W, B + 2500, 0.5);
+    await at(OUT, B + 2600); await at(OUT, B + 2900);
+    const lo = await ss(`(STUDIO.plays('shp001').item.tr.path || {}).off`);
+    if (lo !== B + 2900) out.push(`the loop came off at ${lo - B} ms (wanted 2900)`);
+    await want('loop off, finishing its pass, 3.5 s', OUT, B + 3500, 1.5);
+    await want('loop off, its pass done, 4.1 s: at its end', OUT, B + 4100, 2);
+    // hold: to its end, held; off, back along its path at its speed
+    B = P0 + 40000; await leaveW(B);
+    await setPlays('plw001', [{ on: 'shp001', what: 'path', how: 'hold' }]);
+    await at(W, B);
+    await want('hold, 3 s: held at its end', W, B + 3000, 2);
+    await at(OUT, B + 3100); await at(OUT, B + 3400);
+    await want('hold off, going back, 3.9 s', OUT, B + 3900, 1.5);
+    await want('hold off, back at its start, 5.5 s', OUT, B + 5500, 0);
+    const hl = await ss(`[!STUDIO.plays('shp001').item.tr.path, STUDIO.voice('snv001').now]`);
+    if (!hl[0] || hl[1] !== null) out.push('the hold done, its voice silent: ' + JSON.stringify(hl));
+    // a stop during a once: where it is
+    B = P0 + 60000; await leaveW(B);
+    await setPlays('plw001', [{ on: 'shp001', what: 'path', how: 'once' }]);
+    await setPlays('plh001', [{ on: 'shp001', what: 'path', how: 'stop' }]);
+    await at(W, B);
+    await want('once, 0.8 s', W, B + 800, 0.8);
+    await want('stopped in H: where it was', H, B + 800, 0.8);
+    await want('stopped: it stays', H, B + 1500, 0.8);
+    // motions: a spin of 30 a minute (2 s a turn) once, then a loop finishing its turn; a wobble eased in
+    B = P0 + 80000; await at(OUT, B - 1000); await at(OUT, B - 600);
+    await setPlays('plh001', undefined);
+    await setPlays('plw001', [{ on: 'emp001', what: 'motion', how: 'once' }]);
+    const yaw = async (w, p, T, v) => { await at(p, T); const g = await ss(`window.__pl.yaw('emp001')`); const d = Math.abs(((g - v) % 360 + 540) % 360 - 180); if (!(d < 0.5)) out.push(`${w}: ${g}° (wanted ${v}°)`); };
+    await yaw('a spin a cube names, before any run: at rest', OUT, B - 500, 0);
+    await at(W, B);
+    await yaw('spin once, 0.5 s', W, B + 500, 90);
+    await yaw('spin once, 1 s', W, B + 1000, 180);
+    await yaw('spin once over, 2.1 s: at rest', W, B + 2100, 0);
+    B = P0 + 90000; await leaveW(B);
+    await setPlays('plw001', [{ on: 'emp001', what: 'motion', how: 'loop' }]);
+    await at(W, B);
+    await at(OUT, B + 2500); await at(OUT, B + 2800);
+    await yaw('spin loop off, finishing its turn, 3.5 s', OUT, B + 3500, 270);
+    await yaw('spin loop over, 4.1 s: at rest', OUT, B + 4100, 0);
+    B = P0 + 100000; await leaveW(B);
+    await setPlays('plw001', [{ on: 'shw001', what: 'motion', how: 'loop' }]);
+    await at(W, B);
+    const tl = [await ss(`(window.__pl.at(${JSON.stringify(W)}, ${B + 50}), window.__pl.tilt('shw001'))`), await ss(`(window.__pl.at(${JSON.stringify(W)}, ${B + 1500}), window.__pl.tilt('shw001'))`)];
+    if (!(tl[0] <= 2.01) || !near(tl[1], 20, 0.3)) out.push('a wobble eased in: at most 2° after 50 ms, 20° mid-run: ' + JSON.stringify(tl));
+    await at(OUT, B + 2000); await at(OUT, B + 2400); await at(OUT, B + 9000);
+    // an entry on a voice that plays with a path is ignored, and its card says so
+    await setPlays('plw001', [{ on: 'snv001', what: 'sound', how: 'once' }]);
+    B = P0 + 120000; await at(OUT, B - 600); await at(W, B);
+    const vi = await ss(`[window.__pl.log().filter(x => x[0] === 'start' && x[2] === 'snv001').length, (select('plw001'), paneBlocks('item').some(b => /Voice plays with Slider's recorded path: start the path instead/.test(b.p || ''))), (select(''), 0)]`);
+    if (vi[0] !== 0 || !vi[1]) out.push('an entry on a voice that plays with a path: ignored, the card says so: ' + JSON.stringify(vi));
+    await at(OUT, B + 1000); await at(OUT, B + 1500);
+    bad(out);
+  });
+
+  await step('studio cube starts: the state and layout.json carry a cube\'s plays and give them back; norm\'s rules (each bad entry dropped, one per item, what and moment, 16 at most, not a list: a bad record); a layout\'s bad entries counted, those naming an item it lacks or of the wrong kind dropped, and the Scene pane says so', async () => {
+    const st = await ss(`(() => {
+      const J = x => JSON.stringify(x), E = o => Object.assign({ on: 'box001', what: 'clip', clip: 'Lift', how: 'once' }, o);
+      window.__pl.plays('plw001', [E(), { on: 'snp001', what: 'sound', how: 'loop' }, { on: 'shp001', what: 'path', how: 'hold' }, { on: 'emp001', what: 'motion', how: 'stop', when: 'leave' }]);
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const N = x => norm('c', Object.assign({ p: [0, 1, 0] }, x)), many = Array.from({ length: 17 }, (_, i) => E({ on: 'box' + String(i).padStart(3, '0') }));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      const lay = readLayout({ studio: 1, objects: [{ id: 'box001', file: 'box.glb', p: [0, 0, 0] }], sounds: [{ id: 'snd001', file: 'tone.wav', p: [0, 1, 0] }],
+        cubes: [{ id: 'cub001', p: [0, 1, 0], plays: [E(), E({ on: 'gon001' }), { on: 'snd001', what: 'clip', clip: 'x' }, { on: 'snd001', what: 'sound', how: 'loop' }, E({ how: 'jump' }), E({ what: 'dance' }), 'x', E({ clip: '' })] }, { id: 'cub002', p: [0, 1, 0], plays: 'nope' }] });
+      STU.badPlay = 3; const said = paneBlocks('scene').some(b => /3 of the trigger cubes' starts in layout.json could not be read/.test(b.p || '')); STU.badPlay = 0;
+      return [J(s['c.plw001'].plays), J(collabState()) === a,
+        'plays' in N({ plays: [] }), 'plays' in N({ plays: null }), N({ plays: 'x' }), N({ plays: {} }),
+        'plays' in N({ plays: [E({ on: 'BOX' }), E({ what: 'dance' }), E({ how: 'jump' }), { on: 'snp001', what: 'sound', how: 'hold' }, E({ how: 'loop', when: 'leave' }), E({ clip: '' }), E({ clip: 3 }), E({ when: 'later' }), {}, null, [E()]] }),
+        J(N({ plays: [E(), E({ clip: 'Bob' })] }).plays), J(N({ plays: [E(), E({ when: 'leave' })] }).plays.map(e => e.when || 'enter')), N({ plays: many }).plays.length, J(N(N({ plays: many }))) === J(N({ plays: many })),
+        J(N({ plays: [{ on: 'box001', what: 'clip', clip: 'Lift', how: 'stop', extra: 1 }] }).plays[0]), J(N({ plays: [{ on: 'box001', what: 'path' }] }).plays[0]), J(N({ plays: [E({ when: 'enter' })] }).plays[0]),
+        J(L.cubes.find(c => c.id === 'plw001').plays) === J(s['c.plw001'].plays), J(back.items.find(x => x.id === 'plw001').rec) === J(STU.items.get('plw001').rec), back.playBad, 'plays' in L.cubes.find(c => c.id === 'cube01'),
+        J(lay.items.find(x => x.id === 'cub001').rec.plays), lay.playBad, lay.bad, said];
+    })()`);
+    const E = o => Object.assign({ on: 'box001', what: 'clip', clip: 'Lift', how: 'once' }, o);
+    const want = [JSON.stringify([E(), { on: 'snp001', what: 'sound', how: 'loop' }, { on: 'shp001', what: 'path', how: 'hold' }, { on: 'emp001', what: 'motion', how: 'stop', when: 'leave' }]), true,
+      false, false, null, null, false, JSON.stringify([E()]), '["enter","leave"]', 16, true, JSON.stringify({ on: 'box001', what: 'clip', how: 'stop' }), JSON.stringify({ on: 'box001', what: 'path', how: 'once' }), JSON.stringify(E()),
+      true, true, 0, false, JSON.stringify([E(), { on: 'snd001', what: 'sound', how: 'loop' }]), 4, 1, true];
+    if (JSON.stringify(st) !== JSON.stringify(want)) bad(['the state, norm and layout.json: ' + JSON.stringify(st) + ' (wanted ' + JSON.stringify(want) + ')']);
+    await ss(`(window.__pl.plays('plw001', undefined), 0)`);
+  });
+
+  await step('studio cube starts: the page\'s card: Start something... (an item from the list or by a click in the scene, what, how, when) adds an entry, one Undo step; the same item, what and moment says Replace; ✕ and Undo; its row flashes the item in blue; Try plays it here (no Undo step; a tried loop comes off after 10 s or pressed again); one pick at a time; the Items card says so; nothing with editing off or for a visitor', async () => {
+    const out = [];
+    await ss(`(window.__T = 3e6, resetSeen(), window.__pl.at(${JSON.stringify(OUT)}), select('plw001'), X.tab = 'item', renderPanes(), 0)`);
+    // (one pick at a time: Pick what it shows, Change a texture... and Start something... end each other)
+    const one = await ss(`[(itemAct('pickFor', 'show', 'plw001'), itemAct('plPick', null, 'plw001'), [STU.pick, !!STU.plp]), (itemAct('txPick', null, 'plw001'), [!!STU.txp, STU.plp]), (itemAct('plPick', null, 'plw001'), [STU.txp, !!STU.plp]), (itemAct('pickFor', 'show', 'plw001'), [!!STU.pick, STU.plp]), (STU.pick = null, renderPanes(), 0)]`);
+    if (JSON.stringify(one) !== '[[null,true],[true,null],[null,true],[true,null],0]') out.push('one pick at a time: ' + JSON.stringify(one));
+    const u0 = await ss('UNDO.length');
+    await cp.click('#pane-item [data-act="i:plPick"]');
+    const p1 = await ss(`[STU.plp && STU.plp.step, !!document.querySelector('#pane-item [data-act="i:plOn"][data-v="shp001"]'), !!document.querySelector('#pane-item [data-act="i:plOn"][data-v="twn001"]'), UNDO.length]`);
+    await cp.click('#pane-item [data-act="i:plOn"][data-v="shp001"]');
+    const p2 = await ss(`[STU.plp && STU.plp.step, STU.plp && STU.plp.on, STU.plp && STU.plp.what]`);
+    await cp.click('#pane-item [data-act="i:plBack"]');
+    await ss(`(pressItem('box001'), renderPanes(), 0)`);   // (a click on the box in the scene, as clickAt hands it on)
+    const p3 = await ss(`[STU.plp && STU.plp.step, STU.plp && STU.plp.on, STU.plp && STU.plp.what, STU.plp && STU.plp.clip, STU.sel, !!document.querySelector('#pane-item [data-act="i:plWhat"][data-v="clip:Lift"]')]`);
+    await cp.click('#pane-item [data-act="i:plWhat"][data-v="clip:Lift"]');
+    await cp.click('#pane-item [data-act="i:plHow"][data-v="hold"]');
+    const p4 = await ss(`[STU.plp.how, !document.querySelector('#pane-item [data-act="i:plWhen"]'), /As you walk in, Box plays Lift once and holds its last frame while you are inside/.test(document.querySelector('#pane-item').textContent), document.querySelector('#pane-item [data-act="i:pladd"]').textContent]`);
+    await cp.click('#pane-item [data-act="i:pladd"]');
+    const p5 = await ss(`[JSON.stringify(STU.items.get('plw001').rec.plays), UNDO.length, STU.plp]`);
+    if (p1[0] !== 'obj' || !p1[1] || !p1[2] || p1[3] !== u0 || p2[0] !== 'how' || p2[1] !== 'shp001' || p2[2] !== 'path' || p3[0] !== 'how' || p3[1] !== 'box001' || p3[2] !== 'clip' || p3[3] !== 'Spin' || p3[4] !== 'plw001' || !p3[5]) out.push('the pick: ' + JSON.stringify([p1, p2, p3]));
+    if (p4[0] !== 'hold' || !p4[1] || !p4[2] || p4[3] !== 'Add') out.push('how and its sentence: ' + JSON.stringify(p4));
+    if (p5[0] !== JSON.stringify([{ on: 'box001', what: 'clip', clip: 'Lift', how: 'hold' }]) || p5[1] !== u0 + 1 || p5[2] !== null) out.push('the entry added, one Undo step: ' + JSON.stringify(p5));
+    // the same item, what and moment: Replace (in its place); a second entry on the sound
+    await ss(`(itemAct('plPick', null, 'plw001'), itemAct('plOn', 'box001', 'plw001'), itemAct('plWhat', 'clip:Bob', 'plw001'), itemAct('plHow', 'once', 'plw001'), renderPanes(), 0)`);
+    const rp = await ss(`document.querySelector('#pane-item [data-act="i:pladd"]').textContent`);
+    await cp.click('#pane-item [data-act="i:pladd"]');
+    await ss(`(itemAct('plPick', null, 'plw001'), itemAct('plOn', 'snp001', 'plw001'), itemAct('plHow', 'loop', 'plw001'), itemAct('pladd', null, 'plw001'), renderPanes(), 0)`);
+    const p6 = await ss(`[JSON.stringify(STU.items.get('plw001').rec.plays), UNDO.length]`);
+    if (rp !== 'Replace' || p6[0] !== JSON.stringify([{ on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }, { on: 'snp001', what: 'sound', how: 'loop' }]) || p6[1] !== u0 + 3) out.push('Replace, then a second entry: ' + JSON.stringify([rp, p6]));
+    // its row flashes the item in blue (no Undo step); ✕ and Undo
+    await cp.click('#pane-item [data-act="i:plFlash"][data-v="box001"]');
+    const fl = await ss(`(editStep(true), [STU.flash && STU.flash.id, STU.flash && STU.flash.play, GL.flashBox.visible, GL.flashBox.material.color.getHex() === 0x5ab8ff, UNDO.length])`);
+    if (fl[0] !== 'box001' || !fl[1] || !fl[2] || !fl[3] || fl[4] !== u0 + 3) out.push('its row flashes the box in blue (no Undo step): ' + JSON.stringify(fl));
+    await cp.click('#pane-item [data-act="i:unplay"][data-v="1"]');
+    const un = await ss(`[JSON.stringify(STU.items.get('plw001').rec.plays), UNDO.length, (undo(), STU.items.get('plw001').rec.plays.length)]`);
+    if (un[0] !== JSON.stringify([{ on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }]) || un[1] !== u0 + 4 || un[2] !== 2) out.push('✕ and Undo: ' + JSON.stringify(un));
+    // Try: plays here now, no Undo step; a tried loop (the sound's) comes off after 10 s, or pressed again
+    const tr = await ss(`(() => {
+      const r = [], U = UNDO.length, R = id => STUDIO.plays(id).item.tr;
+      window.__T = 3.1e6; itemAct('plTry', 0, 'plw001'); r.push(!!R('box001').clip, R('box001').clip && R('box001').clip.try > 0);
+      window.__T = 3.1e6 + 500; window.__pl.at(${JSON.stringify(OUT)}); r.push(window.__pl.y());
+      itemAct('plTry', 1, 'plw001'); r.push(!!R('snp001').sound);
+      renderPanes(); r.push(document.querySelector('#pane-item [data-act="i:plTry"][data-v="1"]').textContent);
+      window.__T = 3.1e6 + 9000; window.__pl.at(${JSON.stringify(OUT)}); r.push(!!R('snp001').sound && !R('snp001').sound.off);
+      window.__T = 3.1e6 + 10600; window.__pl.at(${JSON.stringify(OUT)}); r.push(R('snp001').sound ? R('snp001').sound.off : 'gone');
+      window.__T = 3.2e6; itemAct('plTry', 1, 'plw001'); window.__pl.at(${JSON.stringify(OUT)}); itemAct('plTry', 1, 'plw001'); r.push(R('snp001').sound ? R('snp001').sound.off : 'gone');
+      r.push(UNDO.length - U);
+      window.__T = 3.3e6; window.__pl.at(${JSON.stringify(OUT)});
+      return r;
+    })()`);
+    if (!tr[0] || !tr[1] || !near(tr[2], 0.3) || !tr[3] || tr[4] !== 'Stop' || !tr[5] || tr[6] !== 3.1e6 + 10600 || tr[7] !== 3.2e6 || tr[8] !== 0) out.push('Try: ' + JSON.stringify(tr));
+    // the Items card's line, and the box's faint line
+    const card = await ss(`(() => { const g = paneBlocks('items').flatMap(b => b.grid || []); const c = g.find(x => x.v === 'plw001'), b = g.find(x => x.v === 'box001'); return [c && c.sub, b && b.sub2]; })()`);
+    if (card[0] !== 'Cube · shows 0, hides 0, starts 2' || !/started by a cube/.test(card[1] || '')) out.push('the Items cards: ' + JSON.stringify(card));
+    // editing off, and a visitor: no pick and no change
+    const off = await ss(`(() => {
+      const r0 = JSON.stringify(STU.items.get('plw001').rec);
+      setEdit(false); itemAct('plPick', null, 'plw001'); itemAct('unplay', 0, 'plw001'); const a = [STU.plp, JSON.stringify(STU.items.get('plw001').rec) === r0];
+      setEdit(true); OPT.visit = true; select('plw001'); itemAct('plPick', null, 'plw001'); itemAct('unplay', 0, 'plw001');
+      const pick = paneBlocks('item').flatMap(b => b.row || []).find(x => x.id === 'plpick');
+      const b = [STU.plp, JSON.stringify(STU.items.get('plw001').rec) === r0, !!(pick && pick.dis)];
+      OPT.visit = false; return a.concat(b);
+    })()`);
+    if (JSON.stringify(off) !== '[null,true,null,true,true]') out.push('editing off and a visitor: ' + JSON.stringify(off));
+    bad(out);
+  });
+
+  await step('studio cube starts: the headset\'s card: its rows, Start something... by the trigger on the box, an animation, how and Add pressed on the panel, ✕', async () => {
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = () => { const out = []; for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); out.push(...XR.main.regions.map(z => z.id)); } X.scroll = {}; return [...new Set(out)]; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('plw001'); X.tab = 'item'; X.scroll = {}; draw();
+      const u0 = UNDO.length, rows = ids(), r = [rows.includes('plflash:0') && rows.includes('pltry:0') && rows.includes('unplay:1') && rows.includes('plpick')];
+      r.push(press('plpick'), STU.plp && STU.plp.step);
+      pressItem('box001');   // (the trigger on the box, as xrPress hands it on)
+      r.push(STU.plp && STU.plp.on, ids().includes('plwhat:clip:Bob'));
+      r.push(press('plwhat:clip:Bob'), STU.plp && STU.plp.clip, press('plhow:loop'), STU.plp && STU.plp.how, press('pladd'), JSON.stringify(STU.items.get('plw001').rec.plays[0]), UNDO.length - u0);
+      r.push(press('unplay:1'), STU.items.get('plw001').rec.plays.length, UNDO.length - u0);
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    const want = [true, true, 'obj', 'box001', true, true, 'Bob', true, 'loop', true, JSON.stringify({ on: 'box001', what: 'clip', clip: 'Bob', how: 'loop' }), 1, true, 1, 2];
+    if (JSON.stringify(xr) !== JSON.stringify(want)) bad(['the headset\'s card: ' + JSON.stringify(xr) + ' (wanted ' + JSON.stringify(want) + ')']);
+  });
+
+  await step('studio cube starts: deleting the box takes its entries out of every cube (one Undo step brings them back); duplicating it adds entries for the copy beside its own; a cube\'s copy keeps its entries; a group\'s copy maps them; the figure switched to its GLB keeps its entry and plays it there; the lobby stops every run at once and a cube you stand in fires again', async () => {
+    const out = [];
+    await setPlays('plw001', [E(), { on: 'snp001', what: 'sound', how: 'once' }]);
+    await setPlays('pls001', [E({ clip: 'Bob', how: 'loop' })]);
+    const d = await ss(`(() => {
+      const J = x => JSON.stringify(x), T = id => J((STU.items.get(id).rec.plays || []).map(e => e.on)), u0 = UNDO.length, r = [];
+      setRec('box001', { locked: undefined });
+      deleteItem('box001');
+      r.push(T('plw001'), 'plays' in STU.items.get('pls001').rec, UNDO.length - u0);
+      undo();
+      r.push(T('plw001'), T('pls001'));
+      const nid = duplicateItem('box001');
+      r.push(J(STU.items.get('plw001').rec.plays.map(e => e.on === nid ? 'copy' : e.on)), J(STU.items.get('pls001').rec.plays.map(e => e.on === nid ? 'copy' : e.on)), UNDO.length - u0);
+      undo();
+      const cid = duplicateItem('plw001');
+      r.push(J(STU.items.get(cid).rec.plays) === J(STU.items.get('plw001').rec.plays));
+      undo();
+      putItem('grp001', 'g', norm('g', { name: 'Pair', items: ['box001', 'pls001'] }));
+      const before = new Set(STU.items.keys()), gid = duplicateGroup(STU.items.get('grp001')), made = [...STU.items.keys()].filter(k => !before.has(k));
+      const bc = made.find(k => STU.items.get(k).kind === 'o'), cc = made.find(k => STU.items.get(k).kind === 'c');
+      r.push(!!gid, J(STU.items.get(cc).rec.plays.map(e => e.on === bc ? 'copy' : e.on)), J(STU.items.get('plw001').rec.plays.map(e => e.on === bc ? 'copy' : e.on)));
+      undo(); removeItem('grp001');
+      return r;
+    })()`);
+    const want = ['["snp001"]', false, 1, '["box001","snp001"]', '["box001"]', '["box001","snp001","copy"]', '["box001","copy"]', 1, true, true, '["copy"]', '["box001","snp001","copy"]'];
+    if (JSON.stringify(d) !== JSON.stringify(want)) out.push('delete, duplicate, a cube\'s copy, a group\'s copy: ' + JSON.stringify(d) + ' (wanted ' + JSON.stringify(want) + ')');
+    // the figure with an entry (its take, once), converted to a GLB and switched to it: its entry kept, played on its GLB's model
+    await ss(`(window.__pl.plays('plw001', [${JSON.stringify(E())}, { on: 'fig001', what: 'clip', clip: 'Take 001', how: 'loop' }]), setRec('plw001', { show: ['fig001'] }), STUDIO.lastGLB = null, convertFile('figure.fbx'), 0)`);
+    if (!await until(`!CV.busy && !!STUDIO.lastGLB`, 90000) || !await ss('STUDIO.lastGLB.ok')) { out.push('figure.fbx was not converted: ' + await ss('CV.note')); bad(out); return; }
+    const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(STUDIO.lastGLB.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+    const pat = '**/scenes/test/models/figure.glb*';
+    await cp.route(pat, route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+    await ss(`(setFiles(STU.files.concat({ path: 'models/figure.glb', bytes: ${bytes.length}, at: 7, kind: 'model' })), GLBREC.set('models/figure.glb', { at: 7, rec: STUDIO.lastGLB.record, p: null }), switchToGLB('figure.fbx', 'models/figure.glb', STUDIO.lastGLB.record, texRemap(STUDIO.lastGLB.mats0, STUDIO.lastGLB.mats)))`);
+    const sw = await until(`(() => { const f = STU.items.get('fig001'); return f.rec.file === 'models/figure.glb' && !!f.model && f.built === f.E.gen; })()`, 30000);
+    const T = 4e6;
+    await at(OUT, T - 1000); await at(OUT, T - 600); await at(W, T); await at(W, T + 400);
+    const g = await ss(`[JSON.stringify(STU.items.get('plw001').rec.plays[1]), STU.items.get('fig001').E.clips.map(c => c.name).join(), JSON.stringify(STUDIO.plays('fig001').item.layers)]`);
+    if (!sw || g[0] !== JSON.stringify({ on: 'fig001', what: 'clip', clip: 'Take 001', how: 'loop' }) || !/Take 001/.test(g[1]) || !/^\[\["Take 001",1,/.test(g[2])) out.push('the figure switched to its GLB keeps its entry and plays it there: ' + JSON.stringify({ sw, g }));
+    await at(OUT, T + 1000); await at(OUT, T + 1500); await at(OUT, T + 3000);
+    await ss(`(undo(), setRec('plw001', { show: [] }), setFiles(STU.files.filter(f => !/^models\\//.test(f.path))), GLBREC.delete('models/figure.glb'), 0)`);
+    await cp.unroute(pat);
+    // the lobby: every run stopped at once (the box at rest, the sound stopped); a cube you stand in fires again next frame
+    await ss(`(trgClock = () => performance.now(), resetSeen(), window.__pl.plays('plw001', [${JSON.stringify(E())}, { on: 'snp001', what: 'sound', how: 'once' }]), shownFor(${JSON.stringify(S)}), itemsStep(0, performance.now()), 0)`);
+    await cp.waitForTimeout(600);
+    await ss(`(shownFor(${JSON.stringify(W)}), itemsStep(0, performance.now()), 0)`);
+    await until(`!!STU.items.get('snp001').src`, 4000);
+    const lb = await ss(`(() => {
+      const r = [STUDIO.plays().on.length > 0, window.__pl.y() > 0.01];
+      studioLobby();
+      r.push(STUDIO.plays().on.length, window.__pl.y(), !!STU.items.get('snp001').src || !!(STU.items.get('snp001').st && !STU.items.get('snp001').st.el.paused), JSON.stringify(window.__pl.log().slice(-1)));
+      shownFor(${JSON.stringify(W)}); itemsStep(0, performance.now());
+      r.push(!!STUDIO.plays('box001').item.tr.clip);
+      return r;
+    })()`);
+    if (!lb[0] || !lb[1] || lb[2] !== 0 || !near(lb[3], 0) || lb[4] || !lb[5].includes('reset') || !lb[6]) out.push('the lobby: every run stopped at once, a cube you stand in fires again: ' + JSON.stringify(lb));
+    await ss(`(shownFor(null), resetSeen(), 0)`);
+    bad(out);
+    await cp.close();
   });
 }
 // The studio's trackers (v126, tools/trackers/SPEC.md: e6k_trk.js and e6l_puppet.js), on pages of their own. The PC's

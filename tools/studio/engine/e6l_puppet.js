@@ -158,7 +158,7 @@ function pupClock() {
 function pupStep(it, now, dt) {
   const P = it.rec.puppet, rig = P && P.on && pupReady(P) ? pupRig(it) : null;
   if (!rig || !rig.ok) { if (it.pupOn) pupOff(it); it.pupWhy = rig ? rig.why : ''; return false; }
-  if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; pupRest(it); it.pupOn = true; it.pst = {}; it.pstRec = null; }
+  if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; it.tl = null; pupRest(it); it.pupOn = true; it.pst = {}; it.pstRec = null; }   // (a cube's clips on it too: none while worn, e6n_plays.js)
   if (motionsPaused()) return true;   // (Pause: it holds the pose it shows, as the models' animations hold their frame)
   if (it.pstRec !== P) { it.pstRec = P; it.pst = {}; }   // (a new record: the solve starts afresh)
   const W = pupW(), r = IK.solve(rig, pupCal(P, W), pupTargets(P.by, P.map, W), dt, it.pst);
