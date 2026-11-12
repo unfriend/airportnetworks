@@ -108,7 +108,7 @@ function texStep() {
       let m = want.get(e.on);
       if (!m) want.set(e.on, (m = new Map()));
       const k = e.mat + '|' + e.slot, w = m.get(k);
-      if (!w || c.since > w.since) m.set(k, { e, since: c.since });
+      if (!w || enteredLater(c, w)) m.set(k, { e, since: c.since, id: c.id });   // (ties by the cube's id, alike everywhere)
     }
   }
   for (const it of STU.items.values()) {
@@ -248,7 +248,7 @@ function texCubeBlocks(c, B, dis) {
       if (['roughnessMap', 'metalnessMap'].includes(P.slot) && !ctTargets(o, m).some(x => x.mat.isMeshStandardMaterial)) B.push({ p: 'Its material shows no roughness or metalness here (a GLB\'s does: Convert to GLB first).', c: 'faint' });
     }
   }
-  B.push({ p: 'While you are in the cube, its pictures are shown on those objects in place of their own, for you only (as everything a cube does); they go back as you leave it (a cube that stays keeps them). As scanned shows only a Colour picture.', c: 'faint' });
+  B.push({ p: 'While you are in the cube, its pictures are shown on those objects in place of their own, for you only (as everything a cube does; for everyone here when it works for everyone); they go back as you leave it (a cube that stays keeps them). As scanned shows only a Colour picture.', c: 'faint' });
 }
 Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the

@@ -7,6 +7,8 @@
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
 // --only 'studio cube starts': the trigger cubes that start a clip, a sound, a recorded path or a motion;
 // --only 'studio edit speed': what the studio's edit mode no longer does every frame, a minute;
+// --only 'studio everyone', 'studio walls', 'studio shows', 'studio examples': cubes for everyone, things on walls, AR or VR
+// only, and the example scenes (v137);
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136)
@@ -7867,6 +7869,451 @@ if (runs('studio cube starts')) {
     await ss(`(shownFor(null), resetSeen(), 0)`);
     bad(out);
     await cp.close();
+  });
+}
+// Trigger cubes that work for everyone here (v137, all: true; tools/studio/SPEC.md, "Cubes for everyone"), on two pages of
+// their own at the test scene: pretend heads (BEH.fake: another person's, with the time stamp of its sample) against an
+// each-person cube and an everyone cube, a run it starts put at that sample's room moment on both pages (their own clocks
+// apart, the room's the same), a cube that stays, Reset, ties broken by the entry time then the id; the card's Works for
+// row (page and headset), norm's rules, the state and layout.json
+if (runs('studio everyone')) {
+  const pages = [];
+  const open = async () => {
+    const pg = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    pg.on('pageerror', e => errors.push('studio everyone: ' + (e.stack || e.message)));
+    pg.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio everyone: ' + m.text()); });
+    await pg.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    const ok = await pg.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 }).then(() => true, () => false);
+    pages.push(pg);
+    return ok ? pg : null;
+  };
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio everyone: ' + b)); };
+  // (in the page: the room's clock and the clock of what cubes start held by the test; another person's head at p with the
+  // time stamp ts; this device's own head far away)
+  const HELP = `window.__ev = window.__ev || {
+    clocks: (room, local) => { behNow = () => room; trgClock = () => local; return 0; },
+    other: (p, ts) => { BEH.fake = p ? [{ id: 'zz', p, ts }] : null; shownFor([20, 1.6, 20]); itemsStep(0, performance.now()); return 0; },
+    shown: () => Object.fromEntries(STUDIO.items().filter(i => i.kind !== 'c').map(i => [i.id, i.shown])),
+  }`;
+  await step('studio everyone: an each-person cube shows nothing for another person\'s head; set to everyone (one Undo step) it shows, hides and starts for everyone while another head is inside, its run started at that head sample\'s room moment on two pages whose clocks differ; a stay one remembered until Reset; ties by the entry time, then the id', async () => {
+    const A = await open(), B = A && await open();
+    if (!A || !B) { bad(['the test scene did not load']); for (const p of pages) await p.close(); return; }
+    const ssA = s => A.evaluate(s => HOST.cur.peek(s), s), ssB = s => B.evaluate(s => HOST.cur.peek(s), s), both = async s => [await ssA(s), await ssB(s)];
+    const out = [], IN = [0, 1.6, 0], OUT = [3, 1.6, 4];
+    await both(`(${HELP}, GL.renderer.setAnimationLoop(null), setRec('cube01', { plays: [{ on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }] }), 0)`);
+    // each person's (the default): another person's head inside changes nothing here
+    await both(`(window.__ev.clocks(5e6, 1e6), window.__ev.other(${JSON.stringify(IN)}, 4999800), 0)`);
+    const e0 = await ssA(`[JSON.stringify(window.__ev.shown()), JSON.stringify(STUDIO.cube('cube01')), !!(STUDIO.plays('box001').item.tr || {}).clip]`);
+    if (e0[0] !== '{"box001":true,"fig001":false,"snd001":false}' || JSON.parse(e0[1]).inside || JSON.parse(e0[1]).act || e0[2]) out.push('an each-person cube and another person\'s head: ' + JSON.stringify(e0));
+    await both(`(window.__ev.other(null), resetSeen(), 0)`);
+    // the card's Works for row on page A: Everyone here, one Undo step; then the same record on B, as the room gives it
+    await ssA(`(select('cube01'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ssA('UNDO.length');
+    await A.click('#pane-item [data-act="i:all"][data-v="all"]');
+    const rowA = await ssA(`[STU.items.get('cube01').rec.all, UNDO.length, (renderPanes(), document.querySelector('#pane-item [data-act="i:all"][data-v="all"]').getAttribute('aria-pressed')), /works for everyone at this circle/.test(document.querySelector('#pane-item').textContent)]`);
+    if (rowA[0] !== true || rowA[1] !== u0 + 1 || rowA[2] !== 'true' || !rowA[3]) out.push('the page\'s Works for row (Everyone here): ' + JSON.stringify(rowA));
+    await ssB(`(setRec('cube01', { all: true }), 0)`);
+    // another person's head inside: shown and hidden for everyone, its run at the sample's room moment (4999800) on both
+    // pages, A's own clock 1e6 behind the room's and B's 3e6 behind
+    await ssA(`(window.__ev.clocks(5e6, 1e6), window.__ev.other(${JSON.stringify(IN)}, 4999800), 0)`);
+    await ssB(`(window.__ev.clocks(5e6, 2e6), window.__ev.other(${JSON.stringify(IN)}, 4999800), 0)`);
+    const run = await both(`(() => { const R = STUDIO.plays('box001').item.tr.clip, c = STUDIO.cube('cube01'); return JSON.stringify([window.__ev.shown(), c.inside, c.act, c.since, c.who, R && R.at, R && R.at - trgClock() + behNow()]); })()`);
+    const rA = JSON.parse(run[0]), rB = JSON.parse(run[1]);
+    for (const [w, r, at] of [['A', rA, 999800], ['B', rB, 1999800]]) {
+      if (JSON.stringify(r[0]) !== '{"box001":false,"fig001":true,"snd001":true}' || !r[1] || !r[2] || r[3] !== 4999800 || JSON.stringify(r[4]) !== '["zz"]' || r[5] !== at || r[6] !== 4999800) out.push(`page ${w} with another person in the everyone cube: ` + JSON.stringify(r));
+    }
+    // out again (the sample 0.7 s later, outside): shown again, the once goes on; the cube's out moment that sample's
+    await both(`(window.__ev.other(${JSON.stringify(OUT)}, 4999800 + 700), 0)`);
+    const o1 = await both(`JSON.stringify([window.__ev.shown(), STUDIO.cube('cube01').act, STUDIO.cube('cube01').outT - trgClock() + behNow()])`);
+    for (const r of o1) if (JSON.parse(r)[0].box001 !== true || JSON.parse(r)[1] || JSON.parse(r)[2] !== 5000500) out.push('another person out of the everyone cube: ' + r);
+    // a cube that stays: once anyone was inside, active until Reset what I have seen
+    await both(`(setRec('cube01', { mode: 'stay' }), resetSeen(), window.__ev.other(${JSON.stringify(IN)}, 5001000), window.__ev.other(${JSON.stringify(OUT)}, 5001500), 0)`);
+    const st = await ssA(`(() => { const r = [STUDIO.cube('cube01').act, window.__ev.shown().box001]; resetSeen(); window.__ev.other(${JSON.stringify(OUT)}, 5002000); r.push(STUDIO.cube('cube01').act, window.__ev.shown().box001); return JSON.stringify(r); })()`);
+    if (st !== '[true,false,false,true]') out.push('an everyone cube that stays, then Reset: ' + st);
+    // ties: two everyone cubes over the box entered at the same room moment, one showing it and one hiding it: the higher
+    // id decides, the same on both pages (and swapped, the other way)
+    const tie = await both(`(() => {
+      setRec('cube01', { mode: 'while', plays: undefined });
+      const r = [];
+      for (const [s, h] of [['tie001', 'tie002'], ['tie002', 'tie001']]) {
+        putItem(s, 'c', norm('c', { name: 'S', p: [8, 1, 0], size: [1, 2, 1], show: ['box001'], all: true }));
+        putItem(h, 'c', norm('c', { name: 'H', p: [8, 1, 0], size: [1, 2, 1], hide: ['box001'], all: true }));
+        resetSeen(); window.__ev.other([8, 1.6, 0], 5003000);
+        r.push(window.__ev.shown().box001, STUDIO.cube(s).since === STUDIO.cube(h).since);
+        removeItem(s); removeItem(h); STU.rev++;
+      }
+      window.__ev.other(null);
+      return JSON.stringify(r);
+    })()`);
+    for (const t of tie) if (t !== '[false,true,true,true]') out.push('two everyone cubes entered at one moment, the higher id deciding: ' + t);
+    // a shell whose heads carry no time (an older one) or not a number: taken as now, so the entry is the room's now and
+    // nothing compares NaN (at a pretend station: atStation and the shell's heads stubbed for one step each)
+    const nots = await ssA(`(() => {
+      const keepAt = atStation, keepH = HOST.collab.heads, r = [];
+      setRec('cube01', { mode: 'while', all: true }); resetSeen(); window.__ev.clocks(5e6, 1e6);
+      const at = (head, ts) => { HOST.collab.heads = () => ({ st: { id: 'st1', x: 0, z: 0, yaw: 0 }, list: [Object.assign({ id: 'zz', me: false, head: head.concat([0, 0, 0, 1]) }, ts === undefined ? {} : { ts })] }); atStation = () => true; STU.head = [20, 1.6, 20];
+        try { triggerStep(performance.now()); } finally { atStation = keepAt; HOST.collab.heads = keepH; } const c = STUDIO.cube('cube01'); return [window.__ev.shown().box001, c.act, c.act ? c.since : c.outT, c.act ? c.inT : null]; };
+      r.push(at([0, 1.6, 0]), at([3, 1.6, 4]), (resetSeen(), at([0, 1.6, 0], 'x')));
+      window.__ev.other(null); resetSeen();
+      return JSON.stringify(r);
+    })()`);
+    if (nots !== '[[false,true,5000000,1000000],[true,false,1000000,null],[false,true,5000000,1000000]]') out.push('another person\'s head with no time, or not a number: ' + nots);
+    // the headset's card: Each person pressed (one Undo step); and Undo back to Everyone here
+    const xr = await ssA(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('cube01'); X.tab = 'item'; X.scroll = {}; draw();
+      const u = UNDO.length, r = [press('all:each'), 'all' in STU.items.get('cube01').rec, UNDO.length - u];
+      undo(); r.push(STU.items.get('cube01').rec.all === true);
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return JSON.stringify(r);
+    })()`);
+    if (xr !== '[true,false,1,true]') out.push('the headset\'s Works for row: ' + xr);
+    // norm's rules, the state and layout.json both ways
+    const nm = await ssA(`(() => {
+      const N = x => norm('c', Object.assign({ p: [0, 1, 0] }, x)), J = JSON.stringify;
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      return J([N({ all: true }).all, 'all' in N({}), 'all' in N({ all: false }), 'all' in N({ all: null }), N({ all: 'yes' }), N({ all: 1 }), s['c.cube01'].all, J(collabState()) === a,
+        L.cubes.find(c => c.id === 'cube01').all, back.items.find(x => x.id === 'cube01').rec.all, back.bad]);
+    })()`);
+    if (nm !== '[true,false,false,false,null,null,true,true,true,true,0]') out.push('norm\'s rules, the state and layout.json with all: ' + nm);
+    bad(out);
+    for (const p of pages) await p.close();
+  });
+}
+// Things on the room's walls (v137, a behaviour's kind 'wall'; tools/studio/SPEC.md, "Things on walls"), on a page of its
+// own at the test scene: pretend walls (STUDIO.walls: a rectangular 4 x 5 m room's four walls), items in its direction,
+// nearest and following a pretend person, each with its back against its wall and facing into the room, its height held
+// within the wall, easing when the walls change, its placed pose with no walls, the record never changed; the walls read
+// from a pretend AR frame's planes (a door and the floor left out); the card's rows (page and headset), norm, state, layout
+if (runs('studio walls')) {
+  const wp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  wp.on('pageerror', e => errors.push('studio walls: ' + (e.stack || e.message)));
+  wp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio walls: ' + m.text()); });
+  const ss = s => wp.evaluate(s => HOST.cur.peek(s), s);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio walls: ' + b)); };
+  const ROOM = [{ a: [-2, -2.5], b: [2, -2.5], y0: 0, y1: 2.5 }, { a: [2, -2.5], b: [2, 2.5], y0: 0, y1: 2.5 }, { a: [2, 2.5], b: [-2, 2.5], y0: 0, y1: 2.5 }, { a: [-2, 2.5], b: [-2, -2.5], y0: 0, y1: 2.5 }];
+  // (in the page: n frames of dt s with the clock held and the pretend person at p (null: nobody), this device's own head far
+  // away; an item's middle and the way its front faces along the floor, as drawn)
+  const HELP = `window.__wl = window.__wl || {
+    T: 1e6, V: (...a) => new THREE.Vector3(...a),
+    run: (n, dt, person) => { const W = window.__wl, keep = behNow; if (person !== undefined) BEH.fake = person ? [{ id: 'zz', p: person, ts: W.T }] : null; STU.head = [30, 1.6, 30]; behNow = () => W.T;
+      const mids = {};
+      try { for (let k = 0; k < n; k++) { W.T += dt * 1000; behaveStep(dt, performance.now()); itemsStep(dt, performance.now()); for (const id of ['wdr001', 'wnr001', 'wtl001', 'wps001']) if (STU.items.has(id)) (mids[id] = mids[id] || []).push(W.mid(id)); } } finally { behNow = keep; }
+      return mids; },
+    drawn: id => { const H = STU.items.get(id).holder; return H.matrixAutoUpdate ? new THREE.Matrix4().compose(H.position, H.quaternion, H.scale) : H.matrix.clone(); },
+    mid: id => new THREE.Vector3().applyMatrix4(window.__wl.drawn(id)),
+    front: id => { const d = new THREE.Vector3(0, 0, 1).transformDirection(window.__wl.drawn(id)); return [+d.x.toFixed(3), +d.z.toFixed(3)]; },
+    m: id => window.__wl.mid(id).toArray().map(v => +v.toFixed(3)),
+    fastest: L => Math.max(0, ...L.slice(1).map((p, k) => Math.hypot(p.x - L[k].x, p.z - L[k].z))),
+  }`;
+  // (a picture 0.6 x 0.4 m and 10 cm deep in the room's direction, one turned to face +x near the right wall, a 40 cm cube
+  // placed 2.4 m up, and one following the person)
+  const PUT = `(putItem('wdr001', 'p', norm('p', { name: 'Pic', shape: 'cube', p: [0.5, 1, -1], size: [0.6, 0.4, 0.1], behaviour: { kind: 'wall', at: 'direction' } })),
+    putItem('wnr001', 'p', norm('p', { name: 'Side', shape: 'cube', p: [1.7, 1, 0.5], q: [0, 0.7071, 0, 0.7071], size: [0.6, 0.4, 0.1], behaviour: { kind: 'wall', at: 'nearest' } })),
+    putItem('wtl001', 'p', norm('p', { name: 'High', shape: 'cube', p: [-0.5, 2.4, 1], size: [0.4, 0.4, 0.4], behaviour: { kind: 'wall', at: 'direction', gap: 0 } })),
+    putItem('wps001', 'p', norm('p', { name: 'Eye', shape: 'cube', p: [0, 1.2, 0], size: [0.3, 0.3, 0.1], behaviour: { kind: 'wall', at: 'person', speed: 0.6 } })), select(''), 0)`;
+  await step('studio walls: pretend walls of a 4 x 5 m room: on the wall in its direction, the nearest and the person\'s (along there at most its speed; nobody: its direction), its back against the wall by its gap, facing into the room, its height held within the wall, easing as the walls change, its placed pose with no walls, every record unchanged; walls read from a pretend AR frame\'s planes', async () => {
+    await wp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await wp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await wp.waitForFunction(() => HOST.cur.peek(`STUDIO.ready()`), null, { timeout: 120000 }).then(() => true, () => false)) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, GL.renderer.setAnimationLoop(null), ${PUT}, 0)`);
+    const r = await ss(`(() => {
+      const W = window.__wl, o = [], J = JSON.stringify, near = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= (e || 2e-3));
+      const recs = () => J(['wdr001', 'wnr001', 'wtl001', 'wps001'].map(id => STU.items.get(id).rec)), r0 = recs();
+      // no walls: where they are placed
+      STUDIO.walls([]); W.run(10, 0.05, null);
+      if (['wdr001', 'wnr001', 'wtl001', 'wps001'].some(id => STUDIO.pose(id).drawn && !near(W.m(id), STU.items.get(id).rec.p))) o.push('no walls, not where placed: ' + J(['wdr001', 'wnr001'].map(W.m)));
+      if (!/No walls here/.test(paneBlocks('item').map(b => b.p || '').join(' ')) && (select('wdr001'), !/No walls here/.test(paneBlocks('item').map(b => b.p || '').join(' ')))) o.push('the card does not say there are no walls');
+      select('');
+      // the room's four walls: their normals into the room
+      const w = STUDIO.walls(${JSON.stringify(ROOM)});
+      if (J(w.list.map(x => x.n)) !== '[[0,1],[-1,0],[0,-1],[1,0]]' || J(w.mid) !== '[0,0]') o.push('the walls\\' normals and middle: ' + J(w));
+      W.run(40, 0.05, null);
+      // in its direction (0.5, -1) from the middle: the wall at z = -2.5, x 1.25; its back 3 cm off it (the middle 3 + 5 cm),
+      // facing +z, at its own height
+      if (!near(W.m('wdr001'), [1.25, 1, -2.42]) || J(W.front('wdr001')) !== '[0,1]' || STUDIO.behave('wdr001').wall !== 0) o.push('in its direction: ' + J([W.m('wdr001'), W.front('wdr001'), STUDIO.behave('wdr001')]));
+      // nearest: the right wall (x = 2), its back 3 cm off it (turned to face +x when placed, now -x)
+      if (!near(W.m('wnr001'), [1.92, 1, 0.5]) || J(W.front('wnr001')) !== '[-1,0]') o.push('the nearest: ' + J([W.m('wnr001'), W.front('wnr001')]));
+      // placed 2.4 m up, 40 cm tall: held at 2.3 m (its top at the wall's), no gap, facing -z on the far wall
+      if (!near(W.m('wtl001'), [-1.25, 2.3, 2.3]) || J(W.front('wtl001')) !== '[0,-1]') o.push('held within the wall: ' + J([W.m('wtl001'), W.front('wtl001')]));
+      // a person at (1.5, -1): onto the right wall's point nearest them, never faster than 0.6 m/s
+      const pm = W.run(160, 0.05, [1.5, 1.6, -1]).wps001;
+      if (!near(W.m('wps001'), [1.92, 1.2, -1]) || J(W.front('wps001')) !== '[-1,0]' || W.fastest(pm) > 0.6 * 0.05 + 1e-6 || STUDIO.behave('wps001').who !== 'zz') o.push('following the person: ' + J([W.m('wps001'), W.front('wps001'), W.fastest(pm), STUDIO.behave('wps001')]));
+      // nobody: back to its direction (at the origin: -z), the near wall at x 0
+      W.run(200, 0.05, null);
+      if (!near(W.m('wps001'), [0, 1.2, -2.42])) o.push('nobody: back on the wall in its direction: ' + J(W.m('wps001')));
+      // the walls change (the near wall 50 cm nearer, the middle 25 cm further on: its direction meets it at x 1.125):
+      // eased, not jumped; there within a second and a half
+      const R2 = ${JSON.stringify(ROOM)}; R2[0] = { a: [-2, -2], b: [2, -2], y0: 0, y1: 2.5 }; R2[1].a = [2, -2]; R2[3].b = [-2, -2];
+      STUDIO.walls(R2); W.run(1, 0.05);
+      const z1 = W.m('wdr001')[2];
+      W.run(30, 0.05);
+      if (!(z1 > -2.42 + 0.01 && z1 < -1.92 - 0.01) || !near(W.m('wdr001'), [1.125, 1, -1.92])) o.push('the walls changed, eased: ' + J([z1, W.m('wdr001')]));
+      // no walls again: eased back where placed; every record as it was
+      STUDIO.walls([]); W.run(40, 0.05);
+      if (!near(W.m('wdr001'), [0.5, 1, -1]) || STUDIO.behave('wdr001').on) o.push('no walls again: ' + J(W.m('wdr001')));
+      if (recs() !== r0) o.push('a record changed');
+      // carried here: at its placed pose (it rests, as every behaviour)
+      STUDIO.walls(${JSON.stringify(ROOM)}); W.run(40, 0.05);
+      STU.items.get('wdr001').carry = {}; W.run(2, 0.05);
+      const held = W.m('wdr001'); STU.items.get('wdr001').carry = false;
+      if (!near(held, [0.5, 1, -1])) o.push('carried, not at its placed pose: ' + J(held));
+      // one wall (early in a room scan), its segment the wrong way round (its normal out of the room): turned towards the
+      // head as it was read, kept while the wall stays the same though the head moves, and the ray in its direction from
+      // there; with no head the scene's origin; one wall in two pieces (the middle on their line) the same
+      const ONE = [{ a: [2, -2.5], b: [-2, -2.5], y0: 0, y1: 2.5 }];
+      STU.head = [0, 1.6, 0]; const w1 = STUDIO.walls(ONE);
+      STU.head = [1, 1.6, -6]; const w1b = STUDIO.walls(ONE);
+      W.run(40, 0.05, null);
+      if (J(w1.list.map(x => x.n)) !== '[[0,1]]' || J(w1.mid) !== '[0,0]' || J(w1b.list.map(x => x.n)) !== '[[0,1]]' || J(w1b.mid) !== '[0,0]' || w1b.n !== w1.n || !near(W.m('wdr001'), [1.25, 1, -2.42]) || J(W.front('wdr001')) !== '[0,1]') o.push('one wall: ' + J([w1, w1b, W.m('wdr001'), W.front('wdr001')]));
+      STUDIO.walls([]); STU.head = null;
+      const w2 = STUDIO.walls([{ a: [-2, 2.5], b: [2, 2.5], y0: 0, y1: 2.5 }]), hp2 = headPoint(new THREE.Vector3());
+      if (J(w2.list.map(x => x.n)) !== '[[0,-1]]' || (!hp2 && J(w2.mid) !== '[0,0]')) o.push('one wall with no head: ' + J([w2, hp2]));
+      STU.head = [0, 1.6, 0];
+      const w3 = STUDIO.walls([{ a: [-2, -2.5], b: [-0.5, -2.5], y0: 0, y1: 2.5 }, { a: [2, -2.5], b: [0.5, -2.5], y0: 0, y1: 2.5 }]);
+      if (J(w3.list.map(x => x.n)) !== '[[0,1],[0,1]]' || J(w3.mid) !== '[0,0]') o.push('one wall in two pieces: ' + J(w3));
+      // the walls from a pretend AR frame's planes: the near wall and the right wall (a door and the floor left out), their
+      // segments, heights and normals in the scene's frame
+      STUDIO.walls(null);
+      const P = (x, y, z, qx, qy, qz, qw, poly, o2) => Object.assign({ planeSpace: { p: [x, y, z], q: [qx, qy, qz, qw] }, polygon: poly.map(([a, b, c]) => ({ x: a, y: b, z: c })), lastChangedTime: 1, orientation: 'vertical' }, o2 || {});
+      const s = Math.SQRT1_2, wall = [[-2, 0, -1.25], [2, 0, -1.25], [2, 0, 1.25], [-2, 0, 1.25]];
+      const planes = new Set([P(0, 1.25, -2.5, s, 0, 0, s, wall), P(2, 1.25, 0, 0, 0, s, s, [[-1.25, 0, -2.5], [1.25, 0, -2.5], [1.25, 0, 2.5], [-1.25, 0, 2.5]]),
+        P(-2, 1, 0, 0.5, 0.5, -0.5, 0.5, wall, { semanticLabel: 'door' }), P(0, 0, 0, 0, 0, 0, 1, wall, { orientation: 'horizontal', semanticLabel: 'floor' })]);
+      const frame = { detectedPlanes: planes, getPose: sp => ({ transform: { position: { x: sp.p[0], y: sp.p[1], z: sp.p[2] }, orientation: { x: sp.q[0], y: sp.q[1], z: sp.q[2], w: sp.q[3] } } }) };
+      const keep = [XR.on, XR.clear, XR.session];
+      XR.on = true; XR.clear = false; XR.session = { enabledFeatures: ['plane-detection', 'local-floor'] }; WALLS.t = 0;
+      GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
+      try { wallsXR(frame, {}); } finally { [XR.on, XR.clear, XR.session] = keep; }
+      const got = STUDIO.walls(), seg = x => [x.a, x.b].map(p => p.join()).sort().join(' ');
+      if (got.src !== 'xr' || got.list.length !== 2 || seg(got.list[0]) !== '-2,-2.5 2,-2.5' || seg(got.list[1]) !== '2,-2.5 2,2.5' || J(got.list.map(x => [x.y0, x.y1])) !== '[[0,2.5],[0,2.5]]' || J(got.list.map(x => x.n)) !== '[[0,1],[-1,0]]') o.push('the walls from the planes: ' + J(got));
+      // the session's end takes them
+      WALLS.src === 'xr' && wallsSet([], '');
+      STUDIO.walls(null);
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio walls: the card\'s rows on the page (On a wall, Which wall, Gap, a person\'s rows; one Undo step each) and in the headset; norm\'s rules, the state and layout.json', async () => {
+    const out = [];
+    await ss(`(select('wdr001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    await wp.click('#pane-item [data-act="i:beh"][data-v="none"]');
+    await wp.click('#pane-item [data-act="i:beh"][data-v="wall"]');
+    await wp.click('#pane-item [data-act="i:bwall"][data-v="nearest"]');
+    await wp.click('#pane-item [data-act="i:bnum"][data-v="gap:1"]');
+    await wp.click('#pane-item [data-act="i:bwall"][data-v="person"]');
+    const pg = await ss(`[JSON.stringify(STU.items.get('wdr001').rec.behaviour), UNDO.length, (renderPanes(), document.querySelector('#pane-item').textContent.replace(/\\s+/g, ' '))]`);
+    if (pg[0] !== '{"kind":"wall","at":"person","who":"nearest","range":3,"speed":0.6,"gap":0.05}' || pg[1] !== u0 + 5 || !/Which wall/.test(pg[2]) || !/Gap from the wall: 5 cm/.test(pg[2]) || !/Reacts to/.test(pg[2]) || !/Follows the person/.test(pg[2])) out.push('the page\'s rows: ' + JSON.stringify([pg[0], pg[1] - u0, pg[2].slice(0, 300)]));
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('wdr001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('bwall:direction'), press('bgap:-'), press('bgap:-'), JSON.stringify(STU.items.get('wdr001').rec.behaviour), press('beh:wall')];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== '[true,true,true,"{\\"kind\\":\\"wall\\",\\"at\\":\\"direction\\",\\"gap\\":0.02}",true]') out.push('the headset\'s rows: ' + JSON.stringify(xr));
+    const nm = await ss(`(() => {
+      const B = x => normBehaviour(x), J = JSON.stringify;
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      return J([B({ kind: 'wall' }), B({ kind: 'wall', at: 'up' }), B({ kind: 'wall', at: 'nearest', gap: 0.03 }), B({ kind: 'wall', at: 'nearest', gap: 0.9 }), B({ kind: 'wall', gap: 'a' }),
+        B({ kind: 'wall', at: 'person' }), B({ kind: 'wall', at: 'direction', who: 'first', range: 5, speed: 2 }), B({ kind: 'wall', at: 'person', who: 'all' }), B({ kind: 'wall', at: 'person', who: 'first', range: 40, speed: 0.01 }),
+        J(s['p.wtl001'].behaviour), J(collabState()) === a, J(L.shapes.find(x => x.id === 'wnr001').behaviour), J(back.items.find(x => x.id === 'wtl001').rec.behaviour), back.bad]);
+    })()`);
+    const want = JSON.stringify([{ kind: 'wall', at: 'direction' }, null, { kind: 'wall', at: 'nearest' }, { kind: 'wall', at: 'nearest', gap: 0.5 }, null,
+      { kind: 'wall', at: 'person', who: 'nearest', range: 3, speed: 0.6 }, { kind: 'wall', at: 'direction' }, null, { kind: 'wall', at: 'person', who: 'first', range: 20, speed: 0.05 },
+      '{"kind":"wall","at":"direction","gap":0}', true, '{"kind":"wall","at":"nearest"}', '{"kind":"wall","at":"direction","gap":0}', 0]);
+    if (nm !== want) out.push('norm\'s rules, the state and layout.json: ' + nm);
+    bad(out);
+    await wp.close();
+  });
+}
+// What shows only in AR or only in VR (v137, a record's shows; tools/studio/SPEC.md, "AR or VR only"), on a page of its own
+// at the test scene: a pretend session's kind (STUDIO.sess) and an object, a sound, a shape and an empty for the other
+// kind not shown or heard there, a page showing what VR shows; while editing drawn as a hidden item is (its edges, its tag
+// "· AR only"), still pointed at and selected; the card's row (page and headset, one Undo step each), norm, state, layout
+if (runs('studio shows')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio shows: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio shows: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio shows: ' + b)); };
+  await step('studio shows: in a pretend AR session what is only for VR is not shown or heard, in VR what is only for AR, a page as VR; editing, drawn as a hidden item (its edges, its tag "· AR only"), pointed at and selected; the card\'s row (page and headset), norm, the state and layout.json', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await sp.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 }).then(() => true, () => false)) { bad(['the test scene did not load']); return; }
+    const out = [];
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify;
+      GL.renderer.setAnimationLoop(null);
+      putItem('shp001', 'p', norm('p', { name: 'Ball', shape: 'sphere', p: [3, 0.5, -2], shows: 'vr' }));
+      putItem('emp001', 'e', norm('e', { name: 'Spot', p: [3, 1.2, -1], shows: 'ar' }));
+      setRec('box001', { shows: 'ar' }); setRec('snd001', { shows: 'vr' });
+      // (inside the cube: the figure and the tone shown there, the box hidden by the cube in any session)
+      const sh = k => { STUDIO.sess(k); setEdit(false); shownFor([3, 1.6, 4]); itemsStep(0.1, performance.now()); return J(Object.fromEntries(STUDIO.items().filter(i => ['box001', 'snd001', 'shp001', 'emp001'].includes(i.id)).map(i => [i.id, i.kind === 's' ? i.heard : i.shown]))); };
+      const ar = sh('ar'), vr = sh('vr'), pg = sh('');
+      // (the tone is shown only by the cube: outside it, not heard in any session; inside, heard only where it shows)
+      STUDIO.sess('vr'); shownFor([0, 1.6, 0]); const vrIn = STUDIO.items().find(i => i.id === 'snd001').heard;
+      STUDIO.sess('ar'); shownFor([0, 1.6, 0]); const arIn = STUDIO.items().find(i => i.id === 'snd001').heard;
+      if (ar !== '{"box001":true,"snd001":false,"shp001":false,"emp001":true}' || vr !== '{"box001":false,"snd001":false,"shp001":true,"emp001":false}' || pg !== vr || !vrIn || arIn || STUDIO.sess() !== 'ar') o.push('what shows in AR, VR and on a page: ' + J({ ar, vr, pg, vrIn, arIn }));
+      // editing on a page: the box (only AR) drawn as a hidden item is, its tag saying so, pointed at and selected
+      STUDIO.sess(''); setEdit(true); select(''); STU.hover = ''; shownFor([3, 1.6, 4]);
+      let t = performance.now(); for (let i = 0; i < 3; i++) itemsStep(0.1, t += 100);
+      const box = STU.items.get('box001'), ball = STU.items.get('shp001');
+      if (!box.hid || box.model.o.visible || !box.hidBox.visible || !box.tag || box.tag.userData.text !== 'Box · 12 ▲ · AR only' || !pickables().includes(box.proxy)) o.push('the box, only AR, while editing on a page: ' + J({ hid: box.hid, model: box.model.o.visible, line: box.hidBox.visible, tag: box.tag && box.tag.userData.text }));
+      if (ball.notHere || ball.hid) o.push('the ball, only VR, on a page: ' + J({ notHere: ball.notHere, hid: ball.hid }));
+      STU.hover = 'box001'; updateExtraLabels();
+      const lh = LBL.extra[0].txt && LBL.extra[0].txt.slice(0, 2).join(' | ');
+      STU.hover = ''; select('box001'); updateExtraLabels();
+      const ls = LBL.extra[1].txt && LBL.extra[1].txt.slice(0, 2).join(' | ');
+      if (lh !== 'Box | object · 12 ▲ · AR only' || ls !== 'Box | object · 12 ▲ · AR only · selected') o.push('the labels: ' + J([lh, ls]));
+      STUDIO.sess('ar'); shownFor([3, 1.6, 4]); for (let i = 0; i < 3; i++) itemsStep(0.1, t += 100);
+      const st = ball.look && ball.look.name && ball.look.name.userData.text;
+      if (!ball.hid || !/· VR only$/.test(st || '')) o.push('the ball, only VR, editing in AR: ' + J({ hid: ball.hid, tag: st }));
+      select(''); STUDIO.sess('');
+      return o;
+    })()`);
+    out.push(...r);
+    // the page's row: Only AR, Only VR, AR and VR (one Undo step each)
+    await ss(`(setRec('box001', { shows: undefined }), select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    const u0 = await ss('UNDO.length');
+    await sp.click('#pane-item [data-act="i:shows"][data-v="ar"]');
+    const a1 = await ss(`[STU.items.get('box001').rec.shows, (renderPanes(), document.querySelector('#pane-item [data-act="i:shows"][data-v="ar"]').getAttribute('aria-pressed')), /Only in AR \\(passthrough\\)/.test(document.querySelector('#pane-item').textContent)]`);
+    await sp.click('#pane-item [data-act="i:shows"][data-v="vr"]');
+    const a2 = await ss(`STU.items.get('box001').rec.shows`);
+    await sp.click('#pane-item [data-act="i:shows"][data-v=""]');
+    const a3 = await ss(`['shows' in STU.items.get('box001').rec, UNDO.length]`);
+    if (a1[0] !== 'ar' || a1[1] !== 'true' || !a1[2] || a2 !== 'vr' || a3[0] || a3[1] !== u0 + 3) out.push('the page\'s Shows in row: ' + JSON.stringify([a1, a2, a3, u0]));
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select('snd001'); X.tab = 'item'; X.scroll = {}; draw();
+      const r = [press('shows:ar'), STU.items.get('snd001').rec.shows, press('shows:both'), 'shows' in STU.items.get('snd001').rec];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== '[true,"ar",true,false]') out.push('the headset\'s Shows in row: ' + JSON.stringify(xr));
+    const nm = await ss(`(() => {
+      const J = JSON.stringify, O = x => norm('o', Object.assign({ file: 'box.glb', p: [0, 0, 0] }, x));
+      setRec('box001', { shows: 'vr' });
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      return J([O({ shows: 'ar' }).shows, O({ shows: 'vr' }).shows, 'shows' in O({}), 'shows' in O({ shows: null }), O({ shows: 'both' }), O({ shows: 1 }),
+        norm('s', { file: 'tone.wav', p: [0, 0, 0], shows: 'ar' }).shows, norm('p', { p: [0, 0, 0], shows: 'vr' }).shows, norm('e', { p: [0, 0, 0], shows: 'ar' }).shows, 'shows' in norm('c', { p: [0, 0, 0], shows: 'ar' }),
+        s['o.box001'].shows, J(collabState()) === a, L.objects.find(x => x.id === 'box001').shows, back.items.find(x => x.id === 'box001').rec.shows, back.bad]);
+    })()`);
+    if (nm !== '["ar","vr",false,false,null,null,"ar","vr","ar",false,"vr",true,"vr","vr",0]') out.push('norm\'s rules, the state and layout.json with shows: ' + nm);
+    bad(out);
+    await sp.close();
+  });
+}
+// The example scenes that ship with the app (v137, e7g_examples.js; tools/studio/SPEC.md, "Example scenes"): the test
+// example (tools/studio/test/examples/tiny, &examples= pointing there) listed on the Scene pane, opened read only and back;
+// then with a relay of its own (--static . --scenes <a temporary copy of the test scene>, the example's files given to its
+// page by the test), Copy to the relay: every file and the layout there, the copy opened from the relay with editing on
+if (runs('studio examples')) {
+  const { spawn } = await import('node:child_process');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const EXD = path.join(ROOT, 'tools', 'studio', 'test', 'examples');
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio examples: ' + b)); };
+  await step('studio examples: the Scene pane lists the test example; Open opens it read only from the examples\' folder (page and headset rows), Back to your scenes returns; no Copy without a relay', async () => {
+    const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    ep.on('pageerror', e => errors.push('studio examples: ' + (e.stack || e.message)));
+    ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio examples: ' + m.text()); });
+    const ss = s => ep.evaluate(s => HOST.cur.peek(s), s), until = (src, ms) => ep.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+    const out = [];
+    await ep.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&examples=tools/studio/test/examples');
+    await ep.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STUDIO.examples().list`, 120000)) { bad(['the test scene or the examples did not load']); await ep.close(); return; }
+    await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+    const p0 = await ss(`[JSON.stringify(STUDIO.examples()), !!document.querySelector('#pane-scene [data-act="exopen"][data-v="tiny"]'), (document.querySelector('#pane-scene [data-act="excopy"][data-v="tiny"]') || {}).disabled, /Examples \\(they come with the app\\)/.test(document.querySelector('#pane-scene').textContent)]`);
+    if (JSON.parse(p0[0]).list.join() !== 'tiny' || !p0[1] || p0[2] !== true || !p0[3]) out.push('the Scene pane\'s examples: ' + JSON.stringify(p0));
+    await ep.click('#pane-scene [data-act="exopen"][data-v="tiny"]');
+    const opened = await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000);
+    const s1 = await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().folder, STUDIO.state().save, STUDIO.state().items, STUDIO.examples().here, STUDIO.examples().prev, STU.items.get('excub1') && STU.items.get('excub1').rec.all, STU.items.get('exbox1') && !!STU.items.get('exbox1').model])`);
+    if (!opened || s1 !== '["folder","tools/studio/test/examples",false,3,true,true,true,true]') out.push('the example opened, read only: ' + s1);
+    // the headset's Scene pane: the example's row, no Copy; Back to your scenes pressed there
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      X.tab = 'scene'; X.scroll = {};
+      const ids = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); for (const q of XR.main.regions) ids.add(q.id); }
+      let pressed = false; for (let off = 0; off < 4000 && !pressed; off += 150) { X.scroll.scene = off; draw(); const q = XR.main.regions.find(z => z.id === 'exback'); if (q && q.fn) { q.fn(); pressed = true; } }
+      X.scroll = {}; XR.on = false; renderPanes();
+      return [ids.has('exopen:tiny'), ids.has('excopy:tiny'), pressed];
+    })()`);
+    if (JSON.stringify(xr) !== '[true,false,true]') out.push('the headset\'s rows (Open, no Copy, Back pressed): ' + JSON.stringify(xr));
+    const back = await until(`STUDIO.state().scene === 'test' && STUDIO.state().folder === 'tools/studio/test/scenes' && STUDIO.ready()`, 60000);
+    if (!back || await ss('STUDIO.examples().here')) out.push('Back to your scenes: ' + JSON.stringify(await ss('[STUDIO.state().scene, STUDIO.state().folder]')));
+    bad(out);
+    await ep.close();
+  });
+  await step('studio examples: Copy to the relay (a relay of its own): a scene made under the example\'s name, its files in their folders and its layout on the relay\'s disk, the copy opened from the relay with editing on; a second copy numbered', async () => {
+    const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-ex-'));
+    fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
+    let RL = null;
+    for (let p = 8960; p < 8990 && !RL; p++) {
+      const R = { proc: null, port: 0, out: '' };
+      const ok = await new Promise(res => {
+        R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', '--static', '.', '--scenes', SC, '--quiet'],
+          { cwd: ROOT, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
+        const t = setTimeout(() => res(false), 15000);
+        R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
+        R.proc.stderr.on('data', d => { R.out += d; });
+        R.proc.on('exit', () => { clearTimeout(t); res(false); });
+      });
+      if (ok) RL = R; else if (R.proc.exitCode === null) R.proc.kill();
+    }
+    if (!RL) { bad(['no relay of its own started']); return; }
+    // (the relay serves no tools/: the example's files given to the page by the test, the service worker kept out so they are)
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.route('**/tools/studio/test/examples/**', route => {
+      const rel = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^.*\/tools\/studio\/test\/examples\//, '');
+      const f = path.join(EXD, ...rel.split('/'));
+      if (rel.includes('..') || !fs.existsSync(f) || !fs.statSync(f).isFile()) return route.fulfill({ status: 404, body: 'Not found' });
+      return route.fulfill({ status: 200, body: fs.readFileSync(f), contentType: /\.json$/.test(f) ? 'application/json' : 'application/octet-stream' });
+    });
+    const ep = await ctx.newPage();
+    ep.on('pageerror', e => errors.push('studio examples: ' + (e.stack || e.message)));
+    ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio examples: ' + m.text()); });
+    const ss = s => ep.evaluate(s => HOST.cur.peek(s), s), until = (src, ms) => ep.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+    const out = [];
+    try {
+      await ep.goto(`http://127.0.0.1:${RL.port}/index.html#studio&scene=test&examples=tools/studio/test/examples`);
+      await ep.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      if (!await until(`STUDIO.ready() && STUDIO.state().src === 'relay' && canUpload() && !!STUDIO.examples().list && STUDIO.examples().can`, 120000)) { out.push('the relay\'s scene or the examples did not load: ' + JSON.stringify(await ss('[SRC.kind, SRC.upload, SRC.save, STU.listing, JSON.stringify(STUDIO.examples())]').catch(e => e.message))); return; }
+      await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+      await ep.click('#pane-scene [data-act="excopy"][data-v="tiny"]');
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 90000)) { out.push('the copy did not finish: ' + JSON.stringify(await ss('JSON.stringify(STUDIO.examples())'))); return; }
+      const s = await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().scene, STUDIO.state().edit, STUDIO.state().items, STUDIO.examples().note, STU.items.get('excub1') && STU.items.get('excub1').rec.all, STUDIO.examples().done, STUDIO.examples().of])`);
+      const S = JSON.parse(s);
+      if (S[0] !== 'relay' || S[1] !== 'tiny' || !S[2] || S[3] !== 3 || !/Copied tiny to the relay as tiny: it is yours/.test(S[4]) || S[5] !== true || S[6] !== 3 || S[7] !== 3) out.push('the copy opened from the relay: ' + s);
+      for (const f of ['models/box.glb', 'sounds/tone.wav']) {
+        const a = path.join(SC, 'tiny', ...f.split('/')), b = path.join(EXD, 'tiny', ...f.split('/'));
+        if (!fs.existsSync(a) || !fs.readFileSync(a).equals(fs.readFileSync(b))) out.push('not on the relay\'s disk as in the example: ' + f);
+      }
+      let L = null;
+      try { L = JSON.parse(fs.readFileSync(path.join(SC, 'tiny', 'layout.json'), 'utf8')); } catch (e) { L = null; }
+      if (!L || L.scene !== 'tiny' || L.cubes.length !== 1 || L.cubes[0].all !== true || L.objects[0].file !== 'models/box.glb') out.push('the layout on the relay: ' + JSON.stringify(L));
+      // a second copy: numbered
+      await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+      await ep.click('#pane-scene [data-act="excopy"][data-v="tiny"]');
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny 2' && STUDIO.ready()`, 90000) || !fs.existsSync(path.join(SC, 'tiny 2', 'models', 'box.glb'))) out.push('the second copy: ' + JSON.stringify(await ss('[STUDIO.state().scene, JSON.stringify(STUDIO.examples())]')));
+    } finally {
+      bad(out);
+      await ctx.close();
+      RL.proc.kill();
+      fs.rmSync(SC, { recursive: true, force: true });
+    }
   });
 }
 // The studio's trackers (v126, tools/trackers/SPEC.md: e6k_trk.js and e6l_puppet.js), on pages of their own. The PC's

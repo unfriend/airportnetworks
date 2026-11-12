@@ -55,6 +55,10 @@
 //   layout.json the rig, walking
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
+// And an example scene, as the app ships them in examples/ (v137; tools/studio/SPEC.md, "Example scenes"), in a folder of
+// examples of its own, tools/studio/test/examples/ (the studio's &examples= points the tests there), listed by scan.mjs too:
+//   tiny/models/box.glb, tiny/sounds/tone.wav  the test box and tone in folders (so a copy to the relay makes them)
+//   tiny/layout.json the box, the tone over it and a cube that works for everyone
 // usage (from the repository root): node tools/studio/test/make.mjs
 //        node tools/studio/test/make.mjs --index <folder>   only index.json and files.json (scan.mjs), for any folder of scenes
 import fs from 'fs';
@@ -771,7 +775,21 @@ let ptotal = 0;
 fs.mkdirSync(pout, { recursive: true });
 for (const [f, b] of Object.entries(pfiles)) { fs.writeFileSync(path.join(pout, f), b); ptotal += b.length; }
 
+// ---- the example (tools/studio/test/examples/tiny)
+const eout = path.join(here, 'examples/tiny');
+const exLayout = {
+  studio: 1, scene: 'tiny', saved: '2026-11-11T12:00:00.000Z',
+  objects: [{ id: 'exbox1', name: 'Box', file: 'models/box.glb', p: [0, 0.25, -1.5], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Spin', anim: 'loop', start: 'always' }],
+  cubes: [{ id: 'excub1', name: 'Gate', p: [0, 1, 0], yaw: 0, size: [1.2, 2, 1.2], mode: 'while', show: ['exsnd1'], hide: [], all: true }],
+  sounds: [{ id: 'exsnd1', name: 'Tone', file: 'sounds/tone.wav', p: [0, 1, -1.5], vol: 0.8, r: 1.5, loop: true, start: 'shown' }],
+};
+const efiles = { 'models/box.glb': files['box.glb'], 'sounds/tone.wav': files['tone.wav'], 'layout.json': Buffer.from(layoutText(exLayout)) };
+let etotal = 0;
+for (const [f, b] of Object.entries(efiles)) { fs.mkdirSync(path.dirname(path.join(eout, f)), { recursive: true }); fs.writeFileSync(path.join(eout, f), b); etotal += b.length; }
+
 scan(path.join(here, 'scenes'));
+scan(path.join(here, 'examples'));
+etotal += fs.statSync(path.join(eout, 'files.json')).size + fs.statSync(path.join(here, 'examples', 'index.json')).size;
 for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f)).size;
 rtotal += fs.statSync(path.join(rout, 'files.json')).size;
 ctotal += fs.statSync(path.join(cout, 'files.json')).size;
@@ -782,4 +800,5 @@ console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', 
 console.log(`wrote tools/studio/test/scenes/textures/ (${Object.keys(tfiles).length} files): ${(ttotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/scenes/rig/ (${Object.keys(rfiles).join(', ')}): ${(rtotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/scenes/cuts/ (${Object.keys(cfiles).join(', ')}): ${(ctotal / 1024).toFixed(1)} KB with its listing`);
+console.log(`wrote tools/studio/test/examples/tiny/ (${Object.keys(efiles).join(', ')}): ${(etotal / 1024).toFixed(1)} KB with the listings`);
 console.log(`wrote tools/studio/test/scenes/puppet/ (rig.glb: ${PUPPET_BONES.length} bones, ${puppet.tris} triangles, ${(puppet.glb.length / 1024).toFixed(1)} KB; layout.json): ${(ptotal / 1024).toFixed(1)} KB with its listing`);

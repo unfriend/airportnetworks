@@ -146,6 +146,20 @@ bone's name is kept as the studio reads it, and found again leniently (an FBX's 
 its GLB). The short list (*Head*, *Neck*, *Chest*, *Hips*, the hands and the feet) knows Mixamo, 3ds Max's Biped, Unreal,
 Rigify and VRM names.
 
+## Cubes for everyone, and AR or VR only
+
+- **Works for: Each person / Everyone here** (a trigger cube's card, with **Edit** on): a cube is each person's own (it
+  shows, hides, changes and starts things only for whoever is inside it), or, set to **Everyone here**, it works for
+  everyone at the circle as soon as anyone in a headset is inside it, at the same moment on every device (a cube that
+  **stays** stays so once anyone has been inside). On a page outside a room your own camera in Walk view counts, as ever.
+- **Shows in: AR and VR / Only AR / Only VR** (an object's, a sound's, a shape's or an empty's card): only in AR it is not
+  drawn or heard in VR or on a page, only in VR not in AR (where the real room is there instead: stand-in walls and a
+  floor for a VR visitor, say). While editing one that does not show here is drawn as a hidden thing is, its tag saying
+  *· AR only* or *· VR only*.
+
+Both shared in a room and saved in `layout.json` (`all` on a cube, `shows` on an item; "Cubes for everyone" and "AR or VR
+only" in `SPEC.md`).
+
 ## Trigger cubes that change pictures
 
 A trigger cube can also put another picture on an object while you are in it (the owner: "trigger cube replace texture
@@ -268,6 +282,13 @@ Like a motion it is drawn over where the thing stands, so moving it, saving it a
 you have it selected (a ghost shows where it is placed) and rests there while you carry it or Pause is on. Shared in a
 room and saved in `layout.json`
 (`engine/e6g_behave.js`; "Behaviours" in `SPEC.md`).
+
+**On a wall** puts it on the room's walls, as each headset's own room scan finds them in AR: **Which wall** is the wall in
+its direction from the middle of the scene, the **Nearest** wall, or the wall nearest the person it reacts to (it
+**Follows the person** along there; with nobody, back on the wall in its direction). Its back is against the wall (**Gap
+from the wall**, 3 cm to start), its front into the room, at its own height where the wall has room. In VR, on a page and
+before a headset has scanned its room it stands where it is placed. Nothing is sent: each headset puts it on its own walls
+(`engine/e6o_walls.js`; "Things on walls" in `SPEC.md`).
 
 ## Motions: spin, wobble, bob, pulse, orbit, sway
 
@@ -401,6 +422,14 @@ the real room and move with it.
   a size), left and right turn it; the **right stick** up pushes it away and down pulls it in, left and right turn it too.
   It is all one change: one **Undo** takes the whole carry back. A locked item cannot be carried, so the sticks do nothing
   to it.
+
+## Example scenes
+
+Scenes that come with the app are listed under **Examples** on the Scene tab (the folder `examples/` next to the app, as
+`scan.mjs` writes a folder of scenes). **Open** shows one as it is, read only (what you change stays on this device;
+**Back to your scenes** goes back). On a page with a relay that takes uploads, **Copy to the relay** makes it one of your
+scenes: every file and its layout copied (a second copy is numbered), then opened with **Edit** on
+(`engine/e7g_examples.js`; "Example scenes" in `SPEC.md`).
 
 ## A new scene, and a model from another scene
 

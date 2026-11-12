@@ -112,16 +112,19 @@ function trgFire() {
   const T = trgClock();
   let left = false;
   for (const c of TRG.cubes) {
-    const P = c.pl || (c.pl = { in: false, out: -1, lt: 0, act: false, enter: false, leave: false });
+    const P = c.pl || (c.pl = { in: false, out: -1, lt: 0, at: 0, act: false, enter: false, leave: false });
     P.enter = P.leave = false;
+    // (when it went in and out: now for each person's cube; an everyone cube's at the room moment its heads' samples say,
+    // on this clock, triggerStep's c.inT and c.outT, so every device starts a run at the same room moment)
+    const tin = c.rec.all && fin(c.inT) ? Math.min(T, c.inT) : T, tout = c.rec.all && fin(c.outT) ? Math.min(T, c.outT) : T;
     if (c.inside) {
       // (out long enough with no frame between, and in again: it left, then came in)
-      if (P.in && P.out >= 0 && T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+      if (P.in && P.out >= 0 && tin - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
       P.out = -1;
-      if (!P.in) P.in = P.enter = true;
+      if (!P.in) { P.in = P.enter = true; P.at = tin; }
     } else if (P.in) {
-      if (P.out < 0) P.out = T;
-      else if (T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
+      if (P.out < 0) P.out = tout;
+      if (T - P.out >= PLAY_EDGE) { P.in = false; P.leave = true; P.lt = P.out + PLAY_EDGE; }
     }
     if (P.leave) left = true;
     P.act = c.rec.mode === 'stay' ? !!c.act : P.in;
@@ -131,7 +134,7 @@ function trgFire() {
     if (x.e.when === 'leave') { if (!TRG.seen.has(x.ek)) TRG.seen.set(x.ek, 1); continue; }
     const P = x.c.pl, fresh = !TRG.seen.has(x.ek);
     if (fresh) TRG.seen.set(x.ek, 1);
-    if (P.enter || (fresh && P.act)) trgStart(x, T, false);
+    if (P.enter || (fresh && P.act)) trgStart(x, P.enter ? P.at : T, false);
   }
   for (const t of TRG.on) {
     if (STU.items.get(t.id) !== t) { TRG.on.delete(t); continue; }
@@ -428,7 +431,7 @@ function playCopy(from, to) {
 // ------------------------------------------------------------ the cube's card --
 // Starts: each entry (a press flashes its item in blue; Try plays it here now; ✕ takes it off, one Undo step), and Start
 // something...: an item (pointed at, or from the card's list), what to start on it, how and when; Add (one Undo step)
-const PLAY_PARA = 'What a cube starts is for you only, as everything a cube does. The last thing started on an item decides. A sound, a path or a motion a cube starts waits until then; an object\'s own animation goes on until a cube plays a clip on it (Animation Off keeps it still).';
+const PLAY_PARA = 'What a cube starts is for you only, as everything a cube does (a cube that works for everyone here starts it for everyone at this circle at once). The last thing started on an item decides. A sound, a path or a motion a cube starts waits until then; an object\'s own animation goes on until a cube plays a clip on it (Animation Off keeps it still).';
 function playCubeBlocks(c, B, dis) {
   const L = c.rec.plays || [], P = STU.plp && STU.plp.id === c.id ? STU.plp : null, full = L.length >= PLAY_MAX;
   const cands = [...STU.items.values()].filter(t => t.id !== c.id && PLAY_ITEMS.includes(t.kind)), any = cands.some(t => playOpts(t).some(o => !o.dis));
@@ -436,7 +439,7 @@ function playCubeBlocks(c, B, dis) {
   L.forEach((e, k) => {
     const on = playing(c, e), why = playWhy(e);
     B.push({ label: k ? '' : `Starts (${L.length})`, row: [
-      { id: `plflash:${k}`, label: playWords(e, c) + (on ? ' · playing for you' : ''), act: 'i:plFlash', v: e.on, on },
+      { id: `plflash:${k}`, label: playWords(e, c) + (on ? (c.rec.all ? ' · playing' : ' · playing for you') : ''), act: 'i:plFlash', v: e.on, on },
       { id: `pltry:${k}`, label: on && e.how !== 'stop' ? 'Stop' : 'Try', act: 'i:plTry', v: k, dis: dis || !!why },
       { id: `unplay:${k}`, label: '✕', act: 'i:unplay', v: k, dis }] });
     if (why) B.push({ p: why, c: 'amber' });

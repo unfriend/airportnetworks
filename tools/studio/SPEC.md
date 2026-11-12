@@ -192,7 +192,9 @@ placed by itself).
     { "id": "t4ble1", "name": "Table", "shape": "cube", "p": [0, 0.375, -1.5], "q": [0, 0, 0, 1], "size": [1.6, 0.75, 0.8],
       "colour": "#c9d1dc", "look": "hide", "locked": true },
     { "id": "cupl1d", "name": "Lid", "shape": "cylinder", "p": [0.4, 0.8, -1.4], "q": [0, 0, 0, 1], "size": [0.1, 0.02, 0.1],
-      "colour": "#ffb43b", "look": "colour", "trk": { "id": "LHR-1A2B3C4D", "o": [0, 0.06, 0], "q": [0, 0, 0, 1] } }
+      "colour": "#ffb43b", "look": "colour", "trk": { "id": "LHR-1A2B3C4D", "o": [0, 0.06, 0], "q": [0, 0, 0, 1] } },
+    { "id": "p0ster", "name": "Poster", "shape": "plane", "p": [0, 1.5, -2], "q": [0, 0, 0, 1], "size": [0.6, 0.8, 0.01],
+      "colour": "#5aa9ff", "look": "colour", "behaviour": { "kind": "wall", "at": "direction" }, "shows": "ar" }
   ],
   "empties": [
     { "id": "mid4ir", "name": "Mid-air", "p": [0.5, 2.2, -2], "q": [0, 0, 0, 1],
@@ -288,7 +290,7 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
 
 ## Trigger cubes
 
-- Each person's own: a cube is *active for you* while your head is inside it (the headset's head; on a page the
+- Each person's own (unless it works for everyone here, v137: "Cubes for everyone" below): a cube is *active for you* while your head is inside it (the headset's head; on a page the
   camera's place in Walk view, else nobody: the orbit camera never triggers). Never shared, never in `state()`: ten
   headsets each see what their own place reveals.
 - `mode`: `'while'` (active while you are inside) or `'stay'` (once you have been inside it stays active for you until
@@ -307,6 +309,60 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
   its own edges) and its tag with *· hidden*, still picked and carried, drawn whole while this device holds it ("Nothing
   see-through while editing" under "Editing"; until v130 it was drawn faint, at 0.3); sounds play as a visitor would hear
   them. Not editing: cubes and sound markers are not drawn at all.
+
+## Cubes for everyone (the owner, 11 November 2026)
+
+The owner: "Trigger cube starts are each person's own, the same as how cubes already show and hide things. THIS MIGHT NEED A
+SWITCH FOR BOTH OPTIONS if possible, so it should also be possible to have a cube that triggers things for everyone in the
+same studio scene". `triggerStep` in `engine/e6_items.js`, `trgFire` in `engine/e6n_plays.js`.
+
+- **The record**: a cube's `all: true` (kept only when set; absent, `false` or `null`: each person's own, as before;
+  anything else makes the record bad). In `layout.json` and `state()` alike: FORMAT networks-43 (an older device would
+  drop it).
+- **Active**: for every device at the station while any person's head is inside it: the heads the behaviours react to
+  (`behHeads`: the people in a headset at its circle, from `HOST.collab.heads()`, this device's own among them; pages
+  never count; outside a room this device's own head, or a page's camera in Walk view). A `'stay'` one stays active from
+  the first time any head was inside (each device's memory, as for each person's cubes: *Reset what I have seen* and the
+  lobby clear it).
+- **What follows it**: everything the cube does (what it shows and hides, its texture changes, what it starts), so a
+  shared cube shows things to everyone and starts its clips, sounds, paths and motions for everyone, in step.
+- **In step**: its entering and leaving are taken in the room's time from the head samples' own time stamps (`h.ts`: the
+  presence sample of each head; a head the shell gives with no time, or not a number, as an older shell may, is taken at
+  the room's time now, so no entry time is ever NaN): entered at the earliest sample of the heads inside it now, left at
+  the latest sample of the heads that were inside it (a head gone from the list: left now). Outside a room this device's
+  clock (`behNow`). On the clock of what cubes start (`trgClock`) these are `c.inT` and `c.outT` (the room moment less
+  how far that clock is behind the room's), so every device puts a run's start, and its 0.3 s leave (`PLAY_EDGE`), at
+  the same room moment and plays the same phase. Devices agree within about one presence sample (15 a second): the
+  device whose head it is uses its own head now, the others its first sample inside.
+- **Entered last** (show and hide, texture changes): decided alike on every device, by the entry time (the room's: an
+  everyone cube's entry moment; each person's own cube this device's moment, kept after the last one given so two entered
+  one after the other keep their order), then by the cube's id (`enteredLater`). Until v137 a counter on each device.
+- **Nothing sent**: each device works it out from the heads it has. A device away from its station sees nothing of the
+  scene, as ever.
+- **Its card** (page and headset): *Works for: Each person / Everyone here* (one Undo step each) and a line saying what it
+  means; the card's heading and the Items card say *for everyone here*; a row of what it starts says *playing* (not *for
+  you*).
+- **For tests**: `STUDIO.cube(id)` (`{ all, inside, act, since, inT, outT, who }`), `BEH.fake` (pretend heads with `ts`),
+  `behNow` and `trgClock` held by the test.
+- **Untested on headsets**: everyone cubes across real headsets at a circle (how in step their runs look over Wi-Fi, a
+  head entering at a cube's face, many heads in and out).
+
+## AR or VR only (the owner, 11 November 2026)
+
+For a room built as a studio scene (another lane's XP room): its elements "detached and mapped onto the room". `shownHere`
+and `sessKind` in `engine/e6_items.js`.
+
+- **The record**: an object's, a sound's, a shape's or an empty's `shows: 'ar' | 'vr'` (kept only when set; absent or
+  `null`: both; anything else makes the record bad; a cube's or a cut-out's is ignored). FORMAT networks-43.
+- **Shown**: in an AR session (passthrough: the studio's `!XR.clear`) an item with `shows: 'vr'` is not shown (not drawn,
+  silent, not pointed at), in a VR session one with `shows: 'ar'`; on a page (no session) what VR shows. On top of what
+  the cubes say: an item for the other kind of session is never shown, whatever a cube says.
+- **While editing**: one not shown for that reason is drawn as a hidden item already is (its unseen box's edges, a
+  shape's own edges, and its tag with *· VR only* or *· AR only* in place of *· hidden*), still pointed at, selected and
+  carried; its card's heading says *only in AR: not shown here* (or VR), the Items card *only in AR*.
+- **Its card** (page and headset, every object, sound, shape and empty): *Shows in: AR and VR / Only AR / Only VR* (one
+  Undo step each) and a line saying what it does.
+- **For tests**: `STUDIO.sess(k)` pretends a session's kind (`'ar'`, `'vr'`, `''` as it is).
 
 ## Trigger cubes that change textures (the owner, 8 November 2026)
 
@@ -1416,6 +1472,7 @@ headset so only react to one headset, example closest or first player who walks 
     behaviour and recorded path, not its spin or bob: `drawnPose` keeps `it.pre` for it), a little behind (a time
     constant of 0.3 s, at most `speed`), turning with it as the two are placed; home when that one is not here (or is
     itself).
+  - `'wall'` (v137) `{ at, who, range, speed, gap }`: on the room's walls, this device's own ("Things on walls" below).
   - `face` (v128; the owner, 9 November 2026: "when a model is in follow there should be a switch to look at the person
     or item it is following instead of into the same direction as the person"), on `'follow'` and `'item'` only:
     `'them'` (its front turned about the vertical through its middle to the person it follows, from where it is now, as
@@ -1492,6 +1549,55 @@ headset so only react to one headset, example closest or first player who walks 
   life size; the choice and the hand-over between real headsets over Wi-Fi; how smooth 120 ms behind looks there; many
   behaving items' cost), the stick walk's limit above, and Faces (v128) there: a model at your side that turns to look at
   you as you walk, an item that turns to look at the one it follows.
+
+## Things on walls (the owner, 11 November 2026)
+
+The owner, of a room built as a studio scene: its elements "dynamisch auf detected walls", "losgelöst und auf raum
+gemappt", and "keep in mind that it may need to be reactive and react to user movements, where the user goes, instead of a
+static variant". `engine/e6o_walls.js`.
+
+- **The record**: a behaviour of the kind `'wall'` (an object's, a shape's or an empty's), fields in this order:
+  `{ kind: 'wall', at: 'direction' }`, `{ kind: 'wall', at: 'nearest' }` or `{ kind: 'wall', at: 'person', who, range,
+  speed }` (`who`, `range` and `speed` only for a person, as the other behaviours have them: 3 m, 0.6 m/s by default),
+  each optionally with `gap` (metres, 0 to 0.5, to the cm, 0.03 by default, written only when not the default). `at` left
+  out is `'direction'`; another value makes the record bad. FORMAT networks-43.
+- **The walls**: this device's own. In an AR session whose frame has `detectedPlanes` (`plane-detection` enabled), every
+  vertical plane (`orientation` `'vertical'`, or `semanticLabel` `'wall'`; never `'door'`; a window counts) taken into
+  the scene's frame (`frame.getPose(plane.planeSpace, refSpace)`, then `GL.world`'s inverse): its polygon's extent along
+  the floor as a segment, its bottom and top heights, and its normal along the floor turned towards the walls' middle
+  (the middle of all the segments' box along the floor). When that middle lies on a wall's line (one wall, or one wall
+  in pieces, early in a room scan; within 10 cm of every wall's line, or 5 cm of one's), a point in the room stands for
+  it: the head as those walls were read (`headPoint`, in the scene's frame), else the scene's origin, kept while the
+  walls stay the same (`WALLS.ref`, so it never walks with the head); with both on a wall's line its normal stays as the
+  plane's pose gave it. Read when the planes change (their set or a `lastChangedTime`) and at most twice a second, once
+  a second besides (a recentre moves the scene), as the robots read theirs (`wallsXR`, from `xrBegin`; inside try/catch,
+  the feature asked for by `enabledFeatures`); gone at the session's end. No walls (VR, a page, no room scan yet): the
+  item stays at its placed pose, and its card says so.
+- **Where**: `'direction'`: the first wall a ray from the walls' middle (that point in the room, with one wall) meets
+  along the item's placed direction from the scene's origin (its placed middle's x and z; at the origin `-z`; no wall
+  met: the walls' point nearest where it points); `'nearest'`: the walls' point nearest its placed middle along the
+  floor; `'person'`: the walls' point nearest the person it reacts to, chosen as Follow and Look at choose (`behChoose`,
+  alike on every device from the heads), moving along there at most `speed` m/s; with nobody, back to its `'direction'`
+  place.
+- **There**: its back against the wall (its middle the gap plus how far its box reaches behind its middle along its front
+  off the wall: an object's model's box, a shape's unit box as sized, an empty's point), its height its placed middle's
+  held within the wall's bottom and top where it fits (too tall: its bottom on the wall's), its front (`+z` as placed)
+  facing out of the wall into the room (turned about the vertical through its middle), its placed tilt kept. It eases there
+  (`WALL_EASE`, 0.15 s: there in about 0.4 s) when the walls change, never jumping each frame.
+- **Drawn**: a base stage of the pose pipeline as the other behaviours are (`behaveBase`: its move `tx`, `ty`, `tz` and turn
+  `d` from its placed pose), so a recorded path and its motion draw over it and **the record never changes**; it rests at
+  its placed pose while held here or paused (its ghost there while editing). Computed on each device from its own walls:
+  nothing is sent (no effect, no state), so the same record maps onto each headset's own room.
+- **Its rows** (the Behaviour rows, page and headset): *Behaviour: ... / On a wall*, *Which wall: In its direction /
+  Nearest / Follows the person*, *Gap from the wall* (*Less* / *More* through 0, 1, 2, 3, 5, 10, 15, 20, 30, 50 cm), for a
+  person *Reacts to*, *Notices people within* and *Moves at most*, and a line on this headset's walls (*This headset has 4
+  walls from its room scan: it stands on wall 1.*, or none). One Undo step each.
+- **For tests**: `STUDIO.walls(list)` gives pretend walls (`[{ a: [x, z], b: [x, z], y0, y1 }]` in the scene's frame; `null`
+  the headset's own again; without an argument what there is: `{ src, n, mid, list }`); `STUDIO.behave(id)`'s `wall` (the
+  wall it stands on, -1 none) and `ty`.
+- **Untested on a headset**: real plane detection on a Quest (which planes it lists as vertical, how steady their extents
+  are from one read to the next, a multi-room scan), how things on walls look there, a person followed along the walls,
+  and walls read while the scene stands on a room's frame at a station.
 
 ## Motions (the owner, 6 November 2026)
 
@@ -2222,6 +2328,29 @@ The owner: "items need a preview in the items list tab, should show the same ima
   page reads only a non-GLB model's own bytes (by its signed link) to learn what it names.
 - `STUDIO.copied` (`{ path, copied, kept, lost, id }`) for tests.
 
+## Example scenes
+
+Scenes that ship with the app. `engine/e7g_examples.js`.
+
+- **The folder**: `examples/` at the app's root, scene folders and their listings exactly as `tools/studio/scan.mjs` writes
+  them (`examples/index.json`, `examples/<name>/files.json`, each scene's `layout.json`); `&examples=<a relative folder>`
+  picks another (the tests: `tools/studio/test/examples/`, whose `tiny` scene `tools/studio/test/make.mjs` writes). The
+  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`, another lane's). The relay serves it as an app folder
+  (`APP_DIRS`, deeper than the others: `APP_DEEP`); `sw.js` treats its files as app files, network first, never in
+  `SHELL`'s precache.
+- **Listed** on the Scene pane, page and headset (*Examples (they come with the app)*), read once as the studio looks for
+  its scenes.
+- **Open**: the scene from that folder, read only, as `&scenes=examples&scene=<name>` opens it (editing works on this
+  device; *Download layout.json* keeps what was changed). *Back to your scenes* returns to where scenes came from before
+  (the relay, or the folder of the link). Not at a shared room's circle (the scene there is the room's, and the others
+  may not have the folder): the pane says to copy it to the relay.
+- **Copy to the relay** (a page only, with a relay that takes uploads, `canWrite()`): a free scene name (the example's,
+  else numbered: *bliss-xp 2*), `POST /api/scenes`, every listed file fetched from the example and uploaded to the same
+  path through the studio's own upload path (`upSend`: straight into R2 where it can), its pictures too, then its
+  `layout.json` (its `scene` the new name) saved through the layout endpoint; the progress on the pane (*n of m files*);
+  a file the relay refuses is said and the rest copied; then the copy opened from the relay with editing on.
+- **For tests**: `STUDIO.examples()` (`{ list, here, folder, busy, done, of, note, prev, can }`).
+
 ## Props that follow a tracker (the owner, 8 November 2026)
 
 Phase 1 of the Vive trackers (`tools/trackers/SPEC.md`; the owner: "we go for 1 and 3 with mixamo rigs for now").
@@ -2336,6 +2465,8 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- v137: the smoke test's *studio everyone*, *studio walls*, *studio shows* and *studio examples* steps (each `--only` of
+  its own): "Testing" in `AGENTS.md`.
 - Editing without the cost (v136): the smoke test's *studio edit speed* steps (`--only 'studio edit speed'`, a minute):
   "Testing" in `AGENTS.md`.
 - The smoke test's step for the Add pane's grid and pictures (v120, on the test scene, no relay), relay/test.mjs's
