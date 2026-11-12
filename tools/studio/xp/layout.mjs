@@ -1,31 +1,51 @@
-// The Bliss XP room's layout.json: a walk through the video in a room of about 5 x 5 m round the scene's origin (where
-// you stand at first, -z ahead; walls at about +-2.5 m). The desktop on the front wall (the boot and welcome screens,
-// the AR wallpaper, the icons, the taskbar and the balloons by its clock), chats and notes on the left wall, the door
-// outside on the right wall, the way out on the back wall, the grass in the middle, Clippy chilling in the front left
-// corner, clouds under the ceiling, the hill and the sky (VR) round it all. Wall items carry the studio's wall behaviour
-// (v137's contract: in AR they go onto the walls the headset finds), so the room maps onto each headset's own room;
-// trigger cubes make it a walk: some for everyone at the circle (all: true), most for each person.
+// The Bliss XP room's layout.json: a walk through the video, designed so that it maps onto rooms from about 3 x 3 m to
+// 5 x 5 m (in AR each headset's own walls, by the studio's wall behaviour) and stands round you in VR as placed (a room of
+// 5 x 5 m: walls at +-2.5 m round the scene's origin, where you stand at first, -z ahead).
+// - The front wall is the desktop: the taskbar's bar on the wall's middle (wall, 'direction'), and riding on it (the
+//   behaviour 'item': they keep their offsets from it, so the desktop stays one piece in any room) its buttons, the
+//   Start menu, the balloons by its clock, the wallpaper (AR), the boot and welcome screens, the titles, the icons and
+//   the hourglass. The other walls hold clusters the same way: one anchor on the wall, its neighbours riding on it (the
+//   left wall: Clippy's corner, the notes, Paint and the player; the right wall: the pages with the bin under them, the
+//   door outside, the picture viewer; the back wall: Task Manager, the solitaire win, the way out, Remote Assistance and
+//   the window trail with the error dialog). Anchors are placed along the ray that, in the smallest room (3 x 3 m), meets
+//   their wall where they are meant to be, so in a bigger room the clusters spread with the walls and never pile up.
+// - The grass, the glass CRT, the duck watching it, the flip phone and the clouds stand round the middle (inside the
+//   smallest room); the giant cursor follows you at your right; the hill, the sky's clouds, the starfield and the wind are
+//   VR only, the wallpaper AR only.
+// - Trigger cubes make it a walk: each reaches from inside the smallest room out past the walls of the biggest, so it is
+//   walked into in any of them. Some are for everyone at the circle (all: true), most for each person.
 // makeLayout(parts, files) -> { layout, errors, partOf }: parts by name ({ file, tris, clips, box }), the scene's files.
-const W = 2.5;   // (the walls of the room it is designed in)
+const D0 = 2.5;   // (the walls of the room it is placed in, for VR)
+const SMALL = 1.5;   // (the smallest room's walls, 3 x 3 m round its middle: where the clusters are designed)
 const r4 = v => Math.round(v * 1e4) / 1e4 || 0, r3 = v => Math.round(v * 1e3) / 1e3 || 0;
 const yawQ = a => [0, r4(Math.sin(a / 2)), 0, r4(Math.cos(a / 2))];
 const turn = (a, [x, y, z]) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];   // (about the vertical, as yawQ)
 const plus = (a, b) => a.map((v, i) => r3(v + b[i]));
-// where a wall item stands: its back the gap off the wall, facing into the room
-const front = (x, y, gap) => ({ p: [r3(x), r3(y), r3(-W + gap)], q: [0, 0, 0, 1] });
-const back = (x, y, gap) => ({ p: [r3(x), r3(y), r3(W - gap)], q: yawQ(Math.PI) });
-const left = (z, y, gap) => ({ p: [r3(-W + gap), r3(y), r3(z)], q: yawQ(Math.PI / 2) });
-const right = (z, y, gap) => ({ p: [r3(W - gap), r3(y), r3(z)], q: yawQ(-Math.PI / 2) });
-const floor = (x, z, a) => ({ p: [r3(x), 0, r3(z)], q: yawQ(a), a });
-const facing = (x, z) => Math.atan2(-x, -z);   // (the yaw that turns its front, +z, to the scene's origin)
+// each wall: a point of it at `along` (world x on the front and back walls, world z on the sides), its normal into the
+// room along the floor, and the turn that faces a thing's front (+z) out of it
+const WALL = {
+  front: { at: a => [a, -D0], n: [0, 1], yaw: 0 },
+  back: { at: a => [a, D0], n: [0, -1], yaw: Math.PI },
+  left: { at: a => [-D0, a], n: [1, 0], yaw: Math.PI / 2 },
+  right: { at: a => [D0, a], n: [-1, 0], yaw: -Math.PI / 2 },
+};
 // the wall behaviour (v137): onto the wall in its placed direction, the nearest wall, or the wall nearest a person
 const wall = (at, gap, o = {}) => Object.assign({ kind: 'wall', at }, at === 'person' ? { who: o.who || 'nearest', range: o.range || 3, speed: o.speed || 0.6 } : {}, gap !== undefined && gap !== 0.03 ? { gap } : {});
+// riding on another item (the behaviour 'item'), quickly, so a cluster moves as one
+const ride = target => ({ kind: 'item', target, speed: 3 });
 
 export function makeLayout(parts, files) {
   const errors = [], have = new Set(files), partOf = {};
   for (const [n, p] of Object.entries(parts)) partOf[p.file] = n;
-  const objects = [], sounds = [], cubes = [], groups = [];
+  const objects = [], sounds = [], cubes = [], groups = [], byId = {};
   const clipsOf = n => (parts[n] ? parts[n].clips.map(c => c.name) : []);
+  // a part's box: its middle, how far its back is behind its middle (its front is +z), its half height
+  const boxOf = (part, s) => {
+    const b = parts[part] && parts[part].box;
+    if (!b) { errors.push(`no box for ${part}`); return { c: [0, 0, 0], back: 0, hh: 0 }; }
+    const c = [0, 1, 2].map(j => (b[0][j] + b[1][j]) / 2);
+    return { c, back: s * (c[2] - b[0][2]), hh: s * (b[1][1] - b[0][1]) / 2 };
+  };
   // an object: its part, where it stands, and what it does
   const obj = (id, name, part, pose, o = {}) => {
     const P = parts[part];
@@ -33,14 +53,45 @@ export function makeLayout(parts, files) {
     if (!have.has(P.file)) errors.push(`${id}: ${P.file} is not in the scene`);
     const clips = clipsOf(part), clip = o.clip !== undefined ? o.clip : clips[0] || '';
     if (clip && !clips.includes(clip)) errors.push(`${id}: ${part} has no clip ${clip} (${clips.join(', ') || 'none'})`);
-    const r = { id, name, file: P.file, p: pose.p, q: pose.q, s: o.s || 1, light: 'lit', clip, anim: o.anim || (clip ? 'loop' : 'off'), start: o.start || 'always' };
+    const r = { id, name, file: P.file, p: pose.p.map(r3), q: pose.q, s: o.s || 1, light: 'lit', clip, anim: o.anim || (clip ? 'loop' : 'off'), start: o.start || 'always' };
     if (o.behaviour) r.behaviour = o.behaviour;
     if (o.motion) r.motion = o.motion;
     if (o.shows) r.shows = o.shows;
     if (o.locked) r.locked = true;
-    objects.push(r);
+    objects.push(r); byId[id] = { r, part, pose };
     return r;
   };
+  // a thing against a wall: its middle `along` the wall, at height y (null: standing on the floor), its back `gap` off it
+  const poseOn = (part, side, along, y, gap, s) => {
+    const W = WALL[side], B = boxOf(part, s), d = gap + B.back, [wx, wz] = W.at(along);
+    const M = [wx + W.n[0] * d, y === null ? B.hh : y, wz + W.n[1] * d], off = turn(W.yaw, B.c.map(v => v * s));
+    return { p: M.map((v, j) => v - off[j]), q: yawQ(W.yaw), a: W.yaw };
+  };
+  // a cluster's anchor on a wall (wall, 'direction'): `along` is where it meets its wall in the smallest room; placed on
+  // that ray in the room it is placed in, so in any room the ray from the walls' middle takes it to the same share of
+  // its wall
+  const anchor = (id, name, part, side, along, y, gap, o = {}) => {
+    const s = o.s || 1, B = boxOf(part, s), at = along / SMALL * (D0 - gap - B.back);
+    const r = obj(id, name, part, poseOn(part, side, at, y, gap, s), Object.assign({ behaviour: wall('direction', gap) }, o));
+    if (r) byId[id].along = along, byId[id].at = at;
+    return r;
+  };
+  // a neighbour riding on an anchor of the same wall: `along` in the smallest room, so its offset from the anchor is the
+  // same in every room
+  const rider = (id, name, part, target, along, y, gap, o = {}) => {
+    const A = byId[target];
+    if (!A || A.along === undefined) { errors.push(`${id}: no anchor ${target}`); return; }
+    const side = Object.keys(WALL).find(k => WALL[k].yaw === A.pose.a);
+    return obj(id, name, part, poseOn(part, side, A.at + along - A.along, y, gap, o.s || 1), Object.assign({ behaviour: ride(target) }, o));
+  };
+  // a thing riding on an anchor at an offset in the anchor's own frame (from where the anchor's placed origin is)
+  const onAnchor = (id, name, part, target, off, o = {}) => {
+    const A = byId[target];
+    return obj(id, name, part, { p: plus(A.pose.p, turn(A.pose.a, off)), q: A.pose.q }, Object.assign({ behaviour: ride(target) }, o));
+  };
+  // a thing standing on the floor in the room, turned by a
+  const floor = (x, z, a) => ({ p: [x, 0, z], q: yawQ(a) });
+  const facing = (x, z, tx = 0, tz = 0) => Math.atan2(tx - x, tz - z);   // (the yaw that turns its front, +z, towards (tx, tz))
   // a sound: an emitter at its object (on), so it comes from there
   const snd = (id, name, file, on, o = {}) => {
     const t = objects.find(x => x.id === on);
@@ -52,84 +103,90 @@ export function makeLayout(parts, files) {
     if (o.shows) r.shows = o.shows;
     sounds.push(r);
   };
-  const cube = (id, name, p, size, o) => {
-    const r = Object.assign({ id, name, p, yaw: 0, size, mode: o.mode || 'while', show: o.show || [], hide: o.hide || [] }, o.plays ? { plays: o.plays } : {}, o.all ? { all: true } : {});
+  // a trigger cube from its corners along the floor (x0..x1, z0..z1), floor to 2.2 m
+  const cube = (id, name, [x0, x1, z0, z1], o) => {
+    const r = Object.assign({ id, name, p: [r3((x0 + x1) / 2), 1.1, r3((z0 + z1) / 2)], yaw: 0, size: [r3(x1 - x0), 2.2, r3(z1 - z0)], mode: o.mode || 'while', show: o.show || [], hide: o.hide || [] }, o.plays ? { plays: o.plays } : {}, o.all ? { all: true } : {});
     cubes.push(r);
   };
 
-  // ---- the front wall: the desktop
-  obj('wallpa', 'Wallpaper (AR)', 'wallpaper', front(0, 1.32, 0.01), { shows: 'ar', behaviour: wall('direction', 0.01) });
-  obj('bootsc', 'Boot screen', 'boot', front(0, 1.36, 0.06), { behaviour: wall('direction', 0.06) });
-  obj('welcom', 'Welcome screen', 'welcome', front(0, 1.36, 0.06), { behaviour: wall('direction', 0.06) });
-  obj('twelco', 'Title: welcome back.', 'title-welcome', front(-0.38, 1.44, 0.17), { behaviour: wall('direction', 0.17) });
-  obj('tbliss', 'Title: bliss', 'title-bliss', front(0, 2.3, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('tbbar1', 'Taskbar', 'taskbar-bar', front(0, 0.3, 0.02), { behaviour: wall('nearest', 0.02) });
-  obj('tbstrt', 'Start button', 'taskbar-start', front(-1.27, 0.3, 0.04), { behaviour: wall('nearest', 0.04) });
-  obj('tbquik', 'Quick launch', 'taskbar-quick', front(-0.88, 0.3, 0.04), { behaviour: wall('nearest', 0.04) });
-  obj('tbtask', 'Task buttons', 'taskbar-tasks', front(0.12, 0.3, 0.04), { behaviour: wall('nearest', 0.04) });
-  obj('tbtray', 'Tray and clock', 'taskbar-tray', front(1.21, 0.3, 0.04), { behaviour: wall('nearest', 0.04) });
-  obj('stmenu', 'Start menu', 'start-menu', front(-1.16, 0.8, 0.06), { behaviour: wall('nearest', 0.06) });
-  obj('icmyco', 'My Computer', 'icon-computer', front(-2.05, 1.95, 0.02), { behaviour: wall('direction', 0.02) });
-  obj('icmydo', 'My Documents', 'icon-documents', front(-2.05, 1.5, 0.02), { behaviour: wall('direction', 0.02) });
-  obj('icinte', 'Internet', 'icon-internet', front(-2.05, 1.05, 0.02), { behaviour: wall('direction', 0.02) });
-  obj('icmedi', 'Media Player', 'icon-media', front(-2.05, 0.6, 0.02), { behaviour: wall('direction', 0.02) });
-  obj('viewbl', 'Bliss.jpg - Picture and Fax Viewer', 'viewer-bliss', front(2.0, 1.5, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('blcurs', 'Balloon: Cursor is now connected', 'balloon-cursor', front(0.46, 0.63, 0.06), { anim: 'once', start: 'shown', behaviour: wall('nearest', 0.06) });
-  obj('blgras', 'Balloon: Found New Hardware', 'balloon-grass', front(1.0, 0.62, 0.06), { anim: 'once', start: 'shown', behaviour: wall('nearest', 0.06) });
-  obj('hourgl', 'Hourglass', 'hourglass', { p: [1.55, 1.8, -1.95], q: [0, 0, 0, 1] }, { motion: { kind: 'spin', speed: 6, amount: 0, axis: 'y', start: 'always' } });
-  obj('recycl', 'Recycle Bin', 'recycle-bin', floor(1.95, -1.95, facing(1.95, -1.95)));
-  obj('duck01', 'Rubber duck (You)', 'duck', floor(0.62, -1.85, facing(0.62, -1.85)));
+  // ---- the front wall: the desktop, riding on the taskbar's bar
+  const TB = 0.85;   // (the taskbar a little smaller than made, so it fits a 3 m wall)
+  anchor('tbbar1', 'Taskbar', 'taskbar-bar', 'front', 0, 0.3, 0.02, { s: TB });
+  rider('tbstrt', 'Start button', 'taskbar-start', 'tbbar1', -1.08, 0.3, 0.04, { s: TB });
+  rider('tbquik', 'Quick launch', 'taskbar-quick', 'tbbar1', -0.75, 0.3, 0.04, { s: TB });
+  rider('tbtask', 'Task buttons', 'taskbar-tasks', 'tbbar1', 0.1, 0.3, 0.04, { s: TB });
+  rider('tbtray', 'Tray and clock', 'taskbar-tray', 'tbbar1', 1.03, 0.3, 0.04, { s: TB });
+  rider('stmenu', 'Start menu', 'start-menu', 'tbbar1', -1.04, 0.81, 0.26);   // (in front of the icons, as the menu covers them)
+  rider('blcurs', 'Balloon: Cursor is now connected', 'balloon-cursor', 'tbbar1', 0.97, 0.63, 0.06, { anim: 'once', start: 'shown' });
+  rider('blgras', 'Balloon: Found New Hardware', 'balloon-grass', 'tbbar1', 1.06, 0.95, 0.06, { anim: 'once', start: 'shown' });
+  rider('wallpa', 'Wallpaper (AR)', 'wallpaper', 'tbbar1', 0, 1.35, 0.01, { shows: 'ar' });
+  rider('bootsc', 'Boot screen', 'boot', 'tbbar1', 0, 1.42, 0.06);
+  rider('welcom', 'Welcome screen', 'welcome', 'tbbar1', 0, 1.42, 0.06, { s: 0.9 });
+  rider('twelco', 'Title: welcome back.', 'title-welcome', 'tbbar1', -0.3, 1.67, 0.16);
+  rider('tbliss', 'Title: bliss', 'title-bliss', 'tbbar1', 0, 2.12, 0.05);
+  rider('icmyco', 'My Computer', 'icon-computer', 'tbbar1', -1.12, 2.08, 0.02);
+  rider('icmydo', 'My Documents', 'icon-documents', 'tbbar1', -1.12, 1.72, 0.02);
+  rider('icinte', 'Internet', 'icon-internet', 'tbbar1', -1.12, 1.36, 0.02);
+  rider('icmedi', 'Media Player', 'icon-media', 'tbbar1', -1.12, 1.0, 0.02);
+  rider('hourgl', 'Hourglass', 'hourglass', 'tbbar1', 1.05, 2.0, 0.3, { motion: { kind: 'spin', speed: 6, amount: 0, axis: 'y', start: 'always' } });
 
-  // ---- the left wall: chats and notes
-  obj('chatcl', 'Chat: Clippy - Conversation', 'chat-clippy', left(-1.0, 1.45, 0.05), { anim: 'off', behaviour: wall('person', 0.05) });
-  obj('chatdk', 'Chat: Duck - Conversation', 'chat-duck', left(-1.95, 1.15, 0.08), { anim: 'off', behaviour: wall('direction', 0.08) });
-  obj('notepd', 'diary.txt - Notepad', 'notepad-diary', left(0.25, 1.55, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('keybrd', 'On-Screen Keyboard', 'keyboard', left(0.25, 0.95, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('replce', 'Confirm File Replace', 'confirm-replace', left(-0.2, 1.18, 0.13), { behaviour: wall('direction', 0.13) });
-  obj('paintw', 'hill.bmp - Paint', 'paint-hill', left(1.2, 1.62, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('mediap', 'Media Player', 'media-player', left(2.0, 0.95, 0.05), { behaviour: wall('direction', 0.05) });
+  // ---- the left wall: Clippy's corner, the notes, Paint and the player
+  anchor('clloun', "Clippy's lounge", 'clippy-lounge', 'left', -0.8, null, 0.04);
+  onAnchor('clippy', 'Clippy', 'clippy', 'clloun', [0, 0.1, -0.02], { clip: 'Chill' });
+  onAnchor('clbal1', 'Clippy: trying to go outside?', 'clippy-balloon-outside', 'clloun', [0.2, 0.76, 0.02], { anim: 'once', start: 'shown' });
+  onAnchor('clbal2', 'Clippy: trying to be happy?', 'clippy-balloon-happy', 'clloun', [-0.3, 1.12, 0.06], { anim: 'once', start: 'shown' });
+  rider('chatdk', 'Chat: Duck - Conversation', 'chat-duck', 'clloun', -0.8, 1.98, 0.06, { anim: 'off' });
+  anchor('notepd', 'diary.txt - Notepad', 'notepad-diary', 'left', 0.02, 1.72, 0.05);
+  rider('keybrd', 'On-Screen Keyboard', 'keyboard', 'notepd', 0.02, 1.05, 0.05);
+  rider('replce', 'Confirm File Replace', 'confirm-replace', 'notepd', -0.34, 1.32, 0.13);
+  anchor('paintw', 'hill.bmp - Paint', 'paint-hill', 'left', 0.92, 1.72, 0.05, { s: 0.9 });
+  rider('mediap', 'Media Player', 'media-player', 'paintw', 0.92, 0.9, 0.05, { s: 0.9 });
+  // (Clippy's chat window slides along the walls to the person nearest it, low and a little smaller, so it passes under
+  // the windows it meets and never covers the welcome screen; at home by the notes)
+  obj('chatcl', 'Chat: Clippy - Conversation', 'chat-clippy', poseOn('chat-clippy', 'left', -0.45 / SMALL * D0, 0.72, 0.12, 0.8), { s: 0.8, anim: 'off', behaviour: wall('person', 0.12) });
 
-  // ---- the right wall: the pages, the door outside, the error corner
-  obj('browsr', 'the bliss network - Internet', 'browser-bliss', right(-1.3, 1.32, 0.03), { behaviour: wall('direction', 0.03) });
-  obj('searcw', 'how to go outside - Search', 'search-outside', right(-1.62, 1.58, 0.09), { behaviour: wall('direction', 0.09) });
-  obj('door01', 'Door outside', 'door', right(0, 1.115, 0.005), { clip: 'Open', anim: 'off', behaviour: wall('direction', 0.005) });
-  obj('hand01', 'Hand cursor', 'cursor-hand', { p: [2.24, 1.13, 0.36], q: yawQ(-Math.PI / 2) }, { motion: { kind: 'bob', speed: 40, amount: 0.04, axis: 'x', start: 'always' } });
-  obj('blgo01', 'Balloon: Go. Click the door', 'balloon-go', right(-0.85, 1.55, 0.06), { anim: 'once', start: 'shown', behaviour: wall('direction', 0.06) });
-  obj('blsono', 'Balloon: Bliss, Sonoma County', 'balloon-sonoma', right(0.88, 1.55, 0.06), { anim: 'once', start: 'shown', behaviour: wall('direction', 0.06) });
-  obj('wreal1', 'Window: Bliss is a real place', 'win-real-place', right(0, 2.34, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('errorc', 'Error: Cursor has encountered a problem', 'error-cursor', right(1.85, 1.35, 0.08), { behaviour: wall('direction', 0.08) });
-  obj('wclose', 'Window: Close all your windows', 'win-close-all', right(1.55, 2.1, 0.05), { behaviour: wall('direction', 0.05) });
+  // ---- the right wall: the pages and the bin, the door outside, the picture viewer
+  const PG = 0.8;   // (the pages a little smaller than made, so they fit beside the door on a 3 m wall)
+  anchor('browsr', 'the bliss network - Internet', 'browser-bliss', 'right', -0.96, 1.0, 0.03, { s: PG });
+  rider('searcw', 'how to go outside - Search', 'search-outside', 'browsr', -0.96, 1.76, 0.18, { s: PG });   // (over the door's frame)
+  rider('recycl', 'Recycle Bin', 'recycle-bin', 'browsr', -1.08, null, 0.05);
+  anchor('door01', 'Door outside', 'door', 'right', 0, null, 0.01, { clip: 'Open', anim: 'off' });
+  rider('hand01', 'Hand cursor', 'cursor-hand', 'door01', 0.36, 1.02, 0.28, { motion: { kind: 'bob', speed: 40, amount: 0.04, axis: 'x', start: 'always' } });
+  rider('blgo01', 'Balloon: Go. Click the door', 'balloon-go', 'door01', -0.86, 1.62, 0.26, { anim: 'once', start: 'shown' });
+  rider('blsono', 'Balloon: Bliss, Sonoma County', 'balloon-sonoma', 'door01', 0.86, 1.6, 0.26, { anim: 'once', start: 'shown' });
+  rider('wreal1', 'Window: Bliss is a real place', 'win-real-place', 'door01', 0, 2.31, 0.08);
+  anchor('viewbl', 'Bliss.jpg - Picture and Fax Viewer', 'viewer-bliss', 'right', 0.95, 1.76, 0.18, { s: PG });
 
-  // ---- the back wall: the way out
-  obj('solita', 'Solitaire win', 'solitaire', back(-1.75, 1.0, 0.02), { start: 'shown', behaviour: wall('direction', 0.02) });
-  obj('taskmg', 'Task Manager', 'task-manager', back(-0.75, 1.5, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('turnof', 'Turn off computer', 'turn-off', back(0.32, 1.56, 0.06), { behaviour: wall('direction', 0.06) });
-  obj('safeof', "It's now safe to turn off your computer.", 'safe-off', back(0.32, 0.98, 0.06), { behaviour: wall('direction', 0.06) });
-  obj('wingrs', 'Window: Go touch the grass', 'win-grass', back(0.32, 2.15, 0.04), { behaviour: wall('direction', 0.04) });
-  obj('remote', 'Remote Assistance', 'remote-assistance', back(1.25, 0.78, 0.05), { behaviour: wall('direction', 0.05) });
-  obj('trail1', 'Window trail', 'trail', back(1.75, 1.6, 0.02), { behaviour: wall('direction', 0.02) });
+  // ---- the back wall: Task Manager, the solitaire win, the way out, Remote Assistance and the error corner
+  anchor('taskmg', 'Task Manager', 'task-manager', 'back', -1.0, 1.5, 0.05);
+  const SOL = 0.8, solB = boxOf('solitaire', SOL);
+  anchor('solita', 'Solitaire win', 'solitaire', 'back', -0.55, 0.03 + solB.hh, 0.02, { s: SOL, start: 'shown' });   // (its cards bounce down to the floor)
+  anchor('turnof', 'Turn off computer', 'turn-off', 'back', 0, 1.55, 0.06);
+  rider('safeof', "It's now safe to turn off your computer.", 'safe-off', 'turnof', 0, 0.95, 0.06);
+  rider('wingrs', 'Window: Go touch the grass', 'win-grass', 'turnof', 0, 2.08, 0.04);
+  anchor('remote', 'Remote Assistance', 'remote-assistance', 'back', 0.95, 1.78, 0.05);
+  rider('wclose', 'Window: Close all your windows', 'win-close-all', 'remote', 0.95, 2.2, 0.05);
+  anchor('trail1', 'Window trail', 'trail', 'back', 0.8, 1.0, 0.02);
+  rider('errorc', 'Error: Cursor has encountered a problem', 'error-cursor', 'trail1', 0.8, 1.0, 0.56);   // (where the trail comes out of the wall)
 
-  // ---- the floor: Clippy's corner, the grass and what stands in it
-  const lounge = floor(-1.8, -1.7, facing(-1.8, -1.7)), at = off => plus(lounge.p, turn(lounge.a, off));
-  obj('clloun', "Clippy's lounge", 'clippy-lounge', lounge);
-  obj('clippy', 'Clippy', 'clippy', { p: at([0, 0.1, -0.02]), q: lounge.q }, { clip: 'Chill' });
-  obj('clbal1', 'Clippy: trying to go outside?', 'clippy-balloon-outside', { p: at([0.2, 0.76, 0.02]), q: lounge.q }, { anim: 'once', start: 'shown' });
-  obj('clbal2', 'Clippy: trying to be happy?', 'clippy-balloon-happy', { p: at([0.44, 1.12, -0.04]), q: lounge.q }, { anim: 'once', start: 'shown' });
-  obj('grass1', 'Grass', 'grass-patch', floor(0.15, 0.95, 0.3));
-  obj('grass2', 'Grass strip', 'grass-strip', floor(-0.9, 1.5, -0.4));
-  obj('grass3', 'Grass 2', 'grass-patch', floor(1.0, 1.4, 1.2));
-  obj('grass4', 'Grass 3', 'grass-patch', floor(-1.55, 0.45, 2.1));
-  obj('glcrt1', 'Glass CRT', 'glass-crt', floor(0.35, 1.25, facing(0.35, 1.25)));
-  obj('phone1', 'Flip phone', 'flip-phone', floor(-0.42, 1.2, facing(-0.42, 1.2)));
-  obj('cursor', 'Giant cursor', 'cursor-arrow', { p: [0.9, 1.3, -0.6], q: [0, 0, 0, 1] }, { behaviour: { kind: 'follow', who: 'nearest', range: 3, dist: 0.9, speed: 0.6, side: 'right', face: 'along' } });
+  // ---- in the middle: the grass, the glass CRT and the duck watching it, the flip phone; the giant cursor
+  obj('grass1', 'Grass', 'grass-patch', floor(0.2, 0.7, 0.3));
+  obj('grass2', 'Grass 2', 'grass-patch', floor(-0.75, 0.3, 2.1));
+  obj('grass3', 'Grass strip', 'grass-strip', floor(0.65, 0.05, 1.25));
+  obj('glcrt1', 'Glass CRT', 'glass-crt', floor(0.3, 0.85, facing(0.3, 0.85, -0.1, 0.3)));
+  obj('duck01', 'Rubber duck (You)', 'duck', floor(-0.1, 0.3, facing(-0.1, 0.3, 0.3, 0.85)));
+  obj('phone1', 'Flip phone', 'flip-phone', floor(-0.7, 0.55, facing(-0.7, 0.55)));
+  // (the giant cursor rolled 80 degrees about its front, so at your right its face looks back at you)
+  obj('cursor', 'Giant cursor', 'cursor-arrow', { p: [0.9, 1.3, -0.6], q: [0, 0, -0.6428, 0.766] },
+    { behaviour: { kind: 'follow', who: 'nearest', range: 3, dist: 0.9, speed: 0.6, side: 'right', face: 'along' } });
 
-  // ---- clouds under the ceiling (both), big ones far in the sky (VR)
+  // ---- clouds over the middle, under the ceiling (both), big ones far in the sky (VR)
   const orbit = (amount, speed) => ({ kind: 'orbit', speed, amount, axis: 'y', start: 'always' });
-  obj('cloud1', 'Cloud', 'cloud-a', { p: [-1.2, 2.25, -1.0], q: [0, 0, 0, 1] }, { motion: orbit(0.5, 1.2) });
-  obj('cloud2', 'Cloud 2', 'cloud-b', { p: [1.3, 2.3, -0.4], q: yawQ(0.8) }, { motion: orbit(0.4, -1.5) });
-  obj('cloud3', 'Cloud 3', 'cloud-c', { p: [0.1, 2.3, 1.4], q: yawQ(2) }, { motion: orbit(0.6, 0.8) });
-  obj('cloud4', 'Cloud 4', 'cloud-b', { p: [-1.5, 2.2, 1.3], q: yawQ(-1) }, { motion: orbit(0.3, 1.8) });
-  obj('cloud5', 'Cloud 5', 'cloud-a', { p: [1.5, 2.25, 1.6], q: yawQ(2.6) }, { motion: orbit(0.45, -1) });
+  obj('cloud1', 'Cloud', 'cloud-a', { p: [-0.7, 2.0, -0.6], q: [0, 0, 0, 1] }, { s: 0.5, motion: orbit(0.25, 1.2) });
+  obj('cloud2', 'Cloud 2', 'cloud-b', { p: [0.75, 2.05, -0.3], q: yawQ(0.8) }, { s: 0.55, motion: orbit(0.2, -1.5) });
+  obj('cloud3', 'Cloud 3', 'cloud-c', { p: [0.2, 2.0, 0.9], q: yawQ(2) }, { s: 0.45, motion: orbit(0.25, 0.8) });
+  obj('cloud4', 'Cloud 4', 'cloud-b', { p: [-0.8, 2.05, 0.8], q: yawQ(-1) }, { s: 0.5, motion: orbit(0.2, 1.8) });
+  obj('cloud5', 'Cloud 5', 'cloud-a', { p: [0.9, 2.0, 0.95], q: yawQ(2.6) }, { s: 0.45, motion: orbit(0.2, -1) });
   obj('vcld01', 'Sky cloud (VR)', 'cloud-c', { p: [-14, 13, -28], q: yawQ(0.4) }, { s: 7, shows: 'vr', motion: orbit(3, 0.4) });
   obj('vcld02', 'Sky cloud 2 (VR)', 'cloud-a', { p: [22, 16, -18], q: yawQ(-1) }, { s: 8, shows: 'vr', motion: orbit(4, -0.3) });
   obj('vcld03', 'Sky cloud 3 (VR)', 'cloud-b', { p: [6, 12, 30], q: yawQ(2.4) }, { s: 7, shows: 'vr', motion: orbit(3, 0.35) });
@@ -156,30 +213,36 @@ export function makeLayout(parts, files) {
   snd('sflips', 'Solitaire flips', 'sounds/solitaire-flips.wav', 'solita', { r: 2, vol: 0.8, loop: true });
   snd('sambie', 'Wind and birds (VR)', 'sounds/outdoors.wav', 'landsc', { r: 8, vol: 0.5, loop: true, o: [0, 2.5, 0], shows: 'vr' });
 
-  // ---- the walk: trigger cubes
+  // ---- the walk: trigger cubes, each reaching from inside the smallest room (3 x 3 m) out past the walls of the biggest
   const once = (on, what, o = {}) => Object.assign({ on, what }, o.clip ? { clip: o.clip } : {}, { how: o.how || 'once' }, o.when ? { when: o.when } : {});
-  cube('cuentr', 'Entry (everyone, once)', [0, 1.1, -1.1], [1.6, 2.2, 0.8], { mode: 'stay', all: true, show: ['welcom', 'twelco', 'cursor', 'blcurs'], hide: ['bootsc'], plays: [once('sstart', 'sound')] });
-  cube('custrt', 'Start menu', [-0.85, 1.1, -2.05], [0.9, 2.2, 0.8], { show: ['stmenu'], plays: [once('sclik2', 'sound')] });
-  cube('cuclip', 'Clippy', [-1.9, 1.1, -1.65], [1.1, 2.2, 1.3], { show: ['clbal1'], plays: [once('clippy', 'clip', { clip: 'Wave' }), once('spop01', 'sound')] });
-  cube('curecy', 'Recycle Bin', [1.9, 1.1, -1.85], [1.1, 2.2, 1.1], { plays: [once('scrump', 'sound')] });
-  cube('cuchat', 'Chat', [-1.9, 1.1, 0], [1.1, 2.2, 1.2], { plays: [once('schime', 'sound'), once('snudge', 'sound'), once('chatcl', 'clip', { clip: 'Nudge' }), once('stypin', 'sound', { how: 'loop' })] });
-  cube('cudoor', 'Door', [1.9, 1.1, 0], [1.1, 2.2, 1.2], { show: ['blgo01', 'blsono'], hide: ['hand01'], plays: [once('door01', 'clip', { clip: 'Open', how: 'hold' }), once('sclick', 'sound'), once('sout01', 'sound', { how: 'loop' })] });
-  cube('cugras', 'Grass (everyone)', [0.1, 1.1, 1.0], [1.4, 2.2, 1.0], { all: true, show: ['blgras', 'clbal2'], plays: [once('shwin1', 'sound'), once('shwout', 'sound', { when: 'leave' }), once('clippy', 'clip', { clip: 'Dance', how: 'loop' }), once('spop02', 'sound')] });
-  cube('cusoli', 'Solitaire', [-1.85, 1.1, 1.85], [1.2, 2.2, 1.2], { show: ['solita'], plays: [once('sflips', 'sound', { how: 'loop' })] });
-  cube('cutask', 'Task Manager', [-0.75, 1.1, 2.05], [0.8, 2.2, 0.8], { plays: [once('scrit1', 'sound')] });
-  cube('cuexit', 'Way out', [0.35, 1.1, 2.05], [0.9, 2.2, 0.8], { show: ['turnof', 'safeof', 'stars1'], hide: ['landsc'], plays: [once('sshutd', 'sound')] });
-  cube('cuerro', 'Error corner (everyone)', [1.85, 1.1, 1.9], [1.2, 2.2, 1.1], { all: true, show: ['errorc', 'trail1', 'wclose'], hide: ['cursor'], plays: [once('sding1', 'sound')] });
+  cube('cuentr', 'Entry (everyone, once)', [-0.8, 0.8, -1.25, -0.6], { mode: 'stay', all: true, show: ['welcom', 'twelco', 'cursor', 'blcurs'], hide: ['bootsc'], plays: [once('sstart', 'sound')] });
+  cube('custrt', 'Start menu', [-1.6, -0.4, -2.7, -1.0], { show: ['stmenu'], plays: [once('sclik2', 'sound')] });
+  cube('cuclip', 'Clippy', [-2.7, -0.75, -2.2, -0.5], { show: ['clbal1'], plays: [once('clippy', 'clip', { clip: 'Wave' }), once('spop01', 'sound')] });
+  cube('curecy', 'Recycle Bin', [0.75, 2.7, -2.7, -1.05], { plays: [once('scrump', 'sound')] });
+  cube('cuchat', 'Chat', [-2.7, -0.75, -0.45, 0.55], { plays: [once('schime', 'sound'), once('snudge', 'sound'), once('chatcl', 'clip', { clip: 'Nudge' }), once('stypin', 'sound', { how: 'loop' })] });
+  cube('cudoor', 'Door', [0.8, 2.7, -0.65, 0.65], { show: ['blgo01', 'blsono'], hide: ['hand01'], plays: [once('door01', 'clip', { clip: 'Open', how: 'hold' }), once('sclick', 'sound'), once('sout01', 'sound', { how: 'loop' })] });
+  cube('cugras', 'Grass (everyone)', [-0.5, 0.9, 0.25, 1.15], { all: true, show: ['blgras', 'clbal2'], plays: [once('shwin1', 'sound'), once('shwout', 'sound', { when: 'leave' }), once('clippy', 'clip', { clip: 'Dance', how: 'loop' }), once('spop02', 'sound')] });
+  cube('cusoli', 'Solitaire', [-2.7, -0.55, 0.85, 2.7], { show: ['solita'], hide: ['taskmg'], plays: [once('sflips', 'sound', { how: 'loop' })] });
+  cube('cutask', 'Task Manager', [-1.75, -0.6, 1.0, 2.7], { plays: [once('scrit1', 'sound')] });
+  cube('cuexit', 'Way out', [-0.45, 0.45, 1.0, 2.7], { show: ['turnof', 'safeof', 'stars1'], hide: ['landsc'], plays: [once('sshutd', 'sound')] });
+  cube('cuerro', 'Error corner (everyone)', [0.55, 2.7, 0.9, 2.7], { all: true, show: ['errorc', 'trail1', 'wclose'], hide: ['cursor'], plays: [once('sding1', 'sound')] });
 
-  // ---- groups: things that move together
-  groups.push({ id: 'gtaskb', name: 'Taskbar', items: ['tbbar1', 'tbstrt', 'tbquik', 'tbtask', 'tbtray'] });
-  groups.push({ id: 'gclipy', name: "Clippy's corner", items: ['clloun', 'clippy', 'clbal1', 'clbal2'] });
-  groups.push({ id: 'gdoor1', name: 'The door', items: ['door01', 'hand01', 'blgo01', 'blsono'] });
+  // ---- groups: things that move together in the studio
+  groups.push({ id: 'gtaskb', name: 'Desktop', items: ['tbbar1', 'tbstrt', 'tbquik', 'tbtask', 'tbtray', 'stmenu', 'blcurs', 'blgras', 'wallpa', 'bootsc', 'welcom', 'twelco', 'tbliss', 'icmyco', 'icmydo', 'icinte', 'icmedi', 'hourgl'] });
+  groups.push({ id: 'gclipy', name: "Clippy's corner", items: ['clloun', 'clippy', 'clbal1', 'clbal2', 'chatdk'] });
+  groups.push({ id: 'gnotes', name: 'Notes', items: ['notepd', 'keybrd', 'replce'] });
+  groups.push({ id: 'gpaint', name: 'Paint and the player', items: ['paintw', 'mediap'] });
+  groups.push({ id: 'gpages', name: 'The pages', items: ['browsr', 'searcw', 'recycl'] });
+  groups.push({ id: 'gdoor1', name: 'The door', items: ['door01', 'hand01', 'blgo01', 'blsono', 'wreal1', 'viewbl'] });
+  groups.push({ id: 'gerror', name: 'The error corner', items: ['remote', 'wclose', 'trail1', 'errorc'] });
+  groups.push({ id: 'gwayot', name: 'The way out', items: ['turnof', 'safeof', 'wingrs'] });
 
-  // ---- checks: unique ids of six letters and digits, every id named exists
+  // ---- checks: unique ids of six letters and digits, every id named exists, riders on anchors that are there
   const ids = new Set();
   for (const x of [...objects, ...sounds, ...cubes, ...groups]) { if (!/^[a-z0-9]{6}$/.test(x.id)) errors.push(`${x.id}: not six letters and digits`); if (ids.has(x.id)) errors.push(`${x.id}: used twice`); ids.add(x.id); }
   for (const c of cubes) for (const k of [...c.show, ...c.hide, ...(c.plays || []).map(e => e.on)]) if (!ids.has(k)) errors.push(`${c.id}: names ${k}, which is not in the room`);
   for (const g of groups) for (const k of g.items) if (!ids.has(k)) errors.push(`${g.id}: names ${k}, which is not in the room`);
+  for (const o of objects) if (o.behaviour && o.behaviour.kind === 'item' && !objects.some(t => t.id === o.behaviour.target)) errors.push(`${o.id}: rides on ${o.behaviour.target}, which is not in the room`);
   for (const c of cubes) for (const e of c.plays || []) if (e.what === 'clip') { const t = objects.find(o => o.id === e.on); if (t && !clipsOf(partOf[t.file]).includes(e.clip)) errors.push(`${c.id}: ${e.on} has no clip ${e.clip}`); }
   const layout = { studio: 1, scene: 'bliss-xp', saved: '2026-11-11T12:00:00.000Z', objects, cubes, sounds, groups };
   return { layout, errors, partOf };

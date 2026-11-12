@@ -5594,16 +5594,22 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   this could actually be built like a studio scene with trigger cubes etc that we can edit", "make sure its all cool and
   fancy 3d if possible", "Also add a little 3d version of clippy that is there and chills"; `tools/studio/xp/README.md`,
   `COMPONENTS.md`). `examples/bliss-xp/`: the music video "Bliss (Windows XP)" by anabology taken apart and built again
-  as a room of about 5 x 5 m round the scene's origin, every part our own (no frames, people, logos, the real system's
-  sounds or lyrics; Clippy in the assistant's part, our own paperclip): 58 models (the boot and welcome screens with our
-  emblem, the windows as Luna slabs with their buttons in relief, the taskbar's pieces and the Start menu, the icons, the
-  Recycle Bin, balloons that pop in, the giant arrow cursor, the hand, the hourglass, the door that opens onto the hill,
-  the solitaire win bouncing out of the wall, Media Player's 3D bars, the drag trail, the glass CRT, the flip phone, the
-  duck, grass that sways, clouds, titles in 3D, Clippy with his clips Chill, Blink, Wave and Dance on his beanbag; for VR
-  our painted hill and sky and the starfield, for AR a painted wallpaper), 14 synthesised sounds as 17 emitters at their
-  objects, 11 trigger cubes as a walk through the video (some for everyone at the circle), 3 groups, about 69,000
-  triangles as placed and 5.3 MB. It uses v137's contract: the `wall` behaviour on its wall items (so in AR they go onto
-  the walls each headset finds), `shows: 'ar' | 'vr'` and cubes' `all: true`. Made by `node tools/studio/xp/make.mjs`
+  as a room, every part our own (no frames, people, logos, the real system's sounds or lyrics; Clippy in the assistant's
+  part, our own paperclip): 58 models (the boot and welcome screens with our emblem, the windows as Luna slabs with their
+  buttons in relief, the taskbar's pieces and the Start menu, the icons, the Recycle Bin, balloons that pop in, the giant
+  arrow cursor, the hand, the hourglass, the door that opens onto the hill, the solitaire win bouncing out of the wall,
+  Media Player's 3D bars, the drag trail, the clear CRT, the flip phone, the duck, grass that sways, clouds, titles in
+  3D, Clippy with his clips Chill, Blink, Wave and Dance on his deckchair; for VR our painted hill and sky and the
+  starfield, for AR a painted wallpaper) as 65 objects, 14 synthesised sounds as 17 emitters at their objects, 11
+  trigger cubes as a walk through the video (the entry, the grass and the error corner for everyone at the circle), 8
+  groups; 67,378 triangles as placed in VR (50,286 in AR), at most 118 draws, 5.3 MB. In VR it stands as placed in a
+  room of 5 x 5 m round the scene's origin; in AR it maps onto each headset's own walls by v137's `wall` behaviour, in
+  clusters: on each wall anchors (`direction`) placed so that in the smallest room (3 x 3 m) they meet their wall where
+  they belong, and their neighbours riding on them (the behaviour `item`), so a cluster stays one piece and the room fits
+  rooms from about 3 x 3 m to 5 x 5 m (the desktop rides on the taskbar's bar on the front wall); Clippy's chat window
+  slides along the walls with you (`wall`, `person`). It also uses `shows: 'ar' | 'vr'` and cubes' `all: true`. The floor
+  things and the cubes stand round the scene's origin: start in the middle of the room, facing the wall for the desktop
+  (in a shared room put spot A there). Made by `node tools/studio/xp/make.mjs`
   (deterministic; `--check` says whether the folder is current), never by hand.
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
@@ -6538,12 +6544,14 @@ made into a GLB, downloaded (no relay), whose clips are *Walk* and *Take 1* (3 s
 feet and the Index's headset and controllers), then with a performer's own headset (`HOST.collab.body`): the feet within
 5 mm and the hands within 1 cm (0.05 and 0.06 mm); a part given another tracker (swapping), not lined up until it is again.
 
-Its *studio xp* steps (v137; `--only 'studio xp'`, under a minute) open the Bliss XP room read only from `examples/`
+Its *studio xp* steps (v137; `--only 'studio xp'`, about two minutes) open the Bliss XP room read only from `examples/`
 (`#studio&scenes=examples&scene=bliss-xp&edit`): every model of its listing placed once more and loaded with no console
 error, each under 30,000 triangles and the room under 250,000 as placed, every picture at most 1,024 px, the clips its
-layout names there; every sound decoded (mono, 22,050 Hz); and its layout read with no bad items, which passes only with
-the studio's v137 contract (a studio without it reads the items with a wall behaviour as bad). After changing
-`tools/studio/xp/`, run `node tools/studio/xp/make.mjs` and its `--check`.
+layout names there; every sound decoded (mono, 22,050 Hz); its layout read with no bad items, every record as the
+studio's own `norm` gives it back, v137's fields used, and the Scene pane's Examples (the default folder) listing it;
+and on pretend walls of a 3 x 3.5 m room (`STUDIO.walls`, an AR session pretended, `STUDIO.sess('ar')`) every wall item
+and what rides on it inside the room, the anchors against a wall. After changing `tools/studio/xp/`, run
+`node tools/studio/xp/make.mjs` and its `--check`.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
 Headless Chromium plays sound without a tap, so the test imitates the strict

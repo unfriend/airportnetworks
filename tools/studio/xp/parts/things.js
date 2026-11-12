@@ -1,6 +1,6 @@
 // Things of the video: the white door that opens onto the hill (clip Open), the flip phone with the hill on its screen,
-// the clear glass CRT monitor on the hill, and the rubber duck "You". Lit (one material each, colours in the corners),
-// their screens and the view through the door unlit pictures.
+// the clear CRT monitor on the hill (its housing see-through), and the rubber duck "You". Lit (one material each, colours
+// in the corners), their screens and the view through the door unlit pictures.
 (function () {
   const T = THREE, S = XP.solid, M = (x, y, z, rx, ry, rz) => XP.at(null, x, y, z, rx, ry, rz).m;
   // a picture on a flat panel (unlit): a canvas painted by fn, w x h metres
@@ -59,25 +59,24 @@
     return { root: XP.group('flip-phone', lower) };
   } });
 
-  XP.part('glass-crt', { file: 'models/glass-crt.glb', view: { dir: [0.8, 0.45, 1] }, build() {
-    // a CRT monitor inside a small glass case standing on the grass: the case's panes faint (small, so cheap), its edges
-    // solid; the screen shows the hill
-    const B = 0.5, crt = [], dark = '#3a3f48';
-    crt.push(S(XP.rbox(0.36, 0.3, 0.2, 0.03), dark, M(0, 0.21, 0.02)));
-    crt.push(S(XP.box(0.26, 0.2, 0.14), '#30353d', M(0, 0.2, -0.13)));
-    crt.push(S(XP.cyl(0.07, 0.09, 0.03, 18), dark, M(0, 0.045, 0)));
-    crt.push(S(XP.box(0.05, 0.03, 0.05), dark, M(0, 0.07, 0)));
-    const e = 0.012, edges = [];
-    for (const [x, z] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) edges.push(S(XP.box(e, B, e), '#e8f6ff', M(x * B / 2, B / 2, z * B / 2)));
-    for (const y of [0, B]) for (const [x, z, w, d] of [[0, -1, B, e], [0, 1, B, e], [-1, 0, e, B], [1, 0, e, B]]) edges.push(S(XP.box(w, e, d), '#e8f6ff', M(x * B / 2, y, z * B / 2)));
-    const body = XP.merge(crt.concat(edges), { noUV: true });
-    const panes = [];
-    for (const [x, y, z, ry, rx] of [[0, B / 2, B / 2, 0, 0], [0, B / 2, -B / 2, Math.PI, 0], [B / 2, B / 2, 0, Math.PI / 2, 0], [-B / 2, B / 2, 0, -Math.PI / 2, 0], [0, B, 0, 0, -Math.PI / 2]]) { const p = new T.PlaneGeometry(B, B); p.deleteAttribute('uv'); panes.push({ geo: p, m: M(x, y, z, rx, ry, 0) }); }
-    const glass = XP.merge(panes, { noUV: true });
-    const root = XP.group('glass-crt', XP.mesh(body, XP.lit({ roughness: 0.4, metalness: 0.1 }), 'monitor'),
-      XP.mesh(glass, new T.MeshStandardMaterial({ color: 0xd6f0ff, transparent: true, opacity: 0.16, roughness: 0.05, side: T.DoubleSide, depthWrite: false }), 'glass'));
-    const scr = picture(0.28, 0.21, 384, (g, W, H) => { XP.hill(g, 0, 0, W, H, { seed: 45, clouds: 3 }); const v = g.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,20,0.55)'); g.fillStyle = v; g.fillRect(0, 0, W, H); }, 'screen');
-    scr.position.set(0, 0.21, 0.121); root.add(scr);
+  XP.part('glass-crt', { file: 'models/glass-crt.glb', view: { dir: [0.9, 0.45, 1] }, build() {
+    // a clear CRT monitor standing on the grass: its housing see-through (one pane, small), so the dark picture tube, its
+    // neck glowing orange and the green board show through it; a pale bezel round the screen, which shows the hill
+    const cy = 0.27, solid = [];
+    solid.push(S(XP.rbox(0.46, 0.38, 0.05, 0.03), '#d5e6ee', M(0, cy, 0.065)));                 // (the bezel)
+    const tube = XP.cyl(0.035, 0.15, 0.22, 24); tube.rotateX(-Math.PI / 2); solid.push(S(tube, '#1d2229', M(0, cy, -0.08)));
+    const neck = XP.cyl(0.025, 0.025, 0.06, 12); neck.rotateX(-Math.PI / 2); solid.push(S(neck, '#2a3038', M(0, cy, -0.22)));
+    solid.push(S(XP.box(0.3, 0.008, 0.2), '#2f7d3c', M(0, cy - 0.15, -0.11)));                  // (the board)
+    solid.push(S(XP.rbox(0.28, 0.025, 0.24, 0.01), '#cfdde6', M(0, 0.0125, -0.08)));              // (the foot)
+    solid.push(S(XP.cyl(0.04, 0.05, 0.065, 16), '#c3d3dd', M(0, 0.057, -0.08)));
+    const body = XP.merge(solid, { noUV: true });
+    const shell = XP.cyl(0.127, 0.2546, 0.3, 4); shell.rotateY(Math.PI / 4); shell.rotateX(-Math.PI / 2); shell.scale(1.222, 1, 1); shell.translate(0, cy, -0.11);
+    shell.deleteAttribute('uv');
+    const root = XP.group('glass-crt', XP.mesh(body, XP.lit({ roughness: 0.35, metalness: 0.15 }), 'monitor'),
+      XP.mesh(shell, new T.MeshStandardMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.24, roughness: 0.05, metalness: 0.1, depthWrite: false }), 'glass'),
+      XP.mesh(new T.SphereGeometry(0.016, 10, 8).translate(0, cy, -0.255), new T.MeshBasicMaterial({ color: 0xff9a3c }), 'glow'));
+    const scr = picture(0.36, 0.27, 384, (g, W, H) => { XP.hill(g, 0, 0, W, H, { seed: 45, clouds: 3 }); const v = g.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,20,0.55)'); g.fillStyle = v; g.fillRect(0, 0, W, H); }, 'screen');
+    scr.position.set(0, cy, 0.0905); root.add(scr);
     return { root };
   } });
 

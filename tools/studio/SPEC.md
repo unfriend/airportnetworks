@@ -2335,7 +2335,7 @@ Scenes that ship with the app. `engine/e7g_examples.js`.
 - **The folder**: `examples/` at the app's root, scene folders and their listings exactly as `tools/studio/scan.mjs` writes
   them (`examples/index.json`, `examples/<name>/files.json`, each scene's `layout.json`); `&examples=<a relative folder>`
   picks another (the tests: `tools/studio/test/examples/`, whose `tiny` scene `tools/studio/test/make.mjs` writes). The
-  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`, another lane's). The relay serves it as an app folder
+  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`). The relay serves it as an app folder
   (`APP_DIRS`, deeper than the others: `APP_DEEP`); `sw.js` treats its files as app files, network first, never in
   `SHELL`'s precache.
 - **Listed** on the Scene pane, page and headset (*Examples (they come with the app)*), read once as the studio looks for
@@ -2467,11 +2467,16 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
   buttons shaded by colours in their corners; the things (Clippy, the bin, the duck, the door, the icons) are lit. Some
   unlit models have no normals.
 - Its sounds are mono 16-bit WAVs at 22,050 Hz, each placed as an emitter following its object (`on`).
-- Its layout uses v137's fields: the `wall` behaviour on every wall item (`direction`, `nearest` for the taskbar's pieces,
-  the Start menu and the balloons over the clock, `person` for one chat window), `shows: 'vr'` (the landscape, the
-  starfield, the far clouds, the wind) and `shows: 'ar'` (the wallpaper), and cubes' `all: true` (the entry, the grass,
-  the error corner). Models whose clip should wait for a cube are placed with it and `anim: 'off'` (the door's Open,
-  the chat's Nudge); balloons pop in with `anim: 'once'` and `start: 'shown'`.
+- Its layout uses v137's fields: the `wall` behaviour on each wall cluster's anchor (`direction`: the taskbar's bar, which
+  the whole desktop rides on, Clippy's deckchair, the notes, Paint, the pages, the door, the picture viewer, Task Manager,
+  the solitaire win, the way out, Remote Assistance and the trail) and on one chat window (`person`), the behaviour
+  `item` on what rides on an anchor (it keeps its offset from it, so a cluster maps onto a wall as one piece), `shows:
+  'vr'` (the landscape, the starfield, the far clouds, the wind) and `shows: 'ar'` (the wallpaper), and cubes' `all:
+  true` (the entry, the grass, the error corner). The anchors are placed on the ray that meets their wall where they
+  belong in a room of 3 x 3 m, so the room maps onto rooms from about 3 x 3 m to 5 x 5 m without piling up; the floor
+  things and the cubes stand within the smallest room round the scene's origin, the cubes reaching out past the walls
+  of the biggest. Models whose clip should wait for a cube are placed with it and `anim: 'off'` (the door's Open, the
+  chat's Nudge); balloons pop in with `anim: 'once'` and `start: 'shown'`.
 
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
