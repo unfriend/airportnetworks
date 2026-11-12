@@ -90,7 +90,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   ETag, and fetches only the ones that changed. Installing fetches straight
   from the server (`cache: 'reload'`). The studio's scenes (any same-origin path with `/scenes/`: the relay's
   `--scenes` and a static folder of them) are passed straight through, never cached (v111), by a rule before the
-  narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's; the upload page's
+  narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's, and so are the example
+  scenes that ship with the app (`examples/`, v137: big models and streamed sounds, not offline); the upload page's
   POSTs and the navigation to `<relay>/upload` are left to the browser.
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports,
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);

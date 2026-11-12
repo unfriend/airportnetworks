@@ -98,8 +98,9 @@ self.addEventListener('fetch', e => {
   }
   // the studio's scenes (the relay's --scenes, or a static folder of them): the owner's own models, sounds and layouts,
   // large and changing while they work, so never kept here; the browser asks the server each time (no-cache, ETags).
-  // Before the narration's rule: a scene's own audio/narration.mp3 must never be taken for (and cached as) the app's
-  if (url.origin === self.location.origin && /\/scenes\//.test(url.pathname)) return;
+  // Before the narration's rule: a scene's own audio/narration.mp3 must never be taken for (and cached as) the app's.
+  // The example scenes that ship with the app (examples/, v137) likewise: big models and streamed sounds, opened read only
+  if (url.origin === self.location.origin && /\/(scenes|examples)\//.test(url.pathname)) return;
   // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
   // (a story playing it for the first time on this device) for next time and offline
   const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
