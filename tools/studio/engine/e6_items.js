@@ -1464,6 +1464,7 @@ const ITEM_KEY = /^[ocsxgpe]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
+  exLeave();   // (an example open here as this device came to the circle: back to the relay first; e7g_examples.js)
   const items = Object.keys(v).some(k => ITEM_KEY.test(k)), sid = stationId(), moved = sid !== STU.stId;
   STU.stId = sid;
   const ok = typeof v.scene === 'string' && (v.scene === '' || okScene(v.scene)), fresh = ok && !!v.scene && !items;

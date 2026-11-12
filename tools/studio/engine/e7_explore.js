@@ -723,8 +723,8 @@ function act(a, v) {
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
-    exopen: () => exOpen(v),   // (an example: opened read only, or copied to the relay, a page's; e7g_examples.js)
-    excopy: () => { if (!XR.on) exCopy(v); },
+    exopen: () => exOpen(v),   // (an example: opened read only, or at a circle from the relay for everyone there; e7g_examples.js)
+    excopy: () => exCopy(v),
     exback: () => exBack(),
     scenemake: () => sceneMake(NS.name),
     from: () => { FROM.open = !FROM.open && canCopy(); const o = SRC.scenes.filter(s => s.name !== STU.scene); if (FROM.open && !FROM.scene && o.length === 1) fromScene(o[0].name); },

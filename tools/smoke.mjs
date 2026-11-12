@@ -8241,7 +8241,7 @@ if (runs('studio examples')) {
     const opened = await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000);
     const s1 = await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().folder, STUDIO.state().save, STUDIO.state().items, STUDIO.examples().here, STUDIO.examples().prev, STU.items.get('excub1') && STU.items.get('excub1').rec.all, STU.items.get('exbox1') && !!STU.items.get('exbox1').model])`);
     if (!opened || s1 !== '["folder","tools/studio/test/examples",false,3,true,true,true,true]') out.push('the example opened, read only: ' + s1);
-    // the headset's Scene pane: the example's row, no Copy; Back to your scenes pressed there
+    // the headset's Scene pane: the example's row, its Copy too (greyed: no relay here; v137b); Back to your scenes pressed there
     const xr = await ss(`(() => {
       XR.on = true;
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
@@ -8251,7 +8251,7 @@ if (runs('studio examples')) {
       X.scroll = {}; XR.on = false; renderPanes();
       return [ids.has('exopen:tiny'), ids.has('excopy:tiny'), pressed];
     })()`);
-    if (JSON.stringify(xr) !== '[true,false,true]') out.push('the headset\'s rows (Open, no Copy, Back pressed): ' + JSON.stringify(xr));
+    if (JSON.stringify(xr) !== '[true,true,true]') out.push('the headset\'s rows (Open, Copy, Back pressed): ' + JSON.stringify(xr));
     const back = await until(`STUDIO.state().scene === 'test' && STUDIO.state().folder === 'tools/studio/test/scenes' && STUDIO.ready()`, 60000);
     if (!back || await ss('STUDIO.examples().here')) out.push('Back to your scenes: ' + JSON.stringify(await ss('[STUDIO.state().scene, STUDIO.state().folder]')));
     bad(out);
