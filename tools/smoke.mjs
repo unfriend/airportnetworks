@@ -9,7 +9,8 @@
 // --only 'studio edit speed': what the studio's edit mode no longer does every frame, a minute;
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
-// --only 'update the room': Update the room's buttons, the order and a reload by it, v136)
+// --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
+// --only 'studio xp': the Bliss XP room, the studio's first example scene, v137)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -8378,6 +8379,72 @@ if (runs('studio puppet')) {
     });
   }
   for (const pg of pages) await pg.close().catch(() => {});
+}
+// The Bliss XP room (v137), the studio's first example scene: examples/bliss-xp/, made by tools/studio/xp/make.mjs, opened
+// read only from the folder as the Scene pane's Open does (#studio&scenes=examples&scene=bliss-xp). Every model of its
+// listing loads with no console error, under its budgets (30,000 triangles a model, 250,000 for the room as placed, every
+// picture at most 1,024 px), its clips the layout names are there, and every sound decodes. The layout read with no bad
+// items passes only once the studio's v137 contract (FORMAT networks-43: cubes' all, shows, the wall behaviour) is in:
+// a studio without it drops every item with a wall behaviour as bad
+if (runs('studio xp')) {
+  const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp.on('pageerror', e => errors.push('studio xp: ' + (e.stack || e.message)));
+  xp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio xp: ' + m.text()); });
+  const ss = s => xp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => xp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio xp: ' + b)); };
+  let opened = false;
+  await step('studio xp: every model of the Bliss XP room loads, under its budgets, with its clips', async () => {
+    await xp.goto(base + 'index.html#studio&scenes=examples&scene=bliss-xp&edit');
+    await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STU.listing === 'ok' && STU.scene === 'bliss-xp' && STU.files.length > 0`, 60000)) { errors.push('studio xp: the example scene was not listed: ' + await ss('STU.note')); return; }
+    opened = true;
+    // (every model of the listing placed once more, so each loads whatever the layout's items are to this studio)
+    const files = await ss(`(STU.files.filter(f => f.kind === 'model').map((f, i) => (putItem('xpm' + String(i).padStart(3, '0'), 'o', norm('o', { name: 'Check ' + i, file: f.path, p: [0, 0, -8 - i * 0.01] })), f.path)))`);
+    if (files.length < 40) errors.push(`studio xp: only ${files.length} models in the scene's listing`);
+    if (!await until(`STUDIO.ready()`, 240000)) { errors.push('studio xp: the models did not all load within 4 minutes: ' + JSON.stringify(await ss(`[...STU.items.values()].filter(it => it.kind === 'o' && !it.model).map(it => it.rec.file)`))); return; }
+    const r = await ss(`(() => {
+      const out = [], tris = {};
+      for (const it of STU.items.values()) {
+        if (it.kind !== 'o') continue;
+        const E = it.E;
+        if (!E || E.state === 'failed' || !it.model) { out.push(it.rec.file + ' did not load: ' + (E && E.err)); continue; }
+        tris[it.rec.file] = E.info.tris;
+        if (E.info.tris > 30000) out.push(it.rec.file + ' has ' + E.info.tris + ' triangles (at most 30,000)');
+        E.root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of ['map', 'emissiveMap', 'normalMap', 'alphaMap']) { const t = m[k], im = t && t.image; if (im && Math.max(im.width, im.height) > 1024) out.push(it.rec.file + ': a picture of ' + im.width + ' x ' + im.height + ' px (at most 1,024)'); } });
+      }
+      return { out, tris };
+    })()`);
+    // the room as placed (its layout's objects, whatever this studio kept of them), and the clips the layout names
+    const layout = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json());
+    const room = layout.objects.reduce((s, o) => s + (r.tris[o.file] || 0), 0);
+    if (room > 250000) r.out.push(`the room has ${room} triangles as placed (at most 250,000)`);
+    const clips = await ss(`Object.fromEntries([...LIB].map(([p, E]) => [p, (E.clips || []).map(c => c.name)]))`);
+    for (const o of layout.objects) if (o.clip && !(clips[o.file] || []).includes(o.clip)) r.out.push(`${o.id}: ${o.file} has no clip ${o.clip}`);
+    for (const c of layout.cubes) for (const e of c.plays || []) if (e.what === 'clip') { const t = layout.objects.find(o => o.id === e.on); if (!t || !(clips[t.file] || []).includes(e.clip)) r.out.push(`${c.id}: starts ${e.clip} on ${e.on}, which has no such clip`); }
+    console.log(`     (${files.length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
+    bad(r.out);
+  });
+  await step('studio xp: every sound of the Bliss XP room decodes (mono, 22,050 Hz)', async () => {
+    if (!opened) { errors.push('studio xp: the scene did not open'); return; }
+    const out = await xp.evaluate(async () => {
+      const files = HOST.cur.peek(`STU.files.filter(f => f.kind === 'audio').map(f => f.path)`), out = [];
+      if (files.length < 10) out.push('only ' + files.length + ' sounds in the listing');
+      for (const p of files) {
+        try { const b = await (await fetch('examples/bliss-xp/' + p)).arrayBuffer(), a = await new OfflineAudioContext(1, 22050, 22050).decodeAudioData(b); if (!(a.duration > 0.02) || a.numberOfChannels !== 1 || a.sampleRate !== 22050) out.push(p + ': ' + a.duration + ' s, ' + a.numberOfChannels + ' channels, ' + a.sampleRate + ' Hz'); } catch (e) { out.push(p + ' did not decode: ' + e.message); }
+      }
+      return out;
+    });
+    bad(out);
+  });
+  await step('studio xp: the layout is read with no bad items (passes once the studio\'s v137 contract, FORMAT networks-43, is merged)', async () => {
+    if (!opened) { errors.push('studio xp: the scene did not open'); return; }
+    const r = await ss(`({ bad: STU.bad, tex: STU.badTex, play: STU.badPlay })`);
+    const layout = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json());
+    const missing = await ss(`${JSON.stringify([...layout.objects, ...layout.cubes, ...layout.sounds].map(x => x.id))}.filter(id => !STU.items.has(id))`);
+    if (r.bad || r.tex || r.play || missing.length) errors.push(`studio xp: the layout was read with ${r.bad} bad items, ${r.tex} bad texture changes, ${r.play} bad starts; not placed: ${missing.join(', ')}`);
+  });
+  await xp.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
