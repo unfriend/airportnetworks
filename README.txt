@@ -293,7 +293,8 @@ asks the same way, and walking into it still takes you back to the lobby. For
 walking in instead, turn the circles to walk in (Circles: walk in, in the
 headset menu's Circles tab or the Shared dialog, for everyone in the room): then
 walk into a station's circle and after a second its story plays there; the
-others show as rings floating half a metre over the floor with a card over each.
+others show as rings floating half a metre over the floor with a card over each
+(its story and how many people are there; it lights up while you point at it).
 Above each circle a small turning model of its story in its colour lets you
 tell the circles apart from across the room. Away from every station no story shows, only the cards,
 the models (and with the circles walked into, the rings), the other people and
@@ -505,9 +506,9 @@ tab), but A boosts a spaceship. Spaceships (v132, a small game over every story,
 VR or AR with a controller in your right hand): click the right stick twice (or
 Spaceship: launch on the Settings tab) and a little ship flies from your right
 controller. Steer it with the right stick (v133): right and left turn, forward
-dives and back climbs, as in a flight simulator; held back it loops (v134), let go
-the right way up it levels out; how you hold the controller does not matter
-(v132's steering by tilting the controller went). While it flies a
+dives and back climbs, as in a flight simulator (at most 60 degrees: v134's
+loops went again in v137); how you hold the controller does not matter (v132's
+steering by tilting the controller went). While it flies a
 click of the right stick counts only at its middle, so a hard push that clicks
 does not land the ship. It always
 flies forward; the grip brakes, held fully it backs off slowly; A boosts for a

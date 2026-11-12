@@ -1,0 +1,14 @@
+{
+  "studio": 1,
+  "scene": "tiny",
+  "saved": "2026-11-11T12:00:00.000Z",
+  "objects": [
+    {"id":"exbox1","name":"Box","file":"models/box.glb","p":[0,0.25,-1.5],"q":[0,0,0,1],"s":1,"light":"lit","clip":"Spin","anim":"loop","start":"always"}
+  ],
+  "cubes": [
+    {"id":"excub1","name":"Gate","p":[0,1,0],"yaw":0,"size":[1.2,2,1.2],"mode":"while","show":["exsnd1"],"hide":[],"all":true}
+  ],
+  "sounds": [
+    {"id":"exsnd1","name":"Tone","file":"sounds/tone.wav","p":[0,1,-1.5],"vol":0.8,"r":1.5,"loop":true,"start":"shown"}
+  ]
+}

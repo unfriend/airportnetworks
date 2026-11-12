@@ -71,7 +71,7 @@ function norm(kind, x) {
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'c') {
     const sz = has('size') ? vecOf(x.size, 3, 1000) : [1.2, 2, 1.2];
@@ -86,6 +86,9 @@ function norm(kind, x) {
     // what it starts as you walk in or out, kept only when there is something (an entry that is not one dropped, at most
     // 16: e6n_plays.js); not a list (and not null) makes the record bad
     if (x.plays != null) { const t = Array.isArray(x.plays) ? normPlays(x.plays) : null; if (!t) return null; if (t.length) r.plays = t; }
+    // works for everyone here (v137), kept only when set: true; absent, false or null: each person's own; anything else
+    // makes it bad
+    if (x.all === true) r.all = true; else if (x.all != null && x.all !== false) r.all = null;
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -115,7 +118,7 @@ function norm(kind, x) {
       if (has('len')) r.len = r3(Math.min(600, Math.max(0.001, x.len)));
     }
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'x') {
     // a cut-out: the object it cuts (on, required), and its middle, turn and size in that object's frame, turned but not
@@ -138,7 +141,7 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   if (kind === 'e') {
     // an empty: a point and a full turn (and a motion: a sound following it moves with it)
@@ -149,9 +152,15 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
-    return lockOf(x, r);
+    return lockOf(x, showsOf(x, r));
   }
   return null;
+}
+// in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
+// null: both; anything else makes it bad (shownHere)
+function showsOf(x, r) {
+  if (x.shows === 'ar' || x.shows === 'vr') r.shows = x.shows; else if (x.shows != null) r.shows = null;
+  return r;
 }
 // a record's lock, kept only when set (locked: true; absent, false or null: not locked; anything else makes it bad), last
 // of its fields; and the record itself checked (null when a field was bad)
@@ -173,6 +182,8 @@ const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-out
 const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
+// (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
+const SHOWS_KINDS = ['o', 's', 'p', 'e'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -460,12 +471,20 @@ function sceneClock(now) {
 }
 
 // --------------------------------------------------------- trigger cubes --
-// Each person's own (never shared): a cube is active for you while your head is inside it (the headset's head; on a
-// page the camera in Walk view; nobody in Orbit view); a 'stay' cube, once entered, until the scene opens again or
+// Each person's own by default (never shared): a cube is active for you while your head is inside it (the headset's head;
+// on a page the camera in Walk view; nobody in Orbit view); a 'stay' cube, once entered, until the scene opens again or
 // Reset what I have seen. For an item: the active cubes that list it in show (S) and in hide (H): shown if S has any and
 // H none, hidden if H has any and S none, both: the one entered last decides (a 'stay' cube walked into again counts as
 // entered again: the owner's show and hide pair of stay cubes works every time); neither: hidden if any cube shows it
-// (it waits for its cube), else shown
+// (it waits for its cube), else shown.
+// A cube that works for everyone here (all: true, v137; the owner, 11 November 2026: "it should also be possible to have a
+// cube that triggers things for everyone in the same studio scene") is active for every device at the station while any
+// person's head is inside it (the heads the behaviours react to: behHeads, people in a headset at its circle, this device's
+// own; outside a room this device's own head), a 'stay' one from the first time any head was inside (each device's memory,
+// cleared as Reset what I have seen and the lobby clear it). Everything it does follows it (show, hide, its pictures, what
+// it starts). Its entering and leaving are taken in the room's time from the heads' samples (h.ts), so every device puts
+// them at the same room moment (c.inT, c.outT: on this device's clock for what a cube starts, e6n_plays.js), and "entered
+// last" is decided alike everywhere: by the entry time (the room's), then by the cube's id
 const _hp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
@@ -478,25 +497,55 @@ function inCube(r, p) {
   const dx = p.x - r.p[0], dz = p.z - r.p[2], c = Math.cos(r.yaw), s = Math.sin(r.yaw);
   return Math.abs(c * dx - s * dz) <= r.size[0] / 2 && Math.abs(p.y - r.p[1]) <= r.size[1] / 2 && Math.abs(s * dx + c * dz) <= r.size[2] / 2;
 }
-const LISTS = { rev: -1, shown: new Set() };
+// which session this device is in for an item's shows (v137): 'ar' (passthrough), 'vr' (a headset's VR, and a page, which
+// shows what VR shows); STU.sess pretends one (tests)
+const sessKind = () => STU.sess || (XR.on && !XR.clear ? 'ar' : 'vr');
+// shown in this session (its record's shows: 'ar' only in AR, 'vr' only in VR and on a page; absent both)
+const shownHere = it => !it.rec || !it.rec.shows || it.rec.shows === sessKind();
+// the later of two entries (a cube's: { since, id }): by the entry time, then the id, the same on every device
+const enteredLater = (a, b) => !b || a.since > b.since || (a.since === b.since && a.id > b.id);
+const LISTS = { rev: -1, shown: new Set(), all: false };
 function triggerStep(now) {
   const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
-  if (LISTS.rev !== STU.rev) { LISTS.rev = STU.rev; LISTS.shown = new Set(); for (const c of STU.items.values()) if (c.kind === 'c') for (const i of c.rec.show) LISTS.shown.add(i); }
+  if (LISTS.rev !== STU.rev) {
+    LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
+    for (const c of STU.items.values()) if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; }
+  }
+  // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
+  // ts - off; the heads only while a cube works for everyone)
+  const Tr = behNow(), off = Tr - trgClock(), hs = LISTS.all && !away ? behHeads(Tr) : null, sess = sessKind();
   for (const c of STU.items.values()) {
     if (c.kind !== 'c') continue;
-    c.inside = !!hp && inCube(c.rec, hp);
+    let inside, at = Tr;
+    if (c.rec.all) {
+      // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of
+      // those inside before; a head gone from the list left now)
+      const ins = hs ? hs.filter(h => inCube(c.rec, h.p)) : [], was = c.allIn || new Map(), now = new Map(ins.map(h => [h.id, h.ts]));
+      inside = ins.length > 0;
+      if (inside && !c.wasIn) at = Math.min(...ins.map(h => h.ts));
+      else if (!inside && c.wasIn) { at = 0; for (const id of was.keys()) { const h = hs && hs.find(x => x.id === id); at = Math.max(at, h ? h.ts : Tr); } }
+      c.allIn = now;
+    } else { inside = !!hp && inCube(c.rec, hp); c.allIn = null; }
+    c.inside = inside;
+    if (inside && !c.wasIn) c.inT = at - off;
+    else if (!inside && c.wasIn) c.outT = at - off;
     if (c.inside && c.rec.mode === 'stay') STU.seen.add(c.id);
     const act = c.inside || (c.rec.mode === 'stay' && STU.seen.has(c.id));
-    if ((act && !c.act) || (c.inside && !c.wasIn)) c.since = ++STU.act;   // (entered, also again while it stays active)
+    // (entered, also again while it stays active: each person's own at this device's moment, kept after the last so that
+    // two entered one after the other keep their order; everyone's at its room moment)
+    if ((act && !c.act) || (c.inside && !c.wasIn)) { c.since = c.rec.all ? at : Math.max(Tr, STU.act + 1e-3); STU.act = Math.max(STU.act, c.since); }
     c.act = act; c.wasIn = c.inside;
     if (!act) continue;
-    for (const i of c.rec.show) S.set(i, Math.max(S.get(i) || 0, c.since));
-    for (const i of c.rec.hide) H.set(i, Math.max(H.get(i) || 0, c.since));
+    for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
+    for (const i of c.rec.hide) if (enteredLater(c, H.get(i))) H.set(i, c);
   }
   for (const it of STU.items.values()) {
     if (it.kind === 'c' || it.kind === 'g') continue;
-    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back)
-    const s = S.get(it.id) || 0, h = H.get(it.id) || 0, shown = !away && (s || h ? s >= h : !LISTS.shown.has(it.id));
+    // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back; an
+    // item only for the other kind of session, v137: not shown here, it.notHere)
+    const s = S.get(it.id), h = H.get(it.id);
+    it.notHere = !!(it.rec.shows && it.rec.shows !== sess);
+    const shown = !away && !it.notHere && (s || h ? (s && h ? s === h || enteredLater(s, h) : !!s) : !LISTS.shown.has(it.id));
     if (MOTION_ITEMS.includes(it.kind) && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }   // (an animation's and a motion's start when shown)
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
     it.shown = shown; it.first = false;
@@ -511,13 +560,15 @@ function triggerStep(now) {
   }
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
+// why an item is hidden, in a tag's words: only for the other kind of session (v137), or a cube hides it from you
+const hidWord = it => (it.notHere ? (it.rec.shows === 'ar' ? ' · AR only' : ' · VR only') : ' · hidden');
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
 function shownFor(p) {
   STU.head = p ? p.slice(0, 3) : null;
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
 }
-function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') c.act = c.wasIn = false; dirty(true); }
+function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = false; c.allIn = null; } dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -737,7 +788,7 @@ function greyStep(it) {
   g.group.position.copy(it.holder.position);
   const st = STU.listing !== 'ok' ? (STU.listing === 'missing' ? 'not on this device' : 'waiting') : !E || E.state === 'idle' ? (STU.fileMap.has(it.rec.file) ? 'waiting' : 'not in the scene\'s folder')
     : E.state === 'loading' ? `loading ${Math.round(E.p * 100)} %` : E.state === 'parsing' ? 'reading' : E.state === 'failed' ? 'cannot be read' : E.state === 'missing' ? 'not in the scene\'s folder' : '';
-  g.name.userData.set(tagName(it.rec) + triWords(trisNow(it)) + (st ? ': ' + st : '') + (it.hid ? ' · hidden' : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
+  g.name.userData.set(tagName(it.rec) + triWords(trisNow(it)) + (st ? ': ' + st : '') + (it.hid ? hidWord(it) : ''), E && E.state === 'failed' ? '#ff5a4b' : '#95a6bd', 0.075);
 }
 // the triangles in words for a tag (none: no count)
 const triWords = n => (n > 0 ? ' · ' + kTris(n) + ' ▲' : '');
@@ -758,8 +809,8 @@ function modelTag(it, editing) {
   const on = editing && !!it.model && it.holder.visible && STU.hover !== it.id && STU.sel !== it.id;
   if (!on) { if (it.tag) it.tag.visible = false; return; }
   if (!it.tag) { it.tag = LOOKS.tag(30); GL.edit.add(it.tag); }
-  const n = trisNow(it), h = !it.shown;
-  if (it.tagR !== it.rec || it.tagN !== n || it.tagH !== h) { it.tagR = it.rec; it.tagN = n; it.tagH = h; it.tag.userData.set(tagName(it.rec) + triWords(n) + (h ? ' · hidden' : ''), h ? '#6c7d94' : '#9fb0c4', 0.075); }
+  const n = trisNow(it), h = !it.shown, hw = h ? hidWord(it) : '';
+  if (it.tagR !== it.rec || it.tagN !== n || it.tagH !== hw) { it.tagR = it.rec; it.tagN = n; it.tagH = hw; it.tag.userData.set(tagName(it.rec) + triWords(n) + hw, h ? '#6c7d94' : '#9fb0c4', 0.075); }
   it.tag.visible = true;
   itemTopInto(it, it.tag.position, false); it.tag.position.y += 0.04;
 }
@@ -1307,6 +1358,10 @@ const ITEM_ACT = {
     setRec(it.id, { size, p });
   },
   mode: (it, v) => setRec(it.id, { mode: v }),
+  // who a cube works for (v137): each person's own (no field), or everyone here (all: true)
+  all: (it, v) => { if (it.kind === 'c' && (v === 'all') !== !!it.rec.all) setRec(it.id, { all: v === 'all' ? true : undefined }); },
+  // in which sessions an item shows (v137): AR and VR (no field), only AR, only VR
+  shows: (it, v) => { const w = v === 'ar' || v === 'vr' ? v : undefined; if (SHOWS_KINDS.includes(it.kind) && w !== it.rec.shows) setRec(it.id, { shows: w }); },
   pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },

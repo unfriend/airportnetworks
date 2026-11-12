@@ -26,13 +26,13 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-42';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-43';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
   // a room's keys as an older format wrote them, brought to this one (a kept copy, collabRoom.<code>, written by an older
   // app; a room on the relay still of an older version as this device joins it): one step per format from the key's, each
-  // a function of the Map of keys giving it back. Empty: every bump so far (29 to 42) only added fields and keys, which the
+  // a function of the Map of keys giving it back. Empty: every bump so far (29 to 43) only added fields and keys, which the
   // stories' apply() and the shell read leniently; a bump that changes what a value means adds its step here
   const MIGRATE = {};
   function migrate(keys, from) {
@@ -3686,6 +3686,20 @@
     o.g.position.set(S.x, 0, S.z); o.g.rotation.set(0, S.yaw, 0); o.g.scale.setScalar(held ? 1.12 : 1);
     return o;
   }
+  // the band round a card (its 560 x 330 canvas on 0.5 m): from its edge 10 px in, its corners round as the card's
+  let CARD_EDGE = null;
+  function cardEdge() {
+    if (CARD_EDGE) return CARD_EDGE;
+    const k = 0.5 / 560, rect = (P, i, r) => {
+      const x = -280 * k + i * k, y = -165 * k + i * k, w = (560 - 2 * i) * k, h = (330 - 2 * i) * k; r *= k;
+      P.moveTo(x + r, y); P.lineTo(x + w - r, y); P.quadraticCurveTo(x + w, y, x + w, y + r); P.lineTo(x + w, y + h - r);
+      P.quadraticCurveTo(x + w, y + h, x + w - r, y + h); P.lineTo(x + r, y + h); P.quadraticCurveTo(x, y + h, x, y + h - r);
+      P.lineTo(x, y + r); P.quadraticCurveTo(x, y, x + r, y); return P;
+    };
+    const sh = rect(new THREE.Shape(), 0, 26);
+    sh.holes.push(rect(new THREE.Path(), 10, 16));
+    return (CARD_EDGE = new THREE.ShapeGeometry(sh, 6));
+  }
   function cardFor(s, cm) {
     let o = OV.cards.get(s.id);
     if (!o) {
@@ -3697,6 +3711,11 @@
       o.back.rotation.y = Math.PI; o.back.renderOrder = 49;
       o.mesh.userData.shell = o.back.userData.shell = { kind: 'station', id: s.id };
       o.mesh.add(o.back);
+      // its edge, lit while it is pointed at or its station carried (v137): a band round the card in the story's colour,
+      // shown and hidden, so pointing never draws the card again
+      o.edge = new THREE.Mesh(cardEdge(), new THREE.MeshBasicMaterial({ color: meta(lookKey(s)).col, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+      o.edge.position.z = 0.002; o.edge.renderOrder = 49.5; o.edge.visible = false;
+      o.mesh.add(o.edge);
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
     }
     // cards in 3D (HOST.xr.cards): in the scene as the labels' signs are (drawn first of the see-through things, writing
@@ -3707,6 +3726,7 @@
       const m = o.mesh.material;
       o.fixed = m.depthWrite = fixed; m.alphaTest = fixed ? 0.1 : 0; m.needsUpdate = true;
       o.mesh.renderOrder = o.back.renderOrder = fixed ? -1 : 49;
+      o.edge.renderOrder = fixed ? -0.5 : 49.5;
     }
     // over the middle of its ring, under its icon (the owner, 31 October 2026: "Circle card soll mittig ueber circle
     // sein"; it stood where the content floats, 1.4 m ahead); turned to you, upright (seen from another row it would be
@@ -3719,16 +3739,13 @@
     o.back.visible = !R.headOK;
     return o;
   }
-  // a station's line: on its card (card) no running clock (v136: the card was drawn again and sent to the GPU once a
-  // second while its story played, every playing station's card in the same frame), 'Playing' while it plays; the page's
-  // Shared dialog keeps the time
-  function stationLine(s, card) {
+  // a station's line, for the page's Shared dialog (the headsets' cards say none of it since v137: drawCard)
+  function stationLine(s) {
     if (s.kind === LOBBY_ST) return askFirst() ? 'Walk in or press: back to every circle' : 'Walk in: back to every circle';
     if (s.kind === ALL && !runs(s)) return 'Choosing a story';
     const P = playOf(sessOf(s));
     if (!P) return 'Not started yet';
     if (P.mode === 'explore') return 'Exploring';
-    if (card && P.playing) return 'Playing';
     const t = expected(P);
     return (P.playing ? 'Playing at ' : t < 0.5 ? 'Ready to start' : 'Paused at ') + (P.playing || t >= 0.5 ? mmss(t) : '');
   }
@@ -3738,33 +3755,37 @@
     for (const [pid, P] of C.pres) if (P.st === id) { const m = member(pid); if (m && m.name) out.push(m.name); }
     return out;
   }
-  // what a card shows (drawn again only when it changes): cardSig; drawCard draws it (drawPreviews: at most one card a
-  // frame, v136)
-  const cardSig = (o, s) => [s.story, stationLine(s, true), whoAt(s.id).join(','), o.hover, MV.id === s.id, circlesLocked(), s.sync, askFirst(), stTitle(s)].join('|');
+  // what a card shows (v137; the owner, 11 November 2026, of v136's cards, which said Playing or Paused at 1:03: "remove
+  // everything that is updated from these cards for now or only leave how many persons are in and only update if this
+  // number changes"): its kicker and title (a studio circle for one scene: "Studio: <scene>"; an All stories circle its
+  // own title, never the story picked there) and how many people are at it, never their names; no play state, no tips,
+  // nothing about moving it or the locks. cardSig is only that, so a card is drawn again (and sent to the GPU) only when
+  // its title or its count changes (drawPreviews: at most one card a frame, v136); pointing at it or carrying it lights
+  // its edge (o.edge, a mesh of its own: nothing drawn or sent)
+  function cardText(s) {
+    const m = meta(lookKey(s)), n = whoAt(s.id).length;
+    return { m, kick: m.kick.toUpperCase(), title: s.kind === ALL ? m.title : stTitle(s), n, who: !n ? 'Nobody here' : n === 1 ? '1 person here' : n + ' people here' };
+  }
+  const cardSig = s => { const T = cardText(s); return [lookKey(s), T.kick, T.title, T.who].join('|'); };
   function drawCard(o, s, sig) {
-    const m = meta(lookKey(s)), who = whoAt(s.id), held = MV.id === s.id, lk = circlesLocked(), title = stTitle(s);
-    o.sig = sig || cardSig(o, s);
+    const T = cardText(s), m = T.m;
+    o.sig = sig || cardSig(s);
     o.drawn = (o.drawn || 0) + 1;
+    o.edge.material.color.set(m.col);
     const ctx = o.ctx, W = o.w, H = o.h;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     rr(ctx, 4, 4, W - 8, H - 8, 22); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
-    ctx.lineWidth = o.hover ? 6 : 3; ctx.strokeStyle = o.hover ? m.col : 'rgba(140,170,210,0.35)'; ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(140,170,210,0.35)'; ctx.stroke();
     ctx.fillStyle = m.col; ctx.fillRect(4, 4, W - 8, 9);
-    ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(fit(ctx, m.kick.toUpperCase(), W - 64), 32, 36);
+    ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(fit(ctx, T.kick, W - 64), 32, 60);
     let tp = 54;   // a long title smaller (down to 44 px, on the same baseline: B612's is 0.8 of its size down), else cut short
-    // (a studio circle for one scene: "Studio: <scene>"; an All stories circle: its own title, the story picked below)
-    const big = s.kind === ALL ? m.title : title;
-    for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(big).width <= W - 64) break; }
-    ctx.fillStyle = INK; ctx.fillText(fit(ctx, big, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
-    // (an All stories circle: the story picked there, and whether it runs with the room's circle of it)
-    const line = s.kind === ALL && runs(s) ? meta(s.story).title + (sessOf(s).id !== s.id ? ' (with its circle)' : '') + ': ' + stationLine(s, true) : stationLine(s, true);
-    ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(fit(ctx, line, W - 64), 32, 150);
-    ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
-    ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
-    const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
-      [askFirst() ? (s.kind === LOBBY_ST ? 'Walk in, or press here, to leave your story.' : s.kind === ALL ? 'Point here and press to choose a story.' : 'Point here and press to go in.') :
-        s.kind === LOBBY_ST ? 'Walk in to leave your story.' : s.kind === ALL ? 'Walk in to choose a story.' : 'Walk into its circle to see it.', lk ? 'The circles are locked.' : 'Hold the grip to move it.'];
-    tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
+    for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(T.title).width <= W - 64) break; }
+    ctx.fillStyle = INK; ctx.fillText(fit(ctx, T.title, W - 64), 30, 98 + Math.round((54 - tp) * 0.8));
+    // a thin rule, then how many people are here, beside a small figure in the story's colour
+    ctx.fillStyle = 'rgba(140,170,210,0.25)'; ctx.fillRect(32, 188, W - 64, 2);
+    ctx.fillStyle = m.col; ctx.beginPath(); ctx.arc(50, 229, 9, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(50, 257, 17, 14, 0, Math.PI, 2 * Math.PI); ctx.fill();
+    ctx.font = FONT(34); ctx.fillStyle = T.n ? INK : MUTED; ctx.fillText(fit(ctx, T.who, W - 116), 82, 222);
     o.tex.needsUpdate = true;
   }
   // the other people, in room coordinates: rays with a bright dot at the end, a name tag over the head and, for
@@ -3916,7 +3937,7 @@
     }
     const yours = s => s.id === C.live && (s.story === HOST.curKey || cards());   // (your live station: its story, or an All stories circle's cards, in front of you)
     for (const [id, o] of OV.cards) if (!ids.has(id) || yours(C.stById.get(id))) {
-      o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); OV.cards.delete(id);
+      o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); o.edge.material.dispose(); OV.cards.delete(id);
     }
     const noRings = askFirst() && !RINGS.all, hide = hidingOthers();
     for (const s of C.st) {
@@ -3949,10 +3970,10 @@
       const c = cardFor(s, cm), k = r.peek * Math.min(1, Math.max(0, ((R.headOK ? d : 9) - CARD_NEAR[0]) / (CARD_NEAR[1] - CARD_NEAR[0])));
       const shows = cm !== 'hidden' && k > 0.02;
       c.mesh.visible = shows && !!c.sig;   // (a card never drawn yet waits for its turn: nothing blank goes to the GPU)
-      c.mesh.material.opacity = k;
+      c.mesh.material.opacity = c.edge.material.opacity = k;
       if (!shows) continue;
-      c.hover = hov;
-      const sg = cardSig(c, s);
+      c.hover = hov; c.edge.visible = hov || MV.id === s.id;   // (pointed at or carried: its edge lit, the card as it is)
+      const sg = cardSig(s);
       if (sg !== c.sig) DIRTY.push({ c, s, sg, pri: hov || MV.id === s.id ? -1 : d });
     }
     // at most one card drawn again (and so sent to the GPU) a frame (v136: twenty cards with mipmaps in one frame were a

@@ -1138,11 +1138,13 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // tools/, docs/, the relay's certificate): these files at the top, and the files directly inside these
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
 // (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server; room-test/ is
-// the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app.)
+// the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app. examples/ holds the studio's
+// example scenes, v137: scene folders with their listings as tools/studio/scan.mjs writes them, so deeper, as a scene's
+// files are: examples/<scene>/<at most 4 folders>/<file>)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test']);
-const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples']), APP_DEEP = new Set(['examples']);
+const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
 async function serve(req, res, url) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return plain(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });

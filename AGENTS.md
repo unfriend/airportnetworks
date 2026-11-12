@@ -249,7 +249,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   recorded with the movement; `engine/e6k_trk.js` (v126) props that follow one of the PC's Vive trackers;
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
   selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
-  trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out), two sets (`stage`, the
+  trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out; `engine/e6o_walls.js` (v137)
+  things on the room's walls, from the room scan's planes; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
+  opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
   `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
@@ -265,7 +267,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   skinned `dancer.glb` whose bones are named in mixed conventions, with a voice following her head; and
   `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
   and the figure, for cut-outs; and `test/scenes/puppet/`, about 60 KB: `rig.glb`, our own humanoid with Mixamo's bone
-  names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes; and `test/examples/tiny/`, about 30 KB, an example scene as the app ships
+  them in `examples/`, for the Scene pane's Examples), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
   `engine/ik.js` (v125; in the build since v126, as `convert.js` is: `e6l_puppet.js` uses it) is the trackers' solver for
   phase 3 of `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver
   (ik.js)" there), a plain module like `convert.js`, checked by `test-ik.mjs`.
@@ -1371,13 +1374,13 @@ ships or look).
   controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0 and 1), each axis on its own: a
   dead zone of 0.15, past it the push's share to the power 1.5 (fine near the middle, full at the edge). Pushed right it
   turns right about the vertical (full: 140 degrees a second, round as often as you like), pushed forward (away from you,
-  `axes[3]` -1) its nose turns down and pulled back up, as a flight simulator's stick, at a rate (full: 140 degrees a
-  second, `STEER.climb`), with no limit, so held back it loops (v134; the owner, 11 November 2026: "the sticks should have
-  more freedom so that one can do a looping"; v133 set a flight pitch of at most 60 degrees): at cruise a loop takes
-  about 2.6 s and is about 1 m across. Upside down (past the top of a loop, `cos(pitch) < 0`) the turn about the vertical
-  goes the other way, so right still turns it to its own right. Let go the right way up, its nose eases back to level
-  (`STEER.level`, 0.5 s); let go upside down, it holds its attitude. The ship banks into its turns (up to 50 degrees,
-  eased), which does not change its path. How the controller is held, tilted or pointed counts for nothing: v132 flew by its tilt like a
+  `axes[3]` -1) it dives and pulled back it climbs (full: 60 degrees, the flight pitch eased with 0.25 s; no loops), as a
+  flight simulator's stick; released, level flight. v134 let it loop (the owner, 11 November 2026: "the sticks should have
+  more freedom so that one can do a looping": the stick's pitch a rate with no limit, bounced off the arena's floor and
+  ceiling), and v137 took that out again (the owner, the same day, after trying it: "Airplanes should not be able to do a
+  looping after all, switch them back to how they were before"): the flight is v133's again (in the history at v134). The
+  ship banks into its turns (up to 50 degrees, eased), which does not change its path. How the controller is held, tilted
+  or pointed counts for nothing: v132 flew by its tilt like a
   joystick (its roll turned, its pitch from the angle held at launch climbed and dived: in the history at v132), taken out
   in v133 with the Steering setting its first build had (`xrShipSteer`, removed from `localStorage` as `ships.js` loads).
   The launch notice and the Spaceship row's note say how (`steerWords()`).
@@ -1388,8 +1391,8 @@ ships or look).
 - **The arena** (`ARENA`): round where the pilot stood at launch, 5 m along the floor, from 0.15 to 3 m above it (in a
   room the room's floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less
   1.6 m, taken at launch). Within 0.6 m of its edge, heading out, it is turned back gently (up to 90 degrees a second at
-  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it bounces too, its pitch mirrored
-  (v134, as a loop may reach them; until then held level), with a bump. In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
+  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it is held, level, until steered
+  away (v134 bounced it there, as a loop could reach them; v137 holds it again). In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
   the ship crossing a plane inside its polygon, its heading reflected about the plane), with a bump and no damage. Ships
   pass through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's
   level forward, at its height (both clamped into the arena), flying where the head faces, level.
@@ -1493,8 +1496,8 @@ ships or look).
   `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
   `bolt`, `claim`, `track`, `materials`).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
-- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second each
-  way, forward to dive, loops, the levelling as it is let go, the turn upside down), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
+- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second, 60
+  degrees of climb, forward to dive), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
   read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
@@ -1656,7 +1659,11 @@ the room's areas, a key each, `rp.<id>` (more tape crosses in one room: "Areas" 
 area's crosses for spots A and B and write the room's floor from them, moving everyone's origin), a frame published for
 a shared space whose `m` may be an area's `{ k, a, b }`, `rm` gaining `t` (when spots A and B were taped) and `trk.m`
 gaining `k`, `ra` and `rb`; networks-42 in v136: the studio's `state()` gained an optional `plays` on a cube's record (what
-it starts as you walk in or out: "Trigger cubes that start things" under "The studio"), which an older device would drop).
+it starts as you walk in or out: "Trigger cubes that start things" under "The studio"), which an older device would drop;
+networks-43 in v137: the studio's `state()` gained an optional `all` on a cube's record (a cube that works for everyone
+here), an optional `shows` on an object's, a sound's, a shape's and an empty's (only in AR or only in VR) and a behaviour's
+kind `wall` (things on the room's walls: "Cubes for everyone", "AR or VR only" and "Things on walls" under "The studio"),
+which an older device would drop or refuse).
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -2136,9 +2143,9 @@ The plan is `docs/shared-space-plan.md`.
     live station). The story stays at its circle: the rig at its spot as ever, wherever you stand (a person who goes in
     from across the room sees it there, small, and hears it faintly until they walk over). Nothing is written to the
     room but `look` (asking, Not now and the time running out write nothing).
-  - The station cards' tips say *Point here and press to go in* (the lobby: *Walk in, or press here, to leave your
-    story*; All stories: *to choose a story*), the menu's Stations line *Point at a circle and press to go in* (its note:
-    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
+  - The menu's Stations line says *Point at a circle and press to go in* (its note:
+    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle* (the station
+    cards said it in their tips until v137, which took the tips off them). Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
     shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
     it stands and how the fingertip presses it on a real headset is untested.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
@@ -2147,13 +2154,20 @@ The plan is `docs/shared-space-plan.md`.
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
-  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card (v136, the frame rate:
-  "even in the lobby with only the stations visible i could not reach 90fps") says no running clock (`stationLine(s,
-  true)`: *Playing* while its story plays, *Paused at 1:03* as it stopped; the page's Shared dialog keeps the time): it
-  was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every playing station, all in
-  one frame. A card whose content changed (`cardSig`: its story, line, people, light, carrying, lock, sync, the circles
-  asked first, its title) waits in a queue (`DIRTY`), and at most one card is drawn a frame, the one pointed at or
-  carried first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card says only what does not
+  change while its station stands (v137; the owner, 11 November 2026, of v136's cards: "remove everything that is updated
+  from these cards for now or only leave how many persons are in and only update if this number changes"; `cardText`):
+  its kicker and title (`stTitle`: a studio circle's scene, *Studio: <scene>*; an All stories circle its own title, never
+  the story picked there) and how many people are at it (*Nobody here*, *1 person here*, *3 people here*: the count
+  `whoAt` gives, pages and a camera among them, never their names). No play state, no names, no tips, nothing about
+  moving it or the locks; the page's Shared dialog keeps its own lines (the time, the names). Until v136 it said the
+  station's time and was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every
+  playing station, all in one frame; v136 said *Playing* or *Paused at 1:03* and still drew it again whenever it was
+  pointed at or carried. Its signature (`cardSig`) is that content alone (its look, kicker, title and count), so it is
+  drawn again only when its title or its count changes; pointed at or carried, its edge lights (`o.edge`: a band round the
+  card in the story's colour, a mesh shown and hidden, never pointable; nothing drawn or sent to the GPU). A card whose
+  content changed waits in a queue (`DIRTY`), and at most one card is drawn a frame (v136), the one pointed at or carried
+  first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
   `o.drawn` counts its drawings, for tests); mipmaps kept. Its back face (`o.back`, for reading it from behind) shows,
   and is pointable, only while there is no head pose and the card stands at its station's yaw; turned to you it would
   face away, a draw of nothing twice a frame for every card. Walking in still goes by where
@@ -2256,8 +2270,8 @@ The plan is `docs/shared-space-plan.md`.
     among the headsets that line up (`linedUp`, `othersIn`, the pages' guide list) or offered Follow (only kinds `ar` and
     `vr`); what a headset shows of its own (the welcome toast) guards on `cameraMode()`. The pages' people list and the
     headset menu's people rows say *camera (filming)* (never *here* or *elsewhere*), and the room map draws a small box
-    for it. A station card's *Here:* line names it *Camera*, as it names the pages at that circle: people can see a
-    camera films there.
+    for it. The page's Shared dialog names it *Camera* among the people at its circle, and a station card counts it among
+    them (v137: the cards give only a count, never names; until then their *Here:* line named it).
   - Taps on the camera image press nothing: the overlay root covers the screen and cancels every select
     (`beforexrselect`), and `ray()` takes a camera's rays as the shell's with nothing to press (a guard for a browser
     that does not honour it). Taps on the overlay's buttons are the overlay's. A double tap on the image (two within
@@ -2390,7 +2404,8 @@ The plan is `docs/shared-space-plan.md`.
     anyone unlocks them. While on, the grip on a station's ring or card, the
     room map's drag and turn, Arrange all, Add, Move here, Design room here
     and Remove are refused (`refused()`, `circlesLocked()`), a station being
-    carried stops where it was last sent, and the cards say so. It never
+    carried stops where it was last sent (the cards said so until v137, which took everything but their title and
+    count off them). It never
     locks a scene or a panel. A room from v96 locked then reads as circles
     locked only: its stories need locking once.
   - A story's lock (*Lock this story*; `lock` in `st.<id>.ui`, with its
@@ -3453,7 +3468,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, and what it starts, `plays`, when it has anything, v136), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom, what a cube has started for whom, editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, what it starts, `plays`, when it has anything, v136, and `all: true` when it works for everyone here, v137), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128; the kind `wall`, `{ at, who, range, speed, gap }`, v137) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, an object's, a sound's, a shape's and an empty's `shows` (`'ar'` or `'vr'`, v137) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom (an everyone cube's heads are each device's from presence), what a cube has started for whom, where an item stands on a wall (each headset's own walls), editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -4700,8 +4715,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }`. An object `{ id, name, file, p, q, s, light: 'lit' | 'scan', clip, anim: 'loop' | 'once' | 'off',
-  start: 'always' | 'shown', faces, tint, bright }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `tint` (`'#rrggbb'`) and `bright` (0.25 to 4, 1 never kept) optional, v125: "Tint and brightness" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex, plays }` (lists of item
-  ids; `tex` optional, kept only when it has an entry, v124: up to 16 `{ on, mat, slot, file }`, "Trigger cubes that change
+  start: 'always' | 'shown', faces, tint, bright }` (`faces` optional, kept only when set: `'both'` or `'inside'`; "Faces" below; `tint` (`'#rrggbb'`) and `bright` (0.25 to 4, 1 never kept) optional, v125: "Tint and brightness" below; `cutsLocked: true` optional, v124: its cut-outs locked, "Cut-outs" below), a cube `{ id, name, p, yaw, size, mode: 'while' | 'stay', show, hide, tex, plays, all }` (lists of item
+  ids; `all: true` optional, kept only when set, v137: it works for everyone here, "Cubes for everyone" below; `tex` optional, kept only when it has an entry, v124: up to 16 `{ on, mat, slot, file }`, "Trigger cubes that change
   textures" below; an entry that is not one dropped, and counted when read from a layout; a layout without it reads as
   before; `plays` likewise, v136: up to 16 `{ on, what: 'clip' | 'sound' | 'path' | 'motion', clip, how: 'once' | 'loop' |
   'hold' | 'stop', when: 'leave' }`, "Trigger cubes that start things" below, an entry that is not one dropped and counted,
@@ -4717,9 +4732,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   q }` in `empties` ("Shapes and empties" below), any item or group with `locked: true` (kept only when set; "Locked in
   place" below), and the scene's `settings` `{ others: 'shown' | 'hidden', real: 'device' | 'always' | 'never' }` ("The
   scene's settings" below; a layout without them, v118's, reads as before, a new scene's; bad ones counted), an object's, a
-  shape's or an empty's `behaviour` `{ kind: 'look' | 'follow' | 'avoid' | 'item', who: 'nearest' | 'first', range, dist,
-  speed, area, target }` (only its kind's fields, kept only when set; "Behaviours" below; a layout without it, v119's,
-  reads as before), and an object's,
+  shape's or an empty's `behaviour` `{ kind: 'look' | 'follow' | 'avoid' | 'item' | 'wall', who: 'nearest' | 'first', range, dist,
+  speed, area, target, at, gap }` (only its kind's fields, kept only when set; "Behaviours" below, and v137's `wall`, "Things on
+  walls" below; a layout without it, v119's, reads as before), an object's, a sound's, a shape's or an empty's `shows`
+  (`'ar'` or `'vr'`, kept only when set, v137: "AR or VR only" below), and an object's,
   a shape's or an empty's `motion` `{ kind: 'spin' | 'wobble' | 'bob' | 'pulse' | 'orbit' | 'sway', speed, amount, axis:
   'x' | 'y' | 'z', start: 'always' | 'shown' }` (kept only when set; "Motions" below; a layout without it, v119's, reads as
   before), and an object's, a shape's, an empty's or a sound's recorded `path` `{ k: [[t, dx, dy, dz, qx, qy, qz, qw],
@@ -4734,7 +4750,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   2*). At most 300 objects, 100 cubes, 60 sounds, 100 cut-outs (16 on one object), 50 groups, 200 shapes, 100 empties; a `file` is a path in the scene's listing (200 characters, no `..`); a
   cube's lists only name this scene's items. A bad item is dropped and said once (*2 items in layout.json could not be
   read*); anything else ignored.
-- **Trigger cubes** are each person's own: a cube is active for you while your head is inside it (a headset's head; on
+- **Trigger cubes** are each person's own (unless one works for everyone here, v137: below): a cube is active for you while your head is inside it (a headset's head; on
   a page the camera in Walk view, never the orbit camera), `while` only then, `stay` from then on until the scene is
   opened again or *Reset what I have seen*. For an item, of the cubes active for you, those listing it in `show` (S) and
   in `hide` (H): shown if S has any and H none, hidden if H has any and S none, both: the one entered last decides (a
@@ -4750,6 +4766,35 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   model or a coloured shape a cube hides from you is not drawn at all but shown by its unseen box's edges and its tag
   (*Atelier · 397k ▲ · hidden*; until v130 it was drawn faint, at 0.3: "Nothing see-through while editing" under
   "Editing"), still pointed at, selected and carried; not editing, cubes and sound markers are not drawn at all.
+- **Cubes for everyone** (v137; the owner, 11 November 2026: "Trigger cube starts are each person's own, the same as how
+  cubes already show and hide things. THIS MIGHT NEED A SWITCH FOR BOTH OPTIONS if possible, so it should also be possible
+  to have a cube that triggers things for everyone in the same studio scene"; `tools/studio/SPEC.md`, "Cubes for
+  everyone"; `triggerStep` in `engine/e6_items.js`). A cube's record may carry `all: true` (*Works for: Each person /
+  Everyone here* on its card, page and headset, one Undo step; absent, false or null each person's own as before, anything
+  else a bad record). An everyone cube is active for every device at the station while any person's head is inside it:
+  the heads the behaviours react to (`behHeads`: the people in a headset at its circle from `HOST.collab.heads()`, this
+  device's own; pages never count; outside a room this device's own head, or a page's camera in Walk view); a `stay` one
+  from the first time any head was inside (each device's memory, cleared by *Reset what I have seen* and the lobby).
+  Everything it does follows it: what it shows and hides, its texture changes and what it starts, for everyone, in step:
+  its entering and leaving are taken in the room's time from the head samples' own time stamps (`h.ts`, a head with no
+  time or not a number taken at the room's time now: entered at the earliest sample of the heads inside, left at the
+  latest sample of those inside before; outside a room this device's clock), so every device puts a run's start (and its
+  0.3 s leave) at the same room moment (`c.inT`, `c.outT` on the clock of what cubes start, `trgFire`). "Entered last"
+  (show and hide, texture changes) is decided alike everywhere: by the entry time (the room's; each person's own cubes
+  take this device's moment, kept after the last so two entered one after the other keep their order), then by the
+  cube's id (`enteredLater`). Nothing new is sent: each device works it out from the heads it has (their samples come 15
+  times a second, so devices agree within about one sample). The card's line, the Items card (*for everyone here*) and
+  Start something's paragraph say so. `STUDIO.cube(id)` for tests. FORMAT `networks-43`. Untested on headsets: everyone
+  cubes across real headsets at a circle (how in step their runs look, a head entering at a cube's face).
+- **AR or VR only** (v137; for a room built as a studio scene: its elements "detached and mapped onto the room";
+  `tools/studio/SPEC.md`, "AR or VR only"). An object's, a sound's, a shape's or an empty's record may carry `shows: 'ar'` or
+  `'vr'` (absent or null both; anything else a bad record): in an AR session (passthrough, `!XR.clear`) one for VR is not
+  shown (not drawn, silent, not pointed at), in a VR session one for AR, and a page shows what VR shows (`sessKind`,
+  `shownHere`; `STUDIO.sess(k)` pretends one for tests). While editing one not shown for that reason is drawn as a hidden
+  item is (its unseen box's edges, or a shape's own, and its tag *Box · 12 ▲ · AR only*), still pointed at and selected;
+  its card's heading says *only in AR: not shown here*. Its card: *Shows in: AR and VR / Only AR / Only VR* (page and
+  headset, one Undo step each). So one scene can carry stand-ins for a VR visitor (walls, a floor) that an AR visitor's own
+  room replaces. FORMAT `networks-43`.
 - **Trigger cubes that change textures** (v124; the owner, 8 November 2026: "trigger cube replace texture mode so that
   it can replace a texture on a model in the scene", then "no crossfade needed"; `tools/studio/SPEC.md`, "Trigger cubes
   that change textures"; `engine/e6i_tex.js`). A cube's record may hold `tex`, up to 16 entries `{ on, mat, slot, file }`:
@@ -5059,7 +5104,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   walks with them; in front is no `side` at all, as before; FORMAT networks-39), `avoid` `{ who, range, dist, speed, area }` (keeps `dist` away along the floor,
   within `area` of its place, home once home is `dist + 0.2 m` clear of them) or `item` `{ target, speed, face }` (follows
   another object, shape or empty at the offset they are placed at, where that one is before its motion, `it.pre`, which
-  `drawnPose` keeps, a little behind, turning with it as the two are placed). Which way Follow and Follow an item face
+  `drawnPose` keeps, a little behind, turning with it as the two are placed), or (v137) `wall` (on the room's walls: "Things
+  on walls" below). Which way Follow and Follow an item face
   (v128; the owner, 9 November 2026: "when a model is in follow there should be a switch to look at the person or item it
   is following instead of into the same direction as the person"): `face` `'them'` (its front, `+z` as placed, turned
   about the vertical through its middle to the person, or to the followed item's middle as drawn before its motion; right
@@ -5091,6 +5137,35 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   differently for a moment. Untested on a headset: all of it at a real station (being followed, looked at or avoided life
   size, the choice and hand-over between real headsets over Wi-Fi, how smooth 120 ms behind looks, the cost), and how
   Faces feels there (a model walking beside you that turns to look at you, an item turning to look at the one it follows).
+- **Things on walls** (v137; the owner, 11 November 2026, of a room built as a studio scene: its elements "dynamisch auf
+  detected walls", "losgelöst und auf raum gemappt", and "it may need to be reactive and react to user movements, where the
+  user goes, instead of a static variant"; `tools/studio/SPEC.md`, "Things on walls"; `engine/e6o_walls.js`). A behaviour of
+  the kind `wall`: `{ kind: 'wall', at: 'direction' }` (on the first wall a ray from the walls' middle meets along its placed
+  direction from the scene's origin, its placed middle's x and z; at the origin -z), `{ kind: 'wall', at: 'nearest' }` (the
+  walls' point nearest its placed middle) or `{ kind: 'wall', at: 'person', who, range, speed }` (the walls' point nearest
+  the person it reacts to, chosen as Follow and Look at choose, alike on every device from the heads, moving along there at
+  most `speed` m/s; with nobody back to its `direction` place), each with `gap` (0 to 0.5 m, 3 cm by default, written only
+  when not the default). There its back is against the wall (its middle the gap plus its own depth behind its middle off
+  the wall, from its box: an object's model's, a shape's, an empty's point), its height its placed middle's held within the
+  wall's bottom and top where it fits, its front (`+z` as placed) facing out of the wall into the room, its placed tilt
+  kept; it eases there (about 0.4 s, `WALL_EASE`) when the walls change, never jumping. The walls are each headset's own:
+  in an AR session whose frame has `detectedPlanes` (`plane-detection` enabled), every vertical plane (`orientation`
+  `'vertical'` or labelled a wall; never a door) taken into the scene's frame (`GL.world`'s inverse) as a segment along the
+  floor (its polygon's extent), its bottom and top and its normal turned towards the walls' middle (the middle of their box
+  along the floor; when that is on a wall's line, as with one wall early in a room scan, a point in the room: the head
+  as those walls were read, else the scene's origin, kept while they stay the same, which a ray in an item's direction
+  then starts from too), read when the planes change and at most twice a second (once a second besides), as the robots
+  read theirs (`wallsXR` from `xrBegin`; gone at the session's end). No walls (VR, a page, no room scan yet): it stays
+  where it is placed, its card says so. Nothing is sent and nothing stored but the record: the same record maps onto
+  each headset's own room. A base stage of the pose pipeline as the other behaviours are (`behaveBase`, with a height
+  `ty` beside `tx`, `tz` and `d`), so a path and a motion draw over it, the record never changes, and it rests at its
+  placed pose while held here or paused (its ghost there while editing). Its card: *Behaviour: ... / On a wall*, *Which
+  wall: In its direction / Nearest / Follows the person*, *Gap from the wall* (*Less*, *More*), for a person *Reacts
+  to*, *Notices people within* and *Moves at most*, and a line on the walls this headset has; one Undo step each.
+  `STUDIO.walls(list)` gives pretend walls (`[{ a: [x, z], b: [x, z], y0, y1 }]` in the scene's frame; null the
+  headset's own again) for tests. FORMAT `networks-43`. Untested on a headset: real plane detection on a Quest (which
+  planes it lists as vertical, how steady their extents are, a multi-room scan), how things on walls look there, a
+  person followed along the walls.
 - **Motions** (v120; the owner, 6 November 2026: "Add little animations like spin and wobble etc for models?", then
   "animations do 1 and 2", 1 simple motions, 2 the recorder, "Recorded paths" below, curves later; `tools/studio/SPEC.md`,
   "Motions"; `engine/e6e_motion.js`). An object, a shape or an empty may have a `motion` in its record: `spin` (turns about
@@ -5428,7 +5503,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   v118 *New scene*: on a page a field and *Make it*, in a headset *New scene...* asking the shell's keypad,
   `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
   picked by hand, editing on; v119, while editing, the scene's settings: *Other circles* and *Real world hides the
-  scene*), **Add** (editing: the scene's models with their size and a warning mark, since v120 a grid of cards with
+  scene*; v137 *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, since v120 a grid of cards with
   their pictures and *Make pictures* on a page, its sounds,
   *Originals* folded, *Trigger cube*, *Convert every model*; v119 *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; v118 *From another scene...*: the relay's other scenes, then
   one's models and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
@@ -5463,6 +5538,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   source offers *Download layout.json*. Outside a room what is placed is also kept on this device
   (`studioDraft.<source>.<scene>` in `localStorage`, a second after each change), and opening the scene with a draft
   newer than the saved layout and different from it offers *Your unsaved changes from <time>: Restore / Discard*.
+- **Example scenes** (v137; `tools/studio/SPEC.md`, "Example scenes"; `engine/e7g_examples.js`). A folder `examples/` at
+  the app's root holds scene folders and their listings exactly as `tools/studio/scan.mjs` writes them
+  (`examples/index.json` and `examples/<name>/files.json`; `&examples=<a relative folder>` picks another, `'examples'` by
+  default: the tests point it at `tools/studio/test/examples/`, whose `tiny` scene `tools/studio/test/make.mjs` writes). The
+  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`). The Scene pane lists them, page and headset (*Examples
+  (they come with the app)*): *Open* (the scene from that folder, read only, as `&scenes=examples&scene=<name>` opens it;
+  editing works on this device, *Download layout.json* keeps it; *Back to your scenes* returns to where scenes came from
+  before; not at a shared room's circle, whose scene is the room's: there it says to copy it to the relay) and, on a page
+  with a relay that takes uploads, *Copy to the relay* (a free scene name, the example's, else numbered *bliss-xp 2*; `POST
+  /api/scenes`; every listed file fetched from the example and uploaded to the same path through the studio's own upload
+  path, `upSend`, straight into R2 where it can, its pictures too; then its `layout.json` saved through the layout
+  endpoint; the progress on the pane, a file the relay refuses said and the rest copied; then the copy opened from the relay
+  with editing on). The relay serves `examples/` as an app folder (`APP_DIRS`, deeper than the others: a scene's files are,
+  `APP_DEEP`); `sw.js` treats its files as app files, network first (never in `SHELL`). `STUDIO.examples()` for tests.
+  Nothing of it in the layout or the room.
 - **Placement in a headset**: life size, as the design room's table. Outside a room the scene's origin is the rig's
   floor point: where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
   Anchor is on, so an exhibit comes back at the same place in the real room). At a station in a shared room (v125; the
@@ -5805,14 +5895,12 @@ turned by the test; the drones frozen, `debug.freeze`): the right stick clicked 
 ship 0.5 m ahead of the controller facing where the head does; the left stick twice still moving with the sticks, both at
 once one menu; the right stick twice again landing; a tracked right hand refused in words. The controller's tilt
 steering nothing (v133: rolled 40 degrees either way, nose up or down 40, turned 75 about the vertical, the ship flying
-straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; held back
-a whole loop (v134: 359 degrees in 2.57 s, upside down at its top 1.58 m up from 0.6, back where it began within 8 cm,
-its yaw unchanged); let go climbing 40 degrees level within 2.5 s, let go upside down holding; the ceiling and the floor
-bouncing it (its pitch mirrored, never past 3 m or under 0.15 m); upside down the stick right turning it about the
-vertical the other way; nothing of the tilt left (no `steer`, `angles`,
+straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; pulled back
+climbing at 60 to its 3 m ceiling and held there, released level (v134's loop steps went with the loops in v137); nothing
+of the tilt left (no `steer`, `angles`,
 `steering`, `setSteering`, no `neutral` or `roll` in the state, `xrShipSteer` gone). The stick's numbers: full right 140
 degrees a second to the right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing;
-pulled back its nose turning up 35 degrees in 0.25 s (140 a second), pushed forward down, released level; the state's stick and the mapping
+pulled back climbing at 60 degrees, pushed forward diving at 60, released level; the state's stick and the mapping
 (`stick`, `axes`, `STICK`). No Steering row on the Settings tab, its height between 1,500 and 1,900 px (printed: the
 canvas is 1,920). Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a
 second); a pushed click then
@@ -5848,8 +5936,11 @@ asked; `#hz=72`; a session without the API asking nothing, the row greyed, logge
 Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
 with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
 floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
-distances never falling), no back face shown or pointable; every story's station playing: each card *Playing*, none
-drawn again or sent over 2.6 s; paused, *Paused at 1:03*. The menu on the Debug tab: the frame rate changed three times,
+distances never falling), each drawn once, saying its look, kicker, title and *Nobody here* (an All stories circle *All
+stories*), no back face or edge shown or pointable; (v137) every story's station playing for 2.6 s, then paused at 1:03,
+a card pointed at for a second (its edge lit, gone once it is not) and another carried by the grip (its edge lit, its
+ring larger, put down again): no card drawn again or sent to the GPU; someone walking into a circle drawing its card
+once more (*1 person here*) and no other, and out again once more (*Nobody here*). The menu on the Debug tab: the frame rate changed three times,
 its line (*... · the headset at 90 Hz*) drawn and sent alone (`texSubImage2D 652x30`), the whole menu never, the texture's
 version unchanged, the row read back from the GPU the canvas's and not the line before; someone walking between two
 circles drawing the Settings and Debug tabs not at all and Circles each time; the Debug tab's height printed (under 1500
@@ -6372,6 +6463,49 @@ shown gathered, `LOOKS.BT.stats`, each on the layer no camera sees, the tags' dr
 sprite is and its size, its picture its own on the tags' canvas, the selected cube's edges in their colour in the depth-tested
 lines' draw; ten more empties adding at most ten draws, their dots, where each was three); and the page's panes not built
 while `GL.renderer.xr.isPresenting` (the HTML unchanged, `X.dirty` kept, `X.skipped` counting) and built once it is not.
+
+Its *studio everyone* steps (v137; `--only 'studio everyone'`, a minute) run on two pages of their own at `&scene=test`,
+another person's head given as a pretend head with the time stamp of its sample (`BEH.fake`), the room's clock and the
+clock of what cubes start held by the test: an each-person cube (Doorway, starting Bob once) changing nothing for another
+person's head; set to *Everyone here* on the page's card (one Undo step), the box hidden and the figure and the tone shown
+for that head, its run started at the sample's room moment on both pages though their own clocks differ (999800 and
+1999800 there, 4999800 in the room's), its out moment that of the sample outside; a stay one active after the head has
+left, until Reset; two everyone cubes over the box entered at one moment, the higher id deciding, both ways round; at a
+pretend station (`atStation` and the shell's `heads` stubbed) a head with no time, and one whose time is not a number,
+entering at the room's time now (no NaN) and leaving at it; the headset's row (Each person, one Undo step, Undo); norm's
+rules (`all` true kept, false and null absent, anything else bad), the state and `layout.json` both ways.
+
+Its *studio walls* steps (v137; `--only 'studio walls'`, a minute) run on a page of their own at `&scene=test` with
+pretend walls (`STUDIO.walls`: a 4 x 5 m room) and four shapes on walls: with no walls where they are placed (the card
+says so); the walls' normals into the room; one in its direction on the near wall at x 1.25, its back 3 cm off it, facing
+into the room; one turned to face +x on the nearest, the right wall, facing -x; one 2.4 m up, 40 cm tall, held at 2.3 m
+with no gap; one following a pretend person onto the right wall, never faster than 0.6 m/s, and with nobody back on the
+wall in its direction; the near wall 50 cm nearer: eased (not jumped after one frame), there within 1.5 s; no walls again:
+back where placed; every record unchanged; carried, at its placed pose; one wall given the wrong way round (its normal
+out of the room): turned towards the head as it was read and kept so with the head moved beyond it, the one in its
+direction at x 1.25 from there; one wall with no head turned towards the scene's origin; one wall in two pieces both
+turned to the head; the walls read by `wallsXR` from a pretend AR frame's planes (a near and a right wall, a door and
+the floor left out: their segments, heights and normals). Then the card's rows on the page (On a wall, Nearest, Gap
+more, Follows the person: one Undo step each, the record in order) and the headset's (In its direction, Gap less twice);
+norm's rules (`at` required among three, defaults, the gap's default not written, held at 0.5 m, a person's fields
+dropped elsewhere), the state and `layout.json`.
+
+Its *studio shows* steps (v137; `--only 'studio shows'`, under a minute) run on a page of their own at `&scene=test` with
+a pretend session's kind (`STUDIO.sess`): the box only for AR, the tone only for VR, a ball only for VR and an empty only
+for AR, shown and heard in AR, in VR and on a page (as VR) as their records say, the tone inside the cube heard in VR and
+not in AR; editing on a page the box drawn as a hidden item is (its edges, its tag *Box · 12 ▲ · AR only*, pointed at;
+the labels pointed at and selected), the ball not; in AR the ball's tag *· VR only*; the page's row (Only AR, Only VR,
+AR and VR: one Undo step each), the headset's (on the tone); norm's rules (on objects, sounds, shapes and empties; a
+cube's ignored), the state and `layout.json`.
+
+Its *studio examples* steps (v137; `--only 'studio examples'`, a minute or two): the test example
+(`tools/studio/test/examples/tiny`, `&examples=` pointing there) listed on the Scene pane, Copy greyed with no relay;
+Open opening it from the examples' folder, read only, its three items and their models in; the headset's Scene pane
+with Open and no Copy, Back to your scenes pressed there, back at the test scene. Then a relay of its own (from port 8960,
+`--static . --scenes` on a temporary copy of the test scene; the example's files given to its page by the test, its
+service worker blocked): Copy to the relay: the scene `tiny` on the relay's disk with `models/box.glb` and
+`sounds/tone.wav` as in the example and its `layout.json` (its cube for everyone), the copy opened from the relay with
+editing on (3 of 3, its words); a second copy `tiny 2`.
 
 Its *studio trackers* steps (v126; `--only 'studio trackers'`, about a minute) run on a page of their own at `&scene=test`,
 a pretend studio station (`HOST.collab.live`) and its trackers given in the page (`HOST.collab.trackers` stubbed, so each
