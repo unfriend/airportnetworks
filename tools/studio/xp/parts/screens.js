@@ -1,5 +1,5 @@
-// The screens: the boot screen with its running blocks, the welcome screen, "It's now safe to turn off your computer."
-// and the painted wallpaper for AR walls. Our own emblem and word, never another's logo or wordmark.
+// The screens: the boot screen with its running blocks, the welcome screen, the way out's "You can switch off now." in
+// orange on black, and the painted wallpaper for AR walls. Our own emblem and word, never another's logo or wordmark.
 (function () {
   const T = THREE;
 
@@ -21,7 +21,9 @@
     const es = fh * 0.22, ex = W * 0.5 - es * 1.55, ey = fh * 0.3;
     XP.emblem(g, ex, ey, es);
     XP.text(g, 'bliss', ex + es * 1.18, ey + es * 0.82, { size: Math.round(es * 0.95), style: 'italic', weight: 'bold', font: XP.F.big, color: '#fff' });
-    XP.text(g, 'starting up', W * 0.5, fh * 0.93, { size: Math.round(fh * 0.03), align: 'center', color: '#8a8a8a' });
+    XP.text(g, 'starting up', W * 0.5, fh * 0.86, { size: Math.round(fh * 0.03), align: 'center', color: '#8a8a8a' });
+    // (the room is laid out round where you start: a hint for AR, where that is wherever the session began)
+    XP.text(g, 'Stand in the middle of your room, facing this wall, and Recenter.', W * 0.5, fh * 0.945, { size: Math.round(fh * 0.031), align: 'center', color: '#a8a8a8' });
     // the track: a rounded outline, black inside
     const tw = W * 0.2, th = fh * 0.04, tx = (W - tw) / 2, ty = fh * 0.72;
     g.fillStyle = '#000'; XP.rr(g, tx, ty, tw, th, th * 0.3); g.fill(); g.lineWidth = Math.max(2, th * 0.1); g.strokeStyle = '#b3b3b3'; g.stroke();
@@ -102,13 +104,14 @@
     return { root: XP.group('welcome', mesh) };
   } });
 
-  // ---- "It's now safe to turn off your computer.": orange letters standing off a black slab (no picture at all)
+  // ---- "You can switch off now. The grass will wait.": orange letters standing off a black slab (no picture at all; our
+  // own words)
   XP.part('safe-off', { file: 'models/safe-off.glb', build() {
     const w = 1.1, h = 0.5, d = 0.03;
     const slab = XP.extrude(XP.rrShape(w - 0.012, h - 0.012, 0.01), d, 0.006, (x, y, z, nx, ny, nz) => [0, 0, XP.shade(nx, ny, nz) * (nz > 0.9 ? 0.05 : 0.18), [1, 1, 1]], { curve: 4 });
     const parts = [slab], col = [1, 0.58, 0.1];
     // (both lines one size, the longer filling 88 % of the slab's width)
-    const lines = [["It's now safe to turn off", 0.075], ['your computer.', -0.085]].map(([s, y]) => [XP.textShapes(s, `bold $px ${XP.F.ui}`, 0.1, { tol: 1.4, px: 140 }), y]);
+    const lines = [['You can switch off now.', 0.075], ['The grass will wait.', -0.085]].map(([s, y]) => [XP.textShapes(s, `bold $px ${XP.F.ui}`, 0.1, { tol: 1.4, px: 140 }), y]);
     const k = Math.min(1, w * 0.88 / Math.max(...lines.map(([T]) => T.box.max.x - T.box.min.x)));
     for (const [{ shapes, box }, y] of lines) {
       const t = XP.extrude(shapes, 0.012, 0, (x, yy, z, nx, ny, nz) => [0, 0, XP.shade(nx, ny, nz), col]);

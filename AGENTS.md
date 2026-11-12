@@ -5602,15 +5602,18 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   3D, Clippy with his clips Chill, Blink, Wave and Dance on his deckchair; for VR our painted hill and sky and the
   starfield, for AR a painted wallpaper) as 65 objects, 14 synthesised sounds as 17 emitters at their objects, 11
   trigger cubes as a walk through the video (the entry, the grass and the error corner for everyone at the circle), 8
-  groups; 67,378 triangles as placed in VR (50,286 in AR), at most 118 draws, 5.3 MB. In VR it stands as placed in a
+  groups; 67,346 triangles as placed in VR (50,254 in AR), at most 118 draws, 5.3 MB. In VR it stands as placed in a
   room of 5 x 5 m round the scene's origin; in AR it maps onto each headset's own walls by v137's `wall` behaviour, in
   clusters: on each wall anchors (`direction`) placed so that in the smallest room (3 x 3 m) they meet their wall where
   they belong, and their neighbours riding on them (the behaviour `item`), so a cluster stays one piece and the room fits
   rooms from about 3 x 3 m to 5 x 5 m (the desktop rides on the taskbar's bar on the front wall); Clippy's chat window
   slides along the walls with you (`wall`, `person`). It also uses `shows: 'ar' | 'vr'` and cubes' `all: true`. The floor
-  things and the cubes stand round the scene's origin: start in the middle of the room, facing the wall for the desktop
-  (in a shared room put spot A there). Made by `node tools/studio/xp/make.mjs`
-  (deterministic; `--check` says whether the folder is current), never by hand.
+  things and the cubes stand round the scene's origin: start in the middle of the room, facing the wall for the desktop,
+  and Recenter there (the boot screen says so; in a shared room put spot A there). What a cube starts is never on
+  something an overlapping cube hides, and a sound it starts once is on an object that is always shown, placed where it
+  belongs (`o`): an emitter is heard only as much as its object is shown (`layout.mjs`'s `checkLayout`). Made by `node
+  tools/studio/xp/make.mjs` (deterministic; a failed build writes nothing; `--check` says whether the folder is current:
+  the layout and the sounds byte for byte), never by hand.
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
@@ -6548,9 +6551,11 @@ Its *studio xp* steps (v137; `--only 'studio xp'`, about two minutes) open the B
 (`#studio&scenes=examples&scene=bliss-xp&edit`): every model of its listing placed once more and loaded with no console
 error, each under 30,000 triangles and the room under 250,000 as placed, every picture at most 1,024 px, the clips its
 layout names there; every sound decoded (mono, 22,050 Hz); its layout read with no bad items, every record as the
-studio's own `norm` gives it back, v137's fields used, and the Scene pane's Examples (the default folder) listing it;
-and on pretend walls of a 3 x 3.5 m room (`STUDIO.walls`, an AR session pretended, `STUDIO.sess('ar')`) every wall item
-and what rides on it inside the room, the anchors against a wall. After changing `tools/studio/xp/`, run
+studio's own `norm` gives it back, v137's fields used, the Scene pane's Examples (the default folder) listing it, and the
+generator's own rules on it (`checkLayout`: every id a cube, a sound, a group or a behaviour names in the room, nothing a
+cube starts on something an overlapping cube hides, no sound a cube starts once on something a cube shows); and on
+pretend walls of a 3 x 3.5 m room (`STUDIO.walls`, an AR session pretended, `STUDIO.sess('ar')`) every wall item and
+what rides on it inside the room, the anchors against a wall, failing when they have not settled within 48 s. After changing `tools/studio/xp/`, run
 `node tools/studio/xp/make.mjs` and its `--check`.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.

@@ -158,7 +158,7 @@
       y += s * 3.6;
     }
     const iw = (P.w - 60) / 3, ih = Math.min(iw * 0.6, P.y + P.h - y - s * 2);
-    [['hill_sonoma.jpg', 'day', 61], ['bliss.bmp', 'day', 7], ['on_the_hill.jpg', 'sunset', 71]].forEach(([n, m, sd], i) => { const ix = P.x + 12 + i * (iw + 18); XP.hill(g, ix, y - s * 0.4, iw, ih, { mode: m, seed: sd, clouds: 2 }); g.strokeStyle = '#0000cc'; g.lineWidth = 2; g.strokeRect(ix, y - s * 0.4, iw, ih); XP.text(g, n, ix + iw / 2, y + ih + s * 0.5, { size: Math.round(s * 0.8), align: 'center', color: '#0000cc' }); raised.push([ix, y - s * 0.4, ix + iw, y - s * 0.4 + ih, 0.006]); });
+    [['hill_day.jpg', 'day', 61], ['bliss.bmp', 'day', 7], ['on_the_hill.jpg', 'sunset', 71]].forEach(([n, m, sd], i) => { const ix = P.x + 12 + i * (iw + 18); XP.hill(g, ix, y - s * 0.4, iw, ih, { mode: m, seed: sd, clouds: 2 }); g.strokeStyle = '#0000cc'; g.lineWidth = 2; g.strokeRect(ix, y - s * 0.4, iw, ih); XP.text(g, n, ix + iw / 2, y + ih + s * 0.5, { size: Math.round(s * 0.8), align: 'center', color: '#0000cc' }); raised.push([ix, y - s * 0.4, ix + iw, y - s * 0.4 + ih, 0.006]); });
   }, 'http://search.example/?q=how+to+go+outside') });
 
   // ---- Task Manager: clippy.exe at 100 % CPU
@@ -228,15 +228,15 @@
     return { root: XP.group('turn-off', XP.mesh(geo, XP.flat(XP.tex(F.cv)), 'turn-off')) };
   } });
 
-  // ---- the error: "Cursor has encountered a problem and needs to close."
+  // ---- the error: the cursor stumbled (our own words, not the old error report's)
   win('error-cursor', 'models/error-cursor.glb', { w: 0.68, h: 0.34, title: 'Cursor', icon: I.error, buttons: ['close'], draw(F, L) {
     const { g } = F, c = L.client, s = sz(F) * 1.05, raised = [];
     g.fillStyle = '#fff'; g.fillRect(c.x, c.y, c.w, c.h * 0.48);
     I.error(g, c.x + 14, c.y + 12, s * 2.4);
-    XP.para(g, 'Cursor has encountered a problem and needs to close. We are sorry for the inconvenience.', c.x + s * 3.4, c.y + s * 1.4, c.w - s * 4, { size: Math.round(s), weight: 'bold', color: '#000' });
-    XP.para(g, 'Please tell your desktop about this problem. We have made a report that you can send.', c.x + 14, c.y + c.h * 0.48 + s * 1.5, c.w - 28, { size: Math.round(s * 0.9), color: '#000' });
+    XP.para(g, 'Cursor stumbled and has to stop for a moment. Sorry about that.', c.x + s * 3.4, c.y + s * 1.4, c.w - s * 4, { size: Math.round(s), weight: 'bold', color: '#000' });
+    XP.para(g, 'Tell your desktop what happened? We wrote it all down on a little note for you.', c.x + 14, c.y + c.h * 0.48 + s * 1.5, c.w - 28, { size: Math.round(s * 0.9), color: '#000' });
     const bh = s * 1.9, by = c.y + c.h - bh - 10;
-    raised.push(XP.button(g, c.x + c.w - s * 16.5, by, s * 9.5, bh, 'Send Error Report', { def: true }).concat([0.007]), XP.button(g, c.x + c.w - s * 6.5, by, s * 6, bh, "Don't Send").concat([0.007]));
+    raised.push(XP.button(g, c.x + c.w - s * 16.5, by, s * 9.5, bh, 'Send the note', { def: true }).concat([0.007]), XP.button(g, c.x + c.w - s * 6.5, by, s * 6, bh, 'Keep it').concat([0.007]));
     return raised;
   } });
 

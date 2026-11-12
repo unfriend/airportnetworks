@@ -8905,6 +8905,11 @@ if (runs('studio xp')) {
     if (ex[0] !== 'examples' || !ex[1].split(',').includes('bliss-xp') || !ex[2] || !ex[3]) errors.push('studio xp: the Scene pane\'s examples (folder, list, its Open, open here): ' + JSON.stringify(ex));
     const kinds = layout.objects.reduce((m, o) => { const k = o.behaviour ? o.behaviour.kind + (o.behaviour.at ? ':' + o.behaviour.at : '') : 'none'; m[k] = (m[k] || 0) + 1; return m; }, {});
     if (!kinds['wall:direction'] || !kinds.item || !kinds['wall:person'] || !layout.objects.some(o => o.shows === 'ar') || !layout.objects.some(o => o.shows === 'vr') || !layout.cubes.some(c => c.all)) errors.push('studio xp: the layout does not use v137\'s fields as it should: ' + JSON.stringify(kinds));
+    // (the generator's own rules on the layout as served: every id a cube, a sound, a group or a behaviour names is there,
+    // and what a cube starts is on something no overlapping cube hides, a sound it starts once never on something a cube
+    // shows: tools/studio/xp/layout.mjs's checkLayout)
+    const { checkLayout } = await import('./studio/xp/layout.mjs');
+    bad(checkLayout(layout));
   });
   await step('studio xp: on pretend walls of a 3 x 3.5 m room (AR) every wall item and what rides on it stands inside the room, against a wall', async () => {
     if (!opened) { errors.push('studio xp: the scene did not open'); return; }
@@ -8916,18 +8921,21 @@ if (runs('studio xp')) {
       for (const it of STU.items.values()) {
         const b = it.kind === 'o' && it.rec.behaviour; if (!b || !(b.kind === 'wall' || b.kind === 'item') || it.rec.shows === 'vr' || !it.model) continue;
         const H = it.holder; (H.matrixAutoUpdate ? M.compose(H.position, H.quaternion, H.scale) : M.copy(H.matrix));
-        out[it.id] = [...it.proxy.position.clone().applyMatrix4(M).toArray(), b.kind === 'wall' && b.at !== 'person' ? 1 : 0];
+        out[it.id] = [...it.proxy.position.clone().applyMatrix4(M).toArray(), b.kind === 'wall' && b.at !== 'person' ? 1 : 0, it.rec.motion ? 1 : 0];
       }
       return out; })()`);
-    // (and at least until the bar has gone onto the front wall, its middle 3 cm off it)
-    let at = await where();
+    // (and at least until the bar has gone onto the front wall, its middle 3 cm off it; what has a motion of its own, the
+    // hand that bobs, moves by design and is left out of that)
+    let at = await where(), settled = false, moved = 1;
     for (let i = 0, t0 = Date.now(); i < 60; i++) {
       await xp.waitForTimeout(800);
-      const now = await where(), moved = Math.max(0, ...Object.keys(now).map(k => (at[k] ? Math.hypot(now[k][0] - at[k][0], now[k][1] - at[k][1], now[k][2] - at[k][2]) : 1)));
+      const now = await where();
+      moved = Math.max(0, ...Object.keys(now).filter(k => !now[k][4]).map(k => (at[k] ? Math.hypot(now[k][0] - at[k][0], now[k][1] - at[k][1], now[k][2] - at[k][2]) : 1)));
       at = now;
-      if (moved < 0.002 && now.tbbar1 && Math.abs(now.tbbar1[2] + Z - 0.03) < 0.01 && Date.now() - t0 > 3000) break;
+      if (moved < 0.002 && now.tbbar1 && Math.abs(now.tbbar1[2] + Z - 0.03) < 0.01 && Date.now() - t0 > 3000) { settled = true; break; }
     }
     const out = [];
+    if (!settled) out.push(`the wall items did not settle within 48 s (still moving ${(moved * 100).toFixed(1)} cm between two reads; the taskbar's bar at ${at.tbbar1 ? at.tbbar1.slice(0, 3).map(v => v.toFixed(2)) : 'nowhere'})`);
     for (const [id, [x, y, z, anchor]] of Object.entries(at)) {
       const w = Math.min(X - Math.abs(x), Z - Math.abs(z));
       if (w < -0.02) out.push(`${id} stands outside the room at ${[x, y, z].map(v => v.toFixed(2))}`);

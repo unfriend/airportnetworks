@@ -73,23 +73,24 @@ const SOUNDS = {
     [79, 84, 88, 91, 96].forEach((n, i) => add(b, 0.85 + i * 0.16, bell(note(n), 2.2, { decay: 2.2 }), 0.18 - i * 0.015));
     return norm(fade(reverb(b, 0.3, 1.2), 0.01, 0.6), 0.7);
   },
-  // the shutdown: the chord settling down, bells falling
+  // the shutdown: the startup's chord settling down low, its bells falling back the way they came (a plain broken chord
+  // down from the top: our own, no other tune's turns)
   shutdown() {
     const b = buf(3.2);
-    for (const n of [43, 50, 55, 59, 62]) add(b, 0, pad(note(n), 3.0, 0.3, 1.6), 0.16);
-    [91, 86, 83, 79].forEach((n, i) => add(b, 0.15 + i * 0.2, bell(note(n), 2, { decay: 2.6 }), 0.16));
+    for (const n of [36, 43, 48, 52, 55]) add(b, 0, pad(note(n), 3.0, 0.3, 1.6), 0.16);
+    [91, 88, 84, 79].forEach((n, i) => add(b, 0.15 + i * 0.2, bell(note(n), 2, { decay: 2.6 }), 0.16));
     return norm(fade(reverb(b, 0.3, 1.2), 0.01, 0.8), 0.7);
   },
   // a ding: one struck bell
   ding() { const b = buf(1.3); add(b, 0, bell(note(81), 1.3, { decay: 2.4 })); add(b, 0, bell(note(93), 0.6, { decay: 5 }), 0.15); return norm(fade(reverb(b, 0.2), 0.002, 0.2), 0.7); },
-  // critical stop: two hard chords, low and close together
+  // critical stop: three short low buzzes on one note, an alarm (no chords)
   critical() {
-    const b = buf(1.0);
-    for (const [at, ns] of [[0, [45, 52, 57, 60]], [0.16, [44, 51, 56, 59]]]) for (const n of ns) {
-      const t = buf(0.8), f = note(n); for (let i = 0; i < t.length; i++) { const s = i / SR; let v = 0; for (let k = 1; k <= 7; k += 2) v += Math.sin(TAU * f * k * s) / k; t[i] = v * Math.exp(-s * 5) * Math.min(1, s / 0.004); }
-      add(b, at, biquad(t, 'lp', 2400), 0.25);
+    const b = buf(0.95), f = note(45);
+    for (const at of [0, 0.2, 0.4]) {
+      const t = buf(0.17); for (let i = 0; i < t.length; i++) { const s = i / SR; let v = 0; for (let k = 1; k <= 9; k += 2) v += Math.sin(TAU * f * k * s) / k; t[i] = v * Math.min(1, s / 0.004) * Math.min(1, (0.17 - s) / 0.03); }
+      add(b, at, biquad(t, 'lp', 1800), 0.5);
     }
-    return norm(fade(reverb(b, 0.15), 0.002, 0.25), 0.7);
+    return norm(fade(reverb(b, 0.12), 0.002, 0.15), 0.7);
   },
   // a balloon's pop-in: a quick bright bloop
   pop() { const b = buf(0.35); for (let i = 0; i < b.length; i++) { const t = i / SR, f = 380 + 900 * (1 - Math.exp(-t * 30)); b[i] = Math.sin(TAU * f * t) * Math.exp(-t * 16) * Math.min(1, t / 0.002); } add(b, 0.06, bell(note(88), 0.25, { decay: 9 }), 0.25); return norm(fade(b, 0.001, 0.05), 0.65); },

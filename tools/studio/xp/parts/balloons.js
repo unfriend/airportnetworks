@@ -19,7 +19,7 @@
   } });
   tip('balloon-grass', 'models/balloon-grass.glb', 'Found New Hardware', 'Grass (real, touch-sensitive)');
   tip('balloon-cursor', 'models/balloon-cursor.glb', 'Cursor is now connected', 'Speed: 54.0 Mbps\nSignal Strength: Excellent', { h: 0.18 });
-  tip('balloon-sonoma', 'models/balloon-sonoma.glb', 'Bliss', 'Sonoma County, California. Photographed in January 1996.', { w: 0.5, h: 0.18, tail: [-0.12, 0.05, -0.17, -0.16] });
+  tip('balloon-hill', 'models/balloon-hill.glb', 'Bliss', 'A painted hill. Any likeness to a real place is intended.', { w: 0.5, h: 0.18, tail: [-0.12, 0.05, -0.17, -0.16] });
   tip('balloon-go', 'models/balloon-go.glb', 'Go.', 'Click the door to go outside.', { w: 0.42, h: 0.15, tail: [0.13, 0.05, 0.2, -0.15], icon: (g, x, y, s) => { g.fillStyle = '#e8432a'; g.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, r = i % 2 ? s * 0.22 : s * 0.5; g.lineTo(x + s / 2 + Math.cos(a) * r, y + s / 2 + Math.sin(a) * r); } g.closePath(); g.fill(); } });
 
   // Clippy's balloons: the assistant's yellow, his question and its options (blue round bullets, raised)

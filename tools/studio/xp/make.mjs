@@ -4,9 +4,11 @@
 // (page.html: three.js r128, its own GLTFExporter and GLTFLoader, kit.js and parts/*.js), written as a binary glTF with
 // its clips, read back, checked and pictured for the studio's Add pane (previews/<the model's path>.jpg, 256 px); its
 // sounds synthesised here (sounds.mjs: mono 16-bit WAV); its layout.json (layout.mjs); then examples/index.json and
-// examples/bliss-xp/files.json by tools/studio/scan.mjs. Deterministic: run it again and nothing changes.
-//   --check   builds into a temporary folder and says whether examples/bliss-xp is current (layout.json the same, the same
-//             files, each within 2 % of its size), then scan.mjs --check; exits 1 when not
+// examples/bliss-xp/files.json by tools/studio/scan.mjs. Deterministic: run it again and nothing changes. When a check or
+// a budget fails nothing is written (the folder keeps the last good build).
+//   --check   builds into a temporary folder and says whether examples/bliss-xp is current (the same files; layout.json
+//             and the sounds byte for byte, the models and pictures, made in the browser, within 2 % of their size), then
+//             scan.mjs --check; exits 1 when not
 //   --only    builds only those parts' models and pictures into the folder (while working on them; no layout, no sounds)
 //   --sheet   also writes a contact sheet of every part's picture (for looking at them in one go)
 // Budgets (it stops when one is passed): every model under 30,000 triangles and the room under 250,000 as placed, its
@@ -95,8 +97,12 @@ if (!only) {
   if (total > LIMIT.folder) fail(`the folder is ${(total / 1048576).toFixed(2)} MB (at most 6 MB)`);
 }
 const write = (rel, bytes) => { const f = path.join(out, ...rel.split('/')); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, bytes); };
-for (const [rel, b] of files) write(rel, b);
-if (!only && !check) {
+// (a build that failed writes nothing, so a good folder is never overwritten by a bad one; --check writes into its own
+// temporary folder and compares)
+const failed = !!process.exitCode && !check;
+if (failed) console.log(`nothing written to ${out.startsWith(REPO + path.sep) ? path.relative(REPO, out) : out}: the build failed`);
+else for (const [rel, b] of files) write(rel, b);
+if (!only && !check && !failed) {
   // (files of an earlier build that this one no longer makes go)
   const walk = (d, rel) => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]) : [];
   for (const rel of walk(out, '')) if (!files.has(rel) && rel !== 'files.json') { fs.rmSync(path.join(out, ...rel.split('/'))); console.log(`removed ${rel} (no longer made)`); }
@@ -111,7 +117,9 @@ if (check) {
     const f = path.join(here, ...rel.split('/'));
     if (!fs.existsSync(f)) { console.log(`MISSING ${rel}`); stale++; continue; }
     const have = fs.readFileSync(f);
-    if (rel === 'layout.json' ? !have.equals(b) : Math.abs(have.length - b.length) > b.length * 0.02) { console.log(`NOT CURRENT ${rel} (${have.length} bytes, a fresh build ${b.length})`); stale++; }
+    // (what Node makes, the layout and the sounds, byte for byte; the browser's models and pictures within 2 % of their size)
+    const near = /\.(glb|jpg)$/.test(rel);
+    if (near ? Math.abs(have.length - b.length) > b.length * 0.02 : !have.equals(b)) { console.log(`NOT CURRENT ${rel} (${have.length} bytes, a fresh build ${b.length}${near ? '' : ', not the same bytes'})`); stale++; }
   }
   const walk = (d, rel) => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]) : [];
   for (const rel of walk(here, '')) if (!files.has(rel) && rel !== 'files.json') { console.log(`NOT MADE ${rel} (a fresh build has no such file)`); stale++; }

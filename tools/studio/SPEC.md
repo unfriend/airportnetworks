@@ -2469,14 +2469,24 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
 - Its sounds are mono 16-bit WAVs at 22,050 Hz, each placed as an emitter following its object (`on`).
 - Its layout uses v137's fields: the `wall` behaviour on each wall cluster's anchor (`direction`: the taskbar's bar, which
   the whole desktop rides on, Clippy's deckchair, the notes, Paint, the pages, the door, the picture viewer, Task Manager,
-  the solitaire win, the way out, Remote Assistance and the trail) and on one chat window (`person`), the behaviour
+  the solitaire win, the way out and Remote Assistance, which the error corner's trail and dialog ride on) and on one
+  chat window (`person`), the behaviour
   `item` on what rides on an anchor (it keeps its offset from it, so a cluster maps onto a wall as one piece), `shows:
   'vr'` (the landscape, the starfield, the far clouds, the wind) and `shows: 'ar'` (the wallpaper), and cubes' `all:
   true` (the entry, the grass, the error corner). The anchors are placed on the ray that meets their wall where they
   belong in a room of 3 x 3 m, so the room maps onto rooms from about 3 x 3 m to 5 x 5 m without piling up; the floor
-  things and the cubes stand within the smallest room round the scene's origin, the cubes reaching out past the walls
-  of the biggest. Models whose clip should wait for a cube are placed with it and `anim: 'off'` (the door's Open, the
-  chat's Nudge); balloons pop in with `anim: 'once'` and `start: 'shown'`.
+  things and the cubes stand within the smallest room round the scene's origin (so people start in the middle of the
+  room and Recenter there), most cubes reaching out past the walls of the biggest (the entry and the grass stand in the
+  middle). Models whose clip should wait for a cube are placed with it and `anim: 'off'` (the door's Open, the chat's
+  Nudge); balloons pop in with `anim: 'once'` and `start: 'shown'`.
+- Its walk keeps two rules of the studio's (`layout.mjs`'s `checkLayout`, which `make.mjs` and the smoke test run): an
+  emitter is heard only as much as its object is shown (its level is its own fade times its object's), so no cube that
+  overlaps a cube hides what that cube starts or the object a sound it starts is on (Task Manager's and the solitaire's
+  cubes are two bands side by side, never one inside the other), and a sound a cube starts once is on an object that
+  is always shown, placed at the one it belongs to with `o` (the balloon pops on Clippy, the ding on Remote Assistance,
+  the shutdown on the "Go touch the grass" window), not on one the cube shows, where it would start faded out. The
+  startup swell is itself shown by the entry cube (`start: 'shown'`), so it plays once as it first shows and not again
+  as the cube, which stays, is walked through on the way to the desktop.
 
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
