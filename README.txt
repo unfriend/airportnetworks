@@ -150,6 +150,22 @@ its circle) moves every item there again, for everyone (one Undo step).
   A clip blends in and out over its own animation; a sound a cube starts, and a
   path or motion, waits until then. The last thing started on an item decides.
   Each person gets it as they walk in (nothing is sent); Try plays it here.
+- Works for: Each person / Everyone here on a cube's card (v137): everyone here
+  makes the cube act for every device at its circle while anyone in a headset
+  is inside it (what it shows, hides, changes and starts, at the same moment).
+- Shows in: AR and VR / Only AR / Only VR on an item's card (v137): a stand-in
+  wall or floor for VR visitors that an AR visitor's own room replaces.
+- On a wall (Behaviour on its card, v137): in AR an item goes onto the room
+  scan's walls, in its direction, on the nearest wall or following the person
+  along the walls; without walls (VR, a page) it stays where it is placed.
+- Examples on the Scene pane (v137): scenes that come with the app. Open opens
+  one read only; Copy to the relay (a laptop with a relay that takes uploads)
+  makes it a scene of your own to edit. The first is Bliss XP: the music video
+  "Bliss (Windows XP)" taken apart into a room of our own drawings (the desktop,
+  windows, balloons, the door onto the hill, the solitaire win, Clippy chilling
+  on his deckchair), with trigger cubes as a walk through it and its windows on
+  your walls in AR. Stand in the middle of the room facing a wall and Recenter
+  before it starts (#studio&scenes=examples&scene=bliss-xp opens it directly).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

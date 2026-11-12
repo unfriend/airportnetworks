@@ -47,15 +47,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v136 (FORMAT networks-42, the v136 entry below), on `dev` only, for the owner to
-    try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
+  - *The branches.* `dev` is networks-v137 (FORMAT networks-43, the v137 entry below; v136 before it, also on `dev`
+    only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
     both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
     is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
     fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
     Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
     https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
     networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v136 are the entries below. The AI agents' working branch,
+    (`5524684`, 7 November); v122 to v137 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -63,7 +63,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
     rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
-    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v135; the
+    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v137; the
     others' are in their entries below.
   - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
@@ -102,6 +102,48 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v137 (12 November 2026; FORMAT networks-43, shell 137), on `dev` only: ships without loops, still station
+  cards, cubes for everyone, AR or VR only, things on walls, example scenes and the Bliss XP room.** The owner: "Trigger
+  cube starts are each person's own ... THIS MIGHT NEED A SWITCH FOR BOTH OPTIONS", "Airplanes should not be able to do a
+  looping after all, switch them back to how they were before", of v136's station cards "remove everything that is
+  updated from these cards for now or only leave how many persons are in and only update if this number changes", a
+  Windows XP themed room after the music video "Bliss (Windows XP)" ("almost 1 to 1, but the elements separated and
+  dynamic on detected walls", "built like a studio scene with trigger cubes etc that we can edit", "all cool and fancy
+  3d"), and "a little 3d version of clippy that is there and chills". Three lanes (the shell, the studio, the room), a
+  review and a fix round each, then the integration.
+  - Spaceships: the flight is v133's again (`STEER`: 140 degrees a second of turn, a flight pitch of at most 60 degrees
+    eased over 0.25 s, the floor and ceiling holding the ship level); v134's glows that keep the alpha and v135's fixes
+    stay. v134 is in the history if loops come back.
+  - Station cards: only their kicker, title and *Nobody here* / *n people here* (`cardText`, `cardSig`), drawn again only
+    when that changes; pointing at one or carrying it lights a band round its edge (a mesh shown and hidden, nothing
+    drawn or sent to the GPU). The Shared dialog keeps its own lines (the time, the names).
+  - Studio (FORMAT networks-43): a cube's *Works for: Each person / Everyone here* (`all: true`: active for every device
+    at the circle while any person in a headset is inside it, its moments taken from the heads' own time stamps so every
+    device starts a run at the same room moment); *Shows in: AR and VR / Only AR / Only VR* on an item (`shows`); the
+    behaviour *On a wall* (`wall`: in its direction, the nearest wall, or following the person, on the room scan's
+    vertical planes in AR, each headset's own walls; without walls where it is placed); and *Examples* on the Scene pane
+    (`examples/` at the app's root: Open read only, or Copy to the relay). Decisions taken by default (say if any should
+    change): pages never count for an everyone cube (as for behaviours); a stay cube's memory is each device's, so a
+    device that joins later does not know it was entered; a page shows what VR shows; walls only in AR with a room scan.
+  - The Bliss XP room (`examples/bliss-xp/`, made by `tools/studio/xp/make.mjs`; `tools/studio/xp/COMPONENTS.md` lists
+    the video's components and what each became): 58 models, 65 objects, 11 cubes as a walk through the video (the
+    entry, the grass and the error corner for everyone), 14 synthesised sounds as 17 emitters, 8 groups; about 67,000
+    triangles in VR, 50,000 in AR, at most 118 draws, 5.2 MB. In AR its windows go onto your walls in clusters (an anchor
+    on the wall, its neighbours riding on it), for rooms from about 3 x 3 to 5 x 5 m; start in the middle of the room
+    facing a wall and Recenter (the boot screen says so). Clippy is our own paperclip on a deckchair (Chill, Blink, Wave,
+    Dance). Nothing of the video is in the repository: no frames, no people, no logos or wordmarks, no lyrics, none of
+    the system's sounds (the review reworded the shutdown line, the hill's balloon and the error dialog into our own,
+    and gave the critical stop three low buzzes); the hill and sky are painted in code.
+  - Fixed in review: everyone cubes guarded a head with no time stamp; one wall alone faces into the room; in the room
+    the Task Manager cube no longer sits inside the Solitaire cube that hid it (its sound was silent), and four sounds a
+    cube started on objects the same cube showed (heard only as their object faded in) moved to objects always shown,
+    placed where they belong; `layout.mjs`'s `checkLayout` now refuses both. The service worker passes `examples/`
+    straight through, as it does the studio's scenes (not kept offline).
+  - Checked: each lane's own smoke blocks (spaceship, frame rate, studio everyone, studio walls, studio shows, studio
+    examples, studio xp) and, after the merge, the builds' checks, `make.mjs --check`, the listings and the studio xp and
+    examples blocks again. Not run on the merged code: the whole release run (before `main` moves; it should include
+    `tools/update.mjs` for the service worker's change). Untested on a headset: the wall mapping on a real room scan,
+    everyone cubes across headsets, the room's frame rate and how it reads life size, its sounds (synthesised, unheard).
 - **networks-v136 (11 November 2026; FORMAT networks-42, shell 136), on `dev` only: the frame rate everywhere, the
   studio's edit mode, trigger cubes that start things, and Update the room.** The owner: "The edit mode still has worse
   framerates than not editing, why?", "Trigger cube should also be able to trigger things like an animation or a

@@ -227,13 +227,13 @@ is GitHub Pages' custom domain for `main`.
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v136` on `dev` and `networks-v135` on `main` now, so `networks-v137` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v137` on `dev` and `networks-v135` on `main` now, so `networks-v138` next) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-40` on `dev` and `main` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-43` on `dev` and `networks-41` on `main` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.

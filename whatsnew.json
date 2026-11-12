@@ -1,28 +1,26 @@
 {
-  "version": "networks-v136",
-  "date": "11 November 2026",
+  "version": "networks-v137",
+  "date": "12 November 2026",
   "new": [
-    "Headsets now ask for 90 Hz (Quest Browser runs at 72 unless asked). The Debug tab has a Refresh rate row, and the frame-rate read-out says 'fps of 90 Hz'.",
-    "The lobby is lighter: station cards no longer show a running clock, are redrawn one at a time, and the story left loaded does nothing while you are away from every circle.",
-    "The studio's edit mode no longer remakes labels, panels and picks every frame, and draws its tags and lines together: editing costs little more than viewing.",
-    "Trigger cubes can start things: an animation clip, a sound, a recorded path or a motion on an item, once, looping, held while inside, or stopped, as you walk in or out. Each person's own.",
-    "Update the room (Shared dialog, the menu's Circles tab, the update bar): two presses reload every device in the room in turn. Rooms no longer get lost after an update: the relay moves a room on to the new version.",
-    "A page in a room takes a new version by itself after 20 s (Not now holds it 5 minutes).",
-    "Stories: the design room draws about a third as much, background builds take about 1 ms a frame in a headset, and paused stories send nothing to the GPU.",
-    "Debug experiments, off by default: Foveation and Resolution rows on the Debug tab."
+    "Spaceships fly without loops again, as in v133: the stick climbs and dives at most 60 degrees, and the floor and ceiling hold them level.",
+    "Station cards hold still: only their title and how many people are there, drawn again only when that number changes. Pointing at one or carrying it lights its edge.",
+    "Studio, trigger cubes: Works for: Each person / Everyone here. Everyone here makes a cube show, hide, change and start things for everyone at its circle while anyone in a headset is inside it.",
+    "Studio: Shows in: Only AR / Only VR on an item's card, and a new behaviour, On a wall: in AR an item goes onto the room scan's walls (in its direction, the nearest wall, or following the person).",
+    "Studio: Examples on the Scene pane, scenes that come with the app (Open read only, or Copy to the relay to edit).",
+    "The first example, Bliss XP: the music video taken apart into a room of our own drawings, with trigger cubes as a walk through it, sounds at their places, its windows on your walls in AR, and Clippy chilling on his deckchair."
   ],
   "test": [
-    "Lobby with only the stations visible: turn on the frame-rate read-out (double press B or Y). Does it say about 90 fps of 90 Hz now?",
-    "Debug tab, Refresh rate: what does 'offers' list on your Quest, and does 120 Hz hold in a light story?",
-    "Studio: edit a big scan and compare the read-out with viewing. Is the gap gone?",
-    "Studio: put a cube that plays a clip or a sound on a character, then walk in and out. Does it start, blend and stop as expected?",
-    "After the next deploy, press Update the room: do all headsets and pages reload one after another and come back into the same room?",
-    "Try Foveation 1 and Resolution 80 % on the Debug tab: do they look acceptable and raise the frame rate?"
+    "Spaceship (double click the right stick): it should climb and dive but never loop.",
+    "Lobby: do the station cards stay still and only change when someone walks in or out?",
+    "Studio, Scene pane, Examples, Open Bliss XP. In AR with a room scan, stand in the middle of the room facing a wall and Recenter: do the windows land on your walls, in clusters, without overlapping?",
+    "Walk the Bliss XP room: entry, Start menu, Clippy, the door, the grass, the solitaire, Task Manager, the way out, the error corner. Does each cube do its thing, and do the sounds come from the right places?",
+    "With two headsets at the Bliss XP circle: does the grass or the error corner trigger for both when one walks in?",
+    "Copy Bliss XP to the relay on a laptop and edit the copy: does it save and reopen?"
   ],
   "untested": [
-    "Everything on a real Quest: the 90 Hz request, the frame rates, foveation and resolution, the batched studio tags, the bar and hover patches.",
-    "Update the room with ten real headsets on one Wi-Fi, and Enter VR to continue after it.",
-    "Rooms kept across deploys (--keep) need a volume on Coolify, not set up yet.",
-    "How a clip blended in by a cube looks on a real character, and a cube's sound through HRTF."
+    "Everything on a real Quest: the wall mapping on a real room scan, the room's frame rate (about 67,000 triangles in VR), everyone cubes across headsets.",
+    "The Bliss XP sounds are synthesised and unheard; how they sound through HRTF is unknown.",
+    "Rooms facing a long wall (5 x 4 m) may push one window a few cm past a corner; rooms smaller than 3 x 3 m are untested.",
+    "Copy to the relay with an R2 relay (only a folder relay was tried here)."
   ]
 }
