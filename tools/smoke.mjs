@@ -8225,6 +8225,71 @@ if (runs('studio examples')) {
   const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
   const EXD = path.join(ROOT, 'tools', 'studio', 'test', 'examples');
   const bad = list => { if (list.length) errors.push(...list.map(b => 'studio examples: ' + b)); };
+  // (in the page: the headset's Scene pane drawn and scrolled through: the example buttons drawn and those that can be
+  // pressed, a greyed one being drawn with no region; and one pressed, scrolling down to it: true if it was there)
+  const EX_DRAW = `const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };`;
+  const EX_ROWS = `() => { XR.on = true; ${EX_DRAW} X.tab = 'scene'; X.scroll = {}; const live = new Set(), drawn = new Set();
+    try { for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); for (const q of XR.main.regions) live.add(q.id); const d = XR.main.drawn || []; for (let k = 0; k < d.length; k += 5) drawn.add(d[k]); } }
+    finally { X.scroll = {}; XR.on = false; renderPanes(); }
+    return { live: [...live].filter(i => /^ex/.test(i)).sort(), drawn: [...drawn].filter(i => /^ex/.test(i)).sort() }; }`;
+  const EX_PRESS = `id => { XR.on = true; ${EX_DRAW} X.tab = 'scene'; X.scroll = {};
+    try { for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); return true; } } return false; }
+    finally { X.scroll = {}; XR.on = false; renderPanes(); } }`;
+  // a folder of scenes of its own (the test scene copied), and a relay of its own serving the app and it (from 8960 up;
+  // more: its other options, as --scenes-readonly)
+  const exScenes = () => {
+    const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-ex-'));
+    fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
+    return SC;
+  };
+  const exRelay = async (SC, more = []) => {
+    for (let p = 8960; p < 8990; p++) {
+      const R = { proc: null, port: 0, out: '' };
+      const ok = await new Promise(res => {
+        R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', '--static', '.', '--scenes', SC, ...more, '--quiet'],
+          { cwd: ROOT, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
+        const t = setTimeout(() => res(false), 15000);
+        R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
+        R.proc.stderr.on('data', d => { R.out += d; });
+        R.proc.on('exit', () => { clearTimeout(t); res(false); });
+      });
+      if (ok) return R;
+      if (R.proc.exitCode === null) R.proc.kill();
+    }
+    return null;
+  };
+  // (the relay serves no tools/: the example's files given to the page by the test, the service worker kept out so they are)
+  const exCtx = async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.route('**/tools/studio/test/examples/**', route => {
+      const rel = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^.*\/tools\/studio\/test\/examples\//, '');
+      const f = path.join(EXD, ...rel.split('/'));
+      if (rel.includes('..') || !fs.existsSync(f) || !fs.statSync(f).isFile()) return route.fulfill({ status: 404, body: 'Not found' });
+      return route.fulfill({ status: 200, body: fs.readFileSync(f), contentType: /\.json$/.test(f) ? 'application/json' : 'application/octet-stream' });
+    });
+    return ctx;
+  };
+  // the studio at the relay, its test scene open (from the relay), the examples listed: { ep, ss, until }, or null
+  const exPage = async (ctx, RL, out) => {
+    const ep = await ctx.newPage();
+    ep.on('pageerror', e => errors.push('studio examples: ' + (e.stack || e.message)));
+    ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio examples: ' + m.text()); });
+    const ss = s => ep.evaluate(s => HOST.cur.peek(s), s), until = (src, ms) => ep.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+    await ep.goto(`http://127.0.0.1:${RL.port}/index.html#studio&scene=test&examples=tools/studio/test/examples`);
+    await ep.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && STUDIO.state().src === 'relay' && STUDIO.state().scene === 'test' && !!STUDIO.examples().list`, 120000)) {
+      out.push('the relay\'s scene or the examples did not load: ' + JSON.stringify(await ss('[SRC.kind, SRC.upload, SRC.save, STU.listing, JSON.stringify(STUDIO.examples())]').catch(e => e.message)));
+      return null;
+    }
+    await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+    return { ep, ss, until };
+  };
+  // (in the page: a pretend circle of the studio, HOST.collab.live giving its station; its story locked while __exLock)
+  const EX_CIRCLE = `(window.__exk = window.__exk || { live: HOST.collab.live, lock: HOST.collab.stationLock, find: HOST.collab.relayFind, n: 0 },
+    HOST.collab.live = () => ({ id: 'st01', story: 'studio' }), HOST.collab.stationLock = () => !!window.__exLock)`;
+  // a page's button in the Scene pane (by its id): [there, greyed, its words]
+  const exBtn = (ss, id) => ss(`(renderPanes(), (b => b ? [true, b.disabled, b.textContent] : [false])(document.querySelector('#pane-scene [data-id="${id}"]')))`);
   await step('studio examples: the Scene pane lists the test example; Open opens it read only from the examples\' folder (page and headset rows), Back to your scenes returns; no Copy without a relay', async () => {
     const ep = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     ep.on('pageerror', e => errors.push('studio examples: ' + (e.stack || e.message)));
@@ -8241,57 +8306,27 @@ if (runs('studio examples')) {
     const opened = await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000);
     const s1 = await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().folder, STUDIO.state().save, STUDIO.state().items, STUDIO.examples().here, STUDIO.examples().prev, STU.items.get('excub1') && STU.items.get('excub1').rec.all, STU.items.get('exbox1') && !!STU.items.get('exbox1').model])`);
     if (!opened || s1 !== '["folder","tools/studio/test/examples",false,3,true,true,true,true]') out.push('the example opened, read only: ' + s1);
-    // the headset's Scene pane: the example's row, its Copy too (greyed: no relay here; v137b); Back to your scenes pressed there
+    // the headset's Scene pane: the example's row, its Copy drawn too but greyed (no relay here: no region to press; v137b);
+    // Back to your scenes pressed there
     const xr = await ss(`(() => {
-      XR.on = true;
-      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
-      X.tab = 'scene'; X.scroll = {};
-      const ids = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); for (const q of XR.main.regions) ids.add(q.id); }
-      let pressed = false; for (let off = 0; off < 4000 && !pressed; off += 150) { X.scroll.scene = off; draw(); const q = XR.main.regions.find(z => z.id === 'exback'); if (q && q.fn) { q.fn(); pressed = true; } }
-      X.scroll = {}; XR.on = false; renderPanes();
-      return [ids.has('exopen:tiny'), ids.has('excopy:tiny'), pressed];
+      const R = (${EX_ROWS})();
+      return [R.live.includes('exopen:tiny'), R.drawn.includes('excopy:tiny'), R.live.includes('excopy:tiny'), (${EX_PRESS})('exback')];
     })()`);
-    if (JSON.stringify(xr) !== '[true,true,true]') out.push('the headset\'s rows (Open, Copy, Back pressed): ' + JSON.stringify(xr));
+    if (JSON.stringify(xr) !== '[true,true,false,true]') out.push('the headset\'s rows (Open, Copy drawn and greyed, Back pressed): ' + JSON.stringify(xr));
     const back = await until(`STUDIO.state().scene === 'test' && STUDIO.state().folder === 'tools/studio/test/scenes' && STUDIO.ready()`, 60000);
     if (!back || await ss('STUDIO.examples().here')) out.push('Back to your scenes: ' + JSON.stringify(await ss('[STUDIO.state().scene, STUDIO.state().folder]')));
     bad(out);
     await ep.close();
   });
   await step('studio examples: Copy to the relay (a relay of its own): a scene made under the example\'s name, its files in their folders and its layout on the relay\'s disk, the copy opened from the relay with editing on; a second copy numbered', async () => {
-    const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-ex-'));
-    fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
-    let RL = null;
-    for (let p = 8960; p < 8990 && !RL; p++) {
-      const R = { proc: null, port: 0, out: '' };
-      const ok = await new Promise(res => {
-        R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', '--static', '.', '--scenes', SC, '--quiet'],
-          { cwd: ROOT, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
-        const t = setTimeout(() => res(false), 15000);
-        R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
-        R.proc.stderr.on('data', d => { R.out += d; });
-        R.proc.on('exit', () => { clearTimeout(t); res(false); });
-      });
-      if (ok) RL = R; else if (R.proc.exitCode === null) R.proc.kill();
-    }
-    if (!RL) { bad(['no relay of its own started']); return; }
-    // (the relay serves no tools/: the example's files given to the page by the test, the service worker kept out so they are)
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
-    await ctx.route('**/tools/studio/test/examples/**', route => {
-      const rel = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^.*\/tools\/studio\/test\/examples\//, '');
-      const f = path.join(EXD, ...rel.split('/'));
-      if (rel.includes('..') || !fs.existsSync(f) || !fs.statSync(f).isFile()) return route.fulfill({ status: 404, body: 'Not found' });
-      return route.fulfill({ status: 200, body: fs.readFileSync(f), contentType: /\.json$/.test(f) ? 'application/json' : 'application/octet-stream' });
-    });
-    const ep = await ctx.newPage();
-    ep.on('pageerror', e => errors.push('studio examples: ' + (e.stack || e.message)));
-    ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio examples: ' + m.text()); });
-    const ss = s => ep.evaluate(s => HOST.cur.peek(s), s), until = (src, ms) => ep.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
-    const out = [];
+    const SC = exScenes(), RL = await exRelay(SC);
+    if (!RL) { bad(['no relay of its own started']); fs.rmSync(SC, { recursive: true, force: true }); return; }
+    const ctx = await exCtx(), out = [];
     try {
-      await ep.goto(`http://127.0.0.1:${RL.port}/index.html#studio&scene=test&examples=tools/studio/test/examples`);
-      await ep.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
-      if (!await until(`STUDIO.ready() && STUDIO.state().src === 'relay' && canUpload() && !!STUDIO.examples().list && STUDIO.examples().can`, 120000)) { out.push('the relay\'s scene or the examples did not load: ' + JSON.stringify(await ss('[SRC.kind, SRC.upload, SRC.save, STU.listing, JSON.stringify(STUDIO.examples())]').catch(e => e.message))); return; }
+      const P = await exPage(ctx, RL, out);
+      if (!P) return;
+      const { ep, ss, until } = P;
+      if (!await until(`canUpload() && STUDIO.examples().can`, 20000)) { out.push('the relay takes no uploads: ' + JSON.stringify(await ss('JSON.stringify(STUDIO.examples())'))); return; }
       await ss(`(X.tab = 'scene', renderPanes(), 0)`);
       await ep.click('#pane-scene [data-act="excopy"][data-v="tiny"]');
       if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 90000)) { out.push('the copy did not finish: ' + JSON.stringify(await ss('JSON.stringify(STUDIO.examples())'))); return; }
@@ -8309,6 +8344,256 @@ if (runs('studio examples')) {
       await ss(`(X.tab = 'scene', renderPanes(), 0)`);
       await ep.click('#pane-scene [data-act="excopy"][data-v="tiny"]');
       if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny 2' && STUDIO.ready()`, 90000) || !fs.existsSync(path.join(SC, 'tiny 2', 'models', 'box.glb'))) out.push('the second copy: ' + JSON.stringify(await ss('[STUDIO.state().scene, JSON.stringify(STUDIO.examples())]')));
+    } finally {
+      bad(out);
+      await ctx.close();
+      RL.proc.kill();
+      fs.rmSync(SC, { recursive: true, force: true });
+    }
+  });
+
+  // At a shared room's circle (v137b; the owner, 12 November 2026: "bliss is greyed out, why"): the scene there is the room's,
+  // so the example's button opens it from the relay for everyone at the circle (copied there first when the relay has none),
+  // Copy to the relay works in a headset too, and an example open here as the device comes to a circle goes back to the
+  // relay (exLeave). A pretend circle: HOST.collab.live gives the studio's station (EX_CIRCLE), and what the room would
+  // have of it is the studio's own state (HOST.cur.collab.state(), which the shell publishes for everyone there)
+  const exGets = ss => ss(`JSON.stringify((s => [s.scene, Object.keys(s).filter(k => /^[ocsxgpe]\\./.test(k)).sort()])(HOST.cur.collab.state()))`);
+  const exDisk = SC => fs.readdirSync(SC).filter(n => !n.startsWith('.')).sort().join('|');
+  await step('studio examples: an example open as this device comes to a circle goes back to the relay (exLeave): what the circle would get is never the example\'s, the relay asked for once though it answers slowly; the room\'s scene applied right after opens from the relay', async () => {
+    const SC = exScenes(), RL = await exRelay(SC);
+    if (!RL) { bad(['no relay of its own started']); fs.rmSync(SC, { recursive: true, force: true }); return; }
+    const ctx = await exCtx(), out = [];
+    try {
+      const P = await exPage(ctx, RL, out);
+      if (!P) return;
+      const { ep, ss, until } = P;
+      const n0 = await ss('STUDIO.state().items');
+      // off a circle: the example opened read only, from the examples' folder (this device's own)
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`STUDIO.state().scene === 'tiny' && STUDIO.examples().here && STUDIO.ready()`, 60000)) { out.push('the example did not open off a circle: ' + JSON.stringify(await ss('JSON.stringify([STUDIO.state(), STUDIO.examples()])'))); return; }
+      // the device comes to a circle, the relay answering slowly (0.6 s: longer than a frame): what the shell would publish
+      // there at once (it polls the state from its own timer, before the studio's next frame) is no scene, never the example's
+      const at = await ss(`(() => {
+        ${EX_CIRCLE};
+        const k = window.__exk; k.n = 0; HOST.collab.relayFind = () => { k.n++; return new Promise(r => setTimeout(() => r(k.find()), 600)); };
+        const s = HOST.cur.collab.state();
+        return JSON.stringify([s.scene, Object.keys(s).filter(z => /^[ocsxgpe]\\./.test(z)).length]);
+      })()`);
+      if (at !== '["",0]') out.push('the state at the circle before a frame (scene, items): ' + at);
+      if (!await until(`STUDIO.state().src === 'relay' && STUDIO.state().srcState === 'ok' && !STUDIO.examples().here`, 20000)) out.push('not back to the relay at the circle: ' + JSON.stringify(await ss('JSON.stringify([STUDIO.state().src, STUDIO.state().srcState, STUDIO.state().folder, STUDIO.examples(), window.__exk.n])')));
+      // (asked once: a frame that asked again before the slow answer came would throw the answer away, and never settle)
+      const n = await ss('window.__exk.n');
+      if (n !== 1) out.push(`the relay asked for ${n} times (once, with a slow answer)`);
+      await ss('(HOST.collab.relayFind = window.__exk.find, 0)');
+      // (the relay has one scene: at a circle with nothing in the room's state the studio opens it by itself, from the relay)
+      if (!await until(`STUDIO.state().scene === 'test' && STUDIO.state().src === 'relay' && STUDIO.ready()`, 60000)) out.push('the relay\'s only scene not opened at the circle: ' + JSON.stringify(await ss('JSON.stringify(STUDIO.state().scene)')));
+      const s1 = JSON.parse(await exGets(ss));
+      if (s1[0] !== 'test' || s1[1].length !== n0) out.push('the circle\'s state after exLeave: ' + JSON.stringify(s1));
+      // off the circle again, the example opened again; back at the circle the room's state applied in the same task
+      await ss('(HOST.collab.live = window.__exk.live, 0)');
+      await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`STUDIO.state().scene === 'tiny' && STUDIO.examples().here && STUDIO.ready()`, 60000)) { out.push('the example did not open again off the circle'); return; }
+      const ap = await ss(`(() => { ${EX_CIRCLE}; HOST.cur.collab.apply({ scene: 'test' }); return JSON.stringify([STU.scene, OPT.scenes, STUDIO.examples().prev]); })()`);
+      if (ap !== '["test","",false]') out.push('the room\'s scene applied at the circle (scene, the source asked for, Back): ' + ap);
+      if (!await until(`STUDIO.state().scene === 'test' && STUDIO.state().src === 'relay' && !STUDIO.examples().here && STUDIO.ready() && STUDIO.state().items === ${n0}`, 60000)) out.push('the room\'s scene not opened from the relay: ' + JSON.stringify(await ss('JSON.stringify([STUDIO.state().src, STUDIO.state().folder, STUDIO.state().scene, STUDIO.state().items, STUDIO.state().listing])')));
+      const s2 = JSON.parse(await exGets(ss));
+      if (s2[0] !== 'test' || s2[1].length !== n0) out.push('the circle\'s state after the room\'s: ' + JSON.stringify(s2));
+      if (exDisk(SC) !== 'test') out.push('scenes on the relay\'s disk: ' + exDisk(SC));
+    } finally {
+      bad(out);
+      await ctx.close();
+      RL.proc.kill();
+      fs.rmSync(SC, { recursive: true, force: true });
+    }
+  });
+  await step('studio examples: at a circle with a relay that takes uploads: the example\'s button (page and headset) copies it to the relay under its name and opens it there for everyone at the circle, editing left off; pressed again (page and headset) the relay\'s copy, no second; Copy to the relay (page and headset) numbered and opened there; greyed while the circle\'s story is locked', async () => {
+    const SC = exScenes(), RL = await exRelay(SC);
+    if (!RL) { bad(['no relay of its own started']); fs.rmSync(SC, { recursive: true, force: true }); return; }
+    const ctx = await exCtx(), out = [];
+    try {
+      const P = await exPage(ctx, RL, out);
+      if (!P) return;
+      const { ep, ss, until } = P;
+      await ss(`(${EX_CIRCLE}, 0)`);
+      if (!await until(`canUpload() && STUDIO.examples().can && STUDIO.examples().at`, 20000)) { out.push('the relay takes no uploads: ' + JSON.stringify(await ss('JSON.stringify(STUDIO.examples())'))); return; }
+      // (a) no copy on the relay yet: the button and Copy offered, page and headset, and the pane says what the first press does
+      const e0 = JSON.parse(await ss('JSON.stringify(STUDIO.examples())'));
+      if (!e0.at || e0.why !== '' || e0.relay.length || !e0.can || e0.here) out.push('the examples at the circle: ' + JSON.stringify(e0));
+      const b0 = [await exBtn(ss, 'exopen:tiny'), await exBtn(ss, 'excopy:tiny')];
+      if (JSON.stringify(b0) !== '[[true,false,"tiny"],[true,false,"Copy to the relay"]]') out.push('the page\'s buttons at the circle: ' + JSON.stringify(b0));
+      if (!await ss(`/At a circle the scene is for everyone here: an example opens from the relay, its copy there \\(the first press copies it there\\)\\./.test(document.querySelector('#pane-scene').textContent)`)) out.push('the pane\'s words at a circle');
+      const r0 = await ss(`(${EX_ROWS})()`);
+      if (JSON.stringify(r0.live) !== '["excopy:tiny","exopen:tiny"]') out.push('the headset\'s rows at the circle: ' + JSON.stringify(r0));
+      // pressed (the page's): copied to the relay as tiny, then opened from it for everyone here
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 90000)) { out.push('the example not opened at the circle: ' + JSON.stringify(await ss('JSON.stringify([STUDIO.state().src, STUDIO.state().scene, STUDIO.examples()])'))); return; }
+      const a = JSON.parse(await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().scene, STUDIO.state().items, STU.edit, STUDIO.examples().here, STUDIO.examples().note, STUDIO.examples().relay])`));
+      if (a[0] !== 'relay' || a[1] !== 'tiny' || a[2] !== 3 || a[3] !== false || a[4] !== false || !/^Copied tiny to the relay as tiny and opened it for everyone at this circle\.$/.test(a[5]) || a[6].join() !== 'tiny') out.push('opened at the circle (src, scene, items, editing, here, note, on the relay): ' + JSON.stringify(a));
+      const sa = await exGets(ss);
+      if (sa !== '["tiny",["c.excub1","o.exbox1","s.exsnd1"]]') out.push('what the circle gets: ' + sa);
+      for (const f of ['models/box.glb', 'sounds/tone.wav']) {
+        const x = path.join(SC, 'tiny', ...f.split('/')), y = path.join(EXD, 'tiny', ...f.split('/'));
+        if (!fs.existsSync(x) || !fs.readFileSync(x).equals(fs.readFileSync(y))) out.push('not on the relay\'s disk as in the example: ' + f);
+      }
+      const bo = await exBtn(ss, 'exopen:tiny');
+      if (JSON.stringify(bo) !== '[true,true,"✓ tiny"]') out.push('the button with it open at the circle: ' + JSON.stringify(bo));
+      // (b) pressed again with another scene open: the relay's copy, no second copy
+      await ep.click('#pane-scene [data-id="scene:test"]');
+      if (!await until(`STUDIO.state().scene === 'test' && STUDIO.ready()`, 60000)) { out.push('the test scene not picked again'); return; }
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000)) { out.push('the relay\'s copy not opened'); return; }
+      const b = JSON.parse(await ss(`JSON.stringify([STUDIO.state().src, STUDIO.examples().busy, STUDIO.examples().note])`));
+      if (b[0] !== 'relay' || b[1] || b[2] !== 'Opened tiny for everyone at this circle.') out.push('the relay\'s copy (src, busy, note): ' + JSON.stringify(b));
+      if (exDisk(SC) !== 'test|tiny') out.push('scenes on the relay\'s disk after the second press: ' + exDisk(SC));
+      if (await exGets(ss) !== sa) out.push('what the circle gets from the relay\'s copy: ' + await exGets(ss));
+      // (g) the headset's button the same: the relay's copy
+      await ep.click('#pane-scene [data-id="scene:test"]');
+      if (!await until(`STUDIO.state().scene === 'test' && STUDIO.ready()`, 60000)) { out.push('the test scene not picked a third time'); return; }
+      if (!await ss(`(${EX_PRESS})('exopen:tiny')`)) out.push('the headset\'s button not there to press');
+      if (!await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000) || exDisk(SC) !== 'test|tiny') out.push('the headset\'s press: ' + JSON.stringify(await ss('[STUDIO.state().scene, STUDIO.examples().note]')) + ' ' + exDisk(SC));
+      // (c) Copy to the relay at the circle (the page's, then the headset's): numbered, and opened for everyone here
+      const copy = async (how, to) => {
+        if (how === 'page') await ep.click('#pane-scene [data-id="excopy:tiny"]');
+        else if (!await ss(`(${EX_PRESS})('excopy:tiny')`)) { out.push('the headset\'s Copy not there to press'); return; }
+        if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === '${to}' && STUDIO.ready()`, 90000)) { out.push(`${how}'s Copy did not open ${to}: ` + JSON.stringify(await ss('JSON.stringify([STUDIO.state().scene, STUDIO.examples()])'))); return; }
+        const c = JSON.parse(await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().items, STU.edit, STUDIO.examples().note])`));
+        if (c[0] !== 'relay' || c[1] !== 3 || c[2] !== false || c[3] !== `Copied tiny to the relay as ${to} and opened it for everyone at this circle.`) out.push(`${how}'s Copy (src, items, editing, note): ` + JSON.stringify(c));
+        if (!fs.existsSync(path.join(SC, to, 'models', 'box.glb')) || JSON.parse(await exGets(ss))[0] !== to) out.push(`${how}'s Copy: not on the disk, or not the circle's scene`);
+      };
+      await copy('page', 'tiny 2');
+      await copy('headset', 'tiny 3');
+      // (d) the circle's story locked: both greyed (drawn in a headset with nothing to press), why in amber; pressing does nothing
+      await ss('(window.__exLock = true, dirty(true), 0)');
+      const bl = [await exBtn(ss, 'exopen:tiny'), await exBtn(ss, 'excopy:tiny')];
+      if (bl[0][1] !== true || bl[1][1] !== true) out.push('the page\'s buttons while locked: ' + JSON.stringify(bl));
+      if (!await ss(`document.querySelector('#pane-scene').textContent.includes('This circle\\'s story is locked: unlock it (Lock this story) to change its scene.')`)) out.push('the amber line while locked');
+      const rl = await ss(`(${EX_ROWS})()`);
+      if (rl.live.length || !rl.drawn.includes('exopen:tiny') || !rl.drawn.includes('excopy:tiny')) out.push('the headset\'s rows while locked: ' + JSON.stringify(rl));
+      await ss(`(act('exopen', 'tiny'), act('excopy', 'tiny'), 0)`);
+      await ep.waitForTimeout(1500);
+      const dl = JSON.parse(await ss(`JSON.stringify([STUDIO.state().scene, STUDIO.examples().busy])`));
+      if (dl[0] !== 'tiny 3' || dl[1] || exDisk(SC) !== 'test|tiny|tiny 2|tiny 3') out.push('pressed while locked: ' + JSON.stringify(dl) + ' ' + exDisk(SC));
+      await ss('(window.__exLock = false, dirty(true), 0)');
+      if ((await exBtn(ss, 'exopen:tiny'))[1] !== false) out.push('the button not offered again once unlocked');
+    } finally {
+      bad(out);
+      await ctx.close();
+      RL.proc.kill();
+      fs.rmSync(SC, { recursive: true, force: true });
+    }
+  });
+  // (v137c, the review of v137b: a scene of the example's name that is not whole, a copy under way or broken off, was
+  // opened at a circle as the relay's copy, emptying the room's scene for everyone there)
+  await step('studio examples: a copy not whole on the relay is never opened as the example at a circle: one a refused file broke off (its layout there, a file missing) not opened, the next press copying only the rest and opening it; one under way (its listing changing) waiting as Being copied..., broken off once quiet, and whole once its layout lands (the layout event lists the scenes again); one the listing has not seen yet (409) finished with it; off a circle a name taken meanwhile gives the next free one', async () => {
+    const SC = exScenes(), RL = await exRelay(SC);
+    if (!RL) { bad(['no relay of its own started']); fs.rmSync(SC, { recursive: true, force: true }); return; }
+    const ctx = await exCtx(), out = [];
+    const T = f => path.join(SC, 'tiny', ...f.split('/')), E = f => path.join(EXD, 'tiny', ...f.split('/'));
+    const mt = f => (fs.existsSync(T(f)) ? fs.statSync(T(f)).mtimeMs : 0);
+    const same = f => fs.existsSync(T(f)) && fs.readFileSync(T(f)).equals(fs.readFileSync(E(f)));
+    const ex = ss => ss('JSON.stringify(STUDIO.examples())').then(JSON.parse);
+    try {
+      const P = await exPage(ctx, RL, out);
+      if (!P) return;
+      const { ep, ss, until } = P;
+      await ss(`(${EX_CIRCLE}, 0)`);
+      if (!await until(`canUpload() && STUDIO.examples().can && STUDIO.examples().at`, 20000)) { out.push('the relay takes no uploads: ' + JSON.stringify(await ex(ss))); return; }
+      const pick = async name => { await ss(`(X.tab = 'scene', renderPanes(), 0)`); await ep.click(`#pane-scene [data-id="scene:${name}"]`); return until(`STUDIO.state().scene === '${name}' && STUDIO.ready()`, 60000); };
+      const gone = async () => { fs.rmSync(path.join(SC, 'tiny'), { recursive: true, force: true }); return until(`!STUDIO.state().scenes.includes('tiny') && !Object.keys(STUDIO.examples().parts).length`, 30000); };
+      // (a) the relay refuses sounds/tone.wav once: the copy is not whole, so not opened for everyone; its layout is there
+      let refused = 0;
+      await ctx.route(u => /\/api\/scenes\/tiny\/file\?path=sounds%2Ftone\.wav/.test(u.href), route => (refused++ ? route.continue() : route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"refused for the test"}' })));
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`!STUDIO.examples().busy && /could not be copied/.test(STUDIO.examples().note)`, 90000)) { out.push('the copy with a refused file: ' + JSON.stringify(await ex(ss))); return; }
+      const a = await ex(ss);
+      if (a.note !== 'Copied tiny to the relay as tiny, but 1 file could not be copied: sounds/tone.wav (refused for the test). Not opened here: press tiny again to copy the rest.' || a.relay.length || JSON.stringify(a.parts) !== '{"tiny":"broken"}') out.push('a copy broken off (note, on the relay, parts): ' + JSON.stringify([a.note, a.relay, a.parts]));
+      if (await ss('STUDIO.state().scene') !== 'test' || JSON.parse(await exGets(ss))[0] !== 'test') out.push('a copy broken off opened at the circle: ' + await exGets(ss));
+      if (!same('models/box.glb') || fs.existsSync(T('sounds/tone.wav')) || !fs.existsSync(T('layout.json'))) out.push('on the relay\'s disk after the refusal: ' + fs.readdirSync(path.join(SC, 'tiny')).join());
+      const ba = await exBtn(ss, 'exopen:tiny');
+      if (JSON.stringify(ba) !== '[true,false,"tiny"]' || !await ss(`document.querySelector('#pane-scene').textContent.includes('The relay\\'s tiny is not all there (a copy that broke off): pressing it copies the rest and opens it here.')`)) out.push('the button for a copy broken off: ' + JSON.stringify(ba));
+      // pressed again: only the missing file, the layout left as it is, then opened for everyone here
+      const m0 = mt('models/box.glb'), l0 = mt('layout.json');
+      await ep.waitForTimeout(50);
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 90000)) { out.push('the copy not finished: ' + JSON.stringify(await ex(ss))); return; }
+      const b = JSON.parse(await ss(`JSON.stringify([STUDIO.state().items, STUDIO.examples().note, STUDIO.examples().relay, STUDIO.examples().parts])`));
+      if (b[0] !== 3 || b[1] !== 'Finished copying tiny to the relay and opened it for everyone at this circle.' || b[2].join() !== 'tiny' || Object.keys(b[3]).length) out.push('the copy finished (items, note, on the relay, parts): ' + JSON.stringify(b));
+      if (!same('sounds/tone.wav') || mt('models/box.glb') !== m0 || mt('layout.json') !== l0 || fs.existsSync(T('.history')) || refused !== 2) out.push('finishing sent more than the missing file: ' + JSON.stringify([same('sounds/tone.wav'), mt('models/box.glb') === m0, mt('layout.json') === l0, fs.existsSync(T('.history')), refused]));
+      if (await exGets(ss) !== '["tiny",["c.excub1","o.exbox1","s.exsnd1"]]') out.push('what the circle gets once finished: ' + await exGets(ss));
+      // (the note about a scene opened goes once another scene is open)
+      if (!await pick('test') || !await until(`STUDIO.examples().note === ''`, 5000)) out.push('the note after another scene: ' + JSON.stringify(await ss('STUDIO.examples().note')));
+      // (b) a copy under way (another relay's or device's, written here by hand): waits while its listing changes
+      if (!await gone()) { out.push('tiny not gone from the listing'); return; }
+      fs.mkdirSync(T('models'), { recursive: true }); fs.copyFileSync(E('models/box.glb'), T('models/box.glb'));
+      if (!await until(`!!STUDIO.examples().parts.tiny`, 30000)) { out.push('a scene under way not seen: ' + JSON.stringify(await ex(ss))); return; }
+      fs.mkdirSync(T('sounds'), { recursive: true }); fs.copyFileSync(E('sounds/tone.wav'), T('sounds/tone.wav'));
+      if (!await until(`STUDIO.examples().parts.tiny === 'busy' && STUDIO.state().scenes.includes('tiny')`, 30000)) { out.push('a scene under way not busy: ' + JSON.stringify(await ex(ss))); return; }
+      const bb = await exBtn(ss, 'exopen:tiny'), rb = await ss(`(${EX_ROWS})()`);
+      if (JSON.stringify(bb) !== '[true,true,"Being copied..."]' || !await ss(`document.querySelector('#pane-scene').textContent.includes('tiny is being copied to the relay: it can open here once all of it is there.')`)) out.push('the button while it is copied: ' + JSON.stringify(bb));
+      if (rb.live.includes('exopen:tiny') || !rb.drawn.includes('exopen:tiny')) out.push('the headset\'s row while it is copied: ' + JSON.stringify(rb));
+      await ss(`(act('exopen', 'tiny'), 0)`);
+      await ep.waitForTimeout(1500);
+      if (await ss('STUDIO.examples().busy') || fs.existsSync(T('layout.json')) || await ss('STUDIO.state().scene') !== 'test') out.push('pressed while it is copied: ' + JSON.stringify(await ex(ss)));
+      // quiet a while: broken off (EX.quiet shortened), the button offered
+      await ss('(EX.quiet = 1500, 0)');
+      if (!await until(`STUDIO.examples().parts.tiny === 'broken'`, 10000) || (await exBtn(ss, 'exopen:tiny'))[1] !== false) out.push('quiet, not broken off: ' + JSON.stringify(await ex(ss)));
+      await ss('(EX.quiet = 60000, 0)');
+      // its layout lands (the relay's watch tells only a layout event: the page lists the scenes again for it): whole
+      fs.copyFileSync(E('layout.json'), T('layout.json'));
+      if (!await until(`STUDIO.examples().relay.includes('tiny') && !STUDIO.examples().parts.tiny`, 30000)) out.push('whole once its layout landed: ' + JSON.stringify(await ex(ss)));
+      if (JSON.stringify(await exBtn(ss, 'exopen:tiny')) !== '[true,false,"tiny"]') out.push('the button once whole: ' + JSON.stringify(await exBtn(ss, 'exopen:tiny')));
+      // (c) a scene of its name the listing has not seen yet (made by another device a moment ago): the relay says 409, and
+      // the press finishes it with that device (only the missing file), then opens it here
+      if (!await gone()) { out.push('tiny not gone from the listing again'); return; }
+      fs.mkdirSync(T('models'), { recursive: true }); fs.copyFileSync(E('models/box.glb'), T('models/box.glb'));
+      if (!await until(`STUDIO.state().scenes.includes('tiny')`, 30000)) { out.push('the third tiny not listed'); return; }
+      const m1 = mt('models/box.glb');
+      await ss(`(SRC.scenes = SRC.scenes.filter(s => s.name !== 'tiny'), act('exopen', 'tiny'), 0)`);
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 90000)) { out.push('the 409 not finished: ' + JSON.stringify(await ex(ss))); return; }
+      const c = JSON.parse(await ss(`JSON.stringify([STUDIO.state().items, STUDIO.examples().note])`));
+      if (c[0] !== 3 || c[1] !== 'Finished copying tiny to the relay and opened it for everyone at this circle.' || mt('models/box.glb') !== m1 || !same('sounds/tone.wav') || !same('layout.json')) out.push('the 409 finished (items, note): ' + JSON.stringify(c));
+      if (exDisk(SC) !== 'test|tiny') out.push('scenes on the relay\'s disk after the 409: ' + exDisk(SC));
+      // (d) off a circle, Copy with a listing that has not seen tiny: the relay says 409, the next free name taken
+      await ss('(HOST.collab.live = window.__exk.live, 0)');
+      if (!await pick('test')) { out.push('the test scene not picked off the circle'); return; }
+      await ss(`(SRC.scenes = SRC.scenes.filter(s => s.name !== 'tiny'), act('excopy', 'tiny'), 0)`);
+      if (!await until(`!STUDIO.examples().busy && STUDIO.state().scene === 'tiny 2' && STUDIO.ready()`, 90000)) out.push('off a circle, the next free name: ' + JSON.stringify(await ex(ss)));
+      else if (!/^Copied tiny to the relay as tiny 2: it is yours/.test(await ss('STUDIO.examples().note')) || exDisk(SC) !== 'test|tiny|tiny 2') out.push('off a circle (note, disk): ' + JSON.stringify(await ss('STUDIO.examples().note')) + ' ' + exDisk(SC));
+    } finally {
+      bad(out);
+      await ctx.close();
+      RL.proc.kill();
+      fs.rmSync(SC, { recursive: true, force: true });
+    }
+  });
+  await step('studio examples: at a circle with a relay that takes no uploads (--scenes-readonly): the example\'s button and Copy greyed, the amber line saying why; once the relay has a copy of it the button opens that for everyone there', async () => {
+    const SC = exScenes(), RL = await exRelay(SC, ['--scenes-readonly']);
+    if (!RL) { bad(['no relay of its own started']); fs.rmSync(SC, { recursive: true, force: true }); return; }
+    const ctx = await exCtx(), out = [];
+    try {
+      const P = await exPage(ctx, RL, out);
+      if (!P) return;
+      const { ep, ss, until } = P;
+      await ss(`(${EX_CIRCLE}, 0)`);
+      if (!await until(`STUDIO.examples().at && STUDIO.state().srcState === 'ok'`, 20000)) { out.push('not at the pretend circle'); return; }
+      const e0 = JSON.parse(await ss('JSON.stringify(STUDIO.examples())'));
+      if (e0.can || e0.why !== 'this relay takes no uploads' || e0.relay.length) out.push('the examples at the circle (can, why, on the relay): ' + JSON.stringify(e0));
+      const b0 = [await exBtn(ss, 'exopen:tiny'), await exBtn(ss, 'excopy:tiny')];
+      if (b0[0][1] !== true || b0[1][1] !== true) out.push('the page\'s buttons with no uploads: ' + JSON.stringify(b0));
+      if (!await ss(`document.querySelector('#pane-scene').textContent.includes('An example cannot open at this circle: it has to be on the relay first, and this relay takes no uploads.')`)) out.push('the amber line with no uploads: ' + await ss(`document.querySelector('#pane-scene').textContent.slice(0, 800)`));
+      const r0 = await ss(`(${EX_ROWS})()`);
+      if (r0.live.length || !r0.drawn.includes('exopen:tiny')) out.push('the headset\'s rows with no uploads: ' + JSON.stringify(r0));
+      // a copy of the example put on the relay's disk (as another relay's Copy would have made it): the relay's watch tells the page
+      fs.cpSync(path.join(EXD, 'tiny'), path.join(SC, 'tiny'), { recursive: true });
+      if (!await until(`STUDIO.examples().relay.includes('tiny')`, 30000)) { out.push('the relay\'s copy not listed'); return; }
+      const b1 = await exBtn(ss, 'exopen:tiny');
+      if (JSON.stringify(b1) !== '[true,false,"tiny"]' || await ss(`document.querySelector('#pane-scene').textContent.includes('An example cannot open at this circle')`)) out.push('the button with the relay\'s copy: ' + JSON.stringify(b1));
+      await ep.click('#pane-scene [data-id="exopen:tiny"]');
+      if (!await until(`STUDIO.state().scene === 'tiny' && STUDIO.ready()`, 60000)) { out.push('the relay\'s copy not opened'); return; }
+      const c = JSON.parse(await ss(`JSON.stringify([STUDIO.state().src, STUDIO.state().items, STUDIO.examples().note])`));
+      if (c[0] !== 'relay' || c[1] !== 3 || c[2] !== 'Opened tiny for everyone at this circle.') out.push('the relay\'s copy opened (src, items, note): ' + JSON.stringify(c));
+      if (await exGets(ss) !== '["tiny",["c.excub1","o.exbox1","s.exsnd1"]]') out.push('what the circle gets: ' + await exGets(ss));
     } finally {
       bad(out);
       await ctx.close();

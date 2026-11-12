@@ -47,15 +47,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v137 (FORMAT networks-43, the v137 entry below; v136 before it, also on `dev`
-    only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
+  - *The branches.* `dev` is networks-v138 (FORMAT networks-43, the v138 and v137 entries below; v136 before them, also
+    on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
     both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
     is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
     fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
     Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
     https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
     networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v137 are the entries below. The AI agents' working branch,
+    (`5524684`, 7 November); v122 to v138 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -63,7 +63,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
     rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
-    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v137; the
+    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v138; the
     others' are in their entries below.
   - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
     the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
@@ -102,6 +102,18 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v138 (12 November 2026; FORMAT networks-43, shell 137), on `dev` only: examples at a studio circle.** The
+  owner, on the test place: "just tried stories.lab.lbi-netmed.com but bliss is greyed out, why". In a shared room the
+  studio opens only through a circle, and at a circle v137 greyed the example's button (the scene there is the room's)
+  while *Copy to the relay* was a page's only, so a headset could not open Bliss XP at all. Now, at a circle, the
+  example's button opens the relay's copy of it for everyone there, copying it there first under its name (with its
+  progress); *Copy to the relay* works in a headset too; a copy is the example's only when whole (its layout and every
+  file: one under way says *Being copied...*, one broken off is finished by the next press, two devices pressing at once
+  finish one copy); greyed only while the story is locked or the room has no relay that takes uploads, a line saying why;
+  and a device with an example open read only as it comes to a circle goes back to the relay first (`exLeave`, also
+  before the shell polls `state()`), so a circle never gets a scene from one device's own folder. The relay's layout event
+  now lists the scenes again on every studio page. Checked: the smoke block `studio examples` (six steps, all good after a
+  review and a fix round), the builds' checks. Untested on a headset: all of it on a Quest, copying 5 MB from one to R2.
 - **networks-v137 (12 November 2026; FORMAT networks-43, shell 137), on `dev` only: ships without loops, still station
   cards, cubes for everyone, AR or VR only, things on walls, example scenes and the Bliss XP room.** The owner: "Trigger
   cube starts are each person's own ... THIS MIGHT NEED A SWITCH FOR BOTH OPTIONS", "Airplanes should not be able to do a

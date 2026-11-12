@@ -427,8 +427,13 @@ the real room and move with it.
 
 Scenes that come with the app are listed under **Examples** on the Scene tab (the folder `examples/` next to the app, as
 `scan.mjs` writes a folder of scenes). **Open** shows one as it is, read only (what you change stays on this device;
-**Back to your scenes** goes back). On a page with a relay that takes uploads, **Copy to the relay** makes it one of your
-scenes: every file and its layout copied (a second copy is numbered), then opened with **Edit** on
+**Back to your scenes** goes back). With a relay that takes uploads (on a page or in a headset), **Copy to the relay** makes
+it one of your scenes: every file and its layout copied (a second copy is numbered), then opened with **Edit** on. At a
+circle in a shared room the scene is for everyone there: the example's button opens it from the relay for everyone at the
+circle (the first press copies it there under its name, later presses open that copy, but only once all of it is there:
+a copy still on its way says *Being copied...*, and one that broke off is finished by the next press, only the files
+missing), and Copy opens its copy there too; greyed only while the circle's story is locked, while it is being copied, or
+while the relay takes no uploads, a line saying why
 (`engine/e7g_examples.js`; "Example scenes" in `SPEC.md`).
 
 ## A new scene, and a model from another scene

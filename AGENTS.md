@@ -5546,14 +5546,33 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`). The Scene pane lists them, page and headset (*Examples
   (they come with the app)*): *Open* (the scene from that folder, read only, as `&scenes=examples&scene=<name>` opens it;
   editing works on this device, *Download layout.json* keeps it; *Back to your scenes* returns to where scenes came from
-  before; not at a shared room's circle, whose scene is the room's: there it says to copy it to the relay) and, on a page
-  with a relay that takes uploads, *Copy to the relay* (a free scene name, the example's, else numbered *bliss-xp 2*; `POST
-  /api/scenes`; every listed file fetched from the example and uploaded to the same path through the studio's own upload
-  path, `upSend`, straight into R2 where it can, its pictures too; then its `layout.json` saved through the layout
-  endpoint; the progress on the pane, a file the relay refuses said and the rest copied; then the copy opened from the relay
-  with editing on). The relay serves `examples/` as an app folder (`APP_DIRS`, deeper than the others: a scene's files are,
-  `APP_DEEP`); `sw.js` treats its files as app files, network first (never in `SHELL`). `STUDIO.examples()` for tests.
-  Nothing of it in the layout or the room.
+  before) and, with a relay that takes uploads (page and headset since v137b), *Copy to the relay* (a free scene name, the
+  example's, else numbered *bliss-xp 2*; `POST /api/scenes`; every listed file fetched from the example and uploaded to the
+  same path through the studio's own upload path, `upSend`, straight into R2 where it can, its pictures too; then its
+  `layout.json` saved through the layout endpoint; the progress on the pane, a file the relay refuses said and the rest
+  copied; then the copy opened from the relay, with editing on away from a circle). At a shared room's circle (v137b; the
+  owner, 12 November 2026: "bliss is greyed out, why": the button was greyed there and Copy a page's, so a headset at a
+  circle could do nothing) the scene is the room's and the folder this device's, so the example's button opens it from the
+  relay for everyone at the circle (`exAt`): the relay's copy, else copied there first under its name and then opened
+  (`openScene(name, 'pick')`, which the shell publishes as the station's state; editing left as it was); Copy pressed there
+  opens its copy for everyone at that circle, if this device is still at it when the copy is done and every file came
+  through. The relay's copy is a whole one only (v137c; the review of v137b: a copy under way or broken off was opened for
+  everyone, emptying the circle's scene): a scene of the example's name with its layout (written last) and at least the
+  example's files (`exOnRelay`). One that is not whole waits while its listing changes, a copy under way here or on
+  another device (*Being copied...*, greyed; `exPart` `'busy'`, its listing seen changing within the last minute,
+  `EX.quiet`, by `exSaw` every frame), else (a copy broken off) a press finishes it there: only the files the relay has not
+  got, its layout only when it has none (`exCopy(name, into)`, also when `POST /api/scenes` answers 409 because another
+  device made it a moment ago); a layout event of the relay's watch has the scenes listed again, so other devices see it
+  land. Off a circle, a name taken meanwhile (409) takes the next free one. Greyed only while it is the circle's scene,
+  while the circle's story is locked, while it is being copied, or (no whole copy on the relay) while the room has no relay
+  that takes uploads, an amber line saying which (`exWhy()`). A device with an example open as it
+  comes to a circle goes back to the relay with no scene open, the scene then the room's (`exLeave`: from `collabApply`
+  before the room's state applies, from `collabState`, which the shell polls on its own timer, and every frame; once, so a
+  slow answer from the relay is never thrown away): what goes out to a circle is never the example's folder's. The relay
+  serves `examples/` as an app folder (`APP_DIRS`, deeper than the others: a scene's files are, `APP_DEEP`); `sw.js` treats
+  its files as app files, network first (never in `SHELL`). `STUDIO.examples()` for tests (`at`, `why`, `relay`: the
+  examples with a whole copy on the relay, since v137b; `parts`, those whose scene there is not, `'busy'` or `'broken'`,
+  since v137c). Nothing of it in the layout or the room (no `FORMAT` change).
 - **Placement in a headset**: life size, as the design room's table. Outside a room the scene's origin is the rig's
   floor point: where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
   Anchor is on, so an exhibit comes back at the same place in the real room). At a station in a shared room (v125; the
@@ -6508,14 +6527,39 @@ the labels pointed at and selected), the ball not; in AR the ball's tag *· VR o
 AR and VR: one Undo step each), the headset's (on the tone); norm's rules (on objects, sounds, shapes and empties; a
 cube's ignored), the state and `layout.json`.
 
-Its *studio examples* steps (v137; `--only 'studio examples'`, a minute or two): the test example
+Its *studio examples* steps (v137; `--only 'studio examples'`, about four minutes): the test example
 (`tools/studio/test/examples/tiny`, `&examples=` pointing there) listed on the Scene pane, Copy greyed with no relay;
 Open opening it from the examples' folder, read only, its three items and their models in; the headset's Scene pane
-with Open and no Copy, Back to your scenes pressed there, back at the test scene. Then a relay of its own (from port 8960,
-`--static . --scenes` on a temporary copy of the test scene; the example's files given to its page by the test, its
-service worker blocked): Copy to the relay: the scene `tiny` on the relay's disk with `models/box.glb` and
-`sounds/tone.wav` as in the example and its `layout.json` (its cube for everyone), the copy opened from the relay with
-editing on (3 of 3, its words); a second copy `tiny 2`.
+with Open and Copy drawn but Copy greyed (no region to press), Back to your scenes pressed there, back at the test scene.
+Then, each on a relay of its own (from port 8960, `--static . --scenes` on a temporary copy of the test scene; the
+example's files given to its page by the test, its service worker blocked): Copy to the relay: the scene `tiny` on the
+relay's disk with `models/box.glb` and `sounds/tone.wav` as in the example and its `layout.json` (its cube for everyone),
+the copy opened from the relay with editing on (3 of 3, its words); a second copy `tiny 2`. At a pretend circle (v137b:
+`HOST.collab.live` giving the studio's station, `HOST.collab.stationLock` its lock; what the circle gets is
+`HOST.cur.collab.state()`): an example open off the circle, then the circle with the relay answering in 0.6 s, longer than
+a frame: the state polled at once (before a frame) no scene and no items, back to the relay asked for once, the relay's
+only scene opened by itself there; the example open again and the room's state (`{ scene: 'test' }`) applied in the same
+task: `test` opened from the relay with its items, nothing on the relay's disk but `test`. With no copy on the relay: the
+example's button and Copy offered on the page and pressable in a headset, the pane's line about the first press; pressed:
+copied as `tiny` (its files on the disk as in the example) and opened from the relay with editing off, the note *... and
+opened it for everyone at this circle.*, the circle's state `tiny` with its three items, the button then *✓ tiny* and
+greyed; another scene picked and the button pressed again on the page, then in a headset: the relay's copy (*Opened tiny
+for everyone at this circle.*), no second copy on the disk; Copy on the page and in a headset: `tiny 2` and `tiny 3`
+opened for everyone at the circle; the circle's story locked: both greyed (drawn in a headset with nothing to press), the
+amber line, pressing them doing nothing, offered again once unlocked. A copy not whole on the relay (v137c): the relay's
+upload of `sounds/tone.wav` refused once (a route of the test's): the copy at the circle not opened, the scene there still
+`test`, the note *... but 1 file could not be copied: sounds/tone.wav (...). Not opened here: press tiny again to copy the
+rest.*, `relay` empty and `parts` `{ tiny: 'broken' }`, its box and layout on the disk and no tone, the button offered with
+the line about a copy that broke off; pressed again: only the tone uploaded (the box's and the layout's times unchanged, no
+`.history`), opened for everyone (*Finished copying tiny to the relay and opened it for everyone at this circle.*), the
+note gone once another scene is picked; a scene `tiny` written on the disk by hand, its box, then its tone (its listing
+changing): `busy`, the button *Being copied...* and greyed (drawn in a headset with nothing to press), the line, a press
+doing nothing; quiet for `EX.quiet` (shortened to 1.5 s): `broken`, offered; its `layout.json` written: whole once the
+relay's layout event has the scenes listed again; a scene `tiny` with only its box hidden from the page's listing and the
+button pressed (the relay answers 409): finished with it (the box's time unchanged, the tone and layout added) and opened;
+off the circle, Copy with that listing: the next free name, `tiny 2`. A relay with `--scenes-readonly`: both greyed with *this relay
+takes no uploads* in the amber line (`why`), nothing pressable in a headset; a copy of the example put on the relay's disk
+(told by its watch): the button offered and opening it from the relay for everyone there.
 
 Its *studio trackers* steps (v126; `--only 'studio trackers'`, about a minute) run on a page of their own at `&scene=test`,
 a pretend studio station (`HOST.collab.live`) and its trackers given in the page (`HOST.collab.trackers` stubbed, so each

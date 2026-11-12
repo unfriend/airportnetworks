@@ -2342,14 +2342,67 @@ Scenes that ship with the app. `engine/e7g_examples.js`.
   its scenes.
 - **Open**: the scene from that folder, read only, as `&scenes=examples&scene=<name>` opens it (editing works on this
   device; *Download layout.json* keeps what was changed). *Back to your scenes* returns to where scenes came from before
-  (the relay, or the folder of the link). Not at a shared room's circle (the scene there is the room's, and the others
-  may not have the folder): the pane says to copy it to the relay.
-- **Copy to the relay** (a page only, with a relay that takes uploads, `canWrite()`): a free scene name (the example's,
-  else numbered: *bliss-xp 2*), `POST /api/scenes`, every listed file fetched from the example and uploaded to the same
-  path through the studio's own upload path (`upSend`: straight into R2 where it can), its pictures too, then its
-  `layout.json` (its `scene` the new name) saved through the layout endpoint; the progress on the pane (*n of m files*);
-  a file the relay refuses is said and the rest copied; then the copy opened from the relay with editing on.
-- **For tests**: `STUDIO.examples()` (`{ list, here, folder, busy, done, of, note, prev, can }`).
+  (the relay, or the folder of the link).
+- **At a shared room's circle** (v137b; the owner, 12 November 2026, at a studio circle on the test place: "bliss is
+  greyed out, why"; until then the button was greyed there and Copy a page's only, so a headset at a circle could do
+  nothing): the scene there is the room's, and the folder is this device's, so the example's button opens it from the
+  relay for everyone at the circle (`exAt`): the relay's copy, else it is copied there first under its name (Copy, below)
+  and that opened; `openScene(name, 'pick')` at the station, which the shell publishes as the station's state; editing is
+  not switched on by it. The note says which (*Opened bliss-xp for everyone at this circle.*, *Copied bliss-xp to the
+  relay as bliss-xp and opened it for everyone at this circle.*; a note about a scene opened goes once another scene is
+  open); the pane's line says *the first press copies it there*. Greyed while it is the circle's scene, while the
+  circle's story is locked (`editLocked`: *This circle's story is locked: unlock it (Lock this story) to change its
+  scene.*, in amber) and, when the relay has no whole copy, while the room has no relay that takes uploads (in amber,
+  shown while any example is not whole on the relay and there is a reason: *An example cannot open at this circle: it has
+  to be on the relay first, and* `exWhy()`: *this relay takes no uploads*, *this room has no relay with scenes (it runs
+  peer to peer, or on this device)*, *the relay wants its password*, *the relay's scenes are not listed yet*, *this is a
+  visitor's page*). Pressed in the moment an example is still open here (`exLeave` has asked for the relay, below): *Going
+  back to the relay's scenes first: press it again in a moment.*
+- **The relay's copy, whole** (v137c; the review of v137b: a copy under way or broken off was opened as the example,
+  emptying the room's scene for everyone at the circle). `exOnRelay(name)`: a scene of the example's exact name in the
+  relay's listing (none while the relay wants its password, `SRC.held`) that has its layout (a copy writes it last; an
+  example without one needs none) and at least the example's files (`files` in the examples' `index.json` against the
+  listing's count). A scene of that name that is not whole (`exPart`, `STUDIO.examples().parts`): *busy* while this
+  device copies to it, or while its listing changed here within the last minute (`EX.quiet`, 60 s; `exSaw`, every frame,
+  notes when each example's scene's listing, its file count, newest file and layout, last changed; this device's own
+  copy's changes, and those a listing brings for 3 s after it ended, count for nothing; a scene first seen has not been
+  seen to change), the button then *Being copied...*, greyed, with *bliss-xp is being copied to the relay: it can open here
+  once all of it is there.*; else *broken* (a copy broken off: a refused file, a lost connection, a page closed), the
+  button offered with *The relay's bliss-xp is not all there (a copy that broke off): pressing it copies the rest and
+  opens it here.*, and a press finishes it (Copy into that scene, below). For other devices to see the layout land, a
+  layout event of the relay's watch lists the scenes again a moment later, as a file's does (`onLayoutEvent`, its own
+  scene or not; the watch tells no `scenes` event for a layout). A press that meets another device's copy before its
+  next file is seen finishes it with that device: harmless (a file there already, 409, counts as copied; the layout is
+  written only when the scene has none; both open the same scene).
+- **Finishing a copy** (`exCopy(name, into)`, a circle's press of the example, `into` its own name): a scene of that name
+  on the relay already (in the listing, or a `POST /api/scenes` answered 409: made by another device at the same moment)
+  is finished rather than made: what the relay has of it is read (`GET /api/scenes/<name>`, `exHave`), only the files it
+  has not got are uploaded, and its layout only when it has none (a person's own saved layout there is never written
+  over). The note: *Finished copying bliss-xp to the relay and opened it for everyone at this circle.*
+- **Leaving an example at a circle** (`exLeave`): a device that has an example open (read only, from the folder: `exHere()`)
+  as it comes to a circle goes back to the relay (the source it came from, or the relay found afresh) with no scene open,
+  the scene then the room's (`collabApply` opens it). Called at the top of `collabApply` (before the room's state applies),
+  of `collabState` (the shell polls it on its own timer, before the studio's next frame: what goes out to a circle whose
+  state is still empty is no scene, never the example's) and every frame; once only (the folder stays the source until the
+  relay answers, so a call meanwhile asks nothing again: a slow answer is never thrown away), never back to the examples'
+  folder itself.
+- **Copy to the relay** (page and headset since v137b, with a relay that takes uploads, `canWrite()`; never on a visitor's
+  page, nor while an example is open): a free scene name (the example's, else numbered: *bliss-xp 2*), `POST /api/scenes`,
+  every listed file fetched from the example and uploaded to the same path through the studio's own upload path (`upSend`:
+  straight into R2 where it can), its pictures too, then its `layout.json` (its `scene` the new name) saved through the
+  layout endpoint; the progress on the pane (*n of m files*); a file the relay refuses is said and the rest copied (a
+  file that came meanwhile, 409, counts as copied); a name taken meanwhile (the listing was old: `POST /api/scenes`
+  answered 409) takes the next free one, the scenes listed again (three tries); then the copy opened from the relay: away
+  from a circle with editing on (also with files missing, in amber); pressed at a circle, for everyone at that circle
+  (editing as it was), only once every file came through and if this device is still at the same circle when the copy is
+  done (`stationId()` compared: one that walked into another circle or out of the room meanwhile opens nothing, the scene
+  there being the room's). Not opened, the note says so: *Copied bliss-xp to the relay as bliss-xp, but 1 file could not
+  be copied: ... Not opened here: press bliss-xp again to copy the rest.* (a numbered copy: *Not opened here.*), or *...
+  Pick it above to open it.* Refused while the circle's story is locked.
+- **For tests**: `STUDIO.examples()` (`{ list, here, folder, busy, done, of, note, prev, can, at, why, relay, parts }`:
+  `at` at a circle, `why` why an example cannot be put on the relay here, '' it can, `relay` the examples with a whole
+  copy on the relay, `parts` those whose scene there is not whole, `'busy'` or `'broken'`); `EX.quiet` (ms) shortens the
+  minute after which a scene not whole whose listing is still is broken off.
 
 ## Props that follow a tracker (the owner, 8 November 2026)
 

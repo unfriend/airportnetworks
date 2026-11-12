@@ -159,13 +159,19 @@ its circle) moves every item there again, for everyone (one Undo step).
   scan's walls, in its direction, on the nearest wall or following the person
   along the walls; without walls (VR, a page) it stays where it is placed.
 - Examples on the Scene pane (v137): scenes that come with the app. Open opens
-  one read only; Copy to the relay (a laptop with a relay that takes uploads)
-  makes it a scene of your own to edit. The first is Bliss XP: the music video
-  "Bliss (Windows XP)" taken apart into a room of our own drawings (the desktop,
-  windows, balloons, the door onto the hill, the solitaire win, Clippy chilling
-  on his deckchair), with trigger cubes as a walk through it and its windows on
-  your walls in AR. Stand in the middle of the room facing a wall and Recenter
-  before it starts (#studio&scenes=examples&scene=bliss-xp opens it directly).
+  one read only; Copy to the relay (with a relay that takes uploads, on a page
+  or in a headset) makes it a scene of your own to edit. At a circle in a shared
+  room the example opens from the relay for everyone at that circle: the first
+  press copies it there, later presses open that copy (only once all of it is
+  there: while a copy is still on its way it says "Being copied...", and a copy
+  that broke off is finished by the next press). It is greyed there only while
+  the circle's story is locked, while it is being copied, or while the room's
+  relay takes no uploads (a line says why). The first is Bliss XP: the music video "Bliss (Windows XP)"
+  taken apart into a room of our own drawings (the desktop, windows, balloons,
+  the door onto the hill, the solitaire win, Clippy chilling on his deckchair),
+  with trigger cubes as a walk through it and its windows on your walls in AR.
+  Stand in the middle of the room facing a wall and Recenter before it starts
+  (#studio&scenes=examples&scene=bliss-xp opens it directly).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

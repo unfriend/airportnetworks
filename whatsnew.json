@@ -1,26 +1,22 @@
 {
-  "version": "networks-v137",
+  "version": "networks-v138",
   "date": "12 November 2026",
   "new": [
-    "Spaceships fly without loops again, as in v133: the stick climbs and dives at most 60 degrees, and the floor and ceiling hold them level.",
-    "Station cards hold still: only their title and how many people are there, drawn again only when that number changes. Pointing at one or carrying it lights its edge.",
-    "Studio, trigger cubes: Works for: Each person / Everyone here. Everyone here makes a cube show, hide, change and start things for everyone at its circle while anyone in a headset is inside it.",
-    "Studio: Shows in: Only AR / Only VR on an item's card, and a new behaviour, On a wall: in AR an item goes onto the room scan's walls (in its direction, the nearest wall, or following the person).",
-    "Studio: Examples on the Scene pane, scenes that come with the app (Open read only, or Copy to the relay to edit).",
-    "The first example, Bliss XP: the music video taken apart into a room of our own drawings, with trigger cubes as a walk through it, sounds at their places, its windows on your walls in AR, and Clippy chilling on his deckchair."
+    "Studio examples at a circle: pressing bliss-xp opens it for everyone at the circle. The first press copies it to the relay (about 5 MB, its progress on the Scene pane); later presses open that copy.",
+    "Copy to the relay works in a headset too.",
+    "A copy that is still under way says Being copied...; one that broke off is finished by the next press, and a whole copy is never mistaken for one that is not.",
+    "If the example cannot open at a circle (the story is locked, or the relay takes no uploads), a line under it says why.",
+    "From v137: ships without loops, still station cards, cubes for everyone, Only AR / Only VR, On a wall, and the Bliss XP room with Clippy."
   ],
   "test": [
-    "Spaceship (double click the right stick): it should climb and dive but never loop.",
-    "Lobby: do the station cards stay still and only change when someone walks in or out?",
-    "Studio, Scene pane, Examples, Open Bliss XP. In AR with a room scan, stand in the middle of the room facing a wall and Recenter: do the windows land on your walls, in clusters, without overlapping?",
-    "Walk the Bliss XP room: entry, Start menu, Clippy, the door, the grass, the solitaire, Task Manager, the way out, the error corner. Does each cube do its thing, and do the sounds come from the right places?",
-    "With two headsets at the Bliss XP circle: does the grass or the error corner trigger for both when one walks in?",
-    "Copy Bliss XP to the relay on a laptop and edit the copy: does it save and reopen?"
+    "In a headset at a studio circle (Studio here): Scene pane, Examples, press bliss-xp. Does it copy and then open for everyone at the circle?",
+    "A second headset at the same circle: does it get the room too, and on its own walls in AR?",
+    "Press bliss-xp again later, or at another circle: it should open the relay's copy at once, with no second copy.",
+    "Walk the Bliss XP room in AR in the middle of a room facing a wall (Recenter first): do the windows land on your walls?"
   ],
   "untested": [
-    "Everything on a real Quest: the wall mapping on a real room scan, the room's frame rate (about 67,000 triangles in VR), everyone cubes across headsets.",
-    "The Bliss XP sounds are synthesised and unheard; how they sound through HRTF is unknown.",
-    "Rooms facing a long wall (5 x 4 m) may push one window a few cm past a corner; rooms smaller than 3 x 3 m are untested.",
-    "Copy to the relay with an R2 relay (only a folder relay was tried here)."
+    "All of it on a real Quest: copying 5 MB from a headset to the R2 relay, the copy opening for others at the circle.",
+    "Two headsets pressing the example at the same moment on real Wi-Fi (handled in the tests, not tried on devices).",
+    "The Bliss XP room's wall mapping on a real room scan, and its sounds (synthesised, unheard)."
   ]
 }

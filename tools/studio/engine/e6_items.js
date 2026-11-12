@@ -1451,6 +1451,8 @@ function select(id) {
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
 function collabState() {
+  exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
+  // never the example's, though the studio's frame has not come yet; e7g_examples.js)
   const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   return s;

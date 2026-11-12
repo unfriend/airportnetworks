@@ -612,6 +612,9 @@ function onFileEvent(d) {
 // a layout saved (here, or by another device, or put in the folder by hand) or removed: what Unsaved changes compares
 // with; removed, there is no saved layout (what is placed stays)
 async function onLayoutEvent(d) {
+  // (the list of scenes a moment later, as for a file: whether a scene has a layout, which tells a whole copy of an
+  // example from one under way or broken off; e7g_examples.js)
+  if (d && okScene(d.name) && !scenesT) scenesT = later(() => { scenesT = 0; listScenes(SRC.gen); }, 600);
   if (!d || d.name !== STU.scene || !STU.scene) return;
   if (d.gone) { STU.saved = keyOf([]); STU.savedAt = 0; STU.savedBy = ''; STU.mine = 0; dirty(true); return; }
   if (STU.mine && Math.abs((+d.at || 0) - STU.mine) < 2) return;   // (our own save)
