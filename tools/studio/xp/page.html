@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Bliss XP room: the generator</title>
+<!-- The Bliss XP room's generator page (tools/studio/xp/make.mjs opens it in headless Chromium): three.js r128, its own
+     glTF exporter and loader, the kit and one module per component. Each part is built, written as a GLB with its clips,
+     read back, checked and pictured (XP.make). -->
+<script src="../../../three.min.js"></script>
+<script src="../vendor/GLTFExporter.js"></script>
+<script src="../vendor/GLTFLoader.js"></script>
+<script src="kit.js"></script>
+<script src="parts/screens.js"></script>
+<script src="parts/titles.js"></script>
+<script src="parts/landscape.js"></script>
+<script src="parts/clouds.js"></script>
+<script src="parts/grass.js"></script>
+<script src="parts/icons.js"></script>
+<script src="parts/taskbar.js"></script>
+<script src="parts/windows.js"></script>
+<script src="parts/media.js"></script>
+<script src="parts/trail.js"></script>
+<script src="parts/solitaire.js"></script>
+<script src="parts/balloons.js"></script>
+<script src="parts/cursors.js"></script>
+<script src="parts/things.js"></script>
+<script src="parts/clippy.js"></script>
+<script>XP.ready = XP.fonts().then(() => true);</script>

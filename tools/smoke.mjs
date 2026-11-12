@@ -11,7 +11,8 @@
 // only, and the example scenes (v137);
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
-// --only 'update the room': Update the room's buttons, the order and a reload by it, v136)
+// --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
+// --only 'studio xp': the Bliss XP room, the studio's first example scene, v137)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -8825,6 +8826,126 @@ if (runs('studio puppet')) {
     });
   }
   for (const pg of pages) await pg.close().catch(() => {});
+}
+// The Bliss XP room (v137), the studio's first example scene: examples/bliss-xp/, made by tools/studio/xp/make.mjs, opened
+// read only from the folder as the Scene pane's Open does (#studio&scenes=examples&scene=bliss-xp). Every model of its
+// listing loads with no console error, under its budgets (30,000 triangles a model, 250,000 for the room as placed, every
+// picture at most 1,024 px), its clips the layout names are there, and every sound decodes. The layout is read with no bad
+// items, every record as the studio's own rules give it back (v137's fields: cubes' all, shows, the wall behaviour); and
+// on pretend walls of a small room (3 x 3.5 m) every wall item and what rides on it stands inside the room, on a wall
+if (runs('studio xp')) {
+  const xp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  xp.on('pageerror', e => errors.push('studio xp: ' + (e.stack || e.message)));
+  xp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio xp: ' + m.text()); });
+  const ss = s => xp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => xp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio xp: ' + b)); };
+  let opened = false;
+  await step('studio xp: every model of the Bliss XP room loads, under its budgets, with its clips', async () => {
+    await xp.goto(base + 'index.html#studio&scenes=examples&scene=bliss-xp&edit');
+    await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STU.listing === 'ok' && STU.scene === 'bliss-xp' && STU.files.length > 0`, 60000)) { errors.push('studio xp: the example scene was not listed: ' + await ss('STU.note')); return; }
+    opened = true;
+    // (every model of the listing placed once more, so each loads whatever the layout's items are to this studio)
+    const files = await ss(`(STU.files.filter(f => f.kind === 'model').map((f, i) => (putItem('xpm' + String(i).padStart(3, '0'), 'o', norm('o', { name: 'Check ' + i, file: f.path, p: [0, 0, -8 - i * 0.01] })), f.path)))`);
+    if (files.length < 40) errors.push(`studio xp: only ${files.length} models in the scene's listing`);
+    if (!await until(`STUDIO.ready()`, 240000)) { errors.push('studio xp: the models did not all load within 4 minutes: ' + JSON.stringify(await ss(`[...STU.items.values()].filter(it => it.kind === 'o' && !it.model).map(it => it.rec.file)`))); return; }
+    const r = await ss(`(() => {
+      const out = [], tris = {};
+      for (const it of STU.items.values()) {
+        if (it.kind !== 'o') continue;
+        const E = it.E;
+        if (!E || E.state === 'failed' || !it.model) { out.push(it.rec.file + ' did not load: ' + (E && E.err)); continue; }
+        tris[it.rec.file] = E.info.tris;
+        if (E.info.tris > 30000) out.push(it.rec.file + ' has ' + E.info.tris + ' triangles (at most 30,000)');
+        E.root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of ['map', 'emissiveMap', 'normalMap', 'alphaMap']) { const t = m[k], im = t && t.image; if (im && Math.max(im.width, im.height) > 1024) out.push(it.rec.file + ': a picture of ' + im.width + ' x ' + im.height + ' px (at most 1,024)'); } });
+      }
+      return { out, tris };
+    })()`);
+    // the room as placed (its layout's objects, whatever this studio kept of them), and the clips the layout names
+    const layout = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json());
+    const room = layout.objects.reduce((s, o) => s + (r.tris[o.file] || 0), 0);
+    if (room > 250000) r.out.push(`the room has ${room} triangles as placed (at most 250,000)`);
+    const clips = await ss(`Object.fromEntries([...LIB].map(([p, E]) => [p, (E.clips || []).map(c => c.name)]))`);
+    for (const o of layout.objects) if (o.clip && !(clips[o.file] || []).includes(o.clip)) r.out.push(`${o.id}: ${o.file} has no clip ${o.clip}`);
+    for (const c of layout.cubes) for (const e of c.plays || []) if (e.what === 'clip') { const t = layout.objects.find(o => o.id === e.on); if (!t || !(clips[t.file] || []).includes(e.clip)) r.out.push(`${c.id}: starts ${e.clip} on ${e.on}, which has no such clip`); }
+    console.log(`     (${files.length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
+    bad(r.out);
+  });
+  await step('studio xp: every sound of the Bliss XP room decodes (mono, 22,050 Hz)', async () => {
+    if (!opened) { errors.push('studio xp: the scene did not open'); return; }
+    const out = await xp.evaluate(async () => {
+      const files = HOST.cur.peek(`STU.files.filter(f => f.kind === 'audio').map(f => f.path)`), out = [];
+      if (files.length < 10) out.push('only ' + files.length + ' sounds in the listing');
+      for (const p of files) {
+        try { const b = await (await fetch('examples/bliss-xp/' + p)).arrayBuffer(), a = await new OfflineAudioContext(1, 22050, 22050).decodeAudioData(b); if (!(a.duration > 0.02) || a.numberOfChannels !== 1 || a.sampleRate !== 22050) out.push(p + ': ' + a.duration + ' s, ' + a.numberOfChannels + ' channels, ' + a.sampleRate + ' Hz'); } catch (e) { out.push(p + ' did not decode: ' + e.message); }
+      }
+      return out;
+    });
+    bad(out);
+  });
+  await step('studio xp: the layout is read with no bad items, every record as the studio\'s own rules give it back', async () => {
+    if (!opened) { errors.push('studio xp: the scene did not open'); return; }
+    const r = await ss(`({ bad: STU.bad, tex: STU.badTex, play: STU.badPlay })`);
+    const layout = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json());
+    const missing = await ss(`${JSON.stringify([...layout.objects, ...layout.cubes, ...layout.sounds].map(x => x.id))}.filter(id => !STU.items.has(id))`);
+    if (r.bad || r.tex || r.play || missing.length) errors.push(`studio xp: the layout was read with ${r.bad} bad items, ${r.tex} bad texture changes, ${r.play} bad starts; not placed: ${missing.join(', ')}`);
+    // (each record through the studio's norm: what it would drop or read otherwise, field by field)
+    const diff = await ss(`(() => { const L = ${JSON.stringify(layout)}, out = [];
+      const cmp = (kind, x) => { const r = Object.assign({}, x); delete r.id; const n = norm(kind, r);
+        if (!n) { out.push(x.id + ' is bad'); return; }
+        for (const k of new Set([...Object.keys(n), ...Object.keys(r)])) if (JSON.stringify(n[k]) !== JSON.stringify(r[k])) out.push(x.id + '.' + k + ': ' + JSON.stringify(r[k]) + ' read as ' + JSON.stringify(n[k])); };
+      for (const o of L.objects) cmp('o', o); for (const c of L.cubes) cmp('c', c); for (const x of L.sounds) cmp('s', x); for (const g of L.groups || []) cmp('g', g);
+      return out; })()`);
+    bad(diff);
+    // (the Scene pane's Examples, the default folder 'examples': bliss-xp listed with its Open, lit as the one open)
+    if (!await until(`!!STUDIO.examples().list`, 20000)) errors.push('studio xp: the examples\' listing was not read');
+    await ss(`(X.tab = 'scene', renderPanes(), 0)`);
+    const ex = await ss(`[STUDIO.examples().folder, (STUDIO.examples().list || []).join(), !!document.querySelector('#pane-scene [data-act="exopen"][data-v="bliss-xp"]'), STUDIO.examples().here]`);
+    if (ex[0] !== 'examples' || !ex[1].split(',').includes('bliss-xp') || !ex[2] || !ex[3]) errors.push('studio xp: the Scene pane\'s examples (folder, list, its Open, open here): ' + JSON.stringify(ex));
+    const kinds = layout.objects.reduce((m, o) => { const k = o.behaviour ? o.behaviour.kind + (o.behaviour.at ? ':' + o.behaviour.at : '') : 'none'; m[k] = (m[k] || 0) + 1; return m; }, {});
+    if (!kinds['wall:direction'] || !kinds.item || !kinds['wall:person'] || !layout.objects.some(o => o.shows === 'ar') || !layout.objects.some(o => o.shows === 'vr') || !layout.cubes.some(c => c.all)) errors.push('studio xp: the layout does not use v137\'s fields as it should: ' + JSON.stringify(kinds));
+    // (the generator's own rules on the layout as served: every id a cube, a sound, a group or a behaviour names is there,
+    // and what a cube starts is on something no overlapping cube hides, a sound it starts once never on something a cube
+    // shows: tools/studio/xp/layout.mjs's checkLayout)
+    const { checkLayout } = await import('./studio/xp/layout.mjs');
+    bad(checkLayout(layout));
+  });
+  await step('studio xp: on pretend walls of a 3 x 3.5 m room (AR) every wall item and what rides on it stands inside the room, against a wall', async () => {
+    if (!opened) { errors.push('studio xp: the scene did not open'); return; }
+    const X = 1.5, Z = 1.75;
+    await ss(`(setEdit(false), STUDIO.sess('ar'), STUDIO.walls([{ a: [-${X}, -${Z}], b: [${X}, -${Z}], y0: 0, y1: 2.5 }, { a: [${X}, -${Z}], b: [${X}, ${Z}], y0: 0, y1: 2.5 }, { a: [${X}, ${Z}], b: [-${X}, ${Z}], y0: 0, y1: 2.5 }, { a: [-${X}, ${Z}], b: [-${X}, -${Z}], y0: 0, y1: 2.5 }]), STU.head = [0, 1.6, 0, 0], 0)`);
+    // (where each is drawn: its middle; each eases there, what rides on it a little after, and frames in software are slow,
+    // so read until nothing moves more than 2 mm between two reads)
+    const where = () => ss(`(() => { const out = {}, M = new THREE.Matrix4();
+      for (const it of STU.items.values()) {
+        const b = it.kind === 'o' && it.rec.behaviour; if (!b || !(b.kind === 'wall' || b.kind === 'item') || it.rec.shows === 'vr' || !it.model) continue;
+        const H = it.holder; (H.matrixAutoUpdate ? M.compose(H.position, H.quaternion, H.scale) : M.copy(H.matrix));
+        out[it.id] = [...it.proxy.position.clone().applyMatrix4(M).toArray(), b.kind === 'wall' && b.at !== 'person' ? 1 : 0, it.rec.motion ? 1 : 0];
+      }
+      return out; })()`);
+    // (and at least until the bar has gone onto the front wall, its middle 3 cm off it; what has a motion of its own, the
+    // hand that bobs, moves by design and is left out of that)
+    let at = await where(), settled = false, moved = 1;
+    for (let i = 0, t0 = Date.now(); i < 60; i++) {
+      await xp.waitForTimeout(800);
+      const now = await where();
+      moved = Math.max(0, ...Object.keys(now).filter(k => !now[k][4]).map(k => (at[k] ? Math.hypot(now[k][0] - at[k][0], now[k][1] - at[k][1], now[k][2] - at[k][2]) : 1)));
+      at = now;
+      if (moved < 0.002 && now.tbbar1 && Math.abs(now.tbbar1[2] + Z - 0.03) < 0.01 && Date.now() - t0 > 3000) { settled = true; break; }
+    }
+    const out = [];
+    if (!settled) out.push(`the wall items did not settle within 48 s (still moving ${(moved * 100).toFixed(1)} cm between two reads; the taskbar's bar at ${at.tbbar1 ? at.tbbar1.slice(0, 3).map(v => v.toFixed(2)) : 'nowhere'})`);
+    for (const [id, [x, y, z, anchor]] of Object.entries(at)) {
+      const w = Math.min(X - Math.abs(x), Z - Math.abs(z));
+      if (w < -0.02) out.push(`${id} stands outside the room at ${[x, y, z].map(v => v.toFixed(2))}`);
+      else if (anchor && w > 0.7) out.push(`${id} is ${w.toFixed(2)} m from the nearest wall`);
+    }
+    if (Object.keys(at).length < 40) out.push(`only ${Object.keys(at).length} wall items and riders`);
+    await ss(`(STUDIO.walls(null), STUDIO.sess(''), STU.head = null, 0)`);
+    bad(out);
+  });
+  await xp.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
