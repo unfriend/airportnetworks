@@ -1362,13 +1362,13 @@ ships or look).
   controller's stick (xr-standard's `axes[2]` and `axes[3]`, a pad with two axes its 0 and 1), each axis on its own: a
   dead zone of 0.15, past it the push's share to the power 1.5 (fine near the middle, full at the edge). Pushed right it
   turns right about the vertical (full: 140 degrees a second, round as often as you like), pushed forward (away from you,
-  `axes[3]` -1) its nose turns down and pulled back up, as a flight simulator's stick, at a rate (full: 140 degrees a
-  second, `STEER.climb`), with no limit, so held back it loops (v134; the owner, 11 November 2026: "the sticks should have
-  more freedom so that one can do a looping"; v133 set a flight pitch of at most 60 degrees): at cruise a loop takes
-  about 2.6 s and is about 1 m across. Upside down (past the top of a loop, `cos(pitch) < 0`) the turn about the vertical
-  goes the other way, so right still turns it to its own right. Let go the right way up, its nose eases back to level
-  (`STEER.level`, 0.5 s); let go upside down, it holds its attitude. The ship banks into its turns (up to 50 degrees,
-  eased), which does not change its path. How the controller is held, tilted or pointed counts for nothing: v132 flew by its tilt like a
+  `axes[3]` -1) it dives and pulled back it climbs (full: 60 degrees, the flight pitch eased with 0.25 s; no loops), as a
+  flight simulator's stick; released, level flight. v134 let it loop (the owner, 11 November 2026: "the sticks should have
+  more freedom so that one can do a looping": the stick's pitch a rate with no limit, bounced off the arena's floor and
+  ceiling), and v137 took that out again (the owner, the same day, after trying it: "Airplanes should not be able to do a
+  looping after all, switch them back to how they were before"): the flight is v133's again (in the history at v134). The
+  ship banks into its turns (up to 50 degrees, eased), which does not change its path. How the controller is held, tilted
+  or pointed counts for nothing: v132 flew by its tilt like a
   joystick (its roll turned, its pitch from the angle held at launch climbed and dived: in the history at v132), taken out
   in v133 with the Steering setting its first build had (`xrShipSteer`, removed from `localStorage` as `ships.js` loads).
   The launch notice and the Spaceship row's note say how (`steerWords()`).
@@ -1379,8 +1379,8 @@ ships or look).
 - **The arena** (`ARENA`): round where the pilot stood at launch, 5 m along the floor, from 0.15 to 3 m above it (in a
   room the room's floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less
   1.6 m, taken at launch). Within 0.6 m of its edge, heading out, it is turned back gently (up to 90 degrees a second at
-  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it bounces too, its pitch mirrored
-  (v134, as a loop may reach them; until then held level), with a bump. In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
+  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it is held, level, until steered
+  away (v134 bounced it there, as a loop could reach them; v137 holds it again). In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
   the ship crossing a plane inside its polygon, its heading reflected about the plane), with a bump and no damage. Ships
   pass through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's
   level forward, at its height (both clamped into the arena), flying where the head faces, level.
@@ -1484,8 +1484,8 @@ ships or look).
   `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
   `bolt`, `claim`, `track`, `materials`).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
-- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second each
-  way, forward to dive, loops, the levelling as it is let go, the turn upside down), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
+- **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second, 60
+  degrees of climb, forward to dive), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
   read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
@@ -2127,9 +2127,9 @@ The plan is `docs/shared-space-plan.md`.
     live station). The story stays at its circle: the rig at its spot as ever, wherever you stand (a person who goes in
     from across the room sees it there, small, and hears it faintly until they walk over). Nothing is written to the
     room but `look` (asking, Not now and the time running out write nothing).
-  - The station cards' tips say *Point here and press to go in* (the lobby: *Walk in, or press here, to leave your
-    story*; All stories: *to choose a story*), the menu's Stations line *Point at a circle and press to go in* (its note:
-    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle*. Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
+  - The menu's Stations line says *Point at a circle and press to go in* (its note:
+    *press a card or icon to go in; no rings*), and the lobby's line *Walk in or press: back to every circle* (the station
+    cards said it in their tips until v137, which took the tips off them). Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
     shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
     it stands and how the fingertip presses it on a real headset is untested.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
@@ -2138,13 +2138,20 @@ The plan is `docs/shared-space-plan.md`.
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
   its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
   floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
-  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card (v136, the frame rate:
-  "even in the lobby with only the stations visible i could not reach 90fps") says no running clock (`stationLine(s,
-  true)`: *Playing* while its story plays, *Paused at 1:03* as it stopped; the page's Shared dialog keeps the time): it
-  was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every playing station, all in
-  one frame. A card whose content changed (`cardSig`: its story, line, people, light, carrying, lock, sync, the circles
-  asked first, its title) waits in a queue (`DIRTY`), and at most one card is drawn a frame, the one pointed at or
-  carried first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). The card says only what does not
+  change while its station stands (v137; the owner, 11 November 2026, of v136's cards: "remove everything that is updated
+  from these cards for now or only leave how many persons are in and only update if this number changes"; `cardText`):
+  its kicker and title (`stTitle`: a studio circle's scene, *Studio: <scene>*; an All stories circle its own title, never
+  the story picked there) and how many people are at it (*Nobody here*, *1 person here*, *3 people here*: the count
+  `whoAt` gives, pages and a camera among them, never their names). No play state, no names, no tips, nothing about
+  moving it or the locks; the page's Shared dialog keeps its own lines (the time, the names). Until v136 it said the
+  station's time and was drawn again and sent to the GPU whole, 560 x 330 with its mipmaps, every second for every
+  playing station, all in one frame; v136 said *Playing* or *Paused at 1:03* and still drew it again whenever it was
+  pointed at or carried. Its signature (`cardSig`) is that content alone (its look, kicker, title and count), so it is
+  drawn again only when its title or its count changes; pointed at or carried, its edge lights (`o.edge`: a band round the
+  card in the story's colour, a mesh shown and hidden, never pointable; nothing drawn or sent to the GPU). A card whose
+  content changed waits in a queue (`DIRTY`), and at most one card is drawn a frame (v136), the one pointed at or carried
+  first, then the nearest (a card never drawn yet is not shown until its turn, so nothing blank goes to the GPU;
   `o.drawn` counts its drawings, for tests); mipmaps kept. Its back face (`o.back`, for reading it from behind) shows,
   and is pointable, only while there is no head pose and the card stands at its station's yaw; turned to you it would
   face away, a draw of nothing twice a frame for every card. Walking in still goes by where
@@ -2247,8 +2254,8 @@ The plan is `docs/shared-space-plan.md`.
     among the headsets that line up (`linedUp`, `othersIn`, the pages' guide list) or offered Follow (only kinds `ar` and
     `vr`); what a headset shows of its own (the welcome toast) guards on `cameraMode()`. The pages' people list and the
     headset menu's people rows say *camera (filming)* (never *here* or *elsewhere*), and the room map draws a small box
-    for it. A station card's *Here:* line names it *Camera*, as it names the pages at that circle: people can see a
-    camera films there.
+    for it. The page's Shared dialog names it *Camera* among the people at its circle, and a station card counts it among
+    them (v137: the cards give only a count, never names; until then their *Here:* line named it).
   - Taps on the camera image press nothing: the overlay root covers the screen and cancels every select
     (`beforexrselect`), and `ray()` takes a camera's rays as the shell's with nothing to press (a guard for a browser
     that does not honour it). Taps on the overlay's buttons are the overlay's. A double tap on the image (two within
@@ -2381,7 +2388,8 @@ The plan is `docs/shared-space-plan.md`.
     anyone unlocks them. While on, the grip on a station's ring or card, the
     room map's drag and turn, Arrange all, Add, Move here, Design room here
     and Remove are refused (`refused()`, `circlesLocked()`), a station being
-    carried stops where it was last sent, and the cards say so. It never
+    carried stops where it was last sent (the cards said so until v137, which took everything but their title and
+    count off them). It never
     locks a scene or a panel. A room from v96 locked then reads as circles
     locked only: its stories need locking once.
   - A story's lock (*Lock this story*; `lock` in `st.<id>.ui`, with its
@@ -5779,14 +5787,12 @@ turned by the test; the drones frozen, `debug.freeze`): the right stick clicked 
 ship 0.5 m ahead of the controller facing where the head does; the left stick twice still moving with the sticks, both at
 once one menu; the right stick twice again landing; a tracked right hand refused in words. The controller's tilt
 steering nothing (v133: rolled 40 degrees either way, nose up or down 40, turned 75 about the vertical, the ship flying
-straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; held back
-a whole loop (v134: 359 degrees in 2.57 s, upside down at its top 1.58 m up from 0.6, back where it began within 8 cm,
-its yaw unchanged); let go climbing 40 degrees level within 2.5 s, let go upside down holding; the ceiling and the floor
-bouncing it (its pitch mirrored, never past 3 m or under 0.15 m); upside down the stick right turning it about the
-vertical the other way; nothing of the tilt left (no `steer`, `angles`,
+straight and level); the right stick full right all the way round (392 degrees in 2.8 s), banking 50 degrees; pulled back
+climbing at 60 to its 3 m ceiling and held there, released level (v134's loop steps went with the loops in v137); nothing
+of the tilt left (no `steer`, `angles`,
 `steering`, `setSteering`, no `neutral` or `roll` in the state, `xrShipSteer` gone). The stick's numbers: full right 140
 degrees a second to the right (within 3), full left the other way, 0.5 at (0.35 / 0.85)^1.5 x 140 (about 37), 0.1 nothing;
-pulled back its nose turning up 35 degrees in 0.25 s (140 a second), pushed forward down, released level; the state's stick and the mapping
+pulled back climbing at 60 degrees, pushed forward diving at 60, released level; the state's stick and the mapping
 (`stick`, `axes`, `STICK`). No Steering row on the Settings tab, its height between 1,500 and 1,900 px (printed: the
 canvas is 1,920). Two right-stick clicks pushed past 0.5 neither landing nor opening the menu (logged, at most once a
 second); a pushed click then
@@ -5822,8 +5828,11 @@ asked; `#hz=72`; a session without the API asking nothing, the row greyed, logge
 Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
 with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
 floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
-distances never falling), no back face shown or pointable; every story's station playing: each card *Playing*, none
-drawn again or sent over 2.6 s; paused, *Paused at 1:03*. The menu on the Debug tab: the frame rate changed three times,
+distances never falling), each drawn once, saying its look, kicker, title and *Nobody here* (an All stories circle *All
+stories*), no back face or edge shown or pointable; (v137) every story's station playing for 2.6 s, then paused at 1:03,
+a card pointed at for a second (its edge lit, gone once it is not) and another carried by the grip (its edge lit, its
+ring larger, put down again): no card drawn again or sent to the GPU; someone walking into a circle drawing its card
+once more (*1 person here*) and no other, and out again once more (*Nobody here*). The menu on the Debug tab: the frame rate changed three times,
 its line (*... · the headset at 90 Hz*) drawn and sent alone (`texSubImage2D 652x30`), the whole menu never, the texture's
 version unchanged, the row read back from the GPU the canvas's and not the line before; someone walking between two
 circles drawing the Settings and Debug tabs not at all and Circles each time; the Debug tab's height printed (under 1500

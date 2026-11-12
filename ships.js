@@ -21,12 +21,11 @@ HOST.ships = (function () {
   // steering (v133): the right thumbstick alone. v132 flew by the right controller's tilt, like a joystick (its roll
   // turned the ship, its pitch from the angle held at launch climbed and dived); the owner, 11 November 2026: "remove the
   // controller motion steering from the ships for now, its not working well anyway", so it went (in the history at v132).
-  // The ship turns about the vertical at most turnMax deg/s and banks into its turns (bank, eased with btau), which does
-  // not change its path. Its nose turns up or down at most climb deg/s with no limit (v134; the owner, 11 November 2026:
-  // "the sticks should have more freedom so that one can do a looping"; until then the stick set a flight pitch of at
-  // most 60 degrees): held back it loops. Let go while it flies the right way up, its nose eases back to level (level s);
-  // let go upside down, it holds its attitude
-  const STEER = { turnMax: 140, climb: 140, level: 0.5, bank: 50, btau: 0.15 };
+  // The ship turns about the vertical at most turnMax deg/s, its flight pitch is eased towards at most pitchMax deg (tau
+  // s), and it banks into its turns (bank, eased with btau), which does not change its path. (v134 made the pitch a rate
+  // with no limit, so it looped; v137 put this back, the owner, 11 November 2026: "Airplanes should not be able to do a
+  // looping after all, switch them back to how they were before")
+  const STEER = { turnMax: 140, pitchMax: 60, tau: 0.25, bank: 50, btau: 0.15 };
   // the stick (the owner, 11 November 2026: "please also add joystick controls for the ships, right joystick should control
   // left right with left right and up down with up down", then "the pitch of the up down should be reversed like in
   // flightsim"): each axis on its own, a dead zone of dz, past it the push's share shaped by an exponent of expo (fine near
@@ -102,9 +101,9 @@ HOST.ships = (function () {
   let LEAD = '', lastNow = 0, lastT = 0, flushAt = 0, code = '';
   const FREEZE = { on: false }, TRACK = { on: false, list: [] };   // (tests: the drones and targets stand still and hold fire)
 
-  // a turn and a pitch share (-1 to 1) to the turn (deg/s, right positive), how fast its nose turns up (climb, deg/s;
-  // down negative) and the bank (deg)
-  const fracs = (k, c) => ({ turn: k * STEER.turnMax, climb: c * STEER.climb, bank: k * STEER.bank, k, c });
+  // a turn and a pitch share (-1 to 1) to the turn (deg/s, right positive), the flight pitch wanted (deg, nose up
+  // positive) and the bank (deg)
+  const fracs = (k, c) => ({ turn: k * STEER.turnMax, pitch: c * STEER.pitchMax, bank: k * STEER.bank, k, c });
   // one stick axis to its share (-1 to 1): the dead zone, then the push past it shaped
   const shape = a => { a = Number.isFinite(a) ? clamp(a, -1, 1) : 0; const m = Math.abs(a); return m > STICK.dz ? Math.sign(a) * Math.pow((m - STICK.dz) / (1 - STICK.dz), STICK.expo) : 0; };
   // the stick's x (+1 pushed right) and y (-1 pushed forward, as xr-standard gives it) to the turn and the pitch: right
@@ -490,14 +489,11 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // the pickups' times running out: a chime
     if (S.rapidUntil && tn >= S.rapidUntil) { S.rapidUntil = 0; play('pickupEnd', S.p); }
     if (S.boostUntil && tn >= S.boostUntil) { S.boostUntil = 0; play('pickupEnd', S.p); }
-    // the right stick. The nose turns up or down at its rate, round as often as you like (a loop); its turn is about the
-    // vertical, to the ship's own right, so upside down (past the top of a loop) the yaw goes the other way. Let go the
-    // right way up, it levels out; upside down, it holds
-    const st = stick(CTRL.sx, CTRL.sy), up1 = Math.cos(S.pitch) >= 0;
-    S.turn = st.turn; S.climb = st.climb;
-    S.yaw = wrapA(S.yaw - (up1 ? 1 : -1) * st.turn * DEG * dt);
-    if (st.c !== 0) S.pitch = wrapA(S.pitch + st.climb * DEG * dt);
-    else if (up1) S.pitch *= Math.exp(-dt / STEER.level);
+    // the right stick
+    const st = stick(CTRL.sx, CTRL.sy);
+    S.turn = st.turn;
+    S.yaw = wrapA(S.yaw - st.turn * DEG * dt);
+    S.pitch += (st.pitch * DEG - S.pitch) * (1 - Math.exp(-dt / STEER.tau));
     S.bank += (st.bank * DEG - S.bank) * (1 - Math.exp(-dt / STEER.btau));
     // the speed: cruise, the grip braking (reversing slowly once nearly full), the boost (A, its rising edge, when its
     // meter is full; braking ends it), at most accel a second but the boost's kick
@@ -513,14 +509,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       const dv = want - S.speed, lim = FLY.accel * dt;
       S.speed += clamp(dv, -lim, lim);
     }
-    // within soft of the arena's edge, heading outwards: turned back gently towards its middle (hs: its yaw's way along
-    // the floor is the way it goes, or the other way when it reverses or flies upside down)
-    const hs = Math.sign(S.speed || 1) * (Math.cos(S.pitch) >= 0 ? 1 : -1);
+    // within soft of the arena's edge, heading outwards: turned back gently towards its middle
     const rx = S.p.x - S.c[0], rz = S.p.z - S.c[1], rr = Math.hypot(rx, rz);
     if (rr > ARENA.r - ARENA.soft && rr > 1e-6) {
-      const ux = rx / rr, uz = rz / rr, hx = -Math.sin(S.yaw) * hs, hz = -Math.cos(S.yaw) * hs;
+      const ux = rx / rr, uz = rz / rr, hx = -Math.sin(S.yaw) * Math.sign(S.speed || 1), hz = -Math.cos(S.yaw) * Math.sign(S.speed || 1);
       if (hx * ux + hz * uz > 0) {
-        const yT = Math.atan2(ux, uz) + (hs < 0 ? Math.PI : 0), d = wrapA(yT - S.yaw), k = clamp((rr - (ARENA.r - ARENA.soft)) / ARENA.soft, 0, 1);
+        const yT = Math.atan2(ux, uz) + (S.speed < 0 ? Math.PI : 0), d = wrapA(yT - S.yaw), k = clamp((rr - (ARENA.r - ARENA.soft)) / ARENA.soft, 0, 1);
         S.yaw = wrapA(S.yaw + Math.sign(d) * Math.min(Math.abs(d), ARENA.back * DEG * k * dt));
       }
     }
@@ -532,14 +526,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (er > ARENA.r) {
       const ux = ex / er, uz = ez / er;
       S.p.x = S.c[0] + ux * (ARENA.r - 0.01); S.p.z = S.c[1] + uz * (ARENA.r - 0.01);
-      const hx = -Math.sin(S.yaw) * hs, hz = -Math.cos(S.yaw) * hs, k = hx * ux + hz * uz;
-      if (k > 0) S.yaw = Math.atan2(-hs * (hx - 2 * k * ux), -hs * (hz - 2 * k * uz));
+      if (S.speed >= 0) { const hx = -Math.sin(S.yaw), hz = -Math.cos(S.yaw), k = hx * ux + hz * uz; if (k > 0) S.yaw = Math.atan2(-(hx - 2 * k * ux), -(hz - 2 * k * uz)); }
       bump();
     }
-    // its floor and ceiling (v134: bounced off, its pitch mirrored, as a loop may reach them; until then held level)
-    const vy = Math.sin(S.pitch) * S.speed;
-    if (S.p.y < ARENA.lo) { S.p.y = ARENA.lo; if (vy < 0) { S.pitch = wrapA(-S.pitch); bump(); } }
-    if (S.p.y > ARENA.hi) { S.p.y = ARENA.hi; if (vy > 0) { S.pitch = wrapA(-S.pitch); bump(); } }
+    // (its floor and ceiling: held there, level, until it is steered away)
+    if (S.p.y < ARENA.lo) { S.p.y = ARENA.lo; if (S.pitch < 0) S.pitch = 0; }
+    if (S.p.y > ARENA.hi) { S.p.y = ARENA.hi; if (S.pitch > 0) S.pitch = 0; }
     if (isAR()) planesBounce(f, ref, _v, pt);
     qOf(S.yaw, S.pitch, S.bank, S.q);
     if (TRACK.on) { TRACK.list.push([tn, S.p.x, S.p.y, S.p.z]); if (TRACK.list.length > 600) TRACK.list.shift(); }
@@ -582,9 +574,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       if (S.speed < 0) _d.negate();
       _d.addScaledVector(_pn, -2 * _d.dot(_pn));
       if (S.speed < 0) _d.negate();
-      // (upside down it stays so: its yaw the other way and its pitch past the vertical)
-      if (Math.cos(S.pitch) >= 0) { S.yaw = Math.atan2(-_d.x, -_d.z); S.pitch = Math.asin(clamp(_d.y, -1, 1)); }
-      else { S.yaw = Math.atan2(_d.x, _d.z); S.pitch = wrapA(Math.PI - Math.asin(clamp(_d.y, -1, 1))); }
+      S.yaw = Math.atan2(-_d.x, -_d.z); S.pitch = Math.asin(clamp(_d.y, -1, 1));
       S.p.copy(from);   // (back where it was this frame, its heading reflected)
       bump();
       log('ship bump', { plane: pl.semanticLabel || pl.orientation || '' });
@@ -1328,7 +1318,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     // for tests: where things stand
     state() {
       const tn = now(), view = VW;
-      return { flying: S.on, down: !!S.down, frame: F.kind, kind: S.kind, p: S.p.toArray(), yaw: S.yaw, pitch: S.pitch, bank: S.bank, q: S.q.toArray(), speed: S.speed, turn: S.turn, climb: S.climb || 0,
+      return { flying: S.on, down: !!S.down, frame: F.kind, kind: S.kind, p: S.p.toArray(), yaw: S.yaw, pitch: S.pitch, bank: S.bank, q: S.q.toArray(), speed: S.speed, turn: S.turn,
         shield: S.shield, extra: S.extra, health: S.health, boost: { t: S.boostT, charge: S.charge }, rapid: Math.max(0, S.rapidUntil - tn), boostUp: Math.max(0, S.boostUntil - tn), killer: S.killer, c: S.c.slice(), lt: S.lt,
         ctrl: { ok: CTRL.ok, grip: CTRL.grip, trig: CTRL.trig, a: CTRL.a }, stick: (o => ({ x: CTRL.sx, y: CTRL.sy, k: o.k, c: o.c }))(stick(CTRL.sx, CTRL.sy)), me: me(), leader: LEAD, lead: LEAD === me() && !!W, pilots: pilots().map(p => p.id),
         drones: view ? view.d.map(e => ({ id: e.id, p: [e.p.x, e.p.y, e.p.z], yaw: e.yaw, s: e.s, h: e.h, a: e.a, back: e.back })) : [],
