@@ -622,7 +622,13 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     dialog's people list says *showing their menu*. `HOST.collab.menuShare(on)`, `menuSent()` (`n`: pictures made;
     `pics`: pictures sent, a want's answer, an old picture sent again, among them; `at`, `ns` and `cv`: when each was
     sent, its number and the `cver` it shows; `cur`: the last picture made shows what the menu shows now), `menus(full,
-    px)` (`px` false: no pixels read back) and `menuShot(master)` (the picture as it would be made now) are for tests. Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
+    px)` (`px` false: no pixels read back) and `menuShot(master)` (the picture as it would be made now) are for tests. Since v139 (the owner, 12 November 2026: "Menu sharing not working, i turn it on but the others in the same studio circle dont see it";
+    not reproduced: in `node tools/collab.mjs --menus` with `MENUS_STORY=studio` B draws A's menu at a studio circle) the picture
+    is made with `toBlob` given 2 s and its `FileReader` 2 s (`inTime`: one that never calls back held every later picture),
+    and where either gives nothing, with `toDataURL` at once (`jpegUrl`); `MSH.how` keeps why, the log's `menu share` line
+    says it, and the Settings row's note says who sees it now (`menuShareSays`: *Shown to Anna, Ben*, *Nobody else is in
+    this circle now*, *Not shown: go into a circle first*, *Not shown yet: this headset is not lined up with the room*,
+    *Not shown: this headset could not make a picture of it* after two failures, `MSH.bad`). Untested on a headset: how the picture reads at a few metres, its cost (a JPEG
     made in the page at most every 1.5 s, about 45 KB to everyone in the room each time: the relay, and a peer-to-peer
     room's host, send every effect to every member, so with the Story tab of a playing story shown, its clock changing
     every second, about 30 KB a second to each of them), and Quest Browser's `toBlob`.
@@ -1389,14 +1395,16 @@ ships or look).
   from 0.9 slowly backwards (-0.5 m/s); at most 2.5 m/s2. A (`buttons[4]`, its rising edge; nothing else of the shell or
   any story reads it) boosts when its meter is full: 3.2 m/s at once for 0.8 s, then it recharges for 4 s; braking ends
   a boost.
-- **The arena** (`ARENA`): round where the pilot stood at launch, 5 m along the floor, from 0.15 to 3 m above it (in a
-  room the room's floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less
-  1.6 m, taken at launch). Within 0.6 m of its edge, heading out, it is turned back gently (up to 90 degrees a second at
-  the edge); at the edge it bounces (its heading reflected); at its floor and ceiling it is held, level, until steered
-  away (v134 bounced it there, as a loop could reach them; v137 holds it again). In AR it bounces off the room scan's planes too (`frame.detectedPlanes` when the session has `plane-detection`:
-  the ship crossing a plane inside its polygon, its heading reflected about the plane), with a bump and no damage. Ships
-  pass through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's
-  level forward, at its height (both clamped into the arena), flying where the head faces, level.
+- **The arena** (`ARENA`): no edge along the floor since v139 (the owner, 12 November 2026: "Planes have a limited range
+  from when i start them it feels, should be unlimited with enemies following around", then "the real walls also should
+  not block them, they are unrealiable"): a ship flies anywhere, from 0.15 to 3 m above the floor (in a room the room's
+  floor, room coordinates; outside a room the session's own `local-floor`, else the head's height less 1.6 m, taken at
+  launch), and at that floor and ceiling it is held, level, until steered away (v134 bounced it there, as a loop could
+  reach them; v137 holds it again). Nothing real stops it: in AR the room scan's planes no longer bounce it (v132 to v138
+  did, `planesBounce`, with a bump; the `bump` sound stays in `sfx.js`, unused). Until v138 the arena was round where the
+  pilot stood at launch, 5 m along the floor, the ship turned back within 0.6 m of its edge and bounced at it. Ships pass
+  through each other and through people. A new ship stands 0.5 m ahead of the right controller along the head's level
+  forward, at its height (held between the floor and the ceiling), flying where the head faces, level.
 - **Shooting** (`GUN`): the right trigger held fires bolts from the nose along its heading, at most 5 a second (exactly:
   each an interval after the last), at 8 m/s plus the ship's speed, each living 1.25 s, damage 20; small bright elongated
   bolts in the shooter's colour (drones' red), all in one instanced draw.
@@ -1409,9 +1417,13 @@ ships or look).
   no shield) and drones (another, darker, angular design with red edges and eye; shield 30, health 60): 2 while one pilot
   flies, one more for each further pilot, at most 5. Drones wander at 0.9 m/s, now and then turn towards the nearest
   pilot's ship, and fire a bolt (6 m/s, damage 10) every 1.5 s while a ship is within 4 m and within 20 degrees ahead.
-  A destroyed one comes back 8 s later at the arena's edge. They stay when more pilots join: everyone shoots the same
-  ones, and a destruction is credited to the pilot whose bolt did it. They live in the set's arena (the first leader's),
-  its centre carried with the set. Pickups: one every 15 to 30 s (at random) at a free spot, at most 2 at once, each there
+  A destroyed one comes back 8 s later at the set's edge. They stay when more pilots join: everyone shoots the same
+  ones, and a destruction is credited to the pilot whose bolt did it. They live within 5 m of the set's middle (`w.c`,
+  carried with the set), which since v139 follows the flying ships: the leader eases it towards their mean place along the
+  floor (a time constant of 1.5 s, at most 3.5 m/s, `ARENA.follow` and `move`; not while frozen for tests), so the
+  targets, drones and pickups come along wherever the pilots fly. The targets turn back at its edge and, left behind past
+  it, are pulled after it (up to 3.5 m/s); the drones head back to it there and fly faster the further out they are (up to
+  3.5 m/s); a new drone or target comes at its edge and a pickup within it. Pickups: one every 15 to 30 s (at random) at a free spot, at most 2 at once, each there
   for 25 s and then gone (shrinking over its last 2 s); a small opaque token turning slowly, each kind its own shape and
   colour: *boost* (an amber chevron: for 15 s the boost recharges in 1 s and lasts 1.2 s), *rapid fire* (a red double
   pyramid: for 12 s 10 shots a second, the same damage), *reinforced shield* (a blue hexagon: +50 on top of the shield, up
@@ -1499,7 +1511,7 @@ ships or look).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
 - **Untested on a headset**: how the stick feels and its numbers (its dead zone and curve, 140 degrees a second, 60
   degrees of climb, forward to dive), the glows over a real passthrough, the speeds, the boost, the damage and the times, how the ships, bars, strip and arrow
-  read, how smooth others' ships look over Wi-Fi (120 ms behind), the room scan's bounces on a Quest, the buzz, the
+  read, how smooth others' ships look over Wi-Fi (120 ms behind), how the set following the pilots feels (v139), the buzz, the
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
 
@@ -2897,7 +2909,11 @@ The plan is `docs/shared-space-plan.md`.
   - What is drawn: the crosses of the area this headset lines up from (or the nearest, lined up by another source) at
     their room points, a sign over them with the area's name and letters while the room has areas (`OV.markName`); the
     check by eye's beams and arrows say the area's letters (`MKL`, *C 1.3 m*); the pages' room map draws every area's
-    crosses with their letters and names.
+    crosses with their letters and names. Since v139 (the owner, 12 November 2026: "When i add new areas they dont show
+    visible crosses") every other area's crosses too, spots A and B among them, each pair with its line and its sign
+    (`areaMarks`, `OV.areaMarks`, `OV.areaPairs`, made as needed), whenever the crosses would show (the menu open, or for
+    30 s after lining up or after adding an area, which now sets `R.showUntil`), in a lined-up headset, never while the
+    check by eye asks (its question is about the crosses above) or while a tip is armed.
   - Two headsets lined up by different areas' crosses are never compared through the shared space (`compare`: their
     frames differ by the room's drift between the areas, not by the space): logged (`compare across areas`), no split.
   - The PC's trackers line up on any area (the dialog's area picker: `trk.m.k`, and that area's floor points `ra`, `rb`,
@@ -5949,8 +5965,9 @@ on, a flick of the right stick turning nothing while the left stick moves you. I
 stick spinning and zooming nothing while it flies, and again once landed. Flying alone (the game in its own frame),
 another's ship and bolt handed in taken by nobody. The menu's Spaceship row launching and
 landing; another story (the flock) keeping it flying, drawn in its scene; the session's end landing it. Heading out from
-the arena's middle it never passes 5 m and comes back; the strip shown and the arrow with the head turned away; in AR a
-pretend wall (a plane of the room scan 1 m ahead) bouncing it back; nothing see-through among its materials but small
+its launch spot (the set moving) it flies on past 6 m, never turned back, and the set's middle follows it (moved 3 m or
+more, at most 4 m behind it; v139); the strip shown and the arrow with the head turned away; in AR a pretend wall (a plane
+of the room scan 1 m ahead) not stopping it (v139: it flies on through, its heading kept); nothing see-through among its materials but small
 additive glows, each adding its colour and keeping the alpha (v134), and drawn over a see-through background (alpha 0,
 as in AR, on a canvas of its own) the glow and the shield's ring leaving the alpha at 0 everywhere while adding light; the
 ship under 600 triangles.
@@ -7286,7 +7303,8 @@ story circle not walked into (still at the studio after standing in it), the lob
 and the hiding lapses with it), then a story circle walked into again (with `--shots`: `ask-1-question.png`). Your
 menu shown to your circle (`menusRound`, v120, also in the main run, right after the circles asked first; `--menus` runs
 only it, a room of its own with two story circles, a page and three pretend headsets, A and B walked into one circle and
-C into the other, a few minutes): off by default (*My menu: only me*, nothing kept), A's menu open sending nothing and B
+C into the other, a few minutes; `MENUS_STORY=studio` in the environment makes A and B's circle a studio circle, v139):
+off by default (*My menu: only me*, nothing kept), A's menu open sending nothing and B
 drawing nothing; A's *My menu: my circle* (Settings) pressed: B draws a plane where A's menu floats (its top edge's middle,
 its turn and width within 1 cm and a degree, the picture's shape that of the part A's menu shows; A's menu and B's copy
 read while both draw frames, since between the round's steps a pretend headset draws none and B lets a copy go 3 s after

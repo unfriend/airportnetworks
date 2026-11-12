@@ -11432,27 +11432,32 @@ if (runs('spaceship')) {
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
-  await step('spaceship: the arena\'s edge turns it back (never past 5 m); in AR a pretend wall of the room scan bounces it; the strip over the controller and the arrow when it is out of view; nothing see-through, under 600 triangles', async () => {
+  await step('spaceship: no edge along the floor (v139: it flies on past 5 m, its heading kept) and the shared set\'s middle follows it; in AR a pretend wall of the room scan does not stop it (v139); the strip over the controller and the arrow when it is out of view; nothing see-through, under 600 triangles', async () => {
     const bad = [];
     await fresh();
-    // heading out along +x from the arena's middle, level: it never leaves the arena and comes back
+    // heading out along +x from the launch spot, level, the set moving: it flies on past where the arena's edge was
+    // (5 m), never turned back, and the set's middle comes after it
     const c = (await st()).c;
-    await sp.evaluate(c => HOST.ships.debug.place([c[0], 1.5, c[1]], -Math.PI / 2, 0), c);
+    await sp.evaluate(c => { HOST.ships.debug.place([c[0], 1.5, c[1]], -Math.PI / 2, 0); HOST.ships.debug.freeze(false); }, c);
     let far = 0, inward = false;
     for (let k = 0; k < 40; k++) {
       await tick(10);
       const s = await st(), dx = s.p[0] - c[0], dz = s.p[2] - c[1], r = Math.hypot(dx, dz);
       far = Math.max(far, r);
-      if (r > 3.5 && (-Math.sin(s.yaw) * dx - Math.cos(s.yaw) * dz) < 0) inward = true;
+      if (r > 1 && (-Math.sin(s.yaw) * dx - Math.cos(s.yaw) * dz) < 0) inward = true;
     }
-    if (far > 5.0001 || !inward) bad.push('at the edge: the furthest ' + far.toFixed(3) + ' m, turned back ' + inward);
+    const sf = await st(), gap = sf.setC ? Math.hypot(sf.p[0] - sf.setC[0], sf.p[2] - sf.setC[1]) : -1, moved = sf.setC ? Math.hypot(sf.setC[0] - c[0], sf.setC[1] - c[1]) : 0;
+    await sp.evaluate(() => HOST.ships.debug.freeze(true));
+    if (far < 6 || inward) bad.push('past the old edge: the furthest ' + far.toFixed(3) + ' m, turned back ' + inward);
+    if (!sf.setC || moved < 3 || gap > 4) bad.push('the set\'s middle: moved ' + moved.toFixed(2) + ' m, ' + gap.toFixed(2) + ' m behind the ship (' + JSON.stringify(sf.setC) + ')');
     // the strip and the arrow: the head turned away from the ship
     const h0 = await st();
     await sp.evaluate(() => { window.__w.head.yaw = Math.PI; }); await tick(2);
     const h1 = await st();
     await sp.evaluate(() => { window.__w.head.yaw = 0; }); await tick(2);
     if (!h1.drawn.hud || !h1.drawn.arrow) bad.push('looking away: the strip ' + h1.drawn.hud + ', the arrow ' + h1.drawn.arrow + ' (before: ' + JSON.stringify(h0.drawn) + ')');
-    // in AR: a wall 1 m ahead along +x, its plane facing -x; flown into it, it bounces back
+    // in AR: a wall 1 m ahead along +x, its plane facing -x; flown into it, it flies on through it (v139: the room scan's
+    // walls are not reliable, so nothing real stops a ship)
     await sp.evaluate(() => {
       const W = window.__w, sp = { name: 'wall', addEventListener() {}, removeEventListener() {} };
       HOST.mode = 'immersive-ar'; W.s.environmentBlendMode = 'alpha-blend'; W.s.enabledFeatures = ['plane-detection'];
@@ -11465,7 +11470,7 @@ if (runs('spaceship')) {
     let maxX = 0;
     for (let k = 0; k < 15; k++) { await tick(6); maxX = Math.max(maxX, (await st()).p[0]); }
     const w = await st();
-    if (maxX > 1.0 || -Math.sin(w.yaw) > -0.5) bad.push('the wall: the furthest x ' + maxX.toFixed(3) + ', heading x ' + (-Math.sin(w.yaw)).toFixed(2) + ' (not bounced back)');
+    if (maxX < 1.5 || -Math.sin(w.yaw) < 0.9) bad.push('the wall: the furthest x ' + maxX.toFixed(3) + ', heading x ' + (-Math.sin(w.yaw)).toFixed(2) + ' (stopped or turned by the wall)');
     await sp.evaluate(() => { const W = window.__w; W.planes = null; HOST.mode = 'immersive-vr'; W.s.environmentBlendMode = 'opaque'; W.s.enabledFeatures = []; });
     // additive light only: its colour added, the layer's alpha kept (v134: no black halo round the glows in AR)
     const look = await sp.evaluate(() => HOST.ships.debug.materials().map(m => ({ t: m.type, tr: !!m.transparent, op: m.opacity, add: m.blending === THREE.CustomBlending && m.blendSrc === THREE.OneFactor && m.blendDst === THREE.OneFactor, keep: m.blendSrcAlpha === THREE.ZeroFactor && m.blendDstAlpha === THREE.OneFactor, old: m.blending === THREE.AdditiveBlending })));

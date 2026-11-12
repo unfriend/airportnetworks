@@ -2023,7 +2023,7 @@
   // draw nothing (the Shared dialog's people list says who shows their menu)
   const MSH = { type: '@menu', on: get('xrMenuShare') === 'circle', max: 48 * 1024 - 1024, picMs: 1500, hovMs: 4000, poseMs: 200, beat: 1000, gone: 3000, ask: 1500, order: 49.5,
     steps: [[540, 0.75], [480, 0.66], [420, 0.58], [360, 0.5], [300, 0.42], [240, 0.35], [180, 0.3]],
-    st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '',
+    st: '', sig: '', full: '', picAt: 0, busy: false, n: 0, img: '', step: 0, want: false, poseAt: 0, last: null, moving: false, master: null, cv: null, failed: '', bad: 0, how: '',
     sent: { pics: 0, poses: 0, closed: 0, most: 0, bytes: 0, at: [], ns: [], cv: [] }, got: 0 };   // (got: pictures taken from others, for tests; at, ns and cv: when each picture went, its number, a want's answer an old one, and the menu's cver it shows)
   const MENUS = new Map();   // others' menus shown to their circle, by member: { code, st, at, n, nWant, img, dec, buf, pose, o, ... }
   const menuShareOn = () => MSH.on;
@@ -2054,6 +2054,16 @@
   }
   // each frame (the shell's tick, after the overlay is drawn, so the menu stands where it shows): the pose, the picture,
   // or 'closed'
+  // the Settings row's note while My menu is on in a room (v139): who sees it now, or why nobody does
+  function menuShareSays() {
+    const L = liveSt();
+    if (!R.aligned) return 'Not shown yet: this headset is not lined up with the room';
+    if (!L || away()) return 'Not shown: go into a circle first';
+    if (MSH.bad >= 2 && !MSH.img) return 'Not shown: this headset could not make a picture of it';
+    const names = [];
+    for (const P of C.pres.values()) if (P.st === L.id && P.head && !P.cam && member(P.id)) names.push(member(P.id).name || 'someone');
+    return !names.length ? 'Nobody else is in this circle now' : 'Shown to ' + names.join(', ');
+  }
   function menuShareStep(t) {
     const to = menuShareTo();
     if (!C.code) { MSH.st = ''; MSH.last = null; }
@@ -2105,8 +2115,13 @@
   // the picture: the menu's canvas (the part shown) with the story's panels drawn in where the Story tab shows them, onto a
   // dark ground (a JPEG has no see-through corners: the others cut them round), then a JPEG at each step until one fits
   // (the next starts at the step that fitted, a step finer when it came well under). A data URL, or '' when none fits
-  const jpeg = (cv, q) => new Promise(res => { try { cv.toBlob(b => res(b), 'image/jpeg', q); } catch (e) { res(null); } });
-  const dataUrl = b => new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => res(''); r.readAsDataURL(b); });
+  // (v139: toBlob given 2 s, as one that never calls back would hold every later picture; the FileReader the same. Where
+  // either fails, menuPicture falls back to toDataURL: Quest Browser's toBlob in a session is untested, and the owner's
+  // first try of My menu on Quests, at a studio circle, showed the others nothing)
+  const inTime = (p, ms, v) => Promise.race([p, new Promise(res => setTimeout(() => res(v), ms))]);
+  const jpeg = (cv, q) => inTime(new Promise(res => { try { cv.toBlob(b => res(b), 'image/jpeg', q); } catch (e) { MSH.how = 'toBlob: ' + (e && e.name || e); res(null); } }), 2000, null);
+  const dataUrl = b => inTime(new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => res(''); r.readAsDataURL(b); }), 2000, '');
+  const jpegUrl = (cv, q) => { try { return cv.toDataURL('image/jpeg', q); } catch (e) { MSH.how = 'toDataURL: ' + (e && e.name || e); return ''; } };
   async function menuPicture() {
     MSH.busy = true;
     try {
@@ -2129,15 +2144,22 @@
         x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
         x.drawImage(M, 0, 0, cv.width, cv.height);
         const b = await jpeg(cv, q);
-        if (!b) break;
-        const len = 23 + 4 * Math.ceil(b.size / 3);   // (its data URL's length: 'data:image/jpeg;base64,' and the bytes)
-        if (len > MSH.max) continue;
-        const u = await dataUrl(b);
+        let u = '', len = 0;
+        if (b) {
+          len = 23 + 4 * Math.ceil(b.size / 3);   // (its data URL's length: 'data:image/jpeg;base64,' and the bytes)
+          if (len > MSH.max) continue;
+          u = await dataUrl(b);
+        }
+        // (no blob, or no data URL from it: the canvas encoded at once instead)
+        if (!u.startsWith('data:image/jpeg;base64,')) { u = jpegUrl(cv, q); len = u.length; if (u.startsWith('data:image/jpeg;base64,') && len > MSH.max) continue; if (!MSH.how && !b) MSH.how = 'toBlob gave nothing'; }
         if (!u.startsWith('data:image/jpeg;base64,') || u.length > MSH.max) break;
         MSH.step = k > 0 && len < MSH.max * 0.45 ? k - 1 : k;
+        MSH.bad = 0;
         return u;
       }
-      log('menu share', { picture: 'none fits' });
+      MSH.bad++;
+      log('menu share', { picture: 'none fits', how: MSH.how || '' });
+      if (MSH.bad === 2) changed();   // (the Settings row's note says so)
       return '';
     } finally { MSH.busy = false; }
   }
@@ -3381,6 +3403,8 @@
     // (drawn over everything: on the floor the room's own depth, or the scene, would hide a cross a little under it,
     // and the check by eye is about where they are; under the menu, 54, and the sheets, 55, so their buttons stay readable)
     OV.marks.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
+    // (v139: the room's other areas' crosses, each a pair of its own with its line and sign: areaMarks)
+    OV.areaMarks = new THREE.Group(); OV.areaMarks.visible = false; OV.room.add(OV.areaMarks); OV.areaPairs = [];
     OV.aims = [aim(), aim()]; OV.calA = cross();
     OV.root.add(OV.aims[0], OV.aims[1], OV.calA);
     // camera mode: where the phone's aim meets the floor while it lines up (a ring lying on the floor, over everything)
@@ -3434,6 +3458,7 @@
       MKL.L = L;
     }
     eyeSpots(eye && OV.marks.visible, t);   // (asked by eye: the crosses lit, a beam and a letter over each)
+    areaMarks(eye, OV.marks.visible ? mk : null, t);
     for (let i = 0; i < 2; i++) {
       const h = C.rays.get(i), A = OV.aims[i];
       A.visible = !!(tipMode() && h && C.frameN - h.n <= 2);
@@ -3441,6 +3466,46 @@
     }
     OV.calA.visible = !!(R.calib && R.calib.a && R.lfOK);
     if (OV.calA.visible) OV.calA.position.copy(R.calib.a).applyMatrix4(R.lf);
+  }
+  // The room's other areas' crosses (v139; the owner, 12 November 2026: "When i add new areas they dont show visible
+  // crosses"): until then only the crosses this headset lines up from were drawn, so an area just added showed none.
+  // Every area of the room (spots A and B among them) but the one drawn above, at its room points, with its line and its
+  // sign, whenever the marks would show (the menu open, or for 30 s after lining up or adding an area), in a lined-up
+  // headset, never while asked by eye (that question is about the crosses above) or while a tip is armed
+  function areaPair() {
+    const P = { a: cross(), b: cross(), line: new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]),
+      new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 })), name: sheet(420, 72, 0.3, 53), text: '' };
+    P.g = new THREE.Group(); P.g.add(P.a, P.b, P.line, P.name.mesh); P.a.visible = P.b.visible = true;
+    P.g.traverse(m => { if (m.material) Object.assign(m.material, { depthTest: false, depthWrite: false, transparent: true }); m.renderOrder = 53; });
+    OV.areaMarks.add(P.g);
+    return P;
+  }
+  function areaMarks(eye, drawn, t) {
+    const G = OV.areaMarks;
+    if (!G) return;
+    const on = !!(OV.room.visible && R.aligned && !eye && !tipMode() && (PNL.open || t < R.showUntil));
+    const list = on ? areasAll().filter(A => !(drawn && drawn.k === A.id)) : [];
+    G.visible = !!list.length;
+    for (let i = 0; i < Math.max(list.length, OV.areaPairs.length); i++) {
+      const A = list[i];
+      if (!A) { OV.areaPairs[i].g.visible = false; continue; }
+      const P = OV.areaPairs[i] || (OV.areaPairs[i] = areaPair());
+      P.g.visible = true;
+      P.a.position.fromArray(A.a); P.b.position.fromArray(A.b);
+      const g = P.line.geometry.attributes.position;
+      g.setXYZ(0, A.a[0], A.a[1], A.a[2]); g.setXYZ(1, A.b[0], A.b[1], A.b[2]); g.needsUpdate = true;
+      P.line.geometry.computeBoundingSphere();
+      const text = `${A.name}: ${A.L[0]} and ${A.L[1]}`;
+      if (P.text !== text) {
+        P.text = text;
+        const N = P.name, ctx = N.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, N.w, N.h);
+        rr(ctx, 3, 3, N.w - 6, N.h - 6, 18); ctx.fillStyle = 'rgba(8,15,28,0.88)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = AMBER; ctx.stroke();
+        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, text, N.w - 30), N.w / 2, N.h / 2 + 2);
+        N.tex.needsUpdate = true;
+      }
+      P.name.mesh.position.set((A.a[0] + A.b[0]) / 2, Math.max(A.a[1], A.b[1]) + 0.35, (A.a[2] + A.b[2]) / 2);
+      if (HD.ok) P.name.mesh.lookAt(HD.p);
+    }
   }
   function hang(sc) { build(); if (OV.root.parent !== sc) sc.add(OV.root); }
 
@@ -4591,7 +4656,7 @@
       // your menu shown to the people at your circle while it is open, to explain it to them (this headset's own, never the
       // room's: MSH)
       button(S, 'menushare', x, y, bw, 60, MSH.on ? 'My menu: my circle' : 'My menu: only me', () => setMenuShare(!MSH.on), { on: MSH.on, px: 23 });
-      note(!C.code ? 'In a shared room: shown to the people at your circle' : MSH.on ? 'The people at your circle see it while it is open' : 'Only you see it. This headset\'s own', y);
+      note(!C.code ? 'In a shared room: shown to the people at your circle' : MSH.on ? menuShareSays() : 'Only you see it. This headset\'s own', y);
       y += 76;
       // real-world occlusion in AR (occlusion.js): what real things hide (the room scan's walls and furniture, and people,
       // hands and anything moving, from the headset's depth), each press the next; this headset's own, unless the story
@@ -9025,6 +9090,7 @@
     log('area added', { id, n, name: D.name, a: D.a, b: D.b, d: r3(D.d), floor: [r3(D.a[1] - FLOOR_TIP), r3(D.b[1] - FLOOR_TIP)], replaced: old ? old.id : '', src: R.src });
     const L = areaLetters(n);
     notice(D.name + ' added', `Its crosses are ${L[0]} and ${L[1]}: any headset can line up from them now (Room setup, Line up), and check them (Areas).`, 8000);
+    R.showUntil = performance.now() + 30000;   // (the room's crosses shown for a while, the new ones among them: areaMarks)
     if (!CAM.on) {
       const rid = val('rid');
       const P = { code: C.code, pair: id, rid: typeof rid === 'string' ? rid.slice(0, 32) : '', a: D.la, b: D.lb, at, used: Date.now(), anchors: [], n: 2, f: 1,

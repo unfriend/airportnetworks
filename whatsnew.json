@@ -1,22 +1,21 @@
 {
-  "version": "networks-v138",
+  "version": "networks-v139",
   "date": "12 November 2026",
   "new": [
-    "Studio examples at a circle: pressing bliss-xp opens it for everyone at the circle. The first press copies it to the relay (about 5 MB, its progress on the Scene pane); later presses open that copy.",
-    "Copy to the relay works in a headset too.",
-    "A copy that is still under way says Being copied...; one that broke off is finished by the next press, and a whole copy is never mistaken for one that is not.",
-    "If the example cannot open at a circle (the story is locked, or the relay takes no uploads), a line under it says why.",
-    "From v137: ships without loops, still station cards, cubes for everyone, Only AR / Only VR, On a wall, and the Bliss XP room with Clippy."
+    "Spaceships fly as far as you like: no edge along the floor, and walls (the room scan's in AR) no longer stop them. Only the floor and the ceiling (3 m) hold them.",
+    "The drones, targets and pickups follow the pilots around: their middle moves after the ships, and the ones left behind catch up.",
+    "Areas: every area's crosses show now, with its name sign, while the menu is open and for 30 s after you add an area or line up, not only the area you lined up from.",
+    "My menu: my circle: the row's note says who sees your menu now (Shown to Anna, Ben), or why nobody does (nobody else in this circle, not in a circle, not lined up, no picture made).",
+    "My menu: a fallback for making the menu's picture on headsets where the first way fails."
   ],
   "test": [
-    "In a headset at a studio circle (Studio here): Scene pane, Examples, press bliss-xp. Does it copy and then open for everyone at the circle?",
-    "A second headset at the same circle: does it get the room too, and on its own walls in AR?",
-    "Press bliss-xp again later, or at another circle: it should open the relay's copy at once, with no second copy.",
-    "Walk the Bliss XP room in AR in the middle of a room facing a wall (Recenter first): do the windows land on your walls?"
+    "Launch a ship (the right stick clicked twice) and fly far across the room and beyond: no turning back, drones and targets coming after you.",
+    "In AR, fly into a real wall: the ship should fly on through it.",
+    "Room setup, Areas: add an area while lined up on spots A and B. Do its crosses and sign show at once beside A and B? Open the menu later: are all areas' crosses there?",
+    "Two headsets in one studio circle, both lined up: turn on My menu: my circle on one and open its menu. What does the row's note say? Does the other headset see the menu?"
   ],
   "untested": [
-    "All of it on a real Quest: copying 5 MB from a headset to the R2 relay, the copy opening for others at the circle.",
-    "Two headsets pressing the example at the same moment on real Wi-Fi (handled in the tests, not tried on devices).",
-    "The Bliss XP room's wall mapping on a real room scan, and its sounds (synthesised, unheard)."
+    "All of it on a real Quest: how flying far and the set following feel, the extra crosses, and whether My menu now reaches the others there (in the tests it works at a studio circle too, so the cause on the headsets is still unknown: the row's note should tell).",
+    "v138 and older items from What is new are still untried on devices where they were before."
   ]
 }

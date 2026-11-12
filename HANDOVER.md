@@ -47,8 +47,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (9 November 2026): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v138 (FORMAT networks-43, the v138 and v137 entries below; v136 before them, also
-    on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
+  - *The branches.* `dev` is networks-v139 (FORMAT networks-43, the v139, v138 and v137 entries below; v136 before them,
+    also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
     both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
     is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
     fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
@@ -102,6 +102,24 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v139 (12 November 2026; FORMAT networks-43, shell 139), on `dev` only: three of the owner's fixes.** The owner:
+  "Planes have a limited range from when i start them it feels, should be unlimited with enemies following around", then
+  "the real walls also should not block them, they are unrealiable"; "When i add new areas they dont show visible
+  crosses"; "Menu sharing not working, i turn it on but the others in the same studio circle dont see it".
+  - *Spaceships* (`ships.js`): no edge along the floor and no bounce off the room scan's walls in AR (only the floor and
+    the 3 m ceiling hold a ship); the shared set's middle follows the flying ships (eased over 1.5 s, at most 3.5 m/s),
+    targets and drones left behind catch up. AGENTS.md "Spaceships", "The arena".
+  - *Areas* (`shared.js`, `areaMarks`): every area's crosses and sign, spots A and B among them, beside the ones this
+    headset lines up from, while the menu is open and for 30 s after lining up or adding an area.
+  - *My menu*: not reproduced. `node tools/collab.mjs --menus` with `MENUS_STORY=studio` (new) puts A and B at a studio
+    circle, and B draws A's menu there as at a story's. Two changes for the headsets: the picture made with `toBlob` given
+    2 s, else `toDataURL` (Quest Browser's `toBlob` in a session was never tried), and the Settings row's note saying who
+    sees the menu now or why nobody does (`menuShareSays`), so the next try on the Quests says where it stops.
+  - Tests (the cheap checks for `dev`, and the parts touched, all passed): the smoke test's `--only spaceship` (its arena
+    step now expects no edge, the set following and the pretend wall not stopping the ship), `collab --areas` 18 (a new
+    check: the new area's crosses drawn at once beside A and B), `collab --menus` at a studio circle 15 (in its first run
+    one timing check of the pictures' rate failed, a gap of 3.4 s where 4 s is asked; not in the second). Untested on
+    devices: all of it.
 - **networks-v138 (12 November 2026; FORMAT networks-43, shell 137), on `dev` only: examples at a studio circle.** The
   owner, on the test place: "just tried stories.lab.lbi-netmed.com but bliss is greyed out, why". In a shared room the
   studio opens only through a circle, and at a circle v137 greyed the example's button (the scene there is the room's)

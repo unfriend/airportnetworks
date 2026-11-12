@@ -36,9 +36,10 @@ HOST.ships = (function () {
   try { localStorage.removeItem('xrShipSteer'); } catch (e) { /* no storage */ }
   // speeds (m/s, m/s2): cruise, reverse (the grip held past rev), a boost, the most it changes a second
   const FLY = { cruise: 1.2, reverse: -0.5, rev: 0.9, brake: 0.8, boost: 3.2, accel: 2.5 };
-  // the arena: round where the pilot stood at launch (m along the floor), from lo to hi m over the floor, turned back
-  // gently within soft of its edge (deg/s at the edge)
-  const ARENA = { r: 5, lo: 0.15, hi: 3.0, soft: 0.6, back: 90 };
+  // the arena (v139: no edge for the ships, the owner: "should be unlimited with enemies following around"): the ships fly
+  // anywhere along the floor, from lo to hi m over it; the shared set (targets, drones, pickups) keeps within r of its
+  // middle, which follows the flying ships (eased over follow s, at most move m/s), so it comes along wherever they go
+  const ARENA = { r: 5, lo: 0.15, hi: 3.0, follow: 1.5, move: 3.5 };
   // the guns: shots a second (with rapid fire), m/s (plus the ship's speed), life (s), damage; drones' bolts
   const GUN = { rate: 5, rapid: 10, v: 8, life: 1.25, dmg: 20, dv: 6, ddmg: 10, nose: 0.12 };
   // hit spheres (m): a ship, a drone, a target; a pickup taken within touch of the ship's middle
@@ -88,7 +89,7 @@ HOST.ships = (function () {
   // this headset's ship (in the game's frame: room coordinates in a room, else the renderer's space moved down to the floor)
   const S = { on: false, want: '', sess: null, lt: 0, src: null, p: new V3(), yaw: 0, pitch: 0, bank: 0, speed: 0, q: new Q4(),
     shield: HP.shield, extra: 0, health: HP.health, hitAt: -1e9, boostT: 0, charge: 1, aWas: true, shotAt: -1e9, n: 0,
-    down: 0, downR: 0, killer: '', rapidUntil: 0, boostUntil: 0, gift: '', c: [0, 0], kind: '', floorY: 0, turn: 0, bumpAt: 0, ctrl: false, why: '' };
+    down: 0, downR: 0, killer: '', rapidUntil: 0, boostUntil: 0, gift: '', c: [0, 0], kind: '', floorY: 0, turn: 0, ctrl: false, why: '' };
   const F = { m: new M4(), mi: new M4(), kind: '', floor: null, floorAsked: null };   // the game's frame in the renderer's space
   const RS = new Map();   // others' ships: id -> { s: samples [{ ts, v }], at, lt, last, w: the set's samples }
   const BOLTS = new Map();   // live bolts: key -> { by, dr, o, d, v, t0, mine, hit }
@@ -324,7 +325,6 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     } catch (e) { /* a pretend session */ }
   }
   const immersive = () => !!HOST.session && (HOST.mode === 'immersive-vr' || HOST.mode === 'immersive-ar');
-  const isAR = () => HOST.mode === 'immersive-ar';
   // the right controller (tracked, with a gamepad; never a tracked hand), or null; the hand alone when it is one
   function rightSrc() {
     let list = null;
@@ -456,18 +456,15 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (L && L.changed) L.changed();
     return true;
   }
-  // a new ship at the controller: 0.5 m ahead of it along the head's level forward, at its height (both clamped into the
-  // arena), flying where the head faces, level; full shield and health
+  // a new ship at the controller: 0.5 m ahead of it along the head's level forward, at its height (held between the
+  // arena's floor and ceiling), flying where the head faces, level; full shield and health
   const HIST = [];   // this ship's places over the last 0.6 s: [relay ms, x, y, z]
   function spawn(re) {
     HIST.length = 0;
     const yaw = HEAD.ok ? HEAD.yaw : 0, fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const cx = CTRL.ok ? CTRL.g.x : HEAD.ok ? HEAD.g.x : S.c[0], cz = CTRL.ok ? CTRL.g.z : HEAD.ok ? HEAD.g.z : S.c[1], cy = CTRL.ok ? CTRL.g.y : 1.2;
     if (re && HEAD.ok) S.c = [HEAD.g.x, HEAD.g.z];   // (in another frame: the arena round where the pilot stands now)
-    let x = cx + 0.5 * fx, z = cz + 0.5 * fz;
-    const dx = x - S.c[0], dz = z - S.c[1], d = Math.hypot(dx, dz), lim = ARENA.r - 0.2;
-    if (d > lim) { x = S.c[0] + dx * lim / d; z = S.c[1] + dz * lim / d; }
-    S.p.set(x, clamp(cy, ARENA.lo + 0.05, ARENA.hi - 0.05), z);
+    S.p.set(cx + 0.5 * fx, clamp(cy, ARENA.lo + 0.05, ARENA.hi - 0.05), cz + 0.5 * fz);
     S.yaw = yaw; S.pitch = 0; S.bank = 0; S.speed = FLY.cruise;
     S.shield = HP.shield; S.extra = 0; S.health = HP.health; S.hitAt = -1e9; S.boostT = 0; S.charge = 1; S.aWas = true;
     S.down = 0; S.downR = 0; S.killer = '';
@@ -509,30 +506,12 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       const dv = want - S.speed, lim = FLY.accel * dt;
       S.speed += clamp(dv, -lim, lim);
     }
-    // within soft of the arena's edge, heading outwards: turned back gently towards its middle
-    const rx = S.p.x - S.c[0], rz = S.p.z - S.c[1], rr = Math.hypot(rx, rz);
-    if (rr > ARENA.r - ARENA.soft && rr > 1e-6) {
-      const ux = rx / rr, uz = rz / rr, hx = -Math.sin(S.yaw) * Math.sign(S.speed || 1), hz = -Math.cos(S.yaw) * Math.sign(S.speed || 1);
-      if (hx * ux + hz * uz > 0) {
-        const yT = Math.atan2(ux, uz) + (S.speed < 0 ? Math.PI : 0), d = wrapA(yT - S.yaw), k = clamp((rr - (ARENA.r - ARENA.soft)) / ARENA.soft, 0, 1);
-        S.yaw = wrapA(S.yaw + Math.sign(d) * Math.min(Math.abs(d), ARENA.back * DEG * k * dt));
-      }
-    }
     dirOf(S.yaw, S.pitch, _d);
-    _v.copy(S.p);   // (where it was: the room scan's planes are tested along the way)
     S.p.addScaledVector(_d, S.speed * dt);
-    // the arena's edge: it bounces (its heading reflected about the edge), and its floor and ceiling
-    const ex = S.p.x - S.c[0], ez = S.p.z - S.c[1], er = Math.hypot(ex, ez);
-    if (er > ARENA.r) {
-      const ux = ex / er, uz = ez / er;
-      S.p.x = S.c[0] + ux * (ARENA.r - 0.01); S.p.z = S.c[1] + uz * (ARENA.r - 0.01);
-      if (S.speed >= 0) { const hx = -Math.sin(S.yaw), hz = -Math.cos(S.yaw), k = hx * ux + hz * uz; if (k > 0) S.yaw = Math.atan2(-(hx - 2 * k * ux), -(hz - 2 * k * uz)); }
-      bump();
-    }
-    // (its floor and ceiling: held there, level, until it is steered away)
+    // (no edge along the floor and nothing real in the way since v139, not even the room scan's walls in AR: they are
+    // not reliable; its floor and ceiling: held there, level, until it is steered away)
     if (S.p.y < ARENA.lo) { S.p.y = ARENA.lo; if (S.pitch < 0) S.pitch = 0; }
     if (S.p.y > ARENA.hi) { S.p.y = ARENA.hi; if (S.pitch > 0) S.pitch = 0; }
-    if (isAR()) planesBounce(f, ref, _v, pt);
     qOf(S.yaw, S.pitch, S.bank, S.q);
     if (TRACK.on) { TRACK.list.push([tn, S.p.x, S.p.y, S.p.z]); if (TRACK.list.length > 600) TRACK.list.shift(); }
     // the shield refills a while after the last hit; the health never does
@@ -545,50 +524,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     HIST.push([tn, S.p.x, S.p.y, S.p.z]);
     while (HIST.length > 2 && tn - HIST[0][0] > 600) HIST.shift();
   }
-  function bump() { const t = pnow(); if (t - S.bumpAt > 200) { S.bumpAt = t; play('bump', S.p); } }
-  // In AR, the room scan's planes (walls, floor, ceiling, tables): the ship crossing one inside its polygon bounces off it
-  // (its heading reflected about the plane), with a bump and no damage. Read from the frame (posed in the renderer's space)
-  const PL = { list: [], at: 0 };
-  const _pa = new V3(), _pb = new V3(), _pn = new V3(), _pm = new M4(), _pmi = new M4();
-  function planesBounce(f, ref, from, pt) {
-    let set = null;
-    try { const ef = HOST.session && HOST.session.enabledFeatures; if (!ef || Array.prototype.includes.call(ef, 'plane-detection')) set = f.detectedPlanes; } catch (e) { set = null; }
-    if (!set || !set.size) return;
-    if (pt - S.bumpAt < 150) return;
-    toRef(from, _pa); toRef(S.p, _pb);
-    let k = 0;
-    for (const pl of set) {
-      if (++k > 64) break;
-      let pose = null;
-      try { pose = f.getPose(pl.planeSpace, ref); } catch (e) { pose = null; }
-      if (!pose || !pl.polygon || pl.polygon.length < 3) continue;
-      _pm.fromArray(pose.transform.matrix); _pmi.copy(_pm).invert();
-      const a = _v2.copy(_pa).applyMatrix4(_pmi), ay = a.y, ax = a.x, az = a.z, b = _d.copy(_pb).applyMatrix4(_pmi), m = 0.05;
-      const cross = (ay > m && b.y <= m) || (ay < -m && b.y >= -m);
-      if (!cross) continue;
-      const tt = Math.abs(ay - b.y) > 1e-6 ? (ay - Math.sign(ay) * m) / (ay - b.y) : 0, ix = ax + (b.x - ax) * tt, iz = az + (b.z - az) * tt;
-      if (!inPoly(pl.polygon, ix, iz)) continue;
-      // reflected about the plane's normal (its y), in the game's frame
-      _pn.set(_pm.elements[4], _pm.elements[5], _pm.elements[6]).normalize().transformDirection(F.mi);
-      dirOf(S.yaw, S.pitch, _d);
-      if (S.speed < 0) _d.negate();
-      _d.addScaledVector(_pn, -2 * _d.dot(_pn));
-      if (S.speed < 0) _d.negate();
-      S.yaw = Math.atan2(-_d.x, -_d.z); S.pitch = Math.asin(clamp(_d.y, -1, 1));
-      S.p.copy(from);   // (back where it was this frame, its heading reflected)
-      bump();
-      log('ship bump', { plane: pl.semanticLabel || pl.orientation || '' });
-      return;
-    }
-  }
-  function inPoly(poly, x, z) {
-    let ins = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i].x, zi = poly[i].z, xj = poly[j].x, zj = poly[j].z;
-      if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi + 1e-12) + xi) ins = !ins;
-    }
-    return ins;
-  }
+
   function shoot(tn) {
     dirOf(S.yaw, S.pitch, _d);
     const o = _v.copy(S.p).addScaledVector(_d, GUN.nose), i = ++S.n;
@@ -861,12 +797,21 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     for (let i = w.d.length; i < want; i++) { let k = i + 1; while (w.d.some(d => d.id === 'd' + k)) k++; w.d.push(newDrone(w, 'd' + k)); }
     if (w.d.length > want) w.d.length = want;
     const ships = shipsSeen();
-    for (const e of w.t) {   // the targets drift slowly, turning back at the arena's edge
+    // the set's middle follows the flying ships (their mean place along the floor), eased, at most move m/s
+    if (ships.length && !FREEZE.on) {
+      let mx = 0, mz = 0;
+      for (const p of ships) { mx += p.x; mz += p.z; }
+      mx /= ships.length; mz /= ships.length;
+      const k = 1 - Math.exp(-dt / ARENA.follow), lim = ARENA.move * dt;
+      w.c[0] += clamp((mx - w.c[0]) * k, -lim, lim); w.c[1] += clamp((mz - w.c[1]) * k, -lim, lim);
+    }
+    for (const e of w.t) {   // the targets drift slowly, turning back at the set's edge (and catching up past it)
       if (!e.a) { if (tn >= e.back) { e.a = true; e.h = HP.thealth; e.p.copy(edgeSpot(w)); } continue; }
       if (FREEZE.on) continue;
       e.p.addScaledVector(e.v, dt);
       const rx = e.p.x - w.c[0], rz = e.p.z - w.c[1], rr = Math.hypot(rx, rz);
       if (rr > ARENA.r - 0.6 && rx * e.v.x + rz * e.v.z > 0) { e.v.x = -e.v.x; e.v.z = -e.v.z; }
+      if (rr > ARENA.r) { const m = Math.min(ARENA.move, 0.8 * (rr - ARENA.r) + 0.3) * dt / rr; e.p.x -= rx * m; e.p.z -= rz * m; }
       if (e.p.y < 0.5 || e.p.y > 2.4) e.v.y = -e.v.y;
       e.p.y = clamp(e.p.y, 0.5, 2.4);
     }
@@ -883,14 +828,16 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
         e.wy = rnd(-Math.PI, Math.PI); e.wh = rnd(0.7, 2.2);
       }
       if (e.chase > tn && near) { e.wy = Math.atan2(-(near.x - e.p.x), -(near.z - e.p.z)); e.wh = clamp(near.y, 0.5, 2.6); }
-      const rx = e.p.x - w.c[0], rz = e.p.z - w.c[1];
-      if (Math.hypot(rx, rz) > ARENA.r - 0.8) e.wy = Math.atan2(rx, rz);
+      const rx = e.p.x - w.c[0], rz = e.p.z - w.c[1], rr = Math.hypot(rx, rz);
+      if (rr > ARENA.r - 0.8) e.wy = Math.atan2(rx, rz);
+      // (left behind by the ships: faster, up to move m/s, until back within the set's reach)
+      const sp = Math.min(ARENA.move, BOT.speed * (1 + Math.max(0, rr - (ARENA.r - 0.8)) / 1.5));
       const dy = wrapA(e.wy - e.yaw), tr = BOT.turn * DEG * dt;
       e.yaw = wrapA(e.yaw + clamp(dy, -tr, tr));
       e.bank += (clamp(-dy, -0.6, 0.6) - e.bank) * (1 - Math.exp(-dt / 0.3));
       e.pitch += (clamp((e.wh - e.p.y) * 0.8, -0.5, 0.5) - e.pitch) * (1 - Math.exp(-dt / 0.4));
       dirOf(e.yaw, e.pitch, _d);
-      e.p.addScaledVector(_d, BOT.speed * dt);
+      e.p.addScaledVector(_d, sp * dt);
       e.p.y = clamp(e.p.y, ARENA.lo + 0.2, ARENA.hi - 0.2);
       // a bolt every droneFire while a ship is within range and in front of it within aim degrees
       if (tn >= e.fireAt && near && nd < BOT.range) {

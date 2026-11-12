@@ -2623,7 +2623,7 @@ async function walkRound() {
 // first; and a busy machine, as in the whole run, draws them seconds apart, so each change the round makes is seen by a
 // frame of its own and each rate is measured on A's clock.) dir: pictures (menus-*.png)
 async function menusRound(dir) {
-  const K1 = PICK_STORY, K2 = HEADSET_STORY;
+  const K1 = process.env.MENUS_STORY || PICK_STORY, K2 = HEADSET_STORY;
   const P = await open('#stories');
   await P.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(P, () => HOST.collab.status === 'open', null, 10000);
@@ -5148,6 +5148,12 @@ async function areasRound() {
     X.step();
     return { shown: O.marks.visible, a: w(O.crossA), b: w(O.crossB), sign: O.markName ? O.markName.text : null, letters: HOST.collab.areas().letters };
   });
+  // (v139) the room's other areas' crosses headset H draws now beside its own (areaMarks): each pair's two crosses and sign
+  const otherCrosses = H => H.evaluate(() => {
+    const X = window.__xr, O = HOST.collab.overlay(), w = o => o.getWorldPosition(new THREE.Vector3()).applyMatrix4(X.W.local).toArray().map(v => +v.toFixed(3));
+    X.step();
+    return { shown: !!(O.areaMarks && O.areaMarks.visible), pairs: (O.areaPairs || []).filter(P => P.g.visible).map(P => ({ a: w(P.a), b: w(P.b), sign: P.text })) };
+  });
   const hideHandles = (H, pair) => H.evaluate(([c, k]) => {
     const ps = HOST.room.places().list.filter(p => p.code === c && p.pair === k), out = [];
     for (const p of ps) for (const u of p.anchors) { out.push([u, window.__handles.get(u)]); window.__handles.delete(u); }
@@ -5181,6 +5187,11 @@ async function areasRound() {
       add0 && !!ad0 && ad0.step === 'a' && ad0.L.join('') === 'CD' && !!ad1 && ad1.step === 'b' && made && !!lab && lab.n === 2 && lab.L.join('') === 'CD' && dist(lab.a, tC) < 0.01 && dist(lab.b, tD) < 0.01 &&
         !!rk['rp.' + lab.id] && !!rm && lab.base.at === (rm.t || rm.at) && (await H1.evaluate(() => HOST.collab.code)) === code && !!added && Math.abs(added.floor[0] - STEP) < 0.01,
       JSON.stringify({ add0, ad0, ad1, made, lab, tC, tD, rm, added }));
+    // (v139; the owner, 12 November 2026: "When i add new areas they dont show visible crosses") headset 1, lined up by
+    // spots A and B, draws Lab's crosses too once it is added, at their points, with Lab's sign, beside its own A and B
+    const xo = await otherCrosses(H1), xa = await crosses(H1), lp = xo.pairs.find(P => P.sign === 'Lab: C and D');
+    check('areas: headset 1 draws the new area\'s crosses at once beside spots A and B (its sign Lab: C and D, its crosses at their points)',
+      xo.shown && !!lp && near(lp.a, SC, 0.02) && near(lp.b, SD, 0.02) && xa.shown && near(xa.a, SA, 0.02) && near(xa.b, SB, 0.02), JSON.stringify({ xo, xa }));
     check('areas: ...and headset 1 has its own place at Lab at once: two anchors saved from the same touches, its room points copied, yb measured',
       !!pl && pl.kept && pl.n === 2 && dist(pl.ra, tC) < 0.01 && dist(pl.rb, tD) < 0.01 && Number.isFinite(pl.yb) && Math.abs(pl.yb) < 0.01, JSON.stringify(pl));
     // headset 2, its floor 3 cm high and turned otherwise, calibrates on C and D only
