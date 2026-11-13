@@ -1505,7 +1505,7 @@ ships or look).
   `pickupEnd`. No engine sound (the owner's rule: no hums unless asked).
 - For tests: `HOST.ships.state()` (flying, down, the frame, the ship's pose, speed, turn, the stick (`stick`), shield, extra, health,
   boost, pickups on, the leader, the drones, targets and pickups as drawn here, live bolts, kills, others' ships, what is
-  drawn, `rt` the time drawn at), `launch(on)`, `times({...})` (`null` the defaults), `testClock(on)`, `stick`, `axes`,
+  drawn, `rt` the time drawn at, `setC` the shared set's middle, v139), `launch(on)`, `times({...})` (`null` the defaults), `testClock(on)`, `stick`, `axes`,
   `person(id)`, `line()`, and `debug` (`place`, `freeze`, `drone`, `target`, `pickup`, `next`, `clearPicks`, `hurt`,
   `bolt`, `claim`, `track`, `materials`).
 - Tests: the smoke test's *spaceship* steps and `tools/collab.mjs --ships` ("Testing").
@@ -6895,7 +6895,7 @@ kept as a place with no room and taken by Y, the first room it lines up in), are
 round in the main run; `--areas` runs only it, a room of its own, a few minutes: a page starts the room, two pretend AR
 headsets with saved anchors; headset 1 calibrates on spots A and B, walks 12 m to a floor 15 cm higher and adds Lab
 there, `rp.<id>` with letters C and D and its crosses within 1 cm of the truth, its base spots A and B's, its own place
-there with `yb`; headset 2, its floor 3 cm high and turned otherwise, calibrates on C and D only: its room within 1 cm
+there with `yb`, and (v139) Lab's crosses and sign drawn at once beside spots A and B's (`areaMarks`); headset 2, its floor 3 cm high and turned otherwise, calibrates on C and D only: its room within 1 cm
 and 0.5 degrees of the truth and of headset 1's, the room's floor under it, the same room, nothing joined, its crosses
 at Lab's points lettered C and D with the sign *Lab: C and D*; C and D touched 50 cm short refused in words; a new
 session of headset 1 at Lab, spots A and B's anchors hidden: lined up from its Lab place, no join, the check by eye's
