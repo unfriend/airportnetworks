@@ -1751,6 +1751,15 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
+   - **Quicker hot reload on the test place (maybe later; the owner, 13 November 2026: "Can we have hot reload so
+     changes can happen right away in the same session?", then "hold the hot reload work for now and put it down for
+     maybe later").** What exists: `HOST.live` swaps a changed story in place (a headset stays in its session) and asks
+     before a new shell, whose reload ends a headset session (*Enter VR to continue*). Proposed: (1) with developer mode
+     on, ask for `version.json` every 15 s instead of every minute and swap a story at once rather than at a quiet
+     moment; (2) after a shell reload in a headset, enter VR or AR again by itself through Quest Browser's WebXR
+     navigation (`navigator.xr`'s `sessiongranted`), keeping today's *Enter VR to continue* as the fallback; whether a
+     reload counts as such a navigation can only be found on a Quest. Swapping the shell's own code without a reload is
+     not realistic (`shared.js` holds the room, the alignment and the session's state in one closure).
    - **Laser tag across the whole room (maybe later; the owner, 10 November 2026: "lets not do this for now and put it
      on the maybe later list").** The design as discussed: a layer over the whole room, apart from the circles. Each
      headset has its own *Play laser tag* switch (only players shoot or are hit; others see nothing of it), and the room

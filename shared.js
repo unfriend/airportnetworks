@@ -2347,6 +2347,18 @@
     if (!asked && C.who && key !== HOST.curKey) whoStop('own story');
     return adopt(key);
   }
+  // back to the lobby: this headset's live station ends (no story: away, the room as before any circle). Walking into a
+  // Back to the lobby circle (st: its id), or the menu's Back to the lobby (v142; the owner, 13 November 2026: "add a
+  // back to the lobby button in the menu"), which needs no such circle in the room
+  function toLobby(st) {
+    log('lobby', { st: st || 'menu', was: C.live });
+    C.mine = ''; C.live = ''; C.picked = false; VW.id = '';
+    // the story loaded hears it (the studio forgets what this headset has seen there: its cubes start afresh), and this
+    // headset's own narration in the room goes: the room's again (v124)
+    try { if (HOST.cur && typeof HOST.cur.lobby === 'function') HOST.cur.lobby(); } catch (e) { log('lobby hook failed', { e: e && e.message }); }
+    if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('lobby');
+    changed();
+  }
   // make a station yours (walking into its circle in a headset, Follow on a page, or the station of a person this page
   // follows: 'person'): its story runs live here
   function choose(id, how) {
@@ -2358,13 +2370,7 @@
     // never a station of its own, so nothing follows it
     if (s.kind === LOBBY_ST) {
       if (how !== 'walk') return;
-      log('lobby', { st: id, was: C.live });
-      C.mine = ''; C.live = ''; C.picked = false; VW.id = '';
-      // the story loaded hears it (the studio forgets what this headset has seen there: its cubes start afresh), and this
-      // headset's own narration in the room goes: the room's again (v124)
-      try { if (HOST.cur && typeof HOST.cur.lobby === 'function') HOST.cur.lobby(); } catch (e) { log('lobby hook failed', { e: e && e.message }); }
-      if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('lobby');
-      changed();
+      toLobby(id);
       return;
     }
     if (how !== 'person' && how !== 'arc') { C.whoLeft = ''; if (C.who) whoStop(how === 'follow' ? 'a station followed by hand' : how); }
@@ -4981,6 +4987,11 @@
       button(S, 'lock', x, y, bw, 56, lk ? 'Circles locked: unlock' : 'Lock circles', () => setLock(!lk), { px: 22, on: lk });
       button(S, 'stlock', x + bw + 16, y, bw, 56, sl ? 'Story locked: unlock' : 'Lock this story', L ? () => setStLock(L.id, !sl) : null, { px: 22, on: sl });
       y += 72;
+      // back to the lobby from wherever this headset is (v142): its story ends here, every circle shows again. Not at the
+      // room's arc, which everyone in the room is at without walking in (arcStep would take it straight back)
+      const arcNow = arcSt();
+      button(S, 'tolobby', x, y, w, 56, 'Back to the lobby', HOST.session && !CAM.on && C.live && !(arcNow && arcNow.id === C.live) ? () => { sfx('enter'); toLobby(''); } : null, { px: 22 });
+      y += 72;
       // at an All stories circle: its switch (Own stories, or With the room's circles: the room's circle of the story
       // picked here shares its moment; never refused by either lock) and back to its cards, for everyone at the circle
       if (A && A.kind === ALL) {
@@ -5749,6 +5760,120 @@
     _e.set(-FPSV.down, FPSV.left, 0); _q2.setFromEuler(_e);
     S.mesh.quaternion.copy(HD.q).multiply(_q2);
     S.mesh.position.set(0, 0, -FPSV.dist).applyQuaternion(S.mesh.quaternion).add(HD.p);
+  }
+
+  // ------------------------------------------- the developer notebook (notes.js, v142) --
+  // While a note is recorded in a headset: a small read-out fixed to the head (a red dot, the time, the pins, which button to
+  // let go of, a level bar), and each pin where it hit (a bright ball with its number on a sign, over everything, in the
+  // renderer's space, as the check by eye's letters are) for 10 s after it ends, so the end picture has them
+  const REC = { down: 14 * Math.PI / 180, dist: 1, pins: null, psig: '', ball: null };
+  const nz = (fn, d) => { try { const v = fn(); return v === undefined ? d : v; } catch (e) { return d; } };
+  function recNum(n) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const c = cv.getContext('2d'); c.fillStyle = 'rgba(8,15,28,0.9)'; c.beginPath(); c.arc(32, 32, 30, 0, 7); c.fill(); c.lineWidth = 4; c.strokeStyle = '#ff5a5a'; c.stroke();
+    c.fillStyle = '#fff'; c.font = FONT(36, 700); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(n), 32, 34);
+    return new THREE.CanvasTexture(cv);
+  }
+  function drawRec() {
+    const V = HOST.notes && HOST.notes.view ? HOST.notes.view() : null;
+    if (!V || !OV.root) { if (OV.rec) OV.rec.mesh.visible = false; if (REC.pins) REC.pins.visible = false; return; }
+    const on = V.rec && HD.ok && !CAM.on && !!HOST.session;
+    if (!OV.rec) { OV.rec = sheet(800, 120, 0.36, 52); OV.root.add(OV.rec.mesh); OV.rec.mesh.visible = false; OV.rec.text = ''; }
+    const S = OV.rec;
+    S.mesh.visible = on;
+    if (on) {
+      const mm = Math.floor(V.sec / 60) + ':' + String(Math.floor(V.sec % 60)).padStart(2, '0'), lv = Math.round(V.level * 12);
+      const btn = V.hand === 'right' ? 'B' : V.hand === 'left' ? 'Y' : 'the button';
+      const l1 = 'Recording a note ' + mm + ' · ' + V.count + (V.count === 1 ? ' pin' : ' pins'), l2 = V.held ? 'Let go of ' + btn + ' to send it' : 'Recording';
+      const txt = l1 + '\n' + l2 + '\n' + lv;
+      if (txt !== S.text) {
+        S.text = txt;
+        const ctx = S.ctx;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+        rr(ctx, 2, 2, S.w - 4, S.h - 4, 18); ctx.fillStyle = 'rgba(8,15,28,0.85)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(34, 36, 11, 0, 7); ctx.fillStyle = '#ff4d4d'; ctx.fill();
+        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, l1, S.w - 100), 58, 18);
+        ctx.font = FONT(24); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, l2, S.w - 44), 22, 66);
+        ctx.fillStyle = '#ffffff22'; ctx.fillRect(22, 102, S.w - 44, 6); ctx.fillStyle = lv > 9 ? '#ffb43b' : '#3ee08f'; ctx.fillRect(22, 102, (S.w - 44) * lv / 12, 6);
+        S.tex.needsUpdate = true;
+      }
+      _e.set(-REC.down, 0, 0); _q2.setFromEuler(_e);
+      S.mesh.quaternion.copy(HD.q).multiply(_q2);
+      S.mesh.position.set(0, 0, -REC.dist).applyQuaternion(S.mesh.quaternion).add(HD.p);
+    }
+    // the pins
+    const sig = V.pins.map(p => p.n + ':' + p.p.join(',')).join('|');
+    if (sig !== REC.psig) {
+      REC.psig = sig;
+      if (!REC.pins) { REC.pins = new THREE.Group(); REC.pins.name = 'note pins'; OV.root.add(REC.pins); }
+      for (const c of [...REC.pins.children]) { REC.pins.remove(c); c.traverse(o => { if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+      if (!REC.ball) REC.ball = new THREE.SphereGeometry(0.03, 12, 8);
+      for (const p of V.pins) {
+        const g = new THREE.Group(); g.position.set(p.p[0], p.p[1], p.p[2]);
+        const ball = new THREE.Mesh(REC.ball, new THREE.MeshBasicMaterial({ color: 0xff3c3c, depthTest: false, depthWrite: false })); ball.renderOrder = 53;
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: recNum(p.n), depthTest: false, depthWrite: false })); sp.scale.set(0.09, 0.09, 1); sp.position.y = 0.075; sp.renderOrder = 53;
+        g.add(ball, sp); REC.pins.add(g);
+      }
+    }
+    if (REC.pins) { REC.pins.visible = V.pins.length > 0 && !CAM.on && !!HOST.session; if (REC.pins.parent !== OV.root) OV.root.add(REC.pins); }
+  }
+  // what a press of controller i hit, for a pin: the shell's own thing nearest on its ray, else the story's panel, else the
+  // first visible mesh of the scene; { p: [x, y, z] in the renderer's space, room: the same in room coordinates (a headset
+  // lined up in a shared room), hit }
+  function recHit(i) {
+    const h = C.rays.get(i);
+    if (!h) return null;
+    const P = new THREE.Vector3().copy(h.d).multiplyScalar(2).add(h.o);   // (2 m along the ray when nothing is there)
+    let hit = { kind: 'none' };
+    const sh = hovOf(i);
+    try {
+      if (sh && sh.target) {
+        const t = sh.target, k = t.kind;
+        if (k === 'storypanel') hit = { kind: 'panel', panel: t.which };
+        else if (k === 'panel') { const r = OV.panel.at(sh.x, sh.y); hit = { kind: 'shell', what: 'menu', id: r ? String(r.id) : '' }; }
+        else if (k === 'ask' || k === 'eye') { const r = OV[k].at(sh.x, sh.y); hit = { kind: 'shell', what: k, id: r ? String(r.id) : '' }; }
+        else if (k === 'station') { const s = C.stById.get(t.id); hit = { kind: 'shell', what: 'station', id: String(t.id), story: s ? String(s.story) : '' }; }
+        else hit = { kind: 'shell', what: String(k), id: '' };
+        if (sh.p) P.copy(sh.p);
+      } else if (h.near < Infinity) {
+        const ps = nz(() => HOST.cur.panels(), null);
+        let which = '';
+        if (ps) { RC.set(h.o, h.d); RC.far = 100; for (const k of ['main', 'foot']) { const m = ps[k] && ps[k].mesh; if (m && m.visible && RC.intersectObject(m, false).length) { which = k; break; } } }
+        hit = { kind: 'panel', panel: which || 'main' };
+        P.copy(h.d).multiplyScalar(h.near).add(h.o);
+      } else {
+        const sc = nz(() => HOST.cur.collab.scene(), null);
+        if (sc) {
+          RC.set(h.o, h.d); RC.far = 200;
+          const meshes = [];
+          sc.traverse(o => { if (o.isMesh) meshes.push(o); });   // (meshes only: a sprite wants a camera to be raycast)
+          for (const x of RC.intersectObjects(meshes, false)) {
+            const o = x.object;
+            if (!o.isMesh || (o.material && o.material.visible === false)) continue;
+            let vis = true, shared = false;
+            for (let a = o; a; a = a.parent) { if (!a.visible) vis = false; if (a === OV.root) shared = true; }
+            if (!vis || shared) continue;
+            const path = [];
+            for (let a = o; a && a !== sc && path.length < 6; a = a.parent) path.push(a.name || a.type);
+            const ud = {}, u = (o.parent && o.parent !== sc ? o.parent : o).userData || {};
+            for (const f of ['id', 'kind', 'key', 'name', 'item', 'set']) if (typeof u[f] === 'string' || typeof u[f] === 'number') ud[f] = u[f];
+            hit = { kind: 'scene', path, ud };
+            P.copy(x.point);
+            break;
+          }
+        }
+      }
+    } catch (e) { /* the point stays 2 m along the ray */ }
+    let room = null;
+    if (C.code && R.session && R.aligned && R.m) { try { _mr.copy(R.m).invert(); const q = P.clone().applyMatrix4(_mr); room = [q.x, q.y, q.z]; } catch (e) { room = null; } }
+    return { p: [P.x, P.y, P.z], room, hit };
+  }
+  // the room, as a note's context says it
+  function noteRoom() {
+    if (!C.code) return null;
+    const s = C.live && C.stById.get(C.live);
+    return { code: C.code, via: C.via, live: C.live || '', station: s ? { id: s.id, story: s.story, title: stTitle(s) } : null, people: C.members.length,
+      lineUp: R.session ? nz(() => lineUp().text, '') : '', here: R.session ? nz(() => here(), undefined) : undefined };
   }
 
   // ------------------------------------------------ others' menus at your circle --
@@ -6603,8 +6728,17 @@
           if (t - SHIPCLK.logAt > 1000) { SHIPCLK.logAt = t; log('ship stick click ignored', { x: +ax[0].toFixed(2), y: +ax[1].toFixed(2) }); }
         } else clicks.push(src);
       }
-      const y = pressed(gp, 5), w = BY.m.get(src) || { b: undefined, at: 0 };
-      if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
+      const y = pressed(gp, 5), w = BY.m.get(src) || { b: undefined, at: 0, dn: 0, held: false };
+      if (HOST.notes && HOST.notes.can && HOST.notes.can(src)) {
+        // developer mode (v142, the developer notebook, notes.js): B or Y held 0.45 s records a note and never counts towards the
+        // double press; a short press is judged as it is let go (a press that turned into a hold must not have counted)
+        if (y && w.b === false) w.dn = t;
+        if (HOST.notes.hold(src, y, w.dn, t) && y) w.held = true;
+        if (!y && w.b === true) {
+          if (!w.held) { if (w.at && w.dn - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = w.dn; } else w.at = 0;
+          w.held = false;
+        }
+      } else if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
       w.b = y; BY.m.set(src, w);
     }
     // a first click waiting: no second one in time, the menu; the same stick again, moving with the sticks (never the
@@ -6997,6 +7131,7 @@
     drawAsk();
     drawEye();
     drawFps();
+    drawRec();
     // what the controllers can point at
     OV.hit.length = 0;
     if (OV.ask.mesh.visible) OV.hit.push(OV.ask.mesh);
@@ -9474,7 +9609,7 @@
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
-    quiet(() => { s.addEventListener('squeezestart', grabStation); s.addEventListener('squeezeend', dropStation); s.addEventListener('selectstart', pinched); });
+    quiet(() => { s.addEventListener('squeezestart', grabStation); s.addEventListener('squeezeend', dropStation); s.addEventListener('selectstart', pinched); s.addEventListener('selectstart', e => { if (HOST.notes && HOST.notes.pin) HOST.notes.pin(e); }); });   // (a pin, while a developer note is recorded: notes.js)
     // the stories set HOST.mode just after HOST.session: say who we are once both are known
     setTimeout(() => { if (R.session === s && C.code) { hello(); connect(); begin(); } }, 0);
     if (!C.relay || C.served === null) detect();
@@ -10702,6 +10837,13 @@
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },
   };
+  // the developer notebook (notes.js, loaded before this file) is linked in: the relay, notices, sounds, the log, the room and what a
+  // press hit
+  if (HOST.notes && HOST.notes.link) HOST.notes.link({
+    relayFind: () => relayFind(), relaySaw: (b, st, sent, j) => relaySaw(b, st, sent, j), notice: (t, x, ms) => notice(t, x, ms), sfx: n => sfx(n, null),
+    log: (e, o) => log(e, o), name: () => C.name, room: () => noteRoom(), pinHit: i => recHit(i), fps: () => FPS.v || 0,
+    pulse: (src, v, ms) => pulse(src, v, ms),
+  });
   // the spaceships (ships.js, loaded before this file) are linked in: the relay's clock and render time, who we are, the
   // room's frame (room coordinates -> the renderer's space, while a headset here is lined up), the effects' key, notices
   if (HOST.ships && HOST.ships.link) HOST.ships.link({

@@ -36,6 +36,7 @@ import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout
   uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT } from './trackers.mjs';
+import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2 } from './notes.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
@@ -51,6 +52,9 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // --trackers [port]: the Vive trackers' bridge on UDP 127.0.0.1 (47800 when no port is given; 0 picks a free one);
   // -1: off
   trackers: -1,
+  // --notes <dir>: the developer notebook's notes kept in <dir> (else in .notes/ of the scenes' folder, or under .notes/ in R2);
+  // --no-notes: none (tools/notes/SPEC.md, "The relay")
+  notes: '', 'no-notes': false,
   // --keep <file>: every room written there (atomically, every 5 s when changed and as the relay stops) and read back as
   // it starts, so a restart (a deploy) no longer empties the rooms; '' none (as ever: rooms in memory only)
   keep: '' };
@@ -97,6 +101,10 @@ const HELP = `usage: node relay/server.mjs [options]
                    starts): a restart, such as a deploy, no longer empties them (off: rooms live in memory only)
   --trackers [<port>]  the PC's Vive trackers: take tools/trackers/bridge.py's readings on UDP 127.0.0.1:<port> (${TRK_PORT};
                    0 picks a free one), list them at /api/trackers and send them, lined up, to the rooms that use them
+  --notes <dir>    the developer notebook's notes (voice recordings with pictures, pins and context, POST /api/notes, listed at
+                   GET /api/notes, read by tools/notes/notes.mjs and notes/): kept in <dir>. Without it they are kept in .notes/
+                   inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes
+  --no-notes       no notes at all (every notes endpoint answers 404)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
                    --logs only with a token, and --scenes only with a password
@@ -157,7 +165,7 @@ if (PUB && !ORIGINS.size) ORIGINS.add(APP_ORIGIN);
 const ORIGIN_RULE = ORIGINS.size > 0;
 const UNLISTED = PUB || OPT.unlisted;
 const orPublic = (v, dflt) => (v >= 0 ? v : PUB ? dflt : 0);
-const LIM = { guesses: orPublic(OPT.guesses, 30), creates: orPublic(OPT.creates, 10), sockets: orPublic(OPT.sockets, 64) };
+const LIM = { guesses: orPublic(OPT.guesses, 30), creates: orPublic(OPT.creates, 10), sockets: orPublic(OPT.sockets, 64), notes: PUB ? 30 : 0 };
 const STORE = orPublic(OPT.store, 64) * (1 << 20);   // bytes; 0: no cap besides each room's own
 // the logs' token: from Coolify's environment (never from the repository); the command line takes one too
 const LOG_TOKEN = String(OPT['log-token'] || process.env.RELAY_LOG_TOKEN || '');
@@ -231,6 +239,18 @@ if (SCENES_ON && PUB && !TOKEN) {
   process.exit(1);
 }
 const SAVE = SCENES_ON && !OPT['scenes-readonly'];
+// the developer notebook (tools/notes/SPEC.md): on wherever the relay keeps scenes, or with --notes <dir>; never on a public
+// server without a password (they are voices and pictures of the owner's rooms)
+if (OPT['no-notes'] && OPT.notes) { console.log('--notes and --no-notes: one or the other'); process.exit(1); }
+const NOTES_DIR = (() => {
+  if (!OPT.notes || OPT['no-notes']) return '';
+  const want = path.resolve(String(OPT.notes));
+  try { fs.mkdirSync(want, { recursive: true }); if (!fs.statSync(want).isDirectory()) throw new Error('not a folder'); } catch { console.log(`--notes: cannot use ${want} as a folder`); process.exit(1); }
+  return fs.realpathSync(want);
+})();
+const NOTES_WANT = !OPT['no-notes'] && (!!NOTES_DIR || SCENES_ON);
+const NOTES_ON = NOTES_WANT && !(PUB && !TOKEN);
+if (NOTES_WANT && !NOTES_ON) console.log('--public without a password keeps no notes (set COLLAB_TOKEN to turn the developer notebook on)');
 // uploads (the studio's Upload pane, SPEC "The upload page"): one file at most --max-upload MB, counted as it streams in
 if (!(OPT['max-upload'] > 0)) { console.log('--max-upload takes a size in MB, more than 0'); process.exit(1); }
 const MAX_UPLOAD = Math.floor(OPT['max-upload'] * (1 << 20));
@@ -838,7 +858,7 @@ const CLIENTS = new Map(), CLIENT_KEY = crypto.randomBytes(16);
 function clientOf(req) {
   const a = String(addrOf(req) || ''), k = crypto.createHmac('sha256', CLIENT_KEY).update(netName(a) || a).digest('base64url').slice(0, 22);
   let c = CLIENTS.get(k);
-  if (!c) CLIENTS.set(k, c = { socks: 0, at: Date.now(), g: 2 * LIM.guesses, gt: Date.now(), c: 2 * LIM.creates, ct: Date.now() });
+  if (!c) CLIENTS.set(k, c = { socks: 0, at: Date.now(), g: 2 * LIM.guesses, gt: Date.now(), c: 2 * LIM.creates, ct: Date.now(), n: 2 * LIM.notes, nt: Date.now() });
   return c;
 }
 // a bucket of 2n that fills again at n a minute: n a minute on end, and a burst of 2n (a relay restarted at an event:
@@ -954,7 +974,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -963,6 +983,7 @@ function api(req, res, url) {
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
+  if (p === '/api/notes' || p.startsWith('/api/notes/')) return notesApi(req, res, url);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
@@ -1141,9 +1162,9 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app. examples/ holds the studio's
 // example scenes, v137: scene folders with their listings as tools/studio/scan.mjs writes them, so deeper, as a scene's
 // files are: examples/<scene>/<at most 4 folders>/<file>)
-const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
+const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples']), APP_DEEP = new Set(['examples']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes']), APP_DEEP = new Set(['examples']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
 async function serve(req, res, url) {
@@ -1159,6 +1180,8 @@ async function serve(req, res, url) {
     if (segs.length === 2 && !p.endsWith('/')) return plain(res, 301, 'Moved', { Location: url.pathname + '/' + url.search });
     segs.splice(0, 2);
   }
+  // (the developer notebook's page, notes/: /notes goes to /notes/, as a folder's address does)
+  if (segs.length === 1 && segs[0] === 'notes' && !p.endsWith('/')) return plain(res, 301, 'Moved', { Location: url.pathname + '/' + url.search });
   if (!segs.length || p.endsWith('/')) segs.push('index.html');   // / is the app, a folder its index.html; no listings
   if (!appFile(segs)) return plain(res, 404, 'Not found');
   const file = path.join(REAL, ...segs);
@@ -1218,7 +1241,7 @@ function fingerprint(s) {
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
-const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
+const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
 const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
 const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
 const MAX_WATCHERS = 200;
@@ -1937,7 +1960,8 @@ const folderStore = {
 const RX = R2C ? new R2(R2C) : null;
 const okey = (name, rel = '') => R2C.prefix + name + '/' + rel;
 const RC = { all: null, at: 0, gen: 0, job: null, jobGen: -1, warned: false, hist: '' };
-const R2_KEEP = 2000, R2_LIMIT = 50000, PUT_TTL = 3600;
+const R2_KEEP = 2000, R2_LIMIT = Math.max(1, +process.env.R2_LIST_LIMIT || 50000), PUT_TTL = 3600;   // (the limit is lowered only by the tests)
+// (the scenes' listing steps over the notes' keys, R2_PREFIX + '.notes/': they never count against its limit)
 const UPR = { running: 0 }, UPR_MAX = 3;   // uploads through the relay at once (R2: each held in a temporary folder)
 const sigR2 = o => `${o.size}:${o.at}:${o.etag}`;
 async function r2All(fresh) {
@@ -1945,7 +1969,7 @@ async function r2All(fresh) {
   if (RC.job && RC.jobGen === RC.gen) return RC.job;   // (one listing at a time, unless a write came since it began)
   const gen = RC.gen, t = Date.now();
   const job = (async () => {
-    const r = await RX.listAll(R2C.prefix, { limit: R2_LIMIT });
+    const r = await RX.listAll(R2C.prefix, { limit: R2_LIMIT, skip: R2C.prefix + '.notes/' });
     if (r.more && !RC.warned) { RC.warned = true; log(`scenes: the bucket holds more than ${R2_LIMIT} objects${R2C.prefix ? ' under ' + R2C.prefix : ''}: only the first are listed`); }
     const all = scenesOf(r.keys, R2C.prefix, sayBad);
     if (gen === RC.gen) { RC.all = all; RC.at = t; }
@@ -1983,6 +2007,99 @@ const r2Store = {
   says: one => (one ? { linkTtl: R2C.ttl } : { store: 'r2', direct: SAVE && DIRECT.sign !== 'off', linkTtl: R2C.ttl }),
 };
 const KEPT = R2C ? r2Store : folderStore;
+
+// ---- the developer notebook (tools/notes/SPEC.md, "The relay"; relay/notes.mjs): POST /api/notes keeps a note, GET lists
+// them (newest first) or reads one, its audio and its pictures (with byte ranges), POST /api/notes/<id> sets its status and
+// transcript, POST /api/notes/<id>/delete removes it. GET and POST only (CORS). Never a note's words, a name or a
+// transcript in a log line: `note <id> <bytes>` at most.
+const NOTES = !NOTES_ON ? null : NOTES_DIR ? notesFolder(NOTES_DIR) : R2C ? notesR2(RX, R2C.prefix + '.notes/') : notesFolder(path.join(SCENES, '.notes'));
+const noStore = { 'Cache-Control': 'no-store' };
+// nonce -> { id, pending }, built from the store's notes on first use (both backends)
+let NONCES = null;
+const nonceIndex = () => (NONCES ||= NOTES.list().then(rows => { const m = new Map(); for (const s of rows) if (s.nonce) m.set(s.nonce, { id: s.id, pending: false }); return m; }).catch(err => { NONCES = null; throw err; }));
+async function notesApi(req, res, url) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!NOTES) return no(404, 'this relay keeps no notes');
+  const p = url.pathname, m = /^\/api\/notes(?:\/([^/]+)(?:\/(audio|delete|shot\/([12])))?)?$/.exec(p);
+  if (!m) return no(404, 'no such endpoint');
+  const [, id, sub, shot] = m;
+  const fail = err => {
+    log('notes: storage error (' + (err instanceof R2Error ? storeSays(err) : err.code || err.message) + ')');
+    if (!res.headersSent) json(res, err instanceof R2Error ? 502 : 500, { error: err instanceof R2Error ? storeSays(err) : 'cannot read or write the notes' });
+  };
+  try {
+    if (!id) {
+      if (req.method === 'GET') return json(res, 200, { notes: await NOTES.list() }, noStore);
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      const who = LIM.notes ? clientOf(req) : null;
+      if (who && fill(who, 'n', LIM.notes) < 1) { tally('requests refused: too many notes from one address'); return answerEarly(req, res, 429, { error: 'too many notes from your network: wait a minute' }, { 'Retry-After': String(wait(who, 'n', LIM.notes)) }); }
+      const text = await smallBody(req, res, NOTE_BODY, `a note is at most ${NOTE_BODY >> 20} MB`);
+      if (text === null) return;
+      let b = null;
+      try { b = JSON.parse(text); } catch { /* said below */ }
+      const got = Date.now(), r = parseNote(b, got);
+      if (r.error) return json(res, 400, { error: r.error });
+      // a note sent twice (a retry after an answer was lost) is kept once: by the client's nonce
+      const nx = r.note.nonce ? await nonceIndex() : null, was = nx && nx.get(r.note.nonce);
+      if (was && (was.pending || await NOTES.exists(was.id))) return json(res, 200, { id: was.id, again: true }, noStore);
+      if (await NOTES.count() >= MAX_NOTES) return json(res, 507, { error: `at most ${MAX_NOTES} notes are kept: delete some` });
+      let nid = newId(got);
+      for (let i = 0; i < 5 && await NOTES.exists(nid); i++) nid = newId(got);
+      r.note.id = nid;
+      if (nx) nx.set(r.note.nonce, { id: nid, pending: true });
+      r.note.size = (r.audio ? r.audio.buf.length : 0) + r.shots.reduce((n, s) => n + s.buf.length, 0) + text.length;
+      try { await NOTES.put(nid, r.note, r.audio, r.shots); } catch (err) { if (nx) nx.delete(r.note.nonce); throw err; }
+      if (nx) nx.set(r.note.nonce, { id: nid, pending: false });
+      if (who) who.n = Math.max(0, fill(who, 'n', LIM.notes) - 1);
+      log(`note ${nid} ${r.note.size}`);
+      return json(res, 201, { id: nid }, noStore);
+    }
+    if (!NOTE_ID.test(id)) return no(404, 'no such note');
+    if (sub === 'delete') {
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
+      if (!await NOTES.del(id)) return no(404, 'no such note');
+      return json(res, 200, { ok: true }, noStore);
+    }
+    if (!sub) {
+      if (req.method === 'GET') {
+        const n = await NOTES.get(id);
+        return n ? json(res, 200, n, noStore) : no(404, 'no such note');
+      }
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      const text = await smallBody(req, res, MAX_UPDATE, 'at most 256 KB');
+      if (text === null) return;
+      let b = null;
+      try { b = JSON.parse(text); } catch { /* said below */ }
+      const u = parseUpdate(b);
+      if (u.error) return json(res, 400, { error: u.error });
+      const n = await NOTES.update(id, u.patch);
+      return n ? json(res, 200, n, noStore) : no(404, 'no such note');
+    }
+    // audio and pictures: the bytes with their type, one byte range, never kept
+    if (req.method !== 'GET' && req.method !== 'HEAD') return no(405, 'method not allowed', { Allow: 'GET, HEAD' });
+    const n = await NOTES.get(id);
+    if (!n) return no(404, 'no such note');
+    const meta = shot ? (n.shots || [])[+shot - 1] : n.audio;
+    if (!meta || !meta.file) return no(404, shot ? 'no such picture' : 'this note has no recording');
+    const f = await NOTES.file(id, meta.file);
+    if (!f) return no(404, 'the file is gone');
+    return sendBytes(req, res, f.buf, shot ? 'image/jpeg' : meta.type);
+  } catch (err) { fail(err); }
+}
+// bytes as a note's file: its type, one byte range (the audio element asks for them), no-store, nosniff
+function sendBytes(req, res, buf, type) {
+  const head = { 'Content-Type': type, 'Cache-Control': 'no-store', 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff', 'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length' };
+  const r = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
+  let status = 200, out = buf;
+  if (r && (r[1] || r[2])) {
+    const start = r[1] ? +r[1] : Math.max(0, buf.length - +r[2]), end = r[1] && r[2] ? Math.min(+r[2], buf.length - 1) : buf.length - 1;
+    if (start >= buf.length || start > end || (!r[1] && +r[2] === 0)) { res.writeHead(416, { ...head, 'Content-Range': `bytes */${buf.length}`, 'Content-Length': 0 }); return res.end(); }
+    status = 206; out = buf.subarray(start, end + 1);
+    head['Content-Range'] = `bytes ${start}-${end}/${buf.length}`;
+  }
+  res.writeHead(status, { ...head, 'Content-Length': out.length });
+  res.end(req.method === 'HEAD' ? undefined : out);
+}
 
 // GET /scenes/<name>/<path> with R2: the same checks as a folder's (above), then a redirect to the file's signed link: the
 // browser downloads it from the bucket, with R2's own ranges, ETag and 304. Only a file the listing shows (or the scene's
@@ -2330,6 +2447,7 @@ server.listen(OPT.port, OPT.host, () => {
     (SAVE ? `\nUploads (the studio's Upload pane, at /upload): files up to ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB; ` +
       (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C && R2UP.ok ? r2Checks() : null))
     .catch(err => log('scenes: ' + err.message));
+  if (NOTES) console.log(`Developer notes (POST /api/notes, the page at /notes/) kept ${NOTES_DIR ? 'in ' + NOTES_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.notes/' : 'in ' + path.join(SCENES, '.notes')}`);
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +
     (OPT['allow-no-origin'] ? ' (and clients that send no Origin, such as scripts)' : ' (a client that sends no Origin gets no socket: --allow-no-origin)'));

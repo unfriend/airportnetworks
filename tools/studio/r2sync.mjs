@@ -36,6 +36,8 @@ if (cfg.error) bad('r2sync: ' + cfg.error);
 const r2 = new R2(cfg), P = cfg.prefix;
 const mb = n => (n < 1e6 ? (n / 1e3).toFixed(1) + ' kB' : (n / 1e6).toFixed(1) + ' MB');
 const isMd5 = e => /^[0-9a-f]{32}$/.test(e);
+// (the relay's developer notes live under .notes/ beside the scenes: a dot name is never a scene, so scenesOf and allScenes leave
+// them out, silently, and a sync never moves them)
 const histRel = rel => /^\.history\/layout-[^/]+\.json$/.test(rel);
 let did = { get: 0, put: 0, same: 0, del: 0, bytes: 0, kept: 0 };
 const HISTORY = 20;   // (as the relay: the newest 20 copies of a layout kept in .history/)
@@ -52,7 +54,7 @@ function newerThere(scene, rel, srcAt, dstAt, there) {
 // the bucket's scenes (as the relay lists them) and, per scene, every object under it by its path in the scene
 async function bucket() {
   let all;
-  try { all = await r2.listAll(P, { limit: 200000 }); } catch (err) { bad(`r2sync: ${err.message} (check the R2_* settings: relay/README.md, "Scenes in Cloudflare R2")`); }
+  try { all = await r2.listAll(P, { limit: 200000, skip: P + '.notes/' }); } catch (err) { bad(`r2sync: ${err.message} (check the R2_* settings: relay/README.md, "Scenes in Cloudflare R2")`); }
   const scenes = scenesOf(all.keys, P, n => console.log(`left out ${JSON.stringify(n)}: not a scene's name`)), objs = new Map();
   for (const o of all.keys) {
     const rest = o.key.slice(P.length), i = rest.indexOf('/');

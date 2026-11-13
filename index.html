@@ -789,7 +789,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 140, id: '7570c2999301b27c', format: 'networks-44' },
+  shell: { n: 142, id: '7cd808a5b8eaf302', format: 'networks-44' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2406,6 +2406,7 @@ HOST.loading = (() => {
       if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
+      if (HOST.notes && HOST.notes.frame) fn = (inner => function (t, f) { try { return inner(t, f); } finally { try { HOST.notes.frame(t, f); } catch (e) { /* never in the way */ } } })(fn);   // (the developer notebook's pictures, read back right after the story's frame, only when one is wanted: notes.js)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
@@ -3928,6 +3929,7 @@ HOST.unknown = (function () {
 <script src="sfx.js"></script>
 <script src="occlusion.js"></script>
 <script src="ships.js"></script>
+<script src="notes.js"></script>
 <script src="shared.js"></script>
 <script>
 'use strict';

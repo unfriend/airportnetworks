@@ -7163,7 +7163,7 @@ async function reloadRound() {
   const fmtN = v => +((/^networks-(\d+)$/.exec(v || '') || [])[1] || 0), J = v => JSON.stringify(v);
   const F = FORMAT, G = 'networks-' + (fmtN(F) + 1), RP = 8712;
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-reload-'));
-  const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
+  const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
   const copy = (name, format, v, git) => {
     const d = path.join(T, name);
     fs.mkdirSync(d, { recursive: true });

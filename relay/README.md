@@ -1006,6 +1006,44 @@ Untested until it runs on the owner's PC: the bridge with SteamVR and real track
 the rate on Windows), `TRK_FLOOR`, the lag from SteamVR to a headset through the relay, and how steady the lining up
 by hand is.
 
+## The developer notebook (`--notes`, `--no-notes`)
+
+A voice note with what the app knew at that moment (v142; the owner, 13 November 2026: "a developer notebook function where
+i can directly record some spoken audio in ar or vr ... the more direct the better"). The app records it in developer mode
+(holding B or Y in a headset, a round button on a phone or laptop) and sends it here; a Claude Code session reads the
+notes, transcribes them (`tools/notes/notes.mjs`) and writes the transcript back, and the page `notes/` (served at `/notes/`)
+lists them, plays them and deletes them. The contract is [tools/notes/SPEC.md](../tools/notes/SPEC.md); the code is
+`relay/notes.mjs` and `notesApi` in `server.mjs`.
+
+- **Where they are kept.** Whenever the relay keeps scenes: with `--scenes <dir>` in `<dir>/.notes/`, with `--scenes r2`
+  under `<R2_PREFIX>.notes/` in the bucket. `--notes <dir>` keeps them in `<dir>` instead (also without scenes); `--no-notes`
+  turns the notebook off (with `--notes`: refused). The scenes' listing, their watch, `GET /scenes/...` and
+  `tools/studio/r2sync.mjs` leave `.notes` out, silently (a dot name is never a scene). With R2 the scenes' listing steps over the keys under `<R2_PREFIX>.notes/`, so the notes' objects never count against its limit (`R2_LIST_LIMIT` lowers it, for the tests). A note carries a client `nonce`: one posted again is answered 200 `{ id, again: true }` and kept once. On a public server (`--public`)
+  without a password nothing is kept (said at the start); with one, an address may post 30 notes a minute (a burst of 60,
+  then 429 with `Retry-After`).
+- **A note on disk** (or as objects): `<id>/note.json` (what was sent without the base64, plus `id`, `got`, `size`, `status`
+  `new` or `done`, `transcript` null or `{ text, lang, segments: [{ start, end, text }], by, at }`), `<id>/audio.<webm|ogg|m4a|mp3>`
+  and `<id>/shot-1.jpg`, `<id>/shot-2.jpg`. The id is `YYYYMMDD-HHMMSS-` and four letters or digits, by the relay's UTC
+  clock (so they sort). A note is written into a hidden folder and moved into place whole (R2: `note.json` last), so a
+  listing never shows half a note.
+- **Endpoints**, all behind the password when there is one (`Authorization: Bearer` or `?token=`), answers `no-store`, `GET`
+  and `POST` only; with the notebook off every one answers 404 `{ error: 'this relay keeps no notes' }`, and `/api/ping` says
+  `notes: true` when it is on.
+
+| request | answer |
+| --- | --- |
+| `POST /api/notes` `{ v: 1, at, dur, kind, name?, audio: { type, data } or null, shots: [{ at, type, w, h, data } or { at, err }], pins, context }` | 201 `{ id }`. `audio.type` is `audio/webm`, `audio/ogg`, `audio/mp4` or `audio/mpeg` (a codecs suffix kept), `data` base64; at most 2 shots (JPEG, base64); 400 in words for bad JSON or a bad field, 413 past 16 MB (counted as it streams, nothing written), 429 past the per-address limit under `--public`, 507 past 2,000 notes |
+| `GET /api/notes` | `{ notes: [{ id, at, got, dur, kind, name, status, story, station, release, device, pins, shots, audio, transcript }] }`, newest first; `pins` and `shots` counts, `audio` whether there is a recording, `transcript` its first 200 characters or null |
+| `GET /api/notes/<id>` | its `note.json` (no base64), 404 for none |
+| `GET /api/notes/<id>/audio`, `GET /api/notes/<id>/shot/<1\|2>` | the bytes with their type, one byte range (206, 416), `nosniff` |
+| `POST /api/notes/<id>` `{ status?, transcript? }` | sets those fields (a transcript `{ text, lang, segments, by }`, `at` set by the relay, at most 200 KB; `null` clears it); 200 the note |
+| `POST /api/notes/<id>/delete` | 200 `{ ok: true }` and its files are gone; 404 for none |
+| `GET /notes` | 301 to `/notes/`, the notes page (`notes/index.html`, an app folder) |
+
+No note's words, name, transcript or picture is ever in a log line: at most `note <id> <bytes>`. Test:
+`node relay/test.mjs --notes` (seconds): off without scenes, `--notes`, `--no-notes`, `--public`, the endpoints above against a
+folder, `--notes <dir>` with a password and the R2 backend against the stand-in S3, the limits, and `r2sync` leaving `.notes` alone.
+
 ## HTTP API
 
 All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
@@ -1019,7 +1057,7 @@ shared password](#the-shared-password-collab_token)).
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
+| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with the notebook on (`--scenes`, `--notes`) also `notes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken', version }` if not, the room's version since v136): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
@@ -1029,14 +1067,15 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
+| `GET /api/notes`, `POST /api/notes`, `GET /api/notes/<id>`, `.../audio`, `.../shot/<n>`, `POST /api/notes/<id>`, `POST /api/notes/<id>/delete` | the developer notebook (v142): see [The developer notebook](#the-developer-notebook---notes---no-notes); 404 when it is off |
 | `GET /api/trackers`, `GET /api/trackers/still?id=<serial>&ms=1000` | with `--trackers`: the PC's trackers raw in SteamVR's space, and one lying still, averaged; see [The PC's Vive trackers](#the-pcs-vive-trackers---trackers); 404 without |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
-`sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
+`sfx.js`, `occlusion.js`, `ships.js`, `notes.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
 `spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `version.json` (the release's version file, for
 live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the miniatures), and the files directly in `stories/`, `audio/`,
-`icons/` and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
+`icons/`, `notes/` (the developer notebook's page, at `/notes/`; `/notes` moves there) and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
 `examples/` with its scene folders as deep as a scene's files go (the studio's example scenes, v137: `examples/<scene>/`
 and at most four folders under it, `APP_DEEP`)
 (`APP_FILES` and `APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
@@ -1338,6 +1377,8 @@ does not yet:
 ```sh
 node relay/test.mjs
 ```
+
+(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--rooms` the rooms'.)
 
 It starts the relay on a free port (timeouts of 1 s, serving the repository), and checks the API, joining and
 its refusals, welcome and members, ordering and acknowledgement, last writer wins, null refused outside the

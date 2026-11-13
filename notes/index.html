@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Developer notes</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #040912; --panel: #0a1322; --ink: #e7eef8; --muted: #95a6bd; --faint: #6c7d94; --line: rgba(149,166,189,.22); --chip: rgba(149,166,189,.10); --cyan: #46d9ff; --amber: #ffb43b; --red: #ff5a4b; --green: #3ee08f; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 'B612', system-ui, sans-serif; }
+body { padding: 0 16px 48px; max-width: 860px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 18px 0 10px; }
+h1 { font-size: 20px; margin: 0 auto 0 0; }
+button, input { font: inherit; color: var(--ink); }
+button { background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; min-height: 38px; }
+button:hover { border-color: var(--cyan); }
+button.on { background: rgba(70,217,255,.18); border-color: var(--cyan); }
+button.danger.armed { background: rgba(255,90,75,.25); border-color: var(--red); }
+input[type=text], input[type=password] { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; flex: 1; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0 12px; }
+.msg { color: var(--muted); padding: 10px 0; }
+.err { color: var(--red); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0 0 14px; }
+.card.done { opacity: .78; }
+.top { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.when { font-weight: 700; }
+.meta { color: var(--muted); font-size: 13px; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); }
+.tag.new { color: var(--amber); border-color: var(--amber); } .tag.done { color: var(--green); border-color: var(--green); }
+.snip { color: var(--muted); margin: 6px 0 0; }
+.open { margin-top: 10px; }
+audio { width: 100%; margin: 10px 0; }
+.shots { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.shots figure { margin: 0; flex: 1 1 200px; max-width: 100%; }
+.shots img { width: 100%; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; display: block; background: #000; }
+.shots figcaption { font-size: 12px; color: var(--faint); }
+a.t, button.t { color: var(--cyan); background: none; border: 0; padding: 0; min-height: 0; cursor: pointer; text-decoration: underline; }
+h3 { font-size: 14px; margin: 14px 0 4px; color: var(--muted); }
+ul { margin: 0; padding-left: 18px; }
+li { margin: 3px 0; }
+.pinline { color: var(--amber); }
+.seg { margin: 2px 0; }
+details { margin-top: 10px; } summary { cursor: pointer; color: var(--muted); }
+pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; max-height: 320px; overflow: auto; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#zoom { position: fixed; inset: 0; background: rgba(0,0,0,.88); display: none; align-items: center; justify-content: center; z-index: 9; padding: 12px; cursor: zoom-out; }
+#zoom.show { display: flex; } #zoom img { max-width: 100%; max-height: 100%; }
+.ta { position: fixed; left: -9999px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Developer notes</h1>
+  <button data-f="new" class="on">New</button><button data-f="done">Done</button><button data-f="all">All</button>
+  <button id="refresh" title="Look again">Refresh</button>
+</header>
+<div id="gate" hidden>
+  <p class="msg" id="gmsg"></p>
+  <form id="pw" class="bar"><input type="password" id="pwi" placeholder="The relay's password" autocomplete="current-password"><button>Use</button></form>
+  <form id="rl" class="bar"><input type="text" id="rli" placeholder="Relay address, https://..."><button>Use this relay</button></form>
+</div>
+<div id="status" class="msg"></div>
+<main id="list"></main>
+<div id="zoom"><img alt=""></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const q = new URLSearchParams(location.search);
+  let relay = (q.get('relay') || store.get('notesRelay') || location.origin).replace(/\/+$/, '');
+  if (q.get('relay')) store.set('notesRelay', relay);
+  const origin = () => { try { return new URL(relay).origin; } catch (e) { return relay; } };
+  const tokens = () => { try { const o = JSON.parse(store.get('relayTokens') || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
+  const token = () => tokens()[origin()] || '';
+  const keepToken = (t) => { const a = tokens(); a[origin()] = t; store.set('relayTokens', JSON.stringify(a)); };
+  let filter = 'new', notes = [], openId = '', detail = {}, blobs = {}, timer = 0, armed = '', armT = 0, loading = false, lastSig = '';
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const mmss = (s) => { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const whenOf = (n) => { const d = new Date(n.at || n.got || 0); return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+  const where = (n) => { const st = n.station; const s = n.story || ''; const t = st && (st.title || st.story) ? (st.title || st.story) : ''; return [s, t && t !== s ? t : ''].filter(Boolean).join(', '); };
+
+  async function api(path, opt) {
+    opt = opt || {};
+    const h = { Authorization: 'Bearer ' + token() };
+    if (opt.body) h['Content-Type'] = 'application/json';
+    const r = await fetch(relay + path, { method: opt.body ? 'POST' : 'GET', headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined, cache: 'no-store' });
+    if (r.status === 401) throw Object.assign(new Error('password'), { code: 401 });
+    if (r.status === 404 && !opt.raw) throw Object.assign(new Error('This relay keeps no notes.'), { code: 404 });
+    if (!r.ok) throw Object.assign(new Error('The relay answered ' + r.status + '.'), { code: r.status });
+    return opt.raw ? r : r.json();
+  }
+  function gate(msg, pw) { $('#gate').hidden = false; $('#gmsg').textContent = msg; $('#pw').hidden = !pw; $('#rl').hidden = pw; $('#rli').value = relay; if (pw) $('#pwi').focus(); }
+
+  async function load() {
+    if (loading) return; loading = true;
+    try {
+      const j = await api('/api/notes');
+      $('#gate').hidden = true; $('#status').textContent = '';
+      notes = (j.notes || []).slice().sort((a, b) => (a.id < b.id ? 1 : -1));
+      if (openId) { try { detail[openId] = await api('/api/notes/' + openId); } catch (e) {} }
+      const sig = JSON.stringify([notes, detail[openId], filter]);
+      // (not while something plays: drawing the list again would end it; the next look does)
+      const playing = [...document.querySelectorAll('#list audio')].some((a) => !a.paused && !a.ended);
+      if (sig !== lastSig && !playing) { lastSig = sig; render(); }
+    } catch (e) {
+      if (e.code === 401) { gate(token() ? 'That password was not taken. Try again.' : 'This relay needs its password.', true); $('#status').textContent = ''; }
+      else if (e.code === 404 && relay === location.origin) gate('This address keeps no notes. Where is the relay?', false);
+      else if (e.code) $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>';
+      else gate('The relay at ' + relay + ' did not answer. Where is it?', false);
+    } finally { loading = false; }
+  }
+
+  function render() {
+    const list = notes.filter((n) => filter === 'all' || (filter === 'done' ? n.status === 'done' : n.status !== 'done'));
+    const shown = new Set(list.map((n) => n.id));
+    Object.keys(blobs).forEach((k) => { if (!shown.has(k.replace(/(audio|shot\/\d)$/, ''))) { URL.revokeObjectURL(blobs[k]); delete blobs[k]; } });   // (pictures and sound of notes no longer shown)
+    if (!list.length) { $('#list').innerHTML = ''; $('#status').textContent = filter === 'new' ? 'No new notes.' : filter === 'done' ? 'No notes marked done.' : 'No notes yet.'; return; }
+    $('#status').textContent = '';
+    $('#list').innerHTML = list.map(card).join('');
+  }
+  function card(n) {
+    const open = n.id === openId, d = detail[n.id];
+    let h = '<article class="card ' + (n.status === 'done' ? 'done' : '') + '" data-id="' + esc(n.id) + '"><div class="top"><span class="when">' + esc(whenOf(n)) + '</span><span class="meta">' +
+      esc([n.device, where(n), mmss(n.dur), (n.pins || 0) + ' pin' + (n.pins === 1 ? '' : 's'), n.release].filter(Boolean).join(' · ')) + '</span><span class="tag ' + (n.status === 'done' ? 'done' : 'new') + '">' + (n.status === 'done' ? 'done' : 'new') + '</span></div>';
+    if (!open) h += (n.transcript ? '<p class="snip">' + esc(n.transcript) + '</p>' : '') + '<div class="open"><button data-a="open">Open</button></div>';
+    else h += d ? body(n, d) : '<p class="msg">Loading...</p>';
+    return h + '</article>';
+  }
+  function body(n, d) {
+    let h = '';
+    if (d.audio && d.audio.type !== undefined || n.audio) h += '<audio controls preload="none" data-audio></audio>';
+    else if (d.audioErr) h += '<p class="msg">No audio: ' + esc(d.audioErr) + '.</p>';
+    const shots = (d.shots || []).map((s, i) => s && !s.err ? '<figure><img data-shot="' + (i + 1) + '" alt="Picture ' + (i + 1) + '"><figcaption>' + esc(s.at === 'end' ? 'As it ended' : 'As it began') + '</figcaption></figure>' : '<figure><figcaption>' + esc((s && s.at) || 'picture') + ': ' + esc((s && s.err) || 'none') + '</figcaption></figure>').join('');
+    if (shots) h += '<div class="shots">' + shots + '</div>';
+    const tr = d.transcript;
+    h += '<h3>Transcript' + (tr ? ' (' + esc(tr.lang || '') + ', ' + esc(tr.by || '') + ')' : '') + '</h3>';
+    if (tr && tr.text) {
+      const segs = tr.segments && tr.segments.length ? tr.segments : [{ start: 0, text: tr.text }];
+      h += segs.map((s) => '<div class="seg"><button class="t" data-seek="' + (+s.start || 0) + '">' + mmss(s.start) + '</button> ' + esc((s.text || '').trim()) + '</div>').join('');
+    } else h += '<p class="msg">' + (tr ? 'Nothing was heard.' : 'Not transcribed yet. Ask Claude Code to run <code>node tools/notes/notes.mjs transcribe ' + esc(n.id) + '</code>.') + '</p>';
+    const pins = d.pins || [];
+    if (pins.length) h += '<h3>Pins</h3><ul>' + pins.map((p) => '<li><button class="t" data-seek="' + atOf(p, offOf(d)) + '">' + mmss(atOf(p, offOf(d))) + '</button> ' + esc(pinText(p, offOf(d))) + '</li>').join('') + '</ul>';
+    h += '<details><summary>Context</summary><pre>' + esc(ctxText(d.context)) + '</pre></details>';
+    h += '<div class="acts"><button data-a="done">' + (n.status === 'done' ? 'Mark new' : 'Mark done') + '</button><button data-a="md">Copy as Markdown</button><button data-a="del" class="danger">' + (armed === n.id ? 'Press again to delete' : 'Delete') + '</button><button data-a="close">Close</button></div>';
+    return h;
+  }
+  // a pin's t is seconds from the recording's start; the audio began off seconds later (a slow microphone): its place in the audio
+  const offOf = (d) => (d && d.audio && typeof d.audio.off === 'number' ? d.audio.off : 0);
+  const atOf = (p, off) => Math.max(0, (+p.t || 0) - off);
+  function pinText(p, off) {
+    const h = p.hit || {}, e = p.el;
+    let w = '';
+    if (h.kind === 'shell') w = 'the ' + (h.what || 'shell') + (h.id ? ', ' + h.id : '');
+    else if (h.kind === 'panel') w = 'the story\'s ' + (h.panel || '') + ' panel';
+    else if (h.kind === 'scene') w = 'the scene: ' + (h.path || []).join(' > ');
+    else if (h.kind === 'none') w = 'nothing';
+    else if (e) w = (e.tag || 'element') + (e.id ? '#' + e.id : '') + (e.text ? ' "' + e.text + '"' : '');
+    const where = p.x != null ? ' at ' + Math.round(p.x) + ', ' + Math.round(p.y) : '';
+    return 'Pin ' + p.n + ' at ' + mmss(atOf(p, off)) + ': ' + (w || 'unknown') + where;
+  }
+  function ctxText(c) { return c ? JSON.stringify(c, (k, v) => k === 'log' && typeof v === 'string' ? undefined : v, 2) + (c.log ? '\n\nLog:\n' + c.log : '') : '(none)'; }
+
+  function markdown(n, d) {
+    const L = [];
+    const c = d.context || {};
+    L.push('# Note ' + n.id, '', '- When: ' + new Date(d.at || n.at || 0).toLocaleString(), '- Device: ' + [...new Set([d.kind === 'page' ? '' : d.kind, c.device, c.xr])].filter(Boolean).join(', '), '- Where: ' + (where(c.story ? { story: c.story, station: c.room && c.room.station } : n) || 'n/a') + (c.mode ? ' (' + c.mode + ', t ' + c.t + ')' : ''), '- Length: ' + mmss(d.dur) + ', release ' + (c.release || ''), '');
+    L.push('## Transcript', '');
+    const off = offOf(d), pins = (d.pins || []).slice().sort((a, b) => a.t - b.t), tr = d.transcript;
+    let pi = 0;
+    const pinLine = (p) => '> ' + pinText(p, off);
+    if (tr && tr.text) {
+      const segs = tr.segments && tr.segments.length ? tr.segments : [{ start: 0, text: tr.text }];
+      segs.forEach((s) => { L.push('[' + mmss(s.start) + '] ' + (s.text || '').trim()); while (pi < pins.length && atOf(pins[pi], off) < (s.end != null ? s.end : s.start + 1e9)) L.push(pinLine(pins[pi++])); });
+      while (pi < pins.length) L.push(pinLine(pins[pi++]));
+    } else L.push(tr ? '(nothing was heard)' : '(not transcribed yet)');
+    if (!d.audio && d.audioErr) L.push('', 'No audio: ' + d.audioErr + '.');
+    if (pins.length) { L.push('', '## Pins', ''); pins.forEach((p) => L.push('- ' + pinText(p, off) + (p.hit && p.hit.ud ? ' ' + JSON.stringify(p.hit.ud) : ''))); }
+    L.push('', '## Context', '');
+    ['url', 'ua', 'screen', 'story', 'mode', 'chapter', 'room', 'settings', 'perf'].forEach((k) => { if (c[k] != null) L.push('- ' + k + ': ' + (typeof c[k] === 'object' ? JSON.stringify(c[k]) : c[k])); });
+    if (c.state) L.push('- state: ' + (typeof c.state === 'string' ? c.state : JSON.stringify(c.state)).slice(0, 2000));
+    if (c.log) L.push('', '## Log (last lines)', '', '```', String(c.log), '```');
+    return L.join('\n') + '\n';
+  }
+  async function copy(text) {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (e) {}
+    const t = document.createElement('textarea'); t.className = 'ta'; t.value = text; document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) {} t.remove(); return ok;
+  }
+
+  async function blobUrl(id, kind) {
+    const key = id + kind; if (blobs[key]) return blobs[key];
+    const r = await api('/api/notes/' + id + '/' + kind, { raw: true });
+    return (blobs[key] = URL.createObjectURL(await r.blob()));
+  }
+  async function hydrate(card) {
+    const id = card.dataset.id;
+    card.querySelectorAll('img[data-shot]').forEach(async (im) => { try { im.src = await blobUrl(id, 'shot/' + im.dataset.shot); } catch (e) {} });
+    const a = card.querySelector('audio[data-audio]');
+    if (a && !a.src) {
+      const load = async () => { if (a.dataset.l) return; a.dataset.l = 1; try { const t = a.currentTime; a.src = await blobUrl(id, 'audio'); a.currentTime = t; } catch (e) { a.dataset.l = ''; } };
+      a.addEventListener('play', load, { once: true }); a.addEventListener('click', load, { once: true });
+      a._load = load;
+    }
+  }
+  const after = () => document.querySelectorAll('#list .card').forEach((c) => { if (c.dataset.id === openId) hydrate(c); });
+  function draw() { lastSig = ''; render(); after(); }
+
+  async function act(card, a) {
+    const id = card.dataset.id, n = notes.find((x) => x.id === id), d = detail[id];
+    if (a === 'open') { openId = id; draw(); try { detail[id] = await api('/api/notes/' + id); } catch (e) { $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; } draw(); }
+    else if (a === 'close') { openId = ''; draw(); }
+    else if (a === 'done') { const st = n.status === 'done' ? 'new' : 'done'; try { const r = await api('/api/notes/' + id, { body: { status: st } }); n.status = st; if (detail[id]) detail[id].status = st; if (r && r.id) detail[id] = r; } catch (e) { $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; } draw(); }
+    else if (a === 'md') { const ok = await copy(markdown(n, d)); const b = card.querySelector('[data-a=md]'); if (b) b.textContent = ok ? 'Copied' : 'Could not copy'; setTimeout(() => { if (b) b.textContent = 'Copy as Markdown'; }, 1800); }
+    else if (a === 'del') {
+      if (armed !== id) { armed = id; clearTimeout(armT); armT = setTimeout(() => { armed = ''; draw(); }, 3000); draw(); return; }
+      clearTimeout(armT); armed = '';
+      try { await api('/api/notes/' + id + '/delete', { body: {} }); notes = notes.filter((x) => x.id !== id); delete detail[id]; if (openId === id) openId = ''; } catch (e) { $('#status').innerHTML = '<span class="err">' + esc(e.message) + '</span>'; }
+      draw();
+    }
+  }
+  $('#list').addEventListener('click', async (e) => {
+    const card = e.target.closest('.card'); if (!card) return;
+    const img = e.target.closest('img[data-shot]'); if (img && img.src) { $('#zoom img').src = img.src; $('#zoom').classList.add('show'); return; }
+    const sk = e.target.closest('[data-seek]');
+    if (sk) { const a = card.querySelector('audio'); if (!a) return; if (a._load) await a._load(); const go = () => { a.currentTime = +sk.dataset.seek; a.play().catch(() => {}); }; if (a.readyState >= 1) go(); else a.addEventListener('loadedmetadata', go, { once: true }); return; }
+    const b = e.target.closest('[data-a]'); if (b) act(card, b.dataset.a);
+  });
+  $('#zoom').addEventListener('click', () => $('#zoom').classList.remove('show'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#zoom').classList.remove('show'); });
+  document.querySelectorAll('header [data-f]').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.f; document.querySelectorAll('header [data-f]').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
+  $('#refresh').addEventListener('click', () => load().then(after));
+  $('#pw').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#pwi').value.trim(); if (!v) return; keepToken(v); $('#pwi').value = ''; load().then(after); });
+  $('#rl').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#rli').value.trim().replace(/\/+$/, ''); if (!/^https?:\/\//.test(v)) return; relay = v; store.set('notesRelay', v); load().then(after); });
+  const tick = () => load().then(() => { if (!armed) after(); });
+  setInterval(() => { if (!document.hidden && !armed) tick(); }, 15000);
+  window.addEventListener('focus', () => { if (!armed) tick(); });
+  tick();
+})();
+</script>
+</body>
+</html>

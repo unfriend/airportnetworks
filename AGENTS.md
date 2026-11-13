@@ -107,6 +107,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `tools/sfx-render.mjs` renders every sound to MP3 files for listening.
 - `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded by `index.html` after `sfx.js` and before
   `shared.js` (see "Real-world occlusion" below).
+- `notes.js` - the developer notebook (`HOST.notes`, v142), loaded by `index.html` after `ships.js` and before
+  `shared.js`, which links itself to it at its end: spoken notes with pictures, pins and the app's context, sent to the
+  relay ("The developer notebook" below). `notes/` - its notes page (served as an app folder, never cached by the
+  service worker). `tools/notes/` - its contract (`SPEC.md`), `notes.mjs` (list, pull, transcribe, done) and
+  `transcribe.py` (faster-whisper).
 - `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded by `index.html` after
   `occlusion.js` and before `shared.js`, which links itself in at its end (see "Spaceships" below).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
@@ -1345,6 +1350,40 @@ probe, `roomSync` and `shapeSig` it reuses.
   changes, how often the watchdog asks on a real headset (the logs will say: `occlusion renew`, `occlusion back`, the
   samples' `occl`), and a lost WebGL context in a session.
 
+## The developer notebook (`HOST.notes`, `notes.js`, v142)
+
+The owner, 13 November 2026: "a developer notebook function where i can directly record some spoken audio in ar or vr and
+then it gets transcribed ... and i can also attach a screenshot ... the more direct the better"; "holding y or b to
+record"; notes from a phone or laptop too, and a notes page to listen through and delete. The contract is
+`tools/notes/SPEC.md`; what follows is the outline.
+
+- Developer mode only (`HOST.dev.on()`): off, nothing shows and holding B or Y does nothing.
+- In a headset: B or Y held for 0.45 s records (`sticks` in `shared.js` hands the hold to `HOST.notes`; a press that
+  became a hold never counts towards the double press that toggles the frame rate), let go sends; at most 5 minutes. A
+  read-out fixed to the head (`drawRec`, `OV.rec`), and every `selectstart` while recording a numbered pin where the ray
+  points, with what was there (the shell's hover, the story's panel, or a raycast of the story's scene), the press still
+  doing what it does. A held controller that goes, the session's end or developer mode off stops and sends it
+  (`heldCheck`).
+- On a page: the round button at the bottom right (`#noteBtn`), press to record and again to send, Esc to cancel; every
+  pointer press meanwhile a pin with the element under it.
+- Two pictures, as it begins and ends, read back right after the story's frame (`HOST.notes.frame`, the outermost wrapper
+  in `HOST.loading.wrap`): in a session the layer's framebuffer, the left eye; on a page the canvas. In AR they show
+  only what the app draws.
+- The microphone: `getUserMedia` as B or Y goes down, kept 60 s after a note; `MediaRecorder`; no `AudioContext` of its
+  own (a level meter is an analyser on `HOST.audio.fx()`).
+- The context: the release, the story, its mode, clock and `collab.state()`, the studio's scene and selection, the room,
+  station and line-up, the settings, the frame rate, the last 60 log lines (the relay's password stripped).
+- Sent to the relay (`POST /api/notes`, the password as every relay call, a `nonce` the relay dedupes on); failing that
+  kept in an IndexedDB outbox (`networks-notes`, at most 20) and sent again later.
+- The relay (`relay/notes.mjs`): notes on wherever it keeps scenes (`<scenes>/.notes/`, or `R2_PREFIX + '.notes/'` in
+  R2, skipped by the scenes' listing), `--notes <dir>`, `--no-notes`; `/api/ping` says `notes: true`; `GET /notes` is
+  the notes page (`notes/index.html`).
+- A Claude session reads them: `NOTES_TOKEN=... node tools/notes/notes.mjs list|pull|transcribe|done` (transcribe:
+  faster-whisper through `tools/notes/transcribe.py`, the transcript written back to the note).
+- Nothing of a note is in the repository, a room's keys or `collab.state()` (no `FORMAT` change).
+- Tests: `node relay/test.mjs --notes`. Untested on a headset: all of it (the microphone in a session, the framebuffer
+  read, holding B or Y, pins, the read-out), an iPhone's recording, the page on a phone.
+
 ## Spaceships (`HOST.ships`, `ships.js`)
 
 A spaceship mini-game in headsets (v132), the shell's own, not a story: it flies over every story and every circle, alone
@@ -2527,7 +2566,7 @@ The plan is `docs/shared-space-plan.md`.
     lobby: "The narration"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* and *Studio* side by
     side (outside a room each opens its page; in a room *Design room here* and *Studio here* put its circle at your
     feet: "The design room in a room", "The studio in a room"), a note under each.
-  - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
+  - **Circles**: the shared room (since v142 also *Back to the lobby* under the two locks, ending this headset's live station as walking into a lobby circle does, greyed at no station and at the room's arc) (its code and people as the heading, with *Another room* beside them in a room; in no
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
     stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all

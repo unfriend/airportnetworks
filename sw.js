@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v141';
-const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
+const VERSION = 'networks-v142';
+const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-soil.mp3', './audio/narration-pass.mp3', './audio/narration-pass-de.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
@@ -101,6 +101,8 @@ self.addEventListener('fetch', e => {
   // Before the narration's rule: a scene's own audio/narration.mp3 must never be taken for (and cached as) the app's.
   // The example scenes that ship with the app (examples/, v137) likewise: big models and streamed sounds, opened read only
   if (url.origin === self.location.origin && /\/(scenes|examples)\//.test(url.pathname)) return;
+  // the developer notebook (v142): its notes page (notes/) is live like the relay's /api/notes it reads, never kept
+  if (url.origin === self.location.origin && /\/notes(\/|$)/.test(url.pathname)) return;
   // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
   // (a story playing it for the first time on this device) for next time and offline
   const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)

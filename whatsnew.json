@@ -1,20 +1,25 @@
 {
-  "version": "networks-v141",
+  "version": "networks-v142",
   "date": "13 November 2026",
   "new": [
-    "Studio, in a headset in AR with Edit on: the Add pane has The room scan. Scan the room opens Quest's own room setup; Save the room as a model turns the headset's room scan into a model of the scene (walls, floor and furniture, one plain colour each).",
-    "The saved scan goes into models/ and is placed exactly where the real room is, shown only in VR by default (in AR the real room is there). At a shared room's circle it lines up for every headset there.",
-    "It can be saved lighter (all, 50 % or 20 % of its triangles), or from the walls and floor only.",
-    "The studio's README has a short guide to scanning rooms and objects for the studio (which iPad apps, what to watch on a Quest)."
+    "The developer notebook (developer mode only): in a headset hold B or Y to record a spoken note, let go to send it. Each trigger press while recording drops a numbered pin where you point, and what was there is noted.",
+    "A note also keeps two pictures (as it began and as it ended, with the pins), and what the app knew then: the story or studio scene, the circle, how the headset lines up, the settings, the frame rate and the last log lines.",
+    "On a phone or laptop with developer mode on: a round microphone button at the bottom right. Press to record, tap or click anywhere to pin, press again to send.",
+    "Notes go to the relay. Its notes page, <relay>/notes/, plays them back, shows the pictures and pins, marks them done, copies one as text and deletes them. Claude reads and transcribes them from there.",
+    "No relay to hand: a note waits on the device and goes once one answers.",
+    "The menu's Circles tab has Back to the lobby: your story ends there and every circle shows again (not at the room's arc of cards)."
   ],
   "test": [
-    "In AR at a studio circle, with Edit on: Add, The room scan. Does it list your room (walls, floor, triangles)? Press Save the room as a model. Does the model appear on the real walls?",
-    "Switch to VR (or turn its Shows in to AR and VR): does the scan stand where the room is? Does a second headset at the circle see it in the same place?",
-    "Press Scan the room: does Quest's room setup open, and does the scan update afterwards?",
-    "Try Walls and floor only and 20 %."
+    "Turn developer mode on. In VR or AR hold B for a moment: does the red read-out show? Say something, press the trigger at two things, let go. Does Note sent come?",
+    "Open stories.lab.lbi-netmed.com/notes/ on a laptop: is your note there, does it play, are the pictures and pins right?",
+    "If the microphone is refused in the headset, record one note from the 2D page first (the round button), allow the microphone, then try again in VR.",
+    "Record a quick note from your phone and from the laptop.",
+    "Press B or Y twice quickly: the frame rate still toggles, and a hold does not.",
+    "In a room with circles, at a story's circle: Circles tab, Back to the lobby."
   ],
   "untested": [
-    "Everything on a real Quest: the room setup started from the page, how dense the real room mesh is and its labels, the scan's picture made in the headset, how well it lines up at a calibrated circle.",
-    "v140 and older items from What is new are still untried on devices where they were before."
+    "Everything on a real Quest: the microphone inside a session, the picture read from the headset's view, holding B or Y, pins on real things, the read-out.",
+    "In AR the picture shows only what the app draws (no passthrough). An iPhone's recording format and the notes page on a phone.",
+    "Back to the lobby on a headset."
   ]
 }

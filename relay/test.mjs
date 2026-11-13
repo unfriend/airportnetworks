@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -531,6 +531,235 @@ async function roomSteps() {
     K5.kill();
   });
 }
+
+// ---- the developer notebook (--notes; relay/notes.mjs, tools/notes/SPEC.md "The relay"): notes in a folder and in R2 (against
+// the stand-in S3). `node relay/test.mjs --notes` runs only these (seconds)
+async function notesSteps() {
+  const PASS = 'notespass' + crypto.randomBytes(4).toString('hex');
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-notes-')), SC = path.join(T, 'scenes'), ND = path.join(T, 'own');
+  fs.mkdirSync(path.join(SC, 'one'), { recursive: true }); fs.writeFileSync(path.join(SC, 'one', 'a.glb'), 'x');
+  const AUDIO = crypto.randomBytes(3000), S1 = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), crypto.randomBytes(500)]), S2 = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), crypto.randomBytes(700)]);
+  const mk = (o = {}) => ({ v: 1, at: 1760000000000, dur: 12.345, kind: 'headset', name: 'Anna',
+    audio: { type: 'audio/webm;codecs=opus', data: AUDIO.toString('base64') },
+    shots: [{ at: 'start', type: 'image/jpeg', w: 640, h: 400, data: S1.toString('base64') }, { at: 'end', type: 'image/jpeg', w: 640, h: 400, data: S2.toString('base64') }],
+    pins: [{ n: 1, t: 1.5, hand: 'right', p: [0, 1, -2], hit: { kind: 'shell', what: 'menu', id: 'set:fps' } }, { n: 2, t: 4, hand: 'left', p: [1, 1, -2], hit: { kind: 'none' } }],
+    context: { release: 'networks-v142', story: 'airports', room: { code: 'ABC', station: { id: 's1', story: 'airports', title: 'Network theory' } }, secretword: 'QSECRETQ' }, ...o });
+  const rq = (at, method, p, body, headers = {}) => new Promise(resolve => {
+    const buf = body === undefined ? null : Buffer.isBuffer(body) ? body : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers: { ...(buf ? { 'Content-Length': buf.length } : {}), ...headers } }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const b = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf: b, text: b.toString(), json: () => JSON.parse(b.toString()) }); });
+    });
+    r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+    if (buf) for (let i = 0; i < buf.length; i += 65536) r.write(buf.subarray(i, i + 65536));
+    r.end();
+  });
+  const sleepUntil = async (f, ms = 4000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(30)) if (await f()) return true; return false; };
+  // the same checks against any relay that keeps notes: A its port, H the headers for its password
+  async function run(label, A, H, where) {
+    const post = (b, h = H) => rq(A, 'POST', '/api/notes', b, { 'Content-Type': 'application/json', ...h });
+    ok((await rq(A, 'GET', '/api/ping', undefined, H)).json().notes === true, label + ': /api/ping says notes: true');
+    ok((await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.length === 0, label + ': an empty list');
+    const r1 = await post(mk());
+    ok(r1.status === 201 && /^\d{8}-\d{6}-[a-z0-9]{4}$/.test(r1.json().id), label + ': POST a note with audio and two pictures: 201 { id } by the relay\'s clock (' + r1.status + ')');
+    const id1 = r1.json().id;
+    await sleep(1100);
+    const r2 = await post(mk({ kind: 'page', name: '', audio: null, shots: [{ at: 'start', err: 'no pixels' }], pins: [], context: { story: 'studio' }, dur: 3 }));
+    const id2 = r2.json().id;
+    ok(r2.status === 201 && id2 > id1, label + ': a note with no audio and a failed picture goes too; ids sort by time');
+    const list = (await rq(A, 'GET', '/api/notes', undefined, H)).json().notes;
+    ok(list.length === 2 && list[0].id === id2 && list[1].id === id1, label + ': newest first');
+    const a = list[1], b = list[0];
+    ok(a.at === 1760000000000 && a.dur === 12.35 && a.kind === 'headset' && a.name === 'Anna' && a.status === 'new' && a.story === 'airports' && a.station === 'Network theory' && a.release === 'networks-v142' &&
+      a.pins === 2 && a.shots === 2 && a.audio === true && a.transcript === null && typeof a.got === 'number' && Math.abs(a.got - Date.now()) < 60000, label + ': the listing\'s fields');
+    ok(b.audio === false && b.shots === 0 && b.pins === 0 && b.story === 'studio' && b.kind === 'page', label + ': the second\'s fields (no audio, no picture, no pins)');
+    const one = await rq(A, 'GET', '/api/notes/' + id1, undefined, H), n = one.json();
+    ok(one.status === 200 && n.id === id1 && n.audio.type === 'audio/webm;codecs=opus' && n.audio.size === AUDIO.length && !('data' in n.audio) && n.shots.length === 2 && n.shots.every(s => !('data' in s) && s.size > 0) &&
+      n.pins.length === 2 && n.context.secretword === 'QSECRETQ' && n.status === 'new' && n.transcript === null && n.size > AUDIO.length && !/"data"/.test(one.text) && /no-store/.test(one.headers['cache-control']), label + ': note.json without any base64 data, no-store');
+    const au = await rq(A, 'GET', `/api/notes/${id1}/audio`, undefined, H), s1 = await rq(A, 'GET', `/api/notes/${id1}/shot/1`, undefined, H), s2 = await rq(A, 'GET', `/api/notes/${id1}/shot/2`, undefined, H);
+    ok(au.status === 200 && au.buf.equals(AUDIO) && au.headers['content-type'] === 'audio/webm;codecs=opus' && au.headers['accept-ranges'] === 'bytes' && /no-store/.test(au.headers['cache-control']), label + ': the audio\'s bytes and type');
+    ok(s1.buf.equals(S1) && s2.buf.equals(S2) && s1.headers['content-type'] === 'image/jpeg', label + ': both pictures\' bytes, image/jpeg');
+    const rg = await rq(A, 'GET', `/api/notes/${id1}/audio`, undefined, { ...H, Range: 'bytes=100-199' }), sf = await rq(A, 'GET', `/api/notes/${id1}/audio`, undefined, { ...H, Range: 'bytes=-50' }), bad = await rq(A, 'GET', `/api/notes/${id1}/audio`, undefined, { ...H, Range: 'bytes=99999-' });
+    ok(rg.status === 206 && rg.buf.equals(AUDIO.subarray(100, 200)) && rg.headers['content-range'] === `bytes 100-199/${AUDIO.length}` && sf.status === 206 && sf.buf.equals(AUDIO.subarray(AUDIO.length - 50)) && bad.status === 416, label + ': a byte range (206), the last 50 bytes, one past the end 416');
+    ok((await rq(A, 'GET', `/api/notes/${id2}/audio`, undefined, H)).status === 404 && (await rq(A, 'GET', `/api/notes/${id2}/shot/1`, undefined, H)).status === 404 && (await rq(A, 'GET', `/api/notes/${id1}/shot/3`, undefined, H)).status === 404 &&
+      (await rq(A, 'GET', '/api/notes/20200101-000000-zzzz', undefined, H)).status === 404 && (await rq(A, 'GET', '/api/notes/..%2F..%2Fx', undefined, H)).status === 404, label + ': no audio, no such picture, no such note, a path out: 404');
+    const u = await post({ status: 'done', transcript: { text: 'the menu does nothing '.repeat(20), lang: 'en', segments: [{ start: 0, end: 2.5, text: 'the menu' }], by: 'whisper-small' } }, H);
+    const up = await rq(A, 'POST', '/api/notes/' + id1, { status: 'done', transcript: { text: 'the menu does nothing '.repeat(20), lang: 'en', segments: [{ start: 0, end: 2.5, text: 'the menu' }], by: 'whisper-small' } }, { ...H, 'Content-Type': 'application/json' });
+    const un = up.json();
+    ok(u.status === 400 && up.status === 200 && un.status === 'done' && un.transcript.lang === 'en' && un.transcript.by === 'whisper-small' && un.transcript.segments.length === 1 && Math.abs(un.transcript.at - Date.now()) < 60000, label + ': POST status and transcript (at set by the relay)');
+    const l2 = (await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.find(x => x.id === id1);
+    ok(l2.status === 'done' && l2.transcript.length === 200 && l2.transcript.startsWith('the menu does nothing'), label + ': the listing shows the status and the first 200 characters');
+    ok((await rq(A, 'POST', '/api/notes/' + id1, { status: 'new' }, H)).json().status === 'new' && (await rq(A, 'GET', '/api/notes/' + id1, undefined, H)).json().transcript.text.startsWith('the menu'), label + ': status alone changes only it');
+    for (const [body, what] of [['{ not json', 'bad JSON'], [{ v: 2 }, 'v 2'], [mk({ at: 'x' }), 'at a string'], [mk({ dur: -1 }), 'dur negative'], [mk({ kind: 'laptop' }), 'kind'], [mk({ audio: { type: 'audio/x-evil', data: 'AAAA' } }), 'audio type'],
+      [mk({ audio: { type: 'audio/webm', data: '***' } }), 'audio not base64'], [mk({ audio: { type: 'audio/webm', data: '' } }), 'audio empty'], [mk({ shots: [{ at: 'start', type: 'image/png', data: 'AAAA' }] }), 'shot type'],
+      [mk({ shots: [{ at: 'x', err: 'e' }] }), 'shot at'], [mk({ shots: [{ at: 'start', err: 'e' }, { at: 'end', err: 'e' }, { at: 'end', err: 'e' }] }), 'three shots'], [mk({ pins: 'no' }), 'pins'], [mk({ context: [] }), 'context'], [[], 'an array']]) {
+      const r = await post(body);
+      ok(r.status === 400 && typeof r.json().error === 'string', label + ': 400 for ' + what + ' (' + r.status + ')');
+    }
+    ok((await rq(A, 'POST', '/api/notes/' + id1, '{}', H)).status === 400 && (await rq(A, 'POST', '/api/notes/' + id1, { status: 'maybe' }, H)).status === 400 && (await rq(A, 'POST', '/api/notes/' + id1, { transcript: { text: 5 } }, H)).status === 400 &&
+      (await rq(A, 'POST', '/api/notes/20200101-000000-zzzz', { status: 'done' }, H)).status === 404, label + ': an update with nothing, a bad status or a bad transcript: 400; no such note: 404');
+    ok((await rq(A, 'PUT', '/api/notes', '{}', H)).status === 405 && (await rq(A, 'GET', `/api/notes/${id1}/delete`, undefined, H)).status === 405, label + ': other methods: 405');
+    // an oversized body: 413, nothing left behind
+    const before = where();
+    const big = await rq(A, 'POST', '/api/notes', Buffer.alloc((16 << 20) + 1024, 97), { ...H, 'Content-Type': 'application/json' });
+    ok((big.status === 413 || big.status === 'cut') && (await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.length === 2 && where().join() === before.join(), label + ': a body over 16 MB: ' + big.status + ', no note and nothing left behind');
+    const del = await rq(A, 'POST', `/api/notes/${id1}/delete`, undefined, H);
+    ok(del.status === 200 && del.json().ok === true && (await rq(A, 'GET', '/api/notes/' + id1, undefined, H)).status === 404 && (await rq(A, 'GET', `/api/notes/${id1}/audio`, undefined, H)).status === 404 &&
+      (await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.map(x => x.id).join() === id2 && (await rq(A, 'POST', `/api/notes/${id1}/delete`, undefined, H)).status === 404, label + ': delete removes it and its files; again: 404');
+    ok(await sleepUntil(() => !where().some(f => f.startsWith(id1))), label + ': nothing of the deleted note is kept');
+    await rq(A, 'POST', `/api/notes/${id2}/delete`, undefined, H);
+    // audio.off and audioErr kept (bounded), and a note sent twice (the same nonce) kept once
+    const NC = 'abcdef0123456789', o1 = await post(mk({ nonce: NC, audio: { type: 'audio/webm', data: AUDIO.toString('base64'), off: 1.23456 }, shots: [] }));
+    const o2 = await post(mk({ nonce: NC, audio: { type: 'audio/webm', data: AUDIO.toString('base64'), off: 1.23456 }, shots: [] }));
+    const n1 = (await rq(A, 'GET', '/api/notes/' + o1.json().id, undefined, H)).json();
+    ok(o1.status === 201 && o2.status === 200 && o2.json().id === o1.json().id && o2.json().again === true && (await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.length === 1 && n1.nonce === NC,
+      label + ': the same nonce twice: 201 then 200 { id, again: true }, kept once (' + o1.status + ' ' + o2.status + ')');
+    const ids3 = [(await post(mk({ audio: { type: 'audio/webm', data: AUDIO.toString('base64'), off: 99 }, shots: [], nonce: 'x' }))).json().id, (await post(mk({ audio: null, shots: [], audioErr: 'e'.repeat(300), nonce: 'ZZZZZZZZZZZZZZZZ' }))).json().id];
+    const n3 = (await rq(A, 'GET', '/api/notes/' + ids3[0], undefined, H)).json(), n4 = (await rq(A, 'GET', '/api/notes/' + ids3[1], undefined, H)).json();
+    ok(n1.audio.off === 1.235 && n3.audio.off === undefined && n3.nonce === undefined && n4.audioErr === 'e'.repeat(200) && n4.audio === null, label + ': audio.off kept to 3 decimals only from -10 to 60, audioErr cut to 200 characters, a bad nonce left out');
+    // a deleted note's nonce can be sent again
+    await rq(A, 'POST', `/api/notes/${o1.json().id}/delete`, undefined, H);
+    const o3 = await post(mk({ nonce: NC, audio: null, shots: [] }));
+    ok(o3.status === 201 && o3.json().id !== o1.json().id, label + ': the nonce of a deleted note is free again');
+    for (const i of [o3.json().id, ...ids3]) await rq(A, 'POST', `/api/notes/${i}/delete`, undefined, H);
+    return [id1, id2];
+  }
+  const tree = d => { try { return fs.readdirSync(d, { recursive: true }).map(String).sort(); } catch { return []; } };
+  try {
+    await step('notes: off without scenes or --notes; --no-notes turns them off; /api/ping and every endpoint say so (404)', async () => {
+      const O = await start(['--quiet']), N = await start(['--scenes', SC, '--no-notes', '--quiet']);
+      ok((await rq(O.port, 'GET', '/api/ping')).json().notes === undefined && (await rq(O.port, 'GET', '/api/notes')).status === 404 && /keeps no notes/.test((await rq(O.port, 'GET', '/api/notes')).json().error) && (await rq(O.port, 'POST', '/api/notes', mk())).status === 404, 'a relay without scenes: no notes field, 404 on GET and POST');
+      ok((await rq(N.port, 'GET', '/api/ping')).json().notes === undefined && (await rq(N.port, 'GET', '/api/notes/20260101-000000-abcd/audio')).status === 404 && !fs.existsSync(path.join(SC, '.notes')), '--no-notes with --scenes: off, nothing made');
+      const X = await startFails(['--scenes', SC, '--notes', ND, '--no-notes']);
+      ok(X.code === 1 && /one or the other/.test(X.out), '--notes with --no-notes: refused');
+      const P = await startFails(['--public', '--notes', ND], {});
+      O.kill(); N.kill();
+      const PP = await start(['--public', '--notes', ND, '--quiet', '--allow-no-origin']);
+      ok((await rq(PP.port, 'GET', '/api/ping')).json().notes === undefined && (await rq(PP.port, 'POST', '/api/notes', mk())).status === 404 && /--public without a password keeps no notes/.test(PP.out), '--public without a password: notes off, said at the start');
+      PP.kill();
+    });
+    // (a helper that tells whether a relay refused to start)
+    async function startFails(args, env = {}) {
+      return new Promise(resolve => {
+        const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+        procs.push(p);
+        let out = '';
+        p.stdout.on('data', d => { out += d; });
+        p.on('exit', code => resolve({ code, out }));
+        setTimeout(() => { p.kill(); resolve({ code: 'still running', out }); }, 2500);
+      });
+    }
+    await step('notes: on with --scenes <dir> (kept in .notes/), POST, list, read, audio and pictures with ranges, update, delete; the scenes\' listing never shows .notes', async () => {
+      const S = await start(['--scenes', SC, '--static', REPO]);
+      ok(await sleepUntil(() => /Developer notes .* kept in .*\.notes/.test(S.out)), 'the start line says where');
+      const ids = await run('--scenes', S.port, {}, () => tree(path.join(SC, '.notes')));
+      ok(ids.length === 2 && fs.existsSync(path.join(SC, '.notes')), 'notes in <scenes>/.notes/');
+      const post = await rq(S.port, 'POST', '/api/notes', mk(), { 'Content-Type': 'application/json' }), id = post.json().id;
+      const files = tree(path.join(SC, '.notes', id));
+      ok(files.join() === `audio.webm,note.json,shot-1.jpg,shot-2.jpg` && fs.statSync(path.join(SC, '.notes', id, 'audio.webm')).size === AUDIO.length, 'files: note.json, audio.webm, shot-1.jpg, shot-2.jpg');
+      const sc = await rq(S.port, 'GET', '/api/scenes'), w = await rq(S.port, 'GET', '/api/scenes/.notes'), f = await rq(S.port, 'GET', '/scenes/.notes/' + id + '/note.json');
+      ok(sc.json().scenes.map(x => x.name).join() === 'one' && w.status === 404 && f.status === 404 && !/\.notes/.test(S.out.replace(/Developer notes .*\n/, '')), 'the scenes\' listing and files leave .notes out, silently (nothing said in the log)');
+      ok(!S.out.includes('QSECRETQ') && !S.out.includes('Anna') && !/the menu does nothing/.test(S.out) && /note \d{8}-\d{6}-[a-z0-9]{4} \d+/.test(S.out), 'the log says note <id> <bytes> and nothing of a note\'s content');
+      ok((await rq(S.port, 'GET', '/notes')).status === 301 && (await rq(S.port, 'GET', '/notes')).headers.location === '/notes/' && (await rq(S.port, 'GET', '/notes?relay=x')).headers.location === '/notes/?relay=x', 'GET /notes redirects to /notes/');
+      const pg = await rq(S.port, 'GET', '/notes/');
+      ok(fs.existsSync(path.join(REPO, 'notes', 'index.html')) ? pg.status === 200 && /html/.test(pg.headers['content-type']) : pg.status === 404, '/notes/ is notes/index.html (an app folder; ' + pg.status + ')');
+      ok((await rq(S.port, 'GET', '/notes.js')).status === (fs.existsSync(path.join(REPO, 'notes.js')) ? 200 : 404), 'notes.js is an app file');
+      await rq(S.port, 'POST', `/api/notes/${id}/delete`);
+      S.kill();
+    });
+    await step('notes: --notes <dir> keeps them there, also without scenes; the password (401, Bearer, ?token=); a relay with a password and scenes', async () => {
+      const N = await start(['--notes', ND, '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS };
+      ok((await rq(N.port, 'GET', '/api/notes')).status === 401 && (await rq(N.port, 'POST', '/api/notes', mk())).status === 401 && (await rq(N.port, 'GET', '/api/notes/20260101-000000-abcd/audio')).status === 401 && (await rq(N.port, 'GET', '/api/notes', undefined, { Authorization: 'Bearer wrong' })).status === 401, 'no password or a wrong one: 401 everywhere');
+      ok((await rq(N.port, 'GET', '/api/ping?token=' + PASS)).json().notes === true && (await rq(N.port, 'GET', '/api/notes?token=' + PASS)).status === 200, 'Authorization: Bearer and ?token= both work');
+      const ids = await run('--notes', N.port, H, () => tree(ND));
+      const id = (await rq(N.port, 'POST', '/api/notes?token=' + PASS, mk(), { 'Content-Type': 'application/json' })).json().id;
+      ok(fs.existsSync(path.join(ND, id, 'note.json')) && (await rq(N.port, 'GET', `/api/notes/${id}/shot/2?token=${PASS}`)).buf.equals(S2) && (await rq(N.port, 'OPTIONS', '/api/notes', undefined, { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization, content-type' })).status === 204, 'kept in the --notes folder; ?token= on a picture; CORS preflight');
+      ok(!N.out.includes(PASS) && !N.out.includes('Anna'), 'no password or name in the log');
+      N.kill();
+      const rest = await start(['--notes', ND, '--quiet'], { COLLAB_TOKEN: PASS });
+      ok((await rq(rest.port, 'GET', '/api/notes?token=' + PASS)).json().notes.some(x => x.id === id), 'notes survive a restart');
+      rest.kill();
+    });
+    await step('notes: 507 past the limit, 429 per address only under --public, a body that is not a note never counted', async () => {
+      const L = path.join(T, 'full');
+      fs.mkdirSync(L);
+      // 2,000 note folders made by hand (a listing counts folders with a note.json)
+      for (let i = 0; i < 2000; i++) { const id = `20260101-${String(Math.floor(i / 60)).padStart(2, '0')}${String(i % 60).padStart(2, '0')}00-${i.toString(36).padStart(4, '0')}`; fs.mkdirSync(path.join(L, id)); fs.writeFileSync(path.join(L, id, 'note.json'), JSON.stringify({ v: 1, id, at: 1, got: 1, dur: 1, kind: 'page', status: 'new', audio: null, shots: [], pins: [], context: {}, transcript: null })); }
+      const F = await start(['--notes', L, '--quiet']);
+      const r = await rq(F.port, 'POST', '/api/notes', mk(), { 'Content-Type': 'application/json' });
+      ok(r.status === 507 && /2000/.test(r.json().error || '') && (await rq(F.port, 'GET', '/api/notes')).json().notes.length === 2000, '2,000 kept: the next is refused 507 (' + r.status + ' ' + r.text.slice(0, 80) + ')');
+      ok((await rq(F.port, 'POST', `/api/notes/${(await rq(F.port, 'GET', '/api/notes')).json().notes[0].id}/delete`)).status === 200 && (await rq(F.port, 'POST', '/api/notes', mk(), { 'Content-Type': 'application/json' })).status === 201, 'room again after a delete');
+      F.kill();
+      const P = await start(['--public', '--allow-no-origin', '--notes', path.join(T, 'pub'), '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS, 'Content-Type': 'application/json' };
+      let n201 = 0, n429 = 0, retry = '';
+      for (let i = 0; i < 64; i++) { const x = await rq(P.port, 'POST', '/api/notes', mk({ audio: null, shots: [] }), H); if (x.status === 201) n201++; else if (x.status === 429) { n429++; retry = x.headers['retry-after']; } }
+      ok(n201 >= 60 && n201 <= 62 && n429 >= 2 && +retry >= 1, '--public: a burst of 60 notes a minute from one address, then 429 with Retry-After (' + n201 + ' kept, ' + n429 + ' refused)');
+      P.kill();
+      const Q = await start(['--notes', path.join(T, 'pub2'), '--quiet']);
+      let all = 0;
+      for (let i = 0; i < 70; i++) if ((await rq(Q.port, 'POST', '/api/notes', mk({ audio: null, shots: [] }), { 'Content-Type': 'application/json' })).status === 201) all++;
+      ok(all === 70, 'no limit per address without --public');
+      Q.kill();
+    });
+    await step('notes: in R2 (--scenes r2: under <prefix>.notes/; against the stand-in S3): post, list, get, update, delete; the scenes\' listing leaves them out', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      try {
+        S3.put('studio/alpha/a.glb', 'x', { type: 'model/gltf-binary' });
+        const RR = await start(['--scenes', 'r2', '--quiet'], { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' });
+        const where = () => S3.keys().filter(k => k.startsWith('studio/.notes/')).map(k => k.slice('studio/.notes/'.length)).sort();
+        await run('R2', RR.port, {}, where);
+        const id = (await rq(RR.port, 'POST', '/api/notes', mk(), { 'Content-Type': 'application/json' })).json().id;
+        ok(where().join() === [`${id}/audio.webm`, `${id}/note.json`, `${id}/shot-1.jpg`, `${id}/shot-2.jpg`].join() && S3.objects.get(`studio/.notes/${id}/audio.webm`).type === 'audio/webm', 'objects: studio/.notes/<id>/note.json, audio.webm, shot-1.jpg, shot-2.jpg');
+        const sc = (await rq(RR.port, 'GET', '/api/scenes')).json();
+        ok(sc.scenes.map(x => x.name).join() === 'alpha' && !/\.notes/.test(RR.out.replace(/Developer notes .*\n/, '')), 'the scenes\' listing leaves .notes out, silently');
+        ok(!RR.out.includes(SECRET) && !RR.out.includes('Anna') && !RR.out.includes('QSECRETQ'), 'no secret or note content in the log');
+        RR.kill();
+      } finally { await S3.close(); }
+    });
+    await step('notes: in R2 the notes never count against the scenes\' listing limit (R2_LIST_LIMIT 3, 50 notes, 3 scenes)', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      try {
+        for (const n of ['alpha', 'beta', 'gamma']) S3.put(`studio/${n}/a.glb`, 'x', { type: 'model/gltf-binary' });
+        const RR = await start(['--scenes', 'r2', '--quiet'], { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', R2_LIST_LIMIT: '3', R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' });
+        for (let i = 0; i < 50; i++) await rq(RR.port, 'POST', '/api/notes', mk({ audio: null, shots: [] }), { 'Content-Type': 'application/json' });
+        const sc = (await rq(RR.port, 'GET', '/api/scenes')).json();
+        ok(S3.keys().filter(k => k.startsWith('studio/.notes/')).length >= 50 && sc.scenes.map(x => x.name).join() === 'alpha,beta,gamma' && !/holds more than/.test(RR.out), '50 notes in the bucket, all 3 scenes still listed with a limit of 3 (' + sc.scenes.map(x => x.name).join() + ')');
+        RR.kill();
+      } finally { await S3.close(); }
+    });
+    await step('notes: tools/studio/r2sync.mjs leaves .notes out (list, pull, push), silently', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      const L = path.join(T, 'sync');
+      fs.mkdirSync(path.join(L, 'alpha'), { recursive: true }); fs.mkdirSync(path.join(L, '.notes', '20260101-000000-abcd'), { recursive: true });
+      fs.writeFileSync(path.join(L, 'alpha', 'a.glb'), 'x'); fs.writeFileSync(path.join(L, '.notes', '20260101-000000-abcd', 'note.json'), '{}');
+      try {
+        S3.put('studio/.notes/20260101-000000-abcd/note.json', '{}'); S3.put('studio/beta/b.glb', 'y', { type: 'model/gltf-binary' });
+        const env = { ...process.env, R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_ACCOUNT_ID: '', R2_JURISDICTION: '' };
+        // (async: the stand-in S3 lives in this process, so a blocking call would never be answered)
+        const sync = args => new Promise(resolve => { const c = spawn(process.execPath, [path.join(REPO, 'tools', 'studio', 'r2sync.mjs'), ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] }); let out = ''; c.stdout.on('data', d => { out += d; }); c.stderr.on('data', d => { out += d; }); c.on('exit', code => resolve({ code, out })); setTimeout(() => c.kill(), 30000); });
+        const ls = await sync(['list']), pu = await sync(['push', L, '--all']), pl = await sync(['pull', 'beta', L]);
+        ok(ls.code === 0 && /beta/.test(ls.out) && !/\.notes/.test(ls.out) && pu.code === 0 && !/\.notes/.test(pu.out) && pl.code === 0 && !/left out/.test(ls.out + pu.out + pl.out) &&
+          !S3.keys().some(k => k.includes('.notes/') && k !== 'studio/.notes/20260101-000000-abcd/note.json') && fs.existsSync(path.join(L, 'beta', 'b.glb')), 'list, push and pull never touch .notes (' + ls.code + pu.code + pl.code + ' ' + (pu.code ? pu.out.slice(0, 300) : '') + ')');
+      } finally { await S3.close(); }
+    });
+  } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
+if (process.argv.includes('--notes')) {   // only the developer notebook's steps (v142)
+  try { await notesSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
 if (process.argv.includes('--rooms')) {   // only the rooms' steps (v136)
   try { await roomSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
@@ -2858,6 +3087,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   fs.rmSync(SC, { recursive: true, force: true });
 
   await trackerSteps();
+  await notesSteps();
 
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');

@@ -201,14 +201,20 @@ export class R2 {
     };
   }
   // every object under a prefix, at most limit of them: { keys, more } (more: the bucket held more than that)
-  async listAll(prefix, { limit = 50000 } = {}) {
-    const keys = [];
-    let token = '';
+  // (skip: a key prefix to step over, such as the notes' subtree: the listing goes on after it, so what is in it never counts
+  // against the limit; keys are in order, so it ends at the prefix with its last character one higher)
+  async listAll(prefix, { limit = 50000, skip = '' } = {}) {
+    const keys = [], past = skip ? skip.slice(0, -1) + String.fromCharCode(skip.charCodeAt(skip.length - 1) + 1) : '';
+    let token = '', after = '', skipping = skip;
     do {
-      const r = await this.list(prefix, { token });
-      keys.push(...r.keys);
+      const r = await this.list(prefix, { token, after });
+      after = '';
       token = r.next;
-    } while (token && keys.length < limit);
+      if (skipping && r.keys.some(o => o.key >= skipping)) {   // (this page reaches it: keep what is before, go on after it)
+        keys.push(...r.keys.filter(o => o.key < skipping));
+        skipping = ''; token = ''; after = past;
+      } else keys.push(...r.keys);
+    } while ((token || after) && keys.length < limit);
     return { keys: keys.slice(0, limit), more: !!token || keys.length > limit };
   }
   // one object's size, ETag and time as a listing gives them (the same time the scenes' listing says), or null
