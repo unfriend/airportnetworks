@@ -2549,6 +2549,25 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
 - A cube's `key` (an object's, a shape's or an empty's id; *Reacts to: An item (a key)...*): active while that item's
   middle is inside it, for everyone here, not by people. FORMAT `networks-44`.
 
+## The room scan (v141, the owner, 13 November 2026)
+
+`engine/e6p_scan.js`. In AR with editing on, the Add pane's *The room scan*:
+
+- **Scan the room:** `initiateRoomCapture`, once a session.
+- **Save the room as a model:** in the next frame (`scanXR` from `xrBegin`, beside `wallsXR`) the scan is taken into the
+  scene's frame (`GL.world`'s inverse), merged by label into one mesh each, and made a GLB by `CONV.toGLB` (`keep` 1, 0.5
+  or 0.2, its picture made).
+  - It uses `detectedMeshes`, else `detectedPlanes`, or only the planes when asked.
+  - It is refused past 1,500,000 triangles.
+- **Where it goes:**
+  - With a relay that takes uploads: uploaded to `models/room-scan-<date>.glb` and placed by `addScan` (p 0, q identity,
+    s 1, `shows: 'vr'`), one Undo step.
+  - Without one: downloaded.
+- **Nothing shared changes** (no `FORMAT` change).
+- **For tests:** `STUDIO.scan()`.
+- **Untested on a headset:** Space Setup started from the page, the real mesh's density and labels, the picture made in
+  a session, how it lines up at a calibrated circle.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without

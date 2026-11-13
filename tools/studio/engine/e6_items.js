@@ -1263,6 +1263,16 @@ function addModel(path) {
   sfxAct('place', 'world', null);
   return id;
 }
+// the room scan, placed where it was taken (e6p_scan.js): at the scene's origin, no turn, size 1 (its vertices are in the
+// scene's frame), shown only in VR (in AR the real room is there), selected; one Undo step
+function addScan(path) {
+  if (!canAdd('o') || !STU.fileMap.has(path)) return '';
+  const id = newId();
+  change(() => putItem(id, 'o', norm('o', { name: nameFor('Room scan'), file: path, p: [0, 0, 0], q: [0, 0, 0, 1], s: 1, shows: 'vr' })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
 function addSound(path) {
   if (!canAdd('s') || !STU.fileMap.has(path)) return '';
   const at = frontAt(), id = newId();

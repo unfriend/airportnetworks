@@ -858,6 +858,7 @@ function xrBegin(frame, dt) {
   XR.pickStale = false;   // (the scene's matrices current for the controllers' picks: rayPick makes none of its own)
   _xinv.copy(GL.world.matrixWorld).invert();
   wallsXR(frame, ref);   // (the room's walls from the room scan in AR, for things on walls: e6o_walls.js)
+  scanXR(frame, ref);   // (the room scan saved as a model of the scene: e6p_scan.js)
   for (const c of XR.ctrls) xrPoint(c, dt);
   xrLost();
   holdStep();
@@ -1035,6 +1036,7 @@ function xrEnded() {
   XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
   HOST.session = null;
   if (WALLS.src === 'xr') wallsSet([], '');   // (the room scan's walls go with the session: things on walls back where they are placed)
+  scanEnd();   // (nothing more of the room scan to read: e6p_scan.js)
   document.body.classList.remove('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);

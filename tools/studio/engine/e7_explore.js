@@ -201,6 +201,7 @@ function paneBlocks(tab) {
       }
     }
     fromBlocks(B, full);
+    scanBlocks(B);   // (the headset's room scan saved as a model: e6p_scan.js)
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
@@ -741,6 +742,11 @@ function act(a, v) {
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
     cube: () => addCube(),
+    // (the room scan: e6p_scan.js; Save asks for the next frame of the AR session, editing on, never for a visitor)
+    scanStart: () => { if (editOn() && !OPT.visit) scanStart(); },
+    scanSave: () => scanAsk(),
+    scanSrc: () => { if (v === 'mesh' || v === 'planes') SCAN.src = v; },
+    scanKeep: () => { if ([1, 0.5, 0.2].includes(+v)) SCAN.keep = +v; },
     shape: () => addShape(v),
     empty: () => addEmpty(),
     setting: () => setSetting(v),

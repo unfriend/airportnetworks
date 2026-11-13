@@ -251,7 +251,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
   selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
   trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out; `engine/e6o_walls.js` (v137)
-  things on the room's walls, from the room scan's planes; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
+  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
   opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
@@ -4822,6 +4822,29 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   here (the item's place is the room's), entered at the room's time now; people walking in do nothing. Everything a cube
   does follows it (show, hide, textures, what it starts; *Stays once entered* too). A key not in the scene: never active
   (the card says so). Combined with *Moved by anyone*: a key a visitor carries into a lock. FORMAT `networks-44`.
+- **The room scan** (v141; the owner, 13 November 2026: "Possible to use the quest for scanning? That would also be perfect
+  for setting up a new room with a scan directly inside the headset"; `engine/e6p_scan.js`, `tools/studio/README.md` "The
+  room scan, and scanning rooms and objects"). A web page on a Quest gets only Space Setup's scan: WebXR's
+  `mesh-detection` and `plane-detection`, which every AR session asks for. That is shape only, coarse, with no colour: the
+  browser gives no camera image with a known pose, and WebXR `camera-access` is refused (checked November 2026).
+  - **Where:** the Add pane, page and headset, in AR with editing on; elsewhere a faint line says where.
+  - **Scan the room:** `initiateRoomCapture`, once a session.
+  - **Save the room as a model:**
+    - The save is asked for (`scanAsk`) and baked in the next frame (`scanXR`, from `xrBegin` beside `wallsXR`): each
+      mesh's vertices, or each plane's polygon fanned, posed by `frame.getPose` and taken into the scene's frame through
+      `GL.world`'s inverse.
+    - It is merged by label (`scanKey`: wall, floor, ceiling, table, couch, door, window, room for the global mesh...),
+      one mesh and one plain colour each, double-sided.
+    - It uses the room mesh, else the planes (or *Walls and floor only*), and is refused past 1,500,000 triangles.
+    - `CONV.toGLB` makes the GLB with *Triangles kept* (All, 50 %, 20 %) and its picture.
+    - With a relay that takes uploads it goes to `models/room-scan-<date>.glb`, gets its `previews/` picture, and is
+      placed by `addScan` at p 0, no turn, size 1, `shows: 'vr'`, selected, one Undo step. Without one it is downloaded.
+  - **Where it lines up:** at a station the scene's frame is the room's, so the scan stands on the real room for every
+    headset there; outside a room only for that session.
+  - **Shared:** nothing new (an ordinary file and object; no `FORMAT` change).
+  - **For tests:** `STUDIO.scan()` (`{ ar, seen, src, keep, busy, note, last, bake, words }`).
+  - **Untested on a headset:** Space Setup started from the page, a real Quest's mesh (density, labels, its poses), the
+    picture made in a session, the line-up at a calibrated circle.
 - **AR or VR only** (v137; for a room built as a studio scene: its elements "detached and mapped onto the room";
   `tools/studio/SPEC.md`, "AR or VR only"). An object's, a sound's, a shape's or an empty's record may carry `shows: 'ar'` or
   `'vr'` (absent or null both; anything else a bad record): in an AR session (passthrough, `!XR.clear`) one for VR is not

@@ -475,6 +475,39 @@ while the relay takes no uploads, a line saying why
   Occlusion, Glow, Opacity) and one of the scene's pictures (on a page also one from this computer). It shows at once on
   this device; **Save** puts it into the model's GLB (recorded there, never in the layout); **Cancel** puts its own back.
 
+## The room scan, and scanning rooms and objects
+
+**The headset's own room scan, as a model** (v141). In a headset, in AR, with Edit on, the Add pane has *The room
+scan*:
+
+- *Scan the room* opens Quest's own room setup (Space Setup), once a session.
+- *Save the room as a model* takes the scan as it is now (the room mesh, or *Walls and floor only*: the flat planes),
+  optionally lighter (*Triangles kept: All, 50 %, 20 %*).
+- The scan becomes `models/room-scan-<date>.glb`: one mesh per label (walls, floor, tables...), each a plain colour.
+- It is placed where the real room is (0, 0, 0, no turn), shown only in VR by default: in AR the real room is there.
+  Change that with its card's *Shows in*.
+- At a shared room's circle it stands on the room's spots, so every headset there sees it in the right place, also later.
+  Outside a room it lines up only for that session.
+- Without a relay that takes uploads it is downloaded instead.
+
+What a web page on a Quest can get is shape only: coarse, with no colour. The browser offers no camera image with a known
+position, so a photo-textured scan cannot be made in the headset from the web. Use it as a stand-in for the room in VR,
+as walls and floor to place things against, or as a base to model on.
+
+**Better scans for models** (checked November 2026):
+
+- **Scaniverse** (iPad, free, on the device): a good default; exports GLB.
+- **KIRI Engine**: the best control over weight at export (a triangle count and texture size).
+- **Polycam**: good for rooms (Space mode, Remesh to set the texture size); the free tier exports glTF only.
+- **Apple Object Capture** (Reality Composer on the iPad, on the device): fine single objects, as USDZ. The studio does not
+  read USDZ: convert it to GLB first (Reality Converter or Blender).
+- **Apple RoomPlan apps**: a light, untextured room layout (walls, doors, furniture as boxes).
+- **On the Quest itself**, only native apps record camera images with their positions. One is OpenQuestCapture
+  (sideloaded, open source), whose recordings become a mesh or a Gaussian splat on a PC. Meta's Hyperscape has no export.
+  Splats are not shown in the studio (its three.js r128 has no maintained splat viewer).
+- **Budgets for a Quest:** about 300,000 triangles a model and 500,000 a scene, textures up to 4,096 px (2,048 safer).
+  *Fewer triangles* on a model's card gets there.
+
 ## Formats guide
 
 - **Models: GLB.** One file, its textures and animations inside. FBX works, but converted it loads faster and sits right
