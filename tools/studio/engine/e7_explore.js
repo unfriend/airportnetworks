@@ -416,7 +416,9 @@ function itemBlocks(it, B, ed) {
       { label: 'Active', row: [{ id: 'mode:while', label: 'While inside', act: 'i:mode', v: 'while', on: r.mode === 'while', dis }, { id: 'mode:stay', label: 'Stays once entered', act: 'i:mode', v: 'stay', on: r.mode === 'stay', dis }] },
       // (who it works for, v137: each person's own, or everyone here as soon as anyone is inside)
       { label: 'Works for', row: [{ id: 'all:each', label: 'Each person', act: 'i:all', v: 'each', on: !r.all, dis }, { id: 'all:all', label: 'Everyone here', act: 'i:all', v: 'all', on: !!r.all, dis }] },
-      { p: r.all ? 'Everyone here: as soon as anyone in a headset is inside it, it works for everyone at this circle, at the same moment (what it shows, hides, changes and starts)' + (r.mode === 'stay' ? ', and stays so once anyone has been inside.' : '.') : 'Each person: it works only for whoever is inside it; the others see nothing change.', c: 'faint' },
+      // (what it reacts to, v140: people, or an item, its key: a key in a lock)
+      ...keyBlocks(it, dis),
+      { p: r.key ? 'It reacts to its key, so it works for everyone here alike.' : r.all ? 'Everyone here: as soon as anyone in a headset is inside it, it works for everyone at this circle, at the same moment (what it shows, hides, changes and starts)' + (r.mode === 'stay' ? ', and stays so once anyone has been inside.' : '.') : 'Each person: it works only for whoever is inside it; the others see nothing change.', c: 'faint' },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
     if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
@@ -473,6 +475,7 @@ function itemBlocks(it, B, ed) {
   const full = it.kind === 'x' && !canCut(cutObj(it));
   if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
+  if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -494,6 +497,28 @@ function showsBlocks(it, B, dis) {
   const v = it.rec.shows || '';
   B.push({ label: 'Shows in', row: [['', 'AR and VR'], ['ar', 'Only AR'], ['vr', 'Only VR']].map(([k, n]) => ({ id: 'shows:' + (k || 'both'), label: n, act: 'i:shows', v: k, on: v === k, dis })) },
     { p: v === 'ar' ? 'Only in AR (passthrough): not drawn, heard or pointed at in VR or on a page.' : v === 'vr' ? 'Only in VR and on a page: not drawn, heard or pointed at in AR (where the real room is there instead).' : 'In AR and VR alike (a page shows what VR shows).', c: 'faint' });
+}
+// who may move it (v140; the owner, 13 November 2026: "possibility to have objects that people can move in studio non edit
+// mode"): only while editing, or anyone (a visitor too): in a headset the grip carries it, on a page a drag moves it along
+// the floor. One Undo step each, for everyone, saved
+function grabBlocks(it, B, dis) {
+  const any = !!it.rec.grab;
+  B.push({ label: 'Who can move it', row: [{ id: 'grab:edit', label: 'Only while editing', act: 'i:grab', v: 'edit', on: !any, dis }, { id: 'grab:any', label: 'Anyone', act: 'i:grab', v: 'any', on: any, dis }] },
+    { p: any ? 'Anyone: without editing, the grip carries it in a headset (one hand: no sizing), and on a page a drag moves it along the floor. Not while it is locked in place, follows a tracker or the story is locked.' : 'Only while editing.', c: 'faint' });
+}
+// what a cube reacts to (v140; the owner, 13 November 2026: "trigger cubes that react to a specific item like a key"):
+// people (each person's own, or everyone here: Works for), or an item, its key: the cube is active while the key's middle
+// is inside it, for everyone here; picked by pointing at it or from the list
+function keyBlocks(it, dis) {
+  const r = it.rec, kp = STU.keyPick === it.id, k = r.key ? STU.items.get(r.key) : null, B = [];
+  B.push({ label: 'Reacts to', row: [{ id: 'key:people', label: 'People', act: 'i:key', v: '', on: !r.key, dis }, { id: 'key:pick', label: kp ? 'Cancel' : r.key ? 'Another item...' : 'An item (a key)...', act: 'i:keyPick', on: kp || !!r.key, dis }] });
+  if (r.key) B.push({ kv: [['Its key', k ? k.rec.name + (k.rec.grab ? ' (anyone can move it)' : ' (only moved while editing: set Who can move it on its card)') : 'not in the scene now']] });
+  if (kp) {
+    const L = [...STU.items.values()].filter(x => KEY_KINDS.includes(x.kind));
+    B.push({ p: (XR.on ? 'Point at an object, a shape or an empty and pull the trigger' : 'Click an object, a shape or an empty, or pick it here') + ': the cube is active while it is inside.', c: 'amber' },
+      { list: L.map(x => ({ id: 'keyon:' + x.id, label: x.rec.name, sub: KIND_NAME[x.kind], act: 'i:key', v: x.id, on: x.id === r.key, dis })) });
+  }
+  return B;
 }
 // Hold it (a headset's card only): the next grip of either hand carries the selected item from where it stands, wherever
 // it points (holdHover in e8_xr.js); pressed again, not
@@ -978,12 +1003,57 @@ function pickables() {
 // events through pagePick
 function rayPick(ray, o) {
   const hs = ray.intersectObjects(pickables(), false), itOf = h => STU.items.get(h.object.userData.id), kind = h => { const it = itOf(h); return it ? it.kind : ''; };
-  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp || STU.plp), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
+  const objOnly = !!(STU.follow || STU.cutTo || STU.gpick || STU.txp || STU.plp || STU.keyPick), xs = objOnly ? [] : hs.filter(h => kind(h) === 'x'), own = h => xs.some(x => itOf(x).rec.on === h.object.userData.id);
   const c = hs.find(h => h.object.userData.corner !== undefined) || hs.find(h => { const k = kind(h); return !!k && k !== 'c' && !(k === 'x' && objOnly) && !(k === 'o' && own(h)); }) || hs[0];
   if (!c) return o && o.inside ? insidePick(ray.ray) : null;
   const gh = !!c.object.userData.ghost;   // (its ghost: the ray met it where it is placed, not where it is drawn)
   return { id: c.object.userData.id, corner: c.object.userData.corner, point: c.point.clone(), dist: c.distance, ray: kind(c) === 'o' ? Object.assign(ray.ray.clone(), { ghost: gh }) : null, ghost: gh };
 }
+// without editing (v140): only the items anyone may move (rec.grab), shown here, by their unseen boxes (a shape by itself)
+function visitPick(ray) {
+  const L = [];
+  for (const it of STU.items.values()) {
+    if (!visitMove(it) || !it.holder.visible || !it.shown || it.notHere) continue;
+    if (it.kind === 'o') { if (it.model) L.push(it.proxy); } else L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill);
+  }
+  const h = L.length ? ray.intersectObjects(L, false)[0] : null;
+  return h ? { id: h.object.userData.id, point: h.point.clone(), dist: h.distance, ray: null } : null;
+}
+// a page without editing (v140): a press on an item anyone may move drags it along the floor (on the level where it was
+// taken, keeping its offset from the pointer), written for everyone ten times a second and as it is let go; no Undo step
+let PDRAG = null;
+function visitDown(ev) {
+  if (APP.mode !== 'explore' || editOn() || XR.on || GRAB.on || ev.button !== 0 || PDRAG) return false;
+  GL.world.updateMatrixWorld(true);
+  const ray = pointerRay(ev.clientX, ev.clientY), h = visitPick(ray), it = h && STU.items.get(h.id);
+  if (!it) return false;
+  poseRest(it);
+  const hit = GL.world.worldToLocal(h.point.clone());
+  PDRAG = { id: it.id, pid: ev.pointerId, y: hit.y, off: it.holder.position.clone().sub(hit) };
+  it.carry = true; it.gl = null; orbit.held = true;
+  sfxAct('grab', 'world', h.point.toArray());
+  return true;
+}
+const _vp = new THREE.Plane(), _vq = new THREE.Vector3(), _vn = new THREE.Vector3();
+function visitMoveTo(ev) {
+  const it = STU.items.get(PDRAG.id);
+  if (!it || !visitMove(it)) { visitUp(); return; }
+  const ray = pointerRay(ev.clientX, ev.clientY).ray.clone();
+  GL.world.updateMatrixWorld(true);
+  ray.applyMatrix4(_sm2.copy(GL.world.matrixWorld).invert());   // (into the scene's frame)
+  _vp.set(_vn.set(0, 1, 0), -PDRAG.y);
+  if (!ray.intersectPlane(_vp, _vq) || _vq.distanceTo(ray.origin) > 60) return;
+  it.holder.position.set(_vq.x + PDRAG.off.x, it.holder.position.y, _vq.z + PDRAG.off.z);
+  carryWrite(it);
+}
+function visitUp() {
+  const it = STU.items.get(PDRAG.id);
+  PDRAG = null; orbit.held = false;
+  if (!it) return;
+  carryWrite(it, true); it.carry = false;
+  sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray());
+}
+const _sm2 = new THREE.Matrix4();
 // the object whose unseen box holds the ray's origin (the controller, or a page's camera in Walk view), the smallest if
 // several (a figure standing in a room scan: the figure); the point where the ray leaves that box (the pointer's dot)
 const _ib = new THREE.Matrix4(), _ir = new THREE.Ray(), _iv = new THREE.Vector3(), UNIT = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(0.5, 0.5, 0.5));
@@ -1015,6 +1085,7 @@ function bindCanvas() {
   let down = null, pinch = 0;
   cv.style.cursor = 'grab';
   cv.addEventListener('pointerdown', ev => {
+    if (visitDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (without editing: an item anyone may move, v140)
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
     if (!down.tc && !GRAB.on) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* the pointer locked: nothing to capture */ } }
@@ -1023,7 +1094,10 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
+    if (PDRAG) { if (ev.pointerId === PDRAG.pid) visitMoveTo(ev); return; }
     if (!pts.has(ev.pointerId)) {
+      // (without editing: over an item anyone may move, the hand that drags it, v140)
+      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) { GL.world.updateMatrixWorld(true); cv.style.cursor = visitPick(pointerRay(ev.clientX, ev.clientY)) ? 'move' : 'grab'; }
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
         const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
@@ -1050,6 +1124,7 @@ function bindCanvas() {
     } else { orbit.cur[0] -= dx * 0.3; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -10, 86); }
   });
   const end = ev => {
+    if (PDRAG && ev.pointerId === PDRAG.pid) { visitUp(); return; }
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
     // a click: grabbed, it acts at the crosshair (the left button); in Walk view with a mouse, the first one grabs it
@@ -1169,7 +1244,7 @@ function clickAt(mx, my) {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.cutTo && !STU.gpick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.cutTo && !STU.gpick && !STU.keyPick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -1185,7 +1260,8 @@ function pressItem(id, ray) {
   const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
   if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
-  if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }   // (a cut-out picking the object it cuts)
+  if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }
+  if (STU.keyPick && id !== STU.keyPick) { if (KEY_KINDS.includes(it.kind)) itemAct('key', id, STU.keyPick); return; }   // (a cube picking its key: v140)   // (a cut-out picking the object it cuts)
   if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
   if (STU.plp && id !== STU.plp.id) { if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)

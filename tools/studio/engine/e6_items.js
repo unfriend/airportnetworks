@@ -20,6 +20,7 @@ const STU = {
   plp: null, badPlay: 0,   // (a cube picking what it starts: { id, step, on, what, clip, how, when, page }; the starts a layout lost: e6n_plays.js)
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
+  keyPick: '',   // (a cube picking the item it reacts to, its key: v140)
   trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
 };
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
@@ -71,7 +72,7 @@ function norm(kind, x) {
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
-    return lockOf(x, showsOf(x, r));
+    return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'c') {
     const sz = has('size') ? vecOf(x.size, 3, 1000) : [1.2, 2, 1.2];
@@ -89,6 +90,9 @@ function norm(kind, x) {
     // works for everyone here (v137), kept only when set: true; absent, false or null: each person's own; anything else
     // makes it bad
     if (x.all === true) r.all = true; else if (x.all != null && x.all !== false) r.all = null;
+    // the item it reacts to, its key (v140), kept only when set: an object's, a shape's or an empty's id; the cube is then
+    // active while that item's middle is inside it, for everyone here (people walking in do nothing); anything else bad
+    if (x.key != null) r.key = okId(x.key) ? x.key : null;
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -141,7 +145,7 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
-    return lockOf(x, showsOf(x, r));
+    return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'e') {
     // an empty: a point and a full turn (and a motion: a sound following it moves with it)
@@ -162,6 +166,17 @@ function showsOf(x, r) {
   if (x.shows === 'ar' || x.shows === 'vr') r.shows = x.shows; else if (x.shows != null) r.shows = null;
   return r;
 }
+// anyone may move it (v140), kept only when set: true; absent, false or null: only while editing; anything else makes it
+// bad. Objects and shapes (GRAB_KINDS): carried by a headset's grip or dragged along the floor on a page without editing
+function grabOf(x, r) {
+  if (x.grab === true) r.grab = true; else if (x.grab != null && x.grab !== false) r.grab = null;
+  return r;
+}
+const GRAB_KINDS = ['o', 'p'];
+// what a cube may react to as its key (v140): an object, a shape or an empty
+const KEY_KINDS = ['o', 'p', 'e'];
+// a lock is no reason not to move it here; the room's story lock is (editLocked), as is its own lock (lockWhy)
+const visitMove = it => !!(it && it.rec && it.rec.grab && GRAB_KINDS.includes(it.kind) && !editOn() && STU.scene && !editLocked() && !it.rec.locked && !it.rec.trk && !it.rec.puppet);
 // a record's lock, kept only when set (locked: true; absent, false or null: not locked; anything else makes it bad), last
 // of its fields; and the record itself checked (null when a field was bad)
 function lockOf(x, r) {
@@ -485,7 +500,7 @@ function sceneClock(now) {
 // it starts). Its entering and leaving are taken in the room's time from the heads' samples (h.ts), so every device puts
 // them at the same room moment (c.inT, c.outT: on this device's clock for what a cube starts, e6n_plays.js), and "entered
 // last" is decided alike everywhere: by the entry time (the room's), then by the cube's id
-const _hp = new THREE.Vector3();
+const _hp = new THREE.Vector3(), _kp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
   if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
@@ -517,7 +532,13 @@ function triggerStep(now) {
   for (const c of STU.items.values()) {
     if (c.kind !== 'c') continue;
     let inside, at = Tr;
-    if (c.rec.all) {
+    if (c.rec.key) {
+      // (its key, v140: active while that item's middle, where it is drawn, is inside; the item's place is the room's, so
+      // the same for everyone here, entered at the room's time now)
+      const k = STU.items.get(c.rec.key);
+      inside = !away && !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
+      c.allIn = null;
+    } else if (c.rec.all) {
       // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of
       // those inside before; a head gone from the list left now)
       const ins = hs ? hs.filter(h => inCube(c.rec, h.p)) : [], was = c.allIn || new Map(), now = new Map(ins.map(h => [h.id, h.ts]));
@@ -533,7 +554,7 @@ function triggerStep(now) {
     const act = c.inside || (c.rec.mode === 'stay' && STU.seen.has(c.id));
     // (entered, also again while it stays active: each person's own at this device's moment, kept after the last so that
     // two entered one after the other keep their order; everyone's at its room moment)
-    if ((act && !c.act) || (c.inside && !c.wasIn)) { c.since = c.rec.all ? at : Math.max(Tr, STU.act + 1e-3); STU.act = Math.max(STU.act, c.since); }
+    if ((act && !c.act) || (c.inside && !c.wasIn)) { c.since = c.rec.all || c.rec.key ? at : Math.max(Tr, STU.act + 1e-3); STU.act = Math.max(STU.act, c.since); }
     c.act = act; c.wasIn = c.inside;
     if (!act) continue;
     for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
@@ -1114,7 +1135,7 @@ function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -1360,6 +1381,11 @@ const ITEM_ACT = {
   mode: (it, v) => setRec(it.id, { mode: v }),
   // who a cube works for (v137): each person's own (no field), or everyone here (all: true)
   all: (it, v) => { if (it.kind === 'c' && (v === 'all') !== !!it.rec.all) setRec(it.id, { all: v === 'all' ? true : undefined }); },
+  // what a cube reacts to (v140): people (no field) or an item, its key (key: its id); picking it by pointing (keyPick)
+  key: (it, v) => { STU.keyPick = ''; if (it.kind !== 'c') return; const k = v && STU.items.get(v); if (!v || (k && KEY_KINDS.includes(k.kind))) setRec(it.id, { key: v || undefined }); },
+  keyPick: it => { if (it.kind === 'c') STU.keyPick = STU.keyPick === it.id ? '' : it.id; },
+  // who may move it (v140): only while editing (no field), or anyone (grab: true), also a visitor and without editing
+  grab: (it, v) => { if (GRAB_KINDS.includes(it.kind) && (v === 'any') !== !!it.rec.grab) setRec(it.id, { grab: v === 'any' ? true : undefined }); },
   // in which sessions an item shows (v137): AR and VR (no field), only AR, only VR
   shows: (it, v) => { const w = v === 'ar' || v === 'vr' ? v : undefined; if (SHOWS_KINDS.includes(it.kind) && w !== it.rec.shows) setRec(it.id, { shows: w }); },
   pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
@@ -1394,7 +1420,7 @@ const ITEM_ACT = {
   // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
   hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; XR.rec = ''; },
 };
-const PANE_ONLY = ['pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['keyPick', 'pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -1437,6 +1463,7 @@ function select(id) {
   if (STU.plp && STU.plp.id !== id) STU.plp = null;   // (and its pick of what it starts)
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
+  if (STU.keyPick && STU.keyPick !== id) STU.keyPick = '';   // (and to the cube picking its key)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
   if (id && typeof X !== 'undefined') X.tab = 'item';
   tcAttach();

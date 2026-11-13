@@ -2541,6 +2541,14 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
   startup swell is itself shown by the entry cube (`start: 'shown'`), so it plays once as it first shows and not again
   as the cube, which stays, is walked through on the way to the desktop.
 
+## Moved by anyone, and cubes with a key (v140, the owner, 13 November 2026)
+
+- An object's or a shape's `grab: true` (*Who can move it: Anyone*): without editing, a headset's grip carries it (one
+  hand, never sized, no Undo step) and a page drags it along the floor at the height where it was taken; its record written
+  as it moves, for everyone. Not while locked in place, on a tracker, worn, or the circle's story locked (`visitMove`).
+- A cube's `key` (an object's, a shape's or an empty's id; *Reacts to: An item (a key)...*): active while that item's
+  middle is inside it, for everyone here, not by people. FORMAT `networks-44`.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without

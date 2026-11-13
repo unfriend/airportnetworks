@@ -1,21 +1,18 @@
 {
-  "version": "networks-v139",
-  "date": "12 November 2026",
+  "version": "networks-v140",
+  "date": "13 November 2026",
   "new": [
-    "Spaceships fly as far as you like: no edge along the floor, and walls (the room scan's in AR) no longer stop them. Only the floor and the ceiling (3 m) hold them.",
-    "The drones, targets and pickups follow the pilots around: their middle moves after the ships, and the ones left behind catch up.",
-    "Areas: every area's crosses show now, with its name sign, while the menu is open and for 30 s after you add an area or line up, not only the area you lined up from.",
-    "My menu: my circle: the row's note says who sees your menu now (Shown to Anna, Ben), or why nobody does (nobody else in this circle, not in a circle, not lined up, no picture made).",
-    "My menu: a fallback for making the menu's picture on headsets where the first way fails."
+    "Studio: objects and shapes can be set to Who can move it: Anyone (on their card). Without editing, visitors too, the grip carries them in a headset (one hand, no sizing) and a drag moves them along the floor on a page; everyone at the circle sees them moved.",
+    "Studio: trigger cubes can react to an item instead of people (Reacts to: An item (a key)... on the cube's card, then point at the item or pick it from the list). The cube is active while the key is inside it, for everyone here.",
+    "Together: a key anyone can carry into a cube that opens a door, shows a room or starts a sound."
   ],
   "test": [
-    "Launch a ship (the right stick clicked twice) and fly far across the room and beyond: no turning back, drones and targets coming after you.",
-    "In AR, fly into a real wall: the ship should fly on through it.",
-    "Room setup, Areas: add an area while lined up on spots A and B. Do its crosses and sign show at once beside A and B? Open the menu later: are all areas' crosses there?",
-    "Two headsets in one studio circle, both lined up: turn on My menu: my circle on one and open its menu. What does the row's note say? Does the other headset see the menu?"
+    "In the studio, set a small object to Anyone, turn Edit off and carry it with the grip in a headset. Does it stay where you put it, and do the others see it there?",
+    "Make a trigger cube react to that object as its key, with something it shows. Carry the key into the cube and out again: does it show and hide for everyone?",
+    "On a page with Edit off, drag the key into the cube with the mouse."
   ],
   "untested": [
-    "All of it on a real Quest: how flying far and the set following feel, the extra crosses, and whether My menu now reaches the others there (in the tests it works at a studio circle too, so the cause on the headsets is still unknown: the row's note should tell).",
-    "v138 and older items from What is new are still untried on devices where they were before."
+    "Carrying an item without editing on a real headset (only the page's drag was tried, in headless Chromium).",
+    "v139 and older items from What is new are still untried on devices where they were before."
   ]
 }

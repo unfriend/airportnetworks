@@ -293,7 +293,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -303,7 +303,7 @@ function xrPress(c) {
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
@@ -330,7 +330,17 @@ function xrGrab(c, on) {
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
-    if (!it || !editOn()) return;
+    if (!it || (!editOn() && !visitMove(it))) return;
+    if (!editOn()) {
+      // (without editing, v140: an item anyone may move, carried by this hand alone: no group, corner, sizing or selection,
+      // and no Undo step; its record written as it moves, for everyone)
+      poseRest(it); GL.world.updateMatrixWorld(true);
+      c.grab = { target: 'item', id: it.id, q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(), o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()),
+        r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0, s0: it.holder.scale.clone(), rr: 0, kz: 1, sth: 0, vis: true };
+      it.carry = true; it.gl = null;
+      buzz(c, 0.4, 25); sfxAct('grab', 'world', c.grab.p0);
+      return;
+    }
     // (taken where it stands, not where its motion draws it; a sound or a cut-out with what it is on: e6e_motion.js)
     poseRest(it); if ((it.kind === 's' || it.kind === 'x') && STU.items.get(it.rec.on)) poseRest(STU.items.get(it.rec.on));
     GL.world.updateMatrixWorld(true);
@@ -473,7 +483,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !editOn() || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
+  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !(editOn() || (G.vis && visitMove(STU.items.get(G.id)))) || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
@@ -570,7 +580,7 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
+  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
     const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
@@ -584,7 +594,7 @@ function carryItem(c, dt) {
   if (o) { if (c.i < o.i) return; }
   if (G.two) xrRegrip(c);
   const rec = !!REC && REC.id === it.id;   // (recording its path: the sticks turn and push it, never size it; e6f_path.js)
-  holdSticks(c, G, dt, ...(rec ? [1, 1] : holdRange(it, G)));
+  holdSticks(c, G, dt, ...(rec || G.vis ? [1, 1] : holdRange(it, G)));   // (moved without editing: never sized)
   _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);   // the hand's turn since it took hold
   _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
   if (_gv.length() > 30) _gv.setLength(30);
@@ -775,7 +785,7 @@ function xrPoint(c, dt) {
     // (nothing else found, and the controller inside an object's unseen box: that object, as you stand in a room scan)
     // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
     if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
-    const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : null;
+    const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : visitPick(XR.raycaster);   // (without editing: only what anyone may move, v140)
     if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
