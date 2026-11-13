@@ -396,7 +396,8 @@ made first going down to one each as more come (since v131; Places, in the
 menu's Debug tab, with each place's Forget); since v131 one shared room can also
 have more tape crosses in other areas (Room setup, its last page, Areas: a
 lined-up headset adds them, every headset can calibrate on the nearest and lines
-up again from them as it walks there, in the same room); if
+up again from them as it walks there, in the same room; since v139 every area's
+crosses show while the menu is open and for 30 s after lining up); if
 the panel says the anchor store is full, clearing Quest Browser's site data may
 help, see relay/README.md; after standby the headset looks for its spots again
 by itself and asks whether the orange crosses sit on them: if not, calibrate
@@ -541,12 +542,15 @@ stay when others fly too, so you can fight them together; now and then a pickup
 appears (amber: a stronger boost for 15 s; red: faster shooting for 12 s; blue: 50
 extra shield). In a shared room everyone in a headset sees every ship; the Shared
 dialog's people list says who flies and what they destroyed. Click the right stick
-twice again to land. Nothing of it is kept. My menu
+twice again to land. There is no edge (v139): the crystals, drones and
+pickups follow the flying ships about, only the floor and a 3 m ceiling hold a
+ship, and in AR it flies through real walls. Nothing of it is kept. My menu
 (this headset's own, never the room's): only me (the default) or my circle. With
 my circle, in a shared room the other headsets at your circle see your menu while
 it is open, as a picture where it floats with your name over it, so you can show
 someone where things are; they cannot press it, and it goes when you close it
-(and while the relay's password page is open).
+(and while the relay's password page is open). The row's note says who sees it
+now, or why nobody does (v139).
 The Shared dialog's people list says who is showing their menu. Real world
 hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off in a link):
 room and people (the default), room, people or nothing. Real things in front of a scene

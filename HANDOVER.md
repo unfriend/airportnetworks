@@ -46,7 +46,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **At the handover (9 November 2026): where each branch is and what comes next.**
+- **At the handover (13 November 2026): where each branch is and what comes next.**
   - *The branches.* `dev` is networks-v139 (FORMAT networks-43, the v139, v138 and v137 entries below; v136 before them,
     also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
     both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
@@ -55,7 +55,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
     https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
     networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v138 are the entries below. The AI agents' working branch,
+    (`5524684`, 7 November); v122 to v139 are the entries below. The AI agents' working branch,
     `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
     Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -63,11 +63,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
     owner got the trackers going on 9 November; nothing of the app's tracker features is reported tried with them yet). The owner tried v130's places on Quests (10 November: "Multiple
     rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
-    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v138; the
-    others' are in their entries below.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v131 on the devices (a Quest, an Android phone,
-    the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`). Each release then goes to `dev` with the
-    cheap checks and to `main` after the full suites (step 7 there). Timings to keep an eye on in the suites: the studio
+    which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. On 12
+    November the owner tried v137 at the test place (the Bliss XP example greyed at a studio circle, which made v138) and
+    then the ships, areas and *My menu* there (which made v139). `whatsnew.json` (developer mode's box, `#dev=on`) lists
+    what to try for v139; the others' are in their entries below.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v139 on the devices (a Quest, an
+    Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
+    untested. Then, at the owner's word, `main` gets `dev` after the full suites (step 7 there): every suite since v135 has
+    run only in parts (each entry says which), and `sw.js`'s rules changed in v137 (`examples/` passed through), so `tools/update.mjs` runs too, as do
+    `tools/collab.mjs --studio` (examples at a circle, v138) and `--menus` with `MENUS_STORY=studio` (v139). Each release
+    goes to `dev` with the cheap checks first. Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
     passed when run again), peer to peer's hand-over from a headset that hosts, and a code with no room (both red once in
     v129's run, under load, and good when run again).
