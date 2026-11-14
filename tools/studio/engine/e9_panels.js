@@ -456,7 +456,9 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
   if (X.tab === 'upload') X.tab = 'scene';   // (Upload is the page's: a headset has no files to drop)
-  for (const [k, n] of TABS.filter(t => t[0] !== 'upload')) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
+  if (X.tab === 'paint' && !PAINT.on) X.tab = 'scene';
+  const tabs = TABS.filter(t => t[0] !== 'upload' && (t[0] !== 'paint' || PAINT.on)), tw = Math.min(220, Math.floor((W - 12 * (tabs.length - 1)) / tabs.length));   // (five tabs while paint mode is on: narrower)
+  for (const [k, n] of tabs) { vButton(ctx, P, 'tab:' + k, bx, y, tw, 56, n, () => pickTab(k), { on: X.tab === k, px: tw < 200 ? 21 : 24 }); bx += tw + 12; }
   y += 76;
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;

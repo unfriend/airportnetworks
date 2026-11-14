@@ -1,0 +1,28 @@
+{
+  "version": "networks-v136",
+  "date": "11 November 2026",
+  "new": [
+    "Headsets now ask for 90 Hz (Quest Browser runs at 72 unless asked). The Debug tab has a Refresh rate row, and the frame-rate read-out says 'fps of 90 Hz'.",
+    "The lobby is lighter: station cards no longer show a running clock, are redrawn one at a time, and the story left loaded does nothing while you are away from every circle.",
+    "The studio's edit mode no longer remakes labels, panels and picks every frame, and draws its tags and lines together: editing costs little more than viewing.",
+    "Trigger cubes can start things: an animation clip, a sound, a recorded path or a motion on an item, once, looping, held while inside, or stopped, as you walk in or out. Each person's own.",
+    "Update the room (Shared dialog, the menu's Circles tab, the update bar): two presses reload every device in the room in turn. Rooms no longer get lost after an update: the relay moves a room on to the new version.",
+    "A page in a room takes a new version by itself after 20 s (Not now holds it 5 minutes).",
+    "Stories: the design room draws about a third as much, background builds take about 1 ms a frame in a headset, and paused stories send nothing to the GPU.",
+    "Debug experiments, off by default: Foveation and Resolution rows on the Debug tab."
+  ],
+  "test": [
+    "Lobby with only the stations visible: turn on the frame-rate read-out (double press B or Y). Does it say about 90 fps of 90 Hz now?",
+    "Debug tab, Refresh rate: what does 'offers' list on your Quest, and does 120 Hz hold in a light story?",
+    "Studio: edit a big scan and compare the read-out with viewing. Is the gap gone?",
+    "Studio: put a cube that plays a clip or a sound on a character, then walk in and out. Does it start, blend and stop as expected?",
+    "After the next deploy, press Update the room: do all headsets and pages reload one after another and come back into the same room?",
+    "Try Foveation 1 and Resolution 80 % on the Debug tab: do they look acceptable and raise the frame rate?"
+  ],
+  "untested": [
+    "Everything on a real Quest: the 90 Hz request, the frame rates, foveation and resolution, the batched studio tags, the bar and hover patches.",
+    "Update the room with ten real headsets on one Wi-Fi, and Enter VR to continue after it.",
+    "Rooms kept across deploys (--keep) need a volume on Coolify, not set up yet.",
+    "How a clip blended in by a cube looks on a real character, and a cube's sound through HRTF."
+  ]
+}

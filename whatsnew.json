@@ -1,23 +1,24 @@
 {
-  "version": "networks-v143",
+  "version": "networks-v144",
   "date": "14 November 2026",
   "new": [
-    "Screens in the studio: a video or audio player with a playlist, placed in a scene from the Add pane (Screen, Audio player, or a video's card). Its sound comes from where it stands.",
-    "Shared by default: everyone at the circle sees and hears the same moment. Plays for: Each person makes it everyone's own.",
-    "A control bar under it (previous, play, next, seek, volume) shows when you point at it. Who can use the controls: Anyone lets people use it without editing.",
-    "Videos (.mp4, .mov, .m4v, .mkv, .webm) go into the scene's videos/ folder through the Upload pane. Optional: Convert videos to MP4 (H.264) on the relay, 720p with For Quest.",
-    "Rooms need every device updated (format networks-45)."
+    "Paintings in the studio: draw in the air while editing. Add pane, Paint, then the Paint tab: Ribbon, Tube, Glow, Spray and Eraser, ten colours and six widths.",
+    "In a headset the right trigger paints from a small ball 6 cm ahead of the controller; how hard you press sets the width. On a page, drag over the scene (Orbit view) to paint on the surfaces there.",
+    "Each stroke is one Undo step and reaches everyone at the circle when you let go. A painting moves, turns, sizes, locks, groups and is shown or hidden by trigger cubes like any item.",
+    "Big paintings (past 4,000 points in the scene) are kept as files of the scene in paintings/, which needs a relay that takes uploads.",
+    "What is new keeps its history: Older and Newer step through earlier releases, and the lists scroll, on the page and in the headset (Up, More, or the stick while pointing at the menu).",
+    "Shared rooms move to format networks-46: every device needs this release."
   ],
   "test": [
-    "Upload an MP4 into a scene, add a screen of it, press play: does it play in the headset, picture and sound?",
-    "Two headsets at one studio circle: does play, pause, next and seek on one reach the other at the same moment?",
-    "Set Who can use the controls to Anyone, turn editing off: does the bar show when you point at it, and work?",
-    "Walk away and back, or hide it with a cube: does it pick up at the right moment?",
-    "Try Convert videos to MP4 with a phone video on the test place."
+    "Paint a few strokes with each brush in a headset, pressing the trigger lightly and fully.",
+    "Two headsets at one studio circle: strokes from one show on the other as each is let go.",
+    "The Eraser: sweep it through strokes, then Undo.",
+    "A painting carried with the grip, sized with both grips, hidden by a trigger cube.",
+    "What is new in the headset: Older, Newer, Got it only on the newest, scrolling by the stick."
   ],
   "untested": [
-    "Everything on a Quest: its video decoder, the frame rate with a 1080p video playing, the bar with a real ray, the sound through HRTF.",
-    "MP4 (H.264) playback in a browser: the test browser here has no H.264, so only WebM was played.",
-    "A long video converted on Coolify; an iPhone playing a screen."
+    "Everything on a Quest: the trigger's pressure, the tip ball, how strokes look and the frame rate with big paintings.",
+    "Spray dots' size in a headset session.",
+    "How the stick scroll of What is new feels; with Moving with the sticks on, the left stick also moves you while it scrolls."
   ]
 }

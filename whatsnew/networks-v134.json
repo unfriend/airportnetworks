@@ -1,0 +1,20 @@
+{
+  "version": "networks-v134",
+  "date": "11 November 2026",
+  "new": [
+    "Spaceships can loop: the right stick's up and down now turns the nose at a steady rate with no limit, so held back the ship goes round in a loop (about 2.6 s, about 1 m across). Forward still dives, back still climbs.",
+    "Let go of the stick the right way up and the ship eases back to level flight; let go upside down and it keeps flying upside down. Upside down, right still turns it to its own right.",
+    "The arena's floor and ceiling now bounce the ship back instead of holding it level.",
+    "No more black halo round the glows of ships, drones and pickups in AR: the glows now only add light over your room.",
+    "The main site has this release too."
+  ],
+  "test": [
+    "Hold the stick back: does the ship loop smoothly, and does a loop fit in your room? Let go at different points of it.",
+    "Fly upside down and push the stick right: does it turn the way you expect?",
+    "In AR, look at the ship's engine, the drones' red eyes, the crystals and the pickups: any dark square or ring round them now?"
+  ],
+  "untested": [
+    "How loops feel on a Quest and whether 140 degrees a second is the right speed for them.",
+    "The glows over a real passthrough (checked only in a headless browser with a see-through background)."
+  ]
+}

@@ -296,8 +296,9 @@ function modelWords(f) {
 // axis cross, a cut-out cutting nothing a dashed box. Drawn once a kind and colour, as a canvas the headset draws and the
 // page shows as a data URL (so both look the same)
 const TILE = new Map(), TILE_PX = 256;
+const tileKey = t => t.k + '|' + t.col + '|' + (t.hide ? 1 : 0) + (t.cols ? '|' + t.cols.join(',') : '');
 function tileFor(t) {
-  const key = t.k + '|' + t.col + '|' + (t.hide ? 1 : 0);
+  const key = tileKey(t);
   let e = TILE.get(key);
   if (e) return e.cv;
   const S = TILE_PX, cv = document.createElement('canvas');
@@ -345,6 +346,14 @@ function tileFor(t) {
     poly([[34, 70], [222, 70], [222, 176], [34, 176]], rgb(0.3), rgb(1, 0.3), 5); poly([[44, 80], [212, 80], [212, 166], [44, 166]], rgb(0.18));
     poly([[110, 98], [110, 148], [154, 123]], rgb(1, 0.25)); poly([[104, 176], [152, 176], [152, 200], [104, 200]], rgb(0.5));
     line([84, 204], [170, 204], rgb(0.6), 8);
+  } else if (t.k === 'paint') {
+    // a painting: three strokes in its colours (a ribbon, a tube and a few spray dots), as the tile of a drawing in the air
+    const cs = (t.cols && t.cols.length ? t.cols : [t.col || '#ff8a6b']), col = i => cs[i % cs.length];
+    x.lineCap = 'round'; x.setLineDash([]);
+    [[56, 150, 108, 70, 150, 190, 200, 120, 22], [50, 190, 100, 150, 160, 120, 206, 170, 14], [60, 110, 110, 150, 170, 70, 200, 100, 8]].forEach((q, i) => {
+      x.beginPath(); x.moveTo(q[0], q[1]); x.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]); x.lineWidth = q[8]; x.strokeStyle = new THREE.Color(col(i)).multiplyScalar(0.9).getStyle(); x.stroke();
+    });
+    for (let d = 0; d < 26; d++) { const a = d * 2.4, r = 6 + (d * 37 % 31); x.beginPath(); x.arc(176 + Math.cos(a) * r, 196 + Math.sin(a) * r * 0.6, 3.2, 0, 7); x.fillStyle = new THREE.Color(col(3)).getStyle(); x.fill(); }
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
@@ -360,7 +369,7 @@ function tileFor(t) {
   return cv;
 }
 // the same tile for the page: a data URL, made once
-function tileUrl(t) { tileFor(t); const e = TILE.get(t.k + '|' + t.col + '|' + (t.hide ? 1 : 0)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
+function tileUrl(t) { tileFor(t); const e = TILE.get(tileKey(t)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
 // for tests and the console: which models have a picture and where it is from, and Make pictures
 const pvState = () => ({
   listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),

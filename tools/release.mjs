@@ -17,7 +17,8 @@
 // The fingerprint is index.html's HOST.fingerprint (and relay/server.mjs's), so the three agree.
 // whatsnew.json (developer mode's box, HOST.dev: { version, date, new, test, untested }, lists of short sentences) is
 // written by hand at every release; this script only checks it: a file that does not name sw.js's VERSION (or is not in
-// that shape) is a warning, and --check fails on it, so a release does not go out with an old box.
+// that shape) is a warning, and --check fails on it, so a release does not go out with an old box. Each release's file is
+// also kept in whatsnew/ (see below), so developer mode can page back through them.
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -85,15 +86,37 @@ else {
 }
 const warn = () => { if (news) console.log('Warning: ' + news); };
 
+// the history of what is new (whatsnew/<version>.json, one file a release, and whatsnew/index.json = { versions: [newest
+// first], at }: HOST.dev's Older and Newer): this release's whatsnew.json copied in as its own file, the index listing every
+// networks-vN file there, `at` the newest's date (so it is the same on every run). Written by a normal run, checked by --check
+const wdir = path.join(root, 'whatsnew');
+const wnum = f => +/^networks-v(\d+)\.json$/.exec(f)[1];
+const wfiles = () => (fs.existsSync(wdir) ? fs.readdirSync(wdir) : []).filter(f => /^networks-v\d+\.json$/.test(f));
+let wnow = null;   // (the current release's file as it will be written)
+if (!news) wnow = JSON.stringify(JSON.parse(read('whatsnew.json')), null, 2) + '\n';
+const wnames = new Set(wfiles()); if (wnow) wnames.add(version + '.json');
+const wlist = [...wnames].sort((a, b) => wnum(b) - wnum(a));
+const wdate = f => { try { return JSON.parse(f === version + '.json' && wnow ? wnow : fs.readFileSync(path.join(wdir, f), 'utf8')).date || ''; } catch (e) { return ''; } };
+const windex = JSON.stringify({ versions: wlist.map(f => f.replace(/\.json$/, '')), at: wlist.length ? wdate(wlist[0]) : '' }, null, 2) + '\n';
+const wold = f => { try { return fs.readFileSync(path.join(wdir, f), 'utf8'); } catch (e) { return null; } };
+const wstale = () => (wnow && wold(version + '.json') !== wnow ? [version + '.json'] : []).concat(wold('index.json') !== windex ? ['index.json'] : []);
+
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
-  const ok = hadOut === out && stamped === index;
+  const ok = hadOut === out && stamped === index, ws = wstale();
   console.log(ok ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
+  console.log(ws.length ? `whatsnew/ is out of date (${ws.join(', ')}): run node tools/release.mjs` : `whatsnew/ is current (${wlist.length} releases)`);
   warn();
-  process.exit(ok && !news ? 0 : 1);
+  process.exit(ok && !news && !ws.length ? 0 : 1);
 }
 if (stamped !== index) fs.writeFileSync(path.join(root, 'index.html'), stamped);
 if (hadOut !== out) fs.writeFileSync(path.join(root, 'version.json'), out);
+if (wstale().length) {
+  fs.mkdirSync(wdir, { recursive: true });
+  if (wnow) fs.writeFileSync(path.join(wdir, version + '.json'), wnow);
+  fs.writeFileSync(path.join(wdir, 'index.json'), windex);
+  console.log(`wrote whatsnew/ (${wlist.length} releases, newest ${wlist.length ? wlist[0].replace(/\.json$/, '') : 'none'})`);
+}
 console.log(`wrote version.json (${version}, format ${format}, shell ${n} ${id}, ${list.length} stories)` + (stamped !== index ? " and index.html's stamp" : ''));
 warn();

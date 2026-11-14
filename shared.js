@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-45';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-46';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
@@ -4171,7 +4171,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5149,54 +5149,95 @@
     button(S, 'snd:reset', x + bw + 16, y, bw, 58, 'Reset the sound', () => A.reset(), { px: 23 });
     return y + 58 + 28;
   }
-  // What is new (developer mode: HOST.dev's whatsnew.json) in place of the rest of the Debug tab: the release, its date
-  // and three lists (New, Please test, Untested), as tall as they need (the canvas is 1920 px; what does not fit is
-  // counted), then Got it (not again for this release on this headset) and Later (this session; Back when opened by
-  // hand). A file that could not be fetched is said in one line
+  // What is new (developer mode: HOST.dev's whatsnew.json and whatsnew/) in place of the rest of the Debug tab: the release,
+  // its date, Older and Newer (v144: the earlier releases, which line of how many), and three lists (New, Please test,
+  // Untested) at 22 px in a view of a fixed height that scrolls (Up and More, or the stick pushed up or down while the ray is
+  // on the menu: newsStick; the place kept per release while the page is open), then Got it (only on the newest: not again
+  // for this release on this headset) and Later (this session; Back when opened by hand). A file that could not be fetched
+  // is said in one line
+  const NEWSV = { h: 860, px: 22, lh: 29 };   // (the view's height, the type and its line height)
   function newsPage(S, x, y, w) {
     const ctx = S.ctx, D = HOST.dev, d = D && D.data(), bw = (w - 16) / 2, flow = NEWS.fl === 1, v = d ? D.short(d.version) : '';
+    const P = D && D.position ? D.position() : { i: 1, n: 1 }, newest = !D || !D.isNewest || D.isNewest();
     ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, d ? 'What is new in ' + v : 'What is new', d && d.date ? w - 220 : w), x, y);
     if (d && d.date) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textAlign = 'right'; ctx.fillText(fit(ctx, d.date, 210), x + w, y + 6); ctx.textAlign = 'left'; }
     y += 50;
+    if (P.n > 1 && D.newest()) {   // (the history: Older and Newer, greyed at the ends, and which release of how many)
+      button(S, 'news:older', x, y, 150, 54, 'Older', D.canOlder() ? () => { D.older(); OV.panel.sig = ''; } : null, { px: 24 });
+      button(S, 'news:newer', x + 162, y, 150, 54, 'Newer', D.canNewer() ? () => { D.newer(); OV.panel.sig = ''; } : null, { px: 24 });
+      ctx.font = FONT(22); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, `${v || D.short(P.version)} · ${P.i} of ${P.n}`, w - 336), x + 336, y + 14);
+      y += 70;
+    }
+    NEWS.max = 0;
     if (!d) {
       const busy = !D || D.busy();
       ctx.font = FONT(23); ctx.fillStyle = busy ? MUTED : AMBER;
-      y += wrapText(ctx, busy ? 'Fetching what is new...' : 'Could not fetch what is new (whatsnew.json): ' + (D.err() || 'not yet asked') + '.', x, y, w, 30, 3) + 20;
+      y += wrapText(ctx, busy ? 'Fetching what is new...' : 'Could not fetch what is new (' + (newest ? 'whatsnew.json' : 'whatsnew/' + P.version + '.json') + '): ' + (D.err() || 'not yet asked') + '.', x, y, w, 30, 3) + 20;
     } else {
-      // the lists at the largest type that lets them all fit above the buttons (22, 20 or 18 px), else at the smallest,
-      // what does not fit counted
-      const end = S.h - 220, SECT = [['new', 'New', CYAN], ['test', 'Please test', AMBER], ['untested', 'Untested', MUTED]].filter(z => d[z[0]].length);
-      const lines = (s, tw) => { let n = 0, cur = ''; for (const wd of String(s).split(/\s+/).filter(Boolean)) { const t = cur ? cur + ' ' + wd : wd; if (cur && ctx.measureText(t).width > tw) { n++; cur = wd; } else cur = t; } return Math.min(4, n + (cur ? 1 : 0)); };
-      const SIZES = [[22, 29], [20, 26], [18, 24]];
-      let px = 18, lh = 24;
-      for (const [p, h] of SIZES) {
-        ctx.font = FONT(p);
-        let H = 0;
-        for (const [k] of SECT) { H += 36 + 14; for (const s of d[k]) H += lines(s, w - 26) * h + 8; }
-        px = p; lh = h;
-        if (y + H <= end) break;
-      }
-      let more = 0;
+      // the lists at a fixed size in a view of a fixed height: what does not fit is scrolled to (the place kept per release)
+      const SECT = [['new', 'New', CYAN], ['test', 'Please test', AMBER], ['untested', 'Untested', MUTED]].filter(z => d[z[0]].length), { px, lh } = NEWSV;
+      ctx.font = FONT(px);
+      const lines = s => { let n = 0, cur = ''; for (const wd of String(s).split(/\s+/).filter(Boolean)) { const t = cur ? cur + ' ' + wd : wd; if (cur && ctx.measureText(t).width > w - 26) { n++; cur = wd; } else cur = t; } return n + (cur ? 1 : 0); };
+      let H = 0;
+      for (const [k] of SECT) { H += 36 + 14; for (const s of d[k]) H += lines(s) * lh + 8; }
+      if (NEWS.scV !== d.version) { NEWS.scV = d.version; NEWS.sc = 0; }
+      const max = Math.max(0, H - NEWSV.h), vh = Math.min(NEWSV.h, H + 4);
+      NEWS.max = max; NEWS.sc = Math.max(0, Math.min(max, NEWS.sc || 0));
+      const top = y;
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 4, top, w + 8, vh); ctx.clip();
+      let yy = top - Math.round(NEWS.sc);
       for (const [k, title, col] of SECT) {
-        const L = d[k];
-        if (y > end - 90) { more += L.length; continue; }
-        ctx.font = FONT(22, 700); ctx.fillStyle = col; ctx.fillText(title.toUpperCase(), x, y); y += 36;
-        for (let i = 0; i < L.length; i++) {
-          if (y > end - 40) { more += L.length - i; break; }
-          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 8, y + lh / 2 - 1, 5, 0, 2 * Math.PI); ctx.fill();
-          ctx.font = FONT(px); ctx.fillStyle = INK; y += wrapText(ctx, L[i], x + 26, y, w - 26, lh, 4) + 8;
+        ctx.font = FONT(22, 700); ctx.fillStyle = col; ctx.fillText(title.toUpperCase(), x, yy); yy += 36;
+        for (const t of d[k]) {
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 8, yy + lh / 2 - 1, 5, 0, 2 * Math.PI); ctx.fill();
+          ctx.font = FONT(px); ctx.fillStyle = INK; yy += wrapText(ctx, t, x + 26, yy, w - 26, lh, 0) + 8;
         }
-        y += 14;
+        yy += 14;
       }
-      if (more) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, `And ${more} more: see whatsnew.json, or What is new on a page`, w), x, y); y += 40; }
+      ctx.restore();
+      if (max > 0) {   // (a thin bar at the right edge: where in the lists)
+        const th = Math.max(40, vh * vh / H), ty = top + (vh - th) * (NEWS.sc / max);
+        rr(ctx, x + w - 6, top, 6, vh, 3); ctx.fillStyle = 'rgba(149,166,189,0.15)'; ctx.fill();
+        rr(ctx, x + w - 6, ty, 6, th, 3); ctx.fillStyle = 'rgba(149,166,189,0.65)'; ctx.fill();
+      }
+      y = top + vh + 12;
+      if (max > 0) {
+        const step = Math.round(NEWSV.h * 0.7);
+        button(S, 'news:up', x, y, bw, 54, 'Up', NEWS.sc > 0 ? () => newsScroll(-step) : null, { px: 24 });
+        button(S, 'news:more', x + bw + 16, y, bw, 54, 'More', NEWS.sc < max ? () => newsScroll(step) : null, { px: 24 });
+        y += 70;
+      }
     }
-    // (Got it only for a release it can name: while the file is fetched, or could not be, Later or Back alone)
-    if (d) button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(true), { primary: true, px: 25 });
-    button(S, 'news:later', d ? x + bw + 16 : x, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
+    // (Got it only for the newest release, and one it can name: while the file is fetched, or could not be, or an earlier
+    // release is shown, Later or Back alone)
+    if (d && newest) button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(true), { primary: true, px: 25 });
+    button(S, 'news:later', d && newest ? x + bw + 16 : x, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
     y += 78;
     ctx.font = FONT(20); ctx.fillStyle = MUTED;
-    y += wrapText(ctx, (d ? `Got it: not shown again for ${v} on this headset. ` : '') + (flow ? 'Later: next session. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
+    y += wrapText(ctx, (d && newest ? `Got it: not shown again for ${v} on this headset. ` : d ? 'An earlier release: Got it is only for the newest. ' : '') + (flow ? 'Later: next session. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
     return y + 18;
+  }
+  // the lists scrolled by px (Up and More, the stick): the menu drawn again
+  function newsScroll(px) {
+    const old = NEWS.sc || 0;
+    NEWS.sc = Math.max(0, Math.min(NEWS.max || 0, old + px));
+    if (Math.round(NEWS.sc) !== Math.round(old) && OV.panel) OV.panel.sig = '';
+  }
+  // the stick pushed up or down while a controller's ray is on the menu scrolls the lists (a dead zone of 0.2, faster the
+  // further pushed: 80 px a second to about 780 at the edge); pushed down the lists go on. The studio's stickScroll is the
+  // model (tools/studio/engine/e8_xr.js)
+  function newsStick(list, t) {
+    const dt = Math.min(0.1, Math.max(0, (t - (NEWS.stT || t)) / 1000)); NEWS.stT = t;
+    if (!devShown() || !(NEWS.max > 0)) return;
+    for (let i = 0; i < list.length; i++) {
+      const src = list[i], gp = src && !src.hand && src.gamepad;
+      if (!gp || !gp.axes || gp.axes.length < 4) continue;
+      const h = hovOf(i), y = gp.axes[3];
+      if (!h || h.target.kind !== 'panel' || !(Math.abs(y) > 0.2)) continue;
+      const m = (Math.abs(y) - 0.2) / 0.8;
+      newsScroll(Math.sign(y) * (80 + 700 * m * m) * dt);
+      PNL.used = t;
+    }
   }
   function connLine() {
     if (C.local) return 'on this device';
@@ -5673,7 +5714,7 @@
   // closes the menu when this opened it; closed any other way (another tab, the menu closed) counts as Later. Opened by
   // hand (the Debug tab's What is new) it is the same page with Got it and Back. fl: 0 not yet this session, 1 on show,
   // 2 done (Got it, or seen already), 3 later
-  const NEWS = { s: null, t0: 0, fl: 0, menu: false, ready: 0, gap: 800 };
+  const NEWS = { s: null, t0: 0, fl: 0, menu: false, ready: 0, gap: 800, sc: 0, scV: '', max: 0, stT: 0 };
   const devOn = () => !!(HOST.dev && HOST.dev.on && HOST.dev.on());
   const devShown = () => !!(PNL.open && PNL.tab === 'debug' && PNL.page === 'news');
   function devCan(t) {
@@ -5706,6 +5747,7 @@
     const was = PNL.open, auto = why === 'auto';
     if (!PNL.open) menuOpen(true, auto ? 'news' : 'api');
     PNL.tab = 'debug'; PNL.page = 'news'; PNL.code = ''; PNL.pass = ''; PNL.home = false;
+    NEWS.sc = 0; NEWS.scV = ''; if (HOST.dev && HOST.dev.reset) HOST.dev.reset();   // (always at the newest, at the top)
     PNL.used = performance.now();   // (a menu open for a while would otherwise close as unused on the next frame)
     if (auto) { NEWS.fl = 1; NEWS.menu = !was; }
     if (HOST.dev && HOST.dev.load) HOST.dev.load(!auto);   // (by hand: fetched again, past every cache)
@@ -5715,7 +5757,7 @@
   // Got it (got: this release not again on this headset) or Later: the flow done or later for this session, the menu
   // closed when the flow opened it, else back to the Debug tab
   function devClose(got) {
-    if (got && HOST.dev) HOST.dev.gotIt();
+    if (got && HOST.dev && (!HOST.dev.isNewest || HOST.dev.isNewest())) HOST.dev.gotIt();
     const flow = NEWS.fl === 1;
     if (flow) { NEWS.fl = got ? 2 : 3; log('whatsnew', { flow: got ? 'got it' : 'later' }); }
     if (flow && NEWS.menu) menuOpen(false, 'news'); else PNL.page = 'main';
@@ -6714,6 +6756,7 @@
   function sticks() {
     let list = [];
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
+    newsStick(list, performance.now());   // (What is new's lists scrolled by a stick, v144)
     const clicks = [];
     let twice2 = false;
     const t = performance.now();
@@ -10712,7 +10755,7 @@
     // what is new in a headset (developer mode, HOST.dev): { shown: the menu on its page now, fl: this session's flow (0 not
     // yet, 1 on show, 2 done, 3 later), menu: the flow opened the menu }; devOpen(): the page by hand, as the Debug tab's
     // button does
-    whatsNew: () => ({ shown: devShown(), fl: NEWS.fl, menu: NEWS.menu }), devOpen: () => devOpen('hand'), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
+    whatsNew: () => ({ shown: devShown(), fl: NEWS.fl, menu: NEWS.menu, sc: Math.round(NEWS.sc || 0), max: Math.round(NEWS.max || 0) }), devOpen: () => devOpen('hand'), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now
     hideOthers: on => (on === undefined ? hidingOthers() : hideOthers(on)),

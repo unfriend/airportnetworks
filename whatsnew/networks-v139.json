@@ -1,0 +1,21 @@
+{
+  "version": "networks-v139",
+  "date": "12 November 2026",
+  "new": [
+    "Spaceships fly as far as you like: no edge along the floor, and walls (the room scan's in AR) no longer stop them. Only the floor and the ceiling (3 m) hold them.",
+    "The drones, targets and pickups follow the pilots around: their middle moves after the ships, and the ones left behind catch up.",
+    "Areas: every area's crosses show now, with its name sign, while the menu is open and for 30 s after you add an area or line up, not only the area you lined up from.",
+    "My menu: my circle: the row's note says who sees your menu now (Shown to Anna, Ben), or why nobody does (nobody else in this circle, not in a circle, not lined up, no picture made).",
+    "My menu: a fallback for making the menu's picture on headsets where the first way fails."
+  ],
+  "test": [
+    "Launch a ship (the right stick clicked twice) and fly far across the room and beyond: no turning back, drones and targets coming after you.",
+    "In AR, fly into a real wall: the ship should fly on through it.",
+    "Room setup, Areas: add an area while lined up on spots A and B. Do its crosses and sign show at once beside A and B? Open the menu later: are all areas' crosses there?",
+    "Two headsets in one studio circle, both lined up: turn on My menu: my circle on one and open its menu. What does the row's note say? Does the other headset see the menu?"
+  ],
+  "untested": [
+    "All of it on a real Quest: how flying far and the set following feel, the extra crosses, and whether My menu now reaches the others there (in the tests it works at a studio circle too, so the cause on the headsets is still unknown: the row's note should tell).",
+    "v138 and older items from What is new are still untried on devices where they were before."
+  ]
+}

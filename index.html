@@ -585,6 +585,13 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
 #devCard li { margin: 0 0 6px; line-height: 1.4; }
 #devCard .msg { margin: 12px 0 0; line-height: 1.4; }
 #devCard .note { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+#devCard .nav { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+#devCard .nav[hidden] { display: none; }
+#devCard .nav .btn { padding: 4px 12px; font-size: 13px; }
+#devCard .nav .btn:disabled { opacity: 0.4; cursor: default; }
+#devCard .nav .pos { color: var(--muted); font-size: 13px; margin-left: 4px; }
+#devCard #devBody { max-height: calc(100dvh - 19rem - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; min-height: 3rem; }
+body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-top) - 14rem); }
 #devCard .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 #picker .devrow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 #picker .rep.dev { font-size: 12px; padding: 5px 12px; color: #93a4ba; }
@@ -659,6 +666,7 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
 <!-- developer mode: what is new in this release and what to test (HOST.dev, whatsnew.json) -->
 <div id="devCard" hidden role="dialog" aria-labelledby="devTitle">
   <div class="head"><h2 id="devTitle">What is new</h2><span class="date" id="devDate"></span></div>
+  <div class="nav" id="devNav"><button class="btn" id="devOlder" type="button">Older</button><button class="btn" id="devNewer" type="button">Newer</button><span class="pos" id="devPos"></span></div>
   <div id="devBody"></div>
   <div class="row"><button class="btn primary" id="devGot" type="button">Got it</button><button class="btn" id="devLater" type="button">Later</button></div>
   <p class="note" id="devNote"></p>
@@ -789,7 +797,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 143, id: '6fecd0332ef888f2', format: 'networks-45' },
+  shell: { n: 144, id: 'bdcb6e953a9375ae', format: 'networks-46' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3350,7 +3358,8 @@ HOST.dev = (function () {
   const el = id => document.getElementById(id);
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
-  const D = { on: get('devMode') === 'on', data: null, err: '', busy: null, at: 0, later: false, open: false, why: '', n: 0 };
+  const D = { on: get('devMode') === 'on', data: null, err: '', busy: null, at: 0, later: false, open: false, why: '', n: 0,
+    versions: [], view: '', hist: {}, hbusy: '', herr: '' };   // (the history, v144: the releases newest first, the one shown ('' the newest), earlier ones fetched, one being fetched, its error)
   const short = v => String(v || '').replace(/^networks-/, '');
   // the file's lists as plain strings (at most 40 a list, 500 characters each); null when it is not such a file
   function shape(o) {
@@ -3371,6 +3380,13 @@ HOST.dev = (function () {
         else { try { data = shape(await r.json()); } catch (e) { /* not JSON */ } if (!data) err = 'it is not in the expected shape'; }
       } catch (e) { err = navigator.onLine === false ? 'this device is offline' : 'it could not be reached'; }
       if (data) { D.data = data; D.err = ''; } else D.err = err;
+      // the history's index (whatsnew/index.json), once a load; none (or a bad one): only the newest, Older greyed
+      try {
+        const r = await fetch('whatsnew/index.json?t=' + Date.now(), { cache: 'no-store' }), j = r.ok ? await r.json() : null;
+        const vs = j && Array.isArray(j.versions) ? j.versions.filter(v => typeof v === 'string' && /^networks-v\d+$/.test(v)).slice(0, 200) : [];
+        if (vs.length) D.versions = vs;
+      } catch (e) { /* no history: the newest alone */ }
+      if (D.data && D.data.version !== D.versions[0] && !D.versions.includes(D.data.version)) D.versions = [D.data.version].concat(D.versions);
       D.at = performance.now(); D.busy = null; D.n++;
       if (D.open) render();
       return D.data;
@@ -3378,15 +3394,42 @@ HOST.dev = (function () {
     return D.busy;
   }
   const seen = () => !!D.data && get('devSeen') === D.data.version;
-  function gotIt() { if (D.data) put('devSeen', D.data.version); }
+  function gotIt() { if (D.data) put('devSeen', D.data.version); }   // (the newest: Got it is only offered there)
+  // the history: the release shown ('' the newest), Older and Newer, an earlier one fetched when first shown (whatsnew/<version>.json)
+  const newest = () => (D.data ? D.data.version : D.versions[0] || '');
+  const cur = () => D.view || newest();
+  const shown = () => (D.view ? D.hist[D.view] || null : D.data);
+  const pos = () => { const n = D.versions.length || (D.data ? 1 : 0), i = Math.max(0, D.versions.indexOf(cur())); return { i: i + 1, n, version: cur() }; };
+  const canOlder = () => D.versions.indexOf(cur()) >= 0 && D.versions.indexOf(cur()) < D.versions.length - 1;
+  const canNewer = () => D.versions.indexOf(cur()) > 0;
+  function changed() { D.n++; if (D.open) render(); }
+  async function show(v) {
+    v = String(v || '');
+    if (!v || v === newest()) { D.view = ''; D.herr = ''; changed(); return; }
+    if (!D.versions.includes(v)) return;
+    D.view = v; D.herr = '';
+    if (!D.hist[v]) {
+      D.hbusy = v; changed();
+      let err = '', data = null;
+      try {
+        const r = await fetch('whatsnew/' + v + '.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) err = 'the server answered ' + r.status;
+        else { try { data = shape(await r.json()); } catch (e) { /* not JSON */ } if (!data || data.version !== v) { data = null; err = 'it is not in the expected shape'; } }
+      } catch (e) { err = navigator.onLine === false ? 'this device is offline' : 'it could not be reached'; }
+      if (data) D.hist[v] = data; else if (D.view === v) D.herr = err;
+      if (D.hbusy === v) D.hbusy = '';
+    }
+    changed();
+  }
+  const step = d => { const i = D.versions.indexOf(cur()) + d; if (i >= 0 && i < D.versions.length) return show(D.versions[i]); return Promise.resolve(); };
   // the card's lists (New, Please test, Untested), or one line while it is fetched or when it could not be
   function render() {
-    const d = D.data, body = el('devBody');
+    const d = shown(), body = el('devBody'), P = pos(), fetching = !!D.hbusy || !!D.busy;
     el('devTitle').textContent = d ? 'What is new in ' + short(d.version) : 'What is new';
     el('devDate').textContent = d ? d.date : '';
     body.textContent = '';
     const add = (tag, text, cls) => { const e = document.createElement(tag); if (text) e.textContent = text; if (cls) e.className = cls; return e; };
-    if (!d) body.appendChild(add('p', D.busy ? 'Fetching what is new...' : 'Could not fetch what is new (whatsnew.json): ' + (D.err || 'not yet asked') + '.', 'msg'));
+    if (!d) body.appendChild(add('p', fetching ? 'Fetching what is new...' : D.view ? 'Could not fetch what is new (whatsnew/' + D.view + '.json): ' + (D.herr || 'not yet asked') + '.' : 'Could not fetch what is new (whatsnew.json): ' + (D.err || 'not yet asked') + '.', 'msg'));
     else for (const [k, title] of [['new', 'New'], ['test', 'Please test'], ['untested', 'Untested']]) {
       if (!d[k].length) continue;
       body.appendChild(add('h3', title, k));
@@ -3394,14 +3437,18 @@ HOST.dev = (function () {
       for (const s of d[k]) ul.appendChild(add('li', s));
       body.appendChild(ul);
     }
-    el('devNote').textContent = d ? `Got it: not shown again for ${short(d.version)} on this device. Later: until the app opens again.` : '';
-    el('devGot').hidden = !d;   // (Got it only for a release it can name: while the file is fetched, or could not be, Later alone)
+    body.scrollTop = 0;
+    el('devNote').textContent = d ? (D.view ? 'An earlier release: Got it is only for the newest. Later: until the app opens again.' : `Got it: not shown again for ${short(d.version)} on this device. Later: until the app opens again.`) : '';
+    el('devGot').hidden = !d || !!D.view;   // (Got it only for the newest release, and for one it can name: while the file is fetched, or could not be, Later alone)
+    el('devOlder').disabled = !canOlder(); el('devNewer').disabled = !canNewer();
+    el('devNav').hidden = P.n < 2 || !D.data;
+    el('devPos').textContent = P.n ? `${short(P.version)} · ${P.i} of ${P.n}` : '';
   }
   // the card: open (why: 'start' as the app opens, 'hand' from a button) or closed (true when it was open)
   function card(open, why) {
     const c = el('devCard');
     if (!open) { if (c.hidden) return false; c.hidden = true; D.open = false; return true; }
-    D.open = true; D.why = why || 'hand'; c.hidden = false;
+    D.open = true; D.why = why || 'hand'; c.hidden = false; D.view = ''; D.herr = '';   // (always at the newest as it opens)
     load(why === 'hand');   // (first: a fetch it starts says so on the card, not an older fetch's error)
     render();
     setTimeout(() => { if (D.open) el(D.data ? 'devGot' : 'devLater').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus)
@@ -3422,18 +3469,22 @@ HOST.dev = (function () {
   function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); }
   el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
   el('devLater').addEventListener('click', () => { D.later = true; card(false); });
+  el('devOlder').addEventListener('click', () => step(1));
+  el('devNewer').addEventListener('click', () => step(-1));
   el('btnDev').addEventListener('click', () => set(!D.on));
   el('btnNews').addEventListener('click', () => card(true, 'hand'));
   sync();
   return {
     on: () => D.on, set, load, seen, gotIt, short, card, boot,
-    data: () => D.data, err: () => D.err, busy: () => !!D.busy,
+    data: shown, newest: () => D.data, err: () => (D.view ? D.herr : D.err), busy: () => !!D.busy || !!D.hbusy,
+    // the history: show(version) ('' the newest), older(), newer(), position() { i, n, version } (1 the newest), versions(), reset()
+    show, older: () => step(1), newer: () => step(-1), position: pos, versions: () => D.versions.slice(), canOlder, canNewer, isNewest: () => !D.view, reset: () => { if (D.view) { D.view = ''; D.herr = ''; changed(); } },
     // Escape and the back button: the card closes as Later (true when it was open)
     close: () => { if (!D.open) return false; D.later = true; return card(false); },
     // for the headset menu's signature (it redraws when the file comes)
-    sig: () => [D.on, D.busy ? 1 : 0, D.n, D.err, D.data ? D.data.version : '', seen() ? 1 : 0].join('|'),
+    sig: () => [D.on, D.busy ? 1 : 0, D.hbusy, D.n, D.err, D.herr, D.view, D.versions.length, D.data ? D.data.version : '', seen() ? 1 : 0].join('|'),
     // for tests
-    state: () => ({ on: D.on, open: D.open, why: D.why, later: D.later, version: D.data ? D.data.version : '', err: D.err, seen: seen(), n: D.n }),
+    state: () => ({ on: D.on, open: D.open, why: D.why, later: D.later, version: D.data ? D.data.version : '', err: D.err, seen: seen(), n: D.n, view: D.view, shown: shown() ? shown().version : '', versions: D.versions.length }),
   };
 })();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on

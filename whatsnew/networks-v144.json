@@ -1,0 +1,24 @@
+{
+  "version": "networks-v144",
+  "date": "14 November 2026",
+  "new": [
+    "Paintings in the studio: draw in the air while editing. Add pane, Paint, then the Paint tab: Ribbon, Tube, Glow, Spray and Eraser, ten colours and six widths.",
+    "In a headset the right trigger paints from a small ball 6 cm ahead of the controller; how hard you press sets the width. On a page, drag over the scene (Orbit view) to paint on the surfaces there.",
+    "Each stroke is one Undo step and reaches everyone at the circle when you let go. A painting moves, turns, sizes, locks, groups and is shown or hidden by trigger cubes like any item.",
+    "Big paintings (past 4,000 points in the scene) are kept as files of the scene in paintings/, which needs a relay that takes uploads.",
+    "What is new keeps its history: Older and Newer step through earlier releases, and the lists scroll, on the page and in the headset (Up, More, or the stick while pointing at the menu).",
+    "Shared rooms move to format networks-46: every device needs this release."
+  ],
+  "test": [
+    "Paint a few strokes with each brush in a headset, pressing the trigger lightly and fully.",
+    "Two headsets at one studio circle: strokes from one show on the other as each is let go.",
+    "The Eraser: sweep it through strokes, then Undo.",
+    "A painting carried with the grip, sized with both grips, hidden by a trigger cube.",
+    "What is new in the headset: Older, Newer, Got it only on the newest, scrolling by the stick."
+  ],
+  "untested": [
+    "Everything on a Quest: the trigger's pressure, the tip ball, how strokes look and the frame rate with big paintings.",
+    "Spray dots' size in a headset session.",
+    "How the stick scroll of What is new feels; with Moving with the sticks on, the left stick also moves you while it scrolls."
+  ]
+}

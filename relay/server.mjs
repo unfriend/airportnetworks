@@ -33,7 +33,7 @@ import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
-  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording, ORIGINALS } from './scenes.mjs';
+  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording, isPainting, ORIGINALS } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT } from './trackers.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2 } from './notes.mjs';
@@ -1174,7 +1174,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // files are: examples/<scene>/<at most 4 folders>/<file>)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes']), APP_DEEP = new Set(['examples']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew']), APP_DEEP = new Set(['examples']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
 async function serve(req, res, url) {
@@ -1202,8 +1202,8 @@ async function serve(req, res, url) {
     if (!st.isFile() || !appFile(path.relative(REAL, real).split(path.sep))) throw new Error('not an app file');
   } catch { return plain(res, 404, 'Not found'); }
   // (the release's version file and what is new in it are never kept: live updates compare the first with what a page
-  // runs, and developer mode shows the second)
-  return sendFile(req, res, file, st, { cache: /^(version|whatsnew)\.json$/.test(segs.join('/')) ? 'no-store' : 'no-cache' });
+  // runs, and developer mode shows the second; whatsnew/ holds one file for each earlier release)
+  return sendFile(req, res, file, st, { cache: /^(version\.json|whatsnew\.json|whatsnew\/[^/]+\.json)$/.test(segs.join('/')) ? 'no-store' : 'no-cache' });
 }
 // a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
@@ -1450,7 +1450,7 @@ async function folderSend(req, res, segs, raw) {
   // (only a model's, picture's, sound's or data's own type, and a recording's JSON: anything else, such as a page or a
   // script kept in originals/, is plain bytes to save, never run on this origin, where the app and its password live; and
   // nothing here runs anyway)
-  const rec = isRecording(segs.slice(1).join('/')), k = rec ? 'recording' : kindOf(real);
+  const rec = isRecording(segs.slice(1).join('/')) || isPainting(segs.slice(1).join('/')), k = rec ? 'recording' : kindOf(real);
   const type = rec ? 'application/json' : k === 'other' ? 'application/octet-stream' : TYPES[path.extname(real).toLowerCase()] || 'application/octet-stream';
   return sendFile(req, res, real, st, { squeeze: false, type, extra: { 'Access-Control-Expose-Headers': 'ETag, Content-Range, Accept-Ranges',
     'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", ...(k === 'other' ? { 'Content-Disposition': 'attachment' } : {}) } });
@@ -1524,8 +1524,8 @@ const TOO_BIG = `a file is at most ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB he
 // recording under recordings/ less (relay/scenes.mjs, MAX_PREVIEW and MAX_RECORDING: uploadPath gives it as want.max),
 // with its own words
 const capOf = want => Math.min(MAX_UPLOAD, want && want.max ? want.max : Infinity);
-const capWord = want => (want && want.kind === 'recording' ? 'a recording in recordings/' : 'a picture in previews/');
-const bigFor = want => (capOf(want) < MAX_UPLOAD ? `${capWord(want)} is at most ${want.kind === 'recording' ? +(capOf(want) / (1 << 20)).toFixed(2) + ' MB' : Math.round(capOf(want) / 1024) + ' KB'}` : TOO_BIG);
+const capWord = want => (want && want.kind === 'recording' ? 'a recording in recordings/' : want && want.kind === 'painting' ? 'a painting in paintings/' : 'a picture in previews/');
+const bigFor = want => (capOf(want) < MAX_UPLOAD ? `${capWord(want)} is at most ${want.kind === 'recording' || want.kind === 'painting' ? +(capOf(want) / (1 << 20)).toFixed(2) + ' MB' : Math.round(capOf(want) / 1024) + ' KB'}` : TOO_BIG);
 const UPLOAD_IDLE = 120000;   // an upload with no byte for this long is given up (server.requestTimeout is off for slow ones)
 const DRAIN = 16 << 20;
 const FF = { running: 0, procs: new Set() };

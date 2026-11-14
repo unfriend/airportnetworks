@@ -159,6 +159,7 @@ function norm(kind, x) {
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
+  if (kind === 'd') return normPainting(x, P, has, name, one);   // (a painting: strokes drawn in the air, e6r_paint.js)
   return null;
 }
 // in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
@@ -192,14 +193,14 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v'], GROUP_ITEMS = 760;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v', 'd'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
 // (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
-const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v'];
+const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v', 'd'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -264,6 +265,12 @@ function makeItem(id, kind) {
     it.holder = it.look.body;
     it.look.hit.userData.id = it.look.bar.userData.id = id;
     GL.edit.add(it.look.deco); GL.items.add(it.look.bar);
+  } else if (kind === 'd') {
+    // a painting: its strokes' meshes in its holder (scaled to its size), its box unseen (e6r_paint.js)
+    it.look = paintLook(id);
+    it.holder = it.look.body;
+    it.look.hit.userData.id = id;
+    GL.edit.add(it.look.deco);
   } else if (kind === 'e') {
     it.look = LOOKS.empty(id);
     it.holder = it.look.group;
@@ -283,7 +290,7 @@ function removeItem(id) {
   if (!it) return;
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
-  else { if (it.kind === 'v') screenDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
+  else { if (it.kind === 'v') screenDrop(it); if (it.kind === 'd') paintDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.tag) { GL.edit.remove(it.tag); it.tag.userData.drop(); }   // (a model's tag: modelTag)
@@ -316,6 +323,7 @@ function poseOf(it) {
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
   else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
   else if (it.kind === 'v') { _pq.fromArray(r.q); _ps.setScalar(r.w); }
+  else if (it.kind === 'd') { _pq.fromArray(r.q); _ps.setScalar(r.s); }
   else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
@@ -336,6 +344,7 @@ function applyRec(it, was, glide) {
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
   else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
   else if (it.kind === 'v') screenRec(it, was);   // (its playlist, look and width: e6q_screens.js)
+  else if (it.kind === 'd') paintRec(it, was);   // (its strokes and words: e6r_paint.js)
   else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
     it.look.name.userData.set(tagName(r), it.look.col, 0.07);
@@ -725,6 +734,7 @@ const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 const heldHere = it => !!it.carry || recording(it);
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
+  paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
@@ -741,7 +751,8 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
+    if (it.kind === 'd') { const vis = it.shown || (editing && heldHere(it)); it.hid = editing && !vis; it.a = vis ? 1 : 0; }   // (a painting snaps, as a hidden model does: e6r_paint.js)
+    else if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
     else {
       const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : 0;
       it.hid = false; it.a = approach(it.a, tgt, fade);
@@ -771,6 +782,7 @@ function itemsStep(dt, now) {
         if (it.tagR !== r) { it.tagR = r; L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085); }   // (its words built only when its record changes)
       }
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
+    else if (it.kind === 'd') paintItemStep(it, editing);   // (its meshes, built in slices; its look and tag: e6r_paint.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
   texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
@@ -929,6 +941,7 @@ function itemTopInto(it, out, mid) {
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'v') { const b = screenBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'd') { const b = paintBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'e') { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.2; }   // (where it is drawn: a motion)
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
@@ -1340,6 +1353,7 @@ function duplicateItem(id) {
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
+  if (it.kind === 'd') return duplicatePainting(it);   // (its strokes copied, in the record or a new file: e6r_paint.js)
   const pw = pathCopyWhy([it.rec]);   // (its recorded path: the scene's 6,000 keys and the shared state's room; e6f_path.js)
   if (pw) { recSay(it.id, pw, 'amber'); return ''; }
   const nid = newId(), o = it.rec.o || [0, 0, 0];
@@ -1379,7 +1393,7 @@ const ITEM_ACT = {
   // about its pivot, the vertical only)
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
-  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'd' ? paintBoxRec(it, new THREE.Box3()) : it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
   // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
   faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
   // its tint ('' none) and brightness (×0.8, ×1.25, held at 25 % and 400 %; 'reset' 100 %): an object's own, or every
@@ -1445,7 +1459,7 @@ const ITEM_ACT = {
   // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
   hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; XR.rec = ''; },
 };
-const PANE_ONLY = ['keyPick', 'pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pnOnIt', 'pclearArm', 'keyPick', 'pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -1460,7 +1474,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
-  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
+  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v' || it.kind === 'd') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -1491,6 +1505,7 @@ function select(id) {
   if (STU.keyPick && STU.keyPick !== id) STU.keyPick = '';   // (and to the cube picking its key)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
   if (id && typeof X !== 'undefined') X.tab = 'item';
+  paintSelected(id);   // (paint mode: a painting keeps the Paint pane, anything else ends it; e6r_paint.js)
   tcAttach();
   dirty(true);
 }
@@ -1514,7 +1529,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpev]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpevd]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -1527,16 +1542,16 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0 };
-  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one)
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0 };
+  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpev])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpevd])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
     let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path);
+    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }

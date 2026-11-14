@@ -36,12 +36,13 @@ function groupBox(g, out, solid) {
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p' || m.kind === 'v') : [];
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p' || m.kind === 'v' || m.kind === 'd') : [];
   for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
     if (it.kind === 'e') { out.expandByPoint(it.holder.position); continue; }
     if (it.kind === 'p') { out.union(shapeBox(it, _gb)); continue; }
     if (it.kind === 'v') { out.union(screenBox(it, _gb)); continue; }
+    if (it.kind === 'd') { out.union(paintBox(it, _gb)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
     t.updateWorldMatrix(true, false);
@@ -117,6 +118,11 @@ function groupMove(B, t, th, k, write) {
       const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), w = lim(r.w * k, 0.2, 20, it);
       if (write) setRec(it.id, { p: p.toArray(), q: q.toArray(), w });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(w); }
+    } else if (m.kind === 'd') {
+      // (a painting: its place and turn, its size; its strokes are in its own frame)
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), sc = lim(r.s * k, 0.05, 20, it);
+      if (write) setRec(it.id, { p: p.toArray(), q: q.toArray(), s: sc });
+      if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(sc); }
     } else if (m.kind === 'p' || m.kind === 'e') {
       // (a shape: its place, its turn and its size per axis; an empty: its place and turn)
       const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), size = m.kind === 'p' ? r.size.map(v => lim(v * k, 0.01, 100, it)) : null;
@@ -229,10 +235,11 @@ function gpickEnd() {
 // --------------------------------------------------------- duplicate --
 // why a group cannot be copied now ('' it can): the scene's limits, its copies and its objects' cut-outs counted
 function groupDupWhy(g) {
-  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0 };
+  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0, d: 0 };
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
+  if (!k && paintCopyWhy(ms.map(m => m.rec))) return paintCopyWhy(ms.map(m => m.rec));   // (its paintings' points in records: 4,000 in all, e6r_paint.js)
   return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : pathCopyWhy(ms.map(m => m.rec));   // (and its members' recorded paths: e6f_path.js)
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
@@ -252,7 +259,7 @@ function duplicateGroup(g) {
       putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined })));
       for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
-    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
     // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)

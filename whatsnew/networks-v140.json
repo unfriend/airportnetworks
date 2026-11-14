@@ -1,0 +1,18 @@
+{
+  "version": "networks-v140",
+  "date": "13 November 2026",
+  "new": [
+    "Studio: objects and shapes can be set to Who can move it: Anyone (on their card). Without editing, visitors too, the grip carries them in a headset (one hand, no sizing) and a drag moves them along the floor on a page; everyone at the circle sees them moved.",
+    "Studio: trigger cubes can react to an item instead of people (Reacts to: An item (a key)... on the cube's card, then point at the item or pick it from the list). The cube is active while the key is inside it, for everyone here.",
+    "Together: a key anyone can carry into a cube that opens a door, shows a room or starts a sound."
+  ],
+  "test": [
+    "In the studio, set a small object to Anyone, turn Edit off and carry it with the grip in a headset. Does it stay where you put it, and do the others see it there?",
+    "Make a trigger cube react to that object as its key, with something it shows. Carry the key into the cube and out again: does it show and hide for everyone?",
+    "On a page with Edit off, drag the key into the cube with the mouse."
+  ],
+  "untested": [
+    "Carrying an item without editing on a real headset (only the page's drag was tried, in headless Chromium).",
+    "v139 and older items from What is new are still untried on devices where they were before."
+  ]
+}

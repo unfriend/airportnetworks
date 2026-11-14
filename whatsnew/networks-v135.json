@@ -1,0 +1,20 @@
+{
+  "version": "networks-v135",
+  "date": "11 November 2026",
+  "new": [
+    "Spaceships fought together: a hit on a drone or a crystal is no longer lost, and a pickup taken does not come back, when a headset misses the leading headset for a moment (a Wi-Fi hiccup, the Quest menu open for 2 s). Before, that headset's bolt could vanish on the leader and the drone kept its shield.",
+    "Everything from v134 is here too: loops with the right stick held back, the arena's floor and ceiling bouncing the ship, and no black halo round the glows in AR.",
+    "The main site has this release too."
+  ],
+  "test": [
+    "Two or more people fly ships in one room and shoot the same drone: does every hit count, and is the drone destroyed for everyone at once?",
+    "While one person opens the Quest menu for a few seconds, the other keeps shooting a drone: after they come back, do the drones' bars agree on both headsets?",
+    "Hold the stick back: does the ship loop smoothly, and does a loop fit in your room?",
+    "In AR, look at the ship's engine, the drones' red eyes, the crystals and the pickups: any dark square or ring round them now?"
+  ],
+  "untested": [
+    "Spaceships fought together over real Wi-Fi with real headsets (checked only with pretend headsets in a headless browser).",
+    "How loops feel on a Quest and whether 140 degrees a second is the right speed for them.",
+    "The glows over a real passthrough."
+  ]
+}

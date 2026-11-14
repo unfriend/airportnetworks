@@ -254,7 +254,7 @@ function filesOf(list) {
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'video', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : okPaintFile(f.path) ? 'painting' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'video', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
     out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
@@ -300,7 +300,7 @@ async function refreshFiles(changed) {
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
 // its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
 // naming an item the layout lacks, or one of the wrong kind, dropped
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20 };
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50 };
 function readLayout(j) {
   const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
@@ -310,8 +310,8 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one)
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens]]) {
+  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
@@ -319,7 +319,7 @@ function readLayout(j) {
       const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
       if (kind === 'v') delete rec.play;   // (a scene opens paused at its first entry: play is never saved)
-      ids.add(id); n++; if (rec.path) keys += pathN(rec.path);
+      ids.add(id); n++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
       out.items.push({ id, kind, rec });
@@ -353,6 +353,7 @@ function layoutOut() {
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  if (P.some(it => it.kind === 'd')) L.paintings = P.filter(it => it.kind === 'd').map(it => Object.assign({ id: it.id }, it.rec));   // (v144)
   if (P.some(it => it.kind === 'v')) L.screens = P.filter(it => it.kind === 'v').map(it => { const r = Object.assign({ id: it.id }, it.rec); delete r.play; return r; });   // (without play: v143)
   L.settings = Object.assign({}, STU.settings);
   return L;

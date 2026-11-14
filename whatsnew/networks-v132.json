@@ -1,0 +1,26 @@
+{
+  "version": "networks-v132",
+  "date": "10 November 2026",
+  "new": [
+    "Spaceships in VR and AR: click the right stick twice (or Settings, Spaceship: launch) and a small ship flies out in front of you; click it twice again to land. Moving with the sticks is now the left stick clicked twice.",
+    "Flying: the right controller is a joystick. Tilt it left or right to turn, nose up or down to climb or dive (how you held it at launch is level). The ship always flies forward; the grip brakes and, held fully, reverses; A boosts for a moment; the trigger shoots.",
+    "Shield and health: hits take the shield first, which refills after 2 s; health does not. Destroyed, a new ship comes 5 s later. While flying, the right controller presses nothing in the story or the menu, and the right stick turns nothing.",
+    "Something to fight together: three drifting crystals and red-eyed drones (two, one more for each extra pilot, at most five), shared by everyone flying in the room. One headset runs them, the pilot flying longest, and hands them on when it lands.",
+    "Pickups every 15 to 30 s, at most two at once: boost (amber, 15 s of quick boosts), rapid fire (red, 12 s at 10 shots a second) and reinforced shield (blue, +50 above the normal 100, used first). Fly through one to take it.",
+    "Everyone in a shared room sees every ship; a strip over your right controller shows your shield, health, boost and pickups, and an arrow points to your ship when it is out of view. A headset not lined up yet flies alone until it lines up."
+  ],
+  "test": [
+    "Launch with two clicks of the right stick and land again. Does the joystick feel right (tilt to turn, a full turn possible, climbing and diving), and are the speeds, the boost and the brakes about right?",
+    "Two headsets in one room: shoot the same drone together, shoot each other (shield first, then health, a new ship after 5 s), and take pickups. Do the other ship and its bolts look smooth?",
+    "Launch from the menu's Spaceship row with the right trigger, fly in a story's explore mode, land: do the story's panel buttons and its explore stick work again, and did nothing move while flying?",
+    "In AR: does the ship bounce off the walls of your room scan? Do the strip over the controller and the off-view arrow read well?",
+    "The left stick clicked twice should still turn moving with the sticks on and off (VR), in the studio too."
+  ],
+  "untested": [
+    "Everything on a real headset: how the joystick feels and its numbers (dead zones, 40 degrees of tilt for a full turn, 60 degrees of climb), the speeds and damage in play, the haptic buzz.",
+    "How the ships, drones, pickups, bars, the strip and the arrow read on a Quest, and how smooth others' ships look over Wi-Fi.",
+    "Bounces off a real room scan, whether Quest Browser really keeps the right controller's presses from the story, and the frame cost on a Quest with many pilots (0.4 ms a frame measured only in software).",
+    "How the game's sounds sound: rendered and level-checked only, never heard.",
+    "On dev only the quick checks ran (the lane ran its own spaceship blocks); the full suites run before the main site moves."
+  ]
+}

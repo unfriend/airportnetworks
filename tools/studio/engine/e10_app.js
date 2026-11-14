@@ -412,6 +412,8 @@ const STUDIO = {
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
   screen: id => screenState(id),
+  paint: () => paintState(),   // (paint mode: its brush, colour, width, target, stroke being drawn and last result: e6r_paint.js)
+  painting: id => paintingState(id),   // (a painting: its record, strokes, meshes, dots, whether built)
   get screenClock() { return screenClock; },
   set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
@@ -476,6 +478,7 @@ return {
     for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
+    try { paintDispose(); } catch (e) { /* none */ }   // (paint mode ended, its preview and tip let go: e6r_paint.js)
     try { screensDispose(); } catch (e) { /* none */ }   // (the screens' elements let go: e6q_screens.js)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }

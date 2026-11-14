@@ -256,7 +256,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
   selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
   trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out; `engine/e6o_walls.js` (v137)
-  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e6q_screens.js` (v143) screens, video and audio players with playlists; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
+  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e6q_screens.js` (v143) screens, video and audio players with playlists; `engine/e6r_paint.js` (v144) paintings, strokes drawn in the air; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
   opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
@@ -908,7 +908,15 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   rate). What is new is `whatsnew.json` at the app's root, `{ version, date, new, test, untested }` (short sentences;
   New, Please test and Untested), written by hand at every release; fetched past every cache as `version.json` is
   (`?t=`, `no-store`; the service worker passes it through, the relay serves it `no-store`, never in `SHELL`), at most
-  40 sentences a list.
+  40 sentences a list. Since v144 it keeps a history: `whatsnew/<version>.json` for every release from v127 and
+  `whatsnew/index.json` (`{ versions, at }`, newest first), written by `node tools/release.mjs` from `whatsnew.json` when
+  that names the release (`--check` fails while they are not current), never cached (the service worker passes them
+  through, the relay serves the folder as an app folder, `no-store`). The card and the headset's page have *Older* and
+  *Newer* (`HOST.dev.show(v)`, `older()`, `newer()`, `position()`, `versions()`), a line *v142 · 2 of 18*, *Got it* only on
+  the newest, and always open at the newest; their lists scroll (the card's body; the headset's page an 860 px view with
+  Up and More, and the stick pushed up or down while the ray is on the menu, `newsStick`; `HOST.collab.whatsNew()` adds
+  `sc` and `max`). Untested on a Quest: the stick scroll's feel; with Moving with the sticks on, the left stick also
+  moves you while it scrolls.
   - On a page, while it is on: a card (`#devCard`) over the Stories screen, or over the story a link opened, once a
     page load (`HOST.dev.boot()`, after the first story has started), with the release's number from the file (*What
     is new in v124*), its date and the three lists; *Got it* keeps it away for that version on this device (`devSeen`),
@@ -1718,7 +1726,8 @@ kind `wall` (things on the room's walls: "Cubes for everyone", "AR or VR only" a
 which an older device would drop or refuse; networks-44 in v140: an optional `grab` on an object's and a shape's record
 (anyone may move it without editing) and an optional `key` on a cube's (the item it reacts to): "Moved by anyone" and "Cubes
 with a key" under "The studio"); networks-45 in v143: the studio's `state()` gained a field per screen, `v.<id>` (a video
-or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores).
+or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores); networks-46 in v144: a field per painting, `d.<id>` (strokes drawn in the air:
+"Paintings" under "The studio"), which an older device ignores).
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -3291,7 +3300,8 @@ The plan is `docs/shared-space-plan.md`.
   case is refused, 400: where case is ignored, Windows and macOS, it is that same folder; v125: a recorded path kept as a
   file, `recordings/<name>.json`, listed and told with the kind `recording`, served as JSON, at most 4 MB (and
   `--max-upload`), stored in R2 and signed as `application/json`; a `.json` anywhere else is refused, 400, and another kind
-  in `recordings/` goes by its own rules). `GET /api/scenes` (the scenes, and
+  in `recordings/` goes by its own rules; v144: a painting kept as a file, `paintings/<name>.json`, by the same rules, kind
+  `painting`). `GET /api/scenes` (the scenes, and
   `save`, `upload`, `ffmpeg`, `maxUpload`), `GET /api/scenes/<name>` (its files with their kinds, its parsed `layout`
   and `layoutAt`), `GET /scenes/<name>/<path>` (the file: `ETag`, `no-cache`, 304, byte ranges, CORS; `..`,
   backslashes, NUL, dot files and links out of the scene refused), `POST /api/scenes/<name>/layout` (writes
@@ -3527,7 +3537,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, what it starts, `plays`, when it has anything, v136, `all: true` when it works for everyone here, v137, and `key` when it reacts to an item, v140), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128; the kind `wall`, `{ at, who, range, speed, gap }`, v137) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, an object's, a sound's, a shape's and an empty's `shows` (`'ar'` or `'vr'`, v137) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom (an everyone cube's heads are each device's from presence), what a cube has started for whom, where an item stands on a wall (each headset's own walls), editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, what it starts, `plays`, when it has anything, v136, `all: true` when it works for everyone here, v137, and `key` when it reacts to an item, v140), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`) or `d.<id>` (a painting: its strokes or the file that keeps them, v144); an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128; the kind `wall`, `{ at, who, range, speed, gap }`, v137) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, an object's, a sound's, a shape's and an empty's `shows` (`'ar'` or `'vr'`, v137) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom (an everyone cube's heads are each device's from presence), what a cube has started for whom, where an item stands on a wall (each headset's own walls), editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 
@@ -4885,6 +4895,27 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `STUDIO.screen(id)` and `STUDIO.screenClock` for tests. Untested on devices: a Quest's video decoder and the cost of a
   1080p `VideoTexture`, the bar with a real ray, a screen's sound through HRTF, iPhone's video element through the context,
   a long video converted on Coolify.
+- **Paintings: drawing in the air** (v144; the owner, 14 November 2026, "Paint mode in studio mode, optionally with
+  brushes and a spraycan"; the contract is `tools/studio/SPEC.md`, "Paintings"; `engine/e6r_paint.js`). A new kind of
+  item, a painting (`d.<id>` in `state()`, `paintings` in `layout.json`, at most 50 a scene): `{ name, p, q, s, strokes |
+  src, n, pts, locked, shows }`, each stroke `{ b: 'ribbon' | 'tube' | 'glow' | 'spray', c, w, k: [[x, y, z, f(, nx, ny,
+  nz)]], sd }` in the painting's frame (spray dots made from its seed, the same on every device). Paint mode is this
+  device's own and only while editing: the Add pane's *Paint* and a Paint tab (the brushes and an Eraser, ten colours,
+  widths 2 to 80 mm). In a headset the right trigger paints from a tip 6 cm ahead of the controller, its pressure the
+  width (`f`); on a page a drag in Orbit view paints on the surfaces under the pointer (the floor, models). Points kept
+  every 1.5 mm off a straight line; each stroke one change and one Undo step, shared when let go (the stroke being
+  drawn is this device's own, a preview grown in place, kept until the painting's new meshes are built); the Eraser
+  one step a sweep (the swept segment tested). Drawn as at most four merged opaque meshes a painting (one a brush),
+  built again in slices only when its strokes change. Strokes stay in the record while the scene's records hold at most
+  4,000 points and the shared state stays under 224 KB; past that a painting is kept as a file of the scene,
+  `paintings/<name>-<n>.json` (a new file each change, never written over; at most 3.5 MB, refused in words past it;
+  without a relay that takes uploads refused in words). Readers keep every record they get (the limit is checked only as
+  strokes are added). Moved, turned, sized, locked, grouped, duplicated, shown and hidden by cubes, *Shows in*, and moved
+  by *Move the scene to this circle* like any item. `STUDIO.paint()`, `STUDIO.painting(id)`, `PAINT.fake(points)` for
+  tests. FORMAT `networks-46`. Known limits: the Eraser and a file save against strokes changed meanwhile by another
+  device can lose them; a brush's width is held at 2 to 200 mm in the painting's frame (a painting sized far up or down
+  paints thinner or thicker than the preview); spray dots' size in a headset session. Untested on a headset: all of it
+  (the trigger's pressure, the tip, how strokes look, the frame rate with big paintings).
 - **The room scan** (v141; the owner, 13 November 2026: "Possible to use the quest for scanning? That would also be perfect
   for setting up a new room with a scan directly inside the headset"; `engine/e6p_scan.js`, `tools/studio/README.md` "The
   room scan, and scanning rooms and objects"). A web page on a Quest gets only Space Setup's scan: WebXR's
@@ -6657,6 +6688,16 @@ and off, shuffle's order; a cube hiding it; the 4 and 2 limits; sync own; who ma
 story, `&visit`); `norm`'s rules, `layout.json` without `play`, *Unsaved changes* ignoring it, the headset's card and bar;
 and two pages carrying the state between them. `node relay/test.mjs --video` runs the relay's video kinds, uploads under
 `videos/` and the conversion job (a real `ffmpeg` with libx264 where the machine has one).
+
+Its *studio paint* steps (v144; `--only 'studio paint'`, a few minutes): paint mode on and off; the four brushes (their
+triangles, opaque materials, at most four draws, pixels read back); a real pointer drag on a page; sampling, simplifying
+and the spray's seed; the Eraser (one Undo step); the 4,000 points refused in words without a relay; `norm`'s rules and
+the layout and state round trips; a cube hiding it, groups, Duplicate, a lock refusing, Clear, the Items card; a pretend
+headset's trigger with pressure, the ribbon's normal, the tip ball, a panel press, the grip carrying it and the Paint
+pane's buttons; and on a relay of its own, a painting kept as a file past 4,000 points, read back from the relay, brought
+back into the record by erasing, a big Duplicate a new file. The *developer mode* steps (v144) also step Older and Newer
+on the card and the headset's page, scroll them (Up, More, the stick), and run the release script's `whatsnew/` writing
+and `--check` on a copy.
 
 Its *studio examples* steps (v137; `--only 'studio examples'`, about four minutes): the test example
 (`tools/studio/test/examples/tiny`, `&examples=` pointing there) listed on the Scene pane, Copy greyed with no relay;

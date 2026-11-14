@@ -2713,6 +2713,89 @@ screen, iPhone's video element through the context, a long video converted on Co
 - Videos placed from the Add pane's *Videos* grid; the Upload pane's drop into `videos/` and its conversion are the other lane's
   (`e7b_upload.js`).
 
+## Paintings: drawing in the air (v144, the owner, 14 November 2026)
+
+The owner: "Paint mode in studio mode, optionally with brushes and a spraycan etc?"; asked, painting in the air (strokes
+as 3D items, like a painting app in VR), not painting onto models. Owner's choices not given were decided here: strokes
+reach the others when the trigger is let go (not while drawn), and painting is for editing only (not visitors).
+
+A **painting** is a new kind of item (kind `d`, the state's field `d.<id>`, `layout.json`'s `paintings`): a set of
+strokes drawn in the air, moved, turned, sized, shown and hidden, grouped, locked and deleted as one item. At most 50
+paintings a scene.
+
+### The record
+
+`{ name, p, q, s, strokes, src, n, pts, locked, shows }`:
+
+- `p`, `q`: as an empty's (`q` a full turn, 4 decimals); `s` a uniform size, 0.05 to 20, 4 significant figures, 1 at
+  first. Strokes are in the painting's own frame (metres, turned and sized with it).
+- `strokes` (in the record) or `src` (a file of the scene, `paintings/<the painting's name>-<n>.json`, `{ studio: 1,
+  painting: 1, strokes }`, as v125's recordings are kept: the first `n` free, never written over, written whole), never
+  both. `n` the number of strokes and `pts` of points with `src` (for the cards and the limits).
+- A stroke: `{ b, c, w, k, sd }`: `b` the brush (`'ribbon'`, `'tube'`, `'glow'`, `'spray'`), `c` its colour
+  (`'#rrggbb'`, lower case), `w` its width in metres (0.002 to 0.2, 3 decimals), `k` its points, each `[x, y, z, f]` (x, y,
+  z to the mm; `f` the width factor from the trigger's pressure, 0.1 to 1, 2 decimals) and for a ribbon `[x, y, z, f, nx,
+  ny, nz]` (its face's normal, 2 decimals: the controller's up, so the ribbon lies as the hand held it), 2 to 2,000
+  points; `sd` a spray's seed (1 to 2^31): its dots are a fixed function of the points, the width and the seed
+  (`sprayDots(stroke)`, the same on every device; about 40 dots per centimetre of path at full pressure, within a disc of
+  the width, at most 6,000 a stroke).
+- Limits: in the record at most 4,000 points in all a scene's paintings (so the station's state stays well under the
+  relay's limit); more go to a file (a relay that takes uploads), at most 200,000 points and 2,000 strokes a painting.
+  Without such a relay a painting past the record's limit is refused in words (*More strokes need a relay that takes
+  uploads*), the stroke kept as drawn until let go and then dropped.
+- `norm('d', x)` checks it all; a bad stroke makes the record bad (as for every kind).
+
+### Painting (editing only)
+
+- **Paint mode** (this device's own, never saved or shared): *Paint* on the Add pane (page and headset) and a *Paint*
+  pane while it is on: brush (*Ribbon*, *Tube*, *Glow*, *Spray can*, *Eraser*), colour (the shapes' ten swatches, and on a
+  page *Any colour*), width (*Thinner*, *Thicker*: 2, 5, 10, 20, 40, 80 mm, 10 by default), *New painting* and *Done*.
+  Strokes go into the painting selected, else a new one is made with the first stroke (named *Painting n*, its `p` at
+  the stroke's first point, on the floor below it, `q` facing you level), which is then selected. Paint mode ends with
+  *Done*, editing off, another pane's item selected that is not a painting, or the session's end.
+- **In a headset:** the right trigger paints from a point 6 cm ahead of the controller along its ray (a small ball of the
+  colour and width shows there while paint mode is on); its pressure (`buttons[0].value`) sets `f`; the left hand keeps
+  the menu and panels. Samples every frame while held, kept when the tip moved at least 3 mm (or turned 10 degrees for a
+  ribbon). The ray on a panel presses the panel, never paints. The grip still carries items (a painting by any of its
+  strokes, through its unseen box).
+- **On a page:** a press and drag on the scene paints where the pointer's ray meets the scene's surfaces (models,
+  shapes, the floor), 3 mm out along the surface's normal, else at the distance where the drag began; Orbit view's drag
+  is the brush while paint mode is on (the wheel still zooms); `f` is 1 (a pen's `pressure` where the browser gives it).
+- **The stroke being drawn** is this device's alone, drawn as it goes (its own small geometry, grown in place). Let go:
+  simplified (a point kept where leaving it out would move the line more than 1.5 mm; spray: the path only, its dots
+  from the seed), put into the painting's strokes (one change, one Undo step), so it reaches everyone at the circle with
+  the record, and saved with the scene. A stroke of fewer than 2 points after simplifying is dropped.
+- **Eraser:** the brush that removes: while the trigger (or the drag) is held, every stroke of the selected painting
+  (else any painting) that passes within its width of the tip is removed; one Undo step for one press. A painting left
+  with no strokes stays (empty) until deleted.
+- Refused while the painting is locked in place (*Lock in place*), the circle's story locked, or for a visitor
+  (`&visit`); the Paint pane says why.
+
+### Drawing it (the frame rate)
+
+- Each painting is merged into at most 4 meshes, one per look, built again only when its strokes change (between frames,
+  a slice at a time for a big one, `PAINT.build`), never per frame: ribbons (flat quads along the path, both faces, the
+  colour per vertex, lit), tubes (8 sides, lit, round caps), glow (tubes, unlit, the colour brightened, a thin darker
+  core, nothing additive or see-through), spray (all dots of the painting in one `Points` draw, round by `alphaTest`,
+  opaque, size in metres with distance). Everything opaque, depth-tested and written, as the studio's other looks.
+- A painting's unseen box (its strokes' bounds) is how it is pointed at, selected and carried, as an object's.
+- Shown and hidden by trigger cubes (it snaps, as v131's hidden models do), `shows`, groups, *Lock in place*,
+  *Duplicate* (its strokes copied: with `src`, a new file), *Delete*, on its card: *Paint on it* (paint mode into it),
+  *Strokes: n · points* and *Clear* (two presses, one Undo step).
+- **Items pane:** a card with a tile drawn for it (its strokes' colours), *Painting · 12 strokes*.
+
+### Shared
+
+`state()` gains `d.<id>`; FORMAT networks-46. With `src` the others read the file once it is listed (as recordings), until
+then the strokes they had. Nothing else is sent: the stroke being drawn is not seen by the others until it is let go.
+
+### For tests
+
+`STUDIO.paint()` (`{ on, brush, colour, width, painting, drawing: { n }, last }`) and `STUDIO.painting(id)` (`{ rec,
+strokes, meshes: [{ look, tris, draws }], dots, built }`); `PAINT.fake(points)` (a stroke drawn from given tip samples, as
+the trigger would). Untested on devices until tried: painting with a real controller (its pressure, the 6 cm tip, how
+strokes feel), the frame rate with big paintings on a Quest.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without

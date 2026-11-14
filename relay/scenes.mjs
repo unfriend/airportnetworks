@@ -28,7 +28,7 @@ export const SCENE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg':
   '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds',
   '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm',
   '.mp4': 'video/mp4', '.m4v': 'video/x-m4v', '.mov': 'video/quicktime', '.mkv': 'video/x-matroska' };
-export const typeOf = p => (isRecording(p) ? 'application/json' : kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
+export const typeOf = p => (isRecording(p) || isPainting(p) ? 'application/json' : kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
 // a model's picture for the studio's Add pane: previews/<the model's path>.jpg, a JPEG the studio makes with each GLB it
 // writes (and on Make pictures), at most 200 KB. Listed with a kind of its own, 'preview' (never a picture a texture could
 // be, never a model), so the studio knows which models have one; anything else in previews/ is listed as 'other'. An
@@ -41,7 +41,12 @@ export const isPreview = rel => { rel = String(rel); return rel.startsWith(PREVI
 // goes only there (uploadPath)
 export const RECORDINGS = 'recordings', MAX_RECORDING = 4 << 20;
 export const isRecording = rel => { rel = String(rel); return rel.startsWith(RECORDINGS + '/') && rel.endsWith('.json') && rel.length > RECORDINGS.length + 6; };
-export const kindAt = rel => (String(rel).startsWith(PREVIEWS + '/') ? (isPreview(rel) ? 'preview' : 'other') : isRecording(rel) ? 'recording' : kindOf(rel));
+// a painting kept as a file of its scene (tools/studio/SPEC.md, "Paintings", v144: strokes drawn in the air past the 4,000
+// points a record holds): paintings/<the painting's name>-<n>.json, the studio's own JSON, at most 4 MB, listed with the kind
+// 'painting' and served as JSON, as recordings are
+export const PAINTINGS = 'paintings', MAX_PAINTING = 4 << 20;
+export const isPainting = rel => { rel = String(rel); return rel.startsWith(PAINTINGS + '/') && rel.endsWith('.json') && rel.length > PAINTINGS.length + 6; };
+export const kindAt = rel => (String(rel).startsWith(PREVIEWS + '/') ? (isPreview(rel) ? 'preview' : 'other') : isRecording(rel) ? 'recording' : isPainting(rel) ? 'painting' : kindOf(rel));
 // an editor's or a download's temporary file (a copy in progress, a swap file): never listed, never told
 export const TEMP = /(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i;
 // a name a listing leaves out: dot files, temporary files, and names no URL path could carry back here
@@ -198,8 +203,9 @@ export function uploadPath(p) {
   // and a file put there would land among the pictures past their rule, listed as an ordinary image)
   if (segs[0].toLowerCase() === PREVIEWS) return { error: `${PREVIEWS}/ is written in lower case: no other folder at the top of a scene has that name` };
   if (isRecording(p)) return { rel: p, segs, kind: 'recording', max: MAX_RECORDING };
+  if (isPainting(p)) return { rel: p, segs, kind: 'painting', max: MAX_PAINTING };
   const kind = kindOf(p);
-  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: `outside originals/ only models (.glb .gltf .fbx), sounds, videos (.mp4 .m4v .mov .mkv), images and data (.bin), and recordings (.json) in ${RECORDINGS}/` };
+  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: `outside originals/ only models (.glb .gltf .fbx), sounds, videos (.mp4 .m4v .mov .mkv), images and data (.bin), and recordings (.json) in ${RECORDINGS}/ and paintings (.json) in ${PAINTINGS}/` };
   return { rel: p, segs, kind };
 }
 

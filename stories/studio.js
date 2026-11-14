@@ -17079,7 +17079,7 @@ function filesOf(list) {
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'video', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : okPaintFile(f.path) ? 'painting' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'video', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
     out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
@@ -17125,7 +17125,7 @@ async function refreshFiles(changed) {
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
 // its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
 // naming an item the layout lacks, or one of the wrong kind, dropped
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20 };
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50 };
 function readLayout(j) {
   const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
@@ -17135,8 +17135,8 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one)
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens]]) {
+  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
@@ -17144,7 +17144,7 @@ function readLayout(j) {
       const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
       if (kind === 'v') delete rec.play;   // (a scene opens paused at its first entry: play is never saved)
-      ids.add(id); n++; if (rec.path) keys += pathN(rec.path);
+      ids.add(id); n++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
       out.items.push({ id, kind, rec });
@@ -17178,6 +17178,7 @@ function layoutOut() {
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  if (P.some(it => it.kind === 'd')) L.paintings = P.filter(it => it.kind === 'd').map(it => Object.assign({ id: it.id }, it.rec));   // (v144)
   if (P.some(it => it.kind === 'v')) L.screens = P.filter(it => it.kind === 'v').map(it => { const r = Object.assign({ id: it.id }, it.rec); delete r.play; return r; });   // (without play: v143)
   L.settings = Object.assign({}, STU.settings);
   return L;
@@ -20376,6 +20377,7 @@ function norm(kind, x) {
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
+  if (kind === 'd') return normPainting(x, P, has, name, one);   // (a painting: strokes drawn in the air, e6r_paint.js)
   return null;
 }
 // in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
@@ -20409,14 +20411,14 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v'], GROUP_ITEMS = 760;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v', 'd'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
 // (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
-const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v'];
+const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v', 'd'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -20481,6 +20483,12 @@ function makeItem(id, kind) {
     it.holder = it.look.body;
     it.look.hit.userData.id = it.look.bar.userData.id = id;
     GL.edit.add(it.look.deco); GL.items.add(it.look.bar);
+  } else if (kind === 'd') {
+    // a painting: its strokes' meshes in its holder (scaled to its size), its box unseen (e6r_paint.js)
+    it.look = paintLook(id);
+    it.holder = it.look.body;
+    it.look.hit.userData.id = id;
+    GL.edit.add(it.look.deco);
   } else if (kind === 'e') {
     it.look = LOOKS.empty(id);
     it.holder = it.look.group;
@@ -20500,7 +20508,7 @@ function removeItem(id) {
   if (!it) return;
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
-  else { if (it.kind === 'v') screenDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
+  else { if (it.kind === 'v') screenDrop(it); if (it.kind === 'd') paintDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.tag) { GL.edit.remove(it.tag); it.tag.userData.drop(); }   // (a model's tag: modelTag)
@@ -20533,6 +20541,7 @@ function poseOf(it) {
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
   else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
   else if (it.kind === 'v') { _pq.fromArray(r.q); _ps.setScalar(r.w); }
+  else if (it.kind === 'd') { _pq.fromArray(r.q); _ps.setScalar(r.s); }
   else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
@@ -20553,6 +20562,7 @@ function applyRec(it, was, glide) {
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
   else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
   else if (it.kind === 'v') screenRec(it, was);   // (its playlist, look and width: e6q_screens.js)
+  else if (it.kind === 'd') paintRec(it, was);   // (its strokes and words: e6r_paint.js)
   else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
     it.look.name.userData.set(tagName(r), it.look.col, 0.07);
@@ -20942,6 +20952,7 @@ const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 const heldHere = it => !!it.carry || recording(it);
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
+  paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
@@ -20958,7 +20969,8 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
+    if (it.kind === 'd') { const vis = it.shown || (editing && heldHere(it)); it.hid = editing && !vis; it.a = vis ? 1 : 0; }   // (a painting snaps, as a hidden model does: e6r_paint.js)
+    else if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
     else {
       const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : 0;
       it.hid = false; it.a = approach(it.a, tgt, fade);
@@ -20988,6 +21000,7 @@ function itemsStep(dt, now) {
         if (it.tagR !== r) { it.tagR = r; L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085); }   // (its words built only when its record changes)
       }
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
+    else if (it.kind === 'd') paintItemStep(it, editing);   // (its meshes, built in slices; its look and tag: e6r_paint.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
   texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
@@ -21146,6 +21159,7 @@ function itemTopInto(it, out, mid) {
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'v') { const b = screenBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'd') { const b = paintBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'e') { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.2; }   // (where it is drawn: a motion)
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
@@ -21557,6 +21571,7 @@ function duplicateItem(id) {
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
+  if (it.kind === 'd') return duplicatePainting(it);   // (its strokes copied, in the record or a new file: e6r_paint.js)
   const pw = pathCopyWhy([it.rec]);   // (its recorded path: the scene's 6,000 keys and the shared state's room; e6f_path.js)
   if (pw) { recSay(it.id, pw, 'amber'); return ''; }
   const nid = newId(), o = it.rec.o || [0, 0, 0];
@@ -21596,7 +21611,7 @@ const ITEM_ACT = {
   // about its pivot, the vertical only)
   turn: it => turnAbout(it, _tq.setFromAxisAngle(_yUp, Math.PI / 2)),
   stand: it => turnAbout(it, _tq.setFromAxisAngle(_ax, -Math.PI / 2)),
-  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
+  floor: it => { if (it.kind === 'g') { groupFloor(it); return; } const b = it.kind === 'd' ? paintBoxRec(it, new THREE.Box3()) : it.kind === 'p' ? shapeBox(it, new THREE.Box3(), true) : objBox(it); if (b) setRec(it.id, { p: [it.rec.p[0], it.rec.p[1] - b.min.y, it.rec.p[2]] }); },
   // its faces: as in its file, both sides or inside out (an object's own: applyFaces)
   faces: (it, v) => { if (it.kind === 'o') setRec(it.id, { faces: v === 'both' || v === 'inside' ? v : undefined }); },
   // its tint ('' none) and brightness (×0.8, ×1.25, held at 25 % and 400 %; 'reset' 100 %): an object's own, or every
@@ -21662,7 +21677,7 @@ const ITEM_ACT = {
   // Hold it (a headset's card): the next grip carries it wherever it points (holdHover), or not
   hold: it => { XR.hold = XR.hold === it.id || !XR.on ? '' : it.id; XR.rec = ''; },
 };
-const PANE_ONLY = ['keyPick', 'pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
+const PANE_ONLY = ['pnOnIt', 'pclearArm', 'keyPick', 'pickFor', 'followPick', 'bones', 'bonePage', 'cutPick', 'preview', 'gpick', 'flash', 'open', 'hold', 'rec', 'recStop', 'recCancel', 'recArm', 'restart'];   // (the card's own state, or this device's: no change to record)
 function itemAct(act, v, id) {
   const it = STU.items.get(id || STU.sel);
   if (!it || !editOn() || !ITEM_ACT[act]) return;
@@ -21677,7 +21692,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
-  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
+  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v' || it.kind === 'd') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -21708,6 +21723,7 @@ function select(id) {
   if (STU.keyPick && STU.keyPick !== id) STU.keyPick = '';   // (and to the cube picking its key)
   if (STU.gpick && STU.gpick.id !== id) gpickEnd();   // (and to the group: one left with one member goes)
   if (id && typeof X !== 'undefined') X.tab = 'item';
+  paintSelected(id);   // (paint mode: a painting keeps the Paint pane, anything else ends it; e6r_paint.js)
   tcAttach();
   dirty(true);
 }
@@ -21731,7 +21747,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpev]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpevd]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -21744,16 +21760,16 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0 };
-  let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one)
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0 };
+  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpev])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpevd])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
     let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path);
+    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }
@@ -22097,12 +22113,13 @@ function groupBox(g, out, solid) {
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p' || m.kind === 'v') : [];
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p' || m.kind === 'v' || m.kind === 'd') : [];
   for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
     if (it.kind === 'e') { out.expandByPoint(it.holder.position); continue; }
     if (it.kind === 'p') { out.union(shapeBox(it, _gb)); continue; }
     if (it.kind === 'v') { out.union(screenBox(it, _gb)); continue; }
+    if (it.kind === 'd') { out.union(paintBox(it, _gb)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
     t.updateWorldMatrix(true, false);
@@ -22178,6 +22195,11 @@ function groupMove(B, t, th, k, write) {
       const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), w = lim(r.w * k, 0.2, 20, it);
       if (write) setRec(it.id, { p: p.toArray(), q: q.toArray(), w });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(w); }
+    } else if (m.kind === 'd') {
+      // (a painting: its place and turn, its size; its strokes are in its own frame)
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), sc = lim(r.s * k, 0.05, 20, it);
+      if (write) setRec(it.id, { p: p.toArray(), q: q.toArray(), s: sc });
+      if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(sc); }
     } else if (m.kind === 'p' || m.kind === 'e') {
       // (a shape: its place, its turn and its size per axis; an empty: its place and turn)
       const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), size = m.kind === 'p' ? r.size.map(v => lim(v * k, 0.01, 100, it)) : null;
@@ -22290,10 +22312,11 @@ function gpickEnd() {
 // --------------------------------------------------------- duplicate --
 // why a group cannot be copied now ('' it can): the scene's limits, its copies and its objects' cut-outs counted
 function groupDupWhy(g) {
-  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0 };
+  const ms = members(g), need = { o: 0, c: 0, s: 0, x: 0, g: 1, p: 0, e: 0, d: 0 };
   if (!ms.length) return 'It has no members here.';
   for (const m of ms) { need[m.kind]++; if (m.kind === 'o') need.x += cutsOn(m.id).length; }
   const k = Object.keys(need).find(q => need[q] && countOf(q) + need[q] > LIMITS[q]);
+  if (!k && paintCopyWhy(ms.map(m => m.rec))) return paintCopyWhy(ms.map(m => m.rec));   // (its paintings' points in records: 4,000 in all, e6r_paint.js)
   return k ? `No room for its copy: a scene holds ${LIMITS[k]} ${KIND_PLURAL[k]} at most.` : pathCopyWhy(ms.map(m => m.rec));   // (and its members' recorded paths: e6f_path.js)
 }
 // every member copied as a new group, beside it (along x, past its width): an object's cut-outs onto its copy; a cube in
@@ -22313,7 +22336,7 @@ function duplicateGroup(g) {
       putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined })));
       for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
-    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
     // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
@@ -22471,7 +22494,7 @@ function lockNames(it, del) {
 const lockWhy = (it, del) => lockNames(it, del).join(', ');
 // the card's actions a lock refuses (Ungroup only the group's own lock: its members keep theirs)
 // (recording a path carries it: refused too; how a path plays is not refused, as a motion is not: its place stays)
-const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold', 'rec', 'recArm'];
+const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold', 'rec', 'recArm', 'dsize', 'pclear', 'pclearArm'];
 const lockStops = (it, act) => (act === 'del' ? !!lockWhy(it, true) : act === 'ungroup' ? !!(it.kind === 'g' && it.rec.locked) : MOVE_ACTS.includes(act) && !!lockWhy(it));
 // a refusal: said on its card for a moment, and a knock
 function lockRefused(it) {
@@ -22594,7 +22617,7 @@ function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false
 // every record written, for everyone at the circle and saved as any change. Refused while the scene is locked (Lock
 // this story: not offered then, editing being off) or while an item is locked in place (it says which)
 const CIRC = { note: '', c: '', at: 0, sc: '' };
-const CIRC_KINDS = ['o', 'p', 'e', 'c', 's'];
+const CIRC_KINDS = ['o', 'p', 'e', 'c', 's', 'd'];
 // what the last press came to, on the Scene pane for 12 s (for that scene only)
 function circleSay(note, c) {
   Object.assign(CIRC, { note, c, at: performance.now(), sc: STU.scene });
@@ -27249,6 +27272,988 @@ function screenState(id) {
     drawn: !!(sv && sv.drawn && L.mat.map === sv.tex), over: !!it.over, shown: it.shown, bar: { visible: L.bar.visible, pos: L.bar.position.toArray(), w: L.bar.scale.x, h: L.bar.scale.y, can: scrCan(it) }, ext: L.ext.slice(), vol: scrOwn(it) && it.ownVol != null ? it.ownVol : it.rec.vol,
     card: L.mat.map === L.cardTex, log: SCR.log.slice(), err: sv ? sv.err : '' };
 }
+// ================================================================ PAINTINGS ==
+// The owner, 14 November 2026 (tools/studio/SPEC.md, "Paintings: drawing in the air"): "Paint mode in studio mode,
+// optionally with brushes and a spraycan etc?" A painting (kind d, the state's d.<id>, layout.json's paintings) is a set of
+// strokes drawn in the air: a ribbon, a tube, a glow pen or a spray can, in a colour and a width, kept in the painting's own
+// frame so it moves, turns, sizes, shows and hides, groups, locks and is deleted as one item. The strokes are in the record
+// (at most 4,000 points in all a scene's paintings) or, past that, in a file of the scene, paintings/<name>-<n>.json, as
+// v125's recordings are (a relay that takes uploads). Editing only. Drawn in at most four opaque meshes a painting.
+
+const PNT = { brushes: ['ribbon', 'tube', 'glow', 'spray'], widths: [0.002, 0.005, 0.01, 0.02, 0.04, 0.08], rec: 4000, perPainting: 200000, fileBytes: 3500000, strokes: 2000, strokePts: 2000,
+  maxDots: 6000, dotsPerM: 4000, simp: 0.0015, minMove: 0.003, minTurn: 10 * Math.PI / 180, tip: 0.06, files: 5 };
+const PAINT = { on: false, brush: 'ribbon', colour: '#ff5a4b', width: 0.01, drawing: null, last: null, note: '', noteC: 'muted', arm: null, pg: null, sess: false, keep: new Map(), t0: 0, did: false, seed: 0 };
+const okPaintFile = s => okFile(s) && /^paintings\/[^/]/.test(s) && /\.json$/.test(s) && s.split('/').length <= 5 && s.split('/').every(n => n && !n.startsWith('.') && !/(~|\.(tmp|temp|part|partial|crdownload|download|swp|swx))$/i.test(n));
+
+// ---------------------------------------------------------------- the record --
+// a stroke: { b, c, w, k, sd }: the brush, its colour (#rrggbb, lower case), its width in metres (0.002 to 0.2, to the mm), its
+// points [x, y, z, f] (a ribbon's [x, y, z, f, nx, ny, nz]: its face's normal, 2 decimals), 2 to 2,000 of them, and a spray's
+// seed (1 to 2^31). null: not one
+function normStroke(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  if (!PNT.brushes.includes(x.b) || typeof x.c !== 'string' || !/^#[0-9a-f]{6}$/i.test(x.c) || !fin(x.w) || x.w <= 0) return null;
+  if (!Array.isArray(x.k) || x.k.length < 2 || x.k.length > PNT.strokePts) return null;
+  const rib = x.b === 'ribbon', n = rib ? 7 : 4, k = [];
+  for (const q of x.k) {
+    if (!Array.isArray(q) || q.length !== n || !q.every(fin) || Math.abs(q[0]) > 1000 || Math.abs(q[1]) > 1000 || Math.abs(q[2]) > 1000) return null;
+    const pt = [nz(r3(q[0])), nz(r3(q[1])), nz(r3(q[2])), r2(clamp(q[3], 0.1, 1))];
+    if (rib) {
+      const L = Math.hypot(q[4], q[5], q[6]);
+      if (L < 1e-6) return null;
+      const k2 = Math.abs(L - 1) > 0.03 ? 1 / L : 1;
+      pt.push(nz(r2(q[4] * k2)), nz(r2(q[5] * k2)), nz(r2(q[6] * k2)));
+    }
+    k.push(pt);
+  }
+  const r = { b: x.b, c: x.c.toLowerCase(), w: r3(clamp(x.w, 0.002, 0.2)), k };
+  if (x.b === 'spray') {
+    const sd = x.sd === undefined ? 1 : x.sd;
+    if (!Number.isInteger(sd) || sd < 1 || sd > 2147483648) return null;
+    r.sd = sd;
+  }
+  return r;
+}
+// { name, p, q, s, strokes | src (+ n, pts), locked, shows } (the spec's "The record"); a bad stroke makes it bad
+function normPainting(x, P, has, name, one) {
+  const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
+  if (!q || (has('s') && !(fin(x.s) && x.s > 0)) || (x.strokes != null && x.src != null)) return null;
+  const r = { name: name('Painting'), p: P, q, s: has('s') ? +clamp(x.s, 0.05, 20).toPrecision(4) : 1 };
+  if (x.src != null) {
+    if (!okPaintFile(x.src) || !Number.isInteger(x.n) || x.n < 0 || x.n > PNT.strokes || !Number.isInteger(x.pts) || x.pts < 0 || x.pts > PNT.perPainting) return null;
+    r.src = x.src; r.n = x.n; r.pts = x.pts;
+  } else {
+    const L = x.strokes == null ? [] : x.strokes;
+    if (!Array.isArray(L) || L.length > PNT.strokes) return null;
+    const S = L.map(normStroke);
+    if (S.includes(null) || ptsOf(S) > PNT.rec) return null;
+    r.strokes = S;
+  }
+  return lockOf(x, showsOf(x, r));
+}
+const ptsOf = S => S.reduce((a, s) => a + s.k.length, 0);
+const paintN = r => (r.src ? r.n : r.strokes.length), paintP = r => (r.src ? r.pts : ptsOf(r.strokes));
+// the points kept in records (not files) in all the scene's paintings but one (a record's strokes only)
+const paintInRecord = but => [...STU.items.values()].reduce((a, it) => a + (it.kind === 'd' && it.id !== but && it.rec.strokes ? ptsOf(it.rec.strokes) : 0), 0);
+function sameStrokes(a, b) {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const s = a[i], t = b[i];
+    if (s.b !== t.b || s.c !== t.c || s.w !== t.w || s.sd !== t.sd || s.k.length !== t.k.length) return false;
+    for (let j = 0; j < s.k.length; j++) { const u = s.k[j], v = t.k[j]; for (let m = 0; m < u.length; m++) if (u[m] !== v[m]) return false; }
+  }
+  return true;
+}
+
+// ------------------------------------------------------------------- spray --
+// the dots of a spray stroke: a fixed function of its points, width and seed (the same on every device): along each segment
+// about 40 dots a centimetre at full pressure (fewer with it), within a disc of the stroke's width across the path, each
+// segment's own seeded generator (so a stroke grown point by point has the same dots as a whole one), at most 6,000 a stroke
+function mulberry(a) { a >>>= 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function sprayEstimate(st) {
+  let e = 0;
+  for (let i = 1; i < st.k.length; i++) { const a = st.k[i - 1], b = st.k[i]; e += Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) * PNT.dotsPerM * (a[3] + b[3]) / 2; }
+  return e;
+}
+const _sd = new THREE.Vector3(), _su = new THREE.Vector3(), _sv2 = new THREE.Vector3();
+// segment i - 1 to i of st: its dots pushed into out (x, y, z, ...), at most up to limit dots in all; rate scales their number
+function sprayDots1(st, i, rate, out, limit) {
+  const a = st.k[i - 1], b = st.k[i];
+  _sd.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const L = _sd.length();
+  if (L < 1e-9) return;
+  _sd.divideScalar(L);
+  _su.set(0, 1, 0); if (Math.abs(_sd.y) > 0.9) _su.set(1, 0, 0);
+  _su.crossVectors(_sd, _su).normalize(); _sv2.crossVectors(_sd, _su);
+  const rnd = mulberry((st.sd + Math.imul(i, 0x9E3779B1)) | 0), cnt = L * PNT.dotsPerM * (a[3] + b[3]) / 2 * rate, n = Math.floor(cnt) + (rnd() < cnt - Math.floor(cnt) ? 1 : 0);
+  for (let d = 0; d < n && out.length / 3 < limit; d++) {
+    const t = rnd(), r = st.w * Math.sqrt(rnd()), th = rnd() * Math.PI * 2, c = Math.cos(th) * r, s = Math.sin(th) * r;
+    out.push(a[0] + (b[0] - a[0]) * t + _su.x * c + _sv2.x * s, a[1] + (b[1] - a[1]) * t + _su.y * c + _sv2.y * s, a[2] + (b[2] - a[2]) * t + _su.z * c + _sv2.z * s);
+  }
+}
+function sprayDots(st) {
+  const out = [], rate = Math.min(1, PNT.maxDots / Math.max(1, sprayEstimate(st)));
+  for (let i = 1; i < st.k.length; i++) sprayDots1(st, i, rate, out, PNT.maxDots);
+  return out;
+}
+
+// -------------------------------------------------------------- simplifying --
+// a point kept where leaving it out would move the line more than 1.5 mm (Douglas and Peucker); the first and last stay; a
+// ribbon's turn counts too (a point where its face has turned 10 degrees from the last kept one stays)
+function simplify(pts, tol, rib) {
+  const n = pts.length;
+  if (n < 3) return pts.slice();
+  const keep = new Uint8Array(n); keep[0] = keep[n - 1] = 1;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let far = -1, md = tol;
+    const A = pts[a], B = pts[b], dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2], L2 = dx * dx + dy * dy + dz * dz;
+    for (let i = a + 1; i < b; i++) {
+      const P = pts[i];
+      let t = L2 > 0 ? ((P[0] - A[0]) * dx + (P[1] - A[1]) * dy + (P[2] - A[2]) * dz) / L2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const d = Math.hypot(P[0] - A[0] - dx * t, P[1] - A[1] - dy * t, P[2] - A[2] - dz * t);
+      if (d > md) { md = d; far = i; }
+    }
+    if (far >= 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+  }
+  if (rib) {
+    let last = 0;
+    for (let i = 1; i < n; i++) {
+      if (keep[i]) { last = i; continue; }
+      const A = pts[last], B = pts[i], c = A[4] * B[4] + A[5] * B[5] + A[6] * B[6];
+      if (Math.acos(Math.max(-1, Math.min(1, c))) >= PNT.minTurn) { keep[i] = 1; last = i; }
+    }
+  }
+  return pts.filter((_, i) => keep[i]);
+}
+
+// --------------------------------------------------------------- the meshers --
+// a growing set of vertices and triangles (fixed capacity: a preview's buffers are made once; a painting's are sized from its strokes)
+function accNew(V, I, sized) {
+  return { pos: new Float32Array(3 * V), nor: new Float32Array(3 * V), col: new Float32Array(3 * V), siz: sized ? new Float32Array(V) : null, idx: new Uint32Array(I), v: 0, i: 0, cap: V, icap: I, f0: 0, i0: 0 };
+}
+function accV(A, x, y, z, nx, ny, nz, r, g, b) {
+  if (A.v >= A.cap) return A.v - 1;
+  const o = 3 * A.v;
+  A.pos[o] = x; A.pos[o + 1] = y; A.pos[o + 2] = z; A.nor[o] = nx; A.nor[o + 1] = ny; A.nor[o + 2] = nz; A.col[o] = r; A.col[o + 1] = g; A.col[o + 2] = b;
+  return A.v++;
+}
+function accT(A, a, b, c) { if (A.i + 3 > A.icap) return; A.idx[A.i++] = a; A.idx[A.i++] = b; A.idx[A.i++] = c; }
+const _WHITE = new THREE.Color(1, 1, 1), _mc = new THREE.Color();
+// a stroke's colour as it is drawn: a glow pen's is lifted towards white (it is unlit)
+function strokeRGB(st) { _mc.set(st.c); if (st.b === 'glow') _mc.lerp(_WHITE, 0.45); return [_mc.r, _mc.g, _mc.b]; }
+const TUBE_SIDES = 8;
+const _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3(), _t3 = new THREE.Vector3();
+function perpTo(t, out) { out.set(0, 1, 0); if (Math.abs(t.y) > 0.9) out.set(1, 0, 0); return out.crossVectors(t, out).normalize(); }
+// a tube or a glow tube along a stroke, ring by ring (parallel transported), round caps; rings are made as the next point comes,
+// so a stroke grown point by point shows all but its last point until it ends
+function tubeMesher(A, st) {
+  const [cr, cg, cb] = strokeRGB(st), glow = st.b === 'glow', P = [], u = new THREE.Vector3(), t = new THREE.Vector3();
+  let ring0 = -1, prev = -1, have = false;
+  const ring = (j, tx, ty, tz) => {
+    t.set(tx, ty, tz); if (t.lengthSq() < 1e-18) t.set(0, 1, 0); t.normalize();
+    if (!have) { perpTo(t, u); have = true; } else { u.addScaledVector(t, -u.dot(t)); if (u.lengthSq() < 1e-8) perpTo(t, u); u.normalize(); }
+    const v = _t3.crossVectors(t, u), p = P[j], r = st.w * p[3] / 2, s0 = A.v;
+    for (let s = 0; s < TUBE_SIDES; s++) {
+      const th = s / TUBE_SIDES * Math.PI * 2, c = Math.cos(th), sn = Math.sin(th), dx = c * u.x + sn * v.x, dy = c * u.y + sn * v.y, dz = c * u.z + sn * v.z, k = glow && (s & 1) ? 0.82 : 1;
+      accV(A, p[0] + r * dx, p[1] + r * dy, p[2] + r * dz, dx, dy, dz, cr * k, cg * k, cb * k);
+    }
+    if (prev >= 0) for (let s = 0; s < TUBE_SIDES; s++) { const s1 = (s + 1) % TUBE_SIDES; accT(A, prev + s, prev + s1, s0 + s1); accT(A, prev + s, s0 + s1, s0 + s); }
+    else {
+      ring0 = s0;
+      const ap = accV(A, p[0] - t.x * r, p[1] - t.y * r, p[2] - t.z * r, -t.x, -t.y, -t.z, cr, cg, cb);
+      for (let s = 0; s < TUBE_SIDES; s++) accT(A, s0 + (s + 1) % TUBE_SIDES, s0 + s, ap);
+    }
+    prev = s0;
+  };
+  const cap = j => {
+    const p = P[j], r = st.w * p[3] / 2, ap = accV(A, p[0] + t.x * r, p[1] + t.y * r, p[2] + t.z * r, t.x, t.y, t.z, cr, cg, cb);
+    for (let s = 0; s < TUBE_SIDES; s++) accT(A, prev + s, prev + (s + 1) % TUBE_SIDES, ap);
+  };
+  return {
+    push(pt) {
+      P.push(pt); const i = P.length - 1;
+      if (i === 1) ring(0, P[1][0] - P[0][0], P[1][1] - P[0][1], P[1][2] - P[0][2]);
+      else if (i >= 2) ring(i - 1, P[i][0] - P[i - 2][0], P[i][1] - P[i - 2][1], P[i][2] - P[i - 2][2]);
+    },
+    end() { const i = P.length - 1; if (i >= 1) { ring(i, P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1], P[i][2] - P[i - 1][2]); cap(i); } },
+  };
+}
+// a ribbon: a flat strip along the path whose face turns as the hand held it (the controller's up), lit from both sides
+function ribbonMesher(A, st) {
+  const [cr, cg, cb] = strokeRGB(st), P = [], b = new THREE.Vector3(), n = new THREE.Vector3(), t = new THREE.Vector3();
+  let prev = -1, haveB = false;
+  const pair = (j, tx, ty, tz) => {
+    t.set(tx, ty, tz); if (t.lengthSq() < 1e-18) t.set(0, 1, 0); t.normalize();
+    const p = P[j]; n.set(p[4], p[5], p[6]);
+    _t1.crossVectors(t, n);
+    if (_t1.lengthSq() < 1e-6) { if (!haveB) perpTo(t, b); else { b.addScaledVector(t, -b.dot(t)); if (b.lengthSq() < 1e-8) perpTo(t, b); b.normalize(); } }
+    else b.copy(_t1).normalize();
+    haveB = true;
+    n.crossVectors(b, t).normalize();
+    const h = st.w * p[3] / 2, s0 = A.v;
+    accV(A, p[0] - b.x * h, p[1] - b.y * h, p[2] - b.z * h, n.x, n.y, n.z, cr, cg, cb);
+    accV(A, p[0] + b.x * h, p[1] + b.y * h, p[2] + b.z * h, n.x, n.y, n.z, cr, cg, cb);
+    if (prev >= 0) { accT(A, prev, prev + 1, s0 + 1); accT(A, prev, s0 + 1, s0); }
+    prev = s0;
+  };
+  return {
+    push(pt) {
+      P.push(pt); const i = P.length - 1;
+      if (i === 1) pair(0, P[1][0] - P[0][0], P[1][1] - P[0][1], P[1][2] - P[0][2]);
+      else if (i >= 2) pair(i - 1, P[i][0] - P[i - 2][0], P[i][1] - P[i - 2][1], P[i][2] - P[i - 2][2]);
+    },
+    end() { const i = P.length - 1; if (i >= 1) pair(i, P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1], P[i][2] - P[i - 1][2]); },
+  };
+}
+// the vertices and triangles a stroke takes (the buffers' sizes), per look
+function strokeSize(st) {
+  const k = st.k.length;
+  if (st.b === 'ribbon') return { look: 'ribbon', v: 2 * k, i: 6 * (k - 1) };
+  if (st.b === 'spray') return { look: 'spray', v: Math.min(PNT.maxDots, Math.ceil(sprayEstimate(st)) + k), i: 0 };
+  return { look: st.b, v: (TUBE_SIDES * k) + 2, i: 6 * TUBE_SIDES * (k - 1) + 6 * TUBE_SIDES };
+}
+// a whole stroke into the accumulators (a painting's build)
+function meshStroke(AC, st) {
+  const sd = AC.spray;
+  if (st.b === 'spray') {
+    const dots = [], rate = Math.min(1, PNT.maxDots / Math.max(1, sprayEstimate(st)));
+    for (let i = 1; i < st.k.length; i++) sprayDots1(st, i, rate, dots, PNT.maxDots);
+    _mc.set(st.c);
+    for (let d = 0; d < dots.length; d += 3) { const k = sd.v; accV(sd, dots[d], dots[d + 1], dots[d + 2], 0, 1, 0, _mc.r, _mc.g, _mc.b); sd.siz[k] = st.w * 0.12; }
+    return;
+  }
+  const M = st.b === 'ribbon' ? ribbonMesher(AC.ribbon, st) : tubeMesher(AC[st.b], st);
+  for (const q of st.k) M.push(q);
+  M.end();
+}
+
+// ------------------------------------------------------------- materials --
+let PMAT = null, DOT_TEX = null;
+function paintMats() {
+  if (PMAT) return PMAT;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.beginPath(); x.arc(16, 16, 15, 0, 7); x.fill();
+  DOT_TEX = new THREE.CanvasTexture(c); DOT_TEX.generateMipmaps = false; DOT_TEX.minFilter = THREE.LinearFilter;
+  PMAT = {
+    ribbon: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0, side: THREE.DoubleSide }),
+    tube: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0 }),
+    glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
+  };
+  return PMAT;
+}
+// a spray's dots: round (alphaTest, nothing see-through), each its own size in metres (aSize), the painting's size on top
+function sprayMat(s) {
+  paintMats();
+  const m = new THREE.PointsMaterial({ vertexColors: true, map: DOT_TEX, alphaTest: 0.5, size: s || 1, sizeAttenuation: true });
+  m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('void main() {', 'attribute float aSize;\nvoid main() {').replace('gl_PointSize = size;', 'gl_PointSize = size * aSize;'); };
+  m.customProgramCacheKey = () => 'studio-paint-dots-1';
+  return m;
+}
+function geoOf(A, spray) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(A.pos.subarray(0, 3 * A.v), 3));
+  g.setAttribute('color', new THREE.BufferAttribute(A.col.subarray(0, 3 * A.v), 3));
+  if (spray) g.setAttribute('aSize', new THREE.BufferAttribute(A.siz.subarray(0, A.v), 1));
+  else { g.setAttribute('normal', new THREE.BufferAttribute(A.nor.subarray(0, 3 * A.v), 3)); g.setIndex(new THREE.BufferAttribute(A.idx.subarray(0, A.i), 1)); }
+  g.computeBoundingSphere();
+  return g;
+}
+
+// ------------------------------------------------------------------- looks --
+const PN_EDGE = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), PN_COL = '#ff8a6b';
+function paintLook(id) {
+  const body = new THREE.Group(), deco = new THREE.Group(), col = LOOKS.colOf(id), meshes = new THREE.Group();
+  const hit = new THREE.Mesh(BOX1, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+  const line = LOOKS.batched(new THREE.LineSegments(PN_EDGE, new THREE.LineBasicMaterial({ color: 0xffffff })), 'line'); line.renderOrder = 6; line.visible = false;
+  hit.scale.setScalar(0.1); line.scale.setScalar(0.1);
+  body.add(meshes, hit, line);
+  const name = LOOKS.tag(30); deco.add(name);
+  const L = { body, deco, name, hit, line, meshes, col, bb: new THREE.Box3(new THREE.Vector3(-0.05, -0.05, -0.05), new THREE.Vector3(0.05, 0.05, 0.05)),
+    // hot: the pointer on it, selected, editing, hid: a cube hides it from you (not drawn: its box's edges show where it is while editing)
+    look(o) {
+      meshes.visible = !o.hid && o.a > 0.5;
+      line.visible = !!o.editing && (o.hid || o.hot || o.selected);
+      line.material.color.set(col).lerp(new THREE.Color(1, 1, 1), o.selected || o.hot ? 0.6 : 0.1);
+      name.visible = !!o.editing && !(o.hot || o.selected);
+    },
+    clear() { for (const m of meshes.children.slice()) { meshes.remove(m); m.geometry.dispose(); if (m.userData.own) m.material.dispose(); } },
+    drop() { L.clear(); hit.material.dispose(); line.material.dispose(); name.userData.drop(); },
+  };
+  return L;
+}
+// a record taken (applyRec): its words, its size on the dots, whether its strokes changed (the meshes then built again)
+function paintRec(it, was) {
+  const r = it.rec, L = it.look;
+  L.name.userData.set(tagName(r) + ` · ${paintN(r)} stroke${paintN(r) === 1 ? '' : 's'}`, L.col, 0.075);
+  it.tagR = r;
+  if (!was || (was.src || r.src ? was.src !== r.src : !sameStrokes(was.strokes, r.strokes))) it.pbVer = (it.pbVer || 0) + 1;
+  for (const m of L.meshes.children) if (m.userData.own) m.material.size = r.s;
+}
+function paintDrop(it) {
+  if (it.pb) it.pb = null;
+  PAINT.keep.delete(it.id);
+}
+// its box in the items' frame (its strokes' bounds, as it is placed and shown now)
+const _pbm = new THREE.Matrix4(), _pbv = new THREE.Vector3();
+function paintBox(it, out) {
+  const b = it.look.bb, H = it.holder;
+  _pbm.compose(H.position, H.quaternion, H.scale);
+  out.makeEmpty();
+  for (let i = 0; i < 8; i++) out.expandByPoint(_pbv.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(_pbm));
+  return out;
+}
+// as its record puts it (not as shown): for On the floor
+function paintBoxRec(it, out) {
+  const b = it.look.bb, r = it.rec;
+  _pbm.compose(_pbv.fromArray(r.p), _pq.fromArray(r.q), _ps.setScalar(r.s));
+  out.makeEmpty();
+  for (let i = 0; i < 8; i++) out.expandByPoint(new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(_pbm));
+  return out;
+}
+
+// ------------------------------------------------------------ the files --
+// PNF: a painting file's strokes by its path ({ k, state: 'loading' | 'ok' | 'bad', at, own, gen, err, failAt })
+const PNF = new Map();
+const pnPeek = r => { const f = r.src && PNF.get(r.src); return f && f.gen === STU.gen && f.k ? f.k : null; };
+function pnK(r) {
+  if (!r.src) return r.strokes;
+  let f = PNF.get(r.src);
+  if (f && f.gen !== STU.gen) { PNF.delete(r.src); f = null; }
+  if (f && f.own) return f.k;
+  const L = STU.fileMap.get(r.src) || { at: 0 };
+  if (STU.scene && (!f || (f.state !== 'loading' && (f.at !== L.at || (f.state === 'bad' && performance.now() - f.failAt > 10000))))) pnLoad(r.src, L);
+  return f && f.k ? f.k : null;
+}
+async function pnLoad(src, L) {
+  const gen = STU.gen, was = PNF.get(src), e = { k: was && was.gen === gen ? was.k : null, state: 'loading', at: L.at, own: false, gen, err: '', failAt: 0 };
+  PNF.set(src, e);
+  try {
+    const j = await getJSON(fileUrl(src));
+    if (gen !== STU.gen || PNF.get(src) !== e) return;
+    const list = j && typeof j === 'object' && !Array.isArray(j) && Array.isArray(j.strokes) && j.strokes.length <= PNT.strokes ? j.strokes.map(normStroke) : null;
+    if (!list || list.includes(null) || ptsOf(list) > PNT.perPainting) throw new Error('its strokes could not be read');
+    e.k = list; e.state = 'ok';
+  } catch (err) {
+    if (gen !== STU.gen || PNF.get(src) !== e) return;
+    e.state = 'bad'; e.failAt = performance.now();
+    e.err = `Its file ${src} could not be read (${err.status === 404 ? 'it is not in the scene' : err.status === 401 ? 'the relay wants its password' : err.message}).`;
+  }
+  dirty();
+}
+// the first free name: paintings/<base>-<n>.json
+function pnNumbered(base, past) {
+  const m = past ? /-(\d+)\.json$/.exec(past) : null;
+  for (let n = m ? +m[1] + 1 : 1; ; n++) { const p = `${base}-${n}.json`; if (!STU.fileMap.has(p) && !PNF.has(p)) return p; }
+}
+async function pnFile(name, strokes, onP) {
+  const scene = STU.scene, gen = STU.gen, base = 'paintings/' + safeSeg(words(name, 60));
+  const text = JSON.stringify({ studio: 1, painting: 1, strokes });
+  let p = pnNumbered(base);
+  for (let tries = 0; ; tries++) {
+    try {
+      const j = await upSend(fileApi(scene, p, false), new Blob([text], { type: 'application/json' }), onP);
+      const out = (j && j.path) || p;
+      if (gen === STU.gen) { PNF.set(out, { k: strokes, state: 'ok', at: 0, own: true, gen, err: '', failAt: 0 }); refreshFiles(new Set([out])); }
+      return out;
+    } catch (e) { if (e.status !== 409 || tries > 20) throw e; p = pnNumbered(base, p); }
+  }
+}
+
+// ------------------------------------------------------------- building --
+// every frame, in a slice (about 1 ms in a headset, 3 ms on a page, shared by every painting): a painting's strokes into its
+// meshes (a ribbon, a tube, a glow and a spray draw: at most four), built again only when its strokes change; the old meshes
+// stay until the new are ready
+function paintBuildStart(it, strokes, key) {
+  const need = { ribbon: [0, 0], tube: [0, 0], glow: [0, 0], spray: [0, 0] };
+  for (const st of strokes) { const z = strokeSize(st); need[z.look][0] += z.v; need[z.look][1] += z.i; }
+  const AC = {};
+  for (const k of ['ribbon', 'tube', 'glow']) AC[k] = accNew(need[k][0], need[k][1], false);
+  AC.spray = accNew(need.spray[0], 0, true);
+  it.pb = { key, strokes, i: 0, AC };
+}
+function paintBuildSlice(it, budget) {
+  const B = it.pb;
+  if (!B || B.i >= B.strokes.length) return;
+  const t0 = performance.now();
+  while (B.i < B.strokes.length) {
+    if (PAINT.did && performance.now() - PAINT.t0 >= budget) return;
+    meshStroke(B.AC, B.strokes[B.i++]);
+    PAINT.did = true;
+    if (performance.now() - t0 >= budget) break;
+  }
+}
+function paintBuildDone(it) {
+  const B = it.pb, L = it.look, M = paintMats(), stats = [], bb = new THREE.Box3();
+  L.clear();
+  for (const k of ['ribbon', 'tube', 'glow']) {
+    const A = B.AC[k];
+    if (!A.i) continue;
+    const m = new THREE.Mesh(geoOf(A, false), M[k]); m.frustumCulled = false;
+    L.meshes.add(m); stats.push({ look: k, tris: A.i / 3, draws: 1 });
+    bb.union(m.geometry.boundingBox || (m.geometry.computeBoundingBox(), m.geometry.boundingBox));
+  }
+  const S = B.AC.spray;
+  if (S.v) {
+    const m = new THREE.Points(geoOf(S, true), sprayMat(it.rec.s)); m.frustumCulled = false; m.userData.own = true;
+    L.meshes.add(m); stats.push({ look: 'spray', tris: 0, draws: 1 });
+    m.geometry.computeBoundingBox(); bb.union(m.geometry.boundingBox);
+  }
+  // (the strokes' widths past the bounds of their points, and a minimum size so an empty painting can be pointed at)
+  const wmax = B.strokes.reduce((a, s) => Math.max(a, s.w), 0.02);
+  if (bb.isEmpty()) bb.set(new THREE.Vector3(-0.05, 0, -0.05), new THREE.Vector3(0.05, 0.1, 0.05));
+  bb.expandByScalar(wmax);
+  const sz = bb.getSize(new THREE.Vector3()).max(new THREE.Vector3(0.06, 0.06, 0.06)), c = bb.getCenter(new THREE.Vector3());
+  L.bb.setFromCenterAndSize(c, sz);
+  L.hit.position.copy(c); L.hit.scale.copy(sz); L.line.position.copy(c); L.line.scale.copy(sz);
+  it.pbStats = { meshes: stats, dots: S.v, built: true };
+  it.pbKey = B.key; it.pb = null; it.pbDone = true;
+  const fzs = PNV.fz.get(it.id); if (fzs) { PNV.fz.delete(it.id); fzs.forEach(pvThaw); }
+  STU.rev++;
+}
+// a painting each frame (itemsStep): the strokes it shows (its record's, or its file's once read), built when they changed; its
+// look, name and box
+const _pbb = new THREE.Box3(), _pqi = new THREE.Quaternion();
+function paintItemStep(it, editing) {
+  const L = it.look, r = it.rec, H = it.holder;
+  const strokes = r.strokes || pnK(r), key = r.src ? 'f:' + r.src : 'r:' + it.pbVer;
+  if (strokes && it.pbKey !== key && !(it.pb && it.pb.key === key)) paintBuildStart(it, strokes, key);
+  if (it.pb) { paintBuildSlice(it, XR.on ? 1 : 3); if (it.pb && it.pb.i >= it.pb.strokes.length) paintBuildDone(it); }
+  H.visible = true;
+  L.look({ a: it.a, hid: it.hid, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id });
+  L.deco.visible = editing;
+  if (!editing) return;
+  const h = it.shown ? '' : hidWord(it);
+  if (it.tagH !== h || it.tagR !== r) { it.tagR = r; it.tagH = h; L.name.userData.set(tagName(r) + ` · ${paintN(r)} stroke${paintN(r) === 1 ? '' : 's'}` + (r.src && !strokes ? ' · reading its file' : '') + h, L.col, 0.075); }
+  decoAt(H, L.deco);
+  const b = paintBox(it, _pbb);
+  L.name.position.set(0, b.max.y - L.deco.position.y + 0.04, 0).applyQuaternion(_pqi.copy(L.deco.quaternion).invert());
+}
+// finishes every build now (the tests; a painting just made)
+function paintBuildAll() {
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'd') continue;
+    const r = it.rec, strokes = r.strokes || pnPeek(r), key = r.src ? 'f:' + r.src : 'r:' + it.pbVer;
+    if (strokes && it.pbKey !== key && !(it.pb && it.pb.key === key)) paintBuildStart(it, strokes, key);
+    if (it.pb) { while (it.pb.i < it.pb.strokes.length) meshStroke(it.pb.AC, it.pb.strokes[it.pb.i++]); paintBuildDone(it); }
+  }
+}
+
+// -------------------------------------------------------- the stroke drawn --
+// the stroke being drawn is this device's alone (the others see it once it is let go): its own small geometry, grown in place
+// (buffers made once, only the new vertices sent), in the items' frame
+const PNV = { m: new Map(), tip: null, froze: new Set(), fz: new Map() };
+function pvGet(look) {
+  let e = PNV.m.get(look);
+  if (e) return e;
+  const sp = look === 'spray', A = sp ? accNew(PNT.maxDots, 0, true) : accNew(look === 'ribbon' ? 2 * PNT.strokePts : TUBE_SIDES * PNT.strokePts + 2, look === 'ribbon' ? 6 * PNT.strokePts : 6 * TUBE_SIDES * PNT.strokePts + 6 * TUBE_SIDES, false);
+  const g = new THREE.BufferGeometry(), dyn = a => { a.setUsage(THREE.DynamicDrawUsage); return a; };
+  g.setAttribute('position', dyn(new THREE.BufferAttribute(A.pos, 3))); g.setAttribute('color', dyn(new THREE.BufferAttribute(A.col, 3)));
+  if (sp) g.setAttribute('aSize', dyn(new THREE.BufferAttribute(A.siz, 1)));
+  else { g.setAttribute('normal', dyn(new THREE.BufferAttribute(A.nor, 3))); g.setIndex(dyn(new THREE.BufferAttribute(A.idx, 1))); }
+  g.setDrawRange(0, 0);
+  const m = sp ? new THREE.Points(g, sprayMat(1)) : new THREE.Mesh(g, paintMats()[look]);
+  m.frustumCulled = false; m.visible = false; if (sp) m.userData.own = true;
+  GL.items.add(m);
+  PNV.m.set(look, e = { mesh: m, A, sp });
+  return e;
+}
+// the new vertices sent (updateRange), the draw range grown
+function pvFlush(e) {
+  const g = e.mesh.geometry, A = e.A;
+  const up = (a, from, n, stride) => { if (n > 0) { a.updateRange.offset = from * stride; a.updateRange.count = n * stride; a.needsUpdate = true; } };
+  up(g.attributes.position, A.f0, A.v - A.f0, 3); up(g.attributes.color, A.f0, A.v - A.f0, 3);
+  if (e.sp) { up(g.attributes.aSize, A.f0, A.v - A.f0, 1); g.setDrawRange(0, A.v); }
+  else { up(g.attributes.normal, A.f0, A.v - A.f0, 3); up(g.index, A.i0, A.i - A.i0, 1); g.setDrawRange(0, A.i); }
+  A.f0 = A.v; A.i0 = A.i;
+}
+// a drawing's mesher: grows the preview with each point kept
+function pvStart(D) {
+  const e = pvGet(D.look); e.A.v = e.A.i = e.A.f0 = e.A.i0 = 0; e.mesh.geometry.setDrawRange(0, 0); e.mesh.visible = true;
+  D.pv = e;
+  const st = { b: D.brush, c: D.colour, w: D.width, k: [], sd: D.sd };
+  D.st = st;
+  if (!e.sp) D.M = D.brush === 'ribbon' ? ribbonMesher(e.A, st) : tubeMesher(e.A, st);
+  else { _mc.set(D.colour); e.mesh.material.size = 1; }
+}
+function pvPush(D, pt) {
+  const e = D.pv, st = D.st;
+  st.k.push(pt);
+  if (!e.sp) D.M.push(pt);
+  else if (st.k.length >= 2 && e.A.v < PNT.maxDots) {
+    const dots = [];
+    sprayDots1(st, st.k.length - 1, 1, dots, PNT.maxDots - e.A.v);
+    for (let d = 0; d < dots.length; d += 3) { const k = e.A.v; accV(e.A, dots[d], dots[d + 1], dots[d + 2], 0, 1, 0, _mc.r, _mc.g, _mc.b); e.A.siz[k] = st.w * 0.12; }
+  }
+  D.dirty = true;
+}
+function pvHide(D) { if (D && D.pv) { D.pv.mesh.visible = false; D.pv.mesh.geometry.setDrawRange(0, 0); } }
+// the preview kept on show while its stroke's file goes into the scene: a copy of what was drawn
+function pvFreeze(D) {
+  const e = D.pv;
+  if (!e || !e.A.v) return null;
+  pvFlush(e);
+  const g = e.mesh.geometry.clone(), m = e.sp ? new THREE.Points(g, sprayMat(1)) : new THREE.Mesh(g, e.mesh.material);
+  m.frustumCulled = false; m.userData.own = e.sp; g.setDrawRange(0, e.sp ? e.A.v : e.A.i);
+  GL.items.add(m); PNV.froze.add(m);
+  return m;
+}
+function pvThaw(m) { if (!m) return; PNV.froze.delete(m); GL.items.remove(m); m.geometry.dispose(); if (m.userData.own) m.material.dispose(); }
+
+// ---------------------------------------------------------------- drawing --
+// why nothing can be painted now ('' it can): painting is for editing, not a visitor's, not a locked story's
+function paintWhy() {
+  if (OPT.visit) return 'Painting is for editing: not in a visitor\'s view.';
+  if (!STU.scene) return 'Open a scene to paint in.';
+  if (editLocked()) return 'This story is locked: nothing can be painted until it is unlocked.';
+  if (!STU.edit) return 'Turn editing on to paint.';
+  if (STU.listing !== 'ok') return 'The scene\'s files are not listed yet.';
+  return '';
+}
+const paintTarget = () => { const it = STU.items.get(STU.sel); return it && it.kind === 'd' ? it : null; };
+const paintSay = (text, c) => { PAINT.note = text; PAINT.noteC = c || 'muted'; dirty(true); };
+function paintOn(it) {
+  const w = paintWhy();
+  if (w) { paintSay(w, 'amber'); return false; }
+  if (it && it.kind === 'd') { if (STU.sel !== it.id) select(it.id); }
+  PAINT.on = true; PAINT.sess = XR.on; PAINT.note = '';
+  if (typeof X !== 'undefined') X.tab = 'paint';
+  tcAttach();
+  sfxAct('pick', 'stage', 'centre');
+  dirty(true);
+  return true;
+}
+function paintOff(tab) {
+  if (!PAINT.on) return;
+  paintCancel();
+  PAINT.on = false; PAINT.arm = null;
+  if (PNV.tip) PNV.tip.visible = false;
+  if (typeof X !== 'undefined' && X.tab === 'paint') X.tab = tab || (STU.sel ? 'item' : 'add');
+  tcAttach();
+  sfxAct('click', 'stage', 'centre');
+  dirty(true);
+}
+// a selection that is not a painting ends paint mode (select, e6_items.js); a painting keeps the Paint pane
+function paintSelected(id) {
+  if (!PAINT.on) return;
+  const it = STU.items.get(id);
+  if (id && !(it && it.kind === 'd')) { paintOff('item'); if (typeof X !== 'undefined') X.tab = 'item'; return; }
+  if (typeof X !== 'undefined') X.tab = 'paint';
+}
+function paintCancel() {
+  for (const c of XR.ctrls || []) if (c.pnD) { paintEnd(c.pnD, true); c.pnD = null; c.pnDown = false; }
+  if (PAINT.pg) { paintEnd(PAINT.pg.D, true); PAINT.pg = null; }
+  if (PAINT.drawing) paintEnd(PAINT.drawing, true);
+}
+// a stroke begins at pt (the items' frame; f the pressure, n a ribbon's face): null when it cannot (said why)
+function paintBegin(by, pt, f, n) {
+  const w = paintWhy();
+  if (!PAINT.on || PAINT.drawing || w) { if (w && PAINT.on) paintSay(w, 'amber'); return null; }
+  const T = paintTarget(), erase = PAINT.brush === 'eraser';
+  if (T && lockWhy(T)) { paintSay(`${T.rec.name} is locked in place: nothing can be painted on it until it is unlocked.`, 'amber'); sfxAct('knock', 'world', null, { gain: 0.5 }); return null; }
+  if (!erase && !T && !canAdd('d')) { paintSay(`The scene has ${LIMITS.d} paintings: the most it can hold.`, 'amber'); return null; }
+  const D = { by, erase, brush: erase ? 'eraser' : PAINT.brush, look: erase ? '' : PAINT.brush, colour: PAINT.colour, width: PAINT.width, pts: [], pre: [], T: T ? T.id : '', gen: STU.gen, sd: 1 + Math.floor(Math.random() * 2147483647), dirty: false, over: 0 };
+  if (PAINT.seed) { D.sd = PAINT.seed; }
+  PAINT.drawing = D; PAINT.note = '';
+  if (!erase) pvStart(D);
+  paintAdd(D, pt, f, n);
+  return D;
+}
+const _pn1 = new THREE.Vector3();
+// a sample: kept when the tip moved 3 mm (a ribbon: or its face turned 10 degrees) from the last kept
+function paintAdd(D, pt, f, n) {
+  if (!D || D !== PAINT.drawing) return false;
+  const P = D.pts, last = P[P.length - 1];
+  const nn = n ? _pn1.copy(n).normalize() : _pn1.set(0, 1, 0), rib = D.brush === 'ribbon';
+  if (last) {
+    const moved = Math.hypot(pt.x - last[0], pt.y - last[1], pt.z - last[2]);
+    const turned = rib ? Math.acos(Math.max(-1, Math.min(1, last[4] * nn.x + last[5] * nn.y + last[6] * nn.z))) : 0;
+    if (moved < PNT.minMove && turned < PNT.minTurn) return false;
+  }
+  if (D.erase) { P.push([pt.x, pt.y, pt.z, 1]); paintEraseAt(D, pt); return true; }
+  if (P.length >= PNT.strokePts) { D.over++; return false; }
+  const q = [pt.x, pt.y, pt.z, clamp(f === undefined ? 1 : f, 0.1, 1)];
+  if (rib) q.push(nn.x, nn.y, nn.z);
+  P.push(q); pvPush(D, q);
+  return true;
+}
+// the eraser: strokes within its width of the tip (the selected painting's, else any painting's), noted as it passes
+const _ev = new THREE.Vector3(), _em = new THREE.Matrix4();
+function distSeg(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L2 = dx * dx + dy * dy + dz * dz;
+  let t = L2 > 0 ? ((p.x - a[0]) * dx + (p.y - a[1]) * dy + (p.z - a[2]) * dz) / L2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - a[0] - dx * t, p.y - a[1] - dy * t, p.z - a[2] - dz * t);
+}
+function distSegSeg(a0, a1, b0, b1) {
+  // closest distance between segments a0-a1 and b0-b1 (arrays of 3), by sampling the first along its length against the second
+  const L = Math.hypot(a1[0] - a0[0], a1[1] - a0[1], a1[2] - a0[2]), n = Math.min(24, Math.max(1, Math.ceil(L / 0.004)));
+  let m = Infinity;
+  for (let i = 0; i <= n; i++) { const t = i / n; _esp.set(a0[0] + (a1[0] - a0[0]) * t, a0[1] + (a1[1] - a0[1]) * t, a0[2] + (a1[2] - a0[2]) * t); m = Math.min(m, distSeg(_esp, b0, b1)); }
+  return m;
+}
+const _esp = new THREE.Vector3();
+function paintEraseAt(D, pt) {
+  const list = D.T ? [STU.items.get(D.T)] : [...STU.items.values()].filter(it => it.kind === 'd');
+  for (const it of list) {
+    if (!it || it.rec.locked) continue;
+    const S = it.rec.strokes || pnPeek(it.rec);
+    if (!S) continue;
+    _em.compose(_ev.fromArray(it.rec.p), _pq.fromArray(it.rec.q), _ps.setScalar(it.rec.s)).invert();
+    const l = pt.clone().applyMatrix4(_em), thr = D.width / it.rec.s, pl = (D.lastL || (D.lastL = {}))[it.id] || null, cur = [l.x, l.y, l.z];
+    D.lastL[it.id] = cur;
+    S.forEach((st, i) => {
+      const reach = thr + st.w / 2;
+      for (let j = 1; j < st.k.length; j++) if ((pl ? distSegSeg(pl, cur, st.k[j - 1], st.k[j]) : distSeg(l, st.k[j - 1], st.k[j])) <= reach) { if (!D.hitMap) D.hitMap = new Map(); if (!D.hitMap.has(it.id)) D.hitMap.set(it.id, new Set()); D.hitMap.get(it.id).add(i); break; }
+    });
+  }
+}
+// the stroke let go (or cancelled): simplified, put into the painting's strokes (a new painting made with the first one),
+// one change; a stroke of fewer than 2 points after simplifying is dropped. Returns what happened
+function paintEnd(D, cancel) {
+  if (!D || D !== PAINT.drawing) return null;
+  PAINT.drawing = null;
+  const out = { ok: false, brush: D.brush, id: '' };
+  if (D.pv && D.dirty) pvFlush(D.pv);
+  if (cancel) { pvHide(D); PAINT.last = Object.assign(out, { cancelled: true }); return out; }
+  if (D.erase) { out.erased = paintEraseCommit(D); PAINT.last = out; return out; }
+  const rib = D.brush === 'ribbon';
+  let pts = D.pts;
+  if (pts.length >= 2) pts = simplify(pts, PNT.simp, rib);
+  if (pts.length < 2) { pvHide(D); out.dropped = true; PAINT.last = out; return out; }
+  Object.assign(out, paintCommitStroke(D, pts));
+  PAINT.last = out;
+  return out;
+}
+// the points into the painting's frame and a stroke made of them; the painting it goes into (the one selected), or a new one
+// (its p at the first point on the floor below it, its turn facing you level)
+const _fp = new THREE.Vector3();
+function paintCommitStroke(D, pts) {
+  const T = D.T ? STU.items.get(D.T) : null;
+  if (D.T && !T) { pvHide(D); return { why: 'the painting is gone' }; }
+  const p = T ? T.rec.p : [pts[0][0], 0, pts[0][2]], q = T ? T.rec.q : facingQ(p), s = T ? T.rec.s : 1;
+  _em.compose(_fp.fromArray(p), _pq.fromArray(q), _ps.setScalar(s)).invert();
+  const iq = new THREE.Quaternion().fromArray(q).invert(), rib = D.brush === 'ribbon', v = new THREE.Vector3();
+  const k = pts.map(a => {
+    v.set(a[0], a[1], a[2]).applyMatrix4(_em);
+    const o = [v.x, v.y, v.z, a[3]];
+    if (rib) { v.set(a[4], a[5], a[6]).applyQuaternion(iq); o.push(v.x, v.y, v.z); }
+    return o;
+  });
+  const st = normStroke({ b: D.brush, c: D.colour, w: D.width / s, k, sd: D.sd });
+  if (!st) { pvHide(D); return { why: 'the stroke could not be made' }; }
+  let base = [];
+  if (T) { base = T.rec.strokes || pnPeek(T.rec); if (!base) { pvHide(D); paintSay('Its file is not read yet: wait a moment and paint again.', 'amber'); return { why: 'its file is not read yet' }; } }
+  const mk = T ? null : { name: nameFor('Painting'), p, q, s };
+  return paintStore(T ? T.id : '', mk, base.concat([st]), D, st);
+}
+// a new painting faces you: level, its front (+z) towards your head
+function facingQ(p) {
+  const c = viewerAt(), yaw = Math.atan2(c.x - p[0], c.z - p[2]);
+  return new THREE.Quaternion().setFromAxisAngle(_yUp, Number.isFinite(yaw) ? yaw : 0).toArray().map(v => nz(r4(v)));
+}
+// the strokes a painting should hold, put into its record, or (past 4,000 points in all the scene's records) into a file of the
+// scene (a relay that takes uploads), else refused in words; one change. mk: a new painting's place (made with these); D: the
+// drawing whose preview comes off (kept on show while a file goes in)
+function paintStore(id, mk, strokes, D, added) {
+  const n = strokes.length, pts = ptsOf(strokes);
+  const fail = text => { pvHide(D); paintSay(text, 'amber'); sfxAct('knock', 'world', null, { gain: 0.5 }); return { why: text }; };
+  if (n > PNT.strokes) return fail(`A painting holds ${PNT.strokes.toLocaleString('en')} strokes at most.`);
+  if (pts > PNT.perPainting) return fail(`A painting holds ${PNT.perPainting.toLocaleString('en')} points at most.`);
+  if (!id && !canAdd('d')) return fail(`The scene has ${LIMITS.d} paintings: the most it can hold.`);
+  const bytes = JSON.stringify(strokes).length;
+  if (bytes > PNT.fileBytes) return fail(`This painting is too big to keep (about ${Math.round(bytes / 1e6 * 10) / 10} MB): start a new painting.`);
+  // (in the record only while the points fit and the whole shared state stays under the recorded paths' limit: one relay value)
+  const inRec = pts + paintInRecord(id) <= PNT.rec && JSON.stringify(collabState()).length + bytes <= PATH_MAX.state;
+  if (inRec) {
+    let nid = id;
+    change(() => { if (mk) { nid = newId(); putItem(nid, 'd', norm('d', Object.assign({}, mk, { strokes }))); } else setRec(id, { strokes, src: undefined, n: undefined, pts: undefined }); });
+    if (mk && STU.items.has(nid)) select(nid);
+    // (the preview stays on show until the painting's own meshes are built, so the stroke never blinks out)
+    const fz0 = D ? pvFreeze(D) : null;
+    pvHide(D);
+    if (fz0) { (PNV.fz.get(nid) || PNV.fz.set(nid, []).get(nid)).push(fz0); setTimeout(() => pvThaw(fz0), 8000); }
+    sfxAct('place', 'world', null, { gain: 0.5 });
+    return { ok: true, id: nid, strokes: n, pts, where: 'record' };
+  }
+  if (!canUpload()) return fail('More strokes need a relay that takes uploads: a scene\'s paintings keep 4,000 points in all in its layout, the rest in a file of the scene.');
+  const nid = id || newId(), fz = D ? pvFreeze(D) : null;
+  pvHide(D);
+  paintKeep(nid, mk, strokes, fz);
+  return { ok: true, id: nid, strokes: n, pts, where: 'file', pending: true };
+}
+async function paintKeep(id, mk, strokes, fz) {
+  const gen = STU.gen, name = mk ? mk.name : (STU.items.get(id) || { rec: { name: 'Painting' } }).rec.name, K = { text: 'Keeping the painting: its file goes into the scene...' };
+  PAINT.keep.set(id, K); dirty(true);
+  let src = '';
+  try {
+    src = await pnFile(name, strokes, f => { const t = `Keeping the painting: its file goes into the scene (${Math.round(f * 100)} %)...`; if (t !== K.text) { K.text = t; dirty(); } });
+  } catch (e) {
+    PAINT.keep.delete(id); pvThaw(fz);
+    if (gen === STU.gen) paintSay(`The painting could not be kept (nothing changed): ${e.status === 401 ? AUTH_NOTE : e.message}`, 'amber');
+    return;
+  }
+  PAINT.keep.delete(id);
+  if (gen !== STU.gen || GL.gone) { pvThaw(fz); return; }
+  let ok = false;
+  change(() => {
+    const patch = { strokes: undefined, src, n: strokes.length, pts: ptsOf(strokes) };
+    if (mk && !STU.items.has(id)) ok = !!putItem(id, 'd', norm('d', Object.assign({}, mk, patch)));
+    else ok = !!setRec(id, patch);
+  });
+  pvThaw(fz);
+  if (!ok) { paintSay('The painting could not be kept.', 'amber'); return; }
+  if (mk) select(id);
+  paintSay(`Kept: ${strokes.length} stroke${strokes.length === 1 ? '' : 's'} in ${ptsOf(strokes).toLocaleString('en')} points, as the file ${src}.`, 'green');
+  sfxAct('rise', 'world', null, { dur: 0.5, gain: 0.5 });
+}
+// the eraser's press ended: every stroke it passed removed, in one step
+function paintEraseCommit(D) {
+  const M = D.hitMap;
+  if (!M || !M.size) return 0;
+  let total = 0, refused = '';
+  change(() => {
+    for (const [id, set] of M) {
+      const it = STU.items.get(id);
+      if (!it || it.rec.locked) continue;
+      const S = it.rec.strokes || pnPeek(it.rec);
+      if (!S) continue;
+      const left = S.filter((_, i) => !set.has(i));
+      if (left.length === S.length) continue;
+      const pts = ptsOf(left);
+      if (pts + paintInRecord(id) <= PNT.rec) { setRec(id, { strokes: left, src: undefined, n: undefined, pts: undefined }); total += S.length - left.length; }
+      else refused = 'What is left of a painting kept as a file is still more than the layout holds: erasing there needs a relay that takes uploads.';
+    }
+  });
+  if (refused && !total) paintSay(refused, 'amber');
+  if (total) sfxAct('snap', 'world', null, { gain: 0.5 });
+  return total;
+}
+
+// --------------------------------------------------------- the headset's trigger --
+// the right trigger paints from a point 6 cm ahead of the controller along its ray; its pressure sets the width factor; the
+// left hand keeps the menu and panels (a ray on a panel presses the panel, never paints). Called each frame with each
+// controller (xrPoint, e8_xr.js)
+const _pxt = new THREE.Vector3(), _pxn = new THREE.Vector3(), _pxq = new THREE.Quaternion();
+function paintHand(c) {
+  const hs = XR.ctrls.filter(k => k.src && k.g.visible && k.src.gamepad);
+  const r = hs.find(k => k.src.handedness === 'right');
+  return (r || hs[0]) === c;
+}
+function paintXR(c, gp, dt) {
+  if (!PAINT.on || !XR.on || !c.src || !gp) return;
+  if (!paintHand(c)) return;
+  GL.world.updateMatrixWorld(true);
+  const tip = GL.world.worldToLocal(_pxt.copy(c.o).addScaledVector(c.d, PNT.tip));
+  const tp = paintTip();
+  tp.visible = !!PAINT.on;
+  tp.position.copy(tip); tp.scale.setScalar(Math.max(0.003, PAINT.width / 2));
+  tp.material.color.set(PAINT.brush === 'eraser' ? '#ffffff' : PAINT.colour);
+  const b = gp.buttons && gp.buttons[0], down = !!b && (b.pressed || b.value > 0.1), f = b ? clamp(b.value > 0 ? b.value : b.pressed ? 1 : 0, 0.1, 1) : 1;
+  GL.world.getWorldQuaternion(_pxq).invert();
+  _pxn.set(0, 1, 0).transformDirection(c.g.matrix).applyQuaternion(_pxq);
+  if (down && !c.pnDown) {
+    c.pnDown = true;
+    const h = c.hover;
+    if (!(h && (h.kind === 'panel' || h.kind === 'shell' || h.kind === 'bar'))) c.pnD = paintBegin('xr', tip, f, _pxn);
+  } else if (down && c.pnD) paintAdd(c.pnD, tip, f, _pxn);
+  else if (!down && c.pnDown) { c.pnDown = false; if (c.pnD) { paintEnd(c.pnD); c.pnD = null; } }
+}
+function paintLetGo(c) { if (c.pnD) { paintEnd(c.pnD); c.pnD = null; } c.pnDown = false; }
+function paintTip() {
+  if (PNV.tip) return PNV.tip;
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  m.visible = false; m.frustumCulled = false; GL.items.add(m);
+  return (PNV.tip = m);
+}
+// a trigger press the shell would take for a selection: in paint mode only a panel's (or the shell's) is a press
+const paintKeepsPress = h => PAINT.on && !(h && (h.kind === 'panel' || h.kind === 'shell' || h.kind === 'bar'));
+
+// -------------------------------------------------------------- the page's pointer --
+// a press and drag on the scene paints where the pointer's ray meets the scene's surfaces (models, shapes, the floor), 3 mm out
+// along the surface's normal, else at the distance where the drag began; Orbit view only (the wheel still zooms)
+const _pr = new THREE.Raycaster(), _pinv = new THREE.Matrix4(), _pn = new THREE.Vector3();
+function paintSurface(rc, depth, fast) {
+  GL.world.updateMatrixWorld(true);
+  let best = null;
+  const consider = h => {
+    if (!h || (best && h.distance >= best.distance)) return;
+    const nrm = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : rc.ray.direction.clone().negate();
+    if (nrm.dot(rc.ray.direction) > 0) nrm.negate();
+    best = { distance: h.distance, point: h.point.clone(), normal: nrm };
+  };
+  if (!fast) for (const it of STU.items.values()) {
+    if (!it.holder.visible || it.hid || !it.shown) continue;
+    if (it.kind === 'o' && it.model && rc.intersectObject(it.proxy, false).length) consider(modelHits(it.model.o, rc)[0]);
+    else if (it.kind === 'p' && it.rec.look !== 'hide' && it.look.mesh) consider(rc.intersectObject(it.look.mesh, false)[0]);
+  }
+  _pinv.copy(GL.items.matrixWorld).invert();
+  const r = rc.ray.clone().applyMatrix4(_pinv), fl = r.intersectPlane(_rp, new THREE.Vector3());
+  if (fl) { const w = GL.items.localToWorld(fl.clone()), d = w.distanceTo(rc.ray.origin); if (!best || d < best.distance) best = { distance: d, point: w, normal: new THREE.Vector3(0, 1, 0).transformDirection(GL.items.matrixWorld) }; }
+  if (best) {
+    const p = GL.items.worldToLocal(best.point.clone().addScaledVector(best.normal, 0.003));
+    const n = best.normal.clone().transformDirection(_pinv);
+    return { p, n, distance: best.distance };
+  }
+  const w = rc.ray.origin.clone().addScaledVector(rc.ray.direction, depth || 3);
+  return { p: GL.items.worldToLocal(w), n: rc.ray.direction.clone().negate().transformDirection(_pinv), distance: depth || 3 };
+}
+function paintDown(ev) {
+  if (!PAINT.on || PAINT.pg || APP.mode !== 'explore' || XR.on || X.view !== 'orbit' || ev.button !== 0 || ev.shiftKey || (GL.tc && GL.tc.axis)) return false;
+  if (paintWhy()) { paintSay(paintWhy(), 'amber'); return true; }
+  const rc = pointerRay(ev.clientX, ev.clientY), s = paintSurface(rc, 0);
+  const D = paintBegin('page', s.p, ev.pointerType === 'pen' && ev.pressure > 0 ? ev.pressure : 1, s.n);
+  PAINT.pg = { pid: ev.pointerId, D, depth: s.distance };
+  return true;
+}
+function paintMove(ev) {
+  const G = PAINT.pg;
+  if (!G || !G.D) return;
+  // (the models are raycast only for the latest of a batch of coalesced events: a ray against a big scan costs tens of ms; the
+  // others in between use the floor or the depth the drag began at)
+  const evs = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
+  const L = evs.length ? evs : [ev];
+  L.forEach((e, i) => {
+    const s = paintSurface(pointerRay(e.clientX, e.clientY), G.depth, i < L.length - 1);
+    paintAdd(G.D, s.p, e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 1, s.n);
+  });
+}
+function paintUp() { const G = PAINT.pg; PAINT.pg = null; if (G && G.D) paintEnd(G.D); }
+
+// ------------------------------------------------------------ every frame --
+// (itemsStep, after the items: the preview's new vertices sent; the tip; paint mode ended when editing is, or a session begins
+// or ends)
+function paintTick(editing) {
+  PAINT.t0 = performance.now(); PAINT.did = false;
+  if (PAINT.on && (!editing || !!PAINT.sess !== !!XR.on || !STU.scene)) paintOff();
+  const D = PAINT.drawing;
+  if (D && D.dirty && D.pv) { pvFlush(D.pv); D.dirty = false; }
+  if (PNV.tip && (!PAINT.on || !XR.on)) PNV.tip.visible = false;
+}
+function paintDispose() {
+  paintCancel();
+  for (const e of PNV.m.values()) { GL.items.remove(e.mesh); e.mesh.geometry.dispose(); if (e.sp) e.mesh.material.dispose(); }
+  PNV.m.clear();
+  for (const m of [...PNV.froze]) pvThaw(m);
+  if (PNV.tip) { GL.items.remove(PNV.tip); PNV.tip.geometry.dispose(); PNV.tip.material.dispose(); PNV.tip = null; }
+  for (const a of PNV.fz.values()) a.forEach(pvThaw);
+  PNV.fz.clear();
+  if (PMAT) { for (const k in PMAT) PMAT[k].dispose(); PMAT = null; }
+  if (DOT_TEX) { DOT_TEX.dispose(); DOT_TEX = null; }
+  PAINT.on = false; PAINT.keep.clear(); PNF.clear();
+}
+
+// ------------------------------------------------------------- the panes --
+// a test or a tool drawing a stroke from given tip samples, as the trigger would: [x, y, z, f?, nx?, ny?, nz?] in the scene's
+// frame; o: { brush, colour, width, seed } for this stroke alone. Paint mode must be on
+PAINT.fake = (points, o) => {
+  o = o || {};
+  const keep = { brush: PAINT.brush, colour: PAINT.colour, width: PAINT.width, seed: PAINT.seed };
+  if (o.brush) PAINT.brush = o.brush; if (o.colour) PAINT.colour = o.colour; if (o.width) PAINT.width = o.width; PAINT.seed = o.seed || 0;
+  try {
+    const V = a => new THREE.Vector3(a[0], a[1], a[2]), N = a => (a[4] === undefined ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(a[4], a[5], a[6]));
+    const D = paintBegin('fake', V(points[0]), points[0][3] === undefined ? 1 : points[0][3], N(points[0]));
+    if (!D) return { ok: false, refused: true, note: PAINT.note };
+    for (let i = 1; i < points.length; i++) paintAdd(D, V(points[i]), points[i][3] === undefined ? 1 : points[i][3], N(points[i]));
+    return paintEnd(D);
+  } finally { Object.assign(PAINT, keep, { seed: keep.seed }); }
+};
+// settles a file wait in the tests: the painting kept so far (its file in, its record written)
+PAINT.build = id => { paintBuildAll(); return id ? paintingState(id) : null; };
+PAINT.brushes = ['ribbon', 'tube', 'glow', 'spray', 'eraser'];
+
+const PAINT_BRUSH = { ribbon: 'Ribbon', tube: 'Tube', glow: 'Glow', spray: 'Spray can', eraser: 'Eraser' };
+const mmWords = w => (w * 1000).toFixed(w < 0.0095 ? (w < 0.0025 ? 0 : 1) : 0).replace(/\.0$/, '') + ' mm';
+// the Add pane's Paint row
+function paintAddBlocks(B, full) {
+  const w = paintWhy();
+  B.push({ label: 'Paint', row: [{ id: 'paint:on', label: PAINT.on ? 'Painting: on (Done in the Paint pane)' : 'Paint', act: 'pnOn', on: PAINT.on, dis: !!w || (full('d') && !paintTarget()) }] },
+    { p: 'Draw in the air with a ribbon, a tube, a glow pen or a spray can (and an eraser): in a headset the right trigger paints from just ahead of the controller, on a page a drag on the scene. Strokes go into the painting selected, else a new painting; it moves, turns, sizes, shows and hides and groups as anything else.', c: 'faint' });
+  if (w && !PAINT.on) B.push({ p: w, c: 'amber' });
+}
+// the Paint pane (shown while paint mode is on)
+function paintBlocks(B) {
+  const T = paintTarget(), w = paintWhy(), dis = !PAINT.on;
+  B.push({ h: 'Paint', sub: 'Drawing in the air' });
+  if (!PAINT.on) { B.push({ p: 'Paint mode is off: Paint on the Add pane (or Paint on it on a painting\'s card) turns it on.', c: 'muted' }); return; }
+  if (w) B.push({ p: w, c: 'amber' });
+  B.push({ p: T ? `Strokes go into ${T.rec.name}${T.rec.locked ? ' (locked in place: refused)' : ''}.` : 'The next stroke makes a new painting.', c: T && T.rec.locked ? 'amber' : 'muted' });
+  B.push({ label: 'Brush', row: PAINT.brushes.map(k => ({ id: 'pnbrush:' + k, label: PAINT_BRUSH[k], act: 'pnBrush', v: k, on: PAINT.brush === k })) },
+    { label: 'Colour', row: SHAPE_COLS.map(([c, n]) => ({ id: 'pncol:' + c, label: n, act: 'pnColour', v: c, on: PAINT.colour === c, sw: c })) },
+    { page: true, colour: { id: 'stuPaintCol', act: 'pnColour', value: PAINT.colour, label: 'Any colour' } },
+    { label: `Width: ${mmWords(PAINT.width)}`, row: [{ id: 'pnw:-', label: 'Thinner', act: 'pnWidth', v: -1, dis: PAINT.width <= PNT.widths[0] }, { id: 'pnw:+', label: 'Thicker', act: 'pnWidth', v: 1, dis: PAINT.width >= PNT.widths[PNT.widths.length - 1] }] },
+    { row: [{ id: 'pn:new', label: 'New painting', act: 'pnNew', dis: !STU.sel }, { id: 'pn:done', label: 'Done', act: 'pnDone', primary: true }] });
+  B.push({ p: XR.on ? 'The right trigger paints from a little ahead of the controller; pressing harder is a wider stroke. The grip still carries things. Done, or selecting something that is not a painting, ends it.' : 'Drag on the scene (Orbit view) to paint where the pointer meets its surfaces; the wheel still zooms, a right drag pans. Done, or selecting something that is not a painting, ends it.', c: 'faint' });
+  if (PAINT.brush === 'eraser') B.push({ p: 'The eraser removes every stroke it passes within its width of, in the painting selected (else any painting): one Undo step for one press.', c: 'faint' });
+  for (const [, K] of PAINT.keep) B.push({ p: K.text, c: 'muted' });
+  if (PAINT.note) B.push({ p: PAINT.note, c: PAINT.noteC });
+  if (PAINT.last && PAINT.last.ok) B.push({ p: `Last stroke: ${PAINT.last.strokes} stroke${PAINT.last.strokes === 1 ? '' : 's'} in the painting, ${PAINT.last.pts.toLocaleString('en')} points.`, c: 'faint' });
+}
+// a painting's card
+function paintingBlocks(it, B, dis, mv) {
+  const r = it.rec, n = paintN(r), pts = paintP(r), K = PAINT.keep.get(it.id), f = r.src && PNF.get(r.src), sz = it.look.bb.getSize(new THREE.Vector3()).multiplyScalar(r.s), armed = PAINT.arm && PAINT.arm.id === it.id && performance.now() - PAINT.arm.at < 3000;
+  B.push({ h: r.name, sub: 'Painting' + hiddenSub(it, it.shown) },
+    { kv: [['Strokes', `${n} · ${pts.toLocaleString('en')} points`], ['Kept', r.src ? 'in the file ' + r.src : 'in the scene\'s layout'], ['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', '× ' + r.s]] });
+  if (r.src && f && f.state === 'bad') B.push({ p: f.err, c: 'amber' });
+  else if (r.src && !pnPeek(r)) B.push({ p: 'Its file is being read: it shows once it is in.', c: 'faint' });
+  if (K) B.push({ p: K.text, c: 'muted' });
+  B.push({ label: 'Paint', row: [{ id: 'pn:paint', label: PAINT.on && STU.sel === it.id ? 'Painting on it (Done in the Paint pane)' : 'Paint on it', act: 'i:pnOnIt', on: PAINT.on && STU.sel === it.id, dis }] },
+    { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'dsize:' + k, label: '×' + k, act: 'i:dsize', v: k, dis: mv })) },
+    { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] },
+    { label: 'Strokes', row: [{ id: 'pn:clear', label: armed ? 'Clear: press again' : 'Clear', act: armed ? 'i:pclear' : 'i:pclearArm', on: armed, dis: dis || !n, col: 'red' }] },
+    { p: 'The strokes are in its own frame, so it moves, turns and sizes as one. Clear takes every stroke away (two presses, one Undo step); the painting stays, empty, until deleted.', c: 'faint' });
+  if (PAINT.note && PAINT.on === false) B.push({ p: PAINT.note, c: PAINT.noteC });
+}
+const paintSub = r => `Painting · ${paintN(r)} stroke${paintN(r) === 1 ? '' : 's'}`;
+// the Items pane's tile: its strokes' colours (the first four)
+const paintCols = r => { const S = r.strokes || []; return [...new Set(S.map(s => s.c))].slice(0, 4); };
+function paintSig() { return [PAINT.on, PAINT.brush, PAINT.colour, PAINT.width, PAINT.note, PAINT.keep.size, PAINT.arm && PAINT.arm.id, PAINT.last && PAINT.last.strokes, [...PNF.values()].map(f => f.state).join('')].join(); }
+
+const PAINT_ACT = {
+  pnOn: () => { if (PAINT.on) paintOff(); else paintOn(null); },
+  pnBrush: v => { if (PAINT.brushes.includes(v)) { PAINT.brush = v; PAINT.note = ''; } },
+  pnColour: v => { if (/^#[0-9a-f]{6}$/i.test(v)) { PAINT.colour = String(v).toLowerCase(); if (PAINT.brush === 'eraser') PAINT.brush = 'ribbon'; } },
+  pnWidth: v => { PAINT.width = stepOf(PNT.widths, PAINT.width, +v); },
+  pnNew: () => { if (STU.sel) select(''); if (typeof X !== 'undefined') X.tab = 'paint'; },
+  pnDone: () => paintOff(),
+};
+Object.assign(ITEM_ACT, {
+  // a painting: its size (every side alike, about its foot), paint mode into it, Clear (two presses)
+  dsize: (it, k) => {
+    if (it.kind !== 'd' || !(+k > 0)) return;
+    const b0 = paintBoxRec(it, new THREE.Box3()), s = +clamp(it.rec.s * k, 0.05, 20).toPrecision(4);
+    const r0 = it.rec; it.rec = Object.assign({}, r0, { s }); const b1 = paintBoxRec(it, new THREE.Box3()); it.rec = r0;
+    setRec(it.id, { s, p: [it.rec.p[0] + (b0.min.x + b0.max.x - b1.min.x - b1.max.x) / 2, it.rec.p[1] + b0.min.y - b1.min.y, it.rec.p[2] + (b0.min.z + b0.max.z - b1.min.z - b1.max.z) / 2] });
+  },
+  pnOnIt: it => { if (it.kind === 'd') paintOn(it); },
+  pclearArm: it => { PAINT.arm = { id: it.id, at: performance.now() }; later(() => dirty(true), 3100); },
+  pclear: it => {
+    if (it.kind !== 'd') return;
+    PAINT.arm = null;
+    if (PAINT.on && PAINT.drawing) return;
+    setRec(it.id, { strokes: [], src: undefined, n: undefined, pts: undefined });
+  },
+});
+
+// for the tests (STUDIO.paint() and STUDIO.painting(id))
+function paintState() {
+  const D = PAINT.drawing, T = paintTarget();
+  return { on: PAINT.on, brush: PAINT.brush, colour: PAINT.colour, width: PAINT.width, painting: T ? T.id : '', drawing: D ? { n: D.pts.length, brush: D.brush, by: D.by } : null, last: PAINT.last, note: PAINT.note, keeping: [...PAINT.keep.keys()], why: paintWhy() };
+}
+function paintingState(id) {
+  const it = STU.items.get(id);
+  if (!it || it.kind !== 'd') return null;
+  const st = it.pbStats || { meshes: [], dots: 0 }, S = it.rec.strokes || pnPeek(it.rec);
+  return { rec: it.rec, strokes: S ? S.length : -1, meshes: st.meshes.slice(), dots: st.dots, built: !!it.pbDone && !it.pb, ver: it.pbVer, shown: it.shown, a: it.a, hid: it.hid, drawn: it.look.meshes.children.map(m => m.visible && it.look.meshes.visible),
+    bb: it.look.bb.toArray ? [it.look.bb.min.toArray(), it.look.bb.max.toArray()] : null, materials: it.look.meshes.children.map(m => ({ transparent: m.material.transparent, depthWrite: m.material.depthWrite, depthTest: m.material.depthTest, opacity: m.material.opacity })) };
+}
+
+// ------------------------------------------------------------- duplicating --
+// the points a set of copies would add to the records (a scene's paintings keep 4,000 in all); '' they fit
+function paintCopyWhy(recs) {
+  const add = recs.reduce((a, r) => a + (r.strokes ? ptsOf(r.strokes) : 0), 0);
+  const bytes = recs.reduce((a, r) => a + (r.strokes ? JSON.stringify(r.strokes).length : 0), 0);
+  if (add && JSON.stringify(collabState()).length + bytes > PATH_MAX.state) return `No room for its copy: with its strokes the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB).`;
+  return add && add + paintInRecord('') > PNT.rec ? `No room for its copy: a scene's paintings keep ${PNT.rec.toLocaleString('en')} points in all in its layout (the rest go in files of the scene).` : '';
+}
+// Duplicate (beside it): its strokes copied into the record when they fit, else into a new file of the scene
+function duplicatePainting(it) {
+  const r = it.rec, S = r.strokes || pnPeek(r);
+  if (!S) { paintSay('Its file is not read yet: try again in a moment.', 'amber'); return ''; }
+  const nid = newId(), mk = { name: nameFor(r.name.replace(/ \d+$/, '')), p: [r.p[0] + 0.5, r.p[1], r.p[2]], q: r.q, s: r.s };   // (a copy is never locked)
+  if (r.shows) mk.shows = r.shows;
+  if (ptsOf(S) + paintInRecord('') <= PNT.rec) {
+    change(() => putItem(nid, 'd', norm('d', Object.assign({}, mk, { strokes: S }))));
+    if (STU.items.has(nid)) select(nid);
+    sfxAct('place', 'world', null);
+    return nid;
+  }
+  if (!canUpload()) { paintSay('More strokes need a relay that takes uploads: a copy of this painting does not fit the 4,000 points the layout keeps.', 'amber'); return ''; }
+  paintKeep(nid, mk, S, null);
+  return nid;
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -27257,7 +28262,7 @@ function screenState(id) {
 // page the camera goes round the scene (Orbit) or walks in it at 1.6 m
 // (Walk: where cubes trigger on a page); editing, a click selects and the arrows (TransformControls) move, turn and
 // size what is selected.
-const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload']];
+const TABS = [['scene', 'Scene'], ['add', 'Add'], ['item', 'Item'], ['items', 'Items'], ['upload', 'Upload'], ['paint', 'Paint']];   // (Paint only while paint mode is on: e6r_paint.js)
 const X = { tab: 'scene', view: 'orbit', tcMode: 'translate', dirty: false, drawn: 0, tcDrag: false, tcUp: 0, scroll: {}, scrollMax: {}, scrollView: 0, scrollF: { tab: '', v: 0, at: -1 }, orig: false, texAdd: null, texFor: null, sliding: false };
 const XS = {};
 const orbit = { cur: [24, 20, 7, 0, 1, 0], from: null, to: null, t0: 0, dur: 1.2 };
@@ -27297,6 +28302,7 @@ function frameScene(now) {
     else if (it.kind === 'c') { b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(-0.5)); b.expandByPoint(_sv.fromArray(it.rec.p).addScalar(0.5)); }
     else if (it.kind === 's' || it.kind === 'e') b.expandByPoint(_sv.fromArray(it.rec.p));   // (a cut-out is within its object)
     else if (it.kind === 'p') b.union(shapeBox(it, new THREE.Box3(), true));
+    else if (it.kind === 'd') b.union(paintBoxRec(it, new THREE.Box3()));
   }
   if (b.isEmpty()) b.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
   const c = b.getCenter(new THREE.Vector3()), r = Math.max(1, b.getSize(new THREE.Vector3()).length() / 2);
@@ -27461,6 +28467,7 @@ function paneBlocks(tab) {
     if (SCR.note) B.push({ p: SCR.note, c: 'amber' });
     B.push({ label: `Videos (${vids.length})`, grid: vids.map(f => ({ id: 'addv:' + f.path, label: f.path.replace(/^videos\//i, ''), title: f.path, act: 'addv', v: f.path, kind: extOf(f.path).toUpperCase(), sub: mb(f.bytes), dis: full('v') })) });
     if (!vids.length) B.push({ p: 'No videos in the scene\'s folder (.mp4, .m4v, .mov, .mkv; .webm is listed with the sounds): drop them under Upload; they go into videos/.', c: 'faint' });
+    paintAddBlocks(B, full);   // (paint mode, strokes drawn in the air: e6r_paint.js)
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
@@ -27472,9 +28479,11 @@ function paneBlocks(tab) {
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
     if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v', 'd']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
+  } else if (tab === 'paint') {
+    paintBlocks(B);   // (the Paint pane: e6r_paint.js)
   } else if (tab === 'item') {
     const it = STU.items.get(STU.sel);
     if (!it) { B.push({ h: 'Item' }, { p: ed ? (XR.on ? 'Point at something in the scene and pull the trigger, or pick it under Items.' : 'Click something in the scene, or pick it under Items.') : 'Pick something under Items to see its card.', c: 'muted' }); return B; }
@@ -27502,7 +28511,7 @@ function paneBlocks(tab) {
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
     // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['d', 'Paintings'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
     }
@@ -27538,6 +28547,7 @@ function itemSub(it) {
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
   if (it.kind === 'v') return screenSub(r) + (r.sync === 'own' ? ' · each person' : '') + me;
+  if (it.kind === 'd') return paintSub(r) + me;
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
@@ -27573,6 +28583,7 @@ function itemCard(it, C) {
     else if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'v') { card.tile = { k: r.look === 'audio' ? 'sound' : 'screen', col: it.look.col }; card.sub = screenSub(r); state.unshift(r.ctl === 'any' ? 'controls for anyone' : '', r.sync === 'own' ? 'each person' : ''); }
+  else if (it.kind === 'd') { card.tile = { k: 'paint', col: paintCols(r)[0] || it.look.col, cols: paintCols(r) }; card.sub = paintSub(r) + (r.src ? ' · in a file' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
@@ -27715,6 +28726,8 @@ function itemBlocks(it, B, ed) {
     pathBlocks(it, B, dis, mv);
   } else if (it.kind === 'v') {
     screenBlocks(it, B, dis, mv);   // (a screen: e6q_screens.js)
+  } else if (it.kind === 'd') {
+    paintingBlocks(it, B, dis, mv);   // (a painting: e6r_paint.js)
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -27967,6 +28980,7 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (PAINT_ACT[a]) { PAINT_ACT[a](v); dirty(true); return; }   // (paint mode's brush, colour, width and Done: e6r_paint.js)
   if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
   if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
@@ -28040,10 +29054,10 @@ function act(a, v) {
   dirty(true);
 }
 // (a headset shows no Upload tab, and nor does a visitor's kiosk: &visit offers no editing and no uploads)
-function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
+function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -28134,7 +29148,7 @@ function buildExplore() {
     .stu-plan li img.stu-pv.sm { width: 96px; height: 96px; }
     .pane p.amber { color: var(--amber); } .pane p.red { color: var(--red); } .pane p.faint { color: var(--faint); font-size: 13px; } .pane p.muted { color: var(--muted); } .pane p.green { color: var(--green); }
   </style>
-    <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
+    <div class="tabs" role="tablist">${TABS.filter(([k]) => k !== 'upload' || !OPT.visit).map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}"${k === 'paint' ? ' style="display:none"' : ''}>${n}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}
     <input type="file" id="stuUpload" accept=".json,application/json" hidden>
     <input type="file" id="stuTex" accept="image/*,.tga,.tif,.tiff,.psd,.psb,.dds" hidden>
@@ -28209,7 +29223,8 @@ function renderPanes() {
   // drawn once the session ends. v136: every change in a session built the page's HTML again)
   if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
   X.dirty = false; X.drawn = performance.now();
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === X.tab));
+  if (X.tab === 'paint' && !PAINT.on) X.tab = 'scene';   // (the Paint pane is for paint mode)
+  document.querySelectorAll('#explore .tabs button').forEach(b => { b.setAttribute('aria-selected', b.dataset.tab === X.tab); if (b.dataset.tab === 'paint') b.style.display = PAINT.on ? '' : 'none'; });
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
@@ -28260,6 +29275,7 @@ function pickables() {
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
     else if (it.kind === 'v' && it.holder.visible) L.push(it.look.hit);   // (a screen's panel: e6q_screens.js)
+    else if (it.kind === 'd' && it.holder.visible) L.push(it.look.hit);   // (a painting's unseen box: e6r_paint.js)
   }
   return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
 }
@@ -28358,6 +29374,7 @@ function bindCanvas() {
   cv.style.cursor = 'grab';
   cv.addEventListener('pointerdown', ev => {
     if (screenDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (a screen's bar: e6q_screens.js)
+    if (paintDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (paint mode: a drag paints, e6r_paint.js)
     if (visitDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (without editing: an item anyone may move, v140)
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
@@ -28367,6 +29384,7 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
+    if (PAINT.pg) { if (ev.pointerId === PAINT.pg.pid) paintMove(ev); return; }   // (a stroke being drawn)
     if (SCR.drag) { if (ev.pointerId === SCR.drag.pid) screenDragTo(ev); return; }   // (the seek bar held)
     if (PDRAG) { if (ev.pointerId === PDRAG.pid) visitMoveTo(ev); return; }
     if (!pts.has(ev.pointerId)) {
@@ -28399,6 +29417,7 @@ function bindCanvas() {
     } else { orbit.cur[0] -= dx * 0.3; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -10, 86); }
   });
   const end = ev => {
+    if (PAINT.pg && ev.pointerId === PAINT.pg.pid) { paintUp(); return; }
     if (SCR.drag && ev.pointerId === SCR.drag.pid) { screenDragEnd(); return; }
     if (PDRAG && ev.pointerId === PDRAG.pid) { visitUp(); return; }
     pts.delete(ev.pointerId);
@@ -28625,6 +29644,9 @@ function tcRead(it) {
   } else if (it.kind === 'v') {
     const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - it.rec.w)), w = clamp(Math.abs(v[d.indexOf(Math.max(...d))]), 0.2, 20);   // (its width: the axis dragged)
     h.scale.setScalar(w); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w });
+  } else if (it.kind === 'd') {
+    const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - it.rec.s)), sc = clamp(Math.abs(v[d.indexOf(Math.max(...d))]), 0.05, 20);   // (its size: the axis dragged)
+    h.scale.setScalar(sc); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: sc });
   } else if (it.kind === 'e') { h.scale.set(1, 1, 1); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() }); }
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
@@ -28638,7 +29660,7 @@ function tcAttach() {
   if (!tc) return;
   const it = STU.items.get(STU.sel);
   // (locked in place: no arrows; recording a path: no Size)
-  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it)) { if (tc.object) tc.detach(); return; }
+  if (!it || !editOn() || XR.on || APP.mode !== 'explore' || lockWhy(it) || PAINT.on) { if (tc.object) tc.detach(); return; }   // (paint mode: the arrows would be in the way)
   const m = it.kind === 's' || ((it.kind === 'e' || recording(it)) && X.tcMode === 'scale') ? 'translate' : X.tcMode;
   // (recording with Stays on the floor: only along the floor and about the vertical, so no up arrow and no tilting rings)
   const fl = recording(it) && REC.floor;
@@ -30481,8 +31503,9 @@ function modelWords(f) {
 // axis cross, a cut-out cutting nothing a dashed box. Drawn once a kind and colour, as a canvas the headset draws and the
 // page shows as a data URL (so both look the same)
 const TILE = new Map(), TILE_PX = 256;
+const tileKey = t => t.k + '|' + t.col + '|' + (t.hide ? 1 : 0) + (t.cols ? '|' + t.cols.join(',') : '');
 function tileFor(t) {
-  const key = t.k + '|' + t.col + '|' + (t.hide ? 1 : 0);
+  const key = tileKey(t);
   let e = TILE.get(key);
   if (e) return e.cv;
   const S = TILE_PX, cv = document.createElement('canvas');
@@ -30530,6 +31553,14 @@ function tileFor(t) {
     poly([[34, 70], [222, 70], [222, 176], [34, 176]], rgb(0.3), rgb(1, 0.3), 5); poly([[44, 80], [212, 80], [212, 166], [44, 166]], rgb(0.18));
     poly([[110, 98], [110, 148], [154, 123]], rgb(1, 0.25)); poly([[104, 176], [152, 176], [152, 200], [104, 200]], rgb(0.5));
     line([84, 204], [170, 204], rgb(0.6), 8);
+  } else if (t.k === 'paint') {
+    // a painting: three strokes in its colours (a ribbon, a tube and a few spray dots), as the tile of a drawing in the air
+    const cs = (t.cols && t.cols.length ? t.cols : [t.col || '#ff8a6b']), col = i => cs[i % cs.length];
+    x.lineCap = 'round'; x.setLineDash([]);
+    [[56, 150, 108, 70, 150, 190, 200, 120, 22], [50, 190, 100, 150, 160, 120, 206, 170, 14], [60, 110, 110, 150, 170, 70, 200, 100, 8]].forEach((q, i) => {
+      x.beginPath(); x.moveTo(q[0], q[1]); x.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]); x.lineWidth = q[8]; x.strokeStyle = new THREE.Color(col(i)).multiplyScalar(0.9).getStyle(); x.stroke();
+    });
+    for (let d = 0; d < 26; d++) { const a = d * 2.4, r = 6 + (d * 37 % 31); x.beginPath(); x.arc(176 + Math.cos(a) * r, 196 + Math.sin(a) * r * 0.6, 3.2, 0, 7); x.fillStyle = new THREE.Color(col(3)).getStyle(); x.fill(); }
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
@@ -30545,7 +31576,7 @@ function tileFor(t) {
   return cv;
 }
 // the same tile for the page: a data URL, made once
-function tileUrl(t) { tileFor(t); const e = TILE.get(t.k + '|' + t.col + '|' + (t.hide ? 1 : 0)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
+function tileUrl(t) { tileFor(t); const e = TILE.get(tileKey(t)); if (!e.url) e.url = e.cv.toDataURL('image/png'); return e.url; }
 // for tests and the console: which models have a picture and where it is from, and Make pictures
 const pvState = () => ({
   listed: [...PV.files.keys()], shown: [...PV.img].filter(([, e]) => e.state === 'ready').map(([k]) => k), failed: [...PV.img].filter(([, e]) => e.state === 'failed').map(([k]) => k),
@@ -31555,6 +32586,7 @@ function buzz(c, s, ms) {
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
+  if (paintKeepsPress(h)) return;   // (paint mode: the trigger paints (paintXR), it selects nothing; a panel's press is still a press: e6r_paint.js)
   if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
@@ -31674,6 +32706,7 @@ const holdStep = () => {
 // let go of an item (the grip up, the controller gone, or locked meanwhile): it stays where it is (its record written),
 // unless the other hand still holds it
 function xrLetGo(c) {
+  paintLetGo(c);   // (a stroke being drawn ends with its controller: e6r_paint.js)
   const G = c.grab;
   c.grab = null;
   if (G && G.target === 'group') { groupLetGo(c, G); return; }
@@ -31740,6 +32773,7 @@ function carryWrite(it, now) {
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
   else if (it.kind === 'v') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w: clamp(h.scale.x, 0.2, 20) });   // (a screen: its width)
+  else if (it.kind === 'd') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), s: +clamp(h.scale.x, 0.05, 20).toPrecision(4) });   // (a painting: its size)
   else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
   else setRec(it.id, Object.assign(soundAt(it, h.position), it.carryR ? { r: it.carryR } : {}));   // (a sound that follows a model: its offset from where the hand puts it; its reach as the left stick sizes it)
 }
@@ -31820,7 +32854,7 @@ function holdSticks(c, G, dt, lo, hi) {
 // limits (an empty has no size)
 function holdRange(it, G) {
   const s = G.s0, mn = Math.min(s.x, s.y, s.z), mx = Math.max(s.x, s.y, s.z);
-  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx] : it.kind === 'v' ? [0.2 / mn, 20 / mx]
+  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx] : it.kind === 'v' ? [0.2 / mn, 20 / mx] : it.kind === 'd' ? [0.05 / mn, 20 / mx]
     : it.kind === 'x' ? [0.01 / mn, 50 / mx] : it.kind === 's' ? [0.1 / G.rr, 20 / G.rr] : [1, 1];
   return [Math.max(1 / 20, a), Math.min(20, b)];
 }
@@ -31846,9 +32880,9 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p' || it.kind === 'v')) {
+  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p' || it.kind === 'v' || it.kind === 'd')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
-    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p' || it.kind === 'v';
+    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p' || it.kind === 'v' || it.kind === 'd';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
     const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.holder.scale.x, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });   // (as shown: the sticks may have sized it since its record was last written)
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
@@ -32068,6 +33102,7 @@ function xrPoint(c, dt) {
   c.hk = hk;
   // (the seek bar held: it follows the ray along the bar)
   if (c.press && c.press.kind === 'bar' && c.press.seek && hit && hit.kind === 'bar' && hit.id === c.press.id && hit.key === 'seek' && Math.abs(hit.frac - (c.press.frac || 0)) > 0.002) { c.press.frac = hit.frac; screenBarPress(hit.id, 'seek', hit.frac); }
+  paintXR(c, c.src.gamepad, dt);   // (paint mode: the trigger draws a stroke from just ahead of the controller; e6r_paint.js)
   if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
   if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
@@ -32816,7 +33851,9 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 function drawExplorePane(ctx, P, x, y, W) {
   let bx = x;
   if (X.tab === 'upload') X.tab = 'scene';   // (Upload is the page's: a headset has no files to drop)
-  for (const [k, n] of TABS.filter(t => t[0] !== 'upload')) { vButton(ctx, P, 'tab:' + k, bx, y, 220, 56, n, () => pickTab(k), { on: X.tab === k, px: 24 }); bx += 232; }
+  if (X.tab === 'paint' && !PAINT.on) X.tab = 'scene';
+  const tabs = TABS.filter(t => t[0] !== 'upload' && (t[0] !== 'paint' || PAINT.on)), tw = Math.min(220, Math.floor((W - 12 * (tabs.length - 1)) / tabs.length));   // (five tabs while paint mode is on: narrower)
+  for (const [k, n] of tabs) { vButton(ctx, P, 'tab:' + k, bx, y, tw, 56, n, () => pickTab(k), { on: X.tab === k, px: tw < 200 ? 21 : 24 }); bx += tw + 12; }
   y += 76;
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;
@@ -33543,6 +34580,8 @@ const STUDIO = {
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
   screen: id => screenState(id),
+  paint: () => paintState(),   // (paint mode: its brush, colour, width, target, stroke being drawn and last result: e6r_paint.js)
+  painting: id => paintingState(id),   // (a painting: its record, strokes, meshes, dots, whether built)
   get screenClock() { return screenClock; },
   set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
@@ -33607,6 +34646,7 @@ return {
     for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
+    try { paintDispose(); } catch (e) { /* none */ }   // (paint mode ended, its preview and tip let go: e6r_paint.js)
     try { screensDispose(); } catch (e) { /* none */ }   // (the screens' elements let go: e6q_screens.js)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }

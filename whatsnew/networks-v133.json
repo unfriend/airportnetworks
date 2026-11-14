@@ -1,0 +1,21 @@
+{
+  "version": "networks-v133",
+  "date": "11 November 2026",
+  "new": [
+    "Spaceships are now steered with the right stick: left and right turn, forward dives and back climbs, as in a flight simulator. Let go and it flies level.",
+    "Tilting the controller no longer steers: how you hold it does not matter any more.",
+    "While a ship flies, a click of the right stick counts only with the stick at its middle, so a hard push that clicks does not land the ship or open the menu. Two clicks at the middle still land it.",
+    "Everything else about the ships is as in v132: launch and land with two clicks of the right stick, the grip brakes, A boosts, the trigger shoots, drones, targets and pickups shared in a room."
+  ],
+  "test": [
+    "Launch with two clicks of the right stick. Do the stick's turn and climb feel right: the dead zone in the middle, how fast a full push turns, forward to dive and back to climb?",
+    "Push the stick hard and click it by accident while flying: the ship should keep flying and the menu stay shut. Two clicks with the stick at its middle should still land it.",
+    "Hold the controller at any angle while flying: the ship should not care.",
+    "The left stick clicked twice should still turn moving with the sticks on and off (VR), in the studio too."
+  ],
+  "untested": [
+    "Everything on a real headset: how the stick feels and its numbers (a dead zone of 0.15, a full turn of 140 degrees a second, 60 degrees of climb), and whether 0.5 is the right point for ignoring a pushed click.",
+    "Two headsets flying together: v133 changes only how each ship is steered, but the shared room's ship round was not run again here.",
+    "On dev only the quick checks ran, with the spaceship smoke steps; the full suites run before the main site moves."
+  ]
+}

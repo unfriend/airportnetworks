@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v143';
+const VERSION = 'networks-v144';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -121,8 +121,9 @@ self.addEventListener('fetch', e => {
   // the shared rooms' relay (when it serves the app): its API is live, never cached
   if (url.origin === self.location.origin && /\/api\//.test(url.pathname)) return;
   // the latest release's version file (tools/release.mjs): always the server's, never kept (HOST.live compares it
-  // with what this page runs); and what is new in it (whatsnew.json, developer mode's box: HOST.dev), likewise
-  if (url.origin === self.location.origin && /\/(version|whatsnew)\.json$/.test(url.pathname)) return;
+  // with what this page runs); and what is new in it (whatsnew.json, developer mode's box: HOST.dev, and the history of
+  // earlier releases in whatsnew/), likewise
+  if (url.origin === self.location.origin && /\/(version\.json|whatsnew\.json|whatsnew\/[^/]+\.json)$/.test(url.pathname)) return;
   // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));

@@ -97,7 +97,7 @@ function lockNames(it, del) {
 const lockWhy = (it, del) => lockNames(it, del).join(', ');
 // the card's actions a lock refuses (Ungroup only the group's own lock: its members keep theirs)
 // (recording a path carries it: refused too; how a path plays is not refused, as a motion is not: its place stays)
-const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold', 'rec', 'recArm'];
+const MOVE_ACTS = ['turn', 'stand', 'floor', 'size', 'grow', 'cgrow', 'csize', 'pgrow', 'psize', 'onto', 'cutOn', 'cutPick', 'hold', 'rec', 'recArm', 'dsize', 'pclear', 'pclearArm'];
 const lockStops = (it, act) => (act === 'del' ? !!lockWhy(it, true) : act === 'ungroup' ? !!(it.kind === 'g' && it.rec.locked) : MOVE_ACTS.includes(act) && !!lockWhy(it));
 // a refusal: said on its card for a moment, and a knock
 function lockRefused(it) {
@@ -220,7 +220,7 @@ function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false
 // every record written, for everyone at the circle and saved as any change. Refused while the scene is locked (Lock
 // this story: not offered then, editing being off) or while an item is locked in place (it says which)
 const CIRC = { note: '', c: '', at: 0, sc: '' };
-const CIRC_KINDS = ['o', 'p', 'e', 'c', 's'];
+const CIRC_KINDS = ['o', 'p', 'e', 'c', 's', 'd'];
 // what the last press came to, on the Scene pane for 12 s (for that scene only)
 function circleSay(note, c) {
   Object.assign(CIRC, { note, c, at: performance.now(), sc: STU.scene });

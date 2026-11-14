@@ -1297,6 +1297,10 @@ try {
     ok(r.status === 200 && r.headers['content-type'] === 'application/json' && r.headers['cache-control'] === 'no-store', 'the release\'s version file: never kept (no-store)');
     r = await req('GET', '/whatsnew.json');
     ok(r.status === 200 && r.headers['content-type'] === 'application/json' && r.headers['cache-control'] === 'no-store' && r.buf.equals(file('whatsnew.json')), 'what is new in the release (developer mode): never kept (no-store)');
+    r = await req('GET', '/whatsnew/index.json');
+    ok(r.status === 200 && r.headers['cache-control'] === 'no-store' && r.buf.equals(file('whatsnew/index.json')), 'the history of what is new (whatsnew/index.json): served, never kept (no-store)');
+    r = await req('GET', '/whatsnew/networks-v143.json');
+    ok(r.status === 200 && r.headers['cache-control'] === 'no-store', 'an earlier release\'s what is new (whatsnew/<version>.json): never kept (no-store)');
     const mp3 = file('audio/narration.mp3'), size = mp3.length;
     r = await req('HEAD', '/audio/narration.mp3');
     ok(r.headers['content-type'] === 'audio/mpeg' && r.headers['accept-ranges'] === 'bytes' && +r.headers['content-length'] === size, 'the narration: audio/mpeg, ranges');
@@ -2707,6 +2711,36 @@ if (me === 'hang') setInterval(() => {}, 1000);
     for (const p of ['recordings']) { fs.rmSync(at(p), { recursive: true, force: true }); fs.rmSync(path.join(U, 'new one', p), { recursive: true, force: true }); }   // (the steps after know the scenes without them)
   });
 
+  // a painting kept as a file of its scene (tools/studio/SPEC.md, "Paintings", v144): paintings/<name>.json, at most 4 MB,
+  // listed with the kind painting and served as JSON, as a recording is
+  await step('paintings: paintings/ takes a painting kept as a file (.json, at most 4 MB and --max-upload), listed and told with its kind painting, served as JSON; a .json anywhere else refused; copies by the same rule', async () => {
+    const J = Buffer.from(JSON.stringify({ studio: 1, painting: 1, strokes: [{ b: 'tube', c: '#ff0000', w: 0.01, k: [[0, 0, 0, 1], [0.1, 0, 0, 1]] }] }));
+    const w = sse(UP.port, '/api/scenes/watch');
+    await w.ready;
+    await w.next(ev('hello'), 3000);
+    const r = await upf('paintings/Painting 1-1.json', J), a = r.json();
+    ok(r.status === 200 && a.path === 'paintings/Painting 1-1.json' && fs.readFileSync(at('paintings/Painting 1-1.json')).equals(J), '200: a painting where it goes, its folder made');
+    const told = await w.next(ev('scene', d => d.path === 'paintings/Painting 1-1.json'), 3000);
+    ok(told && told.data.kind === 'painting' && told.data.gone === false, 'the watch tells it with its kind, painting');
+    w.close();
+    const one = (await req('GET', '/api/scenes/one', { at: UP.port })).json(), f = one.files.find(x => x.path === 'paintings/Painting 1-1.json');
+    ok(f && f.kind === 'painting', 'listed with its kind, painting');
+    const sv = await req('GET', '/scenes/one/paintings/Painting%201-1.json', { at: UP.port });
+    ok(sv.status === 200 && sv.headers['content-type'] === 'application/json' && sv.buf.equals(J) && !sv.headers['content-disposition'], 'served as JSON (' + sv.headers['content-type'] + ')');
+    const before = tree(), bad = [];
+    for (const p of ['paintings/a.JSON', 'paintings/a.txt', 'paintings/.a.json', 'paintings/a/b/c/d/e.json', 'a.json', 'paintings/a.json~']) bad.push((await upf(p, J)).status);
+    ok(bad.every(x => x === 400) && JSON.stringify(tree()) === JSON.stringify(before), 'a .json elsewhere (or .JSON, text, a dot file, too deep, a temporary name): 400, nothing written (' + bad.join(' ') + ')');
+    ok(/paintings \(\.json\) in paintings\//.test((await upf('data/a.json', J)).json().error), 'it says where a painting goes');
+    const { uploadPath, typeOf, kindAt: ka } = await import('./scenes.mjs'), u = uploadPath('paintings/a.json');
+    ok(u.kind === 'painting' && u.max === 4 << 20 && typeOf('paintings/a.json') === 'application/json' && ka('paintings/a.json') === 'painting' && ka('originals/a.json') === 'other', 'uploadPath: a painting at most 4 MB; typeOf: JSON');
+    const b1 = await upf('paintings/big.json', bytes(MB + 1));
+    ok(b1.status === 413 && !fs.existsSync(at('paintings/big.json')) && !leftovers().length, `past the smaller of 4 MB and --max-upload (1 MB here): 413 (${b1.status}); nothing left behind`);
+    const cp = b => send(UP.port, '/api/scenes/new%20one/copy', Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const c1 = await cp({ from: 'one', path: 'paintings/Painting 1-1.json' }), c2 = await cp({ from: 'one', path: 'paintings/Painting 1-1.json', as: 'data/p.json' });
+    ok(c1.status === 200 && fs.readFileSync(path.join(U, 'new one', 'paintings', 'Painting 1-1.json')).equals(J) && c2.status === 400, `copies: a painting copied with it (${c1.status}); as a .json elsewhere refused (${c2.status})`);
+    for (const p of ['paintings']) { fs.rmSync(at(p), { recursive: true, force: true }); fs.rmSync(path.join(U, 'new one', p), { recursive: true, force: true }); }
+  });
+
   await step('uploads: POST /api/scenes/<name>/sound: ffmpeg (a stand-in) makes a mono MP3 at 96 kbit/s and 44.1 kHz; its failures, its limit, two at once, none at all', async () => {
     const W = bytes(40000), r = await snd('sounds/a.mp3', W), a = r.json();
     const note = ffNotes('ok').pop() || { args: [] }, args = note.args, input = args[args.indexOf('-i') + 1], out = args[args.length - 1];
@@ -3058,6 +3092,20 @@ if (me === 'hang') setInterval(() => {}, 1000);
     ok(noLeak(RR.out), 'no signed link or key in the log');
     for (const k of S3.keys()) if (k.startsWith(PFX + 'new one/recordings/')) S3.del(k);   // (the steps after know the scene without them)
     w.close();
+  });
+
+  await step('R2: paintings/ by the same rule: a painting through the relay, stored and signed as application/json, listed and told as kind painting', async () => {
+    const J = Buffer.from(JSON.stringify({ studio: 1, painting: 1, strokes: [] }));
+    const upr = (p, body) => send(RR.port, `/api/scenes/new%20one/file?path=${encodeURIComponent(p)}`, body, {});
+    const w = sse(RR.port, '/api/scenes/watch');
+    await w.ready; await w.next(ev('hello'), 3000);
+    const r = await upr('paintings/Painting-1.json', J);
+    ok(r.status === 200 && obj('new one/paintings/Painting-1.json').body.equals(J) && obj('new one/paintings/Painting-1.json').type === 'application/json', 'through the relay: 200, into the bucket as application/json');
+    ok(!!(await w.next(ev('scene', d => d.path === 'paintings/Painting-1.json' && d.kind === 'painting'), 3000)), 'the watch tells it as kind painting');
+    const L = (await rget('/api/scenes/new%20one')).json(), f = L.files.find(x => x.path === 'paintings/Painting-1.json');
+    ok(!!f && f.kind === 'painting' && typeof f.url === 'string', 'listed as kind painting, with its signed link');
+    w.close();
+    for (const k of S3.keys()) if (k.startsWith(PFX + 'new one/paintings/')) S3.del(k);
   });
 
   await step('R2: previews/ by the same rule: a model\'s picture through the relay and straight into the bucket (.../put signs its size; at most 200 KB), listed and told as kind preview; other kinds refused; done and copies by it', async () => {

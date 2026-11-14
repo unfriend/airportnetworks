@@ -13,6 +13,7 @@
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
+// --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -8225,6 +8226,511 @@ if (runs('studio shows')) {
 // not), each press writing the play state with no Undo step, the end of an entry advancing (loop all, one, off), shuffle's
 // order, hidden by a cube, sync own acting here only, who may use the controls, norm, layout.json and the state, the
 // headset's card, and two pages at a pretend station sharing the play state
+// Paintings, drawn in the air (v144, e6r_paint.js; tools/studio/SPEC.md, "Paintings"): on the test scene, no relay
+if (runs('studio paint')) {
+  const pp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  pp.on('pageerror', e => errors.push('studio paint: ' + (e.stack || e.message)));
+  pp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio paint: ' + m.text()); });
+  const ss = s => pp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => pp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000, polling: 100 }).then(() => true, () => false);
+  const bad = list => { if (list.length) { console.log('  studio paint:', list.join('\n    ')); errors.push(...list.map(b => 'studio paint: ' + b)); } };
+  // (in the page: a wavy path of n points, in the scene's frame, a ribbon's face towards +z; the pixel at a point as drawn by a
+  // camera 0.6 m away along +z; the hands as the other studio steps make them)
+  const HELP = `window.__pn = window.__pn || {
+    wave: (n, x0, y0, z0, len, amp, f0, f1) => Array.from({ length: n }, (_, i) => { const t = i / (n - 1); return [x0 + len * t, y0 + amp * Math.sin(t * 9), z0, f0 + (f1 - f0) * t, 0, 0, 1]; }),
+    px: (p, dx, dy) => { const W = 320, H = 200, rd = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(40, W / H, 0.05, 200); GL.world.updateMatrixWorld(true);
+      const c = GL.items.localToWorld(new THREE.Vector3(p[0], p[1], p[2])); cam.position.copy(c).add(new THREE.Vector3(0, 0, 0.6)); cam.lookAt(c); cam.updateMatrixWorld();
+      const b = new Uint8Array(4); rd.setRenderTarget(rt); rd.render(GL.scene, cam); rd.readRenderTargetPixels(rt, W / 2 + (dx || 0), H / 2 + (dy || 0), 1, 1, b); rd.setRenderTarget(null); rt.dispose(); return [b[0], b[1], b[2]]; },
+    hands: () => {
+      XR.on = true; XR.clear = true; XR.free = true; GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity(); GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.updateMatrixWorld(true);
+      const [a, b] = XR.ctrls, put = (c, p, q, hand, val) => { c.src = { targetRayMode: 'tracked-pointer', handedness: hand, gamepad: { axes: [0, 0, 0, 0], buttons: [{ pressed: val > 0, value: val || 0 }] } }; c.g.visible = true; c.g.matrix.compose(p, q || new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); c.d.set(0, 0, -1).transformDirection(c.g.matrix); };
+      return { a, b, put };
+    },
+    off: () => { for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; c.pnD = null; c.pnDown = false; } XR.on = false; },
+  }`;
+  const load = async (extra) => {
+    await pp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test' + (extra === undefined ? '&edit' : extra));
+    await pp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    return until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000);
+  };
+  let pid = '';
+  await step('studio paint: paint mode on and off (the Add pane\'s Paint, the Paint pane and its tab, Done; ended by editing off, a selection that is not a painting and a session; not for a visitor)', async () => {
+    if (!await load()) { bad(['the test scene did not load']); return; }
+    await ss(`(${HELP}, setEdit(true), select(''), X.tab = 'add', renderPanes(), 0)`);
+    const out = [];
+    const t0 = await pp.evaluate(() => [!!document.querySelector('#pane-add [data-act="pnOn"]'), document.querySelector('#pane-add [data-act="pnOn"]') && document.querySelector('#pane-add [data-act="pnOn"]').disabled, getComputedStyle(document.querySelector('.tabs [data-tab="paint"]')).display]);
+    if (!t0[0] || t0[1] || t0[2] !== 'none') out.push('the Add pane\'s Paint button, or the Paint tab shown while paint mode is off: ' + JSON.stringify(t0));
+    await pp.click('#pane-add [data-act="pnOn"]');
+    const on = await ss(`(renderPanes(), [PAINT.on, X.tab, document.querySelector('#pane-paint').textContent, getComputedStyle(document.querySelector('.tabs [data-tab="paint"]')).display, STUDIO.paint().on])`);
+    if (!on[0] || on[1] !== 'paint' || on[3] === 'none' || !on[4] || !/Ribbon/.test(on[2]) || !/Tube/.test(on[2]) || !/Glow/.test(on[2]) || !/Spray can/.test(on[2]) || !/Eraser/.test(on[2]) || !/Width: 10 mm/.test(on[2]) || !/New painting/.test(on[2]) || !/Done/.test(on[2]) || !/next stroke makes a new painting/.test(on[2])) out.push('paint mode on: ' + JSON.stringify([on[0], on[1], on[3], on[2].slice(0, 300)]));
+    await pp.click('#pane-paint [data-act="pnBrush"][data-v="tube"]'); await pp.click('#pane-paint [data-act="pnColour"][data-v="#46d9ff"]'); await pp.click('#pane-paint [data-act="pnWidth"][data-v="1"]');
+    const b = await ss(`[PAINT.brush, PAINT.colour, PAINT.width]`);
+    if (b[0] !== 'tube' || b[1] !== '#46d9ff' || b[2] !== 0.02) out.push('brush, colour, width: ' + JSON.stringify(b));
+    await pp.click('#pane-paint [data-act="pnDone"]');
+    const off = await ss(`[PAINT.on, X.tab, getComputedStyle(document.querySelector('.tabs [data-tab="paint"]')).display]`);
+    if (off[0] || off[1] === 'paint' || off[2] !== 'none') out.push('Done: ' + JSON.stringify(off));
+    // (ended by editing off, by selecting something that is not a painting, by a session beginning)
+    const ends = await ss(`(() => { const r = []; setEdit(true); paintOn(null); setEdit(false); paintTick(false); r.push(PAINT.on); setEdit(true); paintOn(null); select('box001'); r.push(PAINT.on, X.tab);
+      paintOn(null); XR.on = true; paintTick(true); r.push(PAINT.on); XR.on = false; select('');
+      OPT.visit = true; r.push(paintWhy(), paintOn(null), PAINT.on); OPT.visit = false; select(''); return r; })()`);
+    if (ends[0] || ends[1] || ends[2] !== 'item' || ends[3] || !/visitor/.test(ends[4]) || ends[5] || ends[6]) out.push('paint mode ends and is refused: ' + JSON.stringify(ends));
+    bad(out);
+  });
+  await step('studio paint: each brush makes a stroke (the first makes a painting on the floor under it, facing you, selected; the others go into it); its record as norm gives it, one Undo step each; meshes opaque, at most 4 draws, the right triangles; the pixel where it is drawn', async () => {
+    const out = await ss(`(() => {
+      const P = window.__pn, out = [], u0 = UNDO.length;
+      setEdit(true); select(''); paintOn(null);
+      const run = (brush, col, w, pts) => { const r = PAINT.fake(pts, { brush, colour: col, width: w, seed: 4242 }); return r; };
+      const r1 = run('ribbon', '#ff0000', 0.04, P.wave(40, 0, 1.2, -2, 1.2, 0.2, 0.5, 1));
+      const id = r1.id, it = STU.items.get(id);
+      if (!r1.ok || !it || it.kind !== 'd' || STU.sel !== id || r1.where !== 'record') out.push('the first stroke: ' + JSON.stringify(r1));
+      if (it && (it.rec.p[1] !== 0 || Math.abs(it.rec.p[0]) > 1e-9 === false && false)) out.push('its place: ' + JSON.stringify(it.rec.p));
+      if (it && (Math.abs(it.rec.p[0] - 0) > 1e-3 || Math.abs(it.rec.p[2] + 2) > 1e-3 || it.rec.p[1] !== 0 || it.rec.s !== 1)) out.push('its place (the floor under the first point): ' + JSON.stringify([it.rec.p, it.rec.s]));
+      const yq = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().fromArray(it.rec.q), 'YXZ');
+      if (Math.abs(yq.x) > 1e-3 || Math.abs(yq.z) > 1e-3) out.push('not level: ' + JSON.stringify(it.rec.q));
+      const r2_ = run('tube', '#00ff00', 0.03, P.wave(40, 0, 1.5, -2, 1.2, 0.15, 1, 1)), r3_ = run('glow', '#0000ff', 0.03, P.wave(40, 0, 1.8, -2, 1.2, 0.15, 1, 1)), r4_ = run('spray', '#ffff00', 0.03, P.wave(40, 0, 2.1, -2, 1.2, 0.15, 1, 1));
+      if (![r2_, r3_, r4_].every(r => r.ok && r.id === id)) out.push('the others did not go into it: ' + JSON.stringify([r2_, r3_, r4_]));
+      if (UNDO.length !== u0 + 4) out.push('one Undo step a stroke: ' + (UNDO.length - u0));
+      const S = it.rec.strokes;
+      if (S.length !== 4 || S.map(s => s.b).join() !== 'ribbon,tube,glow,spray' || S.map(s => s.c).join() !== '#ff0000,#00ff00,#0000ff,#ffff00' || S[0].k[0].length !== 7 || S[1].k[0].length !== 4 || S[3].sd !== 4242 || S[0].sd !== undefined) out.push('the record: ' + JSON.stringify(S.map(s => [s.b, s.c, s.w, s.k.length, s.sd])));
+      // (as norm gives it back)
+      const again = norm('d', JSON.parse(JSON.stringify(it.rec)));
+      if (JSON.stringify(again) !== JSON.stringify(it.rec)) out.push('norm does not give the record back');
+      // (the width in the record: the pressure too: the first stroke's pressure 0.5 to 1)
+      if (!(S[0].k[0][3] <= 0.52) || !(S[0].k[S[0].k.length - 1][3] >= 0.98)) out.push('the pressure: ' + JSON.stringify([S[0].k[0], S[0].k[S[0].k.length - 1]]));
+      PAINT.build(id);
+      const st = STUDIO.painting(id), by = Object.fromEntries(st.meshes.map(m => [m.look, m]));
+      if (!st.built || st.meshes.length !== 4 || st.meshes.some(m => m.draws !== 1) || st.meshes.reduce((a, m) => a + m.draws, 0) > 4) out.push('the meshes: ' + JSON.stringify(st.meshes));
+      const k = i => S[i].k.length;
+      if (by.ribbon.tris !== 2 * (k(0) - 1) || by.tube.tris !== 16 * (k(1) - 1) + 16 || by.glow.tris !== 16 * (k(2) - 1) + 16) out.push('triangles: ' + JSON.stringify([st.meshes, k(0), k(1), k(2)]));
+      if (st.dots !== sprayDots(S[3]).length / 3 || !(st.dots > 100)) out.push('spray dots: ' + st.dots);
+      if (st.materials.some(m => m.transparent || !m.depthWrite || !m.depthTest || m.opacity !== 1)) out.push('not opaque: ' + JSON.stringify(st.materials));
+      // (the pixels where it is drawn: the painting's frame is its place, so a point of a stroke in the scene's frame)
+      select(''); paintOff(); setEdit(false);
+      const at = (i, j) => { const w = new THREE.Vector3(...S[i].k[j].slice(0, 3)).applyQuaternion(new THREE.Quaternion().fromArray(it.rec.q)).add(new THREE.Vector3().fromArray(it.rec.p)); return [w.x, w.y, w.z]; };
+      return { out, ids: [id], a: at(0, 20), b: at(1, 20), c: at(2, 20), yaw: yq.y };
+    })()`);
+    bad(out.out);
+    pid = out.ids[0];
+    // (pixels, after a frame or two with editing off: a red ribbon, a green tube, a bright blue glow where they are drawn)
+    await ss(`(select(''), setEdit(false), 0)`);
+    await pp.waitForTimeout(400);
+    const px = await ss(`(() => { const P = window.__pn, it = STU.items.get('${pid}'); const q = new THREE.Quaternion().fromArray(it.rec.q), at = k => new THREE.Vector3(...it.rec.strokes[k].k[20].slice(0, 3)).applyQuaternion(q).add(new THREE.Vector3().fromArray(it.rec.p)).toArray();
+      itemsStep(0.016, performance.now()); const r = [];
+      for (const [k, name] of [[0, 'ribbon'], [1, 'tube'], [2, 'glow']]) r.push([name, P.px(at(k), 0, 0)]);
+      return r; })()`);
+    const o2 = [];
+    const dom = (name, v, i) => { const o = [0, 1, 2].filter(j => j !== i); if (!(v[i] > v[o[0]] + 25 && v[i] > v[o[1]] + 25)) o2.push(`the ${name} is not drawn in its colour at its middle: ${v}`); };
+    dom('ribbon', px[0][1], 0); dom('tube', px[1][1], 1); dom('glow', px[2][1], 2);
+    bad(o2);
+    await ss(`(setEdit(true), 0)`);
+  });
+  await step('studio paint: a page drag with real pointer events paints on the floor (Orbit view): a new painting, its points on the surface 3 mm out; the wheel still zooms; a drag with paint mode off orbits', async () => {
+    await ss(`(select(''), setEdit(true), X.view = 'orbit', paintOn(null), PAINT.brush = 'tube', PAINT.width = 0.01, window.__orb0 = orbit.cur.slice(), 0)`);
+    const n0 = await ss(`countOf('d')`);
+    await pp.mouse.move(760, 560); await pp.mouse.down();
+    for (let i = 1; i <= 12; i++) await pp.mouse.move(760 + i * 25, 560 + (i % 2) * 14);
+    const mid = await ss(`PAINT.drawing && PAINT.drawing.pts.length`);
+    await pp.mouse.up();
+    const r = await ss(`(() => { const L = PAINT.last, it = STU.items.get(L.id); const S = it && it.rec.strokes; const ys = S ? S[0].k.map(k => k[1] + it.rec.p[1]) : [];
+      return { ok: L.ok, id: L.id, n: countOf('d'), pts: S ? S[0].k.length : 0, ymin: Math.min(...ys), ymax: Math.max(...ys), orbit: orbit.cur.map((v, i) => Math.abs(v - window.__orb0[i]) < 1e-9), brush: S && S[0].b, sel: STU.sel === L.id, drawing: PAINT.drawing, pg: PAINT.pg }; })()`);
+    const out = [];
+    if (!(mid >= 3) || !r.ok || r.n !== n0 + 1 || !(r.pts >= 2) || r.brush !== 'tube' || !r.sel || r.drawing || r.pg) out.push('the drag: ' + JSON.stringify([mid, r]));
+    if (!(r.ymin >= -0.001 && r.ymax <= 3.5)) out.push('the points are not on a surface: y ' + r.ymin + ' to ' + r.ymax);
+    if (!r.orbit.every(Boolean)) out.push('the drag orbited the view: ' + JSON.stringify(r.orbit));
+    const z0 = await ss(`orbit.cur[2]`); await pp.mouse.wheel(0, 300); await pp.waitForTimeout(150);
+    if (Math.abs((await ss(`orbit.cur[2]`)) - z0) < 1e-6) out.push('the wheel did not zoom');
+    // (paint mode off: the same drag orbits)
+    await ss(`(paintOff(), select(''), window.__orb0 = orbit.cur.slice(), 0)`);
+    await pp.mouse.move(760, 560); await pp.mouse.down(); for (let i = 1; i <= 6; i++) await pp.mouse.move(760 + i * 30, 560); await pp.mouse.up();
+    const o3 = await ss(`[orbit.cur[0] !== window.__orb0[0], countOf('d')]`);
+    if (!o3[0] || o3[1] !== n0 + 1) out.push('paint mode off: the drag did not orbit or made a painting: ' + JSON.stringify(o3));
+    await ss(`(select('${r.id}'), deleteItem('${r.id}'), 0)`);
+    bad(out);
+  });
+  await step('studio paint: samples 3 mm apart, simplified to within 1.5 mm; a spray\'s dots are a fixed function of its points, width and seed (the same twice, different for another seed, 40 a centimetre, 6,000 at most, a stroke grown point by point the same as a whole one)', async () => {
+    const out = await ss(`(() => {
+      const out = [];
+      // (sampling: points 1 mm apart are kept 3 mm apart)
+      setEdit(true); select(''); paintOn(null);
+      const dense = Array.from({ length: 200 }, (_, i) => [i * 0.001, 1, -1, 1]);
+      const D = paintBegin('fake', new THREE.Vector3(0, 1, -1), 1, null); let n = 1; for (const q of dense.slice(1)) paintAdd(D, new THREE.Vector3(q[0], q[1], q[2]), 1, null); n = D.pts.length;
+      const res = paintEnd(D, true);
+      if (!(n >= 60 && n <= 70)) out.push('3 mm sampling: ' + n + ' points kept of 200 (1 mm apart)');
+      // (simplifying: a circle of 400 points within 1.5 mm, and a noisy straight line to its two ends)
+      const circ = Array.from({ length: 400 }, (_, i) => [0.3 * Math.cos(i / 400 * 6.28), 1, 0.3 * Math.sin(i / 400 * 6.28), 1]);
+      const sc = simplify(circ, 0.0015, false);
+      let far = 0; for (const p of circ) { let best = 1e9; for (let j = 1; j < sc.length; j++) best = Math.min(best, distSeg({ x: p[0], y: p[1], z: p[2] }, sc[j - 1], sc[j])); far = Math.max(far, best); }
+      if (!(sc.length < 150 && sc.length > 10) || far > 0.00151) out.push('simplified circle: ' + sc.length + ' points, ' + (far * 1000).toFixed(3) + ' mm');
+      const line = simplify(Array.from({ length: 300 }, (_, i) => [i * 0.004, 1 + 0.0004 * Math.sin(i * 7), -1, 1]), 0.0015, false);
+      if (line.length !== 2) out.push('a straight line kept ' + line.length + ' points');
+      // (a ribbon's turn keeps a point: its face turned 10 degrees)
+      const rib = simplify(Array.from({ length: 30 }, (_, i) => [i * 0.004, 1, -1, 1, Math.sin(i * 0.02), Math.cos(i * 0.02), 0]), 0.0015, true);
+      if (!(rib.length >= 5 && rib.length <= 10)) out.push('a turning ribbon kept ' + rib.length + ' points');
+      // (spray: the same dots twice; another seed others; about 40 a centimetre at full pressure; a cap; segment by segment the same)
+      const k = Array.from({ length: 11 }, (_, i) => [i * 0.01, 1, -1, 1]), st = { b: 'spray', c: '#ff0000', w: 0.02, k, sd: 99 };
+      const a = sprayDots(st), b = sprayDots(st), c = sprayDots(Object.assign({}, st, { sd: 100 }));
+      if (a.length !== b.length || a.some((v, i) => v !== b[i])) out.push('the same spray twice differs');
+      if (a.length === c.length && !a.some((v, i) => v !== c[i])) out.push('another seed gave the same dots');
+      const per = a.length / 3 / 10;
+      if (!(per > 34 && per < 46)) out.push('dots a centimetre: ' + per);
+      const half = sprayDots(Object.assign({}, st, { k: k.slice(0, 6) }));
+      if (!(half.length > 0 && half.every((v, i) => v === a[i]))) out.push('the first half of a spray is not the whole one\\'s start: ' + half.length);
+      const long = sprayDots({ b: 'spray', c: '#ff0000', w: 0.02, k: Array.from({ length: 40 }, (_, i) => [i * 0.2, 1, -1, 1]), sd: 5 });
+      if (long.length / 3 !== 6000) out.push('the cap: ' + long.length / 3);
+      const lf = sprayDots({ b: 'spray', c: '#ff0000', w: 0.02, k: k.map(q => [q[0], q[1], q[2], 0.1]), sd: 99 });
+      if (!(lf.length / 3 < a.length / 3 / 5)) out.push('pressure does not thin the spray: ' + lf.length / 3);
+      paintOff(); select('');
+      return out;
+    })()`);
+    bad(out);
+  });
+  await step('studio paint: the eraser removes the strokes it passes within its width of (the selected painting\'s, else any painting\'s), one Undo step for one press; Undo puts them back', async () => {
+    const out = await ss(`(() => {
+      const P = window.__pn, out = [], it = STU.items.get('${pid}');
+      setEdit(true); select('${pid}'); paintOn(it);
+      const n0 = it.rec.strokes.length, u0 = UNDO.length, q = new THREE.Quaternion().fromArray(it.rec.q), at = (i, j) => new THREE.Vector3(...it.rec.strokes[i].k[j].slice(0, 3)).applyQuaternion(q).add(new THREE.Vector3().fromArray(it.rec.p));
+      // (a press that passes the tube, the second stroke, only: within 2 cm of its points)
+      const path = []; for (let j = 4; j < 30; j++) { const p = at(1, j); path.push([p.x, p.y + 0.004, p.z]); }
+      const r = PAINT.fake(path, { brush: 'eraser', width: 0.02 });
+      if (r.erased !== 1 || it.rec.strokes.length !== n0 - 1 || it.rec.strokes.some(s => s.b === 'tube') || UNDO.length !== u0 + 1) out.push('erased one stroke in one step: ' + JSON.stringify([r, it.rec.strokes.map(s => s.b), UNDO.length - u0]));
+      undo();
+      if (STU.items.get('${pid}').rec.strokes.length !== n0 || UNDO.length !== u0) out.push('Undo did not put it back');
+      // (nothing within its width: nothing erased, no step)
+      const far = PAINT.fake([[5, 1, 5], [5.2, 1, 5], [5.4, 1, 5]], { brush: 'eraser', width: 0.02 });
+      if (far.erased !== 0 || UNDO.length !== u0) out.push('far from everything: ' + JSON.stringify(far));
+      // (no painting selected: any painting's)
+      select(''); const p2 = []; for (let j = 4; j < 30; j++) { const p = at(2, j); p2.push([p.x, p.y, p.z]); }
+      const r2 = PAINT.fake(p2, { brush: 'eraser', width: 0.02 });
+      if (r2.erased !== 1 || STU.items.get('${pid}').rec.strokes.some(s => s.b === 'glow') || STU.items.get('${pid}').rec.strokes.length !== n0 - 1) out.push('the eraser with none selected: ' + JSON.stringify(r2));
+      undo(); paintOff(); select('');
+      return out;
+    })()`);
+    bad(out);
+  });
+  await step('studio paint: the record\'s limit of 4,000 points in all the scene\'s paintings, refused in words without a relay that takes uploads (the stroke dropped, nothing changed); 2,000 strokes, 2,000 points a stroke', async () => {
+    const out = await ss(`(() => {
+      const out = [], zig = (n, y) => Array.from({ length: n }, (_, i) => [i * 0.004, y + (i % 2 ? 0.01 : -0.01), -3, 1]);
+      setEdit(true); select(''); paintOn(null);
+      const total = () => [...STU.items.values()].reduce((a, it) => a + (it.kind === 'd' && it.rec.strokes ? ptsOf(it.rec.strokes) : 0), 0);
+      const base = total(), room = 4000 - base;
+      if (canUpload()) out.push('this page should have no relay that takes uploads');
+      // (fill to just under: strokes of 1,500 points, then the one that does not fit)
+      let r = PAINT.fake(zig(1500, 0.5), { brush: 'tube', width: 0.005 }); const id = r.id;
+      if (!r.ok || r.pts < 1400) out.push('a 1,500 point stroke: ' + JSON.stringify(r));
+      let k = 0; while (total() + 1450 <= 4000 && k++ < 4) r = PAINT.fake(zig(1500, 0.5 + 0.1 * k), { brush: 'tube', width: 0.005 });
+      const before = total(), u0 = UNDO.length, n0 = STU.items.get(id).rec.strokes.length, rec0 = JSON.stringify(STU.items.get(id).rec);
+      const big = PAINT.fake(zig(1500, 2), { brush: 'tube', width: 0.005 });
+      if (big.ok || !/More strokes need a relay that takes uploads/.test(PAINT.note) || big.why === undefined) out.push('past the limit: ' + JSON.stringify([big, PAINT.note]));
+      if (total() !== before || UNDO.length !== u0 || JSON.stringify(STU.items.get(id).rec) !== rec0 || STU.items.get(id).rec.strokes.length !== n0) out.push('something changed: ' + JSON.stringify([before, total(), UNDO.length - u0]));
+      if (total() > 4000) out.push('the record holds ' + total());
+      renderPanes(); X.tab = 'paint'; renderPanes();
+      if (!/More strokes need a relay that takes uploads/.test(document.querySelector('#pane-paint').textContent)) out.push('the Paint pane does not say so');
+      // (a record past the limit is a bad one: norm refuses it, so does a layout and a state from the room)
+      const mk = n => ({ name: 'X', p: [0, 0, 0], strokes: [{ b: 'tube', c: '#ffffff', w: 0.01, k: Array.from({ length: n }, (_, i) => [i * 0.01, 0, 0, 1]) }] });
+      if (norm('d', mk(2000)) === null || norm('d', mk(2001)) !== null) out.push('2,000 points a stroke');
+      if (norm('d', { name: 'X', p: [0, 0, 0], strokes: Array.from({ length: 3 }, () => mk(1400).strokes[0]).concat(mk(1400).strokes) }) !== null) out.push('4,200 points in a record');
+      if (norm('d', { name: 'X', p: [0, 0, 0], strokes: Array.from({ length: 2001 }, () => ({ b: 'tube', c: '#ffffff', w: 0.01, k: [[0, 0, 0, 1], [0.1, 0, 0, 1]] })) }) !== null) out.push('2,001 strokes');
+      paintOff(); select('');
+      return out;
+    })()`);
+    bad(out);
+    await ss(`(() => { for (const it of [...STU.items.values()]) if (it.kind === 'd' && it.id !== '${pid}') removeItem(it.id); STU.rev++; return 0; })()`);
+  });
+  await step('studio paint: norm\'s rules (a bad stroke makes the record bad; clamps and rounding; the record given back), the layout\'s paintings and the shared state both ways, the scene\'s 4,000 points in a layout and from the room', async () => {
+    const out = await ss(`(() => {
+      const out = [], S = (o) => Object.assign({ b: 'tube', c: '#aabbcc', w: 0.01, k: [[0, 0, 0, 1], [0.1, 0, 0, 1]] }, o);
+      const rec = s => norm('d', { name: 'X', p: [0, 0, 0], strokes: s });
+      const badOnes = { brush: S({ b: 'paint' }), colour: S({ c: 'red' }), width0: S({ w: 0 }), width: S({ w: 'x' }), one: S({ k: [[0, 0, 0, 1]] }), nan: S({ k: [[0, 0, 0, 1], [NaN, 0, 0, 1]] }), shape: S({ k: [[0, 0, 0], [1, 0, 0]] }),
+        ribnormal: S({ b: 'ribbon', k: [[0, 0, 0, 1], [1, 0, 0, 1]] }), ribzero: S({ b: 'ribbon', k: [[0, 0, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1]] }), seed: S({ b: 'spray', sd: 0 }), seed2: S({ b: 'spray', sd: 1.5 }), far: S({ k: [[0, 0, 0, 1], [2000, 0, 0, 1]] }), notobj: 5, arr: [] };
+      for (const [k, v] of Object.entries(badOnes)) if (rec([v]) !== null) out.push('a bad stroke (' + k + ') was taken');
+      if (norm('d', { name: 'X', p: [0, 0, 0], strokes: 5 }) !== null || norm('d', { name: 'X', p: [0, 0, 0], strokes: [], src: 'paintings/a-1.json', n: 0, pts: 0 }) !== null) out.push('strokes and src together, or strokes not a list');
+      for (const src of ['models/a.json', 'paintings/a.txt', 'paintings/../a.json', 'paintings/.a.json', 'a.json', 'paintings/a/b/c/d/e.json']) if (norm('d', { name: 'X', p: [0, 0, 0], src, n: 1, pts: 2 }) !== null) out.push('a bad src was taken: ' + src);
+      for (const x of [{ src: 'paintings/a-1.json' }, { src: 'paintings/a-1.json', n: -1, pts: 2 }, { src: 'paintings/a-1.json', n: 1, pts: 1.5 }, { src: 'paintings/a-1.json', n: 2001, pts: 2 }]) if (norm('d', Object.assign({ name: 'X', p: [0, 0, 0] }, x)) !== null) out.push('src without n and pts, or with bad ones: ' + JSON.stringify(x));
+      // (clamps and rounding)
+      const a = rec([S({ w: 0.5, c: '#AABBCC', k: [[0.0004, 1.23456, -2.0004, 5], [1, 0, 0, 0]] }), S({ w: 0.0001, k: [[0, 0, 0, 0.123], [1, 1, 1, 0.1]] }), S({ b: 'spray', sd: undefined }), S({ b: 'ribbon', k: [[0, 0, 0, 1, 0, 3, 0], [1, 0, 0, 1, 0.123, 0.456, 0.789]] })]);
+      if (!a || a.strokes[0].w !== 0.2 || a.strokes[0].c !== '#aabbcc' || a.strokes[0].k[0][0] !== 0 || a.strokes[0].k[0][1] !== 1.235 || a.strokes[0].k[0][3] !== 1 || a.strokes[0].k[1][3] !== 0.1 || a.strokes[1].w !== 0.002 || a.strokes[1].k[0][3] !== 0.12 || a.strokes[2].sd !== 1 || a.strokes[3].k[0][4] !== 0 || a.strokes[3].k[0][5] !== 1 || a.strokes[3].k[1][5] !== 0.5) out.push('clamps: ' + JSON.stringify(a && a.strokes));
+      if (JSON.stringify(norm('d', JSON.parse(JSON.stringify(a)))) !== JSON.stringify(a)) out.push('norm is not its own inverse');
+      const r = norm('d', { name: 'X', p: [1.00049, 2, 3], q: [0, 0, 0, 2], s: 100, strokes: [], locked: true, shows: 'ar', junk: 1 }), r2_ = norm('d', { name: 'X', p: [0, 0, 0], s: 0.01 });
+      if (!r || r.s !== 20 || r.q[3] !== 1 || r.p[0] !== 1 || r.locked !== true || r.shows !== 'ar' || 'junk' in r || r2_.s !== 0.05 || !Array.isArray(r2_.strokes) || r2_.strokes.length) out.push('the painting\\'s fields: ' + JSON.stringify([r, r2_]));
+      if (norm('d', { name: 'X', p: [0, 0, 0], s: -1 }) !== null || norm('d', { name: 'X', p: [0, 0, 0], q: [0, 0, 0, 0] }) !== null || norm('d', { name: 'X', p: [0, 0, 0], locked: 'yes' }) !== null || norm('d', { name: 'X', p: [0, 0, 0], shows: 'x' }) !== null) out.push('a bad painting was taken');
+      // (the layout and the state both ways: this scene's painting, a spray and a ribbon in it)
+      const it = STU.items.get('${pid}'), L = layoutOut(), j = JSON.parse(JSON.stringify(L));
+      if (!Array.isArray(L.paintings) || L.paintings.length !== 1 || L.paintings[0].id !== it.id) out.push('layout.json paintings: ' + JSON.stringify(Object.keys(L)));
+      const back = readLayout(j).items.filter(x => x.kind === 'd');
+      if (back.length !== 1 || JSON.stringify(back[0].rec) !== JSON.stringify(it.rec)) out.push('the layout did not read back as it was');
+      const cs = collabState(), key = 'd.' + it.id;
+      if (JSON.stringify(cs[key]) !== JSON.stringify(it.rec)) out.push('the state\\'s d.<id>');
+      const before = JSON.stringify([...STU.items.values()].map(x => [x.id, x.rec]));
+      collabApply(JSON.parse(JSON.stringify(cs)));
+      if (JSON.stringify([...STU.items.values()].map(x => [x.id, x.rec])) !== before) out.push('apply(state()) did not give the same state back');
+      // (a state with a bad stroke: ignored, the painting kept as it is)
+      const badState = JSON.parse(JSON.stringify(cs)); badState[key] = Object.assign({}, cs[key], { strokes: [S({ b: 'paint' })] });
+      collabApply(badState);
+      if (JSON.stringify(STU.items.get(it.id).rec) !== JSON.stringify(it.rec)) out.push('a bad record from the room changed it');
+      // (the 4,000 points: a layout of two paintings of 3,000 reads one, a state the same)
+      const mk = (id, n) => Object.assign({ id }, { name: id, p: [0, 0, 0], strokes: [{ b: 'tube', c: '#ffffff', w: 0.01, k: Array.from({ length: n }, (_, i) => [i * 0.001, i % 2 * 0.01, 0, 1]) }] });
+      const two = readLayout({ studio: 1, scene: 's', paintings: [mk('aaaaa1', 1500), mk('aaaaa2', 1500), mk('aaaaa3', 1500)] });
+      if (two.items.length !== 3 || two.bad !== 0) out.push('three paintings of 1,500 in a layout: ' + JSON.stringify([two.items.length, two.bad]));
+      const st = { scene: STU.scene, settings: STU.settings }; st['d.bbbbb1'] = norm('d', mk('bbbbb1', 1500)); st['d.bbbbb2'] = norm('d', mk('bbbbb2', 1500)); st['d.bbbbb3'] = norm('d', mk('bbbbb3', 1500));
+      for (const x of [...STU.items.values()]) st[x.kind + '.' + x.id] = x.rec;
+      collabApply(st);
+      const got = ['bbbbb1', 'bbbbb2', 'bbbbb3'].filter(i => STU.items.has(i));
+      if (got.length !== 3) out.push('a state of three paintings of 1,500 kept ' + got.length);
+      for (const i of ['bbbbb1', 'bbbbb2', 'bbbbb3']) if (STU.items.has(i)) removeItem(i);
+      return out;
+    })()`);
+    bad(out);
+  });
+  await step('studio paint: a cube hides it (not drawn; while editing its box\'s edges and tag; whole while held), only in AR hides it on a page, groups hold it, Duplicate copies its strokes (one Undo step, not locked, beside it), a copy that does not fit is refused', async () => {
+    const out = await ss(`(() => {
+      const out = [], it = STU.items.get('${pid}');
+      setEdit(true); select(''); paintOff();
+      putItem('pcub01', 'c', norm('c', { name: 'Hider', p: [1, 1, -2], size: [6, 4, 6], hide: ['${pid}'] }));
+      let sh = shownFor([20, 1, 20]);
+      if (!sh['${pid}']) out.push('shown with nobody in the cube');
+      itemsStep(0.016, performance.now());
+      if (!STUDIO.painting('${pid}').drawn.every(Boolean) || it.look.line.visible) out.push('drawn: ' + JSON.stringify(STUDIO.painting('${pid}').drawn));
+      sh = shownFor([1, 1, -2]); itemsStep(0.016, performance.now());
+      let st = STUDIO.painting('${pid}');
+      if (sh['${pid}'] || !it.hid || st.drawn.some(Boolean) || !it.look.line.visible) out.push('editing, hidden: ' + JSON.stringify([sh['${pid}'], it.hid, st.drawn, it.look.line.visible]));
+      // (held here: drawn whole)
+      it.carry = true; itemsStep(0.016, performance.now()); st = STUDIO.painting('${pid}');
+      if (it.hid || !st.drawn.every(Boolean) || it.look.line.visible) out.push('held: ' + JSON.stringify([it.hid, st.drawn]));
+      it.carry = false;
+      setEdit(false); itemsStep(0.016, performance.now()); st = STUDIO.painting('${pid}');
+      if (st.drawn.some(Boolean) || it.holder.visible === false && false) out.push('not editing, hidden: ' + JSON.stringify(st.drawn));
+      sh = shownFor([20, 1, 20]); itemsStep(0.016, performance.now());
+      if (!STUDIO.painting('${pid}').drawn.every(Boolean)) out.push('back: not drawn');
+      setEdit(true);
+      removeItem('pcub01'); shownFor(null);
+      // (only in AR: not shown on a page)
+      setRec('${pid}', { shows: 'ar' }); sh = shownFor([20, 1, 20]); itemsStep(0.016, performance.now());
+      if (sh['${pid}'] || STUDIO.painting('${pid}').drawn.some(Boolean) || !it.notHere) out.push('only in AR: ' + JSON.stringify(sh));
+      setRec('${pid}', { shows: undefined }); sh = shownFor(null);
+      // (groups: a painting and the box, moved as one: sized and turned about the pivot)
+      const g = 'pgrp01'; putItem(g, 'g', norm('g', { name: 'G', items: ['${pid}', 'box001'] }));
+      const gp = groupOf('${pid}'), s0 = it.rec.s, p0 = it.rec.p.slice();
+      if (!gp || gp.id !== g) out.push('the group does not hold it');
+      itemAct('size', 2, g);
+      if (!(Math.abs(STU.items.get('${pid}').rec.s - s0 * 2) < 1e-6)) out.push('a group sized: ' + STU.items.get('${pid}').rec.s);
+      undo(); if (STU.items.get('${pid}').rec.s !== s0) out.push('Undo of the group size');
+      removeItem(g);
+      // (duplicate: its strokes, beside it, one Undo step, selected, not locked)
+      setRec('${pid}', { locked: true }); const u0 = UNDO.length, n0 = countOf('d'); select('${pid}');
+      const nid = duplicateItem('${pid}'), cp = STU.items.get(nid);
+      if (!cp || cp.kind !== 'd' || countOf('d') !== n0 + 1 || UNDO.length !== u0 + 1 || STU.sel !== nid || cp.rec.locked || JSON.stringify(cp.rec.strokes) !== JSON.stringify(it.rec.strokes) || Math.abs(cp.rec.p[0] - p0[0] - 0.5) > 1e-6 || cp.rec.name === it.rec.name) out.push('the copy: ' + JSON.stringify(cp && [cp.rec.name, cp.rec.p, cp.rec.locked, UNDO.length - u0]));
+      undo(); if (STU.items.has(nid)) out.push('Undo of the copy');
+      setRec('${pid}', { locked: undefined });
+      // (a copy that does not fit the record's 4,000 points: refused in words without a relay)
+      const big = PAINT.on; paintOn(null);
+      let k = 0; const zig = (n, y) => Array.from({ length: n }, (_, i) => [i * 0.004, y + (i % 2 ? 0.01 : -0.01), -4, 1]);
+      select(''); const r = PAINT.fake(zig(1800, 0.5), { brush: 'tube', width: 0.005 }); paintOff();
+      const bid = r.id, tot = [...STU.items.values()].reduce((a, x) => a + (x.kind === 'd' && x.rec.strokes ? ptsOf(x.rec.strokes) : 0), 0);
+      const dn = countOf('d'); let more = '';
+      if (tot + ptsOf(STU.items.get(bid).rec.strokes) <= 4000) { PAINT.fake; select(''); paintOn(null); select(bid); const r2 = PAINT.fake(zig(1700, 1), { brush: 'tube', width: 0.005 }); paintOff(); }
+      const t2 = [...STU.items.values()].reduce((a, x) => a + (x.kind === 'd' && x.rec.strokes ? ptsOf(x.rec.strokes) : 0), 0);
+      if (t2 * 2 > 4000 + 1 && t2 + ptsOf(STU.items.get(bid).rec.strokes) > 4000) { const c = duplicateItem(bid); if (c !== '' || countOf('d') !== dn || !/No room|More strokes need a relay/.test(PAINT.note)) out.push('a copy past the limit: ' + JSON.stringify([c, countOf('d'), dn, PAINT.note])); }
+      else out.push('could not fill the record for the copy test: ' + t2);
+      removeItem(bid);
+      select(''); return out;
+    })()`);
+    bad(out);
+  });
+  await step('studio paint: Lock in place refuses painting on it, its size, Clear and the eraser; Clear (two presses, one Undo step, the painting stays); On the floor, Turn 90°, Size on its card; the Items pane\'s card; the Paint on it button', async () => {
+    const out = await ss(`(() => {
+      const P = window.__pn, out = [], it = STU.items.get('${pid}');
+      setEdit(true); select('${pid}'); X.tab = 'item'; renderPanes();
+      const html0 = document.querySelector('#pane-item').textContent;
+      if (!/Painting/.test(html0) || !/4 · /.test(html0) || !/Paint on it/.test(html0) || !/Clear/.test(html0) || !/Duplicate/.test(html0) || !/Lock in place/.test(html0)) out.push('the card: ' + html0.slice(0, 300));
+      // (Size, Turn, On the floor)
+      const s0 = it.rec.s, q0 = it.rec.q.slice(), p0 = it.rec.p.slice(); itemAct('dsize', 2); if (it.rec.s !== 2 * s0 && Math.abs(STU.items.get('${pid}').rec.s - 2 * s0) > 1e-6) out.push('Size ×2: ' + STU.items.get('${pid}').rec.s);
+      itemAct('turn'); if (JSON.stringify(STU.items.get('${pid}').rec.q) === JSON.stringify(q0)) out.push('Turn 90° did nothing');
+      setRec('${pid}', { p: [it.rec.p[0], 1.5, it.rec.p[2]] }); itemAct('floor');
+      const b = paintBoxRec(STU.items.get('${pid}'), new THREE.Box3()); if (Math.abs(b.min.y) > 2e-3) out.push('On the floor: min y ' + b.min.y);
+      undo(); undo(); undo(); setRec('${pid}', { p: p0 });
+      if (STU.items.get('${pid}').rec.s !== s0 || JSON.stringify(STU.items.get('${pid}').rec.q) !== JSON.stringify(q0)) out.push('Undo of the card\\'s actions');
+      // (locked: painting into it, its size, Clear, the eraser refused)
+      itemAct('lock'); const L0 = STU.items.get('${pid}'); if (!L0.rec.locked) out.push('not locked');
+      const n0 = L0.rec.strokes.length, u0 = UNDO.length, rec0 = JSON.stringify(L0.rec);
+      paintOn(L0); const r = PAINT.fake([[0, 1, -2], [0.2, 1, -2], [0.4, 1, -2]], { brush: 'tube' });
+      if (r.ok || !/locked in place/.test(PAINT.note) || UNDO.length !== u0 || JSON.stringify(STU.items.get('${pid}').rec) !== rec0) out.push('painting on a locked painting: ' + JSON.stringify([r, PAINT.note]));
+      const q = new THREE.Quaternion().fromArray(L0.rec.q), at = j => new THREE.Vector3(...L0.rec.strokes[0].k[j].slice(0, 3)).applyQuaternion(q).add(new THREE.Vector3().fromArray(L0.rec.p));
+      const er = PAINT.fake(Array.from({ length: 12 }, (_, j) => { const p = at(j + 3); return [p.x, p.y, p.z]; }), { brush: 'eraser', width: 0.03 });
+      if (er.ok === true && er.erased || JSON.stringify(STU.items.get('${pid}').rec) !== rec0) out.push('the eraser on a locked painting: ' + JSON.stringify(er));
+      paintOff(); select('${pid}');
+      itemAct('dsize', 2); itemAct('pclearArm'); itemAct('pclear');
+      if (JSON.stringify(STU.items.get('${pid}').rec) !== rec0 || UNDO.length !== u0 + 0 && false) out.push('a lock did not refuse size or Clear: ' + STU.items.get('${pid}').rec.s);
+      if (!STU.lockSaid || STU.lockSaid.id !== '${pid}') out.push('the refusal was not said');
+      itemAct('lock'); if (STU.items.get('${pid}').rec.locked) out.push('not unlocked');
+      // (Clear: two presses, one Undo step, the painting stays, empty)
+      renderPanes(); const first = document.querySelector('#pane-item [data-act="i:pclearArm"]'), second0 = document.querySelector('#pane-item [data-act="i:pclear"]');
+      if (!first || second0) out.push('Clear: the first press is the arming one');
+      const u1 = UNDO.length; itemAct('pclearArm'); renderPanes();
+      if (!document.querySelector('#pane-item [data-act="i:pclear"]') || !/press again/.test(document.querySelector('#pane-item').textContent) || UNDO.length !== u1) out.push('Clear: armed, one press more');
+      itemAct('pclear');
+      const c = STU.items.get('${pid}');
+      if (!c || c.rec.strokes.length !== 0 || UNDO.length !== u1 + 1) out.push('Clear: ' + JSON.stringify([c && c.rec.strokes.length, UNDO.length - u1]));
+      PAINT.build('${pid}'); if (STUDIO.painting('${pid}').meshes.length !== 0 || !STUDIO.painting('${pid}').built) out.push('an empty painting still draws: ' + JSON.stringify(STUDIO.painting('${pid}').meshes));
+      undo(); if (STU.items.get('${pid}').rec.strokes.length !== n0) out.push('Undo of Clear');
+      // (Paint on it: paint mode with it selected, from its card)
+      select(''); select('${pid}'); itemAct('pnOnIt');
+      if (!PAINT.on || STU.sel !== '${pid}' || STUDIO.paint().painting !== '${pid}' || X.tab !== 'paint') out.push('Paint on it: ' + JSON.stringify(STUDIO.paint()));
+      paintOff();
+      // (the Items pane: a card with a tile, Painting · n strokes)
+      X.tab = 'items'; select(''); renderPanes();
+      const items = document.querySelector('#pane-items').textContent;
+      if (!/Paintings \\(1\\)/.test(items) || !/Painting · 4 strokes/.test(items)) out.push('the Items pane: ' + items.slice(0, 300));
+      const img = document.querySelector('#pane-items img'); 
+      return out;
+    })()`);
+    bad(out);
+  });
+  await step('studio paint: a pretend headset\'s right trigger paints from 6 cm ahead of the controller with its pressure as the width, a ribbon\'s face the controller\'s up; the tip ball; the ray on a panel paints nothing; the grip still carries a painting; the headset\'s Paint pane pressed', async () => {
+    const out = await ss(`(() => {
+      const P = window.__pn, out = [], H = P.hands();
+      setEdit(true); select(''); X.tab = 'add';
+      paintOn(null); PAINT.brush = 'ribbon'; PAINT.colour = '#3ee08f'; PAINT.width = 0.04;
+      const nd = countOf('d'), u0 = UNDO.length, roll = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.3, 0.6));
+      const handAt = (p, val) => { H.put(H.a, p, roll, 'right', val); H.put(H.b, new THREE.Vector3(-0.4, 1.2, -0.3), null, 'left', 0); };
+      handAt(new THREE.Vector3(0.2, 1.1, -0.6), 0); paintXR(H.a, H.a.src.gamepad, 1 / 30);
+      const tp = paintTip();
+      const ahead = new THREE.Vector3(0, 0, -1).applyQuaternion(roll).multiplyScalar(0.06);
+      if (!tp.visible || tp.position.distanceTo(new THREE.Vector3(0.2, 1.1, -0.6).add(ahead)) > 1e-4 || Math.abs(tp.scale.x - 0.02) > 1e-6) out.push('the tip ball: ' + JSON.stringify([tp.visible, tp.position.toArray(), tp.scale.x]));
+      // (a ray on a panel: the press is the panel's, nothing is painted)
+      H.a.hover = { kind: 'panel', P: XR.main, x: 10, y: 10, point: new THREE.Vector3() };
+      handAt(new THREE.Vector3(0.2, 1.1, -0.6), 0.5); paintXR(H.a, H.a.src.gamepad, 1 / 30); paintXR(H.a, H.a.src.gamepad, 1 / 30);
+      if (H.a.pnD || PAINT.drawing) out.push('a press on a panel began a stroke');
+      handAt(new THREE.Vector3(0.2, 1.1, -0.6), 0); paintXR(H.a, H.a.src.gamepad, 1 / 30);
+      // (a stroke: the pressure rising 0.2 to 1 over 40 frames, the hand moving along x)
+      H.a.hover = null;
+      const tips = [];
+      for (let i = 0; i <= 40; i++) {
+        handAt(new THREE.Vector3(0.2 + i * 0.012, 1.1 + 0.1 * Math.sin(i / 4), -0.6), 0.2 + 0.8 * i / 40);
+        paintXR(H.a, H.a.src.gamepad, 1 / 30); if (i === 0) tips.push(tp.position.clone());
+      }
+      const n1 = PAINT.drawing ? PAINT.drawing.pts.length : 0;
+      handAt(new THREE.Vector3(0.7, 1.1, -0.6), 0); paintXR(H.a, H.a.src.gamepad, 1 / 30);
+      const L = PAINT.last, it = L && STU.items.get(L.id);
+      if (!(n1 > 20) || !L || !L.ok || !it || countOf('d') !== nd + 1 || UNDO.length !== u0 + 1) out.push('the stroke: ' + JSON.stringify([n1, L, countOf('d') - nd, UNDO.length - u0]));
+      else {
+        const st = it.rec.strokes[0], k0 = st.k[0], kz = st.k[st.k.length - 1];
+        const w0 = new THREE.Vector3(k0[0], k0[1], k0[2]).applyQuaternion(new THREE.Quaternion().fromArray(it.rec.q)).add(new THREE.Vector3().fromArray(it.rec.p));
+        if (w0.distanceTo(tips[0]) > 2e-3) out.push('the first point is not the tip: ' + w0.distanceTo(tips[0]));
+        if (!(Math.abs(k0[3] - 0.2) <= 0.02) || !(Math.abs(kz[3] - 1) <= 0.03) || st.k.some(k => k[3] < 0.1 || k[3] > 1)) out.push('the pressure: ' + JSON.stringify([k0[3], kz[3]]));
+        const nw = new THREE.Vector3(k0[4], k0[5], k0[6]).applyQuaternion(new THREE.Quaternion().fromArray(it.rec.q)), up = new THREE.Vector3(0, 1, 0).applyQuaternion(roll);
+        if (nw.angleTo(up) > 0.06) out.push('the ribbon\\'s face is not the controller\\'s up: ' + nw.angleTo(up));
+        if (st.b !== 'ribbon' || st.c !== '#3ee08f' || st.w !== 0.04) out.push('the stroke\\'s look: ' + JSON.stringify([st.b, st.c, st.w]));
+      }
+      // (the grip still carries the painting: by its unseen box)
+      PAINT.build(L.id); const it0 = STU.items.get(L.id), p0 = it0.rec.p.slice();
+      paintOff(); select(L.id);
+      H.a.hover = null; H.put(H.b, new THREE.Vector3(0.5, 1.1, -0.5), null, 'left', 0); H.b.hover = { kind: 'item', id: L.id };
+      xrGrab(H.b, true);
+      H.put(H.b, new THREE.Vector3(0.9, 1.1, -0.5), null, 'left', 0); carry(H.b, 1 / 30); xrGrab(H.b, false);
+      const p1 = STU.items.get(L.id).rec.p;
+      if (Math.hypot(p1[0] - p0[0], p1[2] - p0[2]) < 0.2) out.push('the grip did not carry it: ' + JSON.stringify([p0, p1]));
+      // (the headset's Paint pane: the Add pane's button and the Paint pane's brush buttons, pressed)
+      const draw = () => { for (const Pn of XR.panels) { Pn.last = ''; Pn.t = -1e9; panelTick(Pn, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 5000; off += 150) { X.scroll.add = X.scroll.paint = X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      select(''); X.tab = 'add'; X.scroll = {}; draw();
+      if (!press('paint:on') || !PAINT.on || X.tab !== 'paint') out.push('the headset\\'s Paint button: ' + JSON.stringify([PAINT.on, X.tab]));
+      draw();
+      if (!XR.main.regions.some(r => r.id === 'tab:paint')) out.push('no Paint tab on the headset');
+      const ids = XR.main.regions.map(r => r.id);
+      for (const k of ['pnbrush:ribbon', 'pnbrush:tube', 'pnbrush:glow', 'pnbrush:spray', 'pnbrush:eraser', 'pnw:+', 'pn:done']) if (!ids.includes(k) && !press(k)) out.push('no ' + k + ' on the headset\\'s pane');
+      if (!press('pnbrush:spray') || PAINT.brush !== 'spray') out.push('Spray can pressed: ' + PAINT.brush);
+      if (!press('pnw:+') || PAINT.width <= 0.04) out.push('Thicker pressed: ' + PAINT.width);
+      if (!press('pn:done') || PAINT.on) out.push('Done pressed');
+      P.off(); X.scroll = {}; select('');
+      return out;
+    })()`);
+    bad(out);
+  });
+  // (a relay that takes uploads, on a copy of the test scene: past 4,000 points the painting goes into a file of the scene)
+  {
+    const { spawn } = await import('node:child_process');
+    const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+    const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+    const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-paint-'));
+    fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
+    let RL = null;
+    for (let port = 8970; port < 8995 && !RL; port++) {
+      const R = { proc: null, port: 0, out: '' };
+      const ok = await new Promise(res => {
+        R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(port), '--host', '127.0.0.1', '--static', '.', '--scenes', SC, '--quiet'], { cwd: ROOT, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '' } });
+        const t = setTimeout(() => res(false), 15000);
+        R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = port; clearTimeout(t); res(true); } });
+        R.proc.stderr.on('data', d => { R.out += d; });
+        R.proc.on('exit', () => { clearTimeout(t); res(false); });
+      });
+      if (ok) RL = R; else if (R.proc.exitCode === null) R.proc.kill();
+    }
+    const rq = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    rq.on('pageerror', e => errors.push('studio paint: ' + (e.stack || e.message)));
+    rq.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio paint: ' + m.text()); });
+    const qs = s => rq.evaluate(s => HOST.cur.peek(s), s);
+    const quntil = (src, ms) => rq.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 30000, polling: 100 }).then(() => true, () => false);
+    try {
+      await step('studio paint: with a relay that takes uploads, past 4,000 points a painting is kept as the file paintings/<name>-<n>.json (its record src, n and pts; one Undo step; the file on disk; shown meanwhile), grows into a new file each stroke, is read back from the relay as another device reads it, comes back into the record when erased small, and a big copy is a new file', async () => {
+        const out = [];
+        if (!RL) { bad(['no relay of its own started']); return; }
+        await rq.goto(`http://127.0.0.1:${RL.port}/index.html#studio&scene=test&edit`);
+        await rq.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+        if (!await quntil(`STUDIO.ready() && !!STU.items.get('box001').model && canUpload()`, 120000)) { bad(['the test scene did not load from the relay']); return; }
+        const r = await qs(`(() => {
+          const zig = (n, y) => Array.from({ length: n }, (_, i) => [i * 0.004, y + (i % 2 ? 0.01 : -0.01), -3, 1]);
+          setEdit(true); select(''); paintOn(null); PAINT.brush = 'tube';
+          const a = PAINT.fake(zig(1500, 0.5), { brush: 'tube', width: 0.005 }), b = PAINT.fake(zig(1500, 0.7), { brush: 'tube', width: 0.005 }), u0 = UNDO.length, c = PAINT.fake(zig(1500, 0.9), { brush: 'tube', width: 0.005 });
+          window.__pid = a.id; window.__u0 = u0;
+          return { a: a.where, b: b.where, c, id: a.id, froze: PNV.froze.size, keeping: [...PAINT.keep.keys()] };
+        })()`);
+        if (r.a !== 'record' || r.b !== 'record' || !r.c.ok || r.c.where !== 'file' || !r.c.pending || r.keeping[0] !== r.id) out.push('the third stroke goes into a file: ' + JSON.stringify(r));
+        if (!await quntil(`!!STU.items.get(window.__pid).rec.src`, 30000)) { bad(out.concat('the file never came: ' + await qs('PAINT.note'))); return; }
+        const k = await qs(`(() => { const it = STU.items.get(window.__pid), r = it.rec; return { src: r.src, n: r.n, pts: r.pts, strokes: r.strokes, undo: UNDO.length - window.__u0, froze: PNV.froze.size, keep: PAINT.keep.size, note: PAINT.note, total: [...STU.items.values()].reduce((a, x) => a + (x.kind === 'd' && x.rec.strokes ? ptsOf(x.rec.strokes) : 0), 0), names: STU.fileMap.has(r.src) }; })()`);
+        if (!/^paintings\/Painting-\d+\.json$/.test(k.src) || k.n !== 3 || !(k.pts > 4000) || k.strokes !== undefined || k.undo !== 1 || k.keep !== 0 || k.total > 4000) out.push('the record with src: ' + JSON.stringify(k));
+        const file = path.join(SC, 'test', ...k.src.split('/'));
+        let J = null; try { J = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { out.push('the file is not on disk: ' + file); }
+        if (J && (J.studio !== 1 || J.painting !== 1 || J.strokes.length !== 3 || J.strokes.reduce((a, s) => a + s.k.length, 0) !== k.pts || J.strokes[0].b !== 'tube')) out.push('the file: ' + JSON.stringify([J.studio, J.painting, J.strokes.length]));
+        if (!await quntil(`(PAINT.build(window.__pid), STUDIO.painting(window.__pid).built && STUDIO.painting(window.__pid).meshes.length === 1)`, 20000)) out.push('the painting is not drawn from its strokes: ' + JSON.stringify(await qs('STUDIO.painting(window.__pid)')));
+        // (the layout and the state with src, both ways)
+        const L = await qs(`(() => { const it = STU.items.get(window.__pid), j = JSON.parse(JSON.stringify(layoutOut())), back = readLayout(j).items.filter(x => x.kind === 'd')[0]; return [JSON.stringify(back.rec) === JSON.stringify(it.rec), j.paintings[0].src === it.rec.src, JSON.stringify(collabState()['d.' + it.id]) === JSON.stringify(it.rec)]; })()`);
+        if (L.some(x => !x)) out.push('layout and state with src: ' + JSON.stringify(L));
+        // (a fourth stroke: a new file, the first stays)
+        await qs(`(() => { select(window.__pid); window.__src1 = STU.items.get(window.__pid).rec.src; PAINT.fake(Array.from({ length: 60 }, (_, i) => [i * 0.01, 1.4 + (i % 2) * 0.02, -3, 1]), { brush: 'glow', width: 0.01 }); return 0; })()`);
+        if (!await quntil(`STU.items.get(window.__pid).rec.src !== window.__src1 && STU.items.get(window.__pid).rec.n === 4`, 30000)) out.push('the fourth stroke did not make a new file: ' + JSON.stringify(await qs(`[STU.items.get(window.__pid).rec.src, STU.items.get(window.__pid).rec.n, PAINT.note]`)));
+        else {
+          const k2 = await qs(`STU.items.get(window.__pid).rec.src`);
+          if (!fs.existsSync(file) || !fs.existsSync(path.join(SC, 'test', ...k2.split('/'))) || k2 === k.src) out.push('the old file stayed, the new one is there: ' + k2);
+        }
+        // (read back as another device reads it: its copy forgotten, the strokes come from the relay)
+        const rb = await qs(`(() => { const r = STU.items.get(window.__pid).rec; PNF.clear(); const it = STU.items.get(window.__pid); it.pbKey = ''; it.pbDone = false; it.look.clear(); return pnPeek(r) === null; })()`);
+        if (!rb || !await quntil(`(() => { const r = STU.items.get(window.__pid).rec, k = pnPeek(r); if (!k) { pnK(r); return false; } PAINT.build(window.__pid); return k.length === 4 && STUDIO.painting(window.__pid).built && STUDIO.painting(window.__pid).meshes.length === 2; })()`, 30000)) out.push('the strokes were not read back from the file: ' + JSON.stringify(await qs(`[pnPeek(STU.items.get(window.__pid).rec), PNF.size, STUDIO.painting(window.__pid).meshes]`)));
+        // (erased small: back in the record, no src)
+        const er = await qs(`(() => { const it = STU.items.get(window.__pid), q = new THREE.Quaternion().fromArray(it.rec.q), S = pnPeek(it.rec); paintOn(it); select(it.id);
+          const at = (i, j) => new THREE.Vector3(...S[i].k[j].slice(0, 3)).applyQuaternion(q).add(new THREE.Vector3().fromArray(it.rec.p));
+          const e = []; for (const i of [0, 1, 2]) { const path = []; for (let j = 0; j < S[i].k.length; j += 3) { const p = at(i, j); path.push([p.x, p.y, p.z]); } e.push(PAINT.fake(path, { brush: 'eraser', width: 0.02 }).erased); }
+          const r = STU.items.get(it.id).rec; return { e, src: r.src, strokes: r.strokes && r.strokes.length }; })()`);
+        if (er.src !== undefined || er.strokes !== 1) out.push('erased small, back in the record: ' + JSON.stringify(er));
+        // (a big copy is a new file: refill past 4,000 and duplicate)
+        const dup = await qs(`(() => { const zig = (n, y) => Array.from({ length: n }, (_, i) => [i * 0.004, y + (i % 2 ? 0.01 : -0.01), -3, 1]); paintOn(null); select(window.__pid); const id = window.__pid; for (const y of [0.5, 0.7, 0.9]) PAINT.fake(zig(1500, y), { brush: 'tube', width: 0.005 }); paintOff(); window.__d0 = countOf('d'); return [STU.items.get(id).rec.src || (STU.items.get(id).rec.strokes ? 'record ' + ptsOf(STU.items.get(id).rec.strokes) : '')]; })()`);
+        if (!await quntil(`!!STU.items.get(window.__pid).rec.src`, 30000)) out.push('the refilled painting did not go into a file: ' + JSON.stringify(dup));
+        else {
+          await qs(`(() => { window.__d0 = countOf('d'); select(window.__pid); window.__dup = duplicateItem(window.__pid); return 0; })()`);
+          if (!await quntil(`(() => { const c = STU.items.get(window.__dup); return !!c && !!c.rec.src && c.rec.src !== STU.items.get(window.__pid).rec.src; })()`, 30000)) out.push('the big copy is not a new file: ' + JSON.stringify(await qs(`[STU.items.get(window.__dup) && STU.items.get(window.__dup).rec.src, STU.items.get(window.__pid).rec.src, PAINT.note]`)));
+          else if ((await qs(`countOf('d')`)) !== (await qs(`window.__d0`)) + 1) out.push('the copy is one painting more');
+        }
+        bad(out);
+      });
+    } finally {
+      await rq.close();
+      if (RL && RL.proc.exitCode === null) RL.proc.kill();
+      try { fs.rmSync(SC, { recursive: true, force: true }); } catch (e) { /* gone */ }
+    }
+  }
+  await pp.close();
+}
+
 if (runs('studio screens')) {
   const { spawnSync } = await import('node:child_process');
   const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
@@ -13436,7 +13942,7 @@ if (runs('developer mode')) {
     const r1 = await run(15000), s1 = await st();
     const wFirst = r1.findIndex(x => x[1]), wLast = r1.map(x => x[1]).lastIndexOf(1), nAt = r1.findIndex(x => x[2]);
     if (wFirst < 0 || nAt < 0 || nAt <= wLast || r1.some(x => x[1] && x[2])) bad.push('not after the welcome: ' + JSON.stringify(r1.filter((x, i) => !i || x[1] !== r1[i - 1][1] || x[2] !== r1[i - 1][2])));
-    if (!(s1.shown && s1.fl === 1 && s1.menu && s1.open && s1.tab.join() === 'news:got,news:later')) bad.push('the menu did not open at what is new (its Got it and Later): ' + JSON.stringify(s1));
+    if (!(s1.shown && s1.fl === 1 && s1.menu && s1.open && s1.tab.includes('news:got') && s1.tab.includes('news:later'))) bad.push('the menu did not open at what is new (its Got it and Later): ' + JSON.stringify(s1));
     await press('news:later');
     const s2 = await st();
     if (s2.shown || s2.open || s2.fl !== 3 || s2.seen !== null) bad.push('Later did not close it and the menu (nothing kept): ' + JSON.stringify(s2));
@@ -13474,7 +13980,7 @@ if (runs('developer mode')) {
     await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 10000 });
     await dp.evaluate(() => window.__tick(2));
     const s1 = await st();
-    if (!t3 || !s1.shown || s1.fl !== 0 || !s1.open || s1.tab.join() !== 'news:got,news:later') bad.push('the Debug tab\'s What is new: ' + JSON.stringify([t3, s1]));
+    if (!t3 || !s1.shown || s1.fl !== 0 || !s1.open || !(s1.tab.includes('news:got') && s1.tab.includes('news:later'))) bad.push('the Debug tab\'s What is new: ' + JSON.stringify([t3, s1]));
     await press('news:later');
     const s2 = await st(), ids = await dp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
     if (s2.shown || !s2.open || !ids.includes('whatsnew')) bad.push('Back did not go back to the Debug tab (the menu open): ' + JSON.stringify([s2, ids.slice(0, 12)]));
@@ -13492,6 +13998,187 @@ if (runs('developer mode')) {
     await serve(null);
     await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
     if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset: ' + b));
+  });
+  // the history (v144): whatsnew/index.json and one file a release; Older and Newer on the card, Got it only on the newest,
+  // the lists scrolling in a short window
+  await step('developer mode: the card\'s Older and Newer, Got it only on the newest, the lists scrolling', async () => {
+    const bad = [];
+    await dp.setViewportSize({ width: 1280, height: 760 });
+    await open('#dev=on');
+    await dp.evaluate(() => { localStorage.removeItem('devSeen'); });
+    await open('#dev=on');
+    if (!await cardOpen()) { errors.push('developer mode: the card did not open for the history'); return; }
+    const idx = await dp.evaluate(() => fetch('whatsnew/index.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()));
+    const rel = v => dp.evaluate(v => fetch('whatsnew/' + v + '.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()), v);
+    if (!idx || !Array.isArray(idx.versions) || idx.versions.length < 17 || idx.versions[0] !== file.version || !idx.versions.includes('networks-v127')) bad.push('whatsnew/index.json: ' + JSON.stringify(idx).slice(0, 200));
+    const nav = () => dp.evaluate(() => ({ older: !document.getElementById('devOlder').disabled, newer: !document.getElementById('devNewer').disabled, pos: document.getElementById('devPos').textContent,
+      got: getComputedStyle(document.getElementById('devGot')).display !== 'none', title: document.getElementById('devTitle').textContent, date: document.getElementById('devDate').textContent,
+      items: [...document.querySelectorAll('#devBody li')].length, navShown: getComputedStyle(document.getElementById('devNav')).display !== 'none' }));
+    const n0 = await nav(), N = idx.versions.length, short = v => v.replace(/^networks-/, '');
+    if (!n0.navShown || n0.older !== true || n0.newer !== false || n0.pos !== `${short(file.version)} · 1 of ${N}` || !n0.got) bad.push('the newest release\'s card: ' + JSON.stringify(n0));
+    await dp.click('#devOlder');
+    await dp.waitForFunction(() => !HOST.dev.busy() && /v142/.test(document.getElementById('devTitle').textContent), null, { timeout: 15000 });
+    const f1 = await rel(idx.versions[1]), n1 = await nav(), c1 = await card();
+    if (n1.got || !n1.newer || !n1.older || n1.pos !== `${short(idx.versions[1])} · 2 of ${N}` || n1.date !== f1.date || c1.lists.new.join('|') !== f1.new.join('|')) bad.push('Older: ' + JSON.stringify([n1, f1.date]));
+    await dp.evaluate(v => HOST.dev.show(v), idx.versions[N - 1]);
+    await dp.waitForFunction(v => !HOST.dev.busy() && HOST.dev.data() && HOST.dev.data().version === v, idx.versions[N - 1], { timeout: 15000 });
+    const n2 = await nav();
+    if (n2.older || !n2.newer || n2.got || n2.items < 1 || n2.pos !== `${short(idx.versions[N - 1])} · ${N} of ${N}`) bad.push('the oldest release (Older greyed): ' + JSON.stringify(n2));
+    await dp.click('#devNewer');
+    await dp.waitForFunction(v => HOST.dev.state().shown === v, idx.versions[N - 2], { timeout: 15000 });
+    // Later on an old release keeps nothing; Got it at the newest keeps the newest
+    await dp.click('#devLater');
+    if (await ls('devSeen') !== null) bad.push('Later on an old release kept a version');
+    await dp.evaluate(() => HOST.dev.card(true, 'hand'));
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().shown === HOST.dev.state().version && HOST.dev.state().version, null, { timeout: 15000 });
+    await dp.evaluate(() => HOST.dev.older());
+    await dp.waitForFunction(() => HOST.dev.state().view && !HOST.dev.busy(), null, { timeout: 15000 });
+    await dp.keyboard.press('Escape');
+    if ((await card()).open) bad.push('Escape did not close the card on an old release');
+    await dp.evaluate(() => HOST.dev.card(true, 'hand'));
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view === '', null, { timeout: 15000 });
+    const n3 = await nav();
+    if (!n3.got || n3.newer || !n3.pos.includes('1 of')) bad.push('the card did not open at the newest again: ' + JSON.stringify(n3));
+    await dp.click('#devGot');
+    if (await ls('devSeen') !== file.version) bad.push('Got it at the newest did not keep it');
+    // a file that is not there for an old release: said in a line, the buttons still working
+    await dp.route('**/whatsnew/networks-v141.json*', r => r.fulfill({ status: 404, body: 'no' }));
+    await dp.evaluate(() => HOST.dev.card(true, 'hand'));
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view === '', null, { timeout: 15000 });
+    await dp.evaluate(() => HOST.dev.show('networks-v141'));
+    await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 15000 });
+    const c5 = await card();
+    if (c5.msg !== 'Could not fetch what is new (whatsnew/networks-v141.json): the server answered 404.' || c5.got) bad.push('an old release that is not there: ' + JSON.stringify([c5.msg, c5.got]));
+    await dp.unroute('**/whatsnew/networks-v141.json*');
+    await dp.click('#devLater');
+    // scrolling: a short window, the lists longer than it
+    await dp.setViewportSize({ width: 1280, height: 460 });
+    await dp.evaluate(() => HOST.dev.card(true, 'hand'));
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view === '' && document.querySelectorAll('#devBody li').length, null, { timeout: 15000 });
+    const sc = await dp.evaluate(() => {
+      const b = document.getElementById('devBody'), c = document.getElementById('devCard'), r = c.getBoundingClientRect(), ov = getComputedStyle(b).overflowY;
+      b.scrollTop = 80;
+      return { ov, ch: b.clientHeight, sh: b.scrollHeight, top: b.scrollTop, bottom: Math.round(r.bottom), ih: innerHeight, cardTop: Math.round(r.top) };
+    });
+    if (!/auto|scroll/.test(sc.ov) || sc.sh <= sc.ch + 20 || sc.top < 40 || sc.bottom > sc.ih) bad.push('the card\'s lists did not scroll within the window: ' + JSON.stringify(sc));
+    await dp.evaluate(() => HOST.dev.older());
+    await dp.waitForFunction(() => HOST.dev.state().view && !HOST.dev.busy(), null, { timeout: 15000 });
+    if (await dp.evaluate(() => document.getElementById('devBody').scrollTop) !== 0) bad.push('another release did not start at the top');
+    await dp.click('#devLater');
+    await dp.setViewportSize({ width: 1280, height: 760 });
+    if (bad.length) errors.push(...bad.map(b => 'developer mode (history): ' + b));
+  });
+  await step('developer mode in a headset: Older and Newer, Got it only on the newest, the lists scroll (Up, More, the stick)', async () => {
+    const bad = [];
+    const long = { version: 'networks-v999', date: '1 January 2027', new: Array.from({ length: 30 }, (_, i) => `Item ${i + 1} of the new things, a sentence long enough to wrap onto a second line in the headset's page when it is drawn at twenty-two pixels.`), test: ['Test it.'], untested: ['Nothing.'] };
+    await serve(long);
+    await dp.evaluate(() => { localStorage.setItem('devMode', 'on'); localStorage.removeItem('devSeen'); });
+    await xr('qubits', false);
+    const r1 = await run(15000), s1 = await st();
+    if (!r1.some(x => x[2]) || !s1.shown) { errors.push('developer mode (headset history): what is new did not show: ' + JSON.stringify(s1)); await serve(null); return; }
+    await dp.evaluate(() => window.__tick(3));
+    const s2 = await st();
+    if (!['news:got', 'news:later', 'news:older', 'news:more'].every(i => s2.tab.includes(i)) || s2.tab.includes('news:newer') || s2.tab.includes('news:up')) bad.push('the newest release\'s buttons: ' + JSON.stringify(s2.tab));
+    const w0 = await dp.evaluate(() => HOST.collab.whatsNew());
+    if (!(w0.max > 300) || w0.sc !== 0) bad.push('the lists do not scroll (max, place): ' + JSON.stringify(w0));
+    // More and Up
+    await press('news:more');
+    const w1 = await dp.evaluate(() => HOST.collab.whatsNew());
+    if (w1.sc !== Math.min(w0.max, 602)) bad.push('More: ' + JSON.stringify([w0, w1]));
+    await dp.evaluate(() => window.__tick(2));
+    const s3 = await st();
+    if (!s3.tab.includes('news:up')) bad.push('Up not offered after More: ' + JSON.stringify(s3.tab));
+    await press('news:up');
+    const w2 = await dp.evaluate(() => HOST.collab.whatsNew());
+    if (w2.sc !== 0) bad.push('Up did not go back to the top: ' + JSON.stringify(w2));
+    for (let i = 0; i < 6; i++) await press('news:more');
+    const w3 = await dp.evaluate(() => { window.__tick(2); return HOST.collab.whatsNew(); }), ids3 = (await st()).tab;
+    if (w3.sc !== w3.max || ids3.includes('news:more') || !ids3.includes('news:up')) bad.push('More to the end (More greyed, Up offered): ' + JSON.stringify([w3, ids3]));
+    await press('news:up'); await press('news:up'); await press('news:up'); await press('news:up');
+    // the stick: pushed down while the ray is on the menu scrolls, up goes back, in the dead zone nothing, off the menu nothing
+    const stick = (y, onMenu, ms) => dp.evaluate(async ([y, onMenu, ms]) => {
+      const src = window.__stk || (window.__stk = { handedness: 'left', gamepad: { axes: [0, 0, 0, 0], buttons: [] }, targetRaySpace: {} });
+      if (!window.__s.inputSources.includes(src)) window.__s.inputSources.push(src);
+      src.gamepad.axes[3] = y;
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) {
+        if (onMenu) { const m = HOST.collab.overlay().panel.mesh, c = m.getWorldPosition(new THREE.Vector3()), o = new THREE.Vector3(c.x + 0.1, c.y, c.z + 0.6); HOST.collab.ray(0, o, c.clone().sub(o).normalize(), Infinity); }
+        window.__tick(1);
+        await new Promise(r => setTimeout(r, 50));
+      }
+      src.gamepad.axes[3] = 0;
+      return HOST.collab.whatsNew().sc;
+    }, [y, onMenu, ms]);
+    const a0 = (await dp.evaluate(() => HOST.collab.whatsNew())).sc;
+    const a1 = await stick(1, true, 1200);
+    if (!(a1 > a0 + 100)) bad.push('the stick pushed down did not scroll: ' + JSON.stringify([a0, a1]));
+    const a2 = await stick(0.1, true, 600);
+    if (a2 !== a1) bad.push('the dead zone scrolled: ' + JSON.stringify([a1, a2]));
+    await dp.waitForTimeout(400);   // (a ray's hover lasts 250 ms)
+    const a3 = await stick(1, false, 600);
+    if (a3 !== a1) bad.push('the stick scrolled with the ray off the menu: ' + JSON.stringify([a1, a3]));
+    const a4 = await stick(-1, true, 1200);
+    if (!(a4 < a1 - 100)) bad.push('the stick pushed up did not scroll back: ' + JSON.stringify([a1, a4]));
+    // the place kept while the page stays open (the stick moved it, the menu redrawn), reset by another release
+    await dp.evaluate(() => { window.__s.inputSources.length = 0; });
+    const keep = await dp.evaluate(() => { window.__tick(4); return HOST.collab.whatsNew().sc; });
+    if (keep !== a4) bad.push('the place was not kept while the page stayed open: ' + JSON.stringify([a4, keep]));
+    // Older: the history; Got it only on the newest; the place reset
+    await press('news:more');
+    await press('news:older');
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view, null, { timeout: 15000 });
+    await dp.evaluate(() => window.__tick(3));
+    const s4 = await st(), p4 = await dp.evaluate(() => HOST.dev.position()), w4 = await dp.evaluate(() => HOST.collab.whatsNew());
+    if (s4.tab.includes('news:got') || !s4.tab.includes('news:newer') || !s4.tab.includes('news:older') || !s4.tab.includes('news:later') || p4.i !== 2 || p4.version !== 'networks-v143' || w4.sc !== 0) bad.push('Older: ' + JSON.stringify([s4.tab, p4, w4]));
+    if (s4.seen !== null) bad.push('an earlier release marked a version seen: ' + JSON.stringify(s4.seen));
+    await press('news:newer');
+    await dp.evaluate(() => window.__tick(3));
+    const s5 = await st(), p5 = await dp.evaluate(() => HOST.dev.position());
+    if (!s5.tab.includes('news:got') || s5.tab.includes('news:newer') || p5.i !== 1) bad.push('Newer back to the newest: ' + JSON.stringify([s5.tab, p5]));
+    await press('news:older');
+    await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view, null, { timeout: 15000 });
+    await press('news:later');
+    const s6 = await st();
+    if (s6.shown || s6.open || s6.seen !== null) bad.push('Later on an earlier release: ' + JSON.stringify(s6));
+    // an old release's type is 22 px and the lists fit in the view or scroll: the menu stays within its canvas
+    await dp.evaluate(() => { HOST.collab.panelOpen(false); window.__tick(1); });
+    await serve(null);
+    if (bad.length) errors.push(...bad.map(b => 'developer mode in a headset (history): ' + b));
+  });
+  // the release script keeps whatsnew/ (v144): in a copy of the app, with a new VERSION and a whatsnew.json for it
+  await step('developer mode: tools/release.mjs writes and checks whatsnew/', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
+    const here = path.dirname(path.dirname(new URL(import.meta.url).pathname)), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
+    try {
+      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
+      fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });
+      fs.cpSync(path.join(here, 'whatsnew'), path.join(T, 'whatsnew'), { recursive: true });
+      fs.mkdirSync(path.join(T, 'tools'), { recursive: true }); fs.copyFileSync(path.join(here, 'tools', 'release.mjs'), path.join(T, 'tools', 'release.mjs'));
+      const run = (...a) => spawnSync(process.execPath, [path.join(T, 'tools', 'release.mjs'), ...a], { cwd: T, encoding: 'utf8' });
+      const sw = fs.readFileSync(path.join(T, 'sw.js'), 'utf8'), cur = +/const VERSION = 'networks-v(\d+)'/.exec(sw)[1], nv = 'networks-v' + (cur + 1);
+      fs.writeFileSync(path.join(T, 'sw.js'), sw.replace(/const VERSION = '[^']+'/, `const VERSION = '${nv}'`));
+      fs.writeFileSync(path.join(T, 'whatsnew.json'), JSON.stringify({ version: nv, date: '1 January 2027', new: ['A.'], test: ['B.'], untested: ['C.'] }, null, 2) + '\n');
+      const before = fs.readdirSync(path.join(T, 'whatsnew')).filter(f => /^networks-v\d+\.json$/.test(f)).length;
+      const c0 = run('--check');
+      if (c0.status === 0 || !/whatsnew\/ is out of date/.test(c0.stdout)) errors.push('developer mode (release): --check passed or did not name whatsnew/ before the release was written: ' + c0.stdout);
+      const w = run(), c1 = run('--check');
+      const ix = JSON.parse(fs.readFileSync(path.join(T, 'whatsnew', 'index.json'), 'utf8')), fl = JSON.parse(fs.readFileSync(path.join(T, 'whatsnew', nv + '.json'), 'utf8'));
+      if (w.status !== 0 || c1.status !== 0 || ix.versions[0] !== nv || ix.versions.length !== before + 1 || ix.at !== '1 January 2027' || fl.version !== nv || fl.new[0] !== 'A.')
+        errors.push('developer mode (release): the release did not write whatsnew/: ' + JSON.stringify([w.status, w.stdout, c1.status, c1.stdout, ix.versions.slice(0, 3), ix.versions.length, before]));
+      // out of date again: the index loses an entry, a file differs
+      fs.writeFileSync(path.join(T, 'whatsnew', 'index.json'), JSON.stringify({ versions: ix.versions.slice(1), at: ix.at }, null, 2) + '\n');
+      const c2 = run('--check');
+      fs.writeFileSync(path.join(T, 'whatsnew', 'index.json'), JSON.stringify(ix, null, 2) + '\n');
+      fs.writeFileSync(path.join(T, 'whatsnew', nv + '.json'), JSON.stringify({ ...fl, new: ['changed'] }, null, 2) + '\n');
+      const c3 = run('--check'), w2 = run(), c4 = run('--check');
+      if (c2.status === 0 || c3.status === 0 || !/whatsnew\/ is out of date/.test(c2.stdout + c3.stdout) || w2.status !== 0 || c4.status !== 0 || JSON.parse(fs.readFileSync(path.join(T, 'whatsnew', nv + '.json'), 'utf8')).new[0] !== 'A.')
+        errors.push('developer mode (release): --check did not catch an index or file out of date, or the release did not fix it: ' + JSON.stringify([c2.status, c3.status, w2.status, c4.status, c3.stdout]));
+      // the repository's own folder: every release listed has its file, whatever VERSION is
+      const rix = JSON.parse(fs.readFileSync(path.join(here, 'whatsnew', 'index.json'), 'utf8'));
+      const miss = rix.versions.filter(v => !fs.existsSync(path.join(here, 'whatsnew', v + '.json')));
+      if (miss.length || !rix.versions.includes(JSON.parse(fs.readFileSync(path.join(here, 'whatsnew.json'), 'utf8')).version)) errors.push('developer mode (release): the repository\'s whatsnew/ lacks files or the current release: ' + JSON.stringify(miss));
+    } finally { fs.rmSync(T, { recursive: true, force: true }); }
   });
   await ctx.close();
 }

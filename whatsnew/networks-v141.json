@@ -1,0 +1,20 @@
+{
+  "version": "networks-v141",
+  "date": "13 November 2026",
+  "new": [
+    "Studio, in a headset in AR with Edit on: the Add pane has The room scan. Scan the room opens Quest's own room setup; Save the room as a model turns the headset's room scan into a model of the scene (walls, floor and furniture, one plain colour each).",
+    "The saved scan goes into models/ and is placed exactly where the real room is, shown only in VR by default (in AR the real room is there). At a shared room's circle it lines up for every headset there.",
+    "It can be saved lighter (all, 50 % or 20 % of its triangles), or from the walls and floor only.",
+    "The studio's README has a short guide to scanning rooms and objects for the studio (which iPad apps, what to watch on a Quest)."
+  ],
+  "test": [
+    "In AR at a studio circle, with Edit on: Add, The room scan. Does it list your room (walls, floor, triangles)? Press Save the room as a model. Does the model appear on the real walls?",
+    "Switch to VR (or turn its Shows in to AR and VR): does the scan stand where the room is? Does a second headset at the circle see it in the same place?",
+    "Press Scan the room: does Quest's room setup open, and does the scan update afterwards?",
+    "Try Walls and floor only and 20 %."
+  ],
+  "untested": [
+    "Everything on a real Quest: the room setup started from the page, how dense the real room mesh is and its labels, the scan's picture made in the headset, how well it lines up at a calibrated circle.",
+    "v140 and older items from What is new are still untried on devices where they were before."
+  ]
+}
