@@ -6,6 +6,11 @@ no build step and no framework: plain HTML and JavaScript with a vendored three.
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
 and where to read on.
 
+**Warning: Claude Code runs without asking here.** This repository's `.claude/settings.json` allows every command, file
+edit, web fetch and agent without a permission prompt (the owner, 14 November 2026, for a cloud machine used only by
+Claude). Anyone who runs Claude Code on their own computer with this repository gets the same. If you do not want that,
+delete or edit `.claude/settings.json` (or override it in your own `.claude/settings.local.json`) before you start.
+
 ## What to read, by role
 
 | You will... | Read |
@@ -1751,6 +1756,13 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
+   - **Snapping in the studio (maybe later; the owner, 14 November 2026: "put snapping on the for later list for
+     now").** As discussed: a setting of this device's own in the Scene pane while editing (never saved or shared): move
+     off / 1 / 5 / 10 / 25 / 50 cm, turn off / 5 / 15 / 45 / 90 degrees, size off / 10 / 25 %, and a drop onto the floor
+     within a few cm. On a page through `TransformControls`' own `setTranslationSnap`, `setRotationSnap` and
+     `setScaleSnap` (Alt to move freely); in a headset applied where the grip and the sticks let go, so carrying stays
+     smooth. The grid on the scene's frame (the room's at a circle). Open: snapping one item to another (face to face,
+     onto a table), a few times the work.
    - **Quicker hot reload on the test place (maybe later; the owner, 13 November 2026: "Can we have hot reload so
      changes can happen right away in the same session?", then "hold the hot reload work for now and put it down for
      maybe later").** What exists: `HOST.live` swaps a changed story in place (a headset stays in its session) and asks

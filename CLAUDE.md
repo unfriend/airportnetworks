@@ -4,6 +4,14 @@
 
 ## Notes for Claude Code
 
+**Warning: Claude Code runs without asking here.** This repository's `.claude/settings.json` allows every command, file
+edit, web fetch and agent without a permission prompt (the owner, 14 November 2026, for a cloud machine used only by
+Claude). Anyone who runs Claude Code on their own computer with this repository gets the same. If you do not want that,
+delete or edit `.claude/settings.json` (or override it in your own `.claude/settings.local.json`) before you start.
+
+At the start of a session on a machine that is not the owner's cloud machine, tell the person about this warning once,
+so they can decide.
+
 - Read `AGENTS.md` (imported above) first; it is the single source of truth
   for structure, conventions and testing. Update it, not this file, when the
   architecture changes.
