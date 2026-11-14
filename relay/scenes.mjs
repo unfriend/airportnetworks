@@ -15,6 +15,7 @@ export const LAYOUT = 'layout.json', LISTING = 'files.json', INDEX = 'index.json
 const KINDS = {
   model: ['.glb', '.gltf', '.fbx'],
   audio: ['.mp3', '.ogg', '.oga', '.wav', '.m4a', '.aac', '.flac', '.opus', '.webm'],
+  video: ['.mp4', '.m4v', '.mov', '.mkv'],   // (v143, a screen's video; .webm stays audio, a screen takes either)
   image: ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.tga', '.bmp', '.tif', '.tiff', '.psd', '.psb', '.dds', '.avif'],   // (TIFF, PSD and DDS read by the studio itself)
   data: ['.bin'],
 };
@@ -25,7 +26,8 @@ export const kindOf = p => KIND.get(path.extname(String(p)).toLowerCase()) || 'o
 export const SCENE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg',
   '.wav': 'audio/wav', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.fbx': 'application/octet-stream', '.bin': 'application/octet-stream', '.tga': 'image/x-tga',
   '.bmp': 'image/bmp', '.tif': 'image/tiff', '.tiff': 'image/tiff', '.psd': 'image/vnd.adobe.photoshop', '.psb': 'image/vnd.adobe.photoshop', '.dds': 'image/vnd-ms.dds',
-  '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm' };
+  '.avif': 'image/avif', '.oga': 'audio/ogg', '.opus': 'audio/ogg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.flac': 'audio/flac', '.webm': 'audio/webm',
+  '.mp4': 'video/mp4', '.m4v': 'video/x-m4v', '.mov': 'video/quicktime', '.mkv': 'video/x-matroska' };
 export const typeOf = p => (isRecording(p) ? 'application/json' : kindOf(p) === 'other' ? 'application/octet-stream' : SCENE_TYPES[path.extname(String(p)).toLowerCase()] || 'application/octet-stream');
 // a model's picture for the studio's Add pane: previews/<the model's path>.jpg, a JPEG the studio makes with each GLB it
 // writes (and on Make pictures), at most 200 KB. Listed with a kind of its own, 'preview' (never a picture a texture could
@@ -174,7 +176,7 @@ export const layoutAt = st => (st ? Math.floor(st.mtimeMs) : null);
 // recordings/ also a recording (.json), at most MAX_RECORDING (max: the relay takes the smaller of it and --max-upload). Names a common file system could not keep as given are refused too (Windows' reserved
 // characters and device names, a name ending in a space or a dot), so a scene copied to another computer stays whole.
 export const ORIGINALS = 'originals', MAX_PATH = 200;
-const UPLOAD_KINDS = new Set(['model', 'audio', 'image', 'data']);
+const UPLOAD_KINDS = new Set(['model', 'audio', 'video', 'image', 'data']);
 const OWN = new Set([LAYOUT, LISTING, INDEX]);
 const BAD_CHAR = /[\0-\x1f\x7f\\:*?"<>|]/, DEVICE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
 // { rel, segs, kind, max (previews/ only) } or { error } (said to the page as it is)
@@ -197,7 +199,7 @@ export function uploadPath(p) {
   if (segs[0].toLowerCase() === PREVIEWS) return { error: `${PREVIEWS}/ is written in lower case: no other folder at the top of a scene has that name` };
   if (isRecording(p)) return { rel: p, segs, kind: 'recording', max: MAX_RECORDING };
   const kind = kindOf(p);
-  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: `outside originals/ only models (.glb .gltf .fbx), sounds, images and data (.bin), and recordings (.json) in ${RECORDINGS}/` };
+  if (!(segs.length > 1 && segs[0] === ORIGINALS) && !UPLOAD_KINDS.has(kind)) return { error: `outside originals/ only models (.glb .gltf .fbx), sounds, videos (.mp4 .m4v .mov .mkv), images and data (.bin), and recordings (.json) in ${RECORDINGS}/` };
   return { rel: p, segs, kind };
 }
 

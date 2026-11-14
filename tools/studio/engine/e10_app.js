@@ -409,6 +409,11 @@ const STUDIO = {
   // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
   // path it waits is, a sound's gain factor and how it last started
   plays: id => playState(id),
+  // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
+  // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
+  screen: id => screenState(id),
+  get screenClock() { return screenClock; },
+  set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
@@ -471,6 +476,7 @@ return {
     for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
+    try { screensDispose(); } catch (e) { /* none */ }   // (the screens' elements let go: e6q_screens.js)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }
     for (const it of STU.items.values()) if (it.kind === 'o') dropModel(it);

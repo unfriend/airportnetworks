@@ -12,7 +12,8 @@
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
-// --only 'studio xp': the Bliss XP room, the studio's first example scene, v137)
+// --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
+// --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
@@ -8214,6 +8215,439 @@ if (runs('studio shows')) {
     bad(out);
     await sp.close();
   });
+}
+// Screens: video and audio players (v143, e6q_screens.js; tools/studio/SPEC.md, "Screens: video and audio players"), on pages
+// of their own at the test scene: three short WebM clips made with ffmpeg (a solid red one of 6 s with a 440 Hz tone, a blue
+// one of 2 s and a green one of 2 s, 160 x 90; Playwright's Chromium has no H.264 or AAC) given to the page as scene files
+// (the listing set by the test, the files served by a route that answers byte ranges). Without ffmpeg the block says so and
+// skips. A screen added (its record, listed, facing you), the picture drawn (a pixel of the panel red, then blue), its sound
+// through an HRTF panner at the screen while the sound is on, the bar (shown when pointed at, selected while editing, else
+// not), each press writing the play state with no Undo step, the end of an entry advancing (loop all, one, off), shuffle's
+// order, hidden by a cube, sync own acting here only, who may use the controls, norm, layout.json and the state, the
+// headset's card, and two pages at a pretend station sharing the play state
+if (runs('studio screens')) {
+  const { spawnSync } = await import('node:child_process');
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'screens-'));
+  const CLIPS = { 'videos/a.webm': ['red', 6, 440], 'videos/b.webm': ['blue', 2, 880], 'videos/c.webm': ['green', 2, 660] };
+  const bytes = {};
+  let have = true;
+  for (const [p, [col, secs, hz]] of Object.entries(CLIPS)) {
+    const out = path.join(dir, path.basename(p)), r = spawnSync('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', `color=c=${col}:s=160x90:r=15:d=${secs}`, '-f', 'lavfi', '-i', `sine=frequency=${hz}:sample_rate=44100:duration=${secs}`,
+      '-c:v', 'libvpx', '-b:v', '200k', '-g', '15', '-c:a', 'libvorbis', '-ac', '1', '-shortest', out]);
+    if (r.status !== 0) { have = false; break; }
+    bytes[p] = fs.readFileSync(out);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  if (!have) console.log('skip studio screens: ffmpeg could not make the test clips');
+  else {
+    // a page of its own at the test scene with the clips in its listing and served (byte ranges, as a relay's files are)
+    const mk = async (extra = '') => {
+      const pg = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      pg.on('pageerror', e => errors.push('studio screens: ' + (e.stack || e.message)));
+      pg.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio screens: ' + m.text()); });
+      await pg.route(/\/videos\/[abc]\.webm/, route => {
+        const p = 'videos/' + /([abc]\.webm)/.exec(route.request().url())[1], b = bytes[p], rg = /bytes=(\d+)-(\d*)/.exec(route.request().headers().range || '');
+        if (!rg) return route.fulfill({ status: 200, body: b, headers: { 'content-type': 'video/webm', 'accept-ranges': 'bytes', 'content-length': String(b.length) } });
+        const s = +rg[1], e = Math.min(b.length - 1, rg[2] ? +rg[2] : b.length - 1);
+        return route.fulfill({ status: 206, body: b.subarray(s, e + 1), headers: { 'content-type': 'video/webm', 'accept-ranges': 'bytes', 'content-range': `bytes ${s}-${e}/${b.length}`, 'content-length': String(e - s + 1) } });
+      });
+      await pg.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test' + extra);
+      await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      if (!await pg.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 }).then(() => true, () => false)) return null;
+      return pg;
+    };
+    const FILES = `(() => { const add = ['a', 'b', 'c'].map(k => ({ path: 'videos/' + k + '.webm', kind: 'video', bytes: 3000, at: 7 })); setFiles(STU.files.concat(add).map(f => ({ path: f.path, bytes: f.bytes, at: f.at, kind: f.kind }))); return STU.files.length; })()`;
+    const mkT = (pg) => (s => pg.evaluate(s => HOST.cur.peek(s), s));
+    const until = (pg, s, ms) => pg.waitForFunction(s => HOST.cur.peek(s), s, { timeout: ms, polling: 100 }).then(() => true, () => false);
+    // a camera 1.2 m in front of an item looking at its middle, and the pixel there as drawn (the scene rendered to a target)
+    const PIX = `window.__px = (id, dx = 0, dy = 0) => { const it = STU.items.get(id), W = 320, H = 200, rd = GL.renderer, rt = new THREE.WebGLRenderTarget(W, H), cam = new THREE.PerspectiveCamera(50, W / H, 0.05, 200);
+      GL.world.updateMatrixWorld(true);
+      const c = GL.items.localToWorld(new THREE.Vector3().fromArray(it.rec.p)), f = new THREE.Vector3(0, 0, 1).applyQuaternion(it.holder.quaternion);
+      cam.position.copy(c).addScaledVector(f, 1.2); cam.lookAt(c); cam.updateMatrixWorld();
+      const b = new Uint8Array(4); rd.setRenderTarget(rt); rd.render(GL.scene, cam); rd.readRenderTargetPixels(rt, W / 2 + dx, H / 2 + dy, 1, 1, b); rd.setRenderTarget(null); rt.dispose(); return [b[0], b[1], b[2]]; }`;
+    let sp = null, sid = '';
+    await step('studio screens: Add a screen (nothing to play: said; then its record, listed, placed facing you, one Undo step), a video card places one, the Items pane card', async () => {
+      sp = await mk('&edit');
+      if (!sp) { errors.push('studio screens: the test scene did not load'); return; }
+      const ss = mkT(sp), out = [];
+      await ss(PIX + ', 0');
+      // (no video or sound in the scene: nothing made, the pane says so)
+      const none = await ss(`(() => { const keep = STU.files; STU.files = []; STU.fileMap = new Map(); const id = addScreen('screen'), n = SCR.note; STU.files = keep; STU.fileMap = new Map(keep.map(f => [f.path, f])); SCR.note = ''; return [id, n, countOf('v')]; })()`);
+      if (none[0] !== '' || !/Put a video or sound into the scene first/.test(none[1]) || none[2] !== 0) out.push('no file to play: ' + JSON.stringify(none));
+      await ss(FILES);
+      await ss(`(setEdit(true), select(''), X.tab = 'add', renderPanes(), 0)`);
+      const html = await sp.evaluate(() => document.querySelector('#pane-add').textContent);
+      if (!/Screens/.test(html) || !/Audio player/.test(html) || !/Videos \(3\)/.test(html)) out.push('the Add pane\'s Screens row and Videos: ' + html.slice(0, 200));
+      const u0 = await ss('UNDO.length');
+      await sp.click('#pane-add [data-act="screenAdd"][data-v="screen"]');
+      sid = await ss('STU.sel');
+      const r = await ss(`(() => { const it = STU.items.get('${sid}'), r = it.rec, cam = GL.world.worldToLocal(GL.camera.getWorldPosition(new THREE.Vector3())), f = new THREE.Vector3(0, 0, 1).applyQuaternion(it.holder.quaternion);
+        const to = new THREE.Vector3(cam.x - r.p[0], 0, cam.z - r.p[2]).normalize();
+        return { kind: it.kind, list: r.list, w: r.w, look: r.look, loop: r.loop, vol: r.vol, rr: r.r, y: r.p[1], face: +(f.x * to.x + f.z * to.z).toFixed(3), name: r.name, n: countOf('v'), undo: UNDO.length, play: r.play === undefined, sel: STU.sel === it.id, pick: pickables().includes(it.look.hit) }; })()`);
+      if (r.kind !== 'v' || JSON.stringify(r.list) !== '["videos/a.webm"]' || r.w !== 1.6 || r.look !== 'screen' || r.loop !== 'all' || r.vol !== 1 || r.rr !== 3 || Math.abs(r.y - 1.6) > 1e-6 || r.face < 0.99 || r.n !== 1 || r.undo !== u0 + 1 || !r.play || !r.sel || !r.pick) out.push('the screen added: ' + JSON.stringify(r));
+      // (a video card in the Add grid places a screen of that file; an audio player starts with the first video too)
+      await ss(`(select(''), X.tab = 'add', renderPanes(), 0)`);
+      await sp.click('#pane-add [data-act="addv"][data-v="videos/b.webm"]');
+      const b = await ss(`(() => { const it = STU.items.get(STU.sel); return [it.kind, it.rec.list, it.rec.name, countOf('v')]; })()`);
+      if (b[0] !== 'v' || JSON.stringify(b[1]) !== '["videos/b.webm"]' || b[3] !== 2) out.push('a video card: ' + JSON.stringify(b));
+      const au = await ss(`(() => { const id = addScreen('audio'), it = STU.items.get(id); return [it.rec.look, it.rec.list, it.rec.name, it.rec.p[1]]; })()`);
+      if (au[0] !== 'audio' || au[1][0] !== 'videos/a.webm' || au[2] !== 'Audio player' || Math.abs(au[3] - 1.2) > 1e-6) out.push('an audio player: ' + JSON.stringify(au));
+      await ss(`(() => { for (const it of [...STU.items.values()]) if (it.kind === 'v' && it.id !== '${sid}') removeItem(it.id); select(''); X.tab = 'items'; renderPanes(); return 0; })()`);
+      const items = await sp.evaluate(() => document.querySelector('#pane-items').textContent);
+      if (!/Screens \(1\)/.test(items) || !/Screen · 1 entry/.test(items)) out.push('the Items pane\'s card: ' + items.slice(0, 300));
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: the picture drawn (a pixel of the panel red, then blue after Next), its sound through an HRTF panner at the screen while the sound is on and silent when muted', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      await sp.evaluate(() => HOST.audio.mute(false));
+      await sp.click('#explore .tabs button[data-tab="scene"]');   // (a tap: the sound may start)
+      await ss(`(select('${sid}'), STU.edit && setEdit(false), setEdit(true), 0)`);
+      const c0 = await ss(`[STUDIO.screen('${sid}').card !== STUDIO.screen('${sid}').drawn, scrPress(STU.items.get('${sid}'), 'play'), UNDO.length]`);   // (the card or the picture, never both: a paused video may show its first frame already)
+      if (!c0[0] || c0[1] !== true) out.push('the card or the picture: ' + JSON.stringify(c0));
+      if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return !!(s.drawn && s.el && !s.el.paused && s.el.currentTime > 0.2); })()`, 60000)) out.push('the clip did not play and draw: ' + JSON.stringify(await ss(`STUDIO.screen('${sid}')`)));
+      else {
+        const px = await ss(`window.__px('${sid}')`);
+        if (!(px[0] > 150 && px[1] < 80 && px[2] < 80)) out.push('the panel is not red: ' + JSON.stringify(px));
+        const d = await ss(`SCR.dur.get('videos/a.webm')`);
+        if (!(d > 5.5 && d < 6.5)) out.push('its length read from the file: ' + d);
+        // (its sound: the shell's context, an HRTF panner at the screen's middle, full volume within its reach)
+        if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return !!(s.el && s.el.ctx && s.el.volume > 0.5 && !s.el.muted); })()`, 15000)) out.push('no sound through the context: ' + JSON.stringify(await ss(`[!!HOST.audio.fx(), HOST.audio.muted, STUDIO.screen('${sid}').el]`)));
+        else {
+          const p = await ss(`(() => { const s = STUDIO.screen('${sid}'), w = STU.items.get('${sid}').holder.getWorldPosition(new THREE.Vector3()); return [s.el.pan.model, s.el.pan.ref, [s.el.pan.x, s.el.pan.y, s.el.pan.z].map(v => +v.toFixed(3)), w.toArray().map(v => +v.toFixed(3))]; })()`);
+          if (p[0] !== 'HRTF' || p[1] !== 3 || JSON.stringify(p[2]) !== JSON.stringify(p[3])) out.push('its panner: ' + JSON.stringify(p));
+          await sp.evaluate(() => HOST.audio.mute(true));
+          if (!await until(sp, `STUDIO.screen('${sid}').el.volume === 0`, 8000)) out.push('muted, the sound went on');
+          await sp.evaluate(() => HOST.audio.mute(false));
+        }
+        // (Next: the second entry needs a list of two: added by the card's row, one Undo step; then the blue clip)
+        const u0 = await ss('UNDO.length');
+        await ss(`(itemAct('scAdd', 'videos/b.webm', '${sid}'), 0)`);
+        const n1 = await ss(`[STU.items.get('${sid}').rec.list, UNDO.length]`);
+        if (JSON.stringify(n1[0]) !== '["videos/a.webm","videos/b.webm"]' || n1[1] !== u0 + 1) out.push('Add to the playlist: ' + JSON.stringify(n1));
+        await ss(`scrPress(STU.items.get('${sid}'), 'next')`);
+        if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return !!(s.i === 1 && s.drawn && s.el.currentTime > 0.1 && /b\\.webm/.test(s.el.src)); })()`, 60000)) out.push('the next entry did not play: ' + JSON.stringify(await ss(`STUDIO.screen('${sid}')`)));
+        else {
+          const px = await ss(`window.__px('${sid}')`);
+          if (!(px[2] > 150 && px[0] < 80 && px[1] < 80)) out.push('the panel is not blue after Next: ' + JSON.stringify(px));
+        }
+        await ss(`scrPress(STU.items.get('${sid}'), 'play')`);   // (paused)
+      }
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    // the bar and its presses, the clock held by the test (every press a play state at that moment, none an Undo step)
+    const HOLD = `(() => { if (!window.__ck) window.__ck = screenClock; window.__T = 1e6; screenClock = () => window.__T; GL.renderer.setAnimationLoop(null); window.__fr = (n = 2) => { for (let k = 0; k < n; k++) itemsStep(0.1, performance.now()); }; return 0; })()`;
+    const RAY = `window.__ray = (id, key, frac = 0.5) => { const it = STU.items.get(id), L = it.look, lay = barLayout(scrBarW(it.rec) / SCR_BAR_H * 100), R = lay.R.find(k => k.k === key);
+      const x = key === 'seek' ? lay.sx0 + frac * (lay.sx1 - lay.sx0) : (R.x0 + R.x1) / 2, y = key === 'seek' ? 71 : 50;
+      L.bar.updateWorldMatrix(true, false);
+      const w = L.bar.localToWorld(new THREE.Vector3(x / lay.Wd - 0.5, 0.5 - y / 100, 0)), n = new THREE.Vector3(0, 0, 1).applyQuaternion(L.bar.quaternion);
+      return new THREE.Raycaster(w.clone().addScaledVector(n, 1), n.clone().negate()); }`;
+    await step('studio screens: the bar (shown selected while editing, when pointed at and for 3 s after, only to who may use it; under the panel) and its presses: play, pause, previous, next, seek, volume, each writing the play state with no Undo step', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      await ss(HOLD); await ss(RAY + ', 0');
+      const I = `STU.items.get('${sid}')`, play = `JSON.stringify(${I}.rec.play)`;
+      await ss(`(SCR.dur.set('videos/a.webm', 6), SCR.dur.set('videos/b.webm', 2), setRec('${sid}', { play: undefined }), setEdit(true), select(''), ${I}.hotAt = 0, __fr(2), 0)`);
+      const v0 = await ss(`[${I}.look.bar.visible, STUDIO.screen('${sid}').bar.can]`);
+      if (v0[0] || !v0[1]) out.push('editing, not selected, not pointed at: no bar: ' + JSON.stringify(v0));
+      await ss(`(select('${sid}'), __fr(2), 0)`);
+      const b1 = await ss(`(() => { const s = STUDIO.screen('${sid}'), it = ${I}, ph = s.ext[1]; return { vis: s.bar.visible, w: s.bar.w, h: s.bar.h, dy: +(s.bar.pos[1] - (it.rec.p[1] - (ph / 2 + 0.09))).toFixed(4), ext: s.ext }; })()`);
+      if (!b1.vis || b1.w !== 1.6 || b1.h !== 0.12 || Math.abs(b1.dy) > 2e-3) out.push('the bar selected while editing: ' + JSON.stringify(b1));
+      // (pointed at while editing and not selected: the bar shows for 3 s, but a press there would select the screen: none found)
+      await ss(`(select(''), ${I}.hotAt = 0, __fr(1), 0)`);
+      const rn = await ss(`(() => { __fr(1); const it = ${I}, c = it.holder.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(it.holder.quaternion);
+        screenRay(new THREE.Raycaster(c.clone().addScaledVector(n, 1.5), n.clone().negate()), performance.now()); __fr(1);
+        const h = screenRay(__ray('${sid}', 'play'), performance.now()); return [h, it.look.bar.visible]; })()`);
+      await ss(`(__fr(2), 0)`);
+      const bv = await ss(`(() => { const L = ${I}.look; L.bar.visible || __fr(2); return L.bar.visible; })()`);
+      if (rn[0] !== null || !rn[1] || !bv) out.push('pointed at while editing, not selected: ' + JSON.stringify([rn, bv]));
+      await ss(`(${I}.hotAt = performance.now() - 4000, __fr(1), 0)`);
+      if (await ss(`${I}.look.bar.visible`)) out.push('the bar stayed more than 3 s after the pointer left');
+      await ss(`(select('${sid}'), __fr(2), 0)`);
+      const u0 = await ss('UNDO.length');
+      const press = (key, frac) => ss(`(() => { __fr(1); const h = screenRay(__ray('${sid}', '${key}', ${frac || 0}), performance.now()); if (!h || h.key !== '${key}') return [false, h && h.key]; return [screenBarPress(h.id, h.key, h.frac), h.key, +h.frac.toFixed(2)]; })()`);
+      let r = await press('play');
+      let st = JSON.parse(await ss(play));
+      if (!r[0] || JSON.stringify(st) !== '{"i":0,"on":true,"t":0,"at":1000000}') out.push('play: ' + JSON.stringify([r, st]));
+      await ss(`(window.__T += 2000, 0)`);
+      r = await press('play'); st = JSON.parse(await ss(play));
+      if (!r[0] || JSON.stringify(st) !== '{"i":0,"on":false,"t":2,"at":1002000}') out.push('pause: ' + JSON.stringify([r, st]));
+      r = await press('next'); st = JSON.parse(await ss(play));
+      if (!r[0] || JSON.stringify(st) !== '{"i":1,"on":false,"t":0,"at":1002000}') out.push('next: ' + JSON.stringify([r, st]));
+      r = await press('prev'); st = JSON.parse(await ss(play));
+      if (!r[0] || JSON.stringify(st) !== '{"i":0,"on":false,"t":0,"at":1002000}') out.push('previous: ' + JSON.stringify([r, st]));
+      r = await press('seek', 0.5); st = JSON.parse(await ss(play));
+      if (!r[0] || st.i !== 0 || Math.abs(st.t - 3) > 0.1 || st.on) out.push('seek to the middle: ' + JSON.stringify([r, st]));
+      const v1 = [];
+      for (const k of ['vup', 'vdn', 'vdn']) { r = await press(k); v1.push(await ss(`${I}.rec.vol`)); }
+      if (JSON.stringify(v1) !== '[1.25,1,0.75]') out.push('the volume steps: ' + JSON.stringify(v1));
+      const u1 = await ss('UNDO.length');
+      if (u1 !== u0) out.push('a press was an Undo step: ' + JSON.stringify([u0, u1]));
+      // (a page click on the bar, as the canvas hears it: the pointer down presses, on the seek bar it then follows the drag; the cursor says pressable)
+      const pg = await ss(`(() => {
+        const it = ${I}, cam = GL.camera, L = it.look; __fr(2);
+        const c = L.bar.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(L.bar.quaternion);
+        cam.position.copy(c).addScaledVector(n, 1.4); cam.lookAt(c); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+        const at = (key, frac) => { const r = __ray('${sid}', key, frac).ray, pt = r.origin.clone().add(r.direction.clone().multiplyScalar(1)).project(cam); return [(pt.x + 1) / 2 * innerWidth, (1 - pt.y) / 2 * innerHeight]; };
+        const ev = (t, xy, id = 1) => GL.canvas.dispatchEvent(new PointerEvent(t, { clientX: xy[0], clientY: xy[1], pointerId: id, button: 0, bubbles: true, pointerType: 'mouse' }));
+        const o = [], T0 = window.__T;
+        ev('pointermove', at('play')); o.push(GL.canvas.style.cursor);
+        ev('pointerdown', at('play')); ev('pointerup', at('play')); o.push(JSON.stringify(it.rec.play));
+        window.__T += 1000;
+        ev('pointerdown', at('seek', 0.25)); const s1 = it.rec.play.t; ev('pointermove', at('seek', 0.75)); const s2 = it.rec.play.t; ev('pointerup', at('seek', 0.75));
+        ev('pointermove', at('seek', 0.1)); o.push([+s1.toFixed(2), +s2.toFixed(2), +it.rec.play.t.toFixed(2), !!SCR.drag]);
+        return o; })()`);
+      if (pg[0] !== 'pointer' || !/"on":true/.test(pg[1]) || Math.abs(pg[2][0] - 1.5) > 0.2 || Math.abs(pg[2][1] - 1.5) > 0.2 || Math.abs(pg[2][2] - 4.5) > 0.2 || pg[2][3]) out.push('the page\'s clicks on the bar (drag writes throttled to 200 ms, one more on release): ' + JSON.stringify(pg));
+      if (await ss('UNDO.length') !== u0) out.push('a click was an Undo step');
+      await ss(`(setRec('${sid}', { vol: 1 }), 0)`);
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: the end of an entry advances (loop all, one, off; the same on every device from the same length), shuffle\'s order for one seed, the playing entry kept when shuffle goes on or off', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      const I = `STU.items.get('${sid}')`;
+      // (the lengths held at 6 s and 2 s: what the elements read from the files is checked in the picture's step; here the same on every device)
+      await ss(`(SCR.dur.set('videos/a.webm', 6), SCR.dur.set('videos/b.webm', 2), SCR.dur.set = () => SCR.dur, 0)`);
+      const T = await ss('window.__T'), T0 = T, D = [6, 2];
+      const E = Math.round(T + D[1] * 1000), r3 = v => Math.round(v * 1000) / 1000;
+      const adv = async (loop, from, ms) => { await ss(`(setRec('${sid}', { loop: '${loop}', play: ${JSON.stringify(from)} }), window.__T = ${T0} + ${ms}, __fr(2), 0)`); return ss(`${I}.rec.play`); };
+      const a = await adv('all', { i: 1, on: true, t: 0, at: T - 500 }, 0);   // (b is 2 s long: ends at T + 1500)
+      if (a.i !== 1 || !a.on) out.push('not over yet: ' + JSON.stringify(a));
+      const a1 = await adv('all', { i: 1, on: true, t: 0, at: T }, 2500);
+      if (JSON.stringify(a1) !== JSON.stringify({ i: 0, on: true, t: 0, at: E })) out.push('loop all, the last to the first: ' + JSON.stringify(a1));
+      const o1 = await adv('one', { i: 1, on: true, t: 0, at: T }, 2100);
+      if (JSON.stringify(o1) !== JSON.stringify({ i: 1, on: true, t: 0, at: E })) out.push('loop one, the same again: ' + JSON.stringify(o1));
+      const o2 = await adv('off', { i: 1, on: true, t: 0, at: T }, 2100);
+      if (JSON.stringify(o2) !== JSON.stringify({ i: 1, on: false, t: r3(D[1]), at: E })) out.push('loop off, paused at the end of the last: ' + JSON.stringify(o2));
+      const o3 = await adv('off', { i: 0, on: true, t: 0, at: T }, 100);
+      if (o3.i !== 0 || !o3.on) out.push('loop off in the middle of the list: ' + JSON.stringify(o3));
+      const ch = await adv('all', { i: 0, on: true, t: 0, at: T }, 8100);   // (a ends at 6 s: b from there; b ends at 8 s: a again)
+      if (JSON.stringify(ch) !== JSON.stringify({ i: 0, on: true, t: 0, at: Math.round(Math.round(T + D[0] * 1000) + D[1] * 1000) })) out.push('two entries in one go: ' + JSON.stringify(ch));
+      const pa = await adv('all', { i: 0, on: false, t: 5.5, at: T }, 9000);
+      if (pa.i !== 0 || pa.on || pa.t !== 5.5) out.push('paused: never advances: ' + JSON.stringify(pa));
+      // shuffle: one order for one seed (a fixed function), a permutation, another for another seed; Shuffle on picks a seed, the entry playing stays
+      const sh = await ss(`(() => { const J = JSON.stringify, o1 = shuffleOrder(9, 12345), o2 = shuffleOrder(9, 12345), o3 = shuffleOrder(9, 777);
+        return [J(o1) === J(o2), J([...o1].sort((x, y) => x - y)) === J([0, 1, 2, 3, 4, 5, 6, 7, 8]), J(o1) !== J(o3), J(shuffleOrder(5, 0)), J(shuffleOrder(9, 12345)), J(shuffleOrder(9, 2147483648))]; })()`);
+      if (!sh[0] || !sh[1] || !sh[2] || sh[3] !== '[0,1,2,3,4]') out.push('shuffleOrder: ' + JSON.stringify(sh));
+      await ss(`(delete SCR.dur.set, 0)`);
+      await ss(`(itemAct('scAdd', 'videos/c.webm', '${sid}'), setRec('${sid}', { loop: 'all', play: { i: 1, on: false, t: 0, at: 1 } }), 0)`);
+      const u0 = await ss('UNDO.length');
+      const was = await ss(`scrPath(${I}.rec, scrState(${I}).i)`);
+      await ss(`(itemAct('scShuffle', 'on', '${sid}'), 0)`);
+      const s1 = await ss(`(() => { const r = ${I}.rec, S = scrState(${I}); return [r.shuffle, JSON.stringify(scrOrder(r)) === JSON.stringify(shuffleOrder(3, r.shuffle)), scrPath(r, S.i), UNDO.length]; })()`);
+      if (!Number.isInteger(s1[0]) || s1[0] < 1 || !s1[1] || s1[2] !== was || s1[3] !== u0 + 1) out.push('Shuffle on: ' + JSON.stringify([s1, was, u0]));
+      const seen = await ss(`(() => { const o = [], r = ${I}.rec; for (let k = 0; k < 3; k++) { o.push(scrPath(r, k)); } return [o, JSON.stringify(scrOrder(r)), r.list]; })()`);
+      if (new Set(seen[0]).size !== 3 || JSON.stringify(seen[0]) !== JSON.stringify(JSON.parse(seen[1]).map(k => seen[2][k]))) out.push('the order the entries play in: ' + JSON.stringify(seen));
+      await ss(`(itemAct('scShuffle', 'off', '${sid}'), 0)`);
+      const s2 = await ss(`(() => [${I}.rec.shuffle, scrPath(${I}.rec, scrState(${I}).i)])()`);
+      if (s2[0] !== undefined || s2[1] !== was) out.push('Shuffle off: ' + JSON.stringify([s2, was]));
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: hidden by a trigger cube it pauses and is silent, shown again it is back at the play state\'s moment; at most 4 play on a page (2 in a headset), the rest show their card', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      const I = `STU.items.get('${sid}')`;
+      // (the real clock and frames again; a list of one entry, playing from now)
+      await ss(`(screenClock = window.__ck, window.__fr = (n = 2) => { for (let k = 0; k < n; k++) itemsStep(0.1, performance.now()); }, GL.renderer.setAnimationLoop(frame), HOST.audio.mute(false), setRec('${sid}', { list: ['videos/a.webm'], loop: 'all', shuffle: undefined, sync: undefined, ctl: undefined, play: { i: 0, on: true, t: 0, at: Math.round(screenClock()) } }), putItem('hid001', 'c', norm('c', { name: 'Hide', p: [0, 1.6, 12], size: [2, 2, 2], hide: ['${sid}'] })), 0)`);
+      if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return !!(s.el && !s.el.paused && s.el.currentTime > 0.3 && s.el.volume > 0.5); })()`, 60000)) { out.push('it did not play: ' + JSON.stringify(await ss(`STUDIO.screen('${sid}')`))); errors.push(...out.map(b => 'studio screens: ' + b)); return; }
+      await ss(`(shownFor([0, 1.6, 12]), 0)`);
+      if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return s.shown === false && s.el.paused && s.el.volume === 0; })()`, 15000)) out.push('hidden by the cube, it went on: ' + JSON.stringify(await ss(`STUDIO.screen('${sid}')`)));
+      await sp.waitForTimeout(1500);
+      const t0 = await ss(`STUDIO.screen('${sid}').t`);
+      await ss(`(shownFor(null), 0)`);
+      if (!await until(sp, `(() => { const s = STUDIO.screen('${sid}'); return s.shown && !s.el.paused && s.el.volume > 0.5 && Math.abs(s.el.currentTime - s.t) < 0.6; })()`, 30000)) out.push('shown again, it is not at the play state\'s moment: ' + JSON.stringify(await ss(`STUDIO.screen('${sid}')`)));
+      else if (!(t0 > 1.4)) out.push('the play state did not go on while it was hidden: ' + t0);
+      // (the limit: five playing on a page, the nearest four draw; one in a headset: two; the others' play state goes on)
+      const lim = await ss(`(() => {
+        const ids = [];
+        for (let k = 0; k < 4; k++) { const id = 'lim00' + k; putItem(id, 'v', norm('v', { name: 'Far ' + k, p: [20 + k * 3, 1.6, 20], list: ['videos/c.webm'], play: { i: 0, on: true, t: 0, at: Math.round(screenClock()) } })); ids.push(id); }
+        const c = GL.camera.getWorldPosition(new THREE.Vector3()), dist = id => STU.items.get(id).holder.getWorldPosition(new THREE.Vector3()).distanceTo(c);
+        return ids.concat('${sid}').map(id => [id, +dist(id).toFixed(1)]);
+      })()`);
+      await sp.waitForTimeout(600);
+      const ov = await ss(`(() => { __fr(3); const L = [...STU.items.values()].filter(it => it.kind === 'v'), o = L.filter(it => it.over).map(it => it.id), pl = L.filter(it => scrState(it).on && !it.over).length;
+        const far = L.find(it => it.over); return { over: o.length, playing: pl, card: far ? STUDIO.screen(far.id).card : null, still: far ? scrState(far).on : null, cardText: far ? far.look.cardSig : '' }; })()`);
+      if (ov.over !== 1 || ov.playing !== 4 || !ov.card || !ov.still || !/Too many videos playing here/.test(ov.cardText)) out.push('the limit of 4 on a page: ' + JSON.stringify([ov, lim]));
+      await ss(`(XR.on = true, GL.renderer.xr.isPresenting = true, 0)`).catch(() => {});
+      const xl = await ss(`(() => { const L = [...STU.items.values()].filter(it => it.kind === 'v' && scrState(it).on); const keep = XR.on; XR.on = true; const r = Object.getOwnPropertyDescriptor(GL.renderer.xr, 'isPresenting'); GL.renderer.xr.isPresenting = true; XR.head.set(0, 1.6, 0); try { triggerStep(performance.now()); screensStep(false, performance.now(), 0.05); } finally { GL.renderer.xr.isPresenting = false; XR.on = keep; }
+        return [L.filter(it => it.over).length, L.filter(it => !it.over).length]; })()`);
+      if (xl[0] !== 3 || xl[1] !== 2) out.push('the limit of 2 in a headset: ' + JSON.stringify(xl));
+      await ss(`(XR.on = false, GL.renderer.xr.isPresenting = false, shownFor(null), removeItem('hid001'), [...STU.items.keys()].filter(i => /^lim00/.test(i)).forEach(removeItem), GL.renderer.setAnimationLoop(null), 0)`);
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: sync own acts on this device only (the record\'s play and volume unchanged), who may use the controls (only while editing: refused; Anyone: editing off works, a locked story refuses), a visitor\'s kiosk', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      const I = `STU.items.get('${sid}')`, J = `JSON.stringify`;
+      await ss(HOLD);
+      await ss(`(setRec('${sid}', { list: ['videos/a.webm', 'videos/b.webm', 'videos/c.webm'], loop: 'all', shuffle: undefined, sync: undefined, ctl: undefined, play: { i: 0, on: false, t: 0, at: 1000000 } }), setEdit(true), select('${sid}'), __fr(2), 0)`);
+      const sh0 = await ss(`${J}(collabState()['v.${sid}'].play)`);
+      await ss(`(itemAct('scSync', 'own', '${sid}'), 0)`);
+      const o1 = await ss(`(() => { const it = ${I}; scrPress(it, 'next'); scrPress(it, 'vol', -0.25); return [it.rec.sync, ${J}(it.rec.play), it.rec.vol, it.own.i, it.own.on, it.ownVol, STUDIO.screen('${sid}').own, STUDIO.screen('${sid}').vol, ${J}(collabState()['v.${sid}'].play)]; })()`);
+      if (o1[0] !== 'own' || o1[1] !== sh0 || o1[2] !== 1 || o1[3] !== 1 || o1[5] !== 0.75 || !o1[6] || o1[7] !== 0.75 || o1[8] !== sh0) out.push('sync own: ' + JSON.stringify(o1) + ' shared play ' + sh0);
+      await ss(`(itemAct('scSync', 'all', '${sid}'), 0)`);
+      const o2 = await ss(`(() => [${I}.rec.sync, STUDIO.screen('${sid}').own, STUDIO.screen('${sid}').i, ${I}.rec.play.on, ${I}.rec.play.i, !!${I}.own])()`);
+      if (o2[0] !== undefined || o2[1] || o2[2] !== 1 || o2[3] !== false || o2[4] !== 1 || o2[5]) out.push('back to everyone (a fresh paused state at this device\'s entry, never a stale one): ' + JSON.stringify(o2));
+      // who may use the controls
+      const c1 = await ss(`(() => { setEdit(false); const it = ${I}, p0 = ${J}(it.rec.play), a = [scrCan(it), screenBarPress('${sid}', 'play'), SCR_ACT.scPlay(), ${J}(it.rec.play) === p0]; setEdit(true); return a; })()`);
+      if (c1[0] || c1[1] || !c1[3]) out.push('only while editing, not editing: ' + JSON.stringify(c1));
+      await ss(`(itemAct('scCtl', 'any', '${sid}'), 0)`);
+      const c2 = await ss(`(() => { setEdit(false); const it = ${I}, a = [it.rec.ctl, scrCan(it), screenBarPress('${sid}', 'play'), it.rec.play.on]; select('${sid}'); SCR_ACT.scNext(); a.push(it.rec.play.i, editOn(), UNDO.length);
+        const lv = HOST.collab.live, ls = HOST.collab.stationLock; HOST.collab.live = () => ({ story: XR_HERE, id: 'zz' }); HOST.collab.stationLock = () => true;
+        try { a.push(scrCan(it), screenBarPress('${sid}', 'play')); } finally { HOST.collab.live = lv; HOST.collab.stationLock = ls; }
+        setEdit(true); return a; })()`);
+      if (c2[0] !== 'any' || !c2[1] || !c2[2] || c2[3] !== true || c2[4] !== 2 || c2[5] || c2[7] || c2[8]) out.push('Anyone, editing off: ' + JSON.stringify(c2));
+      // a visitor's kiosk (&visit: no editing at all): a screen whose record says Anyone, and one that does not
+      const vp = await mk('&visit');
+      if (!vp) out.push('the visitor page did not load');
+      else {
+        const vs = mkT(vp);
+        await vs(FILES);
+        const v = await vs(`(() => { const s = collabState(); s['v.vis001'] = { name: 'Open', p: [0, 1.6, -2], list: ['videos/a.webm'], ctl: 'any' }; s['v.vis002'] = { name: 'Closed', p: [2, 1.6, -2], list: ['videos/a.webm'] }; collabApply(s);
+          const a = STU.items.get('vis001'), b = STU.items.get('vis002'); return [editOn(), OPT.visit, !!a, !!b, scrCan(a), scrCan(b), screenBarPress('vis001', 'play'), screenBarPress('vis002', 'play'), a.rec.play && a.rec.play.on, b.rec.play]; })()`);
+        if (v[0] || !v[1] || !v[2] || !v[3] || !v[4] || v[5] || v[6] !== true || v[7] !== false || v[8] !== true || v[9] !== undefined) out.push('a visitor\'s kiosk: ' + JSON.stringify(v));
+        await vp.close();
+      }
+      await ss(`(setRec('${sid}', { ctl: undefined, play: undefined }), screenClock = window.__ck, 0)`);
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: the element survives the sound context going null and back (not remade), a renewed link for the same file sets its moment again, back to everyone writes a fresh paused state', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [], I = `STU.items.get('${sid}')`;
+      await ss(HOLD);
+      await ss(`(setRec('${sid}', { list: ['videos/a.webm', 'videos/b.webm'], loop: 'all', sync: undefined, play: { i: 0, on: true, t: 0, at: screenClock() } }), setEdit(false), __fr(4), 0)`);
+      const r = await ss(`(async () => {
+        const it = ${I}, A = HOST.audio, fx = A.fx, a0 = it.sv;
+        if (!a0) return { none: true };
+        const was = A.fx; A.fx = () => null;
+        try { screensStep(false, performance.now(), 0.05); screensStep(false, performance.now(), 0.05); } finally { A.fx = was; }
+        const same = it.sv === a0, silent = a0.el.muted;
+        screensStep(false, performance.now(), 0.05);
+        const back = it.sv === a0;
+        a0.url = 'stale'; a0.need = false; screensStep(false, performance.now(), 0.05);
+        const need = a0.need === true;
+        return { same, silent, back, need, old: it.svOld === null || it.svOld === undefined };
+      })()`);
+      if (r.none || !r.same || !r.silent || !r.back || !r.need) out.push('context null and back, a new link: ' + JSON.stringify(r));
+      await ss(`(setEdit(true), select('${sid}'), setRec('${sid}', { play: { i: 0, on: true, t: 0, at: Math.round(screenClock()) } }), itemAct('scSync', 'own', '${sid}'), scrPress(${I}, 'next'), itemAct('scSync', 'all', '${sid}'), 0)`);
+      const f = await ss(`(() => { const it = ${I}; return [it.rec.play.on, it.rec.play.i, !!it.own]; })()`);
+      if (f[0] !== false || f[1] !== 1 || f[2]) out.push('back to everyone: ' + JSON.stringify(f));
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: norm\'s rules, layout.json without play (and read back paused), Unsaved changes leaves play out, state() with play and back', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      const r = await ss(`(() => {
+        const J = JSON.stringify, V = x => norm('v', Object.assign({ p: [0, 1, 0], list: ['videos/a.webm'] }, x)), A = V({});
+        const o = [];
+        o.push(J(A), V({ w: 99 }).w, V({ w: 0.01 }).w, V({ w: 'x' }), V({ list: [] }), V({ list: 'a.webm' }), V({ list: ['a.webm', 'models/x.glb', 'sounds/t.wav', '../x.webm', 3] }).list, V({ list: Array.from({ length: 60 }, (_, i) => 'v' + i + '.mp4' ) }).list.length,
+          V({ look: 'audio' }).name, V({ look: 'tv' }), V({ loop: 'one' }).loop, V({ loop: 'twice' }), V({ shuffle: 5 }).shuffle, V({ shuffle: 0 }), V({ shuffle: 1.5 }), V({ shuffle: 2147483648 }).shuffle, V({ shuffle: 2147483649 }), 'shuffle' in V({ shuffle: null }),
+          V({ vol: 9 }).vol, V({ vol: -1 }).vol, V({ r: 99 }).r, V({ r: 0 }).r, V({ sync: 'own' }).sync, V({ sync: 'all' }), 'sync' in V({ sync: null }), V({ ctl: 'any' }).ctl, V({ ctl: 'yes' }), V({ shows: 'ar' }).shows, V({ shows: 'x' }), V({ locked: true }).locked, V({ locked: 1 }),
+          J(V({ play: { i: 9, on: true, t: 1.23456, at: 5.4 } }).play), V({ play: { i: -1, on: true, t: 0, at: 0 } }), V({ play: { i: 0, on: 1, t: 0, at: 0 } }), V({ play: [] }), V({ q: [0, 0, 0, 0] }), 'play' in V({ play: null }), V({ list: ['a.mp4', 'b.mp3'] }).list.length);
+        return o;
+      })()`);
+      const want = [r[0]];
+      void want;
+      const exp = ['{"name":"Screen","p":[0,1,0],"q":[0,0,0,1],"w":1.6,"look":"screen","list":["videos/a.webm"],"loop":"all","vol":1,"r":3}', 20, 0.2, null, null, null, ['a.webm', 'sounds/t.wav'], 50, 'Audio player', null, 'one', null, 5, null, null, 2147483648, null, false,
+        2, 0, 20, 0.1, 'own', null, false, 'any', null, 'ar', null, true, null, '{"i":0,"on":true,"t":1.235,"at":5}', null, null, null, null, false, 2];
+      if (JSON.stringify(r) !== JSON.stringify(exp)) out.push('norm\'s rules: ' + JSON.stringify(r.map((v, i) => JSON.stringify(v) === JSON.stringify(exp[i]) ? '=' : [i, v, exp[i]]).filter(x => x !== '=')));
+      // layout.json without play, read back paused; Unsaved changes ignores play (a press) and sees every other change; the state has play and gives it back
+      const l = await ss(`(() => {
+        const J = JSON.stringify, it = STU.items.get('${sid}');
+        setRec('${sid}', { list: ['videos/a.webm', 'videos/b.webm'], shuffle: undefined, sync: undefined, loop: 'all', ctl: 'any', play: { i: 1, on: true, t: 3, at: 123456 } });
+        const k0 = keyOf(), L = layoutOut(), sc = L.screens.find(x => x.id === '${sid}'), back = readLayout(JSON.parse(J(L))), b = back.items.find(x => x.id === '${sid}');
+        scrWrite(it, { i: 0, on: false, t: 1, at: 99 }); const k1 = keyOf();
+        setRec('${sid}', { w: 2.2 }); const k2 = keyOf(); setRec('${sid}', { w: 1.6 });
+        const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+        const st = s['v.${sid}'];
+        const old = readLayout({ studio: 1, objects: [], screens: [{ id: 'aaaaaa', p: [0, 0, 0], list: ['videos/a.webm'], play: { i: 0, on: true, t: 0, at: 1 } }, { id: 'bbbbbb', p: [0, 0, 0], list: [] }] });
+        return [!!sc, 'play' in sc, sc.ctl, sc.list.length, back.bad, b && 'play' in b.rec, b && b.rec.ctl, k0 === k1, k0 !== k2, st.play && st.play.i, J(collabState()) === a, J(STU.items.get('${sid}').rec.play), old.items.length, old.bad, 'play' in old.items[0].rec];
+      })()`);
+      if (JSON.stringify(l) !== '[true,false,"any",2,0,false,"any",true,true,0,true,"{\\"i\\":0,\\"on\\":false,\\"t\\":1,\\"at\\":99}",1,1,false]') out.push('layout.json, Unsaved changes and the state: ' + JSON.stringify(l));
+      // a layout with no screens reads as before (no `screens` key written for none), and a screen\'s Undo never takes a press back
+      const u = await ss(`(() => { const it = STU.items.get('${sid}'); scrWrite(it, { i: 0, on: true, t: 2, at: 500 }); setEdit(true); itemAct('scLoop', 'one', '${sid}'); scrWrite(it, { i: 1, on: true, t: 4, at: 800 }); undo(); return [it.rec.loop, JSON.stringify(it.rec.play)]; })()`);
+      if (u[0] !== 'all' || u[1] !== '{"i":1,"on":true,"t":4,"at":800}') out.push('Undo and the play state: ' + JSON.stringify(u));
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: the headset\'s card (its rows pressed through the panel\'s regions: play, next, a playlist entry, loop, shuffle, look, width) and a screen\'s bar pressed by the headset\'s trigger', async () => {
+      if (!sp) return;
+      const ss = mkT(sp), out = [];
+      const I = `STU.items.get('${sid}')`;
+      await ss(`(screenClock = window.__ck, setRec('${sid}', { list: ['videos/a.webm', 'videos/b.webm', 'videos/c.webm'], loop: 'all', shuffle: undefined, ctl: undefined, sync: undefined, look: 'screen', w: 1.6, play: { i: 0, on: false, t: 0, at: 1 } }), GL.renderer.setAnimationLoop(null), 0)`);
+      const xr = await ss(`(() => {
+        XR.on = true;
+        const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+        const press = id => { for (let off = 0; off < 9000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+        select('${sid}'); setEdit(true); X.tab = 'item'; X.scroll = {}; draw();
+        const it = ${I}, o = [], J = JSON.stringify;
+        o.push(press('sc:play'), it.rec.play.on, press('sc:next'), it.rec.play.i, press('sc:go:2'), it.rec.play.i, press('sc:loop:one'), it.rec.loop, press('sc:shuf'), !!it.rec.shuffle, press('sc:look:audio'), it.rec.look, press('sc:w:+'), it.rec.w, press('sc:sync:own'), it.rec.sync, press('sc:ctl:any'), it.rec.ctl);
+        o.push(press('sc:vol:+'), it.rec.vol);
+        XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+        return o;
+      })()`);
+      if (JSON.stringify(xr) !== '[true,true,true,1,true,2,true,"one",true,true,true,"audio",true,1.8,true,"own",true,"any",true,1.25]') out.push('the headset\'s card rows: ' + JSON.stringify(xr));
+      // (the headset's trigger on a bar: a ray hit of kind bar, pressed by xrPress as a controller\'s trigger is; no selection, no Undo step; a ray on a screen or its bar lights the bar)
+      await ss(`(setRec('${sid}', { look: 'screen', sync: undefined, shuffle: undefined, ctl: 'any', play: { i: 0, on: false, t: 0, at: 1 } }), setEdit(false), select(''), window.__T = 2e6, screenClock = () => window.__T, 0)`);
+      await ss(HOLD);
+      const bp = await ss(`(() => {
+        const it = ${I}, o = [], u0 = UNDO.length; XR.on = true; XR.stories = false;
+        const c = it.holder.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(it.holder.quaternion);
+        XR.raycaster.set(c.clone().addScaledVector(n, 1.5), n.clone().negate());
+        screenRay(XR.raycaster, performance.now()); __fr(2); o.push(it.look.bar.visible);
+        const h = screenRay(__ray('${sid}', 'next'), performance.now()), fake = { hover: { kind: 'bar', id: h.id, key: h.key, frac: h.frac, point: h.point }, press: null, i: 0, src: {} };
+        xrPress(fake); o.push(h.key, fake.press && fake.press.kind, it.rec.play.i, STU.sel, UNDO.length === u0);
+        const hs = screenRay(__ray('${sid}', 'seek', 0.5), performance.now()); o.push(hs.key, hs.frac);
+        XR.on = false; return o;
+      })()`);
+      if (bp[0] !== true || bp[1] !== 'next' || bp[2] !== 'bar' || bp[3] !== 1 || bp[4] !== '' || bp[5] !== true || bp[6] !== 'seek' || Math.abs(bp[7] - 0.5) > 0.02) out.push('the headset\'s trigger on a bar: ' + JSON.stringify(bp));
+      await ss(`(screenClock = window.__ck, 0)`);
+      if (out.length) errors.push(...out.map(b => 'studio screens: ' + b));
+    });
+    await step('studio screens: two pages at a pretend circle share the play state (the state carried from one to the other as the shell carries it: collabState and collabApply), a press on the other going back; sync own stays on each page', async () => {
+      const pa = await mk('&edit'), pb = await mk('');
+      if (!pa || !pb) { errors.push('studio screens: the two pages did not load'); return; }
+      const a = mkT(pa), b = mkT(pb), out = [], J = JSON.stringify;
+      for (const [s, p] of [[a, pa], [b, pb]]) { await s(FILES); await s(`(screenClock = () => 3e6 + (window.__d || 0), GL.renderer.setAnimationLoop(null), window.__fr = (n = 2) => { for (let k = 0; k < n; k++) itemsStep(0.1, performance.now()); }, SCR.dur.set('videos/a.webm', 6), SCR.dur.set('videos/b.webm', 2), 0)`); void p; }
+      const id = await a(`(setEdit(true), addScreen('screen'))`);
+      await a(`(itemAct('scAdd', 'videos/b.webm', '${id}'), itemAct('scCtl', 'any', '${id}'), 0)`);
+      const carry = async (from, to) => { const s = await from(`collabState()`); await to(`(collabApply(${J(s)}), 0)`); return s; };
+      const view = s => s(`(() => { const x = STUDIO.screen('${id}'); return x ? [x.i, x.on, +x.t.toFixed(3), x.own, x.rec.ctl || ''] : null; })()`);
+      await a(`scrPress(STU.items.get('${id}'), 'play')`);
+      const s1 = await carry(a, b);
+      const v1 = [await view(a), await view(b)];
+      if (!v1[1] || J(v1[0]) !== J(v1[1]) || !v1[1][1] || J(s1['v.' + id].play) !== '{"i":0,"on":true,"t":0,"at":3000000}') out.push('the play state on the other page: ' + J(v1) + ' ' + J(s1['v.' + id].play));
+      await a(`(window.__d = 1500, 0)`); await b(`(window.__d = 1500, 0)`);
+      const v2 = [await view(a), await view(b)];
+      if (J(v2[0]) !== J(v2[1]) || Math.abs(v2[1][2] - 1.5) > 1e-6) out.push('the same moment on both: ' + J(v2));
+      await a(`scrPress(STU.items.get('${id}'), 'next')`);
+      await carry(a, b);
+      const v3 = [await view(a), await view(b)];
+      if (J(v3[0]) !== J(v3[1]) || v3[1][0] !== 1) out.push('Next on one page: ' + J(v3));
+      // (the other page presses it, its record Anyone: its press goes back as the room would take it)
+      await b(`(screenBarPress('${id}', 'play'), 0)`);
+      const back = await carry(b, a);
+      const v4 = [await view(a), await view(b)];
+      if (J(v4[0]) !== J(v4[1]) || v4[1][1] !== false || J(back['v.' + id].play) !== await a(`JSON.stringify(STU.items.get('${id}').rec.play)`)) out.push('a press on the other page: ' + J(v4));
+      // (no ping-pong: the page that took the state gives back the same)
+      const e1 = J(await b(`collabState()['v.${id}']`)), e2 = J(await a(`collabState()['v.${id}']`));
+      if (e1 !== e2) out.push('the state given back differs: ' + e1 + ' vs ' + e2);
+      // sync own: each page its own, the record's play untouched, the other page not moved
+      await a(`(itemAct('scSync', 'own', '${id}'), 0)`);
+      await carry(a, b);
+      const o0 = J((await b(`collabState()['v.${id}']`)).play);
+      await b(`(scrPress(STU.items.get('${id}'), 'next'), 0)`);
+      const o1 = await b(`(() => [JSON.stringify(collabState()['v.${id}'].play), STUDIO.screen('${id}').own, STUDIO.screen('${id}').i, STU.items.get('${id}').rec.sync])()`);
+      await carry(b, a);
+      const o2 = await view(a);
+      if (o1[0] !== o0 || !o1[1] || o1[2] === undefined || o1[3] !== 'own' || o2[3] !== true) out.push('sync own on the other page: ' + J([o0, o1, o2]));
+      const ia = await a(`STUDIO.screen('${id}').i`), ib = await b(`STUDIO.screen('${id}').i`);
+      if (ia !== 0 && ia !== 1) out.push('page A\'s own entry: ' + ia);
+      if (ib !== (ia === 0 ? 1 : 0) && ib !== 1) out.push('the pages\' own entries: ' + J([ia, ib]));
+      await pa.close(); await pb.close();
+      if (out.length) errors.push(...out.map(b2 => 'studio screens: ' + b2));
+    });
+  }
 }
 // The example scenes that ship with the app (v137, e7g_examples.js; tools/studio/SPEC.md, "Example scenes"): the test
 // example (tools/studio/test/examples/tiny, &examples= pointing there) listed on the Scene pane, opened read only and back;

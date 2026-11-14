@@ -55,6 +55,7 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--ffmpeg <path>` | the PATH's | with `--scenes`: the `ffmpeg` that makes long sounds mono MP3 (looked for once at the start; a named one that does not run stops the start) |
 | `--no-ffmpeg` | off | never use `ffmpeg` (the studio then keeps long sounds as they are) |
 | `--ffmpeg-limit <s>` | 180 | one conversion may take this long, then it is stopped |
+| `--ffmpeg-video-limit <s>` | 1800 | a video converted to MP4 (H.264) may take this long, then it is stopped ([Converting a video](#converting-a-video)) |
 | `--app <url>` | the `--origin`, else `https://stories.lbi-netmed.com/` | where `/upload` sends people when the relay does not serve the app itself |
 | `--keep <file>` | off | keep the rooms in `<file>` (JSON, written atomically every 5 s when they changed and as the relay stops, read back as it starts; its folder made): a restart, such as a deploy, no longer empties them ([Rooms across updates](#rooms-across-updates-v136)). Not `--store`, which is only a cap on their size |
 | `--trackers [<port>]` | off (47800 when given without a port) | the PC's Vive trackers: take the bridge's readings (`tools/trackers/bridge.py`) on UDP `127.0.0.1:<port>` (`0` picks a free one, which the start line says), list them at `/api/trackers` and send them, lined up, to the rooms that turn them on ([The PC's Vive trackers](#the-pcs-vive-trackers---trackers)). A port another program holds stops the start with a sentence |
@@ -623,7 +624,7 @@ scenes in a Cloudflare R2 bucket (`--scenes r2`: [Scenes in Cloudflare R2](#scen
 
 | request | answer |
 | --- | --- |
-| `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save, upload, ffmpeg, maxUpload }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` and `upload` false with `--scenes-readonly`; `ffmpeg` whether long sounds are made MP3 here; `maxUpload` the most one upload may be, in bytes ([Uploading](#uploading-the-upload-page)) |
+| `GET /api/scenes` | `{ scenes: [{ name, files, bytes, at, layout }], save, upload, ffmpeg, maxUpload }`: by name; `files` how many, `bytes` their size, `at` the newest file's time (ms), `layout` whether it has a `layout.json`; `save` and `upload` false with `--scenes-readonly`; `ffmpeg` whether long sounds are made MP3 here; `video: true` and `videoLimit` (its time limit in seconds) only where videos can be converted here (ffmpeg with the H.264 and AAC encoders); `maxUpload` the most one upload may be, in bytes ([Uploading](#uploading-the-upload-page)) |
 | `GET /api/scenes/<name>` | `{ name, files: [{ path, bytes, at, kind }], layout, layoutAt, save }`: `path` relative with `/`, sorted by path; `kind` `model` (`.glb .gltf .fbx`), `audio`, `image` (`.png .jpg .jpeg .webp .gif .tga .bmp`), `data` (`.bin`), `preview` (`previews/<a model's path>.jpg`, above), `recording` (`recordings/<name>.json`, above) or `other`; `layout` the parsed `layout.json` (null when there is none, or it is not a JSON object or over 2 MB), `layoutAt` its time (null). 404 for no such scene |
 | `GET /scenes/<name>/<path>` | the file (also `HEAD`): its type by extension, `ETag` from its size and time (304 when it matches), `Cache-Control: no-cache`, single byte ranges (206, 416), CORS (`Access-Control-Expose-Headers: ETag, Content-Range, Accept-Ranges`). The path is decoded once; `..` (as sent or escaped), backslashes, NUL, dot files and folders (`.history/`), more than 4 folders deep, and anything whose real path (a link followed) leaves the scene's folder: 404, the refusals said in the log by their path (never their query), at most 20 lines a minute |
 | `POST /api/scenes/<name>/layout` | body: the layout, a JSON object with `studio: 1`, at most 2 MB. 200 `{ ok: true, at, bytes }` (`at` the new file's time, as `layoutAt` will say); 403 `{ error }` with `--scenes-readonly`; 404 no such scene; 413 too big; 400 not a layout. One save at a time per scene |
@@ -690,6 +691,8 @@ own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th
 | `POST /api/scenes` `{ "name": "<name>" }` | 201 `{ ok: true, name }`: the scene's folder made (empty). 400 for a name that cannot be a scene's (the rule above, and not `watch`) or a body that is not `{ name }`; 409 when a scene, or a file, of that name is there; 413 over 16 KB; 507 at 200 scenes |
 | `POST /api/scenes/<name>/file?path=<path>[&replace=1]` | the body's bytes as the file at `path` in the scene: 200 `{ ok: true, path, bytes, at }` (`at` its time, as the listing says). The folders of the path are made as needed |
 | `POST /api/scenes/<name>/sound?path=<path>.mp3[&replace=1]` | a sound's bytes (any format `ffmpeg` reads: WAV, FLAC, AIFF, MP3, M4A, OGG...), written by `ffmpeg` as a mono MP3 at 96 kbit/s and 44.1 kHz at `path` (which must end in `.mp3`; the studio sends `sounds/<name>.mp3`): 200 `{ ok: true, path, bytes, at }`. 501 when the relay has no `ffmpeg`; 429 (`Retry-After: 5`, and `retry: 5` in the body, since a page on another origin cannot read the header otherwise) while two are being made already; 422 when `ffmpeg` could not make an MP3 of it (not a sound) or made an empty one; 500 when it took longer than `--ffmpeg-limit` (it is stopped) |
+| `POST /api/scenes/<name>/video?path=<path>.mp4&h=720\|1080[&from=<a file there>][&orig=<originals/...>][&replace=1]` (v143) | a video made an H.264 MP4 as a job: [Converting a video](#converting-a-video) |
+| `GET /api/scenes/<name>/jobs/<job>` | the job's state: `{ job, state: 'queued' \| 'running' \| 'done' \| 'failed', pct, error, path, bytes, at }` |
 | `POST /api/scenes/<name>/copy` `{ "from": "<scene>", "path": "<its path there>", "as": "<its path here>", "replace": true }` (v118; `as` and `replace` optional) | one file of another scene copied into this one (the studio's Add pane, *From another scene...*: each scene keeps its own copy): 200 `{ ok: true, path, bytes, at }`, as an upload. The source must be a file the scene `from` lists (not its `layout.json` or `files.json`, no dot file, nothing in `.history/`; a link out of its folder is no file), at most `--max-upload` (413); where it goes (`as`, else the same path) keeps to the upload's rules below, 409 when a file (or a folder) is there unless `replace: true`, 507 when the scene is full. 404 for no such scene (either one) or file; 400 for a bad body, a source no listing shows, a target the rules refuse, or the file onto itself. A folder's copy goes into a temporary dot file beside where it goes and into place in one step, as an upload's; with R2 the bucket copies the object itself (CopyObject: nothing passes through the relay; see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2)). The log says `scenes: <name>: copied <path> from <scene>/<path>` |
 
 **The paths** (`uploadPath` in `scenes.mjs`): relative, with `/`, at most 200 characters and 4 folders deep (so under
@@ -697,7 +700,7 @@ own certificate, or behind `--proxy` the proxy's `X-Forwarded-Proto`, the `n`-th
 `.history/`, dot files) or named as a temporary file (`~`, `.tmp`, `.part`...: the listing would leave it out), no
 backslash, control character or `: * ? " < > |`, no part ending in a space or a dot and no Windows device name (`con`,
 `nul`, `com1`...), so a scene copied to another computer stays whole; never `layout.json`, `files.json` or `index.json`
-at the scene's top. Outside `originals/` only the listing's models, sounds, images and data (`.bin`); under
+at the scene's top. Outside `originals/` only the listing's models, sounds, videos (`.mp4 .m4v .mov .mkv`, kind `video`, served as `video/mp4`, `video/x-m4v`, `video/quicktime` and `video/x-matroska`; a `.webm` stays a sound, and a screen takes either), images and data (`.bin`); under
 `originals/` any file; under `previews/` only a model's picture, a `.jpg` of at most 200 KB, and no other casing of that
 folder at the top (v120: above). A path through a link in the scene that leads out of it is refused before anything is made: 400,
 said in the log. 404 for no such scene; 405 for other methods.
@@ -727,6 +730,31 @@ line, short, with the temporary paths taken out and no query. The 4 min 16 s ste
 96 kbit/s MP3 of 3.1 MB in 2.3 s on the machine this was built on. Install it with `brew install ffmpeg` (macOS), `sudo apt
 install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). The Docker image (`relay/Dockerfile`, Alpine) installs it
 (`apk add --no-cache ffmpeg`); an image built without that line runs as before and says so.
+
+### Converting a video
+
+*(v143, optional, off in the studio unless the Upload pane's option is on; `node relay/test.mjs --video` tests it.)* A screen
+in the studio plays MP4 (H.264) most surely, so the relay can make one of any video `ffmpeg` reads:
+`POST /api/scenes/<name>/video?path=videos/<name>.mp4&h=720` (or `1080`, the default; the most its height may be, never
+larger) with the video as the body, or `&from=<a file already in the scene>` instead of a body (the way a page sends a big
+file straight into R2 first). The result is H.264 (`-preset veryfast -crf 23`, `yuv420p`, width kept even), AAC 128 kbit/s
+(a video with no sound is fine), `+faststart` (its index first, so it starts playing before it has all come), no tags,
+written to `path` (which must end in `.mp4`) as an upload is. A body is first kept as the original under `originals/`
+(`&orig=<originals/...>`, else `originals/videos/<name>.source`; a `from=` file stays where it is); `&replace=1` allows
+both paths to be taken.
+
+It is a job: **202 `{ ok, job }`** once the body is in and the original kept, then
+`GET /api/scenes/<name>/jobs/<job>` says `{ state: 'queued' | 'running' | 'done' | 'failed', pct, error, path, bytes, at }`
+(`pct` from ffmpeg's own progress and the video's duration). One is made at a time, at most 8 wait (a ninth: 429 with
+`Retry-After: 60`); jobs are forgotten an hour after they end, and when the relay restarts (404). When it is done the
+scene's watch tells the new file (`scene` event, kind `video`); `failed` carries our words (*ffmpeg could not make an MP4 of
+it (is it a video?)*, *making the MP4 took more than N s*), never ffmpeg's. `--ffmpeg-video-limit <s>` (1800) stops one
+that takes longer. 501 without an ffmpeg that has the `libx264` and `aac` encoders (`GET /api/scenes` has no `video`),
+403 with `--scenes-readonly`, 400 for a path that is not `.mp4`, an `h` that is not 720 or 1080, a `from=` or `orig=` that is
+not right, 404 for no such scene, 409 for a path taken, 413 past `--max-upload`. ffmpeg reads only the file given (never a
+playlist: `-protocol_whitelist file`, and ffmpeg's mov/mp4 demuxer leaves external data references off by default, `enable_drefs` false, so a file cannot make it read another local file), as for sounds. A job is queued only once its whole body has arrived (a slow upload never lets ffmpeg start on half a file). Videos are untrusted input to a real decoder: only holders of the relay's password may send them (set `COLLAB_TOKEN` on any relay that is reachable beyond your own network). With R2 the original goes into the bucket and the result is put there as every upload is
+(a `from=` file is fetched to a temporary folder first); nothing is left behind either way. Untested: a long video on a small
+relay (the CPU it takes: about one core, a few seconds per second of 1080p on a laptop), and Quest Browser playing the result.
 
 ## Scenes in Cloudflare R2
 

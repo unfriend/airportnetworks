@@ -67,9 +67,18 @@ What it makes:
 | A model: FBX, OBJ with its MTL, glTF with its `.bin`, GLB, PLY, STL | `models/<name>.glb`: metres and Y up (the studio's guess of its units and up axis baked in), textures drawn down and stored as JPEG (PNG where see-through), animations and skins kept, an FBX material of opacity 0 (3ds Max's habit) drawn solid, a mesh without normals marked to be shown as scanned. It is loaded back and checked; if something did not come through, the row says why and nothing is made. |
 | A sound up to 20 s | `sounds/<name>.wav`: mono, 16-bit, at its own rate (at most 48 kHz): loops without a gap |
 | A sound longer than 20 s | with ffmpeg on the relay: `sounds/<name>.mp3`, mono, 96 kbit/s (streamed when it plays); without: an MP3, M4A/AAC or OGG kept as it is (a stereo file plays from one point), anything else a mono WAV at 22.05 kHz |
+| A video: MP4, M4V, MOV, MKV (a WebM with a picture too) | `videos/<name>.<ext>` as it is (a screen plays it, "Screens" in `SPEC.md`); with **Convert videos to MP4 (H.264)** on: `videos/<name>.mp4` made by the relay's ffmpeg, and the file you gave in `originals/` |
 | Every file you gave | the same file in `originals/`, in its folders (so a model can be converted again) |
 
 Without a relay that takes uploads the plan still shows, and **Convert** offers each GLB and WAV as a download.
+
+**Videos and the option to convert them.** A video is kept as you gave it, into `videos/`. **Convert videos to MP4
+(H.264): off / on** (off by default, kept on this computer; greyed with the reason where the relay has no ffmpeg with the
+H.264 and AAC encoders, or takes no uploads) has the relay make an H.264 MP4 (`yuv420p`, AAC 128 kbit/s, `+faststart`,
+at most 720 high with **For Quest** on, else 1080, never larger) as a job: the row shows its progress, one video is made
+at a time and the next waits, and the file you gave goes to `originals/`. A conversion that fails says why and leaves your
+file in `originals/`. Headsets and phones play MP4 (H.264) most surely; other files may not play everywhere. See
+`relay/README.md` ("Converting a video") for the relay's side.
 
 In a scene, the Add list shows `models/`, `sounds/` and anything outside `originals/`; `originals/` is folded under
 **Originals**. A GLB made from another file of the scene (its `asset.extras.studio.from`, or the same base name) stands

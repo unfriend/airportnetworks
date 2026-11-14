@@ -300,6 +300,9 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
+  } else if (h.kind === 'bar' && !XR.stories) {   // a screen's bar: its transport (no selection, no Undo step; e6q_screens.js)
+    c.press = { kind: 'bar', id: h.id, seek: h.key === 'seek', frac: h.frac };
+    if (screenBarPress(h.id, h.key, h.frac)) buzz(c, 0.3, 25);
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
@@ -326,7 +329,7 @@ const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && 
 function xrGrab(c, on) {
   xrLetGo(c);
   const h = on ? holdHover(c) : c.hover;
-  if (!on || !h) return;
+  if (!on || !h || h.kind === 'bar') return;   // (a screen's bar is pressed, not held)
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
@@ -474,6 +477,7 @@ function carryWrite(it, now) {
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
+  else if (it.kind === 'v') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w: clamp(h.scale.x, 0.2, 20) });   // (a screen: its width)
   else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
   else setRec(it.id, Object.assign(soundAt(it, h.position), it.carryR ? { r: it.carryR } : {}));   // (a sound that follows a model: its offset from where the hand puts it; its reach as the left stick sizes it)
 }
@@ -554,7 +558,7 @@ function holdSticks(c, G, dt, lo, hi) {
 // limits (an empty has no size)
 function holdRange(it, G) {
   const s = G.s0, mn = Math.min(s.x, s.y, s.z), mx = Math.max(s.x, s.y, s.z);
-  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx]
+  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx] : it.kind === 'v' ? [0.2 / mn, 20 / mx]
     : it.kind === 'x' ? [0.01 / mn, 50 / mx] : it.kind === 's' ? [0.1 / G.rr, 20 / G.rr] : [1, 1];
   return [Math.max(1 / 20, a), Math.min(20, b)];
 }
@@ -580,9 +584,9 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
+  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p' || it.kind === 'v')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
-    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
+    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p' || it.kind === 'v';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
     const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.holder.scale.x, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });   // (as shown: the sticks may have sized it since its record was last written)
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
@@ -786,7 +790,10 @@ function xrPoint(c, dt) {
     // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
     if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
     const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : visitPick(XR.raycaster);   // (without editing: only what anyone may move, v140)
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
+    // a screen's bar (e6q_screens.js): pressed, never selected; a ray on a screen or its bar lights the bar for 3 s
+    const bh = screenRay(XR.raycaster, performance.now());
+    if (bh && (!ih || bh.dist <= ih.dist + 0.02)) { hit = { kind: 'bar', id: bh.id, key: bh.key, frac: bh.frac, point: bh.point }; dist = bh.dist; }
+    else if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }
@@ -797,6 +804,8 @@ function xrPoint(c, dt) {
   const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
+  // (the seek bar held: it follows the ray along the bar)
+  if (c.press && c.press.kind === 'bar' && c.press.seek && hit && hit.kind === 'bar' && hit.id === c.press.id && hit.key === 'seek' && Math.abs(hit.frac - (c.press.frac || 0)) > 0.002) { c.press.frac = hit.frac; screenBarPress(hit.id, 'seek', hit.frac); }
   if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
   if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);

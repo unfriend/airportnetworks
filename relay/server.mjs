@@ -33,7 +33,7 @@ import { execFileSync, execFile, spawn } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
-  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording } from './scenes.mjs';
+  uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording, ORIGINALS } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT } from './trackers.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2 } from './notes.mjs';
@@ -45,7 +45,7 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   token: '',
   // the studio's scenes (--scenes <dir>; --scenes-readonly: never written); uploads to them (MB), the app /upload sends
   // people to when the relay does not serve it, and ffmpeg for long sounds (its path, off, a conversion's limit in s)
-  scenes: '', 'scenes-readonly': false, 'max-upload': 512, app: '', ffmpeg: '', 'no-ffmpeg': false, 'ffmpeg-limit': 180,
+  scenes: '', 'scenes-readonly': false, 'max-upload': 512, app: '', ffmpeg: '', 'no-ffmpeg': false, 'ffmpeg-limit': 180, 'ffmpeg-video-limit': 1800,
   // --scenes r2: the bucket's settings from the environment (R2_*); --r2-check: check them, the bucket's CORS and its
   // upload links, then stop
   'r2-check': false,
@@ -96,6 +96,7 @@ const HELP = `usage: node relay/server.mjs [options]
   --max-upload <MB>  with --scenes: one uploaded file at most this big (512)
   --ffmpeg <path>  with --scenes: the ffmpeg that makes long sounds MP3 (found on the PATH by itself; --no-ffmpeg: none)
   --ffmpeg-limit <s>  one conversion may take this long (180)
+  --ffmpeg-video-limit <s>  a video converted to MP4 (H.264) may take this long (1800)
   --app <url>      where /upload sends people when the relay does not serve the app (the --origin, else ${APP_ORIGIN}/)
   --keep <file>    keep the rooms in <file> (written every 5 s when they changed and as the relay stops, read back as it
                    starts): a restart, such as a deploy, no longer empties them (off: rooms live in memory only)
@@ -270,6 +271,7 @@ const APP_URL = (() => {
 if (OPT.ffmpeg && OPT['no-ffmpeg']) { console.log('--ffmpeg and --no-ffmpeg: one or the other'); process.exit(1); }
 if (OPT.ffmpeg && !SCENES_ON) { console.log('--ffmpeg goes with --scenes <dir>'); process.exit(1); }
 if (!(OPT['ffmpeg-limit'] > 0)) { console.log('--ffmpeg-limit takes seconds, more than 0'); process.exit(1); }
+if (!(OPT['ffmpeg-video-limit'] > 0)) { console.log('--ffmpeg-video-limit takes seconds, more than 0'); process.exit(1); }
 const FFMPEG = (() => {
   if (!SAVE || OPT['no-ffmpeg']) return '';
   const bin = String(OPT.ffmpeg || 'ffmpeg');
@@ -281,6 +283,14 @@ const FFMPEG = (() => {
   return '';
 })();
 const FF_MAX = 2;   // conversions at once (each takes a core or two)
+// video conversion (POST .../video, v143, optional): needs this ffmpeg to have the H.264 and AAC encoders, looked for once
+const VIDEO = (() => {
+  if (!FFMPEG) return false;
+  try {
+    const out = execFileSync(FFMPEG, ['-hide_banner', '-encoders'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+    return /\blibx264\b/.test(out) && /\baac\b/.test(out);
+  } catch { return false; }
+})();
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -1380,14 +1390,16 @@ function scenesApi(req, res, url) {
   // (upload: this caller may upload, which the password above already said; ffmpeg: long sounds made MP3 here; with R2
   // store, direct (uploads may go straight to the bucket: .../put, .../done) and linkTtl (how long a file's link lives, s))
   if (p === '/api/scenes') {
-    if (req.method === 'GET') return KEPT.all().then(all => json(res, 200, { scenes: scenesOut(all), save: SAVE, upload: SAVE, ffmpeg: !!FFMPEG, maxUpload: MAX_UPLOAD, ...KEPT.says() }), failed);
+    if (req.method === 'GET') return KEPT.all().then(all => json(res, 200, { scenes: scenesOut(all), save: SAVE, upload: SAVE, ffmpeg: !!FFMPEG, ...(VIDEO ? { video: true, videoLimit: OPT['ffmpeg-video-limit'] } : {}), maxUpload: MAX_UPLOAD, ...KEPT.says() }), failed);
     return req.method === 'POST' ? makeScene(req, res).catch(failed) : no();
   }
   if (p === '/api/scenes/watch') return req.method === 'GET' ? scenesWatch(req, res).catch(failed) : no();
-  const m = /^\/api\/scenes\/([^/]+)(?:\/(layout|file|sound|put|done|copy))?$/.exec(p);
+  const m = /^\/api\/scenes\/([^/]+)(?:\/(layout|file|sound|put|done|copy|video)|\/jobs\/([A-Za-z0-9]{1,32}))?$/.exec(p);
   let name = '';
   try { name = m ? decodeURIComponent(m[1]) : ''; } catch { /* a bad escape: no such scene */ }
   if (!m) return json(res, 404, { error: 'not found' });
+  if (m[3]) return req.method === 'GET' ? videoJob(res, name, m[3]) : no();
+  if (m[2] === 'video') return req.method === 'POST' ? videoStart(req, res, url, name).catch(failed) : no();
   if (m[2] === 'layout') return req.method === 'POST' ? saveLayout(req, res, name).catch(failed) : no();
   if (m[2] === 'put' || m[2] === 'done') return req.method === 'POST' ? direct(req, res, url, name, m[2]).catch(failed) : no();
   if (m[2] === 'copy') return req.method === 'POST' ? copyFile(req, res, name).catch(failed) : no();
@@ -1822,6 +1834,205 @@ function ffSaid(text, paths) {
   let line = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).pop() || '';
   for (const p of paths.filter(Boolean).sort((a, b) => b.length - a.length)) line = line.split(p).join('…');
   return scrub(line).replace(/\?[^\s'"]*/g, '?…').slice(0, 160);
+}
+
+// ---- converting a video (POST /api/scenes/<name>/video, v143, optional; tools/studio/SPEC.md, "Screens", Files):
+// ?path=<videos/x.mp4>&h=720|1080[&from=<a video already in the scene>][&orig=<originals/...>][&replace=1]. The body (or the
+// file named by from=) is made H.264 yuv420p + AAC 128k, at most h high (never larger), +faststart, by ffmpeg, as a job:
+// 202 { job }, one at a time, at most 8 waiting; GET .../jobs/<job> says { state: queued | running | done | failed, pct,
+// error }. A body is first kept under originals/ (orig=, else originals/videos/<name>.source) and so is the original; a from=
+// file stays where it is. The result is placed as an upload is (then the watch is told); the limit is --ffmpeg-video-limit.
+const VJ = { jobs: new Map(), queue: [], busy: false, incoming: 0 }, VJ_WAIT = 8, VJ_KEEP = 50, VJ_AGE = 3600000;
+function videoJob(res, name, id) {
+  const j = VJ.jobs.get(id);
+  if (!j || j.name !== name) return json(res, 404, { error: 'no such job (jobs are forgotten an hour after they end, or when the relay restarts)' });
+  json(res, 200, { job: id, state: j.state, pct: j.pct, error: j.error || undefined, path: j.want.rel, bytes: j.bytes, at: j.at });
+}
+async function videoStart(req, res, url, name) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!SAVE) return no(403, NO_SAVE);
+  if (!VIDEO) return no(501, 'this relay cannot convert videos (it needs ffmpeg with the H.264 and AAC encoders: install it, or name it with --ffmpeg <path>)');
+  const dir = await KEPT.where(name);
+  if (!dir) return no(404, 'no such scene');
+  const want = uploadPath(url.searchParams.get('path'));
+  if (want.error) return no(400, want.error);
+  if (!/\.mp4$/i.test(want.rel)) return no(400, 'a video made here is an MP4: a path ending in .mp4 (videos/<name>.mp4)');
+  const hq = url.searchParams.get('h'), h = hq === null ? 1080 : Number(hq);
+  if (h !== 720 && h !== 1080) return no(400, 'h=720 or h=1080: the most its height may be');
+  const replace = url.searchParams.get('replace') === '1', from = url.searchParams.get('from');
+  let orig = null;
+  if (from === null) {
+    const base = want.segs[want.segs.length - 1].replace(/\.mp4$/i, '');
+    orig = uploadPath(url.searchParams.get('orig') || `originals/videos/${base}.source`);
+    if (orig.error) return no(400, 'orig=: ' + orig.error);
+    if (orig.segs[0] !== ORIGINALS) return no(400, 'orig= is a path under originals/');
+    if (orig.rel === want.rel) return no(400, 'orig= is not the video\'s own path');
+    if (+req.headers['content-length'] > MAX_UPLOAD) return no(413, TOO_BIG);
+  } else if (!listable(from) || from === LAYOUT || from === LISTING || from === want.rel) return no(400, 'from=<the path of a video already in this scene>: there is no such file');
+  if (VJ.queue.length + VJ.incoming >= VJ_WAIT) return answerEarly(req, res, 429, { error: `${VJ_WAIT} videos are waiting to be converted already: try again in a minute`, retry: 60 }, { 'Retry-After': '60', 'Access-Control-Expose-Headers': 'Retry-After' });
+  const job = { id: crypto.randomBytes(5).toString('hex'), name, want, h, replace, state: 'queued', pct: 0, error: '', bytes: 0, at: 0, tmpDir: '', input: '', dir, from, t0: Date.now() };
+  VJ.incoming++;   // (the slot is taken at once: uploads that come together cannot all pass; the job joins the queue only once its input is whole)
+  let answer = null;
+  try { answer = await (R2C ? r2VideoIn(req, job, orig) : folderVideoIn(req, job, orig)); } catch (err) { log(`scenes: ${name}: ${want.rel}: ${err.message}`); answer = [500, { error: 'cannot take the video (' + (err.code || 'error') + ')' }]; }
+  finally { VJ.incoming--; }
+  if (answer) { await videoClean(job); return answerEarly(req, res, ...answer); }
+  VJ.jobs.set(job.id, job);
+  job.ready = true;
+  VJ.queue.push(job);
+  json(res, 202, { ok: true, job: job.id });
+  videoNext();
+}
+async function videoClean(job) {
+  if (job.tmpDir) await fs.promises.rm(job.tmpDir, { recursive: true, force: true }).catch(() => {});
+  job.tmpDir = '';
+}
+// a folder's: the body kept as the original, put in place whole; or from= looked at (inside the scene)
+async function folderVideoIn(req, job, orig) {
+  const { dir, want, replace, from, name } = job;
+  const dest = path.join(dir, ...want.segs), there = await lstatOf(dest);
+  if (there && there.isDirectory()) { req.resume(); return [409, { error: 'there is a folder by that name' }]; }
+  if (there && !replace) { req.resume(); return [409, { error: 'there is a file by that name (replace=1 replaces it)' }]; }
+  const stop = await folderRoom(dir, path.dirname(dest), there, `a video to ${JSON.stringify(name + '/' + want.rel)}`);
+  if (stop) { req.resume(); return [stop[0], { error: stop[1] }]; }
+  if (from !== null) {
+    req.resume();
+    let real = '';
+    try { real = await fs.promises.realpath(path.join(dir, ...from.split('/'))); if (!(await fs.promises.stat(real)).isFile()) real = ''; } catch { real = ''; }
+    if (!real || !inside(dir, real)) return [400, { error: 'from=<the path of a video already in this scene>: there is no such file' }];
+    job.input = real;
+    return null;
+  }
+  const od = path.join(dir, ...orig.segs), ot = await lstatOf(od);
+  if (ot && ot.isDirectory()) { req.resume(); return [409, { error: 'orig=: there is a folder by that name' }]; }
+  if (ot && !replace) { req.resume(); return [409, { error: 'the original\'s path is taken (replace=1 replaces it)' }]; }
+  const of = path.dirname(od), os2 = await folderRoom(dir, of, ot, 'an original');
+  if (os2) { req.resume(); return [os2[0], { error: os2[1] }]; }
+  let made;
+  try { made = await fs.promises.mkdir(of, { recursive: true }); } catch { req.resume(); return [409, { error: 'a file stands where a folder of the path should be' }]; }
+  const tmp = path.join(of, tmpName()), got = await receive(req, tmp, MAX_UPLOAD);
+  const bad = async r => { await fs.promises.rm(tmp, { force: true }).catch(() => {}); if (made) await unmake(of, made); return r; };
+  if (got.over) return bad([413, { error: TOO_BIG }]);
+  if (got.cut) { log(`scenes: ${name}: an upload of ${want.rel} was cut short (${got.n} bytes came)`); return bad([499, { error: 'cut short' }]); }
+  if (got.err) return bad([got.err.code === 'ENOSPC' ? 507 : 500, { error: 'cannot write the file (' + (got.err.code || 'error') + ')' }]);
+  if (!(await place(tmp, od, replace))) return bad([409, { error: 'the original\'s path is taken (replace=1 replaces it)' }]);
+  const st = await fs.promises.stat(od);
+  sceneTold(name, orig.rel, () => fs.promises.stat(od).then(x => `${x.size}:${Math.floor(x.mtimeMs)}:${x.ino}`, () => null));
+  job.input = od; job.origRel = orig.rel; job.origBytes = st.size;
+  return null;
+}
+// R2's: the body received into a temporary folder (kept for the job), the original put into the bucket; from= fetched when
+// the job runs
+async function r2VideoIn(req, job, orig) {
+  const { want, replace, from, name } = job;
+  const L = await r2Listing(name), stop = r2InTheWay(L, want, replace);
+  if (stop) { req.resume(); return [stop[0], { error: stop[1] }]; }
+  job.tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'relay-r2v-'));
+  job.input = path.join(job.tmpDir, 'in');
+  if (from !== null) {
+    req.resume();
+    const src = listable(from) && from !== LAYOUT && from !== LISTING ? L.rels.get(from) || null : null;
+    if (!src) return [400, { error: 'from=<the path of a video already in this scene>: there is no such file' }];
+    job.src = src;
+    return null;
+  }
+  const ostop = r2InTheWay(L, orig, replace);
+  if (ostop) { req.resume(); return [ostop[0], { error: 'the original\'s path: ' + ostop[1] }]; }
+  const got = await receive(req, job.input, MAX_UPLOAD);
+  if (got.over) return [413, { error: TOO_BIG }];
+  if (got.cut) { log(`scenes: ${name}: an upload of ${want.rel} was cut short (${got.n} bytes came)`); return [499, { error: 'cut short' }]; }
+  if (got.err) return [got.err.code === 'ENOSPC' ? 507 : 500, { error: 'cannot hold the file on its way (' + (got.err.code || 'error') + ')' }];
+  const key = okey(name, orig.rel), p = await RX.put(key, { path: job.input, size: got.n }, { type: typeOf(orig.rel), ifNoneMatch: !replace });
+  if (p.exists) return [409, { error: 'the original\'s path is taken (replace=1 replaces it)' }];
+  r2Forget();
+  const st = await RX.stat(key);
+  if (st) sceneTold(name, orig.rel, async () => sigR2(st));
+  job.origRel = orig.rel; job.origBytes = got.n;
+  return null;
+}
+function videoNext() {
+  if (VJ.busy) return;
+  const i = VJ.queue.findIndex(x => x.ready);
+  if (i < 0) return;
+  const j = VJ.queue.splice(i, 1)[0];
+  VJ.busy = true;
+  videoRun(j).catch(err => { j.state = 'failed'; j.error = 'the conversion broke off'; log(`scenes: ${j.name}: ${j.want.rel}: ${err.message}`); }).finally(async () => {
+    j.at = j.at || Date.now();
+    await videoClean(j);
+    VJ.busy = false;
+    const old = [...VJ.jobs.values()].filter(x => x.state === 'done' || x.state === 'failed');
+    for (const x of old) if (Date.now() - x.at > VJ_AGE || (old.length > VJ_KEEP && x === old[0])) VJ.jobs.delete(x.id);
+    videoNext();
+  });
+}
+async function videoRun(j) {
+  const { name, want, h, replace } = j, fail = (error, why, said) => { j.state = 'failed'; j.error = error; j.at = Date.now(); log(`scenes: ${name}: no MP4 for ${want.rel} (${why}${said ? ': ' + said : ''})`); };
+  j.state = 'running';
+  const t1 = Date.now();
+  let out, tmpOut = '';
+  if (R2C) {
+    if (j.src) {
+      const g = await RX.getFile(j.src.key, j.input, MAX_UPLOAD);
+      if (!g) return fail('the video is not in the bucket any more', 'from= gone');
+      if (g.over) return fail(TOO_BIG, 'too big');
+    }
+    out = path.join(j.tmpDir, 'out.mp4');
+  } else {
+    const folder = path.dirname(path.join(j.dir, ...want.segs));
+    try { await fs.promises.mkdir(folder, { recursive: true }); } catch { return fail('a file stands where a folder of the path should be', 'mkdir'); }
+    out = tmpOut = path.join(folder, tmpName());
+  }
+  try {
+    const r = await ffmpegVideo(j.input, out, h, pct => { j.pct = pct; });
+    const size = (await lstatOf(out))?.size || 0, said = ffSaid(r.err, [j.input, out, j.tmpDir, j.dir]);
+    if (r.late) return fail(`making the MP4 took more than ${OPT['ffmpeg-video-limit']} s`, 'stopped after ' + OPT['ffmpeg-video-limit'] + ' s');
+    if (!r.ran) return fail('ffmpeg did not run', r.why);
+    if (r.code !== 0) return fail('ffmpeg could not make an MP4 of it (is it a video?)', r.sig ? 'ffmpeg ended by ' + r.sig : 'ffmpeg exit ' + r.code, said);
+    if (!size) return fail('ffmpeg made nothing of it (is it a video?)', 'an empty MP4');
+    if (R2C) {
+      const key = okey(name, want.rel), p = await RX.put(key, { path: out, size }, { type: typeOf(want.rel), ifNoneMatch: !replace });
+      if (p.exists) return fail('there is a file by that name (replace=1 replaces it)', 'taken');
+      r2Forget();
+      const st = await RX.stat(key);
+      if (st) sceneTold(name, want.rel, async () => sigR2(st));
+      j.at = st ? st.at : Date.now();
+    } else {
+      const dest = path.join(j.dir, ...want.segs);
+      if (!(await place(out, dest, replace))) return fail('there is a file by that name (replace=1 replaces it)', 'taken');
+      tmpOut = '';
+      const st = await fs.promises.stat(dest);
+      j.at = Math.floor(st.mtimeMs);
+      sceneTold(name, want.rel, () => fs.promises.stat(dest).then(x => `${x.size}:${Math.floor(x.mtimeMs)}:${x.ino}`, () => null));
+    }
+    j.bytes = size; j.pct = 100; j.state = 'done';
+    log(`scenes: ${name}: made ${want.rel} (${mb(size)}, at most ${h} high, ffmpeg ${((Date.now() - t1) / 1000).toFixed(1)} s)`);
+  } finally { if (tmpOut) await fs.promises.rm(tmpOut, { force: true }).catch(() => {}); }
+}
+// ffmpeg for a video: H.264 (veryfast, crf 23, yuv420p) and AAC 128k, its height at most h (never scaled up, width kept
+// even), +faststart; its first video stream and first audio stream (a video with no sound is fine), no tags. pct from
+// -progress and the Duration it prints. Same rules as the sound's: nothing asked, only the given file, never a playlist
+function ffmpegVideo(input, output, h, onPct) {
+  return new Promise(done => {
+    const args = ['-nostdin', '-hide_banner', '-loglevel', 'info', '-nostats', '-progress', 'pipe:1', '-y', '-protocol_whitelist', 'file', '-format_whitelist', FF_FORMATS + ',avi,mp4,webm',
+      '-i', input, '-map', '0:v:0', '-map', '0:a:0?', '-sn', '-dn', '-map_metadata', '-1',
+      '-vf', `scale=-2:'min(ih\\,${h})',setsar=1`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', output];
+    let err = '', late = false, p, dur = 0, buf = '';
+    try { p = spawn(FFMPEG, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }); } catch (e) { return done({ ran: false, why: e.code || e.message }); }
+    FF.procs.add(p);
+    p.stderr.on('data', d => {
+      err = (err + d).slice(-16384);
+      if (!dur) { const m = /Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/.exec(err); if (m) dur = +m[1] * 3600 + +m[2] * 60 + +m[3]; }
+    });
+    p.stdout.on('data', d => {
+      buf = (buf + d).slice(-4096);
+      const all = [...buf.matchAll(/out_time_(?:us|ms)=(\d+)/g)];
+      const last = all.length ? Number(all[all.length - 1][1]) / 1e6 : 0;   // (both are microseconds, ffmpeg's old name for it aside)
+      if (dur > 0 && last > 0) onPct(Math.max(0, Math.min(99, Math.floor(last / dur * 100))));
+    });
+    const t = setTimeout(() => { late = true; p.kill('SIGKILL'); }, OPT['ffmpeg-video-limit'] * 1000);
+    p.on('error', e => { clearTimeout(t); FF.procs.delete(p); done({ ran: false, why: e.code || e.message }); });
+    p.on('close', (code, sig) => { clearTimeout(t); FF.procs.delete(p); done({ ran: true, code, sig, late, err }); });
+  });
 }
 
 // GET /upload: the studio's Upload pane. Sent there without a password (the pane asks for it, as for the API), and never
@@ -2382,7 +2593,7 @@ async function r2CorsCheck() {
 
 // Node's limit on a whole request (5 minutes) is off where uploads are taken (server.requestTimeout below), for slow ones;
 // every other request keeps it here, so a body that never comes cannot hold a socket for ever
-const UPLOADING = /^\/api\/scenes\/[^/]+\/(file|sound)$/, REQ_LIMIT = 300000;
+const UPLOADING = /^\/api\/scenes\/[^/]+\/(file|sound|video)$/, REQ_LIMIT = 300000;
 function reqLimit(req) {
   if (req.complete) return;
   const t = setTimeout(() => { if (!req.complete) req.socket.destroy(); }, REQ_LIMIT);

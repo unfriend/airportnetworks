@@ -2568,6 +2568,151 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
 - **Untested on a headset:** Space Setup started from the page, the real mesh's density and labels, the picture made in
   a session, how it lines up at a calibrated circle.
 
+## Screens: video and audio players (v143, the owner, 14 November 2026)
+
+The owner: "is it possible to have a video/audio player with playlist and an option to show controls even outside studio
+mode that can playback video or audio files from the relay"; then, asked: in studio scenes for now, "shared per default,
+personal optional if easy", converting videos on the relay "not for now but add as an optional feature", YouTube "leave
+out for now".
+
+A **screen** is a new kind of item (kind `v`, the state's field `v.<id>`, `layout.json`'s `screens`): a flat panel in the
+scene that plays a playlist of the scene's video and sound files, its sound from where it stands; or, as an audio player,
+no panel, a small speaker. One playlist, shared by everyone at the circle by default. Its controls are a bar under it that
+anyone may use without editing when its record says so.
+
+### The record
+
+`{ name, p, q, w, look, list, loop, shuffle, vol, r, sync, ctl, play, locked, shows }`:
+
+- `p`, `q`: as a shape's (`q` a full turn, 4 decimals). The panel's front is `+z` as placed, its middle at `p`.
+- `w`: the panel's width in metres, 0.2 to 20, 2 decimals, default 1.6. Its height is `w` over the playing video's aspect
+  (its `videoWidth / videoHeight`; 16:9 until known, and for a sound).
+- `look`: `'screen'` (the default: the panel) or `'audio'` (no panel: a small speaker, as a sound's look, and the bar
+  over it).
+- `list`: 1 to 50 paths of the scene's files (`okFile`), videos or sounds (`kindOf` `'video'` or `'audio'`, below); not a
+  list, or empty, makes the record bad; entries that are not paths dropped.
+- `loop`: `'all'` (the default: after the last, the first), `'one'` (the same entry again) or `'off'` (stops after the
+  last). `shuffle`: absent, or a whole number 1 to 2^31 (a seed): the order is a permutation of the list seeded by it
+  (a fixed function in the engine, `shuffleOrder(n, seed)`, the same on every device); turning shuffle on picks a new
+  seed.
+- `vol`: 0 to 2, 2 decimals, default 1. `r`: full volume within, 0.1 to 20 m, default 3 (as a sound's).
+- `sync`: absent (shared: everyone at the circle sees and hears the same moment) or `'own'` (each person plays it on
+  their own: presses act on this device only).
+- `ctl`: absent (only while editing) or `'any'` (anyone may use the bar, editing or not, a visitor's kiosk too, unless
+  the circle's story is locked).
+- `play`: `{ i, on, t, at }`, the shared play state: `i` the entry played (an index into the order, 0 to n - 1), `on`
+  playing or paused, `t` its time in seconds (3 decimals) at the room's time `at` (whole ms, `HOST.collab.now()`; outside
+  a room this device's clock). Its time now is `on ? t + (now - at) / 1000 : t`. Absent: paused at the first entry's
+  start. With `sync: 'own'` the record's `play` is ignored and each device keeps its own (in memory, never written).
+- `locked` and `shows` as every item's.
+
+`norm('v', x)` checks it all; a bad field makes the record bad (dropped from a layout and counted, ignored from the
+room), as for every kind. At most 20 screens a scene.
+
+**Saving:** `layout.json` keeps the record without `play` (a scene opens paused at its first entry), and *Unsaved
+changes* leaves `play` out of its comparison. `play` goes into `state()` and the room, never into Undo: a press of the
+bar writes the record's `play` alone with no Undo step (as v140's moves by anyone are written).
+
+### Playing
+
+- One `<video>` element per screen per device (`playsInline`, `crossOrigin = 'anonymous'`, `preload = 'auto'`; the file's
+  URL as the studio fetches a streamed sound: R2's signed link, else the relay's file with `?token=`), also for a sound
+  in the list (a video element plays audio too).
+- Its picture: a `THREE.VideoTexture` on the panel (`MeshBasicMaterial`, its colour space as the studio's pictures are
+  given), the panel's back a dark plane; while nothing is drawn yet (loading, a sound, paused before any frame) a canvas
+  card with the entry's name and the screen's name in place of the video.
+- Its sound: through the shell's context only (`HOST.audio.fx()`), `createMediaElementSource` into a gain (`vol`) and an
+  HRTF panner at the screen's middle (inverse distance, `refDistance` `r`, as `emitStep`'s streamed sounds), following the
+  Sound button (`HOST.audio.muted`) as the studio's emitters do, never the Sound effects or Narration switches. Before
+  there is a context (no tap yet) the element plays muted (the picture moves, no sound); once there is one, the element
+  is made again on that context (an element feeds one context only), as streamed sounds are, at the same moment.
+- Its moment: the play state's time now. About twice a second (`screenSync`, as `syncStream` does for a voice) the
+  element's `currentTime` is compared with it and set again when it is more than 0.25 s off (0.35 s on a headset), ahead
+  by how late its last setting came in; `on` false pauses the element at `t`.
+- The end of an entry (its time past its duration): every device works out the next play state the same way, from the
+  same duration: `loop: 'one'` the same entry from 0, else the next in the order (after the last: the first with
+  `'all'`, else paused at the end of the last), `t: 0`, `at` the moment the entry ended (`at + (dur - t) * 1000`), and in a
+  shared room writes it (every device writes the same value, so the room takes one). A duration not known yet waits.
+- Hidden by a trigger cube, not shown in AR or VR (`shows`), away from its station or the studio not on show: paused
+  here and silent, and when shown again set to the play state's moment. Pause (v122's *Motions: paused*) does not pause
+  screens.
+- At most 2 screens play video at once on a headset, 4 on a page (the nearest first): the others show their card with
+  *Too many videos playing here* and stay silent. Their play state goes on.
+- In a headset, frames: three.js r128 updates a `VideoTexture` each frame it is drawn; nothing else per frame but
+  placing the bar.
+
+### The bar (the controls)
+
+- A strip under the panel (over the speaker for `'audio'`), the panel's width (at least 0.6 m), about 0.12 m tall, a
+  canvas texture drawn again only when what it shows changes (and its time at most twice a second): previous, play or
+  pause, next, the time (*1:02 / 3:40*), a seek bar, the entry's name and *2 of 7*, volume down and up, and *Everyone* or
+  *Just you* (whose play state it is). Opaque, depth-tested.
+- Shown while editing with the screen selected, and while a ray or the page's pointer is on the screen or the bar (and
+  for 3 s after), only to someone who may use it (`ctl: 'any'`, or editing); else never.
+- Pressed: in a headset by the trigger on its regions (the studio's own ray and press: an item hit on a screen's bar is a
+  bar press, not a selection, unless editing with the screen not selected); on a page by a click on its regions (the
+  scene's raycast, its uv into the strip). Seek: pressed or dragged along the seek bar. Each press writes the play state
+  (shared) or sets this device's (own), plays the panel's soft click (`sfxAct` or `sfxPlay('click')`) and never selects.
+- Volume from the bar changes the record's `vol` (shared, no Undo step) in steps of 0.25, held 0 to 2; with `sync:
+  'own'` this device's own volume only.
+
+### Editing
+
+- **Add pane:** a *Screens* row with *Screen* and *Audio player* (1.5 m in front, the panel's middle at 1.6 m high,
+  facing you; the list starts with the scene's first video, else its first sound, else the item is not made and the
+  pane says *Put a video or sound into the scene first*). A video file's card in the Add grid places a screen of it.
+  Video files are listed in the Add pane's files under *Videos*.
+- **Its card** (page and headset, editing on): the transport (as the bar), the playlist (each entry with ✕, up and down;
+  *Add to the playlist...*: the scene's videos and sounds, a headset's eight at a time), *Look: Screen / Audio player*,
+  *Width* (steps of 0.2 m, ×0.5, ×2), *Turn 90°*, *Loop: All / One / Off*, *Shuffle: on / off*, *Volume*, *Reach*,
+  *Plays for: Everyone here / Each person*, *Who can use the controls: Only while editing / Anyone*, and the usual lock,
+  *Shows in*, *Duplicate*, *Delete*. Each a change and one Undo step (the transport's presses none).
+- Moved, turned and sized as a shape is (the page's arrows: scale its width; the grips; both grips its width), in groups
+  and cube lists (shown and hidden), not a follow target, no motion, path or behaviour.
+- **Items pane:** a card per screen (a tile drawn for it, *Screen · 7 entries* or *Audio player*).
+
+### Files
+
+- The relay lists `.mp4 .m4v .mov .mkv` as kind `'video'` (`relay/scenes.mjs`; `.webm` stays `'audio'`, and a screen
+  takes either), served with their types; uploads take them anywhere a sound may go, and under `videos/`.
+- The Upload pane puts a dropped video into `videos/<name>.<ext>` as it is.
+- **Converting (optional, off by default):** the Upload pane's *Convert videos to MP4 (H.264): off / on* (kept on this
+  device), and *For Quest* making it 720p (else 1080p at most). On, a video goes to the relay's `POST
+  /api/scenes/<name>/video?path=videos/<name>.mp4[&from=<a file there>]&h=720|1080`: the relay's `ffmpeg` makes it H.264
+  (`-preset veryfast -crf 23`, `yuv420p`), AAC 128 kbit/s, its height at most `h` (never larger), `+faststart`, as a job
+  (one at a time; 202 `{ job }`; `GET /api/scenes/<name>/jobs/<job>` its state, `{ state: 'queued' | 'running' | 'done' |
+  'failed', pct, error }`; a watch event once it is in), at most `--ffmpeg-video-limit` s (default 1800), its original
+  kept under `originals/`. Without `ffmpeg` the option is greyed with why. With R2 the result is put into the bucket as
+  every upload is. Off: the file as given.
+- Videos are not offline (the service worker passes scenes through, as ever).
+
+### Shared
+
+`state()` gains `v.<id>`; FORMAT networks-45. A press writes the record (with its new `play`) as v140's moves do; nothing
+else is sent. Behaviour of an older device: it ignores `v.<id>` (an unknown field).
+
+### For tests
+
+`STUDIO.screen(id)`: `{ rec, i, order, t, dur, on, el: { src, currentTime, paused, muted, readyState }, drawn, bar, own }`;
+`STUDIO.screenClock` (a function the tests may replace, as `trgClock`). Headless Chromium (Playwright's) has no H.264 or
+AAC: the tests use WebM (VP8 or VP9 with Opus or Vorbis) clips made at test time (in the page from a canvas and an
+oscillator through `MediaRecorder`, or with `ffmpeg` where the test runs it). Untested on devices until tried: video on a
+Quest (its decoder, the cost of a 1080p `VideoTexture`, two at once), the bar with a real ray, sound through HRTF from a
+screen, iPhone's video element through the context, a long video converted on Coolify.
+
+### Built differently (the studio lane, v143)
+
+- The bar is as wide as the panel but held between 0.6 and 2.4 m (an audio player's 0.9 m), and always 0.12 m tall; its picture
+  is laid out in units of a 100 tall bar (`barLayout` in `e6q_screens.js`), which `STUDIO.screen(id).bar` reports.
+- An audio player's list starts, as a screen's, with the scene's first video, else its first sound (the spec's one rule).
+- Undo never takes a press back: `undoList` keeps the screen's current `play` when it puts an older record back (an edit's
+  step holds the `play` of its moment, which a press has outdated since).
+- The end of an entry waits for the length the element read (`SCR.dur`, by path); a stream with no finite duration never
+  advances by itself. A screen not shown (hidden, over the limit, not in explore mode) does not advance; it catches up (at most
+  eight entries a frame) once it is shown again.
+- Videos placed from the Add pane's *Videos* grid; the Upload pane's drop into `videos/` and its conversion are the other lane's
+  (`e7b_upload.js`).
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without

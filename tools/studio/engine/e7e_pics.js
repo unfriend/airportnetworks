@@ -340,6 +340,11 @@ function tileFor(t) {
     x.lineWidth = 10;
     [34, 58, 82].forEach((r, i) => { x.globalAlpha = 1 - i * 0.25; x.beginPath(); x.arc(140, 130, r, -0.75, 0.75); x.strokeStyle = rgb(1, 0.3); x.stroke(); });
     x.globalAlpha = 1;
+  } else if (t.k === 'screen') {
+    // a screen: a panel on a stand with a play triangle on it (v143)
+    poly([[34, 70], [222, 70], [222, 176], [34, 176]], rgb(0.3), rgb(1, 0.3), 5); poly([[44, 80], [212, 80], [212, 166], [44, 166]], rgb(0.18));
+    poly([[110, 98], [110, 148], [154, 123]], rgb(1, 0.25)); poly([[104, 176], [152, 176], [152, 200], [104, 200]], rgb(0.5));
+    line([84, 204], [170, 204], rgb(0.6), 8);
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour

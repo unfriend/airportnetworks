@@ -203,6 +203,13 @@ function paneBlocks(tab) {
     fromBlocks(B, full);
     scanBlocks(B);   // (the headset's room scan saved as a model: e6p_scan.js)
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
+    // screens: video and audio players with a playlist (e6q_screens.js); a video file's card places one of it
+    const vids = STU.files.filter(f => f.kind === 'video' && !inOriginals(f.path));
+    B.push({ label: 'Screens', row: [{ id: 'screen:screen', label: 'Screen', act: 'screenAdd', v: 'screen', dis: full('v') }, { id: 'screen:audio', label: 'Audio player', act: 'screenAdd', v: 'audio', dis: full('v') }] },
+      { p: 'A panel that plays the scene\'s videos (or, as an audio player, a small speaker with its sound) from a playlist, its sound from where it stands. One play state for everyone at the circle by default; its bar (under it) works without editing when its card says so.', c: 'faint' });
+    if (SCR.note) B.push({ p: SCR.note, c: 'amber' });
+    B.push({ label: `Videos (${vids.length})`, grid: vids.map(f => ({ id: 'addv:' + f.path, label: f.path.replace(/^videos\//i, ''), title: f.path, act: 'addv', v: f.path, kind: extOf(f.path).toUpperCase(), sub: mb(f.bytes), dis: full('v') })) });
+    if (!vids.length) B.push({ p: 'No videos in the scene\'s folder (.mp4, .m4v, .mov, .mkv; .webm is listed with the sounds): drop them under Upload; they go into videos/.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
@@ -214,7 +221,7 @@ function paneBlocks(tab) {
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
     if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'item') {
@@ -226,7 +233,7 @@ function paneBlocks(tab) {
     // tab, should show the same image and look like the add item part"): groups first, a heading each (a press selects the
     // group) with its members' cards under it; then what is in no group, by kind. An object's cut-outs are tags on its card
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
@@ -244,7 +251,7 @@ function paneBlocks(tab) {
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
     // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
     }
@@ -279,6 +286,7 @@ function itemSub(it) {
   const r = it.rec, me = (r.motion ? ' · ' + MOTION[r.motion.kind].does : '') + (r.path ? (recording(it) ? ' · recording' : ' · recorded path') : '') + (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
+  if (it.kind === 'v') return screenSub(r) + (r.sync === 'own' ? ' · each person' : '') + me;
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
@@ -313,6 +321,7 @@ function itemCard(it, C) {
     if (xs.length && r.cutsLocked) card.tags = [{ id: 'cutl:' + it.id, label: `🔒 ✂ ${xs.length} cut-out${xs.length > 1 ? 's' : ''} locked`, title: 'Its cut-outs are locked: unlock them on its card', act: 'sel', v: it.id, on: false, sel: false, pk: '', ticks: null }];
     else if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
+  else if (it.kind === 'v') { card.tile = { k: r.look === 'audio' ? 'sound' : 'screen', col: it.look.col }; card.sub = screenSub(r); state.unshift(r.ctl === 'any' ? 'controls for anyone' : '', r.sync === 'own' ? 'each person' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
@@ -453,6 +462,8 @@ function itemBlocks(it, B, ed) {
     behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);   // (the sounds that follow it move with it)
     pathBlocks(it, B, dis, mv);
+  } else if (it.kind === 'v') {
+    screenBlocks(it, B, dis, mv);   // (a screen: e6q_screens.js)
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -705,6 +716,7 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
   if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
@@ -748,6 +760,8 @@ function act(a, v) {
     scanSrc: () => { if (v === 'mesh' || v === 'planes') SCAN.src = v; },
     scanKeep: () => { if ([1, 0.5, 0.2].includes(+v)) SCAN.keep = +v; },
     shape: () => addShape(v),
+    screenAdd: () => addScreen(v),
+    addv: () => addScreen('screen', v),
     empty: () => addEmpty(),
     setting: () => setSetting(v),
     circle: () => sceneToCircle(),
@@ -778,7 +792,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -994,6 +1008,7 @@ function pickables() {
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
+    else if (it.kind === 'v' && it.holder.visible) L.push(it.look.hit);   // (a screen's panel: e6q_screens.js)
   }
   return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
 }
@@ -1091,6 +1106,7 @@ function bindCanvas() {
   let down = null, pinch = 0;
   cv.style.cursor = 'grab';
   cv.addEventListener('pointerdown', ev => {
+    if (screenDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (a screen's bar: e6q_screens.js)
     if (visitDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (without editing: an item anyone may move, v140)
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
@@ -1100,8 +1116,10 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
+    if (SCR.drag) { if (ev.pointerId === SCR.drag.pid) screenDragTo(ev); return; }   // (the seek bar held)
     if (PDRAG) { if (ev.pointerId === PDRAG.pid) visitMoveTo(ev); return; }
     if (!pts.has(ev.pointerId)) {
+      screenHover(ev, cv);   // (a screen or its bar under the pointer lights its bar)
       // (without editing: over an item anyone may move, the hand that drags it, v140)
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) { GL.world.updateMatrixWorld(true); cv.style.cursor = visitPick(pointerRay(ev.clientX, ev.clientY)) ? 'move' : 'grab'; }
       // pointing without a button (editing): what is under the mouse lights up and shows its name
@@ -1130,6 +1148,7 @@ function bindCanvas() {
     } else { orbit.cur[0] -= dx * 0.3; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -10, 86); }
   });
   const end = ev => {
+    if (SCR.drag && ev.pointerId === SCR.drag.pid) { screenDragEnd(); return; }
     if (PDRAG && ev.pointerId === PDRAG.pid) { visitUp(); return; }
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
@@ -1352,6 +1371,9 @@ function tcRead(it) {
   } else if (it.kind === 'p') {
     h.scale.set(...h.scale.toArray().map(v => clamp(Math.abs(v), 0.01, 100)));
     setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray() });
+  } else if (it.kind === 'v') {
+    const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - it.rec.w)), w = clamp(Math.abs(v[d.indexOf(Math.max(...d))]), 0.2, 20);   // (its width: the axis dragged)
+    h.scale.setScalar(w); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w });
   } else if (it.kind === 'e') { h.scale.set(1, 1, 1); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() }); }
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }

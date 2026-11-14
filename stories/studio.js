@@ -16844,7 +16844,7 @@ const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && 
 const extOf = p => (/\.([^./\\]+)$/.exec(String(p)) || ['', ''])[1].toLowerCase();
 const baseName = p => String(p).split(/[\\/]/).pop();
 const stem = p => baseName(p).replace(/\.[^.]*$/, '');
-const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp', 'tif', 'tiff', 'psd', 'psb', 'dds', 'avif'], data: ['bin'] };
+const KINDS_EXT = { model: ['glb', 'gltf', 'fbx', 'obj', 'ply', 'stl'], audio: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm'], image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'tga', 'bmp', 'tif', 'tiff', 'psd', 'psb', 'dds', 'avif'], data: ['bin'], video: ['mp4', 'm4v', 'mov', 'mkv'] };
 const kindOf = p => { const e = extOf(p); for (const k in KINDS_EXT) if (KINDS_EXT[k].includes(e)) return k; return 'other'; };
 // timers that die with the studio (dispose clears them: a late one must not write into the next story's panes)
 const TIMERS = new Set();
@@ -17079,7 +17079,7 @@ function filesOf(list) {
   for (const f of Array.isArray(list) ? list : []) {
     if (!f || !okFile(f.path) || out.length >= 2000) continue;
     // (an OBJ, PLY or STL is a model here, though the relay lists only GLB, glTF and FBX as models)
-    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
+    const kind = f.path.startsWith(PV_DIR) ? (isPv(f.path) ? 'preview' : 'other') : okRecFile(f.path) ? 'recording' : kindOf(f.path) === 'model' ? 'model' : ['model', 'audio', 'video', 'image', 'data', 'other'].includes(f.kind) ? f.kind : kindOf(f.path);   // (a recording kept as a file: e6j_voice.js)
     out.push({ path: f.path, bytes: +f.bytes || 0, at: +f.at || 0, kind,
       ...(SRC.kind === 'relay' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? { url: f.url } : {}) });   // (R2: its signed link)
   }
@@ -17125,7 +17125,7 @@ async function refreshFiles(changed) {
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
 // its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
 // naming an item the layout lacks, or one of the wrong kind, dropped
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100 };
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20 };
 function readLayout(j) {
   const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
@@ -17136,13 +17136,14 @@ function readLayout(j) {
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
   let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one)
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties]]) {
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
     for (const x of list) {
       const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
+      if (kind === 'v') delete rec.play;   // (a scene opens paused at its first entry: play is never saved)
       ids.add(id); n++; if (rec.path) keys += pathN(rec.path);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
@@ -17177,12 +17178,13 @@ function layoutOut() {
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  if (P.some(it => it.kind === 'v')) L.screens = P.filter(it => it.kind === 'v').map(it => { const r = Object.assign({ id: it.id }, it.rec); delete r.play; return r; });   // (without play: v143)
   L.settings = Object.assign({}, STU.settings);
   return L;
 }
 // a list of items (or what is placed) and the scene's settings as one string, to tell whether two are the same
 function keyOf(items, settings) {
-  const L = (items || placedItems()).map(x => [x.id, x.kind, x.rec]);
+  const L = (items || placedItems()).map(x => [x.id, x.kind, x.kind === 'v' && x.rec.play ? Object.assign({}, x.rec, { play: undefined }) : x.rec]);   // (a screen's play is never compared: v143)
   L.sort((a, b) => (a[0] < b[0] ? -1 : 1));
   return JSON.stringify(L) + JSON.stringify(settings || (items ? normSettings() : STU.settings));
 }
@@ -20373,6 +20375,7 @@ function norm(kind, x) {
     if (x.trk != null) r.trk = normTrk(x.trk);
     return lockOf(x, showsOf(x, r));
   }
+  if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
   return null;
 }
 // in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
@@ -20406,14 +20409,14 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
 // (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
-const SHOWS_KINDS = ['o', 's', 'p', 'e'];
+const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -20472,6 +20475,12 @@ function makeItem(id, kind) {
     it.look.mesh.userData.id = it.look.fill.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'v') {
+    // a screen: its body is its holder (scaled to its width); its bar stands apart in the items' frame (e6q_screens.js)
+    it.look = screenLook(id);
+    it.holder = it.look.body;
+    it.look.hit.userData.id = it.look.bar.userData.id = id;
+    GL.edit.add(it.look.deco); GL.items.add(it.look.bar);
   } else if (kind === 'e') {
     it.look = LOOKS.empty(id);
     it.holder = it.look.group;
@@ -20491,7 +20500,7 @@ function removeItem(id) {
   if (!it) return;
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
-  else { it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
+  else { if (it.kind === 'v') screenDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.tag) { GL.edit.remove(it.tag); it.tag.userData.drop(); }   // (a model's tag: modelTag)
@@ -20523,6 +20532,7 @@ function poseOf(it) {
   else if (it.kind === 'c') { _pq.setFromAxisAngle(_yUp, r.yaw); _ps.fromArray(r.size); }
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
   else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
+  else if (it.kind === 'v') { _pq.fromArray(r.q); _ps.setScalar(r.w); }
   else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
@@ -20542,6 +20552,7 @@ function applyRec(it, was, glide) {
   } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
   else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
+  else if (it.kind === 'v') screenRec(it, was);   // (its playlist, look and width: e6q_screens.js)
   else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
     it.look.name.userData.set(tagName(r), it.look.col, 0.07);
@@ -20947,7 +20958,7 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    if (editing && (it.kind === 'o' || it.kind === 'p')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
+    if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
     else {
       const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : 0;
       it.hid = false; it.a = approach(it.a, tgt, fade);
@@ -20986,6 +20997,7 @@ function itemsStep(dt, now) {
   cutsStep(editing, now);
   for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
   groupsStep(editing);
+  screensStep(editing, now, dt);   // (the screens' pictures, sounds and bars, once every item has its place: e6q_screens.js)
   editStep(editing);
   ghostStep(editing, now);   // (the ghosts at the placed poses, the page's arrows on them; e6h_ghost.js)
   emitStep(now);
@@ -21133,6 +21145,7 @@ function itemTopInto(it, out, mid) {
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'v') { const b = screenBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'e') { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.2; }   // (where it is drawn: a motion)
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
@@ -21395,7 +21408,11 @@ function undo() {
 // members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
 // (groupUndone, e6c_groups.js)
 function undoList(list) {
-  for (const u of list.slice().reverse()) { if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const u of list.slice().reverse()) {
+    // (a screen's play state is never taken back by Undo: what the bar did since stays, v143)
+    if (u.kind === 'v' && u.before) { const cur = STU.items.get(u.id); if (cur && cur.kind === 'v') u.before = Object.assign({}, u.before, { play: cur.rec.play }); }
+    if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id);
+  }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
   groupUndone(list);
   changed();
@@ -21660,7 +21677,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
-  if (it.kind === 'p' || it.kind === 'e') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
+  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -21714,7 +21731,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpe]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpev]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -21727,10 +21744,10 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0 };
   let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpe])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpev])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
     let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
@@ -22080,11 +22097,12 @@ function groupBox(g, out, solid) {
   if (!BOX1.boundingBox) BOX1.computeBoundingBox();
   GL.items.updateWorldMatrix(true, false);
   _gm.copy(GL.items.matrixWorld).invert();
-  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p') : [];
+  const ms = members(g), objs = solid ? ms.filter(m => m.kind === 'o' || m.kind === 'p' || m.kind === 'v') : [];
   for (const it of objs.length ? objs : ms) {
     if (it.kind === 's') { out.expandByPoint(soundPoint(it, _gp)); continue; }
     if (it.kind === 'e') { out.expandByPoint(it.holder.position); continue; }
     if (it.kind === 'p') { out.union(shapeBox(it, _gb)); continue; }
+    if (it.kind === 'v') { out.union(screenBox(it, _gb)); continue; }
     if (it.kind === 'o' && !it.model) { out.expandByPoint(it.holder.position); out.expandByPoint(_gp.copy(it.holder.position).setY(it.holder.position.y + 0.4)); continue; }
     const t = it.kind === 'o' ? it.proxy : it.holder;
     t.updateWorldMatrix(true, false);
@@ -22155,6 +22173,11 @@ function groupMove(B, t, th, k, write) {
       const p = at(_gpv.fromArray(r.p), it), yaw = r.yaw + th, size = r.size.map(v => lim(v * k, 0.05, 100, it));
       if (write) setRec(it.id, { p: p.toArray(), yaw, size });
       if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.setFromAxisAngle(_gpy, yaw); it.holder.scale.fromArray(size); }
+    } else if (m.kind === 'v') {
+      // (a screen: its place and turn, its width)
+      const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), w = lim(r.w * k, 0.2, 20, it);
+      if (write) setRec(it.id, { p: p.toArray(), q: q.toArray(), w });
+      if (it.carry) { it.holder.position.copy(p); it.holder.quaternion.copy(q); it.holder.scale.setScalar(w); }
     } else if (m.kind === 'p' || m.kind === 'e') {
       // (a shape: its place, its turn and its size per axis; an empty: its place and turn)
       const p = at(_gpv.fromArray(r.p), it), q = _gpq.clone().multiply(new THREE.Quaternion().fromArray(r.q)).normalize(), size = m.kind === 'p' ? r.size.map(v => lim(v * k, 0.01, 100, it)) : null;
@@ -22290,7 +22313,7 @@ function duplicateGroup(g) {
       putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined })));
       for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
-    for (const m of ms) if (m.kind === 'p' || m.kind === 'e') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
     // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
@@ -26596,6 +26619,636 @@ function scanBlocks(B) {
       ' The room mesh is Quest\'s own: coarse and without colour.', c: 'faint' });
   if (SCAN.note) B.push({ p: SCAN.note, c: SCAN.noteC });
 }
+// ================================================================ SCREENS ==
+// The owner, 14 November 2026 (tools/studio/SPEC.md, "Screens: video and audio players"): "is it possible to have a
+// video/audio player with playlist and an option to show controls even outside studio mode that can playback video or audio
+// files from the relay"; in studio scenes, "shared per default, personal optional if easy".
+// A screen (kind v, the state's v.<id>, layout.json's screens): a flat panel playing a playlist of the scene's video and
+// sound files, its sound from where it stands (or, as an audio player, a small speaker), and a bar under it with the
+// transport. One <video> element per screen per device; its picture a VideoTexture, its sound through the shell's context
+// (createMediaElementSource into a gain and an HRTF panner, as a streamed sound's), its moment worked out from the record's
+// play state { i, on, t, at } and the room's clock. The record's play is shared (a press writes it, no Undo step: it is not a
+// change) or, with sync 'own', each device's own in memory. Undo never takes a press back (undoList keeps the current play).
+
+const SCR_MAX = 50, SCR_VIDEOS = { page: 4, xr: 2 }, SCR_BAR_SHOW = 3000;
+// the room's time (ms) at a station, else this device's clock; a function the tests replace, as trgClock
+let screenClock = () => { try { if (atStation() && HOST.collab.now) return HOST.collab.now(); } catch (e) { /* not in a room */ } return Date.now(); };
+const SCR = { dur: new Map(), drag: null, note: '', log: [] };   // (dur: the length of each file read here, by path; drag: the seek bar held on a page)
+const scrKind = p => kindOf(p);
+
+// ---------------------------------------------------------------- the record --
+// { name, p, q, w, look, list, loop, shuffle, vol, r, sync, ctl, play, locked, shows } (the spec's "The record")
+function normScreen(x, P, has, name, one) {
+  const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1];
+  if (!q || !Array.isArray(x.list)) return null;
+  const list = x.list.filter(f => okFile(f) && ['video', 'audio'].includes(scrKind(f))).slice(0, SCR_MAX);
+  if (!list.length || (has('w') && !fin(x.w)) || (has('vol') && !fin(x.vol)) || (has('r') && !fin(x.r))) return null;
+  const look = one('look', ['screen', 'audio'], 'screen');
+  const r = { name: name(look === 'audio' ? 'Audio player' : 'Screen'), p: P, q, w: has('w') ? r2(clamp(x.w, 0.2, 20)) : 1.6, look, list, loop: one('loop', ['all', 'one', 'off'], 'all'),
+    vol: has('vol') ? r2(clamp(x.vol, 0, 2)) : 1, r: has('r') ? r2(clamp(x.r, 0.1, 20)) : 3 };
+  // (kept only when set: a shuffle's seed, who plays it, who may use the bar, and the shared play state)
+  if (x.shuffle != null) r.shuffle = Number.isInteger(x.shuffle) && x.shuffle >= 1 && x.shuffle <= 2147483648 ? x.shuffle : null;
+  if (x.sync != null) r.sync = x.sync === 'own' ? 'own' : null;
+  if (x.ctl != null) r.ctl = x.ctl === 'any' ? 'any' : null;
+  if (x.play != null) {
+    const s = x.play;
+    r.play = s && typeof s === 'object' && !Array.isArray(s) && Number.isInteger(s.i) && s.i >= 0 && typeof s.on === 'boolean' && fin(s.t) && s.t >= 0 && fin(s.at) && s.at >= 0
+      ? { i: Math.min(s.i, list.length - 1), on: s.on, t: r3(s.t), at: Math.round(s.at) } : null;
+  }
+  return lockOf(x, showsOf(x, r));
+}
+// the order of the list: as listed, or a permutation seeded by the record's shuffle (mulberry32 and a Fisher-Yates: the same
+// function on every device)
+function shuffleOrder(n, seed) {
+  const o = Array.from({ length: n }, (_, i) => i);
+  if (!seed) return o;
+  let a = seed >>> 0;
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+  return o;
+}
+const scrOrder = r => shuffleOrder(r.list.length, r.shuffle || 0);
+const scrPath = (r, i) => r.list[scrOrder(r)[clamp(i, 0, r.list.length - 1)]];
+const scrOwn = it => it.rec.sync === 'own';
+
+// ----------------------------------------------------------------- play state --
+// the play state in force: the record's (shared; absent: paused at the first entry's start) or this device's own
+function scrState(it) {
+  const r = it.rec;
+  if (scrOwn(it)) return it.own || (it.own = { i: 0, on: false, t: 0, at: Math.round(screenClock()) });
+  const s = r.play;
+  return s ? { i: Math.min(s.i, r.list.length - 1), on: s.on, t: s.t, at: s.at } : { i: 0, on: false, t: 0, at: 0 };
+}
+const scrT = (S, now) => Math.max(0, S.on ? S.t + (now - S.at) / 1000 : S.t);
+// a new play state written: shared, into the record (no Undo step: not a change); own, in memory
+function scrWrite(it, S) {
+  S = { i: Math.max(0, S.i | 0), on: !!S.on, t: r3(Math.max(0, S.t)), at: Math.max(0, Math.round(S.at)) };
+  if (scrOwn(it)) { it.own = S; return; }
+  const was = it.rec.play;
+  if (was && was.i === S.i && was.on === S.on && was.t === S.t && was.at === S.at) return;
+  setRec(it.id, { play: S });
+}
+// the end of an entry: every device works out the next play state the same way from the same duration (the next entry from
+// 0 at the moment the entry ended; 'one' the same again; the last: the first with 'all', else paused at its end), and writes it
+function scrAdvance(it, now) {
+  const r = it.rec, n = r.list.length;
+  let S = scrState(it), moved = false;
+  // (an entry whose file fails counts as ended: every device that sees the failure moves on from its first moment; one that
+  // sees none gets the written state. A list where every entry fails stops after one round)
+  const sv = it.sv;
+  if (S.on && sv && sv.err && sv.errAt && sv.path === scrPath(r, S.i) && performance.now() - sv.errAt > 300) {
+    it.errRun = (it.errRun || 0) + 1;
+    if (it.errRun >= n || r.loop === 'one' || (S.i >= n - 1 && r.loop === 'off')) { it.errRun = 0; scrWrite(it, { i: S.i, on: false, t: 0, at: now }); }
+    else scrWrite(it, { i: (S.i + 1) % n, on: true, t: 0, at: now });
+    return;
+  }
+  for (let k = 0; k < 8 && S.on; k++) {
+    // (a clip shorter than 0.2 s counts as 0.2 s here: at most five new play states a second from a list of tiny clips)
+    const dur = Math.max(SCR.dur.get(scrPath(r, S.i)) || 0, SCR.dur.has(scrPath(r, S.i)) ? 0.2 : 0);
+    if (!(dur > 0) || S.t + (now - S.at) / 1000 < dur) break;
+    const at = Math.round(S.at + (dur - S.t) * 1000);
+    moved = true;
+    if (r.loop === 'one') S = { i: S.i, on: true, t: 0, at };
+    else if (S.i < n - 1) S = { i: S.i + 1, on: true, t: 0, at };
+    else if (r.loop === 'all') S = { i: 0, on: true, t: 0, at };
+    else { S = { i: S.i, on: false, t: SCR.dur.get(scrPath(r, S.i)) || dur, at }; break; }
+  }
+  if (moved) scrWrite(it, S);
+}
+// who may use the bar and the card's transport: anyone editing, and anyone at all when its record says so (a visitor's kiosk
+// too), unless the circle's story is locked
+const scrCan = it => !!(it && it.kind === 'v' && STU.scene && (editOn() || (it.rec.ctl === 'any' && !editLocked())));
+// a press of the transport (the bar, the card): the new play state; none is an Undo step
+function scrPress(it, act, v) {
+  if (!scrCan(it)) return false;
+  const r = it.rec, n = r.list.length, now = Math.round(screenClock()), S = scrState(it), t = scrT(S, now);
+  const dur = SCR.dur.get(scrPath(r, S.i)) || 0;
+  let N = null;
+  if (act === 'play') N = { i: S.i, on: !S.on, t: !S.on && dur && t >= dur - 0.05 ? 0 : t, at: now };
+  else if (act === 'next') N = { i: (S.i + 1) % n, on: S.on, t: 0, at: now };
+  else if (act === 'prev') N = t > 3 || n === 1 ? { i: S.i, on: S.on, t: 0, at: now } : { i: (S.i + n - 1) % n, on: S.on, t: 0, at: now };
+  else if (act === 'seek') { if (dur > 0) N = { i: S.i, on: S.on, t: clamp(+v, 0, 1) * dur, at: now }; }
+  else if (act === 'skip') N = { i: S.i, on: S.on, t: clamp(t + (+v || 0), 0, dur || 1e6), at: now };
+  else if (act === 'go') N = { i: clamp(+v | 0, 0, n - 1), on: true, t: 0, at: now };
+  else if (act === 'vol') {
+    const cur = scrOwn(it) && it.ownVol != null ? it.ownVol : r.vol, nv = r2(clamp(Math.round((cur + (+v)) * 4) / 4, 0, 2));
+    if (scrOwn(it)) it.ownVol = nv; else setRec(it.id, { vol: nv });   // (shared: the record's, no Undo step)
+    scrSay(it, act);
+    return true;
+  }
+  if (!N) return false;
+  scrWrite(it, N);
+  scrSay(it, act);
+  return true;
+}
+function scrSay(it, act) {
+  SCR.log.push([it.id, act, Math.round(performance.now())]); if (SCR.log.length > 40) SCR.log.shift();
+  sfxAct('click', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray());
+}
+
+// ----------------------------------------------------------------------- looks --
+const SCR_PLANE = new THREE.PlaneGeometry(1, 1), SCR_EDGE = new THREE.EdgesGeometry(SCR_PLANE);
+const SCR_COL = '#7fd2ff', SCR_BAR_H = 0.12;
+const fmtT = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+// the bar's layout in design units (100 tall, as wide as its width asks: bw m at 0.12 m for 100 units)
+function barLayout(Wd) {
+  const wide = Wd >= 800, mw = wide ? 130 : 0;
+  const mx0 = 184, mx1 = Wd - 106 - (wide ? mw + 4 : 0), sx0 = mx0 + 126, sx1 = mx1 - 8;
+  return { Wd, wide, mw, mx0, mx1, sx0, sx1, R: [
+    { k: 'prev', x0: 6, x1: 56, y0: 10, y1: 90 }, { k: 'play', x0: 60, x1: 118, y0: 10, y1: 90 }, { k: 'next', x0: 122, x1: 172, y0: 10, y1: 90 },
+    { k: 'seek', x0: sx0 - 6, x1: sx1 + 6, y0: 44, y1: 98 },
+    { k: 'vdn', x0: Wd - 102, x1: Wd - 54, y0: 10, y1: 90 }, { k: 'vup', x0: Wd - 50, x1: Wd - 6, y0: 10, y1: 90 },
+  ] };
+}
+// the seek bar's width in design units asks for a bar of at least 0.6 m and at most 2.4 m
+const scrBarW = r => clamp(r.look === 'audio' ? 0.9 : r.w, 0.6, 2.4);
+function screenLook(id) {
+  const body = new THREE.Group(), deco = new THREE.Group(), col = LOOKS.colOf(id);
+  // (the panel: a unit plane, its height set from the video's shape each frame; a card of its own while no picture is drawn)
+  const cardCv = document.createElement('canvas'); cardCv.width = 640; cardCv.height = 360;
+  const cardTex = new THREE.CanvasTexture(cardCv); cardTex.minFilter = THREE.LinearFilter; cardTex.generateMipmaps = false;
+  const mat = new THREE.MeshBasicMaterial({ map: cardTex, toneMapped: false });
+  const panel = new THREE.Mesh(SCR_PLANE, mat);
+  const back = new THREE.Mesh(SCR_PLANE, new THREE.MeshBasicMaterial({ color: 0x0c1118 })); back.rotation.y = Math.PI; back.position.z = -0.003;
+  const hit = new THREE.Mesh(SCR_PLANE, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+  const line = LOOKS.batched(new THREE.LineSegments(SCR_EDGE, new THREE.LineBasicMaterial({ color: 0xffffff })), 'line'); line.renderOrder = 6; line.visible = false;
+  body.add(panel, back, hit, line);
+  const name = LOOKS.tag(30); deco.add(name);
+  // (the bar: apart in the items' frame, so the holder's scale (the width) never stretches it; opaque, depth-tested)
+  const barCv = document.createElement('canvas'); barCv.width = 64; barCv.height = 64;
+  const barTex = new THREE.CanvasTexture(barCv); barTex.minFilter = THREE.LinearFilter; barTex.generateMipmaps = false;
+  const bar = new THREE.Mesh(SCR_PLANE, new THREE.MeshBasicMaterial({ map: barTex, toneMapped: false })); bar.visible = false; bar.userData.bar = true;
+  const L = { body, deco, name, panel, back, hit, line, bar, barCv, barTex, cardCv, cardTex, mat, col, ext: [1.6, 0.9], barSig: '', cardSig: '', transp: false, lastA: -1,
+    // hot: the pointer on it, selected, editing, hid: a cube hides it from you (not drawn: its edges show where it is while editing)
+    look(o) {
+      line.visible = !!o.editing && (o.hid || o.hot || o.selected);
+      line.material.color.set(col).lerp(new THREE.Color(1, 1, 1), o.selected || o.hot ? 0.6 : 0.1);
+      panel.visible = back.visible = !o.hid && o.a > 0.002;
+      name.visible = !!o.editing && !(o.hot || o.selected);
+      if (Math.abs(o.a - L.lastA) > 1e-3) {
+        L.lastA = o.a;
+        const tr = o.a < 0.999;
+        mat.opacity = o.a; back.material.opacity = o.a;
+        if (tr !== L.transp) { L.transp = tr; mat.transparent = back.material.transparent = tr; mat.depthWrite = back.material.depthWrite = !tr; mat.needsUpdate = back.material.needsUpdate = true; }
+      }
+    },
+    drop() {
+      for (const m of [mat, back.material, hit.material, line.material, bar.material]) m.dispose();
+      cardTex.dispose(); barTex.dispose(); name.userData.drop();
+      if (bar.parent) bar.parent.remove(bar);
+    },
+  };
+  return L;
+}
+
+// ------------------------------------------------------- the player (per device) --
+// a record taken (applyRec): its look and name, the playlist's order; its element rebuilt when its file changes (screensStep)
+function screenRec(it, was) {
+  const r = it.rec, L = it.look;
+  L.name.userData.set(tagName(r) + (r.look === 'audio' ? ' · audio player' : ` · ${r.list.length} entr${r.list.length === 1 ? 'y' : 'ies'}`), L.col, 0.075);
+  L.barSig = ''; L.cardSig = '';
+  if (!was || was.look !== r.look) L.hit.scale.set(1, 1, 1);
+}
+function screenDrop(it) {
+  svDrop(it);
+  SCR.dur.size > 400 && SCR.dur.clear();
+}
+function svDrop(it) {
+  if (it.svOld) { svDropOf(it, it.svOld); it.svOld = null; }
+  const sv = it.sv;
+  if (!sv) return;
+  it.sv = null;
+  svDropOf(it, sv);
+}
+function svDropOf(it, sv) {
+  try { sv.el.pause(); } catch (e) { /* gone */ }
+  for (const n of [sv.node, sv.gain, sv.pan]) try { n && n.disconnect(); } catch (e) { /* gone */ }
+  try { sv.el.removeAttribute('src'); sv.el.load(); } catch (e) { /* gone */ }
+  if (sv.tex) sv.tex.dispose();
+  if (it.look && it.look.mat.map === sv.tex) { it.look.mat.map = it.look.cardTex; it.look.mat.needsUpdate = true; }
+}
+function screensDispose() {
+  for (const it of STU.items.values()) if (it.kind === 'v') svDrop(it);
+  // (the listener back at the origin, as the emitters do: with screens and no emitters nothing else would)
+  if (SCR.lisCtx) { try { listen(SCR.lisCtx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ } SCR.lisCtx = null; }
+}
+// its element (made once per context: an element feeds one context only; before there is a context it plays muted)
+function svMake(it, ctx) {
+  const el = document.createElement('video');
+  el.playsInline = true; el.setAttribute('playsinline', ''); el.crossOrigin = 'anonymous'; el.preload = 'auto'; el.muted = !ctx; el.loop = false;
+  const sv = it.sv = { el, ctx: null, path: '', url: '', tex: new THREE.VideoTexture(el), need: true, playAt: 0, chk: 0, fixAt: 0, lag: 0.05, drift: 0, fixes: 0, err: '', drawn: false, over: false };
+  svConnect(it, sv, ctx);
+  const dur = () => { if (sv.path && isFinite(el.duration) && el.duration > 0) SCR.dur.set(sv.path, el.duration); };
+  el.addEventListener('loadedmetadata', dur); el.addEventListener('durationchange', dur);
+  el.addEventListener('playing', () => { sv.playAt = performance.now(); it.errRun = 0; });
+  el.addEventListener('error', () => { sv.err = 'Could not play this file'; sv.errAt = performance.now(); if (SRC.linkTtl > 0 && linksAge() > 60000) linksFresh(); });
+  return sv;
+}
+// the element's sound onto a context (an element feeds one context only, once: so a context that comes to an element that
+// has none is joined in place, and only a different one afterwards means a new element)
+function svConnect(it, sv, ctx) {
+  if (!ctx || sv.ctx || sv.noCtx) return;
+  try {
+    sv.node = ctx.createMediaElementSource(sv.el); sv.gain = ctx.createGain(); sv.pan = ctx.createPanner();
+    sv.gain.gain.value = 0; sv.gt = 0;
+    sv.pan.panningModel = 'HRTF'; sv.pan.distanceModel = 'inverse'; sv.pan.refDistance = it.rec.r; sv.pan.rolloffFactor = 1; sv.pan.maxDistance = 50;
+    sv.node.connect(sv.gain); sv.gain.connect(sv.pan); sv.pan.connect(ctx.destination);
+    sv.ctx = ctx;
+  } catch (e) { sv.ctx = null; sv.noCtx = true; sv.el.muted = true; }
+}
+const _srp = new THREE.Vector3(), _srq = new THREE.Quaternion(), _srf = new THREE.Vector3(), _sru = new THREE.Vector3();
+// every frame: which screens may play (shown, in explore mode, the nearest few), each one's element, picture, sound and bar
+function screensStep(editing, now, dt) {
+  const A = HOST.audio, ctx = A && A.fx ? A.fx() : null, wall = Math.round(screenClock()), headset = !!(XR.on && GL.renderer.xr.isPresenting);
+  const list = [];
+  for (const it of STU.items.values()) if (it.kind === 'v') list.push(it);
+  if (!list.length) return;
+  // (where the viewer is, for the nearest first and the listener)
+  if (headset) _srp.copy(XR.head); else GL.camera.getWorldPosition(_srp);
+  const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
+  // who may play now: shown for you, in explore mode, the studio on show; of those playing, the nearest (2 in a headset, 4 on a page)
+  const can = list.filter(it => it.shown && !it.notHere && APP.mode === 'explore' && STU.scene && !sfxHidden() && !document.hidden);
+  for (const it of can) scrAdvance(it, wall);
+  const playing = can.filter(it => scrState(it).on).map(it => ({ it, d: it.holder.getWorldPosition(_srf).distanceTo(_srp) })).sort((a, b) => a.d - b.d);
+  const lim = headset ? SCR_VIDEOS.xr : SCR_VIDEOS.page, ok = new Set(playing.slice(0, lim).map(x => x.it)), over = new Set(playing.slice(lim).map(x => x.it));
+  let any = false;
+  for (const it of list) {
+    const L = it.look, r = it.rec, S = scrState(it), audio = r.look === 'audio';
+    it.fa = it.sa;
+    // the pose of the panel (its height from the video's shape) and where the bar, the tag and the edges stand
+    const sv0 = it.sv, asp = !audio && sv0 && sv0.drawn && sv0.el.videoHeight ? sv0.el.videoWidth / sv0.el.videoHeight : 16 / 9;
+    const pw = audio ? 0.3 : r.w, ph = audio ? 0.3 : r.w / asp, s = audio ? 0.3 / r.w : 1;
+    L.ext[0] = pw; L.ext[1] = ph;
+    for (const m of [L.panel, L.back, L.hit, L.line]) m.scale.set(s, audio ? s : s / asp, 1);
+    it.holder.visible = it.a > 0.002 || editing;
+    L.look({ a: it.a, hid: it.hid, editing, hot: editing && STU.hover === it.id, selected: editing && STU.sel === it.id });
+    L.deco.visible = editing && it.holder.visible;
+    if (L.deco.visible) { L.deco.position.copy(it.holder.position); L.deco.quaternion.copy(it.holder.quaternion); L.name.position.set(0, ph / 2 + 0.05, 0); }
+    // its element: wanted while allowed to play (or paused showing its picture), dropped on a new context
+    const allowed = can.includes(it) && !over.has(it);
+    it.over = over.has(it);
+    const path = scrPath(r, S.i), url = fileUrl(path, true);
+    let sv = it.sv;
+    // (a context that goes null (Sound off, hidden, renewing) keeps the element, silent; one that comes joins an element that has
+    // none; only a different one than the element's own means a new element, the old picture kept until the new one has a frame)
+    if (sv && ctx && !sv.ctx) svConnect(it, sv, ctx);
+    if (sv && ctx && sv.ctx && sv.ctx !== ctx && allowed) {
+      const old = sv; old.stale = true;
+      try { old.el.pause(); } catch (e) { /* gone */ }
+      for (const n of [old.node, old.gain, old.pan]) try { n && n.disconnect(); } catch (e) { /* gone */ }
+      if (it.svOld) svDropOf(it, it.svOld);
+      it.svOld = old; it.sv = null; sv = null;
+    }
+    if (!sv && allowed && STU.fileMap.has(path)) { sv = svMake(it, ctx); }
+    if (it.svOld && (!allowed || (sv && sv.drawn) || !it.svOld.drawn)) { svDropOf(it, it.svOld); it.svOld = null; }
+    if (sv) {
+      const el = sv.el;
+      sv.over = it.over;
+      if (!allowed) {
+        // (hidden, over the limit, not in explore mode: paused and silent; its play state goes on, and it is set to its moment when allowed again)
+        if (!el.paused) { try { el.pause(); } catch (e) { /* gone */ } }
+        sv.paused = true; sv.need = true; sv.playAt = 0;
+        if (sv.ctx && sv.gt !== 0) { try { sv.gain.gain.setTargetAtTime(0, sv.ctx.currentTime, 0.05); } catch (e) { /* closed */ } sv.gt = 0; }
+      }
+      else {
+        sv.paused = false;
+        if (sv.path !== path || sv.url !== url) {
+          // (a new entry, or R2's link read again: the element points at it; its time set once its metadata is in)
+          if (sv.path !== path) { sv.drawn = false; sv.err = ''; }
+          sv.need = true;   // (a new link for the same file too: its moment is set again once its metadata is in)
+          sv.path = path; sv.url = url; el.src = url; sv.errAt = 0;
+          try { el.load(); } catch (e) { /* not now */ }
+        }
+        if (sv.err && sv.errAt && performance.now() - sv.errAt > 2000 && !S.on) { sv.err = ''; }
+        const t = scrT(S, wall), dur = SCR.dur.get(path) || (isFinite(el.duration) ? el.duration : 0), ended = dur > 0 && t >= dur - 0.02;
+        const target = ended ? dur : t, thr = headset ? 0.35 : 0.25;
+        if (el.readyState >= 1 && sv.need) { try { el.currentTime = Math.min(target + (S.on ? sv.lag : 0), dur || 1e9); } catch (e) { /* not seekable yet */ } sv.need = false; }
+        if (S.on && !ended && !sv.err) {
+          if (el.paused) { const pr = el.play(); if (pr && pr.catch) pr.catch(() => { /* not allowed yet: again next frame */ }); }
+          if (el.readyState >= 3 && !el.seeking && sv.playAt && performance.now() - sv.playAt > 150 && performance.now() - sv.chk > 500) {
+            sv.chk = performance.now();
+            const d = sv.drift = t - el.currentTime;
+            if (Math.abs(d) > thr) {
+              if (sv.fixAt && performance.now() - sv.fixAt < 3000) sv.lag = clamp(sv.lag + d, 0, 0.5);
+              sv.fixAt = performance.now(); sv.fixes++;
+              try { el.currentTime = Math.max(0, t + sv.lag); } catch (e) { /* not seekable now */ }
+            }
+          }
+        } else {
+          if (!el.paused) { try { el.pause(); } catch (e) { /* gone */ } }
+          if (el.readyState >= 1 && !el.seeking && Math.abs(el.currentTime - target) > 0.08) { try { el.currentTime = target; } catch (e) { /* not seekable */ } }
+        }
+        // its sound: through the shell's context only, following the Sound button; before a tap the element is muted
+        sv.drawn = !audio && !sv.over && el.readyState >= 2 && el.videoWidth > 0;
+        if (sv.ctx && sv.ctx === ctx) {
+          el.muted = false;
+          const vol = scrOwn(it) && it.ownVol != null ? it.ownVol : r.vol, want = quiet || !S.on || ended ? 0 : it.fa * vol;
+          if (sv.gt !== want) { try { sv.gain.gain.setTargetAtTime(want, sv.ctx.currentTime, 0.1); } catch (e) { /* closed */ } sv.gt = want; }
+          it.holder.getWorldPosition(_srf); setPos(sv.pan, _srf);
+          if (sv.pan.refDistance !== r.r) sv.pan.refDistance = r.r;
+          if (want > 0) any = true;
+        } else { el.muted = true; if (sv.ctx && sv.gt !== 0) { try { sv.gain.gain.value = 0; } catch (e) { /* closed */ } sv.gt = 0; } }   // (no context now: silent, the element kept)
+      }
+      if (sv.drawn && L.mat.map !== sv.tex) { L.mat.map = sv.tex; L.mat.needsUpdate = true; }
+      else if (!sv.drawn && it.svOld && it.svOld.drawn) { if (L.mat.map !== it.svOld.tex) { L.mat.map = it.svOld.tex; L.mat.needsUpdate = true; } }
+      else if (!sv.drawn && L.mat.map !== L.cardTex) { L.mat.map = L.cardTex; L.mat.needsUpdate = true; }
+    } else if (it.svOld && it.svOld.drawn) { if (L.mat.map !== it.svOld.tex) { L.mat.map = it.svOld.tex; L.mat.needsUpdate = true; } }
+    else if (L.mat.map !== L.cardTex) { L.mat.map = L.cardTex; L.mat.needsUpdate = true; }
+    scrCard(it, S, path);
+    scrBar(it, S, path, editing, now, ph, pw);
+  }
+  // the listener (the same as the emitters': a head in a headset, the camera on a page)
+  if (any && ctx) {
+    if (headset) { _srp.copy(XR.head); _srq.copy(XR.headQ); } else { GL.camera.getWorldPosition(_srp); GL.camera.getWorldQuaternion(_srq); }
+    listen(ctx, _srp, _srq);
+    EM.lis = true; SCR.lisCtx = ctx;
+  }
+}
+// the card that stands in for the picture (loading, a sound, paused before any frame, too many playing, a file that fails)
+function scrCard(it, S, path) {
+  const L = it.look, sv = it.sv;
+  if (L.mat.map !== L.cardTex) return;
+  const st = it.over ? 'Too many videos playing here' : sv && sv.err ? sv.err : !STU.fileMap.has(path) ? 'This file is not in the scene' : !sv ? (S.on ? 'Starting...' : 'Paused')
+    : scrKind(path) === 'audio' && sv.el.readyState >= 1 ? (S.on ? 'Playing' : 'Paused') : sv.el.readyState < 2 ? 'Loading...' : S.on ? 'Playing' : 'Paused';
+  const sig = it.rec.name + '|' + baseName(path) + '|' + st + '|' + it.rec.look;
+  if (sig === L.cardSig) return;
+  L.cardSig = sig;
+  const c = L.cardCv, x = c.getContext('2d'), W = c.width, H = c.height;
+  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#1b2740'); g.addColorStop(1, '#0a101c');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = L.col; x.fillRect(0, 0, 8, H);
+  x.textBaseline = 'middle'; x.textAlign = 'left';
+  x.font = '700 40px B612, "Segoe UI", Arial, sans-serif'; x.fillStyle = '#f2f6fc';
+  x.fillText(clip(x, it.rec.name, W - 90), 44, H * 0.34);
+  x.font = '600 28px B612, "Segoe UI", Arial, sans-serif'; x.fillStyle = '#b8c6dc';
+  x.fillText(clip(x, baseName(path), W - 90), 44, H * 0.52);
+  x.fillStyle = L.col; x.fillText(st, 44, H * 0.72);
+  L.cardTex.needsUpdate = true;
+}
+function clip(x, text, w) {
+  if (x.measureText(text).width <= w) return text;
+  while (text.length > 1 && x.measureText(text + '...').width > w) text = text.slice(0, -1);
+  return text + '...';
+}
+// the bar: where it stands (under the panel, over the speaker), whether it shows, and its picture, drawn again only when
+// what it shows changes (its time at most twice a second)
+function scrBar(it, S, path, editing, now, ph, pw) {
+  const L = it.look, r = it.rec, bar = L.bar;
+  const vis = scrCan(it) && it.holder.visible && it.a > 0.5 && !it.hid && ((editing && STU.sel === it.id) || now - (it.hotAt || 0) < SCR_BAR_SHOW);
+  bar.visible = vis;
+  if (!vis) return;
+  const bw = scrBarW(r), audio = r.look === 'audio';
+  _sru.set(0, audio ? ph / 2 + 0.03 + SCR_BAR_H / 2 : -(ph / 2 + 0.03 + SCR_BAR_H / 2), 0.006).applyQuaternion(it.holder.quaternion).add(it.holder.position);
+  bar.position.copy(_sru); bar.quaternion.copy(it.holder.quaternion); bar.scale.set(bw, SCR_BAR_H, 1);
+  const wall = Math.round(screenClock()), t = scrT(S, wall), dur = SCR.dur.get(path) || 0, n = r.list.length, vol = scrOwn(it) && it.ownVol != null ? it.ownVol : r.vol;
+  const lay = barLayout(bw / SCR_BAR_H * 100), frac = dur > 0 ? clamp(t / dur, 0, 1) : 0;
+  const sig = [S.on, S.i, baseName(path), Math.floor(Math.min(t, dur || 1e9) * 2), Math.round(frac * 400), vol, scrOwn(it), n, dur > 0, Math.round(lay.Wd)].join('|');
+  if (sig === L.barSig) return;
+  L.barSig = sig;
+  const K = Math.min(2, 2048 / lay.Wd), W = Math.round(lay.Wd * K), H = Math.round(100 * K), c = L.barCv;
+  if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+  const x = c.getContext('2d');
+  x.setTransform(K, 0, 0, K, 0, 0);
+  x.clearRect(0, 0, lay.Wd, 100);
+  x.fillStyle = '#0d1522'; x.fillRect(0, 0, lay.Wd, 100);
+  x.fillStyle = L.col; x.fillRect(0, 0, lay.Wd, 4);
+  const btn = k => { const R = lay.R.find(q => q.k === k); x.fillStyle = '#1d2c44'; rr(x, R.x0, R.y0, R.x1 - R.x0, R.y1 - R.y0, 10); x.fill(); return R; };
+  const ic = '#e9f1fc';
+  { const R = btn('prev'), cx = (R.x0 + R.x1) / 2; x.fillStyle = ic; x.fillRect(cx - 14, 36, 4, 28); x.beginPath(); x.moveTo(cx + 14, 36); x.lineTo(cx + 14, 64); x.lineTo(cx - 8, 50); x.closePath(); x.fill(); }
+  { const R = btn('play'), cx = (R.x0 + R.x1) / 2; x.fillStyle = ic; if (S.on) { x.fillRect(cx - 12, 34, 8, 32); x.fillRect(cx + 4, 34, 8, 32); } else { x.beginPath(); x.moveTo(cx - 10, 33); x.lineTo(cx - 10, 67); x.lineTo(cx + 14, 50); x.closePath(); x.fill(); } }
+  { const R = btn('next'), cx = (R.x0 + R.x1) / 2; x.fillStyle = ic; x.fillRect(cx + 10, 36, 4, 28); x.beginPath(); x.moveTo(cx - 14, 36); x.lineTo(cx - 14, 64); x.lineTo(cx + 8, 50); x.closePath(); x.fill(); }
+  x.textBaseline = 'middle';
+  x.font = '600 22px B612, "Segoe UI", Arial, sans-serif'; x.fillStyle = '#f2f6fc'; x.textAlign = 'left';
+  const right = `${S.i + 1} of ${n}` + (lay.wide ? '' : scrOwn(it) ? ' · Just you' : ' · Everyone');
+  x.textAlign = 'right'; x.fillStyle = '#9fb0c4'; x.fillText(right, lay.mx1, 24);
+  const rw = x.measureText(right).width + 16;
+  x.textAlign = 'left'; x.fillStyle = '#f2f6fc'; x.fillText(clip(x, baseName(path), lay.mx1 - lay.mx0 - rw), lay.mx0, 24);
+  x.font = '600 20px B612, "Segoe UI", Arial, sans-serif'; x.fillStyle = '#c8d6ea';
+  x.fillText(dur > 0 ? `${fmtT(t)} / ${fmtT(dur)}` : fmtT(t), lay.mx0, 66);
+  x.fillStyle = '#26364f'; rr(x, lay.sx0, 60, lay.sx1 - lay.sx0, 12, 6); x.fill();
+  x.fillStyle = L.col; rr(x, lay.sx0, 60, Math.max(12, (lay.sx1 - lay.sx0) * frac), 12, 6); x.fill();
+  x.beginPath(); x.arc(lay.sx0 + (lay.sx1 - lay.sx0) * frac, 66, 10, 0, 7); x.fillStyle = '#ffffff'; x.fill();
+  for (const k of ['vdn', 'vup']) { const R = btn(k); x.fillStyle = ic; const cx = (R.x0 + R.x1) / 2; x.fillRect(cx - 10, 48, 20, 4); if (k === 'vup') x.fillRect(cx - 2, 40, 4, 20); }
+  if (lay.wide) {
+    x.textAlign = 'left'; x.font = '600 20px B612, "Segoe UI", Arial, sans-serif'; x.fillStyle = '#9fb0c4';
+    x.fillText(scrOwn(it) ? 'Just you' : 'Everyone', lay.mx1 + 12, 34); x.fillText(`Vol ${Math.round(vol * 100)} %`, lay.mx1 + 12, 66);
+  } else { x.textAlign = 'right'; x.fillStyle = '#9fb0c4'; x.font = '600 16px B612, "Segoe UI", Arial, sans-serif'; x.fillText(`${Math.round(vol * 100)} %`, lay.Wd - 108, 50); }
+  L.barTex.needsUpdate = true;
+}
+
+// ------------------------------------------------------- the bar: rays and presses --
+// the bar's region under a hit on it (its uv), and for the seek bar where along it (0 to 1)
+function barRegion(it, uv) {
+  const lay = barLayout(scrBarW(it.rec) / SCR_BAR_H * 100), x = uv.x * lay.Wd, y = (1 - uv.y) * 100;
+  const R = lay.R.find(q => x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1);
+  if (!R) return null;
+  return { key: R.k, frac: R.k === 'seek' ? clamp((x - lay.sx0) / (lay.sx1 - lay.sx0), 0, 1) : 0 };
+}
+// the nearest bar a ray meets (one that is shown, and its screen's bar usable), the panels it points at lighting their bars for
+// 3 s (a ray or the page's pointer on the screen or the bar); the bar is pressed instead of selecting its screen, except
+// while editing with the screen not selected
+function screenRay(rc, now) {
+  let best = null;
+  for (const it of STU.items.values()) {
+    if (it.kind !== 'v' || !it.holder.visible || !it.shown || it.notHere || it.hid) continue;
+    const L = it.look;
+    it.holder.updateWorldMatrix(true, false); L.hit.updateWorldMatrix(true, false);
+    if (rc.intersectObject(L.hit, false).length) it.hotAt = now;
+    if (!L.bar.visible || !scrCan(it) || (editOn() && STU.sel !== it.id)) continue;
+    L.bar.updateWorldMatrix(true, false);
+    const h = rc.intersectObject(L.bar, false)[0], g = h && h.uv ? barRegion(it, h.uv) : null;
+    if (h) it.hotAt = now;
+    if (g && (!best || h.distance < best.dist)) best = { id: it.id, key: g.key, frac: g.frac, point: h.point.clone(), dist: h.distance };
+  }
+  return best;
+}
+// a press on a bar's region (the headset's trigger, a page's click)
+function screenBarPress(id, key, frac) {
+  const it = STU.items.get(id);
+  if (!it || !scrCan(it)) return false;
+  if (key === 'seek') return scrPress(it, 'seek', frac);
+  const act = { prev: 'prev', play: 'play', next: 'next', vup: 'vol', vdn: 'vol' }[key];
+  return !!act && scrPress(it, act, key === 'vup' ? 0.25 : key === 'vdn' ? -0.25 : 0);
+}
+// the page: the pointer down on a bar presses it (the seek bar then follows the drag); on a panel it only lights its bar
+function screenDown(ev) {
+  if (APP.mode !== 'explore' || XR.on || ev.button > 0) return false;
+  const h = screenRay(pointerRay(ev.clientX, ev.clientY), performance.now());
+  if (!h) return false;
+  screenBarPress(h.id, h.key, h.frac);
+  if (h.key === 'seek') SCR.drag = { id: h.id, pid: ev.pointerId, at: performance.now(), pend: null };
+  return true;
+}
+function screenDragTo(ev) {
+  const D = SCR.drag, it = D && STU.items.get(D.id);
+  if (!it) { SCR.drag = null; return; }
+  const rc = pointerRay(ev.clientX, ev.clientY);
+  it.look.bar.updateWorldMatrix(true, false);
+  const h = rc.intersectObject(it.look.bar, false)[0], g = h && h.uv ? barRegion(it, h.uv) : null;
+  if (!g || g.key !== 'seek') return;
+  // (the shared play state is written at most every 200 ms while dragging, and once more as the pointer is let go)
+  const t = performance.now();
+  if (t - D.at >= 200) { D.at = t; D.pend = null; scrPress(it, 'seek', g.frac); } else D.pend = g.frac;
+}
+function screenDragEnd() {
+  const D = SCR.drag, it = D && STU.items.get(D.id);
+  SCR.drag = null;
+  if (it && D.pend != null) scrPress(it, 'seek', D.pend);
+}
+// the pointer moving over the page: the screen or bar under it lights its bar; the cursor says a bar can be pressed
+function screenHover(ev, cv) {
+  if (APP.mode !== 'explore' || XR.on || ev.pointerType === 'touch') return;
+  const h = screenRay(pointerRay(ev.clientX, ev.clientY), performance.now());
+  if (h) cv.style.cursor = 'pointer';
+}
+
+// ---------------------------------------------------------------------- adding --
+const _srb = new THREE.Box3(), _srv = new THREE.Vector3(), _srm = new THREE.Matrix4(), _sro = new THREE.Vector3(1, 1, 1);
+// its box in the items' frame (the panel's corners, with the bar's room left out)
+function screenBox(it, out) {
+  const [w, h] = it.look.ext;
+  _srm.compose(it.holder.position, it.holder.quaternion, _sro);
+  out.makeEmpty();
+  for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) out.expandByPoint(_srv.set(a * w / 2, b * h / 2, 0).applyMatrix4(_srm));
+  return out;
+}
+function scrFirst() {
+  const fs = STU.files.filter(f => !inOriginals(f.path));
+  const v = fs.find(f => f.kind === 'video' || scrKind(f.path) === 'video'), a = fs.find(f => f.kind === 'audio' || scrKind(f.path) === 'audio');
+  return v || a;   // (the same for both: the first video, else the first sound)
+}
+// a screen (or an audio player) 1.5 m in front of you, its panel's middle 1.6 m up, facing you; its playlist starting with the
+// file given, else the scene's first video, else its first sound
+function addScreen(look, path) {
+  if (!canAdd('v')) return '';
+  const first = path ? { path } : scrFirst();
+  if (!first) { SCR.note = 'Put a video or sound into the scene first (under Upload).'; dirty(true); return ''; }
+  SCR.note = '';
+  const at = frontAt(), id = newId(), c = _srv;
+  if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateMatrixWorld(true); GL.world.worldToLocal(c.copy(XR.head)); } else { GL.world.updateMatrixWorld(true); GL.world.worldToLocal(GL.camera.getWorldPosition(c)); }
+  const yaw = Math.atan2(c.x - at[0], c.z - at[1]), q = new THREE.Quaternion().setFromAxisAngle(_yUp, yaw).toArray();
+  change(() => putItem(id, 'v', norm('v', { name: nameFor(look === 'audio' ? 'Audio player' : stem(first.path)), look: look === 'audio' ? 'audio' : 'screen', p: [at[0], look === 'audio' ? 1.2 : 1.6, at[1]], q, list: [first.path] })));
+  if (!STU.items.has(id)) return '';
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
+
+// ------------------------------------------------------------------ edits (the card) --
+// each a change (one Undo step): edits of the record; the transport's presses are not (scrPress)
+const scrSet = (it, patch) => { if (it.kind === 'v') setRec(it.id, patch); };
+const WIDTHS = [0.5, 2];
+Object.assign(ITEM_ACT, {
+  scLook: (it, v) => { if (v === 'screen' || v === 'audio') scrSet(it, { look: v }); },
+  scWidth: (it, v) => { if (WIDTHS.includes(+v)) scrSet(it, { w: clamp(it.rec.w * +v, 0.2, 20) }); },
+  scWidthD: (it, d) => scrSet(it, { w: clamp(it.rec.w + (+d || 0), 0.2, 20) }),
+  scLoop: (it, v) => { if (['all', 'one', 'off'].includes(v)) scrSet(it, { loop: v }); },
+  // shuffle on picks a new seed (the playing entry stays the one playing: its place in the new order)
+  scShuffle: (it, v) => {
+    const r = it.rec, on = v === 'on';
+    if (on === !!r.shuffle) return;
+    const S = scrState(it), idx = scrOrder(r)[S.i], seed = on ? 1 + Math.floor(Math.random() * 2147483646) : undefined, o = shuffleOrder(r.list.length, seed || 0);
+    scrSet(it, { shuffle: seed });
+    scrWrite(it, Object.assign({}, S, { i: Math.max(0, o.indexOf(idx)) }));
+  },
+  scVol: (it, d) => scrSet(it, { vol: r2(clamp(Math.round((it.rec.vol + (+d)) * 4) / 4, 0, 2)) }),
+  scReach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); scrSet(it, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
+  scSync: (it, v) => {
+    const own = v === 'own';
+    if (own === scrOwn(it)) return;
+    if (own) { const S = scrState(it); it.own = { i: S.i, on: S.on, t: S.t, at: S.at }; scrSet(it, { sync: 'own' }); }
+    else { const S = scrState(it), now = Math.round(screenClock()); scrSet(it, { sync: undefined, play: { i: S.i, on: false, t: r3(scrT(S, now)), at: now } }); it.own = null; }   // (back to shared: a fresh paused state, never a stale one)
+  },
+  scCtl: (it, v) => scrSet(it, { ctl: v === 'any' ? 'any' : undefined }),
+  scAdd: (it, p) => { if (it.kind === 'v' && STU.fileMap.has(p) && it.rec.list.length < SCR_MAX && ['video', 'audio'].includes(scrKind(p))) scrSet(it, { list: it.rec.list.concat(p) }); },
+  scDel: (it, i) => {
+    const r = it.rec, k = +i;
+    if (it.kind !== 'v' || r.list.length < 2 || !(k >= 0 && k < r.list.length)) return;
+    const S = scrState(it), ord = scrOrder(r), playing = ord[S.i], list = r.list.filter((_, j) => j !== k);
+    // (the entry playing keeps playing unless it is the one taken out: then the next one, from its start)
+    const idx = playing === k ? Math.min(k, list.length - 1) : playing > k ? playing - 1 : playing, o = shuffleOrder(list.length, r.shuffle || 0);
+    scrSet(it, { list });
+    scrWrite(it, { i: Math.max(0, o.indexOf(idx)), on: S.on, t: playing === k ? 0 : scrT(S, Math.round(screenClock())), at: Math.round(screenClock()) });
+  },
+  scMove: (it, v) => {
+    const [i, d] = String(v).split(':').map(Number), r = it.rec, j = i + d;
+    if (it.kind !== 'v' || !(i >= 0 && i < r.list.length && j >= 0 && j < r.list.length)) return;
+    const S = scrState(it), playing = scrOrder(r)[S.i], list = r.list.slice();
+    [list[i], list[j]] = [list[j], list[i]];
+    const idx = playing === i ? j : playing === j ? i : playing, o = shuffleOrder(list.length, r.shuffle || 0);
+    scrSet(it, { list });
+    scrWrite(it, Object.assign({}, S, { i: Math.max(0, o.indexOf(idx)) }));
+  },
+  scAddOpen: it => { SCR.adding = SCR.adding === it.id ? '' : it.id; SCR.addPage = 0; },
+  scAddPage: (it, d) => { SCR.addPage = Math.max(0, (SCR.addPage || 0) + (+d || 0)); },
+  scListPage: (it, d) => { SCR.listPage = Math.max(0, (SCR.listPage || 0) + (+d || 0)); },
+});
+PANE_ONLY.push('scAddOpen', 'scAddPage', 'scListPage');
+// the transport on the card and its other presses without an Undo step (not editing too, with Who can use the controls: Anyone)
+const SCR_ACT = {
+  scPlay: () => scrCard1('play'), scPrev: () => scrCard1('prev'), scNext: () => scrCard1('next'),
+  scSkip: v => scrCard1('skip', v), scGo: v => scrCard1('go', v), scBarVol: v => scrCard1('vol', v),
+};
+function scrCard1(act, v) { const it = STU.items.get(STU.sel); if (it && it.kind === 'v') scrPress(it, act, v); }
+// the screen's card (page and headset), in the editing's order; the generic rows (shows in, group, hold, duplicate, delete) follow
+function screenBlocks(it, B, dis, mv) {
+  const r = it.rec, S = scrState(it), can = !scrCan(it), n = r.list.length, audio = r.look === 'audio', ord = scrOrder(r), sv = it.sv;
+  const now = Math.round(screenClock()), t = scrT(S, now), path = scrPath(r, S.i), dur = SCR.dur.get(path) || 0;
+  B.push({ h: r.name, sub: (audio ? 'Audio player' : 'Screen') + hiddenSub(it, it.shown) },
+    { kv: [['Playing', `${baseName(path)} · ${S.i + 1} of ${n} · ${S.on ? 'playing' : 'paused'}`], ['Time', dur > 0 ? `${fmtT(t)} / ${fmtT(dur)}` : fmtT(t)], ['Plays for', scrOwn(it) ? 'each person on their own' : 'everyone here, in step'], ['Controls', r.ctl === 'any' ? 'anyone, editing or not' : 'only while editing']] });
+  if (it.over) B.push({ p: 'Too many videos playing here: this one shows its card and is silent (its play state goes on).', c: 'amber' });
+  if (sv && sv.err) B.push({ p: sv.err + ' (a format this browser cannot play: MP4 with H.264 and AAC plays on most; WebM on Chrome and Firefox).', c: 'amber' });
+  if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button (the picture plays muted meanwhile).', c: 'faint' });
+  else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: the picture plays, silent.', c: 'faint' });
+  B.push({ label: 'Transport', row: [{ id: 'sc:prev', label: '⏮ Previous', act: 'scPrev', dis: can }, { id: 'sc:play', label: S.on ? '⏸ Pause' : '▶ Play', act: 'scPlay', dis: can, on: S.on }, { id: 'sc:next', label: 'Next ⏭', act: 'scNext', dis: can },
+    { id: 'sc:b10', label: '−10 s', act: 'scSkip', v: -10, dis: can }, { id: 'sc:f10', label: '+10 s', act: 'scSkip', v: 10, dis: can }] });
+  // the playlist: a page of eight (a headset's panel scrolls by pages): each entry (a press plays it), up, down, out
+  const per = 8, page = clamp(SCR.listPage || 0, 0, Math.max(0, Math.ceil(n / per) - 1)), first = page * per;
+  B.push({ label: `Playlist (${n}${r.shuffle ? ', shuffled' : ''})` });
+  for (let k = first; k < Math.min(n, first + per); k++) {
+    const li = ord[k];
+    B.push({ row: [{ id: 'sc:go:' + k, label: `${k + 1}. ${baseName(r.list[li])}`, act: 'scGo', v: k, on: k === S.i, dis: can }, { id: 'sc:up:' + li, label: '↑', act: 'i:scMove', v: li + ':-1', dis: mv || li === 0 },
+      { id: 'sc:dn:' + li, label: '↓', act: 'i:scMove', v: li + ':1', dis: mv || li === n - 1 }, { id: 'sc:del:' + li, label: '✕', act: 'i:scDel', v: li, dis: mv || n < 2, col: 'red' }] });
+  }
+  if (n > per) B.push({ row: [{ id: 'sc:lp:-', label: 'Earlier entries', act: 'i:scListPage', v: -1, dis: page === 0 }, { id: 'sc:lp:+', label: 'Later entries', act: 'i:scListPage', v: 1, dis: first + per >= n }] });
+  const adding = SCR.adding === it.id;
+  B.push({ row: [{ id: 'sc:add', label: adding ? 'Done adding' : 'Add to the playlist...', act: 'i:scAddOpen', on: adding, dis }] });
+  if (adding) {
+    const files = STU.files.filter(f => !inOriginals(f.path) && (f.kind === 'video' || f.kind === 'audio' || ['video', 'audio'].includes(scrKind(f.path))) && f.kind !== 'model'), ap = XR.on ? 8 : 12, pg = clamp(SCR.addPage || 0, 0, Math.max(0, Math.ceil(files.length / ap) - 1));
+    B.push({ list: files.slice(pg * ap, pg * ap + ap).map(f => ({ id: 'sc:addf:' + f.path, label: f.path, sub: mb(f.bytes), act: 'i:scAdd', v: f.path, dis: dis || n >= SCR_MAX })) });
+    if (files.length > ap) B.push({ row: [{ id: 'sc:ap:-', label: 'Earlier files', act: 'i:scAddPage', v: -1, dis: pg === 0 }, { id: 'sc:ap:+', label: 'Later files', act: 'i:scAddPage', v: 1, dis: (pg + 1) * ap >= files.length }] });
+    if (!files.length) B.push({ p: 'No videos or sounds in the scene yet.', c: 'muted' });
+  }
+  B.push({ label: 'Look', row: [{ id: 'sc:look:screen', label: 'Screen', act: 'i:scLook', v: 'screen', on: !audio, dis }, { id: 'sc:look:audio', label: 'Audio player', act: 'i:scLook', v: 'audio', on: audio, dis }] },
+    { label: `Width: ${metres(r.w)}`, row: [{ id: 'sc:w:-', label: '−0.2 m', act: 'i:scWidthD', v: -0.2, dis: mv }, { id: 'sc:w:+', label: '+0.2 m', act: 'i:scWidthD', v: 0.2, dis: mv }, { id: 'sc:w:h', label: '×0.5', act: 'i:scWidth', v: 0.5, dis: mv }, { id: 'sc:w:d', label: '×2', act: 'i:scWidth', v: 2, dis: mv }] },
+    { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] },
+    { label: 'When the list ends', row: [['all', 'Loop all'], ['one', 'Loop one'], ['off', 'Stop']].map(([k, n2]) => ({ id: 'sc:loop:' + k, label: n2, act: 'i:scLoop', v: k, on: r.loop === k, dis })).concat([{ id: 'sc:shuf', label: r.shuffle ? 'Shuffle: on' : 'Shuffle: off', act: 'i:scShuffle', v: r.shuffle ? 'off' : 'on', on: !!r.shuffle, dis }]) },
+    { label: `Volume: ${Math.round(r.vol * 100)} %`, row: [{ id: 'sc:vol:-', label: 'Quieter', act: 'i:scVol', v: -0.25, dis }, { id: 'sc:vol:+', label: 'Louder', act: 'i:scVol', v: 0.25, dis }] },
+    { label: `Full volume within ${metres(r.r)}`, row: [{ id: 'sc:reach:-', label: 'Nearer', act: 'i:scReach', v: -1, dis }, { id: 'sc:reach:+', label: 'Further', act: 'i:scReach', v: 1, dis }] },
+    { label: 'Plays for', row: [{ id: 'sc:sync:all', label: 'Everyone here', act: 'i:scSync', v: 'all', on: !scrOwn(it), dis }, { id: 'sc:sync:own', label: 'Each person', act: 'i:scSync', v: 'own', on: scrOwn(it), dis }] },
+    { p: scrOwn(it) ? 'Each person: a press here acts on this device only; everyone starts paused at the first entry.' : 'Everyone here: one play state for the whole circle (a press moves everyone\'s), at the room\'s time.', c: 'faint' },
+    { label: 'Who can use the controls', row: [{ id: 'sc:ctl:edit', label: 'Only while editing', act: 'i:scCtl', v: 'edit', on: r.ctl !== 'any', dis }, { id: 'sc:ctl:any', label: 'Anyone', act: 'i:scCtl', v: 'any', on: r.ctl === 'any', dis }] },
+    { p: 'The bar under the screen shows while it is pointed at (and for 3 s after). A press of it is never an Undo step.', c: 'faint' });
+}
+// what the panes' signature needs of the selected screen (its card: the entry, whether it plays, its time to the second, a headset's to ten)
+function scrSig() {
+  const it = STU.items.get(STU.sel);
+  if (!it || it.kind !== 'v') return '';
+  const S = scrState(it), t = scrT(S, Math.round(screenClock())), sv = it.sv;
+  return [S.i, S.on, Math.floor(t / (XR.on ? 10 : 1)), !!it.over, sv && sv.err, scrOwn(it), SCR.dur.get(scrPath(it.rec, S.i)) > 0, !!(HOST.audio && HOST.audio.fx && HOST.audio.fx()), !!(HOST.audio && HOST.audio.muted)].join();
+}
+// words for the Items pane's card
+const screenSub = r => (r.look === 'audio' ? 'Audio player' : 'Screen') + ` · ${r.list.length} entr${r.list.length === 1 ? 'y' : 'ies'}`;
+// for tests (STUDIO.screen(id))
+function screenState(id) {
+  const it = STU.items.get(id);
+  if (!it || it.kind !== 'v') return null;
+  const S = scrState(it), sv = it.sv, ord = scrOrder(it.rec), path = scrPath(it.rec, S.i), L = it.look;
+  return { rec: it.rec, i: S.i, order: ord, path, t: scrT(S, Math.round(screenClock())), dur: SCR.dur.get(path) || 0, on: S.on, state: S, own: scrOwn(it),
+    el: sv ? { src: sv.el.currentSrc || sv.el.src, currentTime: sv.el.currentTime, paused: sv.el.paused, muted: sv.el.muted, readyState: sv.el.readyState, volume: sv.gt, drift: sv.drift, fixes: sv.fixes, ctx: !!sv.ctx, pan: sv.pan ? { x: sv.pan.positionX ? sv.pan.positionX.value : null, y: sv.pan.positionY ? sv.pan.positionY.value : null, z: sv.pan.positionZ ? sv.pan.positionZ.value : null, ref: sv.pan.refDistance, model: sv.pan.panningModel } : null } : null,
+    drawn: !!(sv && sv.drawn && L.mat.map === sv.tex), over: !!it.over, shown: it.shown, bar: { visible: L.bar.visible, pos: L.bar.position.toArray(), w: L.bar.scale.x, h: L.bar.scale.y, can: scrCan(it) }, ext: L.ext.slice(), vol: scrOwn(it) && it.ownVol != null ? it.ownVol : it.rec.vol,
+    card: L.mat.map === L.cardTex, log: SCR.log.slice(), err: sv ? sv.err : '' };
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -26801,6 +27454,13 @@ function paneBlocks(tab) {
     fromBlocks(B, full);
     scanBlocks(B);   // (the headset's room scan saved as a model: e6p_scan.js)
     B.push({ label: 'Trigger cube', row: [{ id: 'cube', label: 'Trigger cube', act: 'cube', dis: full('c') }] }, { p: 'A see-through cube: walking into it shows or hides the objects, sounds and cut-outs you pick for it.', c: 'faint' });
+    // screens: video and audio players with a playlist (e6q_screens.js); a video file's card places one of it
+    const vids = STU.files.filter(f => f.kind === 'video' && !inOriginals(f.path));
+    B.push({ label: 'Screens', row: [{ id: 'screen:screen', label: 'Screen', act: 'screenAdd', v: 'screen', dis: full('v') }, { id: 'screen:audio', label: 'Audio player', act: 'screenAdd', v: 'audio', dis: full('v') }] },
+      { p: 'A panel that plays the scene\'s videos (or, as an audio player, a small speaker with its sound) from a playlist, its sound from where it stands. One play state for everyone at the circle by default; its bar (under it) works without editing when its card says so.', c: 'faint' });
+    if (SCR.note) B.push({ p: SCR.note, c: 'amber' });
+    B.push({ label: `Videos (${vids.length})`, grid: vids.map(f => ({ id: 'addv:' + f.path, label: f.path.replace(/^videos\//i, ''), title: f.path, act: 'addv', v: f.path, kind: extOf(f.path).toUpperCase(), sub: mb(f.bytes), dis: full('v') })) });
+    if (!vids.length) B.push({ p: 'No videos in the scene\'s folder (.mp4, .m4v, .mov, .mkv; .webm is listed with the sounds): drop them under Upload; they go into videos/.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
@@ -26812,7 +27472,7 @@ function paneBlocks(tab) {
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
     if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x', 'p', 'e']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'item') {
@@ -26824,7 +27484,7 @@ function paneBlocks(tab) {
     // tab, should show the same image and look like the add item part"): groups first, a heading each (a press selects the
     // group) with its members' cards under it; then what is in no group, by kind. An object's cut-outs are tags on its card
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
@@ -26842,7 +27502,7 @@ function paneBlocks(tab) {
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
     // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
     }
@@ -26877,6 +27537,7 @@ function itemSub(it) {
   const r = it.rec, me = (r.motion ? ' · ' + MOTION[r.motion.kind].does : '') + (r.path ? (recording(it) ? ' · recording' : ' · recorded path') : '') + (r.locked ? ' · locked' : '') + (it.kind !== 'c' ? ((it.kind === 's' ? it.heard : it.shown) ? '' : ' · hidden for you') : '');
   if (it.kind === 'o') return baseName(r.file) + me;
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
+  if (it.kind === 'v') return screenSub(r) + (r.sync === 'own' ? ' · each person' : '') + me;
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
@@ -26911,6 +27572,7 @@ function itemCard(it, C) {
     if (xs.length && r.cutsLocked) card.tags = [{ id: 'cutl:' + it.id, label: `🔒 ✂ ${xs.length} cut-out${xs.length > 1 ? 's' : ''} locked`, title: 'Its cut-outs are locked: unlock them on its card', act: 'sel', v: it.id, on: false, sel: false, pk: '', ticks: null }];
     else if (xs.length) card.tags = xs.map(x => { const k = pkOf(x.id); return { id: 'sel:' + x.id, label: (k ? '✓ ' : '') + '✂ ' + tagName(x.rec), title: 'Cut-out: ' + itemSub(x), act: GP ? 'gtog' : P ? 'link' : 'sel', v: x.id, on: x.id === STU.sel || !!k, sel: x.id === STU.sel, pk: k, ticks: ticks(x.id) }; });
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
+  else if (it.kind === 'v') { card.tile = { k: r.look === 'audio' ? 'sound' : 'screen', col: it.look.col }; card.sub = screenSub(r); state.unshift(r.ctl === 'any' ? 'controls for anyone' : '', r.sync === 'own' ? 'each person' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
@@ -27051,6 +27713,8 @@ function itemBlocks(it, B, ed) {
     behaveBlocks(it, B, dis);
     motionBlocks(it, B, dis);   // (the sounds that follow it move with it)
     pathBlocks(it, B, dis, mv);
+  } else if (it.kind === 'v') {
+    screenBlocks(it, B, dis, mv);   // (a screen: e6q_screens.js)
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -27303,6 +27967,7 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
   if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
@@ -27346,6 +28011,8 @@ function act(a, v) {
     scanSrc: () => { if (v === 'mesh' || v === 'planes') SCAN.src = v; },
     scanKeep: () => { if ([1, 0.5, 0.2].includes(+v)) SCAN.keep = +v; },
     shape: () => addShape(v),
+    screenAdd: () => addScreen(v),
+    addv: () => addScreen('screen', v),
     empty: () => addEmpty(),
     setting: () => setSetting(v),
     circle: () => sceneToCircle(),
@@ -27376,7 +28043,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit))) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -27592,6 +28259,7 @@ function pickables() {
     else if (it.kind === 'c' && it.holder.visible) { L.push(it.look.fill); if (STU.sel === it.id) for (const c of it.look.corners) L.push(c); }   // (a group: nothing of its own; its members are found)
     else if (it.kind === 'p' && it.holder.visible) { L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill); if (STU.sel === it.id && it.rec.shape === 'cube') for (const c of it.look.corners) L.push(c); }
     else if (it.kind === 'e' && it.holder.visible) L.push(it.look.hit);
+    else if (it.kind === 'v' && it.holder.visible) L.push(it.look.hit);   // (a screen's panel: e6q_screens.js)
   }
   return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
 }
@@ -27689,6 +28357,7 @@ function bindCanvas() {
   let down = null, pinch = 0;
   cv.style.cursor = 'grab';
   cv.addEventListener('pointerdown', ev => {
+    if (screenDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (a screen's bar: e6q_screens.js)
     if (visitDown(ev)) { try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ } return; }   // (without editing: an item anyone may move, v140)
     pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
     down = { x: ev.clientX, y: ev.clientY, moved: false, b: ev.button, shift: ev.shiftKey, tc: !!(GL.tc && (GL.tc.dragging || GL.tc.axis)) };
@@ -27698,8 +28367,10 @@ function bindCanvas() {
   });
   cv.addEventListener('pointermove', ev => {
     if (GRAB.on) { grabLook(ev); return; }   // (the mouse grabbed in Walk view: it turns you, whatever its buttons)
+    if (SCR.drag) { if (ev.pointerId === SCR.drag.pid) screenDragTo(ev); return; }   // (the seek bar held)
     if (PDRAG) { if (ev.pointerId === PDRAG.pid) visitMoveTo(ev); return; }
     if (!pts.has(ev.pointerId)) {
+      screenHover(ev, cv);   // (a screen or its bar under the pointer lights its bar)
       // (without editing: over an item anyone may move, the hand that drags it, v140)
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) { GL.world.updateMatrixWorld(true); cv.style.cursor = visitPick(pointerRay(ev.clientX, ev.clientY)) ? 'move' : 'grab'; }
       // pointing without a button (editing): what is under the mouse lights up and shows its name
@@ -27728,6 +28399,7 @@ function bindCanvas() {
     } else { orbit.cur[0] -= dx * 0.3; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -10, 86); }
   });
   const end = ev => {
+    if (SCR.drag && ev.pointerId === SCR.drag.pid) { screenDragEnd(); return; }
     if (PDRAG && ev.pointerId === PDRAG.pid) { visitUp(); return; }
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
@@ -27950,6 +28622,9 @@ function tcRead(it) {
   } else if (it.kind === 'p') {
     h.scale.set(...h.scale.toArray().map(v => clamp(Math.abs(v), 0.01, 100)));
     setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray() });
+  } else if (it.kind === 'v') {
+    const v = [h.scale.x, h.scale.y, h.scale.z], d = v.map(x => Math.abs(x - it.rec.w)), w = clamp(Math.abs(v[d.indexOf(Math.max(...d))]), 0.2, 20);   // (its width: the axis dragged)
+    h.scale.setScalar(w); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w });
   } else if (it.kind === 'e') { h.scale.set(1, 1, 1); setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() }); }
   else setRec(it.id, soundAt(it, h.position));   // (a sound that follows a model: its offset too, from where it was put)
 }
@@ -27985,7 +28660,7 @@ function tcAttach() {
 // in models/ and switches every object placed from the original to it where it stands (s' = s / b, q' = q * r^-1: one
 // change, one Undo step); else it is downloaded. The Upload pane (pages only) takes files and folders dropped onto it,
 // shows the plan (one row per thing it will make), then converts and uploads them: models to models/<name>.glb, sounds
-// to sounds/ (mono: short ones WAV, long ones MP3 through the relay's ffmpeg), and everything given to originals/.
+// to sounds/ (mono: short ones WAV, long ones MP3 through the relay's ffmpeg), and everything given to originals/.  Videos go to videos/ as given, or (an option, off) made H.264 MP4s by the relay's ffmpeg.
 
 // ---------------------------------------------------------- GLB records --
 const GLBREC = new Map();   // path -> { at, rec (null: none), p (a read under way) }
@@ -28390,12 +29065,35 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
+const UP = { convert: store.get('studioUpConvert') === 'on', vid: null, vidFor: '', keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
+const VIDEO_EXT = ['mp4', 'm4v', 'mov', 'mkv'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
 const upRelay = () => SRC.kind === 'relay' && SRC.upload && SRC.state === 'ok';
 const upChanged = () => { UP.rev++; dirty(); };
+// what the relay can do with videos (v143): `video` in GET /api/scenes (ffmpeg with H.264 and AAC), asked once a relay
+async function upCaps() {
+  if (!upRelay() || UP.vidFor === SRC.base) return;
+  const base = SRC.base;
+  UP.vidFor = base;
+  try { const j = await getJSON(`${base}/api/scenes`); UP.vid = { video: !!(j && j.video), limit: +(j && j.videoLimit) || 1800 }; } catch (e) { UP.vid = { video: false, limit: 1800 }; }
+  if (SRC.base === base) { upNames(); upChanged(); }
+}
+const upConv = () => !!(UP.convert && upRelay() && UP.vid && UP.vid.video);
+// a dropped WebM (a sound by the relay's kinds) that has a picture is a video: its first frame's size, 0 when it has none
+function hasPicture(file) {
+  return new Promise(res => {
+    const el = document.createElement('video'), url = URL.createObjectURL(file);
+    let done = false;
+    const end = v => { if (done) return; done = true; unlater(t); el.removeAttribute('src'); try { el.load(); } catch (e) { /* gone */ } URL.revokeObjectURL(url); res(v); };
+    const t = later(() => end(false), 15000);
+    el.preload = 'metadata'; el.muted = true;
+    el.addEventListener('loadedmetadata', () => end(el.videoWidth > 0));
+    el.addEventListener('error', () => end(false));
+    el.src = url;
+  });
+}
 // the share of triangles a new model row starts at: what the all-models slider says once moved (v127), else 20 %
 const upKeep = () => (UP.keepAll === null ? FT_DEFAULT : UP.keepAll);
 // files dropped or chosen: [{ path, file }] (a dropped folder's structure kept in path)
@@ -28422,6 +29120,7 @@ function upTake(list) {
 async function upPlan() {
   const gen = ++UP.gen, E = UP.entries, byName = new Map(), byPath = new Map(E.map(e => [e.path, e])), pics = E.filter(e => CONV.IM.isPicture(e.path)).map(e => e.path);
   UP.planning = true; upChanged();
+  upCaps();
   if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
   if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
@@ -28454,6 +29153,7 @@ async function upPlan() {
     rows.push(r);
   }
   const taken = new Set(rows.flatMap(r => [r.main, ...r.deps, ...r.names.map(x => x.entry).filter(Boolean)]));
+  for (const e of E.filter(x => VIDEO_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'video', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path }); }
   for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
   // ('only': one model lacking one texture, one picture left over)
   const lacking = rows.filter(r => r.kind === 'model' && r.names.filter(x => !x.entry).length === 1), left = E.filter(x => CONV.IM.isPicture(x.path) && CONV.IM.way(x.ext) !== 'refuse' && !taken.has(x));
@@ -28469,6 +29169,7 @@ async function upPlan() {
     const [dur, head] = await Promise.all([probeFile(r.main.file), r.main.file.slice(0, 1 << 18).arrayBuffer()]);
     if (gen !== UP.gen) return;
     r.dur = dur; r.rate = rateOf(new Uint8Array(head)); r.msg = '';
+    if (r.main.ext === 'webm' && await hasPicture(r.main.file)) { Object.assign(r, { kind: 'video', how: '', out: [], dur: undefined }); if (gen !== UP.gen) return; }
     upNames(); upChanged();
   }
 }
@@ -28477,7 +29178,7 @@ async function upPlan() {
 function upRebuild() {
   const used = new Set();
   for (const r of UP.rows) {
-    if (r.kind === 'sound') used.add(r.main);
+    if (r.kind === 'sound' || r.kind === 'video') used.add(r.main);
     if (r.kind !== 'model') continue;
     if (r.state === 'plan') {
       r.src = [r.main, ...r.deps];
@@ -28548,7 +29249,12 @@ function upNames() {
     if (r.state !== 'plan') continue;
     r.out = []; r.how = '';
     const st = safeSeg(r.main.name.replace(/\.[^.]*$/, ''));
-    if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
+    if (r.kind === 'video') {
+      // (a video goes into videos/ as given; converted, as an MP4 there and the given file to originals/)
+      r.conv = upConv();
+      r.out.push(claim(`videos/${st}.${r.conv ? 'mp4' : r.main.ext}`));
+      if (r.conv) r.out.push(orig(r.main));
+    } else if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
     else if (r.kind === 'sound') {
       const d = r.dur;
       if (d === undefined) r.how = 'measuring';
@@ -28568,6 +29274,10 @@ function rowPlan(r) {
   if (r.kind === 'model') {
     const more = r.src.length - 1;
     return `A model: ${r.out[0]} (metres, Y up, textures at most ${fmt(maxTexNow())} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
+  }
+  if (r.kind === 'video') {
+    return r.conv ? `A video: ${r.out[0]}, made an H.264 MP4 by the relay's ffmpeg (at most ${UP.quest ? 720 : 1080} high, a job that can take minutes); the given file to ${r.out[1]}.`
+      : `A video: ${r.out[0]}, as given (no conversion)${upRelay() ? '' : '; with a relay that takes uploads it goes there'}.`;
   }
   if (r.kind === 'sound') {
     const rate = Math.min(48000, r.rate || 44100);
@@ -28708,6 +29418,7 @@ async function upRow(r, relay, scene, sent) {
     r.state = 'done'; r.p = 1;
     return;
   }
+  if (r.kind === 'video') return upVideo(r, relay, scene, keep, prog);
   // a sound
   const e = r.main, out = r.out[0];
   if (r.how === 'mp3') {
@@ -28734,6 +29445,39 @@ async function upRow(r, relay, scene, sent) {
   await keep(e, r.out[1]);
   r.state = 'done'; r.p = 1;
   r.msg = r.how === 'keep' && !relay ? 'Kept as it is (nothing to convert here).' : relay ? `Made ${r.out[0]}` + (r.made ? ` (${r.made}).` : '.') : `Converted (${r.made}).`;
+}
+// a video row: as given into videos/ (a long file straight into R2's bucket where it can go), or made an H.264 MP4 by the
+// relay's ffmpeg as a job (POST .../video, then its status asked for once a second): the original in originals/ either way
+async function upVideo(r, relay, scene, keep, prog) {
+  const e = r.main, out = r.out[0];
+  if (!relay) { r.state = 'done'; r.p = 1; r.msg = 'Kept as given (with a relay that takes uploads it goes to videos/).'; return; }
+  if (!r.conv) {
+    r.msg = `Uploading ${out} (${mb(e.file.size)})...`; r.p = 0.02; upChanged();
+    const j = await upFile(scene, out, e.file, prog(0.02, 0.98));
+    r.out[0] = (j && j.path) || out; r.state = 'done'; r.p = 1; r.msg = `In ${r.out[0]}.`;
+    return;
+  }
+  const h = UP.quest ? 720 : 1080, base = `${SRC.base}/api/scenes/${encodeURIComponent(scene)}`;
+  // (R2: the original goes straight into the bucket first, then the relay converts it from there: from=)
+  const from = SRC.direct ? await keep(e, r.out[1]) : '';
+  const q = `?path=${encodeURIComponent(out)}&h=${h}${UP.replace ? '&replace=1' : ''}` + (from ? '&from=' + encodeURIComponent(from) : '&orig=' + encodeURIComponent(r.out[1]));
+  r.msg = from ? `The relay's ffmpeg is making ${out} from ${from}...` : `Uploading ${e.name} (${mb(e.file.size)}) to be converted...`; r.p = 0.05; upChanged();
+  let j = null;
+  for (let k = 0; ; k++) {
+    try { j = await upPost(`${base}/video${q}`, from ? null : e.file, f => { r.p = 0.05 + 0.3 * f; dirty(); }); break; }
+    catch (err) { if (err.status !== 429 || k > 8) throw err; await new Promise(res => later(res, 1000 * Math.max(2, err.retry || 5))); }
+  }
+  const end = Date.now() + ((UP.vid && UP.vid.limit) || 1800) * 1000 + 120000;
+  for (let s = null; ; ) {
+    await new Promise(res => later(res, 1000));
+    if (GL.gone) return;
+    try { s = await getJSON(`${base}/jobs/${j.job}`); } catch (err) { throw new Error(err.status === 404 ? 'the relay lost the job (was it restarted?)' : err.message); }
+    r.p = 0.35 + 0.63 * Math.max(0, Math.min(100, s.pct || 0)) / 100;
+    r.msg = s.state === 'queued' ? `Waiting for the relay's ffmpeg (another video is being made)...` : `The relay's ffmpeg is making ${out}: ${Math.round(s.pct || 0)} %...`; upChanged();
+    if (s.state === 'done') { r.out[0] = s.path || out; r.state = 'done'; r.p = 1; r.msg = `Made ${r.out[0]} (H.264, at most ${h} high, ${mb(s.bytes || 0)}); the given file is in ${r.out[1]}.`; return; }
+    if (s.state === 'failed') { r.state = 'failed'; r.msg = `Not converted: ${s.error || 'ffmpeg failed'}. The given file is kept in ${r.out[1]}.`; return; }
+    if (Date.now() > end) throw new Error('the conversion took longer than the relay\'s limit');
+  }
 }
 // one file to the scene (409 for a name taken meanwhile: the next free one)
 async function upFile(scene, p, body, onP) {
@@ -28786,7 +29530,7 @@ async function readDropped(dt) {
 function uploadBlocks(B) {
   const relay = upRelay(), busy = UP.busy;
   B.push({ h: 'Upload', sub: 'Studio' });
-  B.push({ p: 'Drop models, textures and sounds here (files or whole folders). Each model is converted to a GLB (metres, Y up, light enough for a headset), each sound made mono, everything sorted into the scene\'s models/, sounds/ and originals/ folders.', c: 'muted' });
+  B.push({ p: 'Drop models, textures, sounds and videos here (files or whole folders). Each model is converted to a GLB (metres, Y up, light enough for a headset), each sound made mono, everything sorted into the scene\'s models/, sounds/, videos/ and originals/ folders.', c: 'muted' });
   if (relay) {
     B.push({ label: 'Into the scene', row: SRC.scenes.map(s => ({ id: 'up:scene:' + s.name, label: s.name, act: 'up:scene', v: s.name, on: s.name === UP.scene, dis: busy }))
       .concat({ id: 'up:new', label: 'New scene', act: 'up:new', on: UP.newOpen, dis: busy }) });
@@ -28803,6 +29547,11 @@ function uploadBlocks(B) {
     { id: 'up:quest', label: 'For Quest: ' + (UP.quest ? 'on' : 'off'), act: 'up:quest', on: UP.quest, dis: busy },
     { id: 'up:replace', label: 'Replace files with the same name: ' + (UP.replace ? 'on' : 'off'), act: 'up:replace', on: UP.replace, dis: busy || !relay },
   ] }, { p: `For Quest: textures at most ${UP.quest ? '2,048' : '4,096'} px. Replace off: a name taken gets a number (eva_001 2.glb).`, c: 'faint' });
+  if (relay && UP.vidFor !== SRC.base) upCaps();
+  const canConv = relay && !!(UP.vid && UP.vid.video);
+  B.push({ row: [{ id: 'up:convert', label: 'Convert videos to MP4 (H.264): ' + (UP.convert && canConv ? 'on' : 'off'), act: 'up:convert', on: UP.convert && canConv, dis: busy || !canConv }] },
+    { p: !relay ? 'Converting videos needs a relay that takes uploads.' : !UP.vid ? 'Asking the relay whether it can convert videos...' : !UP.vid.video ? 'This relay cannot convert videos (it needs ffmpeg with the H.264 and AAC encoders).'
+      : `Off: a video goes into videos/ as given. On: the relay's ffmpeg makes an H.264 MP4 at most ${UP.quest ? 720 : 1080} high (For Quest: 720; else 1080), a job that can take minutes; the given file is kept in originals/.`, c: 'faint' });
   if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
   if (UP.rows.length) {
     const n = k => UP.rows.filter(r => r.kind === k).length;
@@ -28814,7 +29563,7 @@ function uploadBlocks(B) {
       B.push({ label: 'Triangles kept, every model', range: { id: 'stuRangeUpAll', act: 'up:keepall', v: '', min: 2, max: 100, value: Math.round(ka * 100), out: Math.round(ka * 100) + ' %', dis: busy, aria: 'Triangles kept, every model' } });
       if (differ) B.push({ p: 'Some models below have a share of their own: moving this sets them all.', c: 'faint' });
     }
-    B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
+    B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('video')} video${n('video') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
     if (UP.left.length) B.push({ p: `Left out: ${UP.left.length} hidden or system file${UP.left.length === 1 ? '' : 's'} (${UP.left.slice(0, 4).join(', ')}${UP.left.length > 4 ? '...' : ''}).`, c: 'faint' });
     const todo = UP.rows.some(r => r.state !== 'done');
     B.push({ row: [
@@ -28833,7 +29582,7 @@ function uploadHTML(b) {
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
     const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy || UP.planning ? ' disabled' : ''}>×</button>` : '';
-    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', video: 'Video', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
@@ -28899,6 +29648,7 @@ const UP_ACT = {
   'up:choose': () => { const i = $('#stuFiles'); if (i) i.click(); },
   'up:folder': () => { const i = $('#stuFolder'); if (i) i.click(); },
   'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
+  'up:convert': () => { UP.convert = !UP.convert; store.set('studioUpConvert', UP.convert ? 'on' : null); upNames(); upChanged(); },
   'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
   'up:run': () => upRun(),
   'up:pv': v => { const r = UP.rows[+v]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) vwOpen({ kind: 'up', ri: +v }); },   // (the viewer, over the whole window: e7f_viewer.js)
@@ -29775,6 +30525,11 @@ function tileFor(t) {
     x.lineWidth = 10;
     [34, 58, 82].forEach((r, i) => { x.globalAlpha = 1 - i * 0.25; x.beginPath(); x.arc(140, 130, r, -0.75, 0.75); x.strokeStyle = rgb(1, 0.3); x.stroke(); });
     x.globalAlpha = 1;
+  } else if (t.k === 'screen') {
+    // a screen: a panel on a stand with a play triangle on it (v143)
+    poly([[34, 70], [222, 70], [222, 176], [34, 176]], rgb(0.3), rgb(1, 0.3), 5); poly([[44, 80], [212, 80], [212, 166], [44, 166]], rgb(0.18));
+    poly([[110, 98], [110, 148], [154, 123]], rgb(1, 0.25)); poly([[104, 176], [152, 176], [152, 200], [104, 200]], rgb(0.5));
+    line([84, 204], [170, 204], rgb(0.6), 8);
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
@@ -30807,6 +31562,9 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
+  } else if (h.kind === 'bar' && !XR.stories) {   // a screen's bar: its transport (no selection, no Undo step; e6q_screens.js)
+    c.press = { kind: 'bar', id: h.id, seek: h.key === 'seek', frac: h.frac };
+    if (screenBarPress(h.id, h.key, h.frac)) buzz(c, 0.3, 25);
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
@@ -30833,7 +31591,7 @@ const itemGripLocked = () => { try { return !!(HOST.room && HOST.room.inRoom && 
 function xrGrab(c, on) {
   xrLetGo(c);
   const h = on ? holdHover(c) : c.hover;
-  if (!on || !h) return;
+  if (!on || !h || h.kind === 'bar') return;   // (a screen's bar is pressed, not held)
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
@@ -30981,6 +31739,7 @@ function carryWrite(it, now) {
   else if (it.kind === 'c') setRec(it.id, { p: h.position.toArray(), yaw: new THREE.Euler().setFromQuaternion(h.quaternion, 'YXZ').y, size: h.scale.toArray() });
   else if (it.kind === 'x') setRec(it.id, cutRecOf(it));   // (in the frame of the object it cuts)
   else if (it.kind === 'p') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), size: h.scale.toArray().map(v => clamp(v, 0.01, 100)) });
+  else if (it.kind === 'v') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray(), w: clamp(h.scale.x, 0.2, 20) });   // (a screen: its width)
   else if (it.kind === 'e') setRec(it.id, { p: h.position.toArray(), q: h.quaternion.toArray() });
   else setRec(it.id, Object.assign(soundAt(it, h.position), it.carryR ? { r: it.carryR } : {}));   // (a sound that follows a model: its offset from where the hand puts it; its reach as the left stick sizes it)
 }
@@ -31061,7 +31820,7 @@ function holdSticks(c, G, dt, lo, hi) {
 // limits (an empty has no size)
 function holdRange(it, G) {
   const s = G.s0, mn = Math.min(s.x, s.y, s.z), mx = Math.max(s.x, s.y, s.z);
-  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx]
+  const [a, b] = it.kind === 'o' ? [1e-4 / mx, 1e4 / mx] : it.kind === 'c' ? [0.05 / mn, 100 / mx] : it.kind === 'p' ? [0.01 / mn, 100 / mx] : it.kind === 'v' ? [0.2 / mn, 20 / mx]
     : it.kind === 'x' ? [0.01 / mn, 50 / mx] : it.kind === 's' ? [0.1 / G.rr, 20 / G.rr] : [1, 1];
   return [Math.max(1 / 20, a), Math.min(20, b)];
 }
@@ -31087,9 +31846,9 @@ function carryItem(c, dt) {
   const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'item' && k.grab.id === G.id && k.src && k.g.visible);
   GL.world.updateMatrixWorld(true);
   _mi.copy(GL.world.getWorldQuaternion(_mq)).invert();
-  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p')) {
+  if (o && !G.vis && (it.kind === 'o' || it.kind === 'x' || it.kind === 'p' || it.kind === 'v')) {
     if (c.i < o.i) return;   // (once a frame, by the second hand)
-    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p';
+    const d = c.o.distanceTo(o.o), vec = it.kind === 'x' || it.kind === 'p' || it.kind === 'v';
     _mv.copy(c.o).add(o.o).multiplyScalar(0.5);
     const W = G.two || (G.two = o.grab.two = { d0: Math.max(0.05, d), s0: vec ? it.holder.scale.clone() : it.holder.scale.x, m0: _mv.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()) });   // (as shown: the sticks may have sized it since its record was last written)
     it.holder.position.copy(GL.world.worldToLocal(W.p0.clone().add(_mv).sub(W.m0)));
@@ -31293,7 +32052,10 @@ function xrPoint(c, dt) {
     // (the scene's matrices as xrBegin made them; again only when the other hand's press or carry moved something since)
     if (XR.pickStale && editOn()) { XR.pickStale = false; GL.world.updateMatrixWorld(true); }
     const ih = editOn() ? rayPick(XR.raycaster, { inside: true }) : visitPick(XR.raycaster);   // (without editing: only what anyone may move, v140)
-    if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
+    // a screen's bar (e6q_screens.js): pressed, never selected; a ray on a screen or its bar lights the bar for 3 s
+    const bh = screenRay(XR.raycaster, performance.now());
+    if (bh && (!ih || bh.dist <= ih.dist + 0.02)) { hit = { kind: 'bar', id: bh.id, key: bh.key, frac: bh.frac, point: bh.point }; dist = bh.dist; }
+    else if (ih) { hit = { kind: 'item', id: ih.id, corner: ih.corner, point: ih.point, ray: ih.ray, inside: !!ih.inside }; dist = ih.dist; }
     else {
       const ts = XR.raycaster.intersectObjects(XR.solid, false);
       if (ts.length && ts[0].distance < 30) { hit = { kind: 'floor', point: ts[0].point.clone() }; dist = ts[0].distance; }
@@ -31304,6 +32066,8 @@ function xrPoint(c, dt) {
   const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
+  // (the seek bar held: it follows the ray along the bar)
+  if (c.press && c.press.kind === 'bar' && c.press.seek && hit && hit.kind === 'bar' && hit.id === c.press.id && hit.key === 'seek' && Math.abs(hit.frac - (c.press.frac || 0)) > 0.002) { c.press.frac = hit.frac; screenBarPress(hit.id, 'seek', hit.frac); }
   if (c.wantPress) { c.wantPress = false; xrPress(c); XR.pickStale = true; }
   if (c.grab) { carry(c, dt); XR.pickStale = true; }
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
@@ -32776,6 +33540,11 @@ const STUDIO = {
   // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
   // path it waits is, a sound's gain factor and how it last started
   plays: id => playState(id),
+  // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
+  // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
+  screen: id => screenState(id),
+  get screenClock() { return screenClock; },
+  set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
@@ -32838,6 +33607,7 @@ return {
     for (const p of [...TXS.pics.keys()]) texFree(p);   // (the pictures trigger cubes put on objects: e6i_tex.js)
     try { hooksOff(); } catch (e) { /* an older shell */ }   // (the other circles shown again, the real world as each headset has it)
     // the scene's sounds stop, and the listener goes back to the origin (where the shell's effects expect it)
+    try { screensDispose(); } catch (e) { /* none */ }   // (the screens' elements let go: e6q_screens.js)
     try { emitAll(true); if (EM.ctx && EM.lis) listen(EM.ctx, new THREE.Vector3(), new THREE.Quaternion()); } catch (e) { /* closed */ }
     if (GL.tc) { try { GL.tc.detach(); GL.tc.dispose(); } catch (e) { /* gone */ } }
     for (const it of STU.items.values()) if (it.kind === 'o') dropModel(it);

@@ -256,7 +256,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
   selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
   trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out; `engine/e6o_walls.js` (v137)
-  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
+  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e6q_screens.js` (v143) screens, video and audio players with playlists; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
   opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
@@ -1717,7 +1717,8 @@ here), an optional `shows` on an object's, a sound's, a shape's and an empty's (
 kind `wall` (things on the room's walls: "Cubes for everyone", "AR or VR only" and "Things on walls" under "The studio"),
 which an older device would drop or refuse; networks-44 in v140: an optional `grab` on an object's and a shape's record
 (anyone may move it without editing) and an optional `key` on a cube's (the item it reacts to): "Moved by anyone" and "Cubes
-with a key" under "The studio").
+with a key" under "The studio"); networks-45 in v143: the studio's `state()` gained a field per screen, `v.<id>` (a video
+or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores).
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (v104; the owner, 2 November 2026: "a circle with all stories that looks exactly
@@ -4861,6 +4862,29 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   here (the item's place is the room's), entered at the room's time now; people walking in do nothing. Everything a cube
   does follows it (show, hide, textures, what it starts; *Stays once entered* too). A key not in the scene: never active
   (the card says so). Combined with *Moved by anyone*: a key a visitor carries into a lock. FORMAT `networks-44`.
+- **Screens: video and audio players** (v143; the owner, 14 November 2026: "a video/audio player with playlist and an
+  option to show controls even outside studio mode that can playback video or audio files from the relay"; in studio
+  scenes for now, shared by default and per person optional, the relay's conversion an option off by default, no
+  YouTube; the contract is `tools/studio/SPEC.md`, "Screens"; `engine/e6q_screens.js`). A new kind of item, a screen
+  (`v.<id>` in `state()`, `screens` in `layout.json`, at most 20 a scene): a flat panel (`look: 'screen'`, `w` its width,
+  its height from the video's aspect) or a small speaker (`'audio'`) that plays a playlist (`list`, 1 to 50 of the scene's
+  video and sound files; `loop` all, one or off; `shuffle` a seed, `shuffleOrder(n, seed)` the same on every device) from
+  where it stands. One `<video>` element per screen per device, its picture a `VideoTexture`, its sound only through
+  `HOST.audio.fx()` (an HRTF panner, `vol`, reach `r`, following the Sound button as emitters do; muted until there is a
+  context). Shared by default: `play` `{ i, on, t, at }` on the room's clock, every device setting its element to that
+  moment about twice a second (0.25 s off, 0.35 s in a headset) and working out the end of an entry alike; `sync: 'own'`
+  each person's own. The bar under it (previous, play, next, time, seek, the entry and *n of m*, volume, *Everyone* or
+  *Just you*) shows when pointed at, or while editing with it selected, to those allowed: `ctl: 'any'` lets anyone use it
+  without editing, a visitor too, unless the circle's story is locked. A press writes `play` with no Undo step, and
+  `layout.json` keeps no `play` (a scene opens paused at its first entry). Hidden by a cube or not shown here: paused and
+  silent, back at the play state's moment when shown. At most 2 playing videos in a headset, 4 on a page (the nearest).
+  The relay lists `.mp4 .m4v .mov .mkv` as kind `video` (`.webm` stays audio; a screen takes either); the Upload pane puts
+  videos into `videos/` as given, or with *Convert videos to MP4 (H.264)* on (off by default, kept on the device) through
+  the relay's job (`POST /api/scenes/<name>/video`, `GET .../jobs/<job>`, its `ffmpeg` with libx264 and aac, 720p for
+  Quest else 1080p, `--ffmpeg-video-limit`, the original under `originals/`; "Converting a video" in `relay/README.md`).
+  `STUDIO.screen(id)` and `STUDIO.screenClock` for tests. Untested on devices: a Quest's video decoder and the cost of a
+  1080p `VideoTexture`, the bar with a real ray, a screen's sound through HRTF, iPhone's video element through the context,
+  a long video converted on Coolify.
 - **The room scan** (v141; the owner, 13 November 2026: "Possible to use the quest for scanning? That would also be perfect
   for setting up a new room with a scan directly inside the headset"; `engine/e6p_scan.js`, `tools/studio/README.md` "The
   room scan, and scanning rooms and objects"). A web page on a Quest gets only Space Setup's scan: WebXR's
@@ -6624,6 +6648,15 @@ not in AR; editing on a page the box drawn as a hidden item is (its edges, its t
 the labels pointed at and selected), the ball not; in AR the ball's tag *· VR only*; the page's row (Only AR, Only VR,
 AR and VR: one Undo step each), the headset's (on the tone); norm's rules (on objects, sounds, shapes and empties; a
 cube's ignored), the state and `layout.json`.
+
+Its *studio screens* steps (v143; `--only 'studio screens'`, a few minutes; needs `ffmpeg` to make its WebM clips, else
+skipped with a note, since Playwright's Chromium has no H.264 or AAC): adding a screen, an audio player and one from a
+video's card; its picture and its sound through an HRTF panner, silent when muted; the bar shown and pressed by ray and by
+pointer (play, pause, previous, next, seek and a seek drag, volume), each writing `play` with no Undo step; loop all, one
+and off, shuffle's order; a cube hiding it; the 4 and 2 limits; sync own; who may use the bar (editing, anyone, a locked
+story, `&visit`); `norm`'s rules, `layout.json` without `play`, *Unsaved changes* ignoring it, the headset's card and bar;
+and two pages carrying the state between them. `node relay/test.mjs --video` runs the relay's video kinds, uploads under
+`videos/` and the conversion job (a real `ffmpeg` with libx264 where the machine has one).
 
 Its *studio examples* steps (v137; `--only 'studio examples'`, about four minutes): the test example
 (`tools/studio/test/examples/tiny`, `&examples=` pointing there) listed on the Scene pane, Copy greyed with no relay;

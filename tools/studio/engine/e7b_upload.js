@@ -7,7 +7,7 @@
 // in models/ and switches every object placed from the original to it where it stands (s' = s / b, q' = q * r^-1: one
 // change, one Undo step); else it is downloaded. The Upload pane (pages only) takes files and folders dropped onto it,
 // shows the plan (one row per thing it will make), then converts and uploads them: models to models/<name>.glb, sounds
-// to sounds/ (mono: short ones WAV, long ones MP3 through the relay's ffmpeg), and everything given to originals/.
+// to sounds/ (mono: short ones WAV, long ones MP3 through the relay's ffmpeg), and everything given to originals/.  Videos go to videos/ as given, or (an option, off) made H.264 MP4s by the relay's ffmpeg.
 
 // ---------------------------------------------------------- GLB records --
 const GLBREC = new Map();   // path -> { at, rec (null: none), p (a read under way) }
@@ -412,12 +412,35 @@ function probeFile(file) {
 // ----------------------------------------------------------- the Upload pane --
 // UP.entries: what was dropped ({ path in the dropped folders, file, ext, name }); UP.rows: the plan, one row per thing it
 // will make ({ kind: 'model' | 'sound' | 'keep', main, src: entries, out: paths, notes, state, p, msg, dl })
-const UP = { keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
+const UP = { convert: store.get('studioUpConvert') === 'on', vid: null, vidFor: '', keepAll: null, scene: '', newOpen: false, newName: '', making: false, newNote: '', entries: [], rows: [], left: [], quest: true, replace: false, busy: false, ran: false, note: '', gen: 0, have: null, haveFor: '', planning: false, rev: 0, blobs: [], sent: new Set(), given: new Map() };
 const SOUND_EXT = ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'aac', 'flac', 'opus', 'webm', 'aif', 'aiff', 'aifc'];
+const VIDEO_EXT = ['mp4', 'm4v', 'mov', 'mkv'];
 const KEEP_AS_IS = ['mp3', 'm4a', 'aac', 'ogg', 'oga'];
 const JUNK = /^(\.|thumbs\.db$|desktop\.ini$)/i;
 const upRelay = () => SRC.kind === 'relay' && SRC.upload && SRC.state === 'ok';
 const upChanged = () => { UP.rev++; dirty(); };
+// what the relay can do with videos (v143): `video` in GET /api/scenes (ffmpeg with H.264 and AAC), asked once a relay
+async function upCaps() {
+  if (!upRelay() || UP.vidFor === SRC.base) return;
+  const base = SRC.base;
+  UP.vidFor = base;
+  try { const j = await getJSON(`${base}/api/scenes`); UP.vid = { video: !!(j && j.video), limit: +(j && j.videoLimit) || 1800 }; } catch (e) { UP.vid = { video: false, limit: 1800 }; }
+  if (SRC.base === base) { upNames(); upChanged(); }
+}
+const upConv = () => !!(UP.convert && upRelay() && UP.vid && UP.vid.video);
+// a dropped WebM (a sound by the relay's kinds) that has a picture is a video: its first frame's size, 0 when it has none
+function hasPicture(file) {
+  return new Promise(res => {
+    const el = document.createElement('video'), url = URL.createObjectURL(file);
+    let done = false;
+    const end = v => { if (done) return; done = true; unlater(t); el.removeAttribute('src'); try { el.load(); } catch (e) { /* gone */ } URL.revokeObjectURL(url); res(v); };
+    const t = later(() => end(false), 15000);
+    el.preload = 'metadata'; el.muted = true;
+    el.addEventListener('loadedmetadata', () => end(el.videoWidth > 0));
+    el.addEventListener('error', () => end(false));
+    el.src = url;
+  });
+}
 // the share of triangles a new model row starts at: what the all-models slider says once moved (v127), else 20 %
 const upKeep = () => (UP.keepAll === null ? FT_DEFAULT : UP.keepAll);
 // files dropped or chosen: [{ path, file }] (a dropped folder's structure kept in path)
@@ -444,6 +467,7 @@ function upTake(list) {
 async function upPlan() {
   const gen = ++UP.gen, E = UP.entries, byName = new Map(), byPath = new Map(E.map(e => [e.path, e])), pics = E.filter(e => CONV.IM.isPicture(e.path)).map(e => e.path);
   UP.planning = true; upChanged();
+  upCaps();
   if (UP.haveFor !== UP.scene || !UP.have) await upHave();   // (names numbered against what the scene holds, from the first plan)
   if (gen !== UP.gen) return;
   for (const e of E) { const k = e.name.toLowerCase(); if (!byName.has(k)) byName.set(k, []); byName.get(k).push(e); }
@@ -476,6 +500,7 @@ async function upPlan() {
     rows.push(r);
   }
   const taken = new Set(rows.flatMap(r => [r.main, ...r.deps, ...r.names.map(x => x.entry).filter(Boolean)]));
+  for (const e of E.filter(x => VIDEO_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'video', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: '', dl: [], title: e.path }); }
   for (const e of E.filter(x => SOUND_EXT.includes(x.ext) && !taken.has(x))) { taken.add(e); rows.push({ kind: 'sound', main: e, src: [e], out: [], notes: [], state: 'plan', p: 0, msg: 'Measuring...', dl: [], title: e.path, dur: undefined, rate: 0 }); }
   // ('only': one model lacking one texture, one picture left over)
   const lacking = rows.filter(r => r.kind === 'model' && r.names.filter(x => !x.entry).length === 1), left = E.filter(x => CONV.IM.isPicture(x.path) && CONV.IM.way(x.ext) !== 'refuse' && !taken.has(x));
@@ -491,6 +516,7 @@ async function upPlan() {
     const [dur, head] = await Promise.all([probeFile(r.main.file), r.main.file.slice(0, 1 << 18).arrayBuffer()]);
     if (gen !== UP.gen) return;
     r.dur = dur; r.rate = rateOf(new Uint8Array(head)); r.msg = '';
+    if (r.main.ext === 'webm' && await hasPicture(r.main.file)) { Object.assign(r, { kind: 'video', how: '', out: [], dur: undefined }); if (gen !== UP.gen) return; }
     upNames(); upChanged();
   }
 }
@@ -499,7 +525,7 @@ async function upPlan() {
 function upRebuild() {
   const used = new Set();
   for (const r of UP.rows) {
-    if (r.kind === 'sound') used.add(r.main);
+    if (r.kind === 'sound' || r.kind === 'video') used.add(r.main);
     if (r.kind !== 'model') continue;
     if (r.state === 'plan') {
       r.src = [r.main, ...r.deps];
@@ -570,7 +596,12 @@ function upNames() {
     if (r.state !== 'plan') continue;
     r.out = []; r.how = '';
     const st = safeSeg(r.main.name.replace(/\.[^.]*$/, ''));
-    if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
+    if (r.kind === 'video') {
+      // (a video goes into videos/ as given; converted, as an MP4 there and the given file to originals/)
+      r.conv = upConv();
+      r.out.push(claim(`videos/${st}.${r.conv ? 'mp4' : r.main.ext}`));
+      if (r.conv) r.out.push(orig(r.main));
+    } else if (r.kind === 'model') { r.out.push(claim(`models/${st}.glb`)); r.from = orig(r.main); for (const e of r.src) r.out.push(orig(e)); }
     else if (r.kind === 'sound') {
       const d = r.dur;
       if (d === undefined) r.how = 'measuring';
@@ -590,6 +621,10 @@ function rowPlan(r) {
   if (r.kind === 'model') {
     const more = r.src.length - 1;
     return `A model: ${r.out[0]} (metres, Y up, textures at most ${fmt(maxTexNow())} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
+  }
+  if (r.kind === 'video') {
+    return r.conv ? `A video: ${r.out[0]}, made an H.264 MP4 by the relay's ffmpeg (at most ${UP.quest ? 720 : 1080} high, a job that can take minutes); the given file to ${r.out[1]}.`
+      : `A video: ${r.out[0]}, as given (no conversion)${upRelay() ? '' : '; with a relay that takes uploads it goes there'}.`;
   }
   if (r.kind === 'sound') {
     const rate = Math.min(48000, r.rate || 44100);
@@ -730,6 +765,7 @@ async function upRow(r, relay, scene, sent) {
     r.state = 'done'; r.p = 1;
     return;
   }
+  if (r.kind === 'video') return upVideo(r, relay, scene, keep, prog);
   // a sound
   const e = r.main, out = r.out[0];
   if (r.how === 'mp3') {
@@ -756,6 +792,39 @@ async function upRow(r, relay, scene, sent) {
   await keep(e, r.out[1]);
   r.state = 'done'; r.p = 1;
   r.msg = r.how === 'keep' && !relay ? 'Kept as it is (nothing to convert here).' : relay ? `Made ${r.out[0]}` + (r.made ? ` (${r.made}).` : '.') : `Converted (${r.made}).`;
+}
+// a video row: as given into videos/ (a long file straight into R2's bucket where it can go), or made an H.264 MP4 by the
+// relay's ffmpeg as a job (POST .../video, then its status asked for once a second): the original in originals/ either way
+async function upVideo(r, relay, scene, keep, prog) {
+  const e = r.main, out = r.out[0];
+  if (!relay) { r.state = 'done'; r.p = 1; r.msg = 'Kept as given (with a relay that takes uploads it goes to videos/).'; return; }
+  if (!r.conv) {
+    r.msg = `Uploading ${out} (${mb(e.file.size)})...`; r.p = 0.02; upChanged();
+    const j = await upFile(scene, out, e.file, prog(0.02, 0.98));
+    r.out[0] = (j && j.path) || out; r.state = 'done'; r.p = 1; r.msg = `In ${r.out[0]}.`;
+    return;
+  }
+  const h = UP.quest ? 720 : 1080, base = `${SRC.base}/api/scenes/${encodeURIComponent(scene)}`;
+  // (R2: the original goes straight into the bucket first, then the relay converts it from there: from=)
+  const from = SRC.direct ? await keep(e, r.out[1]) : '';
+  const q = `?path=${encodeURIComponent(out)}&h=${h}${UP.replace ? '&replace=1' : ''}` + (from ? '&from=' + encodeURIComponent(from) : '&orig=' + encodeURIComponent(r.out[1]));
+  r.msg = from ? `The relay's ffmpeg is making ${out} from ${from}...` : `Uploading ${e.name} (${mb(e.file.size)}) to be converted...`; r.p = 0.05; upChanged();
+  let j = null;
+  for (let k = 0; ; k++) {
+    try { j = await upPost(`${base}/video${q}`, from ? null : e.file, f => { r.p = 0.05 + 0.3 * f; dirty(); }); break; }
+    catch (err) { if (err.status !== 429 || k > 8) throw err; await new Promise(res => later(res, 1000 * Math.max(2, err.retry || 5))); }
+  }
+  const end = Date.now() + ((UP.vid && UP.vid.limit) || 1800) * 1000 + 120000;
+  for (let s = null; ; ) {
+    await new Promise(res => later(res, 1000));
+    if (GL.gone) return;
+    try { s = await getJSON(`${base}/jobs/${j.job}`); } catch (err) { throw new Error(err.status === 404 ? 'the relay lost the job (was it restarted?)' : err.message); }
+    r.p = 0.35 + 0.63 * Math.max(0, Math.min(100, s.pct || 0)) / 100;
+    r.msg = s.state === 'queued' ? `Waiting for the relay's ffmpeg (another video is being made)...` : `The relay's ffmpeg is making ${out}: ${Math.round(s.pct || 0)} %...`; upChanged();
+    if (s.state === 'done') { r.out[0] = s.path || out; r.state = 'done'; r.p = 1; r.msg = `Made ${r.out[0]} (H.264, at most ${h} high, ${mb(s.bytes || 0)}); the given file is in ${r.out[1]}.`; return; }
+    if (s.state === 'failed') { r.state = 'failed'; r.msg = `Not converted: ${s.error || 'ffmpeg failed'}. The given file is kept in ${r.out[1]}.`; return; }
+    if (Date.now() > end) throw new Error('the conversion took longer than the relay\'s limit');
+  }
 }
 // one file to the scene (409 for a name taken meanwhile: the next free one)
 async function upFile(scene, p, body, onP) {
@@ -808,7 +877,7 @@ async function readDropped(dt) {
 function uploadBlocks(B) {
   const relay = upRelay(), busy = UP.busy;
   B.push({ h: 'Upload', sub: 'Studio' });
-  B.push({ p: 'Drop models, textures and sounds here (files or whole folders). Each model is converted to a GLB (metres, Y up, light enough for a headset), each sound made mono, everything sorted into the scene\'s models/, sounds/ and originals/ folders.', c: 'muted' });
+  B.push({ p: 'Drop models, textures, sounds and videos here (files or whole folders). Each model is converted to a GLB (metres, Y up, light enough for a headset), each sound made mono, everything sorted into the scene\'s models/, sounds/, videos/ and originals/ folders.', c: 'muted' });
   if (relay) {
     B.push({ label: 'Into the scene', row: SRC.scenes.map(s => ({ id: 'up:scene:' + s.name, label: s.name, act: 'up:scene', v: s.name, on: s.name === UP.scene, dis: busy }))
       .concat({ id: 'up:new', label: 'New scene', act: 'up:new', on: UP.newOpen, dis: busy }) });
@@ -825,6 +894,11 @@ function uploadBlocks(B) {
     { id: 'up:quest', label: 'For Quest: ' + (UP.quest ? 'on' : 'off'), act: 'up:quest', on: UP.quest, dis: busy },
     { id: 'up:replace', label: 'Replace files with the same name: ' + (UP.replace ? 'on' : 'off'), act: 'up:replace', on: UP.replace, dis: busy || !relay },
   ] }, { p: `For Quest: textures at most ${UP.quest ? '2,048' : '4,096'} px. Replace off: a name taken gets a number (eva_001 2.glb).`, c: 'faint' });
+  if (relay && UP.vidFor !== SRC.base) upCaps();
+  const canConv = relay && !!(UP.vid && UP.vid.video);
+  B.push({ row: [{ id: 'up:convert', label: 'Convert videos to MP4 (H.264): ' + (UP.convert && canConv ? 'on' : 'off'), act: 'up:convert', on: UP.convert && canConv, dis: busy || !canConv }] },
+    { p: !relay ? 'Converting videos needs a relay that takes uploads.' : !UP.vid ? 'Asking the relay whether it can convert videos...' : !UP.vid.video ? 'This relay cannot convert videos (it needs ffmpeg with the H.264 and AAC encoders).'
+      : `Off: a video goes into videos/ as given. On: the relay's ffmpeg makes an H.264 MP4 at most ${UP.quest ? 720 : 1080} high (For Quest: 720; else 1080), a job that can take minutes; the given file is kept in originals/.`, c: 'faint' });
   if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
   if (UP.rows.length) {
     const n = k => UP.rows.filter(r => r.kind === k).length;
@@ -836,7 +910,7 @@ function uploadBlocks(B) {
       B.push({ label: 'Triangles kept, every model', range: { id: 'stuRangeUpAll', act: 'up:keepall', v: '', min: 2, max: 100, value: Math.round(ka * 100), out: Math.round(ka * 100) + ' %', dis: busy, aria: 'Triangles kept, every model' } });
       if (differ) B.push({ p: 'Some models below have a share of their own: moving this sets them all.', c: 'faint' });
     }
-    B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
+    B.push({ label: `The plan: ${n('model')} model${n('model') === 1 ? '' : 's'}, ${n('sound')} sound${n('sound') === 1 ? '' : 's'}, ${n('video')} video${n('video') === 1 ? '' : 's'}, ${n('keep')} kept as ${n('keep') === 1 ? 'it is' : 'they are'}`, plan: UP.rows });
     if (UP.left.length) B.push({ p: `Left out: ${UP.left.length} hidden or system file${UP.left.length === 1 ? '' : 's'} (${UP.left.slice(0, 4).join(', ')}${UP.left.length > 4 ? '...' : ''}).`, c: 'faint' });
     const todo = UP.rows.some(r => r.state !== 'done');
     B.push({ row: [
@@ -855,7 +929,7 @@ function uploadHTML(b) {
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
     const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy || UP.planning ? ' disabled' : ''}>×</button>` : '';
-    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
+    return `<li class="${st}" data-kind="${r.kind}"${r.kind === 'model' && r.state === 'plan' ? ` data-row="${ri}"` : ''}>${x}<span class="k">${{ model: 'Model', sound: 'Sound', video: 'Video', keep: 'Kept' }[r.kind]}</span><span class="t">${esc(r.title)}${r.src.length > 1 ? `<small> + ${r.src.slice(1).map(e => esc(e.name)).join(', ')}</small>` : ''}</span>
       <small class="w">${esc(rowPlan(r))}</small>${r.kind === 'model' ? liteRow(r, ri) + texRows(r, ri) : ''}${r.notes.concat(tooBig(r)).map(n => `<small class="n">${esc(n)}</small>`).join('')}
       ${r.state === 'work' || r.state === 'done' ? `<span class="bar"><i style="width:${Math.round(r.p * 100)}%"></i></span>` : ''}${r.msg ? `<small class="m">${esc(r.msg)}</small>` : ''}
       ${r.pic ? `<img class="stu-pv sm" src="${r.pic}" alt="${esc(r.title)}">` : ''}${r.dl.map(d => `<a class="btn" href="${d.url}" download="${esc(d.name)}">Download ${esc(d.name)}</a>`).join('')}</li>`;
@@ -921,6 +995,7 @@ const UP_ACT = {
   'up:choose': () => { const i = $('#stuFiles'); if (i) i.click(); },
   'up:folder': () => { const i = $('#stuFolder'); if (i) i.click(); },
   'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
+  'up:convert': () => { UP.convert = !UP.convert; store.set('studioUpConvert', UP.convert ? 'on' : null); upNames(); upChanged(); },
   'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
   'up:run': () => upRun(),
   'up:pv': v => { const r = UP.rows[+v]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) vwOpen({ kind: 'up', ri: +v }); },   // (the viewer, over the whole window: e7f_viewer.js)

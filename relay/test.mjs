@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -754,8 +754,226 @@ async function notesSteps() {
   } finally { fs.rmSync(T, { recursive: true, force: true }); }
 }
 
+// ---- converting a video (--video; POST /api/scenes/<name>/video, tools/studio/SPEC.md "Screens", Files, v143): kinds and
+// types, an upload under videos/, a job making an H.264 MP4 (at most 720 high) of a generated WebM or MOV, its states, a
+// broken file, the time limit (a stand-in ffmpeg), R2 (the stand-in S3) and the password. `node relay/test.mjs --video` runs
+// only these (under a minute)
+async function videoSteps() {
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-video-')), U = path.join(T, 'scenes'), FFD = path.join(T, 'ff');
+  fs.mkdirSync(path.join(U, 'one'), { recursive: true }); fs.mkdirSync(FFD);
+  const gen = (name, args) => { execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, path.join(T, name)]); return fs.readFileSync(path.join(T, name)); };
+  const src = n => ['-f', 'lavfi', '-i', `testsrc2=size=${n}:rate=10:duration=1`, '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1'];
+  const WEBM = gen('big.webm', [...src('1280x960'), '-c:v', 'libvpx', '-b:v', '300k', '-c:a', 'libvorbis', '-shortest']);
+  const MOV = gen('small.mov', [...src('320x240'), '-c:v', 'mpeg4', '-c:a', 'aac', '-shortest']);
+  const probe = f => JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', f], { encoding: 'utf8' }));
+  const send = (at, p, body, headers = {}) => new Promise(resolve => {
+    const r = http.request({ host: '127.0.0.1', port: at, method: 'POST', path: p, headers: { ...(body ? { 'Content-Length': body.length } : {}), ...headers } }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const buf = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf, text: buf.toString(), json: () => JSON.parse(buf.toString()) }); });
+    });
+    r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+    if (body) r.write(body);
+    r.end();
+  });
+  const vid = (at, p, body, q = '', headers = {}) => send(at, `/api/scenes/one/video?path=${encodeURIComponent(p)}${q}`, body, headers);
+  const wait = async (at, id, ms = 30000, headers = {}) => {
+    const seen = [];
+    for (const end = Date.now() + ms; Date.now() < end; await sleep(40)) {
+      const r = await req('GET', `/api/scenes/one/jobs/${id}`, { at, headers });
+      if (r.status !== 200) return { seen, last: { state: 'http ' + r.status } };
+      const j = r.json();
+      if (!seen.includes(j.state)) seen.push(j.state);
+      if (j.state === 'done' || j.state === 'failed') return { seen, last: j };
+    }
+    return { seen, last: { state: 'timeout' } };
+  };
+  const startFails = (args, env = {}) => new Promise(resolve => {
+    const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+    procs.push(p);
+    let out = '';
+    p.stdout.on('data', d => { out += d; });
+    p.on('exit', code => resolve({ code, out }));
+    setTimeout(() => { p.kill(); resolve({ code: 'still running', out }); }, 5000);
+  });
+  const leftovers = d => fs.readdirSync(d, { recursive: true }).map(String).filter(n => /(^|[\\/])\.upload-/.test(n));
+  try {
+    await step('video: .mp4 .m4v .mov .mkv are kind video with their types (.webm stays audio); uploads take them anywhere a sound may go and under videos/; the relay says it can convert', async () => {
+      const R = await start(['--scenes', U, '--quiet']);
+      const up = (p, b) => send(R.port, `/api/scenes/one/file?path=${encodeURIComponent(p)}`, b);
+      for (const p of ['videos/a.mp4', 'videos/b.m4v', 'videos/c.MOV', 'sounds/d.mkv', 'e.mp4', 'sounds/f.webm']) ok((await up(p, Buffer.from('x'))).status === 200, 'upload ' + p);
+      ok((await up('textures/x.avi', Buffer.from('x'))).status === 400, 'an .avi is not a kind: refused');
+      const files = (await req('GET', '/api/scenes/one', { at: R.port })).json().files, kind = p => (files.find(f => f.path === p) || {}).kind;
+      ok(kind('videos/a.mp4') === 'video' && kind('videos/b.m4v') === 'video' && kind('videos/c.MOV') === 'video' && kind('sounds/d.mkv') === 'video' && kind('e.mp4') === 'video' && kind('sounds/f.webm') === 'audio', 'kinds: ' + files.map(f => f.path + ':' + f.kind).join(' '));
+      const types = {};
+      for (const p of ['videos/a.mp4', 'videos/b.m4v', 'videos/c.MOV', 'sounds/d.mkv']) types[p] = (await req('GET', '/scenes/one/' + p, { at: R.port })).headers['content-type'];
+      ok(types['videos/a.mp4'] === 'video/mp4' && types['videos/b.m4v'] === 'video/x-m4v' && types['videos/c.MOV'] === 'video/quicktime' && types['sounds/d.mkv'] === 'video/x-matroska', 'types: ' + JSON.stringify(types));
+      const sc = (await req('GET', '/api/scenes', { at: R.port })).json();
+      ok(sc.video === true && sc.videoLimit === 1800, 'GET /api/scenes: video true, videoLimit 1800');
+      R.kill();
+      const N = await start(['--scenes', U, '--no-ffmpeg', '--quiet']);
+      ok(!(await req('GET', '/api/scenes', { at: N.port })).json().video && (await vid(N.port, 'videos/x.mp4', MOV)).status === 501, 'no ffmpeg: no video key, the job 501');
+      N.kill();
+      fs.rmSync(path.join(U, 'one'), { recursive: true }); fs.mkdirSync(path.join(U, 'one'));
+    });
+    await step('video: a job makes an H.264 yuv420p MP4 with AAC, at most 720 high (never larger), +faststart, of a WebM and a MOV; queued/running/done with pct; the original under originals/; the watch told; from= a file in the scene', async () => {
+      const R = await start(['--scenes', U]);
+      const w = http.get({ host: '127.0.0.1', port: R.port, path: '/api/scenes/watch' });
+      let events = '';
+      w.on('response', r => r.on('data', d => { events += d; }));
+      await sleep(300);
+      const r1 = await vid(R.port, 'videos/big.mp4', WEBM, '&h=720');
+      ok(r1.status === 202 && /^[0-9a-f]{10}$/.test(r1.json().job), '202 { job } (' + r1.status + ' ' + r1.text.slice(0, 100) + ')');
+      const j1 = await wait(R.port, r1.json().job);
+      ok(j1.last.state === 'done' && j1.last.pct === 100 && j1.last.path === 'videos/big.mp4' && j1.last.bytes > 1000 && j1.seen[j1.seen.length - 1] === 'done', 'done at 100 %: ' + JSON.stringify(j1));
+      const out = path.join(U, 'one', 'videos', 'big.mp4'), pj = probe(out), v = pj.streams.find(s => s.codec_type === 'video'), a = pj.streams.find(s => s.codec_type === 'audio');
+      ok(v.codec_name === 'h264' && v.pix_fmt === 'yuv420p' && v.height === 720 && v.width === 960 && a && a.codec_name === 'aac', `H.264 yuv420p ${v.width}x${v.height} with AAC`);
+      const head = fs.readFileSync(out).subarray(0, 64 << 10), moov = head.indexOf('moov'), mdat = head.indexOf('mdat');
+      ok(moov > 0 && (mdat < 0 || moov < mdat), '+faststart: moov before mdat');
+      ok(fs.readFileSync(path.join(U, 'one', 'originals', 'videos', 'big.source')).equals(WEBM) && !leftovers(U).length, 'the original kept under originals/videos/, no temporary file left');
+      await sleep(1300);
+      ok(/event: scene\s+data: [^\n]*"path":"videos\/big\.mp4"[^\n]*"kind":"video"/.test(events) && /"path":"originals\/videos\/big\.source"/.test(events), 'the watch told the video and its original');
+      ok((await vid(R.port, 'videos/big.mp4', WEBM)).status === 409, 'the path taken: 409');
+      // a small one is never made larger; h defaults to 1080; orig= names the original
+      const r2 = await vid(R.port, 'videos/small.mp4', MOV, '&orig=' + encodeURIComponent('originals/small.mov'));
+      const j2 = await wait(R.port, r2.json().job), v2 = probe(path.join(U, 'one', 'videos', 'small.mp4')).streams.find(s => s.codec_type === 'video');
+      ok(j2.last.state === 'done' && v2.height === 240 && v2.codec_name === 'h264' && fs.readFileSync(path.join(U, 'one', 'originals', 'small.mov')).equals(MOV), 'a 240 high MOV stays 240 (never larger), orig= kept it at originals/small.mov');
+      // from= a file already in the scene, 1080 limit shrinks a 1280x960 one to 1080? (960 < 1080: stays)
+      const r3 = await vid(R.port, 'videos/again.mp4', null, '&h=720&from=' + encodeURIComponent('originals/videos/big.source'));
+      const j3 = await wait(R.port, r3.json().job);
+      ok(j3.last.state === 'done' && fs.existsSync(path.join(U, 'one', 'videos', 'again.mp4')) && !fs.existsSync(path.join(U, 'one', 'originals', 'videos', 'again.source')), 'from=: converted from the scene\'s own file, nothing copied');
+      // states: two jobs at once, the second waits queued
+      const [qa, qb] = await Promise.all([vid(R.port, 'videos/q1.mp4', WEBM, '&h=720'), vid(R.port, 'videos/q2.mp4', WEBM, '&h=720')]);
+      const first = await req('GET', `/api/scenes/one/jobs/${qb.json().job}`, { at: R.port });
+      const [ja, jb] = await Promise.all([wait(R.port, qa.json().job), wait(R.port, qb.json().job)]);
+      ok(ja.last.state === 'done' && jb.last.state === 'done' && (first.json().state === 'queued' || first.json().state === 'running' || jb.seen.includes('queued')), 'two at once: both done (the second queued or running first: ' + first.json().state + ')');
+      // bad asks
+      const bad = [await vid(R.port, 'videos/x.mov', MOV), await vid(R.port, 'videos/x.mp4', MOV, '&h=480'), await vid(R.port, 'videos/x.mp4', null, '&from=nothing.mp4'), await vid(R.port, 'videos/x.mp4', MOV, '&orig=sounds/x.src'),
+        await send(R.port, '/api/scenes/nope/video?path=videos/x.mp4', MOV), await req('GET', '/api/scenes/one/jobs/0123456789', { at: R.port }), await req('GET', `/api/scenes/other/jobs/${r1.json().job}`, { at: R.port })];
+      ok(bad.map(b => b.status).join() === '400,400,400,400,404,404,404', 'bad asks: not .mp4, h=480, from= missing, orig= outside originals/, no scene, unknown job, other scene\'s job: ' + bad.map(b => b.status).join());
+      w.destroy();
+      ok(!/token|QSECRET/.test(R.out) && /made videos\/big\.mp4/.test(R.out), 'said in the log without a path of the temporary files');
+      R.kill();
+    });
+    await step('video: a second job whose upload is slow is not started before its body is in, and converts the whole file', async () => {
+      const R = await start(['--scenes', U, '--quiet']);
+      const first = await vid(R.port, 'videos/s1.mp4', WEBM, '&h=720');
+      const slow = new Promise(resolve => {
+        const r = http.request({ host: '127.0.0.1', port: R.port, method: 'POST', path: `/api/scenes/one/video?path=${encodeURIComponent('videos/s2.mp4')}&h=720`, headers: { 'Content-Length': WEBM.length } }, res => {
+          const parts = []; res.on('data', c => parts.push(c)); res.on('end', () => resolve({ status: res.statusCode, json: () => JSON.parse(Buffer.concat(parts).toString()) }));
+        });
+        r.on('error', () => resolve({ status: 'cut', json: () => ({}) }));
+        const cut = Math.floor(WEBM.length / 2);
+        r.write(WEBM.subarray(0, cut));
+        setTimeout(() => { r.write(WEBM.subarray(cut, cut + 1000)); }, 700);
+        setTimeout(() => { r.end(WEBM.subarray(cut + 1000)); }, 1800);
+      });
+      const j1 = await wait(R.port, first.json().job);
+      await sleep(300);
+      ok(j1.last.state === 'done' && !fs.existsSync(path.join(U, 'one', 'videos', 's2.mp4')), 'the first done while the second body is still coming: nothing of the second made');
+      const r2 = await slow;
+      ok(r2.status === 202, 'the slow one accepted once whole (' + r2.status + ')');
+      const j2 = await wait(R.port, r2.json().job);
+      const v2 = probe(path.join(U, 'one', 'videos', 's2.mp4')), d = Number((v2.format || {}).duration);
+      ok(j2.last.state === 'done' && d > 0.8 && fs.readFileSync(path.join(U, 'one', 'originals', 'videos', 's2.source')).equals(WEBM), 'it converted the full file (' + d + ' s)');
+      R.kill();
+    });
+    await step('video: a broken file fails the job (422-style words, nothing written but the original)', async () => {
+      const R = await start(['--scenes', U, '--quiet']);
+      const r = await vid(R.port, 'videos/bad.mp4', crypto.randomBytes(5000));
+      ok(r.status === 202, 'accepted (' + r.status + ')');
+      const j = await wait(R.port, r.json().job);
+      ok(j.last.state === 'failed' && /could not make an MP4/.test(j.last.error) && !/relay-|\.upload|\/tmp/.test(j.last.error) && !fs.existsSync(path.join(U, 'one', 'videos', 'bad.mp4')) && !leftovers(U).length, 'failed in our words, no MP4, no temp file: ' + JSON.stringify(j.last));
+      R.kill();
+    });
+    await step('video: a stand-in ffmpeg: the time limit (--ffmpeg-video-limit, stopped, 1 s here), a failure with its words kept out, an empty output; readonly 403; --ffmpeg-video-limit 0 refused', async () => {
+      const STAND = `#!${process.execPath}
+const fs = require('fs'), path = require('path'), a = process.argv.slice(2), me = path.basename(process.argv[1]), dir = path.dirname(process.argv[1]);
+if (a.includes('-version')) { console.log('ffmpeg version 0-stand-in'); process.exit(0); }
+if (a.includes('-encoders')) { console.log(' V....D libx264 H.264\\n A....D aac AAC'); process.exit(0); }
+fs.writeFileSync(path.join(dir, me + '-' + process.pid + '.json'), JSON.stringify({ args: a, pid: process.pid }));
+if (me === 'vhang') setInterval(() => {}, 1000);
+else if (me === 'vfail') { process.stderr.write('[in#0] Error opening input ' + a[a.indexOf('-i') + 1] + '?token=QSECRETQ: Invalid data\\n'); process.exit(1); }
+else process.exit(0);
+`;
+      for (const me of ['vhang', 'vfail', 'vempty']) { fs.writeFileSync(path.join(FFD, me), STAND); fs.chmodSync(path.join(FFD, me), 0o755); }
+      const H = await start(['--scenes', U, '--ffmpeg', path.join(FFD, 'vhang'), '--ffmpeg-video-limit', '1', '--quiet']);
+      ok((await req('GET', '/api/scenes', { at: H.port })).json().videoLimit === 1, 'videoLimit in /api/scenes');
+      const t0 = Date.now(), r = await vid(H.port, 'videos/h.mp4', Buffer.from('xx'));
+      const j = await wait(H.port, r.json().job, 10000), took = Date.now() - t0;
+      const notes = fs.readdirSync(FFD).filter(n => n.startsWith('vhang-')).map(n => JSON.parse(fs.readFileSync(path.join(FFD, n), 'utf8')));
+      const alive = notes.filter(n => { try { process.kill(n.pid, 0); return true; } catch { return false; } });
+      ok(j.last.state === 'failed' && /more than 1 s/.test(j.last.error) && took >= 1000 && took < 5000 && notes.length === 1 && !alive.length && !fs.existsSync(path.join(U, 'one', 'videos', 'h.mp4')) && !leftovers(U).length, `past the limit: failed, ffmpeg stopped (${took} ms)`);
+      const args = notes[0].args;
+      ok(args.includes('libx264') && args.includes('yuv420p') && args.includes('+faststart') && args.includes('-crf') && args[args.indexOf('-b:a') + 1] === '128k' && args.some(x => /min\(ih\\?,1080\)/.test(x)) && args.includes('-protocol_whitelist'), 'the arguments: libx264, yuv420p, faststart, crf, 128k, a height of at most 1080 by default, only files');
+      H.kill();
+      const F = await start(['--scenes', U, '--ffmpeg', path.join(FFD, 'vfail')]);
+      const f = await wait(F.port, (await vid(F.port, 'videos/f.mp4', Buffer.from('xx'), '&h=720')).json().job);
+      await sleep(100);
+      ok(f.last.state === 'failed' && /no MP4 for videos\/f\.mp4 \(ffmpeg exit 1/.test(F.out) && !F.out.includes('QSECRETQ'), 'ffmpeg exit 1: failed, logged shortly without the query');
+      ok(!JSON.stringify(f.last).includes('QSECRETQ'), 'its words never sent');
+      F.kill();
+      const E = await start(['--scenes', U, '--ffmpeg', path.join(FFD, 'vempty'), '--quiet']);
+      const e = await wait(E.port, (await vid(E.port, 'videos/e.mp4', Buffer.from('xx'))).json().job);
+      ok(e.last.state === 'failed' && /made nothing/.test(e.last.error), 'an empty MP4: failed');
+      E.kill();
+      const RO = await start(['--scenes', U, '--scenes-readonly', '--quiet']);
+      ok((await vid(RO.port, 'videos/r.mp4', MOV)).status === 403, '--scenes-readonly: 403');
+      RO.kill();
+      const X = await startFails(['--scenes', U, '--ffmpeg-video-limit', '0']);
+      ok(/--ffmpeg-video-limit takes/.test(X.out), '--ffmpeg-video-limit 0 refused');
+    });
+    await step('video: the password (401 without, Bearer and ?token= for a job and its status); jobs of a relay restarted are unknown (404)', async () => {
+      const PASS = 'videopass' + crypto.randomBytes(4).toString('hex');
+      const R = await start(['--scenes', U, '--quiet'], { COLLAB_TOKEN: PASS });
+      ok((await vid(R.port, 'videos/p.mp4', MOV)).status === 401, 'no password: 401');
+      const r = await vid(R.port, 'videos/p.mp4', MOV, '&h=720&token=' + PASS);
+      ok(r.status === 202, '?token=: 202');
+      const H = { Authorization: 'Bearer ' + PASS };
+      ok((await req('GET', `/api/scenes/one/jobs/${r.json().job}`, { at: R.port })).status === 401, 'the status without it: 401');
+      const j = await wait(R.port, r.json().job, 30000, H);
+      ok(j.last.state === 'done', 'Bearer status: done');
+      ok(!R.out.includes(PASS), 'the password in no log line');
+      R.kill();
+      const R2 = await start(['--scenes', U, '--quiet'], { COLLAB_TOKEN: PASS });
+      ok((await req('GET', `/api/scenes/one/jobs/${r.json().job}`, { at: R2.port, headers: H })).status === 404, 'after a restart: 404');
+      R2.kill();
+    });
+    await step('video: in R2 (--scenes r2, against the stand-in S3): the body\'s original and the MP4 in the bucket (video/mp4), from= a file in the bucket, the original\'s path taken', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      try {
+        S3.put('studio/one/a.glb', 'x', { type: 'model/gltf-binary' });
+        const R = await start(['--scenes', 'r2', '--quiet'], { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' });
+        ok((await req('GET', '/api/scenes', { at: R.port })).json().video === true, 'R2: video true');
+        const r = await vid(R.port, 'videos/big.mp4', WEBM, '&h=720');
+        ok(r.status === 202, 'R2: 202 (' + r.status + ' ' + r.text.slice(0, 100) + ')');
+        const j = await wait(R.port, r.json().job);
+        const o = S3.objects.get('studio/one/videos/big.mp4'), og = S3.objects.get('studio/one/originals/videos/big.source');
+        ok(j.last.state === 'done' && o && o.type === 'video/mp4' && og && Buffer.from(og.body).equals(WEBM), 'done: the MP4 (video/mp4) and the original in the bucket: ' + JSON.stringify(j.last));
+        fs.writeFileSync(path.join(T, 'r2.mp4'), o.body);
+        const v = probe(path.join(T, 'r2.mp4')).streams.find(s => s.codec_type === 'video');
+        ok(v.codec_name === 'h264' && v.height === 720, 'H.264, 720 high');
+        const r2 = await vid(R.port, 'videos/from.mp4', null, '&h=720&from=originals/videos/big.source');
+        const j2 = await wait(R.port, r2.json().job);
+        ok(j2.last.state === 'done' && S3.objects.has('studio/one/videos/from.mp4'), 'from= a file in the bucket: done');
+        ok((await vid(R.port, 'videos/other.mp4', WEBM, '&orig=originals/videos/big.source')).status === 409 && (await vid(R.port, 'videos/big.mp4', WEBM)).status === 409 && (await vid(R.port, 'videos/z.mp4', null, '&from=nothing.mp4')).status === 400, 'the original\'s path taken, the video\'s taken, from= missing: 409 409 400');
+        ok(!R.out.includes(SECRET) && !S3.keys().some(k => /\.tmp$|\.upload/.test(k)), 'no secret in the log, nothing temporary in the bucket');
+        R.kill();
+      } finally { await S3.close(); }
+    });
+  } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
 if (process.argv.includes('--notes')) {   // only the developer notebook's steps (v142)
   try { await notesSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv.includes('--video')) {   // only the video conversion's steps (v143)
+  try { await videoSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
@@ -1988,14 +2206,14 @@ try {
     ok(r1.code === 0 && /wrote .*index\.json \(3 scenes\)/.test(r1.out) && /wrote .*alpha[\\/]files\.json \(11 files and layout\.json\)/.test(r1.out) && /left out the folder "bad!"/.test(r1.out), 'scan.mjs: what it wrote');
     // (a plain folder takes no uploads: index.json is the list without upload, ffmpeg and maxUpload, which a page reads as none)
     // (it may say upload: false, ffmpeg: false, maxUpload: 0 outright)
-    const { upload: _u, ffmpeg: _f, maxUpload: _m, ...api } = (await sget('/api/scenes')).json(), { upload: iu, ffmpeg: iff, maxUpload: im, ...idx } = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
+    const { upload: _u, ffmpeg: _f, video: _v, videoLimit: _vl, maxUpload: _m, ...api } = (await sget('/api/scenes')).json(), { upload: iu, ffmpeg: iff, maxUpload: im, ...idx } = JSON.parse(fs.readFileSync(path.join(S, 'index.json'), 'utf8'));
     ok(JSON.stringify(idx) === JSON.stringify({ ...api, save: false }) && !iu && !iff && !im, 'index.json is GET /api/scenes with save: false (and no uploads)');
     for (const n of ['alpha', 'beta', 'with space']) {
       const one = (await sget('/api/scenes/' + encodeURIComponent(n))).json(), fj = JSON.parse(fs.readFileSync(path.join(S, n, 'files.json'), 'utf8'));
       delete one.layout;
       ok(JSON.stringify(fj) === JSON.stringify({ ...one, save: false }), `${n}/files.json is GET /api/scenes/${n} without layout, save: false`);
     }
-    ok(JSON.stringify((await sget('/api/scenes')).json()) === JSON.stringify({ ...api, upload: _u, ffmpeg: _f, maxUpload: _m }), 'index.json and files.json are not listed themselves');
+    ok(JSON.stringify((await sget('/api/scenes')).json()) === JSON.stringify({ ...api, upload: _u, ffmpeg: _f, ...(_v ? { video: _v, videoLimit: _vl } : {}), maxUpload: _m }), 'index.json and files.json are not listed themselves');
     const r2 = scan(S), r3 = scan(S, '--check');
     ok(r2.code === 0 && !/wrote/.test(r2.out) && (r2.out.match(/unchanged/g) || []).length === 4 && r3.code === 0 && !/NOT CURRENT/.test(r3.out), 'run again: unchanged; --check: current');
     const extra = put('beta/new.png', 'x');
@@ -3088,6 +3306,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
 
   await trackerSteps();
   await notesSteps();
+  await videoSteps();
 
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');

@@ -1,25 +1,23 @@
 {
-  "version": "networks-v142",
-  "date": "13 November 2026",
+  "version": "networks-v143",
+  "date": "14 November 2026",
   "new": [
-    "The developer notebook (developer mode only): in a headset hold B or Y to record a spoken note, let go to send it. Each trigger press while recording drops a numbered pin where you point, and what was there is noted.",
-    "A note also keeps two pictures (as it began and as it ended, with the pins), and what the app knew then: the story or studio scene, the circle, how the headset lines up, the settings, the frame rate and the last log lines.",
-    "On a phone or laptop with developer mode on: a round microphone button at the bottom right. Press to record, tap or click anywhere to pin, press again to send.",
-    "Notes go to the relay. Its notes page, <relay>/notes/, plays them back, shows the pictures and pins, marks them done, copies one as text and deletes them. Claude reads and transcribes them from there.",
-    "No relay to hand: a note waits on the device and goes once one answers.",
-    "The menu's Circles tab has Back to the lobby: your story ends there and every circle shows again (not at the room's arc of cards)."
+    "Screens in the studio: a video or audio player with a playlist, placed in a scene from the Add pane (Screen, Audio player, or a video's card). Its sound comes from where it stands.",
+    "Shared by default: everyone at the circle sees and hears the same moment. Plays for: Each person makes it everyone's own.",
+    "A control bar under it (previous, play, next, seek, volume) shows when you point at it. Who can use the controls: Anyone lets people use it without editing.",
+    "Videos (.mp4, .mov, .m4v, .mkv, .webm) go into the scene's videos/ folder through the Upload pane. Optional: Convert videos to MP4 (H.264) on the relay, 720p with For Quest.",
+    "Rooms need every device updated (format networks-45)."
   ],
   "test": [
-    "Turn developer mode on. In VR or AR hold B for a moment: does the red read-out show? Say something, press the trigger at two things, let go. Does Note sent come?",
-    "Open stories.lab.lbi-netmed.com/notes/ on a laptop: is your note there, does it play, are the pictures and pins right?",
-    "If the microphone is refused in the headset, record one note from the 2D page first (the round button), allow the microphone, then try again in VR.",
-    "Record a quick note from your phone and from the laptop.",
-    "Press B or Y twice quickly: the frame rate still toggles, and a hold does not.",
-    "In a room with circles, at a story's circle: Circles tab, Back to the lobby."
+    "Upload an MP4 into a scene, add a screen of it, press play: does it play in the headset, picture and sound?",
+    "Two headsets at one studio circle: does play, pause, next and seek on one reach the other at the same moment?",
+    "Set Who can use the controls to Anyone, turn editing off: does the bar show when you point at it, and work?",
+    "Walk away and back, or hide it with a cube: does it pick up at the right moment?",
+    "Try Convert videos to MP4 with a phone video on the test place."
   ],
   "untested": [
-    "Everything on a real Quest: the microphone inside a session, the picture read from the headset's view, holding B or Y, pins on real things, the read-out.",
-    "In AR the picture shows only what the app draws (no passthrough). An iPhone's recording format and the notes page on a phone.",
-    "Back to the lobby on a headset."
+    "Everything on a Quest: its video decoder, the frame rate with a 1080p video playing, the bar with a real ray, the sound through HRTF.",
+    "MP4 (H.264) playback in a browser: the test browser here has no H.264, so only WebM was played.",
+    "A long video converted on Coolify; an iPhone playing a screen."
   ]
 }

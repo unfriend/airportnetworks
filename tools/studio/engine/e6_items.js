@@ -158,6 +158,7 @@ function norm(kind, x) {
     if (x.trk != null) r.trk = normTrk(x.trk);
     return lockOf(x, showsOf(x, r));
   }
+  if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
   return null;
 }
 // in which sessions it shows (v137), kept only when set: 'ar' (only in AR) or 'vr' (only in VR, and on a page); absent or
@@ -191,14 +192,14 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
-const GROUP_KINDS = ['o', 's', 'c', 'p', 'e'], GROUP_ITEMS = 760;
+const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
 const FOLLOW_KINDS = ['o', 'p', 'e'];
 // (what may show only in AR or only in VR, v137: objects, sounds, shapes and empties)
-const SHOWS_KINDS = ['o', 's', 'p', 'e'];
+const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
 const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
@@ -257,6 +258,12 @@ function makeItem(id, kind) {
     it.look.mesh.userData.id = it.look.fill.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'v') {
+    // a screen: its body is its holder (scaled to its width); its bar stands apart in the items' frame (e6q_screens.js)
+    it.look = screenLook(id);
+    it.holder = it.look.body;
+    it.look.hit.userData.id = it.look.bar.userData.id = id;
+    GL.edit.add(it.look.deco); GL.items.add(it.look.bar);
   } else if (kind === 'e') {
     it.look = LOOKS.empty(id);
     it.holder = it.look.group;
@@ -276,7 +283,7 @@ function removeItem(id) {
   if (!it) return;
   STU.items.delete(id); STU.rev++;
   if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
-  else { it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
+  else { if (it.kind === 'v') screenDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
   if (it.tag) { GL.edit.remove(it.tag); it.tag.userData.drop(); }   // (a model's tag: modelTag)
@@ -308,6 +315,7 @@ function poseOf(it) {
   else if (it.kind === 'c') { _pq.setFromAxisAngle(_yUp, r.yaw); _ps.fromArray(r.size); }
   else if (it.kind === 'x') cutPose(it, _pp, _pq, _ps);   // (in the frame of the object it cuts: e6b_cuts.js)
   else if (it.kind === 'p') { _pq.fromArray(r.q); _ps.fromArray(r.size); }
+  else if (it.kind === 'v') { _pq.fromArray(r.q); _ps.setScalar(r.w); }
   else if (it.kind === 'e') { _pq.fromArray(r.q); _ps.set(1, 1, 1); }
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
@@ -327,6 +335,7 @@ function applyRec(it, was, glide) {
   } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
   else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
+  else if (it.kind === 'v') screenRec(it, was);   // (its playlist, look and width: e6q_screens.js)
   else if (it.kind === 'e') it.look.name.userData.set(tagName(r), it.look.col, 0.07);
   else {
     it.look.name.userData.set(tagName(r), it.look.col, 0.07);
@@ -732,7 +741,7 @@ function itemsStep(dt, now) {
       if (k >= 1) it.gl = null;
     }
     poseStep(it, now, clockS);   // (its placed pose this frame's: drawn as its motion says, or at rest; e6e_motion.js)
-    if (editing && (it.kind === 'o' || it.kind === 'p')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
+    if (editing && (it.kind === 'o' || it.kind === 'p' || it.kind === 'v')) { it.hid = !it.shown && !heldHere(it); it.a = it.hid ? 0 : 1; }
     else {
       const tgt = it.kind === 'x' ? (editing && !cutsHid(it) ? 1 : 0) : it.kind === 'c' || it.kind === 'e' ? (editing ? 1 : 0) : it.shown ? 1 : 0;
       it.hid = false; it.a = approach(it.a, tgt, fade);
@@ -771,6 +780,7 @@ function itemsStep(dt, now) {
   cutsStep(editing, now);
   for (const it of STU.items.values()) if (it.kind === 's') soundStep(it, editing, now);
   groupsStep(editing);
+  screensStep(editing, now, dt);   // (the screens' pictures, sounds and bars, once every item has its place: e6q_screens.js)
   editStep(editing);
   ghostStep(editing, now);   // (the ghosts at the placed poses, the page's arrows on them; e6h_ghost.js)
   emitStep(now);
@@ -918,6 +928,7 @@ function itemTopInto(it, out, mid) {
     out.set((_sb.min.x + _sb.max.x) / 2, mid ? (_sb.min.y + _sb.max.y) / 2 : Math.max(_sb.min.y, _sb.max.y), (_sb.min.z + _sb.max.z) / 2);
   } else if (it.kind === 'c') out.set(it.holder.position.x, it.holder.position.y + (mid ? 0 : it.holder.scale.y / 2), it.holder.position.z);
   else if (it.kind === 'p') { const b = shapeBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
+  else if (it.kind === 'v') { const b = screenBox(it, _sb); out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y, (b.min.z + b.max.z) / 2); }
   else if (it.kind === 'e') { if (it.holder.matrixAutoUpdate) out.copy(it.holder.position); else out.setFromMatrixPosition(it.holder.matrix); out.y += mid ? 0 : 0.2; }   // (where it is drawn: a motion)
   else if (it.kind === 'x') { out.copy(it.holder.position); if (!mid) out.y += cutHalfHeight(it); }
   else if (it.kind === 'g') { const b = groupBox(it, new THREE.Box3()); if (b.isEmpty()) out.set(0, -100, 0); else out.set((b.min.x + b.max.x) / 2, mid ? (b.min.y + b.max.y) / 2 : b.max.y + 0.04, (b.min.z + b.max.z) / 2); }
@@ -1180,7 +1191,11 @@ function undo() {
 // members picks on, unless this took it away: removeItem); a group it left with fewer than 2 members picks again, or goes
 // (groupUndone, e6c_groups.js)
 function undoList(list) {
-  for (const u of list.slice().reverse()) { if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id); }
+  for (const u of list.slice().reverse()) {
+    // (a screen's play state is never taken back by Undo: what the bar did since stays, v143)
+    if (u.kind === 'v' && u.before) { const cur = STU.items.get(u.id); if (cur && cur.kind === 'v') u.before = Object.assign({}, u.before, { play: cur.rec.play }); }
+    if (u.kind === 'set') putSettings(u.before); else if (u.before) putItem(u.id, u.kind, u.before); else removeItem(u.id);
+  }
   for (const it of STU.items.values()) { if (it.cutNote) it.cutNote = ''; if (it.note) it.note = ''; }   // (a cut-out, or a group's member, held at a limit by a sizing: undone)
   groupUndone(list);
   changed();
@@ -1445,7 +1460,7 @@ function itemAct(act, v, id) {
 function turnAbout(it, q) {
   if (it.kind === 'x') { cutTurn(it); return; }   // (a quarter turn about its own upright: e6b_cuts.js)
   if (it.kind === 'g') { groupMove(groupBase(it), new THREE.Vector3(), Math.PI / 2, 1, true); return; }   // (about its pivot: e6c_groups.js)
-  if (it.kind === 'p' || it.kind === 'e') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
+  if (it.kind === 'p' || it.kind === 'e' || it.kind === 'v') { setRec(it.id, { q: _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize().toArray() }); return; }   // (about its own middle: its place)
   if (it.kind !== 'o') { if (it.kind === 'c') setRec(it.id, { yaw: it.rec.yaw + Math.PI / 2 }); return; }
   const b = objBox(it), mid = b ? b.getCenter(new THREE.Vector3()) : new THREE.Vector3().fromArray(it.rec.p);
   const nq = _tq2.copy(q).multiply(_pq.fromArray(it.rec.q)).normalize(), p = new THREE.Vector3().fromArray(it.rec.p).sub(mid).applyQuaternion(q).add(mid);
@@ -1499,7 +1514,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpe]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpev]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -1512,10 +1527,10 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0 };
   let keys = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpe])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpev])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
     let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
