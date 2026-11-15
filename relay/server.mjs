@@ -951,10 +951,18 @@ const shownOn = (r, net) => !!net && !(r.keys.get('near')?.v?.on === false) &&
   (r.members.size ? [...r.members.values()].some(m => m.net === net) : r.nets.has(net));
 // the rooms on the asking device's network: code, the first member's name, how many are in it (never an address;
 // --unlisted: no name either)
+// a room's own label (its key name, { v }; the app's roomNameClean written out here: control, zero-width and bidi characters
+// out, spaces collapsed, at most 40 code points); '' none. Never in a log line.
+function titleOf(r) {
+  const k = r.keys.get('name'), v = k && k.v && typeof k.v.v === 'string' ? k.v.v : '';
+  const t = v.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, '').replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '').replace(/\s+/g, ' ').trim();
+  return [...t].slice(0, 40).join('').trim();
+}
+const titled = r => { const t = titleOf(r); return t ? { title: t } : {}; };
 function nearRooms(net) {
   return [...rooms.values()].filter(r => shownOn(r, net)).sort((a, b) => (b.members.size > 0) - (a.members.size > 0) || b.seq - a.seq).slice(0, 20)
-    .map(r => (UNLISTED ? { code: r.code, members: r.members.size, stations: stations(r), version: r.version } :
-      { code: r.code, name: ([...r.members.values()].sort((a, b) => a.since - b.since).find(m => m.name) || {}).name || '', members: r.members.size, stations: stations(r), version: r.version }));
+    .map(r => (UNLISTED ? { code: r.code, members: r.members.size, stations: stations(r), ...titled(r), version: r.version } :
+      { code: r.code, name: ([...r.members.values()].sort((a, b) => a.since - b.since).find(m => m.name) || {}).name || '', members: r.members.size, stations: stations(r), ...titled(r), version: r.version }));
 }
 function reply(res, status, body, type, extra = {}) {
   res.writeHead(status, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-store', ...extra });
@@ -988,7 +996,7 @@ function api(req, res, url) {
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
-    return json(res, 200, UNLISTED ? [] : [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
+    return json(res, 200, UNLISTED ? [] : [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), ...titled(r), version: r.version })));
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });

@@ -272,6 +272,9 @@ function duplicateGroup(g) {
       if (r.sync && ids.has(r.sync)) nr.sync = map.get(r.sync);   // (a voice plays with the copy's recorded path: e6j_voice.js)
       putItem(map.get(m.id), 's', norm('s', nr));
     }
+    // (a copy's press entries naming the group's items name their copies; others' presses naming a member gain one for its copy: e6t_press.js)
+    const mapP = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
+    for (const m of ms) if ((m.kind === 'o' || m.kind === 'p') && m.rec.press) { const pr = m.rec.press; setRec(map.get(m.id), { press: pressBuild(pr, { do: mapP(pr.do), hover: mapP(pr.hover) }) }); }
     // (a copy whose behaviour follows an item of the group follows that item's copy: e6g_behave.js)
     for (const m of ms) { const b = m.rec.behaviour; if (b && b.target && ids.has(b.target)) setRec(map.get(m.id), { behaviour: Object.assign({}, b, { target: map.get(b.target) }) }); }
     for (const c of [...STU.items.values()]) {
@@ -284,6 +287,13 @@ function duplicateGroup(g) {
       // (and what it starts on an item of the group, on that item's copy too, beside it: e6n_plays.js)
       if (c.rec.plays && c.rec.plays.some(e => map.has(e.on))) setRec(c.id, { plays: withCopies(c.rec.plays, e => map.get(e.on) || '', PLAY_MAX) });
     }
+    for (const it of [...STU.items.values()]) {
+      const pr = it.rec.press;
+      if (!pr || ids.has(it.id) || used.has(it.id) || !PRESS_KINDS.includes(it.kind) || !prEntries(pr).some(e => map.has(e.on))) continue;
+      setRec(it.id, { press: pressBuild(pr, { do: pr.do && withCopies(pr.do, e => map.get(e.on) || '', PRESS_MAX), hover: pr.hover && withCopies(pr.hover, e => map.get(e.on) || '', PRESS_MAX) }) });
+    }
+    // (and what a sequence outside the group does to an item of the group, to that item's copy too: e6s_seq.js)
+    for (const q of [...STU.items.values()]) if (q.kind === 'q' && q.rec.ev.some(e => map.has(e.on))) setRec(q.id, { ev: withCopies(q.rec.ev, e => map.get(e.on) || '', SEQ_EV_MAX) });
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
   select(nid);

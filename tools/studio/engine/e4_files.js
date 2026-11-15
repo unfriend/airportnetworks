@@ -209,9 +209,9 @@ function openScene(name, how, again) {
   pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, badTex: 0, badPlay: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    bad: 0, badTex: 0, badPlay: 0, badSeq: 0, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
-  STU.seen.clear(); UNDO.length = 0;
+  STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
@@ -235,7 +235,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
@@ -300,9 +300,9 @@ async function refreshFiles(changed) {
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
 // its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
 // naming an item the layout lacks, or one of the wrong kind, dropped
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50 };
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50, q: 50 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
+  const out = { items: [], bad: 0, texBad: 0, playBad: 0, seqBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
@@ -310,15 +310,17 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings]]) {
+  let keys = 0, ppts = 0, evs = 0;   // (the sequences' events: 2,000 a scene; the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings], ['q', j.sequences]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
     for (const x of list) {
-      const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
+      const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x, id) : null;
+      if (rec && kind === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) { out.bad++; continue; }
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
       if (kind === 'v') delete rec.play;   // (a scene opens paused at its first entry: play is never saved)
+      if (kind === 'q') { evs += rec.ev.length; if (Array.isArray(x.ev)) out.seqBad += x.ev.length - rec.ev.length; }
       ids.add(id); n++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
@@ -331,6 +333,14 @@ function readLayout(j) {
     if (x.rec.tex) { const t = x.rec.tex.filter(e => kinds.get(e.on) === 'o'); if (t.length) x.rec.tex = t; else delete x.rec.tex; }
     if (x.rec.plays) { const t = x.rec.plays.filter(e => PLAY_KINDS[e.what].includes(kinds.get(e.on))); if (t.length) x.rec.plays = t; else delete x.rec.plays; }
   }
+  // (a press's entries naming an item the layout lacks, or one this cannot be done to, are dropped too; e6t_press.js)
+  for (const x of out.items) if (x.rec.press) {
+    const f = l => (l ? l.filter(e => prKinds(e.what).includes(kinds.get(e.on))) : undefined), p = x.rec.press;
+    const np = pressBuild(p, { do: f(p.do), hover: f(p.hover) });
+    if (np) x.rec.press = np; else delete x.rec.press;
+  }
+  // (a sequence's events naming an item the layout lacks, or one this cannot be done to, are dropped, as a cube's starts are; e6s_seq.js)
+  for (const x of out.items) if (x.kind === 'q') { const l = x.rec.ev.filter(e => seqKinds(e.what).includes(kinds.get(e.on))); out.seqBad += x.rec.ev.length - l.length; x.rec.ev = l; }
   out.items = out.items.filter(x => {
     if (x.kind !== 'g') return true;
     x.rec.items = x.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i)));
@@ -353,6 +363,7 @@ function layoutOut() {
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  if (P.some(it => it.kind === 'q')) L.sequences = P.filter(it => it.kind === 'q').map(it => Object.assign({ id: it.id }, it.rec));   // (v146; the play state never)
   if (P.some(it => it.kind === 'd')) L.paintings = P.filter(it => it.kind === 'd').map(it => Object.assign({ id: it.id }, it.rec));   // (v144)
   if (P.some(it => it.kind === 'v')) L.screens = P.filter(it => it.kind === 'v').map(it => { const r = Object.assign({ id: it.id }, it.rec); delete r.play; return r; });   // (without play: v143)
   L.settings = Object.assign({}, STU.settings);
@@ -406,7 +417,7 @@ async function loadSaved() {
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
     putLayout(L.items, L.settings);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }

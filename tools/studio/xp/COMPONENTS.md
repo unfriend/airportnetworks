@@ -63,14 +63,13 @@ Columns: **time** in the video, **what** it shows, **in the room** (model, pictu
 | 012, 080 | Windows on a CRT in a room; a bedroom lit by a CRT | left out: the room itself is the room | |
 | 044-046 | A white room with a curtain | left out: the room is the viewer's own (AR) or the hill (VR) | |
 | 100, 120, 124, 158 | A hand in grass; the performer; dancers | left out: no people (the grass and Clippy's dance carry it) | |
-| all | The song | left out: no music and no lyrics. Every sound is our own synthesis: startup swell, shutdown, ding, critical stop, balloon pop, new-message chime, nudge, hardware in and out, click, recycle crumple, typing, solitaire flips, outdoor ambience | each an emitter at its object (`on`), so it comes from there; a sound a cube starts once is on an object that is always shown, placed at the one it belongs to (`o`), since an emitter is heard only as much as its object is shown (the balloon pops on Clippy, the ding on Remote Assistance, the shutdown on "Go touch the grass", the startup swell on the taskbar's bar) |
+| all | The song | left out: no song and no lyrics (the only music is our own short loop for Media Player's play button, v146). Every sound is our own synthesis: startup swell, shutdown, ding, critical stop, balloon pop, new-message chime, nudge, hardware in and out, click, recycle crumple, typing, solitaire flips, outdoor ambience | each an emitter at its object (`on`), so it comes from there; a sound a cube starts once is on an object that is always shown, placed at the one it belongs to (`o`), since an emitter is heard only as much as its object is shown (the balloon pops on Clippy, the ding on Remote Assistance, the shutdown on "Go touch the grass", the startup swell on the taskbar's bar) |
 
 The trigger cubes (`layout.json`; "everyone" cubes carry `all: true`, the studio's contract for v137):
 
 | Cube | Who | Where | What it does |
 | --- | --- | --- | --- |
 | Entry | everyone, stays | a step ahead of the start | hides the boot screen, shows the welcome screen, "welcome back.", the giant cursor and its balloon and the startup swell, which plays as it first shows (walking through the cube again on the way to the desktop does not play it again) |
-| Start | each person, while | at the start button | shows the Start menu with a click |
 | Clippy | each person, while | round Clippy's lounge | Clippy waves, his balloon pops in |
 | Recycle | each person, while | at the bin | the crumple |
 | Chat | each person, while | at the notes, left wall | the new-message chime, the chat's nudge (clip and sound), typing while you stand there |
@@ -79,4 +78,31 @@ The trigger cubes (`layout.json`; "everyone" cubes carry `all: true`, the studio
 | Task Manager | each person, while | towards the back left corner, a band just in front of the solitaire's | the critical stop |
 | Solitaire | each person, while | the back left corner, at the wall | the solitaire win from its start under Task Manager, the flips |
 | Exit | each person, while | at the back wall's middle | "Turn off computer" and "You can switch off now", the shutdown sound; in VR the landscape goes and the starfield flies |
+| Bin keys (six) | for everyone, while the thing is in | round the bin, floor to 0.5 m, where it stands in a 3 x 3 m room and in a 5 x 5 m room and between | each reacts to its own card or page (its `key`): the thing crumples (held while it is in), the crumple sound, the bin's gulp |
 | Error | everyone, while | back right corner | the error, the trail, "Close all your windows", the ding; the giant cursor goes while anyone is there |
+
+## What can be pressed and picked up (v146)
+
+Presses are records on objects (`press.do`: for everyone at the circle; `press.hover`: while pointed at, each person's own),
+and most start a *sequence* (kind q: events on a timeline, on the room's clock). The generator writes them in `layout.mjs`;
+`checkLayout` keeps the rules (every name exists, every window has its close button riding on it, what only presses or
+pointing move has anim off, the key cubes' keys are things anyone may move and start outside them).
+
+| Part | What | Press | Pointed at |
+| --- | --- | --- | --- |
+| `taskbar-start` | the green start button | Start open (the Start menu, a click) | Lift (8 mm out) |
+| `start-menu` | the menu | Start close | |
+| `icon-*` (four) | My Computer, My Documents, Internet, Media Player | Open <window>: its loading hourglass (`hourglass`, clip *Load*, 1.2 s; the desktop's too), then the window and its close button | Lift (3 cm up, a turn) |
+| `close-button` (four objects) | XP's red close button in relief over each window's drawn one (placed from `info.marks.close`) | Close <window> (click, hides the window and itself) | Lift (4 mm) |
+| `media-play`, `media-stop` | the player's round buttons over the drawn ones (`info.marks.play`, `.stop`) | Music on (bars and music) / Music off | Lift (4 mm) |
+| `clippy` | | Clippy dances: *Dance* and the giggle (`sounds/clippy-giggle.wav`) | *Wave* while pointed at |
+| six `balloon-*` | | Burst: clip *Burst* (8 s, gone at 0.2 s, back at 7.4 to 8 s) and `sounds/balloon-burst.wav` | |
+| `welcome-screen` | | Log in: it and "welcome back." go, with a click | |
+| `card-hearts`, `-spades`, `-diamonds`, `-clubs` | 9.5 x 13.3 cm playing cards, pips only, `grab` (anyone may move them) | | |
+| `paper-draft` (two objects) | an A4 page printed with our own few lines, slightly curled, `grab` | | |
+| `recycle-bin` | clip *Gulp* when something is dropped in | | |
+
+Dropping a card or a page in the bin: six low key cubes, one per thing, play *Crumple* on it (held while it is in the bin), the
+crumple sound and the bin's *Gulp*. `sounds/media-music.wav` is our own 4.8 s loop (a pad, a plucked bass, a bell tune on a
+pentatonic scale). Left out: pressing the start button a second time does not close the menu (the menu itself does), and the
+window of an icon already open stays when the icon is pressed again (the window has its own show sequence).

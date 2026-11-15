@@ -30,7 +30,7 @@
       if (k === 'play') { g.moveTo(x + S * 0.38, y + S * 0.28); g.lineTo(x + S * 0.72, y + S * 0.5); g.lineTo(x + S * 0.38, y + S * 0.72); }
       else if (k === 'stop') g.rect(x + S * 0.32, y + S * 0.32, S * 0.36, S * 0.36);
       else { const d = k === 'next' ? 1 : -1, m = x + S / 2; g.moveTo(m - d * S * 0.22, y + S * 0.3); g.lineTo(m + d * S * 0.08, y + S * 0.5); g.lineTo(m - d * S * 0.22, y + S * 0.7); g.moveTo(m + d * S * 0.12, y + S * 0.3); g.lineTo(m + d * S * 0.18, y + S * 0.3); g.lineTo(m + d * S * 0.18, y + S * 0.7); g.lineTo(m + d * S * 0.12, y + S * 0.7); }
-      g.fill(); raised.push([x, y, x + S, y + S, 0.006]);
+      g.fill(); { const rr = [x, y, x + S, y + S, 0.006]; rr.mark = k; raised.push(rr); }
     });
     // (the bars' green, bright on top, in the strip under the face)
     g.fillStyle = XP.grad(g, 0, fh, 0, fh + 8, [[0, '#f2ffb0'], [0.25, '#b6ff2a'], [1, '#4f9a00']]); g.fillRect(40, fh, 40, 8);
@@ -50,6 +50,9 @@
       tracks.push(XP.vTrack(name, 'scale', hs.map((_, k) => +(k / K * P).toFixed(4)), hs.map(h => [1, h, 1])));
       m.scale.set(1, hs[0], 1);
     }
-    return { root, clips: [new T.AnimationClip('Bars', P, tracks)] };
+    // where the buttons are (v146): the close button's, play's and stop's middles and sizes, in metres, and 4 mm in front of them
+    const marks = { close: XP.closeMark(F, L, 0.034) }, r4 = v => Math.round(v * 1e4) / 1e4;
+    for (const r of raised) if (r.mark === 'play' || r.mark === 'stop') { const [mx, my] = F.px((r[0] + r[2]) / 2, (r[1] + r[3]) / 2); marks[r.mark] = [r4(mx), r4(my), r4((r[2] - r[0]) / W * F.w), 0.04]; }
+    return { root, clips: [new T.AnimationClip('Bars', P, tracks)], marks };
   } });
 })();

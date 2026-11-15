@@ -128,6 +128,7 @@ function paneBlocks(tab) {
     if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
     if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
     if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
+    if (STU.badSeq) B.push({ p: `${STU.badSeq} of the sequences' events in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -212,6 +213,8 @@ function paneBlocks(tab) {
     B.push({ label: `Videos (${vids.length})`, grid: vids.map(f => ({ id: 'addv:' + f.path, label: f.path.replace(/^videos\//i, ''), title: f.path, act: 'addv', v: f.path, kind: extOf(f.path).toUpperCase(), sub: mb(f.bytes), dis: full('v') })) });
     if (!vids.length) B.push({ p: 'No videos in the scene\'s folder (.mp4, .m4v, .mov, .mkv; .webm is listed with the sounds): drop them under Upload; they go into videos/.', c: 'faint' });
     paintAddBlocks(B, full);   // (paint mode, strokes drawn in the air: e6r_paint.js)
+    B.push({ label: 'Sequence', row: [{ id: 'seqadd', label: 'Sequence', act: 'seqadd', dis: full('q') }] },
+      { p: 'A timeline of events: play a clip, a sound, a recorded path or a motion on items, show or hide them, change a picture, start another sequence. It plays for everyone at the circle on the room\'s clock.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
@@ -223,7 +226,7 @@ function paneBlocks(tab) {
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
     if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v', 'd']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v', 'd', 'q']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'paint') {
@@ -237,7 +240,7 @@ function paneBlocks(tab) {
     // tab, should show the same image and look like the add item part"): groups first, a heading each (a press selects the
     // group) with its members' cards under it; then what is in no group, by kind. An object's cut-outs are tags on its card
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') + (countOf('q') ? ` · ${countOf('q')} sequences` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
@@ -255,7 +258,7 @@ function paneBlocks(tab) {
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
     // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['d', 'Paintings'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['d', 'Paintings'], ['q', 'Sequences'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
     }
@@ -292,6 +295,7 @@ function itemSub(it) {
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
   if (it.kind === 'v') return screenSub(r) + (r.sync === 'own' ? ' · each person' : '') + me;
   if (it.kind === 'd') return paintSub(r) + me;
+  if (it.kind === 'q') return seqSub(r) + (r.sync === 'own' ? ' · each person' : '') + (r.locked ? ' · locked' : '');
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
@@ -312,7 +316,7 @@ function itemCard(it, C) {
     on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: it.kind !== 'c' ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
-    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : ''];
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : it.notHere ? (r.shows === 'ar' ? 'only in AR' : 'only in VR') : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
@@ -328,6 +332,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'v') { card.tile = { k: r.look === 'audio' ? 'sound' : 'screen', col: it.look.col }; card.sub = screenSub(r); state.unshift(r.ctl === 'any' ? 'controls for anyone' : '', r.sync === 'own' ? 'each person' : ''); }
   else if (it.kind === 'd') { card.tile = { k: 'paint', col: paintCols(r)[0] || it.look.col, cols: paintCols(r) }; card.sub = paintSub(r) + (r.src ? ' · in a file' : ''); }
+  else if (it.kind === 'q') { const P = seqEff(it), U = seqU(it, P, behNow()); card.tile = { k: 'seq', col: seqCol(r) }; card.sub = seqSub(r) + (U && U.playing ? ' · playing' : ''); state.unshift(r.sync === 'own' ? 'each person' : '', r.loop ? 'loops' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
@@ -340,6 +345,7 @@ function itemBlocks(it, B, ed) {
   // (recording a path here: its size steps off, rs; e6f_path.js)
   const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true), rs = mv || recording(it);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
+  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
     B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
@@ -449,6 +455,9 @@ function itemBlocks(it, B, ed) {
       { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
       { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
       { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
+      { page: true, colour: { id: 'stuShapeCol', act: 'i:colour', tgt: 'shape', value: r.colour, label: 'Any colour…', dis } },
+      { xr: true, row: [{ id: 'cpk:shape', label: 'Any colour…', act: 'cpkOpen', v: 'shape', on: !!CPK.open && CPK.open.tgt === 'shape', sw: r.colour, dis }] },
+      ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'shape' ? [{ xr: true, picker: { id: 'cpk', tgt: 'shape' } }] : []),
       { label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `pgrow:${i}:-`, label: n + ' −', act: 'i:pgrow', v: i + ':-0.1', dis: rs }, { id: `pgrow:${i}:+`, label: n + ' +', act: 'i:pgrow', v: i + ':0.1', dis: rs }]) },
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: rs })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
@@ -496,6 +505,7 @@ function itemBlocks(it, B, ed) {
   if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
+  if (PRESS_KINDS.includes(it.kind)) pressBlocks(it, B, dis);   // (what pressing it and pointing at it do: e6t_press.js)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -588,7 +598,9 @@ function tintBlocks(objs, B, dis) {
   const t = one('tint', ''), k = one('bright', 1), many = objs.length > 1;
   B.push({ label: 'Tint' + (many && t === null ? ' (they differ)' : ''), row: [{ id: 'tint:none', label: 'None', act: 'i:tint', v: '', on: t === '', dis }]
     .concat(SHAPE_COLS.map(([c, n]) => ({ id: 'tint:' + c, label: n, act: 'i:tint', v: c, on: t === c, sw: c, dis }))) },
-  { page: true, colour: { id: 'stuTint', act: 'i:tint', value: t || '#ffffff', label: 'Any colour', dis } },
+  { page: true, colour: { id: 'stuTint', act: 'i:tint', tgt: 'tint', value: t || '#ffffff', label: 'Any colour…', dis } },
+  { xr: true, row: [{ id: 'cpk:tint', label: 'Any colour…', act: 'cpkOpen', v: 'tint', on: !!CPK.open && CPK.open.tgt === 'tint', sw: t || '#ffffff', dis }] },
+  ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'tint' ? [{ xr: true, picker: { id: 'cpk', tgt: 'tint' } }] : []),
   { label: 'Brightness: ' + (k === null ? 'they differ' : brightPct(k)), row: [
     { id: 'bright:-', label: 'Darker', act: 'i:bright', v: 0.8, dis: dis || (k !== null && k <= 0.25) },
     { id: 'bright:+', label: 'Brighter', act: 'i:bright', v: 1.25, dis: dis || (k !== null && k >= 4) },
@@ -724,8 +736,10 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (CPK_ACT[a]) { CPK_ACT[a](v); dirty(true); return; }   // (the headset's colour picker opened or closed: e7h_colour.js)
   if (PAINT_ACT[a]) { PAINT_ACT[a](v); dirty(true); return; }   // (paint mode's brush, colour, width and Done: e6r_paint.js)
-  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
+  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }
+  if (SEQ_ACT[a]) { SEQ_ACT[a](v); dirty(true); return; }   // (a sequence's transport, which anyone may press: e6s_seq.js)   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
   if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
@@ -772,6 +786,7 @@ function act(a, v) {
     screenAdd: () => addScreen(v),
     addv: () => addScreen('screen', v),
     empty: () => addEmpty(),
+    seqadd: () => addSequence(),
     setting: () => setSetting(v),
     circle: () => sceneToCircle(),
     pause: () => pauseSet(!MPAUSE.on),
@@ -801,7 +816,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -882,7 +897,24 @@ function buildExplore() {
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
     .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
     .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
-    .stu-col { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .stu-colbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; margin: 2px 0 8px; padding: 3px 10px 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+    .stu-colbtn code { color: var(--muted); font-size: 12px; }
+    .stu-colbtn[disabled] { opacity: 0.45; cursor: default; }
+    .stu-colchip { width: 22px; height: 22px; flex: none; border-radius: 4px; border: 1px solid var(--line); }
+    #stuCpk { position: fixed; z-index: 15; width: 280px; box-sizing: border-box; padding: 12px; background: var(--panel-solid, var(--panel)); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); font-size: 13px; }
+    #stuCpk[hidden] { display: none; }
+    #stuCpk .cpk-wheel { display: block; margin: 0 auto 8px; touch-action: none; cursor: crosshair; border-radius: 6px; }
+    #stuCpk .cpk-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    #stuCpk .cpk-new, #stuCpk .cpk-old { flex: none; width: 44px; height: 32px; border-radius: 6px; border: 1px solid var(--line); padding: 0; font-size: 11px; color: var(--muted); background: transparent; cursor: pointer; }
+    #stuCpk .cpk-old:disabled { cursor: default; }
+    #stuCpk input { flex: 1; min-width: 0; min-height: 32px; box-sizing: border-box; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--chip); color: var(--ink); font: 14px ui-monospace, Menlo, monospace; }
+    #stuCpk .cpk-sw, #stuCpk .cpk-rc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+    #stuCpk .cpk-rc > span { flex: 0 0 100%; color: var(--muted); font-size: 12px; }
+    #stuCpk .cpk-rc > span.faint { color: var(--faint, var(--muted)); }
+    #stuCpk .cpk-sw button, #stuCpk .cpk-rc button { width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid var(--line); cursor: pointer; }
+    #stuCpk .cpk-foot { display: flex; justify-content: flex-end; }
+    #stuCpk .cpk-foot .btn { min-height: 32px; }
+    @media (pointer: coarse) { #stuCpk .cpk-sw button, #stuCpk .cpk-rc button { width: 34px; height: 34px; } }
     .stu-col input { width: 40px; height: 28px; padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--chip); cursor: pointer; }
     .stu-range { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
     .stu-range input { flex: 1; min-width: 80px; accent-color: var(--cyan); }
@@ -899,6 +931,8 @@ function buildExplore() {
     <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
+    const cb = ev.target.closest('[data-cpk]');
+    if (cb) { if (!cb.disabled) cpkPageOpen(cb); return; }   // (a colour button: the shared picker's popover; e7h_colour.js)
     const t = ev.target.closest('[data-act]');
     if (!t || t.getAttribute('aria-disabled') === 'true' || t.disabled) return;
     act(t.dataset.act, t.dataset.n ? +t.dataset.v : t.dataset.v);
@@ -907,7 +941,6 @@ function buildExplore() {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
-    if (t.dataset && t.dataset.colour && !t.disabled) { t.blur(); act(t.dataset.colour, String(t.value).toLowerCase()); return; }   // (a colour field: the tint, once chosen)
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>` +
     `<div class="grp" id="stuWalkTip" style="display:none"><span>Click the view to look with the mouse, Esc lets go</span></div>`;   // (Walk view with a mouse: grabStep)
@@ -944,8 +977,9 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}"${r.fmt ? ` data-fmt="${esc(r.fmt)}"` : ''} aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
-  // (a colour field: any colour, taken once it is chosen: its 'change' event, buildExplore)
-  if (b.colour) { const q = b.colour; return lab + `<label class="stu-col"><input type="color" id="${esc(q.id)}" data-colour="${esc(q.act)}" value="${esc(q.value)}"${q.dis ? ' disabled' : ''}><span>${esc(q.label || '')}</span></label>`; }
+  // (a colour button: any colour, through the shared picker's popover, e7h_colour.js)
+  if (b.picker) return '';   // (the headset's picker: e7h_colour.js)
+  if (b.colour) { const q = b.colour, on = !!CPK.open && CPK.open.where === 'page' && CPK.open.tgt === q.tgt; return lab + `<button type="button" class="stu-colbtn" id="${esc(q.id)}" data-cpk="${esc(q.tgt)}" aria-haspopup="dialog" aria-expanded="${on}"${q.dis ? ' disabled' : ''}><span class="stu-colchip" style="background:${esc(q.value)}"></span><span>${esc(q.label || '')}</span><code>${esc(q.value)}</code></button>`; }
   // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
   // (a group's heading in the Items pane: a press selects the group)
   if (b.gh) { const x = b.gh; return lab + `<button type="button" class="stu-gh${x.sel ? ' sel' : ''}" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"><i class="stu-sw" style="background:${esc(x.col || '')}"></i><span>${esc(x.label)}${x.lock ? ' 🔒' : ''}</span><small>${esc(x.sub || '')}</small></button>`; }
@@ -962,7 +996,7 @@ function blockHTML(b) {
   return '';
 }
 function renderPanes() {
-  if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
+  if (X.sliding) { X.dirty = true; return; }   // (a slider held: drawn again once let go)
   // (a headset presenting: nobody sees the page's panes, the headset's panels are drawn from the same blocks; they are
   // drawn once the session ends. v136: every change in a session built the page's HTML again)
   if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
@@ -1047,7 +1081,7 @@ function rayPick(ray, o) {
 function visitPick(ray) {
   const L = [];
   for (const it of STU.items.values()) {
-    if (!visitMove(it) || !it.holder.visible || !it.shown || it.notHere) continue;
+    if (!(visitMove(it) || pressable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, and what can be pressed or pointed at, v146)
     if (it.kind === 'o') { if (it.model) L.push(it.proxy); } else L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill);
   }
   const h = L.length ? ray.intersectObjects(L, false)[0] : null;
@@ -1060,10 +1094,10 @@ function visitDown(ev) {
   if (APP.mode !== 'explore' || editOn() || XR.on || GRAB.on || ev.button !== 0 || PDRAG) return false;
   GL.world.updateMatrixWorld(true);
   const ray = pointerRay(ev.clientX, ev.clientY), h = visitPick(ray), it = h && STU.items.get(h.id);
-  if (!it) return false;
+  if (!it || !visitMove(it)) return false;   // (one that is only pressed: a click, clickAt)
   poseRest(it);
   const hit = GL.world.worldToLocal(h.point.clone());
-  PDRAG = { id: it.id, pid: ev.pointerId, y: hit.y, off: it.holder.position.clone().sub(hit) };
+  PDRAG = { id: it.id, pid: ev.pointerId, y: hit.y, off: it.holder.position.clone().sub(hit), x0: ev.clientX, y0: ev.clientY, t0: performance.now(), go: !pressable(it) };   // (one that can be pressed too moves only after 6 px: a press otherwise)
   it.carry = true; it.gl = null; orbit.held = true;
   sfxAct('grab', 'world', h.point.toArray());
   return true;
@@ -1072,6 +1106,7 @@ const _vp = new THREE.Plane(), _vq = new THREE.Vector3(), _vn = new THREE.Vector
 function visitMoveTo(ev) {
   const it = STU.items.get(PDRAG.id);
   if (!it || !visitMove(it)) { visitUp(); return; }
+  if (!PDRAG.go) { if (Math.hypot(ev.clientX - PDRAG.x0, ev.clientY - PDRAG.y0) < 6) return; PDRAG.go = true; }
   const ray = pointerRay(ev.clientX, ev.clientY).ray.clone();
   GL.world.updateMatrixWorld(true);
   ray.applyMatrix4(_sm2.copy(GL.world.matrixWorld).invert());   // (into the scene's frame)
@@ -1081,9 +1116,10 @@ function visitMoveTo(ev) {
   carryWrite(it);
 }
 function visitUp() {
-  const it = STU.items.get(PDRAG.id);
+  const it = STU.items.get(PDRAG.id), D = PDRAG;
   PDRAG = null; orbit.held = false;
   if (!it) return;
+  if (!D.go) { it.carry = false; if (performance.now() - D.t0 < 500 && pressable(it)) pressGo(it.id, null, null); return; }   // (it never moved: a press)
   carryWrite(it, true); it.carry = false;
   sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray());
 }
@@ -1136,7 +1172,17 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       screenHover(ev, cv);   // (a screen or its bar under the pointer lights its bar)
       // (without editing: over an item anyone may move, the hand that drags it, v140)
-      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) { GL.world.updateMatrixWorld(true); cv.style.cursor = visitPick(pointerRay(ev.clientX, ev.clientY)) ? 'move' : 'grab'; }
+      // (and over one that can be pressed, the pointing hand, and what it reacts to while pointed at: at most ten picks a second, e6t_press.js)
+      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) {
+        const now = performance.now();
+        if (now - PRESS.pt >= 100) {
+          PRESS.pt = now; GL.world.updateMatrixWorld(true);
+          const h = visitPick(pointerRay(ev.clientX, ev.clientY)), it = h && STU.items.get(h.id);
+          PRESS.hovPage = it && pressable(it) ? it.id : '';
+          PRESS.cur = PRESS.hovPage ? 'pointer' : it ? 'move' : 'grab';
+        }
+        cv.style.cursor = PRESS.cur || 'grab';
+      }
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
         const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
@@ -1178,7 +1224,7 @@ function bindCanvas() {
   cv.addEventListener('pointerup', end);
   cv.addEventListener('pointercancel', end);
   cv.addEventListener('contextmenu', ev => ev.preventDefault());
-  cv.addEventListener('pointerleave', () => { if (!pts.size) STU.hover = ''; });
+  cv.addEventListener('pointerleave', () => { if (!pts.size) STU.hover = ''; PRESS.hovPage = ''; });
   cv.addEventListener('wheel', ev => {
     if (APP.mode !== 'explore') return;
     ev.preventDefault();
@@ -1194,6 +1240,7 @@ function bindCanvas() {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
     if (k === 'escape' && (GRAB.on || performance.now() - GRAB.gone < 400)) return;   // (Esc lets go of the mouse: the browser's own, nothing else)
+    if (k === 'escape' && STU.prp) { STU.prp = null; dirty(true); return; }
     if (k === 'escape' && (STU.pick || STU.txp || STU.plp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.plp) STU.plp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
@@ -1281,11 +1328,13 @@ function grabEnd() {
 function clickAt(mx, my) {
   const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
+  // (without editing: a click on an item that can be pressed presses it, a visitor too: e6t_press.js)
+  if (!editOn()) { GL.world.updateMatrixWorld(true); const ph = visitPick(ray), pit = ph && STU.items.get(ph.id); if (pit && pressable(pit) && pit.rec.press.do) { pressGo(pit.id, ph.point, null); return; } }
   if (X.view === 'walk') {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.cutTo && !STU.gpick && !STU.keyPick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.cutTo && !STU.gpick && !STU.keyPick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -1294,6 +1343,7 @@ function clickAt(mx, my) {
 function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
+  if (STU.prp) { itemAct('prOn', id, STU.prp.id); return; }   // (an item picking what a reaction acts on: e6t_press.js)
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(id) : null;
   // (a cube picking what it shows or hides: an item in a group puts in all of its group's members a cube can list (not its
   // cubes); a cube in a group of cubes alone, nothing to list, is selected as an ungrouped cube is (its group, as a click
@@ -1304,7 +1354,7 @@ function pressItem(id, ray) {
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }
   if (STU.keyPick && id !== STU.keyPick) { if (KEY_KINDS.includes(it.kind)) itemAct('key', id, STU.keyPick); return; }   // (a cube picking its key: v140)   // (a cut-out picking the object it cuts)
   if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
-  if (STU.plp && id !== STU.plp.id) { if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
+  if (STU.plp && id !== STU.plp.id) { if (STU.plp.seq) { if (seqOpts(it).length && it.id !== STU.plp.id) itemAct('sqOn', id, STU.plp.id); } else if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
   if (ray && it.kind === 'o') cutRay(id, ray);

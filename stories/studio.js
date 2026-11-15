@@ -17084,9 +17084,9 @@ function openScene(name, how, again) {
   pvClear();
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, badTex: 0, badPlay: 0, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    bad: 0, badTex: 0, badPlay: 0, badSeq: 0, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
-  STU.seen.clear(); UNDO.length = 0;
+  STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
@@ -17110,7 +17110,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
@@ -17175,9 +17175,9 @@ async function refreshFiles(changed) {
 // e6i_tex.js): an entry that is not one is dropped and counted (texBad), one for an object the layout lacks dropped as
 // its lists drop such ids. What a cube starts (v136, e6n_plays.js) the same: an entry that is not one counted (playBad), one
 // naming an item the layout lacks, or one of the wrong kind, dropped
-const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50 };
+const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50, q: 50 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, texBad: 0, playBad: 0, at: 0, by: '', settings: normSettings() };
+  const out = { items: [], bad: 0, texBad: 0, playBad: 0, seqBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
@@ -17185,15 +17185,17 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
-  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings]]) {
+  let keys = 0, ppts = 0, evs = 0;   // (the sequences' events: 2,000 a scene; the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
+  for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings], ['q', j.sequences]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
     let n = 0;
     for (const x of list) {
-      const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x) : null;
+      const id = x && okId(x.id) && !ids.has(x.id) ? x.id : '', rec = id && n < LIMITS[kind] ? norm(kind, x, id) : null;
+      if (rec && kind === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) { out.bad++; continue; }
       if (!rec || (rec.path && keys + pathN(rec.path) > PATH_MAX.scene)) { out.bad++; continue; }
       if (kind === 'v') delete rec.play;   // (a scene opens paused at its first entry: play is never saved)
+      if (kind === 'q') { evs += rec.ev.length; if (Array.isArray(x.ev)) out.seqBad += x.ev.length - rec.ev.length; }
       ids.add(id); n++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
       if (kind === 'c' && Array.isArray(x.tex)) out.texBad += x.tex.length - (rec.tex ? rec.tex.length : 0);
       if (kind === 'c' && Array.isArray(x.plays)) out.playBad += x.plays.length - (rec.plays ? rec.plays.length : 0);
@@ -17206,6 +17208,14 @@ function readLayout(j) {
     if (x.rec.tex) { const t = x.rec.tex.filter(e => kinds.get(e.on) === 'o'); if (t.length) x.rec.tex = t; else delete x.rec.tex; }
     if (x.rec.plays) { const t = x.rec.plays.filter(e => PLAY_KINDS[e.what].includes(kinds.get(e.on))); if (t.length) x.rec.plays = t; else delete x.rec.plays; }
   }
+  // (a press's entries naming an item the layout lacks, or one this cannot be done to, are dropped too; e6t_press.js)
+  for (const x of out.items) if (x.rec.press) {
+    const f = l => (l ? l.filter(e => prKinds(e.what).includes(kinds.get(e.on))) : undefined), p = x.rec.press;
+    const np = pressBuild(p, { do: f(p.do), hover: f(p.hover) });
+    if (np) x.rec.press = np; else delete x.rec.press;
+  }
+  // (a sequence's events naming an item the layout lacks, or one this cannot be done to, are dropped, as a cube's starts are; e6s_seq.js)
+  for (const x of out.items) if (x.kind === 'q') { const l = x.rec.ev.filter(e => seqKinds(e.what).includes(kinds.get(e.on))); out.seqBad += x.rec.ev.length - l.length; x.rec.ev = l; }
   out.items = out.items.filter(x => {
     if (x.kind !== 'g') return true;
     x.rec.items = x.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i)));
@@ -17228,6 +17238,7 @@ function layoutOut() {
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
   L.objects = list('o'); L.cubes = list('c'); L.sounds = list('s'); L.cuts = list('x'); L.groups = list('g'); L.shapes = list('p'); L.empties = list('e');
+  if (P.some(it => it.kind === 'q')) L.sequences = P.filter(it => it.kind === 'q').map(it => Object.assign({ id: it.id }, it.rec));   // (v146; the play state never)
   if (P.some(it => it.kind === 'd')) L.paintings = P.filter(it => it.kind === 'd').map(it => Object.assign({ id: it.id }, it.rec));   // (v144)
   if (P.some(it => it.kind === 'v')) L.screens = P.filter(it => it.kind === 'v').map(it => { const r = Object.assign({ id: it.id }, it.rec); delete r.play; return r; });   // (without play: v143)
   L.settings = Object.assign({}, STU.settings);
@@ -17281,7 +17292,7 @@ async function loadSaved() {
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
     putLayout(L.items, L.settings);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -20332,7 +20343,7 @@ const vecOf = (a, n, lim) => (Array.isArray(a) && a.length === n && a.every(v =>
 // A record's checks. A field given with a wrong type makes the record bad (it is ignored, or dropped from a layout); a
 // field left out takes its default; numbers are clamped and rounded (p to the mm, a turn to 4 decimals, a size to 4
 // significant figures), and every check gives back what it is given once checked
-function norm(kind, x) {
+function norm(kind, x, id) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const has = k => x[k] !== undefined;
   const name = d => (!has('name') ? d : typeof x.name === 'string' && x.name.trim() ? words(x.name, 60) : null);
@@ -20343,6 +20354,7 @@ function norm(kind, x) {
     const r = { name: name('Group'), items: [...new Set(x.items.filter(okId))].slice(0, GROUP_ITEMS) };
     return lockOf(x, r);
   }
+  if (kind === 'q') return normSeq(x, name, id);   // (a sequence: no place; e6s_seq.js)
   const p = vecOf(x.p, 3, 1000);
   if (!p) return null;
   const P = p.map(v => nz(r3(v)));
@@ -20372,6 +20384,7 @@ function norm(kind, x) {
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
+    if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (what pressing and pointing at it do, kept only when it has an entry: e6t_press.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'c') {
@@ -20445,6 +20458,7 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
+    if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (e6t_press.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'e') {
@@ -20493,8 +20507,8 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting', q: 'sequence' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings', q: 'sequences' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
 const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v', 'd'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
@@ -20546,6 +20560,10 @@ function makeItem(id, kind) {
     it.look.hit.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'q') {
+    // a sequence: no place and nothing to draw (its events act on other items; e6s_seq.js)
+    it.look = { col: SEQ_COL, drop() { /* nothing made */ } };
+    it.holder = new THREE.Group();
   } else if (kind === 'g') {
     // a group: its pivot (the page's arrows hold it; the middle of its members, on the floor) and its box, drawn while
     // it is selected (e6c_groups.js)
@@ -20603,6 +20621,8 @@ function removeItem(id) {
   if (STU.cutTo === id) STU.cutTo = '';
   if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
   if (STU.plp && (STU.plp.id === id || STU.plp.on === id)) STU.plp = null;   // (a cube's pick of what it starts: e6n_plays.js)
+  if (STU.prp && (STU.prp.id === id || STU.prp.on === id)) STU.prp = null;   // (an item's pick of what a reaction acts on: e6t_press.js)
+  STU.pr.delete(id); STU.prOwn.delete(id); PRESS.try.delete(id); PRESS.hv.delete(id); PRESS.last.delete(id);
   TRG.on.delete(it);
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
@@ -20628,7 +20648,7 @@ function poseOf(it) {
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
-  if (it.kind === 'g') return;   // (a group has no place of its own: its members have theirs)
+  if (it.kind === 'g' || it.kind === 'q') return;   // (a group has no place of its own: its members have theirs; nor has a sequence)
   if (glide && !it.carry) it.gl = { p: it.holder.position.clone(), q: it.holder.quaternion.clone(), s: it.holder.scale.clone(), t0: performance.now() };
   else if (!it.carry) { it.gl = null; poseOf(it); it.holder.position.copy(_pp); it.holder.quaternion.copy(_pq); it.holder.scale.copy(_ps); }
   const r = it.rec;
@@ -20895,7 +20915,7 @@ function triggerStep(now) {
   if (LISTS.rev !== STU.rev) {
     LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
     let hides = false;
-    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; }
+    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'q') { for (const e of c.rec.ev) if (e.what === 'show') LISTS.shown.add(e.on); } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; if (c.rec.press) for (const e of prEntries(c.rec.press)) if (e.what === 'show') LISTS.shown.add(e.on); }
     try { if (LISTS.hides !== hides || LISTS.hides === undefined) { LISTS.hides = hides; if (GL.sets && GL.sets.stage && GL.sets.stage.late) GL.sets.stage.late(!hides); } } catch (e) { /* the stage as it was */ }   // (the stage after the items unless a shape hides things)
   }
   // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
@@ -20932,8 +20952,10 @@ function triggerStep(now) {
     for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
     for (const i of c.rec.hide) if (enteredLater(c, H.get(i))) H.set(i, c);
   }
+  seqShowHide(S, H, Tr);   // (the sequences' show and hide events, one more source: e6s_seq.js)
+  pressShowHide(S, H, Tr);   // (what a press shows or hides, and while pointed at: e6t_press.js)
   for (const it of STU.items.values()) {
-    if (it.kind === 'c' || it.kind === 'g') continue;
+    if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
     // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back; an
     // item only for the other kind of session, v137: not shown here, it.notHere)
     const s = S.get(it.id), h = H.get(it.id);
@@ -20941,6 +20963,8 @@ function triggerStep(now) {
     const shown = !away && !it.notHere && (s || h ? (s && h ? s === h || enteredLater(s, h) : !!s) : !LISTS.shown.has(it.id));
     if (MOTION_ITEMS.includes(it.kind) && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }   // (an animation's and a motion's start when shown)
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
+    // (an instant show or hide from a sequence: no fade this time)
+    if (shown !== it.shown) { const w = s && h ? (enteredLater(s, h) ? s : h) : (s || h); if (w && w.cut) it.snap = true; }
     it.shown = shown; it.first = false;
   }
   // a sound is heard while it is shown for you and so is the object it follows (if any): one that starts 'shown' starts
@@ -20951,6 +20975,8 @@ function triggerStep(now) {
     if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown' && !trgOn(it)) emitStop(it); }   // (one a cube starts: from its run's moment, e6n_plays.js)
     it.heard = heard;
   }
+  seqFire(Tr);   // (what the sequences' events start, e6s_seq.js)
+  pressStep(Tr);   // (what presses and pointing start, e6t_press.js)
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
 // why an item is hidden, in a tag's words: only for the other kind of session (v137), or a cube hides it from you
@@ -20959,7 +20985,7 @@ const hidWord = it => (it.notHere ? (it.rec.shows === 'ar' ? ' · AR only' : ' �
 function shownFor(p) {
   STU.head = p ? p.slice(0, 3) : null;
   triggerStep(performance.now());
-  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
+  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g' && it.kind !== 'q').map(it => [it.id, it.shown]));
 }
 function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = false; c.allIn = null; } dirty(true); }
 
@@ -21094,7 +21120,7 @@ function itemsStep(dt, now) {
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
   for (const it of STU.items.values()) {
-    if (it.kind === 'g') continue;   // (groups once their members have their places: groupsStep)
+    if (it.kind === 'g' || it.kind === 'q') continue;   // (groups once their members have their places: groupsStep; a sequence has nothing to draw)
     // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
     // cut-out, in the frame of the object it cuts: cutStep)
     if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on) && it.kind !== 'x') {
@@ -21113,6 +21139,7 @@ function itemsStep(dt, now) {
       it.hid = false; it.a = approach(it.a, tgt, fade);
     }
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
+    if (it.snap) { it.snap = false; if (it.kind !== 'x' && it.kind !== 'c' && it.kind !== 'e') it.a = it.shown ? 1 : 0; it.sa = it.shown ? 1 : 0; }   // (an instant show or hide: e6s_seq.js)
     if (it.kind === 'o') {
       const E = it.E;
       if (E && E.state === 'ready' && it.built !== E.gen) buildModel(it);
@@ -21242,8 +21269,10 @@ function editStep(editing) {
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
-  if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]]) for (const id of list) {
+  if (sel && (sel.kind === 'c' || (sel.rec.press && sel.holder))) {
+    // (a cube's lists; a selected item's press targets in violet: e6t_press.js)
+    const LS = sel.kind === 'c' ? [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]] : [[[...new Set(prEntries(sel.rec.press).map(e => e.on))].filter(i => i !== sel.id), [0.68, 0.45, 1]]];
+    for (const [list, c] of LS) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -21255,7 +21284,7 @@ function editStep(editing) {
   // ticks over what a cube's list holds while picking for it
   const P = editing && STU.pick ? STU.items.get(STU.pick.id) : null;
   for (const it of STU.items.values()) {
-    if (it.kind === 'c' || it.kind === 'g') continue;
+    if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
     const on = !!P && (P.rec.show.includes(it.id) || P.rec.hide.includes(it.id));
     if (on && !it.tick) { it.tick = LOOKS.tag(30); GL.edit.add(it.tick); }
     if (!it.tick) continue;
@@ -21618,7 +21647,7 @@ function setEdit(on) {
   STU.edit = !!on;
   if (on) warmEdit('edit');
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { cpkCancel(); STU.qprev = null; STU.pick = null; STU.txp = null; STU.plp = null; STU.prp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -21677,7 +21706,7 @@ function changed() { STU.rev++; draftSoon(); dirty(); }
 function setRec(id, patch) {
   const it = STU.items.get(id);
   if (!it) return null;
-  const rec = norm(it.kind, Object.assign({}, it.rec, patch));   // (a field patched to undefined goes)
+  const rec = norm(it.kind, Object.assign({}, it.rec, patch), id);   // (a field patched to undefined goes)
   return rec ? putItem(id, it.kind, rec) : null;
 }
 // an object's record changed by an edit here (its size steps, both grips, the page's arrows): the sounds that follow it
@@ -21800,6 +21829,8 @@ function deleteItems(list) {
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
   // (and what they start on a deleted item: e6n_plays.js)
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.plays && c.rec.plays.some(e => gone.has(e.on))) { const t = c.rec.plays.filter(e => !gone.has(e.on)); setRec(c.id, { plays: t.length ? t : undefined }); }
+  seqDeleted(gone);   // (and the events of the sequences that name them: e6s_seq.js)
+  pressDeleted(gone);   // (and the entries of the presses that name them: e6t_press.js)
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -21812,6 +21843,7 @@ function duplicateItem(id) {
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
+  if (it.kind === 'q') return duplicateSequence(it);   // (its events, not playing: e6s_seq.js)
   if (it.kind === 'd') return duplicatePainting(it);   // (its strokes copied, in the record or a new file: e6r_paint.js)
   const pw = pathCopyWhy([it.rec]);   // (its recorded path: the scene's 6,000 keys and the shared state's room; e6f_path.js)
   if (pw) { recSay(it.id, pw, 'amber'); return ''; }
@@ -21827,7 +21859,7 @@ function duplicateItem(id) {
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
     if (it.kind === 'o') texCopy(id, nid);
     // (and what a cube starts on it, on its copy too, beside the original's: e6n_plays.js)
-    if (PLAY_ITEMS.includes(it.kind)) playCopy(id, nid);
+    if (PLAY_ITEMS.includes(it.kind)) { playCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }   // (and in every sequence: e6s_seq.js; and the presses: e6t_press.js)
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -21886,7 +21918,7 @@ const ITEM_ACT = {
   grab: (it, v) => { if (GRAB_KINDS.includes(it.kind) && (v === 'any') !== !!it.rec.grab) setRec(it.id, { grab: v === 'any' ? true : undefined }); },
   // in which sessions an item shows (v137): AR and VR (no field), only AR, only VR
   shows: (it, v) => { const w = v === 'ar' || v === 'vr' ? v : undefined; if (SHOWS_KINDS.includes(it.kind) && w !== it.rec.shows) setRec(it.id, { shows: w }); },
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; STU.prp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -21954,11 +21986,15 @@ function toggleLinks(cubeId, list, ids) {
 function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
+  if (CPK.open && CPK.open.id && CPK.open.id !== id) cpkCancel();   // (a colour picker belongs to the item on the card: e7h_colour.js)
   if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
   if (STU.plp && STU.plp.id !== id) STU.plp = null;   // (and its pick of what it starts)
+  if (STU.prp && STU.prp.id !== id) STU.prp = null;   // (and an item's pick of what a reaction acts on: e6t_press.js)
+  if (STU.qprev && STU.qprev.id !== id) STU.qprev = null;   // (a sequence's preview ends with its selection: e6s_seq.js)
+  if (STU.qsel >= 0 && STU.sel !== id) STU.qsel = -1;
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.keyPick && STU.keyPick !== id) STU.keyPick = '';   // (and to the cube picking its key)
@@ -21981,6 +22017,8 @@ function collabState() {
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
   const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
+  for (const [id, v] of STU.qr) if (seqRec(id)) s['qr.' + id] = v;   // (a sequence's shared play state: e6s_seq.js)
+  for (const [id, v] of STU.pr) if (STU.items.has(id)) s['pr.' + id] = v;   // (an item's press stamp: e6t_press.js)
   return s;
 }
 // A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
@@ -21988,7 +22026,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpevd]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpevdq]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -22001,20 +22039,42 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0, q: 0 };
+  let evs = 0;   // (the sequences' events: 2,000 a scene)
   let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpevd])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpevdq])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
-    let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
+    let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k], m[2]) : null;
+    if (rec && m[1] === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) rec = null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
+    keep.add(m[2]); n[m[1]]++; if (m[1] === 'q') evs += rec.ev.length; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }
   for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
+  // (the sequences' play states: as the room has them; one it has not is gone here; a bad one ignored: e6s_seq.js)
+  const qk = new Set();
+  for (const k of Object.keys(v)) {
+    const m = /^qr\.([a-z0-9]{6})$/.exec(k);
+    if (!m) continue;
+    qk.add(m[1]);
+    const val = normQr(v[k]);
+    if (val && seqRec(m[1])) { const o = STU.qr.get(m[1]); if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.qr.set(m[1], val); } else if (!val) qk.add(m[1]);
+  }
+  for (const id of [...STU.qr.keys()]) if (!qk.has(id)) STU.qr.delete(id);
+  // (the items' press stamps: as the room has them; one it has not is gone here; a bad one ignored: e6t_press.js)
+  const pk = new Set();
+  for (const k of Object.keys(v)) {
+    const m = /^pr\.([a-z0-9]{6})$/.exec(k);
+    if (!m) continue;
+    pk.add(m[1]);
+    const val = normPr(v[k]);
+    if (val && STU.items.has(m[1])) { const o = STU.pr.get(m[1]); if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.pr.set(m[1], val); } else if (!val) pk.add(m[1]);
+  }
+  for (const id of [...STU.pr.keys()]) if (!pk.has(id)) STU.pr.delete(id);
   dirty();
 }
 function studioEffect(type, data, by) {
@@ -22612,6 +22672,9 @@ function duplicateGroup(g) {
       if (r.sync && ids.has(r.sync)) nr.sync = map.get(r.sync);   // (a voice plays with the copy's recorded path: e6j_voice.js)
       putItem(map.get(m.id), 's', norm('s', nr));
     }
+    // (a copy's press entries naming the group's items name their copies; others' presses naming a member gain one for its copy: e6t_press.js)
+    const mapP = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
+    for (const m of ms) if ((m.kind === 'o' || m.kind === 'p') && m.rec.press) { const pr = m.rec.press; setRec(map.get(m.id), { press: pressBuild(pr, { do: mapP(pr.do), hover: mapP(pr.hover) }) }); }
     // (a copy whose behaviour follows an item of the group follows that item's copy: e6g_behave.js)
     for (const m of ms) { const b = m.rec.behaviour; if (b && b.target && ids.has(b.target)) setRec(map.get(m.id), { behaviour: Object.assign({}, b, { target: map.get(b.target) }) }); }
     for (const c of [...STU.items.values()]) {
@@ -22624,6 +22687,13 @@ function duplicateGroup(g) {
       // (and what it starts on an item of the group, on that item's copy too, beside it: e6n_plays.js)
       if (c.rec.plays && c.rec.plays.some(e => map.has(e.on))) setRec(c.id, { plays: withCopies(c.rec.plays, e => map.get(e.on) || '', PLAY_MAX) });
     }
+    for (const it of [...STU.items.values()]) {
+      const pr = it.rec.press;
+      if (!pr || ids.has(it.id) || used.has(it.id) || !PRESS_KINDS.includes(it.kind) || !prEntries(pr).some(e => map.has(e.on))) continue;
+      setRec(it.id, { press: pressBuild(pr, { do: pr.do && withCopies(pr.do, e => map.get(e.on) || '', PRESS_MAX), hover: pr.hover && withCopies(pr.hover, e => map.get(e.on) || '', PRESS_MAX) }) });
+    }
+    // (and what a sequence outside the group does to an item of the group, to that item's copy too: e6s_seq.js)
+    for (const q of [...STU.items.values()]) if (q.kind === 'q' && q.rec.ev.some(e => map.has(e.on))) setRec(q.id, { ev: withCopies(q.rec.ev, e => map.get(e.on) || '', SEQ_EV_MAX) });
     putItem(nid, 'g', norm('g', { name: base(g.rec.name), items: ms.map(m => map.get(m.id)) }));
   });
   select(nid);
@@ -24570,8 +24640,9 @@ function texNeed() {
       want.get(e.file).add(!isGltf(o.rec.file));
     }
   }
+  seqTexNeed(want);   // (and the pictures a sequence's tex events name: e6s_seq.js)
   TXS.want = want;
-  TXS.any = [...STU.items.values()].some(c => c.kind === 'c' && c.rec.tex);
+  TXS.any = seqHasTex() || [...STU.items.values()].some(c => c.kind === 'c' && c.rec.tex);
   for (const [p, P] of [...TXS.pics]) { const f = STU.fileMap.get(p); if (!want.has(p) || P.gen !== STU.gen || P.at !== (f ? f.at : 0)) texFree(p); }
   for (const [p, flips] of want) {
     const P = TXS.pics.get(p);
@@ -24629,9 +24700,10 @@ function texStep() {
       if (!w || enteredLater(c, w)) m.set(k, { e, since: c.since, id: c.id });   // (ties by the cube's id, alike everywhere)
     }
   }
+  seqTexWant(want);   // (the sequences' tex events as sources too, the one entered last winning: e6s_seq.js)
   for (const it of STU.items.values()) {
     if (it.kind !== 'o') continue;
-    const held = CT.id === it.id || FT.id === it.id, m = !held && it.model ? want.get(it.id) : null, list = m ? [...m.values()].map(w => w.e) : [];
+    const held = CT.id === it.id || FT.id === it.id, m = !held && it.model ? want.get(it.id) : null, list = m ? [...m.values()].map(w => w.e).filter(Boolean) : [];
     const sig = held ? 'held' : !it.model ? '' : list.map(e => `${e.mat}|${e.slot}|${e.file}|${+texReady(e.file)}`).sort().join(',') + '|' + it.light + '|' + it.built;
     if (sig !== it.txSig) {
       it.txSig = sig;
@@ -24772,7 +24844,7 @@ Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
   // material, the slot and a page of pictures; a picture adds the entry (one for that object, material and slot: another
   // there takes its place)
-  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; } },   // (one pick at a time)
+  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; STU.prp = null; } },   // (one pick at a time)
   txOn: (c, oid) => {
     const o = STU.items.get(oid);
     if (!STU.txp || STU.txp.id !== c.id || !o || o.kind !== 'o') return;
@@ -25950,6 +26022,7 @@ function animSig(xr) {
 }
 // what a headset's bar shows now (null: nothing to show): its time, length, whether it is held, plays, is this device's
 function animBar(ch) {
+  if (ch === 'seq') return seqBar();   // (a sequence's bar, v146: e6s_seq.js)
   const it = STU.items.get(STU.sel);
   if (!animCan(it, ch)) return null;
   const H = animHold(it, ch), m = mineOf(ch);
@@ -25985,10 +26058,10 @@ const animState = () => ({ mine: ANIM.mine && Object.assign({}, ANIM.mine), mine
 // until a cube plays a clip over it. A sound that plays with a recorded path (sync) is no target: starting that path
 // starts its voice. Pause, a timeline's hold, a carry and a character worn with trackers win over a run, as over
 // everything that moves
-const PLAY_WHAT = ['clip', 'sound', 'path', 'motion'], PLAY_HOW = ['once', 'loop', 'hold', 'stop'], PLAY_MAX = 16, PLAY_BLEND = 300, PLAY_FADE = 400, PLAY_EDGE = 300, PLAY_TRY = 10000;
+const PLAY_WHAT = ['clip', 'sound', 'path', 'motion', 'seq'], PLAY_HOW = ['once', 'loop', 'hold', 'stop'], PLAY_MAX = 16, PLAY_BLEND = 300, PLAY_FADE = 400, PLAY_EDGE = 300, PLAY_TRY = 10000;
 // (what each can be started on, by item kind, and its bit in an item's tgM: what a cube names on it)
-const PLAY_KINDS = { clip: ['o'], sound: ['s'], path: ['o', 'p', 'e', 's'], motion: ['o', 'p', 'e'] }, PLAY_BIT = { clip: 1, sound: 2, path: 4, motion: 8 };
-const PLAY_ITEMS = ['o', 's', 'p', 'e'];
+const PLAY_KINDS = { clip: ['o'], sound: ['s'], path: ['o', 'p', 'e', 's'], motion: ['o', 'p', 'e'], seq: ['q'] }, PLAY_BIT = { clip: 1, sound: 2, path: 4, motion: 8, seq: 16 };
+const PLAY_ITEMS = ['o', 's', 'p', 'e', 'q'];   // (a 'seq' entry, v146: starts or stops a sequence, e6s_seq.js)
 // list: every entry { c (its cube), e, ek }; cubes: the cubes with plays; seen: the entries already known (one new while
 // its cube is active fires at once); on: the items with a run; log: the last 100 starts and ends (tests); n: runs started
 // (a voice's pass); rev2: moves on at each start and end; said: a missing clip logged once a scene opening
@@ -26045,6 +26118,16 @@ function trgList() {
       if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what];
     }
   }
+  // (the events of the sequences name items too, e6s_seq.js: a sound, a path or a motion waits until one starts it)
+  for (const q of STU.items.values()) {
+    if (q.kind !== 'q') continue;
+    for (const e of q.rec.ev) { const t = SEQ_RUN.includes(e.what) ? STU.items.get(e.on) : null; if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what]; }
+  }
+  // (and what an item's press or pointing starts, e6t_press.js)
+  for (const it of STU.items.values()) {
+    const p = it.rec && it.rec.press;
+    if (p) for (const e of prEntries(p)) { const t = prRun(e.what) ? STU.items.get(e.on) : null; if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what]; }
+  }
   for (const k of [...TRG.seen.keys()]) if (!keys.has(k)) TRG.seen.delete(k);
   for (const it of STU.items.values()) {
     // (a cube with no starts left keeps no edge: entries put back by Undo start from where the head is then, never a stale
@@ -26092,13 +26175,13 @@ function trgFire() {
     if (x.e.when === 'leave') { if (!TRG.seen.has(x.ek)) TRG.seen.set(x.ek, 1); continue; }
     const P = x.c.pl, fresh = !TRG.seen.has(x.ek);
     if (fresh) TRG.seen.set(x.ek, 1);
-    if (P.enter || (fresh && P.act)) trgStart(x, P.enter ? P.at : T, false);
+    if (P.enter || (fresh && P.act)) { x.fresh = !P.enter; trgStart(x, P.enter ? P.at : T, false); }
   }
   for (const t of TRG.on) {
     if (STU.items.get(t.id) !== t) { TRG.on.delete(t); continue; }
     for (const k of PLAY_WHAT) {
       const R = t.tr && t.tr[k];
-      if (!R || R.off || (R.e.how !== 'loop' && R.e.how !== 'hold') || R.try > T) continue;
+      if (!R || R.off || R.src !== 'cube' || (R.e.how !== 'loop' && R.e.how !== 'hold') || R.try > T) continue;   // (a sequence's runs come off in seqFire)
       const C = R.c, here = STU.items.get(C.id) === C && C.pl && C.pl.act && TRG.seen.has(R.ek);
       if (!here) trgOff(R, C.pl && C.pl.leave && C.pl.lt ? Math.min(T, C.pl.lt) : T, 'left');
     }
@@ -26110,12 +26193,14 @@ function trgStart(x, T, tried) {
   const { c, e, ek } = x, t = STU.items.get(e.on);
   if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return false;
   if (e.what === 'sound' && syncOf(t)) return false;   // (a voice that plays with a path: started with its path)
+  const src = x.src || 'cube';
   trgPush(['start', c.id, e.on, e.what, e.clip || '', e.how, e.when || 'enter', T]);
-  plog('studio play', { cube: c.id, on: e.on, what: e.what, clip: e.clip || '', how: e.how, when: e.when || 'enter' });
+  plog('studio play', { cube: c.id, on: e.on, what: e.what, clip: e.clip || '', how: e.how, when: e.when || 'enter', src });
+  if (e.what === 'seq') return trgSeq(x, t, T, tried, src);
   const was = t.tr && t.tr[e.what];
   if (e.how === 'stop') { if (was && !was.off) trgOff(was, T, 'stop'); return true; }
   if (!t.tr) t.tr = {};
-  t.tr[e.what] = { c, e, ek, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
+  t.tr[e.what] = { c, e, ek, src, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
   TRG.on.add(t); TRG.rev2++;
   return true;
 }
@@ -26126,6 +26211,23 @@ function trgOff(R, T, why) {
   R.off = T;
   trgPush(['off', R.e.on, R.e.what, why, T]);
   TRG.rev2++;
+  // (a loop that started a sequence stops it as it comes off)
+  if (R.e.what === 'seq') { seqCmd(R.e.on, 'stop', runToRoom(T), 'off'); const q = STU.items.get(R.e.on); if (q) trgDone(q, 'seq', R, why); }
+}
+// a 'seq' entry (a cube's or a press's): start the sequence from its beginning at the room moment of the firing, or stop it; a
+// loop keeps a run so that coming off (leaving the cube) stops it. A device that comes late to a cube it finds itself inside
+// (x.fresh) never restarts a sequence that already has a state
+function trgSeq(x, t, T, tried, src) {
+  const { c, e, ek } = x, m = runToRoom(T);
+  if (e.how === 'stop') { seqCmd(t.id, 'stop', m, src); return true; }
+  const b = seqBase(t);
+  if (!(x.fresh && b && !(b.t === -1 && !b.on))) seqCmd(t.id, 'start', m, src);
+  if (e.how === 'loop') {
+    if (!t.tr) t.tr = {};
+    t.tr.seq = { c, e, ek, src, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
+    TRG.on.add(t); TRG.rev2++;
+  }
+  return true;
 }
 // a run over: its item waits again (or plays its own animation)
 function trgDone(it, what, R, why) {
@@ -26144,6 +26246,8 @@ function trgReset(why) {
   }
   for (const it of STU.items.values()) { it.tr = null; it.pw = 0; it.pl = null; if (it.tl) { for (const y of it.tl) try { y.a.stop(); } catch (e) { /* gone */ } it.tl = null; } }
   TRG.on.clear();
+  seqReset();   // (own states forgotten, the sequences fire afresh from their state: e6s_seq.js)
+  pressReset();   // (own stamps forgotten, the shared ones fire again as a late joiner's: e6t_press.js)
   trgPush(['reset', why || '']);
   TRG.rev2++;
 }
@@ -26300,7 +26404,8 @@ const HOW_WORD = { once: 'Once', loop: 'Loop', hold: 'Hold', stop: 'Stop' };
 const whatWord = e => (e.what === 'clip' ? e.clip || 'its animation' : e.what === 'sound' ? 'the sound' : e.what === 'path' ? 'its recorded path' : 'its motion');
 // an entry in words: "Dancer · Wave · once", "Voice · the sound · loops while you are inside", "Radio · stops · on leaving"
 function playWords(e, c) {
-  const t = STU.items.get(e.on), stay = c && c.rec.mode === 'stay', nm = t ? t.rec.name : 'an item not in the scene';
+  const t = STU.items.get(e.on), stay = c && c.rec && c.rec.mode === 'stay', nm = t ? t.rec.name : 'an item not in the scene';
+  if (e.what === 'seq') return `${nm} · ` + (e.how === 'stop' ? 'stops the sequence' : e.how === 'loop' ? (stay ? 'starts the sequence, stops it never' : 'loops the sequence while you are inside') : 'starts the sequence') + (e.when === 'leave' ? ' · on leaving' : '');
   const how = e.how === 'once' ? 'once' : e.how === 'loop' ? (stay ? 'loops from then on' : 'loops while you are inside') : e.how === 'hold' ? (stay ? 'held from then on' : 'held while inside') : '';
   const body = e.how === 'stop' ? (e.what === 'sound' ? 'stops' : 'stops ' + (e.what === 'clip' ? 'its animation' : whatWord(e))) : whatWord(e) + ' · ' + how;
   return `${nm} · ${body}` + (e.when === 'leave' ? ' · on leaving' : '');
@@ -26308,6 +26413,7 @@ function playWords(e, c) {
 // what can be started on an item: [{ what, clip, label, dis, why }] (a voice that plays with a path: none it can take)
 function playOpts(t) {
   if (!t || !PLAY_ITEMS.includes(t.kind)) return [];
+  if (t.kind === 'q') return [{ what: 'seq', label: 'Start this sequence' }];
   const out = [];
   if (t.kind === 'o') for (const k of (t.E && t.E.clips) || []) if (k.duration > 0) out.push({ what: 'clip', clip: k.name, label: k.name, sub: secs(k.duration) });
   if (t.kind === 's') {
@@ -26320,7 +26426,7 @@ function playOpts(t) {
 }
 // an item's options in a line: "animations: Spin, Bob · recorded path"
 function optsLine(t, o) {
-  const cl = o.filter(x => x.what === 'clip').map(x => x.clip), rest = o.filter(x => x.what !== 'clip').map(x => x.what === 'sound' ? 'sound' : x.what === 'path' ? 'recorded path' : 'motion');
+  const cl = o.filter(x => x.what === 'clip').map(x => x.clip), rest = o.filter(x => x.what !== 'clip').map(x => x.what === 'sound' ? 'sound' : x.what === 'path' ? 'recorded path' : x.what === 'seq' ? 'sequence' : 'motion');
   return [cl.length ? (cl.length > 1 ? 'animations: ' : 'animation: ') + cl.slice(0, 6).join(', ') + (cl.length > 6 ? '...' : '') : ''].concat(rest).filter(Boolean).join(' · ');
 }
 // why an entry cannot play now ('' it can)
@@ -26343,7 +26449,8 @@ function playSentence(d, c) {
   // (a loop or a hold on a cube that stays never comes off: until Reset what I have seen, or the lobby)
   const after = x => (stay ? '' : ', ' + x), M = t.rec.motion && MOTION[t.rec.motion.kind];
   let s = '';
-  if (d.what === 'clip') s = d.how === 'stop' ? `the animation a cube plays on ${nm} blends out, ${own}` : d.how === 'once' ? `${nm} plays ${d.clip} once from its start, ${own}` : d.how === 'loop' ? `${nm} plays ${d.clip} again and again ${dur}` + after(own) : `${nm} plays ${d.clip} once and holds its last frame ${dur}` + after(own);
+  if (d.what === 'seq') s = d.how === 'stop' ? `${nm} stops` : d.how === 'once' ? `${nm} starts from its beginning` : `${nm} starts from its beginning` + (stay ? '' : ', and stops as you leave');
+  else if (d.what === 'clip') s = d.how === 'stop' ? `the animation a cube plays on ${nm} blends out, ${own}` : d.how === 'once' ? `${nm} plays ${d.clip} once from its start, ${own}` : d.how === 'loop' ? `${nm} plays ${d.clip} again and again ${dur}` + after(own) : `${nm} plays ${d.clip} once and holds its last frame ${dur}` + after(own);
   else if (d.what === 'sound') s = d.how === 'stop' ? `${nm} fades out` : d.how === 'once' ? `${nm} plays once from its start` : `${nm} plays again and again ${dur}` + after('then fades out');
   else if (d.what === 'path') s = d.how === 'stop' ? `${nm} stops on its recorded path where it is` : d.how === 'once' ? `${nm} plays its recorded path once from its start, and waits at its end` : d.how === 'loop' ? `${nm} plays its recorded path again and again ${dur}` + after('then finishes the pass under way') : `${nm} plays its recorded path to its end and holds there ${dur}` + after('then goes back to its start');
   else s = !M ? `${nm} has no motion` : d.how === 'stop' ? `${nm} finishes the ${M.one} under way and rests` : d.how === 'once' ? `${nm} ${M.does} once (one ${M.one}), then rests` : `${nm} ${M.does} ${dur}` + after(`then finishes the ${M.one} under way and rests`);
@@ -26437,7 +26544,7 @@ const playDraft = P => ({ on: P.on, what: P.what, clip: P.what === 'clip' && P.h
 Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel; one pick at a time: Pick what it shows and Change a texture... end); an item chosen (its
   // first option); another item; what, how, when; a page of its animations (a headset's card)
-  plPick: c => { if (c.kind === 'c') { STU.plp = STU.plp && STU.plp.id === c.id ? null : { id: c.id, step: 'obj', on: '', what: '', clip: '', how: 'once', when: 'enter', page: 0 }; STU.pick = null; STU.txp = null; } },
+  plPick: c => { if (c.kind === 'c') { STU.plp = STU.plp && STU.plp.id === c.id ? null : { id: c.id, step: 'obj', on: '', what: '', clip: '', how: 'once', when: 'enter', page: 0 }; STU.pick = null; STU.txp = null; STU.prp = null; } },
   plOn: (c, id) => {
     const P = STU.plp, t = STU.items.get(id);
     if (!P || P.id !== c.id || !t || t.id === c.id) return;
@@ -28082,6 +28189,7 @@ function paintOn(it) {
 function paintOff(tab) {
   if (!PAINT.on) return;
   paintCancel();
+  if (CPK.open && CPK.open.tgt === 'paint') cpkCancel();
   PAINT.on = false; PAINT.arm = null;
   if (PNV.tip) PNV.tip.visible = false;
   if (typeof X !== 'undefined' && X.tab === 'paint') X.tab = tab || (STU.sel ? 'item' : 'add');
@@ -28108,7 +28216,7 @@ function paintBegin(by, pt, f, n) {
   const T = paintTarget(), erase = PAINT.brush === 'eraser';
   if (T && lockWhy(T)) { paintSay(`${T.rec.name} is locked in place: nothing can be painted on it until it is unlocked.`, 'amber'); sfxAct('knock', 'world', null, { gain: 0.5 }); return null; }
   if (!erase && !T && !canAdd('d')) { paintSay(`The scene has ${LIMITS.d} paintings: the most it can hold.`, 'amber'); return null; }
-  const D = { by, erase, brush: erase ? 'eraser' : PAINT.brush, look: erase ? '' : PAINT.brush, colour: PAINT.colour, width: PAINT.width, pts: [], pre: [], T: T ? T.id : '', gen: STU.gen, sd: 1 + Math.floor(Math.random() * 2147483647), dirty: false, over: 0 };
+  const D = { by, erase, brush: erase ? 'eraser' : PAINT.brush, look: erase ? '' : PAINT.brush, colour: cpkPaintColour(), width: PAINT.width, pts: [], pre: [], T: T ? T.id : '', gen: STU.gen, sd: 1 + Math.floor(Math.random() * 2147483647), dirty: false, over: 0 };
   if (PAINT.seed) { D.sd = PAINT.seed; }
   PAINT.drawing = D; PAINT.note = '';
   if (!erase) pvStart(D);
@@ -28304,7 +28412,7 @@ function paintXR(c, gp, dt) {
   const tp = paintTip();
   tp.visible = !!PAINT.on;
   tp.position.copy(tip); tp.scale.setScalar(Math.max(0.003, PAINT.width / 2));
-  tp.material.color.set(PAINT.brush === 'eraser' ? '#ffffff' : PAINT.colour);
+  tp.material.color.set(PAINT.brush === 'eraser' ? '#ffffff' : cpkPaintColour());
   const b = gp.buttons && gp.buttons[0], down = !!b && (b.pressed || b.value > 0.1), f = b ? clamp(b.value > 0 ? b.value : b.pressed ? 1 : 0, 0.1, 1) : 1;
   GL.world.getWorldQuaternion(_pxq).invert();
   _pxn.set(0, 1, 0).transformDirection(c.g.matrix).applyQuaternion(_pxq);
@@ -28436,7 +28544,9 @@ function paintBlocks(B) {
   B.push({ p: T ? `Strokes go into ${T.rec.name}${T.rec.locked ? ' (locked in place: refused)' : ''}.` : 'The next stroke makes a new painting.', c: T && T.rec.locked ? 'amber' : 'muted' });
   B.push({ label: 'Brush', row: PAINT.brushes.map(k => ({ id: 'pnbrush:' + k, label: PAINT_BRUSH[k], act: 'pnBrush', v: k, on: PAINT.brush === k })) },
     { label: 'Colour', row: SHAPE_COLS.map(([c, n]) => ({ id: 'pncol:' + c, label: n, act: 'pnColour', v: c, on: PAINT.colour === c, sw: c })) },
-    { page: true, colour: { id: 'stuPaintCol', act: 'pnColour', value: PAINT.colour, label: 'Any colour' } },
+    { page: true, colour: { id: 'stuPaintCol', act: 'pnColour', tgt: 'paint', value: PAINT.colour, label: 'Any colour…' } },
+    { xr: true, row: [{ id: 'cpk:paint', label: 'Any colour…', act: 'cpkOpen', v: 'paint', on: !!CPK.open && CPK.open.tgt === 'paint', sw: PAINT.colour }] },
+    ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'paint' ? [{ xr: true, picker: { id: 'cpk', tgt: 'paint' } }] : []),
     { label: `Width: ${mmWords(PAINT.width)}`, row: [{ id: 'pnw:-', label: 'Thinner', act: 'pnWidth', v: -1, dis: PAINT.width <= PNT.widths[0] }, { id: 'pnw:+', label: 'Thicker', act: 'pnWidth', v: 1, dis: PAINT.width >= PNT.widths[PNT.widths.length - 1] }] },
     { row: [{ id: 'pn:new', label: 'New painting', act: 'pnNew', dis: !STU.sel }, { id: 'pn:done', label: 'Done', act: 'pnDone', primary: true }] });
   B.push({ p: XR.on ? 'The right trigger paints from a little ahead of the controller; pressing harder is a wider stroke. The grip still carries things. Done, or selecting something that is not a painting, ends it.' : 'Drag on the scene (Orbit view) to paint where the pointer meets its surfaces; the wheel still zooms, a right drag pans. Done, or selecting something that is not a painting, ends it.', c: 'faint' });
@@ -28527,6 +28637,1034 @@ function duplicatePainting(it) {
   if (!canUpload()) { paintSay('More strokes need a relay that takes uploads: a copy of this painting does not fit the 4,000 points the layout keeps.', 'amber'); return ''; }
   paintKeep(nid, mk, S, null);
   return nid;
+}
+// ================================================================ SEQUENCES ==
+// The owner, 15 November 2026 (tools/studio/SPEC.md, "Sequences"): "A kind of timeline that can playback animations, show
+// items, hide them, play audiofiles on items, etc". A sequence is an item of kind q (no place, no holder of its own, as a
+// group has none): { name, len, loop, start, sync, col, ev, locked }, its events { t, on, what, clip?, how?, fade?, mat?,
+// slot?, file? } sorted by time. What each event does is what a cube's entry does (e6n_plays.js: clips, sounds, recorded
+// paths and motions run through the same runs), plus show and hide (one more source in the cubes' "entered last decides"
+// rule), a picture on an object (as a cube's texture change) and starting or stopping another sequence.
+// The play state is NOT part of the record: qr.<id> in the room's state (or each device's own for sync 'own'), { n, on, at,
+// t, ts, by }: shared on the room's clock, never in layout.json, the draft, Unsaved changes or Undo. Every device works the
+// whole result out from that value and the room's time (a late joiner too): firing the events at or before where the
+// sequence is now, the runs' own code placing each where it would be by now.
+const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq'];
+const SEQ_RUN = ['clip', 'sound', 'path', 'motion'], SEQ_SHOW = ['o', 's', 'p', 'e', 'v', 'd', 'x'];
+const SEQ = { last: new Map(), nudge: null, opened: -1, t0: 0, log: [], fired: 0, parents: null, rev: -1, texList: [], texRev: -1, page: 0 };
+Object.assign(STU, { qr: new Map(), qOwn: new Map(), qprev: null, qsel: -1, badSeq: 0 });
+const seqNow = () => behNow();
+// a room moment (ms) on the runs' clock and back (as triggerStep maps an everyone cube's moments)
+const roomToRun = m => m - (behNow() - trgClock());
+const runToRoom = T => T + (behNow() - trgClock());
+const seqRec = id => { const q = STU.items.get(id); return q && q.kind === 'q' ? q : null; };
+const seqQs = () => [...STU.items.values()].filter(q => q.kind === 'q');
+
+// ---------------------------------------------------------------- the record --
+// what an event's target may be, by what
+const seqKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'tex' ? ['o'] : what === 'seq' ? ['q'] : PLAY_KINDS[what]);
+function normSeqEv(list, self) {
+  const out = [];
+  for (const e of list) {
+    if (out.length >= SEQ_EV_MAX) break;
+    if (!e || typeof e !== 'object' || Array.isArray(e) || !fin(e.t) || e.t < 0 || e.t > 600 || !okId(e.on) || !SEQ_WHAT.includes(e.what) || e.on === self) continue;
+    const r = { t: r2(e.t), on: e.on, what: e.what };
+    if (SEQ_RUN.includes(e.what)) {
+      const how = e.how === undefined ? 'once' : e.how;
+      if (!PLAY_HOW.includes(how) || (how === 'hold' && e.what !== 'clip' && e.what !== 'path')) continue;
+      if (e.what === 'clip' && how !== 'stop') { if (typeof e.clip !== 'string' || !e.clip.trim()) continue; r.clip = e.clip.slice(0, 120); }
+      r.how = how;
+    } else if (e.what === 'seq') {
+      const how = e.how === undefined ? 'once' : e.how;
+      if (how !== 'once' && how !== 'stop') continue;
+      r.how = how;
+    } else if (e.what === 'show' || e.what === 'hide') {
+      if (e.fade !== undefined && e.fade !== null && e.fade !== 'cut') continue;
+      if (e.fade === 'cut') r.fade = 'cut';
+    } else {
+      if (!Number.isInteger(e.mat) || e.mat < 0 || e.mat > 255 || !TXS_SLOTS.includes(e.slot)) continue;
+      if (!(e.file === '' || (okFile(e.file) && CONV.IM.isPicture(e.file)))) continue;
+      r.mat = e.mat; r.slot = e.slot; r.file = e.file;
+    }
+    out.push(r);
+  }
+  return out.map((e, i) => [e, i]).sort((a, b) => a[0].t - b[0].t || a[1] - b[1]).map(x => x[0]);
+}
+function normSeq(x, name, self) {
+  const has = k => x[k] !== undefined;
+  const r = { name: name('Sequence') };
+  r.len = !has('len') ? 10 : fin(x.len) ? r2(Math.min(600, Math.max(0.1, x.len))) : null;
+  if (has('loop') && x.loop !== 'off' && x.loop !== 'loop') return null;
+  if (x.loop === 'loop') r.loop = 'loop';
+  if (has('start') && x.start !== 'press' && x.start !== 'open') return null;
+  if (x.start === 'open') r.start = 'open';
+  if (has('sync') && x.sync !== 'own' && x.sync !== 'all') return null;
+  if (x.sync === 'own') r.sync = 'own';
+  if (has('col') && x.col !== null) { if (typeof x.col !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(x.col)) return null; r.col = x.col.toLowerCase(); }
+  if (has('ev')) { if (!Array.isArray(x.ev)) return null; r.ev = normSeqEv(x.ev, self); } else r.ev = [];
+  return lockOf(x, r);
+}
+// a play state as the room keeps it (null: not one)
+function normQr(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const { n, at, t, ts } = v;
+  if (!Number.isInteger(n) || n < 0 || typeof v.on !== 'boolean' || !fin(at) || at < 0 || !fin(t) || t < -1 || t > 600 || !fin(ts) || ts < 0) return null;
+  return { n, on: v.on, at: Math.round(at), t: r2(t), ts: Math.round(ts), by: typeof v.by === 'string' ? words(v.by, 40) : '' };
+}
+const seqEvCount = (except) => seqQs().reduce((n, q) => n + (q.id === except ? 0 : q.rec.ev.length), 0);
+
+// --------------------------------------------------------------- play state --
+// the record's state (shared or own), else null; a preview here wins on this device (nothing written)
+const seqBase = q => (q.rec.sync === 'own' ? STU.qOwn : STU.qr).get(q.id) || null;
+// where a state puts the sequence at room time Tr: { u (s in the cycle), cyc, playing, ended, at0 (the room moment of its time 0 in
+// this run), stopAt }, or null while it is rewound or never started
+function seqU(q, P, Tr) {
+  if (!P || (P.t === -1 && !P.on)) return null;
+  const len = q.rec.len, loop = q.rec.loop === 'loop';
+  let playing = !!P.on, u, cyc = 0, ended = false;
+  if (playing) {
+    u = Math.max(0, (Tr - P.at) / 1000);
+    if (loop) { cyc = Math.floor(u / len); u -= cyc * len; } else if (u >= len) { u = len; ended = true; playing = false; }
+  } else u = Math.min(len, Math.max(0, P.t));
+  // stopped in a loop: which cycle it was in (so what an earlier cycle showed stays), and the run's own start as time 0
+  let at0 = P.on ? P.at : P.ts - P.t * 1000;
+  if (!P.on && loop && P.at > 0 && P.ts >= P.at) { cyc = Math.max(0, Math.round(((P.ts - P.at) / 1000 - u) / len)); at0 = P.at; }
+  return { u, cyc, playing, ended, at0, stopAt: ended ? P.at + len * 1000 : P.ts };
+}
+// the sequences that start this one (a seq event naming it), made again when the items change
+function seqParents(id) {
+  if (SEQ.rev !== STU.rev) {
+    SEQ.rev = STU.rev; SEQ.parents = new Map();
+    for (const p of seqQs()) for (const e of p.rec.ev) if (e.what === 'seq' && e.on !== p.id) { if (!SEQ.parents.has(e.on)) SEQ.parents.set(e.on, new Map()); const m = SEQ.parents.get(e.on); if (!m.has(p.id)) m.set(p.id, { p, evs: [] }); m.get(p.id).evs.push(e); }
+  }
+  const m = SEQ.parents.get(id);
+  return m ? [...m.values()] : [];
+}
+// a sequence's effective play state: its record's (room or own), or one derived from a playing sequence that starts or stops it
+// (never written: every device works it out alike), whichever is later; a preview here wins. Depth at most 4
+function seqEff(q, d = 0, Tr = behNow(), noPv = false) {
+  const pv = !noPv && STU.qprev && STU.qprev.id === q.id ? STU.qprev : null;
+  if (pv) return { n: -1, on: pv.on, at: pv.at, t: pv.t, ts: pv.ts, by: '', src: 'preview' };
+  const b = seqBase(q);
+  let best = b ? Object.assign({ src: q.rec.sync === 'own' ? 'own' : 'room' }, b) : null;
+  if (d >= 4) return best;
+  const cands = [];
+  for (const { p, evs } of seqParents(q.id)) {
+    const P = seqEff(p, d + 1, Tr), U = seqU(p, P, Tr);
+    if (!U) continue;
+    const len = p.rec.len;
+    for (const e of evs) {
+      let cyc = U.cyc, m = null;
+      if (e.t <= U.u) m = U.at0 + (cyc * len + e.t) * 1000;
+      else if (cyc >= 1) m = U.at0 + ((cyc - 1) * len + e.t) * 1000;
+      if (m !== null) cands.push({ m, how: e.how });
+    }
+  }
+  cands.sort((a, b2) => a.m - b2.m);
+  for (const c of cands) {
+    if (best && c.m < best.ts) continue;
+    if (c.how === 'stop') {
+      if (!best) continue;
+      const U = seqU(q, best, c.m);
+      if (!U) continue;
+      best = { n: 0, on: false, at: best.at, t: r2(U.u), ts: Math.round(c.m), by: '', src: 'derived' };
+    } else best = { n: 0, on: true, at: Math.round(c.m), t: 0, ts: Math.round(c.m), by: '', src: 'derived' };
+  }
+  return best;
+}
+const seqCan = () => !editLocked();
+const seqWho = () => { try { return HOST.collab && HOST.collab.joined && HOST.collab.name ? words(HOST.collab.name, 40) : ''; } catch (e) { return ''; } };
+// a command on a sequence's play state at room moment m (now): start (from its beginning), stop (held at where it is) or rewind
+// (nothing of it applies). No Undo step, no change: it is not an edit. One device writes at most once in 150 ms for a
+// sequence (a second within it takes the first one's number)
+function seqCmd(id, cmd, m, why) {
+  const q = seqRec(id);
+  if (!q) return false;
+  m = Math.round(m === undefined ? behNow() : m);
+  const own = q.rec.sync === 'own', M = own ? STU.qOwn : STU.qr, prev = M.get(id), L = SEQ.last.get(id), fast = L && performance.now() - L.at < 150;
+  let val;
+  const n = (prev ? prev.n : 0) + (fast ? 0 : 1);
+  if (cmd === 'start') val = { n, on: true, at: m, t: 0, ts: m, by: seqWho() };
+  else if (cmd === 'rewind') val = { n, on: false, at: 0, t: -1, ts: m, by: seqWho() };
+  else if (cmd === 'stop') {
+    const P = seqEff(q, 0, behNow(), true), U = seqU(q, P, m);   // (never the preview here: it writes nothing of its own)
+    if (!U || !P) return false;
+    val = { n, on: false, at: P.at, t: r2(U.u), ts: m, by: seqWho() };
+  } else return false;
+  M.set(id, val); SEQ.last.set(id, { at: performance.now() });
+  SEQ.log.push([cmd, id, m, why || '']); if (SEQ.log.length > 100) SEQ.log.shift();
+  dirty();
+  return true;
+}
+const seqPlay = (id, why) => seqCmd(id, 'start', undefined, why || 'card');
+const seqStop = (id, why) => seqCmd(id, 'stop', undefined, why || 'card');
+const seqRewind = (id, why) => seqCmd(id, 'rewind', undefined, why || 'card');
+
+// ------------------------------------------------------------ each frame --
+// first in triggerStep's end: each sequence's place (q.sc = { P, U }, null rewound), then its show and hide events as sources
+// of the cubes' rule (the last at or before where it is, in this cycle, else the last of the one before); an item named by a
+// sequence waits until shown (LISTS.shown). Also the starts when the scene opens
+const _sqD = new Set();
+function seqShowHide(S, H, Tr) {
+  seqOpenStep(Tr);
+  for (const q of STU.items.values()) {
+    if (q.kind !== 'q') continue;
+    const P = seqEff(q, 0, Tr), U = seqU(q, P, Tr);
+    q.sc = U ? { P, U } : null;
+    q.stx = null;
+    if (!U) continue;
+    const evs = q.rec.ev, len = q.rec.len;
+    _sqD.clear();
+    let tex = null;
+    for (let cyc = U.cyc; cyc >= Math.max(0, U.cyc - 1); cyc--) {
+      for (let i = evs.length - 1; i >= 0; i--) {
+        const e = evs[i];
+        if (cyc === U.cyc && e.t > U.u) continue;
+        if (e.what === 'show' || e.what === 'hide') {
+          if (_sqD.has(e.on)) continue;
+          _sqD.add(e.on);
+          const src = { id: q.id, since: U.at0 + (cyc * len + e.t) * 1000, cut: e.fade === 'cut' }, M = e.what === 'show' ? S : H;
+          if (enteredLater(src, M.get(e.on))) M.set(e.on, src);
+        } else if (e.what === 'tex') {
+          const k = e.on + '|' + e.mat + '|' + e.slot;
+          if (_sqD.has(k)) continue;
+          _sqD.add(k);
+          (tex || (tex = [])).push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file, since: U.at0 + (cyc * len + e.t) * 1000, id: q.id });
+        }
+      }
+    }
+    q.stx = tex;
+  }
+}
+// the events of run kinds fired as the sequence moves (a new state, a late join or a scene opened: every one at or before
+// now, in the current cycle; else the ones crossed since the last frame), each through the cubes' runs (trgStart, src 'seq');
+// loops and holds come off when it stops or ends, a rewind clears every run at once
+function seqFire(Tr) {
+  trgList();
+  for (const q of STU.items.values()) {
+    if (q.kind !== 'q') continue;
+    const sc = q.sc;
+    if (!sc) { if (!q.sq || q.sq.key !== 'none') { seqClear(q); q.sq = { key: 'none', u: 0, cyc: 0 }; } continue; }
+    const { P, U } = sc, key = P.n + '|' + P.at + '|' + P.on + '|' + P.ts + '|' + P.src, evs = q.rec.ev, len = q.rec.len;
+    const fire = (cyc, lo, hi) => {
+      for (let i = 0; i < evs.length; i++) {
+        const e = evs[i];
+        if (e.t <= lo || e.t > hi || !SEQ_RUN.includes(e.what)) continue;
+        const t = STU.items.get(e.on);
+        if (!t || !PLAY_KINDS[e.what].includes(t.kind)) continue;
+        SEQ.fired++;
+        trgStart({ c: q, e, ek: q.id + '|' + i + '|' + cyc, src: 'seq' }, roomToRun(U.at0 + (cyc * len + e.t) * 1000), false);
+      }
+    };
+    if (!q.sq || q.sq.key !== key) { seqClear(q); q.sq = { key, u: U.u, cyc: U.cyc, fired: 0 }; const n0 = SEQ.fired; fire(U.cyc, -1, U.u); q.sq.fired = SEQ.fired - n0; }
+    else {
+      const S0 = q.sq;
+      if (U.cyc === S0.cyc) fire(U.cyc, S0.u, U.u);
+      else if (U.cyc === S0.cyc + 1) { fire(S0.cyc, S0.u, len); fire(U.cyc, -1, U.u); }
+      else fire(U.cyc, -1, U.u);
+      q.sq = { key, u: U.u, cyc: U.cyc, fired: S0.fired };
+    }
+    if (!U.playing) {
+      for (const t of TRG.on) for (const k of PLAY_WHAT) {
+        const R = t.tr && t.tr[k];
+        if (R && R.c === q && !R.off && (R.e.how === 'loop' || R.e.how === 'hold')) trgOff(R, Math.min(trgClock(), roomToRun(U.stopAt)), 'stopped');
+      }
+    }
+  }
+  // (runs of a sequence deleted: loops and holds come off)
+  for (const t of TRG.on) for (const k of PLAY_WHAT) {
+    const R = t.tr && t.tr[k];
+    if (R && R.src === 'seq' && !R.off && STU.items.get(R.c.id) !== R.c && (R.e.how === 'loop' || R.e.how === 'hold')) trgOff(R, trgClock(), 'gone');
+  }
+}
+// every run a sequence started taken off at once (no fade): layers stopped, sounds stopped
+function seqClear(q) {
+  for (const t of [...TRG.on]) {
+    if (t.tl) { const keep = []; for (const y of t.tl) { if (y.R.c === q) { try { y.a.stop(); } catch (e) { /* gone */ } } else keep.push(y); } t.tl = keep.length ? keep : null; }
+    for (const k of PLAY_WHAT) { const R = t.tr && t.tr[k]; if (R && R.c === q) { if (k === 'sound') emitStop(t); trgDone(t, k, R, 'clear'); } }
+  }
+}
+// Reset what I have seen and the lobby: own states forgotten, every sequence fires afresh from its state next frame
+function seqReset() {
+  STU.qOwn.clear();
+  for (const q of seqQs()) { q.sq = null; q.sc = null; }
+  SEQ.opened = -1; SEQ.t0 = performance.now();
+}
+// start: 'open': written once 1.5 s after the scene's items are in (a state of its own, so a late device finds it playing)
+function seqOpenStep(Tr) {
+  if (STU.listing !== 'ok') { SEQ.opened = -1; SEQ.t0 = 0; return; }
+  if (SEQ.opened === STU.gen) return;
+  if (!SEQ.t0) SEQ.t0 = performance.now();
+  if (performance.now() - SEQ.t0 < (SEQ.wait === undefined ? 1500 : SEQ.wait)) return;
+  SEQ.opened = STU.gen;
+  for (const q of seqQs()) if (q.rec.start === 'open' && !seqBase(q)) seqCmd(q.id, 'start', Tr, 'open');
+}
+
+// ---------------------------------------------------------------- pictures --
+// the pictures the sequences' tex events name (read as the cubes' are) and what each object wants from them now
+function seqTexEvents() {
+  if (SEQ.texRev !== STU.rev) { SEQ.texRev = STU.rev; SEQ.texList = []; for (const q of seqQs()) for (const e of q.rec.ev) if (e.what === 'tex') SEQ.texList.push(e); }
+  return SEQ.texList;
+}
+const seqHasTex = () => seqTexEvents().length > 0;
+function seqTexNeed(want) {
+  for (const e of seqTexEvents()) {
+    const o = STU.items.get(e.on);
+    if (!e.file || !o || o.kind !== 'o' || !STU.fileMap.has(e.file)) continue;
+    if (!want.has(e.file)) want.set(e.file, new Set());
+    want.get(e.file).add(!isGltf(o.rec.file));
+  }
+}
+function seqTexWant(want) {
+  for (const q of STU.items.values()) {
+    if (q.kind !== 'q' || !q.stx) continue;
+    for (const x of q.stx) {
+      let m = want.get(x.on);
+      if (!m) want.set(x.on, (m = new Map()));
+      const k = x.mat + '|' + x.slot, w = m.get(k);
+      if (!w || enteredLater(x, w)) m.set(k, { e: x.file ? { on: x.on, mat: x.mat, slot: x.slot, file: x.file } : null, since: x.since, id: x.id });
+    }
+  }
+}
+
+// ------------------------------------------------------------ preview --
+// this device's own, while editing: the sequence played or held here at a moment, the room's state ignored here (nothing is
+// written); ends with editing, another selection or End preview
+function seqPreview(q, u, on) {
+  const now = behNow();
+  STU.qprev = { id: q.id, on: !!on, at: Math.round(now - u * 1000), t: r2(Math.min(q.rec.len, Math.max(0, u))), ts: Math.round(now) };
+}
+function seqPrevU(q) { const P = seqEff(q), U = seqU(q, P, behNow()); return U ? U.u : 0; }
+function seqScrub(f) {
+  const q = STU.items.get(STU.sel);
+  if (!q || q.kind !== 'q' || !editOn()) return;
+  seqPreview(q, Math.min(1, Math.max(0, f)) * q.rec.len, false);
+  dirty();
+}
+function seqPreviewToggle(q) {
+  const pv = STU.qprev && STU.qprev.id === q.id ? STU.qprev : null, u = seqPrevU(q);
+  if (pv && pv.on) seqPreview(q, u, false);
+  else seqPreview(q, pv || !seqEff(q) ? (u >= q.rec.len - 1e-6 ? 0 : u) : u, true);
+}
+// the bar of the card (a headset's, drawn by drawBar through animBar('seq')): its time, length, whether it is a preview, plays
+function seqBar() {
+  const q = STU.items.get(STU.sel);
+  if (!q || q.kind !== 'q') return null;
+  const P = seqEff(q), U = seqU(q, P, behNow());
+  return { t: U ? U.u : 0, d: q.rec.len, held: !!(STU.qprev && STU.qprev.id === q.id), p: !!(U && U.playing), mine: true };
+}
+
+// ------------------------------------------------------------- the card --
+const seqCol = r => r.col || SEQ_COL;
+const evSecs = t => t.toFixed(2) + ' s';
+function seqEvWords(e) {
+  const t = STU.items.get(e.on), nm = t ? t.rec.name : 'an item not in the scene', T = evSecs(e.t);
+  let w;
+  if (e.what === 'clip') w = e.how === 'stop' ? 'stops its animation' : `${e.clip} · ${e.how}`;
+  else if (e.what === 'sound') w = e.how === 'stop' ? 'stops' : e.how === 'loop' ? 'the sound · loops' : 'the sound · once';
+  else if (e.what === 'path') w = e.how === 'stop' ? 'stops its path' : `its recorded path · ${e.how}`;
+  else if (e.what === 'motion') w = e.how === 'stop' ? 'stops its motion' : `its motion · ${e.how}`;
+  else if (e.what === 'show') w = e.fade === 'cut' ? 'shows (at once)' : 'shows';
+  else if (e.what === 'hide') w = e.fade === 'cut' ? 'hides (at once)' : 'hides';
+  else if (e.what === 'tex') w = `${SLOT_NAME[e.slot] || e.slot} → ${e.file ? baseName(e.file) : 'its own picture'}`;
+  else w = e.how === 'stop' ? 'stops' : 'starts';
+  return `${T} · ${nm} · ${w}`;
+}
+function seqWhy(e) {
+  const t = STU.items.get(e.on);
+  if (!t || !seqKinds(e.what).includes(t.kind)) return 'It names an item not in the scene (or one this cannot be done to).';
+  if (SEQ_RUN.includes(e.what)) return playWhy(e);
+  return '';
+}
+function seqStateWords(q) {
+  const P = seqEff(q), U = seqU(q, P, behNow()), len = q.rec.len;
+  if (!U) return 'Not started';
+  const by = P.by ? ` · started by ${P.by}` : '';
+  if (P.src === 'preview') return (U.playing ? `Preview here: playing, ${len.toFixed(1)} s long` : U.ended ? 'Preview here: ended' : 'Preview here: held (the bar shows where)') + ' · the others see the room\'s state';
+  if (U.playing) return `Playing, ${len.toFixed(1)} s long${by}` + (P.src === 'derived' ? ' · started by a sequence' : '');
+  return U.ended ? 'Ended' + by : `Stopped at ${U.u.toFixed(1)} s` + by;
+}
+// what can be done to an item in an event: its run kinds, show and hide, a picture on an object, starting a sequence
+function seqOpts(t) {
+  if (!t) return [];
+  const out = playOpts(t).filter(o => !o.dis);
+  if (SEQ_SHOW.includes(t.kind)) out.push({ what: 'show', label: 'Show it' }, { what: 'hide', label: 'Hide it' });
+  if (t.kind === 'o') out.push({ what: 'tex', label: 'Change a texture...' });
+  return out;
+}
+const SQ_HOWS = { clip: ['once', 'loop', 'hold', 'stop'], path: ['once', 'loop', 'hold', 'stop'], sound: ['once', 'loop', 'stop'], motion: ['once', 'loop', 'stop'], seq: ['once', 'stop'] };
+const sqHowWord = (w, h) => (w === 'seq' ? (h === 'stop' ? 'Stop it' : 'Start it') : HOW_WORD[h]);
+function sqDraft(P) {
+  const e = { t: P.at, on: P.on, what: P.what };
+  if (P.what === 'clip' && P.how !== 'stop') e.clip = P.clip;
+  if (SEQ_RUN.includes(P.what) || P.what === 'seq') e.how = P.how;
+  if ((P.what === 'show' || P.what === 'hide') && P.fade === 'cut') e.fade = 'cut';
+  if (P.what === 'tex') { e.mat = P.mat; e.slot = P.slot; e.file = P.file; }
+  return e;
+}
+function sqSentence(P) {
+  const t = STU.items.get(P.on);
+  if (!t || !P.what) return 'Pick what to do.';
+  const nm = t.rec.name, T = `At ${P.at.toFixed(2)} s, `, h = P.how;
+  if (P.what === 'show') return `${T}${nm} shows${P.fade === 'cut' ? ' at once' : ' (fades in)'}.`;
+  if (P.what === 'hide') return `${T}${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
+  if (P.what === 'tex') return `${T}${nm}'s ${(SLOT_NAME[P.slot] || P.slot).toLowerCase()} becomes ${P.file ? baseName(P.file) : 'its own picture'}.`;
+  if (P.what === 'seq') return `${T}${nm} ${h === 'stop' ? 'stops' : 'starts from its beginning'}.`;
+  if (h === 'stop') return `${T}${nm} stops what a sequence or a cube started.`;
+  const what = P.what === 'clip' ? P.clip : P.what === 'sound' ? 'the sound' : P.what === 'path' ? 'its recorded path' : 'its motion';
+  return `${T}${nm} plays ${what} ${h === 'once' ? 'once from its start' : h === 'loop' ? 'again and again until the sequence stops' : 'to its end and holds there until the sequence stops'}.`;
+}
+// a list as a page's list, a headset's pages of eight
+function sqPaged(B, label, rows, page, act) {
+  const per = 8, pages = Math.max(1, Math.ceil(rows.length / per)), pg = Math.min(page, pages - 1);
+  B.push({ page: true, label, list: rows }, { xr: true, label, list: rows.slice(pg * per, pg * per + per) });
+  if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(rows.length, pg * per + per)} of ${rows.length}`, row: [{ id: act + ':-', label: '◂ Previous', act: 'i:' + act, v: -1, dis: pg <= 0 }, { id: act + ':+', label: 'Next ▸', act: 'i:' + act, v: 1, dis: pg >= pages - 1 }] });
+}
+const NUDGES = [-0.5, -0.1, 0.1, 0.5];
+function seqBlocks(q, B, dis, ed) {
+  const r = q.rec, ld = dis || !!r.locked, can = seqCan(), own = r.sync === 'own', n = r.ev.length, full = n >= SEQ_EV_MAX || seqEvCount() >= SEQ_EV_SCENE;
+  const P = STU.plp && STU.plp.id === q.id && STU.plp.seq ? STU.plp : null;
+  const col = seqCol(r), pv = STU.qprev && STU.qprev.id === q.id;
+  B.push({ h: r.name, sub: 'Sequence' });
+  B.push({ kv: [['Length', r.len.toFixed(1) + ' s' + (r.loop ? ' · loops' : '')], ['State', seqStateWords(q)], ['Plays for', own ? 'each person on their own' : 'everyone here, in step'], ['Starts', r.start === 'open' ? 'by itself when the scene opens, or by a Play, a cube or a press' : 'by a Play, a cube, a press or another sequence']] });
+  B.push({ label: 'Transport', row: [{ id: 'sq:play', label: own ? '▶ Play' : '▶ Play for everyone', act: 'sqPlay', dis: !can }, { id: 'sq:stop', label: '⏹ Stop', act: 'sqStop', dis: !can }, { id: 'sq:rew', label: '⏮ Rewind', act: 'sqRewind', dis: !can }] });
+  if (ed) B.push({ label: 'Preview (this device only)', row: [{ id: 'sq:pv', label: pv && STU.qprev.on ? '⏸ Pause preview' : '▶ Play here (preview)', act: 'sqPreview', on: pv }, { id: 'sq:pvend', label: 'End preview', act: 'sqPreviewEnd', dis: !pv }] });
+  if (ed && pv) B.push({ p: 'Preview here: the others see the room\'s state. It ends when you select something else or stop editing.', c: 'faint' });
+  B.push({ xr: true, bar: { id: 'seqbar', ch: 'seq' } });
+  B.push({ label: `Length: ${r.len.toFixed(1)} s`, row: [[-1, '−1 s'], [-0.1, '−0.1 s'], [0.1, '+0.1 s'], [1, '+1 s']].map(([d, l]) => ({ id: 'sqlen:' + d, label: l, act: 'i:sqLen', v: d, dis: ld })) });
+  B.push({ label: 'Loop', row: [{ id: 'sqloop:off', label: 'Off', act: 'i:sqLoop', v: 'off', on: !r.loop, dis: ld }, { id: 'sqloop:on', label: 'Loop', act: 'i:sqLoop', v: 'loop', on: !!r.loop, dis: ld }] });
+  B.push({ label: 'Starts', row: [{ id: 'sqst:press', label: 'By Play, a cube or a press', act: 'i:sqStart', v: 'press', on: r.start !== 'open', dis: ld }, { id: 'sqst:open', label: 'When the scene opens', act: 'i:sqStart', v: 'open', on: r.start === 'open', dis: ld }] });
+  B.push({ label: 'Who', row: [{ id: 'sqwho:all', label: 'Everyone here', act: 'i:sqSync', v: 'all', on: !own, dis: ld }, { id: 'sqwho:own', label: 'Each person', act: 'i:sqSync', v: 'own', on: own, dis: ld }] });
+  B.push({ label: 'Colour', row: SHAPE_COLS.map(([c, nm]) => ({ id: 'sqcol:' + c, label: nm, act: 'i:sqCol', v: c, on: col === c, sw: c, dis: ld })) },
+    { page: true, colour: { id: 'stuSqCol', act: 'i:sqCol', tgt: 'seq', value: col, label: 'Any colour…', dis: ld } },
+    { xr: true, row: [{ id: 'cpk:seq', label: 'Any colour…', act: 'cpkOpen', v: 'seq', on: !!CPK.open && CPK.open.tgt === 'seq', sw: col, dis: ld }] },
+    ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'seq' ? [{ xr: true, picker: { id: 'cpk', tgt: 'seq' } }] : []));
+  // the events: a row each in time order (a press selects it, flashes its item and holds the preview there), nudges, ✕
+  const per = XR.on ? 8 : n, pages = Math.max(1, Math.ceil(n / per)), pg = Math.min(STU.qpage || 0, pages - 1);
+  B.push({ label: `Events (${n})` });
+  if (!n) B.push({ p: 'No events yet: Add an event... (a clip, a sound, a path or a motion on an item, show or hide it, change a picture, start another sequence).', c: 'faint' });
+  for (let k = pg * per; k < Math.min(n, pg * per + per); k++) {
+    const e = r.ev[k], why = seqWhy(e), late = e.t > r.len;
+    B.push({ row: [{ id: 'sqe:' + k, label: seqEvWords(e) + (late ? ' · past the end' : ''), act: 'i:sqSel', v: k, on: STU.qsel === k, dis: false }]
+      .concat(NUDGES.map(d => ({ id: `sqn:${k}:${d}`, label: (d > 0 ? '+' : '−') + Math.abs(d), act: 'i:sqNudge', v: k + ':' + d, dis: ld })), [{ id: 'sqx:' + k, label: '✕', act: 'i:sqDel', v: k, dis: ld, col: 'red' }]) });
+    if (why) B.push({ p: why, c: 'amber' });
+  }
+  if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(n, pg * per + per)} of ${n}`, row: [{ id: 'sqep:-', label: '◂ Earlier', act: 'i:sqEvPg', v: -1, dis: pg <= 0 }, { id: 'sqep:+', label: 'Later ▸', act: 'i:sqEvPg', v: 1, dis: pg >= pages - 1 }] });
+  // Add an event...: the item, what, how, at
+  const cands = [...STU.items.values()].filter(t => t.id !== q.id && seqOpts(t).length);
+  B.push({ row: [{ id: 'sqadd', label: P ? 'Cancel' : 'Add an event...', act: 'i:sqPick', on: !!P, dis: ld || (!P && (full || !cands.length)) }] });
+  if (full) B.push({ p: `${n >= SEQ_EV_MAX ? SEQ_EV_MAX + ' events: the most a sequence takes' : SEQ_EV_SCENE + ' events: the most a scene takes'}.`, c: 'amber' });
+  if (P && P.step === 'obj') {
+    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': an item to play something on, show or hide, or another sequence.', c: 'amber' });
+    sqPaged(B, `Items (${cands.length})`, cands.map(t => ({ id: 'sqon:' + t.id, label: t.rec.name, sub: KIND_NAME[t.kind], act: 'i:sqOn', v: t.id, dis: ld })), P.page, 'sqPg');
+  } else if (P) {
+    const t = STU.items.get(P.on), opts = seqOpts(t);
+    B.push({ kv: [['Target', t ? `${t.rec.name} · ${KIND_NAME[t.kind]}` : 'not in the scene']] }, { row: [{ id: 'sqback', label: 'Another item...', act: 'i:sqBack', dis: ld }] });
+    const clips = opts.filter(o => o.what === 'clip'), others = opts.filter(o => o.what !== 'clip');
+    if (t && t.kind === 'o' && !t.model) B.push({ p: `${t.rec.name}'s model is not here yet: its animations show once it is.`, c: 'faint' });
+    if (clips.length) sqPaged(B, `Its animations (${clips.length})`, clips.map(o => ({ id: 'sqwhat:clip:' + o.clip, label: o.clip, sub: o.sub, act: 'i:sqWhat', v: 'clip:' + o.clip, on: P.what === 'clip' && P.clip === o.clip, dis: ld })), P.cpage, 'sqCPg');
+    if (others.length) B.push({ label: clips.length ? 'Or' : 'What', row: others.map(o => ({ id: 'sqwhat:' + o.what, label: o.label, act: 'i:sqWhat', v: o.what, on: P.what === o.what, dis: ld })) });
+    if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
+    else if (P.what) {
+      if (SQ_HOWS[P.what]) B.push({ label: 'How', row: SQ_HOWS[P.what].map(h => ({ id: 'sqhow:' + h, label: sqHowWord(P.what, h), act: 'i:sqHow', v: h, on: P.how === h, dis: ld })) });
+      if (P.what === 'show' || P.what === 'hide') B.push({ label: 'How', row: [{ id: 'sqfade:fade', label: 'Fade', act: 'i:sqFade', v: '', on: P.fade !== 'cut', dis: ld }, { id: 'sqfade:cut', label: 'At once', act: 'i:sqFade', v: 'cut', on: P.fade === 'cut', dis: ld }] });
+      if (P.what === 'tex') {
+        const ms = t.model ? ctMats(t) : [];
+        if (!t.model) B.push({ p: `${t.rec.name}'s model is not here yet: its materials show once it is.`, c: 'faint' });
+        else if (!ms.length) B.push({ p: `${t.rec.name} has no texture coordinates (UVs): a picture cannot be laid on it.`, c: 'amber' });
+        else {
+          const m = ms[P.mat] || ms[0];
+          if (ms.length > 1) B.push({ label: 'Its material', list: ms.map((x, i) => ({ id: 'sqmat:' + i, label: matLabel(x), act: 'i:sqMat', v: i, on: x === m, dis: ld })) });
+          B.push({ label: 'Slot', row: TXS_SLOTS.map(k => ({ id: 'sqslot:' + k, label: SLOT_NAME[k], act: 'i:sqSlot', v: k, on: P.slot === k, dis: ld })) });
+          const pics = scenePictures(), row = p => ({ id: 'sqpic:' + p, label: baseName(p), sub: dirOf(p) || 'the scene\'s top', act: 'i:sqPic', v: p, on: P.file === p, dis: ld });
+          B.push({ row: [{ id: 'sqpic:own', label: 'Its own picture back', act: 'i:sqPic', v: '', on: P.file === '', dis: ld }] });
+          if (pics.length) sqPaged(B, `Pick a picture (${pics.length})`, pics.map(row), P.ppage, 'sqPPg'); else B.push({ p: 'The scene has no pictures: put some in its folder.', c: 'faint' });
+        }
+      }
+      B.push({ label: `At ${P.at.toFixed(2)} s`, row: NUDGES.map(d => ({ id: 'sqat:' + d, label: (d > 0 ? '+' : '−') + Math.abs(d), act: 'i:sqAtD', v: d, dis: ld })).concat([{ id: 'sqat:now', label: 'Preview time', act: 'i:sqAtNow', dis: ld }]) },
+        { page: true, range: { id: 'stuRangeSqAt', act: 'sq:at', min: 0, max: Math.round(r.len * 10), step: 1, value: Math.min(Math.round(r.len * 10), Math.round(P.at * 10)), out: P.at.toFixed(1) + ' s', fmt: 's', aria: 'Where in the sequence, in seconds' } });
+      B.push({ kv: [['It will', sqSentence(P)]] });
+      const ok = !!sqNormOne(sqDraft(P), q.id) && (P.what !== 'tex' || (P.file !== null && ms0(t).length > 0));
+      B.push({ row: [{ id: 'sqdo', label: 'Add', act: 'i:sqAdd', primary: true, dis: ld || !ok || full }] });
+    }
+  }
+  if (q.rec.ev.some(e => e.t > r.len)) B.push({ p: 'An event past the sequence\'s length is kept but never reached.', c: 'faint' });
+  B.push({ p: 'A sequence plays for everyone at this circle at once, on the room\'s clock (or for each person, if set). What it shows or hides counts as a cube does: the one started last decides.', c: 'faint' });
+  B.splice(1, 0, ...lockTop(q), ...lockBlocks(q, dis));
+}
+const ms0 = t => (t && t.model ? ctMats(t) : []);
+const sqNormOne = (e, id) => normSeqEv([e], id)[0] || null;
+const sqEvKey = e => [e.on, e.what, e.clip || '', e.how || '', e.fade || '', e.mat, e.slot, e.file].join('|');
+const sqSet = (q, patch) => { if (q.kind === 'q' && !q.rec.locked) setRec(q.id, patch); };
+Object.assign(ITEM_ACT, {
+  sqLen: (q, d) => sqSet(q, { len: r2(Math.min(600, Math.max(0.1, q.rec.len + (+d || 0)))) }),
+  sqLoop: (q, v) => sqSet(q, { loop: v === 'loop' ? 'loop' : undefined }),
+  sqStart: (q, v) => sqSet(q, { start: v === 'open' ? 'open' : undefined }),
+  sqSync: (q, v) => {
+    if (q.kind !== 'q' || q.rec.locked || (v === 'own') === (q.rec.sync === 'own')) return;
+    const base = seqBase(q);
+    if (v === 'own') { STU.qr.delete(q.id); } else { STU.qOwn.delete(q.id); }
+    void base;
+    setRec(q.id, { sync: v === 'own' ? 'own' : undefined });
+  },
+  sqCol: (q, v) => { const c = typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : null; if (c) sqSet(q, { col: c === SEQ_COL ? undefined : c }); },
+  sqSel: (q, k) => { const e = q.rec.ev[+k]; if (!e) return; STU.qsel = +k; STU.flash = STU.items.has(e.on) ? { id: e.on, at: performance.now(), play: true } : null; seqPreview(q, Math.min(e.t, q.rec.len), false); },
+  sqEvPg: (q, d) => { STU.qpage = Math.max(0, (STU.qpage || 0) + (+d || 0)); },
+  // a nudge of an event's time: one Undo step, but several within 0.8 s on the same event merge into one
+  sqNudge: (q, v) => {
+    const [k, d] = String(v).split(':').map(Number), e = q.rec.ev[k];
+    if (q.kind !== 'q' || q.rec.locked || !e || !fin(d)) return;
+    const t = r2(Math.min(600, Math.max(0, e.t + d))), L = SEQ.nudge, now = performance.now();
+    if (t === e.t) return;
+    const merge = L && L.id === q.id && L.key === sqEvKey(e) && L.t === e.t && now - L.at < 800 && UNDO[UNDO.length - 1] === L.step;
+    const ev = q.rec.ev.slice(); ev[k] = Object.assign({}, e, { t });
+    const topBefore = UNDO[UNDO.length - 1];
+    change(() => setRec(q.id, { ev }));
+    const ne = q.rec.ev.find(x => sqEvKey(x) === sqEvKey(e) && x.t === t);
+    if (merge && UNDO[UNDO.length - 1] !== topBefore) UNDO.pop();
+    SEQ.nudge = { id: q.id, key: sqEvKey(e), t, at: now, step: UNDO[UNDO.length - 1] };
+    STU.qsel = ne ? q.rec.ev.indexOf(ne) : STU.qsel;
+  },
+  sqDel: (q, k) => { if (q.kind !== 'q' || q.rec.locked) return; const ev = q.rec.ev.slice(); if (!(+k >= 0 && +k < ev.length)) return; ev.splice(+k, 1); setRec(q.id, { ev }); STU.qsel = -1; },
+  sqPreview: q => { if (q.kind === 'q') seqPreviewToggle(q); },
+  sqPreviewEnd: q => { if (STU.qprev && STU.qprev.id === q.id) STU.qprev = null; },
+  // Add an event...: the pick is the cube's (STU.plp, with seq: true), so the scene's pointer, Escape and the other picks treat it alike
+  sqPick: q => { if (q.kind === 'q' && !q.rec.locked) { STU.plp = STU.plp && STU.plp.id === q.id ? null : { id: q.id, seq: true, step: 'obj', on: '', what: '', clip: '', how: 'once', fade: '', at: STU.qprev && STU.qprev.id === q.id ? r2(seqPrevU(q)) : 0, mat: 0, slot: 'map', file: null, page: 0, cpage: 0, ppage: 0 }; STU.pick = null; STU.txp = null; } },
+  sqOn: (q, id) => {
+    const P = STU.plp, t = STU.items.get(id);
+    if (!P || !P.seq || P.id !== q.id || !t || t.id === q.id) return;
+    const o = seqOpts(t);
+    if (!o.length) return;
+    const f = o[0];
+    Object.assign(P, { step: 'how', on: id, what: f.what, clip: f.clip || '', page: 0, cpage: 0, ppage: 0, how: 'once', fade: '', file: null, mat: Math.max(0, ms0(t).findIndex(x => x.pics.map)) });
+  },
+  sqBack: q => { if (STU.plp && STU.plp.seq && STU.plp.id === q.id) Object.assign(STU.plp, { step: 'obj', on: '', what: '', clip: '' }); },
+  sqWhat: (q, v) => {
+    const P = STU.plp, t = P && P.seq && P.id === q.id ? STU.items.get(P.on) : null;
+    if (!t) return;
+    const s = String(v), what = s.startsWith('clip:') ? 'clip' : s, clip = what === 'clip' ? s.slice(5) : '';
+    if (!seqOpts(t).some(o => o.what === what && (what !== 'clip' || o.clip === clip))) return;
+    P.what = what; P.clip = clip; P.file = null;
+    if (!(SQ_HOWS[what] || []).includes(P.how)) P.how = 'once';
+  },
+  sqHow: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id && (SQ_HOWS[P.what] || []).includes(v)) P.how = v; },
+  sqFade: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.fade = v === 'cut' ? 'cut' : ''; },
+  sqMat: (q, i) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.mat = Math.max(0, +i || 0); },
+  sqSlot: (q, k) => { const P = STU.plp; if (P && P.seq && P.id === q.id && TXS_SLOTS.includes(k)) P.slot = k; },
+  sqPic: (q, p) => { const P = STU.plp; if (P && P.seq && P.id === q.id && (p === '' || STU.fileMap.has(p))) P.file = p; },
+  sqPg: (q, d) => { const P = STU.plp; if (P && P.seq) P.page = Math.max(0, P.page + (+d || 0)); },
+  sqCPg: (q, d) => { const P = STU.plp; if (P && P.seq) P.cpage = Math.max(0, P.cpage + (+d || 0)); },
+  sqPPg: (q, d) => { const P = STU.plp; if (P && P.seq) P.ppage = Math.max(0, P.ppage + (+d || 0)); },
+  sqAtD: (q, d) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.at = r2(Math.min(600, Math.max(0, P.at + (+d || 0)))); },
+  sqAtNow: q => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.at = r2(Math.min(q.rec.len, seqPrevU(q))); },
+  sqAdd: q => {
+    const P = STU.plp;
+    if (q.kind !== 'q' || q.rec.locked || !P || !P.seq || P.id !== q.id || P.step !== 'how' || !P.what) return;
+    const e = sqNormOne(sqDraft(P), q.id);
+    if (!e || (P.what === 'tex' && P.file === null) || q.rec.ev.length >= SEQ_EV_MAX || seqEvCount() >= SEQ_EV_SCENE) return;
+    setRec(q.id, { ev: q.rec.ev.concat(e) });
+    STU.qsel = q.rec.ev.findIndex(x => sqEvKey(x) === sqEvKey(e) && x.t === e.t);
+    STU.plp = null;
+  },
+});
+PANE_ONLY.push('sqSel', 'sqEvPg', 'sqPreview', 'sqPreviewEnd', 'sqPick', 'sqOn', 'sqBack', 'sqWhat', 'sqHow', 'sqFade', 'sqMat', 'sqSlot', 'sqPic', 'sqPg', 'sqCPg', 'sqPPg', 'sqAtD', 'sqAtNow', 'sqNudge');
+// the page's slider for the time of an event being added (tenths of a second)
+function seqAtSet(v, done) { const P = STU.plp; if (P && P.seq) { P.at = r2(Math.min(600, v / 10)); if (done) dirty(true); } }
+// the transport, which anyone may press (a visitor too, editing or not), refused only while the circle's story is locked
+const SEQ_ACT = {
+  sqPlay: () => seqCard1('start'), sqStop: () => seqCard1('stop'), sqRewind: () => seqCard1('rewind'),
+  sqPreview: () => { const q = STU.items.get(STU.sel); if (q && q.kind === 'q' && editOn()) seqPreviewToggle(q); },
+  sqPreviewEnd: () => { const q = STU.items.get(STU.sel); if (q && STU.qprev && STU.qprev.id === q.id) STU.qprev = null; },
+};
+function seqCard1(cmd) {
+  const q = STU.items.get(STU.sel);
+  if (!q || q.kind !== 'q' || !seqCan()) return;
+  if (STU.qprev && STU.qprev.id === q.id) STU.qprev = null;
+  seqCmd(q.id, cmd, undefined, 'card');
+}
+
+// ------------------------------------------------------------ items --
+function addSequence() {
+  if (!canAdd('q')) return '';
+  const id = newId();
+  change(() => putItem(id, 'q', norm('q', { name: nameFor('Sequence') })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
+// a copy: its events, not playing; the events naming a deleted or copied item (the rest of Duplicate and Delete: e6_items.js)
+function duplicateSequence(q) {
+  if (!canAdd('q')) return '';
+  const nid = newId();
+  change(() => putItem(nid, 'q', norm('q', Object.assign({}, q.rec, { name: nameFor(q.rec.name.replace(/ \d+$/, '')), locked: undefined }), nid)));
+  select(nid);
+  sfxAct('place', 'world', null);
+  return nid;
+}
+// an item's copy (Duplicate): beside each event on the original, in every sequence, one for the copy (at most 200)
+function seqCopy(from, to) {
+  for (const q of [...STU.items.values()]) {
+    if (q.kind !== 'q' || !q.rec.ev.some(e => e.on === from)) continue;
+    setRec(q.id, { ev: withCopies(q.rec.ev, e => (e.on === from ? to : ''), SEQ_EV_MAX) });
+  }
+}
+// items deleted (in a change): the events naming them go
+function seqDeleted(gone) {
+  for (const q of [...STU.items.values()]) {
+    if (q.kind !== 'q' || gone.has(q.id) || !q.rec.ev.some(e => gone.has(e.on))) continue;
+    setRec(q.id, { ev: q.rec.ev.filter(e => !gone.has(e.on)) });
+  }
+}
+const seqSub = r => `${r.len.toFixed(1)} s · ${r.ev.length} event${r.ev.length === 1 ? '' : 's'}`;
+function seqSig() {
+  const q = STU.items.get(STU.sel);
+  if (!q || q.kind !== 'q') return '';
+  const P = seqEff(q), U = seqU(q, P, behNow());
+  // nothing that moves with the clock or a scrub: the bar is patched on its own strip, and the state line gives no seconds while it moves
+  const pv = !!P && P.src === 'preview';
+  return [P ? (pv ? 'pv|' + P.on : P.n + '|' + P.on + '|' + P.ts) : '', U && U.ended, U && U.playing, STU.qprev && STU.qprev.id === q.id, STU.qsel, STU.qpage, seqCan(), STU.plp && STU.plp.seq ? [STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.fade, STU.plp.at, STU.plp.mat, STU.plp.slot, STU.plp.file, STU.plp.page, STU.plp.cpage, STU.plp.ppage].join() : ''].join();
+}
+// for tests (STUDIO.seq(id), STUDIO.seqs())
+function seqState(id) {
+  const q = seqRec(id);
+  if (!q) return null;
+  const Tr = behNow(), P = seqEff(q, 0, Tr), U = seqU(q, P, Tr), shows = {}, runs = [];
+  if (q.sc && q.sc.U) for (const e of q.rec.ev) if ((e.what === 'show' || e.what === 'hide') && e.t <= q.sc.U.u) shows[e.on] = e.what;
+  for (const t of TRG.on) for (const k of PLAY_WHAT) { const R = t.tr && t.tr[k]; if (R && R.c === q) runs.push([t.id, k, R.e.clip || '', R.e.how, R.at, R.off]); }
+  return { rec: q.rec, play: P ? { on: P.on, at: P.at, t: P.t, n: P.n, ts: P.ts, src: P.src } : { src: 'none' }, u: U ? U.u : 0, ended: !!(U && U.ended), cycle: U ? U.cyc : 0, shows,
+    tex: (q.stx || []).map(x => [x.on, x.mat, x.slot, x.file]), runs, fired: q.sq ? q.sq.fired : 0, key: q.sq ? q.sq.key : '', playing: !!(U && U.playing) };
+}
+const seqStates = () => Object.fromEntries(seqQs().map(q => [q.id, seqState(q.id)]));
+// ========================================================= PRESSED AND POINTED AT ==
+// An object or a shape may react when it is pressed, and while it is pointed at (v146; the owner, 15 November 2026: "press
+// an item (anyone, visitors too, editing off too) ... does what a cube can start or starts a sequence; plus 'only while
+// pointed at' (hover) reactions"; tools/studio/SPEC.md, "Pressed and pointed at"). Its record's press:
+//   press: { do: [entries], hover: [entries], who }   (kept only when it has an entry; who: 'own' or absent, everyone)
+// each entry { on, what, clip?, how?, fade? }: the item it acts on (often itself), what ('clip', 'sound', 'path', 'motion',
+// 'show', 'hide' or 'seq': what a cube's entry or a sequence's event does), how (once, loop, stop; hold too for a clip or a
+// path while pointed at; a loop in 'do' toggles: pressed again it stops) and, for show and hide, fade ('cut': at once).
+// A press is a stamp, never a record: pr.<itemId> = { n, at, by } in the room's state (this device's own, STU.prOwn, with who
+// 'own'), written by the presser with no Undo step, never in layout.json, the draft or Unsaved changes. Every device works the
+// result out from the stamp and the room's time, a late joiner too: a once started long ago is over, a loop starts when n is
+// odd, what a press showed or hid stays until another source decides (the cubes' "entered last decides" rule). Pointing is
+// each person's own and sends nothing. A press fires only without editing (a click or the trigger then selects, as ever);
+// the card's Try press and Try pointing fire it here
+const PRESS_KINDS = ['o', 'p'], PRESS_MAX = 16, PRESS_GAP = 250, PRESS_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'seq'];
+const PRESS = { rev: -1, list: [], hov: '', hovPage: '', fake: null, tryHov: null, hv: new Map(), last: new Map(), mine: new Map(), try: new Map(), pt: 0, dn: null, log: [], said: 0 };
+Object.assign(STU, { pr: new Map(), prOwn: new Map(), prp: null });
+
+// ---------------------------------------------------------------- the record --
+// a list's entries as a record keeps them: one that is not one dropped, as is a second for the same item and what, at most 16,
+// the order kept; fields in this order: on, what, clip, how, fade
+function normPressList(list, kind) {
+  const out = [], seen = new Set();
+  for (const e of list) {
+    if (out.length >= PRESS_MAX) break;
+    if (!e || typeof e !== 'object' || Array.isArray(e) || !okId(e.on) || !PRESS_WHAT.includes(e.what)) continue;
+    const r = { on: e.on, what: e.what };
+    if (e.what === 'show' || e.what === 'hide') {
+      if (e.fade !== undefined && e.fade !== null && e.fade !== 'cut') continue;
+      if (e.fade === 'cut') r.fade = 'cut';
+    } else {
+      const how = e.how === undefined ? 'once' : e.how, hold = kind === 'hover' && (e.what === 'clip' || e.what === 'path');
+      if (!(how === 'once' || how === 'loop' || how === 'stop' || (how === 'hold' && hold))) continue;
+      if (e.what === 'clip' && how !== 'stop') { if (typeof e.clip !== 'string' || !e.clip.trim()) continue; r.clip = e.clip.slice(0, 120); }
+      r.how = how;
+    }
+    const k = r.on + '|' + r.what;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+// the record's press: null a bad one, false none (no entry), else { do?, hover?, who? }
+function normPressRec(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  for (const k of ['do', 'hover']) if (x[k] !== undefined && x[k] !== null && !Array.isArray(x[k])) return null;
+  if (x.who !== undefined && x.who !== null && x.who !== 'own' && x.who !== 'all') return null;
+  const d = x.do ? normPressList(x.do, 'do') : [], h = x.hover ? normPressList(x.hover, 'hover') : [];
+  if (!d.length && !h.length) return false;
+  const r = {};
+  if (d.length) r.do = d;
+  if (h.length) r.hover = h;
+  if (x.who === 'own') r.who = 'own';
+  return r;
+}
+// a stamp as the room keeps it (null: not one)
+function normPr(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const { n, at } = v;
+  if (!Number.isInteger(n) || n < 0 || !fin(at) || at < 0) return null;
+  return { n, at: Math.round(at), by: typeof v.by === 'string' ? words(v.by, 40) : '' };
+}
+const prMap = it => (it.rec.press && it.rec.press.who === 'own' ? STU.prOwn : STU.pr);
+const prEntries = p => (p.do || []).concat(p.hover || []);
+const prKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'seq' ? ['q'] : PLAY_KINDS[what]);
+const prRun = what => SEQ_RUN.includes(what) || what === 'seq';
+// the items with a press, made again when the items change
+function pressRev() {
+  if (PRESS.rev === STU.rev) return;
+  PRESS.rev = STU.rev;
+  PRESS.list = [];
+  for (const it of STU.items.values()) if (it.rec && it.rec.press && PRESS_KINDS.includes(it.kind)) PRESS.list.push(it);
+}
+// whether it can be pressed or pointed at now: not while editing (a click or the trigger selects), shown here, in a scene
+const pressable = it => !!(it && PRESS_KINDS.includes(it.kind) && it.rec && it.rec.press && it.shown && !it.notHere && STU.scene && !editOn() && it.holder && it.holder.visible);
+
+// ----------------------------------------------------------------- pressing --
+// a press here: the stamp written (no Undo step), fired by pressStep this frame (and by every other device from the room's
+// state). At most one press of an item every 250 ms from this device. False: nothing happened
+function pressFire(id) {
+  const it = STU.items.get(id);
+  if (!it || !PRESS_KINDS.includes(it.kind) || !it.rec.press || !(it.rec.press.do && it.rec.press.do.length)) return false;
+  const now = performance.now(), L = PRESS.last.get(id);
+  if (L !== undefined && now - L < PRESS_GAP) return false;
+  PRESS.last.set(id, now);
+  const M = prMap(it), prev = M.get(id), n = (prev ? prev.n : 0) + 1;
+  M.set(id, { n, at: Math.round(behNow()), by: M === STU.pr ? seqWho() : '' });
+  PRESS.mine.set(id, n);
+  PRESS.log.push([id, n, Math.round(behNow())]); if (PRESS.log.length > 100) PRESS.log.shift();
+  dirty();
+  return true;
+}
+// the trigger or a click on a pressable item: a press (a buzz and the pick sound), or a soft tick when it was ignored
+function pressGo(id, point, c) {
+  const ok = pressFire(id);
+  if (ok) { if (c) buzz(c, 0.3, 25); sfxAct('pick', 'world', point ? point.toArray() : null); } else sfxAct('hover', 'world', point ? point.toArray() : null);
+  return ok;
+}
+// Try press (the card): this device's own stamp, nothing written
+function pressTry(it) {
+  if (!it || !it.rec.press || !(it.rec.press.do && it.rec.press.do.length)) return;
+  const prev = PRESS.try.get(it.id);
+  PRESS.try.set(it.id, { n: (prev ? prev.n : 0) + 1, at: Math.round(behNow()), by: '' });
+}
+function pressTryHover(it) { if (it && it.rec.press && it.rec.press.hover) PRESS.tryHov = { id: it.id, until: performance.now() + 3000 }; }
+
+// ------------------------------------------------------------ each frame --
+// the item pointed at now ('' none): a pretend one (the tests), the card's Try pointing, else a headset's rays or the page's pointer
+function hoverNow() {
+  if (PRESS.tryHov) { if (performance.now() < PRESS.tryHov.until) return PRESS.tryHov.id; PRESS.tryHov = null; }
+  if (PRESS.fake !== null) return PRESS.fake;
+  if (editOn() || !STU.scene) return '';
+  if (XR.on && GL.renderer.xr.isPresenting) {
+    for (const c of XR.ctrls || []) { const h = c.hover; if (h && h.kind === 'item') { const it = STU.items.get(h.id); if (pressable(it)) return it.id; } }
+    return '';
+  }
+  return PRESS.hovPage && pressable(STU.items.get(PRESS.hovPage)) ? PRESS.hovPage : '';
+}
+// a source of show or hide for the cubes' rule (the same object each frame for an entry: S and H hold it for one frame)
+function prSrc(it, key, since, cut) {
+  const m = it.psrc || (it.psrc = new Map());
+  let s = m.get(key);
+  if (!s) m.set(key, (s = { id: it.id, since: 0, cut: false }));
+  s.since = since; s.cut = cut;
+  return s;
+}
+// in triggerStep after the cubes and the sequences: what pointing now is (begun, kept 0.3 s after it ends), then each item's
+// show and hide entries as sources: a press's persistent (from its stamp's moment), a hover's while pointed at
+function pressShowHide(S, H, Tr) {
+  pressRev();
+  const id = hoverNow();
+  for (const [k, h] of PRESS.hv) {
+    if (k === id) { if (h.off && Tr - h.off < PLAY_EDGE) h.off = 0; else if (h.off) { /* over: pressStep ends it, a new one begins after */ } }
+    else if (!h.off) h.off = Tr;
+  }
+  if (id && !PRESS.hv.has(id)) { const it = STU.items.get(id); if (it && it.rec.press && it.rec.press.hover) { PRESS.hv.set(id, { at: Tr, off: 0, fired: false }); sfxAct('hover', 'world', null); } }
+  for (const it of PRESS.list) {
+    const p = it.rec.press;
+    if (p.do) {
+      for (const st of [prMap(it).get(it.id), PRESS.try.get(it.id)]) {
+        if (!st) continue;
+        for (let j = 0; j < p.do.length; j++) {
+          const e = p.do[j];
+          if (e.what !== 'show' && e.what !== 'hide') continue;
+          const src = prSrc(it, (st === PRESS.try.get(it.id) ? 't' : 'd') + j, st.at, e.fade === 'cut'), M = e.what === 'show' ? S : H;
+          if (enteredLater(src, M.get(e.on))) M.set(e.on, src);
+        }
+      }
+    }
+    const h = p.hover && PRESS.hv.get(it.id);
+    if (h && (!h.off || Tr - h.off < PLAY_EDGE)) {
+      for (let j = 0; j < p.hover.length; j++) {
+        const e = p.hover[j];
+        if (e.what !== 'show' && e.what !== 'hide') continue;
+        const src = prSrc(it, 'h' + j, h.at, e.fade === 'cut'), M = e.what === 'show' ? S : H;
+        if (enteredLater(src, M.get(e.on))) M.set(e.on, src);
+      }
+    }
+  }
+}
+// the runs a press starts (its stamp: n, at in room ms): once, stop and seq start at its moment; a loop toggles by n's parity
+// (odd starts it, even stops the run this entry started); a seq entry only on the presser's device (it writes qr, the others
+// see it through that); show and hide are sources (pressShowHide)
+function pressDo(it, list, st, mine, tag) {
+  const T = roomToRun(st.at);
+  list.forEach((e, i) => {
+    if (!prRun(e.what)) return;
+    const t = STU.items.get(e.on);
+    if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return;
+    if (e.what === 'seq' && (!mine || tag === 't')) return;   // (a sequence is shared: only the presser writes it, never a Try)
+    const x = { c: it, e, ek: it.id + '|' + tag + i + '|' + st.n, src: 'press' };
+    if (e.how === 'loop') {
+      const R = t.tr && t.tr[e.what];
+      if (st.n % 2 === 1) trgStart(x, T, false);
+      else if (R && !R.off && R.src === 'press' && R.c === it && R.e.on === e.on) trgOff(R, T, 'press');
+      else if (e.what === 'seq') seqCmd(e.on, 'stop', st.at, 'press');   // (no run here, the sequence's own state is what stops)
+    } else trgStart(x, T, false);
+  });
+}
+// whether a run of a press or a hover still has its entry in its item's record (Undo, an edit): else it comes off
+function prEntryOf(R) {
+  const p = R.c && R.c.rec && R.c.rec.press;
+  if (!p || STU.items.get(R.c.id) !== R.c) return false;
+  return (R.src === 'press' ? p.do : p.hover || []).some(e => e.on === R.e.on && e.what === R.e.what && e.how === R.e.how);
+}
+// each frame after the sequences: a new stamp fires its entries (a late joiner's too, whatever its age: the runs work out
+// where they are now); pointing begun fires its entries, 0.3 s after it ends its loops and holds come off; runs whose entry or
+// item is gone come off
+function pressStep(Tr) {
+  pressRev();
+  trgList();
+  for (const it of PRESS.list) {
+    const p = it.rec.press;
+    if (!p.do) { it.pk = it.pkt = null; continue; }
+    const mapped = prMap(it).get(it.id), tr = PRESS.try.get(it.id);
+    for (const [st, key] of [[mapped, 'pk'], [tr, 'pkt']]) {
+      if (!st) { it[key] = null; continue; }
+      const pk = it[key];
+      if (pk && pk.n === st.n && pk.at === st.at) continue;
+      it[key] = { n: st.n, at: st.at };
+      pressDo(it, p.do, st, key === 'pkt' || p.who === 'own' || PRESS.mine.get(it.id) === st.n, key === 'pkt' ? 't' : 'd');
+    }
+  }
+  for (const [id, h] of [...PRESS.hv]) {
+    const it = STU.items.get(id), p = it && it.rec.press;
+    if (!p || !p.hover) { PRESS.hv.delete(id); continue; }
+    if (!h.fired) {
+      h.fired = true;
+      p.hover.forEach((e, i) => {
+        if (!prRun(e.what) || e.what === 'seq') return;   // (pointing is this device's own: it never writes a shared sequence)
+        const t = STU.items.get(e.on);
+        if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return;
+        trgStart({ c: it, e, ek: it.id + '|h' + i + '|' + h.at, src: 'hover' }, trgClock(), false);
+      });
+    }
+    if (h.off && Tr - h.off >= PLAY_EDGE) {
+      for (const t of [...TRG.on]) for (const k of PLAY_WHAT) {
+        const R = t.tr && t.tr[k];
+        if (R && !R.off && R.src === 'hover' && R.c === it && (R.e.how === 'loop' || R.e.how === 'hold')) trgOff(R, trgClock(), 'unpointed');
+      }
+      PRESS.hv.delete(id);
+    }
+  }
+  for (const t of [...TRG.on]) for (const k of PLAY_WHAT) {
+    const R = t.tr && t.tr[k];
+    if (R && !R.off && (R.src === 'press' || R.src === 'hover') && (R.e.how === 'loop' || R.e.how === 'hold') && !prEntryOf(R)) trgOff(R, trgClock(), 'removed');
+  }
+}
+// Reset what I have seen and the lobby: this device's own stamps and tries forgotten, each item fires its shared stamp again
+// next frame as a late joiner does
+function pressReset() {
+  STU.prOwn.clear(); PRESS.mine.clear(); PRESS.try.clear(); PRESS.hv.clear(); PRESS.tryHov = null;
+  for (const it of STU.items.values()) it.pk = it.pkt = null;
+}
+
+// ------------------------------------------------------------------ copies --
+// an item's copy (Duplicate): the copy's own entries that name the original name the copy; every item's entries naming the
+// original gain one for the copy beside it (the original's too: pressing it acts on its copy as well)
+function pressCopy(from, to) {
+  const cp = STU.items.get(to);
+  for (const it of [...STU.items.values()]) {
+    const p = it.rec.press;
+    if (!p || !PRESS_KINDS.includes(it.kind)) continue;
+    const ren = e => (e.on === from ? Object.assign({}, e, { on: to }) : e);
+    if (it === cp) { setRec(it.id, { press: pressBuild(p, { do: p.do && p.do.map(ren), hover: p.hover && p.hover.map(ren) }) }); continue; }
+    if (!prEntries(p).some(e => e.on === from)) continue;
+    setRec(it.id, { press: pressBuild(p, { do: p.do && withCopies(p.do, e => (e.on === from ? to : ''), PRESS_MAX), hover: p.hover && withCopies(p.hover, e => (e.on === from ? to : ''), PRESS_MAX) }) });
+  }
+}
+// items deleted (in a change): the entries naming them go from every other item's press
+function pressDeleted(gone) {
+  for (const it of [...STU.items.values()]) {
+    const p = it.rec.press;
+    if (!p || gone.has(it.id) || !prEntries(p).some(e => gone.has(e.on))) continue;
+    setRec(it.id, { press: pressBuild(p, { do: p.do && p.do.filter(e => !gone.has(e.on)), hover: p.hover && p.hover.filter(e => !gone.has(e.on)) }) });
+  }
+}
+// a press as a record keeps it: the lists given (an empty one gone), who kept; undefined when nothing is left
+function pressBuild(p, patch) {
+  const d = 'do' in patch ? patch.do : p.do, h = 'hover' in patch ? patch.hover : p.hover, who = 'who' in patch ? patch.who : p.who;
+  if (!(d && d.length) && !(h && h.length)) return undefined;
+  const r = {};
+  if (d && d.length) r.do = d;
+  if (h && h.length) r.hover = h;
+  if (who === 'own') r.who = 'own';
+  return r;
+}
+const pressSet = (it, patch) => setRec(it.id, { press: pressBuild(it.rec.press || {}, patch) });
+
+// -------------------------------------------------------------------- the card --
+const PR_HOWS = { clip: ['once', 'loop', 'stop'], path: ['once', 'loop', 'stop'], sound: ['once', 'loop', 'stop'], motion: ['once', 'loop', 'stop'], seq: ['once', 'loop', 'stop'] };
+const prHows = (list, what) => (list === 'hover' && (what === 'clip' || what === 'path') ? ['once', 'loop', 'hold', 'stop'] : PR_HOWS[what] || []);
+const prHowWord = (list, what, h) => (what === 'seq' ? (h === 'stop' ? 'Stop it' : h === 'loop' ? (list === 'hover' ? 'Loop it' : 'Toggle it') : 'Start it') : h === 'loop' && list === 'do' ? 'Loop (toggles)' : HOW_WORD[h]);
+// what can be done to an item by a reaction: its run kinds, show and hide, starting a sequence (never a picture)
+const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex');
+function prWords(e, list) {
+  const t = STU.items.get(e.on), nm = t ? t.rec.name : 'an item not in the scene', hv = list === 'hover', cut = e.fade === 'cut' ? ' (at once)' : '';
+  let w;
+  if (e.what === 'show' || e.what === 'hide') w = (e.what === 'show' ? 'shows' : 'hides') + (hv ? ' while pointed at' : '') + cut;
+  else if (e.what === 'seq') w = e.how === 'stop' ? 'stops the sequence' : e.how === 'loop' ? (hv ? 'loops the sequence while pointed at' : 'loops the sequence, pressed again stops') : 'starts the sequence';
+  else {
+    const what = e.what === 'clip' ? e.clip || 'its animation' : e.what === 'sound' ? 'the sound' : e.what === 'path' ? 'its recorded path' : 'its motion';
+    w = e.how === 'stop' ? 'stops ' + (e.what === 'clip' ? 'its animation' : e.what === 'sound' ? 'the sound' : what)
+      : `${what} · ` + (e.how === 'once' ? 'once' : e.how === 'loop' ? (hv ? 'loops while pointed at' : 'loops, pressed again stops') : 'held while pointed at');
+  }
+  return `${nm} · ${w}`;
+}
+function prWhy(e) {
+  const t = STU.items.get(e.on);
+  if (!t || !prKinds(e.what).includes(t.kind)) return 'It names an item not in the scene (or one this cannot be done to).';
+  if (SEQ_RUN.includes(e.what)) return playWhy(e);
+  return '';
+}
+function prSentence(P) {
+  const t = STU.items.get(P.on);
+  if (!t || !P.what) return 'Pick what it does.';
+  const nm = t.rec.name, hv = P.list === 'hover', lead = hv ? 'While pointed at' : 'When pressed', h = P.how;
+  if (P.what === 'show') return `${lead}, ${nm} shows${P.fade === 'cut' ? ' at once' : ' (fades in)'}.`;
+  if (P.what === 'hide') return `${lead}, ${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
+  if (P.what === 'seq') return h === 'stop' ? `${lead}, ${nm} stops.` : h === 'loop' ? `${lead}, ${nm} starts from its beginning${hv ? ', and stops when you point away' : '; pressed again, it stops'}.` : `${lead}, ${nm} starts from its beginning.`;
+  const what = P.what === 'clip' ? P.clip : P.what === 'sound' ? 'the sound' : P.what === 'path' ? 'its recorded path' : 'its motion', as = hv ? 'As you point at it' : 'When pressed';
+  if (h === 'stop') return `${as}, what runs on ${nm} stops.`;
+  if (h === 'once') return `${as}, ${nm} plays ${what} once from its start.`;
+  if (h === 'loop') return `${as}, ${nm} plays ${what} again and again` + (hv ? ', until you point away.' : '; pressed again, it stops.');
+  return `${as}, ${nm} plays ${what} to its end and holds there, until you point away.`;
+}
+const prDraft = P => {
+  const e = { on: P.on, what: P.what };
+  if (P.what === 'show' || P.what === 'hide') { if (P.fade === 'cut') e.fade = 'cut'; return e; }
+  if (P.what === 'clip' && P.how !== 'stop') e.clip = P.clip;
+  e.how = P.how;
+  return e;
+};
+const prNorm = (P) => normPressList([prDraft(P)], P.list)[0] || null;
+const prKey = e => e.on + '|' + e.what;
+const PR_PARA = 'A press works without editing, for anyone, a visitor too (a click on a page, the trigger in a headset). It is for everyone at this circle unless set to each person; a loop is toggled by each press. Pointing at it is each person\'s own and shared with nobody.';
+function pressBlocks(it, B, dis) {
+  const p = it.rec.press || {}, P = STU.prp && STU.prp.id === it.id ? STU.prp : null, own = p.who === 'own';
+  const full = l => (p[l] || []).length >= PRESS_MAX;
+  const sect = (list, title) => {
+    const L = p[list] || [];
+    B.push({ label: L.length ? `${title} (${L.length})` : title });
+    if (!L.length) B.push({ p: list === 'do' ? 'Nothing happens when it is pressed.' : 'Nothing happens while it is pointed at.', c: 'faint' });
+    L.forEach((e, k) => {
+      const why = prWhy(e);
+      B.push({ row: [{ id: `prf:${list}:${k}`, label: prWords(e, list), act: 'i:prFlash', v: e.on }, { id: `prx:${list}:${k}`, label: '✕', act: 'i:prDel', v: list + ':' + k, dis, col: 'red' }] });
+      if (why) B.push({ p: why, c: 'amber' });
+    });
+    B.push({ row: [{ id: 'prpick:' + list, label: P && P.list === list ? 'Cancel' : 'Add a reaction...', act: 'i:prPick', v: list, on: !!(P && P.list === list), dis: dis || (!(P && P.list === list) && full(list)) }] });
+    if (full(list)) B.push({ p: `${PRESS_MAX} reactions: the most one list takes.`, c: 'amber' });
+  };
+  sect('do', 'When pressed');
+  B.push({ label: 'Pressed by', row: [{ id: 'prwho:all', label: 'Everyone here', act: 'i:prWho', v: 'all', on: !own, dis }, { id: 'prwho:own', label: 'Each person', act: 'i:prWho', v: 'own', on: own, dis }] });
+  sect('hover', 'While pointed at');
+  B.push({ p: 'Pointing is always each person\'s own: nobody else sees what you point at react.', c: 'faint' });
+  if (P && P.step === 'obj') {
+    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': the item the reaction acts on (this item, another, or a sequence).', c: 'amber' });
+    const cands = [it].concat([...STU.items.values()].filter(t => t.id !== it.id && prOpts(t).length)).filter(t => prOpts(t).length);
+    sqPaged(B, `Items (${cands.length})`, cands.map(t => ({ id: 'pron:' + t.id, label: t.id === it.id ? 'This item' : t.rec.name, sub: t.id === it.id ? t.rec.name : KIND_NAME[t.kind], act: 'i:prOn', v: t.id, dis })), P.page, 'prPg');
+  } else if (P) {
+    const t = STU.items.get(P.on), opts = t ? prOpts(t) : [];
+    B.push({ kv: [['Acts on', t ? `${t.id === it.id ? 'This item' : t.rec.name} · ${KIND_NAME[t.kind]}` : 'not in the scene']] }, { row: [{ id: 'prback', label: 'Another item...', act: 'i:prBack', dis }] });
+    const clips = opts.filter(o => o.what === 'clip'), others = opts.filter(o => o.what !== 'clip');
+    if (t && t.kind === 'o' && !t.model) B.push({ p: `${t.rec.name}'s model is not here yet: its animations show once it is.`, c: 'faint' });
+    if (clips.length) sqPaged(B, `Its animations (${clips.length})`, clips.map(o => ({ id: 'prwhat:clip:' + o.clip, label: o.clip, sub: o.sub, act: 'i:prWhat', v: 'clip:' + o.clip, on: P.what === 'clip' && P.clip === o.clip, dis })), P.cpage, 'prCPg');
+    if (others.length) B.push({ label: clips.length ? 'Or' : 'What', row: others.map(o => ({ id: 'prwhat:' + o.what, label: o.label, act: 'i:prWhat', v: o.what, on: P.what === o.what, dis })) });
+    if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
+    else if (P.what) {
+      if (P.what === 'show' || P.what === 'hide') B.push({ label: 'How', row: [{ id: 'prfade:fade', label: 'Fade', act: 'i:prFade', v: '', on: P.fade !== 'cut', dis }, { id: 'prfade:cut', label: 'At once', act: 'i:prFade', v: 'cut', on: P.fade === 'cut', dis }] });
+      else B.push({ label: 'How', row: prHows(P.list, P.what).map(h => ({ id: 'prhow:' + h, label: prHowWord(P.list, P.what, h), act: 'i:prHow', v: h, on: P.how === h, dis })) });
+      B.push({ kv: [['It will', prSentence(P)]] });
+      const d = prNorm(P), same = !!d && (p[P.list] || []).some(e => prKey(e) === prKey(d));
+      B.push({ row: [{ id: 'pradd', label: same ? 'Replace' : 'Add', act: 'i:prAdd', primary: true, dis: dis || !d || (!same && full(P.list)) }] });
+    }
+  }
+  B.push({ label: 'Try (this device only)', row: [{ id: 'prtry', label: 'Try press', act: 'i:prTry', dis: !(p.do && p.do.length) }, { id: 'prtryh', label: 'Try pointing', act: 'i:prTryHover', dis: !(p.hover && p.hover.length) }] });
+  B.push({ p: PR_PARA, c: 'faint' });
+}
+Object.assign(ITEM_ACT, {
+  prPick: (it, list) => {
+    if (!PRESS_KINDS.includes(it.kind) || (list !== 'do' && list !== 'hover')) return;
+    STU.prp = STU.prp && STU.prp.id === it.id && STU.prp.list === list ? null : { id: it.id, list, step: 'obj', on: '', what: '', clip: '', how: 'once', fade: '', page: 0, cpage: 0 };
+    STU.pick = null; STU.txp = null; STU.plp = null;
+  },
+  prOn: (it, id) => {
+    const P = STU.prp, t = STU.items.get(id);
+    if (!P || P.id !== it.id || !t) return;
+    const o = prOpts(t);
+    if (!o.length) return;
+    const f = o[0];
+    Object.assign(P, { step: 'how', on: id, what: f.what, clip: f.clip || '', page: 0, cpage: 0, how: 'once', fade: '' });
+  },
+  prBack: it => { if (STU.prp && STU.prp.id === it.id) Object.assign(STU.prp, { step: 'obj', on: '', what: '', clip: '' }); },
+  prWhat: (it, v) => {
+    const P = STU.prp, t = P && P.id === it.id ? STU.items.get(P.on) : null;
+    if (!t) return;
+    const s = String(v), what = s.startsWith('clip:') ? 'clip' : s, clip = what === 'clip' ? s.slice(5) : '';
+    if (!prOpts(t).some(o => o.what === what && (what !== 'clip' || o.clip === clip))) return;
+    P.what = what; P.clip = clip;
+    if (what !== 'show' && what !== 'hide' && !prHows(P.list, what).includes(P.how)) P.how = 'once';
+  },
+  prHow: (it, v) => { const P = STU.prp; if (P && P.id === it.id && prHows(P.list, P.what).includes(v)) P.how = v; },
+  prFade: (it, v) => { const P = STU.prp; if (P && P.id === it.id) P.fade = v === 'cut' ? 'cut' : ''; },
+  prPg: (it, d) => { const P = STU.prp; if (P) P.page = Math.max(0, P.page + (+d || 0)); },
+  prCPg: (it, d) => { const P = STU.prp; if (P) P.cpage = Math.max(0, P.cpage + (+d || 0)); },
+  prFlash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now(), play: true } : null; },
+  prAdd: it => {
+    const P = STU.prp;
+    if (!PRESS_KINDS.includes(it.kind) || !P || P.id !== it.id || P.step !== 'how' || !P.what) return;
+    const d = prNorm(P);
+    if (!d) return;
+    const L = ((it.rec.press || {})[P.list] || []).slice(), i = L.findIndex(e => prKey(e) === prKey(d));
+    if (i >= 0) L[i] = d; else if (L.length >= PRESS_MAX) return; else L.push(d);
+    pressSet(it, { [P.list]: L });
+    STU.prp = null;
+  },
+  prDel: (it, v) => {
+    const [list, k] = String(v).split(':'), L = ((it.rec.press || {})[list] || []).slice();
+    if ((list !== 'do' && list !== 'hover') || !(+k >= 0 && +k < L.length)) return;
+    L.splice(+k, 1);
+    pressSet(it, { [list]: L });
+  },
+  prWho: (it, v) => { if (it.rec.press && (v === 'own') !== (it.rec.press.who === 'own')) pressSet(it, { who: v === 'own' ? 'own' : undefined }); },
+  prTry: it => pressTry(it),
+  prTryHover: it => pressTryHover(it),
+});
+PANE_ONLY.push('prPick', 'prOn', 'prBack', 'prWhat', 'prHow', 'prFade', 'prPg', 'prCPg', 'prFlash', 'prTry', 'prTryHover');
+// the card's signature part: the pick and what is pressed here
+function pressSig() {
+  const it = STU.items.get(STU.sel);
+  if (!it || !PRESS_KINDS.includes(it.kind)) return '';
+  const P = STU.prp && STU.prp.id === it.id ? STU.prp : null;
+  return [it.rec.press ? 1 : 0, P ? [P.list, P.step, P.on, P.what, P.clip, P.how, P.fade, P.page, P.cpage].join('|') : ''].join(':');
+}
+
+// ------------------------------------------------------------------ for tests --
+// an item's press: its record, the stamp (the room's or its own), what this device has seen, whether it can be pressed and is
+// pointed at, the show and hide sources it gives now and the runs it started
+function pressState(id) {
+  const it = STU.items.get(id);
+  if (!it) return null;
+  const p = it.rec.press || null, st = p ? prMap(it).get(id) || null : null, Tr = behNow(), sources = [], runs = [];
+  if (p) {
+    for (const s of [st, PRESS.try.get(id)]) if (s && p.do) for (const e of p.do) if (e.what === 'show' || e.what === 'hide') sources.push({ on: e.on, kind: e.what, since: s.at, from: 'press', cut: e.fade === 'cut' });
+    const h = PRESS.hv.get(id);
+    if (h && p.hover && (!h.off || Tr - h.off < PLAY_EDGE)) for (const e of p.hover) if (e.what === 'show' || e.what === 'hide') sources.push({ on: e.on, kind: e.what, since: h.at, from: 'hover', cut: e.fade === 'cut' });
+  }
+  for (const t of TRG.on) for (const k of PLAY_WHAT) { const R = t.tr && t.tr[k]; if (R && R.c === it) runs.push([t.id, k, R.e.clip || '', R.e.how, R.src, R.at, R.off]); }
+  return { press: p, stamp: st, seen: it.pk || null, pressable: pressable(it), hover: PRESS.hv.has(id) && hoverNow() === id, pointed: hoverNow() === id, sources, runs, mine: PRESS.mine.get(id) || 0, log: PRESS.log.slice() };
 }
 
 // ================================================================ EXPLORE ==
@@ -28658,6 +29796,7 @@ function paneBlocks(tab) {
     if (STU.bad) B.push({ p: `${STU.bad} item${STU.bad === 1 ? '' : 's'} in layout.json could not be read.`, c: 'amber' });
     if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
     if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
+    if (STU.badSeq) B.push({ p: `${STU.badSeq} of the sequences' events in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -28742,6 +29881,8 @@ function paneBlocks(tab) {
     B.push({ label: `Videos (${vids.length})`, grid: vids.map(f => ({ id: 'addv:' + f.path, label: f.path.replace(/^videos\//i, ''), title: f.path, act: 'addv', v: f.path, kind: extOf(f.path).toUpperCase(), sub: mb(f.bytes), dis: full('v') })) });
     if (!vids.length) B.push({ p: 'No videos in the scene\'s folder (.mp4, .m4v, .mov, .mkv; .webm is listed with the sounds): drop them under Upload; they go into videos/.', c: 'faint' });
     paintAddBlocks(B, full);   // (paint mode, strokes drawn in the air: e6r_paint.js)
+    B.push({ label: 'Sequence', row: [{ id: 'seqadd', label: 'Sequence', act: 'seqadd', dis: full('q') }] },
+      { p: 'A timeline of events: play a clip, a sound, a recorded path or a motion on items, show or hide them, change a picture, start another sequence. It plays for everyone at the circle on the room\'s clock.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
     B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
@@ -28753,7 +29894,7 @@ function paneBlocks(tab) {
       { p: 'A box that hides the part of a model inside it (a door in a wall), without changing the model\'s file.', c: 'faint' });
     if (so && cutsOn(so.id).length >= CUT_MAX) B.push({ p: `${so.rec.name} has ${CUT_MAX} cut-outs: the most one model takes.`, c: 'amber' });
     if (so && so.rec.cutsLocked) B.push({ p: `${so.rec.name}'s cut-outs are locked: unlock them on its card to add one.`, c: 'amber' });
-    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v', 'd']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
+    for (const k of ['o', 'c', 's', 'x', 'p', 'e', 'v', 'd', 'q']) if (full(k)) B.push({ p: `The scene has ${LIMITS[k]} ${KIND_PLURAL[k]}: the most it can hold.`, c: 'amber' });
   } else if (tab === 'upload') {
     uploadBlocks(B);
   } else if (tab === 'paint') {
@@ -28767,7 +29908,7 @@ function paneBlocks(tab) {
     // tab, should show the same image and look like the add item part"): groups first, a heading each (a press selects the
     // group) with its members' cards under it; then what is in no group, by kind. An object's cut-outs are tags on its card
     const all = [...STU.items.values()], P = STU.pick && STU.items.get(STU.pick.id), GP = STU.gpick && STU.items.get(STU.gpick.id);
-    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') });
+    B.push({ h: 'Items', sub: `${countOf('o')} objects · ${countOf('c')} cubes · ${countOf('s')} sounds` + (countOf('x') ? ` · ${countOf('x')} cut-outs` : '') + (countOf('p') ? ` · ${countOf('p')} shapes` : '') + (countOf('v') ? ` · ${countOf('v')} screens` : '') + (countOf('e') ? ` · ${countOf('e')} empties` : '') + (countOf('g') ? ` · ${countOf('g')} groups` : '') + (countOf('q') ? ` · ${countOf('q')} sequences` : '') });
     if (P) B.push({ p: `Picking what ${P.rec.name} ${STU.pick.list === 'show' ? 'shows' : 'hides'}: press items to add or remove them (a group's name: all of its members).`, c: 'amber' }, { row: [{ id: 'pickdone', label: 'Done', act: 'pickdone', primary: true }] });
     if (GP) B.push({ p: `Picking what is in ${GP.rec.name}: press items to put them in or take them out.`, c: 'amber' }, { row: [{ id: 'gpickdone', label: 'Done', act: 'gpickdone', primary: true }] });
     if (!all.length) B.push({ p: STU.scene ? 'Nothing placed yet.' : 'No scene open.', c: 'muted' });
@@ -28785,7 +29926,7 @@ function paneBlocks(tab) {
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
     }
     // (each object's cut-outs on its card; cut-outs whose object is not here on their own)
-    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['d', 'Paintings'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
+    for (const [k, title] of [['o', 'Objects'], ['v', 'Screens'], ['d', 'Paintings'], ['q', 'Sequences'], ['p', 'Shapes'], ['e', 'Empties'], ['c', 'Trigger cubes'], ['s', 'Sounds'], ['x', 'Cut-outs cutting nothing']]) {
       const L = all.filter(it => it.kind === k && !grouped.has(it.id) && (k !== 'x' || !cutObj(it)));
       if (L.length) B.push({ label: title + ` (${L.length})`, grid: L.map(it => itemCard(it, C)) });
     }
@@ -28822,6 +29963,7 @@ function itemSub(it) {
   if (it.kind === 'p') return SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : '') + me;
   if (it.kind === 'v') return screenSub(r) + (r.sync === 'own' ? ' · each person' : '') + me;
   if (it.kind === 'd') return paintSub(r) + me;
+  if (it.kind === 'q') return seqSub(r) + (r.sync === 'own' ? ' · each person' : '') + (r.locked ? ' · locked' : '');
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
@@ -28842,7 +29984,7 @@ function itemCard(it, C) {
     on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: it.kind !== 'c' ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
-    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : ''];
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : it.notHere ? (r.shows === 'ar' ? 'only in AR' : 'only in VR') : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
@@ -28858,6 +30000,7 @@ function itemCard(it, C) {
   } else if (it.kind === 'p') { card.tile = { k: r.shape, col: r.colour, hide: r.look === 'hide' }; card.sub = SHAPE_WORD[r.shape] + (r.look === 'hide' ? ' · hides things' : ''); }
   else if (it.kind === 'v') { card.tile = { k: r.look === 'audio' ? 'sound' : 'screen', col: it.look.col }; card.sub = screenSub(r); state.unshift(r.ctl === 'any' ? 'controls for anyone' : '', r.sync === 'own' ? 'each person' : ''); }
   else if (it.kind === 'd') { card.tile = { k: 'paint', col: paintCols(r)[0] || it.look.col, cols: paintCols(r) }; card.sub = paintSub(r) + (r.src ? ' · in a file' : ''); }
+  else if (it.kind === 'q') { const P = seqEff(it), U = seqU(it, P, behNow()); card.tile = { k: 'seq', col: seqCol(r) }; card.sub = seqSub(r) + (U && U.playing ? ' · playing' : ''); state.unshift(r.sync === 'own' ? 'each person' : '', r.loop ? 'loops' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
@@ -28870,6 +30013,7 @@ function itemBlocks(it, B, ed) {
   // (recording a path here: its size steps off, rs; e6f_path.js)
   const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true), rs = mv || recording(it);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
+  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
     B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
@@ -28979,6 +30123,9 @@ function itemBlocks(it, B, ed) {
       { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
       { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
       { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
+      { page: true, colour: { id: 'stuShapeCol', act: 'i:colour', tgt: 'shape', value: r.colour, label: 'Any colour…', dis } },
+      { xr: true, row: [{ id: 'cpk:shape', label: 'Any colour…', act: 'cpkOpen', v: 'shape', on: !!CPK.open && CPK.open.tgt === 'shape', sw: r.colour, dis }] },
+      ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'shape' ? [{ xr: true, picker: { id: 'cpk', tgt: 'shape' } }] : []),
       { label: 'Size (10 cm a press)', row: ['x', 'height', 'z'].flatMap((n, i) => [{ id: `pgrow:${i}:-`, label: n + ' −', act: 'i:pgrow', v: i + ':-0.1', dis: rs }, { id: `pgrow:${i}:+`, label: n + ' +', act: 'i:pgrow', v: i + ':0.1', dis: rs }]) },
       { label: 'Size, every side', row: [0.5, 0.9, 1.1, 2].map(k => ({ id: 'psize:' + k, label: '×' + k, act: 'i:psize', v: k, dis: rs })) },
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }, { id: 'floor', label: 'On the floor', act: 'i:floor', dis: mv }] });
@@ -29026,6 +30173,7 @@ function itemBlocks(it, B, ed) {
   if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
+  if (PRESS_KINDS.includes(it.kind)) pressBlocks(it, B, dis);   // (what pressing it and pointing at it do: e6t_press.js)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -29118,7 +30266,9 @@ function tintBlocks(objs, B, dis) {
   const t = one('tint', ''), k = one('bright', 1), many = objs.length > 1;
   B.push({ label: 'Tint' + (many && t === null ? ' (they differ)' : ''), row: [{ id: 'tint:none', label: 'None', act: 'i:tint', v: '', on: t === '', dis }]
     .concat(SHAPE_COLS.map(([c, n]) => ({ id: 'tint:' + c, label: n, act: 'i:tint', v: c, on: t === c, sw: c, dis }))) },
-  { page: true, colour: { id: 'stuTint', act: 'i:tint', value: t || '#ffffff', label: 'Any colour', dis } },
+  { page: true, colour: { id: 'stuTint', act: 'i:tint', tgt: 'tint', value: t || '#ffffff', label: 'Any colour…', dis } },
+  { xr: true, row: [{ id: 'cpk:tint', label: 'Any colour…', act: 'cpkOpen', v: 'tint', on: !!CPK.open && CPK.open.tgt === 'tint', sw: t || '#ffffff', dis }] },
+  ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'tint' ? [{ xr: true, picker: { id: 'cpk', tgt: 'tint' } }] : []),
   { label: 'Brightness: ' + (k === null ? 'they differ' : brightPct(k)), row: [
     { id: 'bright:-', label: 'Darker', act: 'i:bright', v: 0.8, dis: dis || (k !== null && k <= 0.25) },
     { id: 'bright:+', label: 'Brighter', act: 'i:bright', v: 1.25, dis: dis || (k !== null && k >= 4) },
@@ -29254,8 +30404,10 @@ const TEX_ACT = {
 // a pane's button or row pressed (page and headset)
 function act(a, v) {
   if (a.startsWith('i:')) { itemAct(a.slice(2), v); return; }
+  if (CPK_ACT[a]) { CPK_ACT[a](v); dirty(true); return; }   // (the headset's colour picker opened or closed: e7h_colour.js)
   if (PAINT_ACT[a]) { PAINT_ACT[a](v); dirty(true); return; }   // (paint mode's brush, colour, width and Done: e6r_paint.js)
-  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
+  if (SCR_ACT[a]) { SCR_ACT[a](v); dirty(true); return; }
+  if (SEQ_ACT[a]) { SEQ_ACT[a](v); dirty(true); return; }   // (a sequence's transport, which anyone may press: e6s_seq.js)   // (a screen's transport, which anyone it is open to may press: e6q_screens.js)
   if (ANIM_ACT[a]) { if (!OPT.visit) ANIM_ACT[a](v); dirty(true); return; }   // (a selected model's timeline: e6m_anim.js, page and headset)
   if (UP_ACT[a]) { if (!XR.on && !OPT.visit) UP_ACT[a](v); dirty(true); return; }
   if (LITE_ACT[a]) { if (!OPT.visit && editOn()) LITE_ACT[a](v); dirty(true); return; }   // (page and headset alike)
@@ -29302,6 +30454,7 @@ function act(a, v) {
     screenAdd: () => addScreen(v),
     addv: () => addScreen('screen', v),
     empty: () => addEmpty(),
+    seqadd: () => addSequence(),
     setting: () => setSetting(v),
     circle: () => sceneToCircle(),
     pause: () => pauseSet(!MPAUSE.on),
@@ -29331,7 +30484,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, playSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -29412,7 +30565,24 @@ function buildExplore() {
     .stu-plan .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin: 3px 0; }
     .stu-plan .bar i { display: block; height: 100%; background: var(--cyan); }
     .stu-plan a.btn { justify-self: start; margin-top: 4px; font-size: 13px; padding: 4px 10px; text-decoration: none; }
-    .stu-col { display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .stu-colbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; margin: 2px 0 8px; padding: 3px 10px 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+    .stu-colbtn code { color: var(--muted); font-size: 12px; }
+    .stu-colbtn[disabled] { opacity: 0.45; cursor: default; }
+    .stu-colchip { width: 22px; height: 22px; flex: none; border-radius: 4px; border: 1px solid var(--line); }
+    #stuCpk { position: fixed; z-index: 15; width: 280px; box-sizing: border-box; padding: 12px; background: var(--panel-solid, var(--panel)); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); font-size: 13px; }
+    #stuCpk[hidden] { display: none; }
+    #stuCpk .cpk-wheel { display: block; margin: 0 auto 8px; touch-action: none; cursor: crosshair; border-radius: 6px; }
+    #stuCpk .cpk-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    #stuCpk .cpk-new, #stuCpk .cpk-old { flex: none; width: 44px; height: 32px; border-radius: 6px; border: 1px solid var(--line); padding: 0; font-size: 11px; color: var(--muted); background: transparent; cursor: pointer; }
+    #stuCpk .cpk-old:disabled { cursor: default; }
+    #stuCpk input { flex: 1; min-width: 0; min-height: 32px; box-sizing: border-box; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--chip); color: var(--ink); font: 14px ui-monospace, Menlo, monospace; }
+    #stuCpk .cpk-sw, #stuCpk .cpk-rc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+    #stuCpk .cpk-rc > span { flex: 0 0 100%; color: var(--muted); font-size: 12px; }
+    #stuCpk .cpk-rc > span.faint { color: var(--faint, var(--muted)); }
+    #stuCpk .cpk-sw button, #stuCpk .cpk-rc button { width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid var(--line); cursor: pointer; }
+    #stuCpk .cpk-foot { display: flex; justify-content: flex-end; }
+    #stuCpk .cpk-foot .btn { min-height: 32px; }
+    @media (pointer: coarse) { #stuCpk .cpk-sw button, #stuCpk .cpk-rc button { width: 34px; height: 34px; } }
     .stu-col input { width: 40px; height: 28px; padding: 0 2px; border: 1px solid var(--line); border-radius: 4px; background: var(--chip); cursor: pointer; }
     .stu-range { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; }
     .stu-range input { flex: 1; min-width: 80px; accent-color: var(--cyan); }
@@ -29429,6 +30599,8 @@ function buildExplore() {
     <input type="file" id="stuFiles" multiple hidden><input type="file" id="stuFolder" webkitdirectory multiple hidden>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   $('#explore').addEventListener('click', ev => {
+    const cb = ev.target.closest('[data-cpk]');
+    if (cb) { if (!cb.disabled) cpkPageOpen(cb); return; }   // (a colour button: the shared picker's popover; e7h_colour.js)
     const t = ev.target.closest('[data-act]');
     if (!t || t.getAttribute('aria-disabled') === 'true' || t.disabled) return;
     act(t.dataset.act, t.dataset.n ? +t.dataset.v : t.dataset.v);
@@ -29437,7 +30609,6 @@ function buildExplore() {
     const t = ev.target;
     if (t.id === 'stuUpload') { const f = t.files && t.files[0]; if (f) f.text().then(uploadLayout).catch(() => {}); t.value = ''; return; }
     if (t.id === 'stuTex') { const f = t.files && t.files[0]; t.value = ''; texFile(f); return; }
-    if (t.dataset && t.dataset.colour && !t.disabled) { t.blur(); act(t.dataset.colour, String(t.value).toLowerCase()); return; }   // (a colour field: the tint, once chosen)
   });
   $('#viewctl').innerHTML = `<div class="grp"><span>View</span><div class="seg" data-ctl="view" role="group" aria-label="View">${[['orbit', 'Orbit'], ['walk', 'Walk']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.view === v}">${n}</button>`).join('')}</div></div>` +
     `<div class="grp" id="stuWalkTip" style="display:none"><span>Click the view to look with the mouse, Esc lets go</span></div>`;   // (Walk view with a mouse: grabStep)
@@ -29474,8 +30645,9 @@ function blockHTML(b) {
   // (a slider: Fewer triangles' share; its words follow it as it moves, liteBind)
   if (b.range) { const r = b.range; return lab + `<div class="stu-range"><input type="range" id="${esc(r.id)}" data-range="${esc(r.act)}" data-v="${esc(r.v === undefined ? '' : r.v)}" min="${r.min}" max="${r.max}" step="${r.step || 1}" value="${r.value}"${r.fmt ? ` data-fmt="${esc(r.fmt)}"` : ''} aria-label="${esc(r.aria || b.label || '')}"${r.dis ? ' disabled' : ''}><b data-range-out>${esc(r.out)}</b></div>`; }
   if (b.row) return lab + `<div class="actions">${b.row.filter(x => !x.xr).map(btn).join('')}</div>`;
-  // (a colour field: any colour, taken once it is chosen: its 'change' event, buildExplore)
-  if (b.colour) { const q = b.colour; return lab + `<label class="stu-col"><input type="color" id="${esc(q.id)}" data-colour="${esc(q.act)}" value="${esc(q.value)}"${q.dis ? ' disabled' : ''}><span>${esc(q.label || '')}</span></label>`; }
+  // (a colour button: any colour, through the shared picker's popover, e7h_colour.js)
+  if (b.picker) return '';   // (the headset's picker: e7h_colour.js)
+  if (b.colour) { const q = b.colour, on = !!CPK.open && CPK.open.where === 'page' && CPK.open.tgt === q.tgt; return lab + `<button type="button" class="stu-colbtn" id="${esc(q.id)}" data-cpk="${esc(q.tgt)}" aria-haspopup="dialog" aria-expanded="${on}"${q.dis ? ' disabled' : ''}><span class="stu-colchip" style="background:${esc(q.value)}"></span><span>${esc(q.label || '')}</span><code>${esc(q.value)}</code></button>`; }
   // (the Add pane's models: a card each, its picture or a plain tile with its kind; e7e_pics.js fetches what it lacks)
   // (a group's heading in the Items pane: a press selects the group)
   if (b.gh) { const x = b.gh; return lab + `<button type="button" class="stu-gh${x.sel ? ' sel' : ''}" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" aria-pressed="${!!x.on}"><i class="stu-sw" style="background:${esc(x.col || '')}"></i><span>${esc(x.label)}${x.lock ? ' 🔒' : ''}</span><small>${esc(x.sub || '')}</small></button>`; }
@@ -29492,7 +30664,7 @@ function blockHTML(b) {
   return '';
 }
 function renderPanes() {
-  if (X.sliding || (document.activeElement && document.activeElement.id === 'stuTint')) { X.dirty = true; return; }   // (a slider held, or the colour field's picker open: drawn again once let go)
+  if (X.sliding) { X.dirty = true; return; }   // (a slider held: drawn again once let go)
   // (a headset presenting: nobody sees the page's panes, the headset's panels are drawn from the same blocks; they are
   // drawn once the session ends. v136: every change in a session built the page's HTML again)
   if (GL.renderer && GL.renderer.xr.isPresenting) { X.dirty = true; X.skipped = (X.skipped || 0) + 1; return; }
@@ -29577,7 +30749,7 @@ function rayPick(ray, o) {
 function visitPick(ray) {
   const L = [];
   for (const it of STU.items.values()) {
-    if (!visitMove(it) || !it.holder.visible || !it.shown || it.notHere) continue;
+    if (!(visitMove(it) || pressable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, and what can be pressed or pointed at, v146)
     if (it.kind === 'o') { if (it.model) L.push(it.proxy); } else L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill);
   }
   const h = L.length ? ray.intersectObjects(L, false)[0] : null;
@@ -29590,10 +30762,10 @@ function visitDown(ev) {
   if (APP.mode !== 'explore' || editOn() || XR.on || GRAB.on || ev.button !== 0 || PDRAG) return false;
   GL.world.updateMatrixWorld(true);
   const ray = pointerRay(ev.clientX, ev.clientY), h = visitPick(ray), it = h && STU.items.get(h.id);
-  if (!it) return false;
+  if (!it || !visitMove(it)) return false;   // (one that is only pressed: a click, clickAt)
   poseRest(it);
   const hit = GL.world.worldToLocal(h.point.clone());
-  PDRAG = { id: it.id, pid: ev.pointerId, y: hit.y, off: it.holder.position.clone().sub(hit) };
+  PDRAG = { id: it.id, pid: ev.pointerId, y: hit.y, off: it.holder.position.clone().sub(hit), x0: ev.clientX, y0: ev.clientY, t0: performance.now(), go: !pressable(it) };   // (one that can be pressed too moves only after 6 px: a press otherwise)
   it.carry = true; it.gl = null; orbit.held = true;
   sfxAct('grab', 'world', h.point.toArray());
   return true;
@@ -29602,6 +30774,7 @@ const _vp = new THREE.Plane(), _vq = new THREE.Vector3(), _vn = new THREE.Vector
 function visitMoveTo(ev) {
   const it = STU.items.get(PDRAG.id);
   if (!it || !visitMove(it)) { visitUp(); return; }
+  if (!PDRAG.go) { if (Math.hypot(ev.clientX - PDRAG.x0, ev.clientY - PDRAG.y0) < 6) return; PDRAG.go = true; }
   const ray = pointerRay(ev.clientX, ev.clientY).ray.clone();
   GL.world.updateMatrixWorld(true);
   ray.applyMatrix4(_sm2.copy(GL.world.matrixWorld).invert());   // (into the scene's frame)
@@ -29611,9 +30784,10 @@ function visitMoveTo(ev) {
   carryWrite(it);
 }
 function visitUp() {
-  const it = STU.items.get(PDRAG.id);
+  const it = STU.items.get(PDRAG.id), D = PDRAG;
   PDRAG = null; orbit.held = false;
   if (!it) return;
+  if (!D.go) { it.carry = false; if (performance.now() - D.t0 < 500 && pressable(it)) pressGo(it.id, null, null); return; }   // (it never moved: a press)
   carryWrite(it, true); it.carry = false;
   sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray());
 }
@@ -29666,7 +30840,17 @@ function bindCanvas() {
     if (!pts.has(ev.pointerId)) {
       screenHover(ev, cv);   // (a screen or its bar under the pointer lights its bar)
       // (without editing: over an item anyone may move, the hand that drags it, v140)
-      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) { GL.world.updateMatrixWorld(true); cv.style.cursor = visitPick(pointerRay(ev.clientX, ev.clientY)) ? 'move' : 'grab'; }
+      // (and over one that can be pressed, the pointing hand, and what it reacts to while pointed at: at most ten picks a second, e6t_press.js)
+      if (APP.mode === 'explore' && ev.pointerType !== 'touch' && !editOn() && !XR.on) {
+        const now = performance.now();
+        if (now - PRESS.pt >= 100) {
+          PRESS.pt = now; GL.world.updateMatrixWorld(true);
+          const h = visitPick(pointerRay(ev.clientX, ev.clientY)), it = h && STU.items.get(h.id);
+          PRESS.hovPage = it && pressable(it) ? it.id : '';
+          PRESS.cur = PRESS.hovPage ? 'pointer' : it ? 'move' : 'grab';
+        }
+        cv.style.cursor = PRESS.cur || 'grab';
+      }
       // pointing without a button (editing): what is under the mouse lights up and shows its name
       if (APP.mode === 'explore' && ev.pointerType !== 'touch' && editOn() && !(GL.tc && GL.tc.axis)) {
         const ray = pointerRay(ev.clientX, ev.clientY), h = pagePick(ray);
@@ -29708,7 +30892,7 @@ function bindCanvas() {
   cv.addEventListener('pointerup', end);
   cv.addEventListener('pointercancel', end);
   cv.addEventListener('contextmenu', ev => ev.preventDefault());
-  cv.addEventListener('pointerleave', () => { if (!pts.size) STU.hover = ''; });
+  cv.addEventListener('pointerleave', () => { if (!pts.size) STU.hover = ''; PRESS.hovPage = ''; });
   cv.addEventListener('wheel', ev => {
     if (APP.mode !== 'explore') return;
     ev.preventDefault();
@@ -29724,6 +30908,7 @@ function bindCanvas() {
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (X.view === 'walk' && ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { KEYS.add(k); WALK.to = null; ev.preventDefault(); return; }
     if (k === 'escape' && (GRAB.on || performance.now() - GRAB.gone < 400)) return;   // (Esc lets go of the mouse: the browser's own, nothing else)
+    if (k === 'escape' && STU.prp) { STU.prp = null; dirty(true); return; }
     if (k === 'escape' && (STU.pick || STU.txp || STU.plp || STU.follow || STU.cutTo || STU.gpick || STU.sel)) { if (STU.pick) STU.pick = null; else if (STU.txp) STU.txp = null; else if (STU.plp) STU.plp = null; else if (STU.follow) STU.follow = ''; else if (STU.cutTo) STU.cutTo = ''; else if (STU.gpick) gpickEnd(); else select(''); dirty(true); return; }
     if (!editOn() || ev.repeat) return;   // (a key held down adds or deletes once, not one a frame)
     if ((k === 'delete' || k === 'backspace') && STU.sel) { deleteItem(STU.sel); ev.preventDefault(); }
@@ -29811,11 +30996,13 @@ function grabEnd() {
 function clickAt(mx, my) {
   const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
+  // (without editing: a click on an item that can be pressed presses it, a visitor too: e6t_press.js)
+  if (!editOn()) { GL.world.updateMatrixWorld(true); const ph = visitPick(ray), pit = ph && STU.items.get(ph.id); if (pit && pressable(pit) && pit.rec.press.do) { pressGo(pit.id, ph.point, null); return; } }
   if (X.view === 'walk') {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }
   }
-  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.cutTo && !STU.gpick && !STU.keyPick) select('');
+  if (editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.cutTo && !STU.gpick && !STU.keyPick) select('');
 }
 // the trigger (or a click) on an item: picking for a cube, in or out of its list; else selected (an object with the
 // ray that found it kept: a new cut-out goes where it met the model, not where the pointer passed over it since)
@@ -29824,6 +31011,7 @@ function clickAt(mx, my) {
 function pressItem(id, ray) {
   const it = STU.items.get(id);
   if (!it || !editOn()) return;
+  if (STU.prp) { itemAct('prOn', id, STU.prp.id); return; }   // (an item picking what a reaction acts on: e6t_press.js)
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(id) : null;
   // (a cube picking what it shows or hides: an item in a group puts in all of its group's members a cube can list (not its
   // cubes); a cube in a group of cubes alone, nothing to list, is selected as an ungrouped cube is (its group, as a click
@@ -29834,7 +31022,7 @@ function pressItem(id, ray) {
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }
   if (STU.keyPick && id !== STU.keyPick) { if (KEY_KINDS.includes(it.kind)) itemAct('key', id, STU.keyPick); return; }   // (a cube picking its key: v140)   // (a cut-out picking the object it cuts)
   if (STU.txp && id !== STU.txp.id) { if (it.kind === 'o') itemAct('txOn', id, STU.txp.id); return; }   // (a cube picking the object it changes a picture of: e6i_tex.js)
-  if (STU.plp && id !== STU.plp.id) { if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
+  if (STU.plp && id !== STU.plp.id) { if (STU.plp.seq) { if (seqOpts(it).length && it.id !== STU.plp.id) itemAct('sqOn', id, STU.plp.id); } else if (playOpts(it).some(o => !o.dis)) itemAct('plOn', id, STU.plp.id); return; }   // (a cube picking what it starts something on: e6n_plays.js)
   if (STU.gpick && id !== STU.gpick.id) { groupToggle(STU.gpick.id, id); return; }   // (a group picking its members)
   select(g && STU.sel !== g.id && STU.sel !== id ? g.id : id);
   if (ray && it.kind === 'o') cutRay(id, ray);
@@ -31401,7 +32589,8 @@ const LITE_ACT = {
 const LITE_RANGE = {
   'ft:set': (v, _, done) => { if (editOn()) ftSet(v / 100, done); },
   'an:seek': (v, _, done) => animSeek(v, done),   // (a selected model's timeline: e6m_anim.js)
-  'ap:seek': (v, _, done) => animSeek(v, done, 'path'),   // (a recorded path's timeline: the same, its own hold)
+  'ap:seek': (v, _, done) => animSeek(v, done, 'path'),
+  'sq:at': (v, _, done) => seqAtSet(v, done),   // (the time of an event being added to a sequence: e6s_seq.js)   // (a recorded path's timeline: the same, its own hold)
   'up:keep': (v, ri, done) => { const r = UP.rows[+ri]; if (r && r.kind === 'model' && r.state === 'plan' && !UP.busy) { r.keep = Math.min(1, Math.max(CONV.KEEP_MIN, v / 100)); if (done) upChanged(); } },
   // (every model row still to make, as it moves: their own sliders follow on the page at once)
   'up:keepall': (v, _, done) => {
@@ -31837,6 +33026,12 @@ function tileFor(t) {
       x.beginPath(); x.moveTo(q[0], q[1]); x.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]); x.lineWidth = q[8]; x.strokeStyle = new THREE.Color(col(i)).multiplyScalar(0.9).getStyle(); x.stroke();
     });
     for (let d = 0; d < 26; d++) { const a = d * 2.4, r = 6 + (d * 37 % 31); x.beginPath(); x.arc(176 + Math.cos(a) * r, 196 + Math.sin(a) * r * 0.6, 3.2, 0, 7); x.fillStyle = new THREE.Color(col(3)).getStyle(); x.fill(); }
+  } else if (t.k === 'seq') {
+    // a sequence: three lanes of blocks and diamonds on a time line, a play triangle's playhead over them (v146)
+    for (let i = 0; i < 3; i++) line([40, 84 + i * 40], [216, 84 + i * 40], rgb(0.4), 3);
+    poly([[52, 74], [112, 74], [112, 94], [52, 94]], rgb(1, 0.15)); poly([[124, 114], [190, 114], [190, 134], [124, 134]], rgb(0.8));
+    poly([[70, 154], [80, 164], [70, 174], [60, 164]], '#3ee08f'); poly([[180, 154], [190, 164], [180, 174], [170, 164]], '#ff5a4b');
+    line([150, 60], [150, 190], '#ffffff', 4); poly([[138, 52], [162, 52], [150, 68]], '#ffffff');
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour
@@ -32567,6 +33762,718 @@ const exSig = () => [EX.list ? EX.list.length : -1, EX.busy, EX.done, EX.of, EX.
 // the relay that are not whole: 'busy' or 'broken'
 const exState = () => ({ list: EX.list ? EX.list.map(s => s.name) : null, here: exHere(), folder: OPT.examples, busy: EX.busy, done: EX.done, of: EX.of, note: EX.note, prev: !!EX.prev, can: exCan(), at: atStation(), why: exWhy(), relay: EX.list ? EX.list.filter(s => exOnRelay(s.name)).map(s => s.name) : [],
   parts: Object.fromEntries((EX.list || []).map(s => [s.name, exPart(s.name)]).filter(x => x[1])) });
+// ---- the shared colour picker (v146; the owner, 15 November 2026): one picker for an object's tint, a shape's colour and
+// the paint colour. A page gets a popover (a hue ring, a saturation and brightness square, the hex, the ten swatches and
+// the colours used lately); a headset gets the same as a block of the card, dragged with the trigger. What it shows is
+// previewed on the item on this device only and written when let go (one Undo step, through the card's own actions, so
+// records stay '#rrggbb' lower case and nothing about them changed). Another lane may add a target to CPK_T
+// ({ act, get(it), preview(it, hex), clear(it) }) and call cpkOpen(tgt, id, where)
+// one picker open at a time, page or headset: its target, the colour as it stands (hsv, so a grey keeps its hue while
+// dragged), the colour it opened with and the one last written, and whether a drag is under way
+const CPK = { open: null, h: 0, s: 0, v: 1, exact: '', from: '', orig: '', drag: '', live: '', pend: '', seen: null, kt: 0, commits: 0, previews: 0, patches: 0 };
+const CPK_KEY = 'studioColours', CPK_MAX = 8;
+const CPKX = { h: 420, rc: null, rings: new Map(), el: null, opener: null, reveal: false, raf: 0, dr: null };
+const CPK_T = {
+  tint: {
+    act: 'i:tint',
+    get: it => { const os = tintOf(it); if (!os.length) return null; const v = os.map(o => o.rec.tint || ''); return v.every(x => x === v[0]) ? v[0] : null; },
+    ok: it => !!it && (it.kind === 'o' || it.kind === 'g') && tintOf(it).length > 0,
+    preview(it, hex) { for (const o of tintOf(it)) if (o.model) for (const m of o.model.meshes) for (const key of ['lit', 'scan']) for (const mat of [].concat(m.userData[key] || [])) tintMat(mat, Object.assign({}, o.rec, { tint: hex })); },
+    clear(it) { if (it) for (const o of tintOf(it)) applyTint(o); },
+  },
+  shape: {
+    act: 'i:colour',
+    get: it => it.rec.colour,
+    ok: it => !!it && it.kind === 'p',
+    preview(it, hex) { it.look.set(Object.assign({}, it.rec, { colour: hex })); },
+    clear(it) { if (it && it.look) it.look.set(it.rec); },
+  },
+  paint: {
+    act: 'pnColour',
+    get: () => PAINT.colour,
+    ok: () => !!PAINT.on,
+    preview(_, hex) { CPK.live = hex; if (PNV.tip) PNV.tip.material.color.set(hex); },
+    clear() { CPK.live = ''; if (PNV.tip) PNV.tip.material.color.set(PAINT.colour); },
+  },
+};
+// ---- the maths (no THREE)
+const cpkNorm = t => {
+  t = String(t).trim().toLowerCase().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/.test(t)) t = t[0] + t[0] + t[1] + t[1] + t[2] + t[2];
+  return /^[0-9a-f]{6}$/.test(t) ? '#' + t : '';
+};
+const hexOk = t => !!cpkNorm(t);
+function hsv2hex(h, s, v) {
+  h = (((h % 1) + 1) % 1) * 6;
+  const i = Math.floor(h), f = h - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+  const c = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return '#' + c.map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+}
+function hex2hsv(hex) {
+  const n = parseInt(cpkNorm(hex).slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = CPK.h;   // (a grey keeps the hue it had)
+  if (d > 0) { h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+  return [h, mx ? d / mx : 0, mx];
+}
+const cpkNow = () => CPK.exact || hsv2hex(CPK.h, CPK.s, CPK.v);
+const cpkItem = () => (CPK.open && CPK.open.id ? STU.items.get(CPK.open.id) : null);
+const cpkValid = () => { const o = CPK.open; if (!o) return false; const T = CPK_T[o.tgt]; return !!T && (o.tgt === 'paint' ? T.ok() : editOn() && T.ok(cpkItem())); };
+const cpkPaintColour = () => CPK.live || PAINT.colour;
+// ---- recent colours: this device's own, one list for all three, newest first
+function cpkRecents() {
+  if (CPKX.rc) return CPKX.rc;
+  let a = [];
+  try { a = JSON.parse(store.get(CPK_KEY) || '[]'); } catch (e) { a = []; }
+  return (CPKX.rc = (Array.isArray(a) ? a : []).map(x => (typeof x === 'string' ? cpkNorm(x) : '')).filter(Boolean).slice(0, CPK_MAX));
+}
+function cpkRecent(hex) {
+  CPKX.rc = [hex].concat(cpkRecents().filter(x => x !== hex)).slice(0, CPK_MAX);
+  store.set(CPK_KEY, JSON.stringify(CPKX.rc));
+}
+const cpkSig = () => (CPK.open ? [CPK.open.tgt, CPK.open.id, CPK.open.where, CPK.from, cpkRecents().join('')].join() : '');
+// ---- the life cycle
+function cpkOpen(tgt, id, where) {
+  if (!CPK_T[tgt]) return false;
+  if (CPK.open) cpkCancel();
+  CPKX.rc = null;
+  CPK.open = { tgt, id: id || '', where };
+  if (!cpkValid()) { CPK.open = null; return false; }
+  const T = CPK_T[tgt], v = T.get(cpkItem());
+  CPK.from = CPK.orig = v;
+  const [h, s, b] = hex2hsv(v || '#ffffff');
+  CPK.h = h; CPK.s = s; CPK.v = b; CPK.exact = v || '#ffffff'; CPK.drag = ''; CPK.pend = ''; CPK.seen = null;
+  return true;
+}
+function cpkSet(h, s, v) { CPK.h = ((h % 1) + 1) % 1; CPK.s = clamp(s, 0, 1); CPK.v = clamp(v, 0, 1); CPK.exact = ''; }
+function cpkHex(hex) { const [h, s, v] = hex2hsv(hex); CPK.h = h; CPK.s = s; CPK.v = v; CPK.exact = hex; }
+// nothing written, nothing sent: the item shows the colour on this device alone
+function cpkPreview() {
+  if (!CPK.open) return;
+  if (!cpkValid()) { cpkCancel(); return; }
+  const hex = cpkNow();
+  CPK_T[CPK.open.tgt].preview(cpkItem(), hex);
+  CPK.pend = hex; CPK.previews++; CPK.seen = null;
+}
+// let go: the colour is written by the card's own action (one Undo step; paint's colour is a tool setting, none)
+function cpkCommit(val) {
+  const o = CPK.open;
+  if (!o) return;
+  const T = CPK_T[o.tgt];
+  CPK.pend = ''; CPK.seen = null;
+  try { T.clear(cpkItem()); } catch (e) { /* the item has gone */ }
+  if (val === T.get(cpkItem()) || !cpkValid()) { cpkPageSync(); return; }
+  CPK.from = val;
+  act(T.act, val);
+  CPK.commits++;
+  if (val) cpkRecent(val);
+  cpkPageSync(); cpkPageRecents();
+}
+function cpkFlush() {
+  if (CPK.kt) { clearTimeout(CPK.kt); CPK.kt = 0; }
+  if (CPK.open && CPK.pend && !CPK.drag) cpkCommit(cpkNow());
+}
+function cpkCancel() {
+  const o = CPK.open;
+  if (!o) return;
+  try { CPK_T[o.tgt].clear(cpkItem()); } catch (e) { /* the item has gone */ }
+  CPK.live = ''; CPK.pend = ''; CPK.drag = ''; CPK.open = null; CPK.seen = null;
+  if (CPK.kt) { clearTimeout(CPK.kt); CPK.kt = 0; }
+  cpkPageHide();
+}
+// every frame (after itemsStep): a preview shown again if the record or the model was made again under it; a headset
+// picker whose session ended or whose controller went commits what was shown
+function cpkStep() {
+  const o = CPK.open;
+  if (!o) return;
+  if (!cpkValid()) { cpkCancel(); return; }
+  if (o.where === 'xr') {
+    if (!XR.on) { if (CPK.drag) cpkXrEnd(); else cpkCancel(); return; }
+    if (CPK.drag && !XR.ctrls.some(c => c.press && c.press.r && c.press.r.end)) { cpkXrEnd(); return; }
+  }
+  if (CPK.pend) {
+    const it = cpkItem(), s = CPK.seen;
+    if (!s || s[0] !== (it && it.rec) || s[1] !== (it && it.model) || s[2] !== CPK.pend) { CPK_T[o.tgt].preview(it, CPK.pend); CPK.seen = [it && it.rec, it && it.model, CPK.pend]; }
+  }
+}
+const CPK_ACT = {
+  // the headset card's *Any colour...*: opens the picker as a block of the card, or closes it
+  cpkOpen: tgt => {
+    if (CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === tgt) { cpkCancel(); return; }
+    if (cpkOpen(tgt, tgt === 'paint' ? '' : STU.sel, 'xr')) CPKX.reveal = true;
+  },
+  cpkDone: () => cpkCancel(),
+};
+// ---- the page's popover
+function cpkPageOpen(btn) {
+  const tgt = btn.dataset.cpk;
+  if (CPK.open && CPK.open.where === 'page' && CPK.open.tgt === tgt) { cpkFlush(); cpkCancel(); return; }
+  if (!cpkOpen(tgt, tgt === 'paint' ? '' : STU.sel, 'page')) return;
+  cpkBuild();
+  CPKX.opener = btn;
+  cpkPageShow();
+}
+function cpkBuild() {
+  if (CPKX.el) return;
+  const el = CPKX.el = document.createElement('div');
+  el.id = 'stuCpk'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Pick a colour'); el.hidden = true;
+  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  el.innerHTML = `<canvas class="cpk-wheel" width="${Math.round(240 * dpr)}" height="${Math.round(240 * dpr)}" tabindex="0" aria-label="Hue and shade: arrow keys" style="width:240px;height:240px"></canvas>` +
+    `<div class="cpk-row"><span class="cpk-new" title="The colour now"></span><button type="button" class="cpk-old" title="Back to the colour it opened with" aria-label="Back to the colour it opened with"></button>` +
+    `<input id="stuCpkHex" type="text" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex colour"></div>` +
+    `<div class="cpk-sw">${SHAPE_COLS.map(([c, n]) => `<button type="button" data-hex="${c}" style="background:${c}" title="${esc(n)}" aria-label="${esc(n)}"></button>`).join('')}</div>` +
+    `<div class="cpk-rc"></div><div class="cpk-foot"><button type="button" class="btn primary cpk-done">Done</button></div>`;
+  document.body.appendChild(el);
+  const cv = el.querySelector('canvas'), hex = el.querySelector('#stuCpkHex');
+  const pos = ev => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * 240 / r.width, (ev.clientY - r.top) * 240 / r.height]; };
+  const from = (part, x, y) => {
+    if (part === 'ring') { let h = Math.atan2(y - 120, x - 120) / (2 * Math.PI); if (CPK.s < 0.1) CPK.s = 1; if (CPK.v < 0.1) CPK.v = 0.8; cpkSet(h, CPK.s, CPK.v); }
+    else cpkSet(CPK.h, (x - 60) / 120, 1 - (y - 60) / 120);
+    cpkPreview(); cpkPageSync();
+  };
+  cv.addEventListener('pointerdown', ev => {
+    if (!CPK.open || ev.button) return;
+    const [x, y] = pos(ev), d = Math.hypot(x - 120, y - 120), sq = Math.abs(x - 120) <= 60 && Math.abs(y - 120) <= 60;
+    const part = sq ? 'sq' : d >= 92 && d <= 116 ? 'ring' : '';
+    if (!part) return;
+    ev.preventDefault(); cv.focus();
+    if (CPK.kt) { clearTimeout(CPK.kt); CPK.kt = 0; }
+    try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    CPK.drag = part; from(part, x, y);
+  });
+  cv.addEventListener('pointermove', ev => {
+    if (!CPK.drag || !CPK.open) return;
+    const [x, y] = pos(ev); CPKX.dr = [CPK.drag, x, y];
+    if (!CPKX.raf) CPKX.raf = requestAnimationFrame(() => { CPKX.raf = 0; const d = CPKX.dr; if (d && CPK.drag) from(d[0], d[1], d[2]); });
+  });
+  const up = ev => {
+    if (!CPK.drag) return;
+    const [x, y] = pos(ev);
+    if (ev.type === 'pointerup') from(CPK.drag, x, y);
+    CPK.drag = ''; CPKX.dr = null;
+    cpkCommit(cpkNow());
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('keydown', ev => {
+    const sh = ev.shiftKey ? 10 : 1;
+    let ok = true;
+    if (ev.key === 'ArrowLeft') cpkSet(CPK.h - sh / 360, CPK.s, CPK.v);
+    else if (ev.key === 'ArrowRight') cpkSet(CPK.h + sh / 360, CPK.s, CPK.v);
+    else if (ev.key === 'ArrowUp') cpkSet(CPK.h, CPK.s, CPK.v + sh / 100);
+    else if (ev.key === 'ArrowDown') cpkSet(CPK.h, CPK.s, CPK.v - sh / 100);
+    else if (ev.key === 'PageUp') cpkSet(CPK.h, CPK.s + 0.05, CPK.v);
+    else if (ev.key === 'PageDown') cpkSet(CPK.h, CPK.s - 0.05, CPK.v);
+    else ok = false;
+    if (!ok) return;
+    ev.preventDefault(); cpkPreview(); cpkPageSync();
+    if (CPK.kt) clearTimeout(CPK.kt);
+    CPK.kt = setTimeout(() => { CPK.kt = 0; if (CPK.open && CPK.pend) cpkCommit(cpkNow()); }, 400);
+  });
+  cv.addEventListener('blur', () => { if (CPK.kt) cpkFlush(); });
+  hex.addEventListener('input', () => {
+    const h = cpkNorm(hex.value);
+    hex.setAttribute('aria-invalid', h || !hex.value ? 'false' : 'true');
+    hex.style.outline = h ? '' : '2px solid var(--amber)';
+    if (h) { cpkHex(h); cpkPreview(); cpkPageSync('hex'); }
+  });
+  hex.addEventListener('keydown', ev => { if (ev.key === 'Enter') { const h = cpkNorm(hex.value); if (h) { cpkHex(h); cpkCommit(h); } } });
+  hex.addEventListener('change', () => { const h = cpkNorm(hex.value); if (h) { cpkHex(h); cpkCommit(h); } else { cpkPageSync(); } });
+  hex.addEventListener('blur', () => { if (!cpkNorm(hex.value)) cpkPageSync(); });
+  el.addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b || !CPK.open) return;
+    if (b.dataset.hex) { cpkHex(b.dataset.hex); cpkCommit(b.dataset.hex); }
+    else if (b.classList.contains('cpk-old')) { if (CPK.orig !== null) { cpkHex(CPK.orig || '#ffffff'); cpkCommit(CPK.orig); } }
+    else if (b.classList.contains('cpk-done')) { cpkFlush(); cpkCancel(); }
+  });
+  el.addEventListener('keydown', ev => { ev.stopPropagation(); });   // (the studio's own keys never see a key typed here)
+}
+const cpkDocKey = ev => { if (ev.key === 'Escape' && CPK.open && CPK.open.where === 'page') { ev.stopPropagation(); ev.preventDefault(); cpkCancel(); } };
+const cpkDocDown = ev => {
+  if (!CPK.open || CPK.open.where !== 'page') return;
+  const t = ev.target;
+  if (t && t.closest && (t.closest('#stuCpk') || t.closest('[data-cpk]'))) return;
+  cpkFlush(); cpkCancel();
+};
+function cpkPageShow() {
+  const el = CPKX.el, b = CPKX.opener;
+  el.hidden = false;
+  document.addEventListener('keydown', cpkDocKey, true);
+  document.addEventListener('pointerdown', cpkDocDown, true);
+  const r = b.getBoundingClientRect(), w = 280, h = el.offsetHeight, W = window.innerWidth, H = window.innerHeight;
+  let left = W <= 420 ? (W - w) / 2 : Math.min(Math.max(8, r.left), W - w - 8), top = r.bottom + 6;
+  if (top + h > H - 8) top = r.top - h - 6;
+  el.style.left = Math.max(8, left) + 'px'; el.style.top = Math.max(8, top) + 'px';
+  document.querySelectorAll('[data-cpk]').forEach(x => x.setAttribute('aria-expanded', String(!!CPK.open && x.dataset.cpk === CPK.open.tgt)));
+  cpkPageSync(); cpkPageRecents();
+}
+function cpkPageHide() {
+  document.removeEventListener('keydown', cpkDocKey, true);
+  document.removeEventListener('pointerdown', cpkDocDown, true);
+  if (CPKX.el) CPKX.el.hidden = true;
+  CPKX.opener = null;
+  document.querySelectorAll('[data-cpk]').forEach(x => x.setAttribute('aria-expanded', 'false'));
+}
+function cpkPageRecents() {
+  const el = CPKX.el;
+  if (!el) return;
+  const r = cpkRecents();
+  el.querySelector('.cpk-rc').innerHTML = r.length ? `<span>Recent</span>` + r.map(c => `<button type="button" data-hex="${c}" style="background:${c}" title="${c}" aria-label="Recent colour ${c}"></button>`).join('') : `<span class="faint">No recent colours yet</span>`;
+}
+// the canvas redrawn (not the pane) when the colour changes; src: the field being typed in keeps its text
+function cpkPageSync(src) {
+  const el = CPKX.el;
+  if (!el || el.hidden || !CPK.open) return;
+  const now = cpkNow();
+  el.querySelector('.cpk-new').style.background = now;
+  const old = el.querySelector('.cpk-old');
+  old.style.background = CPK.orig ? CPK.orig : 'transparent'; old.textContent = CPK.orig === null ? 'differ' : CPK.orig === '' ? 'none' : '';
+  old.disabled = CPK.orig === null;
+  const hex = el.querySelector('#stuCpkHex');
+  if (src !== 'hex') { hex.value = now; hex.setAttribute('aria-invalid', 'false'); hex.style.outline = ''; }
+  if (!CPKX.raf2) CPKX.raf2 = requestAnimationFrame(() => { CPKX.raf2 = 0; cpkWheel(); });
+}
+function cpkRing(size, ro, ri) {
+  const k = size + ':' + ro + ':' + ri;
+  let c = CPKX.rings.get(k);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), m = size / 2, rm = (ro + ri) / 2;
+  g.lineWidth = ro - ri;
+  for (let i = 0; i < 360; i++) { g.beginPath(); g.arc(m, m, rm, (i - 0.3) / 360 * 2 * Math.PI, (i + 1.3) / 360 * 2 * Math.PI); g.strokeStyle = hsv2hex(i / 360, 1, 1); g.stroke(); }
+  CPKX.rings.set(k, c);
+  return c;
+}
+// the square: the hue's full colour, white across, black down
+function cpkSquare(g, x, y, side) {
+  g.fillStyle = hsv2hex(CPK.h, 1, 1); g.fillRect(x, y, side, side);
+  let l = g.createLinearGradient(x, 0, x + side, 0); l.addColorStop(0, '#fff'); l.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = l; g.fillRect(x, y, side, side);
+  l = g.createLinearGradient(0, y, 0, y + side); l.addColorStop(0, 'rgba(0,0,0,0)'); l.addColorStop(1, '#000'); g.fillStyle = l; g.fillRect(x, y, side, side);
+}
+function cpkHandle(g, x, y, r, col) { g.beginPath(); g.arc(x, y, r, 0, 7); g.fillStyle = col; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke(); g.lineWidth = 1.5; g.strokeStyle = 'rgba(0,0,0,0.6)'; g.beginPath(); g.arc(x, y, r + 1.5, 0, 7); g.stroke(); }
+function cpkWheel() {
+  const el = CPKX.el;
+  if (!el || el.hidden) return;
+  const cv = el.querySelector('canvas'), k = cv.width / 240, g = cv.getContext('2d');
+  g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, 240, 240);
+  g.drawImage(cpkRing(Math.round(240 * k), 116 * k, 92 * k), 0, 0, 240, 240);
+  cpkSquare(g, 60, 60, 120);
+  const a = CPK.h * 2 * Math.PI, now = cpkNow();
+  cpkHandle(g, 120 + 104 * Math.cos(a), 120 + 104 * Math.sin(a), 8, hsv2hex(CPK.h, 1, 1));
+  cpkHandle(g, 60 + CPK.s * 120, 60 + (1 - CPK.v) * 120, 7, now);
+}
+// ---- the headset's block (on the card, dragged with the trigger as a timeline's bar is)
+const cpkQ = P => cpkNow() + '|' + CPK.drag + '|' + (P && P.hover && String(P.hover).startsWith('cpk:') ? P.hover : '') + '|' + cpkRecents().join('');
+const cpkRingXR = () => cpkRing(380, 190, 150);
+function drawPicker(ctx, P, b, x, y, W, dry, live, strip) {
+  if (dry) return CPKX.h + 14;
+  const cx = x + 200, cy = y + 200, now = cpkNow(), a = CPK.h * 2 * Math.PI, add = r => { if (live && !strip) P.regions.push(r); };
+  ctx.drawImage(cpkRingXR(), cx - 190, cy - 190);
+  cpkSquare(ctx, cx - 100, cy - 100, 200);
+  const hr = P.hover === 'cpk:ring', hs = P.hover === 'cpk:sq';
+  cpkHandle(ctx, cx + 170 * Math.cos(a), cy + 170 * Math.sin(a), hr ? 18 : 14, hsv2hex(CPK.h, 1, 1));
+  cpkHandle(ctx, cx - 100 + CPK.s * 200, cy - 100 + (1 - CPK.v) * 200, hs ? 18 : 12, now);
+  add({ id: 'cpk:ring', x: cx - 190, y: cy - 190, w: 380, h: 380, drag: (px, py) => cpkXrDrag('ring', px, py, cx, cy), end: () => cpkXrEnd() });
+  add({ id: 'cpk:sq', x: cx - 100, y: cy - 100, w: 200, h: 200, drag: (px, py) => cpkXrDrag('sq', px, py, cx, cy), end: () => cpkXrEnd() });
+  const rx = x + 420, f = live && !strip;
+  rr(ctx, rx, y, 120, 60, 8); ctx.fillStyle = now; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(232,238,248,0.55)'; ctx.stroke();
+  const o = CPK.orig;
+  vButton(ctx, P, 'cpk:old', rx, y + 66, 120, 36, '', f && o !== null ? () => { cpkHex(o || '#ffffff'); cpkCommit(o); } : null, { r: 8 });
+  if (o) { rr(ctx, rx + 4, y + 70, 112, 28, 5); ctx.fillStyle = o; ctx.fill(); }
+  else { ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.textBaseline = 'middle'; ctx.fillText(o === null ? 'they differ' : 'none', rx + 12, y + 85); ctx.textBaseline = 'top'; }
+  ctx.font = vfont(26, 700); ctx.fillStyle = VC.ink; ctx.fillText(now, rx + 140, y + 16);
+  ctx.font = vfont(18); ctx.fillStyle = VC.faint; ctx.fillText('now / opened with', rx + 140, y + 56);
+  const sw = (c, px, py, id) => {
+    vButton(ctx, P, id, px, py, 48, 48, '', f ? () => { cpkHex(c); cpkCommit(c); } : null, { r: 8, on: c === now });
+    swatch(ctx, px + 6, py + 6, 36, c);
+  };
+  SHAPE_COLS.forEach(([c], i) => sw(c, rx + (i % 5) * 56, y + 116 + Math.floor(i / 5) * 56, 'cpk:sw:' + c));
+  const rc = cpkRecents();
+  ctx.font = vfont(20, 700); ctx.fillStyle = VC.muted; ctx.fillText(rc.length ? 'Recent' : 'No recent colours yet', rx, y + 234);
+  rc.slice(0, 8).forEach((c, i) => sw(c, rx + (i % 4) * 56, y + 262 + Math.floor(i / 4) * 56, 'cpk:rc:' + i));
+  vButton(ctx, P, 'cpk:done', rx + 240, y + 362, 200, 48, 'Done', f ? () => cpkCancel() : null, { primary: true, px: 24 });
+  if (live && !strip) P.pickers = (P.pickers || []).concat({ x, y, w: W, id: 'cpk', q: cpkQ(P), cx, cy });
+  return CPKX.h + 14;
+}
+// the drag: the part it began on keeps it; a ring starts only on the ring itself, so the square's corners are not it
+function cpkXrDrag(part, px, py, cx, cy) {
+  if (!CPK.open || CPK.open.where !== 'xr') return;
+  if (!CPK.drag) {
+    if (part === 'ring') { const d = Math.hypot(px - cx, py - cy); if (d < 140 || d > 220) return; }
+    CPK.drag = part;
+    if (part === 'ring') { if (CPK.s < 0.1) CPK.s = 1; if (CPK.v < 0.1) CPK.v = 0.8; }
+  }
+  if (CPK.drag === 'ring') cpkSet(Math.atan2(py - cy, px - cx) / (2 * Math.PI), CPK.s, CPK.v);
+  else cpkSet(CPK.h, (px - (cx - 100)) / 200, 1 - (py - (cy - 100)) / 200);
+  cpkPreview();
+}
+// let go (or the controller gone): what was shown is written, one Undo step
+function cpkXrEnd() {
+  if (!CPK.drag) return;
+  CPK.drag = '';
+  if (CPK.open) cpkCommit(cpkNow());
+}
+// every frame the card is not drawn again: the picker's strip redrawn on its own when its colour or what is pointed at
+// changed, at most every 50 ms, and sent to the texture alone (a patch of about 430 px tall, never the whole card)
+let CPKCV = null;
+function pickersTick(P, now) {
+  if (now - (P.tk || 0) < 50) return;
+  for (const p of P.pickers) {
+    const q = cpkQ(P);
+    if (q === p.q) continue;
+    if (!CPK.open) { P.last = ''; return; }
+    P.tk = now; p.q = q;
+    const rx = Math.max(0, Math.floor(p.x - 6)), ry = Math.max(0, Math.floor(p.y - 6)), rw = Math.min(P.w - rx, Math.ceil(p.w + 12)), rh = Math.min(P.h - ry, CPKX.h + 12);
+    const cv = CPKCV = CPKCV || document.createElement('canvas');
+    if (cv.width !== rw || cv.height !== rh) { cv.width = rw; cv.height = rh; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
+    c.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)'; c.fillRect(0, 0, rw, rh);
+    c.setTransform(1, 0, 0, 1, -rx, -ry);
+    const keep = [P.regions, P.drawn, P.pickers]; P.regions = []; P.drawn = null; P.pickers = [];
+    try { drawPicker(c, P, { tgt: CPK.open.tgt }, p.x, p.y, p.w, false, true, true); } finally { [P.regions, P.drawn, P.pickers] = keep; }
+    const ctx = P.ctx;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
+    const n0 = P.patched || 0;
+    panelPatch(P, cv, rx, ry);
+    if ((P.patched || 0) > n0) CPK.patches++;
+  }
+}
+function cpkDispose() {
+  cpkCancel();
+  document.removeEventListener('keydown', cpkDocKey, true);
+  document.removeEventListener('pointerdown', cpkDocDown, true);
+  if (CPKX.el) { CPKX.el.remove(); CPKX.el = null; }
+}
+// for tests: the panel pixel of a part's normalised point in the picker last drawn (the ring at angle u * 2 pi, the square at u, v)
+function cpkTestPoint(part, u, v) {
+  const p = XR.main && XR.main.pickers && XR.main.pickers[0];
+  if (!p) return null;
+  if (part === 'ring') { const a = u * 2 * Math.PI; return [p.cx + 170 * Math.cos(a), p.cy + 170 * Math.sin(a)]; }
+  return [p.cx - 100 + u * 200, p.cy - 100 + (1 - v) * 200];
+}
+// ============================================================ THE LANE VIEW ==
+// A sequence's timeline on a page (v146; tools/studio/SPEC.md, "Sequences": "The page's lane view"): a panel docked at the
+// bottom of the window while editing with a sequence selected, over the canvas and beside the side panel (never in a headset:
+// its card has the bar and the event list). A 2D canvas drawn only when something changed: a ruler (a drag scrubs this
+// device's preview), a lane per item the events act on, each event a block (a clip, a path or a sound with its length where it
+// is known, a loop to the next stop on the item or the sequence's end with a mark) or a diamond (show, hide, picture, another
+// sequence) or a square (a stop); the playhead where the sequence is now (the preview's or the room's). Events are dragged
+// (snapped to 0.1 s, Shift free; Alt copies; one Undo step a drag, nothing written while it moves), selected with a click,
+// Ctrl or Shift, or a marquee; Delete deletes them (one step); a double click on an event selects it on the card, on an empty
+// lane spot opens Add an event for that lane's item at that time. Keys while it has focus: Space plays or holds the preview,
+// Home rewinds it, the arrows nudge the selection (Shift: a second), each a step.
+const SV = { el: null, cv: null, open: false, id: '', zoom: 60, t0: 0, h: 260, sel: new Set(), drag: null, sig: '', last: 0, hits: [], lanes: [], w: 0, scroll: 0, fit: '', evRef: null };
+const SV_G = 150, SV_R = 24, SV_LANE = 30;   // (the labels' gutter, the ruler's height, a lane's: px)
+const SV_COL = { show: '#3ee08f', hide: '#ff5a4b', tex: '#ffb43b', seq: '#4f9dff' };
+CPK_T.seq = { act: 'i:sqCol', get: it => (it && it.rec.col) || SEQ_COL, ok: it => !!it && it.kind === 'q', preview() { /* its colour shows once it is written */ }, clear() { /* nothing previewed */ } };
+const svSnap = (t, free) => (free ? Math.round(t * 100) / 100 : Math.round(t * 10) / 10);
+const svQ = () => { const q = STU.items.get(STU.sel); return q && q.kind === 'q' ? q : null; };
+const svWant = () => !!svQ() && editOn() && !XR.on && !(GL.renderer && GL.renderer.xr.isPresenting) && APP.mode === 'explore' && !HOST.picking && !VW.open && !GL.gone;
+const svX = t => SV_G + (t - SV.t0) * SV.zoom, svT = x => SV.t0 + (x - SV_G) / SV.zoom;
+
+// how long an event's block is (s), where its item's length is known
+function svDur(e) {
+  const t = STU.items.get(e.on);
+  try {
+    if (e.what === 'clip' && t && t.E && t.E.clips) { const c = t.E.clips.find(k => k.name === e.clip); if (c && c.duration > 0) return c.duration; }
+    if (e.what === 'sound' && t && t.F && t.F.dur > 0) return t.F.dur;
+    if (e.what === 'path' && t) { const P = pathOf(t); if (P) return pathLen(P) / (P.speed || 1) * (P.play === 'bounce' ? 2 : 1); }
+    if (e.what === 'motion' && t && t.rec.motion) return 60 / Math.max(0.1, Math.abs(t.rec.motion.speed || 1));
+  } catch (err) { /* length not known */ }
+  return 0.6;
+}
+// the lanes (an item each, in order of first appearance) and each event's block: { i, lane, x0, x1 (s), kind: 'block' | 'loop' | 'stop' | 'dia' }
+function svLayout(q) {
+  const ev = q.rec.ev, lanes = [], at = new Map();
+  ev.forEach(e => { if (!at.has(e.on)) { at.set(e.on, lanes.length); lanes.push(e.on); } });
+  const items = ev.map((e, i) => {
+    const lane = at.get(e.on), it = { i, e, lane, t: e.t };
+    if (SEQ_RUN.includes(e.what) && e.how !== 'stop') {
+      it.kind = e.how === 'loop' ? 'loop' : 'block';
+      it.t1 = e.how === 'loop' ? (ev.find((o, j) => j > i && o.on === e.on && o.t > e.t && ((o.what === e.what && o.how === 'stop') || o.what === e.what)) || { t: q.rec.len }).t : e.t + svDur(e);
+    } else { it.kind = e.what === 'show' || e.what === 'hide' || e.what === 'tex' || e.what === 'seq' ? (e.what === 'seq' && e.how === 'stop' ? 'stop' : 'dia') : 'stop'; it.t1 = e.t; }
+    return it;
+  });
+  return { lanes, items };
+}
+const svColOf = (q, e) => SV_COL[e.what] || (q.rec.col || SEQ_COL);
+
+// ---------------------------------------------------------------- the panel --
+function svBuild() {
+  const el = SV.el = document.createElement('div');
+  el.id = 'stuSeq'; el.tabIndex = 0; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Sequence lanes');
+  el.innerHTML = `<style>
+    #stuSeq { position: fixed; left: 0; bottom: 0; z-index: 12; background: rgba(8, 14, 26, 0.97); border-top: 1px solid rgba(149, 166, 189, 0.4); color: #e7eef8; font: 13px/1.3 B612, "Segoe UI", Arial, sans-serif; display: flex; flex-direction: column; outline: none; }
+    #stuSeq .sv-edge { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; touch-action: none; }
+    #stuSeq .sv-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 10px; }
+    #stuSeq .sv-top b { margin-right: 6px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #stuSeq .sv-top span { color: #a9b8cc; font-variant-numeric: tabular-nums; margin: 0 6px; }
+    #stuSeq .btn { border: 1px solid rgba(149, 166, 189, 0.4); background: rgba(22, 32, 48, 0.9); color: #e7eef8; border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+    #stuSeq .btn:hover { border-color: #a9b8cc; }
+    #stuSeq .btn[aria-pressed="true"] { border-color: #46d9ff; color: #46d9ff; }
+    #stuSeq .btn[disabled] { opacity: 0.45; cursor: default; }
+    #stuSeq canvas { display: block; flex: 1; width: 100%; min-height: 0; touch-action: none; }
+  </style>
+  <div class="sv-edge" data-a="edge"></div>
+  <div class="sv-top"><b data-n></b>
+    <button type="button" class="btn" data-a="pv">Play here (preview)</button><button type="button" class="btn" data-a="stop">Stop</button><button type="button" class="btn" data-a="rew">Rewind</button><button type="button" class="btn" data-a="all">Play for everyone</button>
+    <span data-time></span><button type="button" class="btn" data-a="zo" aria-label="Zoom out">−</button><button type="button" class="btn" data-a="zi" aria-label="Zoom in">+</button><button type="button" class="btn" data-a="close">Close</button>
+  </div><canvas></canvas>`;
+  SV.cv = el.querySelector('canvas');
+  document.body.appendChild(el);
+  el.addEventListener('click', ev => { const a = ev.target.closest && ev.target.closest('[data-a]'); if (a) svAct(a.dataset.a); });
+  el.addEventListener('pointerdown', svDown);
+  el.addEventListener('dblclick', svDbl);
+  el.addEventListener('wheel', svWheel, { passive: false });
+  el.addEventListener('keydown', svKey);
+  window.addEventListener('pointermove', svMove); window.addEventListener('pointerup', svUp); window.addEventListener('pointercancel', svUp);
+}
+function svClose() {
+  if (SV.el && SV.el.parentNode) SV.el.parentNode.removeChild(SV.el);
+  window.removeEventListener('pointermove', svMove); window.removeEventListener('pointerup', svUp); window.removeEventListener('pointercancel', svUp);
+  Object.assign(SV, { el: null, cv: null, open: false, id: '', drag: null, sig: '', hits: [], sel: new Set() });
+}
+function svAct(a) {
+  const q = svQ();
+  if (!q) return;
+  if (a === 'close') { select(''); return; }
+  if (a === 'zi') SV.zoom = Math.min(600, SV.zoom * 1.4);
+  else if (a === 'zo') SV.zoom = Math.max(4, SV.zoom / 1.4);
+  else if (a === 'pv') seqPreviewToggle(q);
+  else if (a === 'rew') seqPreview(q, 0, false);
+  else if (a === 'stop') { if (STU.qprev && STU.qprev.id === q.id) seqPreview(q, seqPrevU(q), false); else SEQ_ACT.sqStop(); }
+  else if (a === 'all') SEQ_ACT.sqPlay();
+  SV.sig = ''; dirty();
+}
+// ------------------------------------------------------------------ pointer --
+const svPos = ev => { const r = SV.cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+const svHit = (x, y) => { for (let k = SV.hits.length - 1; k >= 0; k--) { const h = SV.hits[k]; if (x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h; } return null; };
+function svDown(ev) {
+  const q = svQ();
+  if (!q) return;
+  if (ev.target.closest('[data-a="edge"]')) { SV.drag = { k: 'edge', y: ev.clientY, h: SV.h }; ev.preventDefault(); return; }
+  if (ev.target !== SV.cv) return;
+  SV.el.focus({ preventScroll: true });
+  const [x, y] = svPos(ev);
+  if (y < SV_R && x >= SV_G) { SV.drag = { k: 'scrub' }; seqPreview(q, Math.min(q.rec.len, Math.max(0, svSnap(svT(x), ev.shiftKey))), false); SV.sig = ''; ev.preventDefault(); return; }
+  const h = svHit(x, y);
+  if (h) {
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey) { if (SV.sel.has(h.i)) SV.sel.delete(h.i); else SV.sel.add(h.i); }
+    else if (!SV.sel.has(h.i)) SV.sel = new Set([h.i]);
+    STU.qsel = h.i;
+    SV.drag = { k: 'ev', x, dt: 0, moved: false, alt: ev.altKey, free: ev.shiftKey, ids: [...SV.sel], i: h.i };
+    try { SV.cv.setPointerCapture(ev.pointerId); } catch (e) { /* nothing to capture */ }
+  } else {
+    if (!(ev.ctrlKey || ev.metaKey || ev.shiftKey)) SV.sel = new Set();
+    SV.drag = { k: 'box', x, y, x1: x, y1: y };
+  }
+  SV.sig = ''; dirty();
+  ev.preventDefault();
+}
+function svMove(ev) {
+  const d = SV.drag, q = svQ();
+  if (!d || !q || !SV.cv) return;
+  if (d.k === 'edge') { SV.h = Math.max(160, Math.min(480, d.h + (d.y - ev.clientY))); SV.sig = ''; return; }
+  const [x, y] = svPos(ev);
+  if (d.k === 'scrub') { seqPreview(q, Math.min(q.rec.len, Math.max(0, svSnap(svT(x), ev.shiftKey))), false); SV.sig = ''; }
+  else if (d.k === 'ev') {
+    d.free = ev.shiftKey; d.alt = ev.altKey;
+    if (Math.abs(x - d.x) > 3) d.moved = true;
+    if (d.moved) { d.dt = svDtFor(q, d.ids, (x - d.x) / SV.zoom, d.free); SV.sig = ''; }
+  } else if (d.k === 'box') { d.x1 = x; d.y1 = y; SV.sig = ''; }
+}
+// a drag's offset (s), snapped, held so that no moved event leaves 0 to the sequence's length
+function svDtFor(q, ids, dt, free) {
+  ids = ids.filter(i => q.rec.ev[i]);
+  if (!ids.length) return 0;
+  const ts = ids.map(i => q.rec.ev[i].t), lo = -Math.min(...ts), hi = q.rec.len - Math.max(...ts);
+  return svSnap(Math.max(lo, Math.min(Math.max(lo, hi), dt)), free);
+}
+function svUp() {
+  const d = SV.drag, q = svQ();
+  SV.drag = null;
+  if (!d || !q) return;
+  if (d.k === 'ev') { if (d.moved && d.dt) svCommit(q, d.ids, d.dt, d.alt); else seqPreview(q, Math.min(q.rec.len, q.rec.ev[d.i] ? q.rec.ev[d.i].t : 0), false); }
+  else if (d.k === 'box') {
+    const x0 = Math.min(d.x, d.x1), x1 = Math.max(d.x, d.x1), y0 = Math.min(d.y, d.y1), y1 = Math.max(d.y, d.y1);
+    if (x1 - x0 > 3 || y1 - y0 > 3) for (const h of SV.hits) if (h.x1 >= x0 && h.x0 <= x1 && h.y1 >= y0 && h.y0 <= y1) SV.sel.add(h.i);
+  }
+  SV.sig = ''; dirty();
+}
+// the events moved by dt (or copied, Alt): one change, one Undo step; the selection follows them in the new order
+function svCommit(q, ids, dt, copy) {
+  if (q.rec.locked) return false;
+  ids = ids.filter(i => q.rec.ev[i]);
+  if (!ids.length) return false;
+  const set = new Set(ids), rows = q.rec.ev.map((e, i) => ({ e: set.has(i) && !copy ? Object.assign({}, e, { t: r2(Math.min(600, Math.max(0, e.t + dt))) }) : e, moved: set.has(i) && !copy }));
+  if (copy) for (const i of ids) rows.push({ e: Object.assign({}, q.rec.ev[i], { t: r2(Math.min(600, Math.max(0, q.rec.ev[i].t + dt))) }), moved: true });
+  if (rows.length > SEQ_EV_MAX || (copy && seqEvCount() + ids.length > SEQ_EV_SCENE)) return false;
+  rows.forEach((x, i) => { x.i = i; });
+  rows.sort((a, b) => a.e.t - b.e.t || a.i - b.i);
+  change(() => setRec(q.id, { ev: rows.map(x => x.e) }));
+  SV.evRef = q.rec.ev;
+  SV.sel = new Set(rows.map((x, j) => (x.moved ? j : -1)).filter(j => j >= 0));
+  STU.qsel = SV.sel.size ? [...SV.sel][0] : -1;
+  SV.sig = '';
+  return true;
+}
+// for tests: what a drag of event i by dt seconds does (selecting it unless it is in the selection): one step
+function seqViewDrag(i, dt, copy) {
+  const q = svQ();
+  if (!q || !q.rec.ev[i]) return false;
+  if (!SV.sel.has(i)) SV.sel = new Set([i]);
+  const ids = [...SV.sel], d = svDtFor(q, ids, dt, false);
+  return d ? svCommit(q, ids, d, !!copy) : false;
+}
+function svDbl(ev) {
+  const q = svQ();
+  if (!q || ev.target !== SV.cv) return;
+  const [x, y] = svPos(ev), h = svHit(x, y);
+  if (h) { STU.qsel = h.i; SV.sel = new Set([h.i]); X.tab = 'item'; dirty(true); const b = document.getElementById('sqe:' + h.i) || document.querySelector(`[data-id="sqe:${h.i}"]`); if (b && b.scrollIntoView) b.scrollIntoView({ block: 'center' }); return; }
+  const lane = Math.floor((y - SV_R) / SV_LANE), item = SV.lanes[lane], t = svSnap(Math.max(0, Math.min(q.rec.len, svT(x))), ev.shiftKey);
+  if (!item || x < SV_G) return;
+  // (Add an event for that lane's item at that time)
+  STU.plp = null;
+  itemAct('sqPick', null, q.id);
+  if (STU.plp && STU.plp.seq) { itemAct('sqOn', item, q.id); if (STU.plp) STU.plp.at = t; }
+  X.tab = 'item'; dirty(true);
+}
+function svWheel(ev) {
+  const q = svQ();
+  if (!q || ev.target !== SV.cv) return;
+  ev.preventDefault();
+  if (ev.ctrlKey) { SV.t0 = Math.max(-1, SV.t0 + ev.deltaY / SV.zoom); SV.sig = ''; return; }
+  const [x] = svPos(ev), tc = svT(x), z = Math.max(4, Math.min(600, SV.zoom * Math.exp(-ev.deltaY * 0.0015)));
+  SV.zoom = z; SV.t0 = tc - (x - SV_G) / z; SV.sig = '';
+}
+function svKey(ev) {
+  const q = svQ();
+  if (!q || !editOn()) return;
+  const k = ev.key.toLowerCase();
+  if (k === ' ') { seqPreviewToggle(q); ev.preventDefault(); }
+  else if (k === 'home') { seqPreview(q, 0, false); ev.preventDefault(); }
+  else if ((k === 'delete' || k === 'backspace') && SV.sel.size && !q.rec.locked) {
+    const set = SV.sel; SV.sel = new Set();
+    change(() => setRec(q.id, { ev: q.rec.ev.filter((e, i) => !set.has(i)) }));
+    SV.evRef = q.rec.ev;
+    STU.qsel = -1; ev.preventDefault();
+  } else if ((k === 'arrowleft' || k === 'arrowright') && SV.sel.size && !q.rec.locked) {
+    const dt = svDtFor(q, [...SV.sel], (k === 'arrowleft' ? -1 : 1) * (ev.shiftKey ? 1 : 0.1), true);
+    if (dt) svCommit(q, [...SV.sel], dt, false);
+    ev.preventDefault();
+  } else {
+    // the studio's own keys (delete, d, w, e, r, p...) never reach the scene while this view has focus; Ctrl+Z and Escape do
+    if (!(ev.ctrlKey || ev.metaKey || k === 'escape')) ev.stopPropagation();
+    return;
+  }
+  ev.stopPropagation();
+  SV.sig = '';
+}
+
+// -------------------------------------------------------------------- drawing --
+function svStep(now) {
+  const want = svWant();
+  if (!want) { if (SV.open) svClose(); return; }
+  const q = svQ();
+  if (!SV.open) { svBuild(); SV.open = true; SV.id = ''; }
+  if (SV.id !== q.id) { SV.id = q.id; SV.sel = new Set(); SV.t0 = 0; SV.fit = ''; SV.evRef = q.rec.ev; }
+  // events changed elsewhere (✕ on the card, Undo, another device, a re-sort): the indices no longer mean the same events
+  if (SV.evRef !== q.rec.ev) { SV.evRef = q.rec.ev; if (SV.sel.size) { SV.sel = new Set(); SV.drag = null; } }
+  // (docked beside the side panel, on the side it is not: its parent's edge)
+  const ex = document.getElementById('explore'), pr = ex && ex.parentElement && window.innerWidth > 900 ? ex.parentElement.getBoundingClientRect() : null;
+  let left = 0, right = 0;
+  if (pr && pr.width > 0 && pr.height > 0) { if (pr.left + pr.width / 2 < window.innerWidth / 2) left = Math.max(0, Math.ceil(pr.right)); else right = Math.max(0, window.innerWidth - Math.floor(pr.left)); }
+  const w = Math.max(200, window.innerWidth - left - right), st = SV.el.style;
+  if (st.left !== left + 'px') st.left = left + 'px';
+  if (st.width !== w + 'px') st.width = w + 'px';
+  if (st.height !== SV.h + 'px') st.height = SV.h + 'px';
+  const cw = SV.cv.clientWidth, ch = SV.cv.clientHeight;
+  if (cw < 10 || ch < 10) return;
+  if (SV.fit !== q.id) { SV.fit = q.id; SV.zoom = Math.max(4, (cw - SV_G - 24) / Math.max(0.5, q.rec.len)); SV.t0 = 0; }
+  const P = seqEff(q), U = seqU(q, P, behNow()), u = U ? U.u : 0, pv = STU.qprev && STU.qprev.id === q.id;
+  const D = SV.drag && SV.drag.k === 'ev' && SV.drag.moved ? SV.drag : null, B = SV.drag && SV.drag.k === 'box' ? SV.drag : null;
+  const sig = [STU.rev, SV.zoom, SV.t0, SV.h, cw, ch, [...SV.sel].join(), D ? D.dt : '', B ? B.x1 + ',' + B.y1 : '', U && U.playing ? Math.round(u * 30) : u.toFixed(2), pv, U && U.playing, STU.qsel, q.rec.locked].join('|');
+  if (sig === SV.sig || (U && U.playing && now - SV.last < 33)) { svTop(q, u, U, pv); return; }
+  SV.sig = sig; SV.last = now;
+  svTop(q, u, U, pv);
+  svDraw(q, u, U, cw, ch, D, B);
+}
+function svTop(q, u, U, pv) {
+  const e = SV.el, set = (s, v) => { const n = e.querySelector(s); if (n && n.textContent !== v) n.textContent = v; };
+  set('[data-n]', q.rec.name); set('[data-time]', `${u.toFixed(2)} / ${q.rec.len.toFixed(2)} s`);
+  const pb = e.querySelector('[data-a="pv"]'), txt = pv && STU.qprev.on ? 'Pause preview' : 'Play here (preview)';
+  if (pb && pb.textContent !== txt) pb.textContent = txt;
+  if (pb) pb.setAttribute('aria-pressed', String(!!(pv && STU.qprev.on)));
+  const al = e.querySelector('[data-a="all"]'), lab = q.rec.sync === 'own' ? 'Play' : 'Play for everyone';
+  if (al && al.textContent !== lab) al.textContent = lab;
+  for (const a of ['stop', 'rew', 'all']) { const b = e.querySelector(`[data-a="${a}"]`); if (b) b.disabled = !seqCan(); }
+}
+function svDraw(q, u, U, cw, ch, D, B) {
+  const cv = SV.cv, dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
+  const c = cv.getContext('2d'), L = svLayout(q);
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, cw, ch);
+  c.font = '12px B612, "Segoe UI", Arial, sans-serif'; c.textBaseline = 'middle';
+  SV.lanes = L.lanes; SV.hits = [];
+  const len = q.rec.len, endX = svX(len), tcol = seqCol(q.rec);
+  // (past the sequence's length: dimmed)
+  c.fillStyle = 'rgba(255,255,255,0.04)'; c.fillRect(Math.max(SV_G, endX), SV_R, Math.max(0, cw - Math.max(SV_G, endX)), ch - SV_R);
+  // ruler
+  c.fillStyle = 'rgba(22,32,48,0.95)'; c.fillRect(0, 0, cw, SV_R);
+  const steps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60], st = steps.find(s => s * SV.zoom >= 56) || 60;
+  c.strokeStyle = 'rgba(149,166,189,0.35)'; c.fillStyle = '#a9b8cc'; c.lineWidth = 1;
+  for (let t = Math.ceil(Math.max(SV.t0, 0) / st) * st; svX(t) < cw; t += st) {
+    const x = Math.round(svX(t)) + 0.5;
+    if (x < SV_G) continue;
+    c.beginPath(); c.moveTo(x, SV_R - 8); c.lineTo(x, ch); c.stroke(); c.fillText((Math.round(t * 100) / 100) + ' s', x + 3, 10);
+  }
+  c.fillStyle = tcol; c.fillRect(Math.max(SV_G, svX(0)) - 1, 0, 2, SV_R); c.fillRect(endX - 1, 0, 2, SV_R);
+  // lanes: a label each (its kind's letter, its name), the blocks
+  L.lanes.forEach((id, k) => {
+    const y = SV_R + k * SV_LANE, t = STU.items.get(id);
+    if (y > ch) return;
+    c.fillStyle = k % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.05)'; c.fillRect(0, y, cw, SV_LANE);
+    c.fillStyle = t ? '#e7eef8' : '#ff7a6e'; c.textAlign = 'left';
+    const nm = (t ? '▪ ' + t.rec.name : 'not in the scene'), fit = s => { while (s.length > 3 && c.measureText(s).width > SV_G - 14) s = s.slice(0, -2); return s; };
+    c.fillText(fit(nm.length > 20 ? nm.slice(0, 19) + '…' : nm), 8, y + SV_LANE / 2);
+  });
+  c.save(); c.beginPath(); c.rect(SV_G, SV_R, cw - SV_G, ch - SV_R); c.clip();
+  for (const it of L.items) {
+    const moved = D && D.ids.includes(it.i), off = moved ? D.dt : 0, copyGhost = moved && D.alt, y = SV_R + it.lane * SV_LANE, e = it.e, col = svColOf(q, e), sel = SV.sel.has(it.i) || STU.qsel === it.i;
+    const draw = (dt, ghost) => {
+      const x0 = svX(it.t + dt), x1 = svX(it.t1 + dt), past = it.t + dt > len;
+      c.globalAlpha = (past ? 0.4 : 1) * (ghost ? 0.5 : 1);
+      if (it.kind === 'dia') {
+        const m = y + SV_LANE / 2; c.beginPath(); c.moveTo(x0, m - 9); c.lineTo(x0 + 9, m); c.lineTo(x0, m + 9); c.lineTo(x0 - 9, m); c.closePath(); c.fillStyle = col; c.fill();
+        if (sel && !ghost) { c.lineWidth = 2; c.strokeStyle = '#fff'; c.stroke(); }
+      } else if (it.kind === 'stop') {
+        c.fillStyle = col; c.fillRect(x0 - 6, y + SV_LANE / 2 - 6, 12, 12);
+        if (sel && !ghost) { c.lineWidth = 2; c.strokeStyle = '#fff'; c.strokeRect(x0 - 6, y + SV_LANE / 2 - 6, 12, 12); }
+      } else {
+        const w = Math.max(10, x1 - x0);
+        c.fillStyle = col; c.globalAlpha *= 0.85; c.fillRect(x0, y + 5, w, SV_LANE - 10); c.globalAlpha = (past ? 0.4 : 1) * (ghost ? 0.5 : 1);
+        if (sel && !ghost) { c.lineWidth = 2; c.strokeStyle = '#fff'; c.strokeRect(x0, y + 5, w, SV_LANE - 10); }
+        c.fillStyle = '#04101c'; c.textAlign = 'left';
+        const lab = (it.kind === 'loop' ? '↻ ' : '') + (e.what === 'clip' ? e.clip : e.what) + (e.how === 'hold' ? ' ⏸' : '');
+        if (w > 30) c.fillText(lab.slice(0, Math.max(1, Math.floor((w - 6) / 7))), x0 + 4, y + SV_LANE / 2);
+      }
+      c.globalAlpha = 1;
+    };
+    if (copyGhost) draw(0, true);
+    draw(off, false);
+    const x0 = svX(it.t + off), x1 = it.kind === 'dia' || it.kind === 'stop' ? x0 + 9 : Math.max(x0 + 10, svX(it.t1 + off));
+    SV.hits.push({ i: it.i, x0: it.kind === 'dia' || it.kind === 'stop' ? x0 - 9 : x0, x1, y0: y + 2, y1: y + SV_LANE - 2 });
+  }
+  if (B) { c.strokeStyle = '#46d9ff'; c.lineWidth = 1; c.setLineDash([4, 3]); c.strokeRect(Math.min(B.x, B.x1) + 0.5, Math.min(B.y, B.y1) + 0.5, Math.abs(B.x1 - B.x), Math.abs(B.y1 - B.y)); c.setLineDash([]); }
+  c.restore();
+  // (the playhead)
+  const px = svX(u);
+  if (px >= SV_G - 2 && px <= cw) { c.fillStyle = '#ffffff'; c.fillRect(px - 1, 0, 2, ch); c.beginPath(); c.moveTo(px - 6, 0); c.lineTo(px + 6, 0); c.lineTo(px, 9); c.closePath(); c.fill(); }
+  if (!L.lanes.length) { c.fillStyle = '#a9b8cc'; c.textAlign = 'left'; c.fillText('No events yet: double-click here after Add an event... on its card, or press Add an event... below.', SV_G + 12, SV_R + 24); }
+  c.textAlign = 'left';
+}
+const seqViewState = () => ({ open: SV.open, id: SV.id, zoom: SV.zoom, t0: SV.t0, sel: [...SV.sel], h: SV.h, hits: SV.hits.map(h => Object.assign({}, h)), lanes: SV.lanes.slice(), rect: SV.cv ? [SV.cv.clientWidth, SV.cv.clientHeight] : null, g: SV_G, dom: !!SV.el });
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). The scene stands life size round you, the side
 // panel is redrawn on a canvas you point at, and labels become sprites on top or signs in the scene.
@@ -32898,7 +34805,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (paintKeepsPress(h)) return;   // (paint mode: the trigger paints (paintXR), it selects nothing; a panel's press is still a press: e6r_paint.js)
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -32910,15 +34817,17 @@ function xrPress(c) {
     if (screenBarPress(h.id, h.key, h.frac)) buzz(c, 0.3, 25);
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
+    // (without editing: the trigger on an item that can be pressed presses it, a visitor too: e6t_press.js)
+    if (!editOn()) { const pit = STU.items.get(h.id); if (pressable(pit)) pressGo(h.id, h.point, c); return; }
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.gpick && !STU.keyPick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
   c.press = null;
   if (!p) return;
   if (p.kind === 'panel') {
-    if (p.r.drag) return;
+    if (p.r.drag) { if (p.r.end) p.r.end(); return; }   // (a drag's end: the colour picker writes what it showed, one Undo step)
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
@@ -33832,7 +35741,7 @@ function panelDepth(P, inScene) {
 function panelTick(P, now, force) {
   if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
   const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + XR.fontOK, fade = k < 0 ? '' : sg.slice(k), s = base + fade + '|' + P.hover;
-  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
+  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); if (P.pickers && P.pickers.length) pickersTick(P, now); return; }
   if (!force && now - P.t < 60) return;
   if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
@@ -33844,7 +35753,7 @@ function panelTick(P, now, force) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = []; P.bars = []; P.drawn = [];
+  P.regions = []; P.bars = []; P.pickers = []; P.drawn = [];
   panelPaint(ctx, P);
   P.nd = (P.nd || 0) + 1;
   if (P.cap && P.nd === 1) { XR.landN++; P.mesh.visible = P.want !== false; }   // (shown at its first draw even while the frame idles: xrUpdate, which shows it, does not run then)
@@ -33914,7 +35823,7 @@ function panelHover(P, a, b) {
   }
   if (!R.length) return true;   // (nothing drawn by it: nothing to change)
   if (R.reduce((n, r) => n + r[2] * r[3], 0) > HOV.most * P.w * P.h) return false;
-  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn], cv = HOVCV = HOVCV || document.createElement('canvas');
+  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn, P.pickers], cv = HOVCV = HOVCV || document.createElement('canvas');
   try {
     R.forEach((r, k) => {
       const [rx, ry, rw, rh] = r;
@@ -33922,13 +35831,13 @@ function panelHover(P, a, b) {
       const c = cv.getContext('2d');
       c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
       c.save(); c.beginPath(); c.rect(0, 0, rw, rh); c.clip(); c.setTransform(1, 0, 0, 1, -rx, -ry);
-      P.regions = []; P.bars = []; P.drawn = null;
+      P.regions = []; P.bars = []; P.drawn = null; P.pickers = [];
       panelPaint(c, P);
       c.restore();
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
       panelPatch(P, cv, rx, ry, k < R.length - 1);   // (its mipmaps made once, after the last)
     });
-  } finally { [P.regions, P.bars, P.drawn] = keep; }
+  } finally { [P.regions, P.bars, P.drawn, P.pickers] = keep; }
   P.hovPatched = (P.hovPatched || 0) + 1; P.hovRects = R;
   return true;
 }
@@ -34213,6 +36122,11 @@ function drawExplorePane(ctx, P, x, y, W) {
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;
   for (const b of blocks) total += drawBlock(ctx, P, b, x, 0, W, 0, 1e9, true);
+  if (CPKX.reveal) {   // (a picker just opened: scrolled into view, its button above it)
+    CPKX.reveal = false;
+    let acc = 0;
+    for (const b of blocks) { if (b.picker) { X.scroll[X.tab] = Math.max(0, acc - 90); break; } acc += drawBlock(ctx, P, b, x, 0, W, 0, 1e9, true); }
+  }
   const more = total > bottom - y;
   if (more) bottom -= 72;
   const max = Math.max(0, total - (bottom - y)), off = X.scroll[X.tab] = clamp(X.scroll[X.tab] || 0, 0, max);
@@ -34271,11 +36185,12 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     const bh = drawBar(ctx, P, b.bar, x, y, W, dry);
     if (!dry && bh && inView(y, BAR.h)) {
       const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ch = b.bar.ch, S = animBar(ch);
-      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => animScrub(ch, (px - x0) / (x1 - x0)) });
+      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => (ch === 'seq' ? seqScrub((px - x0) / (x1 - x0)) : animScrub(ch, (px - x0) / (x1 - x0))) });
       P.bars = (P.bars || []).concat({ x, y, w: W, ch, id: b.bar.id, q: barQ(S), at: 0 });
     }
     return bh;
   }
+  if (b.picker) return drawPicker(ctx, P, b.picker, x, y, W, dry, inView(y, CPKX.h));   // (the colour picker's block: e7h_colour.js)
   let h = 0;
   if (b.label) { ctx.font = vfont(20, 700); if (!dry && y > top && y + 28 < bottom) { ctx.fillStyle = VC.muted; ctx.fillText(b.label, x, y); } h += 32; }
   if (b.row) {
@@ -34737,7 +36652,9 @@ function frame(now, xrFrame) {
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)
   itemsStep(dt, performance.now());
+  cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
+  svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
   exStep();   // (an example open here at a circle: back to the relay, the scene the room's; the examples' scenes on the relay seen; e7g_examples.js)
   if (!STU.framed && APP.mode === 'explore' && !xr && STU.listing === 'ok' && [...STU.items.values()].every(it => it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed'))) { STU.framed = true; if (STU.items.size && X.view === 'orbit') frameScene(true); }
   updateExtraLabels();
@@ -34933,9 +36850,21 @@ const STUDIO = {
   // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
   // path it waits is, a sound's gain factor and how it last started
   plays: id => playState(id),
+  // sequences (v146, e6s_seq.js): one with its record, effective play state, where it is, what it shows and starts; and all
+  seq: id => seqState(id),
+  seqs: () => seqStates(),
+  seqPlay: id => seqPlay(id, 'test'), seqStop: id => seqStop(id, 'test'), seqRewind: id => seqRewind(id, 'test'),
+  seqView: () => seqViewState(),
+  // presses and pointing (v146, e6t_press.js): an item's press record, stamp, what this device has seen, show and hide sources and runs; a press here; pretend pointing ('' ends it)
+  press: id => pressState(id),
+  pressFire: id => pressFire(id),
+  hover: id => { PRESS.fake = id === null || id === undefined ? null : String(id); return PRESS.fake; },
+  seqViewDrag: (i, dt) => seqViewDrag(i, dt),
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
   screen: id => screenState(id),
+  colour: () => ({ open: CPK.open, hsv: [CPK.h, CPK.s, CPK.v], hex: cpkNow(), from: CPK.from, drag: CPK.drag, pend: CPK.pend, live: CPK.live, previews: CPK.previews, commits: CPK.commits, patches: CPK.patches, recents: cpkRecents() }),   // (the shared colour picker: e7h_colour.js)
+  colourTest: { hex2hsv, hsv2hex, xrPoint: cpkTestPoint },
   paint: () => paintState(),   // (paint mode: its brush, colour, width, target, stroke being drawn and last result: e6r_paint.js)
   painting: id => paintingState(id),   // (a painting: its record, strokes, meshes, dots, whether built)
   get screenClock() { return screenClock; },
@@ -34990,6 +36919,8 @@ return {
   dispose() {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
+    try { cpkDispose(); } catch (e) { /* not open */ }   // (the colour picker's popover taken away: e7h_colour.js)
+    try { svClose(); } catch (e) { /* not open */ }   // (the lane view taken away: e7h_seqview.js)
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
     try { grabEnd(); } catch (e) { /* not grabbed */ }   // (Walk view's grabbed mouse let go, its crosshair taken away: e7_explore.js)
     try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)

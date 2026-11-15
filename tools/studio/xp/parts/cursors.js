@@ -51,6 +51,14 @@
       XP.vTrack('topPivot', 'scale', ts, [s(1), s(0.15), s(0.15), s(1), s(1)]),
       XP.vTrack('bottomPivot', 'scale', ts, [s(0.15), s(1), s(1), s(0.15), s(0.15)]),
     ];
-    return { root: XP.group('hourglass', body), clips: [new T.AnimationClip('Flip', 4, tracks)] };
+    // Load (v146, 1.2 s): the sand runs down for 0.85 s, then the glass turns over, and at its end it stands as it began (the
+    // sand's scales swapped as the glass lies sideways), so a once run that fades back to rest shows no jump
+    const lt = [0, 0.85, 1.025, 1.1, 1.15, 1.2];
+    const load = new T.AnimationClip('Load', 1.2, [
+      XP.qTrack('glassBody', [0, 0.85, 1.025, 1.2], [[0, 0, 0], [0, 0, 0], [0, 0, Math.PI], [0, 0, Math.PI * 2 - 1e-4]]),
+      XP.vTrack('topPivot', 'scale', lt, [s(1), s(0.15), s(0.15), s(0.15), s(1), s(1)]),
+      XP.vTrack('bottomPivot', 'scale', lt, [s(0.15), s(1), s(1), s(1), s(0.15), s(0.15)]),
+    ]);
+    return { root: XP.group('hourglass', body), clips: [new T.AnimationClip('Flip', 4, tracks), load] };
   } });
 })();

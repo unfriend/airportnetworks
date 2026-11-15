@@ -75,6 +75,22 @@ moving or turning it moves nothing of the scene, so a scene stands at the same
 place in the room whichever circle shows it. A scene placed before then stood
 round its circle: Move the scene to this circle (the Scene pane, editing on, at
 its circle) moves every item there again, for everyone (one Undo step).
+- Sequences: a timeline of events on items (play an animation, show or hide
+  an item, play a sound, change a picture, start another sequence). Add >
+  Sequence in the studio (editing on); the card lists its events, and on a
+  laptop a lane view lets you drag them. Play for everyone starts it for
+  everyone at the circle on the room's clock; Play here is your own. Visitors
+  can play one too.
+- Press and point: an object or shape can react when it is pressed (a click, or
+  the trigger in a headset, with editing off, visitors too) and while it is
+  pointed at. On its card, When pressed and While pointed at, Add a reaction...
+  (it can start an animation, sound, path, motion, show or hide things, or start
+  a sequence). A press is shared with everyone at the circle; pointing at
+  something is your own.
+- Colour: Any colour... on an object's tint, a shape's colour and the paint
+  colour opens one picker (a hue ring and square, hex, swatches, recent colours
+  kept on your device); in a headset drag it with the trigger. Let go and it is
+  one Undo step.
 - Upload (<address>/upload, or the studio's Upload tab on a laptop or desktop):
   pick a scene or New scene, drop files or whole folders, read the plan, then
   Convert and upload. Models (FBX, OBJ with its MTL, glTF, GLB, PLY, STL) become
@@ -170,6 +186,8 @@ its circle) moves every item there again, for everyone (one Undo step).
   taken apart into a room of our own drawings (the desktop, windows, balloons,
   the door onto the hill, the solitaire win, Clippy chilling on his deckchair),
   with trigger cubes as a walk through it and its windows on your walls in AR.
+  Press things (a click, or the trigger in a headset): icons open their windows,
+  Start opens its menu, the player plays music, balloons burst, Clippy dances.
   Stand in the middle of the room facing a wall and Recenter before it starts
   (#studio&scenes=examples&scene=bliss-xp opens it directly).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
@@ -302,6 +320,13 @@ move them with the grip, then press Anchor. It uses the Quest Browser's room
 anchors (not in private browsing; clearing the site's data forgets the place);
 without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
 a link sets it.
+Room names: a room's three-letter code is its address, and anyone in the room can
+also give it a name (the Shared dialog's Name this room field, or Name in the
+headset menu's Circles tab, which opens a keypad with a Shift key). The name
+shows beside the code in the dialog and the menu, in the lists of rooms on this
+network and in the notices about the room, for everyone. On a public relay a
+room's name is shown to devices on the same network.
+
 Shared rooms (Shared button, top bar and Stories screen; in a headset the
 menu's Circles tab: click a stick): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on

@@ -391,6 +391,8 @@
     parts.forEach(p => p.dispose());
     const mesh = XP.mesh(geo, XP.flat(XP.tex(F.cv)), o.name || 'window');
     mesh.userData.face = F;
+    mesh.userData.luna = L;
+    mesh.userData.zb = zb;   // (where its title buttons stand from: their tops are 6 mm over it)
     return mesh;
   };
   // a plain panel with a picture on its front (no title bar): o = { w, h, W, d, r, draw(F) -> raised }
@@ -446,9 +448,13 @@
     const pivot = XP.group('pop', mesh), root = XP.group(o.name || 'balloon', pivot);
     pivot.position.set(o.tail[2], o.tail[3], 0);
     mesh.position.set(-o.tail[2], -o.tail[3], 0);
-    return { root, clips: [XP.popClip('pop')], face: F };
+    return { root, clips: [XP.popClip('pop'), XP.burstClip('pop')], face: F };
   };
   // a pop: grows from nothing past its size and settles
+  // a burst (v146): swells a little, goes at 0.2 s and stays gone until 7.4 s, then grows back out of its tail as Pop does
+  XP.burstClip = node => new T.AnimationClip('Burst', 8, [
+    new T.VectorKeyframeTrack(node + '.scale', [0, 0.08, 0.2, 7.4, 8], [1, 1, 1, 1.12, 1.12, 1.12, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 1, 1, 1]),
+  ]);
   XP.popClip = node => new T.AnimationClip('Pop', 0.45, [
     new T.VectorKeyframeTrack(node + '.scale', [0, 0.16, 0.27, 0.36, 0.45], [0.02, 0.02, 0.02, 1.14, 1.14, 1.14, 0.94, 0.94, 0.94, 1.03, 1.03, 1.03, 1, 1, 1]),
   ]);
@@ -647,6 +653,7 @@
     const gltf = await new Promise((res, rej) => new T.GLTFLoader().parse(glb.slice(0), '', res, rej));
     const info = XP.inspect(gltf);
     info.bytes = glb.byteLength;
+    if (built.marks) info.marks = built.marks;   // (where pressable parts are, in metres in the part's own frame: layout.mjs places buttons from them)
     const pic = XP.picture(gltf.scene, def.view);
     dispose(gltf.scene);
     return { glb: b64(glb), pic, info, file: def.file };

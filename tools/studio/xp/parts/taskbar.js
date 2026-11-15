@@ -27,7 +27,9 @@
     XP.emblem(g, fh * 0.2, fh * 0.2, fh * 0.6);
     XP.text(g, 'start', fh * 1.0, fh * 0.72, { size: Math.round(fh * 0.62), style: 'italic', weight: 'bold', font: XP.F.big, color: '#fff', shadow: 'rgba(0,40,0,0.7)', sd: 3 });
     const r = h * 0.5, body = XP.slab(F, 0.035, { r: [0.004, r, r, 0.004], curve: 8 }), mesh = one(F, [body], 'start');
-    return { root: XP.group('taskbar-start', mesh) };
+    // Lift (v146): pointed at, it comes 8 mm out of the bar over 0.15 s
+    const lift = XP.group('lift', mesh), clip = new T.AnimationClip('Lift', 0.15, [XP.vTrack('lift', 'position', [0, 0.15], [[0, 0, 0], [0, 0, 0.008]])]);
+    return { root: XP.group('taskbar-start', lift), clips: [clip] };
   } });
 
   XP.part('taskbar-quick', { file: 'models/taskbar-quick.glb', build() {

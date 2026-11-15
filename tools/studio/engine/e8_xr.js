@@ -329,7 +329,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (paintKeepsPress(h)) return;   // (paint mode: the trigger paints (paintXR), it selects nothing; a panel's press is still a press: e6r_paint.js)
-  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
+  if (!h) { if (editOn() && !XR.stories && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.gpick && !STU.keyPick && APP.mode === 'explore') select(''); return; }   // (pointing at nothing: no selection)
   if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
@@ -341,15 +341,17 @@ function xrPress(c) {
     if (screenBarPress(h.id, h.key, h.frac)) buzz(c, 0.3, 25);
   } else if (h.kind === 'item' && !XR.stories) {   // the trigger (or a pinch) on an item selects it (or, picking for a cube, puts it on the cube's list)
     c.press = { kind: 'item' };
+    // (without editing: the trigger on an item that can be pressed presses it, a visitor too: e6t_press.js)
+    if (!editOn()) { const pit = STU.items.get(h.id); if (pressable(pit)) pressGo(h.id, h.point, c); return; }
     pressItem(h.id, h.ray); buzz(c, 0.4, 30);
-  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.follow && !STU.gpick && !STU.keyPick) select('');
+  } else if (h.kind === 'floor' && editOn() && !STU.pick && !STU.txp && !STU.plp && !STU.prp && !STU.follow && !STU.gpick && !STU.keyPick) select('');
 }
 function xrRelease(c) {
   const p = c.press;
   c.press = null;
   if (!p) return;
   if (p.kind === 'panel') {
-    if (p.r.drag) return;
+    if (p.r.drag) { if (p.r.end) p.r.end(); return; }   // (a drag's end: the colour picker writes what it showed, one Undo step)
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);

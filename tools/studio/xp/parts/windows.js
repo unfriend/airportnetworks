@@ -14,7 +14,14 @@
   const field = (F, x, y, w, h, words, o = {}) => { const g = F.g; g.fillStyle = '#fff'; g.fillRect(x, y, w, h); g.strokeStyle = '#7f9db9'; g.lineWidth = 1.5; g.strokeRect(x, y, w, h); if (words) XP.text(g, words, x + 6, y + h * 0.7, { size: o.size || Math.round(h * 0.55), color: o.color || '#000', max: w - 12 }); };
   const toolbarIcon = (F, x, y, s, draw, label, raised) => { draw(F.g, x, y, s); if (label) XP.text(F.g, label, x + s / 2, y + s + s * 0.42, { size: Math.round(s * 0.32), align: 'center', color: '#000' }); raised.push([x - 2, y - 2, x + s + 2, y + s + 2, 0.005]); };
   const arrow = (dir, col) => (g, x, y, s) => { g.fillStyle = XP.grad(g, 0, y, 0, y + s, [[0, '#9fe08a'], [1, col || '#2a9a2a']]); g.beginPath(); g.arc(x + s / 2, y + s / 2, s / 2, 0, Math.PI * 2); g.fill(); g.fillStyle = '#fff'; g.beginPath(); const m = s * 0.25; if (dir < 0) { g.moveTo(x + m, y + s / 2); g.lineTo(x + s - m * 1.3, y + m); g.lineTo(x + s - m * 1.3, y + s - m); } else { g.moveTo(x + s - m, y + s / 2); g.lineTo(x + m * 1.3, y + m); g.lineTo(x + m * 1.3, y + s - m); } g.closePath(); g.fill(); };
-  const win = (name, file, o) => XP.part(name, { file, build: () => ({ root: XP.group(name, XP.window(Object.assign({ name }, o))), clips: o.clips }) });
+  // where a window's close button is (v146), in metres in the part's frame: [x, y, its size, z of a thing 4 mm in front of it]
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  const closeMark = (F, L, zb) => { const b = L.btns.find(k => k[0] === 'close'); if (!b) return null; const [x, y] = F.px((b[1] + b[3]) / 2, (b[2] + b[4]) / 2); return [r4(x), r4(y), r4((b[3] - b[1]) / F.W * F.w), r4(zb + 0.006 + 0.004)]; };
+  XP.closeMark = closeMark;
+  const win = (name, file, o) => XP.part(name, { file, build: () => {
+    const mesh = XP.window(Object.assign({ name }, o)), F = mesh.userData.face, c = closeMark(F, mesh.userData.luna, mesh.userData.zb);
+    return { root: XP.group(name, mesh), clips: o.clips, marks: c ? { close: c } : undefined };
+  } });
 
   // ---- chat windows: our own short lines, the avatars on the right, a raised Send
   const chat = (who, pic, lines, typing) => (F, L) => {

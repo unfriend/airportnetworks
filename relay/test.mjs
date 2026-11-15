@@ -1653,6 +1653,45 @@ try {
     P.kill();
   });
 
+  await step('a room\'s name: stored, title in /api/near and /api/rooms, cleaned, never in the log', async () => {
+    const N = await start(['--proxy']);
+    const HOMEX = '198.51.100.7';
+    const via = (p, o = {}) => req(o.method || 'GET', p, Object.assign({ at: N.port, headers: { 'X-Forwarded-For': HOMEX } }, o));
+    const code = (await via('/api/rooms', { method: 'POST', body: { app: 'networks', version: 'v1' } })).json().code;
+    const c = new WebSocket(`ws://127.0.0.1:${N.port}/api/ws?room=${code}&id=nn1`, { headers: { 'X-Forwarded-For': HOMEX } });
+    const q = []; c.onmessage = e => q.push(JSON.parse(e.data));
+    const next = async (pred, ms = 2000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(10)) { const i = q.findIndex(pred); if (i >= 0) return q.splice(i, 1)[0]; } return null; };
+    await next(m => m.t === 'welcome');
+    c.send(JSON.stringify({ t: 'hello', name: 'Nia', version: 'v1' }));
+    await next(m => m.t === 'members');
+    let cid = 0;
+    const setName = async v => { c.send(JSON.stringify({ t: 'set', batch: [['name', { v, by: 'nn1', at: 1 }]], cid: ++cid })); return next(m => m.t === 'set'); };
+    const title = async () => {
+      const n = (await via('/api/near')).json().rooms.find(r => r.code === code), l = (await via('/api/rooms')).json().find(r => r.code === code);
+      return [n, l];
+    };
+    const raw = '  Lab\u0007 \u202eone\u200b  ' + 'x'.repeat(60);
+    ok(await setName(raw), 'a name is acknowledged');
+    const kept = (await via('/api/rooms/' + code)).json().keys.name;
+    ok(kept && kept.v.v === raw, 'GET /api/rooms/<code>: the key as written (the relay stores, it does not clean)');
+    let [n, l] = await title();
+    const want = ('Lab one ' + 'x'.repeat(60)).slice(0, 40);
+    ok(n && n.title === want && l && l.title === want && !/[\u0000-\u001f\u202e\u200b]/.test(n.title), '/api/near and /api/rooms: title cleaned and cut to 40 (' + (n && n.title) + ')');
+    await setName('');
+    [n, l] = await title();
+    ok(n && l && !('title' in n) && !('title' in l), 'an empty name: no title');
+    await setName(42); [n, l] = await title();
+    ok(!('title' in n) && !('title' in l), 'a number: no title');
+    await setName({ v: 1 }); [n, l] = await title();
+    ok(!('title' in n) && !('title' in l), 'an object: no title');
+    await setName('\u{1F600}'.repeat(40)); [n, l] = await title();
+    ok([...n.title].length === 40 && [...l.title].length === 40, '40 emoji: 40 code points');
+    await setName('Lab one secret');
+    await sleep(200);
+    ok(!/Lab one/.test(N.out) && !/Lab one/.test(relay.out), 'the title is in no log line');
+    c.close(); N.kill();
+  });
+
   await step('--proxy <n>: behind n proxies, the n-th address from the right of X-Forwarded-For (--proxy alone: 1)', async () => {
     const h = name => crypto.createHash('sha256').update('networks-near-1|' + name).digest('hex').slice(0, 6);
     const HOME = '198.51.100.7', CDN = '172.70.1.9', MADE = '203.0.113.50';   // (a device, a CDN's server, an address a client made up)
@@ -1846,6 +1885,12 @@ try {
     const row = near.json().rooms.find(x => x.code === code);
     ok(row && Object.keys(row).sort().join() === 'code,members,stations,version' && row.members === 2 && row.stations === 1 && !/Annelie/.test(near.text),
       '/api/near: code, people, stations and version, no name');
+    // a room's own label (key name) is no member's name: shown, cleaned, on its network
+    a.send({ t: 'set', batch: [['name', { v: 'Lab Hall', by: 'nm1', at: 5 }]], cid: 9 });
+    await a.next(is('set'));
+    const named = (await get('/api/near', { 'X-Forwarded-For': HOME })).json().rooms.find(x => x.code === code);
+    ok(named && Object.keys(named).sort().join() === 'code,members,stations,title,version' && named.title === 'Lab Hall' && !/Annelie/.test(JSON.stringify(named)),
+      '/api/near: with a name the row gains title (and still no member\'s name)');
     a.ws.close(); b.ws.close();
     await sleep(300);
     ok(!/Annelie/.test(P.out) && /hello nm1 ar v1/.test(P.out), 'the log names nobody (hello: the member\'s id)');

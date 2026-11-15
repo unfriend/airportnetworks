@@ -92,7 +92,7 @@ if (!only) {
   files.set('layout.json', Buffer.from(layoutText(L.layout)));
   const room = L.layout.objects.reduce((s, o) => s + ((built.get(L.partOf[o.file]) || {}).info || { tris: 0 }).tris, 0);
   const total = [...files.values()].reduce((s, b) => s + b.length, 0);
-  console.log(`the room: ${L.layout.objects.length} objects, ${L.layout.cubes.length} cubes, ${L.layout.sounds.length} sounds, ${(L.layout.groups || []).length} groups; ${Math.round(room).toLocaleString('en-GB')} triangles as placed; ${files.size} files, ${(total / 1048576).toFixed(2)} MB`);
+  console.log(`the room: ${L.layout.objects.length} objects, ${L.layout.cubes.length} cubes, ${L.layout.sounds.length} sounds, ${(L.layout.groups || []).length} groups, ${(L.layout.sequences || []).length} sequences; ${Math.round(room).toLocaleString('en-GB')} triangles as placed; ${files.size} files, ${(total / 1048576).toFixed(2)} MB`);
   if (room > LIMIT.room) fail(`the room has ${Math.round(room)} triangles as placed (at most ${LIMIT.room})`);
   if (total > LIMIT.folder) fail(`the folder is ${(total / 1048576).toFixed(2)} MB (at most 6 MB)`);
 }

@@ -382,6 +382,11 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-room { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; }
 #shared .sh-room b { font-size: 26px; letter-spacing: 0.08em; }
 #shared .sh-room span { flex: 1 1 200px; color: #a9b8cc; font-size: 13px; }
+#shared .sh-room .nm { font-size: 24px; overflow-wrap: anywhere; }
+#shared .sh-room .cd, #shared .sh-near .cd, #shared .sh-rooms .cd { font-size: 13px; letter-spacing: 0.08em; color: #a9b8cc; font-weight: 700; }
+#shared .sh-near .nm, #shared .sh-rooms .nm { margin-right: 6px; overflow-wrap: anywhere; }
+#shared .sh-name input { flex: 1 1 220px; }
+#shared .sh-name .hint { margin: 0; flex: 1 1 100%; }
 #shMap { display: block; width: 100%; aspect-ratio: 16 / 10; max-height: 45vh; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
 #shared .sh-look span, #shared .sh-sound span { color: #a9b8cc; font-size: 13px; }
 #shared .sh-colors { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -741,6 +746,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
     </div>
     <div class="sh-in">
       <div class="sh-room"></div>
+      <div class="row sh-name"><input id="shRoomName" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Name this room (optional)" aria-label="The room's name"><button class="btn" type="button" data-sh="roomname">Set name</button><span class="hint sh-namehint"></span></div>
       <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
       <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Setting up a room</h3>
@@ -797,7 +803,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 145, id: '89814055adc5f5c2', format: 'networks-46' },
+  shell: { n: 146, id: 'ef9ba76a2a29bba6', format: 'networks-47' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story

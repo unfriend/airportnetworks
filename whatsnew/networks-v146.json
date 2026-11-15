@@ -1,0 +1,26 @@
+{
+  "version": "networks-v146",
+  "date": "2026-11-15",
+  "new": [
+    "Sequences in the studio: a timeline of events on items that plays animations, sounds and paths, shows and hides things, changes pictures and starts other sequences. Shared on the room's clock by default, or your own with Play here.",
+    "Press and point: an object or shape can react when pressed (a click, or the trigger in a headset, with editing off, visitors too) and while pointed at. A press is shared with the circle; pointing is your own.",
+    "The Bliss XP room is interactive: icons open their windows, Start opens its menu, the player plays music, balloons burst, Clippy waves and dances, and cards and pages can be crumpled in the bin.",
+    "One colour picker for an object's tint, a shape's colour and the paint colour: a hue ring and square, hex, swatches and recent colours. In a headset you drag it with the trigger; letting go is one Undo step.",
+    "A room can have a name: set it in the Shared dialog or the headset's Circles tab. It shows beside the code, in the lists of rooms and in the room notices. The code stays the address. The keypad has a Shift key.",
+    "Every device must update: rooms are now format networks-47."
+  ],
+  "test": [
+    "Press and hover with a real controller: press an icon, a balloon and Start, and point at Clippy, in a headset and on a phone.",
+    "Play a sequence for everyone from two devices at one circle, then join late and check you see the same moment.",
+    "Drag the colour picker in a headset (ring, square, let go, Undo), and the page popover with keys and Esc.",
+    "Name a room on one device and check it shows on another, in rooms on this network, in the menu heading and in the rejoin notice; try the keypad's Shift.",
+    "Bliss XP in VR and in AR on your walls: windows, Start menu, media player music, carrying cards to the bin. Delete an older copy of bliss-xp on the relay first and copy it again."
+  ],
+  "untested": [
+    "Everything with real headsets: pressing and hover with real rays, the picker's drag, the sequence card and bar with real controllers, and how in step shared sequences and presses look across devices.",
+    "How the room-name heading and two-line rows read on a headset.",
+    "A public relay shows a room's name to devices on the same network (intended, untried on the live relay).",
+    "The Bliss interactions on a real Quest in AR on real walls; the new music, balloon pop and giggle are unheard.",
+    "Two people pressing one item within a few hundred milliseconds may lose one press (last writer wins)."
+  ]
+}

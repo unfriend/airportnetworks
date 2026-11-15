@@ -155,6 +155,8 @@ placed by itself).
 
 `layout.json` (also what Download gives and Upload takes):
 
+v146 adds `sequences`: `{ id, name, len, loop?, start?, sync?, col?, ev: [...], locked? }` ("Sequences" below); a cube's `plays` entry may be `what: 'seq'`.
+
 ```json
 {
   "studio": 1,
@@ -496,6 +498,93 @@ character or prop". `tools/studio/engine/e6n_plays.js`.
   the field and write the cube back).
 - Untested on a headset: how a blended clip looks on a character there, the 0.3 s debounce with a real head, a voice
   started on entering through HRTF, a path's Hold going back, how a restart of a stay cube feels in a real room.
+
+## Sequences (v146, the owner, 15 November 2026)
+
+The owner: "A kind of timeline that can playback animations, show items, hide them, play audiofiles on items, etc"; shared on
+the room's clock by default, each person's own as an option; show and hide from a sequence is one more source in the cubes'
+"entered last decides" rule; built on `e6n_plays.js`. `tools/studio/engine/e6s_seq.js`, `e7h_seqview.js`.
+
+### The record
+
+A sequence is an item of kind `q` (`q.<id>` in `state()`, `sequences` in `layout.json`, at most 50 a scene, 2,000 events in
+all, 200 a sequence): no place, nothing drawn, no holder of its own (as a group has none). `{ name, len, loop, start, sync,
+col, ev, locked }`:
+
+- `len`: 0.1 to 600 s (10 by default), `loop`: written only as `'loop'`, `start`: `'open'` (also starts by itself, below)
+  else `'press'` (not written), `sync`: `'own'` (each person's own) else shared (not written), `col`: `'#rrggbb'` lower case
+  (its tile's and card's accent; the shared colour picker or the ten swatches), `locked` as every record.
+- `ev`: events `{ t, on, what, clip?, how?, fade?, mat?, slot?, file? }` sorted by `t` (ties in the order given), at most 200:
+  `t` 0 to 600 s to 0.01, `on` an item id; `what` `'clip'` (an object's animation by name, how once, loop, hold or stop),
+  `'sound'` (how once, loop, stop), `'path'` (once, loop, hold, stop), `'motion'` (once, loop, stop), `'show'` and `'hide'`
+  (fade omitted: 0.4 s as ever, `'cut'`: at once; no how), `'tex'` (`mat`, `slot`, `file`: a picture of the scene, or `''` for
+  the object's own back) and `'seq'` (another sequence, how once: start it from its beginning, or stop). An event that is not
+  one is dropped (counted when read from a layout: `STU.badSeq`, said on the Scene pane), as is one naming itself; a layout's
+  event naming an item it lacks, or of the wrong kind for its `what`, is dropped. An event past `len` is kept and never reached.
+- Delete an item: every sequence's events naming it go in the same change (Undo brings both back). Duplicate an item: beside
+  each event on the original one for the copy (a group's copy too, for sequences outside the group). Duplicate a sequence: its
+  events, not playing.
+
+### The play state (shared and own)
+
+Not part of the record: `qr.<id>` in `state()` (never in `layout.json`, the draft, *Unsaved changes* or Undo; no Undo step,
+no `changed()`): `{ n, on, at, t, ts, by }`: `on` playing, `at` the room's ms of its time 0, `t` where it stopped (s; -1
+rewound), `ts` when it was set, `by` who. Absent: never started. A `sync: 'own'` sequence keeps its state in `STU.qOwn`
+(never written). Commands (`seqCmd`: start from the beginning, stop where it is, rewind); at most one write a sequence from one
+device in 150 ms. An effective state (`seqEff`) is the record's, or one derived from a playing sequence's `seq` event (never
+written: every device works it out alike; the later `ts` wins; at most four hops), or this device's preview.
+
+### Firing and late joiners
+
+Every frame (`seqShowHide` before the shown loop, `seqFire` before `trgFire`) each sequence works out where it is from its
+state and the room's time. A new state (a start, a stop, a rewind, a late join, the scene opened) first clears every run the
+sequence started, then fires every run event (clip, sound, path, motion) at or before now in the current cycle, each through
+the cubes' runs (`trgStart`, source `'seq'`, at the event's room moment: a once clip long over is over, a path once waits at
+its end, a loop is at its phase); after that the events crossed since the last frame. A stopped or ended sequence takes its
+loops and holds off (as a cube's do); a rewind clears all at once. Known limit: a late joiner to a looping sequence fires only
+the current cycle's events and the last show or hide of the cycle before; a loop run started in an earlier cycle and never
+stopped is not restarted.
+
+### Show and hide (the cube rule)
+
+Each sequence's last `show` and `hide` event per item at or before now (in this cycle, else the last of the one before) is a
+source `{ id, since, cut }` in the cubes' rule: the later `since` decides, then the higher id; a cube's `since` is its entry
+moment in the same units. What a sequence showed stays shown until another source decides or it is rewound. An item a
+`show` event names waits hidden until shown (`LISTS.shown`). A winning source with `cut` shows or hides at once (`it.snap`).
+`tex` events are one more source for `texStep` (the one entered last wins per object, material and slot); their pictures are read
+as a cube's are.
+
+### Starting
+
+The card's *Play for everyone* / *Play here* (own), *Stop*, *Rewind* work without editing (a visitor too) and are greyed only
+while the circle's story is locked; a cube's `plays` entry `what: 'seq'` (once: start from the beginning; loop: started
+inside and stopped on leaving; stop) writes the state at the entry moment, a device that finds itself already inside never
+restarts one that has a state; another sequence's `seq` event; `start: 'open'` writes the state 1.5 s after the scene's
+items are in. Reset what I have seen and the lobby forget own states and have every sequence fire afresh from its state.
+
+### Editing
+
+- The card (page and headset twins): lock row, state, transport, a preview row, the bar (headset: `drawBar` through
+  `animBar('seq')`; a drag holds the preview), Length, Loop, Starts, Who, Colour, *Events (n)* (a row each: a press selects
+  it, flashes its item and holds the preview there; `+0.5 +0.1 -0.1 -0.5` nudges, several within 0.8 s on one event one Undo
+  step; ✕), *Add an event...* (the pick is the cube's `STU.plp` with `seq: true`: an item pointed at or from a list, what,
+  how, *At* time with nudges and a page slider, a sentence, *Add*: one Undo step).
+- The preview (`STU.qprev`, this device's own): the sequence played or held here at a moment, the room's state ignored,
+  nothing written; it ends with editing, another selection or *End preview*.
+- The lane view (page, editing, a sequence selected; never in a headset): `#stuSeq` docked at the bottom beside the side
+  panel (160 to 480 px): a ruler (a drag scrubs the preview), a lane per item, events as blocks, diamonds and squares, the
+  playhead; drag an event (snapped to 0.1 s, Shift free, Alt copies; one Undo step), marquee, Ctrl or Shift selection, Delete,
+  double click (the card; on an empty lane spot Add an event there), Space, Home, arrows, the wheel zooms, Ctrl + wheel scrolls.
+- Items pane: a *Sequences* section (a tile with a play triangle, length and events, playing); Add pane: *Sequence*.
+
+### For tests
+
+`STUDIO.seq(id)` (record, effective play state with its source, `u`, `ended`, `cycle`, `shows`, `tex`, `runs`, `fired`,
+`key`), `STUDIO.seqs()`, `seqPlay`, `seqStop`, `seqRewind`, `STUDIO.seqView()` and `seqViewDrag(i, dt)`. A test holds the
+clocks with `behNow = trgClock = () => window.__T`. The smoke test's *studio sequences* steps (`--only 'studio sequences'`,
+two minutes) include a second page drawing the same moment from the shared state alone. FORMAT `networks-47` (the room-names
+lane's bump covers the fields `q.<id>` and `qr.<id>`). Untested on a headset: the card's list editor and the bar's drag with
+real controllers, how in step a shared sequence looks across real headsets.
 
 ## Sounds (emitters)
 
@@ -2796,6 +2885,93 @@ strokes, meshes: [{ look, tris, draws }], dots, built }`); `PAINT.fake(points)` 
 the trigger would). Untested on devices until tried: painting with a real controller (its pressure, the 6 cm tip, how
 strokes feel), the frame rate with big paintings on a Quest.
 
+## Pressed and pointed at (v146, the owner, 15 November 2026)
+
+"Press an item (anyone, visitors too, editing off too) ... does what a cube can start or starts a sequence; plus 'only while
+pointed at' (hover) reactions." An object's or a shape's record may carry `press` (`engine/e6t_press.js`):
+
+```
+press: { do: [entries], hover: [entries], who }
+```
+
+- **The record.** Kept only when it has at least one entry; anything that is not this shape makes the record bad (as a cube's
+  `plays`); a cube's `press` is ignored. `who`: absent = everyone here, `'own'` = each person's own (`'all'` is read as absent).
+  Entries `{ on, what, clip?, how?, fade? }` (at most 16 a list, one per `on|what`, the order kept; fields in that order):
+  `on` any item id (often the item itself), `what` one of `clip`, `sound`, `path`, `motion` (what a cube's entry does), `show`,
+  `hide` (one more source in the cubes' "entered last decides" rule, `fade: 'cut'` for an instant one) or `seq` (starts or stops
+  a sequence); no picture changes. `how` once, loop or stop (`seq` the same); `hold` too, for a clip or a path, in `hover` only.
+  A loop in `do` **toggles**: an odd press starts it, the next stops it. Entries naming an item a layout lacks, or one the
+  entry cannot be done to, are dropped on reading it (`readLayout`); Delete takes the entries naming the deleted items out of
+  every other item's press in the same change; Duplicate makes the copy's own entries that name the original name the copy and
+  gives every item's entries that name the original one for the copy (`pressCopy`).
+- **The stamp.** A press is not a record: `pr.<itemId>` = `{ n, at, by }` in the room's state (this device's own,
+  `STU.prOwn`, with `who: 'own'`: never sent), written by the presser with no Undo step, never in `layout.json`, the draft
+  or Unsaved changes. `n` is the last known n plus one, `at` the room's time in ms (`behNow()`). At most one press of an item every
+  250 ms from one device (the second is ignored, a soft tick). Two people pressing within a few hundred milliseconds: the
+  shell's last writer wins and one press may be lost.
+- **Firing (`pressStep`, after the sequences' step; `pressShowHide` inside `triggerStep`).** Every device works the result out
+  from the stamp and the room's time: when an item's stamp differs from what this device last saw (`it.pk`) it fires the
+  entries as of the stamp's moment (`roomToRun(at)`), a late joiner or a scene just opened too, with no age limit: a `once`
+  started long ago is over, a `loop` starts when `n` is odd (even: stops the run the entry started, a late joiner with an even
+  `n` starts nothing), `stop` stops. `show` and `hide` entries are persistent sources `{ id, since: at, cut }` of the cubes'
+  rule, in force until another source decides. A `seq` entry is started **only on the presser's device** (it writes the
+  sequence's `qr`; the others see it through that). Runs are the cubes' runs (`trgStart`, source `'press'` or `'hover'`),
+  so everything a cube starts behaves alike. Reset what I have seen and the lobby forget this device's own stamps
+  (`pressReset`); a shared stamp fires again on the next frame, as for a late joiner.
+- **Pointing is each person's own** and sends nothing. The item pointed at (`hoverNow`: a pretend one in tests, the card's Try
+  pointing, else any controller's ray on it in a headset, else the page's pointer) fires its `hover` entries as the pointing
+  begins (once, loop, hold, stop; `seq` too) and, 0.3 s after it ends (`PLAY_EDGE`; back within that is no new start), takes
+  the loops and holds it started off. `show` and `hide` in `hover` are sources only while it is pointed at (and for those
+  0.3 s). A soft hover tick as it begins. Nothing pressable is drawn differently (the frame rate; the pointer's dot is the
+  feedback).
+- **What can be pressed (`pressable`)**: an object or a shape with a press, shown here, in a scene, with **editing off**
+  (editing on, a click or the trigger selects, as ever; the card's Try press fires it here). A visitor (`&visit`) presses, and
+  so does anyone while the circle's story is locked (it is not an edit). **Headset**: `visitPick` also finds pressable items
+  (an object by its unseen box, a shape by its mesh), the trigger presses (a buzz and the pick sound); the grip carries one
+  that is also `grab: true`, the trigger on it presses. **Page**: a click (a press and release within 4 px) presses; for an
+  item that can also be moved (`grab: true`) a press moves it only after 6 px and presses on release if it never moved
+  (within 500 ms); the cursor is `pointer` over a pressable item (a pick at most ten times a second).
+- **The card** (object and shape, page and headset, under *Who can move it*): *When pressed* and *While pointed at*, each
+  entry a row in words (a press flashes its item, ✕ one Undo step), *Add a reaction...* (one pick at a time with the cube's
+  and the others: `STU.prp`; the item (*This item* first, or pointed at, or from the list), what (its animations, sound,
+  path, motion, *Show it*, *Hide it*, or a sequence), how, fade for show and hide, a sentence, *Add* or *Replace*), *Pressed by:
+  Everyone here / Each person*, and *Try press* and *Try pointing* (this device only: a stamp of its own, `PRESS.try`, nothing
+  written, no Undo step). The Items pane's faint line says *pressable*; a selected pressable item has violet lines to what it
+  acts on. Locked items keep their reactions editable (it is not a move).
+- For tests: `STUDIO.press(id)` (`{ press, stamp, seen, pressable, hover, pointed, sources, runs, mine, log }`),
+  `STUDIO.pressFire(id)` (a press here with all its writes, also while editing), `STUDIO.hover(id | '' | null)` (pretend pointing;
+  `''` ends it, `null` gives the real pointing back). FORMAT: the new state field `pr.<id>` rides on `networks-47` (a field an
+  older device ignores).
+- Untested on a headset: pressing with a real trigger, hover reactions with a real ray, the page's pointer on a touch screen
+  (no hover there), how in step a shared press looks across real headsets.
+- Known limits: two people pressing one item within a few hundred ms (one press may be lost, last writer wins); a late
+  joiner to a looping sequence fires only the current cycle's events; hover is never shared (others do not see what you
+  point at react); presses fire only with editing off.
+
+## The colour picker (v146, the owner, 15 November 2026)
+
+One picker for an object's tint, a shape's colour and the paint colour (`engine/e7h_colour.js`; the page's `#stuCpk` popover and
+the headset card's `picker` block). **Records are unchanged**: `'#rrggbb'` lower case, written through the existing actions
+(`i:tint`, `i:colour`, `pnColour`).
+
+- One picker is open at a time, for one target (`tint`, `shape` or `paint`) and one place (page or headset). It keeps the colour
+  as hue, saturation and brightness (a grey keeps its hue while dragged), the colour it opened with, and whether a drag is
+  under way. The ten swatches of `SHAPE_COLS` stay.
+- Page: *Any colour...* opens the popover: a hue ring, a saturation and brightness square, the hex field, the swatches and up to
+  eight recent colours kept on this device (`studioColours`, shared by the three targets). Pointer and arrow keys (a run of
+  keys is one step); Esc closes it and takes the preview back.
+- The preview is this device's own: the item's materials (or the shape's look, or the paint tip) show the colour while it is
+  dragged; the record is written when it is let go, **one Undo step** a drag, a typed hex, a swatch or a run of keys. Nothing
+  goes to the room while dragging. Paint's colour is a tool setting (no Undo step).
+- Headset: *Any colour...* on the card opens the same picker as a block of the card (`drawPicker`), dragged with the trigger as a
+  timeline's bar is; only its own strip is sent to the texture while it moves (`panelPatch`), never the whole card; let go: one
+  Undo step; a lost controller or the session ending commits what was shown. The item card's copy on the menu's Story tab is
+  pointed at as the card is.
+- For tests: `STUDIO.colour()` (`{ open, hsv, hex, from, drag, pend, live, previews, commits, patches, recents }`); the smoke
+  test's *studio colour* steps (`--only 'studio colour'`); the older `studio tint` step sets the colour through the picker's hex
+  field. No `FORMAT` change from this feature.
+- Untested on a headset: dragging the ring and square with a real ray, how the picker reads at arm's length.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without
@@ -2810,6 +2986,7 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- Sequences (v146): the smoke test's *studio sequences* steps (`--only 'studio sequences'`): "Testing" in `AGENTS.md`.
 - v137: the smoke test's *studio everyone*, *studio walls*, *studio shows* and *studio examples* steps (each `--only` of
   its own): "Testing" in `AGENTS.md`.
 - Editing without the cost (v136): the smoke test's *studio edit speed* steps (`--only 'studio edit speed'`, a minute):

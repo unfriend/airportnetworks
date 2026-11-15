@@ -27,10 +27,10 @@
 // until a cube plays a clip over it. A sound that plays with a recorded path (sync) is no target: starting that path
 // starts its voice. Pause, a timeline's hold, a carry and a character worn with trackers win over a run, as over
 // everything that moves
-const PLAY_WHAT = ['clip', 'sound', 'path', 'motion'], PLAY_HOW = ['once', 'loop', 'hold', 'stop'], PLAY_MAX = 16, PLAY_BLEND = 300, PLAY_FADE = 400, PLAY_EDGE = 300, PLAY_TRY = 10000;
+const PLAY_WHAT = ['clip', 'sound', 'path', 'motion', 'seq'], PLAY_HOW = ['once', 'loop', 'hold', 'stop'], PLAY_MAX = 16, PLAY_BLEND = 300, PLAY_FADE = 400, PLAY_EDGE = 300, PLAY_TRY = 10000;
 // (what each can be started on, by item kind, and its bit in an item's tgM: what a cube names on it)
-const PLAY_KINDS = { clip: ['o'], sound: ['s'], path: ['o', 'p', 'e', 's'], motion: ['o', 'p', 'e'] }, PLAY_BIT = { clip: 1, sound: 2, path: 4, motion: 8 };
-const PLAY_ITEMS = ['o', 's', 'p', 'e'];
+const PLAY_KINDS = { clip: ['o'], sound: ['s'], path: ['o', 'p', 'e', 's'], motion: ['o', 'p', 'e'], seq: ['q'] }, PLAY_BIT = { clip: 1, sound: 2, path: 4, motion: 8, seq: 16 };
+const PLAY_ITEMS = ['o', 's', 'p', 'e', 'q'];   // (a 'seq' entry, v146: starts or stops a sequence, e6s_seq.js)
 // list: every entry { c (its cube), e, ek }; cubes: the cubes with plays; seen: the entries already known (one new while
 // its cube is active fires at once); on: the items with a run; log: the last 100 starts and ends (tests); n: runs started
 // (a voice's pass); rev2: moves on at each start and end; said: a missing clip logged once a scene opening
@@ -87,6 +87,16 @@ function trgList() {
       if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what];
     }
   }
+  // (the events of the sequences name items too, e6s_seq.js: a sound, a path or a motion waits until one starts it)
+  for (const q of STU.items.values()) {
+    if (q.kind !== 'q') continue;
+    for (const e of q.rec.ev) { const t = SEQ_RUN.includes(e.what) ? STU.items.get(e.on) : null; if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what]; }
+  }
+  // (and what an item's press or pointing starts, e6t_press.js)
+  for (const it of STU.items.values()) {
+    const p = it.rec && it.rec.press;
+    if (p) for (const e of prEntries(p)) { const t = prRun(e.what) ? STU.items.get(e.on) : null; if (t && PLAY_KINDS[e.what].includes(t.kind)) t.tgM |= PLAY_BIT[e.what]; }
+  }
   for (const k of [...TRG.seen.keys()]) if (!keys.has(k)) TRG.seen.delete(k);
   for (const it of STU.items.values()) {
     // (a cube with no starts left keeps no edge: entries put back by Undo start from where the head is then, never a stale
@@ -134,13 +144,13 @@ function trgFire() {
     if (x.e.when === 'leave') { if (!TRG.seen.has(x.ek)) TRG.seen.set(x.ek, 1); continue; }
     const P = x.c.pl, fresh = !TRG.seen.has(x.ek);
     if (fresh) TRG.seen.set(x.ek, 1);
-    if (P.enter || (fresh && P.act)) trgStart(x, P.enter ? P.at : T, false);
+    if (P.enter || (fresh && P.act)) { x.fresh = !P.enter; trgStart(x, P.enter ? P.at : T, false); }
   }
   for (const t of TRG.on) {
     if (STU.items.get(t.id) !== t) { TRG.on.delete(t); continue; }
     for (const k of PLAY_WHAT) {
       const R = t.tr && t.tr[k];
-      if (!R || R.off || (R.e.how !== 'loop' && R.e.how !== 'hold') || R.try > T) continue;
+      if (!R || R.off || R.src !== 'cube' || (R.e.how !== 'loop' && R.e.how !== 'hold') || R.try > T) continue;   // (a sequence's runs come off in seqFire)
       const C = R.c, here = STU.items.get(C.id) === C && C.pl && C.pl.act && TRG.seen.has(R.ek);
       if (!here) trgOff(R, C.pl && C.pl.leave && C.pl.lt ? Math.min(T, C.pl.lt) : T, 'left');
     }
@@ -152,12 +162,14 @@ function trgStart(x, T, tried) {
   const { c, e, ek } = x, t = STU.items.get(e.on);
   if (!t || !PLAY_KINDS[e.what].includes(t.kind)) return false;
   if (e.what === 'sound' && syncOf(t)) return false;   // (a voice that plays with a path: started with its path)
+  const src = x.src || 'cube';
   trgPush(['start', c.id, e.on, e.what, e.clip || '', e.how, e.when || 'enter', T]);
-  plog('studio play', { cube: c.id, on: e.on, what: e.what, clip: e.clip || '', how: e.how, when: e.when || 'enter' });
+  plog('studio play', { cube: c.id, on: e.on, what: e.what, clip: e.clip || '', how: e.how, when: e.when || 'enter', src });
+  if (e.what === 'seq') return trgSeq(x, t, T, tried, src);
   const was = t.tr && t.tr[e.what];
   if (e.how === 'stop') { if (was && !was.off) trgOff(was, T, 'stop'); return true; }
   if (!t.tr) t.tr = {};
-  t.tr[e.what] = { c, e, ek, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
+  t.tr[e.what] = { c, e, ek, src, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
   TRG.on.add(t); TRG.rev2++;
   return true;
 }
@@ -168,6 +180,23 @@ function trgOff(R, T, why) {
   R.off = T;
   trgPush(['off', R.e.on, R.e.what, why, T]);
   TRG.rev2++;
+  // (a loop that started a sequence stops it as it comes off)
+  if (R.e.what === 'seq') { seqCmd(R.e.on, 'stop', runToRoom(T), 'off'); const q = STU.items.get(R.e.on); if (q) trgDone(q, 'seq', R, why); }
+}
+// a 'seq' entry (a cube's or a press's): start the sequence from its beginning at the room moment of the firing, or stop it; a
+// loop keeps a run so that coming off (leaving the cube) stops it. A device that comes late to a cube it finds itself inside
+// (x.fresh) never restarts a sequence that already has a state
+function trgSeq(x, t, T, tried, src) {
+  const { c, e, ek } = x, m = runToRoom(T);
+  if (e.how === 'stop') { seqCmd(t.id, 'stop', m, src); return true; }
+  const b = seqBase(t);
+  if (!(x.fresh && b && !(b.t === -1 && !b.on))) seqCmd(t.id, 'start', m, src);
+  if (e.how === 'loop') {
+    if (!t.tr) t.tr = {};
+    t.tr.seq = { c, e, ek, src, at: T, off: 0, n: ++TRG.n, try: tried ? T + PLAY_TRY : 0, seen: false, layer: null };
+    TRG.on.add(t); TRG.rev2++;
+  }
+  return true;
 }
 // a run over: its item waits again (or plays its own animation)
 function trgDone(it, what, R, why) {
@@ -186,6 +215,8 @@ function trgReset(why) {
   }
   for (const it of STU.items.values()) { it.tr = null; it.pw = 0; it.pl = null; if (it.tl) { for (const y of it.tl) try { y.a.stop(); } catch (e) { /* gone */ } it.tl = null; } }
   TRG.on.clear();
+  seqReset();   // (own states forgotten, the sequences fire afresh from their state: e6s_seq.js)
+  pressReset();   // (own stamps forgotten, the shared ones fire again as a late joiner's: e6t_press.js)
   trgPush(['reset', why || '']);
   TRG.rev2++;
 }
@@ -342,7 +373,8 @@ const HOW_WORD = { once: 'Once', loop: 'Loop', hold: 'Hold', stop: 'Stop' };
 const whatWord = e => (e.what === 'clip' ? e.clip || 'its animation' : e.what === 'sound' ? 'the sound' : e.what === 'path' ? 'its recorded path' : 'its motion');
 // an entry in words: "Dancer · Wave · once", "Voice · the sound · loops while you are inside", "Radio · stops · on leaving"
 function playWords(e, c) {
-  const t = STU.items.get(e.on), stay = c && c.rec.mode === 'stay', nm = t ? t.rec.name : 'an item not in the scene';
+  const t = STU.items.get(e.on), stay = c && c.rec && c.rec.mode === 'stay', nm = t ? t.rec.name : 'an item not in the scene';
+  if (e.what === 'seq') return `${nm} · ` + (e.how === 'stop' ? 'stops the sequence' : e.how === 'loop' ? (stay ? 'starts the sequence, stops it never' : 'loops the sequence while you are inside') : 'starts the sequence') + (e.when === 'leave' ? ' · on leaving' : '');
   const how = e.how === 'once' ? 'once' : e.how === 'loop' ? (stay ? 'loops from then on' : 'loops while you are inside') : e.how === 'hold' ? (stay ? 'held from then on' : 'held while inside') : '';
   const body = e.how === 'stop' ? (e.what === 'sound' ? 'stops' : 'stops ' + (e.what === 'clip' ? 'its animation' : whatWord(e))) : whatWord(e) + ' · ' + how;
   return `${nm} · ${body}` + (e.when === 'leave' ? ' · on leaving' : '');
@@ -350,6 +382,7 @@ function playWords(e, c) {
 // what can be started on an item: [{ what, clip, label, dis, why }] (a voice that plays with a path: none it can take)
 function playOpts(t) {
   if (!t || !PLAY_ITEMS.includes(t.kind)) return [];
+  if (t.kind === 'q') return [{ what: 'seq', label: 'Start this sequence' }];
   const out = [];
   if (t.kind === 'o') for (const k of (t.E && t.E.clips) || []) if (k.duration > 0) out.push({ what: 'clip', clip: k.name, label: k.name, sub: secs(k.duration) });
   if (t.kind === 's') {
@@ -362,7 +395,7 @@ function playOpts(t) {
 }
 // an item's options in a line: "animations: Spin, Bob · recorded path"
 function optsLine(t, o) {
-  const cl = o.filter(x => x.what === 'clip').map(x => x.clip), rest = o.filter(x => x.what !== 'clip').map(x => x.what === 'sound' ? 'sound' : x.what === 'path' ? 'recorded path' : 'motion');
+  const cl = o.filter(x => x.what === 'clip').map(x => x.clip), rest = o.filter(x => x.what !== 'clip').map(x => x.what === 'sound' ? 'sound' : x.what === 'path' ? 'recorded path' : x.what === 'seq' ? 'sequence' : 'motion');
   return [cl.length ? (cl.length > 1 ? 'animations: ' : 'animation: ') + cl.slice(0, 6).join(', ') + (cl.length > 6 ? '...' : '') : ''].concat(rest).filter(Boolean).join(' · ');
 }
 // why an entry cannot play now ('' it can)
@@ -385,7 +418,8 @@ function playSentence(d, c) {
   // (a loop or a hold on a cube that stays never comes off: until Reset what I have seen, or the lobby)
   const after = x => (stay ? '' : ', ' + x), M = t.rec.motion && MOTION[t.rec.motion.kind];
   let s = '';
-  if (d.what === 'clip') s = d.how === 'stop' ? `the animation a cube plays on ${nm} blends out, ${own}` : d.how === 'once' ? `${nm} plays ${d.clip} once from its start, ${own}` : d.how === 'loop' ? `${nm} plays ${d.clip} again and again ${dur}` + after(own) : `${nm} plays ${d.clip} once and holds its last frame ${dur}` + after(own);
+  if (d.what === 'seq') s = d.how === 'stop' ? `${nm} stops` : d.how === 'once' ? `${nm} starts from its beginning` : `${nm} starts from its beginning` + (stay ? '' : ', and stops as you leave');
+  else if (d.what === 'clip') s = d.how === 'stop' ? `the animation a cube plays on ${nm} blends out, ${own}` : d.how === 'once' ? `${nm} plays ${d.clip} once from its start, ${own}` : d.how === 'loop' ? `${nm} plays ${d.clip} again and again ${dur}` + after(own) : `${nm} plays ${d.clip} once and holds its last frame ${dur}` + after(own);
   else if (d.what === 'sound') s = d.how === 'stop' ? `${nm} fades out` : d.how === 'once' ? `${nm} plays once from its start` : `${nm} plays again and again ${dur}` + after('then fades out');
   else if (d.what === 'path') s = d.how === 'stop' ? `${nm} stops on its recorded path where it is` : d.how === 'once' ? `${nm} plays its recorded path once from its start, and waits at its end` : d.how === 'loop' ? `${nm} plays its recorded path again and again ${dur}` + after('then finishes the pass under way') : `${nm} plays its recorded path to its end and holds there ${dur}` + after('then goes back to its start');
   else s = !M ? `${nm} has no motion` : d.how === 'stop' ? `${nm} finishes the ${M.one} under way and rests` : d.how === 'once' ? `${nm} ${M.does} once (one ${M.one}), then rests` : `${nm} ${M.does} ${dur}` + after(`then finishes the ${M.one} under way and rests`);
@@ -479,7 +513,7 @@ const playDraft = P => ({ on: P.on, what: P.what, clip: P.what === 'clip' && P.h
 Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel; one pick at a time: Pick what it shows and Change a texture... end); an item chosen (its
   // first option); another item; what, how, when; a page of its animations (a headset's card)
-  plPick: c => { if (c.kind === 'c') { STU.plp = STU.plp && STU.plp.id === c.id ? null : { id: c.id, step: 'obj', on: '', what: '', clip: '', how: 'once', when: 'enter', page: 0 }; STU.pick = null; STU.txp = null; } },
+  plPick: c => { if (c.kind === 'c') { STU.plp = STU.plp && STU.plp.id === c.id ? null : { id: c.id, step: 'obj', on: '', what: '', clip: '', how: 'once', when: 'enter', page: 0 }; STU.pick = null; STU.txp = null; STU.prp = null; } },
   plOn: (c, id) => {
     const P = STU.plp, t = STU.items.get(id);
     if (!P || P.id !== c.id || !t || t.id === c.id) return;

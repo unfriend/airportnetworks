@@ -534,6 +534,7 @@ function paintOn(it) {
 function paintOff(tab) {
   if (!PAINT.on) return;
   paintCancel();
+  if (CPK.open && CPK.open.tgt === 'paint') cpkCancel();
   PAINT.on = false; PAINT.arm = null;
   if (PNV.tip) PNV.tip.visible = false;
   if (typeof X !== 'undefined' && X.tab === 'paint') X.tab = tab || (STU.sel ? 'item' : 'add');
@@ -560,7 +561,7 @@ function paintBegin(by, pt, f, n) {
   const T = paintTarget(), erase = PAINT.brush === 'eraser';
   if (T && lockWhy(T)) { paintSay(`${T.rec.name} is locked in place: nothing can be painted on it until it is unlocked.`, 'amber'); sfxAct('knock', 'world', null, { gain: 0.5 }); return null; }
   if (!erase && !T && !canAdd('d')) { paintSay(`The scene has ${LIMITS.d} paintings: the most it can hold.`, 'amber'); return null; }
-  const D = { by, erase, brush: erase ? 'eraser' : PAINT.brush, look: erase ? '' : PAINT.brush, colour: PAINT.colour, width: PAINT.width, pts: [], pre: [], T: T ? T.id : '', gen: STU.gen, sd: 1 + Math.floor(Math.random() * 2147483647), dirty: false, over: 0 };
+  const D = { by, erase, brush: erase ? 'eraser' : PAINT.brush, look: erase ? '' : PAINT.brush, colour: cpkPaintColour(), width: PAINT.width, pts: [], pre: [], T: T ? T.id : '', gen: STU.gen, sd: 1 + Math.floor(Math.random() * 2147483647), dirty: false, over: 0 };
   if (PAINT.seed) { D.sd = PAINT.seed; }
   PAINT.drawing = D; PAINT.note = '';
   if (!erase) pvStart(D);
@@ -756,7 +757,7 @@ function paintXR(c, gp, dt) {
   const tp = paintTip();
   tp.visible = !!PAINT.on;
   tp.position.copy(tip); tp.scale.setScalar(Math.max(0.003, PAINT.width / 2));
-  tp.material.color.set(PAINT.brush === 'eraser' ? '#ffffff' : PAINT.colour);
+  tp.material.color.set(PAINT.brush === 'eraser' ? '#ffffff' : cpkPaintColour());
   const b = gp.buttons && gp.buttons[0], down = !!b && (b.pressed || b.value > 0.1), f = b ? clamp(b.value > 0 ? b.value : b.pressed ? 1 : 0, 0.1, 1) : 1;
   GL.world.getWorldQuaternion(_pxq).invert();
   _pxn.set(0, 1, 0).transformDirection(c.g.matrix).applyQuaternion(_pxq);
@@ -888,7 +889,9 @@ function paintBlocks(B) {
   B.push({ p: T ? `Strokes go into ${T.rec.name}${T.rec.locked ? ' (locked in place: refused)' : ''}.` : 'The next stroke makes a new painting.', c: T && T.rec.locked ? 'amber' : 'muted' });
   B.push({ label: 'Brush', row: PAINT.brushes.map(k => ({ id: 'pnbrush:' + k, label: PAINT_BRUSH[k], act: 'pnBrush', v: k, on: PAINT.brush === k })) },
     { label: 'Colour', row: SHAPE_COLS.map(([c, n]) => ({ id: 'pncol:' + c, label: n, act: 'pnColour', v: c, on: PAINT.colour === c, sw: c })) },
-    { page: true, colour: { id: 'stuPaintCol', act: 'pnColour', value: PAINT.colour, label: 'Any colour' } },
+    { page: true, colour: { id: 'stuPaintCol', act: 'pnColour', tgt: 'paint', value: PAINT.colour, label: 'Any colour…' } },
+    { xr: true, row: [{ id: 'cpk:paint', label: 'Any colour…', act: 'cpkOpen', v: 'paint', on: !!CPK.open && CPK.open.tgt === 'paint', sw: PAINT.colour }] },
+    ...(CPK.open && CPK.open.where === 'xr' && CPK.open.tgt === 'paint' ? [{ xr: true, picker: { id: 'cpk', tgt: 'paint' } }] : []),
     { label: `Width: ${mmWords(PAINT.width)}`, row: [{ id: 'pnw:-', label: 'Thinner', act: 'pnWidth', v: -1, dis: PAINT.width <= PNT.widths[0] }, { id: 'pnw:+', label: 'Thicker', act: 'pnWidth', v: 1, dis: PAINT.width >= PNT.widths[PNT.widths.length - 1] }] },
     { row: [{ id: 'pn:new', label: 'New painting', act: 'pnNew', dis: !STU.sel }, { id: 'pn:done', label: 'Done', act: 'pnDone', primary: true }] });
   B.push({ p: XR.on ? 'The right trigger paints from a little ahead of the controller; pressing harder is a wider stroke. The grip still carries things. Done, or selecting something that is not a painting, ends it.' : 'Drag on the scene (Orbit view) to paint where the pointer meets its surfaces; the wheel still zooms, a right drag pans. Done, or selecting something that is not a painting, ends it.', c: 'faint' });

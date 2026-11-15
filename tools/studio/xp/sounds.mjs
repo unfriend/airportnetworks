@@ -128,6 +128,45 @@ const SOUNDS = {
     for (let t = 0.02; t < L; t += 0.06 + R() * 0.03) { const d = 0.035, g = noise(d, R); for (let i = 0; i < g.length; i++) { const k = i / g.length; g[i] *= Math.sin(Math.PI * k) ** 2; } biquad(g, 'bp', 2200 + R() * 1500, 1.5); add(b, t, g, 0.5 + R() * 0.4); }
     return norm(seamless(b, 0.15), 0.55);
   },
+  // a balloon bursting (v146): a sharp snap (high-passed noise, 15 ms) over a short low thump
+  burst() {
+    const R = rng(31), b = buf(0.3);
+    const snap = biquad(noise(0.015, R), 'hp', 1800); for (let i = 0; i < snap.length; i++) snap[i] *= Math.exp(-i / SR * 260);
+    add(b, 0, snap, 1);
+    for (let i = 0; i < b.length; i++) { const t = i / SR, f = 55 + 85 * Math.exp(-t * 30); b[i] += 0.9 * Math.sin(TAU * f * t) * Math.exp(-t * 20) * Math.min(1, t / 0.002); }
+    return norm(fade(biquad(b, 'hp', 40), 0.0005, 0.08), 0.7);
+  },
+  // Clippy's giggle (v146): three quick bouncy plucked notes, each a pentatonic step up from the last, a little vibrato and a
+  // springy wobble (a pitch-swept sine: a "boing")
+  giggle() {
+    const b = buf(0.7);
+    [[0, 76], [0.17, 79], [0.34, 81]].forEach(([at, n], k) => {
+      const d = 0.34, f0 = note(n), t = buf(d); let ph = 0;
+      for (let i = 0; i < t.length; i++) {
+        const s = i / SR, f = f0 * (1 + 0.012 * Math.sin(TAU * 11 * s)) * (1 + 0.35 * Math.exp(-s * 38) * Math.sin(TAU * 9 * s + 0.6));
+        ph += TAU * f / SR;
+        t[i] = (Math.sin(ph) + 0.35 * Math.sin(2 * ph)) * Math.exp(-s * 9) * Math.min(1, s / 0.003);
+      }
+      add(b, at, t, 0.5 - k * 0.06);
+    });
+    return norm(fade(reverb(b, 0.12), 0.002, 0.12), 0.65);
+  },
+  // Media Player's music (v146): an original loop of 4.8 s at 100 bpm (two bars): a soft pad on two plain chords, a plucked
+  // bass on their roots and a bell tune of eight notes of a major pentatonic (picked once by a seeded number, written here as
+  // the note numbers); the first bar laid under the loop's end so it joins without a seam
+  music() {
+    const L = 4.8, X = 0.6, beat = 0.6, b = buf(L + X);
+    const chords = [[48, 52, 55, 60], [43, 50, 55, 59]], roots = [36, 43], tune = [79, 76, 81, 79, 74, 76, 72, 79];
+    // (two bars, then the first bar again for the seam)
+    [0, 1, 2].forEach(bar => {
+      const at = bar * 4 * beat, c = chords[bar % 2];
+      for (const n of c) add(b, at, pad(note(n), 4 * beat + 0.3, 0.35, 0.5), 0.1);
+      for (let k = 0; k < 4; k++) add(b, at + k * beat, pluck(note(roots[bar % 2] + (k === 2 ? 12 : 0)), 0.55, { decay: 7 }), k % 2 ? 0.18 : 0.3);
+    });
+    tune.forEach((n, i) => add(b, i * beat, bell(note(n), 1.1, { decay: 3.2 }), 0.2));
+    [79, 76].forEach((n, i) => add(b, L + i * beat, bell(note(n), 1.1, { decay: 3.2 }), 0.2));   // (the tune's start again, for the seam)
+    return norm(fade(seamless(b, X), 0.001, 0.001), 0.55);
+  },
   // outdoors (a loop): wind breathing in the grass and a few birds far off
   outdoor() {
     const R = rng(21), L = 6.0, X = 1.0, b = buf(L + X);
@@ -141,5 +180,6 @@ const SOUNDS = {
 };
 export const SOUND_FILES = { startup: 'sounds/startup.wav', shutdown: 'sounds/shutdown.wav', ding: 'sounds/ding.wav', critical: 'sounds/critical-stop.wav', pop: 'sounds/balloon-pop.wav',
   chime: 'sounds/new-message.wav', nudge: 'sounds/nudge.wav', hwin: 'sounds/hardware-in.wav', hwout: 'sounds/hardware-out.wav', click: 'sounds/click.wav', crumple: 'sounds/recycle.wav',
-  typing: 'sounds/typing.wav', flips: 'sounds/solitaire-flips.wav', outdoor: 'sounds/outdoors.wav' };
+  typing: 'sounds/typing.wav', flips: 'sounds/solitaire-flips.wav', outdoor: 'sounds/outdoors.wav',
+  burst: 'sounds/balloon-burst.wav', giggle: 'sounds/clippy-giggle.wav', music: 'sounds/media-music.wav' };
 export function makeSounds() { return Object.entries(SOUND_FILES).map(([k, path]) => ({ path, bytes: wav(SOUNDS[k]()) })); }

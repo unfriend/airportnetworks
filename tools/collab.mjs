@@ -353,6 +353,7 @@ const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins',
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
+const NAMES_ONLY = argv.includes('--names');   // (only room names: namesRound, a relay of its own with --proxy)
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
 const DESIGN_ONLY = argv.includes('--design');   // (only the design room in a room: designOnly)
 const FOLLOW_ONLY = argv.includes('--follow');   // (only following a person: personFollow, in a room of its own)
@@ -1405,6 +1406,240 @@ async function nearby() {
     check('rejoin (peer to peer): a room left on purpose is not joined again by itself', !p1cLeft.code && !p1cLeft.offer, JSON.stringify(p1cLeft));
     // the relay's log names no address it was given (nor any network's id)
     check('rooms on this network: the relay\'s log names none of the pretend addresses', !N.out.includes(HOME) && !N.out.includes(AWAY) && !N.out.includes(aNet), N.out.split('\n').filter(l => l.includes(HOME) || l.includes(AWAY)).slice(0, 3).join(' / '));
+  } finally {
+    for (const c of all) await c.close().catch(() => {});
+    for (const s of servers) s.close();
+    N.proc.kill();
+  }
+}
+
+// ---- room names (v146; --names runs only this, a relay of its own with --proxy, a few minutes). A room's name is a label
+// (its key name, { v, by, at }); the three-letter code stays the address. Set on a page (cleaned), seen on another, never
+// refused by a lock, drawn in the headset's menu heading, set there with the keypad (capitals, Shift; OK with nothing
+// typed clears it), listed on rooms on this network (relay and peer to peer), kept with the copy, said in the rejoin
+// notice and the offer, and in no log line. dir: pictures (names-1-dialog, names-2-near, names-3-menu, names-4-keypad)
+async function namesRound(dir) {
+  const N = { proc: null, port: 0, out: '' }, servers = [], all = [];
+  N.proc = spawn(process.execPath, ['relay/server.mjs', '--port', '0', '--host', '127.0.0.1', '--static', '.', '--proxy', '--expire', '3'], { cwd: root });
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('the relay for room names did not start: ' + N.out)), 10000);
+    N.proc.stdout.on('data', d => { N.out += d; const m = /listening on http:\/\/[^:]+:(\d+)/.exec(N.out); if (m && !N.port) { N.port = +m[1]; clearTimeout(t); res(); } });
+    N.proc.stderr.on('data', d => { N.out += d; });
+  });
+  const proxy = addr => new Promise(res => {
+    const srv = http.createServer((q, s) => {
+      const up = http.request({ host: '127.0.0.1', port: N.port, method: q.method, path: q.url, headers: Object.assign({}, q.headers, { 'x-forwarded-for': addr }) }, r => { s.writeHead(r.statusCode, r.headers); r.pipe(s); });
+      up.on('error', () => { try { s.writeHead(502); s.end(); } catch (e) { /* gone */ } });
+      q.pipe(up);
+    });
+    srv.on('upgrade', (q, sock, head) => {
+      const up = tcpConnect(N.port, '127.0.0.1', () => {
+        const lines = [`${q.method} ${q.url} HTTP/1.1`];
+        for (let i = 0; i < q.rawHeaders.length; i += 2) if (!/^x-forwarded-for$/i.test(q.rawHeaders[i])) lines.push(q.rawHeaders[i] + ': ' + q.rawHeaders[i + 1]);
+        up.write(lines.concat('X-Forwarded-For: ' + addr, '', '').join('\r\n'));
+        if (head && head.length) up.write(head);
+        sock.pipe(up); up.pipe(sock);
+      });
+      up.on('error', () => sock.destroy()); sock.on('error', () => up.destroy());
+    });
+    servers.push(srv);
+    srv.listen(0, '127.0.0.1', () => res(srv.address().port));
+  });
+  const nopen = async (url, o = {}) => {
+    const ctx = await browser.newContext(Object.assign({ viewport: { width: 760, height: 640 } }, o.state ? { storageState: o.state } : {}));
+    if (o.noApi) await ctx.route('**/api/**', r => r.abort());
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED|WebSocket connection/.test(m.text())) errors.push(m.text()); });
+    await page.goto(url, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    all.push(ctx);
+    return page;
+  };
+  const reopen = async (page, url) => {
+    await page.goto('about:blank');
+    await page.goto(url, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+  };
+  const shot = async (page, file, o) => { if (dir) { fs.mkdirSync(dir, { recursive: true }); await page.screenshot(Object.assign({ path: path.join(dir, file) }, o)); } };
+  const nameIs = (p, v, ms) => until(p, v => HOST.collab.roomName() === v, v, ms || 8000);
+  const nmText = p => p.evaluate(() => { const e = document.querySelector('#shared .sh-room .nm'), b = document.querySelector('#shared .sh-room b'); return [e ? e.textContent : null, b ? b.textContent : null]; });
+  const listedNm = (p, c, ms) => until(p, c => [...document.querySelectorAll('#shared .sh-near li')].some(l => l.querySelector('b') && l.querySelector('b').textContent === c && l.querySelector('.nm')), c, ms || 40000);
+  const rowNm = (p, c) => p.evaluate(c => { const li = [...document.querySelectorAll('#shared .sh-near li')].find(l => l.querySelector('b') && l.querySelector('b').textContent === c); return li ? [li.querySelector('.nm') ? li.querySelector('.nm').textContent : '', li.querySelector('b').textContent, li.querySelector('button') ? li.querySelector('button').textContent : ''] : null; }, c);
+  const looked = (p, ms) => until(p, () => Array.isArray(HOST.collab.nearby()) && !HOST.collab.internals().nearBusy && HOST.collab.internals().netState !== 'finding', null, ms || 25000);
+  const inRoom = (p, c, role) => until(p, ([c, role]) => HOST.collab.code === c && HOST.collab.status === 'open' && (!role || HOST.collab.role === role), [c, role || ''], 60000);
+  const logOf = p => p.evaluate(() => window.__collabLog.slice());
+  const pages = [];
+  try {
+    const HP = await proxy(HOME), AP = await proxy(AWAY), at = (pp, hash) => `http://127.0.0.1:${pp}/index.html${hash}`;
+    // 1. set on a page
+    const A = await nopen(at(HP, '#stories')); pages.push(A);
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.net, null, 15000);
+    const XYZ = await A.evaluate(() => HOST.collab.code), aId = await A.evaluate(() => HOST.collab.id);
+    await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+    await A.evaluate(() => HOST.collab.dialog(true));
+    await sleep(300);
+    const none0 = await nmText(A);
+    await A.evaluate(() => { const i = document.querySelector('#shRoomName'); i.value = '  Lab One\u0007  '; document.querySelector('[data-sh="roomname"]').click(); });
+    const a1 = await nameIs(A, 'Lab One');
+    const key1 = await A.evaluate(() => HOST.collab.val('name'));
+    await sleep(400);
+    const a1t = await nmText(A);
+    await shot(A, 'names-1-dialog.png');
+    check('room names: an unnamed room shows its code alone; a name typed in the Shared dialog is cleaned (control characters out), written as the room\'s key name with this device\'s id, and the room row shows it with the code beside it',
+      !none0[0] && none0[1] === XYZ && a1 && key1 && key1.v === 'Lab One' && key1.by === aId && a1t[0] === 'Lab One' && a1t[1] === XYZ, JSON.stringify({ none0, a1, key1, a1t }));
+    // 2. seen on another page
+    const B = await nopen(at(HP, '#stories')); pages.push(B);
+    await B.evaluate(async c => { await HOST.collab.detect(); HOST.collab.join(c); }, XYZ);
+    await inRoom(B, XYZ);
+    await B.evaluate(() => HOST.collab.dialog(true));
+    const b2 = await nameIs(B, 'Lab One', 5000);
+    await sleep(400);
+    const b2t = await nmText(B), b2s = await B.evaluate(() => document.querySelector('#shared .sh-status').textContent);
+    check('room names: another page that joins by the code has the name within 5 s (the room row, and its status line: Lab One (room XYZ))', b2 && b2t[0] === 'Lab One' && b2t[1] === XYZ && b2s.includes(`Lab One (room ${XYZ})`), JSON.stringify({ b2, b2t, b2s }));
+    // 3. the locks never refuse it
+    const stId = await A.evaluate(() => (HOST.collab.stations()[0] || {}).id);
+    await A.evaluate(id => { HOST.collab.lock(true); if (id) HOST.collab.setStationLock(id, true); }, stId);
+    await until(B, () => HOST.collab.locked, null, 4000);
+    const set3 = await B.evaluate(() => HOST.collab.setRoomName('Lab Two'));
+    const a3 = await nameIs(A, 'Lab Two', 5000);
+    await A.evaluate(id => { HOST.collab.lock(false); if (id) HOST.collab.setStationLock(id, false); }, stId);
+    check('room names: neither the circles lock nor a story\'s lock refuses it (set on B while both are on, seen on A)', set3 === true && a3, JSON.stringify({ set3, a3 }));
+    // 4. cleaning
+    const long = await B.evaluate(() => { HOST.collab.setRoomName('x'.repeat(50)); return HOST.collab.roomName(); });
+    const odd = await B.evaluate(() => { HOST.collab.setRoomName('A‮B\nC​D   E'); return HOST.collab.roomName(); });
+    const emoji = await B.evaluate(() => { HOST.collab.setRoomName('\u{1F600}'.repeat(45)); return [...HOST.collab.roomName()].length; });
+    const blank = await B.evaluate(() => { HOST.collab.setRoomName('   '); return HOST.collab.roomName(); });
+    await until(A, () => HOST.collab.roomName() === '', null, 5000);
+    await sleep(500);
+    const a4t = await nmText(A);
+    const back = await B.evaluate(() => HOST.collab.setRoomName('Lab Two'));
+    await nameIs(A, 'Lab Two', 5000);
+    check('room names: cleaned to 40 characters by code point, control, bidi and zero-width characters out, spaces collapsed; spaces alone clear it (the room row shows the code alone again)',
+      long === 'x'.repeat(40) && odd === 'ABCD E' && emoji === 40 && blank === '' && !a4t[0] && a4t[1] === XYZ && back === true, JSON.stringify({ long, odd, emoji, blank, a4t, back }));
+    // 5. a pretend headset's menu
+    const H = await nopen(at(HP, '#airports')); pages.push(H);
+    await ready(H, 'airports');
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await H.evaluate(() => { window.__xr.begin(); HOST.collab.panelOpen(true); });
+    await frames(H, 300);
+    await H.evaluate(async c => { await HOST.collab.detect(); HOST.collab.join(c); }, XYZ);
+    await inRoom(H, XYZ);
+    await nameIs(H, 'Lab Two', 8000);
+    await H.evaluate(() => { HOST.collab.menuTab('circles'); });
+    await frames(H, 300);
+    const head = await H.evaluate(() => HOST.collab.menuTitle()), rn = await H.evaluate(() => { const r = HOST.collab.menuFind('room:name'); return r ? { fn: !!r.fn, label: r.label } : null; });
+    await frames(H, 100);
+    if (dir) { const u = await H.evaluate(() => HOST.collab.overlay().panel.ctx.canvas.toDataURL('image/png')); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'names-3-menu.png'), Buffer.from(u.split(',')[1], 'base64')); }
+    check('room names: the headset menu\'s Circles heading says the name and the code, and a Name row (Name: Lab Two) is there', head.includes('Lab Two') && head.includes(XYZ) && rn && rn.fn && rn.label === 'Name: Lab Two', JSON.stringify({ head, rn }));
+    // 6. the keypad path
+    const tap = id => H.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
+      for (let k = 0; k < 2; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } return ok; }, id);
+    const kp = () => H.evaluate(() => HOST.collab.keypadState());
+    const lit = () => H.evaluate(() => { const r = HOST.collab.menuFind('kp:shift'); return r ? r.tog : null; });
+    const pressed = await tap('room:name');
+    const k0 = await kp();
+    for (let i = 0; i < 7; i++) await tap('kp:del');
+    const k1 = await kp(), lit1 = await lit();
+    await tap('kp:h'); const k2 = await kp();
+    await tap('kp:a'); await tap('kp:l'); await tap('kp:l'); const k3 = await kp();
+    await tap('kp:space'); const litSp = await lit(); await tap('kp:shift'); const litSh = await lit(); await tap('kp:b'); const k4 = await kp();
+    await shot(H, 'names-4-keypad.png');
+    if (dir) { const u = await H.evaluate(() => HOST.collab.overlay().panel.ctx.canvas.toDataURL('image/png')); fs.writeFileSync(path.join(dir, 'names-4-keypad.png'), Buffer.from(u.split(',')[1], 'base64')); }
+    await tap('kp:ok');
+    const kDone = await until(H, () => !HOST.collab.keypadState(), null, 4000);
+    const aH = await nameIs(A, 'Hall b', 5000), bH = await nameIs(B, 'Hall b', 5000);
+    check('room names: the headset\'s Name row opens the keypad (title, the name so far, Shift key); Delete empties it; a capital at the start (Shift lit), none after Shift is pressed after a space; OK sets it for A and B',
+      pressed && k0 && k0.title === 'Name this room' && k0.value === 'Lab Two' && k0.caps && k0.empty && k1.value === '' && lit1 === true && k2.value === 'H' && k3.value === 'Hall' && litSp === true && litSh === false && k4.value === 'Hall b' && kDone && aH && bH,
+      JSON.stringify({ pressed, k0, k1, lit1, k2, k3, litSp, litSh, k4, kDone, aH, bH }));
+    await frames(H, 200);
+    await tap('room:name');
+    for (let i = 0; i < 8; i++) await tap('kp:del');
+    const okRow = await H.evaluate(() => { const r = HOST.collab.menuFind('kp:ok'); return !!(r && r.fn); });
+    await tap('kp:ok');
+    const cleared = await until(A, () => HOST.collab.roomName() === '', null, 5000);
+    await A.evaluate(() => HOST.collab.setRoomName('Lab Two'));
+    await nameIs(H, 'Lab Two', 5000);
+    check('room names: OK with nothing typed is pressable (the keypad\'s empty option) and clears the name; set back from A', okRow && cleared, JSON.stringify({ okRow, cleared }));
+    // 7. rooms on this network
+    const C = await nopen(at(HP, '#stories')); pages.push(C);
+    await C.evaluate(() => HOST.collab.dialog(true));
+    const cSees = await listedNm(C, XYZ), cRow = await rowNm(C, XYZ);
+    await shot(C, 'names-2-near.png');
+    const rel = (await (await fetch(`http://127.0.0.1:${HP}/api/near`)).json()).rooms.find(r => r.code === XYZ);
+    const D = await nopen(at(AP, '#stories')); pages.push(D);
+    await D.evaluate(() => HOST.collab.dialog(true));
+    const dLooked = await looked(D), dNear = await D.evaluate(() => (HOST.collab.nearby() || []).map(r => r.code));
+    check('room names: rooms on this network list the room with its name and the code beside it, the relay\'s row has title; a page on another network does not list it',
+      cSees && cRow && cRow[0] === 'Lab Two' && cRow[1] === XYZ && rel && rel.title === 'Lab Two' && dLooked && !dNear.includes(XYZ), JSON.stringify({ cSees, cRow, rel, dLooked, dNear }));
+    await H.evaluate(() => HOST.collab.leave());
+    await until(H, () => !HOST.collab.joined, null, 5000);
+    await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); HOST.collab.findNear(); });
+    const hNear = await until(H, c => (HOST.collab.nearby() || []).some(r => r.code === c && r.title === 'Lab Two'), XYZ, 15000);
+    await frames(H, 300);
+    const hReg = await H.evaluate(c => !!HOST.collab.menuFind('near:' + c), XYZ);
+    check('room names: after leaving, the headset\'s menu lists the room under On this network with its name (a row to join it)', hNear && hReg, JSON.stringify({ hNear, hReg }));
+    await H.evaluate(() => window.__xr.end());
+    // 8. kept copy and rejoin notice
+    await B.evaluate(() => HOST.collab.dialog(false));
+    await sleep(500);
+    const bState = await B.context().storageState();
+    await reopen(B, at(HP, '#stories'));
+    const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, XYZ, 40000);
+    const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t ? t.textContent : ''; });
+    const copy = await B.evaluate(c => { try { return JSON.parse(localStorage.getItem('collabRoom.' + c)).keys.name.v.v; } catch (e) { return null; } }, XYZ);
+    const keptRow = await B.evaluate(c => (HOST.collab.kept().find(r => r.code === c) || {}).name, XYZ);
+    check('room names: the room\'s copy kept on the device holds the name, kept() has it, and the rejoin notice says Back in Lab Two (room XYZ)',
+      bBack && tText.includes(`Back in Lab Two (room ${XYZ})`) && copy === 'Lab Two' && keptRow === 'Lab Two', JSON.stringify({ bBack, tText, copy, keptRow }));
+    // 9. the offer
+    const moved = JSON.parse(JSON.stringify(bState));   // (the copy says it was used on another network)
+    for (const o of moved.origins || []) for (const e of o.localStorage || []) if (e.name === 'collabRoom.' + XYZ) { const v = JSON.parse(e.value); v.net = 'abcdef'; e.value = JSON.stringify(v); }
+    const E = await nopen(at(HP, '#stories'), { state: moved }); pages.push(E);
+    await E.evaluate(() => HOST.collab.dialog(true));
+    const eAgain = await until(E, c => !!document.querySelector(`#shared .sh-near [data-sh="again:${c}"]`), XYZ, 20000);
+    const eRow = await E.evaluate(() => { const li = document.querySelector('#shared .sh-near li.again'); return li ? [li.querySelector('.nm') ? li.querySelector('.nm').textContent : '', li.querySelector('button').textContent] : null; });
+    check('room names: a room kept on this device but on another network is offered with its name (Join Lab Two again)', eAgain && eRow && eRow[0] === 'Lab Two' && eRow[1] === 'Join Lab Two again', JSON.stringify({ eAgain, eRow }));
+    // 10. peer to peer
+    const server = `127.0.0.1:${N.port}/peerjs`, pat = net => `http://127.0.0.1:${N.port}/index.html#stories&peer=${server}&net=${net}`, nop = { noApi: true };
+    const P1 = await nopen(pat('home'), nop); pages.push(P1);
+    await P1.evaluate(() => HOST.collab.create());
+    await until(P1, () => HOST.collab.status === 'open' && HOST.collab.role === 'host' && !!HOST.collab.net, null, 30000);
+    const Q1 = await P1.evaluate(() => HOST.collab.code);
+    await P1.evaluate(() => HOST.collab.setRoomName('Quiet Room'));
+    await until(P1, () => window.__collabLog.some(e => e.ev === 'shown on this network'), null, 15000);
+    const P2 = await nopen(pat('home'), nop); pages.push(P2);
+    await P2.evaluate(() => HOST.collab.dialog(true));
+    const p2Sees = await listedNm(P2, Q1, 45000), p2Row = await rowNm(P2, Q1);
+    const P3 = await nopen(pat('away'), nop); pages.push(P3);
+    await P3.evaluate(() => HOST.collab.dialog(true));
+    const p3Looked = await looked(P3, 60000), p3Near = await P3.evaluate(() => (HOST.collab.nearby() || []).map(r => r.code));
+    check('room names: peer to peer, the host\'s slot answer carries the name: a page on the same network lists Quiet Room, one on another network does not', p2Sees && p2Row && p2Row[0] === 'Quiet Room' && p3Looked && !p3Near.includes(Q1), JSON.stringify({ p2Sees, p2Row, p3Looked, p3Near }));
+    // 11. a room on this device
+    const L = await nopen(`http://127.0.0.1:${N.port}/index.html#stories&peer=off`, nop); pages.push(L);
+    await L.evaluate(() => HOST.collab.create());
+    await until(L, () => HOST.collab.status === 'open' && HOST.collab.local, null, 15000);
+    const lc = await L.evaluate(() => HOST.collab.code), lSet = await L.evaluate(() => HOST.collab.setRoomName('Annex'));
+    await sleep(1500);
+    await reopen(L, `http://127.0.0.1:${N.port}/index.html#s=${lc}&peer=off`);
+    const lBack = await until(L, c => HOST.collab.code === c, lc, 20000), lName = await nameIs(L, 'Annex', 40000);
+    check('room names: a room on this device alone can be named, and the name survives a reload (kept with its copy)', lSet === true && lBack && lName, JSON.stringify({ lSet, lBack, lName, now: await L.evaluate(c => [HOST.collab.code, HOST.collab.status, HOST.collab.local, JSON.stringify(HOST.collab.val('name')), (localStorage.getItem('collabRoom.' + c) || '').slice(0, 200)], lc) }));
+    // 12. nothing in logs
+    const logs = [];
+    for (const p of pages) { if (!p.isClosed()) logs.push(...await logOf(p).catch(() => [])); }
+    const nameLines = logs.filter(e => e.ev === 'room name');
+    const leak = logs.some(e => /Lab One|Lab Two|Hall b|Quiet Room|Annex/.test(JSON.stringify(e)) && e.ev !== 'keypad');
+    check('room names: the logs have room name lines with a length only, and no log line or the relay\'s output names a room', nameLines.length > 0 && nameLines.every(e => typeof e.len === 'number' && !('v' in e)) && !leak && !/Lab One|Lab Two|Hall|Quiet Room/.test(N.out),
+      JSON.stringify({ n: nameLines.length, leak: logs.filter(e => /Lab One|Lab Two|Hall b|Quiet Room/.test(JSON.stringify(e))).slice(0, 2), out: /Lab One|Lab Two|Hall|Quiet Room/.test(N.out) }));
+    // 13. an older device
+    const old = await new Promise(res => {
+      const w = new WebSocket(`ws://127.0.0.1:${N.port}/api/ws?room=${XYZ}&id=oldone1&proto=1`), got = [];
+      w.onopen = () => w.send(JSON.stringify({ t: 'hello', name: 'Old', version: 'networks-46', proto: 1 }));
+      w.onmessage = e => got.push(String(e.data).slice(0, 120));
+      w.onclose = e => res({ code: e.code, got });
+      setTimeout(() => { try { w.close(); } catch (e) { /* gone */ } }, 5000);
+    });
+    check('room names: a device of networks-46 is refused by the networks-47 room (the bump)', FORMAT === 'networks-47' && (old.code === 4006 || old.got.some(g => /4006|version/.test(g))), JSON.stringify(old));
   } finally {
     for (const c of all) await c.close().catch(() => {});
     for (const s of servers) s.close();
@@ -7464,6 +7699,7 @@ try {
   await startRelay(relayPort);
   main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
   if (P2P || NEAR_ONLY) break main;
+  if (NAMES_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await namesRound(shots); break main; }
   if (DESIGN_ONLY) { await designOnly(); break main; }
   if (FOLLOW_ONLY) { await followOnly(); break main; }
   if (CIRCLES_ONLY) { await circlesOnly(); break main; }
@@ -9849,8 +10085,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

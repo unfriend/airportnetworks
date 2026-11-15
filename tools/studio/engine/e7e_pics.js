@@ -354,6 +354,12 @@ function tileFor(t) {
       x.beginPath(); x.moveTo(q[0], q[1]); x.bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]); x.lineWidth = q[8]; x.strokeStyle = new THREE.Color(col(i)).multiplyScalar(0.9).getStyle(); x.stroke();
     });
     for (let d = 0; d < 26; d++) { const a = d * 2.4, r = 6 + (d * 37 % 31); x.beginPath(); x.arc(176 + Math.cos(a) * r, 196 + Math.sin(a) * r * 0.6, 3.2, 0, 7); x.fillStyle = new THREE.Color(col(3)).getStyle(); x.fill(); }
+  } else if (t.k === 'seq') {
+    // a sequence: three lanes of blocks and diamonds on a time line, a play triangle's playhead over them (v146)
+    for (let i = 0; i < 3; i++) line([40, 84 + i * 40], [216, 84 + i * 40], rgb(0.4), 3);
+    poly([[52, 74], [112, 74], [112, 94], [52, 94]], rgb(1, 0.15)); poly([[124, 114], [190, 114], [190, 134], [124, 134]], rgb(0.8));
+    poly([[70, 154], [80, 164], [70, 174], [60, 164]], '#3ee08f'); poly([[180, 154], [190, 164], [180, 174], [170, 164]], '#ff5a4b');
+    line([150, 60], [150, 190], '#ffffff', 4); poly([[138, 52], [162, 52], [150, 68]], '#ffffff');
   } else if (t.k === 'trigger') { faces(0.16); edges(rgb(1, 0.3), 3.5, true); }
   else if (t.k === 'empty') {
     // an axis cross as the empty is drawn while editing: x red, y green, z blue, its ball in its colour

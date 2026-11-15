@@ -15,6 +15,8 @@
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
+// --only 'studio sequences': timelines of events on items (kind q), shared on the room's clock, v146;
+// --only 'studio press': an object's or shape's reactions to a press and to being pointed at, shared by a stamp, v146;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -38,7 +40,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-const step = async (name, fn) => { if (ONLY && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); };
+const step = async (name, fn) => { if (ONLY && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
 const smokeStep = step;
 
 await page.goto(base + 'index.html');
@@ -4726,8 +4728,8 @@ if (runs('studio tint')) {
     const got = [];
     got.push([await press('#pane-item [data-act="i:tint"][data-v="#ff5a4b"]'), ...await rec()]);
     const on = await tp.evaluate(() => (HOST.cur.peek('renderPanes()'), document.querySelector('#pane-item [data-act="i:tint"][data-v="#ff5a4b"]').getAttribute('aria-pressed')));
-    // any colour (the page's colour field: taken once chosen)
-    await tp.evaluate(() => { const i = document.querySelector('#stuTint'); i.value = '#3366CC'; i.dispatchEvent(new Event('change', { bubbles: true })); });
+    // any colour (the page's picker: a typed hex, taken on Enter)
+    await tp.click('#stuTint'); await tp.fill('#stuCpkHex', '#3366CC'); await tp.press('#stuCpkHex', 'Enter'); await tp.keyboard.press('Escape');   // (v146: the shared picker's popover and its hex field)
     got.push(['colour', ...await rec()]);
     got.push([await press('#pane-item [data-act="i:bright"][data-v="0.8"]'), ...await rec()]);
     got.push([await press('#pane-item [data-act="i:bright"][data-v="1.25"]'), ...await rec()]);
@@ -4761,21 +4763,254 @@ if (runs('studio tint')) {
     if (JSON.stringify(gg) !== JSON.stringify(gwant) || !differ) out.push('a group\'s rows (both objects in one step; Brighter each by its own): ' + JSON.stringify({ gg, gwant, differ }));
     while (await ss('UNDO.length') > u0) await ss('undo()');
     await ss(`(removeItem('grp001'), setRec('box001', { tint: undefined, bright: undefined }), setRec('twn001', { tint: undefined, bright: undefined }), 0)`);
-    // the headset's rows: a swatch and Brighter pressed on its panel (no colour field there: a page's)
+    // the headset's rows: a swatch and Brighter pressed on its panel (its Any colour... opens the picker block)
     const xr = await ss(`(() => {
       XR.on = true;
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
       const ids = new Set(), press = id => { for (let off = 0; off < 6000; off += 150) { X.scroll.item = off; draw(); XR.main.regions.forEach(z => ids.add(z.id)); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       select('box001'); X.tab = 'item'; X.scroll = {}; draw();
-      const r = [press('tint:#3ee08f'), press('bright:+'), STU.items.get('box001').rec.tint, STU.items.get('box001').rec.bright, ['tint:none', 'tint:#ff5a4b', 'bright:-'].every(i => ids.has(i)), [...ids].some(i => /stuTint/.test(i))];
+      const r = [press('tint:#3ee08f'), press('bright:+'), STU.items.get('box001').rec.tint, STU.items.get('box001').rec.bright, ['tint:none', 'tint:#ff5a4b', 'bright:-'].every(i => ids.has(i)), ids.has('cpk:tint')];
       XR.on = false; select(''); X.tab = 'scene'; renderPanes();
       return r;
     })()`);
-    if (JSON.stringify(xr) !== '[true,true,"#3ee08f",1.25,true,false]') out.push('the headset\'s rows: ' + JSON.stringify(xr));
+    if (JSON.stringify(xr) !== '[true,true,"#3ee08f",1.25,true,true]') out.push('the headset\'s rows: ' + JSON.stringify(xr));
     await ss(`setRec('box001', { tint: undefined, bright: undefined })`);
     bad(out);
     await tp.close();
   });
+}
+// The shared colour picker (v146; the owner, 15 November 2026; tools/studio/engine/e7h_colour.js), on a page of its own at the
+// rig scene (the box and Twin): the page's popover (a hue ring and a square dragged with a real mouse, previewed on the box
+// alone and written when let go, one Undo step a drag; a typed hex; recents kept on the device; swatches; arrow keys; Esc and
+// an outside press), a shape's and the paint colour's; then a pretend headset's block on the card (a drag by the regions as a
+// ray drags them, its strip sent to the texture alone, one Undo step when let go, a ray off the panel, a lost controller)
+if (runs('studio colour')) {
+  const cp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  cp.on('pageerror', e => errors.push('studio colour: ' + (e.stack || e.message)));
+  cp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio colour: ' + m.text()); });
+  const ss = s => cp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => cp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) { console.log('  studio colour:', list.join('\n    ')); errors.push(...list.map(b => 'studio colour: ' + b)); } };
+  const mc = id => ss(`(() => { const it = STU.items.get('${id}'); const m = it.model.meshes[0]; return [].concat(m.userData.lit || m.userData.scan)[0].color.getHexString(); })()`);
+  const rec = () => ss(`[STU.items.get('box001').rec.tint || '', UNDO.length]`);
+  const hue = hex => ss(`STUDIO.colourTest.hex2hsv('${hex}')[0]`);
+  const load = async () => {
+    await cp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await cp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) return false;
+    await ss(`(setRec('box001', { anim: 'off' }), setRec('box001', { tint: undefined, bright: undefined }), 0)`);
+    if (!await ss(`!!STU.items.get('twn001')`)) await ss(`(putItem('twn001', 'o', norm('o', { name: 'Twin', file: 'box.glb', p: [2.6, 0.25, -2], clip: 'Bob', anim: 'off' })), 0)`);
+    await until(`!!STU.items.get('twn001').model`, 30000);
+    await ss(`(setEdit(true), select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    return true;
+  };
+  // (the wheel's point for a hue on the ring, and for a place in the square, in page pixels)
+  const wheel = async () => { const b = await cp.locator('#stuCpk canvas').boundingBox(), k = b.width / 240; return { b, k, ring: h => [b.x + (120 + 104 * Math.cos(h * 2 * Math.PI)) * k, b.y + (120 + 104 * Math.sin(h * 2 * Math.PI)) * k], sq: (s, v) => [b.x + (60 + s * 120) * k, b.y + (60 + (1 - v) * 120) * k] }; };
+  const open = async (sel) => { await cp.evaluate(() => HOST.cur.peek('renderPanes()')); await cp.click(sel || '#stuTint'); await cp.waitForSelector('#stuCpk:not([hidden])'); };
+  const errOut = [];
+  let ok = false;
+  await step('studio colour: the page\'s Any colour is a button (no colour input), its popover opens inside the window with the ten swatches and no recent colours', async () => {
+    ok = await load();
+    if (!ok) { errOut.push('the rig scene did not load'); bad(errOut); return; }
+    await cp.evaluate(() => localStorage.removeItem('studioColours'));
+    await ss(`(CPKX.rc = null, 0)`);
+    const out = [];
+    const b = await cp.evaluate(() => { HOST.cur.peek('renderPanes()'); const e = document.querySelector('#stuTint'); return { tag: e && e.tagName, txt: e && e.textContent, exp: e && e.getAttribute('aria-expanded'), inputs: document.querySelectorAll('#explore input[type=color]').length }; });
+    if (b.tag !== 'BUTTON' || !/Any colour…/.test(b.txt) || !/#ffffff/.test(b.txt) || b.exp !== 'false' || b.inputs) out.push('the opener: ' + JSON.stringify(b));
+    await open();
+    const p = await cp.evaluate(() => { const e = document.querySelector('#stuCpk'), r = e.getBoundingClientRect(); return { inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, sw: e.querySelectorAll('.cpk-sw button').length, rc: e.querySelector('.cpk-rc').textContent, exp: document.querySelector('#stuTint').getAttribute('aria-expanded'), role: e.getAttribute('role') }; });
+    const st = await ss('STUDIO.colour().open');
+    if (!p.inside || p.sw !== 10 || !/No recent colours yet/.test(p.rc) || p.exp !== 'true' || p.role !== 'dialog' || JSON.stringify(st) !== '{"tgt":"tint","id":"box001","where":"page"}') out.push('the popover: ' + JSON.stringify({ p, st }));
+    bad(out);
+  });
+  if (ok) await step('studio colour: a pointer drag on the ring then the square previews on the box alone and writes when let go, one Undo step each', async () => {
+    const out = [], w = await wheel(), c0 = await mc('box001'), t0 = await mc('twn001'), u0 = await ss('UNDO.length');
+    await cp.mouse.move(...w.ring(0.6)); await cp.mouse.down();
+    for (let i = 1; i <= 5; i++) await cp.mouse.move(...w.ring(0.6 + 0.004 * i), { steps: 1 });
+    await cp.waitForTimeout(150);
+    const mid = [await rec(), await mc('box001'), await mc('twn001'), await ss('STUDIO.colour().drag')];
+    await cp.mouse.up();
+    const after = await rec(), col = await ss('STUDIO.colour()');
+    const h = await hue(after[0]);
+    if (mid[0][0] !== '' || mid[0][1] !== u0 || mid[1] === c0 || mid[2] !== t0 || mid[3] !== 'ring') out.push('during the drag (record unchanged, the box previewed, Twin not): ' + JSON.stringify({ mid, c0, t0 }));
+    if (after[1] !== u0 + 1 || after[0] !== col.hex || Math.abs(h - 0.62) > 0.01) out.push('after the ring drag (one step, hue 0.62): ' + JSON.stringify({ after, hex: col.hex, h, u0 }));
+    await cp.mouse.move(...w.sq(0.5, 0.5)); await cp.mouse.down(); await cp.mouse.move(...w.sq(0.9, 0.9), { steps: 4 }); await cp.mouse.up();
+    const a2 = await rec(), h2 = await hue(a2[0]);
+    if (a2[1] !== u0 + 2 || a2[0] === after[0] || Math.abs(h2 - 0.62) > 0.01) out.push('after the square drag (one more step, same hue): ' + JSON.stringify({ a2, h2 }));
+    console.log('  studio colour: ring drag', JSON.stringify({ hex: after[0], hue: +h.toFixed(3), sq: a2[0], previews: col.previews }));
+    bad(out);
+  });
+  if (ok) await step('studio colour: a typed hex (Enter, three digits, invalid then blur) writes one step or none', async () => {
+    const out = [];
+    const u0 = await ss('UNDO.length');
+    await cp.fill('#stuCpkHex', '#3366CC'); await cp.press('#stuCpkHex', 'Enter');
+    const a = await rec();
+    await cp.fill('#stuCpkHex', '#zz');
+    const inv = await cp.getAttribute('#stuCpkHex', 'aria-invalid'), b = await rec();
+    await cp.evaluate(() => document.querySelector('#stuCpkHex').blur());
+    const back = await cp.inputValue('#stuCpkHex'), c = await rec();
+    await cp.fill('#stuCpkHex', '#abc'); await cp.press('#stuCpkHex', 'Enter');
+    const d = await rec();
+    if (a[0] !== '#3366cc' || a[1] !== u0 + 1) out.push('Enter: ' + JSON.stringify(a));
+    if (inv !== 'true' || b[0] !== '#3366cc' || b[1] !== u0 + 1 || back !== '#3366cc' || c[1] !== u0 + 1) out.push('invalid: ' + JSON.stringify({ inv, b, back, c }));
+    if (d[0] !== '#aabbcc' || d[1] !== u0 + 2) out.push('#abc: ' + JSON.stringify(d));
+    bad(out);
+  });
+  if (ok) await step('studio colour: recent colours (newest first, eight at most, no duplicates, shared by every picker) are kept on the device across a reload', async () => {
+    const out = [];
+    const rcs = () => cp.evaluate(() => [...document.querySelectorAll('#stuCpk .cpk-rc button')].map(b => b.dataset.hex));
+    const first = await rcs();
+    if (first[0] !== '#aabbcc' || first[1] !== '#3366cc') out.push('the first two: ' + JSON.stringify(first));
+    const hexes = ['#aa3311', '#11aa33', '#3311aa', '#aa1133', '#33aa11', '#1133aa', '#ccaa22', '#22ccaa', '#aa22cc', '#3366cc'];
+    for (const h of hexes) { await cp.fill('#stuCpkHex', h); await cp.press('#stuCpkHex', 'Enter'); }
+    const r = await rcs(), ls = await cp.evaluate(() => JSON.parse(localStorage.getItem('studioColours')));
+    const want = hexes.slice().reverse().slice(0, 8);
+    if (JSON.stringify(r) !== JSON.stringify(want) || JSON.stringify(ls) !== JSON.stringify(want)) out.push('ten commits: ' + JSON.stringify({ r, ls, want }));
+    await cp.keyboard.press('Escape');
+    if (!await load()) { out.push('reload failed'); bad(out); return; }
+    await open();
+    const r2 = await rcs();
+    if (JSON.stringify(r2) !== JSON.stringify(want)) out.push('after a reload: ' + JSON.stringify(r2));
+    bad(out);
+  });
+  if (ok) await step('studio colour: a swatch and a recent each write one step; the arrow keys one step for a run; Esc takes a drag back; an outside press closes', async () => {
+    const out = [];
+    let u = await ss('UNDO.length');
+    await cp.click('#stuCpk .cpk-sw button[data-hex="#ff5a4b"]');
+    const a = await rec();
+    await cp.click('#stuCpk .cpk-rc button >> nth=1');
+    const want = await cp.evaluate(() => document.querySelectorAll('#stuCpk .cpk-rc button')[1].dataset.hex);
+    const b = await rec();
+    if (a[0] !== '#ff5a4b' || a[1] !== u + 1) out.push('swatch: ' + JSON.stringify(a));
+    if (b[1] !== u + 2 || !/^#[0-9a-f]{6}$/.test(b[0])) out.push('recent: ' + JSON.stringify({ b, want }));
+    // keys
+    await cp.fill('#stuCpkHex', '#33aa66'); await cp.press('#stuCpkHex', 'Enter');
+    u = await ss('UNDO.length');
+    const h0 = await ss('STUDIO.colour().hsv[0]');
+    await cp.focus('#stuCpk canvas');
+    for (let i = 0; i < 5; i++) await cp.keyboard.press('ArrowRight');
+    await cp.waitForTimeout(700);
+    const h1 = await ss('STUDIO.colour().hsv[0]'), k = await rec();
+    if (k[1] !== u + 1 || Math.abs(((h1 - h0 + 1.5) % 1) - 0.5 - 5 / 360) > 0.002) out.push('keys (one step, hue + 5/360): ' + JSON.stringify({ k, h0, h1, u }));
+    // Esc in a drag
+    const w = await wheel(), before = await rec(), c0 = await mc('box001');
+    await cp.mouse.move(...w.ring(0.2)); await cp.mouse.down(); await cp.mouse.move(...w.ring(0.3), { steps: 3 }); await cp.waitForTimeout(100);
+    const during = await mc('box001');
+    await cp.keyboard.press('Escape');
+    await cp.mouse.up();
+    const hid = await cp.evaluate(() => document.querySelector('#stuCpk').hidden), aft = await rec(), c1 = await mc('box001'), sel = await ss('STU.sel');
+    if (!hid || aft[0] !== before[0] || aft[1] !== before[1] || c1 !== c0 || during === c0 || sel !== 'box001') out.push('Esc in a drag: ' + JSON.stringify({ hid, before, aft, c0, during, c1, sel }));
+    // outside
+    await open();
+    await cp.evaluate(() => document.querySelector('#pane-item h3').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })));   // (a press on the panel's heading: the popover may cover it, so not a click)
+    const hid2 = await cp.evaluate(() => document.querySelector('#stuCpk').hidden), aft2 = await rec();
+    if (!hid2 || aft2[1] !== before[1]) out.push('outside press: ' + JSON.stringify({ hid2, aft2 }));
+    bad(out);
+  });
+  if (ok) await step('studio colour: a shape\'s colour and the paint colour use the same picker (the shape one step and Undo; the paint colour a tool setting, previewed on the tip, no step)', async () => {
+    const out = [];
+    const id = await ss(`addShape('cube')`);
+    await ss(`(X.tab = 'item', renderPanes(), 0)`);
+    const u = await ss('UNDO.length');
+    await open('#stuShapeCol');
+    await cp.fill('#stuCpkHex', '#11aa55'); await cp.press('#stuCpkHex', 'Enter');
+    const r = await ss(`[STU.items.get('${id}').rec.colour, UNDO.length, STU.items.get('${id}').look.col]`);
+    if (r[0] !== '#11aa55' || r[1] !== u + 1 || r[2] !== '#11aa55') out.push('shape: ' + JSON.stringify(r));
+    await cp.keyboard.press('Escape');
+    await ss('undo()');
+    const r2 = await ss(`STU.items.get('${id}').rec.colour`);
+    if (r2 === '#11aa55') out.push('shape undo: ' + r2);
+    // paint
+    await ss(`(paintOn(null), select(''), X.tab = 'paint', renderPanes(), 0)`);
+    const u1 = await ss('UNDO.length'), pc0 = await ss('PAINT.colour');
+    await open('#stuPaintCol');
+    const o = await ss('STUDIO.colour().open');
+    const w = await wheel();
+    await cp.mouse.move(...w.ring(0.4)); await cp.mouse.down(); await cp.mouse.move(...w.ring(0.45), { steps: 3 }); await cp.waitForTimeout(100);
+    const d = await ss('[PAINT.colour, STUDIO.colour().live, STUDIO.colour().drag]');
+    await cp.mouse.up();
+    const e = await ss('[PAINT.colour, UNDO.length, STUDIO.colour().recents[0]]');
+    if (o.tgt !== 'paint' || d[0] !== pc0 || !/^#/.test(d[1]) || d[2] !== 'ring') out.push('paint during: ' + JSON.stringify({ o, d, pc0 }));
+    if (e[0] === pc0 || e[1] !== u1 || e[2] !== e[0]) out.push('paint after: ' + JSON.stringify({ e, u1, pc0 }));
+    await cp.keyboard.press('Escape');
+    await ss(`(paintOff(), select('box001'), X.tab = 'item', renderPanes(), 0)`);
+    bad(out);
+  });
+  if (ok) await step('studio colour: a pretend headset\'s block on the card: its regions, a drag by the ray previews live with only a strip sent, one step when let go (also with the ray off the panel), swatch, Done, another selection, a lost controller', async () => {
+    const r = await ss(`(() => {
+      const out = [], P = XR.main, c = XR.ctrls[0];
+      XR.on = true;
+      let T = 1e9;
+      const draw = () => { for (const Q of XR.panels) { Q.last = ''; Q.t = -1e9; panelTick(Q, T += 1000); } };
+      const reg = id => P.regions.find(z => z.id === id);
+      const tick = () => { cpkStep(); panelTick(P, T += 100); };
+      const hov = (x, y) => { c.hover = { kind: 'panel', P, x, y, point: new THREE.Vector3() }; };
+      const press = (x, y) => { hov(x, y); xrPress(c); };
+      const move = (x, y) => { hov(x, y); if (c.press && c.press.r.drag) c.press.r.drag(x, y); };
+      const box = () => STU.items.get('box001'), tint = () => box().rec.tint || '';
+      const R = GL.renderer;
+      setRec('box001', { tint: undefined }); select('box001'); X.tab = 'item'; X.scroll = {}; draw();
+      for (let i = 0; i < 4 && !reg('cpk:tint'); i++) { X.scroll.item = i * 300; draw(); }
+      const o1 = reg('cpk:tint'); o1.fn(); draw(); draw();
+      const ids = P.regions.map(z => z.id);
+      out.push(['block', [['cpk:ring', 'cpk:sq', 'cpk:done'].every(i => ids.includes(i)), ids.filter(i => i.startsWith('cpk:sw:')).length, P.pickers.length]]);
+      R.initTexture(P.tex);
+      const col0 = (() => { const m = box().model.meshes[0]; return [].concat(m.userData.lit || m.userData.scan)[0].color.getHexString(); })();
+      const u0 = UNDO.length, v0 = P.tex.version, nd0 = P.nd, pt0 = CPK.patches, pa0 = P.patched || 0, px0 = P.patchPx || 0;
+      const P0 = STUDIO.colourTest.xrPoint('ring', 0.3);
+      press(...P0);
+      for (let i = 0; i <= 20; i++) { const q = STUDIO.colourTest.xrPoint('ring', 0.3 + 0.15 * i / 20); move(...q); tick(); }
+      const mid = [tint(), UNDO.length - u0, (() => { const m = box().model.meshes[0]; return [].concat(m.userData.lit || m.userData.scan)[0].color.getHexString(); })() !== col0, P.nd - nd0, P.tex.version - v0, CPK.patches - pt0, (P.patched || 0) - pa0, ((P.patchPx || 0) - px0) / Math.max(1, (P.patched || 0) - pa0), CPK.drag];
+      xrRelease(c); c.hover = null;
+      const nd1 = P.nd; tick(); tick();
+      const hex = STUDIO.colour().hex, hh = STUDIO.colourTest.hex2hsv(hex)[0];
+      out.push(['ring', mid, [tint() === hex, UNDO.length - u0, +hh.toFixed(3), P.nd - nd1]]);
+      // the square, then the ray off the panel
+      const u1 = UNDO.length, a = STUDIO.colourTest.xrPoint('sq', 0.3, 0.3), b = STUDIO.colourTest.xrPoint('sq', 0.8, 0.7);
+      draw(); const a1 = STUDIO.colourTest.xrPoint('sq', 0.3, 0.3);
+      press(...a1); move(...STUDIO.colourTest.xrPoint('sq', 0.8, 0.7)); tick();
+      const shown = STUDIO.colour().hex; c.hover = null; tick();
+      xrRelease(c); tick();
+      out.push(['square', [UNDO.length - u1, tint() === shown, shown !== STUDIO.colour().from ? 0 : 1]]);
+      // a swatch, and the recents shared with the page's list
+      draw(); const sw = reg('cpk:sw:#3ee08f'), u2 = UNDO.length; sw.fn(); draw();
+      out.push(['swatch', [tint(), UNDO.length - u2, JSON.parse(localStorage.getItem('studioColours'))[0]]]);
+      // Done closes
+      reg('cpk:done').fn(); draw();
+      out.push(['done', [CPK.open, P.pickers.length, P.regions.some(z => z.id === 'cpk:ring')]]);
+      // another selection closes it, writing nothing
+      draw(); reg('cpk:tint').fn(); draw(); draw();
+      const u3 = UNDO.length, t3 = tint(); select(''); draw();
+      out.push(['select', [CPK.open, UNDO.length - u3, tint() === t3]]);
+      // the shape's: open, drag, one step on its colour
+      const sid = addShape('cube'); X.tab = 'item'; X.scroll = {}; draw();
+      for (let i = 0; i < 8 && !reg('cpk:shape'); i++) { X.scroll.item = i * 300; draw(); }
+      reg('cpk:shape').fn(); draw(); draw();
+      const u4 = UNDO.length; press(...STUDIO.colourTest.xrPoint('ring', 0.8)); move(...STUDIO.colourTest.xrPoint('ring', 0.85)); tick(); xrRelease(c); tick();
+      out.push(['shape', [STU.items.get(sid).rec.colour, UNDO.length - u4, STU.items.get(sid).look.col]]);
+      // a lost controller: press, move, the press gone, one step committed
+      draw(); const u5 = UNDO.length, c5 = STU.items.get(sid).rec.colour;
+      press(...STUDIO.colourTest.xrPoint('ring', 0.1)); move(...STUDIO.colourTest.xrPoint('ring', 0.15)); tick();
+      c.press = null; tick();
+      out.push(['lost', [STU.items.get(sid).rec.colour !== c5, UNDO.length - u5, CPK.drag === '']]);
+      CPK_ACT.cpkDone(); removeItem(sid); XR.on = false; c.hover = null; c.press = null; select(''); X.tab = 'scene'; renderPanes();
+      return out;
+    })()`);
+    const out = [], o = Object.fromEntries(r.map(x => [x[0], x[1]]));
+    if (!(o.block[0] === true && o.block[1] === 10 && o.block[2] === 1)) out.push('the block: ' + JSON.stringify(o.block));
+    const m = r[1][1], f = r[1][2];
+    if (m[0] !== '' || m[1] !== 0 || !m[2] || m[3] !== 0 || m[4] !== 0 || m[5] < 3 || m[6] < 3 || m[7] > 1100 * 460 || m[8] !== 'ring') out.push('during the ring drag (record unchanged, previewed, no whole card, strips): ' + JSON.stringify(m));
+    if (!f[0] || f[1] !== 1 || Math.abs(f[2] - 0.45) > 0.02 || f[3] < 1) out.push('after the ring drag (one step, hue 0.45, the card drawn again): ' + JSON.stringify(f));
+    if (o.square[0] !== 1 || !o.square[1]) out.push('the square with the ray off the panel: ' + JSON.stringify(o.square));
+    if (o.swatch[0] !== '#3ee08f' || o.swatch[1] !== 1 || o.swatch[2] !== '#3ee08f') out.push('swatch: ' + JSON.stringify(o.swatch));
+    if (o.done[0] !== null || o.done[1] !== 0 || o.done[2]) out.push('done: ' + JSON.stringify(o.done));
+    if (o.select[0] !== null || o.select[1] !== 0 || !o.select[2]) out.push('select: ' + JSON.stringify(o.select));
+    if (!/^#/.test(o.shape[0]) || o.shape[1] !== 1 || o.shape[2] !== o.shape[0]) out.push('shape: ' + JSON.stringify(o.shape));
+    if (!o.lost[0] || o.lost[1] !== 1 || !o.lost[2]) out.push('lost controller: ' + JSON.stringify(o.lost));
+    console.log('  studio colour: headset', JSON.stringify({ ring: r[1][1], after: r[1][2] }));
+    bad(out);
+  });
+  await cp.close();
 }
 // The studio's edit mode as fast as viewing (v136; the owner: "The edit mode still has worse framerates than not
 // editing, why?"; tools/studio/SPEC.md, "Editing without the cost"), on a page of its own at the test scene: what edit mode
@@ -7875,6 +8110,712 @@ if (runs('studio cube starts')) {
     await cp.close();
   });
 }
+// Sequences (v146, tools/studio/SPEC.md, "Sequences"): items of kind q, timelines of events on other items, played on the
+// room's clock from a shared play state (qr.<id>), on the test scene with its clocks held by the test (behNow and trgClock are
+// both window.__T, so a room moment and a run moment are the same). Steps: the record and norm; waiting until started; a
+// shared play (a clip, a sound, a show, a hide at once, a picture, a path), a late joiner, stop and rewind, a loop, the cube
+// rule, cubes and sequences that start sequences, each person's own, starting when the scene opens, the preview, the card
+// (page and headset), the lane view, and a second page at one held time drawing the same moment
+if (runs('studio sequences')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio sequences: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio sequences: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio sequences: ' + b)); };
+  const near = (a, b, e) => typeof a === 'number' && Math.abs(a - b) <= (e || 1e-3);
+  const T0 = 1e6;
+  // (in the page: one frame's steps at the held time T (n frames of 0.1 s); a node's height; an item's alpha and whether it is shown;
+  // the sequences made clean between steps; a sequence's record from a short form)
+  const HELP = `window.__sq = window.__sq || {
+    at: (T, n) => { if (T !== undefined) window.__T = T; shownFor(null); for (let k = 0; k < (n || 1); k++) itemsStep(0.1, performance.now()); return 0; },
+    y: id => +STU.items.get(id || 'box001').model.o.getObjectByName('box').position.y.toFixed(4),
+    a: id => +STU.items.get(id).a.toFixed(3), sh: id => STU.items.get(id).shown,
+    dx: id => { const p = STUDIO.pose(id); return p && p.drawn ? +(p.drawn[12] - p.placed[12]).toFixed(4) : 0; },
+    clean: () => { for (const q of [...STU.items.values()].filter(i => i.kind === 'q')) removeItem(q.id); STU.qr.clear(); STU.qOwn.clear(); trgReset('t'); SEQ.last.clear(); STU.qprev = null; return 0; },
+    mk: (id, rec) => { putItem(id, 'q', norm('q', rec, id)); return 0; },
+    w: (cmd, id, T) => { SEQ.last.clear(); window.__T = T; return seqCmd(id, cmd, T, 'test'); },
+    st: () => HOST.cur.collab.state(),
+  }`;
+  const EV = (t, on, what, o) => Object.assign({ t, on, what }, o);
+  const MAIN = [EV(0.5, 'box001', 'clip', { clip: 'Lift', how: 'once' }), EV(1, 'snd001', 'sound', { how: 'once' }), EV(1.5, 'fig001', 'show'), EV(2, 'box001', 'hide', { fade: 'cut' }),
+    EV(2.5, 'box001', 'tex', { mat: 0, slot: 'map', file: 'tex/lime.png' }), EV(3, 'shp001', 'path', { how: 'once' })];
+  const mkMain = (extra) => ss(`(window.__sq.clean(), window.__sq.mk('seq001', ${JSON.stringify(Object.assign({ name: 'Intro', len: 4, ev: MAIN }, extra || {}))}), 0)`);
+
+  await step('studio sequences: the record: norm sorts the events by time and drops bad ones (a time out of range, an unknown what, a clip with no name, a hold on a sound, itself, a material of 300), keeps the first 200, lower-cases the colour, writes nothing for a loop that is off or a start by Play; the state and layout.json carry it and give it back; a layout\'s bad events are counted and those naming items it lacks (or of the wrong kind) dropped; Undo', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio sequences: the test scene did not load'); return; }
+    const lime = await sp.evaluate(() => { const cv = document.createElement('canvas'); cv.width = cv.height = 8; const x = cv.getContext('2d'); x.fillStyle = '#3cff28'; x.fillRect(0, 0, 8, 8); return cv.toDataURL('image/png').split(',')[1]; });
+    await sp.route('**/scenes/test/tex/*.png*', route => route.fulfill({ body: Buffer.from(lime, 'base64'), contentType: 'image/png' }));
+    await ss(`(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0},
+      STU.items.get('box001').E.clips.push(new THREE.AnimationClip('Lift', 1, [new THREE.VectorKeyframeTrack('box.position', [0, 1], [0, 0, 0, 0, 0.4, 0])])),
+      setRec('box001', { anim: 'off' }), setFiles(STU.files.concat([{ path: 'tex/lime.png', bytes: 90, at: 7, kind: 'image' }])),
+      putItem('shp001', 'p', norm('p', { name: 'Marker', shape: 'cube', p: [0, 0.5, -3], size: [0.3, 0.3, 0.3], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]], play: 'once', start: 'always', speed: 1 } })), 0)`);
+    const out = [];
+    const r = await ss(`(() => {
+      const many = Array.from({ length: 201 }, (_, i) => ({ t: 1, on: 'box001', what: 'show' }));
+      const n = ev => norm('q', { name: 'S', ev }, 'seq001');
+      const g = [{ t: 2, on: 'box001', what: 'show' }, { t: 0.5, on: 'fig001', what: 'hide', fade: 'cut' }, { t: 0.5, on: 'snd001', what: 'sound', how: 'loop' }];
+      const bads = [{ t: -1, on: 'box001', what: 'show' }, { t: 700, on: 'box001', what: 'show' }, { t: 1, on: 'box001', what: 'dance' }, { t: 1, on: 'box001', what: 'clip', how: 'once' }, { t: 1, on: 'snd001', what: 'sound', how: 'hold' },
+        { t: 1, on: 'seq001', what: 'seq' }, { t: 1, on: 'box001', what: 'tex', mat: 300, slot: 'map', file: '' }, { t: 1, on: 'box001', what: 'hide', fade: 'slow' }, { t: 1, on: 'box001', what: 'seq', how: 'hold' }, null, 5];
+      const a = n(g.concat(bads)), b = norm('q', { name: 'X', len: 3.456, col: '#FF00AA', loop: 'off', start: 'press', ev: [] }, 'seq001'), c = norm('q', { name: 'Y', loop: 'loop', start: 'open', sync: 'own' });
+      return [a.ev.map(e => e.t + e.on + e.what).join(), n(many).ev.length, JSON.stringify(Object.keys(b)), b.col, b.len, JSON.stringify(Object.keys(c)), norm('q', { name: 'Z', len: 700 }).len, norm('q', { name: 'Z', ev: 'x' }),
+        norm('q', { name: 'Z', col: 'red' }), norm('q', { name: 'Z', loop: 'sometimes' }), norm('q', { name: 'Z', sync: 'both' }), JSON.stringify(a.ev[1]), JSON.stringify(n([{ t: 1, on: 'box001', what: 'tex', mat: 1, slot: 'normalMap', file: '' }]).ev[0])];
+    })()`);
+    if (r[0] !== '0.5fig001hide,0.5snd001sound,2box001show') out.push('norm: sorted by time (ties in the order given), the bad ones dropped: ' + r[0]);
+    if (r[1] !== 200) out.push('201 events kept as 200: ' + r[1]);
+    if (r[2] !== '["name","len","col","ev"]' || r[3] !== '#ff00aa' || r[4] !== 3.46 || r[5] !== '["name","len","loop","start","sync","ev"]' || r[6] !== 600) out.push('the fields and their order, the colour, the length rounded and held: ' + JSON.stringify(r.slice(2, 7)));
+    if (r[7] !== null || r[8] !== null || r[9] !== null || r[10] !== null) out.push('bad fields make the record bad: ' + JSON.stringify(r.slice(7, 11)));
+    if (r[11] !== '{"t":0.5,"on":"snd001","what":"sound","how":"loop"}' || r[12] !== '{"t":1,"on":"box001","what":"tex","mat":1,"slot":"normalMap","file":""}') out.push('an event\'s fields in order: ' + r[11] + ' ' + r[12]);
+    // the state and layout.json; the layout's bad events
+    const l = await ss(`(() => {
+      window.__sq.clean(); const u0 = UNDO.length;
+      change(() => putItem('seq001', 'q', norm('q', { name: 'Intro', len: 4, ev: ${JSON.stringify(MAIN)} }, 'seq001')));
+      const st = window.__sq.st(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      const q = back.items.find(x => x.id === 'seq001');
+      const lay = JSON.parse(JSON.stringify(L)); lay.sequences.push({ id: 'seq002', name: 'Bad', ev: [{ t: 1, on: 'nope01', what: 'show' }, { t: 1, on: 'cube01', what: 'show' }, { t: 1, on: 'box001', what: 'clip' }, { t: 1, on: 'box001', what: 'show' }] });
+      const bl = readLayout(lay), q2 = bl.items.find(x => x.id === 'seq002');
+      const r = [!!st['q.seq001'], JSON.stringify(st['q.seq001']) === JSON.stringify(STU.items.get('seq001').rec), !!L.sequences && L.sequences.length === 1 && !('play' in L.sequences[0]) && L.sequences[0].id === 'seq001', !!q && JSON.stringify(q.rec) === JSON.stringify(STU.items.get('seq001').rec),
+        bl.seqBad, q2 && q2.rec.ev.length, Object.keys(st).some(k => k.startsWith('qr.')), UNDO.length - u0, unsaved()];
+      undo(); r.push(STU.items.has('seq001'), UNDO.length - u0);
+      const st2 = layoutOut(); r.push(st2.sequences === undefined);
+      return r;
+    })()`);
+    if (JSON.stringify(l) !== JSON.stringify([true, true, true, true, 3, 1, false, 1, true, false, 0, true])) out.push('state and layout round trip, a layout\'s bad events counted and dropped, one Undo step, no play state anywhere: ' + JSON.stringify(l));
+    bad(out);
+  });
+
+  await step('studio sequences: waits until started: an item a show event names is hidden, the tone and the path wait; nothing of the play state in the room\'s state, the layout or Unsaved changes', async () => {
+    await mkMain();
+    const r = await ss(`(() => { setEdit(false); window.__sq.at(${T0}, 3); const sq = window.__sq, k = STUDIO.seq('seq001'), p = STUDIO.plays('snd001').item, pa = STUDIO.plays('shp001').item;
+      return [sq.sh('fig001'), sq.sh('box001'), p && p.tgM, p && Object.keys(p.tr).length, pa && pa.tgM, sq.dx('shp001'), k.play.src, Object.keys(sq.st()).filter(x => x.startsWith('qr.')).length, STU.qr.size]; })()`);
+    if (JSON.stringify(r) !== JSON.stringify([false, true, 2, 0, 4, 0, 'none', 0, 0])) bad(['waiting: the figure hidden, the box shown, the tone and the path named and waiting, no play state: ' + JSON.stringify(r)]);
+  });
+
+  await step('studio sequences: a shared play: the state is written with no Undo step; the clip lifts the box, the tone starts, the figure fades in over 0.4 s, the box hides at once, its picture changes, the path runs, and it ends (the figure still shown, the box still hidden)', async () => {
+    const out = [];
+    const w = await ss(`(() => { const u = UNDO.length, s0 = unsaved(); window.__sq.w('start', 'seq001', ${T0}); const st = window.__sq.st()['qr.seq001'];
+      return [JSON.stringify(st), UNDO.length - u, unsaved() === s0, STU.qr.get('seq001').on]; })()`);
+    if (w[0] !== JSON.stringify({ n: 1, on: true, at: T0, t: 0, ts: T0, by: '' }) || w[1] !== 0 || !w[2]) out.push('the play state in the room\'s state, no Undo step, Unsaved changes unmoved: ' + JSON.stringify(w));
+    const at = (T, n) => ss(`window.__sq.at(${T}, ${n || 1})`);
+    await at(T0 + 450);
+    if (!near(await ss(`window.__sq.y()`), 0)) out.push('before the first event the box is at rest');
+    await at(T0 + 600);
+    const y1 = await ss(`window.__sq.y()`); if (!(y1 > 0.005 && y1 < 0.03)) out.push('0.1 s into the lift, blended in: y ' + y1);
+    await at(T0 + 1100);
+    const sn = await ss(`(() => { const p = STUDIO.plays('snd001').item; return [!!p.tr.sound, p.tr.sound && p.tr.sound.how]; })()`);
+    if (!sn[0] || sn[1] !== 'once') out.push('the tone\'s run: ' + JSON.stringify(sn));
+    await at(T0 + 1450);
+    if (await ss(`window.__sq.sh('fig001')`)) out.push('the figure waits for 1.5 s');
+    await at(T0 + 1600);
+    const a1 = await ss(`window.__sq.a('fig001')`);
+    await at(T0 + 1700, 3);
+    const a2 = await ss(`window.__sq.a('fig001')`);
+    if (!(await ss(`window.__sq.sh('fig001')`)) || !(a1 > 0 && a1 < 1) || a2 !== 1) out.push(`the figure shown at 1.5 s and faded in (alpha ${a1} after one frame, ${a2} after 0.4 s)`);
+    await at(T0 + 2050);
+    const h = await ss(`[window.__sq.sh('box001'), window.__sq.a('box001')]`);
+    if (h[0] || h[1] !== 0) out.push('the box hides at once at 2.0 s (cut): ' + JSON.stringify(h));
+    await at(T0 + 2600, 2);
+    const tx = await ss(`JSON.stringify(STUDIO.tex('box001').on) + '|' + JSON.stringify(STUDIO.seq('seq001').tex)`);
+    if (!/"map","lit","lime.png"/.test(tx) || !/\["box001",0,"map","tex\/lime.png"\]/.test(tx)) out.push('the box\'s material 0 takes the lime picture at 2.5 s: ' + tx);
+    await at(T0 + 3500);
+    const dx = await ss(`window.__sq.dx('shp001')`);
+    if (!near(dx, 0.25, 0.02)) out.push('the path 0.5 s in (a metre in 2 s): ' + dx);
+    await at(T0 + 4100, 2);
+    const e = await ss(`(() => { const k = STUDIO.seq('seq001'); return [k.ended, k.playing, window.__sq.sh('fig001'), window.__sq.sh('box001'), near2(window.__sq.dx('shp001'))]; function near2(v) { return Math.abs(v - 0.55) < 0.03; } })()`);
+    if (JSON.stringify(e) !== JSON.stringify([true, false, true, false, true])) out.push('ended: the figure still shown, the box still hidden, the path on (1.1 s in): ' + JSON.stringify(e));
+    bad(out);
+  });
+
+  await step('studio sequences: a late joiner: the state alone (applied to a page with nothing running) gives the same result at once: the box hidden, the figure shown, the picture on, the lift long over (no layer), the path at its moment', async () => {
+    const r = await ss(`(() => {
+      const sq = window.__sq, T = ${T0 + 20000}; sq.clean(); sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: MAIN })});
+      const st = sq.st(); st['qr.seq001'] = { n: 1, on: true, at: T - 3500, t: 0, ts: T - 3500, by: 'Ann' };
+      collabApply(st); sq.at(T, 2);
+      const k = STUDIO.seq('seq001'), L = STUDIO.plays('box001').item;
+      return [sq.sh('fig001'), sq.sh('box001'), sq.a('box001'), L.layers.length, JSON.stringify(STUDIO.tex('box001').on), sq.dx('shp001'), k.play.src, k.play.at === T - 3500, k.fired, STU.qr.has('seq001')];
+    })()`);
+    if (!r[0] || r[1] || r[2] !== 0 || r[3] !== 0 || !/lime.png/.test(r[4]) || !near(r[5], 0.25, 0.02) || r[6] !== 'room' || !r[7] || r[8] !== 3 || !r[9]) bad(['a late joiner: ' + JSON.stringify(r)]);
+    // (the room dropping the field takes the state away here)
+    const g = await ss(`(() => { const st = window.__sq.st(); delete st['qr.seq001']; collabApply(st); window.__sq.at(${T0 + 20100}); return [STU.qr.size, STUDIO.seq('seq001').play.src, window.__sq.sh('fig001'), window.__sq.sh('box001')]; })()`);
+    if (JSON.stringify(g) !== JSON.stringify([0, 'none', false, true])) bad(['the state without the field: rewound, the box shown and the figure hidden: ' + JSON.stringify(g)]);
+  });
+
+  await step('studio sequences: stop and rewind: stop lets a loop come off (its layer fading) and leaves what was shown and hidden; rewind clears every run at once, the figure is hidden again and the box shown, t is -1', async () => {
+    const T = T0 + 40000, out = [];
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq002', ${JSON.stringify({ name: 'Loopy', len: 4, ev: [EV(0.2, 'box001', 'clip', { clip: 'Bob', how: 'loop' }), EV(0.3, 'fig001', 'show'), EV(0.4, 'box001', 'hide', { fade: 'cut' })] })}), window.__sq.w('start', 'seq002', ${T}), 0)`);
+    await ss(`window.__sq.at(${T + 600}, 2)`);
+    const a = await ss(`(() => { const R = STUDIO.plays('box001').item.tr.clip; return [R && R.how, R && R.off, window.__sq.sh('fig001'), window.__sq.sh('box001'), window.__sq.y()]; })()`);
+    if (a[0] !== 'loop' || a[1] || !a[2] || a[3]) out.push('the loop of Bob, the figure shown, the box hidden: ' + JSON.stringify(a));
+    await ss(`window.__sq.w('stop', 'seq002', ${T + 1000})`);
+    await ss(`window.__sq.at(${T + 1010})`);
+    const b = await ss(`(() => { const R = STUDIO.plays('box001').item.tr.clip, k = STUDIO.seq('seq002'); return [R && R.off, STU.qr.get('seq002').on, STU.qr.get('seq002').t, k.playing, window.__sq.sh('fig001'), window.__sq.sh('box001')]; })()`);
+    if (b[0] !== T + 1000 || b[1] !== false || !near(b[2], 1, 0.01) || b[3] !== false || !b[4] || b[5]) out.push('stopped at 1.0 s: the loop came off, what was shown and hidden stays: ' + JSON.stringify(b));
+    await ss(`window.__sq.at(${T + 1500}, 2)`);
+    if ((await ss(`STUDIO.plays('box001').item.layers.length`)) !== 0) out.push('the loop\'s layer faded out');
+    await ss(`window.__sq.w('start', 'seq002', ${T + 2000})`); await ss(`window.__sq.at(${T + 2700}, 2)`);
+    await ss(`window.__sq.w('rewind', 'seq002', ${T + 2800})`); await ss(`window.__sq.at(${T + 2800})`);
+    const c = await ss(`(() => [STU.qr.get('seq002').t, STUDIO.plays('box001').item.layers.length, Object.keys(STUDIO.plays('box001').item.tr).length, window.__sq.sh('fig001'), window.__sq.sh('box001'), window.__sq.a('box001'), STUDIO.seq('seq002').play.src])()`);
+    if (c[0] !== -1 || c[1] !== 0 || c[2] !== 0 || c[3] || !c[4] || !(c[5] > 0) || c[6] !== 'room') out.push('rewound: the runs cleared at once, the figure hidden, the box shown: ' + JSON.stringify(c));
+    bad(out);
+  });
+
+  await step('studio sequences: a loop: at 2.2 s (cycle 1, before its first event) the last of the cycle before still holds, the events are fired again each cycle', async () => {
+    const T = T0 + 60000;
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq003', ${JSON.stringify({ name: 'Round', len: 2, loop: 'loop', ev: [EV(0.1, 'box001', 'clip', { clip: 'Lift', how: 'once' }), EV(0.5, 'fig001', 'show'), EV(1.5, 'fig001', 'hide')] })}), window.__sq.w('start', 'seq003', ${T}), 0)`);
+    await ss(`window.__sq.at(${T + 600}, 2)`);
+    const s1 = await ss(`window.__sq.sh('fig001')`);
+    await ss(`window.__sq.at(${T + 1700}, 2)`);
+    const s2 = await ss(`window.__sq.sh('fig001')`);
+    await ss(`window.__sq.at(${T + 1900})`);
+    const f0 = await ss(`SEQ.fired`);
+    await ss(`window.__sq.at(${T + 2150})`);
+    const f1 = await ss(`SEQ.fired`), k = await ss(`(() => { const k = STUDIO.seq('seq003'); return [k.cycle, window.__sq.sh('fig001')]; })()`);
+    await ss(`window.__sq.at(${T + 2600}, 2)`);
+    const s3 = await ss(`window.__sq.sh('fig001')`), c3 = await ss(`STUDIO.seq('seq003').cycle`);
+    if (!s1 || s2 || f1 - f0 !== 1 || k[0] !== 1 || k[1] !== false || !s3 || c3 !== 1) bad([`a loop: shown 0.6 s ${s1}, hidden 1.7 s ${s2}, one event fired into cycle 1 (${f1 - f0}), cycle ${k[0]}, hidden at 2.15 s ${!k[1]}, shown at 2.6 s ${s3}`]);
+    await ss(`window.__sq.clean()`);
+  });
+
+  await step('studio sequences: the cube rule: a cube hiding what a sequence showed, entered after it, hides it; the sequence started again (later) shows it; of two sequences with the same moment the higher id wins', async () => {
+    const T = T0 + 80000, out = [];
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq004', ${JSON.stringify({ name: 'Shows', len: 4, ev: [EV(0.5, 'fig001', 'show')] })}),
+      putItem('qcb001', 'c', norm('c', { name: 'Hider', p: [3, 1, 2], size: [1, 2, 1], hide: ['fig001'] })), window.__sq.w('start', 'seq004', ${T}), 0)`);
+    const W = [3, 1, 2], OUT = [3, 1, 6];
+    const at = async (h, t) => (await ss(`(window.__T = ${t}, shownFor(${JSON.stringify(h)}), itemsStep(0.1, performance.now()), window.__sq.sh('fig001'))`));
+    if (await at(OUT, T + 300)) out.push('before the event: waiting');
+    if (!await at(OUT, T + 700)) out.push('the sequence shows it');
+    if (await at(W, T + 1000)) out.push('a cube entered after it hides it');
+    await ss(`window.__sq.w('start', 'seq004', ${T + 2000})`);
+    if (await at(W, T + 2300)) out.push('before its event again');
+    if (!await at(W, T + 2600)) out.push('started again (later than the cube was entered), the sequence shows it');
+    await at(OUT, T + 2700);
+    await ss(`(window.__sq.clean(), window.__sq.mk('qa0001', ${JSON.stringify({ name: 'A', len: 2, ev: [EV(0.5, 'fig001', 'show')] })}), window.__sq.mk('qb0001', ${JSON.stringify({ name: 'B', len: 2, ev: [EV(0.5, 'fig001', 'hide')] })}), window.__sq.w('start', 'qa0001', ${T + 5000}), window.__sq.w('start', 'qb0001', ${T + 5000}), 0)`);
+    if (await at(OUT, T + 5600)) out.push('a tie: the higher id (B, hides) wins');
+    await ss(`(shownFor(null), putItem('qcb001', 'c', norm('c', { name: 'Hider', p: [3, 1, 2], size: [1, 2, 1] })), 0)`);
+    await ss(`window.__sq.clean(); STU.items.delete('qcb001'); removeItem('qcb001')`);
+    bad(out);
+  });
+
+  await step('studio sequences: cubes start sequences: walking in writes the state at the entry moment, a loop is stopped on leaving, a stop entry stops it; sequences start sequences from their events (derived: nothing written), a later play of the child wins, a chain stops at four hops, a sequence never starts itself', async () => {
+    const T = T0 + 100000, out = [], W = [3, 1, 2], OUT = [3, 1, 6];
+    const at = (h, t) => ss(`(window.__T = ${t}, shownFor(${JSON.stringify(h)}), itemsStep(0.1, performance.now()), 0)`);
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'fig001', 'show')] })}),
+      putItem('qcw001', 'c', norm('c', { name: 'Starter', p: [3, 1, 2], size: [1, 2, 1], plays: [{ on: 'seq001', what: 'seq', how: 'once' }] })), SEQ.last.clear(), 0)`);
+    await at(OUT, T); await at(W, T + 100);
+    const a = await ss(`(() => { const s = STU.qr.get('seq001'); return s ? [s.on, s.at, s.n] : null; })()`);
+    if (!a || !a[0] || a[1] !== T + 100) out.push('walking in starts it at the entry moment: ' + JSON.stringify(a));
+    await at(OUT, T + 3000); await at(OUT, T + 3500);
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'fig001', 'show')] })}), setRec('qcw001', { plays: [{ on: 'seq001', what: 'seq', how: 'loop' }] }), SEQ.last.clear(), 0)`);
+    await at(OUT, T + 10000); await at(W, T + 10100); await at(W, T + 10600);
+    const b = await ss(`[STU.qr.get('seq001').on, window.__sq.sh('fig001')]`);
+    await ss(`SEQ.last.clear()`); await at(OUT, T + 11000); await at(OUT, T + 11500);
+    const c = await ss(`[STU.qr.get('seq001').on, STU.qr.get('seq001').t, window.__sq.sh('fig001')]`);
+    if (!b[0] || !b[1] || c[0] || !near(c[1], 1.4, 0.2) || !c[2]) out.push('a loop entry: started inside, stopped on leaving (what it showed stays): ' + JSON.stringify([b, c]));
+    await ss(`(setRec('qcw001', { plays: [{ on: 'seq001', what: 'seq', how: 'stop' }] }), SEQ.last.clear(), window.__sq.w('start', 'seq001', ${T + 20000}), 0)`);
+    await at(OUT, T + 20100); await at(W, T + 20300);
+    if (await ss(`STU.qr.get('seq001').on`)) out.push('a stop entry stops it');
+    await ss(`(setRec('qcw001', { plays: undefined }), removeItem('qcw001'), 0)`);
+    // sequences start sequences
+    const T2 = T0 + 200000;
+    await ss(`(window.__sq.clean(), window.__sq.mk('sqa001', ${JSON.stringify({ name: 'Parent', len: 4, ev: [EV(1, 'sqb001', 'seq', { how: 'once' })] })}), window.__sq.mk('sqb001', ${JSON.stringify({ name: 'Child', len: 3, ev: [EV(0.5, 'fig001', 'show')] })}), window.__sq.w('start', 'sqa001', ${T2}), 0)`);
+    await ss(`window.__sq.at(${T2 + 1400}, 2)`);
+    const d = await ss(`(() => { const k = STUDIO.seq('sqb001'); return [k.play.src, k.play.at, k.play.on, STU.qr.has('sqb001'), JSON.stringify(Object.keys(window.__sq.st()).filter(x => x.startsWith('qr.'))), window.__sq.sh('fig001'), k.u]; })()`);
+    if (d[0] !== 'derived' || d[1] !== T2 + 1000 || !d[2] || d[3] || d[4] !== '["qr.sqa001"]' || d[5] || !near(d[6], 0.4, 0.01)) out.push('the child derived from the parent\'s event (at its moment, nothing written; 0.5 s in, the figure not yet): ' + JSON.stringify(d));
+    await ss(`window.__sq.at(${T2 + 1700}, 2)`);
+    if (!(await ss(`window.__sq.sh('fig001')`))) out.push('the derived child\'s event fires');
+    await ss(`(window.__sq.w('start', 'sqb001', ${T2 + 1800}), window.__sq.at(${T2 + 1900}), 0)`);
+    const e = await ss(`[STUDIO.seq('sqb001').play.src, STUDIO.seq('sqb001').play.at]`);
+    if (e[0] !== 'room' || e[1] !== T2 + 1800) out.push('a later play of the child wins: ' + JSON.stringify(e));
+    // a chain
+    const chain = ['qc1001', 'qc2001', 'qc3001', 'qc4001', 'qc5001', 'qc6001'];
+    await ss(`(window.__sq.clean(), ${chain.map((id, i) => `window.__sq.mk('${id}', ${JSON.stringify({ name: 'C' + (i + 1), len: 5, ev: i < 5 ? [EV(0.1, chain[i + 1], 'seq', { how: 'once' })] : [] })})`).join(', ')}, window.__sq.w('start', 'qc1001', ${T2 + 10000}), window.__sq.at(${T2 + 12000}), 0)`);
+    const ch = await ss(`${JSON.stringify(chain)}.map(id => STUDIO.seq(id).play.src)`);
+    if (JSON.stringify(ch) !== JSON.stringify(['room', 'derived', 'derived', 'derived', 'derived', 'none'])) out.push('a chain stops at four hops: ' + JSON.stringify(ch));
+    await ss(`window.__sq.clean()`);
+    bad(out);
+  });
+
+  await step('studio sequences: each person\'s own: Play writes nothing to the room\'s state (STU.qOwn), Reset what I have seen forgets it and a shared one stays; start: open writes the state a moment after the scene\'s items are in', async () => {
+    const T = T0 + 300000, out = [];
+    await ss(`(window.__sq.clean(), window.__sq.mk('qow001', ${JSON.stringify({ name: 'Mine', len: 4, sync: 'own', ev: [EV(0.5, 'fig001', 'show')] })}), window.__sq.mk('qsh001', ${JSON.stringify({ name: 'Ours', len: 4, ev: [EV(0.5, 'box001', 'hide')] })}), window.__sq.w('start', 'qow001', ${T}), window.__sq.w('start', 'qsh001', ${T}), window.__sq.at(${T + 700}), 0)`);
+    const a = await ss(`[STU.qOwn.has('qow001'), STU.qr.has('qow001'), JSON.stringify(Object.keys(window.__sq.st()).filter(x => x.startsWith('qr.'))), window.__sq.sh('fig001'), window.__sq.sh('box001'), STUDIO.seq('qow001').play.src]`);
+    if (!a[0] || a[1] || a[2] !== '["qr.qsh001"]' || !a[3] || a[4] || a[5] !== 'own') out.push('own: in qOwn, not in the state; the shared one in it: ' + JSON.stringify(a));
+    await ss(`(resetSeen(), window.__sq.at(${T + 800}), 0)`);
+    const b = await ss(`[STU.qOwn.size, STU.qr.has('qsh001'), window.__sq.sh('fig001'), window.__sq.sh('box001')]`);
+    if (b[0] !== 0 || !b[1] || b[2] || b[3]) out.push('Reset: the own state forgotten (the figure hidden again), the shared one stays (the box still hidden): ' + JSON.stringify(b));
+    // start: open
+    await ss(`(window.__sq.clean(), window.__sq.mk('qop001', ${JSON.stringify({ name: 'Auto', len: 4, start: 'open', loop: 'loop', ev: [EV(0.5, 'fig001', 'show')] })}), SEQ.wait = 60, SEQ.opened = -1, SEQ.t0 = 0, window.__sq.at(${T + 5000}), 0)`);
+    await sp.waitForTimeout(150);
+    await ss(`window.__sq.at(${T + 6000})`);
+    const c = await ss(`(() => { const s = STU.qr.get('qop001'); return [!!s, s && s.on, s && s.at]; })()`);
+    if (!c[0] || !c[1] || (c[2] !== T + 6000 && c[2] !== T + 5000)) out.push('start: open: written once, playing, a moment after the items were in: ' + JSON.stringify(c));
+    await ss(`(SEQ.wait = undefined, window.__sq.clean(), 0)`);
+    bad(out);
+  });
+
+  await step('studio sequences: the card (page): the transport works editing or not; Add an event... (the box, Lift, once, At 1.20) is one Undo step, a nudge pressed twice within 0.8 s is one, ✕ is one; deleting the box takes its events in the same step, duplicating it adds events for the copy, duplicating the sequence copies it; a locked sequence refuses event edits but plays; the story locked greys Play', async () => {
+    const out = [];
+    await ss(`(window.__sq.clean(), setEdit(true), window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'fig001', 'show')] })}), select('seq001'), X.tab = 'item', renderPanes(), 0)`);
+    const click = sel => sp.click('#pane-item ' + sel);
+    const u0 = await ss(`UNDO.length`);
+    await click('[data-act="i:sqPick"]');
+    await click('[data-act="i:sqOn"][data-v="box001"]');
+    await click('[data-act="i:sqWhat"][data-v="clip:Lift"]');
+    await click('[data-act="i:sqHow"][data-v="once"]');
+    for (let i = 0; i < 12; i++) await click('[data-act="i:sqAtD"][data-v="0.1"]');
+    const sent = await ss(`document.querySelector('#pane-item').textContent`);
+    if (!/At 1\.20 s, Box plays Lift once from its start\./.test(sent)) out.push('the sentence: ' + (sent.match(/At [^.]*\./) || [''])[0]);
+    await click('[data-act="i:sqAdd"]');
+    const a = await ss(`[UNDO.length, JSON.stringify(STU.items.get('seq001').rec.ev.map(e => e.t + e.what))]`);
+    if (a[0] - u0 !== 1 || a[1] !== '["0.5show","1.2clip"]') out.push('Add: one Undo step, the event in time order: ' + JSON.stringify(a));
+    const u1 = await ss(`UNDO.length`);
+    const n = await ss(`(itemAct('sqNudge', '1:0.5', 'seq001'), itemAct('sqNudge', '1:0.5', 'seq001'), [UNDO.length, STU.items.get('seq001').rec.ev[1].t])`);
+    if (n[0] - u1 !== 1 || !near(n[1], 2.2)) out.push('two nudges of +0.5 within 0.8 s: one step, 2.2 s: ' + JSON.stringify(n));
+    await click('[data-id="sqx:1"]');
+    const x = await ss(`[UNDO.length, STU.items.get('seq001').rec.ev.length]`);
+    if (x[0] - u1 !== 2 || x[1] !== 1) out.push('✕: one step: ' + JSON.stringify(x));
+    // the box deleted and its events with it; the copy of the box
+    const d = await ss(`(() => {
+      change(() => setRec('seq001', { ev: STU.items.get('seq001').rec.ev.concat(${JSON.stringify(EV(1, 'box001', 'clip', { clip: 'Lift', how: 'once' }))}) }));
+      const u = UNDO.length; deleteItem('box001'); const r = [UNDO.length - u, STU.items.get('seq001').rec.ev.length, STU.items.has('box001')];
+      undo(); r.push(UNDO.length - u, STU.items.get('seq001').rec.ev.length, STU.items.has('box001'));
+      const u2 = UNDO.length, nid = duplicateItem('box001'); r.push(UNDO.length - u2, STU.items.get('seq001').rec.ev.filter(e => e.on === nid).length, STU.items.get('seq001').rec.ev.filter(e => e.on === 'box001').length);
+      const u3 = UNDO.length, sid = duplicateItem('seq001'); r.push(UNDO.length - u3, STU.items.get(sid).rec.name, STU.items.get(sid).rec.ev.length, STU.qr.has(sid));
+      return r;
+    })()`);
+    if (JSON.stringify(d) !== JSON.stringify([1, 1, false, 0, 2, true, 1, 1, 1, 1, 'Intro 2', 3, false])) out.push('delete (its events go in the same step; Undo brings both back), duplicate (events for the copy beside the original\'s), duplicate the sequence: ' + JSON.stringify(d));
+    // a lock, editing off, the story locked
+    const k = await ss(`(() => {
+      const q = STU.items.get('seq001'), ev0 = JSON.stringify(q.rec.ev); setRec('seq001', { locked: true }); itemAct('sqDel', 0, 'seq001'); itemAct('sqNudge', '0:0.5', 'seq001'); itemAct('sqPick', null, 'seq001'); const kept = JSON.stringify(STU.items.get('seq001').rec.ev) === ev0 && !STU.plp;
+      select('seq001'); const add = paneBlocks('item').flatMap(b => b.row || []).find(x => x.id === 'sqadd');
+      window.__sq.clean(); window.__sq.mk('seq001', { name: 'Intro', len: 4, ev: [], locked: true }); select('seq001'); act('sqPlay'); const played = STU.qr.has('seq001');
+      setEdit(false); select('seq001'); STU.qr.clear(); act('sqPlay'); const off = STU.qr.has('seq001'); act('sqStop'); const stopped = STU.qr.get('seq001').on === false;
+      const row = () => paneBlocks('item').flatMap(b => b.row || []).find(x => x.id === 'sq:play');
+      const g0 = !!row().dis, el = editLocked; editLocked = () => true; STU.qr.clear(); select('seq001'); act('sqPlay'); const locked = STU.qr.has('seq001'), g1 = !!row().dis; editLocked = el;
+      setEdit(true); return [kept, !!add.dis, played, off, stopped, g0, locked, g1];
+    })()`);
+    if (JSON.stringify(k) !== JSON.stringify([true, true, true, true, true, false, false, true])) out.push('a locked sequence refuses event edits but plays; editing off: Play and Stop work, Add greyed; the story locked: Play does nothing and is greyed: ' + JSON.stringify(k));
+    bad(out);
+  });
+
+  await step('studio sequences: the preview: dragging the headset card\'s bar holds this device\'s preview at that moment (the room\'s state untouched, nothing written); it ends with editing or another selection; the headset card\'s rows and bar', async () => {
+    const out = [];
+    const r = await ss(`(() => {
+      window.__sq.clean(); window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'fig001', 'show'), EV(1, 'box001', 'clip', { clip: 'Lift', how: 'once' })] })});
+      XR.on = true; select('seq001'); X.tab = 'item'; X.scroll = {};
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const ids = () => { const out = []; for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); out.push(...XR.main.regions.map(z => z.id)); } X.scroll = {}; return [...new Set(out)]; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      draw(); const rows = ids(), res = [rows.includes('sq:play'), rows.includes('sq:stop'), rows.includes('sq:rew'), rows.includes('sqe:0'), rows.includes('sqn:0:0.5'), rows.includes('sqx:1'), rows.includes('sqadd'), rows.includes('seqbar')];
+      for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const z = XR.main.regions.find(q => q.id === 'seqbar'); if (z) { res.push(!!XR.main.bars && XR.main.bars.some(b => b.id === 'seqbar')); z.drag(z.x + z.w / 2); break; } }
+      X.scroll = {};
+      const k = STUDIO.seq('seq001'), keys = Object.keys(HOST.cur.collab.state()).filter(x => x.startsWith('qr.'));
+      res.push(k.play.src, near2(STU.qprev && STU.qprev.t, 2), keys.length, STU.qr.size);
+      res.push(press('sq:play'), STU.qr.has('seq001'), STU.qprev, press('sqx:1'), STU.items.get('seq001').rec.ev.length);
+      XR.on = false; X.tab = 'scene'; renderPanes();
+      return res; function near2(v) { return Math.abs(v - 2) < 0.01; }
+    })()`);
+    const want = [true, true, true, true, true, true, true, true, true, 'preview', true, 0, 0, true, true, null, true, 1];
+    if (JSON.stringify(r) !== JSON.stringify(want)) out.push('the headset card and the bar\'s drag: ' + JSON.stringify(r) + ' (wanted ' + JSON.stringify(want) + ')');
+    const e = await ss(`(() => { seqPreview(STU.items.get('seq001'), 1, false); const a = !!STU.qprev; setEdit(false); const b = !!STU.qprev; setEdit(true); seqPreview(STU.items.get('seq001'), 1, true); select('fig001'); return [a, b, !!STU.qprev]; })()`);
+    if (JSON.stringify(e) !== JSON.stringify([true, false, false])) out.push('the preview ends with editing and with another selection: ' + JSON.stringify(e));
+    bad(out);
+  });
+
+  await step('studio sequences: the lane view: it opens under a page with a sequence selected and editing, draws a block for every event, a real drag of a block moves it (one Undo step, snapped to 0.1 s), a drag on the ruler scrubs the preview, Space plays it, Delete deletes the selected event (one step), closing on deselect, never in a headset', async () => {
+    const out = [];
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'box001', 'clip', { clip: 'Lift', how: 'once' }), EV(1, 'snd001', 'sound', { how: 'once' }), EV(1.5, 'fig001', 'show'), EV(2.5, 'fig001', 'hide', { fade: 'cut' })] })}), setEdit(true), select('seq001'), 0)`);
+    if (!await until(`STUDIO.seqView().open && STUDIO.seqView().hits.length === 4`, 15000)) { bad(['the lane view did not open and draw: ' + JSON.stringify(await ss(`STUDIO.seqView()`))]); return; }
+    const box = await sp.evaluate(() => { const r = document.querySelector('#stuSeq canvas').getBoundingClientRect(), p = document.getElementById('stuSeq').getBoundingClientRect(), e = document.getElementById('explore').parentElement.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, pl: p.left, el: e.right, ph: p.height }; });
+    if (box.pl < box.el - 1 || box.ph < 150) out.push('docked at the bottom, beside the side panel: ' + JSON.stringify(box));
+    const V = await ss(`STUDIO.seqView()`), h0 = V.hits[0], u0 = await ss(`UNDO.length`);
+    const zoom = V.zoom, cx = box.l + (h0.x0 + h0.x1) / 2, cy = box.t + (h0.y0 + h0.y1) / 2;
+    await sp.mouse.move(cx, cy); await sp.mouse.down(); await sp.mouse.move(cx + 20, cy, { steps: 3 }); await sp.mouse.move(cx + zoom * 0.5, cy, { steps: 4 }); await sp.mouse.up();
+    const d = await ss(`[UNDO.length, STU.items.get('seq001').rec.ev[0].t, JSON.stringify(STUDIO.seqView().sel)]`);
+    if (d[0] - u0 !== 1 || !near(d[1], 1, 0.01 + 0.0) && !near(d[1], 1.0, 0.11)) out.push('a drag of a block 0.5 s: one step, snapped: ' + JSON.stringify(d));
+    // the ruler: a drag scrubs the preview
+    const V2 = await ss(`STUDIO.seqView()`), rx = box.l + V2.g + (2 - V2.t0) * V2.zoom, ry = box.t + 10;
+    await sp.mouse.move(rx - 30, ry); await sp.mouse.down(); await sp.mouse.move(rx, ry, { steps: 3 }); await sp.mouse.up();
+    const sc = await ss(`[STUDIO.seq('seq001').play.src, STUDIO.seq('seq001').u, UNDO.length]`);
+    if (sc[0] !== 'preview' || !near(sc[1], 2, 0.06)) out.push('a ruler drag scrubs the preview to 2 s: ' + JSON.stringify(sc));
+    // Space plays it; Delete deletes the selected event (one step)
+    await sp.focus('#stuSeq'); await sp.keyboard.press('Space');
+    const sp1 = await ss(`STU.qprev && STU.qprev.on`);
+    if (!sp1) out.push('Space plays the preview');
+    await sp.keyboard.press('Space');
+    const ev = await ss(`STUDIO.seqView().hits.length`), V3 = await ss(`STUDIO.seqView()`), hh = V3.hits[2];
+    await sp.mouse.click(box.l + (hh.x0 + hh.x1) / 2, box.t + (hh.y0 + hh.y1) / 2);
+    const u1 = await ss(`UNDO.length`);
+    await sp.keyboard.press('Delete');
+    const dl = await ss(`[UNDO.length, STU.items.get('seq001').rec.ev.length]`);
+    if (dl[0] - u1 !== 1 || dl[1] !== ev - 1) out.push('Delete deletes the selected event, one step: ' + JSON.stringify(dl));
+    // the test hook's drag, a copy, and closing
+    const hk = await ss(`(() => { const u = UNDO.length; const ok = STUDIO.seqViewDrag(0, 0.5), t = STU.items.get('seq001').rec.ev.map(e => e.t); return [ok, UNDO.length - u, JSON.stringify(t)]; })()`);
+    if (!hk[0] || hk[1] !== 1) out.push('seqViewDrag: one step: ' + JSON.stringify(hk));
+    await ss(`select('')`);
+    if (!await until(`!STUDIO.seqView().open`, 5000)) out.push('the view closes when nothing is selected');
+    await ss(`(select('seq001'), 0)`);
+    if (!await until(`STUDIO.seqView().open`, 5000)) out.push('the view opens again');
+    await ss(`(XR.on = true, 0)`);
+    if (!await until(`!STUDIO.seqView().open`, 5000)) out.push('never in a headset');
+    await ss(`(XR.on = false, select(''), 0)`);
+    bad(out);
+  });
+
+  await step('studio sequences: a second page at the same held room time draws the same moment (the shared state and the records applied alone): the box and the figure shown or hidden, the alpha, the picture on the box, the marker on its path', async () => {
+    const sp2 = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    sp2.on('pageerror', e => errors.push('studio sequences (second page): ' + (e.stack || e.message)));
+    await sp2.route('**/scenes/test/tex/*.png*', route => route.fulfill({ body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAEklEQVR4nGP4z8Dwn4GBgQEAAC4gBgFq0I0hAAAAAElFTkSuQmCC', 'base64'), contentType: 'image/png' }));
+    await sp2.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test');
+    await sp2.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    const s2 = s => sp2.evaluate(s => HOST.cur.peek(s), s);
+    await sp2.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 });
+    const T = T0 + 500000;
+    // (page one: the sequence playing; page two gets its state, as a device that joined later does)
+    await ss(`(window.__sq.clean(), window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: MAIN })}), setEdit(false), window.__sq.w('start', 'seq001', ${T}), 0)`);
+    await s2(`(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T},
+      STU.items.get('box001').E.clips.push(new THREE.AnimationClip('Lift', 1, [new THREE.VectorKeyframeTrack('box.position', [0, 1], [0, 0, 0, 0, 0.4, 0])])), setRec('box001', { anim: 'off' }), setFiles(STU.files.concat([{ path: 'tex/lime.png', bytes: 90, at: 7, kind: 'image' }])),
+      putItem('shp001', 'p', norm('p', { name: 'Marker', shape: 'cube', p: [0, 0.5, -3], size: [0.3, 0.3, 0.3], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]], play: 'once', start: 'always', speed: 1 } })), 0)`);
+    const st = await ss(`window.__sq.st()`);
+    await s2(`(collabApply(${JSON.stringify(st)}), 0)`);
+    const out = [], moments = [T + 600, T + 1100, T + 1600, T + 1900, T + 2050, T + 2600, T + 3500, T + 4100];
+    const look = '[window.__sq.y(), window.__sq.sh("fig001"), window.__sq.a("fig001"), window.__sq.sh("box001"), window.__sq.a("box001"), window.__sq.dx("shp001"), JSON.stringify(STUDIO.tex("box001").on)]';
+    for (const m of moments) {
+      // (each page steps to the moment through the frames before it, as a running page would; the second as a fresh joiner would at that moment)
+      await ss(`window.__sq.at(${m - 300}, 3)`); await ss(`window.__sq.at(${m}, 1)`);
+      await s2(`window.__sq.at(${m - 300}, 3)`); await s2(`window.__sq.at(${m}, 1)`);
+      const a = await ss(look), b = await s2(look);
+      if (JSON.stringify(a) !== JSON.stringify(b)) out.push(`at ${(m - T) / 1000} s: page one ${JSON.stringify(a)}, page two ${JSON.stringify(b)}`);
+    }
+    await sp2.close();
+    bad(out);
+  });
+
+  await step('studio sequences: the Items pane shows sequences as cards (a tile, its length and events, playing); the Add pane has the Sequence button; the cube\'s Start something... lists sequences and a cube\'s entry reads in words', async () => {
+    const r = await ss(`(() => {
+      window.__sq.clean(); window.__sq.mk('seq001', ${JSON.stringify({ name: 'Intro', len: 4, ev: [EV(0.5, 'fig001', 'show')] })}); setEdit(true); window.__sq.w('start', 'seq001', window.__T);
+      const items = paneBlocks('items'), grid = items.flatMap(b => b.grid || []).find(x => x.v === 'seq001'), head = items.find(b => b.label && /^Sequences/.test(b.label));
+      const add = paneBlocks('add').flatMap(b => b.row || []).find(x => x.id === 'seqadd');
+      putItem('qcw002', 'c', norm('c', { name: 'Starter', p: [3, 1, 2], size: [1, 2, 1], plays: [{ on: 'seq001', what: 'seq', how: 'loop' }] }));
+      select('qcw002'); itemAct('plPick', null, 'qcw002'); const rows = paneBlocks('item').flatMap(b => b.list || []).map(x => x.id + ':' + x.sub);
+      const words = paneBlocks('item').flatMap(b => b.row || []).filter(x => /^plflash/.test(x.id)).map(x => x.label);
+      removeItem('qcw002'); window.__sq.clean();
+      return [grid && grid.sub, grid && grid.tile && grid.tile.k, !!head, !!add && !add.dis, rows.find(x => /^plon:seq001/.test(x)), words[0]];
+    })()`);
+    if (!/^4\.0 s · 1 event · playing$/.test(r[0] || '') || r[1] !== 'seq' || !r[2] || !r[3] || !/^plon:seq001:sequence$/.test(r[4] || '') || r[5] !== 'Intro · loops the sequence while you are inside') bad(['the Items card, the Add button and the cube\'s card: ' + JSON.stringify(r)]);
+    await ss(`(setEdit(false), select(''), 0)`);
+    await sp.close();
+  });
+}
+// Pressed and pointed at (v146, an object's or a shape's `press`; tools/studio/SPEC.md, "Pressed and pointed at"), on pages of
+// their own at the test scene with the clocks held (behNow and trgClock are window.__T): the record and norm's rules, what
+// waits, a press (the stamp in the room's state, no Undo step, 250 ms between presses), a late joiner from the stamp alone, a
+// press that starts a sequence (only the presser writes), who 'own', pointing (held clip, 0.3 s of grace, a tooltip), the cubes'
+// "entered last decides" rule, real pointing (a pretend headset's ray, the trigger and the grip; a real click and drag on a
+// page, the cursor, editing on selecting), a visitor and a locked story, the card on the page and the headset
+if (runs('studio press')) {
+  const pp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  pp.on('pageerror', e => errors.push('studio press: ' + (e.stack || e.message)));
+  pp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio press: ' + m.text()); });
+  const ss = s => pp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => pp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio press: ' + b)); };
+  const near = (a, b, e) => typeof a === 'number' && Math.abs(a - b) <= (e || 1e-3);
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+  const T0 = 1e6, J = JSON.stringify;
+  const HELP = `window.__pr = window.__pr || {
+    at: (T, n, h) => { if (T !== undefined) window.__T = T; shownFor(h || null); for (let k = 0; k < (n || 1); k++) itemsStep(0.1, performance.now()); return 0; },
+    y: id => +STU.items.get(id || 'box001').model.o.getObjectByName('box').position.y.toFixed(4),
+    a: id => +STU.items.get(id).a.toFixed(3), sh: id => STU.items.get(id).shown,
+    rec: (id, patch) => { setRec(id, patch); return 0; },
+    clean: () => {
+      for (const q of [...STU.items.values()].filter(i => i.kind === 'q' || i.id === 'hcb001' || i.id === 'cpy001')) removeItem(q.id);
+      STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); PRESS.last.clear(); PRESS.mine.clear(); PRESS.try.clear(); PRESS.fake = null; PRESS.hov = ''; PRESS.hovPage = '';
+      for (const id of ['box001', 'fig001', 'snd001', 'shp001', 'tip001']) if (STU.items.has(id)) setRec(id, { press: undefined, grab: undefined });
+      trgReset('t'); STU.head = null; return 0;
+    },
+    st: () => HOST.cur.collab.state(),
+    pr: () => Object.keys(HOST.cur.collab.state()).filter(k => k.startsWith('pr.')),
+  }`;
+  const DO = [{ on: 'box001', what: 'clip', clip: 'Lift', how: 'once' }, { on: 'fig001', what: 'show' }];
+  const HOV = [{ on: 'box001', what: 'clip', clip: 'Bob', how: 'hold' }];
+
+  await step('studio press: the record: norm drops a hold in a press, a picture, a second entry for one item and what, a bad fade, a clip with no name and a hold on a sound while pointed at, keeps 16 of 17, writes nothing for an empty press, makes a bad shape a bad record and ignores a cube\'s; the state and layout.json carry it and give it back (an entry naming an item the layout lacks dropped); Delete of the figure takes its entry out and Undo brings it back (one step each); Duplicate of the box names the copy in its own entries and gives the original one for the copy', async () => {
+    await pp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await pp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio press: the test scene did not load'); return; }
+    await ss(`(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0},
+      STU.items.get('box001').E.clips.push(new THREE.AnimationClip('Lift', 1, [new THREE.VectorKeyframeTrack('box.position', [0, 1], [0, 0, 0, 0, 0.4, 0])])),
+      setRec('box001', { anim: 'off' }),
+      putItem('shp001', 'p', norm('p', { name: 'Marker', shape: 'cube', p: [1.5, 0.3, -2], size: [0.4, 0.4, 0.4] }, 'shp001')),
+      putItem('tip001', 'p', norm('p', { name: 'Tooltip', shape: 'cube', p: [2.5, 1, -2], size: [0.3, 0.3, 0.3] }, 'tip001')), 0)`);
+    const out = [];
+    const r = await ss(`(() => {
+      const B = STU.items.get('box001').rec, N = press => norm('o', Object.assign({}, B, { press })), P = x => { const r = N(x); return r && r.press; };
+      const many = Array.from({ length: 17 }, (_, i) => ({ on: 'a0000' + (i < 10 ? i : String.fromCharCode(87 + i)), what: 'show' }));
+      return [J(P({ do: [{ on: 'box001', what: 'clip', clip: 'Lift', how: 'hold' }, { on: 'snd001', what: 'sound', how: 'once' }] })),
+        J(P({ do: [{ on: 'box001', what: 'tex', mat: 0, slot: 'map', file: '' }, { on: 'fig001', what: 'hide', fade: 'cut' }] })),
+        P({ do: many }).do.length, J(P({ do: [{ on: 'fig001', what: 'show' }, { on: 'fig001', what: 'show', fade: 'cut' }, { on: 'fig001', what: 'hide' }] })),
+        J(P({ do: [{ on: 'fig001', what: 'show', fade: 'slow' }, { on: 'box001', what: 'clip', how: 'once' }, { on: 'snd001', what: 'sound', how: 'hold' }, { on: 'snd001', what: 'sound', how: 'loop' }] })),
+        J(P({ hover: [{ on: 'snd001', what: 'sound', how: 'hold' }, { on: 'box001', what: 'path', how: 'hold' }, { on: 'box001', what: 'clip', clip: 'Bob', how: 'hold' }] })),
+        'press' in N({ do: [] }), 'press' in N({}), 'press' in N({ who: 'own' }), N('x'), N({ do: 'x' }), N({ who: 'both' }), J(P({ do: [{ on: 'fig001', what: 'show' }], who: 'own' })),
+        'press' in norm('c', { name: 'C', p: [0, 1, 0], press: { do: [{ on: 'fig001', what: 'show' }] } }), J(Object.keys(P({ hover: HOV_, do: DO_, who: 'own' })))];
+    })()`.replace('HOV_', J(HOV)).replace('DO_', J(DO)).replace(/\bJ\(/g, 'JSON.stringify('));
+    if (r[0] !== '[{"on":"snd001","what":"sound","how":"once"}]'.replace(/^/, '{"do":').replace(/$/, '}')) out.push('a hold in a press dropped: ' + r[0]);
+    if (r[1] !== '{"do":[{"on":"fig001","what":"hide","fade":"cut"}]}') out.push('a picture dropped, a cut fade kept: ' + r[1]);
+    if (r[2] !== 16) out.push('17 entries kept as 16: ' + r[2]);
+    if (r[3] !== '{"do":[{"on":"fig001","what":"show"},{"on":"fig001","what":"hide"}]}') out.push('one entry for an item and what (show and hide both kept): ' + r[3]);
+    if (r[4] !== '{"do":[{"on":"snd001","what":"sound","how":"loop"}]}') out.push('a bad fade, a clip with no name and a hold on a sound dropped: ' + r[4]);
+    if (r[5] !== '{"hover":[{"on":"box001","what":"path","how":"hold"},{"on":"box001","what":"clip","clip":"Bob","how":"hold"}]}') out.push('a hold while pointed at: clip and path only: ' + r[5]);
+    if (r[6] !== false || r[7] !== false || r[8] !== false) out.push('an empty press is absent: ' + r.slice(6, 9));
+    if (r[9] !== null || r[10] !== null || r[11] !== null) out.push('a bad shape is a bad record: ' + r.slice(9, 12));
+    if (r[12] !== '{"do":[{"on":"fig001","what":"show"}],"who":"own"}' || r[13] !== false || r[14] !== '["do","hover","who"]') out.push('who own kept, a cube\'s press ignored, the fields in order: ' + r.slice(12, 15));
+    // the state, layout.json and Undo
+    const l = await ss(`(() => {
+      window.__pr.clean(); setRec('box001', { press: { do: ${J(DO)}, hover: ${J(HOV)} } });
+      const rec = JSON.stringify(STU.items.get('box001').rec.press), st = window.__pr.st(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      const lay = JSON.parse(JSON.stringify(L)); lay.objects.find(o => o.id === 'box001').press.do.push({ on: 'nope01', what: 'show' }, { on: 'cube01', what: 'clip', clip: 'x', how: 'once' });
+      const bl = readLayout(lay), u0 = UNDO.length; setEdit(true);
+      deleteItem('fig001'); const del = [UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.press.do.map(e => e.on))];
+      undo(); const und = [STU.items.has('fig001'), STU.items.get('box001').rec.press.do.length, UNDO.length - u0];
+      const u1 = UNDO.length, nid = duplicateItem('box001'), cp = STU.items.get(nid).rec.press, or = STU.items.get('box001').rec.press;
+      const dup = [UNDO.length - u1, cp.do.map(e => e.on + e.what).join(), cp.hover.map(e => e.on).join(), or.do.length, or.hover.length, or.do.map(e => e.on).join(), nid];
+      undo(); const un2 = [STU.items.has(nid), STU.items.get('box001').rec.press.do.length];
+      return [st['o.box001'].press && JSON.stringify(st['o.box001'].press) === rec, back.items.find(x => x.id === 'box001').rec.press && JSON.stringify(back.items.find(x => x.id === 'box001').rec.press) === rec,
+        JSON.stringify(bl.items.find(x => x.id === 'box001').rec.press.do.map(e => e.on)), del, und, dup, un2];
+    })()`);
+    if (!l[0] || !l[1]) out.push('the state and layout.json carry the press and give it back: ' + J(l.slice(0, 2)));
+    if (l[2] !== '["box001","fig001"]') out.push('an entry naming an item the layout lacks, or one this cannot be done to (a clip on a cube), dropped: ' + l[2]);
+    if (l[3][0] !== 1 || l[3][1] !== '["box001"]') out.push('Delete of the figure takes its entry out: one step: ' + J(l[3]));
+    if (!l[4][0] || l[4][1] !== 2 || l[4][2] !== 0) out.push('Undo brings it back: ' + J(l[4]));
+    if (l[5][0] !== 1 || l[5][1] !== `${l[5][6]}clip,fig001show` && !/^.{6}clip,fig001show$/.test(l[5][1]) || l[5][2] !== l[5][6] || l[5][3] !== 3 || l[5][4] !== 2 || l[5][5].split(',')[0] !== 'box001') out.push('Duplicate of the box: its own entries name the copy (clip on the copy, the figure unchanged), the original gains one for the copy: ' + J(l[5]));
+    if (l[6][0] !== false || l[6][1] !== 2) out.push('Undo of the copy: ' + J(l[6]));
+    bad(out);
+  });
+
+  await step('studio press: it waits until pressed: the figure a show names is hidden, the box rests, and no stamp is in the room\'s state', async () => {
+    const r = await ss(`(() => { setEdit(false); window.__pr.at(${T0}, 3); const p = window.__pr; return [p.sh('fig001'), p.sh('box001'), p.y(), p.pr().length, STUDIO.press('box001').pressable, STUDIO.press('fig001').press]; })()`);
+    if (J(r) !== J([false, true, 0, 0, true, null])) bad(['waiting: the figure hidden, nothing pressed, the box pressable: ' + J(r)]);
+  });
+
+  await step('studio press: a press (editing off): pr.<id> { n, at, by } in the room\'s state with no Undo step and no Unsaved change; the clip lifts the box (0.2 at 0.5 s), the figure is shown, the tone loop starts; a second press within 250 ms is ignored; the next toggles the loop off (n 2); the stamp is in no layout', async () => {
+    const out = [];
+    await ss(`(window.__pr.rec('box001', { press: { do: ${J(DO.concat([{ on: 'snd001', what: 'sound', how: 'loop' }]))}, hover: ${J(HOV)} } }), 0)`);
+    const w = await ss(`(() => { const u = UNDO.length, s0 = unsaved(); window.__T = ${T0}; const a = STUDIO.pressFire('box001'), b = STUDIO.pressFire('box001'); const st = window.__pr.st()['pr.box001'];
+      return [a, b, JSON.stringify(st), UNDO.length - u, unsaved() === s0, JSON.stringify(layoutOut()).includes('"pr"') || JSON.stringify(layoutOut()).includes('"stamp"')]; })()`);
+    if (w[0] !== true || w[1] !== false || w[2] !== J({ n: 1, at: T0, by: '' }) || w[3] !== 0 || !w[4] || w[5]) out.push('the stamp, one press in 250 ms, no step, nothing unsaved, not in the layout: ' + J(w));
+    await ss(`window.__pr.at(${T0 + 200}, 3)`); await ss(`window.__pr.at(${T0 + 500}, 1)`);
+    const a = await ss(`[window.__pr.y(), window.__pr.sh('fig001'), STUDIO.plays('snd001').item.tr.sound && STUDIO.plays('snd001').item.tr.sound.how, STUDIO.plays('snd001').item.tr.sound && STUDIO.plays('snd001').item.tr.sound.cube, STUDIO.press('box001').seen && STUDIO.press('box001').seen.n, STUDIO.press('box001').sources.map(s => s.kind + s.on).join()]`);
+    if (!near(a[0], 0.2, 0.03) || a[1] !== true || a[2] !== 'loop' || a[3] !== 'box001' || a[4] !== 1 || a[5] !== 'showfig001') out.push('Lift at 0.5 s, the figure shown, the tone looping, seen n 1: ' + J(a));
+    await nap(300);
+    const w2 = await ss(`(() => { window.__T = ${T0 + 1000}; const ok = STUDIO.pressFire('box001'); window.__pr.at(${T0 + 1000}, 2); const R = STUDIO.plays('snd001').item.tr.sound; return [ok, window.__pr.st()['pr.box001'].n, !!R && R.off > 0, window.__pr.sh('fig001')]; })()`);
+    if (w2[0] !== true || w2[1] !== 2 || !w2[2] || w2[3] !== true) out.push('the second press (n 2) toggles the loop off, the figure stays shown: ' + J(w2));
+    bad(out);
+  });
+
+  await step('studio press: a late joiner: the stamp alone (n 3, 5 s ago) applied with nothing running gives the same result: the figure shown, the lift long over (no layer), the tone loop running from the press\'s moment', async () => {
+    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO.concat([{ on: 'snd001', what: 'sound', how: 'loop' }]))} } }); window.__T = ${T0 + 10000}; const s = window.__pr.st(); s['pr.box001'] = { n: 3, at: ${T0 + 5000}, by: 'Ann' }; collabApply(s); window.__pr.at(${T0 + 10000}, 3);
+      const R = STUDIO.plays('snd001').item.tr.sound, p = STUDIO.press('box001');
+      return [window.__pr.sh('fig001'), STUDIO.plays('box001').item.layers.length, window.__pr.y(), !!R && R.how, R && R.at, R && R.off, p.seen && p.seen.n, p.stamp && p.stamp.by]; })()`);
+    if (r[0] !== true || r[1] !== 0 || r[2] !== 0 || r[3] !== 'loop' || r[4] !== T0 + 5000 || r[5] !== 0 || r[6] !== 3 || r[7] !== 'Ann') bad(['a late joiner from the stamp alone: ' + J(r)]);
+    const e = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO.concat([{ on: 'snd001', what: 'sound', how: 'loop' }]))} } }); const s = window.__pr.st(); s['pr.box001'] = { n: 4, at: ${T0 + 5000}, by: '' }; collabApply(s); window.__pr.at(${T0 + 10000}, 3); const R = STUDIO.plays('snd001').item.tr.sound; return [window.__pr.sh('fig001'), !R]; })()`);
+    if (J(e) !== '[true,true]') bad(['an even n for a late joiner starts no loop: ' + J(e)]);
+  });
+
+  await step('studio press: a press that starts a sequence: only the presser writes qr; a second device (the stamp alone) writes nothing and the sequence still plays for it through qr when it arrives', async () => {
+    const out = [];
+    const r = await ss(`(() => { window.__pr.clean(); putItem('seq001', 'q', norm('q', { name: 'Intro', len: 4, ev: [{ t: 0.5, on: 'shp001', what: 'hide' }] }, 'seq001'));
+      window.__pr.rec('box001', { press: { do: [{ on: 'seq001', what: 'seq', how: 'once' }] } }); window.__T = ${T0}; window.__pr.at(${T0}, 1); STUDIO.pressFire('box001'); window.__pr.at(${T0 + 100}, 1);
+      const q = window.__pr.st()['qr.seq001']; return [!!q && q.on, q && q.at, window.__pr.st()['pr.box001'].n]; })()`);
+    if (r[0] !== true || r[1] !== T0 || r[2] !== 1) out.push('the presser starts the sequence (qr written at the press): ' + J(r));
+    const o = await ss(`(() => { const s = window.__pr.st(); delete s['qr.seq001']; STU.qr.clear(); trgReset('t'); PRESS.mine.clear(); s['pr.box001'] = { n: 7, at: ${T0 + 50}, by: 'Bo' }; collabApply(s); window.__pr.at(${T0 + 400}, 2); return [STU.qr.has('seq001'), Object.keys(window.__pr.st()).some(k => k === 'qr.seq001')]; })()`);
+    if (J(o) !== '[false,false]') out.push('a device that only hears the stamp writes no play state: ' + J(o));
+    bad(out);
+  });
+
+  await step('studio press: who each person: nothing in the room\'s state, kept in STU.prOwn, the figure shown; Reset what I have seen forgets it and the figure waits again', async () => {
+    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO)}, who: 'own' } }); window.__T = ${T0 + 20000}; STUDIO.pressFire('box001'); window.__pr.at(${T0 + 20000}, 3);
+      const a = [window.__pr.pr().length, STU.prOwn.get('box001') && STU.prOwn.get('box001').n, window.__pr.sh('fig001'), STUDIO.press('box001').stamp && STUDIO.press('box001').stamp.n];
+      resetSeen(); window.__pr.at(${T0 + 20100}, 3); return a.concat([STU.prOwn.size, window.__pr.sh('fig001')]); })()`);
+    if (J(r) !== J([0, 1, true, 1, 0, false])) bad(['who: each person: ' + J(r)]);
+  });
+
+  await step('studio press: pointing: the box\'s Bob is held while pointed at (layer up), 0.2 s away and back starts nothing new, 0.35 s away takes the run off; a hover show entry (a tooltip) shows only while pointed at; hovering is each person\'s own (nothing in the state)', async () => {
+    const out = [];
+    await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO)}, hover: ${J(HOV.concat([{ on: 'tip001', what: 'show' }]))} } }); window.__pr.at(${T0 + 30000}, 3); return 0; })()`);
+    const L = (T, n) => ss(`window.__pr.at(${T}, ${n || 1})`);
+    const s0 = await ss(`[window.__pr.sh('tip001'), STUDIO.plays('box001').item.layers.length, window.__pr.y()]`);
+    if (J(s0) !== '[false,0,0]') out.push('before pointing: the tooltip hidden, nothing running: ' + J(s0));
+    await ss(`STUDIO.hover('box001')`); await L(T0 + 30000, 1); await L(T0 + 30400, 3);
+    const a = await ss(`(() => { const p = STUDIO.plays('box001').item, R = p.tr.clip; return [p.layers.map(y => y[0] + ':' + y[1]).join(), R && R.how, R && R.cube, window.__pr.sh('tip001'), window.__pr.y(), STUDIO.press('box001').hover]; })()`);
+    if (!/^Bob:1/.test(a[0]) || a[1] !== 'hold' || a[2] !== 'box001' || a[3] !== true || !(a[4] > 0.03) || a[5] !== true) out.push('pointed at: Bob (the box\'s own) held, the tooltip shown: ' + J(a));
+    const n1 = await ss(`STUDIO.plays('box001').item.tr.clip.n`);
+    await ss(`STUDIO.hover('')`); await L(T0 + 30600, 1); await ss(`STUDIO.hover('box001')`); await L(T0 + 30700, 2);
+    const n2 = await ss(`[STUDIO.plays('box001').item.tr.clip.n, STUDIO.plays('box001').item.tr.clip.off, window.__pr.sh('tip001')]`);
+    if (n2[0] !== n1 || n2[1] !== 0 || n2[2] !== true) out.push('0.2 s away and back: no new start, nothing off, the tooltip still shown: ' + J([n1, n2]));
+    await ss(`STUDIO.hover('')`); await L(T0 + 30800, 1); await L(T0 + 31200, 2); await L(T0 + 31600, 3);
+    const f = await ss(`(() => { const it = STUDIO.plays('box001').item; return [!it.tr || !it.tr.clip || it.tr.clip.off > 0, window.__pr.sh('tip001'), it.layers.length, window.__pr.pr().length, Object.keys(window.__pr.st()).filter(k => /hover|^h\\./.test(k)).length]; })()`);
+    if (f[0] !== true || f[1] !== false || f[2] > 1 || f[3] !== 0 || f[4] !== 0) out.push('0.35 s away: the run off, the tooltip hidden, nothing shared: ' + J(f));
+    await ss(`STUDIO.hover(null)`);
+    bad(out);
+  });
+
+  await step('studio press: the cubes\' rule: a cube hiding the figure entered after the press hides it; pressed again, the press is later and shows it', async () => {
+    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO)} } }); const T = ${T0 + 40000}; window.__pr.at(T, 1);
+      STUDIO.pressFire('box001'); window.__pr.at(T + 100, 2);
+      const a = window.__pr.sh('fig001'); putItem('hcb001', 'c', norm('c', { name: 'Hider', p: [0, 1, 0], size: [2, 2, 2], hide: ['fig001'] }, 'hcb001'));
+      window.__pr.at(T + 1000, 2, [0, 1, 0]); const b = window.__pr.sh('fig001'); return [a, b]; })()`);
+    await nap(300);
+    const r2 = await ss(`(() => { window.__T = ${T0 + 42000}; STUDIO.pressFire('box001'); window.__pr.at(${T0 + 42000}, 2, [0, 1, 0]); const c = window.__pr.sh('fig001'); window.__pr.at(${T0 + 42100}, 1); removeItem('hcb001'); return c; })()`);
+    if (J(r) !== '[true,false]' || r2 !== true) bad(['shown by the press, hidden by the cube entered after, shown by the press after that: ' + J([r, r2])]);
+  });
+
+  await step('studio press: a cut fade shows at once (alpha 1 in one frame), a fade over 0.4 s', async () => {
+    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: [{ on: 'fig001', what: 'show', fade: 'cut' }] } }); window.__pr.at(${T0 + 50000}, 3); const a0 = window.__pr.a('fig001');
+      STUDIO.pressFire('box001'); window.__pr.at(${T0 + 50100}, 1); const a1 = window.__pr.a('fig001');
+      window.__pr.rec('box001', { press: { do: [{ on: 'fig001', what: 'show' }] } }); STU.pr.clear(); window.__pr.at(${T0 + 50200}, 8); const b0 = window.__pr.a('fig001'); return [a0, a1, b0]; })()`);
+    if (r[0] !== 0 || r[1] !== 1 || r[2] !== 0) bad(['a cut show in one frame, a fade not: ' + J(r)]);
+    await nap(300);
+    const f = await ss(`(() => { STUDIO.pressFire('box001'); window.__T = ${T0 + 50300}; window.__pr.at(${T0 + 50300}, 1); const a = window.__pr.a('fig001'); window.__pr.at(${T0 + 50500}, 5); return [a, window.__pr.a('fig001')]; })()`);
+    if (!(f[0] > 0 && f[0] < 1) || f[1] !== 1) bad(['a faded show: partway after one frame, in after five: ' + J(f)]);
+  });
+
+  await step('studio press: pointing for real, a pretend headset (editing off): the ray finds the box through visitPick, the trigger presses it (n moves on), a grip on a grab: true pressable shape carries it and its trigger presses it; a ray at nothing presses nothing', async () => {
+    const out = [];
+    await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: ${J(DO)} } }); window.__pr.rec('shp001', { grab: true, press: { do: [{ on: 'tip001', what: 'show' }] } }); window.__pr.at(${T0 + 60000}, 3); GL.renderer.setAnimationLoop(null); return 0; })()`);
+    const r = await ss(`(() => {
+      const [a] = XR.ctrls, V = (...x) => new THREE.Vector3(...x), res = {};
+      XR.on = true; XR.clear = true; GL.world.updateMatrixWorld(true);
+      const ctl = (c, p) => { c.src = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: { axes: [0, 0, 0, 0], buttons: [] } }; c.g.visible = true; c.g.matrix.compose(V(...p), new THREE.Quaternion(), V(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+      const wp = id => STU.items.get(id).holder.getWorldPosition(V()), pt = id => { GL.world.updateMatrixWorld(true); const w = wp(id); ctl(a, [w.x, w.y, w.z + 2.5]); xrPoint(a, 0.1); return a.hover && a.hover.kind === 'item' ? a.hover.id : (a.hover && a.hover.kind); };
+      res.box = pt('box001'); const n0 = (STU.pr.get('box001') || { n: 0 }).n; xrPress(a); res.n = [n0, (STU.pr.get('box001') || { n: 0 }).n];
+      res.shape = pt('shp001'); const p0 = STU.items.get('shp001').holder.position.clone(); xrGrab(a, true); const w = wp('shp001'); ctl(a, [w.x + 0.3, w.y, w.z + 2.5]); carry(a, 0.016); res.carried = !!STU.items.get('shp001').carry; xrGrab(a, false);
+      res.moved = +(STU.items.get('shp001').holder.position.x - p0.x).toFixed(2); res.sp = (STU.pr.get('shp001') || { n: 0 }).n;
+      res.shape2 = pt('shp001'); xrPress(a); res.sp2 = (STU.pr.get('shp001') || { n: 0 }).n;
+      ctl(a, [20, 20, 20]); xrPoint(a, 0.1); res.none = a.hover && a.hover.kind; const before = STU.pr.size; xrPress(a); res.nothing = STU.pr.size === before;
+      a.src = null; a.g.visible = false; a.hover = null; XR.on = false; XR.clear = false;
+      return res; })()`);
+    if (r.box !== 'box001' || r.n[1] !== r.n[0] + 1) out.push('the ray finds the box and the trigger presses it: ' + J([r.box, r.n]));
+    if (r.shape !== 'shp001' || !r.carried || !(r.moved > 0.2) || r.sp !== 0) out.push('the grip on a grabbable pressable shape carries it and does not press: ' + J([r.shape, r.carried, r.moved, r.sp]));
+    if (r.sp2 !== 1) out.push('the trigger on it presses: ' + J([r.shape2, r.sp2]));
+    if (!r.nothing) out.push('a ray at nothing presses nothing: ' + J(r.none));
+    bad(out);
+  });
+
+  await step('studio press: pointing for real on a page: the cursor is a pointer over a pressable item, a real click presses it, editing on a click selects and does not press, a 20 px drag of a grabbable pressable item moves it and does not press, a click on it presses', async () => {
+    const out = [];
+    await ss(`(() => { window.__pr.clean(); STU.pr.clear(); window.__pr.rec('box001', { press: { do: ${J(DO)} } }); setEdit(false); select(''); X.view = 'orbit'; window.__pr.at(${T0 + 70000}, 3); return 0; })()`);
+    await nap(400);
+    const pos = await ss(`(() => { GL.world.updateMatrixWorld(true); const it = STU.items.get('box001'), w = it.holder.getWorldPosition(new THREE.Vector3()).project(GL.camera), r = GL.canvas.getBoundingClientRect(); return [(w.x + 1) / 2 * r.width + r.left, (1 - w.y) / 2 * r.height + r.top, w.z]; })()`);
+    if (!(pos[0] > 0 && pos[0] < 1280 && pos[1] > 0 && pos[1] < 800 && pos[2] < 1)) { out.push('the box is not on screen: ' + J(pos)); bad(out); return; }
+    const hit = await ss(`(() => { const ray = pointerRay(${pos[0]}, ${pos[1]}); GL.world.updateMatrixWorld(true); const h = visitPick(ray); return h && h.id; })()`);
+    if (hit !== 'box001') { out.push('the pointer at the box does not pick it (visitPick): ' + J(hit)); bad(out); return; }
+    await pp.mouse.move(pos[0] - 40, pos[1] - 40); await nap(150); await pp.mouse.move(pos[0], pos[1], { steps: 4 }); await nap(200); await pp.mouse.move(pos[0] + 1, pos[1], { steps: 2 });
+    const cur = await pp.evaluate(() => HOST.cur.peek('GL.canvas.style.cursor'));
+    if (cur !== 'pointer') out.push('the cursor over a pressable item: ' + cur);
+    const hv = await ss(`PRESS.hovPage`);
+    if (hv !== 'box001') out.push('pointing recorded: ' + hv);
+    await pp.mouse.click(pos[0], pos[1]);
+    const n1 = await ss(`(STU.pr.get('box001') || {}).n || 0`);
+    if (n1 !== 1) out.push('a real click presses (n 1): ' + n1);
+    // editing: a click selects, presses nothing
+    await nap(300);
+    await ss(`(setEdit(true), select(''), 0)`);
+    await pp.mouse.click(pos[0], pos[1]);
+    const ed = await ss(`[STU.sel, (STU.pr.get('box001') || {}).n || 0]`);
+    if (ed[0] !== 'box001' || ed[1] !== 1) out.push('editing on: a click selects and does not press: ' + J(ed));
+    // a grabbable pressable item: a drag moves it and does not press; a click presses
+    await ss(`(select(''), setEdit(false), window.__pr.rec('box001', { grab: true }), window.__pr.at(${T0 + 70500}, 2), 0)`);
+    await nap(300);
+    const x0 = await ss(`STU.items.get('box001').rec.p[0] + ',' + STU.items.get('box001').rec.p[2]`);
+    await pp.mouse.move(pos[0], pos[1]); await pp.mouse.down(); await pp.mouse.move(pos[0] + 8, pos[1], { steps: 2 }); await pp.mouse.move(pos[0] + 20, pos[1] + 4, { steps: 3 }); await pp.mouse.up();
+    const x1 = await ss(`[STU.items.get('box001').rec.p[0] + ',' + STU.items.get('box001').rec.p[2], (STU.pr.get('box001') || {}).n || 0]`);
+    if (x1[0] === x0 || x1[1] !== 1) out.push('a 20 px drag of a grabbable pressable item moves it and does not press: ' + J([x0, x1]));
+    const pos2 = await ss(`(() => { GL.world.updateMatrixWorld(true); const it = STU.items.get('box001'), w = it.holder.getWorldPosition(new THREE.Vector3()).project(GL.camera), r = GL.canvas.getBoundingClientRect(); return [(w.x + 1) / 2 * r.width + r.left, (1 - w.y) / 2 * r.height + r.top]; })()`);
+    await nap(300);
+    await pp.mouse.move(pos2[0], pos2[1]); await pp.mouse.down(); await pp.mouse.up();
+    const c2 = await ss(`(STU.pr.get('box001') || {}).n || 0`);
+    if (c2 !== 2) out.push('a click on a grabbable pressable item presses: ' + c2);
+    bad(out);
+  });
+
+  await step('studio press: a visitor (&visit) presses, also with the circle\'s story locked', async () => {
+    const out = [];
+    const vp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    vp.on('pageerror', e => errors.push('studio press (visitor): ' + (e.stack || e.message)));
+    const vs = s => vp.evaluate(s => HOST.cur.peek(s), s);
+    await vp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&visit');
+    await vp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    await vp.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 });
+    await vs(`(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0}, setRec('box001', { press: { do: ${J(DO.slice(1))} } }), X.view = 'orbit', window.__pr.at(${T0}, 3), 0)`);
+    await nap(1500);
+    const where = () => vs(`(() => { GL.world.updateMatrixWorld(true); const it = STU.items.get('box001'), w = it.holder.getWorldPosition(new THREE.Vector3()).project(GL.camera), r = GL.canvas.getBoundingClientRect(); return [(w.x + 1) / 2 * r.width + r.left, (1 - w.y) / 2 * r.height + r.top, editOn(), STU.items.get('fig001').shown]; })()`);
+    let pos = await where();
+    for (let k = 0; k < 6; k++) { await nap(300); const p2 = await where(); if (Math.abs(p2[0] - pos[0]) < 1 && Math.abs(p2[1] - pos[1]) < 1) break; pos = p2; }
+    const vhit = await vs(`(() => { const h = visitPick(pointerRay(${pos[0]}, ${pos[1]})); return [h && h.id, pressable(STU.items.get('box001')), APP.mode]; })()`);
+    if (vhit[0] !== 'box001') out.push('the visitor\'s pointer does not pick the box: ' + J([vhit, pos]));
+    await vp.mouse.move(pos[0] - 30, pos[1]); await vp.mouse.move(pos[0], pos[1], { steps: 3 });
+    await vp.mouse.click(pos[0], pos[1]);
+    const a = await vs(`[(STU.pr.get('box001') || {}).n || 0, window.__pr.at(${T0 + 100}, 2) === 0 && window.__pr.sh('fig001')]`);
+    if (pos[2] || pos[3] || a[0] !== 1 || a[1] !== true) out.push('a visitor\'s click presses: ' + J([pos.slice(2), a]));
+    await nap(300);
+    const b = await vs(`(() => { const k = editLocked; editLocked = () => true; try { const ok = STUDIO.pressFire('box001'); return [ok, (STU.pr.get('box001') || {}).n]; } finally { editLocked = k; } })()`);
+    if (!b[0] || b[1] !== 2) out.push('a locked circle story: presses still fire: ' + J(b));
+    await nap(300);
+    await vs(`(() => { const k = editLocked; editLocked = () => true; window.__lk = k; return 0; })()`);
+    await vp.mouse.click(pos[0], pos[1]);
+    const c = await vs(`(() => { editLocked = window.__lk; return (STU.pr.get('box001') || {}).n; })()`);
+    if (c !== 3) out.push('a real click with the story locked presses: ' + c);
+    await vp.close();
+    bad(out);
+  });
+
+  await step('studio press: the card: on the page Add a reaction... (This item, Lift, Once, Add: one Undo step, the sentence in words), the row flashes its item, Try press writes nothing (no stamp in the state, no step) and plays here, Pressed by Each person (one step), a second entry replaces, the faint Items line says pressable; the headset\'s card has the same rows and presses them', async () => {
+    const out = [];
+    const r = await ss(`(() => {
+      window.__pr.clean(); setEdit(true); select('box001'); X.tab = 'item'; X.scroll = {};
+      const blocks = () => paneBlocks('item'), ids = () => blocks().flatMap(b => (b.row || []).concat(b.list || [])).map(x => x.id), u0 = UNDO.length;
+      const res = [ids().includes('prpick:do'), ids().includes('prpick:hover'), ids().includes('prtry'), ids().includes('prwho:own')];
+      itemAct('prPick', 'do', 'box001'); res.push(!!STU.prp && STU.prp.step === 'obj', ids().includes('pron:box001'));
+      itemAct('prOn', 'box001', 'box001'); itemAct('prWhat', 'clip:Lift', 'box001'); itemAct('prHow', 'once', 'box001');
+      res.push(blocks().flatMap(b => b.kv || []).filter(k => k[0] === 'It will').map(k => k[1])[0], UNDO.length - u0);
+      itemAct('prAdd', null, 'box001'); res.push(UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.press), STU.prp);
+      itemAct('prPick', 'do', 'box001'); itemAct('prOn', 'fig001', 'box001'); itemAct('prWhat', 'show', 'box001'); itemAct('prFade', 'cut', 'box001'); itemAct('prAdd', null, 'box001');
+      res.push(UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.press.do));
+      itemAct('prPick', 'do', 'box001'); itemAct('prOn', 'fig001', 'box001'); itemAct('prWhat', 'show', 'box001'); itemAct('prAdd', null, 'box001'); res.push(JSON.stringify(STU.items.get('box001').rec.press.do.map(e => e.on + e.what + (e.fade || ''))));
+      const u1 = UNDO.length, s = JSON.stringify(window.__pr.st()['pr.box001'] || null), qv = STU.items.get('box001').rec.press.do.length; itemAct('prTry', null, 'box001'); window.__pr.at(${T0 + 80000}, 2);
+      res.push(UNDO.length - u1, window.__pr.st()['pr.box001'] === undefined, window.__pr.sh('fig001'));
+      itemAct('prWho', 'own', 'box001'); res.push(UNDO.length - u1, STU.items.get('box001').rec.press.who);
+      itemAct('prDel', 'do:0', 'box001'); res.push(STU.items.get('box001').rec.press.do.length, UNDO.length - u1);
+      const sub = paneBlocks('items').flatMap(b => b.grid || []).find(x => x.v === 'box001'); res.push(sub && sub.sub2 && /pressable/.test(sub.sub2));
+      return res; })()`);
+    if (!r[0] || !r[1] || !r[2] || !r[3]) out.push('the card\'s rows (Add a reaction when pressed and while pointed at, Try press, Pressed by): ' + J(r.slice(0, 4)));
+    if (!r[4] || !r[5]) out.push('Add a reaction... offers This item first: ' + J(r.slice(4, 6)));
+    if (r[6] !== 'When pressed, Box plays Lift once from its start.' || r[7] !== 0) out.push('the sentence and no step before Add: ' + J(r.slice(6, 8)));
+    if (r[8] !== 1 || !/"on":"box001","what":"clip","clip":"Lift","how":"once"/.test(r[9]) || r[10] !== null) out.push('Add: one Undo step, the pick over: ' + J(r.slice(8, 11)));
+    if (r[11] !== 2 || !/"on":"fig001","what":"show","fade":"cut"/.test(r[12])) out.push('a show entry with a cut fade: ' + J(r.slice(11, 13)));
+    if (!/fig001show"\]$/.test(r[13]) || r[13].includes('fig001showcut')) out.push('a second entry for the same item and what replaces it: ' + r[13]);
+    if (r[14] !== 0 || r[15] !== true || r[16] !== true) out.push('Try press: no step, nothing written to the state, plays here (the figure shown): ' + J(r.slice(14, 17)));
+    if (r[17] !== 1 || r[18] !== 'own') out.push('Pressed by Each person: one step: ' + J(r.slice(17, 19)));
+    if (r[19] !== 1 || r[20] !== 2) out.push('the entry removed: one more step: ' + J(r.slice(19, 21)));
+    if (!r[21]) out.push('the Items card says pressable: ' + r[21]);
+    // the headset's card
+    const x = await ss(`(() => {
+      window.__pr.clean(); XR.on = true; XR.clear = true; select('box001'); X.tab = 'item'; X.scroll = {}; setEdit(true);
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const press = id => { for (let off = 0; off < 9000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); draw(); return true; } } return false; };
+      const u0 = UNDO.length, res = [];
+      res.push(press('prpick:do'), !!STU.prp, press('pron:box001'), press('prwhat:clip:Lift'), press('prhow:once'), press('pradd'), UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.press));
+      res.push(press('prx:do:0'), UNDO.length - u0, !STU.items.get('box001').rec.press);
+      XR.on = false; XR.clear = false; X.scroll = {}; select(''); setEdit(false); renderPanes();
+      return res; })()`);
+    if (J(x.slice(0, 6)) !== '[true,true,true,true,true,true]' || x[6] !== 1 || !/"on":"box001","what":"clip","clip":"Lift","how":"once"/.test(x[7]) || x[8] !== true || x[9] !== 2 || x[10] !== true) out.push('the headset\'s card: Add a reaction, This item, Lift, Once, Add (one step), ✕ (the press gone): ' + J(x));
+    bad(out);
+  });
+  await pp.close();
+}
 // Trigger cubes that work for everyone here (v137, all: true; tools/studio/SPEC.md, "Cubes for everyone"), on two pages of
 // their own at the test scene: pretend heads (BEH.fake: another person's, with the time stamp of its sample) against an
 // each-person cube and an everyone cube, a run it starts put at that sample's room moment on both pages (their own clocks
@@ -10112,16 +11053,17 @@ if (runs('studio xp')) {
   });
   await step('studio xp: the layout is read with no bad items, every record as the studio\'s own rules give it back', async () => {
     if (!opened) { errors.push('studio xp: the scene did not open'); return; }
-    const r = await ss(`({ bad: STU.bad, tex: STU.badTex, play: STU.badPlay })`);
+    const r = await ss(`({ bad: STU.bad, tex: STU.badTex, play: STU.badPlay, seq: STU.badSeq })`);
     const layout = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json());
-    const missing = await ss(`${JSON.stringify([...layout.objects, ...layout.cubes, ...layout.sounds].map(x => x.id))}.filter(id => !STU.items.has(id))`);
-    if (r.bad || r.tex || r.play || missing.length) errors.push(`studio xp: the layout was read with ${r.bad} bad items, ${r.tex} bad texture changes, ${r.play} bad starts; not placed: ${missing.join(', ')}`);
+    const missing = await ss(`${JSON.stringify([...layout.objects, ...layout.cubes, ...layout.sounds, ...(layout.sequences || [])].map(x => x.id))}.filter(id => !STU.items.has(id))`);
+    if (r.bad || r.tex || r.play || r.seq || missing.length) errors.push(`studio xp: the layout was read with ${r.bad} bad items, ${r.tex} bad texture changes, ${r.play} bad starts, ${r.seq} bad sequence events; not placed: ${missing.join(', ')}`);
+    if ((layout.sequences || []).length < 18 || layout.objects.filter(o => o.press).length < 20) errors.push(`studio xp: the room has ${(layout.sequences || []).length} sequences and ${layout.objects.filter(o => o.press).length} pressable objects`);
     // (each record through the studio's norm: what it would drop or read otherwise, field by field)
     const diff = await ss(`(() => { const L = ${JSON.stringify(layout)}, out = [];
       const cmp = (kind, x) => { const r = Object.assign({}, x); delete r.id; const n = norm(kind, r);
         if (!n) { out.push(x.id + ' is bad'); return; }
         for (const k of new Set([...Object.keys(n), ...Object.keys(r)])) if (JSON.stringify(n[k]) !== JSON.stringify(r[k])) out.push(x.id + '.' + k + ': ' + JSON.stringify(r[k]) + ' read as ' + JSON.stringify(n[k])); };
-      for (const o of L.objects) cmp('o', o); for (const c of L.cubes) cmp('c', c); for (const x of L.sounds) cmp('s', x); for (const g of L.groups || []) cmp('g', g);
+      for (const o of L.objects) cmp('o', o); for (const c of L.cubes) cmp('c', c); for (const x of L.sounds) cmp('s', x); for (const g of L.groups || []) cmp('g', g); for (const q of L.sequences || []) cmp('q', q);
       return out; })()`);
     bad(diff);
     // (the Scene pane's Examples, the default folder 'examples': bliss-xp listed with its Open, lit as the one open)
@@ -10137,9 +11079,9 @@ if (runs('studio xp')) {
     const { checkLayout } = await import('./studio/xp/layout.mjs');
     bad(checkLayout(layout));
   });
-  await step('studio xp: on pretend walls of a 3 x 3.5 m room (AR) every wall item and what rides on it stands inside the room, against a wall', async () => {
+  await step('studio xp: on pretend walls of a 3 x 3.5 m room and of a 5 x 5 m room (AR) every wall item and what rides on it, the new buttons and hourglasses among them (closed or open), stands inside the room, against a wall, and the bin stands inside the key cubes', async () => {
     if (!opened) { errors.push('studio xp: the scene did not open'); return; }
-    const X = 1.5, Z = 1.75;
+    for (const [X, Z] of [[1.5, 1.75], [2.5, 2.5]]) {
     await ss(`(setEdit(false), STUDIO.sess('ar'), STUDIO.walls([{ a: [-${X}, -${Z}], b: [${X}, -${Z}], y0: 0, y1: 2.5 }, { a: [${X}, -${Z}], b: [${X}, ${Z}], y0: 0, y1: 2.5 }, { a: [${X}, ${Z}], b: [-${X}, ${Z}], y0: 0, y1: 2.5 }, { a: [-${X}, ${Z}], b: [-${X}, -${Z}], y0: 0, y1: 2.5 }]), STU.head = [0, 1.6, 0, 0], 0)`);
     // (where each is drawn: its middle; each eases there, what rides on it a little after, and frames in software are slow,
     // so read until nothing moves more than 2 mm between two reads)
@@ -10168,10 +11110,187 @@ if (runs('studio xp')) {
       else if (anchor && w > 0.7) out.push(`${id} is ${w.toFixed(2)} m from the nearest wall`);
     }
     if (Object.keys(at).length < 40) out.push(`only ${Object.keys(at).length} wall items and riders`);
+    // (the Recycle Bin's middle in this room is inside every key cube, floor to 0.5 m: a thing lowered into the bin is in them)
+    const Lay = await xp.evaluate(async () => (await fetch('examples/bliss-xp/layout.json')).json()), bin = at.recycl;
+    // (the layout makes one set of key cubes per room size, cuka for the smallest and cukb for the biggest: the bin is inside every cube of at least one set)
+    const sets = {}; for (const c of Lay.cubes.filter(c => c.key)) (sets[c.id.slice(0, 4)] = sets[c.id.slice(0, 4)] || []).push(c);
+    const inAll = cs => bin && cs.every(c => Math.abs(bin[0] - c.p[0]) < c.size[0] / 2 && Math.abs(bin[2] - c.p[2]) < c.size[2] / 2);
+    if (!Object.values(sets).some(inAll)) out.push(`the bin's middle in the ${X * 2} x ${Z * 2} m room (${bin ? bin.slice(0, 3).map(v => v.toFixed(2)) : 'nowhere'}) is outside every set of key cubes (${Object.keys(sets)})`);
+    for (const id of ['clsco1', 'clsdo1', 'clsin1', 'clsmp1', 'hgldco', 'hglddo', 'hgldin', 'hgldmp', 'mdplay', 'mdstop']) if (!at[id]) out.push(`${id} was not among the wall items and riders`);
     await ss(`(STUDIO.walls(null), STUDIO.sess(''), STU.head = null, 0)`);
     bad(out);
+    }
   });
   await xp.close();
+  const nap = ms => new Promise(r => setTimeout(r, ms));
+  // ---- v146: the room made interactive. Two pages open the room (editing off) at one held room moment, as two devices at a
+  // studio circle: what one writes (a press's stamp, a sequence's play state) is carried to the other as the shell carries the
+  // state (collabState, then apply), and each works the result out from it and the room's clock
+  const xa = await browser.newPage({ viewport: { width: 1280, height: 800 } }), xb = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+    pg.on('pageerror', e => errors.push(`studio xp ${nm}: ` + (e.stack || e.message)));
+    pg.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(`studio xp ${nm}: ` + m.text()); });
+  }
+  const T0 = 1e6, J = JSON.stringify;
+  const on = (pg, s) => pg.evaluate(s => HOST.cur.peek(s), s), sa = s => on(xa, s), sb = s => on(xb, s);
+  const HELP = `window.__xp = window.__xp || {
+    at: (T, n, h) => { window.__T = T; STU.head = h || null; for (let k = 0; k < (n || 1); k++) { triggerStep(performance.now()); itemsStep(0.1, performance.now()); } return 0; },
+    sh: id => STU.items.get(id).shown, a: id => +STU.items.get(id).a.toFixed(3),
+    run: (id, w) => { const it = STU.items.get(id), R = it.tr && it.tr[w]; return R ? (R.off ? 'off' : (R.e.clip || R.e.how || 'on')) : ''; },
+    scale: id => +STU.items.get(id).model.o.getObjectByName('pop').scale.x.toFixed(4),
+    st: () => HOST.cur.collab.state(),
+    mid: id => { const it = STU.items.get(id), H = it.holder, M = new THREE.Matrix4(); (H.matrixAutoUpdate ? M.compose(H.position, H.quaternion, H.scale) : M.copy(H.matrix)); return it.proxy.position.clone().applyMatrix4(M).toArray(); },
+  }`;
+  const both = async (T, n, h) => { await sa(`window.__xp.at(${T}, ${n || 2}, ${J(h || null)})`); await sb(`window.__xp.at(${T}, ${n || 2}, ${J(h || null)})`); };
+  const carry = async (from, to) => { const st = await on(from, 'window.__xp.st()'); await to.evaluate(st => HOST.cur.collab.apply(st), st); };
+  const shown = (pg, ids) => on(pg, `${J(ids)}.map(id => window.__xp.sh(id))`);
+  let live = false;
+  const OPENING = 'index.html#studio&scenes=examples&scene=bliss-xp';
+  await step('studio xp: two pages open the room with editing off: the windows, their close buttons and loading hourglasses, the player\'s buttons and the Start menu wait hidden; the sequences and presses are read', async () => {
+    for (const pg of [xa, xb]) await pg.goto(base + OPENING);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      if (!await pg.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && STU.scene === 'bliss-xp' && STU.items.size > 100`), null, { timeout: 240000 }).then(() => true, () => false)) { errors.push(`studio xp: page ${nm} did not load the room`); return; }
+      await on(pg, `(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0}, setEdit(false), 0)`);
+    }
+    live = true;
+    await both(T0, 3);
+    const out = [];
+    const HID = ['notepd', 'viewbl', 'searcw', 'mediap', 'clsco1', 'clsdo1', 'clsin1', 'clsmp1', 'hgldco', 'hglddo', 'hgldin', 'hgldmp', 'mdplay', 'mdstop', 'stmenu'];
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const h = await shown(pg, HID); if (h.some(x => x)) out.push(`${nm}: shown at the start (the welcome screen is shown by default until Log in): ${HID.filter((id, i) => h[i])}`);
+      const k = await shown(pg, ['tbstrt', 'icmyco', 'icmydo', 'icinte', 'icmedi', 'keybrd', 'replce', 'clippy', 'recycl', 'cardh1', 'paper1']); if (k.some(x => !x)) out.push(`${nm}: not shown at the start: ${k}`);
+    }
+    const c = await sa(`[STU.badSeq, [...STU.items.values()].filter(i => i.kind === 'q').length, ['tbstrt', 'icmyco', 'clippy', 'blcurs', 'mdplay', 'welcom', 'stmenu'].map(id => STUDIO.press(id).pressable)]`);
+    if (c[0] || c[1] !== 24 || c[2].slice(0, 3).some(x => !x)) out.push('the sequences and presses: ' + J(c));
+    bad(out);
+  });
+  const pressOn = (pg, id) => on(pg, `STUDIO.pressFire(${J(id)})`);
+  await step('studio xp: the Start button opens the Start menu with a click, for the other page too; pressing the open menu closes it', async () => {
+    if (!live) return;
+    const out = [];
+    await sa(`window.__T = ${T0 + 1000}`); await sb(`window.__T = ${T0 + 1000}`);
+    if (!await pressOn(xa, 'tbstrt')) out.push('the press of the start button was not taken');
+    await both(T0 + 1000, 2); await carry(xa, xb); await both(T0 + 1100, 2);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await on(pg, `[window.__xp.sh('stmenu'), window.__xp.run('sclik2', 'sound'), (HOST.cur.collab.state()['qr.sqstao'] || {}).at]`);
+      if (!r[0] || r[1] !== 'once' || r[2] !== T0 + 1000) out.push(`${nm}: the Start menu shown, its click and the sequence's moment: ${J(r)}`);
+    }
+    await nap(300);
+    await sb(`window.__T = ${T0 + 2000}`); await sa(`window.__T = ${T0 + 2000}`);
+    if (!await pressOn(xb, 'stmenu')) out.push('the press of the menu was not taken');
+    await both(T0 + 2000, 2); await carry(xb, xa); await both(T0 + 2100, 2);
+    const h = [(await shown(xa, ['stmenu']))[0], (await shown(xb, ['stmenu']))[0]]; if (h[0] || h[1]) out.push('the open menu pressed: hidden on both: ' + J(h));
+    bad(out);
+  });
+  await step('studio xp: an icon turns its loading hourglass for 1.2 s (and the desktop\'s), then opens its window with its close button; the close button closes both; the player\'s play starts the bars and the music, stop and closing the player end them', async () => {
+    if (!live) return;
+    const out = [];
+    const go = async (pg, other, id, T, then) => { await sa(`window.__T = ${T}`); await sb(`window.__T = ${T}`); if (!await pressOn(pg, id)) out.push(`the press of ${id} was not taken`); await both(T, 2); await carry(pg, other); await both(T + (then || 100), 2); };
+    // (My Documents: the notes)
+    await go(xa, xb, 'icmydo', T0 + 3000, 500);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await on(pg, `[window.__xp.sh('hglddo'), window.__xp.run('hglddo', 'clip'), window.__xp.run('hourgl', 'clip'), window.__xp.sh('notepd'), window.__xp.sh('clsdo1'), window.__xp.run('sclkdo', 'sound')]`);
+      if (!r[0] || r[1] !== 'Load' || r[2] !== 'Load' || r[3] || r[4] || r[5] !== 'once') out.push(`${nm}: 0.5 s after the press (the loading hourglass shown and turning, the desktop's too, the notes and the button not yet, the icon's click): ${J(r)}`);
+    }
+    await both(T0 + 4300, 3);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await shown(pg, ['hglddo', 'notepd', 'clsdo1', 'keybrd']);
+      if (r[0] || !r[1] || !r[2] || !r[3]) out.push(`${nm}: at 1.3 s (the hourglass gone, the notes and the close button shown, the keyboard still): ${J(r)}`);
+    }
+    await nap(300);
+    await go(xb, xa, 'clsdo1', T0 + 5000);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) { const r = await shown(pg, ['notepd', 'clsdo1']); if (r[0] || r[1]) out.push(`${nm}: the close button pressed: the notes and the button hidden: ${J(r)}`); }
+    // (the other three windows open and close the same way: only what they show)
+    for (const [icon, win, close, T] of [['icmyco', 'viewbl', 'clsco1', 5200], ['icinte', 'searcw', 'clsin1', 5500]]) {
+      await nap(300); await go(xa, xb, icon, T0 + T); await both(T0 + T + 1400, 3);
+      const r = await shown(xb, [win, close]); if (!r[0] || !r[1]) out.push(`${icon}: ${win} and ${close} shown on B 1.4 s after the press: ${J(r)}`);
+      await nap(300); await go(xb, xa, close, T0 + T + 1700);
+      const r2 = [...await shown(xa, [win, close]), ...await shown(xb, [win, close])]; if (r2.some(x => x)) out.push(`${close} pressed: ${win} hidden on both: ${J(r2)}`);
+    }
+    // (Media Player and its buttons)
+    await nap(300); await go(xa, xb, 'icmedi', T0 + 7000); await both(T0 + 8400, 3);
+    const m = await shown(xb, ['mediap', 'mdplay', 'mdstop', 'clsmp1']); if (m.some(x => !x)) out.push('the player, its buttons and its close button shown: ' + J(m));
+    await nap(300); await go(xa, xb, 'mdplay', T0 + 9000);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await on(pg, `[window.__xp.run('mediap', 'clip'), window.__xp.run('smusic', 'sound'), window.__xp.run('sclkmp', 'sound')]`);
+      if (r[0] !== 'Bars' || r[1] !== 'loop' || r[2] !== 'once') out.push(`${nm}: play: the bars, the music and the click: ${J(r)}`);
+    }
+    await nap(300); await go(xb, xa, 'mdstop', T0 + 10000);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await on(pg, `[window.__xp.run('mediap', 'clip'), window.__xp.run('smusic', 'sound')]`);
+      if (r[0] === 'Bars' || r[1] === 'loop') out.push(`${nm}: stop: the bars and the music end: ${J(r)}`);
+    }
+    await nap(300); await go(xa, xb, 'mdplay', T0 + 11000); await nap(300); await go(xa, xb, 'clsmp1', T0 + 12000, 600);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+      const r = await on(pg, `[window.__xp.sh('mediap'), window.__xp.sh('mdplay'), window.__xp.run('mediap', 'clip'), window.__xp.run('smusic', 'sound')]`);
+      if (r[0] || r[1] || r[2] === 'Bars' || r[3] === 'loop') out.push(`${nm}: the player closed while playing: hidden, the bars and the music ended: ${J(r)}`);
+    }
+    bad(out);
+  });
+  await step('studio xp: Clippy waves while pointed at (on this page only) and dances, with a giggle, when pressed (on both); a balloon bursts when pressed, is gone at 0.5 s and back at 8.2 s; the welcome screen goes when pressed', async () => {
+    if (!live) return;
+    const out = [];
+    await sa(`STUDIO.hover('clippy')`); await both(T0 + 13000, 2);
+    const w = [await sa(`window.__xp.run('clippy', 'clip')`), await sb(`window.__xp.run('clippy', 'clip')`)];
+    if (w[0] !== 'Wave' || w[1] === 'Wave') out.push('pointed at: Clippy waves here only: ' + J(w));
+    await sa(`STUDIO.hover('')`); await both(T0 + 14000, 2); await both(T0 + 14500, 2);
+    if (await sa(`window.__xp.run('clippy', 'clip')`) === 'Wave') out.push('not pointed at any more: the wave ends');
+    await sa(`window.__T = ${T0 + 15000}`); await sb(`window.__T = ${T0 + 15000}`);
+    if (!await pressOn(xa, 'clippy')) out.push('the press of Clippy was not taken');
+    await both(T0 + 15000, 2); await carry(xa, xb); await both(T0 + 15200, 2);
+    for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) { const r = await on(pg, `[window.__xp.run('clippy', 'clip'), window.__xp.run('sgiggl', 'sound')]`); if (r[0] !== 'Dance' || r[1] !== 'once') out.push(`${nm}: pressed, Clippy dances and giggles: ${J(r)}`); }
+    // (the entry cube shows the welcome screen and the first balloon for everyone: a pretend head in it; then a press on the balloon)
+    const IN = [0, 1.6, -0.9];
+    await both(T0 + 16000, 3, IN); await both(T0 + 16100, 2);
+    const s0 = await shown(xa, ['welcom', 'blcurs']); if (!s0[0] || !s0[1]) out.push('the entry cube showed the welcome screen and its balloon: ' + J(s0));
+    await nap(300); await sa(`window.__T = ${T0 + 17000}`); await sb(`window.__T = ${T0 + 17000}`);
+    if (!await pressOn(xa, 'blcurs')) out.push('the press of the balloon was not taken');
+    await both(T0 + 17000, 2); await carry(xa, xb); await both(T0 + 17500, 3);
+    const sc = [await sa(`window.__xp.scale('blcurs')`), await sb(`window.__xp.scale('blcurs')`)];
+    if (!(sc[0] < 0.01 && sc[1] < 0.01)) out.push('0.5 s after the press the balloon is gone (its scale on A and B): ' + J(sc));
+    await both(T0 + 25200, 3);
+    const sc2 = [await sa(`window.__xp.scale('blcurs')`), await sb(`window.__xp.scale('blcurs')`)];
+    if (!(sc2[0] > 0.9 && sc2[1] > 0.9)) out.push('8.2 s after the press the balloon is back (its scale on A and B): ' + J(sc2));
+    await nap(300); await sa(`window.__T = ${T0 + 26000}`); await sb(`window.__T = ${T0 + 26000}`);
+    if (!await pressOn(xb, 'welcom')) out.push('the press of the welcome screen was not taken');
+    await both(T0 + 26000, 2, IN); await carry(xb, xa); await both(T0 + 26200, 2, IN);
+    const wl = [...await shown(xa, ['welcom', 'twelco']), ...await shown(xb, ['welcom', 'twelco'])]; if (wl.some(x => x)) out.push('the welcome screen pressed: it and its words go on both: ' + J(wl));
+    bad(out);
+  });
+  await step('studio xp: a card or a page dropped in the Recycle Bin crumples (held crumpled, the bin gulps, the crumple sounds) on both pages and smooths out when carried out; one carried at 1 m over the bin does nothing', async () => {
+    if (!live) return;
+    const out = [];
+    const bin = await sa(`window.__xp.mid('recycl')`);
+    const drop = async (id, y) => { await sa(`setRec(${J(id)}, { p: [${bin[0].toFixed(3)}, ${y}, ${bin[2].toFixed(3)}] })`); await nap(500); };
+    const states = id => on(xa, `[window.__xp.run(${J(id)}, 'clip'), window.__xp.run('scrump', 'sound'), window.__xp.run('recycl', 'clip')]`);
+    let T = T0 + 30000;
+    for (const id of ['cardh1', 'paper1']) {
+      await both(T, 3); await drop(id, 0.3); await both(T + 100, 4); await carry(xa, xb); await nap(500); await both(T + 200, 4);
+      for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) {
+        const r = await on(pg, `[window.__xp.run(${J(id)}, 'clip'), window.__xp.run('scrump', 'sound'), window.__xp.run('recycl', 'clip')]`);
+        if (r[0] !== 'Crumple' || r[1] !== 'once' || r[2] !== 'Gulp') out.push(`${nm}: ${id} in the bin: crumpled, the sound, the gulp: ${J(r)}`);
+      }
+      T += 2000; await drop(id, 1.0); await both(T, 4); await carry(xa, xb); await nap(500); await both(T + 100, 4); await both(T + 600, 4);
+      for (const [pg, nm] of [[xa, 'A'], [xb, 'B']]) { const r = await on(pg, `window.__xp.run(${J(id)}, 'clip')`); if (r === 'Crumple') out.push(`${nm}: ${id} carried out of the bin: it smooths out (the hold comes off)`); }
+      T += 2000;
+    }
+    await both(T, 3); await drop('cards1', 1.0); await both(T + 100, 4);
+    const over = await on(xa, `[window.__xp.run('cards1', 'clip'), window.__xp.run('recycl', 'clip')]`);
+    if (over[0] === 'Crumple') out.push('a card carried at 1 m over the bin does nothing: ' + J(over));
+    bad(out);
+  });
+  await step('studio xp: a visitor (&visit) presses and picks up as anyone does', async () => {
+    if (!live) return;
+    await xb.goto(base + OPENING + '&visit');
+    await xb.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await xb.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && STU.scene === 'bliss-xp' && STU.items.size > 100`), null, { timeout: 240000 }).then(() => true, () => false)) { errors.push('studio xp: the visitor page did not load the room'); return; }
+    await on(xb, `(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0}, window.__xp.at(${T0}, 3), 0)`);
+    const r = await on(xb, `[editOn(), STUDIO.press('tbstrt').pressable, STUDIO.press('clippy').pressable, visitMove(STU.items.get('cardh1')), visitMove(STU.items.get('paper2')), STUDIO.pressFire('tbstrt')]`);
+    const st = await on(xb, `window.__xp.at(${T0 + 100}, 2) || [window.__xp.sh('stmenu'), !!window.__xp.st()['pr.tbstrt'], !!window.__xp.st()['qr.sqstao']]`);
+    if (r[0] || !r[1] || !r[2] || !r[3] || !r[4] || !r[5] || !st[0] || !st[1] || !st[2]) errors.push('studio xp: a visitor: editing off, the start button and Clippy pressable, the card and the page movable, the press taken, the menu shown: ' + J([r, st]));
+  });
+  await xa.close(); await xb.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {

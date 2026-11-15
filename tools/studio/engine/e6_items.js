@@ -32,7 +32,7 @@ const vecOf = (a, n, lim) => (Array.isArray(a) && a.length === n && a.every(v =>
 // A record's checks. A field given with a wrong type makes the record bad (it is ignored, or dropped from a layout); a
 // field left out takes its default; numbers are clamped and rounded (p to the mm, a turn to 4 decimals, a size to 4
 // significant figures), and every check gives back what it is given once checked
-function norm(kind, x) {
+function norm(kind, x, id) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const has = k => x[k] !== undefined;
   const name = d => (!has('name') ? d : typeof x.name === 'string' && x.name.trim() ? words(x.name, 60) : null);
@@ -43,6 +43,7 @@ function norm(kind, x) {
     const r = { name: name('Group'), items: [...new Set(x.items.filter(okId))].slice(0, GROUP_ITEMS) };
     return lockOf(x, r);
   }
+  if (kind === 'q') return normSeq(x, name, id);   // (a sequence: no place; e6s_seq.js)
   const p = vecOf(x.p, 3, 1000);
   if (!p) return null;
   const P = p.map(v => nz(r3(v)));
@@ -72,6 +73,7 @@ function norm(kind, x) {
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path, kept only when set: e6f_path.js)
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
+    if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (what pressing and pointing at it do, kept only when it has an entry: e6t_press.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'c') {
@@ -145,6 +147,7 @@ function norm(kind, x) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
+    if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (e6t_press.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'e') {
@@ -193,8 +196,8 @@ function quatOf(a) {
   if (!v || n < 1e-6) return null;
   return (Math.abs(n - 1) > 2e-3 ? v.map(c => c / n) : v).map(c => nz(r4(c)));
 }
-const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting' };
-const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings' };
+const KIND_NAME = { o: 'object', c: 'trigger cube', s: 'sound', x: 'cut-out', g: 'group', p: 'shape', e: 'empty', v: 'screen', d: 'painting', q: 'sequence' };
+const KIND_PLURAL = { o: 'objects', c: 'trigger cubes', s: 'sounds', x: 'cut-outs', g: 'groups', p: 'shapes', e: 'empties', v: 'screens', d: 'paintings', q: 'sequences' };
 // what a group may hold (a cut-out belongs to its object and moves with it), and at most how many ids its record keeps
 const GROUP_KINDS = ['o', 's', 'c', 'p', 'e', 'v', 'd'], GROUP_ITEMS = 760;
 // what a sound may follow: an object (its whole model or a bone), a shape or an empty (where it is)
@@ -246,6 +249,10 @@ function makeItem(id, kind) {
     it.look.hit.userData.id = id;
     for (const c of it.look.corners) c.userData.id = id;
     GL.edit.add(it.look.deco);
+  } else if (kind === 'q') {
+    // a sequence: no place and nothing to draw (its events act on other items; e6s_seq.js)
+    it.look = { col: SEQ_COL, drop() { /* nothing made */ } };
+    it.holder = new THREE.Group();
   } else if (kind === 'g') {
     // a group: its pivot (the page's arrows hold it; the middle of its members, on the floor) and its box, drawn while
     // it is selected (e6c_groups.js)
@@ -303,6 +310,8 @@ function removeItem(id) {
   if (STU.cutTo === id) STU.cutTo = '';
   if (STU.txp && (STU.txp.id === id || STU.txp.on === id)) STU.txp = null;   // (a cube's texture pick, its cube or its object gone)
   if (STU.plp && (STU.plp.id === id || STU.plp.on === id)) STU.plp = null;   // (a cube's pick of what it starts: e6n_plays.js)
+  if (STU.prp && (STU.prp.id === id || STU.prp.on === id)) STU.prp = null;   // (an item's pick of what a reaction acts on: e6t_press.js)
+  STU.pr.delete(id); STU.prOwn.delete(id); PRESS.try.delete(id); PRESS.hv.delete(id); PRESS.last.delete(id);
   TRG.on.delete(it);
   if (STU.gpick && STU.gpick.id === id) STU.gpick = null;
   if (it.kind === 'g' && it.base) groupRelease(it);   // (a group gone while carried: its members let go)
@@ -328,7 +337,7 @@ function poseOf(it) {
   else { _pq.identity(); _ps.set(1, 1, 1); }
 }
 function applyRec(it, was, glide) {
-  if (it.kind === 'g') return;   // (a group has no place of its own: its members have theirs)
+  if (it.kind === 'g' || it.kind === 'q') return;   // (a group has no place of its own: its members have theirs; nor has a sequence)
   if (glide && !it.carry) it.gl = { p: it.holder.position.clone(), q: it.holder.quaternion.clone(), s: it.holder.scale.clone(), t0: performance.now() };
   else if (!it.carry) { it.gl = null; poseOf(it); it.holder.position.copy(_pp); it.holder.quaternion.copy(_pq); it.holder.scale.copy(_ps); }
   const r = it.rec;
@@ -595,7 +604,7 @@ function triggerStep(now) {
   if (LISTS.rev !== STU.rev) {
     LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
     let hides = false;
-    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; }
+    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'q') { for (const e of c.rec.ev) if (e.what === 'show') LISTS.shown.add(e.on); } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; if (c.rec.press) for (const e of prEntries(c.rec.press)) if (e.what === 'show') LISTS.shown.add(e.on); }
     try { if (LISTS.hides !== hides || LISTS.hides === undefined) { LISTS.hides = hides; if (GL.sets && GL.sets.stage && GL.sets.stage.late) GL.sets.stage.late(!hides); } } catch (e) { /* the stage as it was */ }   // (the stage after the items unless a shape hides things)
   }
   // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
@@ -632,8 +641,10 @@ function triggerStep(now) {
     for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
     for (const i of c.rec.hide) if (enteredLater(c, H.get(i))) H.set(i, c);
   }
+  seqShowHide(S, H, Tr);   // (the sequences' show and hide events, one more source: e6s_seq.js)
+  pressShowHide(S, H, Tr);   // (what a press shows or hides, and while pointed at: e6t_press.js)
   for (const it of STU.items.values()) {
-    if (it.kind === 'c' || it.kind === 'g') continue;
+    if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
     // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back; an
     // item only for the other kind of session, v137: not shown here, it.notHere)
     const s = S.get(it.id), h = H.get(it.id);
@@ -641,6 +652,8 @@ function triggerStep(now) {
     const shown = !away && !it.notHere && (s || h ? (s && h ? s === h || enteredLater(s, h) : !!s) : !LISTS.shown.has(it.id));
     if (MOTION_ITEMS.includes(it.kind) && shown && (!it.shown || it.first)) { it.shownAt = now; it.ended = false; }   // (an animation's and a motion's start when shown)
     if (it.kind === 'x' && it.first) it.sa = shown ? 1 : 0;   // (a cut-out new here cuts, or not, at once: no half fade to wait for)
+    // (an instant show or hide from a sequence: no fade this time)
+    if (shown !== it.shown) { const w = s && h ? (enteredLater(s, h) ? s : h) : (s || h); if (w && w.cut) it.snap = true; }
     it.shown = shown; it.first = false;
   }
   // a sound is heard while it is shown for you and so is the object it follows (if any): one that starts 'shown' starts
@@ -651,6 +664,8 @@ function triggerStep(now) {
     if (heard && !it.heard) { it.shownAt = now; it.ended = false; if (it.rec.start === 'shown' && !trgOn(it)) emitStop(it); }   // (one a cube starts: from its run's moment, e6n_plays.js)
     it.heard = heard;
   }
+  seqFire(Tr);   // (what the sequences' events start, e6s_seq.js)
+  pressStep(Tr);   // (what presses and pointing start, e6t_press.js)
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
 // why an item is hidden, in a tag's words: only for the other kind of session (v137), or a cube hides it from you
@@ -659,7 +674,7 @@ const hidWord = it => (it.notHere ? (it.rec.shows === 'ar' ? ' Â· AR only' : ' Â
 function shownFor(p) {
   STU.head = p ? p.slice(0, 3) : null;
   triggerStep(performance.now());
-  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g').map(it => [it.id, it.shown]));
+  return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g' && it.kind !== 'q').map(it => [it.id, it.shown]));
 }
 function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = false; c.allIn = null; } dirty(true); }
 
@@ -794,7 +809,7 @@ function itemsStep(dt, now) {
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
   for (const it of STU.items.values()) {
-    if (it.kind === 'g') continue;   // (groups once their members have their places: groupsStep)
+    if (it.kind === 'g' || it.kind === 'q') continue;   // (groups once their members have their places: groupsStep; a sequence has nothing to draw)
     // a record from the room: it glides there (0.25 s), unless carried here (a sound that follows a model: soundStep; a
     // cut-out, in the frame of the object it cuts: cutStep)
     if (it.gl && !it.carry && !(it.kind === 's' && it.rec.on) && it.kind !== 'x') {
@@ -813,6 +828,7 @@ function itemsStep(dt, now) {
       it.hid = false; it.a = approach(it.a, tgt, fade);
     }
     it.sa = approach(it.sa, it.shown ? 1 : 0, fade);
+    if (it.snap) { it.snap = false; if (it.kind !== 'x' && it.kind !== 'c' && it.kind !== 'e') it.a = it.shown ? 1 : 0; it.sa = it.shown ? 1 : 0; }   // (an instant show or hide: e6s_seq.js)
     if (it.kind === 'o') {
       const E = it.E;
       if (E && E.state === 'ready' && it.built !== E.gen) buildModel(it);
@@ -942,8 +958,10 @@ function editStep(editing) {
   // a selected cube's lists
   const L = GL.links, pos = L.geometry.attributes.position, col = L.geometry.attributes.color;
   let n = 0;
-  if (sel && sel.kind === 'c') {
-    for (const [list, c] of [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]]) for (const id of list) {
+  if (sel && (sel.kind === 'c' || (sel.rec.press && sel.holder))) {
+    // (a cube's lists; a selected item's press targets in violet: e6t_press.js)
+    const LS = sel.kind === 'c' ? [[sel.rec.show, [0.24, 0.88, 0.56]], [sel.rec.hide, [1, 0.35, 0.29]], [[...new Set((sel.rec.tex || []).map(e => e.on))], [1, 0.76, 0.29]], [[...new Set((sel.rec.plays || []).map(e => e.on))], [0.35, 0.72, 1]]] : [[[...new Set(prEntries(sel.rec.press).map(e => e.on))].filter(i => i !== sel.id), [0.68, 0.45, 1]]];
+    for (const [list, c] of LS) for (const id of list) {
       const t = STU.items.get(id);
       if (!t || n >= pos.count - 2) continue;
       itemTopInto(t, _sw, true);
@@ -955,7 +973,7 @@ function editStep(editing) {
   // ticks over what a cube's list holds while picking for it
   const P = editing && STU.pick ? STU.items.get(STU.pick.id) : null;
   for (const it of STU.items.values()) {
-    if (it.kind === 'c' || it.kind === 'g') continue;
+    if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
     const on = !!P && (P.rec.show.includes(it.id) || P.rec.hide.includes(it.id));
     if (on && !it.tick) { it.tick = LOOKS.tag(30); GL.edit.add(it.tick); }
     if (!it.tick) continue;
@@ -1318,7 +1336,7 @@ function setEdit(on) {
   STU.edit = !!on;
   if (on) warmEdit('edit');
   store.set('studioEdit', STU.edit ? '1' : null);
-  if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
+  if (!STU.edit) { cpkCancel(); STU.qprev = null; STU.pick = null; STU.txp = null; STU.plp = null; STU.prp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
   dirty(true);
 }
@@ -1377,7 +1395,7 @@ function changed() { STU.rev++; draftSoon(); dirty(); }
 function setRec(id, patch) {
   const it = STU.items.get(id);
   if (!it) return null;
-  const rec = norm(it.kind, Object.assign({}, it.rec, patch));   // (a field patched to undefined goes)
+  const rec = norm(it.kind, Object.assign({}, it.rec, patch), id);   // (a field patched to undefined goes)
   return rec ? putItem(id, it.kind, rec) : null;
 }
 // an object's record changed by an edit here (its size steps, both grips, the page's arrows): the sounds that follow it
@@ -1500,6 +1518,8 @@ function deleteItems(list) {
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.tex && c.rec.tex.some(e => gone.has(e.on))) { const t = c.rec.tex.filter(e => !gone.has(e.on)); setRec(c.id, { tex: t.length ? t : undefined }); }
   // (and what they start on a deleted item: e6n_plays.js)
   for (const c of [...STU.items.values()]) if (c.kind === 'c' && !gone.has(c.id) && c.rec.plays && c.rec.plays.some(e => gone.has(e.on))) { const t = c.rec.plays.filter(e => !gone.has(e.on)); setRec(c.id, { plays: t.length ? t : undefined }); }
+  seqDeleted(gone);   // (and the events of the sequences that name them: e6s_seq.js)
+  pressDeleted(gone);   // (and the entries of the presses that name them: e6t_press.js)
   for (const f of [...STU.items.values()]) if (f.kind === 's' && !gone.has(f.id) && gone.has(f.rec.on)) setRec(f.id, { on: undefined, bone: undefined, o: undefined, p: f.holder.position.toArray() });
   const gs = [...STU.items.values()].filter(g => g.kind === 'g' && !gone.has(g.id) && g.rec.items.some(i => gone.has(i)));
   for (const g of gs) setRec(g.id, { items: out(g.rec.items) });
@@ -1512,6 +1532,7 @@ function duplicateItem(id) {
   if (!it || !canAdd(it.kind)) return '';
   if (it.kind === 'x') return duplicateCut(it);   // (beside it, on the same object: e6b_cuts.js)
   if (it.kind === 'g') return duplicateGroup(it);   // (every member, as a new group beside it: e6c_groups.js)
+  if (it.kind === 'q') return duplicateSequence(it);   // (its events, not playing: e6s_seq.js)
   if (it.kind === 'd') return duplicatePainting(it);   // (its strokes copied, in the record or a new file: e6r_paint.js)
   const pw = pathCopyWhy([it.rec]);   // (its recorded path: the scene's 6,000 keys and the shared state's room; e6f_path.js)
   if (pw) { recSay(it.id, pw, 'amber'); return ''; }
@@ -1527,7 +1548,7 @@ function duplicateItem(id) {
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
     if (it.kind === 'o') texCopy(id, nid);
     // (and what a cube starts on it, on its copy too, beside the original's: e6n_plays.js)
-    if (PLAY_ITEMS.includes(it.kind)) playCopy(id, nid);
+    if (PLAY_ITEMS.includes(it.kind)) { playCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }   // (and in every sequence: e6s_seq.js; and the presses: e6t_press.js)
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -1586,7 +1607,7 @@ const ITEM_ACT = {
   grab: (it, v) => { if (GRAB_KINDS.includes(it.kind) && (v === 'any') !== !!it.rec.grab) setRec(it.id, { grab: v === 'any' ? true : undefined }); },
   // in which sessions an item shows (v137): AR and VR (no field), only AR, only VR
   shows: (it, v) => { const w = v === 'ar' || v === 'vr' ? v : undefined; if (SHOWS_KINDS.includes(it.kind) && w !== it.rec.shows) setRec(it.id, { shows: w }); },
-  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
+  pickFor: (it, v) => { STU.pick = STU.pick && STU.pick.id === it.id && STU.pick.list === v ? null : { id: it.id, list: v }; STU.txp = null; STU.plp = null; STU.prp = null; },   // (one pick at a time: its texture pick and its pick of what it starts end, e6i_tex.js, e6n_plays.js)
   // a cube's list on its card: an item flashed in the scene (1.6 s), its card opened, or taken off the list
   flash: (it, id) => { STU.flash = STU.items.has(id) ? { id, at: performance.now() } : null; },
   open: (it, id) => { if (STU.items.has(id)) select(id); },
@@ -1654,11 +1675,15 @@ function toggleLinks(cubeId, list, ids) {
 function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
+  if (CPK.open && CPK.open.id && CPK.open.id !== id) cpkCancel();   // (a colour picker belongs to the item on the card: e7h_colour.js)
   if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
   if (STU.plp && STU.plp.id !== id) STU.plp = null;   // (and its pick of what it starts)
+  if (STU.prp && STU.prp.id !== id) STU.prp = null;   // (and an item's pick of what a reaction acts on: e6t_press.js)
+  if (STU.qprev && STU.qprev.id !== id) STU.qprev = null;   // (a sequence's preview ends with its selection: e6s_seq.js)
+  if (STU.qsel >= 0 && STU.sel !== id) STU.qsel = -1;
   if (STU.follow && STU.follow !== id) STU.follow = '';   // (and to the sound)
   if (STU.cutTo && STU.cutTo !== id) STU.cutTo = '';   // (and to the cut-out)
   if (STU.keyPick && STU.keyPick !== id) STU.keyPick = '';   // (and to the cube picking its key)
@@ -1681,6 +1706,8 @@ function collabState() {
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
   const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
+  for (const [id, v] of STU.qr) if (seqRec(id)) s['qr.' + id] = v;   // (a sequence's shared play state: e6s_seq.js)
+  for (const [id, v] of STU.pr) if (STU.items.has(id)) s['pr.' + id] = v;   // (an item's press stamp: e6t_press.js)
   return s;
 }
 // A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
@@ -1688,7 +1715,7 @@ function collabState() {
 // (the same records, so nothing doubles), as the one-scene rule does (chooseScene), also one that had that scene open
 // already at another station or outside the room; items from the room before that layout is read here are the room's
 // (STU.fresh: no layout written over them)
-const ITEM_KEY = /^[ocsxgpevd]\.[a-z0-9]{6}$/;
+const ITEM_KEY = /^[ocsxgpevdq]\.[a-z0-9]{6}$/;
 const stationId = () => { try { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); return st && st.story === XR_HERE ? String(st.id || '') : ''; } catch (e) { return ''; } };
 function collabApply(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return;
@@ -1701,20 +1728,42 @@ function collabApply(v) {
   // the scene's settings: as the room has them (absent, as in a circle the shell made for a scene: as a new scene's,
   // until the saved layout is read; a bad value: ignored, kept as they are)
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
-  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0 };
+  const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0, q: 0 };
+  let evs = 0;   // (the sequences' events: 2,000 a scene)
   let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
-    const m = /^([ocsxgpevd])\.([a-z0-9]{6})$/.exec(k);
+    const m = /^([ocsxgpevdq])\.([a-z0-9]{6})$/.exec(k);
     if (!m || keep.has(m[2])) continue;
     const it = STU.items.get(m[2]);
-    let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k]) : null;
+    let rec = n[m[1]] < LIMITS[m[1]] ? norm(m[1], v[k], m[2]) : null;
+    if (rec && m[1] === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) rec = null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
-    keep.add(m[2]); n[m[1]]++; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
+    keep.add(m[2]); n[m[1]]++; if (m[1] === 'q') evs += rec.ev.length; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
   }
   for (const id of [...STU.items.keys()]) if (!keep.has(id)) removeItem(id);
+  // (the sequences' play states: as the room has them; one it has not is gone here; a bad one ignored: e6s_seq.js)
+  const qk = new Set();
+  for (const k of Object.keys(v)) {
+    const m = /^qr\.([a-z0-9]{6})$/.exec(k);
+    if (!m) continue;
+    qk.add(m[1]);
+    const val = normQr(v[k]);
+    if (val && seqRec(m[1])) { const o = STU.qr.get(m[1]); if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.qr.set(m[1], val); } else if (!val) qk.add(m[1]);
+  }
+  for (const id of [...STU.qr.keys()]) if (!qk.has(id)) STU.qr.delete(id);
+  // (the items' press stamps: as the room has them; one it has not is gone here; a bad one ignored: e6t_press.js)
+  const pk = new Set();
+  for (const k of Object.keys(v)) {
+    const m = /^pr\.([a-z0-9]{6})$/.exec(k);
+    if (!m) continue;
+    pk.add(m[1]);
+    const val = normPr(v[k]);
+    if (val && STU.items.has(m[1])) { const o = STU.pr.get(m[1]); if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.pr.set(m[1], val); } else if (!val) pk.add(m[1]);
+  }
+  for (const id of [...STU.pr.keys()]) if (!pk.has(id)) STU.pr.delete(id);
   dirty();
 }
 function studioEffect(type, data, by) {

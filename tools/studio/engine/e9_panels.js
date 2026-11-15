@@ -125,7 +125,7 @@ function panelDepth(P, inScene) {
 function panelTick(P, now, force) {
   if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
   const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + XR.fontOK, fade = k < 0 ? '' : sg.slice(k), s = base + fade + '|' + P.hover;
-  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
+  if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); if (P.pickers && P.pickers.length) pickersTick(P, now); return; }
   if (!force && now - P.t < 60) return;
   if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
@@ -137,7 +137,7 @@ function panelTick(P, now, force) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  P.regions = []; P.bars = []; P.drawn = [];
+  P.regions = []; P.bars = []; P.pickers = []; P.drawn = [];
   panelPaint(ctx, P);
   P.nd = (P.nd || 0) + 1;
   if (P.cap && P.nd === 1) { XR.landN++; P.mesh.visible = P.want !== false; }   // (shown at its first draw even while the frame idles: xrUpdate, which shows it, does not run then)
@@ -207,7 +207,7 @@ function panelHover(P, a, b) {
   }
   if (!R.length) return true;   // (nothing drawn by it: nothing to change)
   if (R.reduce((n, r) => n + r[2] * r[3], 0) > HOV.most * P.w * P.h) return false;
-  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn], cv = HOVCV = HOVCV || document.createElement('canvas');
+  const ctx = P.ctx, keep = [P.regions, P.bars, P.drawn, P.pickers], cv = HOVCV = HOVCV || document.createElement('canvas');
   try {
     R.forEach((r, k) => {
       const [rx, ry, rw, rh] = r;
@@ -215,13 +215,13 @@ function panelHover(P, a, b) {
       const c = cv.getContext('2d');
       c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, rw, rh); c.globalAlpha = 1; c.textBaseline = 'top'; c.textAlign = 'left';
       c.save(); c.beginPath(); c.rect(0, 0, rw, rh); c.clip(); c.setTransform(1, 0, 0, 1, -rx, -ry);
-      P.regions = []; P.bars = []; P.drawn = null;
+      P.regions = []; P.bars = []; P.drawn = null; P.pickers = [];
       panelPaint(c, P);
       c.restore();
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(rx, ry, rw, rh); ctx.drawImage(cv, rx, ry); ctx.restore();
       panelPatch(P, cv, rx, ry, k < R.length - 1);   // (its mipmaps made once, after the last)
     });
-  } finally { [P.regions, P.bars, P.drawn] = keep; }
+  } finally { [P.regions, P.bars, P.drawn, P.pickers] = keep; }
   P.hovPatched = (P.hovPatched || 0) + 1; P.hovRects = R;
   return true;
 }
@@ -506,6 +506,11 @@ function drawExplorePane(ctx, P, x, y, W) {
   const blocks = paneBlocks(X.tab).filter(b => !b.page);
   let bottom = P.h - 26, total = 0;
   for (const b of blocks) total += drawBlock(ctx, P, b, x, 0, W, 0, 1e9, true);
+  if (CPKX.reveal) {   // (a picker just opened: scrolled into view, its button above it)
+    CPKX.reveal = false;
+    let acc = 0;
+    for (const b of blocks) { if (b.picker) { X.scroll[X.tab] = Math.max(0, acc - 90); break; } acc += drawBlock(ctx, P, b, x, 0, W, 0, 1e9, true); }
+  }
   const more = total > bottom - y;
   if (more) bottom -= 72;
   const max = Math.max(0, total - (bottom - y)), off = X.scroll[X.tab] = clamp(X.scroll[X.tab] || 0, 0, max);
@@ -564,11 +569,12 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
     const bh = drawBar(ctx, P, b.bar, x, y, W, dry);
     if (!dry && bh && inView(y, BAR.h)) {
       const x0 = x + BAR.pad, x1 = x + W - BAR.pad, ch = b.bar.ch, S = animBar(ch);
-      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => animScrub(ch, (px - x0) / (x1 - x0)) });
+      P.regions.push({ id: b.bar.id, x: x0 - 24, y, w: x1 - x0 + 48, h: BAR.h, drag: px => (ch === 'seq' ? seqScrub((px - x0) / (x1 - x0)) : animScrub(ch, (px - x0) / (x1 - x0))) });
       P.bars = (P.bars || []).concat({ x, y, w: W, ch, id: b.bar.id, q: barQ(S), at: 0 });
     }
     return bh;
   }
+  if (b.picker) return drawPicker(ctx, P, b.picker, x, y, W, dry, inView(y, CPKX.h));   // (the colour picker's block: e7h_colour.js)
   let h = 0;
   if (b.label) { ctx.font = vfont(20, 700); if (!dry && y > top && y + 28 < bottom) { ctx.fillStyle = VC.muted; ctx.fillText(b.label, x, y); } h += 32; }
   if (b.row) {

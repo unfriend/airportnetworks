@@ -214,7 +214,9 @@ function frame(now, xrFrame) {
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)
   itemsStep(dt, performance.now());
+  cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
+  svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
   exStep();   // (an example open here at a circle: back to the relay, the scene the room's; the examples' scenes on the relay seen; e7g_examples.js)
   if (!STU.framed && APP.mode === 'explore' && !xr && STU.listing === 'ok' && [...STU.items.values()].every(it => it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed'))) { STU.framed = true; if (STU.items.size && X.view === 'orbit') frameScene(true); }
   updateExtraLabels();
@@ -410,9 +412,21 @@ const STUDIO = {
   // runs on it now (per kind: its cube, clip, how, when, at, off, try), its clip layers ([clip, weight, time, fading]), where a
   // path it waits is, a sound's gain factor and how it last started
   plays: id => playState(id),
+  // sequences (v146, e6s_seq.js): one with its record, effective play state, where it is, what it shows and starts; and all
+  seq: id => seqState(id),
+  seqs: () => seqStates(),
+  seqPlay: id => seqPlay(id, 'test'), seqStop: id => seqStop(id, 'test'), seqRewind: id => seqRewind(id, 'test'),
+  seqView: () => seqViewState(),
+  // presses and pointing (v146, e6t_press.js): an item's press record, stamp, what this device has seen, show and hide sources and runs; a press here; pretend pointing ('' ends it)
+  press: id => pressState(id),
+  pressFire: id => pressFire(id),
+  hover: id => { PRESS.fake = id === null || id === undefined ? null : String(id); return PRESS.fake; },
+  seqViewDrag: (i, dt) => seqViewDrag(i, dt),
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
   screen: id => screenState(id),
+  colour: () => ({ open: CPK.open, hsv: [CPK.h, CPK.s, CPK.v], hex: cpkNow(), from: CPK.from, drag: CPK.drag, pend: CPK.pend, live: CPK.live, previews: CPK.previews, commits: CPK.commits, patches: CPK.patches, recents: cpkRecents() }),   // (the shared colour picker: e7h_colour.js)
+  colourTest: { hex2hsv, hsv2hex, xrPoint: cpkTestPoint },
   paint: () => paintState(),   // (paint mode: its brush, colour, width, target, stroke being drawn and last result: e6r_paint.js)
   painting: id => paintingState(id),   // (a painting: its record, strokes, meshes, dots, whether built)
   get screenClock() { return screenClock; },
@@ -467,6 +481,8 @@ return {
   dispose() {
     try { draftNow(); } catch (e) { /* storage blocked */ }   // (the last second's changes, before its timer goes below)
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
+    try { cpkDispose(); } catch (e) { /* not open */ }   // (the colour picker's popover taken away: e7h_colour.js)
+    try { svClose(); } catch (e) { /* not open */ }   // (the lane view taken away: e7h_seqview.js)
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
     try { grabEnd(); } catch (e) { /* not grabbed */ }   // (Walk view's grabbed mouse let go, its crosshair taken away: e7_explore.js)
     try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)

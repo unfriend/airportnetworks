@@ -51,7 +51,7 @@ for byte, the models and their pictures (made in the browser) each within 2 % of
 
 ## The room
 
-65 objects (58 models), 11 trigger cubes, 17 sound emitters and 8 groups. In VR it stands round you as placed, in a room of
+81 objects (66 models), 16 trigger cubes, 35 sound emitters, 10 groups and 20 sequences. In VR it stands round you as placed, in a room of
 5 x 5 m (walls at +-2.5 m round the scene's origin, where you stand at first, -z ahead), on our painted hill under its
 sky. In AR it goes onto your own walls: the studio's `wall` behaviour (v137) maps each wall item onto the walls the
 headset's room scan finds, so the same layout fits any room from about 3 x 3 m to 5 x 5 m.
@@ -88,7 +88,6 @@ headset's room scan finds, so the same layout fits any room from about 3 x 3 m t
   - *Entry* (everyone, stays): a step forward hides the boot screen and shows the welcome screen, "welcome back.", the
     giant cursor and its balloon, with the startup swell (shown with them, so it plays once as it first shows; the cube
     stays, and walking through it again on the way to the desktop does not play it again).
-  - *Start menu*: at the start button, the Start menu with a click.
   - *Clippy*: near him, he waves and asks whether you are trying to go outside (his balloon pops in).
   - *Recycle Bin*: the crumple.
   - *Chat*: at the notes, the new-message chime, the chat's nudge and the typing (while you stand there).
@@ -104,7 +103,37 @@ headset's room scan finds, so the same layout fits any room from about 3 x 3 m t
   - *Way out*: Turn off computer and "You can switch off now", the shutdown; in VR the hill gives way to the starfield.
   - *Error corner* (everyone): the trail, the error dialog and "Close all your windows", the ding; the giant cursor goes
     while anyone is there.
-- **Sounds**: 14 synthesised sounds as 17 emitters, each at its object (`on`), so it comes from there. An emitter is
+- **Things to press** (v146, the owner, 15 November 2026: "Bliss more interactive ... PRESS an item (anyone, visitors too,
+  editing off too)"; a click, the trigger or a pinch, with editing off). A press is a record on the object (`press`: what it
+  starts) and what it starts is mostly a *sequence* (a timeline of events on items, kept in `layout.json` as `sequences`):
+  both are shared on the room's clock, so what one person presses everyone at the circle sees at the same room moment, a late
+  joiner too. Pointing at something (`press.hover`) is each person's own and sends nothing.
+  - *Start*: the start button opens the Start menu with a click (Start open); pressing the open menu closes it (Start close).
+    There is no toggle on the button itself: the menu closes by pressing it. Pointed at, the button comes 8 mm out of the bar.
+  - *Icons*: My Computer, My Documents, Internet and Media Player each turn a small loading hourglass in front of their window
+    (and the desktop's) for 1.2 s, then show the window (the picture viewer, the notes, the search, the player) with its red
+    close button over the drawn one; the windows start closed. The close button hides both again with a click. Pressing the icon
+    of a window that is open loads it again (it goes and comes back after the 1.2 s). The close buttons and the player's
+    buttons are separate parts (`close-button`, `media-play`, `media-stop`) placed over the drawn ones from where the window
+    parts say their buttons are (`info.marks`), riding on their window, so they stay on it in any room. Pointed at, an icon
+    lifts and turns a little and a button comes 4 mm out.
+  - *Media Player*: its play button starts the bars and our own music (a 4.8 s loop: a pad on two chords, a plucked bass and a
+    bell tune of eight notes of a pentatonic scale, `sounds.mjs`'s `music`; for ten minutes at most, or until stop or closing the
+    player), its stop button ends both, and closing the player does too.
+  - *Clippy* waves while he is pointed at and dances, with a giggle, when he is pressed.
+  - *Balloons*: pressing any of the six bursts it with a pop; it grows back out of its tail 8 s later. (Its unseen box stays
+    during those 8 s: pointed at and pressed again, it bursts again.)
+  - *Welcome*: pressing the welcome screen logs in: it and "welcome back." go with a click. (Only Log in hides them and no cube shows them, so every device agrees,
+    whoever walks in or reloads later.)
+- **What anyone can pick up** (`grab`): four playing cards (our own faces, pips only: an ace of hearts, a seven of spades, a
+  three of diamonds, a ten of clubs, 9.5 x 13.3 cm, backs plain blue) on the floor in front of the solitaire, and two old
+  printed pages ("plans for today") by the right wall. Dropped in the Recycle Bin they crumple into a ball, held crumpled while
+  they are in the bin, with the crumple sound and the bin's gulp; carried out they smooth out. Six low key cubes (floor to
+  0.5 m, each reacting to its own card or page, `key`) stand round where the bin is in the 3 x 3 m room and in the 5 x 5 m room
+  and between (the bin rides on the browser on the right wall, so in AR it moves with the wall), 0.18 m wider on every side;
+  `layout.mjs` works the two places out the way the wall behaviour places the browser. In a room much smaller or bigger than that,
+  or much longer than wide, the bin can stand past a cube's edge: it then crumples nothing.
+- **Sounds**: 17 synthesised sounds as 35 emitters, each at its object (`on`), so it comes from there. An emitter is
   heard only as much as its object is shown (its level is its own fade times its object's), so a sound a cube starts
   once is on an object that is always shown and placed at the one it belongs to (`o`): the balloon pops on Clippy, the
   ding on Remote Assistance, the shutdown on "Go touch the grass", the startup swell on the taskbar's bar. Otherwise it
@@ -118,10 +147,10 @@ headset's room scan finds, so the same layout fits any room from about 3 x 3 m t
 
 ## Budgets
 
-Every model under 30,000 triangles (the biggest, the hill, 7,368) and the room 67,346 triangles as placed in VR (50,254 in
+Every model under 30,000 triangles (the biggest, the hill, 7,368) and the room 75,042 triangles as placed in VR (about 58,000 in
 AR), every picture at most 1,024 px (JPEG where opaque), few draws per model (static parts merged by material; only parts
-that move are nodes of their own): 118 draws with everything shown in VR (95 before any cube shows something), 110 in AR
-(90). The folder is 5.3 MB (under 6). `make.mjs` stops when a budget is passed. Unlit models (the windows' faces, the
+that move are nodes of their own): 152 draws with everything shown in VR (118 before v146; five hourglasses of 4 draws, the cards and pages and the buttons added
+the rest), 144 in AR. The folder is 5.81 MB (under 6). `make.mjs` stops when a budget is passed. Unlit models (the windows' faces, the
 landscape, the grass, the clouds and the cursors, their light baked into their corners) look the same in any light; some
 have no normals (they need none), which the studio's Add pane notes as it does for a scan.
 
@@ -132,8 +161,10 @@ have no normals (they need none), which the studio's Add pane notes as it does f
 - No logos: never the four-coloured flag or the system's or its maker's wordmarks; our own emblem and the word "bliss"
   on the boot and welcome screens. The UI's generic labels are fine (start, My Computer, Recycle Bin, Notepad, Task
   Manager, title bars and buttons).
-- No sound files or tunes of the real system: every sound is our own synthesis (the critical stop three short low buzzes
-  on one note, the startup and shutdown plain broken chords, up and down again).
+- No sound files or tunes of the real system and no song: every sound is our own synthesis (the critical stop three short low
+  buzzes on one note, the startup and shutdown plain broken chords, up and down again), and the only music is our own short loop
+  for Media Player (a plain chord loop and a pentatonic tune, seeded).
+- No people on the cards: aces and pip cards only, no kings, queens or jacks.
 - None of the system's own sentences: the way out says "You can switch off now. The grass will wait.", the cursor's
   error dialog is in our words, and the Bliss balloon says the hill is painted (never the photograph's place or date).
 - No song lyrics: only the few short phrases the video's UI shows as window titles and balloons ("Go touch the grass",
@@ -144,9 +175,11 @@ have no normals (they need none), which the studio's Add pane notes as it does f
 
 ## Untested
 
-Everything on a headset: how the room maps onto a real Quest's room scan (the studio's `wall` behaviour on its planes:
+Everything on a headset (presses with a real trigger or pinch, hover reactions, the cards picked up life size and dropped into a bin
+that stands where a real room's wall puts it in AR, the player's buttons over the drawn ones; the music, the giggle and the burst are
+unheard here): how the room maps onto a real Quest's room scan (the studio's `wall` behaviour on its planes:
 checked here only on pretend walls, rooms of 3 x 3 to 6 x 5 m, in headless Chromium), how the windows, balloons and
-titles read life size, the frame rate with the whole room (about 67,000 triangles and at most 118 draws in VR), the
+titles read life size, the frame rate with the whole room (about 75,000 triangles and at most 152 draws in VR), the
 sounds through HRTF (unheard here: synthesised and checked for length and level only; the pops, the ding and the shutdown
 now come from the objects they are on but placed where they belong, which only a headset can confirm by ear), Clippy's clips life size, the
 giant cursor at your right, and how the everyone cubes feel with several people.

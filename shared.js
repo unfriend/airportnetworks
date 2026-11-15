@@ -26,7 +26,8 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-46';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-47';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-47 (v146): the room's key name; the studio's sequences and press reactions
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
@@ -441,7 +442,7 @@
     if (!C.relay) return Promise.resolve(null);
     C.roomsAt = performance.now();
     return api('rooms').then(r => {
-      C.rooms = r.ok && Array.isArray(r.j) ? r.j.slice().sort((a, b) => (b.members > 0) - (a.members > 0)) : [];
+      C.rooms = r.ok && Array.isArray(r.j) ? r.j.filter(o => o && typeof o === 'object').map(o => Object.assign({}, o, { title: roomNameClean(o.title || '') })).sort((a, b) => (b.members > 0) - (a.members > 0)) : [];
       C.roomsErr = r.ok ? '' : r.status === 401 ? AUTH_TEXT : 'The relay at ' + host() + ' answered ' + r.status + '.';
       changed(); return C.rooms;
     }, () => { C.rooms = []; C.roomsErr = unreachable(); changed(); return null; });
@@ -976,7 +977,8 @@
         let o = null;
         try { o = JSON.parse(localStorage.getItem(k)); } catch (e) { /* broken */ }
         if (o && o.keys && typeof o.keys === 'object') out.push({ code, stations: Object.keys(o.keys).filter(x => ST_RE.test(x)).length, at: +o.at || 0,
-          net: typeof o.net === 'string' ? o.net : '', relay: typeof o.relay === 'string' ? o.relay : '', left: !!o.left, gone: !!o.gone, rid: o.keys.rid && typeof o.keys.rid.v === 'string' ? o.keys.rid.v : '' });
+          net: typeof o.net === 'string' ? o.net : '', relay: typeof o.relay === 'string' ? o.relay : '', left: !!o.left, gone: !!o.gone, rid: o.keys.rid && typeof o.keys.rid.v === 'string' ? o.keys.rid.v : '',
+          name: roomNameClean(o.keys.name && o.keys.name.v && typeof o.keys.name.v.v === 'string' ? o.keys.name.v.v : '') });
       }
     } catch (e) { /* storage blocked */ }
     return (LOC.list = out.sort((a, b) => b.at - a.at));
@@ -1833,8 +1835,8 @@
       C.rejoining = false;
       if (C.code || C.creating || !rejoinable() || rejoinable().code !== r.code) return;
       join(r.code, 'auto', r.rid);
-      if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu (' + menuWhere() + '): Leave is under Circles.', 9000);
-      else toast(r.code);
+      if (HOST.session) notice('Back in ' + roomSay(r.code, r.name), 'This headset was in it on this network, so it joined it again. To leave it, open the menu (' + menuWhere() + '): Leave is under Circles.', 9000, 'Back in room');
+      else toast(r.code, r.name);
     };
     if (!C.relay) { go(); return true; }
     C.rejoining = true;
@@ -1853,7 +1855,7 @@
     log('rejoin: another room', { code });
     if (C.code === code && C.auto === code) leave();
     keptMark(code, { gone: true });
-    C.note = 'Room ' + code + ', which this device was in, is not there any more: its code is another room\'s now, so it was not joined by itself.';
+    C.note = cap(roomSay(code, keptName(code))) + ', which this device was in, is not there any more: its code is another room\'s now, so it was not joined by itself.';
     changed();
   }
   const ago = at => { const h = (Date.now() - at) / 3600000; return h < 1 ? 'less than an hour ago' : h < 24 ? Math.floor(h) + (h < 2 ? ' hour ago' : ' hours ago') : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago'; };
@@ -1866,6 +1868,27 @@
     if (!C.code || C.local) return false;
     publish([['near', { on: !!on, by: C.id, at: now() }]]);
     log('near', { on: !!on });
+    return true;
+  }
+  // the room's name (key name, { v, by, at }): a label for people; the three-letter code stays the address. One cleaner for
+  // everything read or written (the relay's titleOf has the same rules): control, zero-width and bidi characters out, spaces
+  // collapsed, at most 40 characters counted by code point. Never in a log line (headset logs go to the relay).
+  const roomNameClean = s => {
+    const t = String(s === undefined || s === null ? '' : s).normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g, '').replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, '').replace(/\s+/g, ' ').trim();
+    return [...t].slice(0, 40).join('').trim();
+  };
+  const roomName = () => { const v = val('name'); return roomNameClean(v && typeof v === 'object' && typeof v.v === 'string' ? v.v : ''); };
+  const nmHtml = (name, code) => (name ? `<strong class="nm">${esc(name)}</strong><b class="cd">${esc(code)}</b>` : `<b>${esc(code)}</b>`);
+  const roomSay = (code, name) => (name ? name + ' (room ' + code + ')' : 'room ' + code);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const keptName = code => (localRooms().find(r => r.code === code) || {}).name || '';
+  function setRoomName(v) {
+    if (!C.code || camMode()) return false;
+    v = roomNameClean(v);
+    if (v === roomName()) return true;
+    publish([['name', { v, by: C.id, at: Math.round(now()) }]]);
+    log('room name', { len: [...v].length });
+    changed();
     return true;
   }
   // the rooms on this network, for the dialog and the menu (C.near: [{ code, name, members, stations }]; null: looking)
@@ -1884,7 +1907,7 @@
         // devices gone; a newer one: this device needs the update. One not networks-<n>: left out, as ever)
         const verOf = o => (!o.version || o.version === FORMAT ? '' : fmtN(o.version) && fmtN(FORMAT) ? (fmtN(o.version) < fmtN(FORMAT) ? 'older' : 'newer') : 'other');
         const list = r.j.rooms.filter(o => o && /^[A-Z]{3}$/.test(o.code) && verOf(o) !== 'other')
-          .map(o => Object.assign({ code: o.code, name: String(o.name || '').slice(0, 32), members: +o.members || 0, stations: +o.stations || 0 }, verOf(o) ? { ver: verOf(o) } : {}));
+          .map(o => Object.assign({ code: o.code, name: String(o.name || '').slice(0, 32), title: roomNameClean(o.title || ''), members: +o.members || 0, stations: +o.stations || 0 }, verOf(o) ? { ver: verOf(o) } : {}));
         const net = NET_RE.test(r.j.net || '') ? r.j.net : '';
         if (net !== C.net || C.netState !== 'found') netSet(net, 'relay', why);   // (the network as the relay sees it: known now)
         C.near = list;
@@ -1924,7 +1947,7 @@
           c.on('data', d => {
             let o = null;
             try { o = JSON.parse(d); } catch (e) { /* not JSON */ }
-            if (o && /^[A-Z]{3}$/.test(o.code) && o.version === FORMAT) { found.set(o.code, { code: o.code, name: String(o.name || '').slice(0, 32), members: +o.members || 0, stations: +o.stations || 0 }); show(); }
+            if (o && /^[A-Z]{3}$/.test(o.code) && o.version === FORMAT) { found.set(o.code, { code: o.code, name: String(o.name || '').slice(0, 32), title: roomNameClean(o.title || ''), members: +o.members || 0, stations: +o.stations || 0 }); show(); }
             try { c.close(); } catch (e) { /* gone */ }
             one(id);
           });
@@ -1952,7 +1975,7 @@
     p.on('connection', c => {
       if (LOBBY.slot !== S) { try { c.close(); } catch (e) { /* gone */ } return; }
       c.on('open', () => {
-        try { c.send(J({ code: C.code, name: C.name, members: C.members.length, stations: C.st.length, version: FORMAT })); } catch (e) { /* gone */ }
+        try { c.send(J(Object.assign({ code: C.code, name: C.name, members: C.members.length, stations: C.st.length, version: FORMAT }, roomName() ? { title: roomName() } : {}))); } catch (e) { /* gone */ }
         setTimeout(() => { try { c.close(); } catch (e) { /* gone */ } }, 3000);
       });
       c.on('error', () => {});
@@ -1976,9 +1999,9 @@
   // the page's notice after a rejoin (a headset in a session gets the shell's notice instead): Leave at hand. Shown and
   // hidden by its display (its own display: flex outranks the hidden attribute, so that alone left it up for good)
   const TOAST = { el: null, timer: 0 };
-  function toast(code) {
+  function toast(code, name) {
     if (!toastEl()) return;
-    TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in room <b>${esc(code)}</b>: this device was in it on this network, so it joined it again by itself.</span>` +
+    TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in ${name ? '<b>' + esc(name) + '</b> (room ' + esc(code) + ')' : 'room <b>' + esc(code) + '</b>'}: this device was in it on this network, so it joined it again by itself.</span>` +
       '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>' +
       '<button class="btn" type="button" data-toast="close" aria-label="Close" title="Close">\u00d7</button>';
     TOAST.el.hidden = false; TOAST.el.style.display = 'flex';
@@ -4363,10 +4386,10 @@
       // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
       // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
       PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st) : '', C.via, hosting(), C.takeover, C.peer,
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
+      C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4445,17 +4468,22 @@
   // A keypad for a word (HOST.collab.keypad({ title, hint, value, max }): a promise of the text typed, or null), in place
   // of the tab shown: headsets cannot type, so pages that need a name (the studio's scenes) ask the shell. The text so far,
   // the 26 lower-case letters and the ten digits, space, '_', '.' and '-', Delete, OK (greyed while there is nothing but
-  // spaces) and Back. OK gives the text as typed; Back, another tab, the menu closing, another keypad or the session's end
+  // spaces) and Back (options: caps, a Shift key with word capitals by default, as a phone's; empty, OK pressable with nothing typed). OK gives the text as typed; Back, another tab, the menu closing, another keypad or the session's end
   // give null. The menu opens for it (and closes after it, when it was closed before); it does not close by itself while
   // the keypad waits
   const KP_KEYS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  // a named room's row in the menu's lists: its name in bold over its code and a line (rows stay 70 tall)
+  function rowName(ctx, x, y, w, name, code, line) {
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, name, w), x, y + 2);
+    ctx.font = FONT(19); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, code + ' \u00b7 ' + line, w), x, y + 36);
+  }
   function keypad(o) {
     o = o && typeof o === 'object' ? o : {};
     return new Promise(res => {
       if (!HOST.session || !R.session || !OV.root || !OV.root.parent) { res(null); return; }   // (no headset menu to show it)
       const close = PNL.kp ? PNL.kp.close : !PNL.open, max = Math.max(1, Math.min(200, Math.floor(+o.max) || 60));   // (one waiting: its own close carried over)
       menuOpen(true, 'keypad');   // (cancels a keypad already waiting)
-      PNL.kp = { title: String(o.title || 'Type a word').slice(0, 80), hint: String(o.hint || '').slice(0, 240), value: String(o.value || '').slice(0, max), max, res, close };
+      PNL.kp = { title: String(o.title || 'Type a word').slice(0, 80), hint: String(o.hint || '').slice(0, 240), value: [...String(o.value || '')].slice(0, max).join(''), max, res, close, caps: !!o.caps, empty: !!o.empty, sh: null };
       log('keypad', { title: PNL.kp.title });
       if (OV.panel) OV.panel.sig = '';
     });
@@ -4471,8 +4499,16 @@
     return K;
   }
   function kpDone(v) { const K = kpEnd(v); if (K && K.close) menuOpen(false, 'keypad'); }
+  // the room's name asked for on the headset (the keypad, with capitals; OK with nothing typed clears it)
+  function nameAsk() {
+    keypad({ title: 'Name this room', hint: 'For everyone here, such as Lab or Hall. The code stays ' + C.code + '. OK with nothing typed clears it.', value: roomName(), max: 40, caps: true, empty: true })
+      .then(v => { if (v !== null && v !== undefined && C.code) setRoomName(v); });
+  }
   function keyPage(S, x, y, w) {
-    const ctx = S.ctx, K = PNL.kp, t = K.value, bw = (w - 16) / 2, more = t.length < K.max, add = ch => (more ? () => { K.value = (K.value + ch).slice(0, K.max); } : null);
+    const ctx = S.ctx, K = PNL.kp, t = K.value, bw = (w - 16) / 2, more = [...t].length < K.max, add = ch => (more ? () => { K.value = [...(K.value + ch)].slice(0, K.max).join(''); } : null);
+    // (Shift: the next letter is a capital at the start and after a space; Shift flips that for one letter)
+    const auto = !t || t.endsWith(' '), capNext = K.caps && (K.sh === null || K.sh === undefined ? auto : K.sh);
+    const addL = ch => (more ? () => { K.value = [...(K.value + (capNext ? ch.toUpperCase() : ch))].slice(0, K.max).join(''); K.sh = null; } : null);
     ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, K.title, w), x, y); y += 42;
     if (K.hint) { ctx.font = FONT(21); ctx.fillStyle = MUTED; y += wrapText(ctx, K.hint, x, y, w, 28, 3) + 14; }
     rr(ctx, x, y, w, 80, 12); ctx.fillStyle = 'rgba(70,217,255,0.12)'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = CYAN; ctx.stroke();
@@ -4484,14 +4520,16 @@
     const kw = (w - 80) / 9, kh = 64;   // nine keys to a row, then space and the three signs
     for (let i = 0; i < KP_KEYS.length; i++) {
       const ch = KP_KEYS[i];
-      button(S, 'kp:' + ch, x + (i % 9) * (kw + 10), y + Math.floor(i / 9) * (kh + 10), kw, kh, ch, add(ch), { px: 30 });
+      const letter = i < 26;
+      button(S, 'kp:' + ch, x + (i % 9) * (kw + 10), y + Math.floor(i / 9) * (kh + 10), kw, kh, letter && capNext ? ch.toUpperCase() : ch, letter ? addL(ch) : add(ch), { px: 30 });
     }
     y += 4 * (kh + 10);
-    const sw = 3 * kw + 20;
-    button(S, 'kp:space', x, y, sw, kh, 'space', add(' '), { px: 26 });
+    const sw = 3 * kw + 20, spw = K.caps ? 2 * kw + 10 : sw;
+    button(S, 'kp:space', x, y, spw, kh, 'space', add(' '), { px: 26 });
+    if (K.caps) button(S, 'kp:shift', x + spw + 10, y, kw, kh, 'Shift', () => { K.sh = !auto; }, { px: 19, on: capNext });
     ['_', '.', '-'].forEach((ch, i) => button(S, 'kp:' + ch, x + sw + 10 + i * (kw + 10), y, kw, kh, ch, add(ch), { px: 34 }));
     y += kh + 18;
-    const ok = !!t.trim();
+    const ok = K.empty || !!t.trim();
     button(S, 'kp:del', x, y, bw, 60, 'Delete', t ? () => { K.value = K.value.slice(0, -1); } : null);
     button(S, 'kp:ok', x + bw + 16, y, bw, 60, 'OK', ok ? () => kpDone(t) : null, { primary: ok });
     y += 76;
@@ -4974,7 +5012,7 @@
         const on = !!C.code && p === R.saved, id = p.code + (p.pair ? '|' + p.pair : ''), fa = placeArmed(id);
         const h = (Date.now() - p.at) / 3600000, when = h < 1 ? 'this hour' : h < 24 ? Math.floor(h) + ' h ago' : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago';
         const here1 = p.code && PLC.here === p.code && (p.code !== C.code || (PLC.hereArea || '') === (p.pair || ''));
-        const t = (p.code ? 'Room ' + p.code : 'No room yet') + (p.pair ? ' · ' + (p.an || areaName(p.pair)) + ' (' + spotLetters(p).join(' ') + ')' : '') + (on ? ' · in use' : here1 ? ' · you are in it' : '') + ' · ' +
+        const t = (p.code ? cap(roomSay(p.code, keptName(p.code))) : 'No room yet') + (p.pair ? ' · ' + (p.an || areaName(p.pair)) + ' (' + spotLetters(p).join(' ') + ')' : '') + (on ? ' · in use' : here1 ? ' · you are in it' : '') + ' · ' +
           (placeKept(p) ? (nOf(p) === 1 ? 'one anchor' : 'two anchors') : 'this session only') + ' · ' + when;
         ctx.font = FONT(21, on ? 700 : 400); ctx.fillStyle = on ? CYAN : INK; ctx.fillText(fit(ctx, t, w - 196), x, y + 15);
         button(S, 'placeforget:' + (p.code || '-') + (p.pair ? '|' + p.pair : ''), x + w - 180, y, 180, 52, fa ? 'Sure? Again' : 'Forget', () => placeForgetAsk(id), { px: 20, color: fa ? '#ffb43b' : undefined, on: fa });
@@ -5057,8 +5095,20 @@
     // the room setup guide's pages, likewise (only for a headset in the room with the others: else the tab as ever)
     if (PNL.page === 'guide') { if (guideOn()) { finish(guidePage(S, x, y, w)); return; } PNL.page = 'main'; }
     // the shared room: its code, how many are in it, the connection
-    const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
-    ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, C.code ? w - 216 : w), x, y);
+    const n = C.members.length, rnm = C.code ? roomName() : '', tail = C.local ? 'this headset' : `${n} ${n === 1 ? 'person' : 'people'}`;
+    const title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
+    if (rnm) {
+      // (a named room: its name first, bold; the code and the people small beside it)
+      const hw = w - 216, rest = ` ${C.code} \u00b7 ${tail}`;
+      ctx.font = FONT(22); const rw = Math.min(ctx.measureText(rest).width, hw - 120);
+      ctx.font = FONT(28, 700); const nt = fit(ctx, rnm, hw - rw), nw = ctx.measureText(nt).width;
+      ctx.fillStyle = CYAN; ctx.fillText(nt, x, y);
+      ctx.font = FONT(22); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, rest, hw - nw), x + nw, y + 5);
+      PNL.head = `${rnm}${rest}`;
+    } else {
+      ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, C.code ? w - 216 : w), x, y);
+      PNL.head = title;
+    }
     if (C.code) button(S, 'codepage', x + w - 200, y - 8, 200, 48, 'Another room', () => { PNL.page = 'code'; PNL.code = ''; }, { px: 21 });   // (by its code)
     y += 40;
     ctx.font = FONT(21); ctx.fillStyle = MUTED;
@@ -5067,6 +5117,13 @@
     if (C.note) { ctx.font = FONT(23); ctx.fillStyle = '#ffb43b'; y += wrapText(ctx, C.note, x, y, w, 31, 3) + 10; }
     // Update the room (v136): every device here reloads into the newest version, one after another (two presses; never
     // refused by a lock; never from a camera)
+    if (C.code && !camMode()) {
+      const rn = roomName();
+      ctx.font = FONT(22, 700);
+      button(S, 'room:name', x, y, bw, 56, rn ? 'Name: ' + fit(ctx, rn, bw - 90) : 'Name this room', () => nameAsk(), { px: 22 });
+      ctx.font = FONT(20); ctx.fillStyle = MUTED; wrapText(ctx, `For everyone here. The code stays ${C.code}.`, x + bw + 16, y, bw, 26, 2);
+      y += 72;
+    }
     if (reloadCan()) {
       const ra = reloadArmed();
       button(S, 'room:reload', x, y, bw, 56, reloadLabel(), RL.busy ? null : () => reloadAsk('menu'), { px: ra ? 19 : 22, color: ra ? '#ffb43b' : undefined, on: ra });
@@ -5097,17 +5154,23 @@
       const kept = localRooms().filter(r => !rooms.some(o => o.code === r.code) && !near.some(o => o.code === r.code) && !(off && off.code === r.code)).slice(0, Math.max(0, left - rooms.length - (C.relay && !rooms.length ? 1 : 0)));
       label('On this network');
       if (off) {
-        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(off.code, x, y + 8);
-        ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        wrapText(ctx, 'Used ' + ago(off.at) + '; ' + offerWhy(off), x + 90, y + 2, w - 90 - 236, 26, 2);
+        if (off.name) rowName(ctx, x, y, w - 236, off.name, off.code, 'Used ' + ago(off.at) + '; ' + offerWhy(off));
+        else {
+          ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(off.code, x, y + 8);
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          wrapText(ctx, 'Used ' + ago(off.at) + '; ' + offerWhy(off), x + 90, y + 2, w - 90 - 236, 26, 2);
+        }
         button(S, 'again:' + off.code, x + w - 220, y, 220, 56, (C.relay ? 'Join' : 'Start') + ' again', () => join(off.code), { primary: true, px: 23 });
         y += 70;
       }
       if (!near.length) { ctx.font = FONT(22); ctx.fillStyle = MUTED; y += wrapText(ctx, nearNone(), x, y, w, 29, 2) + 12; }
       for (const r of near) {
-        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
-        ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, nearLine(r), w - 260), x + 90, y + 14);
+        if (r.title) rowName(ctx, x, y, w - 170, r.title, r.code, nearLine(r));
+        else {
+          ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          ctx.fillText(fit(ctx, nearLine(r), w - 260), x + 90, y + 14);
+        }
         button(S, 'near:' + r.code, x + w - 150, y, 150, 56, 'Join', () => join(r.code), { primary: true });
         y += 70;
       }
@@ -5120,18 +5183,24 @@
           'No relay known and peer to peer is off, so nobody else can join: a room still places the stories in your room, on this headset, and keeps them.', x, y, w, 29, 3) + 14;
       }
       for (const r of rooms) {
-        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
-        ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, peopleIn(r), w - 260), x + 90, y + 14);
+        if (r.title) rowName(ctx, x, y, w - 170, r.title, r.code, peopleIn(r));
+        else {
+          ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          ctx.fillText(fit(ctx, peopleIn(r), w - 260), x + 90, y + 14);
+        }
         button(S, 'join:' + r.code, x + w - 150, y, 150, 56, 'Join', () => join(r.code), { primary: true });
         y += 70;
       }
       // rooms kept on this headset: opened here (and taken to the relay when it answers)
       if (kept.length) label('Kept on this headset');
       for (const r of kept) {
-        ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
-        ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, r.stations + (r.stations === 1 ? ' station' : ' stations'), w - 260), x + 90, y + 14);
+        if (r.name) rowName(ctx, x, y, w - 170, r.name, r.code, r.stations + (r.stations === 1 ? ' station' : ' stations'));
+        else {
+          ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          ctx.fillText(fit(ctx, r.stations + (r.stations === 1 ? ' station' : ' stations'), w - 260), x + 90, y + 14);
+        }
         button(S, 'open:' + r.code, x + w - 150, y, 150, 56, 'Open', () => join(r.code, true));
         y += 70;
       }
@@ -5521,14 +5590,14 @@
 
   // notices: a small panel in front of you that closes by itself ("Lined up through the shared space", "Calibrate the room")
   const NOTE = { title: '', text: '', until: 0, sig: '' }, NOTES = [];
-  function notice(title, text, ms) {
+  function notice(title, text, ms, logTitle) {
     // (a soft chime from where it shows, a metre ahead; not again for the same notice within 2 s)
     const t = performance.now();
     if (HOST.session && HD.ok && !CAM.on && !(NOTE.title === title && t - (NOTE.at || -1e9) < 2000)) sfx('notice', new THREE.Vector3(0, -0.22, -1).applyQuaternion(HD.q).add(HD.p));
     NOTE.at = t;
     NOTE.title = title; NOTE.text = text || ''; NOTE.until = ms === 0 ? Infinity : t + (ms || 4500);
     NOTES.push({ title, text: NOTE.text }); if (NOTES.length > 8) NOTES.shift();   // (the last few, for tests; kept on this page only)
-    log('notice', { title });
+    log('notice', { title: logTitle || title });   // (a title that names a room says it as code only in the log)
   }
   function drawNote(head, hq) {
     const S = OV.note, on = performance.now() < NOTE.until && !!head && !CAM.on;   // (a camera's overlay says what it needs: camera mode)
@@ -8684,7 +8753,7 @@
       PLC.offer = best.code;
       if (PLC.told !== best.code) {
         PLC.told = best.code;
-        notice('Join room ' + best.code + '?', `You are standing in room ${best.code}'s place. To join it, open the menu (${menuWhere()}): Join ${best.code}, under Debug.`, 9000);
+        notice('Join ' + roomSay(best.code, keptName(best.code)) + '?', `You are standing in ${roomSay(best.code, keptName(best.code))}'s place. To join it, open the menu (${menuWhere()}): Join ${best.code}, under Debug.`, 9000, 'Join a room?');
       }
     }
     if (was !== PLC.here + '|' + PLC.offer + '|' + PLC.hereArea) { log('place here', { here: PLC.here, area: PLC.hereArea, offer: PLC.offer, room: C.code }); changed(); }
@@ -8738,7 +8807,7 @@
     // (a Join pressed on the offer counts as joined by its place too, v131: a later move to another room's place is by itself)
     if (!join(code, 'place', P && P.rid)) return false;
     if (C.hereSet === null) setHere(true);   // (a room answered *Somewhere else* for keeps its answer: the Debug tab changes it)
-    if (how === 'auto') notice('Room ' + code, 'You are in its place, so this headset joined it' + (was ? ' (it was in room ' + was + ')' : '') + '. It lines up from the spots calibrated there.', 9000);
+    if (how === 'auto') notice(cap(roomSay(code, keptName(code))), 'You are in its place, so this headset joined it' + (was ? ' (it was in room ' + was + ')' : '') + '. It lines up from the spots calibrated there.', 9000, 'Joined by place');
     eyeWant('place');   // (the check by eye: are both crosses on this room's spots?)
     changed();
     return true;
@@ -9504,7 +9573,7 @@
   function areaAsk() {
     if (!canArea()) return;
     const def = 'Area ' + areaFree();
-    keypad({ title: 'Name the area', hint: 'A short name for this area\'s two crosses, such as Lab or Hall', value: def, max: 24 }).then(v => {
+    keypad({ title: 'Name the area', hint: 'A short name for this area\'s two crosses, such as Lab or Hall', value: def, max: 24, caps: true }).then(v => {
       if (v === null || v === undefined) return;
       if (!PNL.open) menuOpen(true, 'api');
       PNL.tab = 'circles'; PNL.page = 'guide'; PNL.gs = 4;
@@ -10587,6 +10656,7 @@
       else if (act === 'start') create();
       else if (act === 'join' || act === 'again') join(arg);
       else if (act === 'near') setNear(!nearShown());
+      else if (act === 'roomname') setRoomName($('#shRoomName').value);
       else if (act === 'open') join(arg, true);
       else if (act === 'code') join($('#shCode').value);
       else if (act === 'leave') leave(false, true);
@@ -10615,6 +10685,7 @@
       renderDialog();
     });
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
+    $('#shRoomName').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); setRoomName(ev.target.value); } });
     // an All stories circle's story, picked in its row (Choosing a story: back to its cards), for everyone there
     DLG.el.addEventListener('change', ev => { const q = ev.target.closest('[data-sh-pick]'); if (q && q.value) { allPickAt(q.dataset.shPick, q.value); renderDialog(); } });
     // the PC's trackers: a name typed for one (the room's trk.names), the tracker picked to take a spot from
@@ -10693,9 +10764,9 @@
     const st = $('.sh-status');
     const n = C.members.length, people = `${n} ${n === 1 ? 'person' : 'people'} in it.`;
     const back = joined && C.byPlace === C.code ? ' This headset joined it by itself: it stands in the room\'s place.' : joined && C.auto === C.code ? ' This device joined it again by itself: it was in it on this network.' : '';
-    st.textContent = C.note || (joined ? (C.local ? `Room ${C.code} is on this device only: ${whyLocal()}. Its stations and their places are kept here, and the room moves to the relay once it answers${C.peerFail ? ' (or peer to peer, once its server does)' : ''}.` :
-      C.via === 'peer' ? `Room ${C.code} · ${connLine()} · ${people} The devices talk to each other directly.${hosting() && IS_HEADSET ? ' A laptop or desktop page that joins takes the room over: a headset sleeps when taken off.' : ' Best hosted by a laptop or desktop page that stays awake, not a headset.'}${back}` :
-        `Room ${C.code}: ${connLine()}. ${people}${back}`) :
+    st.textContent = C.note || (joined ? (C.local ? `${cap(roomSay(C.code, roomName()))} is on this device only: ${whyLocal()}. Its stations and their places are kept here, and the room moves to the relay once it answers${C.peerFail ? ' (or peer to peer, once its server does)' : ''}.` :
+      C.via === 'peer' ? `${cap(roomSay(C.code, roomName()))} · ${connLine()} · ${people} The devices talk to each other directly.${hosting() && IS_HEADSET ? ' A laptop or desktop page that joins takes the room over: a headset sleeps when taken off.' : ' Best hosted by a laptop or desktop page that stays awake, not a headset.'}${back}` :
+        `${cap(roomSay(C.code, roomName()))}: ${connLine()}. ${people}${back}`) :
       C.relay ? (C.served ? 'This page comes from the relay, so it knows where the rooms are.' : 'Rooms on ' + host() + '.') :
         peerOn() ? `No relay known: a room you start runs peer to peer. The devices talk to each other directly; ${peerServer().name} only introduces them. Start the room on a laptop or desktop page that stays awake, and send the others its link. ${homeOffer() ? 'With the relay\'s password (below), rooms run on the relay instead.' : 'Or enter a relay\'s address.'}` :
           (homeOffer() ? 'Shared rooms need a relay: enter the relay\'s password below, or another relay\'s address. Without one (peer to peer is off), a room works on this device alone.' :
@@ -10730,25 +10801,34 @@
       // rooms, then the rooms kept here
       const near = C.near || [], off = offer(), nl = $('.sh-near');
       if (nl) {
-        nl.innerHTML = (off ? `<li class="again"><b>${esc(off.code)}</b><span>Used ${esc(ago(off.at))}. Not joined by itself here: ${esc(offerWhy(off))}.</span><button class="btn primary" type="button" data-sh="again:${esc(off.code)}">${C.relay ? 'Join' : 'Start'} room ${esc(off.code)} again</button></li>` : '') +
-          (near.length ? near.map(r => `<li><b>${esc(r.code)}</b><span>${esc(nearLine(r))}</span><button class="btn primary" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('') :
+        nl.innerHTML = (off ? `<li class="again">${nmHtml(off.name, off.code)}<span>Used ${esc(ago(off.at))}. Not joined by itself here: ${esc(offerWhy(off))}.</span><button class="btn primary" type="button" data-sh="again:${esc(off.code)}">${C.relay ? 'Join' : 'Start'} ${esc(roomSay(off.code, off.name).replace(/ \(room [A-Z]{3}\)$/, ''))} again</button></li>` : '') +
+          (near.length ? near.map(r => `<li>${nmHtml(r.title, r.code)}<span>${esc(nearLine(r))}</span><button class="btn primary" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('') :
             `<li class="none">${esc(nearNone())}</li>`);
       }
       const rooms = (C.rooms || []).filter(r => !near.some(o => o.code === r.code)), kept = localRooms().filter(r => !rooms.some(o => o.code === r.code) && !near.some(o => o.code === r.code) && !(off && off.code === r.code));
-      $('.sh-rooms').innerHTML = (!C.relay ? '' : rooms.length ? rooms.map(r => `<li${r.members ? '' : ' class="empty"'}><b>${esc(r.code)}</b><span>${esc(peopleIn(r))}${r.stations ? ` · ${r.stations} station${r.stations === 1 ? '' : 's'}` : ''}</span><button class="btn${r.members ? ' primary' : ''}" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('')
+      $('.sh-rooms').innerHTML = (!C.relay ? '' : rooms.length ? rooms.map(r => `<li${r.members ? '' : ' class="empty"'}>${nmHtml(roomNameClean(r.title || ''), r.code)}<span>${esc(peopleIn(r))}${r.stations ? ` · ${r.stations} station${r.stations === 1 ? '' : 's'}` : ''}</span><button class="btn${r.members ? ' primary' : ''}" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('')
         : `<li class="none">${esc(C.roomsErr || (C.rooms ? (near.length ? 'No other open rooms.' : (C.unlisted ? 'This relay lists no rooms: join one by its code or link, or under Rooms on this network.' : 'No open rooms yet. Start one, and others join it here or from a headset.')) : 'Looking for rooms...'))}</li>`) +
-        kept.map(r => `<li class="empty"><b>${esc(r.code)}</b><span>Kept on this device · ${r.stations} station${r.stations === 1 ? '' : 's'}</span><button class="btn" type="button" data-sh="open:${esc(r.code)}">Open</button></li>`).join('');
+        kept.map(r => `<li class="empty">${nmHtml(r.name, r.code)}<span>Kept on this device · ${r.stations} station${r.stations === 1 ? '' : 's'}</span><button class="btn" type="button" data-sh="open:${esc(r.code)}">Open</button></li>`).join('');
       const rf = $('[data-sh="refresh"]');
       if (rf) rf.hidden = !C.relay && !peerOn();
     } else {
       const L = C.stById.get(C.follow);
-      $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(stTitle(L)) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
+      $('.sh-room').innerHTML = `${nmHtml(roomName(), C.code)}<span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(stTitle(L)) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
         // Update the room (v136): every device here reloads into the newest version, one after another (two presses)
         (reloadCan() ? `<div class="row sh-reload"><button class="btn${reloadArmed() ? ' armed' : ''}" type="button" data-sh="reload" aria-pressed="${reloadArmed()}"${RL.busy ? ' disabled' : ''} title="${esc(reloadWhat())}">${esc(reloadLabel())}</button><span>${esc(reloadWhat())}</span></div>` : '') +
         // camera mode: a phone that has AR shows the room through its camera, for filming
         (camOffered() && !HOST.session ? `<div class="row sh-cam"><button class="btn primary" type="button" data-sh="camera">Camera mode</button><span>Show this room through this phone's camera, as the headsets see it, for filming: Android's screen recorder records it.</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
+      const nin = $('#shRoomName'), nrow = $('.sh-name');
+      if (nin) {
+        nrow.hidden = camMode();
+        const rn = roomName();
+        if (document.activeElement !== nin && nin.value !== rn) nin.value = rn;
+        const nb = $('[data-sh="roomname"]');
+        if (nb) nb.textContent = !nin.value.trim() && rn ? 'Clear name' : 'Set name';
+        $('.sh-namehint').textContent = `For everyone here. The code stays ${C.code}.`;
+      }
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
         // (the lobby: no Follow, no panels, no lock; an All stories circle: its story picked here, back to its cards, and
         // its switch; its panels and lock are its session's)
@@ -11059,6 +11139,8 @@
     // a keypad for a word in the headset's menu (headsets cannot type): a promise of the text typed, or null when cancelled
     // or when no headset menu can show it ({ title, hint, value, max })
     keypad: o => keypad(o),
+    keypadState: () => (PNL.kp ? { title: PNL.kp.title, hint: PNL.kp.hint, value: PNL.kp.value, caps: PNL.kp.caps, empty: PNL.kp.empty, sh: PNL.kp.sh } : null),
+    menuTitle: () => PNL.head || '',
     // the studio relay's scenes (a promise of their names, asked again at most every 3 s), a studio circle for one of them
     // (its station's id; '' refused), and the scene a studio station's state names ('' none)
     scenes: () => scenesFetch(), addScene: (name, b) => addScene(name, b), sceneOf: id => sceneOf(C.stById.get(id)),
@@ -11090,6 +11172,7 @@
     // looking), looked for again; whether this room shows there (the room's switch); the room to rejoin by itself and the
     // one offered again; a pretend network (tests: #net=<word>); the page's hash of an address (tests: as the relay's)
     get net() { return C.net; }, nearby: () => C.near, findNear: () => nearFind('api'), get nearOn() { return nearShown(); }, setNear: on => setNear(on),
+    roomName: () => roomName(), setRoomName: v => setRoomName(v), roomSay: (c, n) => roomSay(c, n), roomNameClean: v => roomNameClean(v),
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
     // the relay's password: whether one is wanted ({ state, at, kept: one kept here for this relay }), one tried, forgotten

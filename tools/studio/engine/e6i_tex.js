@@ -52,8 +52,9 @@ function texNeed() {
       want.get(e.file).add(!isGltf(o.rec.file));
     }
   }
+  seqTexNeed(want);   // (and the pictures a sequence's tex events name: e6s_seq.js)
   TXS.want = want;
-  TXS.any = [...STU.items.values()].some(c => c.kind === 'c' && c.rec.tex);
+  TXS.any = seqHasTex() || [...STU.items.values()].some(c => c.kind === 'c' && c.rec.tex);
   for (const [p, P] of [...TXS.pics]) { const f = STU.fileMap.get(p); if (!want.has(p) || P.gen !== STU.gen || P.at !== (f ? f.at : 0)) texFree(p); }
   for (const [p, flips] of want) {
     const P = TXS.pics.get(p);
@@ -111,9 +112,10 @@ function texStep() {
       if (!w || enteredLater(c, w)) m.set(k, { e, since: c.since, id: c.id });   // (ties by the cube's id, alike everywhere)
     }
   }
+  seqTexWant(want);   // (the sequences' tex events as sources too, the one entered last winning: e6s_seq.js)
   for (const it of STU.items.values()) {
     if (it.kind !== 'o') continue;
-    const held = CT.id === it.id || FT.id === it.id, m = !held && it.model ? want.get(it.id) : null, list = m ? [...m.values()].map(w => w.e) : [];
+    const held = CT.id === it.id || FT.id === it.id, m = !held && it.model ? want.get(it.id) : null, list = m ? [...m.values()].map(w => w.e).filter(Boolean) : [];
     const sig = held ? 'held' : !it.model ? '' : list.map(e => `${e.mat}|${e.slot}|${e.file}|${+texReady(e.file)}`).sort().join(',') + '|' + it.light + '|' + it.built;
     if (sig !== it.txSig) {
       it.txSig = sig;
@@ -254,7 +256,7 @@ Object.assign(ITEM_ACT, {
   // the pick: on, or off (Cancel); an object chosen (its material with a colour picture, Colour); another object; the
   // material, the slot and a page of pictures; a picture adds the entry (one for that object, material and slot: another
   // there takes its place)
-  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; } },   // (one pick at a time)
+  txPick: c => { if (c.kind === 'c') { STU.txp = STU.txp && STU.txp.id === c.id ? null : { id: c.id, step: 'obj', on: '', mat: 0, slot: 'map', page: 0 }; STU.pick = null; STU.plp = null; STU.prp = null; } },   // (one pick at a time)
   txOn: (c, oid) => {
     const o = STU.items.get(oid);
     if (!STU.txp || STU.txp.id !== c.id || !o || o.kind !== 'o') return;

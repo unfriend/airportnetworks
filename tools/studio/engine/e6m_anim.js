@@ -206,6 +206,7 @@ function animSig(xr) {
 }
 // what a headset's bar shows now (null: nothing to show): its time, length, whether it is held, plays, is this device's
 function animBar(ch) {
+  if (ch === 'seq') return seqBar();   // (a sequence's bar, v146: e6s_seq.js)
   const it = STU.items.get(STU.sel);
   if (!animCan(it, ch)) return null;
   const H = animHold(it, ch), m = mineOf(ch);

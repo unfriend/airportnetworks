@@ -26,9 +26,11 @@
     return g;
   };
   const icon = (name, parts, words, o = {}) => {
-    const geo = XP.merge(parts, { noUV: true }), root = XP.group(name, XP.mesh(geo, XP.lit({ roughness: o.rough || 0.55, metalness: o.metal || 0 }), 'thing'));
-    const lab = XP.label(words, o.lw || 0.3); lab.position.set(0, o.ly || -0.17, o.lz || 0.12); root.add(lab);
-    return { root };
+    const geo = XP.merge(parts, { noUV: true }), lift = XP.group('lift', XP.mesh(geo, XP.lit({ roughness: o.rough || 0.55, metalness: o.metal || 0 }), 'thing'));
+    const lab = XP.label(words, o.lw || 0.3); lab.position.set(0, o.ly || -0.17, o.lz || 0.12); lift.add(lab);
+    // Lift (v146): pointed at, it rises 3 cm and turns 15 degrees towards you over 0.2 s, and stays so while it is pointed at
+    const clip = new T.AnimationClip('Lift', 0.2, [XP.vTrack('lift', 'position', [0, 0.2], [[0, 0, 0], [0, 0.03, 0.02]]), XP.qTrack('lift', [0, 0.2], [[0, 0, 0], [0, 0.26, 0]])]);
+    return { root: XP.group(name, lift), clips: [clip] };
   };
 
   XP.part('icon-computer', { file: 'models/icon-my-computer.glb', build() {
@@ -97,8 +99,10 @@
       parts.push(S(g, '#f4f4ee', A(null, x, y, z, R(), R(), R())));
     }
     const geo = XP.merge(parts, { noUV: true });
-    const root = XP.group('recycle-bin', XP.mesh(geo, XP.lit({ roughness: 0.35, metalness: 0.35 }), 'bin'));
-    const lab = XP.label('Recycle Bin', 0.3); lab.position.set(0, 0.07, (r0 + r1) / 2 + 0.03); lab.rotation.x = -0.2; root.add(lab);
-    return { root };
+    const squash = XP.group('squash', XP.mesh(geo, XP.lit({ roughness: 0.35, metalness: 0.35 }), 'bin')), root = XP.group('recycle-bin', squash);
+    const lab = XP.label('Recycle Bin', 0.3); lab.position.set(0, 0.07, (r0 + r1) / 2 + 0.03); lab.rotation.x = -0.2; squash.add(lab);
+    // Gulp (v146): the bin squashes a little as it takes what is dropped in, and springs back
+    const gulp = new T.AnimationClip('Gulp', 0.5, [XP.vTrack('squash', 'scale', [0, 0.12, 0.3, 0.5], [[1, 1, 1], [1.04, 0.94, 1.04], [0.99, 1.02, 0.99], [1, 1, 1]])]);
+    return { root, clips: [gulp] };
   } });
 })();
