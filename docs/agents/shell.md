@@ -1059,6 +1059,28 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
 - Tests: `node relay/test.mjs --notes`. Untested on a headset: all of it (the microphone in a session, the framebuffer
   read, holding B or Y, pins, the read-out), an iPhone's recording, the page on a phone.
 
+### Reading notes in a headset (v148)
+
+- The Debug tab's *Notes* (developer mode only, beside *What is new*) opens `PNL.page = 'notes'`, a page in place of the
+  rest of the tab as *What is new* is (`notesPage` in `shared.js`; state `NB`, redrawn through `notesSig()` in
+  `panelSig`). *Back* returns to the Debug tab.
+- The list: *New* / *Done* / *All* (this headset's own, `localStorage` `xrNotesFilter`) and *Refresh*; each note a row
+  (when, length, pins, new or done, the transcript's first line or *Not transcribed yet*, story and release) in a view of a
+  fixed height that scrolls by *Up* and *More* or the stick (`newsStick` serves both pages, `notesScroll`).
+- A note pressed: its two pictures drawn into the menu's canvas (fetched as blobs, `createImageBitmap`, `drawImage`),
+  *Play* / *Stop*, *Mark done* / *Mark new*, *Delete* (*Press again* within 3 s), its transcript by segment and its pins
+  in a view that scrolls, *Back to the list*.
+- The relay's API as the notes page uses it, through `relayFind` (the relay and its password, a Bearer header; never
+  logged, kept or put in an address) and `relaySaw` (a 401 brings up the shell's password prompts). One line says how it
+  goes: no relay, the relay wants its password (Circles' *Relay password*, the Shared dialog or the notes page), fetching,
+  or the error.
+- Playing: a plain `<audio>` element on an object URL of the recording (no `AudioContext`; `HOST.audio`'s own element is
+  the narration's and stays so), muted while the Sound button is. Stopped by *Stop*, *Back*, the page going (another tab,
+  the menu closed: `notesStep` every frame), the session's end (`watch`) and a note starting to record. Leaving the page
+  revokes the object URL and closes the pictures (`notesClose`, `notesRelease`).
+- Nothing of it in a room's keys or `collab.state()`. Tests: `HOST.collab.notesView()`, `HOST.collab.notesOpen()`.
+  Untested on a headset: all of it (the stick, playing inside a session, the pictures' look in the menu).
+
 ## Spaceships (`HOST.ships`, `ships.js`)
 
 A spaceship mini-game in headsets, the shell's own, not a story: it flies over every story and every circle, alone or in a shared room. The game is our own (no existing game's names,

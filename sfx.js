@@ -5,7 +5,7 @@
 // the circles, the locks, notices, a story loaded, walking into a circle, people coming and going) and a quiet
 // background for two stories. Phase 2: sounds inside the stories (their story sounds, tied to their timelines and explore
 // actions, kind 'story', played through the same HOST.sfx.play with pitch, dur and n; the stories' cue lines are in
-// AGENTS.md, "Sound effects") and a continuous sound a story keeps going while it wants it (HOST.sfx.drone: a robot
+// docs/agents/shell.md, "Sound effects") and a continuous sound a story keeps going while it wants it (HOST.sfx.drone: a robot
 // vacuum). Every sound is made here from Web Audio nodes and short generated buffers: no files. The rules:
 //  - it plays through HOST.audio's one AudioContext (HOST.audio.fx()), never a context of its own: nothing before the
 //    first tap, nothing while the page or the headset is out of view, nothing while only the <audio> element engine

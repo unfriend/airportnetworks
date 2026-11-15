@@ -4389,7 +4389,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4956,6 +4956,8 @@
       if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
       // what is new in this release (developer mode, HOST.dev): likewise
       if (PNL.page === 'news') { finish(newsPage(S, x, y, w)); return; }
+      // the developer notebook's notes (developer mode, HOST.notes): likewise
+      if (PNL.page === 'notes') { if (devOn() && HOST.notes) { finish(notesPage(S, x, y, w)); return; } notesRelease(); PNL.page = 'main'; }
       // the room's alignment: calibrate, re-align, here or elsewhere, the shared space and the frame it rests on
       label('Alignment');
       const cal = R.state === 'mark-a' || R.state === 'mark-b';
@@ -5076,8 +5078,16 @@
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
         button(S, 'whatsnew', x, y, bw, 56, 'What is new', () => devOpen('hand'), { px: 23 });
-        note('This release: what changed and what to test', y);
-        y += 72;
+        // (developer mode: the notebook's notes beside it, the note under both)
+        if (devOn() && HOST.notes) {
+          button(S, 'notes', x + bw + 16, y, bw, 56, 'Notes', () => notesOpen(), { px: 23 });
+          y += 66;
+          ctx.font = FONT(21); ctx.fillStyle = MUTED;
+          y += wrapText(ctx, 'What is new: this release, what to test. Notes: the notebook\'s notes on the relay.', x, y, w, 28, 2) + 16;
+        } else {
+          note('This release: what changed and what to test', y);
+          y += 72;
+        }
       }
       // what to tell someone helping: the release, the room's connection, the browser, the frame rate. Drawn here, and
       // then line by line as they change (stripStep, v136: the frame rate and the round trip change every second or so,
@@ -5553,16 +5563,369 @@
   // model (tools/studio/engine/e8_xr.js)
   function newsStick(list, t) {
     const dt = Math.min(0.1, Math.max(0, (t - (NEWS.stT || t)) / 1000)); NEWS.stT = t;
-    if (!devShown() || !(NEWS.max > 0)) return;
+    // (the notebook's Notes page scrolls the same way: notesScroll)
+    const scroll = devShown() ? (NEWS.max > 0 ? newsScroll : null) : notesShown() && NB.max > 0 ? notesScroll : null;
+    if (!scroll) return;
     for (let i = 0; i < list.length; i++) {
       const src = list[i], gp = src && !src.hand && src.gamepad;
       if (!gp || !gp.axes || gp.axes.length < 4) continue;
       const h = hovOf(i), y = gp.axes[3];
       if (!h || h.target.kind !== 'panel' || !(Math.abs(y) > 0.2)) continue;
       const m = (Math.abs(y) - 0.2) / 0.8;
-      newsScroll(Math.sign(y) * (80 + 700 * m * m) * dt);
+      scroll(Math.sign(y) * (80 + 700 * m * m) * dt);
       PNL.used = t;
     }
+  }
+
+  // ------------------------------------------------------ the notebook's notes --
+  // Notes (v148; the owner, 15 November 2026: the developer notebook's notes read in a headset): a page of the Debug tab in
+  // place of its content, as What is new is, developer mode only (devOn, HOST.notes). It reads the relay's notes API as the
+  // notes page (notes/index.html) does, through relayFind (the relay this page knows and its password, sent as a Bearer
+  // token; never logged, kept or put in an address) and relaySaw (a 401 brings up the shell's password prompts): the list
+  // (GET /api/notes, newest first) filtered New / Done / All (this headset's own: localStorage xrNotesFilter), in a view
+  // of a fixed height that scrolls as What is new's does (Up and More, the stick: newsStick); a note pressed shows its
+  // two pictures (fetched as blobs, createImageBitmap, drawn into the menu's canvas), Play / Stop, Mark done / Mark new,
+  // Delete (pressed again within 3 s), and its transcript and pins in a view that scrolls. Playing: a plain <audio>
+  // element on an object URL of the note's recording (no AudioContext: sound is the shell's; HOST.audio's own element
+  // is the narration's, so not that one), muted while the Sound button is (as the studio's emitters); stopped on Back,
+  // when the page goes (another tab, the menu closed: notesStep), when the session ends (watch) and when a note starts
+  // recording. Leaving the page drops the pictures and the recording (revoked, closed). Nothing of it is in the room's
+  // keys or collab.state()
+  const NB = { st: '', err: '', list: [], fl: (v => /^(new|done|all)$/.test(v || '') ? v : 'new')(get('xrNotesFilter')), sc: 0, max: 0, id: '', d: null, dSt: '', dErr: '',
+    pics: [null, null], picErr: ['', ''], au: null, auUrl: '', auSt: '', auErr: '', arm: '', armUntil: 0, busy: '', msg: '', gen: 0, v: 0, at: 0 };
+  const NOTESV = { h: 860, dh: 560, row: 112, px: 22, lh: 29 };   // (the list's view, the detail's view, a row's height, the type and its line height)
+  const notesShown = () => !!(PNL.open && PNL.tab === 'debug' && PNL.page === 'notes');
+  const nbBump = () => { NB.v++; };
+  const nbArmed = () => !!NB.arm && performance.now() < NB.armUntil;
+  const nbMmss = s => { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const nbWhen = n => { try { return new Date(n.at || n.got || 0).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
+  const nbPins = k => (k || 0) + (k === 1 ? ' pin' : ' pins');
+  const notesSig = () => [NB.v, NB.fl, Math.round(NB.sc), nbArmed(), !!HOST.audio.muted, NB.au ? !NB.au.paused : false];
+  function notesOpen() {
+    if (!devOn() || !HOST.notes) return;
+    PNL.tab = 'debug'; PNL.page = 'notes'; PNL.code = ''; PNL.pass = ''; PNL.home = false;
+    notesRelease(); NB.sc = 0; NB.msg = '';
+    PNL.used = performance.now();
+    log('notes page', { open: true });
+    notesLoad();
+  }
+  // a call to the relay's notes API: the response, or an error whose code says which line to show ('relay': none known,
+  // 'pass': it wants its password) and whose message never holds the password
+  async function nbFetch(path, body, ms, blob) {
+    const r = await relayFind();
+    if (!r || !r.base) throw Object.assign(new Error('no relay'), { code: 'relay' });
+    const ab = new AbortController(), to = setTimeout(() => ab.abort(), ms || 10000), h = r.token ? { Authorization: 'Bearer ' + r.token } : {};
+    let res;
+    try {
+      res = await fetch(r.base + path, body === undefined ? { cache: 'no-store', headers: h, signal: ab.signal } :
+        { method: 'POST', cache: 'no-store', headers: Object.assign({ 'Content-Type': 'application/json' }, h), body: JSON.stringify(body), signal: ab.signal });
+    } catch (e) { clearTimeout(to); throw new Error(navigator.onLine === false ? 'offline' : 'the relay could not be reached'); }
+    let j = null, b = null;
+    try { if (blob && res.ok) b = await res.blob(); else j = await res.json(); } catch (e) { /* not JSON, or cut */ } finally { clearTimeout(to); }
+    try { relaySaw(r.base, res.status, r.token || '', j); } catch (e) { /* no prompt */ }
+    if (res.status === 401) throw Object.assign(new Error('password'), { code: 'pass' });
+    if (res.status === 404 && path === '/api/notes') throw new Error('this relay keeps no notes');
+    if (!res.ok) throw new Error('the relay answered ' + res.status + (j && typeof j.error === 'string' ? ': ' + j.error.slice(0, 80) : ''));
+    if (blob && !b) throw new Error('the file was cut off');
+    return blob ? b : j;
+  }
+  const nbFail = e => (e && e.code === 'relay' ? 'relay' : e && e.code === 'pass' ? 'pass' : 'err');
+  async function notesLoad() {
+    if (NB.st === 'busy') return;
+    NB.st = 'busy'; NB.err = ''; nbBump();
+    try {
+      const j = await nbFetch('/api/notes');
+      NB.list = j && Array.isArray(j.notes) ? j.notes.filter(n => n && typeof n.id === 'string') : [];
+      NB.st = 'ok'; NB.at = Date.now();
+      if (NB.id && !NB.list.some(n => n.id === NB.id)) notesClose();   // (deleted elsewhere)
+    } catch (e) { NB.st = nbFail(e); NB.err = e.message; }
+    nbBump();
+  }
+  const nbShown = () => NB.list.filter(n => NB.fl === 'all' || (NB.fl === 'done' ? n.status === 'done' : n.status !== 'done'));
+  function notesFilter(f) { NB.fl = f; NB.sc = 0; put('xrNotesFilter', f === 'new' ? '' : f); nbBump(); }
+  // a note pressed in the list: its record, then its two pictures (the recording only when played)
+  async function notesShow(id) {
+    notesClose();
+    const g = NB.gen;
+    NB.id = id; NB.dSt = 'busy'; NB.sc = 0; nbBump();
+    log('notes page', { show: id });
+    try {
+      const d = await nbFetch('/api/notes/' + encodeURIComponent(id));
+      if (g !== NB.gen) return;
+      NB.d = d; NB.dSt = 'ok';
+    } catch (e) { if (g !== NB.gen) return; NB.dSt = nbFail(e); NB.dErr = e.message; nbBump(); return; }
+    nbBump();
+    (NB.d.shots || []).slice(0, 2).forEach(async (s, i) => {
+      if (!s || s.err || !s.size) { NB.picErr[i] = s && s.err ? s.err : 'none'; nbBump(); return; }
+      NB.picErr[i] = 'busy';
+      try {
+        const b = await nbFetch('/api/notes/' + encodeURIComponent(id) + '/shot/' + (i + 1), undefined, 30000, true), bm = await nbBitmap(b);
+        if (g !== NB.gen) { if (bm && bm.close) bm.close(); return; }
+        NB.pics[i] = bm; NB.picErr[i] = '';
+      } catch (e) { if (g === NB.gen) NB.picErr[i] = e.message; }
+      nbBump();
+    });
+  }
+  // a picture from its blob: an ImageBitmap (no address of it at all), else an Image on an object URL revoked once drawn in
+  async function nbBitmap(b) {
+    if (typeof createImageBitmap === 'function') return createImageBitmap(b);
+    const u = URL.createObjectURL(b), im = new Image();
+    try { im.src = u; await im.decode(); return im; } finally { URL.revokeObjectURL(u); }
+  }
+  // back to the list: the pictures, the recording and its sound gone
+  function notesClose() {
+    NB.gen++;
+    notesStop('close');
+    for (const p of NB.pics) if (p && p.close) try { p.close(); } catch (e) { /* gone */ }
+    NB.pics = [null, null]; NB.picErr = ['', '']; NB.d = null; NB.id = ''; NB.dSt = ''; NB.dErr = ''; NB.arm = ''; NB.busy = ''; NB.sc = 0;
+    if (NB.auUrl) { URL.revokeObjectURL(NB.auUrl); NB.auUrl = ''; }
+    NB.au = null; NB.auSt = ''; NB.auErr = '';
+    nbBump();
+  }
+  // the page left (Back, another tab, the menu closed, the session over): all of a note's let go, the list kept
+  function notesRelease() { if (NB.id || NB.au || NB.auUrl || NB.pics.some(Boolean)) notesClose(); NB.msg = ''; }
+  async function notesPlay() {
+    if (NB.au && !NB.au.paused) { notesStop('stop'); return; }
+    const id = NB.id, g = NB.gen;
+    if (!id || NB.auSt === 'busy') return;
+    if (HOST.notes && HOST.notes.state && HOST.notes.state().rec) return;   // (not while a note records)
+    if (!NB.au) {
+      NB.auSt = 'busy'; NB.auErr = ''; nbBump();
+      try {
+        const b = await nbFetch('/api/notes/' + encodeURIComponent(id) + '/audio', undefined, 60000, true);
+        if (g !== NB.gen) return;
+        NB.auUrl = URL.createObjectURL(b);
+        const a = new Audio(NB.auUrl);
+        a.preload = 'auto';
+        a.onended = () => { if (NB.au === a) { NB.auSt = 'ended'; nbBump(); } };
+        a.onerror = () => { if (NB.au === a) { NB.auSt = 'err'; NB.auErr = 'this headset cannot play it' + (a.error ? ' (code ' + a.error.code + ')' : ''); nbBump(); } };
+        NB.au = a;
+      } catch (e) { if (g === NB.gen) { NB.auSt = 'err'; NB.auErr = e.message; nbBump(); } return; }
+    }
+    const a = NB.au;
+    a.muted = !!HOST.audio.muted;
+    if (NB.auSt === 'ended') a.currentTime = 0;
+    NB.auSt = 'play'; nbBump();
+    log('notes page', { play: id });
+    // (a pause before it began rejects with AbortError: stopped, not failed)
+    try { await a.play(); } catch (e) { if (NB.au === a && NB.auSt === 'play' && !(e && e.name === 'AbortError')) { NB.auSt = 'err'; NB.auErr = 'it would not start (' + (e && e.name || 'refused') + ')'; nbBump(); } }
+  }
+  function notesStop(why) {
+    const a = NB.au;
+    if (a && !a.paused) { try { a.pause(); } catch (e) { /* gone */ } log('notes page', { stop: why || '' }); }
+    if (a && NB.auSt === 'play') NB.auSt = 'paused';
+    nbBump();
+  }
+  async function notesMark() {
+    const id = NB.id, n = NB.list.find(x => x.id === id), cur = (NB.d && NB.d.status) || (n && n.status), st = cur === 'done' ? 'new' : 'done', g = NB.gen;
+    if (!id || NB.busy) return;
+    NB.busy = 'mark'; nbBump();
+    try {
+      const j = await nbFetch('/api/notes/' + encodeURIComponent(id), { status: st });
+      if (n) n.status = st;
+      if (g === NB.gen && NB.d) NB.d.status = j && j.status ? j.status : st;
+      NB.msg = st === 'done' ? 'Marked done.' : 'Marked new.';
+      log('notes page', { mark: st });
+    } catch (e) { NB.msg = e.code === 'pass' ? 'The relay wants its password.' : 'Not changed: ' + e.message + '.'; }
+    if (g === NB.gen) NB.busy = '';
+    nbBump();
+  }
+  async function notesDelete() {
+    const id = NB.id;
+    if (!id || NB.busy) return;
+    if (!nbArmed() || NB.arm !== id) { NB.arm = id; NB.armUntil = performance.now() + 3000; nbBump(); return; }
+    NB.arm = ''; NB.busy = 'del'; nbBump();
+    try {
+      await nbFetch('/api/notes/' + encodeURIComponent(id) + '/delete', {});
+      NB.list = NB.list.filter(x => x.id !== id);
+      if (NB.id === id) notesClose();
+      NB.msg = 'Note deleted.';
+      log('notes page', { deleted: id });
+    } catch (e) { NB.msg = e.code === 'pass' ? 'The relay wants its password.' : 'Not deleted: ' + e.message + '.'; NB.busy = ''; }
+    nbBump();
+  }
+  function notesScroll(px) {
+    const old = NB.sc || 0;
+    NB.sc = Math.max(0, Math.min(NB.max || 0, old + px));
+    if (Math.round(NB.sc) !== Math.round(old) && OV.panel) OV.panel.sig = '';
+  }
+  // every frame of a session: the page gone (another tab, the menu closed) lets its note go; a note recording, or the page
+  // gone, stops the sound; the sound follows the Sound button
+  function notesStep() {
+    if (!notesShown()) { if (NB.id || NB.au || NB.auUrl) notesRelease(); return; }
+    const a = NB.au;
+    if (!a) return;
+    if (!a.paused && HOST.notes && HOST.notes.state && HOST.notes.state().rec) notesStop('recording');
+    if (a.muted !== !!HOST.audio.muted) a.muted = !!HOST.audio.muted;
+  }
+  // the one line that says how the fetching goes (never the password)
+  function nbLine(st, err) {
+    if (st === 'relay') return ['No relay is known here: notes are kept by a relay (start or join a room through one, or open the app from it).', AMBER];
+    if (st === 'pass') return ['The relay wants its password: enter it under Circles (Relay password), in the Shared dialog or on the notes page.', AMBER];
+    if (st === 'busy') return ['Fetching the notes...', MUTED];
+    if (st === 'err') return ['Could not fetch the notes: ' + (err || 'no answer') + '.', AMBER];
+    return null;
+  }
+  // a pin in words (as the notes page says it)
+  function nbPinText(p, off) {
+    const h = p.hit || {}, e = p.el;
+    let w = '';
+    if (h.kind === 'shell') w = 'the ' + (h.what || 'shell') + (h.id ? ', ' + h.id : '');
+    else if (h.kind === 'panel') w = 'the story\'s ' + (h.panel || '') + ' panel';
+    else if (h.kind === 'scene') w = 'the scene: ' + (h.path || []).join(' > ');
+    else if (h.kind === 'none') w = 'nothing';
+    else if (e) w = (e.tag || 'element') + (e.id ? '#' + e.id : '') + (e.text ? ' "' + e.text + '"' : '');
+    return 'Pin ' + p.n + ' at ' + nbMmss(Math.max(0, (+p.t || 0) - off)) + ': ' + (w || 'unknown');
+  }
+  function notesPage(S, x, y, w) {
+    return NB.id ? notePage(S, x, y, w) : notesListPage(S, x, y, w);
+  }
+  // the list: New / Done / All and Refresh, a line on how the fetching goes, the notes in a view that scrolls, Back
+  function notesListPage(S, x, y, w) {
+    const ctx = S.ctx, bw = (w - 16) / 2, list = nbShown(), nNew = NB.list.filter(n => n.status !== 'done').length;
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText('Notes', x, y);
+    if (NB.st === 'ok') { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.textAlign = 'right'; ctx.fillText(fit(ctx, nNew + ' new · ' + NB.list.length + ' in all', 300), x + w, y + 6); ctx.textAlign = 'left'; }
+    y += 50;
+    const f4 = (w - 48) / 4;
+    [['new', 'New'], ['done', 'Done'], ['all', 'All']].forEach(([k, l], i) => button(S, 'notes:f:' + k, x + i * (f4 + 16), y, f4, 56, l, () => notesFilter(k), { on: NB.fl === k, tog: null, px: 23 }));
+    button(S, 'notes:refresh', x + 3 * (f4 + 16), y, f4, 56, NB.st === 'busy' ? 'Fetching' : 'Refresh', NB.st === 'busy' ? null : () => notesLoad(), { px: 22 });
+    y += 72;
+    const L = nbLine(NB.st, NB.err) || (NB.msg ? [NB.msg, MUTED] : null);
+    if (L) { ctx.font = FONT(21); ctx.fillStyle = L[1]; y += wrapText(ctx, L[0], x, y, w, 28, 2) + 12; }
+    NB.max = 0;
+    if (NB.st === 'ok' && !list.length) {
+      ctx.font = FONT(23); ctx.fillStyle = MUTED; ctx.fillText(NB.fl === 'new' ? 'No new notes.' : NB.fl === 'done' ? 'No notes marked done.' : 'No notes yet.', x, y + 6); y += 56;
+    } else if (list.length) {
+      const RH = NOTESV.row, gap = 10, H = list.length * (RH + gap) - gap, vh = Math.min(NOTESV.h, H), max = Math.max(0, H - NOTESV.h);
+      NB.max = max; NB.sc = Math.max(0, Math.min(max, NB.sc || 0));
+      const top = y, bot = top + vh;
+      list.forEach((n, k) => {
+        const ry = top + k * (RH + gap) - Math.round(NB.sc);
+        if (ry + RH <= top || ry >= bot) return;
+        const cy = Math.max(top, ry), ch = Math.min(bot, ry + RH) - cy;
+        const paint = () => { ctx.save(); ctx.beginPath(); ctx.rect(x - 4, cy, w + 8, ch); ctx.clip(); nbRow(S, 'notes:n:' + n.id, n, x, ry, w - (max > 0 ? 14 : 0), RH); ctx.restore(); };
+        paint();
+        S.regions.push({ id: 'notes:n:' + n.id, x, y: cy, w: w - (max > 0 ? 14 : 0), h: ch, fn: () => notesShow(n.id), label: nbWhen(n), tog: null, paint });
+      });
+      if (max > 0) nbBar(ctx, x + w - 6, top, vh, H, NB.sc, max);
+      y = bot + 12;
+      if (max > 0) {
+        const step = Math.round(NOTESV.h * 0.7);
+        button(S, 'notes:up', x, y, bw, 54, 'Up', NB.sc > 0 ? () => notesScroll(-step) : null, { px: 24 });
+        button(S, 'notes:more', x + bw + 16, y, bw, 54, 'More', NB.sc < max ? () => notesScroll(step) : null, { px: 24 });
+        y += 70;
+      }
+    }
+    button(S, 'notes:back', x, y, bw, 62, 'Back', () => { notesRelease(); PNL.page = 'main'; }, { px: 25 });
+    ctx.font = FONT(20); ctx.fillStyle = MUTED; wrapText(ctx, 'Hold B or Y to record a note. On a laptop: notes/ (the notes page) copies one as Markdown.', x + bw + 16, y + 2, bw, 27, 3);
+    return y + 62 + 34;
+  }
+  // a note's row: when, its length and pins, new or done, the first line of its transcript
+  function nbRow(S, id, n, x, y, w, h) {
+    const ctx = S.ctx, hov = S.hover === id, done = n.status === 'done';
+    rr(ctx, x, y, w, h, 10); ctx.fillStyle = hov ? 'rgba(149,166,189,0.30)' : 'rgba(149,166,189,0.13)'; ctx.fill();
+    if (hov) { ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(149,166,189,0.55)'; ctx.stroke(); }
+    const tag = done ? 'done' : 'new';
+    ctx.font = FONT(19, 700); const tw = ctx.measureText(tag).width + 20;
+    rr(ctx, x + w - 14 - tw, y + 14, tw, 28, 14); ctx.fillStyle = done ? 'rgba(149,166,189,0.25)' : 'rgba(70,217,255,0.22)'; ctx.fill();
+    ctx.fillStyle = done ? MUTED : CYAN; ctx.textAlign = 'center'; ctx.fillText(tag, x + w - 14 - tw / 2, y + 18); ctx.textAlign = 'left';
+    ctx.font = FONT(23, 700); ctx.fillStyle = done ? MUTED : INK;
+    const when = fit(ctx, nbWhen(n), w * 0.55); ctx.fillText(when, x + 16, y + 14);
+    const ww = ctx.measureText(when).width;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, ' · ' + nbMmss(n.dur) + ' · ' + nbPins(n.pins) + (n.audio ? '' : ' · no sound'), w - 46 - tw - ww), x + 16 + ww, y + 16);
+    const tr = typeof n.transcript === 'string' ? n.transcript.replace(/\s+/g, ' ').trim() : null;
+    ctx.font = FONT(NOTESV.px); ctx.fillStyle = tr ? INK : FAINT;
+    ctx.fillText(fit(ctx, tr ? tr : tr === '' ? 'Nothing was heard.' : 'Not transcribed yet.', w - 32), x + 16, y + 50);
+    ctx.font = FONT(19); ctx.fillStyle = FAINT;
+    const st = n.station, where = [n.story, st && (st.title || st.story) && (st.title || st.story) !== n.story ? st.title || st.story : '', n.device, n.release].filter(Boolean).join(' · ');
+    ctx.fillText(fit(ctx, where || ' ', w - 32), x + 16, y + 82);
+  }
+  // a thin bar at the right edge: where in the view (as What is new's)
+  function nbBar(ctx, bx, top, vh, H, sc, max) {
+    const th = Math.max(40, vh * vh / H), ty = top + (vh - th) * (sc / max);
+    rr(ctx, bx, top, 6, vh, 3); ctx.fillStyle = 'rgba(149,166,189,0.15)'; ctx.fill();
+    rr(ctx, bx, ty, 6, th, 3); ctx.fillStyle = 'rgba(149,166,189,0.65)'; ctx.fill();
+  }
+  // a note: when, how long, where; its two pictures; Play, Mark, Delete; its transcript and pins in a view that scrolls; Back
+  function notePage(S, x, y, w) {
+    const ctx = S.ctx, bw = (w - 16) / 2, n = NB.list.find(z => z.id === NB.id) || { id: NB.id }, d = NB.d, src = d || n, done = (d ? d.status : n.status) === 'done';
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, nbWhen(src) || 'Note', w - 110), x, y);
+    ctx.font = FONT(21, 700); ctx.fillStyle = done ? MUTED : CYAN; ctx.textAlign = 'right'; ctx.fillText(done ? 'done' : 'new', x + w, y + 6); ctx.textAlign = 'left';
+    y += 44;
+    const c = (d && d.context) || {}, pinsN = d ? (d.pins || []).length : n.pins;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED;
+    ctx.fillText(fit(ctx, [nbMmss(src.dur), nbPins(pinsN), d ? d.kind : n.kind, c.story || n.story, c.release || n.release].filter(Boolean).join(' · '), w), x, y);
+    y += 40;
+    const L = d ? null : nbLine(NB.dSt === 'busy' ? 'busy' : NB.dSt, NB.dErr);
+    if (L) { ctx.font = FONT(22); ctx.fillStyle = L[1]; y += wrapText(ctx, NB.dSt === 'busy' ? 'Fetching the note...' : L[0], x, y, w, 30, 3) + 16; }
+    NB.max = 0;
+    if (d) {
+      // the pictures, side by side at their own shape (as it began, as it ended)
+      const shots = (d.shots || []).slice(0, 2);
+      if (shots.length) {
+        const pw = (w - 16) / 2;
+        let ph = 0;
+        shots.forEach((s, i) => { const bm = NB.pics[i], a = bm ? bm.height / bm.width : s && s.w && s.h ? s.h / s.w : 0.6; ph = Math.max(ph, Math.min(260, Math.round(pw * a))); });
+        shots.forEach((s, i) => {
+          const px = x + i * (pw + 16), bm = NB.pics[i];
+          rr(ctx, px, y, pw, ph, 8); ctx.fillStyle = '#000'; ctx.fill();
+          if (bm) {
+            const k = Math.min(pw / bm.width, ph / bm.height), dw = bm.width * k, dh = bm.height * k;
+            ctx.save(); rr(ctx, px, y, pw, ph, 8); ctx.clip(); ctx.drawImage(bm, px + (pw - dw) / 2, y + (ph - dh) / 2, dw, dh); ctx.restore();
+          } else {
+            ctx.font = FONT(19); ctx.fillStyle = MUTED; const e = NB.picErr[i];
+            wrapText(ctx, e === 'busy' || !e ? 'Fetching the picture...' : 'No picture: ' + e + '.', px + 12, y + ph / 2 - 14, pw - 24, 26, 2);
+          }
+          ctx.font = FONT(19); ctx.fillStyle = MUTED; ctx.fillText(s && s.at === 'end' ? 'As it ended' : 'As it began', px, y + ph + 6);
+        });
+        y += ph + 40;
+      }
+      // Play / Stop, Mark done / Mark new, Delete (pressed again)
+      const b3 = (w - 32) / 3, playing = !!(NB.au && !NB.au.paused), arm = nbArmed() && NB.arm === NB.id, hasAu = !!d.audio;
+      button(S, 'notes:play', x, y, b3, 60, NB.auSt === 'busy' ? 'Fetching...' : playing ? 'Stop' : 'Play', hasAu && NB.auSt !== 'busy' ? () => notesPlay() : null, { px: 24, on: playing, tog: null });
+      button(S, 'notes:mark', x + b3 + 16, y, b3, 60, NB.busy === 'mark' ? 'Saving...' : done ? 'Mark new' : 'Mark done', NB.busy ? null : () => notesMark(), { px: 23 });
+      button(S, 'notes:del', x + 2 * (b3 + 16), y, b3, 60, NB.busy === 'del' ? 'Deleting...' : arm ? 'Press again' : 'Delete', NB.busy ? null : () => notesDelete(), { px: 23, color: arm ? AMBER : '#ff9b9b', on: arm, tog: null });
+      y += 72;
+      const au = !hasAu ? ['No sound' + (d.audioErr ? ': ' + d.audioErr : '') + '.', MUTED] : NB.auSt === 'err' ? ['Could not play it: ' + NB.auErr + '.', AMBER] :
+        playing ? [HOST.audio.muted ? 'Playing, muted: the Sound button is off.' : 'Playing (' + nbMmss(src.dur) + ').', HOST.audio.muted ? AMBER : CYAN] : arm ? ['Press Delete again to delete this note for good.', AMBER] : NB.msg ? [NB.msg, MUTED] : null;
+      if (au) { ctx.font = FONT(21); ctx.fillStyle = au[1]; ctx.fillText(fit(ctx, au[0], w), x, y); }
+      y += 38;
+      // the transcript (each piece with where it starts) and the pins, at a fixed size in a view that scrolls
+      const tr = d.transcript, off = d.audio && typeof d.audio.off === 'number' ? d.audio.off : 0, { px, lh } = NOTESV;
+      const segs = tr && tr.text ? (Array.isArray(tr.segments) && tr.segments.length ? tr.segments : [{ start: 0, text: tr.text }]) : [];
+      const pins = (d.pins || []).slice().sort((a, b) => (a.t || 0) - (b.t || 0));
+      const items = [['h', 'Transcript' + (tr && (tr.lang || tr.by) ? ' (' + [tr.lang, tr.by].filter(Boolean).join(', ') + ')' : '')]];
+      if (segs.length) for (const s of segs) items.push(['s', nbMmss(s.start), String(s.text || '').trim()]);
+      else items.push(['m', tr ? 'Nothing was heard.' : 'Not transcribed yet: on a laptop, ask Claude Code to transcribe note ' + d.id + '.']);
+      if (pins.length) { items.push(['h', 'Pins']); for (const p of pins) items.push(['p', nbPinText(p, off)]); }
+      ctx.font = FONT(px);
+      const lines = (s, ww) => { let k = 0, cur = ''; for (const wd of String(s).split(/\s+/).filter(Boolean)) { const t = cur ? cur + ' ' + wd : wd; if (cur && ctx.measureText(t).width > ww) { k++; cur = wd; } else cur = t; } return Math.max(1, k + (cur ? 1 : 0)); };
+      const tw = 70, iw = w - 20;
+      let H = 0;
+      for (const it of items) H += it[0] === 'h' ? 44 : (lines(it[0] === 's' ? it[2] : it[1], it[0] === 's' ? iw - tw : iw) * lh + 8);
+      const max = Math.max(0, H - NOTESV.dh), vh = Math.min(NOTESV.dh, H + 4);
+      NB.max = max; NB.sc = Math.max(0, Math.min(max, NB.sc || 0));
+      const top = y;
+      ctx.save(); ctx.beginPath(); ctx.rect(x - 4, top, w + 8, vh); ctx.clip();
+      let yy = top - Math.round(NB.sc);
+      for (const it of items) {
+        if (it[0] === 'h') { yy += it === items[0] ? 0 : 8; ctx.font = FONT(22, 700); ctx.fillStyle = MUTED; ctx.fillText(it[1].toUpperCase(), x, yy); yy += it === items[0] ? 44 : 36; continue; }
+        ctx.font = FONT(px);
+        if (it[0] === 's') { ctx.fillStyle = CYAN; ctx.fillText(it[1], x, yy); ctx.fillStyle = INK; yy += wrapText(ctx, it[2] || '...', x + tw, yy, iw - tw, lh, 0) + 8; }
+        else { ctx.fillStyle = it[0] === 'p' ? AMBER : MUTED; yy += wrapText(ctx, it[1], x, yy, iw, lh, 0) + 8; }
+      }
+      ctx.restore();
+      if (max > 0) nbBar(ctx, x + w - 6, top, vh, H, NB.sc, max);
+      y = top + vh + 12;
+      if (max > 0) {
+        const step = Math.round(NOTESV.dh * 0.7);
+        button(S, 'notes:up', x, y, bw, 54, 'Up', NB.sc > 0 ? () => notesScroll(-step) : null, { px: 24 });
+        button(S, 'notes:more', x + bw + 16, y, bw, 54, 'More', NB.sc < max ? () => notesScroll(step) : null, { px: 24 });
+        y += 70;
+      }
+    }
+    button(S, 'notes:list', x, y, bw, 62, 'Back to the list', () => notesClose(), { px: 24 });
+    return y + 62 + 28;
   }
   function connLine() {
     if (C.local) return 'on this device';
@@ -7247,6 +7610,7 @@
     phStep();   // (a phone's AR: its menu button and sheet)
     welStep(t);   // (Getting around, once a session; never a camera's: welCan)
     devStep(t);   // (developer mode: what is new, after the startup flow and the welcome; never a camera's: devCan)
+    notesStep();   // (the notebook's Notes page: its note let go and its sound stopped when the page goes or a note records)
     soundZone();
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
@@ -9982,6 +10346,7 @@
     phSession(s);   // (a phone's AR: its menu button, or two taps on the screen)
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
+    notesRelease();   // (the notebook's Notes page: its sound stopped, its pictures and recording let go)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
@@ -11131,6 +11496,11 @@
     // what is new in a headset (developer mode, HOST.dev): { shown: the menu on its page now, fl: this session's flow (0 not
     // yet, 1 on show, 2 done, 3 later), menu: the flow opened the menu }; devOpen(): the page by hand, as the Debug tab's
     // button does
+    // the notebook's Notes page (developer mode): { shown, st: the list's fetch ('', busy, ok, relay, pass, err), n: notes
+    // listed, fl: the filter, id: the note shown ('' the list), dSt, pics: pictures drawn, au: its sound ('', busy, play,
+    // paused, ended, err), playing, max: how far it scrolls }; notesOpen(): the page, as the Debug tab's Notes button opens it
+    notesView: () => ({ shown: notesShown(), st: NB.st, n: NB.list.length, fl: NB.fl, id: NB.id, dSt: NB.dSt, pics: NB.pics.filter(Boolean).length, au: NB.auSt, playing: !!(NB.au && !NB.au.paused), max: Math.round(NB.max || 0), msg: NB.msg }),
+    notesOpen: () => notesOpen(),
     whatsNew: () => ({ shown: devShown(), fl: NEWS.fl, menu: NEWS.menu, sc: Math.round(NEWS.sc || 0), max: Math.round(NEWS.max || 0) }), devOpen: () => devOpen('hand'), askDefault: on => { if (on !== undefined) { LOOK0.ask = !!on; changed(); } return LOOK0.ask; },
     // the other stations' rings, cards and icons hidden while this headset is at a studio station (the studio's switch;
     // it lapses when the live station or its story changes); without an argument, whether they are hidden now

@@ -68,7 +68,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `sfx.js` - sound effects (`HOST.sfx`, `SFX_LIB`); `tools/sfx.html` its sound board, `tools/sfx-render.mjs` renders
   them.
 - `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`).
-- `notes.js`, `notes/`, `tools/notes/` - the developer notebook (`HOST.notes`), its notes page and tools.
+- `notes.js`, `notes/`, `tools/notes/` - the developer notebook (`HOST.notes`), its notes page and tools; the headset
+  menu's Debug tab reads them too (*Notes*, `shared.js`).
 - `ships.js` - the spaceships (`HOST.ships`).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, `PEERJS-LICENSE.txt`) - loaded only for a peer-to-peer room; `p2p/` - a network
   test page, not part of the app.

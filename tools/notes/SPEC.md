@@ -174,6 +174,26 @@ link); the pins in a list (*Pin 2 at 0:04: the menu, button set:fps*); the conte
 context's key lines and the log); *Delete* (two presses within 3 s). A note sent from this device's outbox is not here
 until it is sent.
 
+## Reading notes in a headset (the menu's Debug tab, *Notes*)
+
+Developer mode only. The Debug tab's *Notes* (beside *What is new*) shows a page in place of the rest of the tab
+(`notesPage` in `shared.js`), using the same API as the notes page: `GET /api/notes`, `GET /api/notes/<id>`,
+`GET /api/notes/<id>/shot/<1|2>` and `/audio` (as blobs), `POST /api/notes/<id>` `{ status }`, `POST
+/api/notes/<id>/delete`. The relay and its password come from the shell (`relayFind`: the relay this page knows, the
+password from `relayTokens`, sent as `Authorization: Bearer`; never logged, kept elsewhere or put in an address); a 401
+goes to the shell's password prompts (`relaySaw`) and the page says where to enter it.
+
+- The list: *New* / *Done* / *All* (kept on this headset as `xrNotesFilter`), *Refresh*; one row a note: when, length,
+  pins, new or done, the transcript's first line or *Not transcribed yet*; a view of a fixed height scrolled by *Up* /
+  *More* or the stick while the ray is on the menu.
+- A note: both pictures drawn into the menu, *Play* / *Stop*, *Mark done* / *Mark new*, *Delete* (*Press again* within
+  3 s), the transcript by segment and the pins (*Pin 1 at 0:02: the menu, set:fps*), *Back to the list*.
+- Playing: an `<audio>` element on an object URL of the recording, no `AudioContext`; muted with the Sound button;
+  stopped by *Stop*, leaving the page or the menu, the session's end, and a note starting to record. Leaving the page
+  revokes the URL and closes the pictures.
+- One line says how it goes: no relay, the relay's password wanted, fetching, or the error (never the password).
+- Nothing of it is in a room's keys or `collab.state()`.
+
 ## The tool (`tools/notes/notes.mjs`, Node, no packages)
 
 `node tools/notes/notes.mjs <command>` with `NOTES_RELAY` (default `https://stories.lab.lbi-netmed.com`) and
@@ -194,4 +214,5 @@ block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it i
 
 The microphone inside a Quest session (whether Quest Browser asks there, or only on the 2D page), reading the layer's
 framebuffer on a Quest (its cost, whether it gives the picture), holding B or Y, the read-out, pins with real
-controllers, the outbox through a real sleep, an iPhone's `audio/mp4`, and the page on a phone.
+controllers, the outbox through a real sleep, an iPhone's `audio/mp4`, the page on a phone, and reading notes in a
+headset (playing a recording inside a session, the pictures in the menu, scrolling with the stick).

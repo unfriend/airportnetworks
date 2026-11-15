@@ -803,7 +803,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 147, id: '563349641374e5d7', format: 'networks-47' },
+  shell: { n: 148, id: '8b522de1dd236259', format: 'networks-47' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3757,7 +3757,7 @@ HOST.closePicker = function () {
   HOST.setUrl(false, 'push');
 };
 // ---------------------------------------------------------------- hot reload and live updates --
-// The app follows its files while it runs (AGENTS.md, "Hot reload and live updates"):
+// The app follows its files while it runs (docs/agents/shell.md, "Hot reload and live updates"):
 //  - while developing, the relay started with --watch says at once what changed (Server-Sent Events at api/watch;
 //    the page learns from api/ping that the relay watches): a story file on show is swapped in place (HOST.swap) at
 //    once, one not on show is fetched fresh the next time it starts, the list of stories is read again, and a shell
