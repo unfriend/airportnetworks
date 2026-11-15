@@ -1298,15 +1298,17 @@ void main() {
   });
 }
 // translucent organelle skins, lit from the viewer's side with a bright rim
+// kind 'er' and 'mito' draw all their copies as one mesh (v137): each vertex carries its geometry's own coordinates (aO) and its
+// copy's number (aP: the ER sheet's k, the mitochondrion's length), which the uniforms uK and uLen held for one copy each
 function shellMaterial(rgb, a0, a1, kind) {
-  const defs = kind === 'er' ? '#define ER\n' : kind === 'mito' ? '#define MITO\n' : '';
+  const defs = kind === 'er' ? '#define ER\n' : kind === 'mito' ? '#define MITO\n' : '', own = !!kind;
   return new THREE.ShaderMaterial({
     uniforms: { uL: { value: new THREE.Vector3(0, 0, 1) }, uA: { value: 1 }, uK: { value: 0 }, uLen: { value: 1 },
       uG: { value: new THREE.Vector3(...CELL.gdir) } },
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `varying vec3 vN, vW, vO;
-void main() { vO = position; vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: defs + `uniform vec3 uL, uG; uniform float uA, uK, uLen; varying vec3 vN, vW, vO;
+    vertexShader: (own ? 'attribute vec3 aO; attribute float aP; varying float vP;\n' : '') + `varying vec3 vN, vW, vO;
+void main() { vO = ${own ? 'aO' : 'position'};${own ? ' vP = aP;' : ''} vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: defs + (own ? 'varying float vP;\n' : '') + `uniform vec3 uL, uG; uniform float uA, uK, uLen; varying vec3 vN, vW, vO;
 void main() {
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   float rim = pow(1.0 - abs(dot(n, v)), 2.5);
@@ -1315,7 +1317,7 @@ void main() {
   vec3 col = vec3(${rgb}) * lit;
 #ifdef ER
   vec3 d = normalize(vO);
-  float k = uK;
+  float k = vP;
   float m = sin(5.3 * d.x + 1.7 * k + 0.3) * sin(4.1 * d.y - 0.9 * k + 1.1) * sin(4.7 * d.z + 2.3 * k + 0.5)
     + 0.45 * sin(9.1 * d.x - 6.3 * d.z + 3.1 * k) * sin(7.7 * d.y + 5.2 * d.x - 1.3 * k) + 0.18 - max(0.0, dot(d, uG) - 0.72) * 6.0;
   float sheet = smoothstep(0.0, 0.06, m);
@@ -1325,7 +1327,7 @@ void main() {
   col += vec3(0.2, 0.45, 0.3) * edge * 0.35;
 #endif
 #ifdef MITO
-  float x = vO.x / uLen;
+  float x = vO.x / vP;
   float crista = 1.0 - smoothstep(0.0, 0.16, abs(fract(x * 4.5 + 0.5) - 0.5) * 2.0);
   a += 0.16 * crista * (1.0 - abs(x));
   col += vec3(0.4, 0.15, 0.1) * crista;
@@ -1384,14 +1386,45 @@ function buildScene(canvas) {
   scene.add(GL.rig); GL.rig.add(GL.world);
   GL.orgMats = ORGS.map(() => []);
   GL.orgAnchor = [];
+  const statics = [];   // (meshes that never move: their matrices made once, not walked every frame)
   const addMesh = (geo, mat, org, order) => {
     const m = new THREE.Mesh(geo, mat);
     m.renderOrder = order || 1;
     GL.world.add(m);
     GL.orgMats[org].push(mat);
+    statics.push(m);
     return m;
   };
-  const Q = new THREE.Quaternion(), V = new THREE.Vector3();
+  const Q = new THREE.Quaternion(), V = new THREE.Vector3(), Q0 = new THREE.Quaternion(), V1 = new THREE.Vector3(1, 1, 1);
+  // the copies of one organelle as one geometry (v137: 148 draws became about a dozen): each copy's geometry carried to its place,
+  // its normals turned with it; `own`: also the geometry's own coordinates (aO) and the copy's number k (aP) for the ER and the
+  // mitochondria shaders. Copies overlap in a fixed order (they are see-through and write no depth, so it hardly shows)
+  const mergeCopies = (list, own) => {
+    let nv = 0, ni = 0;
+    for (const c of list) { nv += c.geo.attributes.position.count; ni += c.geo.index ? c.geo.index.count : c.geo.attributes.position.count; }
+    const P = new Float32Array(nv * 3), Nn = new Float32Array(nv * 3), O = own ? new Float32Array(nv * 3) : null, K = own ? new Float32Array(nv) : null;
+    const I = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni), mtx = new THREE.Matrix4(), nmx = new THREE.Matrix3(), v = new THREE.Vector3();
+    let vo = 0, io = 0;
+    for (const c of list) {
+      const pa = c.geo.attributes.position, na = c.geo.attributes.normal;
+      mtx.compose(c.pos, c.quat || Q0, c.scale || V1); nmx.getNormalMatrix(mtx);
+      for (let i = 0; i < pa.count; i++) {
+        v.fromBufferAttribute(pa, i);
+        if (O) { O[3 * (vo + i)] = v.x; O[3 * (vo + i) + 1] = v.y; O[3 * (vo + i) + 2] = v.z; K[vo + i] = c.k; }
+        v.applyMatrix4(mtx); P[3 * (vo + i)] = v.x; P[3 * (vo + i) + 1] = v.y; P[3 * (vo + i) + 2] = v.z;
+        v.fromBufferAttribute(na, i).applyMatrix3(nmx).normalize(); Nn[3 * (vo + i)] = v.x; Nn[3 * (vo + i) + 1] = v.y; Nn[3 * (vo + i) + 2] = v.z;
+      }
+      if (c.geo.index) for (let i = 0; i < c.geo.index.count; i++) I[io++] = c.geo.index.getX(i) + vo;
+      else for (let i = 0; i < pa.count; i++) I[io++] = vo + i;
+      vo += pa.count;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(Nn, 3));
+    if (own) { g.setAttribute('aO', new THREE.BufferAttribute(O, 3)); g.setAttribute('aP', new THREE.BufferAttribute(K, 1)); }
+    g.setIndex(new THREE.BufferAttribute(I, 1));
+    return g;
+  };
+  const nucP = new THREE.Vector3(...CELL.nuc.c);
   const { nuc, nucl, gdir, er, golgi } = CELL;
   // plasma membrane
   const pmGeo = new THREE.SphereGeometry(1, 128, 80);
@@ -1423,17 +1456,16 @@ function buildScene(canvas) {
     addMesh(g, shellMaterial('0.55, 0.68, 1.0', 0.35, 0.4), 1, 2);
   }
   GL.orgAnchor[1] = v3.add(nuc.c, [0.05, nuc.r * 0.95, 0.1]);
-  const nl = addMesh(new THREE.SphereGeometry(nucl.r, 48, 32), shellMaterial('0.95, 0.6, 1.0', 0.12, 0.45), 2);
+  const front = m => { m.side = THREE.FrontSide; return m; };   // (small shells: only their front faces, headsets are short of fill rate)
+  const nl = addMesh(new THREE.SphereGeometry(nucl.r, 48, 32), front(shellMaterial('0.95, 0.6, 1.0', 0.12, 0.45)), 2);
   nl.position.set(...nucl.c);
   GL.orgAnchor[2] = nucl.c;
   // ER: perforated sheets around the nucleus
-  er.r.forEach((r, k) => {
+  {
     const mat = shellMaterial('0.3, 0.9, 0.6', 0.03, 0.24, 'er');
-    mat.uniforms.uK.value = k;
     mat.side = THREE.FrontSide; // the far side hides behind the nucleus anyway, and headsets are short of fill rate
-    const m = addMesh(new THREE.SphereGeometry(r, 80, 56), mat, 3);
-    m.position.set(...nuc.c);
-  });
+    addMesh(mergeCopies(er.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 80, 56), pos: nucP, k })), true), mat, 3);
+  }
   {
     // the anchor for the ER label: a point on the outer sheet, away from the Golgi
     let best = null;
@@ -1441,45 +1473,42 @@ function buildScene(canvas) {
     GL.orgAnchor[3] = v3.add(nuc.c, v3.mul(best || [-1, 0, 0], er.r[2]));
   }
   // Golgi: a stack of curved cisternae facing the nucleus
-  golgi.r.forEach((r, k) => {
-    const g = new THREE.SphereGeometry(r, 64, 10, 0, Math.PI * 2, 0, golgi.ang[k]);
-    const m = addMesh(g, shellMaterial('1.0, 0.64, 0.25', 0.10, 0.5), 4);
-    m.position.set(...nuc.c);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), V.set(...gdir));
-  });
   {
-    const vg = new THREE.SphereGeometry(0.011, 12, 8), vr = mulberry(31), vmat = shellMaterial('1.0, 0.64, 0.25', 0.2, 0.5);
+    const gq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), V.set(...gdir));
+    addMesh(mergeCopies(golgi.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 64, 10, 0, Math.PI * 2, 0, golgi.ang[k]), pos: nucP, quat: gq })), false),
+      shellMaterial('1.0, 0.64, 0.25', 0.10, 0.5), 4);
+  }
+  {
+    const vg = new THREE.SphereGeometry(0.011, 12, 8), vr = mulberry(31), vmat = front(shellMaterial('1.0, 0.64, 0.25', 0.2, 0.5)), vl = [];
     for (let i = 0; i < 14; i++) {
       const k = Math.floor(vr() * golgi.r.length), side = perp(gdir), b = v3.cross(gdir, side), a = vr() * Math.PI * 2;
       const ang = golgi.ang[k] * (1.0 + 0.15 * vr()), dir = v3.add(v3.mul(gdir, Math.cos(ang)), v3.mul(v3.add(v3.mul(side, Math.cos(a)), v3.mul(b, Math.sin(a))), Math.sin(ang)));
-      const m = addMesh(vg, vmat, 4);
-      m.position.set(...v3.add(nuc.c, v3.mul(dir, golgi.r[k] + 0.01 * (vr() - 0.5))));
+      vl.push({ geo: vg, pos: new THREE.Vector3(...v3.add(nuc.c, v3.mul(dir, golgi.r[k] + 0.01 * (vr() - 0.5)))) });
     }
+    addMesh(mergeCopies(vl, false), vmat, 4);
     GL.orgAnchor[4] = v3.add(nuc.c, v3.mul(gdir, golgi.r[4] + 0.02));
   }
   // centrosome: two small centrioles at right angles
   {
-    const cg = new THREE.CylinderGeometry(0.007, 0.007, 0.03, 12, 1), cm = shellMaterial('0.85, 0.9, 1.0', 0.35, 0.4);
-    const c1 = addMesh(cg, cm, 9), c2 = addMesh(cg, cm, 9);
-    c1.position.set(...CELL.centro); c2.position.set(...v3.add(CELL.centro, [0.012, 0.0, 0.01]));
-    c2.rotation.set(Math.PI / 2, 0, 0.4);
+    const cg = new THREE.CylinderGeometry(0.007, 0.007, 0.03, 12, 1), cm = front(shellMaterial('0.85, 0.9, 1.0', 0.35, 0.4));
+    addMesh(mergeCopies([{ geo: cg, pos: new THREE.Vector3(...CELL.centro) },
+      { geo: cg, pos: new THREE.Vector3(...v3.add(CELL.centro, [0.012, 0.0, 0.01])), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0.4)) }], false), cm, 9);
   }
   // mitochondria with cristae
-  CELL.mitos.forEach(o => {
-    const g = new THREE.SphereGeometry(1, 40, 20);
-    g.scale(o.a, o.b, o.b); g.computeVertexNormals();
-    const mat = shellMaterial('1.0, 0.42, 0.36', 0.07, 0.5, 'mito');
-    mat.uniforms.uLen.value = o.a;
-    const m = addMesh(g, mat, 5);
-    m.position.set(...o.c);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), V.set(...o.axis));
-  });
+  {
+    const mat = front(shellMaterial('1.0, 0.42, 0.36', 0.07, 0.5, 'mito'));
+    addMesh(mergeCopies(CELL.mitos.map(o => {
+      const g = new THREE.SphereGeometry(1, 40, 20);
+      g.scale(o.a, o.b, o.b); g.computeVertexNormals();
+      return { geo: g, pos: new THREE.Vector3(...o.c), quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), V.set(...o.axis)), k: o.a };
+    }), true), mat, 5);
+  }
   GL.orgAnchor[5] = CELL.mitos[0].c;
   // lysosomes, endosomes and vesicles, peroxisomes
   const ball = new THREE.SphereGeometry(1, 28, 18);
   const balls = (list, rgb, a0, a1, org) => {
-    const mat = shellMaterial(rgb, a0, a1);
-    list.forEach(o => { const m = addMesh(ball, mat, org); m.position.set(...o.c); m.scale.setScalar(o.r); });
+    const mat = front(shellMaterial(rgb, a0, a1));
+    addMesh(mergeCopies(list.map(o => ({ geo: ball, pos: new THREE.Vector3(...o.c), scale: new THREE.Vector3(o.r, o.r, o.r) })), false), mat, org);
     GL.orgAnchor[org] = list[0].c;
   };
   balls(CELL.lysos, '1.0, 0.4, 0.78', 0.14, 0.5, 6);
@@ -1507,6 +1536,7 @@ function buildScene(canvas) {
     GL.orgMats[9].push(mat);
     GL.orgAnchor[9] = CELL.mts[Math.floor(CELL.mts.length / 2)][6];
   }
+  for (const m of statics) { m.updateMatrix(); m.matrixAutoUpdate = false; }
   // stars
   const sr = mulberry(9), sp = new Float32Array(1800 * 3), sc = new Float32Array(1800 * 3);
   for (let i = 0; i < 1800; i++) {
@@ -1516,6 +1546,7 @@ function buildScene(canvas) {
   const sg = new THREE.BufferGeometry();
   sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
+  GL.stars.updateMatrix(); GL.stars.matrixAutoUpdate = false;
   scene.add(GL.stars);
 
   // ------------------------------------------------ proteins
@@ -2336,6 +2367,7 @@ function applyUniforms(S, explore) {
   U.uProxOn.value = S.prox;
   RU.uReveal.value = S.route_reveal; RU.uAlpha.value = 0.55 * S.route_alpha; RU.uWPlace.value = S.w_place;
   RU.uIso.value = U.uIso.value; RU.uFocus.value = S.focus; RU.uProxOn.value = S.prox;
+  GL.routes.visible = RU.uReveal.value > 0.0001 && RU.uAlpha.value > 0.001;   // (an invisible set of routes costs a draw and its triangles)
   IU.uReveal.value = S.id_reveal; IU.uAlpha.value = 0.75 * S.id_alpha; IU.uIso.value = U.uIso.value; IU.uSel.value = U.uSel.value; IU.uFocus.value = S.focus * 0.6;
   // organelles: revealed one by one in the story, dimmed when one place is isolated
   const isoOrg = X.iso >= 0 && explore ? ORG_OF_PLACE[NET.PK[X.iso]] : -2;
@@ -2998,12 +3030,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -3419,14 +3473,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -3448,6 +3502,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 
@@ -3778,21 +3833,80 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
-function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
-  P.last = s; P.t = now;
+// redraw only when what the panel shows has changed (texture uploads are not free). Not while xrUpdate keeps it hidden (P.want false; v137;
+// the menu's Story tab shows the story's two panels, so those go on while it does: HOST.collab.mirroring, and a shell
+// without it keeps them going); a card of the Stories screen not drawn yet waits its turn, two first draws a frame at
+// most (XR.landN, counted from xrUpdate), so opening the screen is not sixteen cards and 35 MB in one frame; and a text
+// fade alone sends only the rows that moved (panelFade, panelSend)
+function panelTick(P, now, force) {
+  if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
+  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (P.cap && !P.nd && !force && XR.landN >= 2) return;
+  P.t = now;
+  const R = P.last && base === P.base && P.fb ? panelFade(P) : null;
+  P.last = s; P.base = base; P.fb = null;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   P.regions = [];
+  panelPaint(ctx, P);
+  P.nd = (P.nd || 0) + 1;
+  if (P.cap && P.nd === 1) XR.landN++;
+  if (!R) P.tex.needsUpdate = true; else if (R.length) panelSend(P, R);
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// text fades alone (v137; the part of a signature after \u0001, see sigMain): drawStoryPane keeps each element's band of
+// rows and the fades it follows (P.fb). The card is drawn whole into its canvas as ever (so it is exactly what a full
+// redraw makes), but only the rows of the elements whose fade moved are sent to the texture (panelSend, texSubImage2D
+// and the mipmaps), not the whole card (1.2 MP for every step of every line's fade). Null: send it whole (most of it moved)
+const FADE = { pad: 8, most: 0.85 };
+let FADECV = null;
+function panelFade(P) {
+  const R = [];
+  for (const b of P.fb) {
+    let moved = false;
+    for (const d of b.d) if (storyOpacity(d.el) !== d.q) moved = true;
+    if (!moved) continue;
+    const y0 = Math.max(0, Math.floor(b.y0 - FADE.pad)), y1 = Math.min(P.h, Math.ceil(b.y1 + FADE.pad)), last = R[R.length - 1];
+    if (y1 <= y0) continue;
+    if (last && y0 <= last[1] + last[3]) last[3] = Math.max(last[3], y1 - last[1]); else R.push([0, y0, P.w, y1 - y0]);
+  }
+  return R.reduce((n, r) => n + r[3], 0) > FADE.most * P.h ? null : R;
+}
+// the rows panelFade found, copied from the card's canvas to a small one and sent as they are
+function panelSend(P, R) {
+  const cv = FADECV = FADECV || document.createElement('canvas');
+  R.forEach((r, k) => {
+    if (cv.width !== r[2] || cv.height !== r[3]) { cv.width = r[2]; cv.height = r[3]; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, r[2], r[3]); c.drawImage(P.cv, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+    panelPatch(P, cv, r[0], r[1], k < R.length - 1);   // (its mipmaps made once, after the last)
+  });
+  P.faded = (P.faded || 0) + 1;
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card. A texture not on the GPU yet, or with the whole card still to go there, takes
+// it as it goes; one without WebGL2 (a mipmapped texture of any size) is sent whole
+function panelPatch(P, cv, x, y, noMip) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
+  } catch (e) { T.needsUpdate = true; }
 }
 
 // ------------------------------------------------------------ main panel --
@@ -3802,10 +3916,11 @@ function sigMain() {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
       if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
       if (curCh.key === 'signal') s += $('#steps').textContent;
+      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
     }
     return s;
   }
@@ -3845,7 +3960,8 @@ function xrLandingCards() {
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
+    P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
     P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
@@ -3932,12 +4048,16 @@ const STY = {
 };
 function storyOpacity(el) {
   if (!XR.elInfo) { XR.elInfo = new Map(); ST.items.forEach(it => it.els.forEach(e => XR.elInfo.set(e.el, e))); }
-  const e = XR.elInfo.get(el);
-  return e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  const e = XR.elInfo.get(el), q = e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  if (FADEB && e) FADEB.d.push({ el, q });   // (drawStoryPane: the fades this element's band follows, panelFade)
+  return q;
 }
+let FADEB = null;
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
-  for (const el of it.sec.children) y = drawStoryEl(ctx, P, el, x, y, W, 1);
+  P.fb = [];   // (each element's band of rows and the fades it follows: panelFade)
+  for (const el of it.sec.children) { const b = FADEB = { y0: y, y1: y, d: [] }; y = drawStoryEl(ctx, P, el, x, y, W, 1); b.y1 = y; P.fb.push(b); }
+  FADEB = null;
   ctx.globalAlpha = 1;
 }
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
@@ -4280,7 +4400,7 @@ function drawKeyboard(ctx, P, x, y, W) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig()
+  return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig()
     : 'x' + X.color + X.cell + X.routes.toFixed(2);
 }
 function drawFoot(ctx, P) {
@@ -4598,7 +4718,7 @@ function init() {
   S.push(['Setting up the scene', () => buildScene($('#gl')), true], ['Preparing the scene', () => warm(GL.scene)],
     ['Writing the story', () => { resize(); window.addEventListener('resize', resize); buildStory(); buildTimeline(); }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }

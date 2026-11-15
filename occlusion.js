@@ -177,7 +177,7 @@ void main() {
     const F = sv('enabledFeatures'), has = f => (F ? Array.from(F).includes(f) : null);
     S = { session: s, gl, binding: null, D: null, views: null, decided: false, probeAt: 0, probeN: 0, probe: null, frames: 0, valid: 0,
       depth: { enabled: false, usage: sv('depthUsage'), format: sv('depthDataFormat'), why: '', errors: 0 },
-      planesOn: has('plane-detection') === true, meshesOn: has('mesh-detection') === true, planes: new Map(), meshes: new Map(), built: 0,
+      planesOn: has('plane-detection') === true, meshesOn: has('mesh-detection') === true, planes: new Map(), meshes: new Map(), built: 0, dirty: 2, softAt: 0, mverts: 0, merges: 0,
       // what comes and goes (renew): the last frame with depth, since when none came, the depth's calls throwing (frames
       // in a row), the room's parts and how many have a pose (and since when none), the session hidden since, how long it
       // was hidden last, a sleep to answer on the next frame; what was asked again, and what is to be said back
@@ -212,7 +212,7 @@ void main() {
   }
   function dropRoom() {
     for (const k of ['planes', 'meshes']) { for (const e of S[k].values()) dropPart(e); S[k].clear(); }
-    S.parts = 0; S.unposedSince = 0;
+    S.parts = 0; S.unposedSince = 0; S.dirty = 2;
   }
   function dropDepth() {
     const D = S.D, gl = S.gl;
@@ -529,28 +529,75 @@ void main() {
     for (let i = 0; i < ix.length; i += si) h = (h * 31 + ix[i]) | 0;
     return v.length + ':' + ix.length + ':' + h;
   }
+  // a part's own geometry (positions and a triangle index, in its own space): kept until it changes, never drawn by itself
   function buildPart(o, kind) {
-    const geo = new THREE.BufferGeometry();
+    let pos, idx;
     if (kind === 'plane') {
-      const pts = Array.from(o.polygon || []), pos = new Float32Array(pts.length * 3), idx = [];
+      const pts = Array.from(o.polygon || []), ix = [];
+      pos = new Float32Array(pts.length * 3);
       pts.forEach((p, k) => { pos[k * 3] = p.x; pos[k * 3 + 1] = p.y; pos[k * 3 + 2] = p.z; });
-      for (let k = 1; k + 1 < pts.length; k++) idx.push(0, k, k + 1);   // (the polygon is convex)
-      if (!idx.length) return null;
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setIndex(idx);
+      for (let k = 1; k + 1 < pts.length; k++) ix.push(0, k, k + 1);   // (the polygon is convex)
+      if (!ix.length) return null;
+      idx = Uint32Array.from(ix);
     } else {
       const v = o.vertices, ix = o.indices;
       if (!v || v.length < 9) return null;
-      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
-      if (ix) geo.setIndex(new THREE.BufferAttribute(ix instanceof Uint32Array ? new Uint32Array(ix) : new Uint32Array(Array.from(ix)), 1));
+      pos = new Float32Array(v);
+      if (ix) idx = ix instanceof Uint32Array ? new Uint32Array(ix) : new Uint32Array(Array.from(ix));
+      else { idx = new Uint32Array(Math.floor(pos.length / 9) * 3); for (let k = 0; k < idx.length; k++) idx[k] = k; }
     }
-    const m = new THREE.Mesh(geo, O.roomMat);
-    m.matrixAutoUpdate = false; m.renderOrder = -1;   // (after the depth: both write the nearer)
-    return m;
+    return { pos, idx };
   }
   function dropPart(e) {
-    if (!e.m) return;
-    if (e.m.parent) e.m.parent.remove(e.m);
-    e.m.geometry.dispose(); e.m = null;
+    if (!e.g) return;
+    e.g = null; S.dirty = 2;
+  }
+  // the room's whole drawing is ONE mesh in reference-space coordinates (v137: a Quest's scan of 40 planes was 80 draws
+  // and 40 uniform sets a frame): the parts that have a pose, each transformed by its pose into one growing buffer, made
+  // again only when a shape, a part or whether it has a pose changes (at once), or when a pose moved by more than a
+  // millimetre (at most four times a second: poses drift a little on their own), sending only what is used
+  const POSE_TOL = 1e-3;   // (1 mm, or about 0.06 degrees: a scanned space's poses refine all the time, and a merge re-sends the whole room)
+  function mergeRoom() {
+    const lists = [S.meshes, S.planes];
+    let nv = 0, ni = 0;
+    for (const map of lists) for (const e of map.values()) if (e.g && e.has) { nv += e.g.pos.length / 3; ni += e.g.idx.length; }
+    let R = O.rm;
+    if (!R) {
+      const q = HOST.quiet; HOST.quiet = true;
+      try {
+        R = O.rm = new THREE.Mesh(new THREE.BufferGeometry(), O.roomMat);
+        R.matrixAutoUpdate = false; R.frustumCulled = false; R.renderOrder = -1; R.visible = false;
+        R.userData.cap = { v: 0, i: 0 };
+        O.room.add(R);
+      } finally { HOST.quiet = q; }
+    }
+    const cap = R.userData.cap;
+    if (nv > cap.v || ni > cap.i) {
+      const cv = Math.max(nv, cap.v * 2, 3072), ci = Math.max(ni, cap.i * 2, 4608), old = R.geometry, g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cv * 3), 3).setUsage(THREE.DynamicDrawUsage));
+      g.setIndex(new THREE.BufferAttribute(new Uint32Array(ci), 1).setUsage(THREE.DynamicDrawUsage));
+      R.geometry = g; cap.v = cv; cap.i = ci;
+      if (old) old.dispose();
+    }
+    const g = R.geometry, P = g.attributes.position.array, I = g.index.array;
+    let vo = 0, io = 0;
+    for (const map of lists) for (const e of map.values()) {
+      if (!e.g || !e.has) continue;
+      const p = e.g.pos, ix = e.g.idx, m = e.pm, n = p.length / 3;
+      for (let k = 0; k < n; k++) {
+        const x = p[k * 3], y = p[k * 3 + 1], z = p[k * 3 + 2], o = (vo + k) * 3;
+        P[o] = m[0] * x + m[4] * y + m[8] * z + m[12]; P[o + 1] = m[1] * x + m[5] * y + m[9] * z + m[13]; P[o + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+      }
+      for (let k = 0; k < ix.length; k++) I[io + k] = ix[k] + vo;
+      vo += n; io += ix.length;
+      e.pm0 = e.pm.slice();   // (the pose as merged: later drift is measured against it)
+    }
+    const a = g.attributes.position, b = g.index;
+    a.updateRange.offset = 0; a.updateRange.count = vo * 3; a.needsUpdate = true;
+    b.updateRange.offset = 0; b.updateRange.count = io; b.needsUpdate = true;
+    g.setDrawRange(0, io);
+    R.visible = io > 0;
+    S.dirty = 0; S.merges++; S.mverts = vo;
   }
   // each part's pose every frame; a part whose shape changed keeps its old drawing until the new one is built (never a
   // gap), at most two built a frame
@@ -563,30 +610,44 @@ void main() {
         let sig = '';
         try { sig = shapeSig(o, kind, e); } catch (err) { warn('the room scan', err); return; }
         if (e) { e.changed = o.lastChangedTime; if (sig !== e.sig) { e.sig = sig; e.stale = true; } }
-        else { e = { m: null, changed: o.lastChangedTime, sig, stale: true }; map.set(o, e); }
+        else { e = { g: null, changed: o.lastChangedTime, sig, stale: true, has: false, pm: new Float32Array(16), pm0: null }; map.set(o, e); }
         if (kind === 'mesh') { e.v = o.vertices; e.ix = o.indices; }
       }
       if (e.stale && budget.n > 0) {
         budget.n--; e.stale = false;
-        let m = null;
-        const q = HOST.quiet; HOST.quiet = true;
-        try { m = buildPart(o, kind); } catch (err) { warn('building the room', err); } finally { HOST.quiet = q; }
-        if (m) { dropPart(e); e.m = m; O.room.add(m); S.built++; }
+        let b = null;
+        try { b = buildPart(o, kind); } catch (err) { warn('building the room', err); }
+        if (b) { e.g = b; S.dirty = 2; S.built++; }
       }
-      if (!e.m) return;
+      if (!e.g) return;
       let pose = null;
       try { pose = f.getPose(kind === 'plane' ? o.planeSpace : o.meshSpace, ref); } catch (err) { /* not this frame */ }
-      if (pose) { e.m.matrix.fromArray(pose.transform.matrix); e.m.matrixWorldNeedsUpdate = true; }
-      e.m.visible = !!pose;
-      S.parts++; if (pose) S.posed++;
+      const has = !!pose;
+      if (has !== e.has) { e.has = has; S.dirty = 2; }
+      if (has) {
+        const mx = pose.transform.matrix, pm = e.pm;
+        for (let k = 0; k < 16; k++) pm[k] = mx[k];
+        if (!e.pm0) S.dirty = 2;
+        else { for (let k = 0; k < 16; k++) if (Math.abs(pm[k] - e.pm0[k]) > POSE_TOL) { if (!S.dirty) S.dirty = 1; break; } }
+      }
+      S.parts++; if (has) S.posed++;
     });
-    for (const [o, e] of map) if (!seen.has(o)) { dropPart(e); map.delete(o); }
+    for (const [o, e] of map) if (!seen.has(o)) { dropPart(e); map.delete(o); S.dirty = 2; }
   }
   function roomStep(f, ref) {
     const budget = { n: 2 };
     S.parts = 0; S.posed = 0;
-    if (S.planesOn) { let s = null; try { s = f.detectedPlanes; } catch (e) { /* none */ } if (s) roomSync(s, S.planes, 'plane', f, ref, budget); }
+    // the meshes first: a posed global mesh (the headset's whole room as one) makes the planes the same thing twice, so
+    // they are not drawn then (their parts forgotten)
     if (S.meshesOn) { let s = null; try { s = f.detectedMeshes; } catch (e) { /* none */ } if (s) roomSync(s, S.meshes, 'mesh', f, ref, budget); }
+    let glob = false;
+    for (const [o, e] of S.meshes) if (e.has && o.semanticLabel === 'global mesh') { glob = true; break; }
+    const nowT = performance.now();
+    if (glob) S.globAt = nowT; else if (S.globAt && nowT - S.globAt < 500) glob = true;   // (a global mesh without a pose for under half a second: the planes stay out, nothing is re-added and dropped)
+    if (glob) { if (S.planes.size) { for (const e of S.planes.values()) dropPart(e); S.planes.clear(); S.dirty = 2; } }
+    else if (S.planesOn) { let s = null; try { s = f.detectedPlanes; } catch (e) { /* none */ } if (s) roomSync(s, S.planes, 'plane', f, ref, budget); }
+    // (hard changes at once, a drifting pose at most four times a second)
+    if (S.dirty === 2 || (S.dirty === 1 && performance.now() - S.softAt >= 250)) { S.softAt = performance.now(); mergeRoom(); }
     return S.planes.size + S.meshes.size > 0;
   }
 
@@ -737,7 +798,7 @@ void main() {
         quad: !!(O.quad && O.quad.visible), roomShown: !!(O.room && O.room.visible), lost: O.lost, restored: O.restored,
         gl: { vao: !!O.vao, probe: !!O.probeFb, progs: O.progs ? Object.keys(O.progs).length : 0 },
         depth: S ? Object.assign({}, S.depth, { kind: D && D.kind, shape: D ? D.shape : '', used: D ? D.used : '', eyes: D ? D.eyes.map(E => !!E) : [], frames: S.frames, valid: S.valid, decided: S.decided, probe: S.probe, probeN: S.probeN }) : null,
-        room: S ? { planes: S.planes.size, meshes: S.meshes.size, built: S.built, on: [S.planesOn, S.meshesOn], parts: S.parts } : null,
+        room: S ? { planes: S.planes.size, meshes: S.meshes.size, built: S.built, merges: S.merges, verts: S.mverts, on: [S.planesOn, S.meshesOn], parts: S.parts } : null,
         lastDepthAt: S ? S.lastDepthAt : 0, hiddenAt: S ? S.hiddenAt : 0, hidLast: S ? S.hidLast : 0, renews: S ? S.renews : 0, roomRenews: S ? S.roomRenews : 0,
         redecides: S ? S.redecides : 0, resumes: S ? S.resumes : 0, bindings: S ? S.bindings : 0, posed: S ? S.posed : 0, depthActive: depthActive(),
         tries: S ? { depth: S.td.n, room: S.tr.n } : null, gaveUp: S ? { depth: !!S.td.gave, room: !!S.tr.gave } : null, told: !!(S && S.told) };

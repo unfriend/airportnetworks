@@ -265,7 +265,7 @@ void main() {
     g.add(ground);
 
     // the cells: H&E splats, and the same cells glowing by type for the fluorescence sketch
-    const he = LK.cells(n), fl = LK.cells(n, { additive: true });
+    const he = LK.cells(n, { sweep: 1 }), fl = LK.cells(n, { additive: true, sweep: 1 });
     fl.lod(0.35, 0.9);
     g.add(he.mesh, fl.mesh);
     const heA = ownA(he.mesh), flA = ownA(fl.mesh);
@@ -435,27 +435,24 @@ void main() {
   const VIS = new Float32Array(WIN.n);
   for (let i = 0; i < WIN.n; i++) VIS[i] = visit(WIN, i);
   const _p = [0, 0, 0], _c = [0, 0, 0], _n = [0, 0, 0], UP = [0, 1, 0];
-  const wipe = (f, x) => sstep(0, 0.18, f * 1.18 - (x / TW + 0.5));   // the sweep's share at x for a step's progress f
-  function fill(t, mode, all) {
-    const key = `${Math.round(mode * 100)}|${Math.round(all * 100)}`;
-    if (key === t.key) return;
-    t.key = key;
+  // The sweeps (H&E out and the glow in from the left; the dome's dim) are in the cells' shader: both pools are filled
+  // once, every cell at full alpha with where it lies across the piece and when the dome reaches it (aSw), and a frame
+  // only says how far the sweeps are (uSw): nothing is rebuilt or sent while a mode sweeps.
+  function fill(t) {
+    if (t.key) return;
+    t.key = 'filled';
     t.he.begin(); t.fl.begin();
-    const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1);
     for (let i = 0; i < t.n; i++) {
-      const w1 = wipe(m1, t.X[i]), w2 = wipe(m2, t.X[i]);
-      // H&E fully until the spots sweep in (under them it stays, a little dimmed), gone where the fluorescence comes
-      const dim = t === WIN && all > 0 ? sstep(0, 0.05, all - VIS[i]) : 0;
-      const ha = (1 - 0.45 * w1 * (1 - w2)) * (1 - w2) * (1 - 0.8 * dim), fa = w2 * (1 - 0.8 * dim);
       _p[0] = t.X[i]; _p[1] = 0.0008; _p[2] = t.Z[i];
+      const sw = t === WIN ? VIS[i] : 0, xn = t.X[i] / TW + 0.5;
       _c[0] = t.CY[3 * i]; _c[1] = t.CY[3 * i + 1]; _c[2] = t.CY[3 * i + 2];
       _n[0] = t.NU[3 * i]; _n[1] = t.NU[3 * i + 1]; _n[2] = t.NU[3 * i + 2];
-      if (ha > 0.004) t.he.add(_p, t.RAD[i], t.KIND[i], _c, ha, t.ANG[i], UP, _n);
-      if (fa > 0.004) {
-        _c[0] = t.FC[3 * i]; _c[1] = t.FC[3 * i + 1]; _c[2] = t.FC[3 * i + 2];
-        _n[0] = t.FN[3 * i]; _n[1] = t.FN[3 * i + 1]; _n[2] = t.FN[3 * i + 2];
-        t.fl.add(_p, t.RAD[i], t.KIND[i], _c, fa, t.ANG[i], UP, _n);
-      }
+      let k = t.he.add(_p, t.RAD[i], t.KIND[i], _c, 1, t.ANG[i], UP, _n);
+      if (k >= 0) { t.he.attrs.aSw.array[2 * k] = xn; t.he.attrs.aSw.array[2 * k + 1] = sw; }
+      _c[0] = t.FC[3 * i]; _c[1] = t.FC[3 * i + 1]; _c[2] = t.FC[3 * i + 2];
+      _n[0] = t.FN[3 * i]; _n[1] = t.FN[3 * i + 1]; _n[2] = t.FN[3 * i + 2];
+      k = t.fl.add(_p, t.RAD[i], t.KIND[i], _c, 1, t.ANG[i], UP, _n);
+      if (k >= 0) { t.fl.attrs.aSw.array[2 * k] = xn; t.fl.attrs.aSw.array[2 * k + 1] = sw; }
     }
     t.he.end(); t.fl.end();
   }
@@ -467,8 +464,10 @@ void main() {
   function piece(t, a, mode, pts, all) {
     t.g.visible = a > 0.003;
     if (!t.g.visible) return;
-    fill(t, mode, t === WIN ? all : 0);
-    const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1);
+    fill(t);
+    const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1), dm = t === WIN ? all : 0;
+    t.he.sweep(m1, m2, dm, 1); t.fl.sweep(m1, m2, dm, 2);
+    t.he.mesh.visible = m2 < 0.999; t.fl.mesh.visible = m2 > 0.003;   // (nothing of the glow before its sweep, none of the H&E after)
     t.U.uA.value = a; t.U.uM1.value = m1; t.U.uM2.value = m2; t.U.uPts.value = pts; t.U.uAll.value = all; t.U.uDim.value = t === WIN ? Math.min(1, all * 4) : 0;
     t.heA.value = a; t.flA.value = a;
     t.he.bead(pts); t.fl.bead(pts);

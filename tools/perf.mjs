@@ -73,6 +73,8 @@ function report(results) {
   out.push('\n## All scenes\n');
   out.push(`Frames per scene: ${N} unless noted. Columns: script ms of the frame (mean, 95th percentile, worst), frames over 11.1 ms of script, render submit ms, draw calls and triangles (both eyes), texture and buffer upload KB per frame, program links in the run, mipmaps generated, visible see-through meshes and large ones (radius over 0.5 m), scene objects, objects with matrixAutoUpdate on, JS heap allocated per frame.\n`);
   out.push(table(ok));
+  const lk = results.filter(r => r.m && r.m.links && r.m.links.length);
+  if (lk.length) out.push('## Program links during the measured frames\n\n' + lk.slice(0, 30).map(r => '- ' + r.id + ': ' + r.m.links.slice(0, 4).map(l => l.n + 'x ' + l.k.slice(0, 400)).join(' || ')).join('\n'));
   return out.join('\n\n');
 }
 if (FROM) {
@@ -115,13 +117,21 @@ function PERF_LIB() {
     }
     for (const name of ['bufferData', 'bufferSubData']) {
       const fn = proto[name]; if (!fn) continue;
-      proto[name] = function (...a) { P.C.bufCalls++; const d = name === 'bufferData' ? a[1] : a[2]; P.C.bufBytes += typeof d === 'number' ? d : (d && d.byteLength) || 0; return fn.apply(this, a); };
+      proto[name] = function (...a) { P.C.bufCalls++; const d = name === 'bufferData' ? a[1] : a[2]; let n = typeof d === 'number' ? d : (d && d.byteLength) || 0;
+        if (a.length >= 5 && d && d.BYTES_PER_ELEMENT) n = (a[4] || (d.length - (a[3] || 0))) * d.BYTES_PER_ELEMENT;
+        P.C.bufBytes += n; return fn.apply(this, a); };
     }
     for (const [name, key] of [['linkProgram', 'link'], ['compileShader', 'compile'], ['generateMipmap', 'mip'], ['readPixels', 'read']]) {
       const fn = proto[name]; if (!fn) continue;
+      if (name === 'linkProgram') { proto[name] = function (...a) { P.C[key]++; try { const k = (new Error().stack || '').split('\n').slice(2, 30).filter(x => !/three\.min\.js/.test(x) || false).slice(0, 5).map(x => x.trim().replace(/^at /, '').replace(/https?:\/\/[^/]+\//, '')).join(' < '); P.links.push({ k, mat: P.curMat || '' }); } catch (e) { /* no stack */ } return fn.apply(this, a); }; continue; }
       proto[name] = function (...a) { P.C[key]++; return fn.apply(this, a); };
     }
   }
+  P.links = []; P.curMat = '';
+  P.hookMat = () => { try { const mp = THREE.Material.prototype; if (mp.__perfHook) return; const ob = mp.onBeforeCompile;
+      const clean = st => (st || '').split('\n').slice(1).filter(x => !/three\.min\.js|perf|__perf/.test(x)).slice(0, 4).map(x => x.trim().replace(/^at /, '').replace(/https?:\/\/[^/]+\//, '')).join(' < ');
+      for (const k of Object.keys(THREE)) if (/Material$/.test(k) && k !== 'Material' && typeof THREE[k] === 'function') { try { THREE[k] = new Proxy(THREE[k], { construct(t, args, nt) { const o = Reflect.construct(t, args, nt); try { Object.defineProperty(o, '__made', { value: clean(new Error().stack), enumerable: false }); } catch (e) { /* frozen */ } return o; } }); } catch (e) { /* read only */ } }
+      mp.onBeforeCompile = function (...a) { P.curMat = (this.type || '') + (this.name ? ':' + this.name : '') + (this.__made ? ' made at ' + this.__made : ''); return ob ? ob.apply(this, a) : undefined; }; mp.__perfHook = 1; } catch (e) { /* no THREE yet */ } };
   // timers, animation frames, listeners
   const st = window.setTimeout, si = window.setInterval, ci = window.clearInterval, raf = window.requestAnimationFrame;
   const where = (k, n = 2) => { try { return new Error().stack.split('\n').slice(k, k + n).map(x => x.trim().replace(/^at /, '').replace(/https?:\/\/[^/]+\//, '')).join(' < '); } catch (e) { return '?'; } };
@@ -171,11 +181,13 @@ function PERF_LIB() {
       if (o.isSprite) { S.sprites++; S.transp++; if (Math.max(o.scale.x, o.scale.y) * maxScale(o.matrixWorld) > 1) S.transpLarge++; return; }
       if (!o.isMesh) return;
       S.meshes++; if (o.isInstancedMesh) S.instances += o.count;
-      if (!seeThrough(o.material)) return;
+      if (!(o.layers.mask & 1) || !seeThrough(o.material)) return;
       S.transp++;
       const g = o.geometry; if (!g) return;
       if (!g.boundingSphere) g.computeBoundingSphere();
-      if (g.boundingSphere && g.boundingSphere.radius * maxScale(o.matrixWorld) > 0.5) S.transpLarge++;
+      if (!g.boundingBox) g.computeBoundingBox();
+      const sz = new THREE.Vector3(); g.boundingBox.getSize(sz); const e = [sz.x, sz.y, sz.z].sort((x, y) => y - x), ms = maxScale(o.matrixWorld);
+      if (g.boundingSphere && g.boundingSphere.radius * ms > 0.5 && e[1] * ms > 0.25) S.transpLarge++;
     });
     return S;
   };
@@ -186,11 +198,12 @@ function PERF_LIB() {
   };
   P.measure = async (n, o) => {
     o = o || {};
+    P.hookMat();
     const step = o.step || stepOne, r = HOST.renderer, I = r.info;
     if (window.gc) window.gc();
     const mem = () => ({ geo: I.memory.geometries, tex: I.memory.textures, prog: (I.programs || []).length });
     const heap = () => (performance.memory ? performance.memory.usedJSHeapSize : 0);
-    const m0 = mem(), h0 = heap(), C0 = { ...P.C };
+    const m0 = mem(), h0 = heap(), C0 = { ...P.C }, L0 = P.links.length;
     const js = [], rn = [], calls = [], tris = [], tot = [];
     const orig = r.render; let rms = 0;
     r.render = function (a, b) { const t = performance.now(); try { return orig.call(this, a, b); } finally { rms += performance.now() - t; } };
@@ -208,6 +221,7 @@ function PERF_LIB() {
     const m1 = mem(), C1 = P.C, avg = a => a.reduce((x, y) => x + y, 0) / (a.length || 1);
     return { frames: n, js: stats(js), render: stats(rn), total: stats(tot), calls: { mean: avg(calls), max: Math.max(...calls) }, tris: { mean: avg(tris), max: Math.max(...tris) },
       texBytes: (C1.texBytes - C0.texBytes) / n, bufBytes: (C1.bufBytes - C0.bufBytes) / n, texCalls: (C1.texCalls - C0.texCalls) / n, bufCalls: (C1.bufCalls - C0.bufCalls) / n,
+      links: (() => { const g = {}; for (const l of P.links.slice(L0)) { const k = l.mat + ' @ ' + l.k; g[k] = (g[k] || 0) + 1; } return Object.entries(g).map(([k, n]) => ({ n, k })).slice(0, 12); })(),
       link: C1.link - C0.link, compile: C1.compile - C0.compile, mip: C1.mip - C0.mip, read: C1.read - C0.read,
       heapPerFrame: performance.memory ? alloc / n / 1024 : null, heapGc: gc, memBefore: m0, memAfter: m1, scene: P.sceneStats(),
       shell: { overlayCards: HOST.collab && HOST.collab.overlay && HOST.collab.overlay() && HOST.collab.overlay().cards ? HOST.collab.overlay().cards.size : 0 } };
@@ -344,12 +358,12 @@ async function open(fake) {
 const pk = (page, s) => page.evaluate(s => HOST.cur.peek(s), s);
 async function gotoPage(page, hash, key) {
   await page.goto('about:blank'); await page.goto(base + 'index.html#' + hash);
-  await page.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), key, { timeout: 240000 });
+  await page.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && !!(HOST.cur && HOST.cur.collab.scene()), key, { timeout: 240000 });
 }
 async function session(page, mode = 'immersive-vr', warm = 30) {
   const fake = await page.evaluate(() => (window.__occl ? 'occl' : 'fp'));
   await page.evaluate(m => HOST.cur.peek('xrStart(' + JSON.stringify(m) + ')'), mode);
-  await page.waitForFunction(() => { const F = window.__fp || window.__occl; return F.session && F.session.cbs.size && HOST.session === F.session; }, null, { timeout: 60000 });
+  await page.waitForFunction(() => { const F = window.__fp || window.__occl; return !!(F.session && F.session.cbs.size && HOST.session === F.session); }, null, { timeout: 60000 });
   await page.evaluate(n => window.__perf.observe(n * 12), warm);
   return fake;
 }
@@ -366,7 +380,7 @@ async function group(ids, fn) {   // a page shared by several scenes: runs when 
   try { await fn(); } catch (e) { for (const id of ids) if (wanted(id) && !results.some(r => r.id === id)) add(id, null, { note: 'failed: ' + String(e.message).split('\n')[0].slice(0, 300) }); }
 }
 
-const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && HOST.list.length, null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.list.map(s => s.key)); await close(); return k; })();
+const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => !!(typeof HOST !== 'undefined' && HOST.list && HOST.list.length), null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.list.map(s => s.key)); await close(); return k; })();
 if (flag('--list')) { console.log('stories: ' + keys.join(', ')); await browser.close(); if (srv) srv.close(); process.exit(0); }
 
 // ---- every story: story mode at 25, 50 and 75 % (playing), explore mode
@@ -403,7 +417,7 @@ async function studioScenes(prefix, hash, ready, label) {
     const { page, close } = await open('fp');
     try {
       await gotoPage(page, hash, 'studio');
-      await page.waitForFunction(() => HOST.cur.peek('STUDIO.ready()'), null, { timeout: 300000 });
+      await page.waitForFunction(() => !!HOST.cur.peek('STUDIO.ready()'), null, { timeout: 300000 });
       await session(page); await warm(page, 1000);
       await scene(prefix + ':viewing', async () => add(prefix + ':viewing', await meas(page), { note: label }));
       await scene(prefix + ':editing', async () => {
@@ -420,7 +434,7 @@ await group(['studio:bliss-vr', 'studio:bliss-ar'], async () => {
   const { page, close } = await open('fp');
   try {
     await gotoPage(page, 'studio&scenes=examples&scene=bliss-xp', 'studio');
-    await page.waitForFunction(() => HOST.cur.peek('STUDIO.ready()'), null, { timeout: 300000 });
+    await page.waitForFunction(() => !!HOST.cur.peek('STUDIO.ready()'), null, { timeout: 300000 });
     await session(page); await warm(page, 1500);
     await scene('studio:bliss-vr', async () => add('studio:bliss-vr', await meas(page), { note: 'example scene as placed (VR)' }));
     await scene('studio:bliss-ar', async () => {
@@ -435,11 +449,11 @@ await group(['room:lobby', 'room:station', 'room:station+6people'], async () => 
   const { page, close } = await open('fp');
   try {
     await gotoPage(page, 'airports&s=LCL&peer=off', 'airports');
-    await page.waitForFunction(() => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 60000 });
+    await page.waitForFunction(() => !!(HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open'), null, { timeout: 60000 });
     await page.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('design', { x: -3.2, z: 1.0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 8, z: 8, yaw: 0 }); });
-    await page.waitForFunction(() => HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size, null, { timeout: 30000 });
+    await page.waitForFunction(() => !!(HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size), null, { timeout: 30000 });
     await session(page);
-    await page.waitForFunction(() => { window.__perf.observe(300); return HOST.room.aligned; }, null, { timeout: 60000, polling: 500 }).catch(() => 0);
+    await page.waitForFunction(() => { window.__perf.observe(300); return !!HOST.room.aligned; }, null, { timeout: 60000, polling: 500 }).catch(() => 0);
     await page.evaluate(() => window.__perf.observe(2500));
     await scene('room:lobby', async () => add('room:lobby', await meas(page), { note: 'every station, no live station (airports loaded, away)', away: await page.evaluate(() => HOST.room.away()) }));
     await scene('room:station', async () => {
@@ -512,14 +526,18 @@ await lb('left-behind:story-hops', async found => {
     const hops = ['flock', 'pass', 'lbi', 'airports'], data = { baseline: { ...base0, obs: obs0 }, hops: [] };
     let prev = 'airports';
     for (const k of hops) {
-      await page.evaluate(([k]) => { window.__prevStory = HOST.cur; window.__prevT = HOST.cur.peek('APP.t'); HOST.go(k); }, [k]);
-      await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 240000 });
+      await page.evaluate(([k]) => { window.__prevStory = HOST.cur; try { window.__wr = new WeakRef(HOST.cur.peek('GL.scene')); } catch (e) { window.__wr = null; } window.__prevT = HOST.cur.peek('APP.t'); HOST.go(k); }, [k]);
+      await page.waitForFunction(k => HOST.curKey === k && !!(HOST.cur && HOST.cur.collab.scene()), k, { timeout: 240000 });
       await page.evaluate(() => window.__perf.observe(1500));
       const snap = await page.evaluate(() => window.__perf.snap());
       const left = await page.evaluate(() => { const A = window.__prevStory; try { return { appT: A.peek('APP.t'), appT0: window.__prevT, children: A.peek('GL.scene.children.length'), gone: A.peek('LOAD.gone') }; } catch (e) { return { err: String(e.message) }; } });
       const obs = await page.evaluate(() => window.__perf.observe(2000, null, true));
       const later = await page.evaluate(() => { const A = window.__prevStory; try { return { appT: A.peek('APP.t'), children: A.peek('GL.scene.children.length') }; } catch (e) { return null; } });
-      data.hops.push({ from: prev, to: k, snap, left, later, obs }); prev = k;
+      await page.evaluate(() => { window.__prevStory = null; window.__A = null; });
+      let freed = null;
+      for (let g = 0; g < 4 && freed !== true; g++) { await page.waitForTimeout(400); freed = await page.evaluate(() => { if (window.gc) window.gc(); return window.__wr ? window.__wr.deref() === undefined : null; }); }
+      data.hops.push({ from: prev, to: k, snap, left, later, obs, sceneFreed: freed }); prev = k;
+      if (freed === false) found.push(`story ${prev === k ? '' : ''}left behind: the scene of the story before ${k} is still reachable after a gc (WeakRef)`);
       const hop = data.hops[data.hops.length - 1];
       if (left.appT0 !== undefined && later && later.appT !== left.appT0) found.push(`story ${hop.from}'s clock still moved after leaving it for ${k} (APP.t ${left.appT0} -> ${later.appT})`);
       if (obs.audioNodesPerSec > 20) found.push(`in ${k}, idle, ${f0(obs.audioNodesPerSec)} Web Audio nodes are created a second (${(obs.top || []).slice(0, 2).join(' ; ')}); check what makes them and that they are disconnected`);
@@ -540,11 +558,11 @@ await lb('left-behind:studio-leave', async found => {
   const { page, close } = await open('fp');
   try {
     await gotoPage(page, 'studio&scenes=tools/studio/test/scenes&scene=test', 'studio');
-    await page.waitForFunction(() => HOST.cur.peek('STUDIO.ready()'), null, { timeout: 240000 });
+    await page.waitForFunction(() => !!HOST.cur.peek('STUDIO.ready()'), null, { timeout: 240000 });
     await session(page, 'immersive-vr', 20); await page.evaluate(() => window.__perf.observe(2000));
     const inside = await page.evaluate(() => ({ ...window.__perf.snap(), items: HOST.cur.peek('STU.items.size') }));
     await page.evaluate(() => { window.__S = HOST.cur; HOST.go('airports'); });
-    await page.waitForFunction(() => HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 240000 });
+    await page.waitForFunction(() => HOST.curKey === 'airports' && !!(HOST.cur && HOST.cur.collab.scene()), null, { timeout: 240000 });
     await page.evaluate(() => window.__perf.observe(1500));
     const after = await page.evaluate(() => { const S = window.__S, o = { ...window.__perf.snap() }; try { o.items = S.peek('STU.items.size'); o.children = S.peek('GL.scene.children.length'); o.mixers = S.peek('[...STU.items.values()].filter(i => i.mixer || i.actions).length'); o.emitters = S.peek('[...STU.items.values()].filter(i => i.panner || i.src || i.gain).length'); } catch (e) { o.err = String(e.message); } return o; });
     const obs = await page.evaluate(() => window.__perf.observe(2000, null, true));
@@ -562,8 +580,8 @@ for (const [key, label] of [['flock', 'a live simulation (flock)'], ['airports',
     try {
       const hash = key === 'studio' ? 'studio&scenes=tools/studio/test/scenes&scene=test&s=LCL&peer=off' : key + '&s=LCL&peer=off';
       await gotoPage(page, hash, key);
-      await page.waitForFunction(() => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 60000 });
-      if (key === 'studio') await page.waitForFunction(() => HOST.cur.peek('STUDIO.ready()'), null, { timeout: 20000 }).catch(() => 0);   // (in a room the scene comes from the circle: none here)
+      await page.waitForFunction(() => !!(HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open'), null, { timeout: 60000 });
+      if (key === 'studio') await page.waitForFunction(() => !!HOST.cur.peek('STUDIO.ready()'), null, { timeout: 20000 }).catch(() => 0);   // (in a room the scene comes from the circle: none here)
       await page.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); });
       await session(page, 'immersive-vr', 20);
       await page.evaluate(() => window.__perf.observe(3000));

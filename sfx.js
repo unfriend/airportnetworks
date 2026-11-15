@@ -321,9 +321,12 @@
         const D = x.dur || 4, k = x.k, r = x.r, n = Math.round(10 + 6 * D);
         for (let i = 0; i < n; i++) {   // more grains as it goes (t = D * sqrt(u)), and higher
           const u = (i + r() * 0.9) / n, at = D * Math.sqrt(u), j = Math.min(PENTA.length - 1, Math.floor((0.1 + 0.68 * u + 0.22 * r()) * PENTA.length));
-          const f = PENTA[j] * k, pk = (0.03 + 0.03 * r()) * (0.55 + 0.45 * u), d = 0.2 + 0.3 * r(), out = spot(x, (r() * 2 - 1) * 0.6);
-          tone(x, f, at, { peak: pk, a: 0.003, d, send: 0.25, dest: out });
-          tone(x, f * 2.76, at, { peak: pk * 0.16, a: 0.002, d: d * 0.35, dest: out });
+          const f = PENTA[j] * k, pk = (0.03 + 0.03 * r()) * (0.55 + 0.45 * u), d = 0.2 + 0.3 * r(), pan = (r() * 2 - 1) * 0.6;
+          later(x, at, 7, () => {
+            const out = spot(x, pan);
+            tone(x, f, at, { peak: pk, a: 0.003, d, send: 0.25, dest: out });
+            tone(x, f * 2.76, at, { peak: pk * 0.16, a: 0.002, d: d * 0.35, dest: out });
+          });
         }
         hiss(x, 0, { kind: 'pink', type: 'bandpass', f: 2400 * k, f1: 4000 * k, glide: D, q: 0.8, peak: 0.03, a: D * 0.75, d: D * 0.25 + 0.6 });
         return x.t + D + 0.8;
@@ -485,8 +488,15 @@
   // n, rise ...); sp: it comes from a place in a headset (one point: no stereo inside it)
   function xOf(c, out, wet, t, r, o, sp) {
     o = o || {};
-    return { c, out, wet, t, srcs: [], r, k: clamp(+o.pitch || 1, 0.25, 4), dur: +o.dur > 0 ? clamp(+o.dur, 0.05, 40) : 0, o, sp: !!sp };
+    const x = { c, out, wet, t, srcs: [], r, k: clamp(+o.pitch || 1, 0.25, 4), dur: +o.dur > 0 ? clamp(+o.dur, 0.05, 40) : 0, o, sp: !!sp, pend: null };
+    if (o.defer) x.pend = [];   // (the engine's: grains are made as they fall due, `later`; a render or a dry run makes them at once)
+    return x;
   }
+  // a grain a recipe hands to the engine's 100 ms step (v137: a long texture made all its grains in one task, 70 to 200
+  // nodes): fn makes it, `at` seconds after the voice starts, w is about how many nodes it makes. Its random numbers are
+  // drawn by the recipe before, in the same order, so the sound is the same either way. Without a scheduler (a render, a
+  // dry run) it is made at once
+  function later(x, at, w, fn) { if (x.pend) x.pend.push([x.t + at, w, fn]); else fn(); }
   // one sound: its recipe into a dry gain (through an HRTF panner at a place in a headset, or a stereo panner on a
   // screen) and a reverb send. o: { gain, at: [x, y, z], spatial, pan (-1 left .. 1 right), seed, pitch, dur, n ... }
   function voice(G, name, t, o) {
@@ -503,7 +513,7 @@
     w.connect(G.verb);
     const sp = !!(p && p.panningModel), x = xOf(c, g, w, t, rng(o.seed == null ? hash(name) : o.seed), o, sp);
     const end = R.make(x);
-    return { name, g, w, p, srcs: x.srcs, t0: t, end, level: (R.level || 0.5) * k, spatial: sp };
+    return { name, g, w, p, srcs: x.srcs, t0: t, end, level: (R.level || 0.5) * k, spatial: sp, pend: x.pend };
   }
   // a stand-in context that records nothing, for a dry run of a recipe (its length): nodes that do nothing, buffers
   // that keep nothing, at a low rate (its noise is made once)
@@ -620,10 +630,17 @@
     return s;
   }
   // one-off sounds a bed schedules ahead of time (birds, bubbles): not tracked, they stop by themselves
+  function bedLater(b, t, w, fn) { if (b.pend) b.pend.push([t, w, fn]); else fn(); }
+  // (the random numbers are drawn at once, in the order they always were; the nodes are made when the bed's step finds
+  // the chirp due, `later`)
   function chirp(b, t, f, dur, peak, pan) {
-    const c = b.c, s = c.createOscillator(), v = c.createOscillator(), vg = gain(c, f * (0.02 + b.r() * 0.05)), g = c.createGain(), r = b.r;
-    s.frequency.setValueAtTime(f, t); s.frequency.linearRampToValueAtTime(f * (1.08 + r() * 0.3), t + dur * 0.45); s.frequency.linearRampToValueAtTime(f * (0.82 + r() * 0.25), t + dur);
-    v.frequency.value = 28 + r() * 40; v.connect(vg); vg.connect(s.frequency);
+    const r = b.r, P = { vg: f * (0.02 + r() * 0.05), up: f * (1.08 + r() * 0.3), dn: f * (0.82 + r() * 0.25), vf: 28 + r() * 40 };
+    bedLater(b, t, 9, () => chirpMake(b, t, f, dur, peak, pan, P));
+  }
+  function chirpMake(b, t, f, dur, peak, pan, P) {
+    const c = b.c, s = c.createOscillator(), v = c.createOscillator(), vg = gain(c, P.vg), g = c.createGain();
+    s.frequency.setValueAtTime(f, t); s.frequency.linearRampToValueAtTime(P.up, t + dur * 0.45); s.frequency.linearRampToValueAtTime(P.dn, t + dur);
+    v.frequency.value = P.vf; v.connect(vg); vg.connect(s.frequency);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.008); g.gain.exponentialRampToValueAtTime(peak * 0.001, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + 0.01);
     const lp = filter(c, 'lowpass', 5200, 0.5);
     s.connect(g); g.connect(lp);
@@ -633,8 +650,12 @@
     s.start(t); v.start(t); s.stop(t + dur + 0.02); v.stop(t + dur + 0.02);
   }
   function bubble(b, t, f, peak, pan) {
-    const c = b.c, s = c.createOscillator(), g = c.createGain(), d = 0.05 + b.r() * 0.04;
-    s.frequency.setValueAtTime(f, t); s.frequency.exponentialRampToValueAtTime(f * (1.8 + b.r() * 0.8), t + d);
+    const d = 0.05 + b.r() * 0.04, up = f * (1.8 + b.r() * 0.8);
+    bedLater(b, t, 6, () => bubbleMake(b, t, f, peak, pan, d, up));
+  }
+  function bubbleMake(b, t, f, peak, pan, d, up) {
+    const c = b.c, s = c.createOscillator(), g = c.createGain();
+    s.frequency.setValueAtTime(f, t); s.frequency.exponentialRampToValueAtTime(up, t + d);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + 0.004); g.gain.exponentialRampToValueAtTime(peak * 0.001, t + d + 0.03); g.gain.linearRampToValueAtTime(0, t + d + 0.04);
     const lp = filter(c, 'lowpass', 2400, 0.5);
     s.connect(g); g.connect(lp);
@@ -685,12 +706,12 @@
     },
   };
   // a bed for a story's key, starting at t (silent until faded in), or null for a story without one
-  function bed(G, key, t, seed) {
+  function bed(G, key, t, seed, defer) {
     const kind = bedOf(key);
     if (!kind) return null;
     const c = G.c, out = gain(c, 0), lv = gain(c, BEDS[kind].level), wet = gain(c, 1);
     out.connect(lv); lv.connect(G.bed); wet.connect(G.verb);
-    const b = { c, key, kind, out, lv, wet, t, srcs: [], r: rng(seed == null ? hash(key) : seed), next: Infinity, fill: () => {} };
+    const b = { c, key, kind, out, lv, wet, t, srcs: [], r: rng(seed == null ? hash(key) : seed), next: Infinity, fill: () => {}, pend: defer ? [] : null };
     MAKE[kind](b);
     return b;
   }
@@ -752,6 +773,7 @@
     function cut(v, t) {
       for (const p of [v.g.gain, v.w.gain]) { p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(0, t + 0.025); }
       for (const s of v.srcs) { try { s.stop(t + 0.03); } catch (e) { /* stopped */ } }
+      if (v.pend) v.pend.length = 0;
       v.end = t + 0.03; S.voices.splice(S.voices.indexOf(v), 1); S.gone.push(v); S.cut++;
     }
     // play a sound now. o: { at: [x, y, z] (where, in the headset's reference space; used in a headset), pan (on a screen,
@@ -770,8 +792,8 @@
       while (S.voices.length >= MAX) cut(quietest(t), t);
       let sp = false;
       try { sp = !!(o.at && A.spatial()); } catch (e) { /* no headset */ }
-      const v = voice(S.G, name, t + LEAD + Math.max(0, +o.delay || 0), Object.assign({}, o, { spatial: sp, seed: hash(name) + (++S.n) }));
-      S.voices.push(v); S.played++; S.lastAt = t0; S.lastName = name; S.lastSpatial = v.spatial;
+      const v = voice(S.G, name, t + LEAD + Math.max(0, +o.delay || 0), Object.assign({}, o, { spatial: sp, seed: hash(name) + (++S.n), defer: true }));
+      S.voices.push(v); pump(c); S.played++; S.lastAt = t0; S.lastName = name; S.lastSpatial = v.spatial;
       return v;
     }
     // a continuous sound (DRONES) that goes on while it is asked for: call it every frame (at least every 250 ms) with the
@@ -809,6 +831,15 @@
         droneOff(d, d.c.state === 'closed' ? 0 : d.c.currentTime, secs); S.dold.push(d); S.drones.delete(d.id);
       }
     }
+    // the grains and chirps that fall due in the next 300 ms are made now, at most about 30 nodes in one task (the rest
+    // wait for the next step, 100 ms on): a long grow was 70 to 200 nodes in the task that played it
+    function pump(c) {
+      const hor = c.currentTime + 0.3;
+      let n = 0;
+      const run = p => { while (p.length && p[0][0] <= hor && (n === 0 || n + p[0][1] <= 30)) { const e = p.shift(); n += e[1]; try { e[2](); } catch (err) { /* a node refused: skip the grain */ } } };
+      for (const v of S.voices) if (v.pend && v.pend.length) run(v.pend);
+      if (S.bed && S.bed.pend && S.bed.pend.length) run(S.bed.pend);
+    }
     // every 100 ms (and at once on a change): the bed wanted now, the duck, the voices that have ended
     function step() {
       // turned off (here, or by someone else in a shared room): what still sounds stops at once
@@ -819,14 +850,15 @@
       let want = '';
       if (c) { try { want = A.bed() || ''; } catch (e) { want = ''; } }
       if (S.bed && (want !== S.bedKey || !c)) {
-        bedOut(S.bed, S.bed.c.currentTime, c ? BED_OUT : 0.3); S.old.push(S.bed); S.bed = null; S.bedKey = '';
+        bedOut(S.bed, S.bed.c.currentTime, c ? BED_OUT : 0.3); S.bed.pend.length = 0; S.old.push(S.bed); S.bed = null; S.bedKey = '';
       }
       if (!c) { if (S.c && S.c.state !== 'closed') prune(S.c); return; }
       if (want && !S.bed && bedOf(want)) {   // (a story without a bed of its own: none)
-        S.bed = bed(S.G, want, c.currentTime + LEAD, hash(want) + (++S.n)); S.bedKey = want;
+        S.bed = bed(S.G, want, c.currentTime + LEAD, hash(want) + (++S.n), true); S.bedKey = want;
         bedIn(S.bed, c.currentTime + LEAD, BED_IN);
       }
       if (S.bed) S.bed.fill(c.currentTime + 1.5);
+      pump(c);
       let sp = false;
       try { sp = !!A.speaking(); } catch (e) { sp = false; }
       if (sp !== S.speak) {
@@ -856,7 +888,11 @@
         const ix = q.w * vx + q.y * vz - q.z * vy, iy = q.w * vy + q.z * vx - q.x * vz, iz = q.w * vz + q.x * vy - q.y * vx, iw = -q.x * vx - q.y * vy - q.z * vz;
         return [ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y, iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z, iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x];
       };
-      S.head = { p: [p.x, p.y, p.z], f: rot(0, 0, -1), u: rot(0, 1, 0) };
+      const f = rot(0, 0, -1), u = rot(0, 1, 0), h = S.head;
+      // (still: a move under 1 mm and 0.1 degrees leaves the listener alone; it is set about 90 times a second)
+      if (h && Math.abs(h.p[0] - p.x) + Math.abs(h.p[1] - p.y) + Math.abs(h.p[2] - p.z) < 0.001
+        && h.f[0] * f[0] + h.f[1] * f[1] + h.f[2] * f[2] > 0.9999985 && h.u[0] * u[0] + h.u[1] * u[1] + h.u[2] * u[2] > 0.9999985) return;
+      S.head = { p: [p.x, p.y, p.z], f, u };
       listener();
     }
     // the Sound effects switch: kept where A keeps it (a shared room's, or this device's), else here (sfxOn)

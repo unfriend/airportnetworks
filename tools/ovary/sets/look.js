@@ -118,18 +118,37 @@ vec3 litC(vec3 c, vec3 n, vec3 v, vec3 up, float gloss) {
       }
       return cen;
     }
-    function geometry() {
+    // the geometry made in slices: a generator that yields between chunks of a few hundred thousand numbers (v136: one
+    // call was 82 ms in the ovary section, which the headset's 1 ms budget cannot hold); geometry() runs it at once
+    const CH = 196608;
+    function* toF32(src) { const out = new Float32Array(src.length); for (let i = 0; i < src.length; i += CH) { out.set(src.slice(i, i + CH), i); if (i + CH < src.length) yield; } return out; }
+    function* geometryGen() {
       const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
-      g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
-      g.setAttribute('aCol', new THREE.BufferAttribute(new Float32Array(Cl), 3));
-      g.setAttribute('aCen', new THREE.BufferAttribute(new Float32Array(Ce), 3));
-      g.setAttribute('aObj', new THREE.BufferAttribute(new Float32Array(O), 4));
-      g.setAttribute('aEdge', new THREE.BufferAttribute(new Float32Array(E), 1));
-      g.computeBoundingSphere();
+      for (const [name, arr, k] of [['position', P, 3], ['normal', N, 3], ['aCol', Cl, 3], ['aCen', Ce, 3], ['aObj', O, 4], ['aEdge', E, 1]]) {
+        g.setAttribute(name, new THREE.BufferAttribute(yield* toF32(arr), k));
+        yield;
+      }
+      // the bounding sphere in chunks too (computeBoundingSphere over 900,000 vertices was 100 ms alone): the box's middle, then the farthest point
+      const pos = g.attributes.position.array, n = pos.length;
+      let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+      for (let i = 0; i < n; i += 3) {
+        if (pos[i] < x0) x0 = pos[i]; if (pos[i] > x1) x1 = pos[i];
+        if (pos[i + 1] < y0) y0 = pos[i + 1]; if (pos[i + 1] > y1) y1 = pos[i + 1];
+        if (pos[i + 2] < z0) z0 = pos[i + 2]; if (pos[i + 2] > z1) z1 = pos[i + 2];
+        if ((i & 0x3ffff) === 0x3fffc) yield;
+      }
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+      let r2 = 0;
+      for (let i = 0; i < n; i += 3) {
+        const dx = pos[i] - cx, dy = pos[i + 1] - cy, dz = pos[i + 2] - cz, d = dx * dx + dy * dy + dz * dz;
+        if (d > r2) r2 = d;
+        if ((i & 0x3ffff) === 0x3fffc) yield;
+      }
+      g.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), Math.sqrt(r2));
       return g;
     }
-    return { add, geometry, count: () => P.length / 3 };
+    function geometry() { const it = geometryGen(); let r; do r = it.next(); while (!r.done); return r.value; }
+    return { add, geometry, geometryGen, count: () => P.length / 3 };
   }
   const OBJ_HEAD = `
 attribute vec3 aCol, aCen; attribute vec4 aObj; attribute float aEdge;
@@ -167,6 +186,9 @@ void main() {
   gl_FragColor = vec4(col, uA * uFade * vF);
 }`,
     });
+    // solid kinds leave the transparent pass at full fade (alpha is uA * uFade, nothing per vertex; r128 has no program
+    // parameter for `transparent`, so reading it live costs no recompile)
+    if (opts.depthWrite !== false) { const U = m.uniforms; Object.defineProperty(m, 'transparent', { configurable: true, get: () => U.uA.value * U.uFade.value < 0.999, set() {} }); }
     if (opts.polygonOffset) { m.polygonOffset = true; m.polygonOffsetFactor = opts.polygonOffset; m.polygonOffsetUnits = opts.polygonOffset; }
     set.mats.push(m);
     return m;

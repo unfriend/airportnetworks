@@ -518,11 +518,14 @@ function buildSetLabels() {
 // shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
+  const now = performance.now();
+  if (L.tx && now - (L.tt || 0) < 100) return;   // (read at most ten times a second)
+  L.tt = now;
   const [b, r] = L.fn(), s = b + '|' + r;
   if (s === L.tx) return;
   L.tx = s; L.none = !b && !r;
   L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
-  L.w = 0; L.nar = undefined; dropSprite(L);
+  L.w = 0; L.nar = undefined; labelRedraw(L);
 }
 // a set label shows as far as its set is in and its own rule allows
 // (labels a set marks as minor give way on narrow screens)

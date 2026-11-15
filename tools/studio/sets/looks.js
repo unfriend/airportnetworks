@@ -29,7 +29,7 @@ const LOOKS = (function () {
   // quad each, turned to the eye as a sprite is), the lines in one a kind (each drawn as before: in the scene's depth or
   // over everything, by its order; a dashed one as its dashes). Until then each tag, edge, tick and cross was a draw of its
   // own, twice in a headset (one an eye): about a hundred more a frame while editing a scene of forty items
-  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0 } };
+  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0, sent: 0 } };
   const _bm = new THREE.Matrix4(), _bv = new THREE.Vector3(), _bc = new THREE.Color(), _bcam = new THREE.Vector3();
   function batched(o, kind) { o.userData.bt = kind; o.layers.set(BT.layer); return o; }
   // the tags' canvas: rows 64 px tall (8 px apart, and 8 px between tags, so their smaller pictures keep apart), 2,048 px
@@ -185,11 +185,21 @@ const LOOKS = (function () {
     for (const o of LINES) { const k = (o.material.depthTest ? 'd' : 'o') + o.renderOrder; if (!by.has(k)) by.set(k, []); by.get(k).push(o); }
     for (const B of BT.lines.values()) if (!by.has(B.key)) B.mesh.visible = false;
     for (const [k, list] of by) {
-      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0);
+      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0), cap0 = BT.lines.has(k) ? BT.lines.get(k).cap : -1;
       const B = lineBatch(k[0] === 'd', +k.slice(1), cnt), pos = B.mesh.geometry.attributes.position, col = B.mesh.geometry.attributes.color, PA = pos.array, CA = col.array;
-      let v = 0;
+      // (v137, studio-12: each line's place in the batch and what it was written from are kept, so a line whose matrix, colour
+      // and points stand as they were is not worked out or sent again: only the stretch from the first line that changed to
+      // the last goes to the GPU; the same lines in the same order and the same buffers, else all of it as before)
+      let rec = B.rec, full = !rec || B.cap !== cap0 || rec.length !== list.length;
+      if (!full) for (let i = 0; i < list.length; i++) if (rec[i].o !== list[i] || rec[i].pts !== pts[i]) { full = true; break; }
+      if (full) rec = B.rec = list.map((o, i) => ({ o, pts: pts[i], n: -1, start: -1, mw: new Float32Array(16), pv: -1, cv: -1, cr: -1, cg: -1, cb: -1 }));
+      let v = 0, lo = Infinity, hi = 0;
       list.forEach((o, i) => {
-        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color;
+        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color, R = rec[i], n = P instanceof Float32Array ? P.length / 3 : P.length, e = o.matrixWorld.elements;
+        let ch = full || R.start !== v || R.n !== n || R.pv !== G.version || R.cv !== (VC ? VC.version : -1) || R.cr !== m.color.r || R.cg !== m.color.g || R.cb !== m.color.b;
+        for (let q = 0; !ch && q < 16; q++) if (e[q] !== R.mw[q]) ch = true;
+        if (!ch) { v += n; return; }
+        const v0 = v;
         _bm.copy(o.matrixWorld); _bc.copy(m.color);
         const put = (x, y, z, ci) => {
           _bv.set(x, y, z).applyMatrix4(_bm);
@@ -199,9 +209,11 @@ const LOOKS = (function () {
         };
         if (P instanceof Float32Array) for (let q = 0; q < P.length; q += 3) put(P[q], P[q + 1], P[q + 2], -1);
         else for (const k2 of P) put(G.getX(k2), G.getY(k2), G.getZ(k2), k2);
+        R.start = v0; R.n = n; R.mw.set(e); R.pv = G.version; R.cv = VC ? VC.version : -1; R.cr = m.color.r; R.cg = m.color.g; R.cb = m.color.b;
+        lo = Math.min(lo, v0); hi = Math.max(hi, v);
       });
       B.mesh.geometry.setDrawRange(0, v);
-      for (const a of [pos, col]) { a.updateRange.offset = 0; a.updateRange.count = v * 3; a.needsUpdate = v > 0; }
+      if (hi > lo) { BT.stats.sent += (hi - lo) * 2; for (const a of [pos, col]) { a.updateRange.offset = lo * 3; a.updateRange.count = (hi - lo) * 3; a.needsUpdate = true; } }
       B.mesh.visible = v > 0;
       if (v) BT.stats.draws++;
     }
@@ -288,7 +300,7 @@ const LOOKS = (function () {
     // what the pointer finds: an unseen ball round it
     const hit = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ visible: false })); hit.scale.setScalar(0.16); g.add(hit);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col.clone().multiplyScalar(0.45), depthWrite: false }));
-    ring.renderOrder = 4;
+    ring.renderOrder = 5.5;   // (after the stage, which is drawn late at 5 to 5.2 when nothing hides things: the ring writes no depth)
     const name = tag(30);
     g.add(name); name.position.y = 0.12;
     const lg = new THREE.BufferGeometry();
@@ -502,8 +514,10 @@ const LOOKS = (function () {
   // a model a trigger cube hides from you, while editing (v131; the owner, 10 November 2026: a room scan drawn faint was a
   // see-through layer over the whole view): not drawn, its unseen box's edges instead, in a muted grey-blue (one material
   // for all of them; the engine puts it where the model's unseen box is)
+  // a tag's shader material, made again with the same sources (the engine compiles its program early: the cache is by source)
+  const warmTag = () => new THREE.ShaderMaterial({ uniforms: { map: { value: atlas().tex } }, vertexShader: TAG_VS, fragmentShader: TAG_FS, depthTest: false, depthWrite: false });
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
   const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
-  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, warmTag, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
     dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();

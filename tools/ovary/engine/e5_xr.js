@@ -88,12 +88,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -153,32 +175,45 @@ function xrSettings() {
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
-// a label's picture, shared by its sprite and its sign
-function labelTex(L) {
-  if (L.ltex) return L.ltex;
-  let bold, rest, cls;
-  if (L.txt) [bold, rest, cls] = L.txt;
-  else {
-    const b = L.el.querySelector('b');
-    bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
-  }
-  const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
-  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+// a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
+// sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
+// for it is made again, wider
+function labelWords(L) {
+  if (L.txt) return L.txt;
+  const b = L.el.querySelector('b'), bold = b ? b.textContent : '';
+  return [bold, L.el.textContent.slice(bold.length).trim(), ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || ''];
+}
+// the label drawn on cv at its left, its plate as wide as its words; fresh: cv sized for it (a function's label with room
+// to spare), else cleared and drawn again, or false when its words no longer fit
+function labelPaint(L, cv, fresh) {
+  const [bold, rest, cls] = labelWords(L), ctx = cv.getContext('2d'), px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   ctx.font = vfont(px, 700); const wb = bold ? ctx.measureText(bold).width : 0;
   ctx.font = vfont(px); const wr = rest ? ctx.measureText(rest).width : 0;
-  cv.width = Math.ceil(pad * 2 + wb + gap + wr); cv.height = H;
+  const w = Math.ceil(pad * 2 + wb + gap + wr);
+  if (fresh) { cv.width = L.fn ? Math.ceil(w * 1.3 + 40) : w; cv.height = H; }
+  else if (w > cv.width) return false;
+  else ctx.clearRect(0, 0, cv.width, H);
   const [col, acc] = LBL_STYLE[cls] || LBL_STYLE[''];
-  ctx.save(); rr(ctx, 0, 0, cv.width, H, 8); ctx.clip();
-  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, cv.width, H);
+  ctx.save(); rr(ctx, 0, 0, w, H, 8); ctx.clip();
+  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, w, H);
   if (acc) { ctx.fillStyle = acc; ctx.fillRect(0, 0, 5, H); }
   ctx.restore();
   ctx.textBaseline = 'middle'; ctx.fillStyle = col;
   ctx.font = vfont(px, 700); ctx.fillText(bold, pad, H / 2 + 1);
   ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
-  const tex = new THREE.CanvasTexture(cv);
+  return { cls };
+}
+function labelTex(L) {
+  if (L.ltex) return L.ltex;
+  const cv = document.createElement('canvas'), p = labelPaint(L, cv, true), tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 4;
-  return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
+  return (L.ltex = { tex, cv, aspect: cv.width / cv.height, tip: p.cls === 'tip' });
+}
+// a label whose words changed (labelText): its picture drawn again in place; too long for its canvas, dropped and made again
+function labelRedraw(L) {
+  const o = L.ltex;
+  if (!o) return;
+  if (labelPaint(L, o.cv, false)) o.tex.needsUpdate = true; else dropSprite(L);
 }
 // labels on top: a sprite turned to you, drawn over everything, beside its point
 function labelSprite(L) {
@@ -507,14 +542,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -537,6 +572,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 

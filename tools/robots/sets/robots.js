@@ -1818,6 +1818,11 @@ void main() {
     const room = uRoom.value = clamp(S.robots_room, 0, 1), model = ROOM.kind === 'model';
     uTrails.value = clamp(S.robots_trails, 0, 1);
     uTwin.value = model ? 0 : 1; uTwinScan.value = model ? 1 - room : 1;
+    // fully in, the floor, furniture, bodies, visors and brushes are drawn opaque (front to back, early z; the walls and
+    // the twin stay see-through: they cut down and fade); fading, they blend as before (r128 builds no new program for it)
+    const fa = set.uA.value, solidRoom = room * fa > 0.999, solidBots = fa > 0.999;
+    floorMat.transparent = furMat.transparent = !solidRoom;
+    bodyMat.transparent = visorMat.transparent = brushMat.transparent = !solidBots;
     MODEL.visible = model && room > 0.003;
     TWIN.visible = !model || room < 0.997;
     // the scan: from where you stand when it starts

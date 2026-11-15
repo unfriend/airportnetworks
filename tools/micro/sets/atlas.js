@@ -584,6 +584,7 @@ void main() {
 }`,
   });
   set.mats.push(rackMat);
+  K.solid(rackMat, 'uK');   // alpha is uA * uK: solid at full fade
   const rack = new THREE.Mesh(rackGeo, rackMat); rack.frustumCulled = false; rack.renderOrder = 0; rack.raycast = () => {}; set.group.add(rack);
 
   // ---------------------------------------------------------------- the sections' tiles = the cloud's points
@@ -1173,7 +1174,7 @@ void main() {
     tileMat.uniforms.uHero.value = hi; hero.visible = hi >= 0 && tiles.visible;
     if (hi >= 0 && hi !== heroI) { hero.geometry.dispose(); hero.geometry = heroGeo(hi); heroI = hi; }
     // the sections' organs (gone as the tiles fly to the cloud)
-    if (!orgMesh && O3) { if (!O3.driven) O3.step(3); buildOrgans(); }   // (the engine steps them itself)
+    if (!orgMesh && O3) { if (!O3.driven) O3.step(K.showMs(dt, 3)); buildOrgans(); }   // (the engine steps them itself)
     if (orgMesh) {
       const show = 1 - sm(um * 2.5);
       orgMesh.visible = anySec > 0.003 && show > 0.01 && vc < 0.5;   // (not beside a plot: the sections there are dim)

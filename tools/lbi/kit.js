@@ -113,10 +113,20 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
   // Lit surfaces: any built-in material (MeshStandardMaterial, MeshLambertMaterial, MeshBasicMaterial ...).
   // The set's fade multiplies its opacity; base is the opacity at full fade-in.
   function fade(set, mat, base = 1) {
-    mat.transparent = true;
+    // see-through is decided when the frame is drawn, from the opacity the material has then (sets may lower it again in
+    // update()); non-normal blending (additive glows) always stays see-through. `transparent` is no program parameter in r128.
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => mat.opacity < 0.999 || mat.blending !== THREE.NormalBlending, set() {} });
     mat.userData.base = base;
     mat.opacity = base;
     set.fades.push(mat);
+    return mat;
+  }
+  // A ShaderMaterial whose fragment alpha is uA times the named uniforms (and nothing per vertex or instance): it counts as
+  // see-through only while that product is under 1, so solid models at full fade draw in the opaque pass, front to back.
+  // `transparent` is not a program parameter in r128, so reading it live costs no recompile.
+  function solid(mat, ...names) {
+    const U = mat.uniforms;
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => { let a = U.uA.value; for (const n of names) a *= U[n].value; return a < 0.999; }, set() {} });
     return mat;
   }
   // a glassy bubble that glows at its rim (spheres, domes). opts: color, a0 (face-on alpha), a1 (rim alpha)
@@ -153,7 +163,7 @@ void main() {
       for (const m of set.fades) {
         const o = m.userData.base * a;
         m.opacity = o;
-        m.depthWrite = o > 0.97 && m.userData.base > 0.97;
+        m.depthWrite = o > 0.97 && m.userData.base > 0.97 && m.blending === THREE.NormalBlending;
       }
       set.group.visible = a > 0.003;
     };
@@ -202,6 +212,28 @@ void main() {
     geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
     return geo;
   }
+  // Sends a Float32 attribute's used part (n items) to the graphics card only where it changed since it last went (the
+  // topo story's v136 `upload`, here for every set that rewrites buffers each frame): the 32-bit words of the range against
+  // a copy of what last went, the stretch from the first change to the last as the update range; nothing when it is the
+  // same. A range set before and not sent yet is kept (three.js sets its count back to -1 once it has gone).
+  function upload(attr, n) {
+    const k = attr.itemSize, len = n * k, a = attr.array, R = attr.updateRange;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
+  // ms a set on show may build in one frame when it is not built yet (the engine's budget, buildMs: about 1 ms in a headset,
+  // so never under 2 here: a set wanted now must not take a minute; on a page the whole `ms`, buildMs being only 2 to 8 ms there)
+  const showMs = (dt, ms) => (typeof buildMs === 'function' && typeof GL !== 'undefined' && GL.renderer && GL.renderer.xr && GL.renderer.xr.isPresenting ? Math.min(ms, Math.max(2, buildMs(dt))) : ms);
   // free GPU memory of a set (the engine calls this on dispose)
   function dispose(set) {
     set.group.traverse(o => {
@@ -209,7 +241,7 @@ void main() {
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
     });
   }
-  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, newSet,
-    pointsGeo, linesGeo, tube, merge, paint, dispose };
+  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, solid, newSet,
+    pointsGeo, linesGeo, tube, merge, paint, upload, showMs, dispose };
 }
 if (typeof module !== 'undefined') module.exports = { makeKit };

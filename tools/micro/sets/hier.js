@@ -636,7 +636,9 @@ void main() {
   // ---------------------------------------------------------------- per frame
   const cur = { c: 0, cl: 0, fon: 0, age: 0, hz: 0, hs: 1, hy: 0, fw: new Float32Array(NN), nl: new Float32Array(NN), vis: new Float32Array(NN), ga: new Float32Array(NN),
     cw: new Float32Array(NCO), cp: CO.map(o => o.P.map(p => p.slice())), dom: 0, sig: '' };
-  const posOf = i => [POS[i][0] * cur.hs, POS[i][1] * cur.hs + cur.hy, POS[i][2] * cur.hs + cur.hz];
+  const posOf = i => posTo(i, [0, 0, 0]);
+  const posTo = (i, o) => { o[0] = POS[i][0] * cur.hs; o[1] = POS[i][1] * cur.hs + cur.hy; o[2] = POS[i][2] * cur.hs + cur.hz; return o; };   // (into o: update() makes no arrays per node per frame)
+  const _pp = [0, 0, 0], _st = [0, 0, 0], _cc = [0, 0, 0];
   const hw = new Float32Array(NN), eh = new Float32Array(NE);
   function setInst(k, p, s, col, a, halo, ring) {
     const o = 16 * k;
@@ -648,7 +650,7 @@ void main() {
   const _c = [0, 0, 0];
   let lastT = null;
   function update(S, t, dt) {
-    orgStep(4);
+    orgStep(K.showMs(dt, 4));
     const g = clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), c = smooth(clamp(S.hier_contacts || 0, 0, 1)), age = clamp(S.hier_age || 0, 0, 1);
     // a seek (time going back, or on by much more than the frame's dt; also the first frame after the set was hidden)
     // shows the new focus and organ at once, so a seek is exact whatever dt the engine passes
@@ -699,7 +701,7 @@ void main() {
       cur.vis[i] = vis; cur.ga[i] = ga;
       const br = (0.5 + 0.5 * lit) * (1 + 0.3 * cur.fw[i]) * lerp(1, 0.6 + 0.6 * og, c);
       for (let q = 0; q < 3; q++) _c[q] = Math.min(1, LCOL[L][q] * br);
-      const grow = (0.25 + 0.75 * ga) * (1 + 0.5 * cur.fw[i]) * (1 + 0.4 * og * c) * cur.hs, s = RAD[i] * grow, p = posOf(i);
+      const grow = (0.25 + 0.75 * ga) * (1 + 0.5 * cur.fw[i]) * (1 + 0.4 * og * c) * cur.hs, s = RAD[i] * grow, p = posTo(i, _pp);
       setInst(i, p, s, _c, vis, 0.55 + 0.45 * Math.min(1, hw[i]) * fon, cur.fw[i] * (1 - c));
       // an organ: its model instead of the sphere, sitting in a glow of its level's colour
       if (orgMesh && OSL[i] >= 0) {
@@ -716,13 +718,13 @@ void main() {
         const ii = NN + co.o + j;
         if (w <= 0 || c <= 0) { nA.array[ii] = 0; HA.aA.array[ii] = 0; continue; }
         const f = prog(c, 0.04 + 0.06 * j / n, 0.5 + 0.06 * j / n), gi = co.gi[j];
-        const st = gi >= 0 ? posOf(gi) : posOf(co.gTissue >= 0 ? co.gTissue : Math.max(0, co.gOrgan));
-        const p = v3.lerp(st, co.P[j], f);
-        p[1] += 0.12 * Math.sin(PI * f);
-        cur.cp[k][j] = p;
+        const st = posTo(gi >= 0 ? gi : co.gTissue >= 0 ? co.gTissue : Math.max(0, co.gOrgan), _st), P = co.P[j];
+        const p = cur.cp[k][j] && cur.cp[k][j] !== P ? cur.cp[k][j] : (cur.cp[k][j] = [0, 0, 0]);   // (kept: labels and picking read it)
+        p[0] = st[0] + (P[0] - st[0]) * f; p[1] = st[1] + (P[1] - st[1]) * f + 0.12 * Math.sin(PI * f); p[2] = st[2] + (P[2] - st[2]) * f;
         const ex = co.ex[j], grow = ex ? Math.pow(lerp(ex.from, ex.to, age) / Math.sqrt(ex.from * ex.to), 0.25) : 1;
         const s = lerp(gi >= 0 ? RAD[gi] * cur.hs : 0.02, co.rad[j] * grow, f);
-        const col = v3.lerp(LCOL[3], co.col[j], f);
+        const cj = co.col[j], c3 = LCOL[3], col = _cc;
+        col[0] = c3[0] + (cj[0] - c3[0]) * f; col[1] = c3[1] + (cj[1] - c3[1]) * f; col[2] = c3[2] + (cj[2] - c3[2]) * f;
         setInst(ii, p, s, col, w * prog(c, 0, 0.12), 0.8, 0);
       }
       const rv = prog(clamp(S.hier_contacts || 0, 0, 1), 0.55, 0.95);
@@ -734,9 +736,9 @@ void main() {
       const la = ldGeo.attributes.aA.array;
       for (const b of co.items) la[2 * b.li] = la[2 * b.li + 1] = 0.5 * w * cur.cl * (b.ch ? 1 : prog(age, 0.05, 0.4));
     }
-    ldGeo.attributes.aA.needsUpdate = true;
-    nodes.instanceMatrix.needsUpdate = true; nCol.needsUpdate = true; nA.needsUpdate = true;
-    for (const k in HA) HA[k].needsUpdate = true;
+    K.upload(ldGeo.attributes.aA, ldGeo.attributes.aA.count);   // (only what changed goes to the card)
+    K.upload(nodes.instanceMatrix, nodes.instanceMatrix.count); K.upload(nCol, nCol.count); K.upload(nA, nA.count);
+    for (const k in HA) K.upload(HA[k], HA[k].count);
     nodeMat.depthWrite = set.uA.value > 0.9;
   }
 

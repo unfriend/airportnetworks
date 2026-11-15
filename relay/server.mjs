@@ -211,8 +211,8 @@ if (OPT.watch === true && !OPT.static) { console.log('--watch needs the folder i
 if (OPT.watch && OPT.watch !== true && !OPT.static) OPT.static = OPT.watch;
 if (OPT.build && !OPT.watch) { console.log('--build goes with --watch'); process.exit(1); }
 // on a public server anyone could write files into the logs' folder: only with a token, which the owner sets
-if (PUB && OPT.logs && !LOG_TOKEN) {
-  console.log('--public with --logs needs a token: set RELAY_LOG_TOKEN in the environment (or pass --log-token), and send it as X-Log-Token');
+if (PUB && OPT.logs && !LOG_TOKEN && !TOKEN) {
+  console.log('--public with --logs needs a token: set RELAY_LOG_TOKEN in the environment (or pass --log-token), and send it as X-Log-Token, or set the relay\'s password (COLLAB_TOKEN), which the app sends with its logs');
   process.exit(1);
 }
 // --scenes: the studio's scenes. They are the owner's own work, not the app's: on a public server only behind the password
@@ -992,7 +992,7 @@ function api(req, res, url) {
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
   if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });
-  if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
+  if (p === '/api/log' && req.method === 'POST') return saveLog(req, res, url);
   if (p === '/api/notes' || p.startsWith('/api/notes/')) return notesApi(req, res, url);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
@@ -1116,9 +1116,12 @@ const MAX_LOG_BODY = 1 << 20, MAX_LOG_FILE = 20 << 20, LOGGED = new Map();
 // any is answered as if logs were off, so a page that has none stops sending (shared.js, upload); a wrong one is 403.
 // Both before the body is read.
 const tokenOk = t => { const a = Buffer.from(String(t)), b = Buffer.from(LOG_TOKEN); return a.length === b.length && crypto.timingSafeEqual(a, b); };
-function saveLog(req, res) {
+// (v145: a request that brought the relay's password, which every API call needs once one is set, is kept in place of the
+// log token: the app sends Authorization with its log POSTs, so a public relay with a password needs no second secret)
+function saveLog(req, res, url) {
   if (!OPT.logs) return json(res, 404, { error: 'logs are off (start the relay with --logs <dir>, or --lan)' });
-  if (LOG_TOKEN) {
+  const byPassword = !!TOKEN && tokenMatches(givenToken(req, url));
+  if (LOG_TOKEN && !byPassword) {
     const t = req.headers['x-log-token'];
     if (t === undefined) { res.setHeader('Connection', 'close'); return json(res, 404, { error: 'logs are off for pages without the relay\'s log token' }); }
     if (!tokenOk(t)) { res.setHeader('Connection', 'close'); tally('logs refused: a wrong token'); return json(res, 403, { error: 'wrong log token' }); }

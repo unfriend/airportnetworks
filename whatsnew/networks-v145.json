@@ -1,0 +1,34 @@
+{
+  "version": "networks-v145",
+  "date": "15 November 2026",
+  "new": [
+    "A frame-rate pass over the whole app, aimed at 90 Hz everywhere.",
+    "Automatic quality, on by default: when frames run late the edges of the view get coarser first, then the picture a little smaller; it comes back when frames are steady. Debug tab: Automatic quality on/off, and Foveation and Resolution start on auto.",
+    "A Quest 3S may drop to 72 Hz as the first step and returns to 90 Hz; other headsets use 72 Hz only as the last step.",
+    "Far fewer draws and uploads: people in a room (5 draws for everyone), station halos, the menu when you point at it, story panels and cards, the room scan that hides things, spaceships while none flies.",
+    "Stories: lighter scenes in the pass story, the cell map, the muscle, endotype, PET, ovary and microanatomy stories; shorter stalls while a story builds.",
+    "Three look changes: the cell map's organelles have no inner back wall, the muscle tower's haze is thinner, the pass story's sea has fewer, wider light shafts. People's visors take a little of their colour.",
+    "Studio: lighter frames in big scenes; sounds and videos stop when you leave; a scene's models are unloaded after 2 minutes away and load again when you return.",
+    "Behind the Stories screen and away from a circle the story no longer works in the background; narration is decoded only when it can be heard; a story is no longer swapped for an update in the middle of a session.",
+    "Headset logs carry frame times every 10 s, and the relay keeps them when they bring its password."
+  ],
+  "test": [
+    "The frame-rate read-out (double press B or Y) in the lobby, in the studio with a big scene, and in the pass, muscle and cell map stories: is it at 90?",
+    "Debug tab, Automatic quality: which level it settles on in a heavy scene, and whether you see the steps.",
+    "On a Quest 3S: does it step to 72 Hz and come back to 90?",
+    "Leave a big studio scene for over 2 minutes (the lobby), come back: how long is the pause, is everything back?",
+    "People's name tags, heads and hands, and the stations' halos and icons from across a room.",
+    "Point over the menu's buttons and the Story tab: do the lit buttons draw right?",
+    "The three look changes and the play bar's clock: fine, or missed?",
+    "Narration after turning the sound on in a headset and on a phone."
+  ],
+  "untested": [
+    "Every GPU gain: only script time, draws and uploads could be measured here, in software.",
+    "Automatic quality's thresholds and how its levels look; whether Quest Browser has requestViewportScale and honours it.",
+    "Instanced people and halos, the menu's patches and the merged room scan on a real headset and over passthrough.",
+    "The studio's unload and reload on a Quest, and its early model uploads.",
+    "The relay keeping headset logs on Coolify.",
+    "Measured worse here: the design room's first seconds and the robots' floor map; the lobby is at 48 draws, not the 40 aimed for.",
+    "Only the targeted tests ran; the full suites (shared rooms, live updates, update) run before main."
+  ]
+}

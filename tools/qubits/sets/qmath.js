@@ -106,7 +106,10 @@ const QMATH = (() => {
   // ------------------------------------------------------------------ the bisections
   // The slowest modes: an orthonormal basis (n x k, column-major Float64Array) of the k leading eigenvectors of
   // (I + D^-1/2 A D^-1/2) / 2, by subspace iteration from a seeded start (the shift keeps the bulk below the groups').
-  function modes(net, k, iters = 100, seed = 5) {
+  // (modes, cut and layout are generators that yield every couple of milliseconds of work, so the story can do them in idle
+  // slices; the plain functions run them to the end, with the same results)
+  const run = g => { let r; while (!(r = g.next()).done); return r.value; };
+  function* modesG(net, k, iters = 100, seed = 5) {
     const { n, off, adj, deg } = net, r = rng(seed), isd = new Float64Array(n);
     for (let i = 0; i < n; i++) isd[i] = deg[i] ? 1 / Math.sqrt(deg[i]) : 0;
     let Q = new Float64Array(n * k).map(() => r() - 0.5);
@@ -130,12 +133,14 @@ const QMATH = (() => {
         }
       }
       orth(W); [Q, W] = [W, Q];
+      if (it % 2 === 1) yield;
     }
     return Q;
   }
+  const modes = (net, k, iters, seed) => run(modesG(net, k, iters, seed));
   // k-means on the rows of X (n x d, row-major), farthest-point start from the longest row, then balanced cells
   // (cap genes each: the gene with the most to lose takes its nearest cell with room first), then Lloyd steps with the cap
-  function kmeansBalanced(X, n, d, k, cap) {
+  function* kmeansBalancedG(X, n, d, k, cap) {
     const C = new Float64Array(k * d), lab = new Int32Array(n).fill(-1);
     const dist = (i, c) => { let s = 0; for (let j = 0; j < d; j++) { const t = X[i * d + j] - C[c * d + j]; s += t * t; } return s; };
     let first = 0, best = -1;
@@ -158,6 +163,7 @@ const QMATH = (() => {
       for (let i = 0; i < n; i++) { let bc = 0, bd = Infinity; for (let c = 0; c < k; c++) { const t = dist(i, c); if (t < bd) { bd = t; bc = c; } } if (lab[i] !== bc) { lab[i] = bc; moved = true; } }
       centroids();
       if (!moved) break;
+      yield;
     }
     // then the balanced assignment, twice
     const D = new Float64Array(n * k);
@@ -175,6 +181,7 @@ const QMATH = (() => {
           if (reg > gr || (reg === gr && i < gi)) { gr = reg; gi = i; gc = bc; }
         }
         lab[gi] = gc; done[gi] = 1; room[gc]--;
+        if (left % 32 === 0) yield;
       }
       centroids();
     }
@@ -191,9 +198,9 @@ const QMATH = (() => {
   // ways are enough); the one kept puts the most links on one-bit hops (cube edges), then the fewest across
   // the first bisection, then the second (ties: the first found). Returns the codes (Uint8Array, L bits a gene; L up to 3).
   // This is a stand-in for the authors' beam search: like theirs, its result is an ordered list of global bisections.
-  function cut(net, L = 3) {
+  function* cutG(net, L = 3) {
     const k = 1 << L, n = net.n;
-    const Q = modes(net, k);
+    const Q = yield* modesG(net, k);
     // drop the trivial mode (its direction is sqrt(degree)), keep the rest, rows normalized
     const v0 = new Float64Array(n); let s0 = 0;
     for (let i = 0; i < n; i++) { v0[i] = Math.sqrt(net.deg[i]); s0 += net.deg[i]; }
@@ -204,7 +211,9 @@ const QMATH = (() => {
       let s = 0; for (let c = 0; c < k; c++) s += Q[c * n + i] ** 2;
       s = Math.sqrt(s) || 1; for (let c = 0; c < k; c++) X[i * k + c] = Q[c * n + i] / s;
     }
-    const lab = kmeansBalanced(X, n, k, k, Math.ceil(n / k));
+    yield;
+    const lab = yield* kmeansBalancedG(X, n, k, k, Math.ceil(n / k));
+    yield;
     const W = groupLinks(net, lab, k);
     // the labelling: cur[g] = the code of group g
     let best = null, bs = null;
@@ -222,14 +231,20 @@ const QMATH = (() => {
     };
     const better = (s, t) => { for (let i = 0; i < s.length; i++) { if (s[i] > t[i] + 1e-9) return true; if (s[i] < t[i] - 1e-9) return false; } return false; };
     used[0] = 1; cur[0] = 0;
-    (function rec(g) {
+    const rec = g => {
       if (g === k) { const s = score(); if (!bs || better(s, bs)) { bs = s; best = Int32Array.from(cur); } return; }
       for (let c = 0; c < k; c++) if (!used[c]) { used[c] = 1; cur[g] = c; rec(g + 1); used[c] = 0; }
-    })(1);
+    };
+    const recG = function* (g) {   // (the top three levels as slices, the rest at once)
+      if (g >= 4 || g >= k) { rec(g); return; }
+      for (let c = 0; c < k; c++) if (!used[c]) { used[c] = 1; cur[g] = c; yield* recG(g + 1); used[c] = 0; if (g === 3) yield; }
+    };
+    yield* recG(1);
     const code = new Uint8Array(n);
     for (let i = 0; i < n; i++) code[i] = best[lab[i]];
     return code;
   }
+  const cut = (net, L) => run(cutG(net, L));
   // random halvings: each bisection puts a random half of the genes on side 1 (the cells' sizes vary, as in the real
   // run's random baseline)
   function randomCut(net, L = 3, seed = 21) {
@@ -429,11 +444,12 @@ const QMATH = (() => {
   // ------------------------------------------------------------------ a whole analysis
   // a network's cut (found or random, 3 bits, cached), its first L bits, A_c balanced, the weights and the fits
   const cuts = {};
-  function cut3(netKey, how) {
+  function* cut3G(netKey, how) {
     const id = netKey + ':' + how;
-    if (!cuts[id]) { const net = network(netKey); cuts[id] = how === 'random' ? randomCut(net, 3) : cut(net, 3); }
+    if (!cuts[id]) { const net = network(netKey); cuts[id] = how === 'random' ? randomCut(net, 3) : yield* cutG(net, 3); }
     return cuts[id];
   }
+  const cut3 = (netKey, how) => run(cut3G(netKey, how));
   const anCache = {};
   function analyze(netKey, o = {}) {
     const L = o.L || 3, how = o.cut || 'found', id = `${netKey}:${how}:${L}`;
@@ -454,7 +470,7 @@ const QMATH = (() => {
   // ------------------------------------------------------------------ a layout for drawing
   // force-directed (Fruchterman-Reingold), seeded and deterministic: dim 2 or 3, positions in about [-1, 1]; 'init' (a
   // function gene -> [x, y, z]) seeds it. Returns a Float32Array(n * 3) (z = 0 in 2D).
-  function layout(net, o = {}) {
+  function* layoutG(net, o = {}) {
     const n = net.n, dim = o.dim || 3, r = rng(o.seed || 3), P = new Float64Array(n * 3), F = new Float64Array(n * 3);
     for (let i = 0; i < n; i++) {
       const p = o.init ? o.init(i) : [r() * 2 - 1, r() * 2 - 1, dim === 3 ? r() * 2 - 1 : 0];
@@ -483,6 +499,7 @@ const QMATH = (() => {
         for (let d = 0; d < dim; d++) P[3 * i + d] += F[3 * i + d] * s;
       }
       temp *= 0.95;
+      yield;
     }
     // centered and scaled to radius 1 (the 98th percentile)
     const cen = [0, 0, 0];
@@ -493,6 +510,7 @@ const QMATH = (() => {
     const s = 1 / (rr[Math.floor(n * 0.98)] || 1);
     return Float32Array.from(P, v => v * s);
   }
+  const layout = (net, o) => run(layoutG(net, o));
 
   // ------------------------------------------------------------------ small facts for the text
   // the number of unordered pairs of n genes
@@ -503,7 +521,7 @@ const QMATH = (() => {
   const CELL_COLORS = ['#46d9ff', '#3ee08f', '#ffd166', '#ff8fd8', '#b9a6ff', '#7df0c8', '#ff9e6b', '#8fb8ff'];
 
   return {
-    rng, pop, NETS, DEFAULT, network, planted, random, modes, cut, randomCut, prefix, purity, sizes, cut3,
+    rng, pop, NETS, DEFAULT, network, planted, random, modes, cut, cutG, cut3G, layoutG, randomCut, prefix, purity, sizes, cut3,
     coarse, sinkhorn, cubeShare, wht, pauli, fromPauli, entry, name, parse, parts, kind, ys, anti,
     closure, generators, algebra, fit, order, rebuild, errors, trotter, analyze, layout, pairs, soDim, CELL_COLORS,
   };

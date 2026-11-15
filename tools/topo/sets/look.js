@@ -363,12 +363,12 @@ void main() {
   // is the nearest (less or equal), so overlapping discs cover each pixel once.
   const VDISC = `
 attribute vec3 aCol; attribute float aA, aRim;
-uniform float uA;
+uniform float uA, uR;   // uR: the radius every disc of the pool is scaled by (1 when each disc's matrix carries its own)
 varying vec3 vC, vP, vM; varying vec2 vQ; varying float vA, vRim;
 void main() {
-  vec4 mv = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  vec4 mv = modelViewMatrix * instanceMatrix * vec4(position.xy * uR, 0.0, 1.0);
   vQ = position.xy; vP = mv.xyz;
-  vM = mat3(modelViewMatrix) * instanceMatrix[2].xyz;   // the plane's normal times the radius, in the view's units
+  vM = mat3(modelViewMatrix) * instanceMatrix[2].xyz * uR;   // the plane's normal times the radius, in the view's units
   vC = aCol; vA = aA * uA; vRim = aRim;
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -392,7 +392,7 @@ void main() {
   gl_FragColor = vec4(col, vA * edge * min(1.0, 0.15 + sh + 0.32 * band * vRim + 0.6 * line * vRim));
 }`;
   function discs(max, dome = 0.25) {
-    const U = { uDome: { value: dome } };
+    const U = { uDome: { value: dome }, uR: { value: 1 } };
     const pre = mat(VDISC, FDISC, { uniforms: U, fixed: true, depthWrite: true, colorWrite: false, deriv: true, fragDepth: true });
     const glassM = mat(VDISC, FDISC, { uniforms: U, fixed: true, deriv: true, fragDepth: true });
     const P = pool(new THREE.PlaneGeometry(2, 2), pre, max, { aDash: 0, aRim: 1 }), group = new THREE.Group();
@@ -403,12 +403,21 @@ void main() {
     group.add(P.mesh, look);
     const end = P.end;
     P.end = () => { end(); look.count = P.n; look.visible = P.n > 0; };
-    P.mesh = group; P.dome = U.uDome;
+    P.mesh = group; P.dome = U.uDome; P.radius = U.uR;
     P.add = (c, nrm, R, col, alpha, rim) => {
       if (R <= 0 || alpha <= 0.004) return -1;
       const i = P.slot(col, alpha);
       if (i < 0) return -1;
       frame(look.instanceMatrix.array, 16 * i, c, nrm || UPN, 0, R);
+      P.attrs.aRim.array[i] = rim === undefined ? 1 : rim;
+      return i;
+    };
+    // a disc of unit matrix scale, its radius P.radius.value for the whole pool (so a growing ball moves no matrix)
+    P.addUnit = (c, nrm, col, alpha, rim) => {
+      if (alpha <= 0.004) return -1;
+      const i = P.slot(col, alpha);
+      if (i < 0) return -1;
+      frame(look.instanceMatrix.array, 16 * i, c, nrm || UPN, 0, 1);
       P.attrs.aRim.array[i] = rim === undefined ? 1 : rim;
       return i;
     };
@@ -682,8 +691,9 @@ void main() {
   // long axis): its outline, cytoplasm and nucleus by kind; details only while it is a few pixels across.
   const VCELL = `
 attribute vec3 aCol, aNuc, aK;   // aK: kind, seed, facing the camera
-attribute float aA;
-uniform float uA, uPx, uBead; uniform vec2 uLod;
+attribute float aA; attribute vec2 aSw;   // aSw: x across the piece (0..1) and when the map's dome reaches it (sweep pools only)
+uniform float uA, uPx, uBead; uniform vec2 uLod; uniform vec4 uSw;   // uSw: the two sweeps' progress, the dome's, and 0 off / 1 H&E / 2 glow
+float sst(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
 varying vec3 vC, vNu; varying vec2 vQ; varying float vA, vK, vS, vPx;
 void main() {
   float bead = aK.x > 7.5 ? 1.0 : 0.0, grow = mix(1.0, 2.6, bead);
@@ -707,8 +717,14 @@ void main() {
     facing = abs(dot(normalize(mat3(modelViewMatrix) * instanceMatrix[2].xyz), normalize(-mc.xyz)));
   }
   float lod = mix(smoothstep(uLod.x, uLod.y, px), 1.0, max(bead, uBead));
+  float sw = 1.0;   // the slide's sweeps on the GPU: H&E out and the glow in from the left, dimmed where the dome has been
+  if (uSw.w > 0.5) {
+    float w1 = sst(0.0, 0.18, uSw.x * 1.18 - aSw.x), w2 = sst(0.0, 0.18, uSw.y * 1.18 - aSw.x);
+    float dim = uSw.z > 0.0 ? sst(0.0, 0.05, uSw.z - aSw.y) : 0.0;
+    sw = uSw.w < 1.5 ? (1.0 - 0.45 * w1 * (1.0 - w2)) * (1.0 - w2) * (1.0 - 0.8 * dim) : w2 * (1.0 - 0.8 * dim);
+  }
   // edge-on a flat cell is a sliver that flickers: it fades there; and near the eye
-  vA = aA * uA * lod * mix(smoothstep(0.05, 0.25, facing), 1.0, bead) * smoothstep(2.0, 4.0, dist / max(r * ws * grow, 1e-6)) / (g * g);
+  vA = aA * uA * sw * lod * mix(smoothstep(0.05, 0.25, facing), 1.0, bead) * smoothstep(2.0, 4.0, dist / max(r * ws * grow, 1e-6)) / (g * g);
   vC = aCol; vNu = aNuc; vQ = position.xy; vK = aK.x; vS = aK.y; vPx = px * grow * g;
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -791,11 +807,12 @@ void main() {
   gl_FragColor = vec4(o.rgb, o.a * vA);
 }`;
   function cells(max, opts = {}) {
-    const U = { uPx: K.U.uPx, uBead: { value: 0 }, uLod: { value: new THREE.Vector2(0.6, 1.6) }, uBeadCol: { value: new THREE.Color(...BEAD) } };
+    const U = { uPx: K.U.uPx, uBead: { value: 0 }, uSw: { value: new THREE.Vector4() }, uLod: { value: new THREE.Vector2(0.6, 1.6) }, uBeadCol: { value: new THREE.Color(...BEAD) } };
     const m = mat(VCELL, FCELL, { uniforms: U, fixed: !opts.depth, offset: 4, blending: opts.additive ? THREE.AdditiveBlending : undefined });
-    const P = pool(new THREE.PlaneGeometry(2, 2), m, max, { aDash: 0, aNuc: 3, aK: 3 });
+    const P = pool(new THREE.PlaneGeometry(2, 2), m, max, Object.assign({ aDash: 0, aNuc: 3, aK: 3 }, opts.sweep ? { aSw: 2 } : {}));
     P.mesh.renderOrder = 1;
     P.bead = v => { U.uBead.value = v; };
+    P.sweep = (m1, m2, all, kind) => { U.uSw.value.set(m1, m2, all, kind); };   // (kind 1 H&E, 2 glow; needs opts.sweep and aSw per cell)
     P.lod = (a, b) => { U.uLod.value.set(a, b); };
     P.beadCol = c => { const k = Array.isArray(c) ? c : rgb(c); U.uBeadCol.value.setRGB(k[0], k[1], k[2]); };
     P.add = (p, r, kind, col, alpha, angle, nrm, nuc) => {

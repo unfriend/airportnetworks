@@ -175,14 +175,18 @@ SETS.table = function (K) {
   // doubled, its copy's faces and normals turned the other way, so both materials stay one-sided; see-through parts are
   // drawn in their renderOrder (glass before haze)
   const MINI_MAT = {};
-  function miniMat(see) {
-    const k = see ? 'see' : 'solid';
+  // home: the table-wide copy at home (below): aMini says which miniature a vertex is of, and uAway[that] 1 folds it to a point
+  const AWAY = new Float32Array(48);
+  function miniMat(see, home) {
+    const k = (see ? 'see' : 'solid') + (home ? '-home' : '');
     if (MINI_MAT[k]) return MINI_MAT[k];
     const m = std({ vertexColors: true, roughness: 0.6, metalness: 0.05 });
     if (see) Object.assign(m, { transparent: true, depthWrite: false, premultipliedAlpha: true });
     m.onBeforeCompile = sh => {
-      sh.vertexShader = 'attribute vec4 aMat; varying vec4 vMat;\n' + (see ? 'attribute vec2 aSee; varying vec2 vSee;\n' : '') +
-        sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n  vMat = aMat;' + (see ? ' vSee = aSee;' : ''));
+      if (home) sh.uniforms.uAway = { value: AWAY };
+      sh.vertexShader = 'attribute vec4 aMat; varying vec4 vMat;\n' + (home ? 'attribute float aMini; uniform float uAway[48];\n' : '') + (see ? 'attribute vec2 aSee; varying vec2 vSee;\n' : '') +
+        sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n  vMat = aMat;' + (see ? ' vSee = aSee;' : ''))
+          .replace('#include <begin_vertex>', '#include <begin_vertex>' + (home ? '\n  if (uAway[int(aMini + 0.5)] > 0.5) transformed = vec3(0.0);' : ''));
       sh.fragmentShader = 'varying vec4 vMat;\n' + (see ? 'varying vec2 vSee;\n' : '') + sh.fragmentShader
         .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vMat.x;' + (see ? ' diffuseColor.a *= vSee.x;' : ''))
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = vMat.y;')
@@ -263,6 +267,69 @@ SETS.table = function (K) {
   }
   const built = () => order.filter(k => minis.get(k).model).length;
 
+  // ---- every miniature at home in one mesh (a solid and a see-through one for the whole table), made once all are built
+  // (a few at a time): a miniature that is hovered, carried, moved or still gliding home is folded to a point there (uAway)
+  // and drawn as its own meshes instead; the 48 miniatures are two draws at rest, not about 90
+  const HM = { state: 0, parts: [], i: 0, A: null, o: { solid: 0, see: 0 } };
+  const _hv = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hs = new THREE.Vector3();
+  function homeStep(ms) {
+    if (HM.state === 2 || !MODELS || queue.length || built() < order.length || order.length > AWAY.length) return;
+    const t0 = performance.now();
+    if (HM.state === 0) {
+      const cnt = { solid: 0, see: 0 };
+      order.forEach((k, ix) => minis.get(k).model.traverse(o => {
+        if (!o.isMesh) return;
+        const kind = o.name === 'see' ? 'see' : 'solid';
+        HM.parts.push({ ix, kind, g: o.geometry, m: minis.get(k) }); cnt[kind] += o.geometry.attributes.position.count;
+      }));
+      HM.A = {};
+      for (const kind of ['solid', 'see']) HM.A[kind] = { n: cnt[kind], pos: new Float32Array(3 * cnt[kind]), nor: new Float32Array(3 * cnt[kind]), col: new Float32Array(3 * cnt[kind]),
+        am: new Float32Array(4 * cnt[kind]), as: kind === 'see' ? new Float32Array(2 * cnt[kind]) : null, mi: new Float32Array(cnt[kind]) };
+      HM.state = 1;
+    }
+    while (HM.i < HM.parts.length && performance.now() - t0 < ms) {
+      const p = HM.parts[HM.i++], A = HM.A[p.kind], G = p.g.attributes, n = G.position.count;
+      _hm.compose(p.m.home, p.m.homeQ, _hs.setScalar(MINI));
+      let o = HM.o[p.kind];
+      for (let i = 0; i < n; i++, o++) {
+        _hv.fromBufferAttribute(G.position, i).applyMatrix4(_hm).toArray(A.pos, 3 * o);
+        _hv.fromBufferAttribute(G.normal, i).applyQuaternion(p.m.homeQ).toArray(A.nor, 3 * o);
+        A.col[3 * o] = G.color.getX(i); A.col[3 * o + 1] = G.color.getY(i); A.col[3 * o + 2] = G.color.getZ(i);
+        for (let c = 0; c < 4; c++) A.am[4 * o + c] = G.aMat.array[4 * i + c];
+        if (A.as) { A.as[2 * o] = G.aSee.array[2 * i]; A.as[2 * o + 1] = G.aSee.array[2 * i + 1]; }
+        A.mi[o] = p.ix;
+      }
+      HM.o[p.kind] = o;
+    }
+    if (HM.i < HM.parts.length) return;
+    for (const kind of ['solid', 'see']) {
+      const A = HM.A[kind];
+      if (!A.n) continue;
+      const geo = keep(new THREE.BufferGeometry());
+      geo.setAttribute('position', new THREE.BufferAttribute(A.pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(A.nor, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(A.col, 3)); geo.setAttribute('aMat', new THREE.BufferAttribute(A.am, 4));
+      geo.setAttribute('aMini', new THREE.BufferAttribute(A.mi, 1));
+      if (A.as) geo.setAttribute('aSee', new THREE.BufferAttribute(A.as, 2));
+      geo.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geo, miniMat(kind === 'see', true));
+      mesh.name = 'home-' + kind; mesh.frustumCulled = false; if (kind === 'see') mesh.renderOrder = 1;
+      group.add(mesh); still(mesh);
+    }
+    HM.parts = []; HM.A = null; HM.state = 2;
+  }
+  // which miniatures are drawn on their own this frame
+  const _hd = new THREE.Vector3();
+  function awayStep() {
+    const home = HM.state === 2;
+    order.forEach((k, ix) => {
+      const m = minis.get(k);
+      if (!m.model) return;
+      const away = m.carry || !!m.rec || m.hover > 0.003 || Math.abs(m.s - 1) > 1e-3 || _hd.copy(m.holder.position).sub(m.home).lengthSq() > 1e-8;
+      AWAY[ix] = away ? 1 : 0;
+      m.model.visible = away || !home;
+    });
+  }
+
   // ---- hover, pick and the stage
   let hover = null, pick = null, stageModel = null, stageGrow = 0, stageTurn = 0;
   const stage = new THREE.Group();
@@ -280,7 +347,7 @@ SETS.table = function (K) {
     if (!k) return;
     buildOne(k);
     const m = minis.get(k);
-    if (m.model) { stageModel = m.model.clone(); stageModel.matrixAutoUpdate = true; stage.add(stageModel); stageGrow = 0; }
+    if (m.model) { stageModel = m.model.clone(); stageModel.visible = true; stageModel.matrixAutoUpdate = true; stage.add(stageModel); stageGrow = 0; }
     pickRing.material.color.set(storyCol(k));
   }
   let storyCol = () => '#ffffff';
@@ -337,6 +404,7 @@ SETS.table = function (K) {
       floor.visible = (S.table_floor === undefined ? 1 : S.table_floor) > 0.5;
       if (MODELS && queue.length) buildSome(5);
       glide(dt || 0);
+      homeStep(2); awayStep();
       marks();
       if (stageModel) {
         stageGrow = Math.min(1, stageGrow + (dt || 0) * 2.2);

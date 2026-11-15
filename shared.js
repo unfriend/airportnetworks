@@ -800,6 +800,7 @@
     const older = fmtN(C.roomVer) > 0 && fmtN(C.roomVer) < fmtN(FORMAT);
     if (older && C.olderAt) { C.status = 'older'; C.note = olderNote(); }
     C.keys = new Map(Object.entries(m.keys || {}));
+    AREAS.rev++;
     if (older) C.keys = migrate(C.keys, C.roomVer);   // (an older room's keys, as this version reads them)
     // a room joined by itself that turns out to be another room under the same code (its rid), or one joined by itself
     // with no id to tell it by (never: rejoinable asks for one): left at once, and nothing of it is kept here (this
@@ -859,6 +860,7 @@
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     for (const [k, v] of m.batch || []) {
       if (v === null) C.keys.delete(k); else C.keys.set(k, { v, seq: m.seq, by: m.by });
+      if (k.startsWith('rp.')) AREAS.rev++;
       const p = C.pending.get(k);
       if (me && p) {   // our acknowledgement: the room now has our value (an explore state's new base)
         if (p.cid === m.cid && J(p.v) === J(v)) { C.pending.delete(k); const L = sesSt(); if (L && k === kX(L.id)) C.xb = { id: L.id, v }; }
@@ -2072,7 +2074,7 @@
     if (!MSH.st) { MSH.st = to; MSH.want = !!MSH.img; MSH.poseAt = 0; MSH.last = null; MSH.moving = false; log('menu share', { to }); }
     // the picture: what it shows changed, at most every picMs, or only what is lit where a ray points, at most every
     // hovMs (full: as drawn, with that light); or someone at the station lacks it
-    const sig = menuSig(), full = sig + '|' + OV.panel.tex.version;
+    const sig = menuSig(), full = sig + '|' + OV.panel.tex.version + '.' + (OV.panel.draws || 0) + '.' + (OV.panel.hv || 0);
     if (!MSH.busy && t - MSH.picAt >= MSH.picMs) {
       const due = sig !== MSH.sig || (full !== MSH.full && t - MSH.picAt >= MSH.hovMs);
       if (due && full !== MSH.failed) {
@@ -2659,9 +2661,18 @@
   // every headset's own at once. look() also says the room's code, its vg and whether it wrote voice (vset)
   const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true, ask: get('collabAskDefault') !== 'walk' };
   const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
+  // (v137: kept while the room's key, this device's own two sound switches and the default for ask are as they were: it was
+  // made new, an object of eight fields, a dozen times a frame by the cards' mode, the stories' settings and the menu)
+  const LKC = { v: undefined, code: '', s: false, o: false, a: false, out: null };
   function look() {
     if (!C.code || !C.welcomed) return null;
-    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : SOUNDS.includes(k) ? mine(k) : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
+    const v = val('look'), ms = mine('sfx'), mv = mine('voice');
+    if (LKC.out && LKC.v === v && LKC.code === C.code && LKC.s === ms && LKC.o === mv && LKC.a === LOOK0.ask) return LKC.out;
+    LKC.out = lookMake(v); LKC.v = v; LKC.code = C.code; LKC.s = ms; LKC.o = mv; LKC.a = LOOK0.ask;
+    return LKC.out;
+  }
+  function lookMake(v) {
+    const b = k => (v && typeof v[k] === 'boolean' ? v[k] : SOUNDS.includes(k) ? mine(k) : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
     return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice'), ask: b('ask'),
       vg: v && Number.isFinite(v.vg) ? v.vg : 0, vset: !!(v && typeof v.voice === 'boolean'), code: C.code };
   }
@@ -2907,6 +2918,10 @@
   // the shell calls this before a story is disposed: take the overlay out of its scene
   function detach() {
     if (OV.root && OV.root.parent) OV.root.parent.remove(OV.root);
+    // (v137: the Story tab's two planes let the old story's panel textures go, and their canvases with them; the next story's
+    // are taken as mirrorStep shows them)
+    if (OV.mirror) for (const m of Object.values(OV.mirror)) { m.visible = false; if (m.material.map) { m.material.map = null; m.material.needsUpdate = true; } }
+    PNL.mirror = null;
     C.cur = null; C.hook = null; C.ready = false;
   }
   const guarded = fn => { C.guard++; try { return fn(); } finally { C.guard--; } };
@@ -3292,7 +3307,9 @@
     menusExpire(t);   // (someone's menu shown to their circle, not heard of for a while: gone)
     // a desktop says which station it follows, now and then (headsets say it with their presence)
     if (!HOST.session && t - C.deskAt > 2000) { C.deskAt = t; fx('p.' + C.id, { st: C.follow || '' }); }
-    if (DLG.open) { drawMap(); guideList(); }
+    // (v137: the page's Shared dialog, left open into a headset session, drew its map 5 times a second and built its HTML at
+    // every change, for nobody to see: nothing meanwhile, once when the session ends)
+    if (DLG.open && !HOST.session) { if (DLG.stale) { DLG.stale = false; renderDialog(); } drawMap(); guideList(); }
   }
   // from a timer and from the page's frames: a page whose frames take long (software WebGL, a slow phone) can starve
   // its timers for seconds while it draws, and a page following a station then fell behind its clock
@@ -3326,10 +3343,12 @@
     return L.length * lh;
   }
   // a canvas on a plane, drawn again only when what it shows changes
-  function sheet(w, h, mw, order) {
+  // (flat: a sheet fixed to the head, drawn about 1:1 and never smaller: no mipmaps, each redraw saves a whole mipmap pass and a third of its memory, v137)
+  function sheet(w, h, mw, order, flat) {
     const cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
     const tex = new THREE.CanvasTexture(cv);
+    if (flat) { tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter; }
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(mw, mw * h / w),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
     mesh.renderOrder = order || 52;
@@ -3346,7 +3365,14 @@
     S.tex.repeat.set(1, f); S.tex.offset.set(0, 1 - f);
     S.mesh.scale.y = f; S.mesh.position.y = -(S.mw * S.h / S.w) * f / 2;
   }
+  // (each region keeps a paint of its own, so the light of what is pointed at can be drawn again alone: panelHover)
   function button(S, id, x, y, w, h, label, fn, o = {}) {
+    paintButton(S, id, x, y, w, h, label, fn, o);
+    // (a switch, drawn lit or not: its press sounds as turning it off or on (o.tog, when that is not what lit says: true
+    // sounds as off); tog null: a plain button)
+    if (fn) S.regions.push({ id, x, y, w, h, fn, label, tog: typeof o.tog === 'boolean' ? o.tog : o.tog === null ? null : typeof o.on === 'boolean' ? o.on : null, paint: () => paintButton(S, id, x, y, w, h, label, fn, o) });
+  }
+  function paintButton(S, id, x, y, w, h, label, fn, o) {
     const ctx = S.ctx, hov = S.hover === id && fn;
     rr(ctx, x, y, w, h, o.r || 10);
     ctx.fillStyle = o.primary ? (hov ? '#8ce9ff' : CYAN) : o.on ? 'rgba(70,217,255,0.20)' : hov ? 'rgba(149,166,189,0.30)' : 'rgba(149,166,189,0.13)';
@@ -3357,9 +3383,6 @@
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(fit(ctx, label, w - 16), x + w / 2, y + h / 2 + 1);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    // (a switch, drawn lit or not: its press sounds as turning it off or on (o.tog, when that is not what lit says: true
-    // sounds as off); tog null: a plain button)
-    if (fn) S.regions.push({ id, x, y, w, h, fn, label, tog: typeof o.tog === 'boolean' ? o.tog : o.tog === null ? null : typeof o.on === 'boolean' ? o.on : null });
   }
   function build() {
     if (OV.root) return;
@@ -3378,24 +3401,24 @@
       m.renderOrder = 54; m.visible = false; m.userData.shell = { kind: 'storypanel', which };
       OV.panelG.add(m); OV.mirror[which] = m;
     }
-    OV.note = sheet(720, 170, 0.5, 54);
+    OV.note = sheet(720, 170, 0.5, 54, true);
     OV.root.add(OV.note.mesh); OV.note.mesh.visible = false;
     // the question whether to go into a circle (circles asked first: ASK), over everything, pointable; and the frame-rate
     // read-out (HOST.xr.fps: drawFps), over the story and the subtitles, under the menu and the notices
-    OV.ask = sheet(720, 300, 0.42, 55);
+    OV.ask = sheet(720, 300, 0.42, 55, true);
     OV.ask.mesh.userData.shell = { kind: 'ask' };
     OV.root.add(OV.ask.mesh); OV.ask.mesh.visible = false;
     // the check by eye's question (EYEQ: are both crosses on your spots?), the same way
-    OV.eye = sheet(720, 290, 0.42, 55);
+    OV.eye = sheet(720, 290, 0.42, 55, true);
     OV.eye.mesh.userData.shell = { kind: 'eye' };
     OV.root.add(OV.eye.mesh); OV.eye.mesh.visible = false;
     // the welcome (WEL: Getting around), as the notices are drawn, a little larger; never pointed at
-    OV.wel = sheet(760, 360, 0.56, 54);
+    OV.wel = sheet(760, 360, 0.56, 54, true);
     OV.root.add(OV.wel.mesh); OV.wel.mesh.visible = false;
-    OV.fps = sheet(800, 120, 0.36, 52);
+    OV.fps = sheet(800, 120, 0.36, 52, true);
     OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
-    OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51);
+    OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51, true);
     OV.root.add(OV.sub.mesh); OV.sub.mesh.visible = false; OV.sub.text = ''; OV.sub.want = '';
     // the tape marks where this headset puts them (in the room), and while calibrating a bright ring at each
     // controller's ray origin (the point a mark takes) and a cross at mark A once taken (scene coordinates)
@@ -3630,7 +3653,9 @@
     const mk = iconOf(key), M = mk ? iconModels() : null, want = M && M[mk] ? mk : '', f = C.frameN || 0;
     let D = ICON.defs.get(key + '|' + want);
     if (D) return D;
-    if (!want || (soon && ICON.built === f)) {   // (the miniature, if any, next frame)
+    // (in a session a miniature is built only on a frame that was not late and only one a frame: about 1.5 ms desktop, 5 on a
+    // Quest; the idle timer below has built them long before)
+    if (!want || (soon && (ICON.built === f || !ICON.okNow))) {   // (the miniature, if any, next frame)
       if (!ICON.defs.has(key + '|')) ICON.defs.set(key + '|', fallbackDef(key));
       return ICON.defs.get(key + '|');
     }
@@ -3687,18 +3712,79 @@
   // an icon: g turned to you (the glow behind the model, from where you are), lean tipping the model's top towards
   // you, spin turning it about its own axis. soon: as iconDef (the fallback until its miniature is built)
   function makeIcon(key, ph, soon) {
+    // (halo: only the glow's colour now (its material), drawn with every other icon's in one draw: haloStep)
     const I = { key, g: new THREE.Group(), lean: new THREE.Group(), spin: new THREE.Group(), mesh: new THREE.Mesh(undefined, iconMat(false)), see: null,
-      halo: new THREE.Sprite(), flat: 0, ph: ph || 0, k: 1, D: null, model: '' };
-    I.mesh.scale.setScalar(ICON.size); I.halo.scale.setScalar(ICON.size * 2.3); I.halo.position.z = -ICON.size * 0.6;
-    I.spin.add(I.mesh); I.lean.add(I.spin); I.g.add(I.halo, I.lean);
+      halo: { material: null }, flat: 0, ph: ph || 0, k: 1, D: null, model: '' };
+    I.mesh.scale.setScalar(ICON.size);
+    I.spin.add(I.mesh); I.lean.add(I.spin); I.g.add(I.lean);
     iconUse(I, iconDef(key, soon));
     return I;
+  }
+  // the miniatures of the room's stations built outside the frames (v137; the first 150 frames of a lobby had a worst script
+  // frame of 9 ms, a miniature built each): on a timer, a slice of about 2 ms, as soon as the room is known, where a headset
+  // will show them (a headset's browser, or a session); iconStep builds only the ones still missing, one a frame that was
+  // not late
+  function iconIdle() {
+    if (!C.code || !(IS_HEADSET || HOST.session)) return;
+    peopleWarm();
+    if (!C.st.length) return;
+    const M = iconModels();
+    if (!M) return;
+    const t0 = performance.now();
+    for (const s of C.st) {
+      const key = lookKey(s), mk = iconOf(key);
+      if (!mk || !M[mk] || ICON.defs.has(key + '|' + mk)) continue;
+      iconDef(key, false);
+      if (performance.now() - t0 >= 2) break;
+    }
+  }
+  setInterval(iconIdle, 40);
+  // the shell's shaders linked before anyone needs them (v137): the people's instanced meshes, their rays and signs and the
+  // icons' glows are programs of their own, and the first person to come into a room made a headset link five at once (10 to
+  // 100 ms each on a Quest). Once, as the room is known and the story's scene holds the overlay (compile takes every material
+  // of it, shown or not)
+  function peopleWarm() {
+    if (PPL.warmed === HOST.renderer || !HOST.renderer || !OV.root || !OV.room || !OV.root.parent) return;
+    PPL.warmed = HOST.renderer;
+    try { peopleBuild(); haloBuild(); HOST.renderer.compile(OV.root, new THREE.PerspectiveCamera()); } catch (e) { log('people warm', { err: String(e && e.message || e) }); }
   }
   // an icon takes a def (its miniature in place of the fallback, once built)
   function iconUse(I, D) {
     I.D = D; I.model = D.model; I.flat = D.flat; I.mesh.geometry = D.geo; I.halo.material = D.halo;
     if (I.see) { I.spin.remove(I.see); I.see = null; }
     if (D.see) { I.see = new THREE.Mesh(D.see, iconMat(true)); I.see.scale.setScalar(ICON.size); I.spin.add(I.see); }
+  }
+  // the glows behind the icons, all of them in one draw (v137; the owner's frame rate: a sprite each, additive, up to 24 in
+  // a lobby): one instanced quad turned to the eye in its vertex shader, a centre, a colour and a size an instance, written
+  // each frame by iconStep for the icons that show; the glow texture's own fall-off, 0.4 of it added, depth-tested, no
+  // depth written, as the sprites were. Placed where each sprite stood (behind its icon, ICON.size * 0.6 from it, away from
+  // your head), 2.3 icon sizes across
+  const HALO = { cap: 128, n: 0, mesh: null };
+  function haloBuild() {
+    if (HALO.mesh) return;
+    const q = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
+    g.setAttribute('position', q.attributes.position); g.setAttribute('uv', q.attributes.uv); g.setIndex(q.index);
+    g.setAttribute('aPos', new THREE.InstancedBufferAttribute(new Float32Array(HALO.cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aCol', new THREE.InstancedBufferAttribute(new Float32Array(HALO.cap * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aSize', new THREE.InstancedBufferAttribute(new Float32Array(HALO.cap), 1).setUsage(THREE.DynamicDrawUsage));
+    g.instanceCount = 0;
+    const m = new THREE.ShaderMaterial({
+      uniforms: { map: { value: glowTex() } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'attribute vec3 aPos; attribute vec3 aCol; attribute float aSize; varying vec2 vUv; varying vec3 vC;\nvoid main() { vec4 mv = modelViewMatrix * vec4(aPos, 1.0); mv.xy += position.xy * aSize; vUv = uv; vC = aCol; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform sampler2D map; varying vec2 vUv; varying vec3 vC;\nvoid main() { gl_FragColor = vec4(vC, texture2D(map, vUv).a * 0.4); }',
+    });
+    HALO.mesh = new THREE.Mesh(g, m); HALO.mesh.frustumCulled = false; HALO.mesh.visible = false; HALO.mesh.name = 'halos';
+    OV.room.add(HALO.mesh);
+  }
+  function haloAdd(I, x, y, z, size) {
+    if (HALO.n >= HALO.cap || !I.halo.material) return;
+    const g = HALO.mesh.geometry, j = HALO.n++, c = I.halo.material.color;
+    g.attributes.aPos.array.set([x, y, z], j * 3); g.attributes.aCol.array.set([c.r, c.g, c.b], j * 3); g.attributes.aSize.array[j] = size;
+  }
+  function haloEnd() {
+    const g = HALO.mesh.geometry, n = HALO.n;
+    g.instanceCount = n; HALO.mesh.visible = n > 0;
+    if (n) for (const [k, w] of [['aPos', 3], ['aCol', 3], ['aSize', 1]]) { const a = g.attributes[k]; a.updateRange.offset = 0; a.updateRange.count = n * w; a.needsUpdate = true; }
   }
   function poseIcon(I, yaw, lean, t) {
     I.g.rotation.y = yaw; I.lean.rotation.x = lean + I.flat; I.spin.rotation.y = I.ph + t * 2 * Math.PI / ICON.turn;
@@ -3720,6 +3806,11 @@
       yaw = Math.atan2(dx, dz) - S.yaw; lean = Math.min(0.7, Math.max(0.1, Math.atan2(ICON.y - R.hr.y, Math.hypot(dx, dz)) + 0.2));
     }
     poseIcon(I, yaw, lean, performance.now() / 1000);
+    // its glow, behind it from where you are (the sprite's old place), and, while it is still small (shrinking away or
+    // growing in: under 0.3 of its size), no see-through mesh of its own, the haze that took a draw an eye for little to see
+    const sc = o.g.scale.x, th = S.yaw + yaw, back = ICON.size * 0.6 * I.k * sc;
+    haloAdd(I, S.x - back * Math.sin(th), ICON.y, S.z - back * Math.cos(th), ICON.size * 2.3 * I.k * sc);
+    if (I.see) I.see.visible = I.k >= 0.3;
   }
 
   // a preview of a station that is not live here: a ring at its spot in the story's colour, floating RING.y over the
@@ -3833,11 +3924,21 @@
   // nothing about moving it or the locks. cardSig is only that, so a card is drawn again (and sent to the GPU) only when
   // its title or its count changes (drawPreviews: at most one card a frame, v136); pointing at it or carrying it lights
   // its edge (o.edge, a mesh of its own: nothing drawn or sent)
-  function cardText(s) {
-    const m = meta(lookKey(s)), n = whoAt(s.id).length;
-    return { m, kick: m.kick.toUpperCase(), title: s.kind === ALL ? m.title : stTitle(s), n, who: !n ? 'Nobody here' : n === 1 ? '1 person here' : n + ' people here' };
+  // (v137: the people at each station counted in one pass a frame, whoRefresh, from drawPreviews; the cards' words and
+  // signature built without arrays or objects: they were 5 KB of garbage a frame)
+  const WHO = { n: new Map(), up: new Map() };
+  function whoRefresh() {
+    WHO.n.clear();
+    C.pres.forEach((P, pid) => { if (P.st) { const m = member(pid); if (m && m.name) WHO.n.set(P.st, (WHO.n.get(P.st) || 0) + 1); } });
   }
-  const cardSig = s => { const T = cardText(s); return [lookKey(s), T.kick, T.title, T.who].join('|'); };
+  const whoCount = id => (C.mine === id ? 1 : 0) + (WHO.n.get(id) || 0);
+  const whoWords = n => (!n ? 'Nobody here' : n === 1 ? '1 person here' : n + ' people here');
+  const kickUp = k => { let u = WHO.up.get(k); if (u === undefined) { u = k.toUpperCase(); WHO.up.set(k, u); } return u; };
+  function cardText(s) {
+    const m = meta(lookKey(s)), n = whoCount(s.id);
+    return { m, kick: kickUp(m.kick), title: s.kind === ALL ? m.title : stTitle(s), n, who: whoWords(n) };
+  }
+  const cardSig = s => { const k = lookKey(s), m = meta(k); return k + '|' + kickUp(m.kick) + '|' + (s.kind === ALL ? m.title : stTitle(s)) + '|' + whoWords(whoCount(s.id)); };
   function drawCard(o, s, sig) {
     const T = cardText(s), m = T.m;
     o.sig = sig || cardSig(s);
@@ -3866,36 +3967,92 @@
   // all (this headset's own setting, kept here and never in the room: for debugging). Pages' room maps show everyone
   const PEOPLE = { all: get('collabPeople') === 'all' }, peopleAll = () => PEOPLE.all;
   function setPeopleAll(on) { PEOPLE.all = !!on; put('collabPeople', on ? 'all' : null); log('people', { all: !!on }); changed(); }
+  // The people are drawn in a handful of draws, however many there are (v137, the owner's frame rate: each person was
+  // about 14 draws, head, visor, two hands, two dots, two rays and a two-faced sign, both eyes): the heads (with their visors),
+  // the hands and the dots are one InstancedMesh each with a colour per instance, the rays one LineSegments, the signs one
+  // InstancedMesh of a quad that reads its picture from an atlas of the people's name tags (one slot a person; the back
+  // face mirrors the picture, so it reads the right way round from either side). On top (Cards: on top) a name is still a
+  // sprite of its own. `o` keeps what the tests and the rest of the shell know a person by (g, avatar, rays, dots, tag,
+  // sign with its two faces, e, name), the rays and dots as empty objects that carry their pose, the rest plain
+  const PPL = { cap: 48, g: null, slots: null };
+  function peopleBuild() {
+    if (PPL.g) return;
+    const cap = PPL.cap, G = PPL.g = new THREE.Group(); G.name = 'people';
+    // head and visor merged, the visor's vertex colour dark (it takes a little of the person's colour with it)
+    const hg = new THREE.SphereGeometry(0.1, 20, 14).applyMatrix4(new THREE.Matrix4().makeScale(1, 1.18, 1.08)), vg = new THREE.BoxGeometry(0.17, 0.065, 0.06).translate(0, 0.015, -0.085);
+    const parts = [[hg, [1, 1, 1]], [vg, [0.043, 0.071, 0.125]]];
+    let nv = 0, ni = 0; for (const [g] of parts) { nv += g.attributes.position.count; ni += g.index.count; }
+    const pos = new Float32Array(nv * 3), col = new Float32Array(nv * 3), idx = new Uint16Array(ni);
+    let ov = 0, oi = 0;
+    for (const [g, c] of parts) {
+      const a = g.attributes.position, n = a.count;
+      pos.set(a.array, ov * 3); for (let k = 0; k < n; k++) col.set(c, (ov + k) * 3);
+      for (let k = 0; k < g.index.count; k++) idx[oi + k] = g.index.array[k] + ov;
+      ov += n; oi += g.index.count;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    const inst = (g, mat, n, order) => {
+      const m = new THREE.InstancedMesh(g, mat, n);
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.setColorAt(0, new THREE.Color(1, 1, 1)); m.instanceColor.setUsage(THREE.DynamicDrawUsage);   // (before its first draw: the program depends on it)
+      m.frustumCulled = false; m.count = 0; m.visible = false; m.renderOrder = order || 0;
+      G.add(m);
+      return m;
+    };
+    PPL.heads = inst(geo, new THREE.MeshBasicMaterial({ vertexColors: true }), cap, 0);
+    PPL.hands = inst(new THREE.SphereGeometry(0.04, 12, 10), new THREE.MeshBasicMaterial(), cap * 2, 0);
+    PPL.dots = inst(new THREE.SphereGeometry(0.012, 10, 8), new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false }), cap * 2, 59);
+    // the rays: one line a hand, from its origin to where it points, in the person's colour
+    const rg = new THREE.BufferGeometry();
+    rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cap * 2 * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    rg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cap * 2 * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    rg.setDrawRange(0, 0);
+    PPL.rays = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, depthTest: false, depthWrite: false }));
+    PPL.rays.frustumCulled = false; PPL.rays.renderOrder = 58; PPL.rays.visible = false; G.add(PPL.rays);
+    // the signs: a quad, one atlas slot a person (384 x 84 each, four columns, eight rows), double sided, its picture
+    // mirrored on the back face, in the scene as the labels' signs are (first of the see-through things, writing depth)
+    const A = PPL.atlas = { cols: 4, rows: 8, cw: 384, ch: 84, cv: document.createElement('canvas') };
+    A.cv.width = A.cols * A.cw; A.cv.height = A.rows * A.ch;
+    A.tex = new THREE.CanvasTexture(A.cv); A.tex.generateMipmaps = false; A.tex.minFilter = THREE.LinearFilter;
+    PPL.slots = new Array(A.cols * A.rows).fill('');
+    const sg = new THREE.PlaneGeometry(0.3, 0.066);
+    sg.setAttribute('aTag', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
+    const sm = new THREE.MeshBasicMaterial({ map: A.tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
+    sm.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aTag;\nvarying vec4 vTag;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvTag = aTag;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vTag;').replace('#include <map_fragment>',
+        'vec2 tuv = vUv; if (!gl_FrontFacing) tuv.x = 1.0 - tuv.x;\nvec4 texelColor = texture2D( map, vec2( vTag.x + tuv.x * vTag.z, vTag.y + tuv.y * vTag.w ) );\ntexelColor = mapTexelToLinear( texelColor );\ndiffuseColor *= texelColor;');
+    };
+    sm.customProgramCacheKey = () => 'people-sign';
+    PPL.signMat = sm;
+    PPL.signs = inst(sg, sm, cap, -1); PPL.signs.instanceColor = null;   // (no colour a sign: its picture is its own)
+    PPL.signs.geometry = sg;
+    OV.room.add(G);
+  }
+  // an atlas slot for a person (-1: none free, 32 at most; their name goes unsigned)
+  function tagSlot(id) { let k = PPL.slots.indexOf(id); if (k < 0) { k = PPL.slots.indexOf(''); if (k >= 0) PPL.slots[k] = id; } return k; }
+  function tagDraw(o) {
+    const A = PPL.atlas, k = o.slot;
+    if (k < 0 || !o.tagCv) return;
+    const x = (k % A.cols) * A.cw, y = Math.floor(k / A.cols) * A.ch, c = A.cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'copy'; c.clearRect(x, y, A.cw, A.ch); c.globalCompositeOperation = 'source-over'; c.drawImage(o.tagCv, x, y);
+    A.tex.needsUpdate = true; o.drawnSlot = k;
+  }
   function personFor(id) {
     let o = OV.people.get(id);
     if (o) return o;
-    const mk = (geo, col) => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col }));
-    o = { g: new THREE.Group(), avatar: new THREE.Group(), rays: [], dots: [], hands: [], color: '', name: null, e: null };
-    const head = mk(new THREE.SphereGeometry(0.1, 20, 14), 0xffffff);
-    head.scale.set(1, 1.18, 1.08);
-    const visor = mk(new THREE.BoxGeometry(0.17, 0.065, 0.06), 0x0b1220);
-    visor.position.set(0, 0.015, -0.085);
-    o.avatar.add(head, visor); o.head = head;
-    for (let i = 0; i < 2; i++) {
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]),
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthTest: false, depthWrite: false }));
-      line.renderOrder = 58;
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
-      dot.renderOrder = 59;
-      const hand = mk(new THREE.SphereGeometry(0.04, 12, 10), 0xffffff);
-      o.rays.push(line); o.dots.push(dot); o.hands.push(hand);
-      o.g.add(line, dot, hand);
-    }
+    peopleBuild();
+    o = { g: new THREE.Group(), avatar: new THREE.Group(), rays: [], dots: [], hands: [{ visible: false }, { visible: false }], head: { visible: true }, color: '', rgb: [1, 1, 1], name: null, e: null, slot: tagSlot(id), drawnSlot: -2 };
+    for (let i = 0; i < 2; i++) { const line = new THREE.Object3D(), dot = new THREE.Object3D(); o.rays.push(line); o.dots.push(dot); o.g.add(line, dot); }
     o.tagCv = document.createElement('canvas'); o.tagCv.width = 384; o.tagCv.height = 84;
     o.tagTex = new THREE.CanvasTexture(o.tagCv);
     o.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: o.tagTex, transparent: true, depthTest: false, depthWrite: false }));
     o.tag.renderOrder = 57; o.tag.scale.set(0.3, 0.066, 1);
-    // cards in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round),
-    // in the scene as the labels' signs are (drawn first of the see-through things, writing depth, corners cut away)
-    const sm = new THREE.MeshBasicMaterial({ map: o.tagTex, transparent: true, alphaTest: 0.1 }), sg = new THREE.PlaneGeometry(0.3, 0.066);
-    o.sign = new THREE.Group(); o.sign.visible = false;
-    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(sg, sm); f.rotation.y = ry; f.renderOrder = -1; o.sign.add(f); }
-    o.g.add(o.avatar, o.tag, o.sign);
+    // cards in 3D: the tag as a sign turned with the head (an instance of the signs' mesh: its two faces are the shared
+    // material, as the tests read them: each reads the right way round, writing depth, corners cut away)
+    o.sign = { visible: false, position: new THREE.Vector3(), yaw: 0, children: [0, 1].map(() => ({ visible: true, renderOrder: -1, material: PPL.signMat })) };
+    o.g.add(o.avatar, o.tag);
     OV.room.add(o.g); OV.people.set(id, o);
     return o;
   }
@@ -3904,33 +4061,37 @@
     if (!o) return;
     o.g.parent.remove(o.g);
     o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) { if (x.material.map) x.material.map.dispose(); x.material.dispose(); } });
+    const k = PPL.slots ? PPL.slots.indexOf(id) : -1; if (k >= 0) PPL.slots[k] = '';
     OV.people.delete(id);
   }
   // the cards' mode (HOST.xr.cards: the station cards and the name tags with the story panels; an older shell: its labels)
   const cardMode = () => (HOST.xr.cards ? HOST.xr.cards() : HOST.xr.labels());
+  const _M = new THREE.Matrix4(), _c = new THREE.Color(), _ONE = new THREE.Vector3(1, 1, 1);
   function drawPeople(dt) {
     const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
     const vr = HOST.mode !== 'immersive-ar', cm = cardMode();
     // (a camera, camera mode: never drawn; a camera itself draws everyone in a headset, or nobody: its People switch)
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head || C.pres.get(id).cam || (CAM.on && !CAM.people)) dropPerson(id);
     const L = liveSt(), all = !L || peopleAll() || CAM.on;
+    let nH = 0, nHa = 0, nD = 0, nR = 0, nS = 0;
+    const cap = PPL.cap, B = PPL.g ? { h: PPL.heads, ha: PPL.hands, d: PPL.dots, s: PPL.signs, r: PPL.rays } : null;
     for (const [id, P] of C.pres) {
       if (!P.head || P.cam || (CAM.on && !CAM.people)) continue;
       const o = personFor(id), m = member(id) || {}, col = m.color || '#f2f6fc', name = m.name || 'Someone';
+      if (!B) return drawPeople(dt);   // (made just now: again with the meshes)
       o.g.visible = all || P.st === L.id;
       if (!o.g.visible) { o.e = null; continue; }   // (shown again where they are then, not gliding from where they were)
-      if (o.color !== col) {
-        o.color = col;
-        for (const x of [o.head, ...o.hands, ...o.rays, ...o.dots]) x.material.color.set(col);
-        o.dots.forEach(d => d.material.color.lerp(new THREE.Color(0xffffff), 0.5));
-      }
-      if (o.name !== name) {
+      if (o.color !== col) { o.color = col; _c.set(col); o.rgb = [_c.r, _c.g, _c.b]; }
+      if (o.slot < 0) o.slot = tagSlot(id);
+      if (o.name !== name || (o.slot >= 0 && o.drawnSlot !== o.slot)) {
+        const first = o.name !== name;
         o.name = name;
         const ctx = o.tagCv.getContext('2d');
         ctx.clearRect(0, 0, 384, 84); rr(ctx, 2, 2, 380, 80, 16); ctx.fillStyle = 'rgba(3,8,16,0.85)'; ctx.fill();
         ctx.fillStyle = col; ctx.fillRect(2, 2, 10, 80);
         ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, name, 340), 28, 44);
-        o.tagTex.needsUpdate = true;
+        if (first) o.tagTex.needsUpdate = true;
+        tagDraw(o);
       }
       // where they were DELAY ago, between the samples around that moment (smoothing), exactly; else eased to the latest
       const S = bufAt(P.buf, MIX.person), k = S ? 1 : k0, h = S ? S.head : P.head, hands = S ? S.hands : P.hands;
@@ -3938,14 +4099,21 @@
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
       o.avatar.visible = vr || !m.here;
+      if (o.avatar.visible && nH < cap) { _M.compose(o.e.p, o.e.q, _ONE).toArray(B.h.instanceMatrix.array, nH * 16); B.h.instanceColor.array.set(o.rgb, nH * 3); nH++; }
       // the name, a card as the station cards are (HOST.xr.cards): on top of everything (a sprite), in 3D (a sign over the
       // head, upright and turned to you, hidden by what stands in front of it) or hidden
       o.tag.position.set(o.e.p.x, o.e.p.y + 0.24, o.e.p.z);
       o.tag.visible = cm === 'face'; o.sign.visible = cm === 'fixed';
       if (o.sign.visible) {
         o.sign.position.copy(o.tag.position);
-        if (R.headOK) o.sign.rotation.set(0, Math.atan2(R.hr.x - o.sign.position.x, R.hr.z - o.sign.position.z), 0);
-        else { _v.set(0, 0, -1).applyQuaternion(o.e.q); o.sign.rotation.set(0, Math.atan2(-_v.x, -_v.z) + Math.PI, 0); }   // (turned with the person)
+        if (R.headOK) o.sign.yaw = Math.atan2(R.hr.x - o.sign.position.x, R.hr.z - o.sign.position.z);
+        else { _v.set(0, 0, -1).applyQuaternion(o.e.q); o.sign.yaw = Math.atan2(-_v.x, -_v.z) + Math.PI; }   // (turned with the person)
+        if (o.slot >= 0 && nS < cap) {
+          _M.compose(o.sign.position, _q.setFromAxisAngle(_Y, o.sign.yaw), _ONE).toArray(B.s.instanceMatrix.array, nS * 16);
+          const A = PPL.atlas, a = B.s.geometry.attributes.aTag.array, j = nS * 4;
+          a[j] = (o.slot % A.cols) * A.cw / A.cv.width; a[j + 1] = 1 - (Math.floor(o.slot / A.cols) + 1) * A.ch / A.cv.height; a[j + 2] = A.cw / A.cv.width; a[j + 3] = A.ch / A.cv.height;
+          nS++;
+        }
       }
       for (let i = 0; i < 2; i++) {
         const H = hands[i], on = !!H;
@@ -3958,9 +4126,27 @@
         // the line runs along its +z: turned to the ray's direction in room coordinates (lookAt would want world ones)
         o.rays[i].position.copy(E.o); o.rays[i].quaternion.setFromUnitVectors(_Z, E.d); o.rays[i].scale.set(1, 1, len);
         o.dots[i].position.copy(E.o).addScaledVector(E.d, len);
-        o.hands[i].position.copy(E.o);
+        if (nR < cap * 2) {
+          const pa = B.r.geometry.attributes.position.array, ca = B.r.geometry.attributes.color.array, j = nR * 6;
+          pa[j] = E.o.x; pa[j + 1] = E.o.y; pa[j + 2] = E.o.z; pa[j + 3] = o.dots[i].position.x; pa[j + 4] = o.dots[i].position.y; pa[j + 5] = o.dots[i].position.z;
+          for (let v = 0; v < 2; v++) { ca[j + v * 3] = o.rgb[0]; ca[j + v * 3 + 1] = o.rgb[1]; ca[j + v * 3 + 2] = o.rgb[2]; }
+          if (nD < cap * 2) { _M.compose(o.dots[i].position, _q.identity(), _ONE).toArray(B.d.instanceMatrix.array, nD * 16); B.d.instanceColor.array.set([o.rgb[0] + (1 - o.rgb[0]) * 0.5, o.rgb[1] + (1 - o.rgb[1]) * 0.5, o.rgb[2] + (1 - o.rgb[2]) * 0.5], nD * 3); nD++; }
+          nR++;
+        }
+        if (o.hands[i].visible && nHa < cap * 2) { _M.compose(E.o, _q.identity(), _ONE).toArray(B.ha.instanceMatrix.array, nHa * 16); B.ha.instanceColor.array.set(o.rgb, nHa * 3); nHa++; }
       }
     }
+    if (!B) return;
+    const set = (m, n, cl) => {
+      m.count = n; m.visible = n > 0;
+      if (!n) return;
+      m.instanceMatrix.updateRange.offset = 0; m.instanceMatrix.updateRange.count = n * 16; m.instanceMatrix.needsUpdate = true;
+      if (cl && m.instanceColor) { m.instanceColor.updateRange.offset = 0; m.instanceColor.updateRange.count = n * 3; m.instanceColor.needsUpdate = true; }
+    };
+    set(B.h, nH, true); set(B.ha, nHa, true); set(B.d, nD, true); set(B.s, nS, false);
+    if (nS) { const at = B.s.geometry.attributes.aTag; at.updateRange.offset = 0; at.updateRange.count = nS * 4; at.needsUpdate = true; }
+    B.r.visible = nR > 0; B.r.geometry.setDrawRange(0, nR * 2);
+    if (nR) for (const n of ['position', 'color']) { const at = B.r.geometry.attributes[n]; at.updateRange.offset = 0; at.updateRange.count = nR * 6; at.needsUpdate = true; }
   }
   // the previews of the stations that are not live here (the live one has no card and no icon, and its ring only with
   // Show all rings). In a circle (a live station here) the others show their icons only (the owner, 30 October 2026,
@@ -4000,8 +4186,14 @@
   // the card fades as your head comes within CARD_NEAR of its ring's middle (walking in, it would be in your face)
   const CARD_NEAR = [0.45, 0.8];
   const DIRTY = [];   // (the cards whose content changed this frame: one of them drawn, drawPreviews)
+  const DP = { ids: new Set(), hov: new Set() };
   function drawPreviews(dt) {
-    const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
+    const ids = DP.ids, hovSt = DP.hov, cm = cardMode(), L = liveSt(), t = performance.now();
+    haloBuild(); HALO.n = 0;
+    ICON.okNow = dt < 1.4 / (hzTarget() || 72);   // (this frame was not late: a miniature may be built, iconDef)
+    ids.clear(); for (const s of C.st) ids.add(s.id);
+    hovSt.clear(); for (const h of HOV) if (h.target.kind === 'station') hovSt.add(h.target.id);
+    whoRefresh();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
       o.g.remove(o.icon.g);   // (its model and glow are the story's, kept for the next station of it)
       o.g.parent.remove(o.g); o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); }); o.mat.dispose(); OV.rings.delete(id);
@@ -4012,7 +4204,7 @@
     }
     const noRings = askFirst() && !RINGS.all, hide = hidingOthers();
     for (const s of C.st) {
-      const r = ringFor(s), live = yours(s), hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
+      const r = ringFor(s), live = yours(s), hov = hovSt.has(s.id);
       // its ring: always before any circle, with Show all rings and while carried; in a circle another station's only
       // near its spot, your own never
       // (the room's arc, in a headset at it: nothing, its cards are the circle; one that became a circle while this headset
@@ -4027,7 +4219,8 @@
       if (Math.abs(nw - r.near) < 0.01) r.near = nw;
       r.mat.opacity = (live ? 0.3 : MV.id === s.id ? 1 : 0.75) * r.near;
       r.ring.visible = r.tip.visible = r.near > 0.02;
-      r.ring.userData.shell = r.ball.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
+      if (!r.sh) r.sh = { kind: 'station', id: s.id, live };
+      r.sh.live = live; r.ring.userData.shell = r.ball.userData.shell = r.sh;   // (the live one: only to move it; one object kept, v137)
       // in a circle, another station's card and icon only while pointed at (or carried), fading after
       if (hov || MV.id === s.id || ASK.id === s.id) r.seenAt = t;   // (and while you are asked whether to go into it)
       const peek = !L || s.id === L.id || t - (r.seenAt || -1e9) < PEEK.hold, want = peek ? 1 : 0;
@@ -4047,6 +4240,7 @@
       const sg = cardSig(s);
       if (sg !== c.sig) DIRTY.push({ c, s, sg, pri: hov || MV.id === s.id ? -1 : d });
     }
+    haloEnd();
     // at most one card drawn again (and so sent to the GPU) a frame (v136: twenty cards with mipmaps in one frame were a
     // dropped frame on a headset), the one pointed at or carried first, then the nearest; the others wait their turn
     if (DIRTY.length) {
@@ -4161,9 +4355,10 @@
       m.visible = true;
     }
   }
-  // (hov: what is pointed at, lit; null: the same without it, what the menu shows to your circle goes by: menuSig)
-  function panelSig(hov = OV.panel.hover) {
-    return J([C.code, C.status, C.note, PNL.open, PNL.page, hov, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
+  // (v137: not the light of what is pointed at: a change of the button under the ray draws just its rectangles again,
+  // panelHover, and sends only those, not the whole menu)
+  function panelSig() {
+    return J([C.code, C.status, C.note, PNL.open, PNL.page, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
       // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
       // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
@@ -4535,9 +4730,9 @@
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
-    if (sig === S.sig) return;
-    S.sig = sig;
-    { const c = S.hover ? panelSig(null) : sig; if (c !== S.csig) { S.csig = c; S.cver = (S.cver || 0) + 1; } }   // (what it shows, the light of what is pointed at aside)
+    if (sig === S.sig) { panelHover(S); return; }
+    S.sig = sig; S.draws = (S.draws || 0) + 1; S.hdrawn = S.hover;
+    if (sig !== S.csig) { S.csig = sig; S.cver = (S.cver || 0) + 1; }   // (what it shows, the light of what is pointed at aside)
     PNL.strip = null;   // (the Debug tab's read-outs, drawn on their own as they change: stripStep)
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
@@ -4560,7 +4755,7 @@
       ctx.globalCompositeOperation = 'source-over';
       rr(ctx, 1, 1, W - 2, H - 2, 24); ctx.lineWidth = 2; ctx.strokeStyle = C.code ? 'rgba(70,217,255,0.5)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
       showTop(S, H);
-      S.tex.needsUpdate = true;
+      panelSend(S, H);
     };
     // the tabs (a press shows the tab's first page; the one used last is kept on this headset)
     TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 24 }));
@@ -4825,13 +5020,20 @@
         y += 72;
       }
       if (HOST.xr.setFov && HOST.xr.setScale) {
-        const fv = HOST.xr.fov(), fs = HOST.xr.fovs(), sc = HOST.xr.scale(), ss = HOST.xr.scales(), fn = HOST.xr.fovNow(), sn = HOST.xr.scaleNow();
-        button(S, 'fov', x, y, bw, 56, 'Foveation: ' + (fv === 'story' ? 'the story\'s' : fv), () => HOST.xr.setFov(fs[(fs.indexOf(fv) + 1) % fs.length]), { px: 21, on: fv !== 'story' });
-        button(S, 'scale', x + bw + 16, y, bw, 56, 'Resolution: ' + Math.round(sc * 100) + ' %', () => HOST.xr.setScale(ss[(ss.indexOf(sc) + 1) % ss.length]), { px: 21, on: sc !== 1 });
+        const fv = HOST.xr.fov(), fs = HOST.xr.fovs(), sc = HOST.xr.scale(), ss = HOST.xr.scales(), fn = HOST.xr.fovNow(), sn = HOST.xr.scaleNow(), Q = aqNow();
+        // (v137, with the shell's automatic quality: both start on auto, which follows the ladder of HOST.xr.aq(); a value pressed wins over it)
+        button(S, 'fov', x, y, bw, 56, 'Foveation: ' + (fv === 'story' ? 'the story\'s' : fv), () => HOST.xr.setFov(fs[(fs.indexOf(fv) + 1) % fs.length]), { px: 21, on: fv !== 'story' && fv !== 'auto' });
+        button(S, 'scale', x + bw + 16, y, bw, 56, 'Resolution: ' + (sc === 'auto' ? 'auto' : Math.round(sc * 100) + ' %'), () => HOST.xr.setScale(ss[(ss.indexOf(sc) + 1) % ss.length]), { px: 21, on: sc !== 'auto' && sc !== 1 });
         y += 66;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, (fv === 'story' ? 'Foveation as the story sets it' : 'Foveation ' + fv) + (fn !== null ? ' (now ' + Math.round(fn * 100) / 100 + ')' : '') +
-          '. Resolution from the next session' + (sn !== sc ? ' (this one ' + Math.round(sn * 100) + ' %)' : '') + '. Experiments, this headset\'s own.', x, y, w, 28, 2) + 16;
+        y += wrapText(ctx, (fv === 'story' ? 'Foveation as the story sets it' : fv === 'auto' ? 'Foveation ' + (Q ? 'auto' + (Q.auto ? ', ' + Q.fov : ', as the story sets it') : 'auto') : 'Foveation ' + fv) + (fn !== null ? ' (now ' + Math.round(fn * 100) / 100 + ')' : '') +
+          '. Resolution from the next session' + (sn !== sc && sc !== 'auto' ? ' (this one ' + Math.round(sn * 100) + ' %)' : sc === 'auto' && sn !== 1 ? ' (this one ' + Math.round(sn * 100) + ' %)' : '') + '. Experiments, this headset\'s own.', x, y, w, 28, 2) + 16;
+        if (HOST.xr.setAuto) {
+          const au = Q ? !!Q.auto : true;
+          button(S, 'aq', x, y, bw, 56, 'Automatic quality: ' + (au ? 'on' : 'off'), () => HOST.xr.setAuto(!au), { px: 21, on: au });
+          note(aqLine(Q), y);
+          y += 72;
+        }
       }
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
@@ -5049,9 +5251,9 @@
     y += 70;
     COLORS.forEach((c, i) => {
       const bx = x + i * 78;
-      rr(ctx, bx, y, 62, 46, 10); ctx.fillStyle = c; ctx.fill();
-      if (c === C.color || OV.panel.hover === 'col:' + i) { ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke(); }
-      S.regions.push({ id: 'col:' + i, x: bx, y, w: 62, h: 46, fn: () => setMe({ color: c }) });
+      const paint = () => { rr(ctx, bx, y, 62, 46, 10); ctx.fillStyle = c; ctx.fill(); if (c === C.color || S.hover === 'col:' + i) { ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke(); } };
+      paint();
+      S.regions.push({ id: 'col:' + i, x: bx, y, w: 62, h: 46, fn: () => setMe({ color: c }), paint });
     });
     y += 46 + 28;
     finish(y);
@@ -5066,7 +5268,10 @@
     return 'Now ' + (H.got ? H.got + ' Hz' : 'not said') + ' · offers ' + H.list.join(', ') + (H.err ? ' · refused: ' + H.err : '');
   }
   // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
-  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()]]); };
+  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(); return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate]]); };
+  // the shell's automatic quality (HOST.xr.aq(), v137: the step it is at), or null from an older shell
+  const aqNow = () => { try { return HOST.xr.aq ? HOST.xr.aq() : null; } catch (e) { return null; } };
+  const aqLine = Q => (!Q ? 'Not in this version of the shell' : !Q.auto ? 'The story\'s foveation, the full picture' : 'Level ' + Q.level + ' of 5: foveation ' + Q.fov + ', view ' + Math.round((Q.vs || 1) * 100) + ' %' + (Q.why ? ' · ' + Q.why : ''));
   // The Debug tab's read-outs (debugLines) drawn on their own as they change (v136): stripStep, each frame while the menu
   // shows the tab, compares them with what was drawn at most every STRIP.ms, and a line that changed is drawn again on a
   // small canvas of its own (its row of the menu: the menu's background, then the line), put on the menu's canvas in its
@@ -5097,7 +5302,58 @@
     sheetPatch(S, cv, rx, ry);
     STRIP.rows++;
   }
-  function sheetPatch(S, cv, x, y) {
+  // the menu's canvas to the GPU (v137): the first time whole, then, with the texture there and up to date, only the rows
+  // it shows (0 to H, and any rows a taller drawing before it left there), as a patch: the whole 720 x 1920 canvas was
+  // 5.3 MB for every change. A texture not there yet takes the whole canvas as three.js sends it
+  const PCV = { cv: null };
+  function sheetCopy(S, x, y, w, h) {
+    const cv = PCV.cv = PCV.cv || document.createElement('canvas');
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'copy'; c.drawImage(S.cv, x, y, w, h, 0, 0, w, h);
+    return cv;
+  }
+  function sheetMip(S) {
+    const R = HOST.renderer, T = S.tex;
+    try {
+      if (!T.generateMipmaps || T.minFilter === THREE.NearestFilter || T.minFilter === THREE.LinearFilter) return;
+      const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+      if (!wt) return;
+      R.state.bindTexture(gl.TEXTURE_2D, wt); gl.generateMipmap(gl.TEXTURE_2D);
+    } catch (e) { T.needsUpdate = true; }
+  }
+  function panelSend(S, H) {
+    const rows = Math.min(S.h, Math.max(H, S.gpuH || 0));
+    S.gpuH = H;
+    if (S.sent && sheetPatch(S, sheetCopy(S, 0, 0, S.w, rows), 0, 0)) return;
+    S.tex.needsUpdate = true; S.sent = true; S.full = (S.full || 0) + 1;
+  }
+  // the light of what is pointed at changed and nothing else: the old and the new button drawn again where they stand
+  // (the menu's background, then the button), 3 px round each, and sent as patches of those rectangles, one mipmap pass
+  function panelHover(S) {
+    const a = S.hdrawn, b = S.hover;
+    if (a === b) return;
+    S.hdrawn = b;
+    const rs = [];
+    for (const id of [a, b]) { const r = id && S.regions.find(r => r.id === id); if (r && r.paint && !rs.includes(r)) rs.push(r); }
+    if (!rs.length) return;
+    const ctx = S.ctx, P = 3;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    for (const r of rs) {
+      ctx.globalCompositeOperation = 'source-over'; ctx.clearRect(r.x - P, r.y - P, r.w + 2 * P, r.h + 2 * P);
+      ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fillRect(r.x - P, r.y - P, r.w + 2 * P, r.h + 2 * P);
+      r.paint();
+    }
+    ctx.restore();
+    S.hv = (S.hv || 0) + 1;
+    let ok = true;
+    for (const r of rs) {
+      const x = Math.max(0, Math.floor(r.x - P)), y = Math.max(0, Math.floor(r.y - P)), w = Math.min(S.w - x, Math.ceil(r.w + 2 * P)), h = Math.min(S.h - y, Math.ceil(r.h + 2 * P));
+      if (!sheetPatch(S, sheetCopy(S, x, y, w, h), x, y, true)) { ok = false; break; }
+    }
+    if (ok) sheetMip(S); else S.tex.needsUpdate = true;
+  }
+  function sheetPatch(S, cv, x, y, noMip) {
     const R = HOST.renderer, T = S.tex;
     try {
       const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
@@ -5106,7 +5362,7 @@
       R.state.bindTexture(gl.TEXTURE_2D, wt);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? S.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
-      if (T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+      if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
       S.patched = (S.patched || 0) + 1;
       return true;
     } catch (e) { T.needsUpdate = true; return false; }
@@ -5820,7 +6076,7 @@
     const V = HOST.notes && HOST.notes.view ? HOST.notes.view() : null;
     if (!V || !OV.root) { if (OV.rec) OV.rec.mesh.visible = false; if (REC.pins) REC.pins.visible = false; return; }
     const on = V.rec && HD.ok && !CAM.on && !!HOST.session;
-    if (!OV.rec) { OV.rec = sheet(800, 120, 0.36, 52); OV.root.add(OV.rec.mesh); OV.rec.mesh.visible = false; OV.rec.text = ''; }
+    if (!OV.rec) { OV.rec = sheet(800, 120, 0.36, 52, true); OV.root.add(OV.rec.mesh); OV.rec.mesh.visible = false; OV.rec.text = ''; }
     const S = OV.rec;
     S.mesh.visible = on;
     if (on) {
@@ -6627,8 +6883,9 @@
     let h = C.rays.get(i);
     if (!h) C.rays.set(i, (h = { o: new THREE.Vector3(), d: new THREE.Vector3(), at: 0 }));
     h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN; h.near = near != null ? near : Infinity;   // (near: a story panel on the ray)
-    (h.hist = h.hist || []).push([h.at, o.x, o.y, o.z]);   // the last half second, for a calibration mark (steady)
-    while (h.hist.length && h.at - h.hist[0][0] > 500) h.hist.shift();
+    // (the last 128 positions in a ring, for a calibration mark (steady): nothing allocated a frame, v137)
+    if (!h.hb) { h.hb = new Float64Array(512); h.hi = 0; h.hn = 0; }
+    { const j = (h.hi & 127) * 4; h.hb[j] = h.at; h.hb[j + 1] = o.x; h.hb[j + 2] = o.y; h.hb[j + 3] = o.z; h.hi = (h.hi + 1) & 127; if (h.hn < 128) h.hn++; }
     // a camera (camera mode): a tap on its image presses nothing, the story's or the shell's (its overlay also keeps taps from
     // the session: beforexrselect). Taken as the shell's, at the ray's origin (on the camera itself: nothing drawn there), whose
     // press then finds nothing to press
@@ -6864,6 +7121,17 @@
     }
     HAND.ok = !!src && t - HAND.at < 500;
   }
+  // the shell's frame times (HOST.xr.frameTimes: the last 10 s of the session's frames, v137) logged every 10 s of a session, so
+  // a headset's log in a room (and the page's, `window.__collabLog`) says how its frames went; sample() has the same as `pf`
+  const FTL = { at: 0 };
+  function frameTimesLog(t) {
+    if (!FTL.at) { FTL.at = t; return; }
+    if (t - FTL.at < 10000) return;
+    FTL.at = t;
+    let F = null;
+    try { F = HOST.xr.frameTimes ? HOST.xr.frameTimes() : null; } catch (e) { /* an older shell */ }
+    if (F) log('frame times', F);
+  }
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
     C.tickAt = t; C.frameN = (C.frameN || 0) + 1;
@@ -6878,7 +7146,8 @@
         FPS.mean = FPS.t0 && FPS.k ? FPS.sum / FPS.k : 0; FPS.worst = FPS.t0 ? FPS.wmax : 0;
         FPS.n = FPS.k = FPS.sum = FPS.wmax = 0; FPS.t0 = t;
       }
-    } else FPS.t0 = FPS.last = 0;
+      frameTimesLog(t);
+    } else { FPS.t0 = FPS.last = 0; FTL.at = 0; }
     if (C.code) renderStep();   // (the time others' moves are drawn at, smoothed)
     attachCheck();
     const local = refSpace();
@@ -7528,7 +7797,16 @@
   }
   // the room's areas (spots A and B not among them), by their numbers; an area's own number taken twice (two headsets adding
   // one at once): the earlier keeps it, the later shows the next free letters until it is written again
+  // (memoized on the room's keys, v137: it walked every key several times a frame; AREAS.rev moves on when an rp.* key or the
+  // whole map changes: onSet, the welcome)
+  const AREAS = { rev: 0, m: null, at: -1, n: -1, list: null };
   function areaList() {
+    if (AREAS.list && AREAS.m === C.keys && AREAS.at === AREAS.rev && AREAS.n === C.keys.size) return AREAS.list;
+    const out = areaListMake();
+    AREAS.list = out; AREAS.m = C.keys; AREAS.at = AREAS.rev; AREAS.n = C.keys.size;
+    return out;
+  }
+  function areaListMake() {
     const out = [];
     for (const [k, e] of C.keys) if (k.startsWith('rp.')) { const A = areaIn(k.slice(3), e && e.v); if (A) out.push(A); }
     out.sort((a, b) => a.n - b.n || a.at - b.at || (a.id < b.id ? -1 : 1));
@@ -7547,7 +7825,15 @@
     const M = val('rm');
     return { id: '', n: 1, name: 'Area 1', a: [0, M.a, 0], b: [M.d, M.a, 0], d: M.d, base: null, by: M.by || '', at: +M.at || 0, L: areaLetters(1) };
   }
-  const areasAll = () => { const A1 = area1(); return (A1 ? [A1] : []).concat(areaList()); };
+  // (kept while the room's list and its spots A and B, the rm value, are the same objects)
+  const AA = { l: null, m: null, out: null };
+  const areasAll = () => {
+    const l = areaList(), M = validFloor() ? val('rm') : null;
+    if (AA.out && AA.l === l && AA.m === M) return AA.out;
+    const A1 = area1();
+    AA.l = l; AA.m = M; AA.out = (A1 ? [A1] : []).concat(l);
+    return AA.out;
+  };
   const lettersOf = k => (k ? (areaOf(k) || { L: ['?', '?'] }).L : ['A', 'B']);
   const spotLetters = S => lettersOf(pairOf(S));
   const areaName = id => { if (!id) return 'Area 1'; const A = areaOf(id); return A ? A.name : 'an area forgotten'; };
@@ -8941,13 +9227,19 @@
   // where controller i pointed just before the press: pulling the trigger moves the hand a little
   // (a controller that only just arrived, more than 5 cm away a moment ago, is taken where it is)
   function steady(h) {
-    const t = performance.now(), H = (h.hist || []).filter(e => t - e[0] >= 70);
-    let S = H.filter(e => t - e[0] <= 260);
-    if (!S.length && H.length) S = H.slice(-1);   // few frames (a slow page): the last one before the pull
-    if (!S.length) return h.o.clone();
-    const p = new THREE.Vector3();
-    for (const e of S) { p.x += e[1]; p.y += e[2]; p.z += e[3]; }
-    p.multiplyScalar(1 / S.length);
+    // (the ring newest first: the positions 70 to 260 ms old averaged; none that old but an older one: the last one before
+    // the pull, a slow page's few frames)
+    const t = performance.now(), b = h.hb, n = h.hn || 0, p = new THREE.Vector3();
+    let c = 0, last = -1;
+    for (let k = 0; k < n; k++) {
+      const j = ((h.hi - 1 - k) & 127) * 4, age = t - b[j];
+      if (age < 70) continue;
+      if (last < 0) last = j;
+      if (age > 260) break;
+      p.x += b[j + 1]; p.y += b[j + 2]; p.z += b[j + 3]; c++;
+    }
+    if (!c && last < 0) return h.o.clone();
+    if (!c) p.set(b[last + 1], b[last + 2], b[last + 3]); else p.multiplyScalar(1 / c);
     return p.distanceTo(h.o) > 0.05 ? h.o.clone() : p;
   }
   function mark(i) {
@@ -9560,6 +9852,7 @@
     // frames a second measured over the last second (v)
     const Hz = hzState();
     if (Hz) S.hz = { f: Hz.got, a: Hz.asked, w: Hz.want, v: FPS.v };
+    try { const F = HOST.xr.frameTimes ? HOST.xr.frameTimes() : null; if (F) S.pf = F; } catch (e) { /* an older shell */ }   // (the last frame-time window, v137)
     log('sample', S);
   }
   // the log goes to the relay every 10 s while a headset is in a room (kept in relay/logs/ with --lan or --logs):
@@ -10394,6 +10687,7 @@
   }
   function renderDialog() {
     if (!DLG.open || !DLG.el) return;
+    if (HOST.session) { DLG.stale = true; return; }
     const joined = !!C.code;
     DLG.el.classList.toggle('joined', joined);
     const st = $('.sh-status');
@@ -10718,6 +11012,8 @@
     // read-outs drawn on their own (rows drawn again, rows sent to the menu's texture alone, the lines shown, the
     // texture's version: a whole upload moves it on; at: their row's top on the canvas)
     fpsTest: v => { if (v !== undefined) { FPS.v = +v; FPS.t0 = FPS.last = performance.now(); FPS.n = FPS.k = FPS.sum = FPS.wmax = 0; } return FPS.v; },
+    // true while the menu's Story tab shows the story's own panels on its planes (v137: the story keeps drawing them then)
+    mirroring: () => !!(OV.panelG && OV.panelG.visible && OV.mirror && Object.values(OV.mirror).some(m => m.visible)),
     strip: () => ({ rows: STRIP.rows, patched: OV.panel ? OV.panel.patched || 0 : 0, lines: PNL.strip ? PNL.strip.lines.slice() : null, at: PNL.strip ? PNL.strip.y : -1, x: PNL.strip ? PNL.strip.x : 0, w: PNL.strip ? PNL.strip.w : 0, lh: STRIP.lh, ver: OV.panel ? OV.panel.tex.version : 0 }),
     stripMs: ms => { if (ms !== undefined) STRIP.ms = +ms; return STRIP.ms; },
     menuFind: id => {

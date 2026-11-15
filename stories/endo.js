@@ -129,10 +129,20 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
   // Lit surfaces: any built-in material (MeshStandardMaterial, MeshLambertMaterial, MeshBasicMaterial ...).
   // The set's fade multiplies its opacity; base is the opacity at full fade-in.
   function fade(set, mat, base = 1) {
-    mat.transparent = true;
+    // see-through is decided when the frame is drawn, from the opacity the material has then (sets may lower it again in
+    // update()); non-normal blending (additive glows) always stays see-through. `transparent` is no program parameter in r128.
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => mat.opacity < 0.999 || mat.blending !== THREE.NormalBlending, set() {} });
     mat.userData.base = base;
     mat.opacity = base;
     set.fades.push(mat);
+    return mat;
+  }
+  // A ShaderMaterial whose fragment alpha is uA times the named uniforms (and nothing per vertex or instance): it counts as
+  // see-through only while that product is under 1, so solid models at full fade draw in the opaque pass, front to back.
+  // `transparent` is not a program parameter in r128, so reading it live costs no recompile.
+  function solid(mat, ...names) {
+    const U = mat.uniforms;
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => { let a = U.uA.value; for (const n of names) a *= U[n].value; return a < 0.999; }, set() {} });
     return mat;
   }
   // a glassy bubble that glows at its rim (spheres, domes). opts: color, a0 (face-on alpha), a1 (rim alpha)
@@ -169,7 +179,7 @@ void main() {
       for (const m of set.fades) {
         const o = m.userData.base * a;
         m.opacity = o;
-        m.depthWrite = o > 0.97 && m.userData.base > 0.97;
+        m.depthWrite = o > 0.97 && m.userData.base > 0.97 && m.blending === THREE.NormalBlending;
       }
       set.group.visible = a > 0.003;
     };
@@ -218,6 +228,28 @@ void main() {
     geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
     return geo;
   }
+  // Sends a Float32 attribute's used part (n items) to the graphics card only where it changed since it last went (the
+  // topo story's v136 `upload`, here for every set that rewrites buffers each frame): the 32-bit words of the range against
+  // a copy of what last went, the stretch from the first change to the last as the update range; nothing when it is the
+  // same. A range set before and not sent yet is kept (three.js sets its count back to -1 once it has gone).
+  function upload(attr, n) {
+    const k = attr.itemSize, len = n * k, a = attr.array, R = attr.updateRange;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
+  // ms a set on show may build in one frame when it is not built yet (the engine's budget, buildMs: about 1 ms in a headset,
+  // so never under 2 here: a set wanted now must not take a minute; on a page the whole `ms`, buildMs being only 2 to 8 ms there)
+  const showMs = (dt, ms) => (typeof buildMs === 'function' && typeof GL !== 'undefined' && GL.renderer && GL.renderer.xr && GL.renderer.xr.isPresenting ? Math.min(ms, Math.max(2, buildMs(dt))) : ms);
   // free GPU memory of a set (the engine calls this on dispose)
   function dispose(set) {
     set.group.traverse(o => {
@@ -225,8 +257,8 @@ void main() {
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
     });
   }
-  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, newSet,
-    pointsGeo, linesGeo, tube, merge, paint, dispose };
+  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, solid, newSet,
+    pointsGeo, linesGeo, tube, merge, paint, upload, showMs, dispose };
 }
 const K = makeKit(THREE);
 const { smooth, clamp } = K;
@@ -1018,8 +1050,11 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
           continue;
         }
         ACT[bid(I, J, L)] = act; hot.push([I, J, L]);
-        for (let i = I * BS; i <= i1; i++) for (let j = J * BS; j <= j1; j++) for (let k = L * BS; k <= k1; k++) {
-          const q = id(i, j, k); if (!done[q]) { F[q] = field(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h, act); done[q] = 1; }
+        for (let i = I * BS; i <= i1; i++) {
+          if (late()) yield;
+          for (let j = J * BS; j <= j1; j++) for (let k = L * BS; k <= k1; k++) {
+            const q = id(i, j, k); if (!done[q]) { F[q] = field(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h, act); done[q] = 1; }
+          }
         }
       }
     }
@@ -1038,7 +1073,9 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
     for (let b = 0; b < hot.length; b++) {
       if (late()) yield;
       const [I, J, L] = hot[b], act = ACT[bid(I, J, L)], f = (x, y, z) => field(x, y, z, act);
-      for (let i = I * BS; i < Math.min(I * BS + BS, nx - 1); i++) for (let j = J * BS; j < Math.min(J * BS + BS, ny - 1); j++) for (let k = L * BS; k < Math.min(L * BS + BS, nz - 1); k++) {
+      for (let i = I * BS; i < Math.min(I * BS + BS, nx - 1); i++) for (let j = J * BS; j < Math.min(J * BS + BS, ny - 1); j++) {
+       if (late()) yield;   // (v137: a row of cells at a time, not a block of 64: a slice was up to 15 ms)
+       for (let k = L * BS; k < Math.min(L * BS + BS, nz - 1); k++) {
         let neg = 0;
         for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
         if (neg === 0 || neg === 8) continue;
@@ -1055,6 +1092,7 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
         for (let s = 1; s <= 3; s++) { const dd = 0.013 * s; occ += Math.max(0, dd - gridAt(p[0] + n[0] * dd, p[1] + n[1] * dd, p[2] + n[2] * dd, dd)) * w0; w0 *= 0.6; }
         const ko = clamp(1 - 10 * occ, 0.4, 1);
         VI[cid(i, j, k)] = P.length / 3; P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); C.push(col[0] * ko, col[1] * ko, col[2] * ko); M.push(col[3], col[4], 0);
+       }
       }
     }
     // faces: one quad round every grid edge the surface crosses, wound to face out
@@ -1073,10 +1111,12 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
     // the surface's own geometry, written a few arrays per slice
     const g = HSURF = new THREE.BufferGeometry(), put = (k, a, n) => g.setAttribute(k, new THREE.BufferAttribute(a, n)), nv = P.length / 3;
     put('position', new Float32Array(P), 3); yield 'slice';
-    put('normal', new Float32Array(N), 3); put('color', new Float32Array(C), 3); yield 'slice';
-    put('aM', new Float32Array(M), 3); put('aSite', new Float32Array(nv).fill(H5.aSite), 1);
+    put('normal', new Float32Array(N), 3); yield 'slice';
+    put('color', new Float32Array(C), 3); yield 'slice';
+    put('aM', new Float32Array(M), 3); put('aSite', new Float32Array(nv).fill(H5.aSite), 1); yield 'slice';
     const gc = new Float32Array(nv * 3); for (let i = 0; i < nv; i++) gc.set(H5.aGC, i * 3); put('aGC', gc, 3); yield 'slice';
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1)); g.computeBoundingSphere(); yield 'slice';
+    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1)); yield 'slice';
+    g.computeBoundingSphere(); yield 'slice';
   }
   // coronary vessels in their grooves: guesses pulled onto the crease between two parts, then onto the surface; each
   // tapers at its ends and sinks into the surface there
@@ -1345,7 +1385,7 @@ if (position.x > uBuildX) vA = 0.0;` });
     // disease sites: chosen one glows, the rest dims
     const s = clamp(S.motor_site, 0, 5), g = clamp(S.motor_groups, 0, 1), w0 = clamp(1 - s, 0, 1), breath = 0.88 + 0.12 * Math.sin(t * 2.2);
     // the heart builds faster once it is wanted, and fades in when it is ready
-    heartStep(S.motor_heart > 0.001 ? 12 : sliceMs(dt));
+    heartStep(S.motor_heart > 0.001 ? K.showMs(dt, 12) : sliceMs(dt));
     if (!heartJob) heartIn = Math.min(1, heartIn + clamp(dt || 0, 0, 0.1) / 0.5);
     const hv = prog(S.motor_heart, 0.2, 0.75) * prog(b, 0.75, 1) * heartIn;
     for (let k = 1; k <= 5; k++) {
@@ -2002,10 +2042,24 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setIndex(idx); g.computeVertexNormals();
     return g;
   }
-  function inst(geo, mat, mats, order) {
+  // Instanced parts are culled by a bounding sphere of their spread (r128 culls an InstancedMesh by its geometry's sphere
+  // alone, so it is set here to hold every instance: the translations, the biggest scale and `slack` for what a part's
+  // shader moves it by while it builds). Round you in the gap most of the junction is then not drawn.
+  function inst(geo, mat, mats, order, slack) {
     const m = new THREE.InstancedMesh(geo, mat, mats.length);
     mats.forEach((M, i) => m.setMatrixAt(i, M));
-    m.frustumCulled = false; m.renderOrder = order || 1; set.group.add(m);
+    geo.computeBoundingSphere();
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; let sc = 1;
+    for (const M of mats) {
+      const e = M.elements;
+      for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], e[12 + a]); hi[a] = Math.max(hi[a], e[12 + a]); }
+      sc = Math.max(sc, Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10]));
+    }
+    if (mats.length) {
+      const c = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2), b = geo.boundingSphere;
+      geo.boundingSphere = new THREE.Sphere(c, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2 + (b.radius + b.center.length()) * sc + (slack || 0.06));
+    } else m.visible = false;
+    m.frustumCulled = true; m.renderOrder = order || 1; set.group.add(m);
     return m;
   }
   const grow = 'transformed *= vK;';
@@ -2022,7 +2076,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   }
   const vb = IB(); iAdd(vb, new THREE.IcosahedronGeometry(0.021, 1), [0.42, 0.6, 0.92], [7, 4, 0, 0]);
   const vesMat = lit('ves', { self: 0.12, rimK: 0.4, rimC: [0.55, 0.85, 1.0], rough: 0.35, vb: grow });
-  const vesMesh = inst(vb.geo(), vesMat, VES.map(p => new THREE.Matrix4().makeTranslation(...p)), 2);
+  const vesMesh = inst(vb.geo(), vesMat, VES.map(p => new THREE.Matrix4().makeTranslation(...p)), 2, 0.12);   // (slack: they jiggle and fuse)
   VES.forEach((p, i) => vesMesh.setColorAt(i, new THREE.Color().setScalar(0.88 + 0.16 * R())));
   const VPH = VES.map(() => R() * TAU);
 
@@ -2030,7 +2084,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   // packed on the crests and down the folds' upper walls; rapsyn under each; a few MuSK/LRP4 pairs among them
   const SUB = [[1.0, 0.45, 0.5], [0.5, 0.6, 1.0], [1.0, 0.45, 0.5], [0.45, 0.95, 0.6], [1.0, 0.9, 0.4]].map(c => v3.mul(v3.lerp([0.95, 0.72, 0.5], c, 0.3), 0.72));
   const rb = IB();
-  SUB.forEach((c, k) => { const a = k / 5 * TAU; iAdd(rb, prism(5, 0.0048, 0.0036, -0.005, 0.0135).translate(0.0063 * Math.cos(a), 0, 0.0063 * Math.sin(a)), c, [4, 3, 0, 0]); });
+  SUB.forEach((c, k) => { const a = k / 5 * TAU; iAdd(rb, prism(4, 0.0048, 0.0036, -0.005, 0.0135).translate(0.0063 * Math.cos(a), 0, 0.0063 * Math.sin(a)), c, [4, 3, 0, 0]); });
   iAdd(rb, new THREE.OctahedronGeometry(0.0045, 0).scale(1.3, 0.7, 1.3).translate(0, -0.011, 0), [0.7, 0.55, 0.95], [9, 3, 0, 0]);   // rapsyn, under it
   const REC = [], MUSK = [];
   for (let z = ZB + 0.06, row = 0; z < ZC - 0.012; z += 0.032, row++) {
@@ -2054,7 +2108,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     // they gather from all over the membrane as the junction builds (each a little later than the last), and light up when open
     vb: `{ float k = clamp(vK * 1.6 - aR.z * 0.6, 0.0, 1.0); transformed = transformed * smoothstep(0.0, 0.25, k) + aOff * (1.0 - smoothstep(0.0, 1.0, k));
   vGC += vec3(1.0, 0.88, 0.55) * openR(aR) * 0.85; }` });
-  const recMesh = inst(rg, recMat, REC.map(r => orient(r.p, r.n, R() * TAU, 1)), 1);
+  const recMesh = inst(rg, recMat, REC.map(r => orient(r.p, r.n, R() * TAU, 1)), 1, 1.3);   // (slack: they gather from up to a metre off)
   // MuSK/LRP4: LRP4 (agrin's receptor) a tall stalk ending in beta-propellers, MuSK a shorter one with Ig domains and
   // its kinase inside, DOK7 under it
   const mb = IB(), LR = [0.72, 1.0, 0.6], MK = [0.55, 0.95, 0.85];
@@ -3049,8 +3103,8 @@ void main() {
       }
       for (; found < 2; found++) VA[2 * w + found] = 0;
     }
-    wPos.needsUpdate = wW.needsUpdate = true;
-    walkers.vp.needsUpdate = walkers.va.needsUpdate = true;
+    K.upload(wPos, wPos.count); K.upload(wW, wW.count);   // (only the stretch that changed goes to the card)
+    K.upload(walkers.vp, walkers.vp.count); K.upload(walkers.va, walkers.va.count);
   }
 
   // ---------------------------------------------------------------- one gene's neighbourhood: lines and a bubble
@@ -3130,7 +3184,7 @@ void main() { if (vA < 0.002) discard; gl_FragColor = vec4(vC, vA); }`));
     halo.mesh.visible = arcs.mesh.visible = gk > 0.003;
     if (gk > 0.003) {
       for (let s = 0; s < NS; s++) mpos(SEED[s], md, SCTR, 3 * s);
-      halo.g.attributes.aCtr.needsUpdate = true;
+      K.upload(halo.g.attributes.aCtr, halo.g.attributes.aCtr.count);
       halo.m.uniforms.uHaloR.value = 0.04 + 0.021 * Math.sqrt(kv);
       halo.m.uniforms.uHaloA.value = 0.5 * gk / (1 + kv / 25);
     }
@@ -3931,6 +3985,44 @@ function buildTurn(jobs, dt) {
   const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
   for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
 }
+// A set that has finished building sends its textures and buffers to the graphics card before it is shown, one thing a
+// frame (v137): its first frame on show otherwise uploads some 5 MB of textures and 20 MB of buffers at once. Each mesh
+// is drawn once, unseen, into a 1 x 1 target by a camera looking away from everything (frustum culling and the headset's view off for that draw), put back where
+// it was; a texture goes through renderer.initTexture. Any failure stops it for good; nothing else depends on it.
+const PRIME = { q: [], sc: null, cam: null, off: false };
+function primeCheck(s) {
+  if (PRIME.off || s.primed || (s.idle && s.buildPend !== false) || !GL.renderer) return;
+  s.primed = true;
+  const seen = new Set(), tex = t => { if (t && t.isTexture && !seen.has(t) && (t.isDataTexture || (t.image && t.image.width >= 256))) { seen.add(t); PRIME.q.push(t); } };
+  s.group.traverse(o => {
+    if (!o.material || !o.geometry || !(o.isMesh || o.isPoints || o.isLine)) return;
+    const ms = [].concat(o.material);
+    for (const m of ms) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); }
+    if (ms.some(m => m.isMeshStandardMaterial || m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return;   // (a lit built-in would link a program for this scene's lack of lights)
+    const p = o.geometry.attributes.position;
+    if (o.isInstancedMesh || (p && p.count > 3000)) PRIME.q.push(o);
+  });
+}
+function primeStep(dt) {
+  const r = GL.renderer;
+  if (PRIME.off || !PRIME.q.length || !r || dt > 0.02) return;   // (only while frames come at 50 a second or better)
+  const o = PRIME.q.shift();
+  try {
+    if (o.isTexture) { r.initTexture(o); return; }
+    const par = o.parent;
+    if (!par || [].concat(o.material).some(m => !(r.properties.get(m).currentProgram))) return;   // (no program yet: drawing it would link one here)
+    const rt = r.primeRT || (r.primeRT = new THREE.WebGLRenderTarget(1, 1)), sc = PRIME.sc || (PRIME.sc = new THREE.Scene());
+    let cam = PRIME.cam;
+    if (!cam) { cam = PRIME.cam = new THREE.PerspectiveCamera(50, 1, 0.1, 10); cam.position.set(0, 1e5, 0); cam.lookAt(0, 2e5, 0); cam.updateMatrixWorld(); }   // (looking away from everything: all clipped, nothing shaded)
+    const vis = o.visible, cull = o.frustumCulled, mw = o.matrixWorld.clone(), was = r.getRenderTarget(), xr = r.xr.enabled, ar = r.autoClear;
+    rt.texture.encoding = r.outputEncoding;   // (the same program as the real frame's)
+    sc.add(o); o.visible = true; o.frustumCulled = false; r.xr.enabled = false; r.autoClear = false;
+    try { r.setRenderTarget(rt); r.render(sc, cam); } finally {
+      r.setRenderTarget(was); r.xr.enabled = xr; r.autoClear = ar;
+      sc.remove(o); par.add(o); o.visible = vis; o.frustumCulled = cull; o.matrixWorld.copy(mw);
+    }
+  } catch (e) { PRIME.off = true; PRIME.q.length = 0; console.warn('prime: stopped', e); }
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -3940,9 +4032,10 @@ function updateSets(S, t, dt, story) {
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) hid.push(s);   // a hidden set may build in slices (buildTurn, below)
+    else { if (s.idle) hid.push(s); primeCheck(s); }   // a hidden set may build in slices (buildTurn, below), and is sent to the card when done (primeStep)
   }
   buildTurn(hid, dt);
+  primeStep(dt);
 }
 
 // ---------------------------------------------------------------- camera --
@@ -5384,12 +5477,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -5449,32 +5564,45 @@ function xrSettings() {
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
-// a label's picture, shared by its sprite and its sign
-function labelTex(L) {
-  if (L.ltex) return L.ltex;
-  let bold, rest, cls;
-  if (L.txt) [bold, rest, cls] = L.txt;
-  else {
-    const b = L.el.querySelector('b');
-    bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
-  }
-  const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
-  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+// a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
+// sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
+// for it is made again, wider
+function labelWords(L) {
+  if (L.txt) return L.txt;
+  const b = L.el.querySelector('b'), bold = b ? b.textContent : '';
+  return [bold, L.el.textContent.slice(bold.length).trim(), ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || ''];
+}
+// the label drawn on cv at its left, its plate as wide as its words; fresh: cv sized for it (a function's label with room
+// to spare), else cleared and drawn again, or false when its words no longer fit
+function labelPaint(L, cv, fresh) {
+  const [bold, rest, cls] = labelWords(L), ctx = cv.getContext('2d'), px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   ctx.font = vfont(px, 700); const wb = bold ? ctx.measureText(bold).width : 0;
   ctx.font = vfont(px); const wr = rest ? ctx.measureText(rest).width : 0;
-  cv.width = Math.ceil(pad * 2 + wb + gap + wr); cv.height = H;
+  const w = Math.ceil(pad * 2 + wb + gap + wr);
+  if (fresh) { cv.width = L.fn ? Math.ceil(w * 1.3 + 40) : w; cv.height = H; }
+  else if (w > cv.width) return false;
+  else ctx.clearRect(0, 0, cv.width, H);
   const [col, acc] = LBL_STYLE[cls] || LBL_STYLE[''];
-  ctx.save(); rr(ctx, 0, 0, cv.width, H, 8); ctx.clip();
-  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, cv.width, H);
+  ctx.save(); rr(ctx, 0, 0, w, H, 8); ctx.clip();
+  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, w, H);
   if (acc) { ctx.fillStyle = acc; ctx.fillRect(0, 0, 5, H); }
   ctx.restore();
   ctx.textBaseline = 'middle'; ctx.fillStyle = col;
   ctx.font = vfont(px, 700); ctx.fillText(bold, pad, H / 2 + 1);
   ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
-  const tex = new THREE.CanvasTexture(cv);
+  return { cls };
+}
+function labelTex(L) {
+  if (L.ltex) return L.ltex;
+  const cv = document.createElement('canvas'), p = labelPaint(L, cv, true), tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 4;
-  return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
+  return (L.ltex = { tex, cv, aspect: cv.width / cv.height, tip: p.cls === 'tip' });
+}
+// a label whose words changed (labelText): its picture drawn again in place; too long for its canvas, dropped and made again
+function labelRedraw(L) {
+  const o = L.ltex;
+  if (!o) return;
+  if (labelPaint(L, o.cv, false)) o.tex.needsUpdate = true; else dropSprite(L);
 }
 // labels on top: a sprite turned to you, drawn over everything, beside its point
 function labelSprite(L) {
@@ -5804,14 +5932,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -5834,6 +5962,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 
@@ -6143,21 +6272,80 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
-function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
-  P.last = s; P.t = now;
+// redraw only when what the panel shows has changed (texture uploads are not free). Not while xrUpdate keeps it hidden (P.want false; v137;
+// the menu's Story tab shows the story's two panels, so those go on while it does: HOST.collab.mirroring, and a shell
+// without it keeps them going); a card of the Stories screen not drawn yet waits its turn, two first draws a frame at
+// most (XR.landN, counted from xrUpdate), so opening the screen is not sixteen cards and 35 MB in one frame; and a text
+// fade alone sends only the rows that moved (panelFade, panelSend)
+function panelTick(P, now, force) {
+  if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
+  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (P.cap && !P.nd && !force && XR.landN >= 2) return;
+  P.t = now;
+  const R = P.last && base === P.base && P.fb ? panelFade(P) : null;
+  P.last = s; P.base = base; P.fb = null;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   P.regions = [];
+  panelPaint(ctx, P);
+  P.nd = (P.nd || 0) + 1;
+  if (P.cap && P.nd === 1) XR.landN++;
+  if (!R) P.tex.needsUpdate = true; else if (R.length) panelSend(P, R);
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// text fades alone (v137; the part of a signature after \u0001, see sigMain): drawStoryPane keeps each element's band of
+// rows and the fades it follows (P.fb). The card is drawn whole into its canvas as ever (so it is exactly what a full
+// redraw makes), but only the rows of the elements whose fade moved are sent to the texture (panelSend, texSubImage2D
+// and the mipmaps), not the whole card (1.2 MP for every step of every line's fade). Null: send it whole (most of it moved)
+const FADE = { pad: 8, most: 0.85 };
+let FADECV = null;
+function panelFade(P) {
+  const R = [];
+  for (const b of P.fb) {
+    let moved = false;
+    for (const d of b.d) if (storyOpacity(d.el) !== d.q) moved = true;
+    if (!moved) continue;
+    const y0 = Math.max(0, Math.floor(b.y0 - FADE.pad)), y1 = Math.min(P.h, Math.ceil(b.y1 + FADE.pad)), last = R[R.length - 1];
+    if (y1 <= y0) continue;
+    if (last && y0 <= last[1] + last[3]) last[3] = Math.max(last[3], y1 - last[1]); else R.push([0, y0, P.w, y1 - y0]);
+  }
+  return R.reduce((n, r) => n + r[3], 0) > FADE.most * P.h ? null : R;
+}
+// the rows panelFade found, copied from the card's canvas to a small one and sent as they are
+function panelSend(P, R) {
+  const cv = FADECV = FADECV || document.createElement('canvas');
+  R.forEach((r, k) => {
+    if (cv.width !== r[2] || cv.height !== r[3]) { cv.width = r[2]; cv.height = r[3]; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, r[2], r[3]); c.drawImage(P.cv, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+    panelPatch(P, cv, r[0], r[1], k < R.length - 1);   // (its mipmaps made once, after the last)
+  });
+  P.faded = (P.faded || 0) + 1;
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card. A texture not on the GPU yet, or with the whole card still to go there, takes
+// it as it goes; one without WebGL2 (a mipmapped texture of any size) is sent whole
+function panelPatch(P, cv, x, y, noMip) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
+  } catch (e) { T.needsUpdate = true; }
 }
 
 // ------------------------------------------------------------ main panel --
@@ -6167,9 +6355,10 @@ function sigMain() {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
       if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
+      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
     }
     return s;
   }
@@ -6208,7 +6397,8 @@ function xrLandingCards() {
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
+    P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
     P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
@@ -6295,12 +6485,16 @@ const STY = {
 };
 function storyOpacity(el) {
   if (!XR.elInfo) { XR.elInfo = new Map(); ST.items.forEach(it => it.els.forEach(e => XR.elInfo.set(e.el, e))); }
-  const e = XR.elInfo.get(el);
-  return e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  const e = XR.elInfo.get(el), q = e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  if (FADEB && e) FADEB.d.push({ el, q });   // (drawStoryPane: the fades this element's band follows, panelFade)
+  return q;
 }
+let FADEB = null;
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
-  for (const el of it.sec.children) y = drawStoryEl(ctx, P, el, x, y, W, 1);
+  P.fb = [];   // (each element's band of rows and the fades it follows: panelFade)
+  for (const el of it.sec.children) { const b = FADEB = { y0: y, y1: y, d: [] }; y = drawStoryEl(ctx, P, el, x, y, W, 1); b.y1 = y; P.fb.push(b); }
+  FADEB = null;
   ctx.globalAlpha = 1;
 }
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
@@ -6585,7 +6779,7 @@ function drawKeyboard(ctx, P, x, y, W) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
+  return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
 }
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
@@ -6931,7 +7125,7 @@ function init() {
       buildStory(); buildSetLabels(); buildTimeline();
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }

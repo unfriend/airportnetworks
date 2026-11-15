@@ -229,7 +229,8 @@ await page.close();
 page = await open(base, '', { narrationMuted3: null, narrationMuted2: '0' });
 const btn = () => page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted3')].join(); });
 await step('sound off by default: Sound off, and a tap plays nothing until Sound is pressed', async () => {
-  await ready();
+  // (v145: a narration is decoded only when it is wanted and audible, so with the sound off it stays 'idle')
+  await until('narration loaded', p => p.story === 'airports' && p.state === 'ok');
   const b0 = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.title, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted2'), localStorage.getItem('narrationMuted3')].join('|'); });
   if (b0 !== 'true|false|Sound off|Turn the sound on|false||') throw new Error('before a tap: ' + b0);
   await page.click('#picker .card[data-story="airports"]');
@@ -599,9 +600,9 @@ await page.close();
 // reload and a new session, and the page's own mute as it was (Sound off) after the session
 page = await open(base, '', { narrationMuted3: null, xrNarration: null });
 await step('a headset session: its own sound (unmuted, no narration), the page\'s own after it', async () => {
-  await until('narration ready', p => p.state === 'ok' && p.decode === 'ok');
+  await until('narration loaded', p => p.state === 'ok');   // (v145: decoded only once wanted and audible)
   await page.click('#picker .card[data-story="airports"]');   // (a tap on the page: Sound off, nothing plays)
-  await until('the story, its engine started by the tap', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok' && p.ctx === 'running');
+  await until('the story, its engine started by the tap', p => p.story === 'airports' && p.state === 'ok' && p.ctx === 'running');
   const pg = await page.evaluate(() => [HOST.audio.muted, HOST.cur.peek('AUD.label()'), HOST.xr.voice()].join());
   // a session begins (Enter AR or VR is a tap: the context already runs here)
   await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s; HOST.cur.peek('APP.playing || APP.togglePlay()'); });

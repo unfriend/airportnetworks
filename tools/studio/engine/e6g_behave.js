@@ -98,7 +98,8 @@ function normBehaviour(x) {
 // st: each behaving item's state here; heard: the drivers' samples, by item and member; rt: the time others' samples are
 // drawn at (the relay's clock 120 ms ago, eased); ends: the items whose driving here stopped (their last sample says
 // so); fake: pretend heads (tests: [{ id, p, yaw, ts }] in the scene's frame); log: what each item did, for tests
-const BEH = { st: new Map(), heard: new Map(), n: 0, rt: { at: 0, t: 0 }, sent: 0, ends: new Set(), fake: null, base: '', log: null };
+const BEH_NONE = Object.freeze([]);
+const BEH = { itemsRev: -1, items: [], needHeads: false, pool: [], out: [], st: new Map(), heard: new Map(), n: 0, rt: { at: 0, t: 0 }, sent: 0, ends: new Set(), fake: null, base: '', log: null };
 const BEH_SEND = 100, BEH_DELAY = 120, BEH_CARRY = 100, BEH_FRESH = 1000, BEH_KEEP = 0.5, BEH_SWAP = 0.3, BEH_HOME = 0.2;
 const BEH_TURN = Math.PI, BEH_ARRIVE = 0.35, BEH_EASE = 0.25, BEH_LAG = 0.3;   // (at most half a turn a second; the easings' time constants, s)
 const behStation = () => atStation();
@@ -122,21 +123,29 @@ function behFace() {
 // This device's own as the studio has it (exact: a headset's, or the camera in Walk view outside a room, or a test's); in
 // a room the others' from the shell (and this headset's from there when the studio has none, as in a pretend session)
 function behHeads(T) {
-  const out = [], p = headPoint(_beH), room = behStation();
-  const own = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room) ? { id: behMe(), me: true, p: p.clone(), f: behFace(), ts: T } : null;
+  // (the list and its heads are reused each call, and so are their vectors: a caller uses them within its step and keeps none)
+  const out = BEH.out, pool = BEH.pool; out.length = 0;
+  let used = 0;
+  const head = (id, me, x, y, z, f, ts) => {
+    const h = pool[used] || (pool[used] = { id: '', me: false, p: new THREE.Vector3(), f: null, ts: 0 });
+    used++; h.id = id; h.me = me; h.p.set(x, y, z); h.f = f; h.ts = ts; out.push(h);
+    return h;
+  };
+  const p = headPoint(_beH), room = behStation();
+  const ownOk = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room);
   let H = null;
   try { H = room && HOST.collab.heads ? HOST.collab.heads() : null; } catch (e) { /* an older shell */ }
   if (H && Array.isArray(H.list)) {
     // (room coordinates are the scene's at a station since v125: the scene stands on the room's frame, xrPlace)
     for (const h of H.list) {
-      if (h.me && own) continue;
+      if (h.me && ownOk) continue;
       _beF.set(0, 0, -1).applyQuaternion(_beQ.set(h.head[3], h.head[4], h.head[5], h.head[6]));
       // (ts the relay's time it was there; a shell that gives none, or not a number, gives now: no entry time is NaN)
-      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: fin(h.ts) ? h.ts : T });
+      head(h.id, !!h.me, h.head[0], h.head[1], h.head[2], flat2(_beF.x, _beF.z), fin(h.ts) ? h.ts : T);
     }
   }
-  if (own) out.push(own);
-  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) out.push({ id: h.id, me: false, p: new THREE.Vector3(...h.p), f: flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), ts: fin(h.ts) ? h.ts : T });
+  if (ownOk) head(behMe(), true, p.x, p.y, p.z, behFace(), T);
+  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) head(h.id, false, h.p[0], h.p[1], h.p[2], flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), fin(h.ts) ? h.ts : T);
   return out;
 }
 // its middle at its placed pose (into out), and which way its front (+z) faces there (about the vertical)
@@ -236,7 +245,9 @@ function behaveStep(dt, pn) {
   trkStep(pn);   // (the trackers here this frame, and the puppet's countdowns: e6k_trk.js)
   BEH.n++;
   restScan();   // (what rests this frame: held here, or Pause; e6e_motion.js)
-  const items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour);
+  // (the items with a behaviour: found again only when a record changed, as the cubes' lists are)
+  if (BEH.itemsRev !== STU.rev) { BEH.itemsRev = STU.rev; BEH.items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour); BEH.needHeads = BEH.items.some(it => it.rec.behaviour.kind !== 'item'); }
+  const items = BEH.items;
   // (the base stage: an item on a tracker, else a behaviour's, while the scene has either: poseBase, e6k_trk.js)
   POSE.base = TRK.any ? poseBase : items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
@@ -253,7 +264,7 @@ function behaveStep(dt, pn) {
     let t = R.t + (pn - R.at);
     if (!R.at || Math.abs(want - t) > 250) t = want; else t += clamp((want - t) * 0.1, -2, 2);
     R.at = pn; R.t = t;
-    const hs = items.some(it => it.rec.behaviour.kind !== 'item') ? behHeads(T) : [], me = behMe();
+    const hs = BEH.needHeads ? behHeads(T) : BEH_NONE, me = behMe();
     for (const it of items) behOne(it, hs, me, T, pn, dt);
   }
   behSend(pn, T);

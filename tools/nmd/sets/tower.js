@@ -213,6 +213,7 @@ SETS.tower = function (K) {
   const ltd = new Float32Array(LN * 4 * 4), ltn = new Float32Array(LN * 4 * 4);
   const LT = new THREE.DataTexture(ltd, LN, 4, THREE.RGBAFormat, THREE.FloatType);
   LT.magFilter = LT.minFilter = THREE.NearestFilter; LT.generateMipmaps = false;
+  const SC = [0, 0, 0], LIVECAT = {};   // scratch for update(): a layer's colour, the live layers per block
   const LYC = new Float32Array(LN), LCONT = new Float32Array(LN), LFr = new Float32Array(3 * LN);   // current y and content alpha (for the CPU side)
 
   // ---------------------------------------------------------------- shared shader code
@@ -343,9 +344,9 @@ void main() {
   float l = position.y, cp = position.z;
   vec4 L0 = lt(l, 0.0), L1 = lt(l, 1.0);
   vec3 p = ringPos(position.x, l, cp, max(aR, 0.001), L0.x);
-  vC = L1.rgb; vA = L0.w * copyA(cp) * uA; vR = aR;
+  vC = L1.rgb; vA = L0.w * copyA(cp) * uA * (1.0 - uRoom); vR = aR;   // no fills standing inside: 71 stacked layers fill the whole view
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-  if (vA < 0.0005) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  if (0.5 * vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // under one 8-bit step at the rim (the fragment's peak): nothing to draw
 }`,
     fragmentShader: `varying vec3 vC; varying float vA, vR;
 void main() { gl_FragColor = vec4(vC, 0.5 * vA * (0.25 + 0.75 * vR * vR)); }`,   // (half: 71 stacked fills made a white haze over the links)
@@ -661,19 +662,22 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
 
   // ---------------------------------------------------------------- CPU mirror of the shader (anchors, pick, walkers)
   const U = n => TU[n].value;
+  // genePosTo writes the spot into out[0..1] (no arrays made: walkers ask for it per trail point per frame); genePos
+  // and slotPos keep their array results for everyone else
   function slotPos(i, s, bx, bz) {
     const g = U('uGrid'), o = (4 * s * N + i) * 4;
     return [lerp(bx, gtd[o], g), lerp(bz, gtd[o + 1], g)];
   }
-  // a gene's current spot (x, z) in every layer
-  function genePos(i) {
+  function genePosTo(i, out) {
     let bx = BX[i], bz = BZ[i]; const r = Math.hypot(bx, bz), f = lerp(1, (ROOM + (1 - ROOM) * r) / Math.max(r, 1e-4), U('uRoom'));
     bx *= f; bz *= f;
-    let p = slotPos(i, 1, bx, bz); const X = U('uX');
-    if (X < 0.999) { const p0 = slotPos(i, 0, bx, bz); p = [lerp(p0[0], p[0], X), lerp(p0[1], p[1], X)]; }
-    const P = U('uPair');
-    return P > 0.001 ? [lerp(p[0], PPOS[2 * i], P), lerp(p[1], PPOS[2 * i + 1], P)] : p;
+    const g = U('uGrid'), X = U('uX'), P = U('uPair'), o1 = (4 * N + i) * 4;
+    let x = lerp(bx, gtd[o1], g), z = lerp(bz, gtd[o1 + 1], g);
+    if (X < 0.999) { const o0 = i * 4; x = lerp(lerp(bx, gtd[o0], g), x, X); z = lerp(lerp(bz, gtd[o0 + 1], g), z, X); }
+    if (P > 0.001) { x = lerp(x, PPOS[2 * i], P); z = lerp(z, PPOS[2 * i + 1], P); }
+    out[0] = x; out[1] = z; return out;
   }
+  function genePos(i) { return genePosTo(i, [0, 0]); }
   function slotVis(i, s) {
     const sl = SL[s], member = gget(i, 4 * s + 1, 3), seed = gget(i, 4 * s + 2, 3) * member, heat = gget(i, 4 * s + 3, 0), rank = gget(i, 4 * s + 3, 1);
     const joined = smooth((U('uModule') * 1.03 - rank) / 0.025), mv = member * (seed > 0.5 ? 1 : 1 - U('uSeeds') * (1 - joined));
@@ -798,15 +802,17 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     else plan = null;
     return plan;
   }
-  function walkerAt(wk, tt) {
+  const WA = [0, 0], WB = [0, 0], WH = { p: [0, 0, 0], kind: 0, f: 0, ev: 0 }, WQ = { p: [0, 0, 0], kind: 0, f: 0, ev: 0 }, HEADC = [1, 0.97, 0.88], LIVEC = [0.6, 0.95, 1];   // scratch for walkerAt and the walkers' trails
+  // fills `out` ({ p: [x, y, z], kind, f, ev }) so a frame's trail points make no garbage
+  function walkerAt(wk, tt, out) {
     const T = wk.T; tt = ((tt % T) + T) % T;
     let lo = 0, hi = wk.ev.length - 1;
     while (lo < hi) { const m = (lo + hi + 1) >> 1; if (wk.ev[m][5] <= tt) lo = m; else hi = m - 1; }
-    const [a, la, b, lb, kind, t0, du] = wk.ev[lo], f = clamp((tt - t0) / du, 0, 1);
-    const pa = genePos(a), pb = genePos(b);
-    if (kind === 2) return { p: f < 0.5 ? [pa[0], LYC[la], pa[1]] : [pb[0], LYC[lb], pb[1]], kind, f, ev: lo };
-    const e = smooth(f);
-    return { p: [lerp(pa[0], pb[0], e), lerp(LYC[la], LYC[lb], e), lerp(pa[1], pb[1], e)], kind, f, ev: lo };
+    const ev = wk.ev[lo], a = ev[0], la = ev[1], b = ev[2], lb = ev[3], kind = ev[4], f = clamp((tt - ev[5]) / ev[6], 0, 1);
+    const pa = genePosTo(a, WA), pb = genePosTo(b, WB), p = out.p;
+    if (kind === 2) { if (f < 0.5) { p[0] = pa[0]; p[1] = LYC[la]; p[2] = pa[1]; } else { p[0] = pb[0]; p[1] = LYC[lb]; p[2] = pb[1]; } }
+    else { const e = smooth(f); p[0] = lerp(pa[0], pb[0], e); p[1] = lerp(LYC[la], LYC[lb], e); p[2] = lerp(pa[1], pb[1], e); }
+    out.kind = kind; out.f = f; out.ev = lo; return out;
   }
 
   // ---------------------------------------------------------------- explore state
@@ -867,7 +873,8 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     const gcol = g1 >= 0 ? GC[g1] : [1, 1, 1], Gr = TU.uGrid.value;
     // a block's layers lie on top of each other on screen: links are weighted by the live layers of their block, so
     // the stack never burns out (and the few layers left at the end of the drop shine brighter)
-    const LF0 = LFr, liveCat = {};
+    const LF0 = LFr, liveCat = LIVECAT;
+    for (const k in liveCat) liveCat[k] = 0;
     for (let l = 0; l < LN; l++) {
       const fb = (LN - 1 - l) / LN, f = smooth(clamp((rise * 1.12 - fb) / 0.12, 0, 1));
       const df = smooth(clamp(drop * (LN - 5) - DROP[l], 0, 1));
@@ -893,9 +900,10 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       fillA += live * (Z * hasZ * inf * zn * 0.007 + pg * 0.03);
       fillA *= 1 - 0.85 * Gr;
       const tint = CC[LAY[l].cat] || NEU, cm = 0.25 + 0.75 * catsT;
-      let c = [lerp(NEU[0], tint[0], cm), lerp(NEU[1], tint[1], cm), lerp(NEU[2], tint[2], cm)];
-      const zc = Z * hasZ * inf * (0.25 + 0.6 * zn); c = [lerp(c[0], gcol[0], zc), lerp(c[1], gcol[1], zc), lerp(c[2], gcol[2], zc)];
-      if (pg > 0) c = [lerp(c[0], 1, pg * 0.35), lerp(c[1], 1, pg * 0.35), lerp(c[2], 1, pg * 0.35)];
+      const c = SC;   // scratch colour: no array per layer per frame
+      c[0] = lerp(NEU[0], tint[0], cm); c[1] = lerp(NEU[1], tint[1], cm); c[2] = lerp(NEU[2], tint[2], cm);
+      const zc = Z * hasZ * inf * (0.25 + 0.6 * zn); c[0] = lerp(c[0], gcol[0], zc); c[1] = lerp(c[1], gcol[1], zc); c[2] = lerp(c[2], gcol[2], zc);
+      if (pg > 0) { c[0] = lerp(c[0], 1, pg * 0.35); c[1] = lerp(c[1], 1, pg * 0.35); c[2] = lerp(c[2], 1, pg * 0.35); }
       let lw = lerp(1, hasZ > 0.5 ? (inf ? 0.55 + 0.45 * zn / 0.6 : 0.3) : 1, Z);
       lw *= 1 + pg * 0.8 - P * (1 - PAIR_GLOW[l]) * 0.15;
       // the context links are thinned per layer already: they are weighted less steeply
@@ -904,10 +912,11 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       // bars rise up the tower one after another
       const grow = smooth(clamp((Z * 1.4 - fb * 0.4) / 1.0, 0, 1)) * hasZ;
       const o = l * 4;
-      ltn.set([y, content, rimA, fillA], o);
-      ltn.set([c[0], c[1], c[2], lw], LN * 4 + o);
-      ltn.set([zv * BARS * grow, grow * live, ry, f], 2 * LN * 4 + o);
-      ltn.set([hasData[l] ? 0 : 1, inf, clamp(9 / lc, 0.35, 1), cw], 3 * LN * 4 + o);
+      ltn[o] = y; ltn[o + 1] = content; ltn[o + 2] = rimA; ltn[o + 3] = fillA;
+      const o1 = LN * 4 + o, o2 = 2 * LN * 4 + o, o3 = 3 * LN * 4 + o;
+      ltn[o1] = c[0]; ltn[o1 + 1] = c[1]; ltn[o1 + 2] = c[2]; ltn[o1 + 3] = lw;
+      ltn[o2] = zv * BARS * grow; ltn[o2 + 1] = grow * live; ltn[o2 + 2] = ry; ltn[o2 + 3] = f;
+      ltn[o3] = hasData[l] ? 0 : 1; ltn[o3 + 1] = inf; ltn[o3 + 2] = clamp(9 / lc, 0.35, 1); ltn[o3 + 3] = cw;
       LYC[l] = y; LCONT[l] = content;
     }
     let ch = false; for (let k = 0; k < ltn.length; k++) if (ltn[k] !== ltd[k]) { ch = true; break; }
@@ -924,18 +933,18 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       if (pl) {
         walkers.visible = true;
         const pa = wGeo.attributes.position.array, ca = wGeo.attributes.aCol.array, sa = wGeo.attributes.aSize.array, aa = wGeo.attributes.aA.array;
-        const tint = liveW ? [0.6, 0.95, 1] : gcol;
+        const tint = liveW ? LIVEC : gcol;
         pl.forEach((wk, k) => {
-          const h = walkerAt(wk, t + wk.ph);
+          const h = walkerAt(wk, t + wk.ph, WH);
           for (let j = 0; j < TR; j++) {
-            const q = j ? walkerAt(wk, t + wk.ph - j * 0.045) : h, n = k * TR + j;
+            const q = j ? walkerAt(wk, t + wk.ph - j * 0.045, WQ) : h, n = k * TR + j;
             // a trail never spans a restart
             const ok = j === 0 || (q.ev === h.ev && h.kind !== 2) || (q.ev === h.ev - 1 && q.kind !== 2 && h.kind !== 2);
             pa[3 * n] = q.p[0]; pa[3 * n + 1] = q.p[1] + 0.004; pa[3 * n + 2] = q.p[2];
             const fl = h.kind === 2 && h.f >= 0.5 && j === 0 ? 1 - (h.f - 0.5) * 2 : 0;
             const fade = h.kind === 2 && h.f < 0.5 && j === 0 ? 1 - h.f * 2 : 1;
-            const cl = j === 0 ? [1, 0.97, 0.88] : tint;
-            ca.set(cl, 3 * n);
+            const cl = j === 0 ? HEADC : tint;
+            ca[3 * n] = cl[0]; ca[3 * n + 1] = cl[1]; ca[3 * n + 2] = cl[2];
             sa[n] = j === 0 ? 0.05 + 0.07 * fl : 0.036 * (1 - 0.7 * j / TR);
             aa[n] = (ok ? (j === 0 ? 1 : 0.75 * (1 - j / TR)) : 0) * wv * fade;
           }
@@ -949,7 +958,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       const xz = genePos(state.gene), pa = ringPts.attributes.position.array;
       for (let l = 0; l < LN; l++) {
         pa[3 * l] = xz[0]; pa[3 * l + 1] = LYC[l]; pa[3 * l + 2] = xz[1];
-        ringPts.attributes.aCol.array.set([1, 0.93, 0.75], 3 * l);
+        { const ra = ringPts.attributes.aCol.array; ra[3 * l] = 1; ra[3 * l + 1] = 0.93; ra[3 * l + 2] = 0.75; }
         ringPts.attributes.aSize.array[l] = PRES[state.gene * LN + l] ? 0.055 : 0.035;
         ringPts.attributes.aA.array[l] = LCONT[l] * (PRES[state.gene * LN + l] ? 1 : 0.35) * TU.uX.value;
       }

@@ -127,10 +127,20 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
   // Lit surfaces: any built-in material (MeshStandardMaterial, MeshLambertMaterial, MeshBasicMaterial ...).
   // The set's fade multiplies its opacity; base is the opacity at full fade-in.
   function fade(set, mat, base = 1) {
-    mat.transparent = true;
+    // see-through is decided when the frame is drawn, from the opacity the material has then (sets may lower it again in
+    // update()); non-normal blending (additive glows) always stays see-through. `transparent` is no program parameter in r128.
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => mat.opacity < 0.999 || mat.blending !== THREE.NormalBlending, set() {} });
     mat.userData.base = base;
     mat.opacity = base;
     set.fades.push(mat);
+    return mat;
+  }
+  // A ShaderMaterial whose fragment alpha is uA times the named uniforms (and nothing per vertex or instance): it counts as
+  // see-through only while that product is under 1, so solid models at full fade draw in the opaque pass, front to back.
+  // `transparent` is not a program parameter in r128, so reading it live costs no recompile.
+  function solid(mat, ...names) {
+    const U = mat.uniforms;
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => { let a = U.uA.value; for (const n of names) a *= U[n].value; return a < 0.999; }, set() {} });
     return mat;
   }
   // a glassy bubble that glows at its rim (spheres, domes). opts: color, a0 (face-on alpha), a1 (rim alpha)
@@ -167,7 +177,7 @@ void main() {
       for (const m of set.fades) {
         const o = m.userData.base * a;
         m.opacity = o;
-        m.depthWrite = o > 0.97 && m.userData.base > 0.97;
+        m.depthWrite = o > 0.97 && m.userData.base > 0.97 && m.blending === THREE.NormalBlending;
       }
       set.group.visible = a > 0.003;
     };
@@ -216,6 +226,28 @@ void main() {
     geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
     return geo;
   }
+  // Sends a Float32 attribute's used part (n items) to the graphics card only where it changed since it last went (the
+  // topo story's v136 `upload`, here for every set that rewrites buffers each frame): the 32-bit words of the range against
+  // a copy of what last went, the stretch from the first change to the last as the update range; nothing when it is the
+  // same. A range set before and not sent yet is kept (three.js sets its count back to -1 once it has gone).
+  function upload(attr, n) {
+    const k = attr.itemSize, len = n * k, a = attr.array, R = attr.updateRange;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
+  // ms a set on show may build in one frame when it is not built yet (the engine's budget, buildMs: about 1 ms in a headset,
+  // so never under 2 here: a set wanted now must not take a minute; on a page the whole `ms`, buildMs being only 2 to 8 ms there)
+  const showMs = (dt, ms) => (typeof buildMs === 'function' && typeof GL !== 'undefined' && GL.renderer && GL.renderer.xr && GL.renderer.xr.isPresenting ? Math.min(ms, Math.max(2, buildMs(dt))) : ms);
   // free GPU memory of a set (the engine calls this on dispose)
   function dispose(set) {
     set.group.traverse(o => {
@@ -223,8 +255,8 @@ void main() {
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
     });
   }
-  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, newSet,
-    pointsGeo, linesGeo, tube, merge, paint, dispose };
+  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, solid, newSet,
+    pointsGeo, linesGeo, tube, merge, paint, upload, showMs, dispose };
 }
 const K = makeKit(THREE);
 const { smooth, clamp } = K;
@@ -472,14 +504,18 @@ SETS.table = function (K) {
   // doubled, its copy's faces and normals turned the other way, so both materials stay one-sided; see-through parts are
   // drawn in their renderOrder (glass before haze)
   const MINI_MAT = {};
-  function miniMat(see) {
-    const k = see ? 'see' : 'solid';
+  // home: the table-wide copy at home (below): aMini says which miniature a vertex is of, and uAway[that] 1 folds it to a point
+  const AWAY = new Float32Array(48);
+  function miniMat(see, home) {
+    const k = (see ? 'see' : 'solid') + (home ? '-home' : '');
     if (MINI_MAT[k]) return MINI_MAT[k];
     const m = std({ vertexColors: true, roughness: 0.6, metalness: 0.05 });
     if (see) Object.assign(m, { transparent: true, depthWrite: false, premultipliedAlpha: true });
     m.onBeforeCompile = sh => {
-      sh.vertexShader = 'attribute vec4 aMat; varying vec4 vMat;\n' + (see ? 'attribute vec2 aSee; varying vec2 vSee;\n' : '') +
-        sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n  vMat = aMat;' + (see ? ' vSee = aSee;' : ''));
+      if (home) sh.uniforms.uAway = { value: AWAY };
+      sh.vertexShader = 'attribute vec4 aMat; varying vec4 vMat;\n' + (home ? 'attribute float aMini; uniform float uAway[48];\n' : '') + (see ? 'attribute vec2 aSee; varying vec2 vSee;\n' : '') +
+        sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n  vMat = aMat;' + (see ? ' vSee = aSee;' : ''))
+          .replace('#include <begin_vertex>', '#include <begin_vertex>' + (home ? '\n  if (uAway[int(aMini + 0.5)] > 0.5) transformed = vec3(0.0);' : ''));
       sh.fragmentShader = 'varying vec4 vMat;\n' + (see ? 'varying vec2 vSee;\n' : '') + sh.fragmentShader
         .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= vMat.x;' + (see ? ' diffuseColor.a *= vSee.x;' : ''))
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = vMat.y;')
@@ -560,6 +596,69 @@ SETS.table = function (K) {
   }
   const built = () => order.filter(k => minis.get(k).model).length;
 
+  // ---- every miniature at home in one mesh (a solid and a see-through one for the whole table), made once all are built
+  // (a few at a time): a miniature that is hovered, carried, moved or still gliding home is folded to a point there (uAway)
+  // and drawn as its own meshes instead; the 48 miniatures are two draws at rest, not about 90
+  const HM = { state: 0, parts: [], i: 0, A: null, o: { solid: 0, see: 0 } };
+  const _hv = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hs = new THREE.Vector3();
+  function homeStep(ms) {
+    if (HM.state === 2 || !MODELS || queue.length || built() < order.length || order.length > AWAY.length) return;
+    const t0 = performance.now();
+    if (HM.state === 0) {
+      const cnt = { solid: 0, see: 0 };
+      order.forEach((k, ix) => minis.get(k).model.traverse(o => {
+        if (!o.isMesh) return;
+        const kind = o.name === 'see' ? 'see' : 'solid';
+        HM.parts.push({ ix, kind, g: o.geometry, m: minis.get(k) }); cnt[kind] += o.geometry.attributes.position.count;
+      }));
+      HM.A = {};
+      for (const kind of ['solid', 'see']) HM.A[kind] = { n: cnt[kind], pos: new Float32Array(3 * cnt[kind]), nor: new Float32Array(3 * cnt[kind]), col: new Float32Array(3 * cnt[kind]),
+        am: new Float32Array(4 * cnt[kind]), as: kind === 'see' ? new Float32Array(2 * cnt[kind]) : null, mi: new Float32Array(cnt[kind]) };
+      HM.state = 1;
+    }
+    while (HM.i < HM.parts.length && performance.now() - t0 < ms) {
+      const p = HM.parts[HM.i++], A = HM.A[p.kind], G = p.g.attributes, n = G.position.count;
+      _hm.compose(p.m.home, p.m.homeQ, _hs.setScalar(MINI));
+      let o = HM.o[p.kind];
+      for (let i = 0; i < n; i++, o++) {
+        _hv.fromBufferAttribute(G.position, i).applyMatrix4(_hm).toArray(A.pos, 3 * o);
+        _hv.fromBufferAttribute(G.normal, i).applyQuaternion(p.m.homeQ).toArray(A.nor, 3 * o);
+        A.col[3 * o] = G.color.getX(i); A.col[3 * o + 1] = G.color.getY(i); A.col[3 * o + 2] = G.color.getZ(i);
+        for (let c = 0; c < 4; c++) A.am[4 * o + c] = G.aMat.array[4 * i + c];
+        if (A.as) { A.as[2 * o] = G.aSee.array[2 * i]; A.as[2 * o + 1] = G.aSee.array[2 * i + 1]; }
+        A.mi[o] = p.ix;
+      }
+      HM.o[p.kind] = o;
+    }
+    if (HM.i < HM.parts.length) return;
+    for (const kind of ['solid', 'see']) {
+      const A = HM.A[kind];
+      if (!A.n) continue;
+      const geo = keep(new THREE.BufferGeometry());
+      geo.setAttribute('position', new THREE.BufferAttribute(A.pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(A.nor, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(A.col, 3)); geo.setAttribute('aMat', new THREE.BufferAttribute(A.am, 4));
+      geo.setAttribute('aMini', new THREE.BufferAttribute(A.mi, 1));
+      if (A.as) geo.setAttribute('aSee', new THREE.BufferAttribute(A.as, 2));
+      geo.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geo, miniMat(kind === 'see', true));
+      mesh.name = 'home-' + kind; mesh.frustumCulled = false; if (kind === 'see') mesh.renderOrder = 1;
+      group.add(mesh); still(mesh);
+    }
+    HM.parts = []; HM.A = null; HM.state = 2;
+  }
+  // which miniatures are drawn on their own this frame
+  const _hd = new THREE.Vector3();
+  function awayStep() {
+    const home = HM.state === 2;
+    order.forEach((k, ix) => {
+      const m = minis.get(k);
+      if (!m.model) return;
+      const away = m.carry || !!m.rec || m.hover > 0.003 || Math.abs(m.s - 1) > 1e-3 || _hd.copy(m.holder.position).sub(m.home).lengthSq() > 1e-8;
+      AWAY[ix] = away ? 1 : 0;
+      m.model.visible = away || !home;
+    });
+  }
+
   // ---- hover, pick and the stage
   let hover = null, pick = null, stageModel = null, stageGrow = 0, stageTurn = 0;
   const stage = new THREE.Group();
@@ -577,7 +676,7 @@ SETS.table = function (K) {
     if (!k) return;
     buildOne(k);
     const m = minis.get(k);
-    if (m.model) { stageModel = m.model.clone(); stageModel.matrixAutoUpdate = true; stage.add(stageModel); stageGrow = 0; }
+    if (m.model) { stageModel = m.model.clone(); stageModel.visible = true; stageModel.matrixAutoUpdate = true; stage.add(stageModel); stageGrow = 0; }
     pickRing.material.color.set(storyCol(k));
   }
   let storyCol = () => '#ffffff';
@@ -634,6 +733,7 @@ SETS.table = function (K) {
       floor.visible = (S.table_floor === undefined ? 1 : S.table_floor) > 0.5;
       if (MODELS && queue.length) buildSome(5);
       glide(dt || 0);
+      homeStep(2); awayStep();
       marks();
       if (stageModel) {
         stageGrow = Math.min(1, stageGrow + (dt || 0) * 2.2);
@@ -1322,12 +1422,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -1387,32 +1509,45 @@ function xrSettings() {
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
-// a label's picture, shared by its sprite and its sign
-function labelTex(L) {
-  if (L.ltex) return L.ltex;
-  let bold, rest, cls;
-  if (L.txt) [bold, rest, cls] = L.txt;
-  else {
-    const b = L.el.querySelector('b');
-    bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
-  }
-  const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
-  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+// a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
+// sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
+// for it is made again, wider
+function labelWords(L) {
+  if (L.txt) return L.txt;
+  const b = L.el.querySelector('b'), bold = b ? b.textContent : '';
+  return [bold, L.el.textContent.slice(bold.length).trim(), ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || ''];
+}
+// the label drawn on cv at its left, its plate as wide as its words; fresh: cv sized for it (a function's label with room
+// to spare), else cleared and drawn again, or false when its words no longer fit
+function labelPaint(L, cv, fresh) {
+  const [bold, rest, cls] = labelWords(L), ctx = cv.getContext('2d'), px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   ctx.font = vfont(px, 700); const wb = bold ? ctx.measureText(bold).width : 0;
   ctx.font = vfont(px); const wr = rest ? ctx.measureText(rest).width : 0;
-  cv.width = Math.ceil(pad * 2 + wb + gap + wr); cv.height = H;
+  const w = Math.ceil(pad * 2 + wb + gap + wr);
+  if (fresh) { cv.width = L.fn ? Math.ceil(w * 1.3 + 40) : w; cv.height = H; }
+  else if (w > cv.width) return false;
+  else ctx.clearRect(0, 0, cv.width, H);
   const [col, acc] = LBL_STYLE[cls] || LBL_STYLE[''];
-  ctx.save(); rr(ctx, 0, 0, cv.width, H, 8); ctx.clip();
-  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, cv.width, H);
+  ctx.save(); rr(ctx, 0, 0, w, H, 8); ctx.clip();
+  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, w, H);
   if (acc) { ctx.fillStyle = acc; ctx.fillRect(0, 0, 5, H); }
   ctx.restore();
   ctx.textBaseline = 'middle'; ctx.fillStyle = col;
   ctx.font = vfont(px, 700); ctx.fillText(bold, pad, H / 2 + 1);
   ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
-  const tex = new THREE.CanvasTexture(cv);
+  return { cls };
+}
+function labelTex(L) {
+  if (L.ltex) return L.ltex;
+  const cv = document.createElement('canvas'), p = labelPaint(L, cv, true), tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 4;
-  return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
+  return (L.ltex = { tex, cv, aspect: cv.width / cv.height, tip: p.cls === 'tip' });
+}
+// a label whose words changed (labelText): its picture drawn again in place; too long for its canvas, dropped and made again
+function labelRedraw(L) {
+  const o = L.ltex;
+  if (!o) return;
+  if (labelPaint(L, o.cv, false)) o.tex.needsUpdate = true; else dropSprite(L);
 }
 // labels on top: a sprite turned to you, drawn over everything, beside its point
 function labelSprite(L) {
@@ -1737,14 +1872,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -1767,6 +1902,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 
@@ -2046,21 +2182,80 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
-function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
-  P.last = s; P.t = now;
+// redraw only when what the panel shows has changed (texture uploads are not free). Not while xrUpdate keeps it hidden (P.want false; v137;
+// the menu's Story tab shows the story's two panels, so those go on while it does: HOST.collab.mirroring, and a shell
+// without it keeps them going); a card of the Stories screen not drawn yet waits its turn, two first draws a frame at
+// most (XR.landN, counted from xrUpdate), so opening the screen is not sixteen cards and 35 MB in one frame; and a text
+// fade alone sends only the rows that moved (panelFade, panelSend)
+function panelTick(P, now, force) {
+  if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
+  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (P.cap && !P.nd && !force && XR.landN >= 2) return;
+  P.t = now;
+  const R = P.last && base === P.base && P.fb ? panelFade(P) : null;
+  P.last = s; P.base = base; P.fb = null;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   P.regions = [];
+  panelPaint(ctx, P);
+  P.nd = (P.nd || 0) + 1;
+  if (P.cap && P.nd === 1) XR.landN++;
+  if (!R) P.tex.needsUpdate = true; else if (R.length) panelSend(P, R);
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// text fades alone (v137; the part of a signature after \u0001, see sigMain): drawStoryPane keeps each element's band of
+// rows and the fades it follows (P.fb). The card is drawn whole into its canvas as ever (so it is exactly what a full
+// redraw makes), but only the rows of the elements whose fade moved are sent to the texture (panelSend, texSubImage2D
+// and the mipmaps), not the whole card (1.2 MP for every step of every line's fade). Null: send it whole (most of it moved)
+const FADE = { pad: 8, most: 0.85 };
+let FADECV = null;
+function panelFade(P) {
+  const R = [];
+  for (const b of P.fb) {
+    let moved = false;
+    for (const d of b.d) if (storyOpacity(d.el) !== d.q) moved = true;
+    if (!moved) continue;
+    const y0 = Math.max(0, Math.floor(b.y0 - FADE.pad)), y1 = Math.min(P.h, Math.ceil(b.y1 + FADE.pad)), last = R[R.length - 1];
+    if (y1 <= y0) continue;
+    if (last && y0 <= last[1] + last[3]) last[3] = Math.max(last[3], y1 - last[1]); else R.push([0, y0, P.w, y1 - y0]);
+  }
+  return R.reduce((n, r) => n + r[3], 0) > FADE.most * P.h ? null : R;
+}
+// the rows panelFade found, copied from the card's canvas to a small one and sent as they are
+function panelSend(P, R) {
+  const cv = FADECV = FADECV || document.createElement('canvas');
+  R.forEach((r, k) => {
+    if (cv.width !== r[2] || cv.height !== r[3]) { cv.width = r[2]; cv.height = r[3]; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, r[2], r[3]); c.drawImage(P.cv, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+    panelPatch(P, cv, r[0], r[1], k < R.length - 1);   // (its mipmaps made once, after the last)
+  });
+  P.faded = (P.faded || 0) + 1;
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card. A texture not on the GPU yet, or with the whole card still to go there, takes
+// it as it goes; one without WebGL2 (a mipmapped texture of any size) is sent whole
+function panelPatch(P, cv, x, y, noMip) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
+  } catch (e) { T.needsUpdate = true; }
 }
 
 // ------------------------------------------------------------ main panel --
@@ -2070,9 +2265,10 @@ function sigMain() {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
       if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
+      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
     }
     return s;
   }
@@ -2112,7 +2308,8 @@ function xrLandingCards() {
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
+    P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
     P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
@@ -2199,12 +2396,16 @@ const STY = {
 };
 function storyOpacity(el) {
   if (!XR.elInfo) { XR.elInfo = new Map(); ST.items.forEach(it => it.els.forEach(e => XR.elInfo.set(e.el, e))); }
-  const e = XR.elInfo.get(el);
-  return e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  const e = XR.elInfo.get(el), q = e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  if (FADEB && e) FADEB.d.push({ el, q });   // (drawStoryPane: the fades this element's band follows, panelFade)
+  return q;
 }
+let FADEB = null;
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
-  for (const el of it.sec.children) y = drawStoryEl(ctx, P, el, x, y, W, 1);
+  P.fb = [];   // (each element's band of rows and the fades it follows: panelFade)
+  for (const el of it.sec.children) { const b = FADEB = { y0: y, y1: y, d: [] }; y = drawStoryEl(ctx, P, el, x, y, W, 1); b.y1 = y; P.fb.push(b); }
+  FADEB = null;
   ctx.globalAlpha = 1;
 }
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
@@ -2389,7 +2590,7 @@ function drawAllPane(ctx, P, x, y, W, bottom) {
   });
 }
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint();
+  return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint();
 }
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
 const footHint = () => (HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Anchored: the models stay put (Place again in the menu to move things). Trigger or pinch on a model: on the stage.'
@@ -2683,7 +2884,7 @@ function init() {
       buildStory(); buildSetLabels(); buildTimeline();
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }

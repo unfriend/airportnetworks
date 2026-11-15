@@ -602,8 +602,8 @@ void main() {
       }
       for (; found < 2; found++) VA[2 * w + found] = 0;
     }
-    wPos.needsUpdate = wW.needsUpdate = true;
-    walkers.vp.needsUpdate = walkers.va.needsUpdate = true;
+    K.upload(wPos, wPos.count); K.upload(wW, wW.count);   // (only the stretch that changed goes to the card)
+    K.upload(walkers.vp, walkers.vp.count); K.upload(walkers.va, walkers.va.count);
   }
 
   // ---------------------------------------------------------------- one gene's neighbourhood: lines and a bubble
@@ -683,7 +683,7 @@ void main() { if (vA < 0.002) discard; gl_FragColor = vec4(vC, vA); }`));
     halo.mesh.visible = arcs.mesh.visible = gk > 0.003;
     if (gk > 0.003) {
       for (let s = 0; s < NS; s++) mpos(SEED[s], md, SCTR, 3 * s);
-      halo.g.attributes.aCtr.needsUpdate = true;
+      K.upload(halo.g.attributes.aCtr, halo.g.attributes.aCtr.count);
       halo.m.uniforms.uHaloR.value = 0.04 + 0.021 * Math.sqrt(kv);
       halo.m.uniforms.uHaloA.value = 0.5 * gk / (1 + kv / 25);
     }

@@ -438,6 +438,7 @@ void main() {
 }`,
   });
   set.mats.push(barMat);
+  K.solid(barMat);   // alpha is uA alone: solid at full fade
   const bars = new THREE.Mesh(boxGeo, barMat);
   bars.frustumCulled = false; bars.renderOrder = 6;
   set.group.add(bars);

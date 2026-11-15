@@ -91,6 +91,7 @@ SETS.section = function (K) {
       }
       const NN = Math.round(TX * TX * 0.03);
       for (let n = 0; n < NN; n++) {
+        if ((n & 255) === 255) yield;   // (at the top: the skips below once jumped over the yield, a slice of 30 ms and more)
         const x = (RS() * 2 - 1) * ext, y = (RS() * 2 - 1) * ext, e = inside(x, y);
         if (e < 0.004) continue;
         const cx = clamp(1 - e / 0.22, 0, 1);
@@ -103,7 +104,6 @@ SETS.section = function (K) {
           const k = 4 * (jj * TX + ii), a = 0.75;
           D[k] = D[k] * (1 - a) + col[0] * 255 * a; D[k + 1] = D[k + 1] * (1 - a) + col[1] * 255 * a; D[k + 2] = D[k + 2] * (1 - a) + col[2] * 255 * a;
         }
-        if ((n & 511) === 511) yield;
       }
       tex.needsUpdate = true;
     }
@@ -171,10 +171,11 @@ void main() {
     function* objects() {
       const RG = K.rng(o.seed + 3), B1 = L.builder(), B2 = L.builder(), F = L.builder(), MK = L.builder();
       // a ring of granulosa cells (beads), in layers from r0 to r1
-      const beadRing = (B, s, r0, r1, layers, sz, obj, cen, det) => {
+      const beadRing = function* (B, s, r0, r1, layers, sz, obj, cen, det) {   // (a generator: it yields after each layer)
         for (let l = 0; l < layers; l++) {
+          yield;
           const rl = r0 + (r1 - r0) * (layers === 1 ? 0.5 : l / (layers - 1)), n = Math.max(6, Math.round(2 * Math.PI * rl / (sz * 2.1)));
-          for (let k = 0; k < n; k++) { const a = (k + 0.5 * (l & 1)) / n * 6.283; B.add(det, { m: at(s.x + Math.cos(a) * rl, s.y + Math.sin(a) * rl, 0.004, [sz, sz * 0.85, sz * 0.7], a), col: mix(C.nucleus, C.nucleus2, RG() * 0.6), cen, obj }); }
+          for (let k = 0; k < n; k++) { const a = (k + 0.5 * (l & 1)) / n * 6.283; B.add(det, { m: at(s.x + Math.cos(a) * rl, s.y + Math.sin(a) * rl, 0.004, [sz, sz * 0.85, sz * 0.7], a), col: mix(C.nucleus, C.nucleus2, RG() * 0.6), cen, obj }); if (k % 30 === 29) yield; }
         }
       };
       let n = 0;
@@ -207,7 +208,7 @@ void main() {
           // fluid-filled antrum, its oocyte on a mound of cells; outside, a darker theca (fading with its follicle)
           if (q.stage === 'antral') {
             B2.add(DISC, { m: at(s.x, s.y, 0.001, [s.r * 0.74, s.r * 0.74, 1]), col: C.fluid, cen, obj });
-            beadRing(B2, s, s.r * 0.76, s.r * 0.97, 3, 0.0062, obj, cen, SPH1);
+            yield* beadRing(B2, s, s.r * 0.76, s.r * 0.97, 3, 0.0062, obj, cen, SPH1);
             const a = q.rot, mx = s.x + Math.cos(a) * s.r * 0.55, my = s.y + Math.sin(a) * s.r * 0.55;
             for (let k = 0; k < 22; k++) { const b = RG() * 6.283, d = Math.sqrt(RG()) * s.r * 0.24; B2.add(SPH0, { m: at(mx + Math.cos(b) * d, my + Math.sin(b) * d, 0.005, [0.0058, 0.005, 0.004]), col: C.nucleus, cen, obj }); }
             B2.add(SPH2, { m: at(mx, my, 0.01, [s.r * 0.16, s.r * 0.16, s.r * 0.1]), col: C.oocyte, cen, obj });
@@ -215,7 +216,7 @@ void main() {
             B2.add(SPH1, { m: at(mx + s.r * 0.03, my + s.r * 0.02, 0.014, [s.r * 0.05, s.r * 0.05, s.r * 0.03]), col: C.nucleus2, cen, obj });
           } else {
             const sec = q.stage === 'secondary', lay = sec ? 3 : 1, sz = sec ? 0.0055 : 0.0048, ro = sec ? 0.42 : 0.6;
-            beadRing(B2, s, s.r * (ro + 0.08), s.r * 0.95, lay, sz, obj, cen, SPH0);
+            yield* beadRing(B2, s, s.r * (ro + 0.08), s.r * 0.95, lay, sz, obj, cen, SPH0);
             B2.add(SPH1, { m: at(s.x, s.y, 0.004, [s.r * ro * 0.82, s.r * ro * 0.82, s.r * 0.3]), col: C.oocyte, cen, obj });
             B2.add(ZONA, { m: at(s.x, s.y, 0.002, [s.r * ro, s.r * ro, 0.02]), col: C.zona, cen, obj });
           }
@@ -229,13 +230,15 @@ void main() {
           B1.add(DISC, { m: at(s.x, s.y, 0.0015, [s.r * 0.92, s.r * 0.85, 1]), col: [0.95, 0.92, 0.96], cen, obj });
           MK.add(DISC, { m: at(s.x + s.r * 0.75, s.y + s.r * 0.35, 0.02, [s.r * 0.6, s.r * 0.45, 1]), edge: discEdge, cen, obj });
         }
-        if (++n % 10 === 0) yield;
+        yield;   // (every object: ten at a time was 60 to 110 ms when they were big follicles)
       }
-      const m1 = new THREE.Mesh(B1.geometry(), objMat);
+      const m1 = new THREE.Mesh(yield* B1.geometryGen(), objMat);
       yield;
-      const m2 = new THREE.Mesh(B2.geometry(), objMat);
+      const m2 = new THREE.Mesh(yield* B2.geometryGen(), objMat);
       yield;
-      const fades = new THREE.Mesh(F.geometry(), fadeMat), masks = new THREE.Mesh(MK.geometry(), maskMat);
+      const fades = new THREE.Mesh(yield* F.geometryGen(), fadeMat);
+      yield;
+      const masks = new THREE.Mesh(yield* MK.geometryGen(), maskMat);
       fades.renderOrder = 1; masks.renderOrder = 3;
       g.add(m1, m2, fades, masks);
     }
@@ -701,7 +704,7 @@ void main() {
   // ------------------------------------------------------------- update
   const hi = [0, 0, 0, 0, 0, 0], TIP = 70 * Math.PI / 180, invA = new THREE.Matrix4(), hv = new THREE.Vector3();
   function update(S, t, dt) {
-    if (!built) step(4);
+    if (!built) step(K.showMs(dt, 4));
     const age = clamp(S.section_age, 20, 70), pair = smooth(clamp(S.section_pair, 0, 1));
     ageNow = age; SA.age.value = age;
     // the pair: A shrinks to the left, B comes in on the right (both at 0.58 of A's size), from further right and behind

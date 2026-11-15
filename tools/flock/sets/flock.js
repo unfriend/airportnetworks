@@ -34,10 +34,34 @@ vec3 skyCol(vec3 d) {
   return c;
 }
 // the haze where the land meets the sky, in the direction d
-vec3 hazeCol(vec3 d) { return skyCol(normalize(vec3(d.x, 0.004, d.z))); }
+// (it depends on the heading alone, so it is baked once into a 512 x 1 picture, colours at a quarter of their value)
+uniform sampler2D uHaze;
+vec3 hazeCol(vec3 d) { return texture2D(uHaze, vec2(atan(d.z, d.x) * 0.15915494 + 0.5, 0.5)).rgb * 4.0; }
 `;
-  const U = { uSun: { value: SUN }, uSky: { value: 1 }, uLag: { value: 0 } };
+  // the haze as skyCol's formula gives it at y = 0.004 (below the cloud band, so no noise in it): JS twin of the shader's lines
+  const HAZE = (() => {
+    const N = 512, data = new Uint8Array(N * 4), mx = (a, b, t) => a + (b - a) * t;
+    const sun = new THREE.Vector3(0.18, 0.045, -1).normalize();
+    for (let i = 0; i < N; i++) {
+      const a = (i + 0.5) / N * TAU - Math.PI, d = new THREE.Vector3(Math.cos(a), 0.004, Math.sin(a)).normalize();
+      const y = Math.max(d.y, 0), s = Math.max(d.dot(sun), 0), low = Math.pow(1 - y, 6), py = Math.pow(y, 0.55);
+      const A = [0.82, 0.5, 0.48], B = [1.0, 0.62, 0.36], c0 = [0.33, 0.39, 0.6], c1 = [0.07, 0.11, 0.26];
+      const glow = Math.pow(s, 900) * 3 + Math.pow(s, 24) * 0.4 + Math.pow(s, 5) * 0.12, gc = [1.0, 0.72, 0.45];
+      for (let k = 0; k < 3; k++) {
+        let c = mx(c0[k], c1[k], py);
+        c = mx(c, mx(A[k], B[k], s * s), low * (0.45 + 0.55 * s));
+        c += gc[k] * glow;
+        data[i * 4 + k] = Math.round(clamp(c * 0.25, 0, 1) * 255);
+      }
+      data[i * 4 + 3] = 255;
+    }
+    const t = new THREE.DataTexture(data, N, 1, THREE.RGBAFormat);
+    t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; t.needsUpdate = true;
+    return t;
+  })();
+  const U = { uSun: { value: SUN }, uSky: { value: 1 }, uLag: { value: 0 }, uHaze: { value: HAZE } };
   const mat = o => { const m = new THREE.ShaderMaterial(o); set.mats.push(m); return m; };
+  const BG = [];    // the sky, land, trees and reeds: opaque once the sky is fully in (the sky first in the list, drawn last)
   const ENV = [];   // the sky, the land, the trees and the reeds: hidden in passthrough, where your room takes their place
 
   // sky dome
@@ -50,6 +74,7 @@ void main() { vec3 d = normalize(vD); gl_FragColor = vec4(skyCol(d), uA * uSky);
     });
     const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), m);
     sky.renderOrder = -2; sky.frustumCulled = false; set.group.add(sky); ENV.push(sky);
+    BG.push(sky);
   }
   // the land: a dark field running into the haze, a lake towards the sunset that mirrors the sky, a line of trees
   {
@@ -75,6 +100,7 @@ void main() {
     m.uniforms.uTimeW = K.U.uTime;
     const g = new THREE.CircleGeometry(880, 96).rotateX(-Math.PI / 2);
     const land = new THREE.Mesh(g, m); land.renderOrder = -1; land.frustumCulled = false; set.group.add(land); ENV.push(land);
+    BG.push(land);
     // the tree line: a ring of dark crowns of varying height, hazy with distance
     const R = rng(77), NS = 720, P = [], idx = [];
     for (let i = 0; i <= NS; i++) {
@@ -91,6 +117,7 @@ void main() {
 void main() { vec3 d = normalize(vW - cameraPosition); gl_FragColor = vec4(mix(vec3(0.03, 0.035, 0.05), hazeCol(d), 0.62), uA * uSky); }`,
     });
     const trees = new THREE.Mesh(tg, tm); trees.renderOrder = -1; trees.frustumCulled = false; set.group.add(trees); ENV.push(trees);
+    BG.push(trees);
   }
   // reeds and grass round where you stand, swaying (a sense of scale, and ground under your feet)
   {
@@ -118,6 +145,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   gl_FragColor = vec4(c, uA * uSky); }`,
     });
     const reeds = new THREE.Mesh(g, m); reeds.frustumCulled = false; set.group.add(reeds); ENV.push(reeds);
+    BG.push(reeds);
   }
 
   // ---------------------------------------------------------------- the birds: a live simulation
@@ -453,9 +481,19 @@ void main() {
   const params = { flock_a: 1, flock_birds: 200, flock_links: 0, flock_sky: 1, flock_falcon: 1, flock_hunt: 0 };
   let tLast = null, hunts = 0, tSim = 0, acc = 0;
   const SIM = 1 / 30;   // the flock moves in steps of a thirtieth of a second; between them the birds glide on (uLag)
+  // fully in, these are drawn opaque (no blending, depth written): the land and trees first, the sky last at the far
+  // plane, so it shades only what they leave open; fading, they blend as before
+  let bgOp = null;
+  function bgOpaque(on) {
+    if (on === bgOp) return;
+    bgOp = on;
+    for (const o of BG) { o.material.transparent = !on; o.material.depthWrite = on; }
+    BG[0].renderOrder = on ? 50 : -2;
+  }
   function update(S, t, dt) {
     const sky = U.uSky.value = clamp(S.flock_sky, 0, 1);
     for (const m of ENV) m.visible = sky > 0.003;
+    bgOpaque(sky * set.uA.value > 0.999);
     // without the sky (passthrough) the flock flies in your room, at a third of life size
     set.group.scale.setScalar(sky > 0.5 ? 1 : 0.3);
     // more or fewer birds: new ones join beside a bird already flying

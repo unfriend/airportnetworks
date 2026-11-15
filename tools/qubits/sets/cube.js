@@ -107,12 +107,13 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
   const NET = [];   // per network index: { built, an (found, random: 3-bit analyses), M: centroids per cut, pts, lns }
   const geneGroup = new THREE.Group();
   set.group.add(geneGroup);
+  const LAY = [];   // layouts made ahead by the warming below
   function buildNet(i) {
     if (NET[i]) return NET[i];
     const s = NETS[i], net = Q.network(s.key), n = net.n;
     const an = { found: Q.analyze(s.key, { L: 3, cut: 'found' }), random: Q.analyze(s.key, { L: 3, cut: 'random' }) };
     // the layout: force-directed in 3D, started from a loose ball (seeded)
-    const P = Q.layout(net, { dim: 3, iters: 45, seed: 7 + i });
+    const P = LAY[i] || Q.layout(net, { dim: 3, iters: 45, seed: 7 + i });
     for (let j = 0; j < P.length; j++) P[j] *= 0.78;
     // the centroids of each group at each level, per cut
     const M = {};
@@ -151,6 +152,27 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
     return (NET[i] = { an, M, pts, lns, m, linkA: Math.min(0.09, 0.09 * 4000 / m) });
   }
   buildNet(DEF);
+  // The rest is made ahead, a slice at a time (while the set is hidden, and a little each frame while it shows), so picking
+  // another network or another number of bits in explore finds its analysis made: the default network's (bits, cut)
+  // analyses first, then for each other network its cut, its analyses, its layout and its objects. (Each step is a couple
+  // of milliseconds here; the same results as asking for them at once.)
+  let WARM = null;
+  function* warmG() {
+    for (const i of [DEF, ...NETS.map((_, j) => j).filter(j => j !== DEF)]) {
+      const key = NETS[i].key;
+      yield* Q.cut3G(key, 'found'); Q.cut3(key, 'random'); yield;
+      for (const how of CUTS) for (const L of [3, 2, 1]) { Q.analyze(key, { L, cut: how }); yield; }
+      if (!LAY[i] && !NET[i]) LAY[i] = yield* Q.layoutG(Q.network(key), { dim: 3, iters: 45, seed: 7 + i });
+      buildNet(i); yield;
+    }
+  }
+  function warm(ms) {
+    if (WARM === false) return false;
+    if (!WARM) WARM = warmG();
+    const t0 = performance.now();
+    do { if (WARM.next().done) { WARM = false; return false; } } while (performance.now() - t0 < ms);
+    return true;
+  }
 
   // ---------------------------------------------------------------- the cut planes (a glowing sheet at each cut)
   const planeMat = () => {
@@ -265,6 +287,7 @@ void main() {
   const lessonOf = L => LESSON.filter(nm => !/\d/.test(nm) || Math.max(...nm.match(/\d/g).map(Number)) < L).map(nm => Q.parse(nm, L));
   function update(S, t, dt) {
     LK.depth();
+    if (WARM !== false) warm(1);   // (a little of the making ahead while it shows too)
     const ni = clamp(Math.round(S.cube_net), 0, NETS.length - 1), ci = clamp(Math.round(S.cube_cut), 0, 1);
     const bits = clamp(S.cube_bits, 0, 3), L = clamp(Math.round(bits), 1, 3), ai = Math.round(clamp(S.cube_algebra, 0, 1));
     const A = anOf(ni, ci, L);
@@ -466,7 +489,8 @@ void main() {
     params: { cube_a: 1, cube_net: DEF, cube_cut: 0, cube_genes: 0, cube_bits: 3, cube_ac: 1, cube_bricks: 0, cube_lesson: 0, cube_build: 0, cube_sum: 0,
       cube_alg: 0, cube_keep: 0, cube_algebra: 1, cube_focus: -1 },
     update, anchors, labels, cam, controls, explore,
-    finish() { NETS.forEach((_, i) => buildNet(i)); },
+    finish() { NETS.forEach((_, i) => buildNet(i)); WARM = false; },
+    idle: (dt, ms) => warm(ms === undefined ? 1 : ms),
     api: () => API,
   });
 };

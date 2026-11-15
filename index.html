@@ -797,13 +797,14 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 144, id: 'bdcb6e953a9375ae', format: 'networks-46' },
+  shell: { n: 145, id: '89814055adc5f5c2', format: 'networks-46' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
   makeRenderer(opts) {
     if (!this.renderer) {
-      this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(opts); } finally { this.quiet = false; }
+      // (v145: no stencil buffer unless a story asks for one: nothing here uses stencil, and a headset's layer pays for it)
+      this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(Object.assign({ stencil: false }, opts)); } finally { this.quiet = false; }
       // a story's start ends by giving the renderer its frame loop: it is built then, and a place kept across a swap
       // or a reload (HOST.built) goes back right after, before any other task (the shared room's pump) sees the story;
       // in a headset the shell's loading scene fades out over its first frames (HOST.loading.wrap)
@@ -1215,6 +1216,7 @@ HOST.audio = (function () {
       const k = A.files.keys().next().value, old = A.files.get(k);
       A.files.delete(k);
       if (old.blob && old.blob !== A.elBlob) URL.revokeObjectURL(old.blob);
+      old.buf = null;
     }
     return f;
   }
@@ -1244,6 +1246,7 @@ HOST.audio = (function () {
   // a story's narration: second t of the recording plays at story time t
   function narration(url, hooks) {
     hush();
+    if (A.cur) A.cur.buf = null;   // (v145: the old story's decoded narration, tens of MB, goes with it)
     const N = { url, hooks: hooks || {}, state: 'loading', decode: 'idle', duration: 0, buf: null,
       src: null, fade: null, ctx: null, from: 0, at: 0, seek: true, want: false, t: 0 };
     A.cur = N;
@@ -1264,7 +1267,9 @@ HOST.audio = (function () {
       if (err.message !== 'missing') note(url + ': ' + err.message);
       changed();
     });
-    startDecode(N);
+    // (v145: not decoded here: a story's narration is 17 to 121 MB once decoded, and a page or headset with the sound
+    // off, or the narration switched off, never plays it. N.sync decodes it the first time it is wanted and audible;
+    // until then the <audio> element has the bytes)
     // where in the recording the sound is now, or null while silent
     N.pos = () => {
       if (N.src) return N.from + (N.ctx.currentTime - N.at);
@@ -1277,6 +1282,7 @@ HOST.audio = (function () {
       if (A.cur !== N) return;
       check();
       if (N.state !== 'ok') return;
+      if (N.decode === 'idle' && !muted() && !voiceOff() && !away()) startDecode(N);   // (the first time it could be heard: now it is decoded, paused or playing)
       want = want && !muted() && !voiceOff() && !away() && (!N.duration || t < N.duration - 0.05);
       const e = engine(N);
       if (!want || e !== 'webaudio' || !running()) stopSource(N);
@@ -1316,7 +1322,8 @@ HOST.audio = (function () {
     if (N.state === 'loading') return 'Sound loading';
     if (engine(N) === 'webaudio') {
       if (A.bad.webaudio && A.pref === 'auto') return 'Sound unavailable'; // both engines are out
-      if (N.decode === 'loading' || N.decode === 'idle') return 'Sound loading';
+      if (N.decode === 'idle') return running() ? 'Sound on' : 'Play sound';   // (not decoded until it is wanted and audible)
+      if (N.decode === 'loading') return 'Sound loading';
       if (N.decode !== 'ok') return 'Sound unavailable';
       return running() ? 'Sound on' : 'Play sound';
     }
@@ -1556,7 +1563,7 @@ HOST.xr = (function () {
     if (HZ.api) try { list = Array.from(s.supportedFrameRates, Number).filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b); } catch (e) { list = []; }
     HZ.list = HZ.api ? list : null;
     if (!list.length) { HZ.asked = 0; hzLog('frame rate', { want: HZ.want, list: HZ.list, asked: 0, got: HZ.got, why, api: HZ.api }); return; }
-    const r = HZ.asked = hzPick(list, HZ.want), done = e => {
+    const r = HZ.asked = hzPick(list, AQ.auto && AQ.low ? Math.min(HZ.want, AQ.lowHz) : HZ.want), done = e => {
       if (HZ.s !== s) return;   // (a session gone meanwhile)
       if (e) HZ.err = String((e && (e.name || e.message)) || e);
       HZ.got = hzNow(s) || HZ.got;
@@ -1573,24 +1580,30 @@ HOST.xr = (function () {
   // 1, 0.9 or 0.8 of the browser's own; #scale=1|0.9|0.8 or 100|90|80): three.js r128's framebuffer scale, read as it makes
   // the layer, so set as each new session is first seen (watch, before the story hands it to three.js) and while none runs:
   // it applies from the next session
-  const FOVS = ['story', 0, 0.5, 1], SCALES = [1, 0.9, 0.8];
-  const FV = { v: 'story', layer: null, orig: null, set: null, seen: null }, SC = { v: 1, cur: 1 };
-  const fovOf = v => (v === 'story' ? 'story' : FOVS.find(x => x !== 'story' && Math.abs(x - +v) < 1e-6));
-  const scaleOf = v => { let n = +v; if (n > 2) n /= 100; return SCALES.find(x => Math.abs(x - n) < 1e-6); };
+  // v145 (the owner, 14 November 2026: "auto quality by default"): both are 'auto' by default, which is the automatic
+  // quality below; a value chosen by hand wins over it. Auto off (HOST.xr.setAuto): the story's foveation and a scale of 1,
+  // as before v145.
+  const FOVS = ['auto', 'story', 0, 0.5, 1], SCALES = ['auto', 1, 0.9, 0.8];
+  const FV = { v: 'auto', layer: null, orig: null, set: null, seen: null }, SC = { v: 'auto', cur: 1, next: 1 };
+  const fovOf = v => (v === 'story' || v === 'auto' ? v : FOVS.find(x => typeof x === 'number' && Math.abs(x - +v) < 1e-6));
+  const scaleOf = v => { if (v === 'auto') return 'auto'; let n = +v; if (n > 2) n /= 100; return SCALES.find(x => typeof x === 'number' && Math.abs(x - n) < 1e-6); };
   try {
     const f = localStorage.getItem('xrFov'), c = localStorage.getItem('xrScale');
     if (f !== null && fovOf(f) !== undefined) FV.v = fovOf(f);
     if (c !== null && scaleOf(c) !== undefined) SC.v = scaleOf(c);
+    if (localStorage.getItem('xrAqScale') === '0.9') SC.next = 0.9;
   } catch (e) { /* storage blocked */ }
   const presenting = () => { try { return !!(HOST.renderer && HOST.renderer.xr.isPresenting); } catch (e) { return false; } };
   function scaleSet() {
     const r = HOST.renderer;
     if (!r || !r.xr || typeof r.xr.setFramebufferScaleFactor !== 'function' || presenting()) return false;
-    r.xr.setFramebufferScaleFactor(SC.v);
+    r.xr.setFramebufferScaleFactor(scaleEff());
     return true;
   }
+  const scaleEff = () => (SC.v === 'auto' ? (AQ.auto ? SC.next : 1) : SC.v);
   function layerWatch(s) {
-    if (scaleSet()) SC.cur = SC.v;
+    if (scaleSet()) SC.cur = scaleEff();
+    aqSession(s);
     hzAsk(s, 'session');
     const q = HOST.quiet; HOST.quiet = true;   // (the shell's own listener: a story change never takes it)
     try {
@@ -1603,13 +1616,186 @@ HOST.xr = (function () {
     const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer;
     if (!bl || !('fixedFoveation' in bl)) return;
     if (bl !== FV.layer) { FV.layer = bl; FV.orig = FV.set = FV.seen = null; }
-    if (FV.v === 'story') {
+    const want = fovEff();
+    if (want === 'story') {
       if (FV.set !== null) { if (FV.orig !== null && bl.fixedFoveation === FV.seen) bl.fixedFoveation = FV.orig; FV.set = FV.seen = null; }
       return;
     }
-    if (FV.set === FV.v && bl.fixedFoveation === FV.seen) return;
+    if (FV.set === want && bl.fixedFoveation === FV.seen) return;
     if (FV.set === null) FV.orig = bl.fixedFoveation;
-    bl.fixedFoveation = FV.v; FV.set = FV.v; FV.seen = bl.fixedFoveation;
+    bl.fixedFoveation = want; FV.set = want; FV.seen = bl.fixedFoveation;
+  }
+  // ---- Automatic quality (v145; the owner, 14 November 2026: "auto quality by default", and a Quest 3S may drop to 72 Hz).
+  // A Quest has no variable refresh rate: a frame that is late is not shown late, the last one is shown again, and the
+  // picture judders. So a headset session watches its own frames and, when a scene is too heavy for the rate, gives up a
+  // little of the picture, one step at a time, and takes it back when the scene is light again.
+  //  - Frames: the session's own frame callback (the walk hook below calls aqFrame with the frame's time) measures the time
+  //    between frames. A frame is late when that is over 1.5 periods of the rate the session runs at now (hzNow). Not
+  //    counted: the first 1.5 s of a session, a story, a rate or a quality step; a story loading; the session not visible.
+  //  - Windows of 1 s: at 4 % late, or 1.5 % in two windows in a row, it steps down, unless the window is CPU-bound (the
+  //    story's script, which HOST.perf measures, over 0.6 of the period: less picture does not help the CPU): that is logged
+  //    as 'cpu' and not stepped. After 10 clean windows (under 1.5 % late) it steps back up; a step up that has to be taken
+  //    back within 15 s holds further steps up for 60 s. The step is kept per scene (sessionStorage).
+  //  - The ladder: L0 to L5 are the picture (fixed foveation 0.5, 0.75, 1, 1; the view's scale 1, 1, 1, 0.9, 0.8, 0.7, the
+  //    latter by requestViewportScale on the views of getViewerPose, in dress: without that API it stops at L2). The refresh
+  //    rate is one more step (90 to 72 Hz, where the session lists 72 and updateTargetFrameRate exists): the first step down
+  //    on a Quest 3S (rateStep 'first'; the owner accepts 72 Hz there), the last on any other headset ('last'), or none
+  //    ('never'); stepping up reverses it. Each step is logged as 'auto quality'.
+  //  - L4 or deeper for 30 s makes the next session's framebuffer 0.9 (Resolution auto); 2 minutes at L1 or lighter takes it back.
+  //  - Off (setAuto(false), #aq=off): the story's foveation and a scale of 1, as before.
+  const LV = [{ fov: 0.5, vs: 1 }, { fov: 0.75, vs: 1 }, { fov: 1, vs: 1 }, { fov: 1, vs: 0.9 }, { fov: 1, vs: 0.8 }, { fov: 1, vs: 0.7 }];
+  const AQ = { auto: true, lv: 0, low: false, lowHz: 72, why: '', vs: 1, vsSent: 1, vsApi: null, vp: null, vpLogged: false, s: null, key: null,
+    t: 0, skipUntil: 0, started: 0, win: null, bad: false, clean: 0, noUp: 0, upAt: -1e9, cpuAt: -1e9, deep: 0, light: 0, ring: [], rs: 'last', frames: 0, steps: 0, lowSent: false };
+  const AQT = { win: 1000, up: 10, hold: 60000, warm: 1500, settle: 1000, upFail: 15000, deep: 30000, light: 120000, rate: 2000, cpu: 0.6, late: 1.5, minN: 8 };
+  // a Quest 3S by what Quest Browser says about itself ('Quest 3S'; a 'Quest 3' is not one)
+  const rate3S = ua => /\bQuest\s?3S\b/i.test(String(ua === undefined ? (navigator.userAgent || '') : ua));
+  const RSTEPS = ['first', 'last', 'never'];
+  try {
+    AQ.auto = localStorage.getItem('xrAuto') !== 'off';
+    const r = localStorage.getItem('xrRateStep');
+    AQ.rs = RSTEPS.includes(r) ? r : (rate3S() ? 'first' : 'last');
+  } catch (e) { AQ.rs = rate3S() ? 'first' : 'last'; }
+  const fovEff = () => (FV.v === 'auto' ? (AQ.auto ? LV[AQ.lv].fov : 'story') : FV.v);
+  const rateCan = () => !!(HZ.api && HZ.list && HZ.list.includes(AQ.lowHz) && HZ.want > AQ.lowHz);
+  // the steps, lightest first: { lv, low }
+  function ladder() {
+    const top = AQ.vsApi === false ? 2 : 5, L = [];
+    for (let i = 0; i <= top; i++) L.push({ lv: i, low: false });
+    if (!rateCan() || AQ.rs === 'never') return L;
+    if (AQ.rs === 'first') return [L[0], { lv: 0, low: true }, ...L.slice(1).map(x => ({ lv: x.lv, low: true }))];
+    return [...L, { lv: top, low: true }];
+  }
+  const rateNow = s => hzNow(s) || HZ.got || HZ.asked || HZ.want || 72;
+  const aqKeep = () => { try { const o = JSON.parse(sessionStorage.getItem('aqLevels') || '{}'); if (AQ.key !== null) o[AQ.key] = [AQ.lv, AQ.low ? 1 : 0]; sessionStorage.setItem('aqLevels', JSON.stringify(o)); } catch (e) { /* storage blocked */ } };
+  const aqLoad = key => { try { const v = (JSON.parse(sessionStorage.getItem('aqLevels') || '{}'))[key]; return Array.isArray(v) ? { lv: Math.max(0, Math.min(5, v[0] | 0)), low: !!v[1] } : null; } catch (e) { return null; } };
+  function aqLog(act, o) { hzLog('auto quality', Object.assign({ act, level: AQ.lv, fov: fovEff(), vs: AQ.vs, rate: AQ.s ? rateNow(AQ.s) : 0, low: AQ.low, story: HOST.curKey || '' }, o)); }
+  // the quality now: the picture's values, and the rate when it changed
+  function aqApply(why, t) {
+    const L = ladder(), top = L[L.length - 1];
+    if (!L.some(x => x.lv === AQ.lv && x.low === AQ.low)) {   // (a step the ladder no longer has: the nearest)
+      const same = L.filter(x => x.low === AQ.low), pick = (same.length ? same : L).reduce((m, x) => (Math.abs(x.lv - AQ.lv) < Math.abs(m.lv - AQ.lv) ? x : m));
+      AQ.lv = pick.lv; AQ.low = pick.low;
+    }
+    AQ.vs = AQ.auto ? LV[AQ.lv].vs : 1;
+    AQ.why = why || AQ.why;
+    if (!AQ.auto) AQ.low = false;
+    if (AQ.lowSent !== AQ.low && HOST.session && HOST.session === AQ.s) { AQ.lowSent = AQ.low; try { hzAsk(AQ.s, 'auto quality'); } catch (e) { /* only asked */ } if (t !== undefined) AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.rate); }
+    return top;
+  }
+  function aqSession(s) {
+    if (AQ.s === s) return;
+    AQ.s = s; AQ.t = 0; AQ.skipUntil = 0; AQ.started = 0; AQ.win = null; AQ.bad = false; AQ.clean = 0; AQ.ring.length = 0; AQ.vsSent = 1; AQ.vsApi = null; AQ.vp = null; AQ.vpLogged = false; AQ.key = null; AQ.deep = AQ.light = 0;
+    AQ.lv = 0; AQ.low = false; AQ.vs = 1; AQ.lowSent = false;
+  }
+  const aqPeriod = s => 1000 / rateNow(s);
+  // the frame the session gives (the walk hook, before any callback draws): its time, ms
+  function aqFrame(s, t) {
+    if (s !== HOST.session) return;
+    if (AQ.s !== s) aqSession(s);
+    const prev = AQ.t; AQ.t = t;
+    if (!AQ.started) { AQ.started = t; AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.warm); }
+    // the scene: its step kept apart, and put back when it comes again
+    const key = HOST.curKey || '';
+    if (key !== AQ.key) {
+      if (AQ.key !== null) aqKeep();
+      AQ.key = key;
+      const st = aqLoad(key) || { lv: 0, low: false };
+      AQ.lv = st.lv; AQ.low = st.low; AQ.clean = 0; AQ.bad = false; AQ.win = null;
+      AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.warm);
+      aqApply('scene ' + key, t);
+    }
+    if (HOST.busy || s.visibilityState !== 'visible') { AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.warm); AQ.win = null; return; }
+    if (!prev || t <= prev) return;
+    const dt = t - prev, per = aqPeriod(s), late = dt > AQT.late * per;
+    if (t < AQ.skipUntil) { AQ.win = null; return; }
+    if (dt > 1000) return;
+    const e = { t, dt, late, js: -1, tri: 0, calls: 0 };
+    AQ.ring.push(e);
+    while (AQ.ring.length > 1 && t - AQ.ring[0].t > 10000) AQ.ring.shift();
+    if (dt > 250) return;   // (a stall, the next story or a system menu: in the numbers, not a reason to lower the picture)
+    const w = AQ.win || (AQ.win = { t0: t, n: 0, late: 0, js: 0, jsN: 0, max: 0 });
+    w.n++; if (late) w.late++; if (dt > w.max) w.max = dt;
+    if (t - w.t0 >= AQT.win) { AQ.win = null; aqWindow(s, t, w, per); }
+  }
+  function aqWindow(s, t, w, per) {
+    if (!AQ.auto || w.n < AQT.minN) return;
+    const frac = w.late / w.n, js = w.jsN ? w.js / w.jsN : 0, cpu = js > AQT.cpu * per;
+    const bad4 = frac >= 0.04, bad15 = frac >= 0.015;
+    const down = bad4 || (bad15 && AQ.bad);
+    AQ.bad = bad15;
+    // time at the deep and light ends, for the next session's framebuffer
+    if (AQ.lv >= 4) { AQ.deep += AQT.win; AQ.light = 0; } else if (AQ.lv <= 1 && !AQ.low) { AQ.light += AQT.win; AQ.deep = 0; } else AQ.deep = AQ.light = 0;
+    if (SC.v === 'auto') {
+      if (AQ.deep >= AQT.deep && SC.next !== 0.9) { SC.next = 0.9; try { localStorage.setItem('xrAqScale', '0.9'); } catch (e) { /* storage blocked */ } aqLog('scale', { next: 0.9, why: 'L4 or deeper for ' + Math.round(AQ.deep / 1000) + ' s: the next session is drawn at 0.9' }); }
+      else if (AQ.light >= AQT.light && SC.next !== 1) { SC.next = 1; try { localStorage.removeItem('xrAqScale'); } catch (e) { /* storage blocked */ } aqLog('scale', { next: 1, why: 'light for ' + Math.round(AQ.light / 1000) + ' s' }); }
+    }
+    const L = ladder(), i = L.findIndex(x => x.lv === AQ.lv && x.low === AQ.low);
+    if (down) {
+      AQ.clean = 0;
+      if (cpu) { if (t - AQ.cpuAt > 10000) { AQ.cpuAt = t; aqLog('cpu', { late: Math.round(frac * 1000) / 10, n: w.n, js: Math.round(js * 10) / 10, period: Math.round(per * 10) / 10, why: 'script ' + js.toFixed(1) + ' ms of ' + per.toFixed(1) + ' ms: not stepped' }); } AQ.why = 'cpu'; return; }
+      if (i < L.length - 1) {
+        const n = L[i + 1], from = { lv: AQ.lv, low: AQ.low };
+        if (t - AQ.upAt < AQT.upFail) AQ.noUp = t + AQT.hold;
+        AQ.lv = n.lv; AQ.low = n.low; AQ.bad = false; AQ.steps++;
+        aqApply((frac * 100).toFixed(1) + ' % of ' + w.n + ' frames late', t);
+        AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.settle);
+        aqKeep();
+        aqLog('down', { from: from.lv + (from.low ? 'r' : ''), late: Math.round(frac * 1000) / 10, n: w.n, js: Math.round(js * 10) / 10, period: Math.round(per * 10) / 10, why: AQ.why, hold: AQ.noUp > t ? Math.round((AQ.noUp - t) / 1000) : 0 });
+      } else AQ.why = 'at the lowest step';
+      return;
+    }
+    if (!bad15) AQ.clean++; else AQ.clean = 0;
+    if (AQ.clean >= AQT.up && i > 0 && t >= AQ.noUp) {
+      const n = L[i - 1], from = { lv: AQ.lv, low: AQ.low };
+      AQ.lv = n.lv; AQ.low = n.low; AQ.clean = 0; AQ.upAt = t; AQ.steps++;
+      aqApply('clean for ' + AQT.up + ' windows', t);
+      AQ.skipUntil = Math.max(AQ.skipUntil, t + AQT.settle);
+      aqKeep();
+      aqLog('up', { from: from.lv + (from.low ? 'r' : ''), n: w.n, why: AQ.why });
+    }
+  }
+  // the story's frame, from HOST.perf: script ms, triangles and draw calls
+  function aqStory(js, tri, calls) {
+    const e = AQ.ring.length ? AQ.ring[AQ.ring.length - 1] : null;
+    if (e && e.t === AQ.t) { e.js = js; e.tri = tri; e.calls = calls; }
+    if (AQ.win) { AQ.win.js += js; AQ.win.jsN++; }
+  }
+  // the views of a frame's viewer pose (dress, the walk hook): the view's scale asked for, when it is not 1 or has just gone back
+  function aqView(vp) {
+    const views = vp && vp.views;
+    if (!views || !views.length) return;
+    if (AQ.vsApi === null) AQ.vsApi = typeof views[0].requestViewportScale === 'function';
+    if (!AQ.vsApi) return;
+    const vs = AQ.vs;
+    if (vs === 1 && AQ.vsSent === 1) return;
+    for (let i = 0; i < views.length; i++) { try { views[i].requestViewportScale(vs); } catch (e) { AQ.vsApi = false; return; } }
+    AQ.vsSent = vs;
+    if (vs !== 1 && !AQ.vpLogged && ++AQ.frames > 3) {   // (what viewport came back, once)
+      AQ.vpLogged = true;
+      let vpt = null;
+      try { const bl = HOST.session.renderState.baseLayer, v = bl.getViewport(views[0]); vpt = [Math.round(v.width), Math.round(v.height), bl.framebufferWidth, bl.framebufferHeight]; } catch (e) { /* none */ }
+      AQ.vp = vpt;
+      aqLog('viewport', { api: true, asked: vs, viewport: vpt, why: 'requestViewportScale' });
+    }
+  }
+  const aqDress = () => AQ.vs !== 1 || AQ.vsSent !== 1 || (AQ.auto && AQ.vsApi === null);
+  // a 10 s ring of the session's frames: { p50, p95, max, late, n, js, jsMax, calls, tri, fov, vs, level, hz }, or null
+  function frameTimes() {
+    const R = AQ.ring, n = R.length;
+    if (!HOST.session || n < 5) return null;
+    const cnt = new Map(); let max = 0, late = 0, js = 0, jn = 0, jmax = 0, calls = 0, tri = 0;
+    for (const e of R) {
+      const b = Math.min(2000, Math.floor(e.dt * 2)); cnt.set(b, (cnt.get(b) || 0) + 1);
+      if (e.dt > max) max = e.dt; if (e.late) late++;
+      if (e.js >= 0) { js += e.js; jn++; if (e.js > jmax) jmax = e.js; calls += e.calls; tri += e.tri; }
+    }
+    const keys = [...cnt.keys()].sort((a, b) => a - b), pct = q => { let c = 0; for (const k of keys) { c += cnt.get(k); if (c >= q * n) return (k + 0.5) / 2; } return max; };
+    const r = x => Math.round(x * 10) / 10;
+    let fov = null; try { const bl = HOST.session.renderState.baseLayer; fov = bl && 'fixedFoveation' in bl ? bl.fixedFoveation : null; } catch (e) { /* none */ }
+    return { p50: r(pct(0.5)), p95: r(pct(0.95)), max: r(max), late, n, js: jn ? r(js / jn) : 0, jsMax: r(jmax), calls: jn ? Math.round(calls / jn) : 0, tri: jn ? Math.round(tri / jn) : 0, fov, vs: AQ.vs, level: AQ.lv, hz: rateNow(HOST.session) };
+  }
+  function aq() {
+    return { level: AQ.lv, fov: fovEff(), vs: AQ.vs, why: AQ.why, auto: AQ.auto, rate: AQ.s ? rateNow(AQ.s) : 0, low: AQ.low, rateStep: AQ.rs, vsApi: AQ.vsApi, steps: AQ.steps, next: SC.next, noUp: AQ.noUp > AQ.t ? Math.round(AQ.noUp - AQ.t) : 0, clean: AQ.clean };
   }
   const keepOwn = () => {
     try {
@@ -1743,6 +1929,32 @@ HOST.xr = (function () {
       FV.v = f;
       try { localStorage.setItem('xrFov', String(f)); } catch (e) { /* storage blocked */ }
     },
+    // automatic quality (v145): on by default (xrAuto, #aq=on|off); aq() { level, fov, vs, why, auto, rate, rateStep, ... };
+    // the refresh rate as a step of it ('first' on a Quest 3S, else 'last', or 'never': xrRateStep); frameTimes() the last
+    // 10 s of frames (shared.js logs it); aqTest({ win, up, hold, warm, settle, ... }) shortens its times for tests
+    auto: () => AQ.auto,
+    setAuto(on) {
+      AQ.auto = !!on;
+      try { localStorage.setItem('xrAuto', AQ.auto ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
+      aqApply(AQ.auto ? 'turned on' : 'turned off', AQ.t);
+    },
+    aq, frameTimes, aqFrame, aqView, aqStory, aqDress,
+    rate3S, rateStep: () => AQ.rs, rateSteps: () => RSTEPS.slice(),
+    setRateStep(v) {
+      if (!RSTEPS.includes(v)) return;
+      AQ.rs = v;
+      try { localStorage.setItem('xrRateStep', v); } catch (e) { /* storage blocked */ }
+      aqApply('rate step ' + v, AQ.t);
+    },
+    aqTest(o) {
+      if (o === null) { Object.assign(AQT, { win: 1000, up: 10, hold: 60000, warm: 1500, settle: 1000, upFail: 15000, deep: 30000, light: 120000, rate: 2000, cpu: 0.6, late: 1.5, minN: 8 }); }
+      else if (o && typeof o === 'object') {
+        for (const k of Object.keys(AQT)) if (o[k] > 0) AQT[k] = +o[k];
+        if (o.reset) { AQ.lv = 0; AQ.low = false; AQ.clean = 0; AQ.bad = false; AQ.noUp = 0; AQ.upAt = -1e9; AQ.cpuAt = -1e9; AQ.win = null; AQ.ring.length = 0; AQ.deep = AQ.light = 0; AQ.steps = 0; AQ.skipUntil = 0; try { sessionStorage.removeItem('aqLevels'); } catch (e) { /* storage blocked */ } aqApply('reset', AQ.t); }
+        if (o.next === 0.9 || o.next === 1) SC.next = o.next;
+      }
+      return Object.assign({}, AQT);
+    },
     fovs: () => FOVS.slice(),
     fovNow() { const s = HOST.session, bl = s && s.renderState && s.renderState.baseLayer; return bl && 'fixedFoveation' in bl ? bl.fixedFoveation : null; },
     scale: () => SC.v,
@@ -1873,7 +2085,7 @@ Object.assign(HOST.xr, (function () {
   function moves(space) {
     if (!space) return false;
     if (space.jointName !== undefined) return true;
-    try { for (const x of W.sess.inputSources) if (x && (x.targetRaySpace === space || x.gripSpace === space)) return true; } catch (e) { /* gone */ }
+    try { const L = W.sess.inputSources; for (let i = 0; i < L.length; i++) { const x = L[i]; if (x && (x.targetRaySpace === space || x.gripSpace === space)) return true; } } catch (e) { /* gone */ }   // (by index: no iterator made for every pose asked)
     return false;
   }
   // a frame's own methods, answering for three.js's reference space from the moved one (once per frame object)
@@ -1882,7 +2094,7 @@ Object.assign(HOST.xr, (function () {
     DRESSED.add(f);
     const gv = f.getViewerPose, gp = f.getPose, gj = f.getJointPose, fp = f.fillPoses;
     const sub = b => (W.space && b && b === W.base ? W.space : b);
-    if (typeof gv === 'function') f.getViewerPose = space => gv.call(f, sub(space));
+    if (typeof gv === 'function') f.getViewerPose = space => { const vp = gv.call(f, sub(space)); if (vp && HOST.xr.aqView) try { HOST.xr.aqView(vp); } catch (e) { /* never in the way */ } return vp; };   // (v145: the view's scale for the automatic quality)
     if (typeof gp === 'function') f.getPose = (space, base) => gp.call(f, space, W.space && base === W.base && moves(space) ? W.space : base);
     if (typeof gj === 'function') f.getJointPose = (joint, base) => gj.call(f, joint, sub(base));
     if (typeof fp === 'function') f.fillPoses = (spaces, base, out) => fp.call(f, spaces, sub(base), out);
@@ -1912,9 +2124,9 @@ Object.assign(HOST.xr, (function () {
     _f.normalize();
     const M = W.M, fx = _f.x, fz = _f.z;
     let list = [];
-    try { list = [...s.inputSources]; } catch (e) { /* gone */ }
-    for (const src of list) {
-      const gp = src && !src.hand && src.gamepad;
+    try { list = s.inputSources || []; } catch (e) { /* gone */ }
+    for (let li = 0; li < list.length; li++) {
+      const src = list[li], gp = src && !src.hand && src.gamepad;
       if (!gp || !gp.axes || gp.axes.length < 4) continue;
       if (W.grips.has(src) || pressed(gp, 1)) { W.flick.set(src, false); continue; }   // (its grip held: the stick is the story's)
       const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0;
@@ -1938,8 +2150,11 @@ Object.assign(HOST.xr, (function () {
   }
   function frame(s, t, f) {
     if (!f || typeof f !== 'object') return;
-    dress(f);
+    // (v145: dressed only while the travel is on or could be, or the automatic quality asks for a smaller view: a frame
+    // no one needs to answer for is left as it is)
+    if (W.space || W.on || (HOST.xr.aqDress && HOST.xr.aqDress())) dress(f);
     if (t === W.t) return;
+    if (HOST.xr.aqFrame) try { HOST.xr.aqFrame(s, t, f); } catch (e) { /* never in the way */ }
     const dt = W.t && t > W.t ? Math.min(0.1, (t - W.t) / 1000) : 0;
     W.t = t;
     step(s, f, dt);
@@ -2603,7 +2818,13 @@ HOST.inputsGuard = (function () {
     const s = HOST.session;
     if (!s) { if (G.s) { Object.assign(G, { s: null, seen: [], pend: null, hidden: false, visAt: 0 }); G.known.clear(); G.src.clear(); } return; }
     let now;
-    try { now = Array.from(s.inputSources || []); } catch (e) { return; }
+    try {
+      // (by index, and the array made only when the sources changed: nothing is allocated in a quiet frame)
+      const L = s.inputSources || [];
+      let eq = s === G.s && L.length === G.seen.length;
+      for (let i = 0; eq && i < L.length; i++) if (L[i] !== G.seen[i]) eq = false;
+      now = eq ? G.seen : Array.from(L);
+    } catch (e) { return; }
     if (s !== G.s) { begin(s); return; }
     G.frames++;
     if (!same(now, G.seen)) {
@@ -2662,17 +2883,22 @@ HOST.inputsGuard = (function () {
 
 HOST.perf = (function () {
   const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null };
-  const on = () => !!(HOST.session && HOST.xr.fps && HOST.xr.fps());
+  // the frame-rate read-out wants the counts (fps); since v145 so does the automatic quality, which judges whether a late
+  // frame was the script's (CPU-bound: less picture would not help) and sends the frame times home (HOST.xr.frameTimes)
+  const reads = () => !!(HOST.xr.fps && HOST.xr.fps());
+  const on = () => !!(HOST.session && reads());
+  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto())));
   function wrap(fn) {
     return function (t, f) {
       const r = HOST.renderer;
-      if (!r || !on()) { if (P.t0) P.t0 = P.n = P.js = P.tri = P.calls = 0; return fn(t, f); }
+      if (!r || !meas()) { if (P.t0) P.t0 = P.n = P.js = P.tri = P.calls = 0; return fn(t, f); }
       const I = r.info, ar = I.autoReset, t1 = performance.now();
       I.autoReset = false; I.reset();
       try { return fn(t, f); } finally {
         I.autoReset = ar;
         const t2 = performance.now();
         P.n++; P.js += t2 - t1; P.tri += I.render.triangles; P.calls += I.render.calls;
+        if (HOST.xr.aqStory) try { HOST.xr.aqStory(t2 - t1, I.render.triangles, I.render.calls); } catch (e) { /* never in the way */ }
         if (!P.t0) P.t0 = t2;
         else if (t2 - P.t0 >= 1000) { P.out = { tri: P.tri / P.n, calls: P.calls / P.n, js: P.js / P.n, n: P.n, at: t2 }; P.n = P.js = P.tri = P.calls = 0; P.t0 = t2; }
       }
@@ -2752,6 +2978,11 @@ HOST.run = function (meta, keepHash, place) {
   this.built = place ? () => this.putPlace(place) : null;
   this.cur = this.factories[meta.key](this);
   this.busy = false;
+  // (v145: the code of a story is kept for the one on show and the last two; the others' factories go, and with them
+  // everything their closures hold (the studio's is megabytes). HOST.fp stays, so a live update still knows a story was
+  // loaded here and fetches it fresh when it is opened again)
+  const rc = this.recent = [meta.key, ...(this.recent || []).filter(k => k !== meta.key)].slice(0, 3);
+  for (const k of Object.keys(this.factories)) if (!rc.includes(k) && !(this.live && this.live.pinned && this.live.pinned(k))) { delete this.factories[k]; delete this.loaded[k]; }
 };
 // a story asked for while another was loading
 HOST.next = function () {
@@ -3609,7 +3840,7 @@ HOST.live = (function () {
       if (!e || typeof e.fp !== 'string' || L.seen[key] === e.fp) continue;
       L.seen[key] = e.fp;
       // never loaded here: its next start fetches it (asked first if it needs a newer shell: allowed)
-      if (HOST.fp[key] === e.fp || !HOST.factories[key]) continue;
+      if (HOST.fp[key] === e.fp || !HOST.fp[key]) continue;   // (fp: loaded here once; its factory may have been let go, HOST.run: story() then marks it stale)
       if (me.id && +e.needs > me.n) { ask('needs', key); continue; }   // the old file runs on until a reload
       story(key, false);
     }
@@ -3624,8 +3855,15 @@ HOST.live = (function () {
   function quiet() {
     const c = HOST.cur && HOST.cur.collab, A = c && c.APP;
     if (!A || HOST.busy) return false;
+    // (v145: in a headset session explore mode and a paused story are not quiet moments: a swap there is a hitch of
+    // 100 ms or more in front of the person's eyes. Only the Stories screen, being away from every station or the shell's
+    // menu open are; otherwise the swap waits, and happens at the first of those or once the session has ended)
+    if (HOST.session) {
+      try { if (HOST.cur.peek('XR.stories')) return true; } catch (e) { /* no headset code */ }
+      try { if (HOST.room && HOST.room.away && HOST.room.away()) return true; } catch (e) { /* no room */ }
+      try { return !!(HOST.collab && HOST.collab.menu); } catch (e) { return false; }
+    }
     if (HOST.picking || A.mode !== 'story' || !A.playing) return true;
-    try { if (HOST.session && HOST.cur.peek('XR.stories')) return true; } catch (e) { /* no headset code */ }
     if (L.endsFor !== HOST.cur) { L.endsFor = HOST.cur; try { L.ends = HOST.cur.peek('CH.map(c => narrT(c.b))'); } catch (e) { L.ends = []; } }
     return (L.ends || []).some(e => A.t >= e && A.t < e + 1);
   }
@@ -3835,8 +4073,8 @@ HOST.live = (function () {
       if (first) L.shellSeen = sh;
       else if (Object.keys(sh).some(f => sh[f] !== L.shellSeen[f])) return reload('shell');
       if (!first) reread();
-      for (const [k, fp] of Object.entries(d.stories || {})) if (HOST.factories[k] && HOST.fp[k] !== fp) story(k, true);
-    } else if (type === 'story') { if (HOST.factories[d.key] && HOST.fp[d.key] !== d.fp) story(d.key, true); }
+      for (const [k, fp] of Object.entries(d.stories || {})) if (HOST.fp[k] && HOST.fp[k] !== fp) story(k, true);
+    } else if (type === 'story') { if (HOST.fp[d.key] && HOST.fp[d.key] !== d.fp) story(d.key, true); }
     else if (type === 'list') reread();
     else if (type === 'shell') { if (!L.shellSeen || L.shellSeen[d.file] !== d.fp) reload('shell'); }
     else if (type === 'build') {
@@ -3941,6 +4179,11 @@ HOST.live = (function () {
     // (tests: the countdown's and Not now's lengths, ms; null: as ever)
     times(o) { o = o || {}; L.cdMs = o.countdown > 0 ? o.countdown : 20000; L.holdMs = o.hold > 0 ? o.hold : 300000; },
     // may this story start? (one never loaded here that needs a newer shell is asked about first)
+    // (a loaded story whose newer file needs a newer shell keeps its factory: HOST.run does not drop it, it runs on in its old version)
+    pinned(key) {
+      const e = L.v && L.v.stories && L.v.stories[key], me = HOST.shell;
+      return !!(e && me && me.id && +e.needs > me.n);
+    },
     allowed(key) {
       const e = L.v && L.v.stories && L.v.stories[key], me = HOST.shell;
       if (HOST.factories[key] || !e || !me.id || !(+e.needs > me.n)) return true;
@@ -4049,6 +4292,7 @@ HOST.cards = function () {
   if (hp.has('hz')) HOST.xr.setHz(hp.get('hz'));   // (the refresh rate a headset session asks for: this headset's own)
   if (hp.has('fov')) HOST.xr.setFov(hp.get('fov'));   // (fixed foveation and resolution, developer experiments: this headset's own)
   if (hp.has('scale')) HOST.xr.setScale(hp.get('scale'));
+  if (hp.has('aq')) { const v = hp.get('aq'); if (v === 'on' || v === 'off') HOST.xr.setAuto(v === 'on'); }   // (the automatic quality, v145: this headset's own)
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');

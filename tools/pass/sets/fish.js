@@ -41,6 +41,7 @@ vec3 waterCol(vec3 d) {
 `;
   const U = { uSun: { value: SUN }, uWater: { value: 1 }, uLag: { value: 0 }, uTimeW: K.U.uTime };
   const mat = o => { const m = new THREE.ShaderMaterial(o); set.mats.push(m); return m; };
+  const BG = {};    // the dome, the surface and the seabed: opaque once the water is fully in (see update)
   const ENV = [];   // the water, the light, the seabed and the drifting specks: hidden in passthrough, where your room takes their place
   const FOG = 0.075;   // (how fast things fade into the blue with distance)
   let SNOWC = null;    // (the drifting specks stay round your head)
@@ -55,24 +56,28 @@ void main() { gl_FragColor = vec4(waterCol(normalize(vD)), uA * uWater); }`,
     });
     const dome = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24), m);
     dome.renderOrder = -3; dome.frustumCulled = false; set.group.add(dome); ENV.push(dome);
+    BG.dome = dome;
   }
   // the surface far above, rippling (seen from below it shines; from above, as the camera rises, it is a dark sea)
   {
     const m = mat({
-      uniforms: Object.assign({ uA: set.uA }, U), transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      uniforms: Object.assign({ uA: set.uA, uOp: { value: 0 } }, U), transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: `varying vec3 vW; void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
-      fragmentShader: WATER + `uniform float uA, uWater; varying vec3 vW;
+      fragmentShader: WATER + `uniform float uA, uWater, uOp; varying vec3 vW;
 void main() {
   vec3 v = vW - cameraPosition; float dist = length(v); vec3 d = v / dist;
   float rip = vno(vW.xz * 0.35 + uTimeW * 0.3) * 0.6 + vno(vW.xz * 0.9 - uTimeW * 0.45) * 0.4;
   vec3 c;
   if (d.y > 0.0) c = mix(vec3(0.3, 0.6, 0.66) + 0.25 * rip, waterCol(d), 1.0 - exp(-dist * 0.02));
   else c = mix(vec3(0.02, 0.09, 0.16) + 0.06 * rip, vec3(0.03, 0.08, 0.14), 1.0 - exp(-dist * 0.004));
-  gl_FragColor = vec4(c, uA * uWater * (d.y > 0.0 ? 0.75 : 1.0));
+  float al = uA * uWater * (d.y > 0.0 ? 0.75 : 1.0);
+  if (uOp > 0.5) { c = mix(waterCol(d), c, d.y > 0.0 ? 0.75 : 1.0); al = 1.0; }   // opaque: blend with the water by hand
+  gl_FragColor = vec4(c, al);
 }`,
     });
     const sfc = new THREE.Mesh(new THREE.CircleGeometry(420, 72).rotateX(Math.PI / 2), m);
     sfc.position.y = 15; sfc.renderOrder = -2; sfc.frustumCulled = false; set.group.add(sfc); ENV.push(sfc);
+    BG.sfc = sfc;
   }
   // the seabed far below: sand with the dancing light of the waves on it, fading into the blue; a few rocks and
   // tufts of seagrass under you (scale, and something below your feet)
@@ -94,6 +99,7 @@ void main() {
     });
     const bed = new THREE.Mesh(new THREE.CircleGeometry(300, 72).rotateX(-Math.PI / 2), m);
     bed.position.y = BED; bed.renderOrder = -1; bed.frustumCulled = false; set.group.add(bed); ENV.push(bed);
+    BG.bed = bed;
   }
   // rocks and seagrass: lit by the water's own light (from above), fading into the blue
   const litMat = (colA, colB, sway) => mat({
@@ -142,8 +148,8 @@ void main() { vec3 v = vW - cameraPosition; float dist = length(v);
   // light from the surface: slanted shafts along the sun's direction, soft at their edges, swaying and flickering
   {
     const R = rng(23), geos = [], rot = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), SUN));
-    for (let i = 0; i < 18; i++) {
-      const r = 3 + R() * 22, a = R() * TAU, rad = 0.5 + R() * 2.2, len = 34;
+    for (let i = 0; i < 8; i++) {   // (eight wide shafts: eighteen thin ones were four or five full-view layers)
+      const r = 3 + R() * 22, a = R() * TAU, rad = (0.5 + R() * 2.2) * 1.5, len = 34;
       const g = new THREE.CylinderGeometry(rad, rad * 1.35, len, 16, 1, true).translate(0, len / 2 - 14, 0);
       const s = new Float32Array(g.attributes.position.count).fill(R() * 10);
       g.setAttribute('aS', new THREE.BufferAttribute(s, 1));
@@ -152,7 +158,7 @@ void main() { vec3 v = vW - cameraPosition; float dist = length(v);
     }
     const g = K.merge(geos);
     const m = mat({
-      uniforms: Object.assign({ uA: set.uA, uTime: K.U.uTime }, U), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      uniforms: Object.assign({ uA: set.uA, uTime: K.U.uTime }, U), transparent: true, depthWrite: false, side: THREE.FrontSide, blending: THREE.AdditiveBlending,
       vertexShader: `attribute float aS; uniform float uTime; varying vec3 vW, vN; varying float vS;
 void main() { vec3 p = position; p.x += 0.6 * sin(uTime * 0.21 + aS); p.z += 0.5 * sin(uTime * 0.17 + aS * 1.7);
   vW = (modelMatrix * vec4(p, 1.0)).xyz; vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vS = aS;
@@ -163,7 +169,7 @@ void main() { vec3 v = normalize(cameraPosition - vW);
   float h = smoothstep(-12.0, 14.0, vW.y);                                     // stronger towards the surface
   float fl = 0.65 + 0.35 * sin(uTime * 0.6 + vS * 3.0) * sin(uTime * 0.37 + vS);
   float near = smoothstep(0.6, 3.0, length(cameraPosition - vW));               // none right in your eyes
-  gl_FragColor = vec4(vec3(0.45, 0.8, 0.8), uA * uWater * face * h * fl * near * 0.075); }`,
+  gl_FragColor = vec4(vec3(0.45, 0.8, 0.8), uA * uWater * face * h * fl * near * 0.12); }`,
     });
     const shafts = new THREE.Mesh(g, m);
     shafts.renderOrder = 4; shafts.frustumCulled = false; set.group.add(shafts); ENV.push(shafts);
@@ -755,10 +761,14 @@ void main() {
   const lg = K.linesGeo(MAXN * KMAX), lm = K.lines(set, { additive: true }), net = new THREE.LineSegments(lg, lm);
   net.frustumCulled = false; net.renderOrder = 3; set.group.add(net);
 
+  // send only the fish in use (r128 keeps an updateRange until it is changed), not all 600 slots
+  function fishSend() {
+    for (const a of [aP, aV, aB]) { a.updateRange.offset = 0; a.updateRange.count = N * 3; a.needsUpdate = true; }
+  }
   function draw(S) {
     for (let i = 0; i < N; i++) { FL_I[i * 3] = BK[i]; FL_I[i * 3 + 1] = Math.max(FL[i], AL[i] * 0.18); FL_I[i * 3 + 2] = PH[i]; }
     fg.instanceCount = N;
-    aP.needsUpdate = aV.needsUpdate = aB.needsUpdate = true;
+    fishSend();
     const la = clamp(S.fish_links, 0, 1);
     net.visible = la > 0.01;
     if (net.visible) {
@@ -776,7 +786,9 @@ void main() {
         }
       }
       lg.setDrawRange(0, n * 2);
-      lg.attributes.position.needsUpdate = true; lg.attributes.aA.needsUpdate = true; lg.attributes.aCol.needsUpdate = true;
+      const at = lg.attributes;   // only the segments in use go to the GPU, and a colour or alpha only when it changed
+      at.position.updateRange.offset = 0; at.position.updateRange.count = n * 6; at.position.needsUpdate = true;
+      K.upload(at.aCol, n * 2); K.upload(at.aA, n * 2);
     }
   }
 
@@ -800,9 +812,20 @@ void main() {
   const params = { fish_a: 1, fish_n: 300, fish_k: 7, fish_links: 0, fish_water: 1, fish_shark: 0, fish_hunt: 0, fish_scale: 1 };
   let tLast = null, hunts = 0, tSim = 0, acc = 0, SCL = 1;
   const SIM = 1 / 30;   // the school moves in steps of a thirtieth of a second; between them the fish glide on (uLag)
+  // the three backgrounds drawn opaque while fully in: no blending, depth written, so the dome (last of the opaque,
+  // at the far plane) shades only what the surface and the seabed leave open, and nothing is sorted behind them
+  let bgOp = null;
+  function bgOpaque(on) {
+    if (on === bgOp) return;
+    bgOp = on;
+    for (const k of ['dome', 'sfc', 'bed']) { const m = BG[k].material; m.transparent = !on; m.depthWrite = on; }
+    BG.dome.renderOrder = on ? 50 : -3;
+    BG.sfc.material.uniforms.uOp.value = on ? 1 : 0;
+  }
   function update(S, t, dt) {
     const water = U.uWater.value = clamp(S.fish_water, 0, 1);
     for (const m of ENV) m.visible = water > 0.003;
+    bgOpaque(water * set.uA.value > 0.999);
     // without the water (passthrough) the school swims in your room, at a third of life size, shrunk round your eyes
     // (round the floor it swam at knee height)
     SCL = Math.max(1e-4, S.fish_scale === undefined ? 1 : S.fish_scale);
@@ -828,7 +851,7 @@ void main() {
     acc = Math.min(acc + d, 0.2);
     let stepped = false;
     while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff); stepped = true; }
-    if (stepped) draw(S); else if (aligned) aP.needsUpdate = aV.needsUpdate = true;
+    if (stepped) draw(S); else if (aligned) fishSend();
     U.uLag.value = acc;
     poseSharks(d, acc);
     SNOWC.set(ME.head[0], ME.head[1], ME.head[2]);

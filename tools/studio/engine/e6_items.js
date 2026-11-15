@@ -226,7 +226,7 @@ function makeItem(id, kind) {
   const it = { id, kind, rec: null, holder: null, a: 0, sa: 0, fa: 0, shown: false, heard: false, first: true, shownAt: performance.now(), gl: null, carry: false, act: false, since: 0, inside: false, ended: false };
   if (kind === 'o') {
     it.holder = new THREE.Group();
-    it.slot = new THREE.Group(); it.holder.add(it.slot);
+    it.slot = new THREE.Group(); it.slot.matrixAutoUpdate = false; it.holder.add(it.slot);   // (never moved: its identity matrix stands)
     it.grey = LOOKS.grey(); GL.items.add(it.grey.group);
     it.grey.group.userData.id = id;
     it.greyHit = new THREE.Mesh(BOX1, HIDDEN); it.greyHit.scale.setScalar(0.4); it.greyHit.position.y = 0.2; it.greyHit.userData.id = id;
@@ -390,6 +390,7 @@ function buildModel(it) {
   applyLight(it);
   if (cutsOn(it.id).length) cutPrep(it);   // (its cut-outs' addition to its materials, compiled with them below)
   warmModel(c.o);
+  warmQueue(it);   // (a model a cube hides now, or one out of view, goes to the GPU before it shows: its pictures and triangles, a little a frame)
   if (it.fresh) placeFresh(it, it.fresh);
 }
 // its shaders compiled now (with the scene's lights, as when drawn), so a cube that shows it later does not stall the
@@ -399,6 +400,55 @@ function warmModel(o) {
   try { sc.children = GL.scene.children.filter(x => x.isLight).concat(o); GL.renderer.compile(sc, GL.camera); } catch (e) { /* compiled when first drawn */ }
   sc.children = [];
 }
+// A model goes to the GPU as soon as it is built, a little a frame (v137's lane D, studio-3), whether a cube hides it or it is out of view: else the frame that shows
+// it uploads its geometry (a 400k-triangle scan, about 11 MB) and its pictures (a 4,096 px picture, 85 MB with its mipmaps)
+// at once, a hitch of 50 to 150 ms on a Quest. Each frame, at most one picture (initTexture: its mipmaps too) or the next
+// meshes up to about 150k triangles (drawn once, all together, into a 1 x 1 target of their own, never culled: the upload
+// happens as a mesh is drawn); a model changed or removed meanwhile leaves the queue
+const WUP = { q: [], rt: null, cam: null, sc: null, last: null, n: 0, texN: 0, drawN: 0, tris: 150000 };
+function warmQueue(it) {
+  if (!it.model || AWAY.freed || !(GL.renderer && GL.renderer.xr.isPresenting)) return;   // (a headset's hitch: a page's first view uploads as it draws)
+  WUP.q = WUP.q.filter(w => w.it !== it);
+  WUP.q.push({ it, model: it.model, texs: null, meshes: null });
+}
+function warmTextures(it) {
+  const set = new Set();
+  for (const m of it.model.meshes) for (const mat of [].concat(m.userData.lit || [])) for (const k of TEX_KEYS) { const t = mat && mat[k]; if (t && t.isTexture && t.image) set.add(t); }
+  return [...set];
+}
+function warmUpStep() {
+  if (!WUP.q.length || !GL.renderer || XR.stories) return;
+  let w = WUP.q[0];
+  while (w && (STU.items.get(w.it.id) !== w.it || w.it.model !== w.model || !w.it.model)) { WUP.q.shift(); w = WUP.q[0]; }
+  if (!w) return;
+  const R = GL.renderer;
+  if (!w.texs) { w.texs = warmTextures(w.it); w.meshes = w.model.meshes.filter(m => m.geometry && m.visible !== false); }
+  if (w.texs.length) { const t = w.texs.shift(); try { R.initTexture(t); WUP.texN++; } catch (e) { /* uploaded when first drawn */ } return; }
+  const take = []; let tris = 0;
+  while (w.meshes.length && (!take.length || tris < WUP.tris)) {
+    const m = w.meshes.shift(), g = m.geometry;
+    tris += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3;
+    take.push(m);
+  }
+  if (take.length) warmDraw(take);
+  if (!w.meshes.length) { WUP.q.shift(); WUP.n++; }
+}
+function warmDraw(meshes) {
+  const R = GL.renderer;
+  if (!WUP.rt) { WUP.rt = new THREE.WebGLRenderTarget(1, 1); WUP.cam = new THREE.PerspectiveCamera(60, 1, 0.01, 100); WUP.sc = new THREE.Scene(); }
+  const sc = WUP.sc, was = R.getRenderTarget(), xr = R.xr.enabled, cc = R.getClearColor(new THREE.Color()), ca = R.getClearAlpha(), cull = meshes.map(m => m.frustumCulled);
+  try {
+    sc.children = GL.scene.children.filter(x => x.isLight).concat(meshes);
+    meshes.forEach(m => { m.frustumCulled = false; });
+    R.xr.enabled = false; R.setRenderTarget(WUP.rt); R.render(sc, WUP.cam);
+    WUP.drawN += meshes.length;
+  } catch (e) { /* drawn (and uploaded) when first shown */ } finally {
+    meshes.forEach((m, i) => { m.frustumCulled = cull[i]; });
+    sc.children = [];
+    R.setRenderTarget(was); R.xr.enabled = xr; R.setClearColor(cc, ca);
+  }
+}
+function warmUpDispose() { WUP.q = []; if (WUP.rt) { WUP.rt.dispose(); WUP.rt = null; } for (const x of EW.keep) try { x.dispose(); } catch (e) { /* gone */ } EW.keep = []; }
 // a file placed for the first time here: its units and up axis as its starting scale and turn, its lowest point on the
 // floor with its middle where it was put, lit or as scanned, its first clip (stored in the record from then on)
 function placeFresh(it, at) {
@@ -522,7 +572,7 @@ const _hp = new THREE.Vector3(), _kp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
   if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
-  if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateMatrixWorld(true); return GL.world.worldToLocal(out.copy(XR.head)); }
+  if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateWorldMatrix(true, false); return GL.world.worldToLocal(out.copy(XR.head)); }   // (its parents and itself: worldToLocal needs no more, the frame's own walk did the rest)
   if (APP.mode === 'explore' && X.view === 'walk') return out.copy(WALK.pos);
   return null;
 }
@@ -538,11 +588,15 @@ const shownHere = it => !it.rec || !it.rec.shows || it.rec.shows === sessKind();
 // the later of two entries (a cube's: { since, id }): by the entry time, then the id, the same on every device
 const enteredLater = (a, b) => !b || a.since > b.since || (a.since === b.since && a.id > b.id);
 const LISTS = { rev: -1, shown: new Set(), all: false };
+const _trS = new Map(), _trH = new Map();
 function triggerStep(now) {
-  const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
+  const hp = headPoint(_hp), S = _trS, H = _trH, away = !STU.head && xrAway();
+  S.clear(); H.clear();   // (the two maps reused each frame)
   if (LISTS.rev !== STU.rev) {
     LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
-    for (const c of STU.items.values()) if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; }
+    let hides = false;
+    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; }
+    try { if (LISTS.hides !== hides || LISTS.hides === undefined) { LISTS.hides = hides; if (GL.sets && GL.sets.stage && GL.sets.stage.late) GL.sets.stage.late(!hides); } } catch (e) { /* the stage as it was */ }   // (the stage after the items unless a shape hides things)
   }
   // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
   // ts - off; the heads only while a cube works for everyone)
@@ -734,6 +788,7 @@ const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 const heldHere = it => !!it.carry || recording(it);
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
+  awayArm(); if (AWAY.freed) awayStep();   // (the away timer begun once; a model freed while away loaded again on the first frame back)
   paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
@@ -785,6 +840,8 @@ function itemsStep(dt, now) {
     else if (it.kind === 'd') paintItemStep(it, editing);   // (its meshes, built in slices; its look and tag: e6r_paint.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
+  warmEdit(editing ? 'edit' : 'sess'); warmEditStep();   // (a headset's first frames, or the first frames of editing there: what is drawn then, compiled a program a frame, once)
+  warmUpStep();   // (a hidden model's pictures and triangles to the GPU, a little a frame)
   texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
@@ -928,6 +985,46 @@ function editLooks() {
   GL.edit.add(GL.links);
   // the looks' tags and lines drawn together, each time the scene is drawn (LOOKS.batch: a few draws in place of one each)
   LOOKS.batch(GL.scene, GL.renderer);
+}
+// what editing draws the first time, compiled early (a link is 20 to 100 ms on a Quest: here in the first frame editing is on, in itemsStep, and as Edit is pressed, not in the frame that first draws a tag or a ghost): on a
+// stand-in scene with the lights, one object for each program: the batched lines (vertex colours) and plain lines, the tags'
+// shader, the ghosts' Lambert and flat Phong, plain meshes (rings, balls, outlines) and the shell's sheets (a map, both
+// sides, which its menu and notices first draw in a session). The materials stay (a program is dropped with its last
+// material), freed with the scene (warmUpDispose); never for a visitor's kiosk
+const EW = { edit: false, sess: false, keep: [], q: [], geo: null };
+// (what: 'edit', everything above; 'sess', only the plain meshes and the sheets, which a headset's first frames draw whether or
+// not it is editing: the menu, the notices, the cards. Only in a headset session, where a link is a hitch; a page compiles as
+// it draws. The programs go into a queue and are made one a frame, warmEditStep, so no frame carries all of them)
+function warmEdit(what) {
+  const edit = what !== 'sess';
+  if ((edit ? EW.edit : EW.sess) || OPT.visit || !GL.renderer || !GL.scene || !GL.renderer.xr.isPresenting) return;
+  if (edit) EW.edit = EW.sess = true; else EW.sess = true;
+  try {
+    if (!EW.geo) {
+      const c = document.createElement('canvas'); c.width = c.height = 2;
+      const lg = new THREE.BufferGeometry(), tg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0.001], 3)); lg.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1], 3));
+      tg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.001, 0, 0, 0, 0.001, 0], 3)); tg.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+      tg.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+      EW.geo = { lg, tg, tex: new THREE.CanvasTexture(c) };
+      EW.keep.push(lg, tg, EW.geo.tex);
+    }
+    const G = EW.geo;
+    const mk = [() => new THREE.MeshBasicMaterial({ map: G.tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), () => new THREE.MeshBasicMaterial({ color: 0x46d9ff }), () => new THREE.MeshBasicMaterial({ color: 0x46d9ff, side: THREE.DoubleSide })];
+    if (edit) mk.push(() => new THREE.LineBasicMaterial({ vertexColors: true }), () => LOOKS.warmTag(), () => new THREE.MeshLambertMaterial({ color: GHOST.col }));   // (the batched lines, the tags and a ghost's Lambert: what editing a moving model draws; the flat Phong of a model with no normals waits for its first ghost)
+    EW.q.push(...mk);
+  } catch (e) { /* compiled when first drawn */ }
+}
+function warmEditStep() {
+  if (!EW.q.length || !EW.geo || !GL.renderer || GL.gone) return;
+  try {
+    const m = EW.q.shift()(), o = m.isLineBasicMaterial ? new THREE.LineSegments(EW.geo.lg, m) : new THREE.Mesh(EW.geo.tg, m), sc = new THREE.Scene();
+    o.frustumCulled = false;
+    sc.children = GL.scene.children.filter(x => x.isLight).concat(o);
+    GL.renderer.compile(sc, GL.camera);
+    sc.children = [];
+    EW.keep.push(m);   // (a program is dropped with its last material: these stay until the scene goes)
+  } catch (e) { /* compiled when first drawn */ }
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {
@@ -1141,6 +1238,67 @@ function streamDrop(it) {
 }
 function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
 
+// ---------------------------------------------------------------- away --
+// While this headset is away from the studio's station (in the lobby: xrAway) the frame idles after a second (e8_xr.js), so
+// nothing else would ever stop what still runs, and a big scene would keep its memory for as long as the headset sits in
+// the lobby. A timer of its own (the frame is not there to count): `stop` after away, every sound's source and the
+// screens' elements stopped and paused (not left to the emitters' own 0.7 s after their fade, which the idle frame cuts
+// short); `drop` later (20 s), the streams' elements and the screens' elements and textures let go (they come back by
+// themselves as the headset does); `free` later still (2 minutes), the models' GPU copies and memory (geometries, textures,
+// the parsed file's pictures) and the decoded sounds: the records, the layout, the small looks and the file list stay, so
+// nothing is written to the room, no Undo step is made and Unsaved changes never moves. Back at the station every model is
+// loaded again as on opening the scene (a grey box and its loading line meanwhile) and the sounds decoded as they are wanted.
+// Never while work on this device is under way (a recording, an upload, a conversion, a preview, a stroke, a scan): it waits.
+// The times are in ms; STUDIO.away({ stop, drop, free, force }) sets them for tests (force: true or false stands in for xrAway)
+const AWAY = { stop: 600, drop: 20000, free: 120000, force: null, t0: 0, st: 0, freed: false, timer: 0, frees: 0, wakes: 0, freedAt: 0 };
+const awayNow = () => !!STU.scene && !GL.gone && (AWAY.force !== null ? !!AWAY.force : xrAway());
+function awayBusy() {
+  try { return !!(REC || UP.busy || CV.busy || NS.making || FT.busy || FT.saving || FT.pv || CT.busy || CT.saving || PV.make || VW.open || PAINT.drawing || SCAN.busy); } catch (e) { return false; }
+}
+function awayFree() {
+  for (const E of LIB.values()) {
+    if (!E.root || E.state !== 'ready') continue;
+    for (const id of E.users) { const it = STU.items.get(id); if (it && it.model) { if (GH.has(id)) ghostDrop(id); dropModel(it); } }
+    disposeTree(E.root, true);
+    E.root = null; E.state = 'idle'; E.gen++; E.decoded = [];
+  }
+  sndForget();
+  AWAY.freed = true; AWAY.frees++; AWAY.freedAt = performance.now();
+  STU.libRev++;   // (the panes' lines say 'waiting' meanwhile; nothing else of the scene changes)
+}
+function awayWake() {
+  AWAY.freed = false; AWAY.wakes++;
+  for (const E of LIB.values()) if (E.users.size && E.state === 'idle' && STU.fileMap.has(E.path)) libLoad(E);
+  for (const it of STU.items.values()) if (it.kind === 's') it.F = snd(it.rec.file);   // (decoded again as it is wanted)
+  STU.libRev++; dirty();
+}
+function awayStep() {
+  const now = performance.now();
+  if (!awayNow()) {
+    if (AWAY.t0 || AWAY.freed) { const was = AWAY.freed; AWAY.t0 = 0; AWAY.st = 0; if (was) awayWake(); }
+    return;
+  }
+  if (!AWAY.t0) AWAY.t0 = now;
+  const d = now - AWAY.t0;
+  if (AWAY.st < 1 && d >= AWAY.stop) {
+    AWAY.st = 1;
+    emitAll(false);
+    for (const it of STU.items.values()) if (it.kind === 'v' && it.sv) { try { it.sv.el.pause(); } catch (e) { /* gone */ } }
+  }
+  if (AWAY.st < 2 && d >= AWAY.drop) {
+    AWAY.st = 2;
+    for (const it of STU.items.values()) { if (it.kind === 's' && it.st) streamDrop(it); else if (it.kind === 'v') svDrop(it); }
+  }
+  if (AWAY.st < 3 && d >= AWAY.free && !awayBusy()) { AWAY.st = 3; awayFree(); }
+}
+// the poll: every 100 ms (cheap: one test) from the scene's first frame; the frame calls awayStep too once it is back, so the
+// first frame back already loads what was freed
+function awayArm() {
+  if (AWAY.timer) return;
+  const tick = () => { AWAY.timer = later(tick, 100); awayStep(); };
+  AWAY.timer = later(tick, 100);
+}
+
 // ------------------------------------------------------------------ edits --
 // Editing is this device's own (studioEdit), never in the state; refused while the station's story is locked (Lock
 // this story) and never offered with &visit. Every change is recorded for Undo (this device's last 30): an undo writes
@@ -1158,6 +1316,7 @@ const editOn = () => STU.edit && !OPT.visit && !!STU.scene && !editLocked();
 function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
+  if (on) warmEdit('edit');
   store.set('studioEdit', STU.edit ? '1' : null);
   if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
@@ -1269,7 +1428,7 @@ const _fh = new THREE.Vector3(), _fd = new THREE.Vector3();
 function frontAt(d) {
   d = d === undefined ? 1.5 : d;
   if (XR.on && GL.renderer.xr.isPresenting) {
-    GL.world.updateMatrixWorld(true);
+    GL.world.updateWorldMatrix(true, false);
     GL.world.worldToLocal(_fh.copy(XR.head));
     _fd.set(0, 0, -1).applyQuaternion(XR.headQ).applyQuaternion(GL.world.getWorldQuaternion(_eq).invert());
   } else if (APP.mode === 'explore' && X.view === 'walk') { _fh.copy(WALK.pos); _fd.set(-Math.sin(WALK.yaw), 0, -Math.cos(WALK.yaw)); }

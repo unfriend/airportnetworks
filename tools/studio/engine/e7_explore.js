@@ -1009,8 +1009,9 @@ function updateExtraLabels() {
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 // what the pointer can find while editing: objects (their unseen boxes, or a grey box), sounds, cubes (behind the others:
 // you often stand inside a cube) and the selected cube's corners
+const _pickL = [];
 function pickables() {
-  const L = [];
+  const L = _pickL; L.length = 0;   // (one list reused: the caller hands it to the raycaster and keeps none)
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
@@ -1021,7 +1022,8 @@ function pickables() {
     else if (it.kind === 'v' && it.holder.visible) L.push(it.look.hit);   // (a screen's panel: e6q_screens.js)
     else if (it.kind === 'd' && it.holder.visible) L.push(it.look.hit);   // (a painting's unseen box: e6r_paint.js)
   }
-  return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
+  for (const h of ghostHits()) L.push(h);   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
+  return L;
 }
 // the nearest thing a ray finds: a corner first, then the nearest object, sound or cut-out, a cube only when nothing
 // else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one

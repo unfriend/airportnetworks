@@ -286,8 +286,9 @@ SETS.tower = function (K) {
       for (let i = 0; i < N; i++) {
         const c = cnt[rep[i]] > 1 ? LK.mix(LK.CYAN, COL[rep[i]], tint, _col) : LK.CYAN;
         _a[0] = X[i]; _a[1] = y + 0.002; _a[2] = Z[i];
-        discs.add(_a, UP, R, c, dA, 1);
+        discs.addUnit(_a, UP, c, dA, 1);
       }
+      discs.radius.value = R;
     }
 
     // ---- the tower of scales

@@ -128,21 +128,28 @@ const CUT_KEY = '|studio-cut-1', CUTMAT = new WeakMap();
 const CUT_V = '\n\tvec4 cutP = vec4( transformed, 1.0 );\n#ifdef USE_INSTANCING\n\tcutP = instanceMatrix * cutP;\n#endif\n\tvCutW = ( modelMatrix * cutP ).xyz;\n';
 const CUT_F = '\n\tfor ( int ci = 0; ci < ' + CUT_MAX + '; ci ++ ) {\n\t\tif ( ci >= cutN ) break;\n\t\tvec4 cw = vec4( vCutW, 1.0 );\n' +
   '\t\tif ( max( max( abs( dot( cutM[ ci * 3 ], cw ) ), abs( dot( cutM[ ci * 3 + 1 ], cw ) ) ), abs( dot( cutM[ ci * 3 + 2 ], cw ) ) ) < 0.5 ) discard;\n\t}\n';
+// (v137, studio-4: a discard in the fragment shader turns off early-Z for the whole mesh, so a room scan with a door's cut-out
+// drew every covered pixel of the scan, twice, even while no box cut anything. The addition is now in the program only
+// while the object has a box cutting (U.on, set where the boxes are handed over, cutUpload): its materials carry both
+// programs, the plain one while none cuts, found again by their keys when it changes: a switch costs no compile once both
+// were made, which a model's building does. Both variants' uniform sets carry cutM and cutN, since three.js r128 keeps the
+// uniform set of the program it made last for a material, whichever program the material then draws with)
 function cutPatch(m, U) {
   if (!m || CUTMAT.has(m)) return;
   CUTMAT.set(m, U);
   const before = m.onBeforeCompile, key = m.customProgramCacheKey();
   m.onBeforeCompile = function (sh, renderer) {
     before.call(this, sh, renderer);
+    sh.uniforms.cutM = U.cutM; sh.uniforms.cutN = U.cutN;
+    if (!U.on) return;
     // (a shader without three.js's place of the vertex is left as it is: nothing of it is cut)
     if (!sh.vertexShader.includes('#include <project_vertex>')) return;
-    sh.uniforms.cutM = U.cutM; sh.uniforms.cutN = U.cutN;
     sh.vertexShader = 'varying vec3 vCutW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>' + CUT_V);
     const f = 'varying vec3 vCutW;\nuniform vec4 cutM[ ' + CUT_MAX * 3 + ' ];\nuniform int cutN;\n' + sh.fragmentShader;
     sh.fragmentShader = f.includes('#include <clipping_planes_fragment>') ? f.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + CUT_F)
       : f.replace(/void\s+main\s*\(\s*\)\s*\{/, s => s + CUT_F);
   };
-  m.customProgramCacheKey = () => key + CUT_KEY;
+  m.customProgramCacheKey = () => (U.on ? key + CUT_KEY : key);
   m.needsUpdate = true;
 }
 // an object's model made ready to be cut (once per model, from its first cut-out on: a model with none keeps its
@@ -151,9 +158,20 @@ function cutPrep(ob) {
   const M = ob.model;
   if (!M || M.cut) return;
   M.cut = true;
-  if (!ob.cutU) ob.cutU = { cutM: { value: new Float32Array(CUT_MAX * 12) }, cutN: { value: 0 }, f: -1, list: [] };
+  if (!ob.cutU) ob.cutU = { cutM: { value: new Float32Array(CUT_MAX * 12) }, cutN: { value: 0 }, f: -1, list: [], on: false };
   cutMats(ob);
   for (const n of M.meshes) n.onBeforeRender = () => cutUpload(ob);
+  cutWarm(ob);
+}
+// both programs of an object's materials made now (the building model: the one a cut-out needs and the plain one), left as
+// the object's boxes say (none cutting yet: plain)
+function cutWarm(ob) {
+  const U = ob.cutU, M = ob.model;
+  if (!U || !M) return;
+  const was = U.on, bump = () => { for (const n of M.meshes) for (const k of ['lit', 'scan']) for (const m of [].concat(n.userData[k] || [])) if (CUTMAT.has(m)) m.needsUpdate = true; };
+  U.on = true; bump(); warmModel(M.o);
+  U.on = false; bump(); warmModel(M.o);
+  if (was) { U.on = true; bump(); }
 }
 // its materials patched (as scanned ones are made only when first asked for: applyLight patches those then)
 function cutMats(ob) {
@@ -176,6 +194,10 @@ function cutUpload(ob) {
     n++;
   }
   U.cutN.value = n;
+  if ((n > 0) !== !!U.on) {   // (the first box cutting, or the last one not: the program with the addition, or the plain one)
+    U.on = n > 0;
+    if (ob.model) for (const mesh of ob.model.meshes) for (const k of ['lit', 'scan']) for (const m of [].concat(mesh.userData[k] || [])) if (CUTMAT.has(m)) m.needsUpdate = true;
+  }
 }
 
 // ---------------------------------------------------------------- edits --
@@ -226,7 +248,7 @@ function modelHits(o, rc) {
 }
 // where you are, in the scene's frame: your head in a headset, the camera on a page
 function viewerAt() {
-  GL.world.updateMatrixWorld(true);
+  GL.items.updateWorldMatrix(true, false);
   if (XR.on && GL.renderer.xr.isPresenting) return GL.items.worldToLocal(XR.head.clone());
   return GL.items.worldToLocal(GL.camera.getWorldPosition(new THREE.Vector3()));
 }

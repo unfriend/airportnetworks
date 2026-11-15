@@ -1959,6 +1959,26 @@ try {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  await step('--public: a log with the relay\'s password is kept in place of the log token (v145)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-pwlog-'));
+    const PASS = crypto.randomBytes(12).toString('hex');   // (made here: no password is ever kept in the repository)
+    const L = await start(['--public', '--logs', dir, '--token', PASS]);   // (no log token: starts, since the password guards it)
+    const send = headers => req('POST', '/api/log', { at: L.port, headers, body: { room: 'ABC', id: 'pw' + crypto.randomBytes(3).toString('hex'), name: 'Ada', kind: 'vr', entries: [{ t: 1, ev: 'frame times' }] } });
+    let r = await send({ Authorization: 'Bearer ' + PASS, Origin: APP });
+    ok(r.status === 200 && r.json().lines === 1 && fs.readdirSync(dir).length === 1, 'the password (Authorization: Bearer) on a --public relay: kept');
+    r = await send({});
+    ok((r.status === 401 || r.status === 404) && fs.readdirSync(dir).length === 1, 'no password: not kept (' + r.status + ')');
+    ok((await send({ Authorization: 'Bearer ' + PASS + 'x' })).status === 401 && fs.readdirSync(dir).length === 1, 'a wrong password: 401, not kept');
+    ok(!L.out.includes(PASS), 'the password is in no log line');
+    L.kill();
+    const LT = crypto.randomBytes(12).toString('hex');
+    const L2 = await start(['--public', '--logs', dir, '--token', PASS, '--log-token', LT, '--quiet']);
+    ok((await req('POST', '/api/log', { at: L2.port, headers: { Authorization: 'Bearer ' + PASS }, body: { room: 'ABD', id: 'pw2', entries: [{ t: 1 }] } })).status === 200, 'with a log token set too, the password alone is enough');
+    ok((await req('POST', '/api/log', { at: L2.port, headers: { Authorization: 'Bearer ' + PASS, 'X-Log-Token': 'x'.repeat(24) }, body: { room: 'ABD', id: 'pw3', entries: [{ t: 1 }] } })).status === 200, 'a wrong log token beside the right password: still kept');
+    L2.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   // ---- a shared password (COLLAB_TOKEN or --token; asdf10k-collab-backend's scheme): off unless given
   await step('a password: off by default (nothing changes), /api/health open on every relay', async () => {
     const h = await req('GET', '/api/health');

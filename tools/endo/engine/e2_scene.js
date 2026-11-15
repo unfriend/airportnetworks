@@ -49,6 +49,44 @@ function buildTurn(jobs, dt) {
   const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
   for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
 }
+// A set that has finished building sends its textures and buffers to the graphics card before it is shown, one thing a
+// frame (v137): its first frame on show otherwise uploads some 5 MB of textures and 20 MB of buffers at once. Each mesh
+// is drawn once, unseen, into a 1 x 1 target by a camera looking away from everything (frustum culling and the headset's view off for that draw), put back where
+// it was; a texture goes through renderer.initTexture. Any failure stops it for good; nothing else depends on it.
+const PRIME = { q: [], sc: null, cam: null, off: false };
+function primeCheck(s) {
+  if (PRIME.off || s.primed || (s.idle && s.buildPend !== false) || !GL.renderer) return;
+  s.primed = true;
+  const seen = new Set(), tex = t => { if (t && t.isTexture && !seen.has(t) && (t.isDataTexture || (t.image && t.image.width >= 256))) { seen.add(t); PRIME.q.push(t); } };
+  s.group.traverse(o => {
+    if (!o.material || !o.geometry || !(o.isMesh || o.isPoints || o.isLine)) return;
+    const ms = [].concat(o.material);
+    for (const m of ms) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); }
+    if (ms.some(m => m.isMeshStandardMaterial || m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return;   // (a lit built-in would link a program for this scene's lack of lights)
+    const p = o.geometry.attributes.position;
+    if (o.isInstancedMesh || (p && p.count > 3000)) PRIME.q.push(o);
+  });
+}
+function primeStep(dt) {
+  const r = GL.renderer;
+  if (PRIME.off || !PRIME.q.length || !r || dt > 0.02) return;   // (only while frames come at 50 a second or better)
+  const o = PRIME.q.shift();
+  try {
+    if (o.isTexture) { r.initTexture(o); return; }
+    const par = o.parent;
+    if (!par || [].concat(o.material).some(m => !(r.properties.get(m).currentProgram))) return;   // (no program yet: drawing it would link one here)
+    const rt = r.primeRT || (r.primeRT = new THREE.WebGLRenderTarget(1, 1)), sc = PRIME.sc || (PRIME.sc = new THREE.Scene());
+    let cam = PRIME.cam;
+    if (!cam) { cam = PRIME.cam = new THREE.PerspectiveCamera(50, 1, 0.1, 10); cam.position.set(0, 1e5, 0); cam.lookAt(0, 2e5, 0); cam.updateMatrixWorld(); }   // (looking away from everything: all clipped, nothing shaded)
+    const vis = o.visible, cull = o.frustumCulled, mw = o.matrixWorld.clone(), was = r.getRenderTarget(), xr = r.xr.enabled, ar = r.autoClear;
+    rt.texture.encoding = r.outputEncoding;   // (the same program as the real frame's)
+    sc.add(o); o.visible = true; o.frustumCulled = false; r.xr.enabled = false; r.autoClear = false;
+    try { r.setRenderTarget(rt); r.render(sc, cam); } finally {
+      r.setRenderTarget(was); r.xr.enabled = xr; r.autoClear = ar;
+      sc.remove(o); par.add(o); o.visible = vis; o.frustumCulled = cull; o.matrixWorld.copy(mw);
+    }
+  } catch (e) { PRIME.off = true; PRIME.q.length = 0; console.warn('prime: stopped', e); }
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -58,9 +96,10 @@ function updateSets(S, t, dt, story) {
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) hid.push(s);   // a hidden set may build in slices (buildTurn, below)
+    else { if (s.idle) hid.push(s); primeCheck(s); }   // a hidden set may build in slices (buildTurn, below), and is sent to the card when done (primeStep)
   }
   buildTurn(hid, dt);
+  primeStep(dt);
 }
 
 // ---------------------------------------------------------------- camera --

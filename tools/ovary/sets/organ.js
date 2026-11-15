@@ -394,7 +394,7 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
   // ------------------------------------------------------------- update
   const hi = [0, 0, 0, 0, 0, 0];
   function update(S, t, dt) {
-    if (!built) step(4);
+    if (!built) step(K.showMs(dt, 4));
     const g = smooth(clamp(S.organ_grow, 0, 1)), age = clamp(S.organ_age, 20, 70), open = smooth(clamp(S.organ_open, 0, 1)), body = clamp(S.organ_body, 0, 1);
     ageNow = age; gNow = g; ages.value = age;
     // from small in the body (turned as it lies there) to large at the centre; the ovary shrinks with age

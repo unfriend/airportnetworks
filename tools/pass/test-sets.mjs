@@ -13,7 +13,7 @@ const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(h
 const only = process.argv.slice(2);
 const want = k => !only.length || only.includes(k);
 // a page without a page: a canvas whose 2D context draws nothing, a screen, a window
-const ctx2d = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+const ctx2d = new Proxy({}, { get: (o, k) => (k in o ? o[k] : k === 'getImageData' ? (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }) : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
 const canvas = () => ({ width: 0, height: 0, getContext: () => ctx2d, style: {} });
 const sandbox = { console, atob, btoa, TextDecoder, Math, Date, performance, setTimeout, clearTimeout,
   document: { createElement: () => canvas(), querySelector: () => null, documentElement: {} }, screen: { width: 1920, height: 1080 },

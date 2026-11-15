@@ -11,6 +11,7 @@
 // only, and the example scenes (v137);
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
+// --only 'auto quality': the automatic quality's steps, the refresh rate as one, v145;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
@@ -11238,12 +11239,12 @@ if (runs('frame rate')) {
     const ver = tab => fp.evaluate(async tab => {
       const C = HOST.collab.internals(), S = HOST.collab.overlay().panel;
       HOST.collab.menuTab(tab); window.__fp.step(2);
-      const v0 = S.tex.version, st = HOST.collab.stations()[0].id, st2 = HOST.collab.stations()[1].id;
+      const v0 = (S.draws || 0), st = HOST.collab.stations()[0].id, st2 = HOST.collab.stations()[1].id;   // (v145: a whole redraw after the first is sent as a patch, so the texture's version no longer moves: count the draws)
       if (!C.members.some(m => m.id === 'zz-walker')) C.members.push({ id: 'zz-walker', name: 'Walker', color: '#ff8a65', kind: 'vr', here: true });
       window.__fp.step(1);
-      const v1 = S.tex.version;
+      const v1 = (S.draws || 0);
       for (const s of [st, st2]) { C.pres.set('zz-walker', { id: 'zz-walker', st: s, at: performance.now(), head: [0, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__fp.step(2); }
-      return [v1 - v0, S.tex.version - v1];
+      return [v1 - v0, (S.draws || 0) - v1];
     }, tab);
     const vs = await ver('settings'), vd = await ver('debug'), vc = await ver('circles');
     if (vs[1] || vd[1]) bad.push(`someone walking between circles drew the Settings tab ${vs[1]} and the Debug tab ${vd[1]} times`);
@@ -11259,7 +11260,9 @@ if (runs('frame rate')) {
   await step('frame rate: Foveation (as the story sets it, 0, 0.5, 1; set on the layer after the story\'s frame, once each) and Resolution (100, 90, 80 %, from the next session); kept, set by a link', async () => {
     const bad = [];
     await open('airports');
-    if (await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()) !== 'story,1') bad.push('the defaults are ' + await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()));
+    if (await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()) !== 'auto,auto') bad.push('the defaults are ' + await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()));
+    // (v145: auto is the default; the v136 flow starts from the story's own value and a scale of 1, set by hand, which win over auto)
+    await fp.evaluate(() => { HOST.xr.setFov('story'); HOST.xr.setScale(1); });
     await start();
     const f0 = await fp.evaluate(() => window.__fp.fov.slice()), init0 = await fp.evaluate(() => window.__fp.layerInit);
     if (f0.join() !== '0.5' || !init0 || init0.framebufferScaleFactor !== 1) bad.push('as the story sets it: foveation set ' + JSON.stringify(f0) + ', the layer ' + JSON.stringify(init0));
@@ -11270,18 +11273,18 @@ if (runs('frame rate')) {
       seen.push(r);
     }
     const sets = seen[3].sets, labels = seen.map(r => r.label).join('|');
-    if (labels !== 'Foveation: 0|Foveation: 0.5|Foveation: 1|Foveation: the story\'s') bad.push('the row went ' + labels);
+    if (labels !== 'Foveation: 0|Foveation: 0.5|Foveation: 1|Foveation: auto') bad.push('the row went ' + labels);
     // (0.5, then 0, 0.5, 1 and the story's 0.5 back: each set once, nothing set frame after frame)
-    if (sets.join() !== '0.5,0,0.5,1,0.5' || seen.some(r => r.more)) bad.push('foveation set ' + JSON.stringify(sets) + ' (more frame by frame: ' + seen.map(r => r.more) + ')');
+    if (sets.slice(0, 4).join() !== '0.5,0,0.5,1' || seen.some(r => r.more)) bad.push('foveation set ' + JSON.stringify(sets) + ' (more frame by frame: ' + seen.map(r => r.more) + ')');
     // a story that sets its own again (as one taking over the session does) is set back
-    await press('fov');
+    await fp.evaluate(() => HOST.xr.setFov(0));
     await fp.evaluate(async () => { const bl = HOST.session.renderState.baseLayer; bl.fixedFoveation = 0.5; await window.__fp.runUntil(null, 150); });
     if (await fp.evaluate(() => HOST.xr.fovNow()) !== 0) bad.push('a story\'s own foveation was not set back: ' + await fp.evaluate(() => HOST.xr.fovNow()));
     // Resolution: each press the next, from the next session
     const rs = [];
-    for (let k = 0; k < 3; k++) { await press('scale'); rs.push(await label('scale') + ' ' + await fp.evaluate(() => HOST.xr.scale() + '/' + HOST.xr.scaleNow())); }
-    if (rs.join('|') !== 'Resolution: 90 % 0.9/1|Resolution: 80 % 0.8/1|Resolution: 100 % 1/1') bad.push('the resolution row went ' + rs.join(' -> '));
-    await press('scale');
+    for (let k = 0; k < 2; k++) { await press('scale'); rs.push(await label('scale') + ' ' + await fp.evaluate(() => HOST.xr.scale() + '/' + HOST.xr.scaleNow())); }
+    if (rs.join('|') !== 'Resolution: 90 % 0.9/1|Resolution: 80 % 0.8/1') bad.push('the resolution row went ' + rs.join(' -> '));
+    await fp.evaluate(() => HOST.xr.setScale(0.9));
     await end();
     await start();
     const init1 = await fp.evaluate(() => window.__fp.layerInit), now1 = await fp.evaluate(() => [HOST.xr.scale(), HOST.xr.scaleNow(), HOST.xr.fov(), HOST.xr.fovNow()]);
@@ -11300,6 +11303,191 @@ if (runs('frame rate')) {
   });
   await ctx.close();
 }
+// Automatic quality (v145, --only 'auto quality'; the owner, 14 November 2026: "auto quality by default", and 72 Hz is
+// acceptable on a Quest 3S): a pretend Quest (FPS_FAKE, whose frame times the test sets) in a page of its own. Frames 22 ms
+// apart at 90 Hz are late: the picture steps down (fixed foveation 0.75, 1; the view's scale 0.9, 0.8, 0.7 where the views
+// have requestViewportScale, which a stub gives; else it stops at L2), the refresh rate a step of its own (last on this
+// browser, first with rateStep 'first', as a Quest 3S would have it), a CPU-bound window logs 'cpu' and does not step,
+// frames on time step it back up, auto off leaves foveation the story's and the view whole, the step is kept per scene
+if (runs('auto quality')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 200 } });
+  const fp = await ctx.newPage();
+  fp.on('pageerror', e => errors.push('auto quality: ' + (e.stack || e.message)));
+  fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('auto quality: ' + m.text()); });
+  await fp.addInitScript(FPS_FAKE);
+  const open = async hash => {
+    await fp.goto('about:blank', { timeout: 90000 });
+    await fp.goto(base + 'index.html#' + hash, { timeout: 90000 });
+    await fp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+  };
+  // (windows of 0.4 s, 3 clean ones to step up, short holds: the test's clock is the frames' own times)
+  const TIMES = { win: 400, up: 3, hold: 3000, warm: 100, settle: 100, upFail: 1500, rate: 100, minN: 6, deep: 3000, light: 6000, cpu: 1000 };   // (cpu: never CPU-bound here, a loaded machine's script is slow; its own step sets 0.6)
+  const start = async (o = {}, rateStep, stub) => {
+    await fp.evaluate(([o, rs, T]) => { Object.assign(window.__fp.o, o); window.__fp.asks = []; window.__fp.fov = []; window.__collabLog.length = 0; HOST.cur.peek('xrStart("immersive-vr")'); if (rs) HOST.xr.setRateStep(rs); HOST.xr.aqTest(Object.assign({ reset: true }, T)); }, [o, rateStep || '', TIMES]);
+    await fp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+    await fp.evaluate(stub => { const F = window.__fp; F.vsAsks = []; F.views = F.frame().getViewerPose().views; if (stub) for (const v of F.views) v.requestViewportScale = x => F.vsAsks.push(x); }, !!stub);   // (the views' API is learnt at the first frame, so a stub comes before it)
+    await frames(6, 11.1);
+    await fp.evaluate(() => { window.__fp.asks = []; HOST.xr.aqTest({ reset: true }); });
+  };
+  const end = () => fp.evaluate(async () => { const s = HOST.session; if (s) { await s.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); } });
+  // n frames dt ms apart (the session's callbacks, as a headset's frames), the story's frame costing busy ms of script
+  const frames = (n, dt, busy = 0) => fp.evaluate(([n, dt, busy]) => {
+    const F = window.__fp, r = HOST.renderer;
+    if (!r.__rend) { r.__rend = r.render; r.render = function (...a) { const b = window.__aqBusy || 0; if (b) { const t = performance.now(); while (performance.now() - t < b); } return r.__rend.apply(this, a); }; }
+    window.__aqBusy = busy;
+    for (let i = 0; i < n; i++) {
+      F.time += dt;
+      const cbs = [...F.session.cbs.values()]; F.session.cbs.clear();
+      const fr = F.frame();
+      for (const cb of cbs) cb(F.time, fr);
+    }
+    window.__aqBusy = 0;
+  }, [n, dt, busy]);
+  const aq = () => fp.evaluate(() => Object.assign(HOST.xr.aq(), { fovNow: HOST.xr.fovNow() }));
+  const aql = () => fp.evaluate(() => window.__collabLog.filter(e => e.ev === 'auto quality').map(e => ({ act: e.act, level: e.level, low: e.low, vs: e.vs, why: e.why, from: e.from })));
+  // frames in batches until fn holds on aq() (or the batches run out)
+  const until = async (fn, dt, busy = 0, max = 40) => { let a = await aq(); for (let i = 0; i < max && !fn(a); i++) { await frames(10, dt, busy); a = await aq(); } return a; };
+  await step('auto quality: on by default; a Quest 3S is told from a Quest 3 (rate step first or last); #aq=off turns it off, kept', async () => {
+    const bad = [];
+    await open('airports');
+    const d = await fp.evaluate(() => ({ auto: HOST.xr.auto(), fov: HOST.xr.fov(), sc: HOST.xr.scale(), rs: HOST.xr.rateStep(), a3s: HOST.xr.rate3S('Mozilla/5.0 (Linux; Android 12; Quest 3S) AppleWebKit/537.36 OculusBrowser/35.0 VR Safari/537.36'),
+      a3: HOST.xr.rate3S('Mozilla/5.0 (Linux; Android 12; Quest 3) AppleWebKit/537.36 OculusBrowser/35.0 VR Safari/537.36'), a2: HOST.xr.rate3S('Quest 2'), fovs: HOST.xr.fovs().join(), scales: HOST.xr.scales().join() }));
+    if (!d.auto || d.fov !== 'auto' || d.sc !== 'auto' || d.rs !== 'last') bad.push('the defaults: ' + JSON.stringify(d));
+    if (!d.a3s || d.a3 || d.a2) bad.push('3S told wrongly: ' + JSON.stringify(d));
+    if (d.fovs !== 'auto,story,0,0.5,1' || d.scales !== 'auto,1,0.9,0.8') bad.push('the lists: ' + d.fovs + ' / ' + d.scales);
+    await fp.evaluate(() => { HOST.xr.setRateStep('first'); });
+    if (await fp.evaluate(() => localStorage.getItem('xrRateStep')) !== 'first') bad.push('rateStep not kept');
+    await fp.evaluate(() => { HOST.xr.setRateStep('last'); localStorage.removeItem('xrRateStep'); });
+    await open('airports&aq=off');
+    if (await fp.evaluate(() => [HOST.xr.auto(), localStorage.getItem('xrAuto')].join()) !== 'false,off') bad.push('#aq=off: ' + await fp.evaluate(() => [HOST.xr.auto(), localStorage.getItem('xrAuto')].join()));
+    await open('airports&aq=on');
+    if (await fp.evaluate(() => [HOST.xr.auto(), localStorage.getItem('xrAuto')].join()) !== 'true,on') bad.push('#aq=on failed');
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: late frames step the picture down (foveation 0.75, 1) and, without requestViewportScale, stop at L2; then the refresh rate, 72 Hz, as the last step; nothing at 90 Hz on time', async () => {
+    const bad = [];
+    await open('airports');
+    await start();
+    await frames(60, 11.1);   // (on time: nothing)
+    let a = await aq();
+    if (a.level !== 0 || a.low || a.fov !== 0.5 || a.rate !== 90) bad.push('on time it moved: ' + JSON.stringify(a));
+    a = await until(x => x.level >= 2, 22);
+    if (a.level !== 2 || a.fov !== 1 || a.vs !== 1 || a.vsApi !== false) bad.push('not at L2 without the view API: ' + JSON.stringify(a));
+    const f1 = (await fp.evaluate(() => window.__fp.fov.slice())).filter((v, i, x) => i === 0 || v !== x[i - 1]);   // (the story's own 0.5 and ours alike)
+    if (f1.join() !== '0.5,0.75,1') bad.push('the layer\'s foveation went ' + f1);
+    a = await until(x => x.low, 22);
+    const asks = await fp.evaluate(() => window.__fp.asks.slice());
+    if (!a.low || a.rate !== 72 || asks.join() !== '72' || a.level !== 2) bad.push('the rate step: ' + JSON.stringify(a) + ' asked ' + asks);
+    const l = await aql();
+    if (l.filter(e => e.act === 'down').length !== 3 || !l.some(e => e.act === 'down' && e.low === true)) bad.push('the log: ' + JSON.stringify(l));
+    await frames(60, 22);
+    a = await aq();
+    if (a.level !== 2 || !a.low) bad.push('it went on past the bottom: ' + JSON.stringify(a));
+    const ft = await fp.evaluate(() => HOST.xr.frameTimes());
+    if (!ft || !(ft.p95 >= 21 && ft.late > 0 && ft.n > 20 && ft.hz === 72 && ft.level === 2)) bad.push('frame times: ' + JSON.stringify(ft));
+    // the step is kept for the scene: sessionStorage
+    if (!/airports/.test(await fp.evaluate(() => sessionStorage.getItem('aqLevels') || ''))) bad.push('the step is not kept per scene');
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: with requestViewportScale (stubbed: it records 0.9, 0.8, 0.7) the view shrinks past L2, the viewport is logged once, and frames on time bring it all back up in order', async () => {
+    const bad = [];
+    await open('airports');
+    await start({}, 'never', true);
+    let a = await until(x => x.level >= 5, 22);
+    const vs = await fp.evaluate(() => window.__fp.vsAsks.slice());
+    if (a.level !== 5 || a.vs !== 0.7 || a.low || a.vsApi !== true) bad.push('not at L5: ' + JSON.stringify(a));
+    const u = [...new Set(vs)];
+    if (u.join() !== '1,0.9,0.8,0.7' && u.join() !== '0.9,0.8,0.7') bad.push('the scales asked: ' + u);
+    if ((await fp.evaluate(() => window.__fp.asks.slice())).length) bad.push('rateStep never asked for a rate: ' + await fp.evaluate(() => window.__fp.asks));
+    if ((await aql()).filter(e => e.act === 'viewport').length !== 1) bad.push('the viewport was not logged once: ' + JSON.stringify(await aql()));
+    // light again: 3 clean windows a step, back to L0 in order
+    a = await until(x => x.level === 0, 11.1, 0, 80);
+    const ups = (await aql()).filter(e => e.act === 'up');
+    if (a.level !== 0 || a.vs !== 1 || a.fov !== 0.5 || ups.length !== 5) bad.push('not back at L0 in five steps: ' + JSON.stringify(a) + ' ' + ups.length + ' ups');
+    await frames(3, 11.1);
+    if ((await fp.evaluate(() => window.__fp.vsAsks.slice(-1)[0])) !== 1) bad.push('the view was not asked back to 1');
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: a CPU-bound window (the story\'s script over 0.6 of the period) logs "cpu" and does not step; once the script is light the late frames do', async () => {
+    const bad = [];
+    await open('airports');
+    await start({}, 'never');
+    await fp.evaluate(() => HOST.xr.aqTest({ cpu: 0.6 }));
+    await frames(40, 22, 9);   // (9 ms of script in a frame 11.1 ms long)
+    let a = await aq();
+    const l = await aql();
+    if (a.level !== 0 || !l.some(e => e.act === 'cpu') || l.some(e => e.act === 'down')) bad.push('CPU-bound: ' + JSON.stringify(a) + ' ' + JSON.stringify(l));
+    a = await until(x => x.level >= 1, 22, 0);
+    if (a.level < 1) bad.push('light script and late frames did not step: ' + JSON.stringify(a));
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: a step up that fails again holds the next one (60 s, here 3 s); at L4 or deeper for a while the next session is drawn at 0.9', async () => {
+    const bad = [];
+    await open('airports');
+    await start({}, 'never', true);
+    let a = await until(x => x.level >= 2, 22);
+    await until(x => x.level === 1, 11.1, 0, 30);   // (up one: three clean windows)
+    a = await until(x => x.level === 2, 22);          // (late again at once: down again, and a hold)
+    const h = await aq();
+    if (h.level !== 2 || !(h.noUp > 0)) bad.push('no hold after a failed step up: ' + JSON.stringify(h));
+    a = await until(x => x.level >= 4, 22, 0, 60);
+    await frames(200, 22);
+    const nx = await fp.evaluate(() => [HOST.xr.aq().next, localStorage.getItem('xrAqScale')].join());
+    if (a.level < 4 || nx !== '0.9,0.9') bad.push('L4 held: next session ' + nx + ' at ' + JSON.stringify(a));
+    await end();
+    await start({}, 'never', true);
+    if (await fp.evaluate(() => HOST.xr.scaleNow()) !== 0.9) bad.push('the next session is not drawn at 0.9: ' + await fp.evaluate(() => HOST.xr.scaleNow()));
+    await end();
+    await fp.evaluate(() => { localStorage.removeItem('xrAqScale'); });
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: rateStep first (a Quest 3S): the first step down is 90 to 72 Hz with the picture kept, then L1 and L2; stepping up goes back through them and returns to 90 Hz last', async () => {
+    const bad = [];
+    await open('airports');
+    await start({}, 'first');
+    let a = await until(x => x.low, 22);
+    if (!a.low || a.level !== 0 || a.fov !== 0.5 || a.rate !== 72) bad.push('the first step: ' + JSON.stringify(a));
+    if ((await fp.evaluate(() => window.__fp.asks.slice())).join() !== '72') bad.push('not asked 72: ' + await fp.evaluate(() => window.__fp.asks));
+    a = await until(x => x.level >= 2, 22);
+    if (a.level !== 2 || !a.low) bad.push('L1 and L2 at 72 Hz: ' + JSON.stringify(a));
+    // at 72 Hz a frame is late beyond 20.8 ms: 17 ms frames are on time (they would be late at 90)
+    await frames(30, 17);
+    a = await aq();
+    if (a.level !== 2 || !a.low) bad.push('17 ms frames at 72 Hz stepped: ' + JSON.stringify(a));
+    a = await until(x => !x.low, 13.9, 0, 80);
+    const asks = await fp.evaluate(() => window.__fp.asks.slice());
+    if (a.level !== 0 || a.low || a.rate !== 90 || asks.slice(-1)[0] !== 90) bad.push('back up: ' + JSON.stringify(a) + ' asked ' + asks);
+    const ups = (await aql()).filter(e => e.act === 'up');
+    if (ups.length !== 3 || ups[ups.length - 1].low !== false || ups[ups.length - 1].level !== 0) bad.push('the order of the ups: ' + JSON.stringify(ups));
+    await end();
+    await fp.evaluate(() => { HOST.xr.setRateStep('last'); localStorage.removeItem('xrRateStep'); });
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await step('auto quality: off, nothing steps and foveation is the story\'s; a hand-set foveation wins; setFov and setScale take auto', async () => {
+    const bad = [];
+    await open('airports&aq=off');
+    await start();
+    await frames(60, 22);
+    let a = await aq();
+    if (a.level !== 0 || a.auto !== false || a.vs !== 1) bad.push('off but it moved: ' + JSON.stringify(a));
+    if ((await aql()).length) bad.push('off but logged: ' + JSON.stringify(await aql()));
+    if (a.fov !== 'story') bad.push('off: the foveation is not the story\'s: ' + JSON.stringify(a));
+    await end();
+    await open('airports&aq=on&fov=0');
+    await start();
+    await frames(20, 11.1);
+    if ((await fp.evaluate(() => { const f = window.__fp.fov; return f.slice(f.indexOf(0)); })).filter(v => v !== 0).length || !(await fp.evaluate(() => window.__fp.fov.includes(0)))) bad.push('a hand-set 0 foveation changed: ' + await fp.evaluate(() => window.__fp.fov.join()));
+    await end();
+    await fp.evaluate(() => { HOST.xr.setFov('auto'); HOST.xr.setScale('auto'); });
+    if (await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()) !== 'auto,auto') bad.push('setFov and setScale do not take auto');
+    if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await ctx.close();
+}
 // Away from every station (v136): a headset in a shared room that has walked into no circle (HOST.room.away) has its
 // story hidden, paused and silent, and once it has been away a second (its fades done) the story's frame works nothing
 // of it out: xrIdle, the same lines in every story and every page in STORY_EXTRA, right after xrBegin in frame. In a
@@ -11307,10 +11495,12 @@ if (runs('frame rate')) {
 // shell's HOST.room.away and inRoom stubbed: a hand-written story, one built from sets and a live simulation
 if (runs('away idle')) {
   await step('away idle: every story and page keeps the away lines (xrIdle after xrBegin in frame)', async () => {
-    const lines = ['function xrIdle(xr, dt) {', "  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;", '  const idle = XR.awayT > 1;',
-      '  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }',
+    const lines = ['function xrIdle(xr, dt) {', "  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;", '  const idle = XR.awayT > 1;',
+      '  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {',
+      '    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }',
+      '  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now);',   // (v145: the cards branch goes on with a loop that shows them, so no closing brace here)
       '  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;',
-      '  if (xr) xrBegin(xrFrame, dt);\n  if (xrIdle(xr, dt)) return;'];
+      'function xrWarm() {', '  if (xr) xrBegin(xrFrame, dt);\n  if (xrIdle(xr, dt)) return;'];
     const miss = await page.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
       [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('away idle: the away lines are missing in ' + miss.join(', '));
@@ -11333,18 +11523,19 @@ if (runs('away idle')) {
       const frameOf = () => ({ getViewerPose: s => (s === REF ? pose(at(0, 1.6, 0)) : null), getPose: (s, b) => (b === REF && real.has(s) ? pose(real.get(s)) : null), getJointPose: () => null });
       const S = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb) };
       const cw = r.domElement.width, ch = r.domElement.height, cams = [0, 1].map(i => { const c = new THREE.PerspectiveCamera(); c.viewport = new THREE.Vector4(i * cw / 2, 0, cw / 2, ch); return c; }), ac = new THREE.ArrayCamera(cams);
-      const keep = { ref: xr.getReferenceSpace, cam: xr.getCamera, render: r.render, away: HOST.room.away, inRoom: HOST.room.inRoom };
+      const keep = { ref: xr.getReferenceSpace, cam: xr.getCamera, render: r.render, away: HOST.room.away, inRoom: HOST.room.inRoom, cards: HOST.room.cards };
       let renders = 0, ups = 0, sets = 0;
       try {
         r.setAnimationLoop(null);
         xr.getReferenceSpace = () => REF; xr.isPresenting = true;
         xr.getCamera = cam => { cam.updateMatrixWorld(); for (const c of [ac, ...cams]) { c.matrixWorld.copy(cam.matrixWorld); c.matrixWorldInverse.copy(cam.matrixWorldInverse); c.projectionMatrix.copy(cam.projectionMatrix); c.projectionMatrixInverse.copy(cam.projectionMatrixInverse); } return ac; };
         HOST.session = S; HOST.mode = 'immersive-vr';
-        window.__away = false;
-        HOST.room.away = () => window.__away; HOST.room.inRoom = () => true;
+        window.__away = false; window.__oi = 0; window.__ow = 0;
+        HOST.room.away = () => window.__away; HOST.room.inRoom = () => true; window.__cards = false; HOST.room.cards = () => window.__cards;
         P('(XR.session = HOST.session, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.mode !== "explore" && APP.enterExplore(), 0)');
         r.render = function (a, b) { renders++; return keep.render.call(this, a, b); };
         window.__xu = 0; P('(xrUpdate = (o => function (S) { window.__xu++; return o(S); })(xrUpdate), 0)');
+        P('(XR.onIdle = () => { window.__oi++; }, XR.onWake = () => { window.__ow++; }, 0)');   // (v137: the hooks the studio uses)
         const SETS = P('typeof GL.sets === "object" ? GL.sets : null');
         if (SETS) for (const k in SETS) { const s = SETS[k], u = s.update; s.update = function () { sets++; return u.apply(this, arguments); }; }
         const fr = P('frame');
@@ -11371,20 +11562,42 @@ if (runs('away idle')) {
         const w = P('GL.world'), before = w.matrixWorld.elements.slice(); w.position.x += 5; P('GL.scene').updateMatrixWorld(true); const after = w.matrixWorld.elements.slice(); w.position.x -= 5;
         if (before.join() !== after.join()) out.push('away: three.js still walked GL.world\'s matrices');
         if (key === 'flock' && moved(b2, birds())) out.push('away: the birds flew on (their simulation ran)');
+        if (window.__oi !== 1 || window.__ow !== 0) out.push('away: XR.onIdle once as idling began, XR.onWake not yet ' + JSON.stringify({ oi: window.__oi, ow: window.__ow }));
         // back at a station: the first frame is a full one, the world shown and walked again, the simulation going on
         window.__away = false;
         const xu3 = window.__xu, s3 = sets;
         run(1, 33);
         if (window.__xu - xu3 !== 1 || own() || !P('GL.world.visible') || P('XR.awayT') !== 0 || (SETS && sets === s3)) out.push('back: its first frame not a full one ' + JSON.stringify({ xu: window.__xu - xu3, own: own(), vis: P('GL.world.visible'), sets: sets - s3 }));
+        if (window.__ow !== 1) out.push('back: XR.onWake once ' + window.__ow);
         run(4, 33);
         if (key === 'flock') { const b4 = birds(); if (!moved(b2, b4) || !b4.every(Number.isFinite)) out.push('back: the birds did not fly on'); }
+        // behind the Stories screen (v137): a second of full frames (the story hidden, the cards drawn, two first draws a frame at most),
+        // then only the cards go on: no xrUpdate, no set, a render a frame; a card whose signature changes still draws; leaving it, a full frame
+        const nd = () => P('XR.land.reduce((a, p) => a + (p.nd | 0), 0)'), wait = ms => new Promise(r => setTimeout(r, ms));
+        window.__cards = true;   // (an All stories circle's cards: the shell's HOST.room.cards, which xrBegin turns into the Stories screen)
+        const xu5 = window.__xu; run(1, 100);
+        if (nd() > 3) out.push('cards: more than two first draws (and the header) in the first frame ' + nd());
+        run(9, 100);
+        if (window.__xu - xu5 !== 10 || P('GL.world.visible') || own() || !P('XR.land[1].mesh.visible') || nd() < P('XR.land.length')) out.push('cards, their first second: not hidden with full frames and every card drawn ' + JSON.stringify({ xu: window.__xu - xu5, vis: P('GL.world.visible'), own: own(), drawn: nd(), cards: P('XR.land.length') }));
+        run(2, 100);
+        const xu6 = window.__xu, r6 = renders, s6 = sets, f6 = window.__frames, n6 = nd();
+        run(6, 100);
+        if (window.__xu !== xu6 || sets !== s6 || renders - r6 !== 6 || window.__frames - f6 !== 6) out.push('cards: the frame did more than render ' + JSON.stringify({ xrUpdate: window.__xu - xu6, sets: sets - s6, renders: renders - r6, frames: window.__frames - f6 }));
+        if (!own() || !(P('XR.awayT') > 1) || window.__oi !== 2) out.push('cards: not idle, or XR.onIdle not called again ' + JSON.stringify({ own: own(), awayT: P('XR.awayT'), oi: window.__oi }));
+        if (nd() !== n6) out.push('cards: a card drew with nothing changed');
+        P('(XR.inStory = true, 0)'); await wait(90); run(2, 100);   // (the card of this story: its signature carries inStory)
+        if (P('XR.land.some(p => p.nd > 1)') !== true || window.__xu !== xu6) out.push('cards: the card did not draw again while idle ' + JSON.stringify({ nd: nd(), n6, xu: window.__xu - xu6 }));
+        window.__cards = false;
+        const xu7 = window.__xu; run(1, 33);
+        if (window.__xu - xu7 !== 1 || own() || !P('GL.world.visible') || P('XR.awayT') !== 0 || window.__ow !== 2) out.push('cards, left: the first frame not a full one ' + JSON.stringify({ xu: window.__xu - xu7, own: own(), vis: P('GL.world.visible'), ow: window.__ow }));
+        run(2, 33);
         // a session that ends while idle: the walk comes back too
         window.__away = true; run(14, 100);
         if (!own()) out.push('away again: not idle');
         xr.isPresenting = false; run(1, 33);
         if (own()) out.push('the session ended while idle: GL.world\'s walk not given back');
       } catch (e) { out.push('threw: ' + (e.stack || e.message)); } finally {
-        xr.getReferenceSpace = keep.ref; xr.getCamera = keep.cam; xr.isPresenting = false; r.render = keep.render; HOST.room.away = keep.away; HOST.room.inRoom = keep.inRoom; HOST.session = null;
+        xr.getReferenceSpace = keep.ref; xr.getCamera = keep.cam; xr.isPresenting = false; r.render = keep.render; HOST.room.away = keep.away; HOST.room.inRoom = keep.inRoom; HOST.room.cards = keep.cards; HOST.session = null;
       }
       return out;
     }, key);
@@ -12684,7 +12897,8 @@ if (runs('occlusion')) {
   // or never, its bindings made before throwing, its planes without a pose or given again, its textureType changed; the
   // times shortened (wake 0.6 s, no depth 0.4 s, no pose 0.4 s, the watchdog's first gap 0.3 s; the tries counted on until
 // the step that brings them back steadily); what the shell's log says
-  const logN = () => op.evaluate(() => (window.__collabLog || []).reduce((m, e) => Math.max(m, e.n), 0));
+  // (v145: 'frame times' lines carry a frame count in their own n, so they are left out of the log's counter)
+  const logN = () => op.evaluate(() => (window.__collabLog || []).reduce((m, e) => (e.ev === 'frame times' ? m : Math.max(m, e.n)), 0));
   const logSince = n => op.evaluate(n => (window.__collabLog || []).filter(e => e.n > n && /^(occlusion|webgl)/.test(e.ev)), n);
   const fake = () => op.evaluate(() => { const F = window.__occl; return { pauses: F.pauses, resumes: F.resumes, bindings: F.bindings }; });
   await step('occlusion: a short hide changes nothing (v131: no renew, no resume, no new binding)', async () => {

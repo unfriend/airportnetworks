@@ -288,7 +288,7 @@ SETS.organs = function (K) {
     const cv = new Float32Array(8), G = new Float32Array(24), OFF = [0, sx, sy, sx + sy, 1, sx + 1, sy + 1, sx + sy + 1];
     const at = (i, j, k) => F[(i < 0 ? 0 : i >= nx ? nx - 1 : i) * sx + (j < 0 ? 0 : j >= ny ? ny - 1 : j) * sy + (k < 0 ? 0 : k >= nz ? nz - 1 : k)];
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
-      if (k === 0 && j === 0 && late()) yield;
+      if (k === 0 && (j & 3) === 0 && late()) yield;   // (v137: every few rows of cells, not each plane)
       const q0 = i * sx + j * sy + k;
       let neg = 0;
       for (let c = 0; c < 8; c++) { const v = F[q0 + OFF[c]]; cv[c] = v; if (v < 0) neg++; }
@@ -314,7 +314,7 @@ SETS.organs = function (K) {
       if (flip) { tri(a, c, b); tri(a, d, c); } else { tri(a, b, c); tri(a, c, d); }
     };
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
-      if (k === 0 && j === 0 && late()) yield;
+      if (k === 0 && (j & 3) === 0 && late()) yield;   // (v137: every few rows of cells, not each plane)
       const q = i * sx + j * sy + k, v0 = F[q] < 0, c = i * cx + j * cy + k;
       if (j > 0 && k > 0 && v0 !== F[q + sx] < 0) quad(VI[c - cy - 1], VI[c - 1], VI[c], VI[c - cy], !v0);
       if (i > 0 && k > 0 && v0 !== F[q + sy] < 0) quad(VI[c - cx - 1], VI[c - cx], VI[c], VI[c - 1], !v0);
@@ -346,11 +346,11 @@ SETS.organs = function (K) {
       PER[o.id] = NV - v0;
       yield;
     }
-    shellGeo.setAttribute('position', new THREE.BufferAttribute(SP.slice(0, 3 * NV), 3));
-    shellGeo.setAttribute('normal', new THREE.BufferAttribute(SN.slice(0, 3 * NV), 3));
+    shellGeo.setAttribute('position', new THREE.BufferAttribute(SP.slice(0, 3 * NV), 3)); yield;
+    shellGeo.setAttribute('normal', new THREE.BufferAttribute(SN.slice(0, 3 * NV), 3)); yield;
     shellGeo.setAttribute('aCol', new THREE.BufferAttribute(SCL.slice(0, 3 * NV), 3));
-    shellGeo.setAttribute('aOrg', new THREE.BufferAttribute(SO.slice(0, NV), 1));
-    shellGeo.setIndex(new THREE.BufferAttribute(SI.slice(0, NI3), 1));
+    shellGeo.setAttribute('aOrg', new THREE.BufferAttribute(SO.slice(0, NV), 1)); yield;
+    shellGeo.setIndex(new THREE.BufferAttribute(SI.slice(0, NI3), 1)); yield;
     shellGeo.computeBoundingSphere();
     SP = SN = SCL = SO = SI = null;   // the working buffers go
   }
@@ -1022,7 +1022,7 @@ void main() {
     shellMat.uniforms.uPlane.value = cur.plane;
     const pk = prog(seg, 0, 0.04) * (1 - prog(seg, 0.9, 1));
     shellMat.uniforms.uCut.value = pk;
-    if (job) jobStep(5, true);   // wanted now: build in short slices (a headset's frame is 11 to 14 ms), then fade in
+    if (job) jobStep(K.showMs(dt, 5), true);   // wanted now: build in short slices (a headset's frame is 11 to 14 ms), then fade in
     shells.visible = !job;
     shellMat.uniforms.uK.value = (1 - 0.5 * prog(net, 0, 0.5)) * clamp((performance.now() - builtAt) / 500, 0, 1);
     plane.visible = pk > 0.003;
@@ -1052,7 +1052,7 @@ void main() {
       _p.set(x, y, z); _s.set(len, rad, rad); _m.compose(_p, _q, _s); bars.setMatrixAt(i, _m);
       ac[3 * i] = COL[i][0]; ac[3 * i + 1] = COL[i][1]; ac[3 * i + 2] = COL[i][2]; ak[i] = k * foc;
     }
-    bars.instanceMatrix.needsUpdate = true; bars.geometry.attributes.aCol.needsUpdate = true; bars.geometry.attributes.aK.needsUpdate = true;
+    { const ba = bars.geometry.attributes; K.upload(bars.instanceMatrix, bars.instanceMatrix.count); K.upload(ba.aCol, ba.aCol.count); K.upload(ba.aK, ba.aK.count); }   // (only what changed goes)
     bars.visible = suv > 0.003 && netOut > 0.003 && barsOut < 0.999;
 
     // the slab
@@ -1119,7 +1119,7 @@ void main() {
       ha[i] = cur.nodeA[i] * Math.max(0.3, hub * 0.75 * pul, fw * 0.6) * prog(net, 0.3, 0.6);
     }
     cur.hub = best;
-    for (const at of HALO_ATTRS) at.needsUpdate = true;
+    for (const at of HALO_ATTRS) K.upload(at, at.count);
     halo.visible = net > 0.3;
 
     // the organs in 3D: each bar's organ at its foot (flying to head the slab's columns), the nodes, the panel's axes;
@@ -1156,7 +1156,7 @@ void main() {
     const sa = slGeo.attributes.aA.array, ga = SLG;
     ga[0] = suv * netOut * (1 - coll); ga[1] = prog(pairIn, 0.25, 0.75) * netOut; ga[2] = prog(rows, 0.35, 0.6) * netOut;
     for (let v = 0; v < sa.length; v++) sa[v] = slBase[v] * ga[slGrp[v]];
-    slGeo.attributes.aA.needsUpdate = true;
+    K.upload(slGeo.attributes.aA, slGeo.attributes.aA.count);
     const mp = mlGeo.attributes.position.array, ma = mlGeo.attributes.aA.array;
     for (let i = 0; i < NO; i++) {
       const r = BRANK[i], L = LEAD[i], ex = 0.27, yb = barY(r), fw = cur.fw[i], foc = (1 + fw) * (1 - 0.7 * dim * (1 - fw)), o = 18 * i;
@@ -1169,7 +1169,7 @@ void main() {
       mp[o + 12] = HOME[i][0]; mp[o + 13] = HOME[i][1]; mp[o + 14] = HOME[i][2]; mp[o + 15] = p[0]; mp[o + 16] = p[1]; mp[o + 17] = p[2];
       ma[6 * i + 4] = ma[6 * i + 5] = ta;
     }
-    mlGeo.attributes.position.needsUpdate = true; mlGeo.attributes.aA.needsUpdate = true;
+    K.upload(mlGeo.attributes.position, mlGeo.attributes.position.count); K.upload(mlGeo.attributes.aA, mlGeo.attributes.aA.count);
 
     // the lesion: a white-hot blob, its halo, two rings closing in on it
     lesMat.uniforms.uK.value = les;

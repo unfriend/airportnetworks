@@ -752,8 +752,11 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
           continue;
         }
         ACT[bid(I, J, L)] = act; hot.push([I, J, L]);
-        for (let i = I * BS; i <= i1; i++) for (let j = J * BS; j <= j1; j++) for (let k = L * BS; k <= k1; k++) {
-          const q = id(i, j, k); if (!done[q]) { F[q] = field(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h, act); done[q] = 1; }
+        for (let i = I * BS; i <= i1; i++) {
+          if (late()) yield;
+          for (let j = J * BS; j <= j1; j++) for (let k = L * BS; k <= k1; k++) {
+            const q = id(i, j, k); if (!done[q]) { F[q] = field(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h, act); done[q] = 1; }
+          }
         }
       }
     }
@@ -772,7 +775,9 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
     for (let b = 0; b < hot.length; b++) {
       if (late()) yield;
       const [I, J, L] = hot[b], act = ACT[bid(I, J, L)], f = (x, y, z) => field(x, y, z, act);
-      for (let i = I * BS; i < Math.min(I * BS + BS, nx - 1); i++) for (let j = J * BS; j < Math.min(J * BS + BS, ny - 1); j++) for (let k = L * BS; k < Math.min(L * BS + BS, nz - 1); k++) {
+      for (let i = I * BS; i < Math.min(I * BS + BS, nx - 1); i++) for (let j = J * BS; j < Math.min(J * BS + BS, ny - 1); j++) {
+       if (late()) yield;   // (v137: a row of cells at a time, not a block of 64: a slice was up to 15 ms)
+       for (let k = L * BS; k < Math.min(L * BS + BS, nz - 1); k++) {
         let neg = 0;
         for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
         if (neg === 0 || neg === 8) continue;
@@ -789,6 +794,7 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
         for (let s = 1; s <= 3; s++) { const dd = 0.013 * s; occ += Math.max(0, dd - gridAt(p[0] + n[0] * dd, p[1] + n[1] * dd, p[2] + n[2] * dd, dd)) * w0; w0 *= 0.6; }
         const ko = clamp(1 - 10 * occ, 0.4, 1);
         VI[cid(i, j, k)] = P.length / 3; P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); C.push(col[0] * ko, col[1] * ko, col[2] * ko); M.push(col[3], col[4], 0);
+       }
       }
     }
     // faces: one quad round every grid edge the surface crosses, wound to face out
@@ -807,10 +813,12 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
     // the surface's own geometry, written a few arrays per slice
     const g = HSURF = new THREE.BufferGeometry(), put = (k, a, n) => g.setAttribute(k, new THREE.BufferAttribute(a, n)), nv = P.length / 3;
     put('position', new Float32Array(P), 3); yield 'slice';
-    put('normal', new Float32Array(N), 3); put('color', new Float32Array(C), 3); yield 'slice';
-    put('aM', new Float32Array(M), 3); put('aSite', new Float32Array(nv).fill(H5.aSite), 1);
+    put('normal', new Float32Array(N), 3); yield 'slice';
+    put('color', new Float32Array(C), 3); yield 'slice';
+    put('aM', new Float32Array(M), 3); put('aSite', new Float32Array(nv).fill(H5.aSite), 1); yield 'slice';
     const gc = new Float32Array(nv * 3); for (let i = 0; i < nv; i++) gc.set(H5.aGC, i * 3); put('aGC', gc, 3); yield 'slice';
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1)); g.computeBoundingSphere(); yield 'slice';
+    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1)); yield 'slice';
+    g.computeBoundingSphere(); yield 'slice';
   }
   // coronary vessels in their grooves: guesses pulled onto the crease between two parts, then onto the surface; each
   // tapers at its ends and sinks into the surface there
@@ -1079,7 +1087,7 @@ if (position.x > uBuildX) vA = 0.0;` });
     // disease sites: chosen one glows, the rest dims
     const s = clamp(S.motor_site, 0, 5), g = clamp(S.motor_groups, 0, 1), w0 = clamp(1 - s, 0, 1), breath = 0.88 + 0.12 * Math.sin(t * 2.2);
     // the heart builds faster once it is wanted, and fades in when it is ready
-    heartStep(S.motor_heart > 0.001 ? 12 : sliceMs(dt));
+    heartStep(S.motor_heart > 0.001 ? K.showMs(dt, 12) : sliceMs(dt));
     if (!heartJob) heartIn = Math.min(1, heartIn + clamp(dt || 0, 0, 0.1) / 0.5);
     const hv = prog(S.motor_heart, 0.2, 0.75) * prog(b, 0.75, 1) * heartIn;
     for (let k = 1; k <= 5; k++) {

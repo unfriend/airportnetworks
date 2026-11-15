@@ -1154,6 +1154,7 @@ function applyUniforms(S, explore) {
   RU.uReveal.value = S.route_reveal; RU.uAlpha.value = 0.55 * S.route_alpha; RU.uWComm.value = S.w_comm;
   RU.uRndRm.value = S.rnd_rm; RU.uTgtRm.value = S.tgt_rm; RU.uXrm.value = S.xrm; RU.uIso.value = U.uIso.value;
   GL.pillars.visible = S.deg_h + S.btw_h > 0.002;
+  GL.routes.visible = RU.uReveal.value > 0.0001 && RU.uAlpha.value > 0.001;   // (an invisible set of routes costs a draw and its triangles)
   const H = GL.highlights;
   const set = (k, p, a) => { const m = H[k]; if (!m) return; m.material.uniforms.uProg.value = p; m.material.uniforms.uAlpha.value = a; m.visible = a > 0.003 && p > 0.001; };
   set('ex', S.ex_prog, explore ? 0 : S.ex_alpha);
@@ -1739,12 +1740,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -2167,14 +2190,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -2196,6 +2219,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 
@@ -2543,21 +2567,80 @@ function panelDepth(P, inScene) {
   m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
   P.mesh.renderOrder = inScene ? -1 : 50;
 }
-// redraw only when what the panel shows has changed (texture uploads are not free)
-function panelTick(P, now) {
-  const s = P.sig() + '|' + P.hover + '|' + XR.fontOK;
-  if (s === P.last || now - P.t < 60) return;
-  P.last = s; P.t = now;
+// redraw only when what the panel shows has changed (texture uploads are not free). Not while xrUpdate keeps it hidden (P.want false; v137;
+// the menu's Story tab shows the story's two panels, so those go on while it does: HOST.collab.mirroring, and a shell
+// without it keeps them going); a card of the Stories screen not drawn yet waits its turn, two first draws a frame at
+// most (XR.landN, counted from xrUpdate), so opening the screen is not sixteen cards and 35 MB in one frame; and a text
+// fade alone sends only the rows that moved (panelFade, panelSend)
+function panelTick(P, now, force) {
+  if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
+  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (P.cap && !P.nd && !force && XR.landN >= 2) return;
+  P.t = now;
+  const R = P.last && base === P.base && P.fb ? panelFade(P) : null;
+  P.last = s; P.base = base; P.fb = null;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   P.regions = [];
+  panelPaint(ctx, P);
+  P.nd = (P.nd || 0) + 1;
+  if (P.cap && P.nd === 1) XR.landN++;
+  if (!R) P.tex.needsUpdate = true; else if (R.length) panelSend(P, R);
+}
+function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
   ctx.fillStyle = XR.clear ? VC.bg : 'rgba(8,15,28,0.97)';
   ctx.fill();
   P.draw(ctx, P);
-  P.tex.needsUpdate = true;
+}
+// text fades alone (v137; the part of a signature after \u0001, see sigMain): drawStoryPane keeps each element's band of
+// rows and the fades it follows (P.fb). The card is drawn whole into its canvas as ever (so it is exactly what a full
+// redraw makes), but only the rows of the elements whose fade moved are sent to the texture (panelSend, texSubImage2D
+// and the mipmaps), not the whole card (1.2 MP for every step of every line's fade). Null: send it whole (most of it moved)
+const FADE = { pad: 8, most: 0.85 };
+let FADECV = null;
+function panelFade(P) {
+  const R = [];
+  for (const b of P.fb) {
+    let moved = false;
+    for (const d of b.d) if (storyOpacity(d.el) !== d.q) moved = true;
+    if (!moved) continue;
+    const y0 = Math.max(0, Math.floor(b.y0 - FADE.pad)), y1 = Math.min(P.h, Math.ceil(b.y1 + FADE.pad)), last = R[R.length - 1];
+    if (y1 <= y0) continue;
+    if (last && y0 <= last[1] + last[3]) last[3] = Math.max(last[3], y1 - last[1]); else R.push([0, y0, P.w, y1 - y0]);
+  }
+  return R.reduce((n, r) => n + r[3], 0) > FADE.most * P.h ? null : R;
+}
+// the rows panelFade found, copied from the card's canvas to a small one and sent as they are
+function panelSend(P, R) {
+  const cv = FADECV = FADECV || document.createElement('canvas');
+  R.forEach((r, k) => {
+    if (cv.width !== r[2] || cv.height !== r[3]) { cv.width = r[2]; cv.height = r[3]; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, r[2], r[3]); c.drawImage(P.cv, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+    panelPatch(P, cv, r[0], r[1], k < R.length - 1);   // (its mipmaps made once, after the last)
+  });
+  P.faded = (P.faded || 0) + 1;
+}
+// a part of a panel (a canvas of its size, drawn at x, y on the panel's) sent to its texture on its own (texSubImage2D,
+// then its mipmaps), not the whole card. A texture not on the GPU yet, or with the whole card still to go there, takes
+// it as it goes; one without WebGL2 (a mipmapped texture of any size) is sent whole
+function panelPatch(P, cv, x, y, noMip) {
+  const R = GL.renderer, T = P.tex;
+  try {
+    const gl = R.getContext(), pr = R.properties.get(T), wt = pr && pr.__webglTexture;
+    if (!wt || pr.__version !== T.version) return;   // (its upload to come carries the card as it is now)
+    if (!R.capabilities.isWebGL2) { T.needsUpdate = true; return; }
+    R.state.bindTexture(gl.TEXTURE_2D, wt);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, T.flipY); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, T.premultiplyAlpha); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, T.flipY ? P.h - y - cv.height : y, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    if (!noMip && T.generateMipmaps && T.minFilter !== THREE.NearestFilter && T.minFilter !== THREE.LinearFilter) gl.generateMipmap(gl.TEXTURE_2D);
+    P.patched = (P.patched || 0) + 1;
+    P.patchPx = (P.patchPx || 0) + cv.width * cv.height;
+  } catch (e) { T.needsUpdate = true; }
 }
 
 // ------------------------------------------------------------ main panel --
@@ -2567,11 +2650,12 @@ function sigMain() {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
       if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
       if (curCh.key === 'paths') s += $('#flights').textContent;
       if (curCh.key === 'robustness') s += $('#robPct').textContent + $('#robPct').className;
+      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
     }
     return s;
   }
@@ -2611,7 +2695,8 @@ function xrLandingCards() {
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
+    P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
     P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
@@ -2698,12 +2783,16 @@ const STY = {
 };
 function storyOpacity(el) {
   if (!XR.elInfo) { XR.elInfo = new Map(); ST.items.forEach(it => it.els.forEach(e => XR.elInfo.set(e.el, e))); }
-  const e = XR.elInfo.get(el);
-  return e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  const e = XR.elInfo.get(el), q = e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  if (FADEB && e) FADEB.d.push({ el, q });   // (drawStoryPane: the fades this element's band follows, panelFade)
+  return q;
 }
+let FADEB = null;
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
-  for (const el of it.sec.children) y = drawStoryEl(ctx, P, el, x, y, W, 1);
+  P.fb = [];   // (each element's band of rows and the fades it follows: panelFade)
+  for (const el of it.sec.children) { const b = FADEB = { y0: y, y1: y, d: [] }; y = drawStoryEl(ctx, P, el, x, y, W, 1); b.y1 = y; P.fb.push(b); }
+  FADEB = null;
   ctx.globalAlpha = 1;
 }
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
@@ -3070,7 +3159,7 @@ function drawKeyboard(ctx, P, x, y, W) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig()
+  return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig()
     : 'x' + X.color + X.pillars + X.routes.toFixed(2);
 }
 function drawFoot(ctx, P) {
@@ -3383,7 +3472,7 @@ function init() {
   S.push(['Setting up the scene', () => buildScene($('#gl')), true], ['Preparing the scene', () => warm(GL.scene)],
     ['Writing the story', () => { resize(); window.addEventListener('resize', resize); buildStory(); buildTimeline(); }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }

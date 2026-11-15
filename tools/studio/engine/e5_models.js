@@ -137,6 +137,30 @@ function resolveUrl(u, base, dir, texPaths, found) {
 const fbxGuess = buf => CONV.fbxGuess(buf);
 // a model loaded: textures settled (missing ones dropped, big ones drawn down, each shown as it is), what its card says
 // (triangles, textures, clips, its size in its own units), and its starting scale and turn
+// A skinned mesh is culled by its rest pose's sphere, grown by half (v137, studio-9: a character behind you was still drawn and
+// skinned each frame): only when its clips cannot carry it far from its rest place (no bone's position track, a hips'
+// root motion, moving more than half the sphere's radius) and it cannot be worn (a Mixamo rig: the trackers move its hips as
+// far as the performer walks); else it is drawn whenever it is in the scene, as it always was. A lighter copy of its
+// geometry (Fewer triangles' preview) has the plain rest sphere: the preview's pose may pop at the view's edge
+function skinCull(mesh, clips, root) {
+  try {
+    const g = mesh.geometry;
+    if (!g || !g.attributes || !g.attributes.position) return false;
+    if (typeof IK !== 'undefined' && IK.rigOf && IK.rigOf(root).ok) return false;
+    g.computeBoundingSphere();
+    const bs = g.boundingSphere;
+    if (!bs || !(bs.radius > 0) || !isFinite(bs.radius)) return false;
+    let far = 0;
+    for (const c of clips || []) for (const t of c.tracks) {
+      if (!/\.position$/.test(t.name)) continue;
+      const v = t.values;
+      for (let i = 3; i + 2 < v.length; i += 3) far = Math.max(far, Math.hypot(v[i] - v[0], v[i + 1] - v[1], v[i + 2] - v[2]));
+    }
+    if (far > bs.radius * 0.5) return false;
+    bs.radius *= 1.5;
+    return true;
+  } catch (e) { return false; }
+}
 function finishModel(E, res) {
   const root = res.root;
   if (!root) throw new Error('the file has no scene in it');
@@ -149,7 +173,7 @@ function finishModel(E, res) {
       const g = o.geometry;
       tris += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3;
       if (!g.attributes.normal) normals = false;
-      o.frustumCulled = !o.isSkinnedMesh;   // (a skinned mesh's box does not follow its pose)
+      o.frustumCulled = !o.isSkinnedMesh || skinCull(o, res.clips, res.root);   // (a skinned mesh's box does not follow its pose: see skinCull)
     }
     for (const m of [].concat(o.material || [])) mats.add(m);
   });
@@ -264,6 +288,14 @@ function libClone(E) {
     n.userData.lit = n.material;
     meshes.push(n);
   });
+  // a node nothing moves keeps its matrix as it is, so each frame's walk of the scene only multiplies it (the holder above the
+  // model carries every motion): in a model with no clip and no bones that is every node (no mixer, no puppet); in one with
+  // clips (and no bones) every node no clip's track names; a rigged one (its bones are solved and posed) keeps them all
+  if (!E.rigged) {
+    const moved = new Set();
+    for (const c of E.clips) for (const t of c.tracks) { try { moved.add(THREE.PropertyBinding.parseTrackName(t.name).nodeName); } catch (e) { moved.add(''); } }
+    o.traverse(n => { if (moved.size && (!n.name || moved.has(n.name))) return; n.updateMatrix(); n.matrixAutoUpdate = false; });
+  }
   return { o, meshes, rest };
 }
 // as scanned: unlit, its own colours (photogrammetry, whose light is in its texture)

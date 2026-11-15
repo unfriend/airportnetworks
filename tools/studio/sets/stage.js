@@ -8,7 +8,7 @@ SETS.stage = function (K) {
   const R = 40, GRID = 24;
   // the floor (the pointer's dot lands on it, also where it is not drawn)
   const floor = new THREE.Mesh(keep(new THREE.CircleGeometry(R, 96).rotateX(-Math.PI / 2)),
-    keep(new THREE.MeshStandardMaterial({ color: 0x0a111e, roughness: 0.95, metalness: 0 })));
+    keep(new THREE.MeshLambertMaterial({ color: 0x0a111e })));   // (v137: Lambert, lit per vertex, in place of Standard: this floor is 80 m across and a room scan may stand over it)
   floor.renderOrder = -2;
   group.add(floor);
   // the grid: 1 m lines out to GRID m, each cut into 1 m pieces so it fades with distance (vertex colours, additive)
@@ -53,6 +53,10 @@ SETS.stage = function (K) {
     // [az, el, dist, tx, ty, tz]
     cam: { default: [24, 20, 7, 0, 1, 0], above: [0, 80, 14, 0, 0, 0] },
     solid: [floor],
+    // drawn first (the default: a shape that hides things is drawn into the depth after them, so the stage stays where it hides
+    // things) or, when the scene has no such shape (v137, studio-5), after the opaque items, so a room scan around you is not
+    // drawn over by two full-view layers: the depth test leaves them only the pixels nothing nearer covers
+    late(on) { const m = floor.material; m.polygonOffset = !!on; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; m.needsUpdate = true; floor.renderOrder = on ? 5 : -2; grid.renderOrder = on ? 5.1 : -1.5; sky.renderOrder = on ? 5.2 : -10; },
     setAlpha(a) { alpha = a; group.visible = a > 0.01; },
     update(S) {
       const f = (S.stage_floor === undefined ? 1 : S.stage_floor) * alpha;

@@ -252,7 +252,7 @@ function init() {
       buildStory(); buildSetLabels(); buildTimeline();
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }

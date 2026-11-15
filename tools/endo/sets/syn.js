@@ -529,10 +529,24 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3)); g.setIndex(idx); g.computeVertexNormals();
     return g;
   }
-  function inst(geo, mat, mats, order) {
+  // Instanced parts are culled by a bounding sphere of their spread (r128 culls an InstancedMesh by its geometry's sphere
+  // alone, so it is set here to hold every instance: the translations, the biggest scale and `slack` for what a part's
+  // shader moves it by while it builds). Round you in the gap most of the junction is then not drawn.
+  function inst(geo, mat, mats, order, slack) {
     const m = new THREE.InstancedMesh(geo, mat, mats.length);
     mats.forEach((M, i) => m.setMatrixAt(i, M));
-    m.frustumCulled = false; m.renderOrder = order || 1; set.group.add(m);
+    geo.computeBoundingSphere();
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; let sc = 1;
+    for (const M of mats) {
+      const e = M.elements;
+      for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], e[12 + a]); hi[a] = Math.max(hi[a], e[12 + a]); }
+      sc = Math.max(sc, Math.hypot(e[0], e[1], e[2]), Math.hypot(e[4], e[5], e[6]), Math.hypot(e[8], e[9], e[10]));
+    }
+    if (mats.length) {
+      const c = new THREE.Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2), b = geo.boundingSphere;
+      geo.boundingSphere = new THREE.Sphere(c, Math.hypot(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2 + (b.radius + b.center.length()) * sc + (slack || 0.06));
+    } else m.visible = false;
+    m.frustumCulled = true; m.renderOrder = order || 1; set.group.add(m);
     return m;
   }
   const grow = 'transformed *= vK;';
@@ -549,7 +563,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   }
   const vb = IB(); iAdd(vb, new THREE.IcosahedronGeometry(0.021, 1), [0.42, 0.6, 0.92], [7, 4, 0, 0]);
   const vesMat = lit('ves', { self: 0.12, rimK: 0.4, rimC: [0.55, 0.85, 1.0], rough: 0.35, vb: grow });
-  const vesMesh = inst(vb.geo(), vesMat, VES.map(p => new THREE.Matrix4().makeTranslation(...p)), 2);
+  const vesMesh = inst(vb.geo(), vesMat, VES.map(p => new THREE.Matrix4().makeTranslation(...p)), 2, 0.12);   // (slack: they jiggle and fuse)
   VES.forEach((p, i) => vesMesh.setColorAt(i, new THREE.Color().setScalar(0.88 + 0.16 * R())));
   const VPH = VES.map(() => R() * TAU);
 
@@ -557,7 +571,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   // packed on the crests and down the folds' upper walls; rapsyn under each; a few MuSK/LRP4 pairs among them
   const SUB = [[1.0, 0.45, 0.5], [0.5, 0.6, 1.0], [1.0, 0.45, 0.5], [0.45, 0.95, 0.6], [1.0, 0.9, 0.4]].map(c => v3.mul(v3.lerp([0.95, 0.72, 0.5], c, 0.3), 0.72));
   const rb = IB();
-  SUB.forEach((c, k) => { const a = k / 5 * TAU; iAdd(rb, prism(5, 0.0048, 0.0036, -0.005, 0.0135).translate(0.0063 * Math.cos(a), 0, 0.0063 * Math.sin(a)), c, [4, 3, 0, 0]); });
+  SUB.forEach((c, k) => { const a = k / 5 * TAU; iAdd(rb, prism(4, 0.0048, 0.0036, -0.005, 0.0135).translate(0.0063 * Math.cos(a), 0, 0.0063 * Math.sin(a)), c, [4, 3, 0, 0]); });
   iAdd(rb, new THREE.OctahedronGeometry(0.0045, 0).scale(1.3, 0.7, 1.3).translate(0, -0.011, 0), [0.7, 0.55, 0.95], [9, 3, 0, 0]);   // rapsyn, under it
   const REC = [], MUSK = [];
   for (let z = ZB + 0.06, row = 0; z < ZC - 0.012; z += 0.032, row++) {
@@ -581,7 +595,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     // they gather from all over the membrane as the junction builds (each a little later than the last), and light up when open
     vb: `{ float k = clamp(vK * 1.6 - aR.z * 0.6, 0.0, 1.0); transformed = transformed * smoothstep(0.0, 0.25, k) + aOff * (1.0 - smoothstep(0.0, 1.0, k));
   vGC += vec3(1.0, 0.88, 0.55) * openR(aR) * 0.85; }` });
-  const recMesh = inst(rg, recMat, REC.map(r => orient(r.p, r.n, R() * TAU, 1)), 1);
+  const recMesh = inst(rg, recMat, REC.map(r => orient(r.p, r.n, R() * TAU, 1)), 1, 1.3);   // (slack: they gather from up to a metre off)
   // MuSK/LRP4: LRP4 (agrin's receptor) a tall stalk ending in beta-propellers, MuSK a shorter one with Ig domains and
   // its kinase inside, DOK7 under it
   const mb = IB(), LR = [0.72, 1.0, 0.6], MK = [0.55, 0.95, 0.85];

@@ -973,7 +973,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       Z[i] = PART.size[i] * (0.6 + 0.4 * f);
     }
     g.setDrawRange(0, k);
-    g.attributes.position.needsUpdate = g.attributes.aColor.needsUpdate = g.attributes.aSize.needsUpdate = true;
+    upP(g, k);
   }
 
   // ---------------------------------------------------------------------------------------------- drawing
@@ -1047,9 +1047,13 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     if (!sc) { detach(); return; }
     const any = S.on || RS.size || (VW && (VW.d.length || VW.t.length)) || BOLTS.size || PART.n;
     if (!any && !G.made) return;
+    // nothing in the air: one last pass empties every count (and clears the tags), then both groups are hidden and the
+    // frame sends nothing to the GPU until something flies again
+    if (!any && G.idleDone) return;
     make();
     if (G.root.parent !== sc) sc.add(G.root);
     if (G.hud.parent !== sc) sc.add(G.hud);
+    G.root.visible = G.hud.visible = true;
     G.root.matrix.copy(F.m); G.root.matrixWorldNeedsUpdate = true;
     // (a pixel size for the glows: the headset's eye buffer height)
     try { const bl = HOST.session && HOST.session.renderState && HOST.session.renderState.baseLayer; G.px.value = (bl && bl.framebufferHeight ? bl.framebufferHeight : HOST.renderer.domElement.height) * 0.5; } catch (e) { /* keep */ }
@@ -1078,7 +1082,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       T2.mesh.visible = true; tagsOn.add(id);
     }
     for (const [id, T2] of G.tags) if (!tagsOn.has(id)) { T2.mesh.visible = false; if (!RS.has(id)) { T2.mesh.parent && T2.mesh.parent.remove(T2.mesh); T2.mesh.geometry.dispose(); T2.mesh.material.dispose(); T2.tex.dispose(); G.tags.delete(id); } }
-    G.ships.count = ns; G.ships.instanceMatrix.needsUpdate = true; if (G.ships.instanceColor) G.ships.instanceColor.needsUpdate = true;
+    G.ships.count = ns; upI(G.ships, ns);
     // the shared set: drones, targets, pickups
     let nd = 0, nt = 0;
     const pc = { b: 0, r: 0, s: 0 };
@@ -1105,8 +1109,8 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
         glowAt(_p, KIND[k.kind].col, 0.08 * f);
       }
     }
-    for (const [k, X] of [['d', G.drones], ['t', G.targets]]) { X.count = k === 'd' ? nd : nt; X.instanceMatrix.needsUpdate = true; }
-    for (const k of Object.keys(G.picks)) { G.picks[k].count = pc[k]; G.picks[k].instanceMatrix.needsUpdate = true; }
+    for (const [k, X] of [['d', G.drones], ['t', G.targets]]) { X.count = k === 'd' ? nd : nt; upI(X, X.count); }
+    for (const k of Object.keys(G.picks)) { G.picks[k].count = pc[k]; upI(G.picks[k], pc[k]); }
     // the bolts: where they are at the relay's time now, along their line
     let nb = 0;
     const life = GUN.life * 1000;
@@ -1118,7 +1122,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       _c.set(B.by === 'drone' ? '#ff3b3b' : colOf(B.pilot)).lerp(_c2.set('#ffffff'), 0.35);
       G.bolts.setColorAt(nb++, _c);
     }
-    G.bolts.count = nb; G.bolts.instanceMatrix.needsUpdate = true; if (G.bolts.instanceColor) G.bolts.instanceColor.needsUpdate = true;
+    G.bolts.count = nb; upI(G.bolts, nb);
     // a hit on a shield: a ring round it, fading over 0.35 s
     let nr = 0;
     for (const [ent, Fl] of FLASH) {
@@ -1129,13 +1133,28 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       if (!at) continue;
       _m.compose(at, HEAD.ok ? HEAD.gq : _bq.identity(), _s.setScalar((1 + a * 0.4) * (1 - a * 0.3))); G.rings.setMatrixAt(nr++, _m);
     }
-    G.rings.count = nr; G.rings.instanceMatrix.needsUpdate = true;
-    G.barBg.count = BAR.nb; G.barBg.instanceMatrix.needsUpdate = true;
-    G.barFill.count = BAR.nf; G.barFill.instanceMatrix.needsUpdate = true; if (G.barFill.instanceColor) G.barFill.instanceColor.needsUpdate = true;
+    G.rings.count = nr; upI(G.rings, nr);
+    G.barBg.count = BAR.nb; upI(G.barBg, BAR.nb);
+    G.barFill.count = BAR.nf; upI(G.barFill, BAR.nf);
     const gg = G.glow.geometry;
-    gg.setDrawRange(0, GL.n); gg.attributes.position.needsUpdate = gg.attributes.aColor.needsUpdate = gg.attributes.aSize.needsUpdate = true;
+    gg.setDrawRange(0, GL.n); upP(gg, GL.n);
     partStep(dt);
     hudStep(pt, tn);
+    if (any) G.idleDone = false;
+    else { G.idleDone = true; G.root.visible = G.hud.visible = false; G.hudMesh.visible = G.arrow.visible = false; }
+  }
+  // sends only the used part of an instanced mesh's buffers, and nothing when it is empty (r128 sends a whole buffer
+  // when no updateRange is set; a count of 0 left alone keeps what is on the GPU, which nothing draws)
+  function upI(m, n) {
+    if (!n) return;
+    const a = m.instanceMatrix; a.updateRange.offset = 0; a.updateRange.count = n * 16; a.needsUpdate = true;
+    const c = m.instanceColor;
+    if (c) { c.updateRange.offset = 0; c.updateRange.count = n * 3; c.needsUpdate = true; }
+  }
+  function upP(g, n) {
+    if (!n) return;
+    const A = g.attributes;
+    for (const k of ['position', 'aColor', 'aSize']) { const a = A[k]; a.updateRange.offset = 0; a.updateRange.count = n * a.itemSize; a.needsUpdate = true; }
   }
   const _c2 = new THREE.Color();
   // the pilot's strip above the right controller (shield, health, the boost meter, kills, what is on and its time left;

@@ -254,7 +254,7 @@ function init() {
       buildStory(); buildSetLabels(); buildTimeline();
     }],
     ['Setting up explore mode', () => { buildExplore(); tcSetup(); bindCanvas(); editLooks(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }
@@ -346,6 +346,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
   state: () => ({
     src: SRC.kind, srcState: SRC.state, base: SRC.base, folder: SRC.folder, save: SRC.save, scenes: SRC.scenes.map(s => s.name), scene: STU.scene, listing: STU.listing,
@@ -488,6 +489,7 @@ return {
     if (GL.env) GL.env.dispose();
     for (const id of [...GH.keys()]) ghostDrop(id);
     if (GHOST.edges) GHOST.edges.dispose();
+    warmUpDispose();
     BOX1.dispose(); HIDDEN.dispose(); LOOKS.dispose();
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);

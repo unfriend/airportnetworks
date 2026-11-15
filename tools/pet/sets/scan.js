@@ -1280,7 +1280,7 @@ void main() {
     fxL.visible = nl > 0; fxP.visible = np > 0; beam.visible = nb > 0;
     fxG.setDrawRange(0, nl * 2); fxPG.setDrawRange(0, np); beamG.setDrawRange(0, nb * 6);
     send(fxG, nl * 2, FXL_AT); send(fxPG, np, FXP_AT); send(beamG, nb * 4, BEAM_AT);
-    if (nLit || litBefore) cg.attributes.aG.needsUpdate = true;
+    if (nLit || litBefore) K.upload(cg.attributes.aG, cg.attributes.aG.count);   // (the changed stretch only)
     // the vision row fades in left to right
     const e = k => smooth(prog(vision, k, k + 0.2));
     SU.uE.value.set(e(0.12), e(0.36), e(0.62), 0);
@@ -1298,13 +1298,13 @@ void main() {
       menG.attributes.position.array.set([-0.55 + 1.1 * PB[k][1] * smooth(g), PB[k][0], 0], 3 * k);
       menG.attributes.aA.array[k] = 0.5 * smooth(prog(g, 0, 0.08));
     });
-    menG.attributes.position.needsUpdate = menG.attributes.aA.needsUpdate = true;
+    K.upload(menG.attributes.position, menG.attributes.position.count); K.upload(menG.attributes.aA, menG.attributes.aA.count);
   }
   const FXL_AT = { position: 3, aCol: 3, aA: 1 }, FXP_AT = { position: 3, aCol: 3, aSize: 1, aA: 1 }, BEAM_AT = { position: 3, aB: 3, aA: 1 };
-  // upload only the part of a packed buffer that is drawn
+  // upload only the part of a packed buffer that is drawn, and of that only what changed
   function send(geo, n, sz) {
     if (!n) return;
-    for (const k in sz) { const at = geo.attributes[k]; at.updateRange.offset = 0; at.updateRange.count = n * sz[k]; at.needsUpdate = true; }
+    for (const k in sz) K.upload(geo.attributes[k], n);   // (only what changed in the drawn part)
   }
 
   // ------------------------------------------------------------------ exports --

@@ -128,10 +128,20 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
   // Lit surfaces: any built-in material (MeshStandardMaterial, MeshLambertMaterial, MeshBasicMaterial ...).
   // The set's fade multiplies its opacity; base is the opacity at full fade-in.
   function fade(set, mat, base = 1) {
-    mat.transparent = true;
+    // see-through is decided when the frame is drawn, from the opacity the material has then (sets may lower it again in
+    // update()); non-normal blending (additive glows) always stays see-through. `transparent` is no program parameter in r128.
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => mat.opacity < 0.999 || mat.blending !== THREE.NormalBlending, set() {} });
     mat.userData.base = base;
     mat.opacity = base;
     set.fades.push(mat);
+    return mat;
+  }
+  // A ShaderMaterial whose fragment alpha is uA times the named uniforms (and nothing per vertex or instance): it counts as
+  // see-through only while that product is under 1, so solid models at full fade draw in the opaque pass, front to back.
+  // `transparent` is not a program parameter in r128, so reading it live costs no recompile.
+  function solid(mat, ...names) {
+    const U = mat.uniforms;
+    Object.defineProperty(mat, 'transparent', { configurable: true, get: () => { let a = U.uA.value; for (const n of names) a *= U[n].value; return a < 0.999; }, set() {} });
     return mat;
   }
   // a glassy bubble that glows at its rim (spheres, domes). opts: color, a0 (face-on alpha), a1 (rim alpha)
@@ -168,7 +178,7 @@ void main() {
       for (const m of set.fades) {
         const o = m.userData.base * a;
         m.opacity = o;
-        m.depthWrite = o > 0.97 && m.userData.base > 0.97;
+        m.depthWrite = o > 0.97 && m.userData.base > 0.97 && m.blending === THREE.NormalBlending;
       }
       set.group.visible = a > 0.003;
     };
@@ -217,6 +227,28 @@ void main() {
     geo.setAttribute('color', new THREE.BufferAttribute(a, 3));
     return geo;
   }
+  // Sends a Float32 attribute's used part (n items) to the graphics card only where it changed since it last went (the
+  // topo story's v136 `upload`, here for every set that rewrites buffers each frame): the 32-bit words of the range against
+  // a copy of what last went, the stretch from the first change to the last as the update range; nothing when it is the
+  // same. A range set before and not sent yet is kept (three.js sets its count back to -1 once it has gone).
+  function upload(attr, n) {
+    const k = attr.itemSize, len = n * k, a = attr.array, R = attr.updateRange;
+    if (!len) return;
+    const w = attr.words || (attr.words = new Uint32Array(a.buffer, a.byteOffset, a.length)), s = attr.sent || (attr.sent = new Uint32Array(a.length));
+    let i = 0, j = len - 1;
+    if (attr.sentN === len) {
+      while (i < len && w[i] === s[i]) i++;
+      if (i === len) return;
+      while (w[j] === s[j]) j--;
+    }
+    let o = i - i % k, e = j - j % k + k;
+    s.set(w.subarray(o, e), o); attr.sentN = len;
+    if (R.count !== -1) { e = Math.max(e, R.offset + R.count); o = Math.min(o, R.offset); }
+    R.offset = o; R.count = e - o; attr.needsUpdate = true;
+  }
+  // ms a set on show may build in one frame when it is not built yet (the engine's budget, buildMs: about 1 ms in a headset,
+  // so never under 2 here: a set wanted now must not take a minute; on a page the whole `ms`, buildMs being only 2 to 8 ms there)
+  const showMs = (dt, ms) => (typeof buildMs === 'function' && typeof GL !== 'undefined' && GL.renderer && GL.renderer.xr && GL.renderer.xr.isPresenting ? Math.min(ms, Math.max(2, buildMs(dt))) : ms);
   // free GPU memory of a set (the engine calls this on dispose)
   function dispose(set) {
     set.group.traverse(o => {
@@ -224,8 +256,8 @@ void main() {
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
     });
   }
-  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, newSet,
-    pointsGeo, linesGeo, tube, merge, paint, dispose };
+  return { THREE, smooth, clamp, lerp, prog, rng, gauss, v3, unit, rgb, ramp, U, GLSL, points, lines, fade, rim, solid, newSet,
+    pointsGeo, linesGeo, tube, merge, paint, upload, showMs, dispose };
 }
 const K = makeKit(THREE);
 const { smooth, clamp } = K;
@@ -15891,7 +15923,7 @@ SETS.stage = function (K) {
   const R = 40, GRID = 24;
   // the floor (the pointer's dot lands on it, also where it is not drawn)
   const floor = new THREE.Mesh(keep(new THREE.CircleGeometry(R, 96).rotateX(-Math.PI / 2)),
-    keep(new THREE.MeshStandardMaterial({ color: 0x0a111e, roughness: 0.95, metalness: 0 })));
+    keep(new THREE.MeshLambertMaterial({ color: 0x0a111e })));   // (v137: Lambert, lit per vertex, in place of Standard: this floor is 80 m across and a room scan may stand over it)
   floor.renderOrder = -2;
   group.add(floor);
   // the grid: 1 m lines out to GRID m, each cut into 1 m pieces so it fades with distance (vertex colours, additive)
@@ -15936,6 +15968,10 @@ SETS.stage = function (K) {
     // [az, el, dist, tx, ty, tz]
     cam: { default: [24, 20, 7, 0, 1, 0], above: [0, 80, 14, 0, 0, 0] },
     solid: [floor],
+    // drawn first (the default: a shape that hides things is drawn into the depth after them, so the stage stays where it hides
+    // things) or, when the scene has no such shape (v137, studio-5), after the opaque items, so a room scan around you is not
+    // drawn over by two full-view layers: the depth test leaves them only the pixels nothing nearer covers
+    late(on) { const m = floor.material; m.polygonOffset = !!on; m.polygonOffsetFactor = 1; m.polygonOffsetUnits = 1; m.needsUpdate = true; floor.renderOrder = on ? 5 : -2; grid.renderOrder = on ? 5.1 : -1.5; sky.renderOrder = on ? 5.2 : -10; },
     setAlpha(a) { alpha = a; group.visible = a > 0.01; },
     update(S) {
       const f = (S.stage_floor === undefined ? 1 : S.stage_floor) * alpha;
@@ -15976,7 +16012,7 @@ const LOOKS = (function () {
   // quad each, turned to the eye as a sprite is), the lines in one a kind (each drawn as before: in the scene's depth or
   // over everything, by its order; a dashed one as its dashes). Until then each tag, edge, tick and cross was a draw of its
   // own, twice in a headset (one an eye): about a hundred more a frame while editing a scene of forty items
-  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0 } };
+  const BT = { layer: 31, scene: null, renderer: null, tagMesh: null, atlas: null, lines: new Map(), dash: new Map(), stats: { tags: 0, lines: 0, draws: 0, uploads: 0, grew: 0, sent: 0 } };
   const _bm = new THREE.Matrix4(), _bv = new THREE.Vector3(), _bc = new THREE.Color(), _bcam = new THREE.Vector3();
   function batched(o, kind) { o.userData.bt = kind; o.layers.set(BT.layer); return o; }
   // the tags' canvas: rows 64 px tall (8 px apart, and 8 px between tags, so their smaller pictures keep apart), 2,048 px
@@ -16132,11 +16168,21 @@ const LOOKS = (function () {
     for (const o of LINES) { const k = (o.material.depthTest ? 'd' : 'o') + o.renderOrder; if (!by.has(k)) by.set(k, []); by.get(k).push(o); }
     for (const B of BT.lines.values()) if (!by.has(B.key)) B.mesh.visible = false;
     for (const [k, list] of by) {
-      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0);
+      const pts = list.map(o => linePts(o)), cnt = pts.reduce((a, p, i) => a + (p instanceof Float32Array ? p.length / 3 : p.length), 0), cap0 = BT.lines.has(k) ? BT.lines.get(k).cap : -1;
       const B = lineBatch(k[0] === 'd', +k.slice(1), cnt), pos = B.mesh.geometry.attributes.position, col = B.mesh.geometry.attributes.color, PA = pos.array, CA = col.array;
-      let v = 0;
+      // (v137, studio-12: each line's place in the batch and what it was written from are kept, so a line whose matrix, colour
+      // and points stand as they were is not worked out or sent again: only the stretch from the first line that changed to
+      // the last goes to the GPU; the same lines in the same order and the same buffers, else all of it as before)
+      let rec = B.rec, full = !rec || B.cap !== cap0 || rec.length !== list.length;
+      if (!full) for (let i = 0; i < list.length; i++) if (rec[i].o !== list[i] || rec[i].pts !== pts[i]) { full = true; break; }
+      if (full) rec = B.rec = list.map((o, i) => ({ o, pts: pts[i], n: -1, start: -1, mw: new Float32Array(16), pv: -1, cv: -1, cr: -1, cg: -1, cb: -1 }));
+      let v = 0, lo = Infinity, hi = 0;
       list.forEach((o, i) => {
-        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color;
+        const m = o.material, P = pts[i], G = o.geometry.attributes.position, VC = m.vertexColors && o.geometry.attributes.color, R = rec[i], n = P instanceof Float32Array ? P.length / 3 : P.length, e = o.matrixWorld.elements;
+        let ch = full || R.start !== v || R.n !== n || R.pv !== G.version || R.cv !== (VC ? VC.version : -1) || R.cr !== m.color.r || R.cg !== m.color.g || R.cb !== m.color.b;
+        for (let q = 0; !ch && q < 16; q++) if (e[q] !== R.mw[q]) ch = true;
+        if (!ch) { v += n; return; }
+        const v0 = v;
         _bm.copy(o.matrixWorld); _bc.copy(m.color);
         const put = (x, y, z, ci) => {
           _bv.set(x, y, z).applyMatrix4(_bm);
@@ -16146,9 +16192,11 @@ const LOOKS = (function () {
         };
         if (P instanceof Float32Array) for (let q = 0; q < P.length; q += 3) put(P[q], P[q + 1], P[q + 2], -1);
         else for (const k2 of P) put(G.getX(k2), G.getY(k2), G.getZ(k2), k2);
+        R.start = v0; R.n = n; R.mw.set(e); R.pv = G.version; R.cv = VC ? VC.version : -1; R.cr = m.color.r; R.cg = m.color.g; R.cb = m.color.b;
+        lo = Math.min(lo, v0); hi = Math.max(hi, v);
       });
       B.mesh.geometry.setDrawRange(0, v);
-      for (const a of [pos, col]) { a.updateRange.offset = 0; a.updateRange.count = v * 3; a.needsUpdate = v > 0; }
+      if (hi > lo) { BT.stats.sent += (hi - lo) * 2; for (const a of [pos, col]) { a.updateRange.offset = lo * 3; a.updateRange.count = (hi - lo) * 3; a.needsUpdate = true; } }
       B.mesh.visible = v > 0;
       if (v) BT.stats.draws++;
     }
@@ -16235,7 +16283,7 @@ const LOOKS = (function () {
     // what the pointer finds: an unseen ball round it
     const hit = new THREE.Mesh(ball, new THREE.MeshBasicMaterial({ visible: false })); hit.scale.setScalar(0.16); g.add(hit);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col.clone().multiplyScalar(0.45), depthWrite: false }));
-    ring.renderOrder = 4;
+    ring.renderOrder = 5.5;   // (after the stage, which is drawn late at 5 to 5.2 when nothing hides things: the ring writes no depth)
     const name = tag(30);
     g.add(name); name.position.y = 0.12;
     const lg = new THREE.BufferGeometry();
@@ -16449,9 +16497,11 @@ const LOOKS = (function () {
   // a model a trigger cube hides from you, while editing (v131; the owner, 10 November 2026: a room scan drawn faint was a
   // see-through layer over the whole view): not drawn, its unseen box's edges instead, in a muted grey-blue (one material
   // for all of them; the engine puts it where the model's unseen box is)
+  // a tag's shader material, made again with the same sources (the engine compiles its program early: the cache is by source)
+  const warmTag = () => new THREE.ShaderMaterial({ uniforms: { map: { value: atlas().tex } }, vertexShader: TAG_VS, fragmentShader: TAG_FS, depthTest: false, depthWrite: false });
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
   const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
-  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
+  return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, warmTag, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
     dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();
 
@@ -19995,6 +20045,30 @@ function resolveUrl(u, base, dir, texPaths, found) {
 const fbxGuess = buf => CONV.fbxGuess(buf);
 // a model loaded: textures settled (missing ones dropped, big ones drawn down, each shown as it is), what its card says
 // (triangles, textures, clips, its size in its own units), and its starting scale and turn
+// A skinned mesh is culled by its rest pose's sphere, grown by half (v137, studio-9: a character behind you was still drawn and
+// skinned each frame): only when its clips cannot carry it far from its rest place (no bone's position track, a hips'
+// root motion, moving more than half the sphere's radius) and it cannot be worn (a Mixamo rig: the trackers move its hips as
+// far as the performer walks); else it is drawn whenever it is in the scene, as it always was. A lighter copy of its
+// geometry (Fewer triangles' preview) has the plain rest sphere: the preview's pose may pop at the view's edge
+function skinCull(mesh, clips, root) {
+  try {
+    const g = mesh.geometry;
+    if (!g || !g.attributes || !g.attributes.position) return false;
+    if (typeof IK !== 'undefined' && IK.rigOf && IK.rigOf(root).ok) return false;
+    g.computeBoundingSphere();
+    const bs = g.boundingSphere;
+    if (!bs || !(bs.radius > 0) || !isFinite(bs.radius)) return false;
+    let far = 0;
+    for (const c of clips || []) for (const t of c.tracks) {
+      if (!/\.position$/.test(t.name)) continue;
+      const v = t.values;
+      for (let i = 3; i + 2 < v.length; i += 3) far = Math.max(far, Math.hypot(v[i] - v[0], v[i + 1] - v[1], v[i + 2] - v[2]));
+    }
+    if (far > bs.radius * 0.5) return false;
+    bs.radius *= 1.5;
+    return true;
+  } catch (e) { return false; }
+}
 function finishModel(E, res) {
   const root = res.root;
   if (!root) throw new Error('the file has no scene in it');
@@ -20007,7 +20081,7 @@ function finishModel(E, res) {
       const g = o.geometry;
       tris += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3;
       if (!g.attributes.normal) normals = false;
-      o.frustumCulled = !o.isSkinnedMesh;   // (a skinned mesh's box does not follow its pose)
+      o.frustumCulled = !o.isSkinnedMesh || skinCull(o, res.clips, res.root);   // (a skinned mesh's box does not follow its pose: see skinCull)
     }
     for (const m of [].concat(o.material || [])) mats.add(m);
   });
@@ -20122,6 +20196,14 @@ function libClone(E) {
     n.userData.lit = n.material;
     meshes.push(n);
   });
+  // a node nothing moves keeps its matrix as it is, so each frame's walk of the scene only multiplies it (the holder above the
+  // model carries every motion): in a model with no clip and no bones that is every node (no mixer, no puppet); in one with
+  // clips (and no bones) every node no clip's track names; a rigged one (its bones are solved and posed) keeps them all
+  if (!E.rigged) {
+    const moved = new Set();
+    for (const c of E.clips) for (const t of c.tracks) { try { moved.add(THREE.PropertyBinding.parseTrackName(t.name).nodeName); } catch (e) { moved.add(''); } }
+    o.traverse(n => { if (moved.size && (!n.name || moved.has(n.name))) return; n.updateMatrix(); n.matrixAutoUpdate = false; });
+  }
   return { o, meshes, rest };
 }
 // as scanned: unlit, its own colours (photogrammetry, whose light is in its texture)
@@ -20444,7 +20526,7 @@ function makeItem(id, kind) {
   const it = { id, kind, rec: null, holder: null, a: 0, sa: 0, fa: 0, shown: false, heard: false, first: true, shownAt: performance.now(), gl: null, carry: false, act: false, since: 0, inside: false, ended: false };
   if (kind === 'o') {
     it.holder = new THREE.Group();
-    it.slot = new THREE.Group(); it.holder.add(it.slot);
+    it.slot = new THREE.Group(); it.slot.matrixAutoUpdate = false; it.holder.add(it.slot);   // (never moved: its identity matrix stands)
     it.grey = LOOKS.grey(); GL.items.add(it.grey.group);
     it.grey.group.userData.id = id;
     it.greyHit = new THREE.Mesh(BOX1, HIDDEN); it.greyHit.scale.setScalar(0.4); it.greyHit.position.y = 0.2; it.greyHit.userData.id = id;
@@ -20608,6 +20690,7 @@ function buildModel(it) {
   applyLight(it);
   if (cutsOn(it.id).length) cutPrep(it);   // (its cut-outs' addition to its materials, compiled with them below)
   warmModel(c.o);
+  warmQueue(it);   // (a model a cube hides now, or one out of view, goes to the GPU before it shows: its pictures and triangles, a little a frame)
   if (it.fresh) placeFresh(it, it.fresh);
 }
 // its shaders compiled now (with the scene's lights, as when drawn), so a cube that shows it later does not stall the
@@ -20617,6 +20700,55 @@ function warmModel(o) {
   try { sc.children = GL.scene.children.filter(x => x.isLight).concat(o); GL.renderer.compile(sc, GL.camera); } catch (e) { /* compiled when first drawn */ }
   sc.children = [];
 }
+// A model goes to the GPU as soon as it is built, a little a frame (v137's lane D, studio-3), whether a cube hides it or it is out of view: else the frame that shows
+// it uploads its geometry (a 400k-triangle scan, about 11 MB) and its pictures (a 4,096 px picture, 85 MB with its mipmaps)
+// at once, a hitch of 50 to 150 ms on a Quest. Each frame, at most one picture (initTexture: its mipmaps too) or the next
+// meshes up to about 150k triangles (drawn once, all together, into a 1 x 1 target of their own, never culled: the upload
+// happens as a mesh is drawn); a model changed or removed meanwhile leaves the queue
+const WUP = { q: [], rt: null, cam: null, sc: null, last: null, n: 0, texN: 0, drawN: 0, tris: 150000 };
+function warmQueue(it) {
+  if (!it.model || AWAY.freed || !(GL.renderer && GL.renderer.xr.isPresenting)) return;   // (a headset's hitch: a page's first view uploads as it draws)
+  WUP.q = WUP.q.filter(w => w.it !== it);
+  WUP.q.push({ it, model: it.model, texs: null, meshes: null });
+}
+function warmTextures(it) {
+  const set = new Set();
+  for (const m of it.model.meshes) for (const mat of [].concat(m.userData.lit || [])) for (const k of TEX_KEYS) { const t = mat && mat[k]; if (t && t.isTexture && t.image) set.add(t); }
+  return [...set];
+}
+function warmUpStep() {
+  if (!WUP.q.length || !GL.renderer || XR.stories) return;
+  let w = WUP.q[0];
+  while (w && (STU.items.get(w.it.id) !== w.it || w.it.model !== w.model || !w.it.model)) { WUP.q.shift(); w = WUP.q[0]; }
+  if (!w) return;
+  const R = GL.renderer;
+  if (!w.texs) { w.texs = warmTextures(w.it); w.meshes = w.model.meshes.filter(m => m.geometry && m.visible !== false); }
+  if (w.texs.length) { const t = w.texs.shift(); try { R.initTexture(t); WUP.texN++; } catch (e) { /* uploaded when first drawn */ } return; }
+  const take = []; let tris = 0;
+  while (w.meshes.length && (!take.length || tris < WUP.tris)) {
+    const m = w.meshes.shift(), g = m.geometry;
+    tris += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3;
+    take.push(m);
+  }
+  if (take.length) warmDraw(take);
+  if (!w.meshes.length) { WUP.q.shift(); WUP.n++; }
+}
+function warmDraw(meshes) {
+  const R = GL.renderer;
+  if (!WUP.rt) { WUP.rt = new THREE.WebGLRenderTarget(1, 1); WUP.cam = new THREE.PerspectiveCamera(60, 1, 0.01, 100); WUP.sc = new THREE.Scene(); }
+  const sc = WUP.sc, was = R.getRenderTarget(), xr = R.xr.enabled, cc = R.getClearColor(new THREE.Color()), ca = R.getClearAlpha(), cull = meshes.map(m => m.frustumCulled);
+  try {
+    sc.children = GL.scene.children.filter(x => x.isLight).concat(meshes);
+    meshes.forEach(m => { m.frustumCulled = false; });
+    R.xr.enabled = false; R.setRenderTarget(WUP.rt); R.render(sc, WUP.cam);
+    WUP.drawN += meshes.length;
+  } catch (e) { /* drawn (and uploaded) when first shown */ } finally {
+    meshes.forEach((m, i) => { m.frustumCulled = cull[i]; });
+    sc.children = [];
+    R.setRenderTarget(was); R.xr.enabled = xr; R.setClearColor(cc, ca);
+  }
+}
+function warmUpDispose() { WUP.q = []; if (WUP.rt) { WUP.rt.dispose(); WUP.rt = null; } for (const x of EW.keep) try { x.dispose(); } catch (e) { /* gone */ } EW.keep = []; }
 // a file placed for the first time here: its units and up axis as its starting scale and turn, its lowest point on the
 // floor with its middle where it was put, lit or as scanned, its first clip (stored in the record from then on)
 function placeFresh(it, at) {
@@ -20740,7 +20872,7 @@ const _hp = new THREE.Vector3(), _kp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
   if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
-  if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateMatrixWorld(true); return GL.world.worldToLocal(out.copy(XR.head)); }
+  if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateWorldMatrix(true, false); return GL.world.worldToLocal(out.copy(XR.head)); }   // (its parents and itself: worldToLocal needs no more, the frame's own walk did the rest)
   if (APP.mode === 'explore' && X.view === 'walk') return out.copy(WALK.pos);
   return null;
 }
@@ -20756,11 +20888,15 @@ const shownHere = it => !it.rec || !it.rec.shows || it.rec.shows === sessKind();
 // the later of two entries (a cube's: { since, id }): by the entry time, then the id, the same on every device
 const enteredLater = (a, b) => !b || a.since > b.since || (a.since === b.since && a.id > b.id);
 const LISTS = { rev: -1, shown: new Set(), all: false };
+const _trS = new Map(), _trH = new Map();
 function triggerStep(now) {
-  const hp = headPoint(_hp), S = new Map(), H = new Map(), away = !STU.head && xrAway();
+  const hp = headPoint(_hp), S = _trS, H = _trH, away = !STU.head && xrAway();
+  S.clear(); H.clear();   // (the two maps reused each frame)
   if (LISTS.rev !== STU.rev) {
     LISTS.rev = STU.rev; LISTS.shown = new Set(); LISTS.all = false;
-    for (const c of STU.items.values()) if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; }
+    let hides = false;
+    for (const c of STU.items.values()) { if (c.kind === 'c') { for (const i of c.rec.show) LISTS.shown.add(i); if (c.rec.all) LISTS.all = true; } else if (c.kind === 'p' && c.rec.look === 'hide') hides = true; }
+    try { if (LISTS.hides !== hides || LISTS.hides === undefined) { LISTS.hides = hides; if (GL.sets && GL.sets.stage && GL.sets.stage.late) GL.sets.stage.late(!hides); } } catch (e) { /* the stage as it was */ }   // (the stage after the items unless a shape hides things)
   }
   // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
   // ts - off; the heads only while a cube works for everyone)
@@ -20952,6 +21088,7 @@ const approach = (v, t, d) => (v < t ? Math.min(t, v + d) : Math.max(t, v - d));
 const heldHere = it => !!it.carry || recording(it);
 function itemsStep(dt, now) {
   const editing = editOn(), clockS = sceneClock(now), fade = dt / 0.4;
+  awayArm(); if (AWAY.freed) awayStep();   // (the away timer begun once; a model freed while away loaded again on the first frame back)
   paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
@@ -21003,6 +21140,8 @@ function itemsStep(dt, now) {
     else if (it.kind === 'd') paintItemStep(it, editing);   // (its meshes, built in slices; its look and tag: e6r_paint.js)
     else if (it.kind === 'e') { it.holder.visible = editing && it.a > 0.01; if (it.holder.visible) it.look.look({ hot: STU.hover === it.id, selected: STU.sel === it.id }); }
   }
+  warmEdit(editing ? 'edit' : 'sess'); warmEditStep();   // (a headset's first frames, or the first frames of editing there: what is drawn then, compiled a program a frame, once)
+  warmUpStep();   // (a hidden model's pictures and triangles to the GPU, a little a frame)
   texStep();   // (the pictures the active cubes put on objects, once every object's model is built: e6i_tex.js)
   // the cut-outs, once every object has its place this frame (each in its object's frame; what it cuts handed to the
   // object's materials: e6b_cuts.js), then the sounds, once every object's animation has stepped: a sound that follows a
@@ -21146,6 +21285,46 @@ function editLooks() {
   GL.edit.add(GL.links);
   // the looks' tags and lines drawn together, each time the scene is drawn (LOOKS.batch: a few draws in place of one each)
   LOOKS.batch(GL.scene, GL.renderer);
+}
+// what editing draws the first time, compiled early (a link is 20 to 100 ms on a Quest: here in the first frame editing is on, in itemsStep, and as Edit is pressed, not in the frame that first draws a tag or a ghost): on a
+// stand-in scene with the lights, one object for each program: the batched lines (vertex colours) and plain lines, the tags'
+// shader, the ghosts' Lambert and flat Phong, plain meshes (rings, balls, outlines) and the shell's sheets (a map, both
+// sides, which its menu and notices first draw in a session). The materials stay (a program is dropped with its last
+// material), freed with the scene (warmUpDispose); never for a visitor's kiosk
+const EW = { edit: false, sess: false, keep: [], q: [], geo: null };
+// (what: 'edit', everything above; 'sess', only the plain meshes and the sheets, which a headset's first frames draw whether or
+// not it is editing: the menu, the notices, the cards. Only in a headset session, where a link is a hitch; a page compiles as
+// it draws. The programs go into a queue and are made one a frame, warmEditStep, so no frame carries all of them)
+function warmEdit(what) {
+  const edit = what !== 'sess';
+  if ((edit ? EW.edit : EW.sess) || OPT.visit || !GL.renderer || !GL.scene || !GL.renderer.xr.isPresenting) return;
+  if (edit) EW.edit = EW.sess = true; else EW.sess = true;
+  try {
+    if (!EW.geo) {
+      const c = document.createElement('canvas'); c.width = c.height = 2;
+      const lg = new THREE.BufferGeometry(), tg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0.001], 3)); lg.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1], 3));
+      tg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.001, 0, 0, 0, 0.001, 0], 3)); tg.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+      tg.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+      EW.geo = { lg, tg, tex: new THREE.CanvasTexture(c) };
+      EW.keep.push(lg, tg, EW.geo.tex);
+    }
+    const G = EW.geo;
+    const mk = [() => new THREE.MeshBasicMaterial({ map: G.tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), () => new THREE.MeshBasicMaterial({ color: 0x46d9ff }), () => new THREE.MeshBasicMaterial({ color: 0x46d9ff, side: THREE.DoubleSide })];
+    if (edit) mk.push(() => new THREE.LineBasicMaterial({ vertexColors: true }), () => LOOKS.warmTag(), () => new THREE.MeshLambertMaterial({ color: GHOST.col }));   // (the batched lines, the tags and a ghost's Lambert: what editing a moving model draws; the flat Phong of a model with no normals waits for its first ghost)
+    EW.q.push(...mk);
+  } catch (e) { /* compiled when first drawn */ }
+}
+function warmEditStep() {
+  if (!EW.q.length || !EW.geo || !GL.renderer || GL.gone) return;
+  try {
+    const m = EW.q.shift()(), o = m.isLineBasicMaterial ? new THREE.LineSegments(EW.geo.lg, m) : new THREE.Mesh(EW.geo.tg, m), sc = new THREE.Scene();
+    o.frustumCulled = false;
+    sc.children = GL.scene.children.filter(x => x.isLight).concat(o);
+    GL.renderer.compile(sc, GL.camera);
+    sc.children = [];
+    EW.keep.push(m);   // (a program is dropped with its last material: these stay until the scene goes)
+  } catch (e) { /* compiled when first drawn */ }
 }
 // the top of an item (a label's place, a line's end), in the scene's frame; mid: its middle instead
 function itemTopInto(it, out, mid) {
@@ -21359,6 +21538,67 @@ function streamDrop(it) {
 }
 function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
 
+// ---------------------------------------------------------------- away --
+// While this headset is away from the studio's station (in the lobby: xrAway) the frame idles after a second (e8_xr.js), so
+// nothing else would ever stop what still runs, and a big scene would keep its memory for as long as the headset sits in
+// the lobby. A timer of its own (the frame is not there to count): `stop` after away, every sound's source and the
+// screens' elements stopped and paused (not left to the emitters' own 0.7 s after their fade, which the idle frame cuts
+// short); `drop` later (20 s), the streams' elements and the screens' elements and textures let go (they come back by
+// themselves as the headset does); `free` later still (2 minutes), the models' GPU copies and memory (geometries, textures,
+// the parsed file's pictures) and the decoded sounds: the records, the layout, the small looks and the file list stay, so
+// nothing is written to the room, no Undo step is made and Unsaved changes never moves. Back at the station every model is
+// loaded again as on opening the scene (a grey box and its loading line meanwhile) and the sounds decoded as they are wanted.
+// Never while work on this device is under way (a recording, an upload, a conversion, a preview, a stroke, a scan): it waits.
+// The times are in ms; STUDIO.away({ stop, drop, free, force }) sets them for tests (force: true or false stands in for xrAway)
+const AWAY = { stop: 600, drop: 20000, free: 120000, force: null, t0: 0, st: 0, freed: false, timer: 0, frees: 0, wakes: 0, freedAt: 0 };
+const awayNow = () => !!STU.scene && !GL.gone && (AWAY.force !== null ? !!AWAY.force : xrAway());
+function awayBusy() {
+  try { return !!(REC || UP.busy || CV.busy || NS.making || FT.busy || FT.saving || FT.pv || CT.busy || CT.saving || PV.make || VW.open || PAINT.drawing || SCAN.busy); } catch (e) { return false; }
+}
+function awayFree() {
+  for (const E of LIB.values()) {
+    if (!E.root || E.state !== 'ready') continue;
+    for (const id of E.users) { const it = STU.items.get(id); if (it && it.model) { if (GH.has(id)) ghostDrop(id); dropModel(it); } }
+    disposeTree(E.root, true);
+    E.root = null; E.state = 'idle'; E.gen++; E.decoded = [];
+  }
+  sndForget();
+  AWAY.freed = true; AWAY.frees++; AWAY.freedAt = performance.now();
+  STU.libRev++;   // (the panes' lines say 'waiting' meanwhile; nothing else of the scene changes)
+}
+function awayWake() {
+  AWAY.freed = false; AWAY.wakes++;
+  for (const E of LIB.values()) if (E.users.size && E.state === 'idle' && STU.fileMap.has(E.path)) libLoad(E);
+  for (const it of STU.items.values()) if (it.kind === 's') it.F = snd(it.rec.file);   // (decoded again as it is wanted)
+  STU.libRev++; dirty();
+}
+function awayStep() {
+  const now = performance.now();
+  if (!awayNow()) {
+    if (AWAY.t0 || AWAY.freed) { const was = AWAY.freed; AWAY.t0 = 0; AWAY.st = 0; if (was) awayWake(); }
+    return;
+  }
+  if (!AWAY.t0) AWAY.t0 = now;
+  const d = now - AWAY.t0;
+  if (AWAY.st < 1 && d >= AWAY.stop) {
+    AWAY.st = 1;
+    emitAll(false);
+    for (const it of STU.items.values()) if (it.kind === 'v' && it.sv) { try { it.sv.el.pause(); } catch (e) { /* gone */ } }
+  }
+  if (AWAY.st < 2 && d >= AWAY.drop) {
+    AWAY.st = 2;
+    for (const it of STU.items.values()) { if (it.kind === 's' && it.st) streamDrop(it); else if (it.kind === 'v') svDrop(it); }
+  }
+  if (AWAY.st < 3 && d >= AWAY.free && !awayBusy()) { AWAY.st = 3; awayFree(); }
+}
+// the poll: every 100 ms (cheap: one test) from the scene's first frame; the frame calls awayStep too once it is back, so the
+// first frame back already loads what was freed
+function awayArm() {
+  if (AWAY.timer) return;
+  const tick = () => { AWAY.timer = later(tick, 100); awayStep(); };
+  AWAY.timer = later(tick, 100);
+}
+
 // ------------------------------------------------------------------ edits --
 // Editing is this device's own (studioEdit), never in the state; refused while the station's story is locked (Lock
 // this story) and never offered with &visit. Every change is recorded for Undo (this device's last 30): an undo writes
@@ -21376,6 +21616,7 @@ const editOn = () => STU.edit && !OPT.visit && !!STU.scene && !editLocked();
 function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
+  if (on) warmEdit('edit');
   store.set('studioEdit', STU.edit ? '1' : null);
   if (!STU.edit) { STU.pick = null; STU.txp = null; STU.plp = null; STU.follow = ''; STU.cutTo = ''; STU.keyPick = ''; if (STU.gpick) gpickEnd(); STU.whole.clear(); STU.cutF.clear(); select(''); }   // (Preview is editing's only)
   sfxAct(STU.edit ? 'pick' : 'click', 'stage', 'centre');
@@ -21487,7 +21728,7 @@ const _fh = new THREE.Vector3(), _fd = new THREE.Vector3();
 function frontAt(d) {
   d = d === undefined ? 1.5 : d;
   if (XR.on && GL.renderer.xr.isPresenting) {
-    GL.world.updateMatrixWorld(true);
+    GL.world.updateWorldMatrix(true, false);
     GL.world.worldToLocal(_fh.copy(XR.head));
     _fd.set(0, 0, -1).applyQuaternion(XR.headQ).applyQuaternion(GL.world.getWorldQuaternion(_eq).invert());
   } else if (APP.mode === 'explore' && X.view === 'walk') { _fh.copy(WALK.pos); _fd.set(-Math.sin(WALK.yaw), 0, -Math.cos(WALK.yaw)); }
@@ -21910,21 +22151,28 @@ const CUT_KEY = '|studio-cut-1', CUTMAT = new WeakMap();
 const CUT_V = '\n\tvec4 cutP = vec4( transformed, 1.0 );\n#ifdef USE_INSTANCING\n\tcutP = instanceMatrix * cutP;\n#endif\n\tvCutW = ( modelMatrix * cutP ).xyz;\n';
 const CUT_F = '\n\tfor ( int ci = 0; ci < ' + CUT_MAX + '; ci ++ ) {\n\t\tif ( ci >= cutN ) break;\n\t\tvec4 cw = vec4( vCutW, 1.0 );\n' +
   '\t\tif ( max( max( abs( dot( cutM[ ci * 3 ], cw ) ), abs( dot( cutM[ ci * 3 + 1 ], cw ) ) ), abs( dot( cutM[ ci * 3 + 2 ], cw ) ) ) < 0.5 ) discard;\n\t}\n';
+// (v137, studio-4: a discard in the fragment shader turns off early-Z for the whole mesh, so a room scan with a door's cut-out
+// drew every covered pixel of the scan, twice, even while no box cut anything. The addition is now in the program only
+// while the object has a box cutting (U.on, set where the boxes are handed over, cutUpload): its materials carry both
+// programs, the plain one while none cuts, found again by their keys when it changes: a switch costs no compile once both
+// were made, which a model's building does. Both variants' uniform sets carry cutM and cutN, since three.js r128 keeps the
+// uniform set of the program it made last for a material, whichever program the material then draws with)
 function cutPatch(m, U) {
   if (!m || CUTMAT.has(m)) return;
   CUTMAT.set(m, U);
   const before = m.onBeforeCompile, key = m.customProgramCacheKey();
   m.onBeforeCompile = function (sh, renderer) {
     before.call(this, sh, renderer);
+    sh.uniforms.cutM = U.cutM; sh.uniforms.cutN = U.cutN;
+    if (!U.on) return;
     // (a shader without three.js's place of the vertex is left as it is: nothing of it is cut)
     if (!sh.vertexShader.includes('#include <project_vertex>')) return;
-    sh.uniforms.cutM = U.cutM; sh.uniforms.cutN = U.cutN;
     sh.vertexShader = 'varying vec3 vCutW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>' + CUT_V);
     const f = 'varying vec3 vCutW;\nuniform vec4 cutM[ ' + CUT_MAX * 3 + ' ];\nuniform int cutN;\n' + sh.fragmentShader;
     sh.fragmentShader = f.includes('#include <clipping_planes_fragment>') ? f.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + CUT_F)
       : f.replace(/void\s+main\s*\(\s*\)\s*\{/, s => s + CUT_F);
   };
-  m.customProgramCacheKey = () => key + CUT_KEY;
+  m.customProgramCacheKey = () => (U.on ? key + CUT_KEY : key);
   m.needsUpdate = true;
 }
 // an object's model made ready to be cut (once per model, from its first cut-out on: a model with none keeps its
@@ -21933,9 +22181,20 @@ function cutPrep(ob) {
   const M = ob.model;
   if (!M || M.cut) return;
   M.cut = true;
-  if (!ob.cutU) ob.cutU = { cutM: { value: new Float32Array(CUT_MAX * 12) }, cutN: { value: 0 }, f: -1, list: [] };
+  if (!ob.cutU) ob.cutU = { cutM: { value: new Float32Array(CUT_MAX * 12) }, cutN: { value: 0 }, f: -1, list: [], on: false };
   cutMats(ob);
   for (const n of M.meshes) n.onBeforeRender = () => cutUpload(ob);
+  cutWarm(ob);
+}
+// both programs of an object's materials made now (the building model: the one a cut-out needs and the plain one), left as
+// the object's boxes say (none cutting yet: plain)
+function cutWarm(ob) {
+  const U = ob.cutU, M = ob.model;
+  if (!U || !M) return;
+  const was = U.on, bump = () => { for (const n of M.meshes) for (const k of ['lit', 'scan']) for (const m of [].concat(n.userData[k] || [])) if (CUTMAT.has(m)) m.needsUpdate = true; };
+  U.on = true; bump(); warmModel(M.o);
+  U.on = false; bump(); warmModel(M.o);
+  if (was) { U.on = true; bump(); }
 }
 // its materials patched (as scanned ones are made only when first asked for: applyLight patches those then)
 function cutMats(ob) {
@@ -21958,6 +22217,10 @@ function cutUpload(ob) {
     n++;
   }
   U.cutN.value = n;
+  if ((n > 0) !== !!U.on) {   // (the first box cutting, or the last one not: the program with the addition, or the plain one)
+    U.on = n > 0;
+    if (ob.model) for (const mesh of ob.model.meshes) for (const k of ['lit', 'scan']) for (const m of [].concat(mesh.userData[k] || [])) if (CUTMAT.has(m)) m.needsUpdate = true;
+  }
 }
 
 // ---------------------------------------------------------------- edits --
@@ -22008,7 +22271,7 @@ function modelHits(o, rc) {
 }
 // where you are, in the scene's frame: your head in a headset, the camera on a page
 function viewerAt() {
-  GL.world.updateMatrixWorld(true);
+  GL.items.updateWorldMatrix(true, false);
   if (XR.on && GL.renderer.xr.isPresenting) return GL.items.worldToLocal(XR.head.clone());
   return GL.items.worldToLocal(GL.camera.getWorldPosition(new THREE.Vector3()));
 }
@@ -23665,7 +23928,8 @@ function normBehaviour(x) {
 // st: each behaving item's state here; heard: the drivers' samples, by item and member; rt: the time others' samples are
 // drawn at (the relay's clock 120 ms ago, eased); ends: the items whose driving here stopped (their last sample says
 // so); fake: pretend heads (tests: [{ id, p, yaw, ts }] in the scene's frame); log: what each item did, for tests
-const BEH = { st: new Map(), heard: new Map(), n: 0, rt: { at: 0, t: 0 }, sent: 0, ends: new Set(), fake: null, base: '', log: null };
+const BEH_NONE = Object.freeze([]);
+const BEH = { itemsRev: -1, items: [], needHeads: false, pool: [], out: [], st: new Map(), heard: new Map(), n: 0, rt: { at: 0, t: 0 }, sent: 0, ends: new Set(), fake: null, base: '', log: null };
 const BEH_SEND = 100, BEH_DELAY = 120, BEH_CARRY = 100, BEH_FRESH = 1000, BEH_KEEP = 0.5, BEH_SWAP = 0.3, BEH_HOME = 0.2;
 const BEH_TURN = Math.PI, BEH_ARRIVE = 0.35, BEH_EASE = 0.25, BEH_LAG = 0.3;   // (at most half a turn a second; the easings' time constants, s)
 const behStation = () => atStation();
@@ -23689,21 +23953,29 @@ function behFace() {
 // This device's own as the studio has it (exact: a headset's, or the camera in Walk view outside a room, or a test's); in
 // a room the others' from the shell (and this headset's from there when the studio has none, as in a pretend session)
 function behHeads(T) {
-  const out = [], p = headPoint(_beH), room = behStation();
-  const own = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room) ? { id: behMe(), me: true, p: p.clone(), f: behFace(), ts: T } : null;
+  // (the list and its heads are reused each call, and so are their vectors: a caller uses them within its step and keeps none)
+  const out = BEH.out, pool = BEH.pool; out.length = 0;
+  let used = 0;
+  const head = (id, me, x, y, z, f, ts) => {
+    const h = pool[used] || (pool[used] = { id: '', me: false, p: new THREE.Vector3(), f: null, ts: 0 });
+    used++; h.id = id; h.me = me; h.p.set(x, y, z); h.f = f; h.ts = ts; out.push(h);
+    return h;
+  };
+  const p = headPoint(_beH), room = behStation();
+  const ownOk = p && (STU.head || (XR.on && GL.renderer.xr.isPresenting) || !room);
   let H = null;
   try { H = room && HOST.collab.heads ? HOST.collab.heads() : null; } catch (e) { /* an older shell */ }
   if (H && Array.isArray(H.list)) {
     // (room coordinates are the scene's at a station since v125: the scene stands on the room's frame, xrPlace)
     for (const h of H.list) {
-      if (h.me && own) continue;
+      if (h.me && ownOk) continue;
       _beF.set(0, 0, -1).applyQuaternion(_beQ.set(h.head[3], h.head[4], h.head[5], h.head[6]));
       // (ts the relay's time it was there; a shell that gives none, or not a number, gives now: no entry time is NaN)
-      out.push({ id: h.id, me: !!h.me, p: new THREE.Vector3(h.head[0], h.head[1], h.head[2]), f: flat2(_beF.x, _beF.z), ts: fin(h.ts) ? h.ts : T });
+      head(h.id, !!h.me, h.head[0], h.head[1], h.head[2], flat2(_beF.x, _beF.z), fin(h.ts) ? h.ts : T);
     }
   }
-  if (own) out.push(own);
-  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) out.push({ id: h.id, me: false, p: new THREE.Vector3(...h.p), f: flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), ts: fin(h.ts) ? h.ts : T });
+  if (ownOk) head(behMe(), true, p.x, p.y, p.z, behFace(), T);
+  if (Array.isArray(BEH.fake)) for (const h of BEH.fake) head(h.id, false, h.p[0], h.p[1], h.p[2], flat2(-Math.sin(h.yaw || 0), -Math.cos(h.yaw || 0)), fin(h.ts) ? h.ts : T);
   return out;
 }
 // its middle at its placed pose (into out), and which way its front (+z) faces there (about the vertical)
@@ -23803,7 +24075,9 @@ function behaveStep(dt, pn) {
   trkStep(pn);   // (the trackers here this frame, and the puppet's countdowns: e6k_trk.js)
   BEH.n++;
   restScan();   // (what rests this frame: held here, or Pause; e6e_motion.js)
-  const items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour);
+  // (the items with a behaviour: found again only when a record changed, as the cubes' lists are)
+  if (BEH.itemsRev !== STU.rev) { BEH.itemsRev = STU.rev; BEH.items = [...STU.items.values()].filter(it => MOTION_ITEMS.includes(it.kind) && it.rec.behaviour); BEH.needHeads = BEH.items.some(it => it.rec.behaviour.kind !== 'item'); }
+  const items = BEH.items;
   // (the base stage: an item on a tracker, else a behaviour's, while the scene has either: poseBase, e6k_trk.js)
   POSE.base = TRK.any ? poseBase : items.length ? behaveBase : null;
   for (const [id, B] of BEH.st) {
@@ -23820,7 +24094,7 @@ function behaveStep(dt, pn) {
     let t = R.t + (pn - R.at);
     if (!R.at || Math.abs(want - t) > 250) t = want; else t += clamp((want - t) * 0.1, -2, 2);
     R.at = pn; R.t = t;
-    const hs = items.some(it => it.rec.behaviour.kind !== 'item') ? behHeads(T) : [], me = behMe();
+    const hs = BEH.needHeads ? behHeads(T) : BEH_NONE, me = behMe();
     for (const it of items) behOne(it, hs, me, T, pn, dt);
   }
   behSend(pn, T);
@@ -29265,8 +29539,9 @@ function updateExtraLabels() {
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 // what the pointer can find while editing: objects (their unseen boxes, or a grey box), sounds, cubes (behind the others:
 // you often stand inside a cube) and the selected cube's corners
+const _pickL = [];
 function pickables() {
-  const L = [];
+  const L = _pickL; L.length = 0;   // (one list reused: the caller hands it to the raycaster and keeps none)
   for (const it of STU.items.values()) {
     if (it.kind === 'o') { if (it.model && it.holder.visible) L.push(it.proxy); else if (it.grey.group.visible) L.push(it.greyHit); }
     else if (it.kind === 's') { if (it.holder.visible) L.push(it.look.hit); }
@@ -29277,7 +29552,8 @@ function pickables() {
     else if (it.kind === 'v' && it.holder.visible) L.push(it.look.hit);   // (a screen's panel: e6q_screens.js)
     else if (it.kind === 'd' && it.holder.visible) L.push(it.look.hit);   // (a painting's unseen box: e6r_paint.js)
   }
-  return L.concat(ghostHits());   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
+  for (const h of ghostHits()) L.push(h);   // (a ghost, where a moving item is placed, is pointed at as the item: e6h_ghost.js)
+  return L;
 }
 // the nearest thing a ray finds: a corner first, then the nearest object, sound or cut-out, a cube only when nothing
 // else is hit. A cut-out lies within its object's unseen box, so that box is passed over when the ray goes on into one
@@ -32402,12 +32678,34 @@ const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 // simulation goes on from where it was); called after xrBegin in frame, every frame
 const _xrNoWalk = () => {};
 function xrIdle(xr, dt) {
-  XR.awayT = xr && xrAway() ? (XR.awayT || 0) + dt : 0;
+  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
+  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
+  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
   const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) { if (idle) GL.world.updateMatrixWorld = _xrNoWalk; else delete GL.world.updateMatrixWorld; }
+  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
+    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
+  }
   if (!idle) return false;
+  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
+  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
+}
+// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
+// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
+// material that uses it does), a handful of objects
+function xrWarm() {
+  try {
+    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
+      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
+      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
+    GL.renderer.compile(sc, GL.camera);
+    XR.warmed = sc;
+  } catch (e) { /* compiled on first use instead */ }
 }
 // an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
 // one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
@@ -32467,32 +32765,45 @@ function xrSettings() {
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
-// a label's picture, shared by its sprite and its sign
-function labelTex(L) {
-  if (L.ltex) return L.ltex;
-  let bold, rest, cls;
-  if (L.txt) [bold, rest, cls] = L.txt;
-  else {
-    const b = L.el.querySelector('b');
-    bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
-  }
-  const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
-  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+// a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
+// sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
+// for it is made again, wider
+function labelWords(L) {
+  if (L.txt) return L.txt;
+  const b = L.el.querySelector('b'), bold = b ? b.textContent : '';
+  return [bold, L.el.textContent.slice(bold.length).trim(), ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || ''];
+}
+// the label drawn on cv at its left, its plate as wide as its words; fresh: cv sized for it (a function's label with room
+// to spare), else cleared and drawn again, or false when its words no longer fit
+function labelPaint(L, cv, fresh) {
+  const [bold, rest, cls] = labelWords(L), ctx = cv.getContext('2d'), px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   ctx.font = vfont(px, 700); const wb = bold ? ctx.measureText(bold).width : 0;
   ctx.font = vfont(px); const wr = rest ? ctx.measureText(rest).width : 0;
-  cv.width = Math.ceil(pad * 2 + wb + gap + wr); cv.height = H;
+  const w = Math.ceil(pad * 2 + wb + gap + wr);
+  if (fresh) { cv.width = L.fn ? Math.ceil(w * 1.3 + 40) : w; cv.height = H; }
+  else if (w > cv.width) return false;
+  else ctx.clearRect(0, 0, cv.width, H);
   const [col, acc] = LBL_STYLE[cls] || LBL_STYLE[''];
-  ctx.save(); rr(ctx, 0, 0, cv.width, H, 8); ctx.clip();
-  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, cv.width, H);
+  ctx.save(); rr(ctx, 0, 0, w, H, 8); ctx.clip();
+  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, w, H);
   if (acc) { ctx.fillStyle = acc; ctx.fillRect(0, 0, 5, H); }
   ctx.restore();
   ctx.textBaseline = 'middle'; ctx.fillStyle = col;
   ctx.font = vfont(px, 700); ctx.fillText(bold, pad, H / 2 + 1);
   ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
-  const tex = new THREE.CanvasTexture(cv);
+  return { cls };
+}
+function labelTex(L) {
+  if (L.ltex) return L.ltex;
+  const cv = document.createElement('canvas'), p = labelPaint(L, cv, true), tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 4;
-  return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
+  return (L.ltex = { tex, cv, aspect: cv.width / cv.height, tip: p.cls === 'tip' });
+}
+// a label whose words changed (labelText): its picture drawn again in place; too long for its canvas, dropped and made again
+function labelRedraw(L) {
+  const o = L.ltex;
+  if (!o) return;
+  if (labelPaint(L, o.cv, false)) o.tex.needsUpdate = true; else dropSprite(L);
 }
 // labels on top: a sprite turned to you, drawn over everything, beside its point
 function labelSprite(L) {
@@ -33189,14 +33500,14 @@ function xrUpdate(S) {
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) P.mesh.visible = land;
+    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
     // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
     const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.mesh.visible = pv && pm === 'shown';
-    XR.foot.mesh.visible = pv && pm !== 'hidden';
+    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
+    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
@@ -33219,6 +33530,7 @@ function xrUpdate(S) {
   }
   xrTip(S);
   const now = performance.now();
+  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
 
@@ -33517,21 +33829,57 @@ function panelDepth(P, inScene) {
 // its own strip, not the whole card; and when only the button pointed at has changed (v136), only its old and new
 // rectangles are drawn again and sent (panelHover), not the whole card (4.9 MB and its mipmaps for every button a ray
 // crossed)
-function panelTick(P, now) {
-  const base = P.sig() + '|' + XR.fontOK, s = base + '|' + P.hover;
+function panelTick(P, now, force) {
+  if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + XR.fontOK, fade = k < 0 ? '' : sg.slice(k), s = base + fade + '|' + P.hover;
   if (s === P.last) { if (P.bars && P.bars.length) barsTick(P, now); return; }
-  if (now - P.t < 60) return;
+  if (!force && now - P.t < 60) return;
+  if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
-  if (P.last && base === P.base && panelHover(P, P.hov, P.hover)) { P.last = s; P.hov = P.hover; return; }
-  P.last = s; P.base = base; P.hov = P.hover;
+  const same = P.last && base === P.base;
+  if (same && fade === P.fade && panelHover(P, P.hov, P.hover)) { P.last = s; P.hov = P.hover; return; }
+  const R = same && P.hover === P.hov && P.fb ? panelFade(P) : null;   // (text fades alone: only the rows that moved are sent)
+  P.last = s; P.base = base; P.fade = fade; P.hov = P.hover; P.fb = null;
   const ctx = P.ctx;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, P.w, P.h);
   ctx.globalAlpha = 1; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
   P.regions = []; P.bars = []; P.drawn = [];
   panelPaint(ctx, P);
+  P.nd = (P.nd || 0) + 1;
+  if (P.cap && P.nd === 1) { XR.landN++; P.mesh.visible = P.want !== false; }   // (shown at its first draw even while the frame idles: xrUpdate, which shows it, does not run then)
+  if (R) { if (R.length) panelSend(P, R); return; }
   P.tex.needsUpdate = true;
   P.full = (P.full || 0) + 1;
+}
+// text fades alone (v137; the part of a signature after \u0001, see sigMain): drawStoryPane keeps each element's band of
+// rows and the fades it follows (P.fb). The card is drawn whole into its canvas as ever (so it is exactly what a full
+// redraw makes), but only the rows of the elements whose fade moved are sent to the texture (panelSend, texSubImage2D
+// and the mipmaps), not the whole card (1.2 MP for every step of every line's fade). Null: send it whole (most of it moved)
+const FADE = { pad: 8, most: 0.85 };
+let FADECV = null;
+function panelFade(P) {
+  const R = [];
+  for (const b of P.fb) {
+    let moved = false;
+    for (const d of b.d) if (storyOpacity(d.el) !== d.q) moved = true;
+    if (!moved) continue;
+    const y0 = Math.max(0, Math.floor(b.y0 - FADE.pad)), y1 = Math.min(P.h, Math.ceil(b.y1 + FADE.pad)), last = R[R.length - 1];
+    if (y1 <= y0) continue;
+    if (last && y0 <= last[1] + last[3]) last[3] = Math.max(last[3], y1 - last[1]); else R.push([0, y0, P.w, y1 - y0]);
+  }
+  return R.reduce((n, r) => n + r[3], 0) > FADE.most * P.h ? null : R;
+}
+// the rows panelFade found, copied from the card's canvas to a small one and sent as they are
+function panelSend(P, R) {
+  const cv = FADECV = FADECV || document.createElement('canvas');
+  R.forEach((r, k) => {
+    if (cv.width !== r[2] || cv.height !== r[3]) { cv.width = r[2]; cv.height = r[3]; }
+    const c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.clearRect(0, 0, r[2], r[3]); c.drawImage(P.cv, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+    panelPatch(P, cv, r[0], r[1], k < R.length - 1);   // (its mipmaps made once, after the last)
+  });
+  P.faded = (P.faded || 0) + 1;
 }
 function panelPaint(ctx, P) {
   rr(ctx, 0, 0, P.w, P.h, 26);
@@ -33592,9 +33940,10 @@ function sigMain() {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
       if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
+      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
     }
     return s;
   }
@@ -33633,7 +33982,9 @@ function xrLandingCards() {
   XR.landRev = HOST.listRev;
   HOST.list.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
+    P.want = !!XR.stories;
+    P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
     P.mesh.position.set(Math.sin(a) * d, XR_LAND.rows[row], -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
@@ -33720,12 +34071,16 @@ const STY = {
 };
 function storyOpacity(el) {
   if (!XR.elInfo) { XR.elInfo = new Map(); ST.items.forEach(it => it.els.forEach(e => XR.elInfo.set(e.el, e))); }
-  const e = XR.elInfo.get(el);
-  return e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  const e = XR.elInfo.get(el), q = e ? Math.round(Math.max(0, e.o) * 3) / 3 : 1;
+  if (FADEB && e) FADEB.d.push({ el, q });   // (drawStoryPane: the fades this element's band follows, panelFade)
+  return q;
 }
+let FADEB = null;
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
-  for (const el of it.sec.children) y = drawStoryEl(ctx, P, el, x, y, W, 1);
+  P.fb = [];   // (each element's band of rows and the fades it follows: panelFade)
+  for (const el of it.sec.children) { const b = FADEB = { y0: y, y1: y, d: [] }; y = drawStoryEl(ctx, P, el, x, y, W, 1); b.y1 = y; P.fb.push(b); }
+  FADEB = null;
   ctx.globalAlpha = 1;
 }
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
@@ -34125,7 +34480,7 @@ function panelPatch(P, cv, x, y, noMip) {
   } catch (e) { T.needsUpdate = true; }
 }
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
+  return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + footHint() + XR.clear;
 }
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
 const footHint = () => (!editOn() ? (STU.scene ? 'Walk about: trigger cubes show and hide things as you go.' + (XR.clear ? ' Left stick: ' + (stickMode() === 'move' ? 'move' : 'walk') + '. Right stick: turn.' : '') : 'Pick a scene on the panel.')
@@ -34422,7 +34777,7 @@ function init() {
       buildStory(); buildSetLabels(); buildTimeline();
     }],
     ['Setting up explore mode', () => { buildExplore(); tcSetup(); bindCanvas(); editLooks(); }],
-    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+    ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }
@@ -34514,6 +34869,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
   state: () => ({
     src: SRC.kind, srcState: SRC.state, base: SRC.base, folder: SRC.folder, save: SRC.save, scenes: SRC.scenes.map(s => s.name), scene: STU.scene, listing: STU.listing,
@@ -34656,6 +35012,7 @@ return {
     if (GL.env) GL.env.dispose();
     for (const id of [...GH.keys()]) ghostDrop(id);
     if (GHOST.edges) GHOST.edges.dispose();
+    warmUpDispose();
     BOX1.dispose(); HIDDEN.dispose(); LOOKS.dispose();
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
