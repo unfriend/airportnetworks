@@ -1,4 +1,4 @@
-// Checks every story's sound effects cues (phase 2 of the sound effects: sfx.js, and the lines every story keeps, AGENTS.md
+// Checks every story's sound effects cues (phase 2 of the sound effects: sfx.js, and the lines every story keeps, docs/agents/shell.md
 // "Sound effects") without listening: each story is loaded headless and its cue table read from inside it (SFXQ.cues and
 // SFXQ.spans, filled by sfxCue and sfxHold in buildStory). Checked, per story:
 //  - every name is a sound or a continuous sound the shell knows (SFX_LIB.SOUNDS, SFX_LIB.DRONES);

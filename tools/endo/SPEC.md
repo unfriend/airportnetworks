@@ -254,7 +254,7 @@ Controls: View (Matrix / Tree / Distances / Endotypes). Explore API `api()`: `se
 
 Rename everything from the muscle story to this one: `HOST.register('endo', ...)`, the header comment (the poster
 and authors above), `audio/narration-endo.mp3`, `SET_ORDER = ['motor', 'syn', 'net', 'tree']`, the shared-room
-hooks unchanged (see "Shared rooms" in `AGENTS.md`: keep every hook line exactly), the headset code (`e5_xr.js`)
+hooks unchanged (see "Shared rooms" in `docs/agents/shared-rooms.md`: keep every hook line exactly), the headset code (`e5_xr.js`)
 unchanged except for "Stand in the gap" (below). The headset keeps the sets that export `keepClear` (`motor`,
 `syn`) at least 0.35 m from your head in every view but Stand in the gap (`xrClear`, as in the muscle story).
 

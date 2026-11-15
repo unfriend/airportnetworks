@@ -18,7 +18,7 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | show the stories (screens, kiosk, headsets) | [README.md](README.md) (installing, using), [docs/event-runbook.md](docs/event-runbook.md), [relay/README.md](relay/README.md) for shared rooms |
 | check or answer for the science | [docs/data-and-permissions.md](docs/data-and-permissions.md), [docs/questions-for-authors.md](docs/questions-for-authors.md), the story's `tools/<story>/SPEC.md` |
 | record a narration | [docs/narration.md](docs/narration.md) (the words and times), [audio/PUT-narration.mp3-HERE.txt](audio/PUT-narration.mp3-HERE.txt); a synthetic voice: [tools/voice/README.md](tools/voice/README.md) |
-| change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
+| change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the core: structure, rules, conventions, testing) and its detail files in [docs/agents/](docs/agents/) (every shared-room rule, the studio, each story, every test) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 | run the studio, its scenes and uploads | [tools/studio/README.md](tools/studio/README.md), [relay/README.md](relay/README.md) (scenes, R2, the upload page) |
 | set up the PC with the Vive trackers and the Index | [tools/trackers/README.md](tools/trackers/README.md), [tools/trackers/SPEC.md](tools/trackers/SPEC.md), [relay/README.md](relay/README.md) ("The PC's Vive trackers") |
@@ -118,7 +118,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   crosses"; "Menu sharing not working, i turn it on but the others in the same studio circle dont see it".
   - *Spaceships* (`ships.js`): no edge along the floor and no bounce off the room scan's walls in AR (only the floor and
     the 3 m ceiling hold a ship); the shared set's middle follows the flying ships (eased over 1.5 s, at most 3.5 m/s),
-    targets and drones left behind catch up. AGENTS.md "Spaceships", "The arena".
+    targets and drones left behind catch up. docs/agents/shell.md "Spaceships", "The arena".
   - *Areas* (`shared.js`, `areaMarks`): every area's crosses and sign, spots A and B among them, beside the ones this
     headset lines up from, while the menu is open and for 30 s after lining up or adding an area.
   - *My menu*: not reproduced. `node tools/collab.mjs --menus` with `MENUS_STORY=studio` (new) puts A and B at a studio
@@ -338,7 +338,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   pickups that spawn from time to time". Laser tag across the room, discussed first, went to the Deferred list (item 7).
   Built in one lane (a workflow, about 2.7M tokens: a builder, two Sonnet reviews, a verify and a fix round; two medium
   findings confirmed and fixed, with nine lows).
-  - `ships.js` (`HOST.ships`, "Spaceships" in `AGENTS.md`), a shell file loaded after `occlusion.js` and before
+  - `ships.js` (`HOST.ships`, "Spaceships" in `docs/agents/shell.md`), a shell file loaded after `occlusion.js` and before
     `shared.js` (in `SHELL`, the relay's `APP_FILES` and `SHELL_FILES`, the release's shell fingerprint). The right stick
     clicked twice launches or lands (`sticks` in `shared.js`; the left stick clicked twice is now moving with the sticks,
     its notice, menu row and the studio's words saying so; single clicks and both at once still the menu); a Settings row
@@ -380,7 +380,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   an outline box "with no transparent walls". Built in three lanes (a workflow, about 3.7M tokens), each reviewed once;
   the areas and occlusion lanes had a fix round (four and one medium findings); eight low findings were fixed when
   merging.
-  - Areas (`shared.js`, "Areas" under "Shared rooms" in `AGENTS.md`): spots A and B stay the room's (`rm`); each further
+  - Areas (`shared.js`, "Areas" under "Shared rooms" in `docs/agents/shared-rooms.md`): spots A and B stay the room's (`rm`); each further
     area is a room key `rp.<id>` (`{ name, n, a, b, d, base, by, at }`, its crosses' tips in room coordinates; a
     tombstone `{ gone }` forgets one; at most 8 areas), its letters from `n` (C and D, E and F, ...). A headset lined up
     by its own crosses (or the PC's trackers) adds one from the room setup guide's new Areas page (a name on the keypad,
@@ -422,7 +422,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   menu and back lets it click again", and for the check by eye "highlight the crosses and add some arrow or something
   that points towards where it believes they are". Built in three lanes (a workflow, about 3.6M tokens), each reviewed
   once; the places and headset lanes had a fix round; four low findings were fixed when merging.
-  - Places (`shared.js`, "Places" under "Shared rooms" in `AGENTS.md`): `roomFrame` (one calibration) became
+  - Places (`shared.js`, "Places" under "Shared rooms" in `docs/agents/shared-rooms.md`): `roomFrame` (one calibration) became
     `roomFrames` (`{ v: 3, one, places }`, one per room code, migrated at load; the old one is taken by the first room
     it lines up in). Calibrating in a room replaces only that room's place. Two anchors per room by default (4 rooms) or
     one (8, 7 with Anchor on): the one anchor at spot A turned towards spot B, its turn steadied over 3 s (a Quest's
@@ -1469,7 +1469,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   "my colleague spun that and it was a bit jerky on my side"; "make it smooth"). In a shared room what someone moves
   by hand (a station's scene and panel, the explore view there, a station carried by the grip, a person's head and
   hands) now goes out 15 times a second stamped with the relay's time, and every other device draws it 120 ms behind,
-  between the two samples around that moment (snapshot interpolation, `SMOOTH` in `shared.js`; AGENTS.md "Others'
+  between the two samples around that moment (snapshot interpolation, `SMOOTH` in `shared.js`; docs/agents/shared-rooms.md "Others'
   moves, smooth"), so a spin turns at the spinner's own pace instead of in pulses, and lands exactly where it was let
   go. FORMAT networks-26 (a room needs every device on the release that brings it); every story's `setView` takes a
   second argument (`now`). The test (`node tools/collab.mjs --smooth`) measured, with a pretend headset: every frame
@@ -1482,7 +1482,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **Built on 29 October 2026 (release networks-v96), tested headlessly only:**
   - *Live updates and hot reload:* a running copy takes a new release by itself without losing its place, and while
     developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
-    the relay's `--watch` and `--build`; AGENTS.md "Hot reload and live updates").
+    the relay's `--watch` and `--build`; docs/agents/shell.md "Hot reload and live updates").
   - *Station icons:* a small low-poly model of each station's story, in its colour, turning over its ring in a shared
     room (since the design room's part 2, below, each story's main miniature from `lowpoly.js`; `tools/icons.html`
     shows them all).
@@ -1507,7 +1507,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   shaders, the story, explore mode, the panels; `LOAD` in each engine and in the three hand-written stories) and
   reports them (`HOST.progress`): the page shows a thin bar and the step under the loading line, and a headset shows
   a card with the story's name and a bar in its colour in front of you (and, until v102, a ring on the left wrist), from 0.4 s on,
-  fading as the story appears (`HOST.loading`; AGENTS.md "How the shell and stories fit together"). The PET story's
+  fading as the story appears (`HOST.loading`; docs/agents/shell.md "How the shell and stories fit together"). The PET story's
   organ icons are made after the load. Measured headlessly (software WebGL, a busy machine), the longest task of a
   multi-scene story's load fell from 0.7 to 1.4 s to 0.2 to 0.4 s (at most one shader's compile), while the whole load
   took up to 0.6 s longer: each pause lets the page draw a frame, which software WebGL composites slowly and the next
@@ -1524,7 +1524,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   holds it, else hosted from the device's copy). Never after Leave until joined again by hand, never a room it was
   never in; on another network, one button, *Start room XYZ again*. A switch per room, *Show on this network*. No
   address is kept or logged (only a 24-bit hash; [docs/data-and-permissions.md](docs/data-and-permissions.md)). How it
-  works: AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md). Tested between pages on
+  works: docs/agents/shared-rooms.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md). Tested between pages on
   one machine with pretend networks (`node tools/collab.mjs --near`); real networks (home routers, hotspots, eduroam,
   a relay behind Coolify) and headsets rejoining after a restart are untested.
 - **In networks-v97:** *panels per story* (the owner: "i would want that for
@@ -1535,7 +1535,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   (and the design room) keeps its own value: the device's outside a shared room (`#panels=controls` in a link sets it
   for the story it opens), the station's in a room, for everyone at that circle, and settable per station in the
   page's Shared dialog too, never refused by the circles lock (key `st.<id>.ui`, part of FORMAT networks-25).
-  Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; AGENTS.md "How the shell and
+  Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; docs/agents/shell.md "How the shell and
   stories fit together". How it feels on a headset is untested.
 - **In networks-v97:** *the design room, part 2* (the owner's queue). A
   *Design room* row in the headset's menu: outside a shared room it opens the design room; in a room, *Design room
@@ -1546,7 +1546,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   the tour's interactome, the PET scanner, the airports' globe and so on; the design room's own icon is a new small
   miniature of its table, `design.table`), loaded once from `lowpoly.js`, built once per story and kept, in the
   story's colour, with the glowing dodecahedron while they load or for a story without one; the old hand-made models
-  are gone from `shared.js`. AGENTS.md "Shared rooms" ("Station icons", "The design room in a room"). How the icons
+  are gone from `shared.js`. docs/agents/shared-rooms.md "Shared rooms" ("Station icons", "The design room in a room"). How the icons
   read from across a real room and the table at a circle on a headset are untested.
 - **In networks-v97:** *follow a person* (the owner: a laptop for people who
   do not want to wear a headset follows along). In the page's Shared dialog each person in a headset has *Follow* in
@@ -1554,7 +1554,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   circle to the next, and stays on the last one when they step out of every circle (or take the headset off). It stops
   when they leave the room (the page stays at their last station), or when the page follows a station or picks a story
   by hand, as following a station stops now. The dialog says "Following Ann (at The flock)". Pages only (a headset
-  walks); nothing new is written to the room (no `FORMAT` change). AGENTS.md "Shared rooms"; at an event:
+  walks); nothing new is written to the room (no `FORMAT` change). docs/agents/shared-rooms.md "Shared rooms"; at an event:
   [docs/event-runbook.md](docs/event-runbook.md). Tested with a pretend person in a headset between pages on one
   machine (`node tools/collab.mjs --follow`); with real headsets walking a room it is untested.
 - **Tried with ten headsets (29 October 2026):** the owner ran main (v96) with 10 headsets through a local relay on
@@ -1576,7 +1576,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   *People: same circle* / *everyone* in the clock menu (this headset only, never in the room) for debugging. Pages'
   room maps still show everyone. Also: following a person is offered only for people in a headset (`followPerson`
   checks it too), and the props catalogue's PET organs entry lost the removed strength chart (`organs_measures`
-  instead; the design room rebuilt). AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md).
+  instead; the design room rebuilt). docs/agents/shared-rooms.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md).
   Tests: `node tools/collab.mjs --circles` (its own room) and the rewritten walk-out checks in the main run. All of it
   is untested on headsets: how a ring's card reads when pointed at, the story heard from out of its circle, the locks
   and the People toggle in use.
@@ -1598,7 +1598,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   continuous sound replaces the quietest only when louder, the muscle story's random knockout sounds only when it
   knocked something out; the tests check a silent apply and a built story's scene change, cue anchors that exist, and
   match the log to the hundredth. The plan and the shared lines are `docs/sfx-phase2-plan.md` and
-  `docs/sfx-phase2-lines.md`; AGENTS.md describes the mechanism.
+  `docs/sfx-phase2-lines.md`; docs/agents/shell.md describes the mechanism.
 - **Sound effects, phase 2: sounds inside the stories, on by default** (the owner, 29 October 2026, after listening to
   phase 1: "sounds are fine, go on", and explore mode too). Each story plays its own sound cues as its clock crosses
   them (a network growing, a link snapping on, a flight whooshing past, a path's hops, a closure's knock, a reveal
@@ -1606,7 +1606,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   too, the headset's story panels click, and the live simulations sound as things happen (the flock's falcon and
   wings). In a shared room every device at a station plays the same cues at the same moment off the station's clock.
   Effects are **on by default** (a device that turned them off keeps them off), and the bar's Sound button silences
-  them with the narration. The flock and the airports are the references (AGENTS.md, "Sounds inside the stories");
+  them with the narration. The flock and the airports are the references (docs/agents/shell.md, "Sounds inside the stories");
   the other stories were wired by two builders in the same round. Tested headlessly (`tools/sfx-cues.mjs`, the smoke,
   audio and shared-room tests); **nobody has heard them**: each story's whole track can be rendered for listening
   (`node tools/sfx-render.mjs <url> <folder> --story <key>`), and how they sound on a headset, through HRTF and with ten
@@ -1621,10 +1621,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   story's are left, see the v100 bullet above). In a headset the sounds come from places
   (HRTF); everything ducks 9 dB under the narration; at most 16 sounds at once. Per device: *Sound effects* and a volume
   in Sound check (page) and in the headset's menu, `#sfx=on`; **off by default**. All made in code, no files. Item 12
-  below: the owner's listening round decides phase 2 (sounds inside the stories). AGENTS.md, the sound notes. Tested
+  below: the owner's listening round decides phase 2 (sounds inside the stories). docs/agents/shell.md, the sound notes. Tested
   headlessly (`node tools/audio.mjs`); nobody has heard them, and the 3D sound and the levels on a headset are untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
-  rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
+  rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and docs/agents/shared-rooms.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
   in October 2026, after the tests had passed on every change; the fourteenth, the fifteenth and the sixteenth, the
   mutation machine, the shape of tissue and holding on to nitrogen, came after.
@@ -1639,7 +1639,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   this device only. The page that holds the room's id hosts it with the relay's rules; when it leaves, the one longest
   in the room takes over with its own copy and the room's clock; a headset that hosts hands the room to the first
   laptop or desktop page that joins. No Fresh shared space and no stored logs without the relay. How it works:
-  AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md); a network checked first with
+  docs/agents/shared-rooms.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md); a network checked first with
   the test page `p2p/`. Tested between headless pages on one machine (`node tools/collab.mjs --p2p`, through the
   relay's own introduction server). **First tried on real devices (owner, 29 October 2026):** two laptops found each
   other on a local network with the test page `p2p/`, and two laptops were in one peer-to-peer room. **Still untested
@@ -1650,7 +1650,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   station looks on the other headsets; persistent anchors restored after a restart; sound zones; comfort and frame
   rate with other people drawn; whether the connection to the relay keeps running inside a headset session; people's
   name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
-  layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
+  layers hide parts of them). The full list ends docs/agents/shared-rooms.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
   says what to try at an event.
 - **Narration:** every story is narrated (v109). The airports story has a human recording; the other fifteen a
   synthetic one, made by `tools/voice/` with Kokoro-82M's American voice `af_heart`, which the owner picked from samples
@@ -1869,7 +1869,7 @@ Before handing over (or making anything more public), someone has to decide thes
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
      passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
    - **occlusion by the real world**: steps 2 and 4 below were built in v119 (the room's geometry and live depth, on by
-     default in AR, each headset's own setting: AGENTS.md "Real-world occlusion"; untested on a Quest in the app).
+     default in AR, each headset's own setting: docs/agents/shell.md "Real-world occlusion"; untested on a Quest in the app).
      Still open: step 3, the studio's *Real room* look (about 2 to 3 hours). As planned (the owner, 4 November 2026:
      "i would really like to work with the real rooms
      geometry as well as have people and object oclusions from the real world"; the plan agreed the same day, its first
@@ -1902,20 +1902,20 @@ Before handing over (or making anything more public), someone has to decide thes
      passthrough looks, and whether the boundary shows. About 2 to 3 hours (the slider, the same few lines in all
      sixteen stories and the design room, tests, docs);
    - **the design room, part 2**: built (see "Where things stand": the menu's *Design room* button, the table as a
-     circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (AGENTS.md "The
+     circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (docs/agents/stories.md "The
      design room"). Of the first plan (a catalogue of the props, a player for stories written as
      data, the room with live reload, a bridge to Claude on a laptop, push-to-talk in the headset) the catalogue, the
      room's table and live reload are built and the player was dropped; the bridge and push-to-talk wait for the owner
      (the microphone inside a headset session is untested on Quest);
    - **a loading bar in the headset** (in front of you while a story loads; until v102 also a ring at the wrist clock): built (see "Where
-     things stand"; AGENTS.md "How the shell and stories fit together" and "Inside a story"). What could come next: a
+     things stand"; docs/agents/shell.md "How the shell and stories fit together" and "Inside a story"). What could come next: a
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
    - **station icons**: built, and since the design room's part 2 made from the miniatures (see "Where things
      stand"). **For the owner:** approve the contact sheet of all nineteen, the sixteen stories', the design room's and, since v104, the All stories and Back to the lobby circles' (open `tools/icons.html` next to the app;
      `&turns=4` shows each from four sides) or say which miniature should stand for a story (its `icon` in
      `stories/list.js`). How they read from across a real room is untested on a headset;
-   - **live updates and hot reload**: built (see "Where things stand"; AGENTS.md "Hot reload and live updates";
+   - **live updates and hot reload**: built (see "Where things stand"; docs/agents/shell.md "Hot reload and live updates";
      [docs/setup-and-release.md](docs/setup-and-release.md), step 5b and the table in section 2). A release now ends
      with `node tools/release.mjs` after bumping `VERSION` (it writes `version.json` and stamps the shell's release into
      `index.html`). Taken without asking: a new story's card, a changed story (the one on show swapped in place at a
@@ -2106,7 +2106,7 @@ data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are compute
    the Arrange all comment (two rows of n/2).
 5. Tests: the story's keys and count in `tools/smoke.mjs` plus an explore step; an entry in `STORIES` in
    `tools/collab.mjs` (its `HEADSET_STORY` stays last).
-6. Docs: AGENTS.md (the story table, Layout, a section of its own, the shared-state table, URL hashes), CLAUDE.md
+6. Docs: AGENTS.md (the story table, a Layout line) and its detail files (`docs/agents/stories.md`: a section of its own; `docs/agents/shared-rooms.md`: the shared-state table; `docs/agents/testing.md`: URL hashes; `docs/agents/layout.md`), CLAUDE.md
    (the build line), README.md and README.txt, the audio note, [docs/data-and-permissions.md](docs/data-and-permissions.md),
    [docs/questions-for-authors.md](docs/questions-for-authors.md); regenerate [docs/narration.md](docs/narration.md) with
    `node tools/narration.mjs`; relay/README.md if Arrange all needs more floor.
@@ -2138,7 +2138,7 @@ one review round); building the tour with the strongest model throughout took ab
 
 ## Map of the repository
 
-The Files table in [README.md](README.md) and "Layout" in [AGENTS.md](AGENTS.md) list everything. In short:
+The Files table in [README.md](README.md) and [docs/agents/layout.md](docs/agents/layout.md) (summed up under "Layout" in [AGENTS.md](AGENTS.md)) list everything. In short:
 
 - The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `occlusion.js`, `sw.js`.
 - `stories/`: one file a story; all but `airports.js`, `proteins.js` and `spatial.js` are built from `tools/<key>/`.

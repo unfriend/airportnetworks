@@ -296,7 +296,7 @@ View (Patches / Links / Hubs). Under 20 draw calls.
 
 Rename everything from the endotype story to this one: `HOST.register('pet', ...)`, the header comment (the paper,
 the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs', 'liver']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
-`AGENTS.md`: keep every hook line exactly), the headset code (`e5_xr.js`) unchanged except for "Life size" (below).
+`docs/agents/shared-rooms.md`: keep every hook line exactly), the headset code (`e5_xr.js`) unchanged except for "Life size" (below).
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
 

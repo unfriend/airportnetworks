@@ -1288,7 +1288,7 @@ edits), its look `LOOKS.cut` in `sets/looks.js`.
   box moved elsewhere slides along its object. *Preview* and what a cube shows you are each device's own.
 - **Tests**: the smoke test's *studio cuts* steps on the cuts test scene (`tools/studio/test/scenes/cuts/`: a wall with
   *Door*, which the cube *Doorway* shows, two boxes of one file, the first with a *Hole*, the dancer and the figure), and a
-  step of `tools/collab.mjs --studio` ("Testing" in `AGENTS.md`).
+  step of `tools/collab.mjs --studio` ("Testing" in `docs/agents/testing.md`).
 - **Untested on a headset**: how the holes look on a Quest (the open edges, a scan's thin walls), the shader's cost on a
   Quest with a 400,000-triangle scan and 16 boxes, the frame rate while editing many cut-outs (without their fill, v125)
   and how the lit edges read there, the grip, both grips and a corner on a real controller, and the one raycast against a
@@ -2986,59 +2986,59 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
-- Sequences (v146): the smoke test's *studio sequences* steps (`--only 'studio sequences'`): "Testing" in `AGENTS.md`.
+- Sequences (v146): the smoke test's *studio sequences* steps (`--only 'studio sequences'`): "Testing" in `docs/agents/testing.md`.
 - v137: the smoke test's *studio everyone*, *studio walls*, *studio shows* and *studio examples* steps (each `--only` of
-  its own): "Testing" in `AGENTS.md`.
+  its own): "Testing" in `docs/agents/testing.md`.
 - Editing without the cost (v136): the smoke test's *studio edit speed* steps (`--only 'studio edit speed'`, a minute):
-  "Testing" in `AGENTS.md`.
+  "Testing" in `docs/agents/testing.md`.
 - The smoke test's step for the Add pane's grid and pictures (v120, on the test scene, no relay), relay/test.mjs's
-  `previews:` steps (the folder and R2) and `tools/collab.mjs --studio`'s pictures step: "Testing" in `AGENTS.md`.
+  `previews:` steps (the folder and R2) and `tools/collab.mjs --studio`'s pictures step: "Testing" in `docs/agents/testing.md`.
 - The smoke test's *studio shapes* steps (v119, on the test scene) and `tools/collab.mjs --studio`'s step for shapes,
-  empties, a lock and a scene setting: "Testing" in `AGENTS.md`.
+  empties, a lock and a scene setting: "Testing" in `docs/agents/testing.md`.
 - Behaviours (v120): the smoke test's *studio behaviours* steps (on the test scene, with a shape that looks, a ball that
   follows, an empty that keeps away and a cube that follows the ball put in for them) and `tools/collab.mjs --behave`:
-  "Testing" in `AGENTS.md`.
+  "Testing" in `docs/agents/testing.md`.
 - Motions (v120): the smoke test's *studio motions* steps (on the test scene, with a shape, an empty, a sound and a cut-out
-  put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `AGENTS.md`.
+  put in for them) and `tools/collab.mjs --studio`'s step for motions: "Testing" in `docs/agents/testing.md`.
 - Recorded paths (v120): the smoke test's *studio paths* steps (on the test scene, with a shape, an empty and two sounds put
   in for them, the recorder's clock the test's) and `tools/collab.mjs --studio`'s step for a path recorded on the headset:
-  "Testing" in `AGENTS.md`.
+  "Testing" in `docs/agents/testing.md`.
 - Stays on the floor (v130): the smoke test's *studio paths* step of that name (`--only 'studio paths'`): "Testing" in
-  `AGENTS.md`.
+  `docs/agents/testing.md`.
 - Ten minutes as a file and a voice with the movement (v125): the smoke test's *studio recorder* steps (a relay of its own
   on a copy of the test scene, Chromium's fake microphone; `--only 'studio recorder'`), relay/test.mjs's `recordings:` and
-  R2 steps and `tools/collab.mjs --studio`'s step for a ten-minute recording and a voice: "Testing" in `AGENTS.md`.
+  R2 steps and `tools/collab.mjs --studio`'s step for a ten-minute recording and a voice: "Testing" in `docs/agents/testing.md`.
 - Trigger cubes that change textures (v124): the smoke test's *studio texture swaps* steps (on the test scene, with two
   solid pictures made in the page, a second object of `box.glb` and three cubes put in for them; `node tools/smoke.mjs
-  <url> --only 'studio texture swaps'` runs them alone): "Testing" in `AGENTS.md`.
+  <url> --only 'studio texture swaps'` runs them alone): "Testing" in `docs/agents/testing.md`.
 - Trigger cubes that start things (v136): the smoke test's *studio cube starts* steps (on the test scene, with a clip
   *Lift* added to `box.glb` in the page, a second object of it, four cubes, two sounds, a shape on a path, a spinning empty,
   a wobbling shape and a voice recorded with the path put in for them, the studio's clock held by the test; `node
   tools/smoke.mjs <url> --only 'studio cube starts'` runs them alone) and `tools/collab.mjs --studio`'s step for a cube
-  that starts something (each device's own, its record everywhere): "Testing" in `AGENTS.md`.
+  that starts something (each device's own, its record everywhere): "Testing" in `docs/agents/testing.md`.
 - Nothing see-through while editing (v131): the smoke test's main *studio* step of that name (`--only 'studio:'`; the box a
   cube hides as its outline and tag, held whole by a pretend grip and the page's arrows, the cube's edges picked from
   inside and outside, a hidden shape, a ball that hides things, the tags' and labels' triangles, a pixel where the hidden
   box stands), the *studio cuts* look step (opaque, darker cutting nothing), the *studio shapes* pixels step, the *studio
   motions* ghost step (opaque light grey, a clip ghost and a big one opaque lines) and the Fewer triangles step's counts:
-  "Testing" in `AGENTS.md`.
+  "Testing" in `docs/agents/testing.md`.
 - The ghost, Pause and the loop join (v122): the smoke test's *studio motions* step for a ghost, the arrows on it, a grip
   on it, Pause, Start again and a cut-out on a moving model, and its *studio paths* step for the recording's ghost and the
-  loop join: "Testing" in `AGENTS.md`.
+  loop join: "Testing" in `docs/agents/testing.md`.
 - The scene on the room's frame and *Move the scene to this circle* (v125): `tools/collab.mjs --studio`'s step after From
   another scene (the headset at a circle away from the room's origin drawing every item at its record's place in room
   coordinates; the circle moved 2 m and turned 90 degrees, every item staying put frame by frame; the button refused while
   an item is locked, then every item at the circle's spot transform of its old place, one Undo step, the same on every
-  device): "Testing" in `AGENTS.md`.
+  device): "Testing" in `docs/agents/testing.md`.
 - Tint and brightness (v125): the smoke test's *studio tint* steps (on the rig test scene, with Twin, a copy of the box's
   file, put in for them; `--only 'studio tint'`) and `tools/collab.mjs --studio`'s step for a tint set on one page:
-  "Testing" in `AGENTS.md`.
+  "Testing" in `docs/agents/testing.md`.
 - The viewer (v125): the smoke test's *studio viewer* steps (on the test scene, the test originals dropped and a dense ball
-  made in the page; `--only 'studio viewer'`): "Testing" in `AGENTS.md`.
+  made in the page; `--only 'studio viewer'`): "Testing" in `docs/agents/testing.md`.
 - Props that follow a tracker and a character worn with trackers (v126): the smoke test's *studio trackers* steps (on the
   test scene, a pretend studio station and its trackers in the page; `--only 'studio trackers'`) and *studio puppet*
   steps (on the puppet test scene, its rig loaded a second time walking as the performer, the trackers worn on it;
-  `--only 'studio puppet'`); `node tools/studio/test-ik.mjs` (the solver alone): "Testing" in `AGENTS.md`.
+  `--only 'studio puppet'`); `node tools/studio/test-ik.mjs` (the solver alone): "Testing" in `docs/agents/testing.md`.
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,
@@ -3046,18 +3046,18 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   one whose picture is refused, and a box with no material. `node tools/studio/test-images.mjs` (seconds, no browser)
   reads every picture back against the pixels it was made from (exact, or within the block format's error), more kinds
   made in memory, the refusals, the ladder, `slotOf`, `texRank` and the `.psd` renaming. The smoke test's *studio
-  textures* steps and `tools/collab.mjs --studio`'s texture step: "Testing" in `AGENTS.md`.
+  textures* steps and `tools/collab.mjs --studio`'s texture step: "Testing" in `docs/agents/testing.md`.
 - `tools/studio/test/scenes/rig/` (about 35 KB): made by the same script: `dancer.glb` (a small skinned figure, two
   materials, its bones named in mixed conventions, Mixamo's *mixamorig:Head*, 3ds Max's *Bip01 L Hand*, Unreal's
   *foot_l*, and a 2 s clip, *Dance*, moving her head through about 0.7 m), copies of `box.glb`, `figure.fbx` and
   `figure.png`, a short `voice.wav`, and a `layout.json` with *Voice* following her head by an FBX's name for it
   (*mixamorig:Head*), and a cube (*Curtain*) that hides her. The smoke test's *studio follow* steps and `tools/collab.mjs
-  --studio`'s step for it: "Testing" in `AGENTS.md`.
+  --studio`'s step for it: "Testing" in `docs/agents/testing.md`.
 - `tools/studio/test/scenes/cuts/` (about 30 KB): made by the same script: `wall.obj` and `wall.mtl` (a wall 3 m wide,
   2.4 m high, 20 cm thick), copies of `dancer.glb`, `box.glb`, `figure.fbx` and `figure.png`, and a `layout.json` with
   the wall and its cut-out *Door* (shown by the cube *Doorway* in front of it), two boxes of one file (*Box A* with a
   cut-out *Hole* in a corner, *Box B* whole), the dancer and the figure. The smoke test's *studio cuts* steps and
-  `tools/collab.mjs --studio`'s step for cut-outs: "Testing" in `AGENTS.md`.
+  `tools/collab.mjs --studio`'s step for cut-outs: "Testing" in `docs/agents/testing.md`.
 - `tools/studio/test/scenes/test/`: small files made by `tools/studio/test/make.mjs` (committed with what they make,
   under 200 KB together): an animated `box.glb` (two clips), an ASCII `figure.fbx` (a mesh with a material naming
   `figure.png` beside it, a take that turns it, Z up and in centimetres, so both guesses show), `figure.png`, a
@@ -3095,7 +3095,7 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   made and moved on a page reaching every device (each member within 1 cm), a Faces setting from another page reaching
   every device's materials, the saved layout carrying `groups` and `faces`.
 - Groups and Faces: the smoke test's *studio groups* and *studio faces* steps, on the rig test scene ("Testing" in
-  `AGENTS.md`).
+  `docs/agents/testing.md`).
 - v118: the smoke block's three steps after the headset's grips (inside a model, Hold it, stick scrolling; New scene,
   From another scene and a circle made for one scene with a stubbed relay and keypad); `relay/test.mjs`'s copy steps
   (a folder's and R2's, the password's list) and `relay/test-r2.mjs` (CopyObject's `x-amz-copy-source` signed, an

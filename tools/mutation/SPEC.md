@@ -291,7 +291,7 @@ Copied from `tools/qubits/engine/` as a start. Rename everything: `HOST.register
 (the poster, its authors, example numbers), `audio/narration-mutation.mp3`, `SET_ORDER = ['letters', 'tree', 'rule',
 'stem']`; remove the qubits story's own code (`QMATH`, `QUBITS_DATA`, its panes); `FACTS` from `MUT_DATA` and `MMATH`.
 Keep the shared lines identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing
-screen: see "Shared rooms" and "Inside a story" in AGENTS.md; no life-size or room mode in this story). Keep labels
+screen: see "Shared rooms" and "Inside a story" in docs/agents/shared-rooms.md and docs/agents/shell.md; no life-size or room mode in this story). Keep labels
 whose `text` is a function, the step params (`STEP`), `finish()`. **British spelling** in every word this story shows
 (the qubits story's own text is American: change what you keep of it).
 

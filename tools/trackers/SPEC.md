@@ -20,7 +20,7 @@ trackers this round, `GET /api/trackers/still`, a kind in each `@trk` row, `FORM
 phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay ("The bridge", "The relay"), the shell's part
 ("The shell") and the studio's (props and the puppet), and the round that runs the three together end to end
 (`tools/collab.mjs --trackers`, "Tests"). The studio's: `tools/studio/SPEC.md`, "Props that follow a tracker" and
-"Worn with trackers". This file is now the contracts as built; the overview is AGENTS.md, "Vive trackers".
+"Worn with trackers". This file is now the contracts as built; the overview is docs/agents/shared-rooms.md, "Vive trackers".
 
 ## Open and deferred
 
@@ -143,7 +143,7 @@ wait). The reference: `relay/README.md`, "The PC's Vive trackers".
 
 ## The shell (`shared.js`, `index.html`)
 
-Built in v126 (the shell's lane; AGENTS.md, "Vive trackers", has it in full). The wire contract of this round, which
+Built in v126 (the shell's lane; docs/agents/shared-rooms.md, "Vive trackers", has it in full). The wire contract of this round, which
 the three lanes follow (where the sections above say otherwise, this wins: no reference trackers yet):
 
 - The room's key `trk` = `{ on: bool, m: { a: [x, y, z], b: [x, y, z] } | null, names: { <serial>: <name, at most 24
@@ -348,7 +348,7 @@ run on v124, v125 or v126.
   the relay's answers stubbed (the switch, spots taken and refused, `trk.m` written, names, a row lit while its tracker
   moves, the status, the room map's dots); a pretend VR headset: the `'trackers'` frame within 1 cm and 0.5 degrees,
   turned and moved, followed, a fast turn with the clocks apart adding nothing, `lineUp()`, the question answered; the
-  pucks; `body()` and presence's grips. AGENTS.md's Testing section has the numbers.
+  pucks; `body()` and presence's grips. docs/agents/testing.md's Testing section has the numbers.
 - `tools/studio/test-ik.mjs` (Node, seconds): a generated Mixamo-named test rig (`tools/studio/test/make.mjs`, our own
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.

@@ -187,7 +187,7 @@ Anchors: `top` (organs), `bottom` (domains), `focus`, `contacts`, `change` (the 
 
 Rename everything from the PET story: `HOST.register('micro', ...)`, the header comment (the preprint, the poster and
 the talk above), `audio/narration-micro.mp3`, `SET_ORDER = ['body', 'tissue', 'slide', 'atlas', 'hier']`, the
-shared-room hooks unchanged (see "Shared rooms" in `AGENTS.md`), the headset code unchanged except that the PET
+shared-room hooks unchanged (see "Shared rooms" in `docs/agents/shared-rooms.md`), the headset code unchanged except that the PET
 story's Life size mode goes (no room mode in this story). `tissue` and `slide` share one frame: wherever the story
 or explore shows `slide`, show `tissue` too (same transform).
 

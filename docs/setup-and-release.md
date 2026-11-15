@@ -1,7 +1,7 @@
 # Setting up, testing and releasing
 
 For the developer who takes the app over: how to set up a machine, run the app and its tests, publish a new
-version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../AGENTS.md) holds the full rules
+version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../AGENTS.md) and its detail files in [agents/](agents/) hold the full rules
 (structure, conventions, every shared-room detail) and is the reference wherever this page is short. Facts marked
 *checked 22 October 2026* were read from GitHub or the live site on that day.
 
@@ -111,7 +111,7 @@ python3 -m http.server 8123         # or: npx http-server -p 8123 -c-1 .
 ```
 
 Open `http://127.0.0.1:8123/`. A hash opens a story at a given point, for example `#pet&t=40` or
-`#nmd&explore&group=Cardiomyopathies` (the full list is "Useful URL hashes" in AGENTS.md "Testing"). The browser
+`#nmd&explore&group=Cardiomyopathies` (the full list is "Useful URL hashes" in docs/agents/testing.md "Testing"). The browser
 treats `127.0.0.1` as a secure address, so the service worker (the script that keeps the offline copy) runs here too.
 It asks the server first for every file, so a reload shows your edits.
 
@@ -187,7 +187,7 @@ check still fails once on a busy machine, run the test once more. A second failu
 
 **What these tests cannot show.** Anything that needs a real headset: controllers, placement, anchors, calibration,
 shared spaces, and whether sound comes out. Report those as untested. What two Quest 3 headsets showed is in
-[quest-shared-space-findings.md](quest-shared-space-findings.md) and AGENTS.md "Shared rooms".
+[quest-shared-space-findings.md](quest-shared-space-findings.md) and docs/agents/shared-rooms.md "Shared rooms".
 
 ## 4. Release checklist
 
@@ -247,12 +247,12 @@ is GitHub Pages' custom domain for `main`.
 5c. **Write what is new:** rewrite `whatsnew.json` by hand for the new `VERSION`: `{ "version": "networks-vNNN",
    "date": "...", "new": [...], "test": [...], "untested": [...] }`, short plain sentences (what changed, what the owner
    should try on a headset and a phone, what nobody could check here; a handful each, so the headset's page stays
-   readable). Developer mode shows it on pages and at the start of each headset session (AGENTS.md, "Developer mode").
+   readable). Developer mode shows it on pages and at the start of each headset session (docs/agents/shell.md, "Developer mode").
    It is fetched fresh every time and is not in `SHELL`, so it needs no `VERSION` bump of its own;
    `node tools/release.mjs` warns, and `--check` fails, while it names another release. `--check` is also one of
    `dev`'s cheap checks, so `whatsnew.json` must name the release before a push to `dev` too.
 6. **Update the docs.**
-   - AGENTS.md first: it is the single source of truth for structure.
+   - AGENTS.md first: it is the single source of truth for structure; the details by area are in `docs/agents/`.
    - README.md and README.txt: they hold the same notes, so keep them in step.
    - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
    - The chapter timings in `audio/PUT-narration.mp3-HERE.txt`.
@@ -295,7 +295,7 @@ is GitHub Pages' custom domain for `main`.
     place shows `dev`'s at `https://stories.lab.lbi-netmed.com/sw.js` a minute or two after `dev` is pushed.
 
 **What visitors and headsets then get** (see `sw.js`, and `HOST.live` and `HOST.reloadIfUpdated` in `index.html`;
-AGENTS.md "Hot reload and live updates"):
+docs/agents/shell.md "Hot reload and live updates"):
 
 | Who | What happens |
 | --- | --- |

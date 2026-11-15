@@ -21,7 +21,7 @@ Three parts, each its own lane:
 
 ## Who may record
 
-Developer mode only (`HOST.dev.on()`, "Developer mode" in `AGENTS.md`). Off, nothing of the notebook shows and holding B
+Developer mode only (`HOST.dev.on()`, "Developer mode" in `docs/agents/shell.md`). Off, nothing of the notebook shows and holding B
 or Y does nothing (a hall of visitors at an event must never upload their voices).
 
 ## Recording in a headset (VR or AR)

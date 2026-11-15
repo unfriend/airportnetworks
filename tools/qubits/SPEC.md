@@ -157,7 +157,7 @@ algebra live in `ctl.cube`). Paced by `tools/pace.mjs` to 9:04.
 Rename everything: `HOST.register('qubits', ...)`, the header comment (Joel Hancock's method and figures; example
 networks), `audio/narration-qubits.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ
 code (`dots`, `ORGAN3D`, `MICRO_DATA`, `domainColour`); `FACTS` from `QUBITS_DATA` and `QMATH`. Keep the shared-room
-hooks unchanged (see "Shared rooms" in AGENTS.md), the headset code unchanged (no life-size or room mode in this story).
+hooks unchanged (see "Shared rooms" in docs/agents/shared-rooms.md), the headset code unchanged (no life-size or room mode in this story).
 Support labels whose `text` is a function, the step params above, and `finish()` (as for the micro sets).
 
 **Chapters** (about 4:50 of story time before pacing; `CH` keys and times). Every chapter: one or two plain sentences

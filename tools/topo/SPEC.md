@@ -265,7 +265,7 @@ Copied from `tools/mutation/engine/` as a start. Rename everything: `HOST.regist
 'cohort']`; remove the mutation story's own code (`MMATH`, `MUT_DATA`, its panes); `FACTS` from `TOPO_DATA` (every number
 the text shows: counts, shares, fve, accuracy, the snapshots, sizes, the cell's score, the runtime). Keep the shared lines
 identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing screen, the headset settings
-lines: see "Shared rooms" and "Inside a story" in AGENTS.md; no life-size or room mode in this story). Keep labels whose
+lines: see "Shared rooms" and "Inside a story" in docs/agents/shared-rooms.md and docs/agents/shell.md; no life-size or room mode in this story). Keep labels whose
 `text` is a function, `STEP`, `finish()`, the stand view (`standView` in `e3_story.js`: here the tower's `stand` view in
 chapters 3 and 4). `ORGAN3D` is driven as in the microanatomy story (`ORGAN3D.driven`, want the liver first). On
 phones the views that clip or come out small get the mutation story's factors (`NARROW` for a phone held upright,

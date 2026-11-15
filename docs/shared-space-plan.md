@@ -1,7 +1,7 @@
 # Shared space: plan and build spec
 
 > **This is the plan as of phase 0 (October 2026), kept as the record of why things are as they are.** The current
-> behaviour is in the "Shared rooms" section of [`AGENTS.md`](../AGENTS.md), and what two Quest 3 headsets did is in
+> behaviour is in the "Shared rooms" section of [`docs/agents/shared-rooms.md`](agents/shared-rooms.md), and what two Quest 3 headsets did is in
 > [quest-shared-space-findings.md](quest-shared-space-findings.md). Story counts elsewhere in the plan are from
 > then (seven stories; there are sixteen now).
 
@@ -38,7 +38,7 @@ headsets. Section 10 says what was built and where it differs from this plan.
    the others ease towards. Robots also need one shared room description from that host.
    Built for the flock (lighter than streaming every bird): every device at the station sends where its flock is
    twice a second; the one there longest leads, the others take its flight time and steer their whole flock to its
-   middle, and every falcon goes out as it starts (AGENTS.md, the flock's notes). The robots are not synced yet.
+   middle, and every falcon goes out as it starts (docs/agents/stories.md, the flock's notes). The robots are not synced yet.
 3. Polish: relay persistence across restarts, station editing on the desktop map, remote VR teleport, presenter
    tools if wanted.
 
@@ -117,7 +117,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.play` | `{ mode: 'story' | 'explore', t, playing, at }`: the story clock: at relay time `at` the story was at `t`; while playing it runs on from there | whoever plays, pauses, jumps, changes mode (or the story reaches its end) |
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
-| `st.<id>.view` | `{ v, story }`, `v` the story's `collab.view()`: its explore view, shared by the headsets at the station (since networks-26; with `ts` and `h` while someone turns it: AGENTS.md "Others' moves, smooth") | the scene placed alike |
+| `st.<id>.view` | `{ v, story }`, `v` the story's `collab.view()`: its explore view, shared by the headsets at the station (since networks-26; with `ts` and `h` while someone turns it: docs/agents/shared-rooms.md "Others' moves, smooth") | the scene placed alike |
 | `rm` | `{ a, d, f, by, at }`: mark A's height over the room's floor and the marks' distance; since v122 floor spots (`f: 1`, `a` the controller's tip height, 2 cm: the spots are on the floor), before that A's height over the floor of the first headset that calibrated | the room's floor, alike on every headset |
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
@@ -158,13 +158,13 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
 
 - **Your station**: the nearest station whose spot is within 1.1 m of you for 1 s (spots 2.4 m apart never compete;
   until 29 October 2026 you left it beyond 1.5 m, since then you keep it until you walk into another circle, and
-  the other stations showed their rings only while you had one; since v101 their icons only, a ring within 2 m of its spot: AGENTS.md "In a circle, icons only"). Your station's story is the live story on your headset (`HOST.go(key)` when it
+  the other stations showed their rings only while you had one; since v101 their icons only, a ring within 2 m of its spot: docs/agents/shared-rooms.md "In a circle, icons only"). Your station's story is the live story on your headset (`HOST.go(key)` when it
   differs) and is placed at its station; all other stations show as **previews** drawn by the shell: a ring on
   the floor at the spot in the story's colour, and a small upright card (title, kick, who is there, its state:
   playing at 1:23 / exploring) where the content would float. (Built at first: pointing at a preview and pulling
   the trigger made it your station. Since October 2026 stations are walk-in only, the owner's wish: the trigger
   on a preview runs nothing, away from every station a headset shows no story, only the previews, people and the
-  menu, and a headset in a room never shows the Stories screen; see "Shared rooms" in `AGENTS.md`.)
+  menu, and a headset in a room never shows the Stories screen; see "Shared rooms" in `docs/agents/shared-rooms.md`.)
 - **Placement**: in a room with an aligned frame, `HOST.anchor.frame()` returns the rig pose of your station
   (room -> local applied to the spot, at a standing eye height of 1.6 m above the floor, facing the station's
   direction), `held()` and `locked()` are true (stories do not recentre, the grip moves only panels), and

@@ -11,7 +11,7 @@ story deliberately shows the paper's printed values, and the microanatomy story 
 1. change the generator (`tools/<story>/data/gen_data.*`) or the figures' readings (`tools/<story>/data/figures.json`),
    never `sets/data.js` by hand;
 2. regenerate the data, rebuild with `node tools/<story>/build.mjs` (then `--check`), bump `VERSION` in `sw.js` and run
-   the smoke test ([AGENTS.md](../AGENTS.md), "Testing");
+   the smoke test ([docs/agents/testing.md](agents/testing.md), "Testing");
 3. set the item's status here to `answered`, with the date and the answer in a few words.
 
 ## PET: One scan, one system (`pet`)

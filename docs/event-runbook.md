@@ -4,7 +4,7 @@ A checklist for showing the stories at an event: headsets in one shared room, pe
 through the laptop relay, and perhaps a kiosk.
 No code needed. **Bold** words are what the app shows on its buttons and panels. Details:
 [relay/README.md](../relay/README.md) ("A session on one Wi-Fi" and "If something does not work"); the rules behind
-them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
+them: [docs/agents/shared-rooms.md](agents/shared-rooms.md) ("Shared rooms", "Placement in the headset").
 
 ## Where the controls are
 
@@ -418,7 +418,7 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
 ## 7. Still untested on headsets
 
 Two Quest 3s were tried in one room several times: see [quest-shared-space-findings.md](quest-shared-space-findings.md)
-and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
+and the end of docs/agents/shared-rooms.md "Shared rooms". Not yet confirmed on a device:
 
 - lining up again after standby, and after a night;
 - whether **Re-align** (or asking again by itself 15 s after waking) joins the others' shared space;

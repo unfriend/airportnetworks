@@ -100,7 +100,7 @@ placement (the same budget and code). Without anchors, a reset event or a jump o
 shared space", "Room ready", "Lined up from your tape marks" (until v107 "Aligned automatically", "Shared space
 found", "Room calibration from last time"), "Calibrate the room" with the how-to and the flag tip, "Room calibrated",
 "Re-aligned"). Since v107 the room setup guide in the headset's menu says the same in a status line, and Touch the
-spot checks it (AGENTS.md, "The room setup guide and Touch the spot").
+spot checks it (docs/agents/shared-rooms.md, "The room setup guide and Touch the spot").
 
 ## 5. Quest Browser shared spaces (experimental)
 

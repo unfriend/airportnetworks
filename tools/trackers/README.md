@@ -2,7 +2,7 @@
 
 Vive Tracker 3.0s (with SteamVR and its base stations) placed in a shared room: their poses go to every headset and
 page there, lined up with the room, for props that follow a tracker and a character worn by a performer (the studio).
-The overview is [AGENTS.md](../../AGENTS.md), "Vive trackers"; the contracts as built are [SPEC.md](SPEC.md). Here: how
+The overview is [docs/agents/shared-rooms.md](../../docs/agents/shared-rooms.md), "Vive trackers"; the contracts as built are [SPEC.md](SPEC.md). Here: how
 to set it up on the Windows PC, what to try when nothing shows, and what each file is. Nothing of it has been tried with
 real trackers yet.
 

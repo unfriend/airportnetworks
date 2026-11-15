@@ -400,8 +400,8 @@ The protein data is meant for teaching, not research.
 | `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/soil.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the sixteen stories, with their data, explore modes and headset panels |
 | `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
 | `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
-| `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `AGENTS.md`, "Hot reload and live updates") |
-| `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `AGENTS.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
+| `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `docs/agents/shell.md`, "Hot reload and live updates") |
+| `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `docs/agents/shell.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | the narrations (the airports' recorded, the others synthetic, from `tools/voice/`) |
@@ -417,7 +417,7 @@ The protein data is meant for teaching, not research.
 | `docs/` | the shared rooms' plan (`shared-space-plan.md`), the lessons it applies (`multiplayer.md`, `shared-spaces.md`) and what two Quest 3s did (`quest-shared-space-findings.md`); for the handover: data sources and permissions (`data-and-permissions.md`), open questions for the authors (`questions-for-authors.md`), setup, tests and release (`setup-and-release.md`), running a session with headsets (`event-runbook.md`) and the narration scripts (`narration.md`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
 | `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
-| `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
+| `tools/update.mjs` | update test: an older version installed, then this one deployed (see `docs/agents/testing.md`) |
 | `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current, and whether `whatsnew.json` names this release) |
 | `tools/live.mjs` | test of hot reload and live updates: a copy of the app changed as a release or an editor would, on a static host and through the relay's `--watch` |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
@@ -439,7 +439,7 @@ The protein data is meant for teaching, not research.
 | `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
 | `tools/trackers/` | the Vive trackers' bridge (`bridge.py`: SteamVR's poses to the relay on the same Windows PC; Python 3 and pyopenvr, `--fake` without SteamVR), a fake bridge in Node (`fake.mjs`), the setup on the PC (`README.md`) and the contracts as built (`SPEC.md`) |
 | `tools/voice/` | the synthetic narrations: `narrate.mjs <key>` speaks a story's words (Kokoro; German with Piper) and re-times the story, `check.mjs <key>` checks the result (models and Python outside the repository; see its `README.md`) |
-| `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
+| `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | notes on the architecture and conventions for AI coding agents (and people): `AGENTS.md` the core, `docs/agents/*.md` the details by area, `docs/history.md` why rules are as they are |
 | `README.txt` | the same notes in plain text |
 
 ## Developing

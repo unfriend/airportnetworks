@@ -1,0 +1,784 @@
+# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, design room)
+
+Read on demand; the rules every agent needs are in AGENTS.md.
+
+## The tour (`stories/lbi.js`) is built from sets
+
+`stories/lbi.js` is generated: edit the sources in `tools/lbi/` and run
+`node tools/lbi/build.mjs`, never edit the built file by hand, and commit both
+(`node tools/lbi/build.mjs --check` tells you if they are out of step). The
+set contract (API, rules, performance budget, palette, shared facts) is
+`tools/lbi/SPEC.md`; each set has a manifest `tools/lbi/sets/<name>.md`.
+
+The fourth story turns an institute presentation into a tour through ten 3D
+**sets** (one scene each: the interactome, a computer taken apart, the internet
+and friendships, DNA and protein shapes, ATP synthase, a crowd and a Sankey
+diagram for rare diseases, the tower of scales and the team, a PET body, a
+tissue section). All sets share `GL.world`, are centred on the origin and are
+faded in and out by the story; the camera flies between views.
+
+- `makeKit(THREE)` (top of the file) is the shared kit `K`: seeded random
+  numbers, vector helpers, and materials (`K.points`, `K.lines`, `K.rim`,
+  `K.fade` for built-in lit materials) that fade with their set and size points
+  in local units (`K.U.uPx`, kept current by `updateLight`).
+- Each `SETS.<key> = function (K) { ... }` returns `{ group, params, update(S, t),
+  anchors, labels, cam, controls, explore(c) }`. `params` are the set's
+  animation tracks (names start with `<key>_`; `<key>_a` is its fade);
+  `update` must depend only on the params and the time, so seeking works.
+  `anchors` are named points for labels and camera targets; `labels` are the
+  set's own labels with a rule for when they show; `cam` holds named views
+  `[az, el, dist, tx, ty, tz]`; `controls`/`explore` drive explore mode.
+- `buildStory()` keys the params per chapter (`ramp`, `key`, `show`) and the
+  camera waypoints (`cam(t, set, view, spin)`); story labels are pinned to set
+  anchors. In a headset `xrPlace` turns a view into the pose and scale of
+  `GL.world`, so the view's target floats in front of you.
+- Explore mode has a Scenes tab (any set, with its own controls, as HTML and
+  canvas twins) and a Proteins tab (search, partners and routes on the
+  interactome's named proteins).
+
+## The muscle story (`stories/nmd.js`) is built the same way
+
+`stories/nmd.js` is generated like the tour: edit `tools/nmd/` and run
+`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the tour's kit
+(`tools/lbi/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
+describes its three sets: `tower` (the multiplex network: 71 layers, the hero
+of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
+and `hpc` (the supercomputer and the stress test).
+
+- The data is real: `tools/nmd/data/gen_data.mjs <folder>` reads the authors' files (not in the repository;
+  `ikerdata/` in its history) and writes `tools/nmd/sets/data.js` (the constant `NMD_DATA`,
+  documented in its header), never edited by hand. It also computes the layer
+  z-scores (degree-matched random sets) and the walk's visits on the protein
+  layers, and names endotypes after their most typical GO process; these are
+  stand-ins until the authors send their own. Layers without links yet
+  (`data: ''`) fill in when their links arrive in the data, without code
+  changes. No patient or variant data, and nothing about zebrafish, may appear.
+- Everything the story says in numbers comes from `NMD_DATA` (`FACTS` in
+  `engine/e3_story.js`).
+- Explore mode (`engine/e4_explore.js`, canvas twins in `engine/e6_panels.js`):
+  tabs Diseases (pick a group: its module, endotypes, layer scores, grid by
+  endotype), Genes (search, partners per layer, terms), Walk (a live random walk
+  from a group's seeds or your own genes, on the layers that are on), Layers
+  (knock layers out), Endotypes (pick several, across groups: links between
+  them per layer) and Scenes. The panels talk to the tower through its API
+  (`setState`, `walk`, `pick`, anchors `gene`, `endo`, `group`).
+- *Stand inside* (view controls, or the Scenes tab in the headset) opens the
+  tower around you: on screen from its middle, in a headset life size around
+  where you stand (`XR.room`, `xrPlace`).
+- The heart (in `motor`) is one smooth surface: a signed distance field (round
+  cones and ellipsoids blended softly) polygonised by surface nets. That is too
+  slow for load time, so it runs as a job in slices between frames: a set may
+  return `idle(dt, ms)` (the engine calls it while the set is hidden) and
+  `finish()` (build now: the harness and `sweep.mjs` call it before
+  screenshots). The heart fades in once built.
+- The build budget: every engine whose sets build between
+  frames (the muscle, endotype, PET, microanatomy, ovary and tissue topology stories) shares one budget a frame among all
+  of them (`BUILD`, `buildMs(dt)`, `buildTurn(jobs, dt)` in `engine/e2_scene.js`, the same lines in each): in a headset
+  about 1 ms, on a page an eighth of the frame, 2 to 8 ms (more where frames are slow anyway, as in headless Chromium).
+  The hidden sets take it by turns, one a frame (round robin, `BUILD.i`); each of the others is asked `idle(dt, 0)`,
+  which builds nothing and answers whether it still has work (`true`) or not (`false`: it is passed over until it says
+  `true` again). The organs' models that the microanatomy and tissue topology engines step themselves (`ORGAN3D`) are a
+  job of the same budget (`ORGJOB`, `LIVJOB`), no longer on top of it. A set on show still builds on demand in its
+  `update` (its own slice, as before: the heart 12 ms once it is wanted), and `finish()` at once. The ovary's organ,
+  which the story shows from its first second, builds during the load instead (`early(ms)`, a slice a step behind the
+  loading card), so its first seconds no longer pay 4 ms a frame for it. `idle(dt)` without `ms` keeps a set's old
+  slice (the harnesses). The jobs yield finely enough for it (the ovary's surface nets after each row of cells and
+  its stain every 128 pixels, `ORGAN3D`'s quads a plane at a time and its pictures every 25 triangles). How much longer the builds take in wall time on a Quest, and whether a story's set is ready when
+  its chapter comes, is untested there.
+- A set may also export `keepOut(p)` (the camera's position in its own frame,
+  returned moved if need be) and `still(p)` (explore's sway rests there): the
+  engine's `keepCamera` applies them every frame outside a headset. The
+  supercomputer uses them to keep the camera out of its racks; the story's
+  aisle shot stays on the aisle's centre line by design.
+- In a headset no close view brings a set that exports `keepClear` (the
+  motor unit; in the endotype story also the junction) nearer than 0.35 m to
+  your head: `xrPlace` caps the view's scale, eased, from a sample of the
+  set's visible meshes (`xrClear` in `engine/e5_xr.js`, the same lines in both
+  stories); your own size and an overview's scale stay, and standing inside
+  is left alone. The sample (a point per 3.5 cm of surface, in set units) is
+  taken in slices of a millisecond or two from the start wherever WebXR is
+  (`xrPrep`, from the frame loop), so entering the headset never stalls on
+  it. `keepClear` may be a function giving, per object, a test of where it is
+  never drawn (the junction's cut-away). Sets whose positions come from their
+  shaders (the tower, the network, the tree) do not export it, nor does the
+  supercomputer (its aisle shot is inside it).
+
+## The endotype story (`stories/endo.js`) is built the same way
+
+`stories/endo.js` is generated from `tools/endo/` (`node tools/endo/build.mjs`, `--check` as for the tour):
+the tour's kit, three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
+walkers; `tree`, the gene x term matrix, the tree and the endotypes; each with a manifest), the muscle story's
+`motor` set (the build gives it the muscle story's disease groups, all it reads of `NMD_DATA`) and engine parts
+adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
+
+- The data: `tools/endo/data/gen_data.py` (Python with EndotypY installed) reads the authors' saved run (their
+  protein network, the 35 seed genes, their 12 endotypes) and the Gene Table's CMS genes, and writes
+  `tools/endo/sets/data.js` (`ENDO_DATA`, documented in its header). The authors' files stay out of the
+  repository: only these numbers are kept. The endotypes are the authors'; the steps before them (seed groups,
+  the walk, neighbourhoods, the annotation, the tree) are re-run with the package's defaults on the same network
+  to show the method, and the tree is drawn to agree with their endotypes. The story says so (explore's Method
+  tab, the last chapter's small print). Its random walk is the package's, solved by iteration instead of a dense
+  inverse (the same numbers on a test graph). A pickle can run code: the generator unpickles only the expected
+  classes.
+- Explore: Endotypes, Genes (the 393 module genes only), Method (the five steps) and Scenes tabs; *Stand in the
+  gap* puts you in the synaptic cleft (in a headset life size around you, the cleft at chest height).
+- The `net` and `tree` sets export `api()` (picking, gene names, focus); `net`'s walkers keep state between
+  frames but follow paths planned from `t`, so seeking works.
+
+## The PET story (`stories/pet.js`) is built the same way
+
+`stories/pet.js` is generated from `tools/pet/` (`node tools/pet/build.mjs`, `--check` as for the tour): the tour's
+kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), three sets (`scan`, the PET/CT scanner, how
+PET sees and the vision row, its stages joined by flowing light; `organs`, segmentation, uptake, the cohort, the
+explainer and the paper's networks, drawn in the body set's frame; `liver`, an organ as a network of patches, in
+explore mode only; each with a manifest) and engine parts adapted from the endotype story's. `tools/pet/SPEC.md` is the
+contract.
+
+- The vision row (the opening; the owner's wish: more 3D, better colours): its network is the 14
+  organs as the microanatomy story's 3D models (`ORGAN3D`, `tools/micro/sets/organs.js`, included by the build; the bone
+  marrow a model of its own there, `marrow`, kept out of that story's 29), lit, each taking on its colour and turning
+  slowly, spread in depth and joined by glowing tubes with light running along them, the models built in the load
+  before the scanner's set (`SETS.scan.prep`, a slice a step); prognosis is three glass tubes filling with the story's
+  cyan light and medication five amber capsule pills rising from a small base (no more neon orange, red and yellow).
+  Rebuild the PET story after changing `tools/micro/sets/organs.js` (and the microanatomy and tissue topology stories).
+- The paper's networks the same way (no flat glyphs, the organs' names as labels; the same in explore mode): in the `organs` set, story and explore alike,
+  every node is its organ's 3D model (the vision row's models, lit, in its colour, turning slowly, a soft glow behind;
+  a hub's takes on orange-yellow), and the bars' feet, the slab's column heads and the panel's axes show small lighter
+  copies (`ORGAN3D.lite`, made in `SETS.organs.prep`); about 35k triangles in two draw calls. `PET_ICONS` only draws
+  the panes' pictures now (explore's Organs pane, HTML and the headset's canvas).
+
+- The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
+  header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
+  `tools/pet/data/figures.json`: values read off its Figures 3 and 4 (each read twice independently and reconciled).
+  Stand-ins, said so in the story: typical organ uptakes and a synthetic cohort with Figure 2A's partial correlations
+  (for explore's matrix and scatter views). The authors' VR viewer (with a patient's scan) is not used: no patient
+  data.
+- `body` and `organs` share one frame and are shown together.
+- The story follows the paper (the network of all scans, then from health to disease); the poster gives its title,
+  the vision row and its authors. It has no one-scan network, index, survival or immunotherapy results (they did not
+  match the poster; the `people` set and explore's One scan and People tabs are in the history; the explore-only `liver`
+  scene stays), no matrix of all scans or scatter plot in the Network chapter (it goes straight to the network on the
+  body) and no Vision chapter at the end (its credits and Explore button close Health; the row stays in the intro). The
+  second chapter is "How PET sees" (FDG as the most common of the tracers; no brackets in its text), the organ labels
+  are names only and the AI is "segmentation algorithms". The scanner hands its patient to the body set in one
+  move (`scan_rise`): the scanner goes, the patient stands up exactly where the body set's body stands (`riseTo`, after
+  `buildCamera`'s turn), its glow cools, then the tracer arrives as before. Explore mode plays the same hand-over (and back in reverse): picking Body or Organs from the Scanner (`openScene`, `X.hand`, `HAND` in
+  `engine/e4_explore.js`) holds the camera 1.5 s while the scanner goes, eases it to the new scene's view as the
+  patient stands up and turns (the sets unturned in explore, so `riseTo.yaw` is 0 there: `updateSets`), cools the glow
+  and plays the tracer's arrival (6.5 to 15 s; Organs then fade in); the Scanner picked from Body or Organs plays it
+  backwards in 6 s (the tracer drains, the image glows, lies down as the camera goes back, the room returns). Only a
+  scene picked as such plays it (the Scenes pane, page or headset, and a scene from a shared room once this page has
+  taken the room's state, `X.synced`): an organ, a network, a comparison or a tab picked from the Scanner shows at
+  once. Picked while another plays, it starts at the moment that matches what shows (`handFrom`), so turning back
+  halfway plays back from there. A flight of its own (a view) takes the camera from it; a control changed ends it. Open: the owner finds the text from the
+  Network chapter on does not match the poster (the poster is needed to rewrite it; see HANDOVER.md).
+
+## The microanatomy story (`stories/micro.js`) is built the same way
+
+`stories/micro.js` is generated from `tools/micro/` (`node tools/micro/build.mjs`, `--check` as for the tour): the
+tour's kit, body and tissue sets (unchanged), small 3D models of the 29 organs (`sets/organs.js`, `ORGAN3D`: signed
+distance fields polygonised by surface nets, built between frames from the start, one organ after another, the one on
+show first; drawn as meshes on the body, the atlas's plates and the network's organ ring, and as pictures in the
+panes, each going in as it is drawn), three sets (`slide`, the method in the tour's visual language over the tissue
+section, drawn in its frame: tiles, their features as glowing blocks, a network of neighbours with messages, the lift
+into a map where alike tiles gather, and the domains; `atlas`, the slide library of glass slides, in a lit rack, the
+atlas of sections as slabs in relief, the tile cloud, the volcano and the trajectories; `hier`, the network of organ
+architecture and the domain contacts; each with a manifest) and engine parts adapted from the PET story's.
+`tools/micro/SPEC.md` is the contract.
+
+- The data: `tools/micro/data/gen_data.mjs <graphml>` reads Iva Buljan's network of organ architecture (the file stays
+  out of the repository) and writes `tools/micro/sets/data.js` (`MICRO_DATA`, documented in its header) with the
+  preprint's numbers (typed in) and `tools/micro/data/figures.json` (values read off the talk's figures). The slides,
+  sections and tiles are drawn, never the GTEx images.
+- `tissue` and `slide` share one frame and are shown together.
+- In the Atlas chapter the atlas turns into the network (`atlas_net`, with `hier_grow` keyed at the same times, so each
+  node grows as its things arrive): the sections' tiles gather into a bead per domain, the organs fly up to their nodes,
+  the sections to their tissues', their beads on to the tissue types' and the domains' (by name; the mapping is in
+  `sets/atlas.md`). The network takes the atlas's turn at that hand-over (`MORPH` in `buildCamera`), so they meet exactly.
+
+## The aging ovary story (`stories/ovary.js`) is built the same way
+
+`stories/ovary.js` ("The aging ovary", after the poster "Mapping the histological landscape of human ovarian aging" by
+Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `tools/ovary/` (`node tools/ovary/build.mjs`,
+`--check` as for the tour): the tour's kit and body set (unchanged), the data and a shared look pasted before the sets
+(`OVARY_DATA`, `sets/data.js`, and `OVARY_TREND`, the poster's lines looked up, with `OVARY_LOOK`, `sets/look.js`), three
+sets (`organ`, a cut-away ovary built by surface nets between frames, small in the body's pelvis at first, whose
+follicles, scars and vessels follow the poster's trend lines with age; `section`, a drawn H&E section in relief with the
+four kinds and cysts, a younger and an older one, the tiles, UNI2 features, a grove of decision trees that votes, the
+predictions, SegFormer's masks and the illustrative neighbor network, which tips back off the section and gathers into
+five hubs by kind joined by bands (`section_lift`, `section_kinds`); `charts`, only the slides stacking into the age
+histogram, the one graph, in passing: twenty towers of slides lying on the floor in a wide arc, age 20 on the
+left to 70 on the right, seen from a little above (a flat one was hard to see); each with a manifest) and
+engine parts adapted from the microanatomy story's.
+`tools/ovary/SPEC.md` is the contract.
+
+- The data: `tools/ovary/data/gen_data.mjs` writes `tools/ovary/sets/data.js` from the poster's numbers (typed in
+  exactly) and what the story uses of `tools/ovary/data/figures.json` (values read off its figures by two readers,
+  reconciled: the trend lines, the shares of donors with none, the comparison lines' slopes; the bands and axes read
+  there are kept but unused). The story draws no trend, comparison or score charts (the owner's rule against 2D
+  graphs; there is no Agree? chapter, no Charts scene in explore and no illustrative dots): the Age
+  chapter is the cut-away ovary aging from 20 to 70 with tags giving each method's count on the poster's lines (read
+  off its figures: approximate, the story says so), all r in words and the agreement donor by donor (its "the
+  segmentation finds fewer" from the read slopes, said so in the small print); Methods ends with the scores as tags
+  on the section's own objects. Of the donors the data holds only their ages (whole years filling the histogram's
+  bars, for the Donors chapter's slides). The lines, r and p are the poster's. The network of the last chapter is the
+  poster's next step, drawn as an illustration and labelled so throughout. The slides, sections and the ovary are
+  drawn, never GTEx images or the poster's pictures.
+- `body` and `organ` share one frame (the ovary sits in the body's pelvis before it grows out of it).
+- One model out before the next comes in (two models overlapping z-fight in a headset): the section, the ovary and the donors' slides all stand at the origin, and
+  two see-through models in one place flicker in a headset as their drawing order flips with the head. At each change
+  of model in the story (Donors to Section, Methods to Age, Age to Next) the old one fades out over 1.2 s and the new one
+  in from 1.2 s; explore's `exploreStep` holds a set's fade-in until every set going out is at 0 (one going out also
+  drops by 0.6 a second, so it is gone in about half a second); and the older section of the pair comes in from the
+  right and behind (`section_pair`), never across the younger one. A set writes no depth while it fades (`fadeDepth` in `engine/e2_scene.js`: each material's
+  own `depthWrite` back once its set is fully in, above 0.97; the kit's own faded materials left to `setAlpha`): a faint
+  model that wrote depth hid the next one where it was drawn first, and in a headset that order flips with the head.
+- Labels whose text is a function (the ovary's age and count tags, `organ_counts`) are read again while they show
+  (`labelText`, as in the qubits story).
+- Explore: Objects (pick a kind: its numbers as text, picked out on the section and in the ovary; pointing at an object
+  on the section picks it), Age (a slider from 20 to 70 driving the ovary, with its count tags, and the section; the
+  counts on the poster's trend lines at that age), Methods (tiles and the forest's vote, or the masks, and their scores)
+  and Scenes (Ovary; Section, with the network By kind). No charts anywhere in explore (an old link with
+  `scene=charts` is ignored).
+- **American spelling in this story too** (aging, color, gray, center, hematoxylin, neighbor), as the qubits story;
+  English only.
+
+## The qubits story (`stories/qubits.js`) is built the same way
+
+`stories/qubits.js` is generated from `tools/qubits/` (`node tools/qubits/build.mjs`, `--check` as for the tour): the
+tour's kit, three shared parts pasted before the sets (`QMATH`, the maths, `sets/qmath.js`, checked by
+`node tools/qubits/test-qmath.mjs`; `QUBITS_DATA`, the real run's numbers typed in from Joel Hancock's brief,
+`sets/data.js`; `QLOOK`, the story's lit instanced tubes, rings, balls and halos, `sets/look.js`), three sets (`pairs`,
+the grid of pairs, the network as a map with two walkers and its valleys, the chip and the eight neighborhoods;
+`cube`, the cuts, the coarse operator A_c on a cube, the Pauli strings as small cubes, added up, and the toolbox;
+`chart`, the real run's residual by depth and the six-gate circuit; each with a manifest) and engine parts adapted
+from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
+
+- Example networks throughout (Joel Hancock's wish): no STRING data and no gene names; every number about them is
+  computed live by `QMATH` (the cut, A_c, the Pauli weights, the algebras so(2L) and so(2L + 1), the residual, the
+  Trotter angles). The real run's numbers appear only where the text says "in the real network". No data term D and no
+  Walsh-Hadamard step (out of scope); the valleys of the walkers' map are labelled illustrative. The cut stands in
+  for the authors' beam search (the story says so).
+- A set label's `text` may be a function returning `[bold, rest]` (the gallery's weights, the grid's count, the gate
+  angles): the engine reads it again while it shows and redraws it when it changes (`labelText`: the HTML label and
+  the headset's sprite).
+- Step params (never eased): `cube_net`, `cube_cut`, `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The
+  cube builds its default network at load and the others when first asked for in explore (a short pause).
+- **American spelling in this story** (color, gray, neighborhood, normalized, center; the aging ovary story too), as the brief asks: keep
+  it in `tools/qubits/` and its card; the rest of the app stays British.
+
+## The mutation machine (`stories/mutation.js`) is built the same way
+
+`stories/mutation.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
+Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `tools/mutation/`
+(`node tools/mutation/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before the sets
+(`MMATH`, the maths, `sets/mmath.js`, checked by `node tools/mutation/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
+typed in, `sets/data.js`; `MLOOK`, the qubits story's lit instanced tubes, rings, balls, boxes and halos plus letter
+tiles, arrowheads, qubit spheres and gears, `sets/look.js`), four sets (`letters`, the DNA helix, the ancestor's eight
+letters and two copies with swaps, a letter's two qubits and their read-outs piling up; `tree`, the family tree in 3D,
+one machine (a gear) per branch and the poster's species tree; `rule`, a rule of change as balls and arrows, the pyramid
+of mixes and the path through it, the compiler, the machine for one branch and its circuit; `stem`, an RNA stem, a pair
+breaking, the coupling, the count of combinations and the fields of rebuilt ancestors, drawn in `tree`'s frame; each
+with a manifest) and engine parts adapted from the qubits story's. `tools/mutation/SPEC.md` is the contract.
+
+- Example numbers throughout, as in the authors' own test (the author: fine for a test of the method; a real result
+  would estimate them from real sequences). Every number about the examples is computed live by `MMATH`: three
+  substitution models (GTR as the story's, JC69 and K80) and P(t) = e^(Qt), the path through the pyramid, the qubits'
+  arrows and read-outs, the circuit's angles and its simple steps (checked by a state-vector run), the family tree with
+  every swap simulated, the pair models and the ancestor rebuilt by Felsenstein's pruning. The poster's numbers
+  (`MUT_DATA`: Figure 1's sequences, Figure 5's stems, the shares of 2,000 rebuilt ancestors with all six pairs intact,
+  10 %, 43 % and 20 %) appear only where the text says "in the authors' test".
+- The poster does not give its coupled circuit in detail, so the live example's coupling is **our stand-in**: each
+  branch's turn, then a step that weights every matching pair w times (`MMATH.Pcoupled`), labelled so wherever it shows
+  (MM6 in `docs/questions-for-authors.md`).
+- The author's answers are the story's. The turn: the circuit copies the parent's letter onto the child,
+  then turns the child by single-qubit rotations plus two-qubit steps that make the turn depend on the parent's letter;
+  how far each step turns depends only on the branch length, and the steps are the same on every branch. The wording of
+  the result: a broken pair in the true ancestor is normal (only about a quarter of ancestors have all six pairs
+  matched); the coupled circuit favours matching pairs too strongly (43 % against the exact calculation's 20 %): its
+  ancestors look believable, but its percentages are not true chances. Never say the circuit is "better" or "more
+  accurate".
+- The family tree is properly 3D (the owner's wish): it grows up out of its root, its eight tips evenly round the
+  vertical, and heights are change (a branch rises by its length), so you walk round it and look up into it. In a
+  headset the story eases into the tree set's `stand` view while the family tree is the scene (chapter 2 and the
+  machines of chapter 5; `standView` in `engine/e3_story.js`, by story time, so everyone at a station sees the same
+  size): the tree stands about 1.5 m tall in front of you, its root low and its crown above your eyes, and nothing of it
+  comes within 0.35 m of your eyes; the species tree stays at table size. Explore offers it as Look: Stand in it; `up`
+  looks up from below the root on a screen only (the headset's Tree pane leaves it out: it would tip the tree over).
+- A set label's `text` may be a function (the branches' lengths, the branch picked, the dial's branch length): the
+  engine reads it again while it shows (`labelText`, as in the qubits story). Step params (never eased) are listed in
+  each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Letters (a letter or a mix in two qubits, read out 1 or 100 more), Rule (three rules, the start and parent
+  letters, the branch length; the path, the machine, its circuit and simple steps), Tree (five trees, how fast letters
+  change, a branch picked by click or ray, the machines running, the views), Stem (the authors' test or this example
+  live, the pair favour w from 1 to 30, a method lit, rebuild again) and Scenes.
+- **British spelling** (colour, favour, tumour, centre, grey), English only. T stands for RNA's U, as on the poster. No
+  patient data (the test is synthetic); the poster's pictures are never shown, its figures are redrawn in 3D.
+
+## The shape of tissue (`stories/topo.js`) is built the same way
+
+`stories/topo.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
+architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche) is generated from
+`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before
+the sets (`TOPO_DATA`, the authors' numbers, `sets/data.js`, generated; `TDATA`, its decoders and look-ups,
+`sets/tdata.js`, checked with the data by `node tools/topo/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
+rings, balls and halos plus glass discs, glass triangles, ribbons, glass slides and cells drawn in H&E or as beads,
+`sets/look.js`), the tour's `body` set and the microanatomy story's organ models (`ORGAN3D`, only its liver; both
+unchanged), four sets (`slide`, the healthy tile round the poster's patch and the new slide's window drawn in H&E from
+their cells, sketches of other modalities, the fixed scales other tools read and the whole slide's overview; `map`, in
+`slide`'s frame: one cell's neighbourhood, its own network, bars and score, then every cell scored as a relief, the
+two groups and their cell types, and sketches of the next steps; `tower`, the poster's patch: balls growing round 110
+cells, the network with triangles, pieces joining and loops opening and closing, the tower of scales and its barcode;
+`cohort`, the 123 slides as a rack of glass slides with their curves, the main shapes, the space of scores, the
+classifier's wall, the held-out stacks and the weight for every radius on a column of radii; each with a manifest) and
+engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the contract.
+
+- The instance pools send only what changed: `upload` in
+  `tools/topo/sets/look.js` (and the same function in `tools/qubits/sets/look.js` and `tools/mutation/sets/look.js`; the
+  soil story draws with this look's pools) compares a pool's used range, as 32-bit words, with a copy of what last went
+  and sends the stretch from the first change to the last (a range set and not yet sent is merged in, since three.js
+  sets its count back to -1 once it has gone), nothing when it is the same: a story paused or at rest uploads nothing,
+  one moving sends what moves. The soil field's posts are written only when the netting moves.
+
+- **Every number is topocyte's** (the owner: "use the topocyte code for all calculations").
+  `tools/topo/data/gen_data.py` runs the authors' package topocyte and the poster's own figure scripts on the authors'
+  GTEx liver cohort (123 slides, 66 healthy and 57 with cirrhosis, 30.8 million cells found by HistoPLUS, CC BY 4.0)
+  and writes `tools/topo/sets/data.js` (`TOPO_DATA`, documented in its header): the slides' curves, scores, classifiers
+  and held-out results for pieces and loops, the shares of the gap by radius, the poster's patch with its complex,
+  bars, joins and loops, a healthy tile round it and the new slide's window (6,716 cells, each with its own score and
+  bars). topocyte is GPL-3: it is only run offline, and none of its code is copied into the app. The authors' files,
+  the cohort table, slide ids and any GTEx image stay out of the repository: only derived numbers go in, and slides are
+  numbered, never named. `TDATA` only decodes and looks things up (what is alive at a radius by its stored radius, the
+  stored bars alive there, sums of stored shares, the poster's colours): **the app computes nothing scientific**, so
+  never recompute persistence, a functional PCA, a classifier or a score in it.
+- The data reproduces every number of the poster (`test-data.mjs` checks them): 66 and 57 slides; the first two main
+  shapes hold 72 % and 20 % of the variation in loops; the held-out test gets 62 of 66 healthy and 47 of 57 cirrhotic
+  slides right (4 and 10 wrong, accuracy 0.886); loops of 5 to 10 µm add 2.73 and of 10 to 15 µm 4.65 to a gap of 7.04
+  (odds × 1,138); the patch has 82 pieces at the poster's first snapshot (4.08 µm); the new slide splits into 1,000
+  and 5,716 cells at 100 µm.
+- The local radius is 50 µm (the author's choice); the poster's split at 100 µm appears only in small print and as
+  explore's map at 100 µm (only the colours and groups change). Cell v's score is the data's (6.97; the poster prints
+  26.57: T5 in `docs/questions-for-authors.md`, open).
+- The cell types are the cell classifier's labels (HistoPLUS), not a pathologist's: "Cancer cell" is kept (the author's
+  wish), and the story says once what the labels are. The genes and proteins of the last chapter are sketches of the
+  workflow, labelled so, not data.
+- The tissue is drawn from the cells' positions and types, never from an image. The relief of scored cells takes its
+  heights from the stored scores round each cell, smoothed for drawing only; its colours are each cell's own score.
+- In a headset the tower of scales stands about 1.5 m tall in front of you while it is the scene (chapters 3 and 4;
+  `standView` in `engine/e3_story.js`, by story time, so everyone at a station sees the same size; nothing of it comes
+  within 0.35 m of your eyes), as the mutation story's family tree does. Explore offers it as Look: Stand at it; `up`
+  looks up through it on a screen only.
+- The radii ease on the poster's log ruler (the tower set's `log`). A set label's `text` may be a function
+  (`labelText`); step params (never eased) are listed in each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Patch (the radius from 1.5 to 60 µm with the poster's four stops, the balls, the tower or the barcode,
+  pieces or loops lit, the counts there), Cohort (pieces or loops; the rack, the scores or the held-out stacks; a slide
+  picked by click or ray, its scores and held-out result), Scales (a window of radii of your own, 0 to 100 µm or "and
+  above" in 0.5 µm steps: its share of the gap and its odds factor), Cells (one cell, every cell, the two groups or the
+  sketches, at 50 or 100 µm; a cell picked by click or ray: its neighbourhood, its own network at a radius, its bars
+  and score) and Scenes (Liver, Section, Patch, Cohort, Map).
+- **British spelling** (colour, centre, grey, haematoxylin, neighbourhood, tumour), English only. No patient data, no
+  donor details, no GTEx ids or images, and never the poster's pictures.
+
+## The soil story (`stories/soil.js`) is built the same way
+
+`stories/soil.js` ("Holding on to nitrogen", after the slides "Exploring the Effects of Biological Nitrification
+Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
+Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper,
+and their field trial's data; made for the Global Peter Drucker Forum in Vienna, a lay, business audience) is generated
+from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted
+before the sets (`SOIL_DATA`, the trial's numbers, `sets/data.js`, generated; `SDATA`, its decoders and look-ups,
+`sets/sdata.js`, checked with the data and the story's key numbers by `node tools/soil/test-data.mjs`; `SLOOK`, the
+story's palette and colour rules, `sets/look.js`), the tissue topology story's look (`TLOOK`) and the tour's `web` set
+(only its globe), both unchanged, three sets (`soil`, the cut-away block of soil with its wheat: fertiliser, the
+nitrogen's flows, a magnified pore with the relay's microbes, the BNI halo round the roots, the wild grass and the piece
+of chromosome, one marked atom; `field`, the trial's 24 plots under netting over five dates, the leaves by their
+chlorophyll, nitrate under the plots, jars breathing N2O, the 119 cores stacking into the design and a module lighting
+its plots; `net`, in `field`'s frame: the cloud of 20,000 kinds of microbe, the nitrifiers, the co-occurrence network
+pulled out of its core, the shuffle, the modules and the halves' own networks side by side; each with a manifest) and
+engine parts adapted from the tissue topology story's (with the hop from Vienna to Japan on the globe, `makeHop` in
+`engine/e2_scene.js`). `tools/soil/SPEC.md` is the contract, with the owner's decisions.
+
+- **The data**: `tools/soil/data/gen_data.py` (Python with numpy, pandas, scipy and networkx,
+  `tools/soil/data/requirements.txt`; about five minutes) reads the authors' three CSVs (the 16S read counts of 100,116
+  kinds in 119 samples, their taxonomy, the field metadata) from a folder given on the command line, builds the
+  co-occurrence network and writes `tools/soil/sets/data.js` (`SOIL_DATA`, about 425 KB, documented in its header), with
+  what the story uses of `tools/soil/data/figures.json` (the slides' charts read off by two readers and reconciled by
+  `tools/soil/data/reconcile.py`; the readers' files are not kept). The authors' files are not in the repository: only
+  derived numbers go in, and `sets/data.js` is never edited by hand. `SDATA` only decodes and looks things up: the app
+  computes nothing scientific. Permission: the authors, through the owner, with the rule that anything
+  unknown is shown as illustrative and said so (`docs/data-and-permissions.md`).
+- **Real, read off, illustrative** (each said so where it shows). Real: every field measure per plot and date, the
+  groups' means and tests, the phyla, the nitrifier guilds, the cloud's kinds and the network, built for this story with
+  a standard method (centred log-ratios, Spearman's rho of at least 0.6, false discovery rate under 5 %, Louvain modules;
+  "about five big groups", since the count depends on the run): correlation, not interaction, and not the authors'
+  analysis. Read off the slides (approximate): day 70's chlorophyll, the N2O incubation curves, the qPCR counts.
+  Illustrative: the soil block and its flows (only the slides' "less than half reaches the plant" is theirs), the relay
+  in the pore, the halo, the chromosome, the field's plot layout (the real map is not known: four blocks of six in a
+  seeded order), the wheat's look at each date (only its leaf colour is data), the hop's end (JIRCAS's home in Tsukuba:
+  the site is not given) and explore's Nitrogen sketch ("a sketch, not data").
+- **The hedges** (the data's verdict, `tools/soil/README.md`): in the slides' measurements the BNI wheat stays greener
+  and leaks less nitrate and N2O; the soil's microbes and their network follow the fertiliser and the field's plots, not
+  the wheat line (2 of 3,384 common kinds differ by line; the two lines' own networks, 38,653 and 30,276 links, differ
+  less than some random halves do, 158 to 27,758 apart); rising together is not working together; strong indications,
+  not yet proof. Never say the wheat "changes the microbiome" or "rewires the network", never call a hub a keystone or a
+  link an interaction, and never say the line changes nothing (a test that finds no difference does not show there is
+  none). The two N2O measurements disagree (the metadata's "potential" N2O in fertilised soil over the season, 0.81
+  against 0.98, p = 0.58, against up to about 3-fold less in the slides' jars): an open question, said in chapter 5's
+  small print and explore's Field pane. The other open points are `SOIL_DATA.open` and S1 to S9 in
+  `docs/questions-for-authors.md`.
+- Kinds of microbe are numbered by abundance, never named by their ids; no sequences, no ASV ids, no pictures or photos
+  from the slides (everything is redrawn in 3D), no e-mail addresses. The two kinds that differ by line (a Denitratisoma
+  and a Kitasatospora) are named only in explore's small print, never as an effect of the wheat.
+- Eight chapters, 11:03 as narrated: Half the sack, The relay, A wheat fights
+  back, The field trial (the globe and the hop, then the field), Greener, fewer leaks, A crowd of 100,000, Who rises
+  together, What we know. Every number the text shows comes from `SOIL_DATA` (`FACTS` in `engine/e3_story.js`). In a
+  headset no set stands life size (`field_life` was optional and is not built). A set label's `text` may be a function
+  (`labelText`); step params (never eased) are listed in each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Field (a date, a measure: chlorophyll, ammonium, nitrate, N2O or pH, a wheat line and a regime, the views;
+  a group of plots picked by click or ray, with tags; N2O brings the jars), Nitrogen (the soil block's sketch with
+  three switches: fertiliser, the BNI wheat, DCD), Microbes (the cloud by phylum or the nitrifiers, their shares by
+  regime and line, a kind picked by click or ray), Network (a module and the plots where it thrives, the threshold from
+  0.6 to 0.8 with the counts at 0.5 and 0.55 in words, Shuffle, Split by wheat line, fertiliser or at random) and
+  Scenes (Soil, Globe, Field, Microbes).
+- To rebuild the data (only with the authors' files, which are not in the repository):
+  `python -I tools/soil/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>`, then
+  `node tools/soil/test-data.mjs` and `node tools/soil/build.mjs`; the slides' readings again only through
+  `tools/soil/data/reconcile.py`.
+- **British spelling** (colour, fertiliser, centre, grey, neighbourhood), English only; plain words for a business
+  audience, the technical layer in small print.
+
+## The pass story (`stories/pass.js`) is built the same way
+
+`stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
+generated from `tools/pass/` (`node tools/pass/build.mjs`, `--check` as for the tour; `node tools/pass/test-sets.mjs`
+checks the sets without a browser): the tour's kit, the airports story's globe and the cell map story's cell, three sets
+and engine parts adapted from the qubits story's (the life-size parts from the flock's). `tools/pass/SPEC.md` is the
+contract.
+
+- **The globe and the cell are the originals, unchanged.** The build cuts whole sections and named declarations out of
+  `stories/airports.js` and `stories/spatial.js` (`ORIGINALS` in `build.mjs`), each inside a function of its own
+  (`PASS_AIRPORTS`, `PASS_SPATIAL`), and the `globe` and `cell` sets wrap them: their own `buildScene`, data, shaders
+  and look, driven from params as their stories drive them. One source of truth: **rebuild the pass story after any
+  change to either original** (`--check` says when it is out of date; a marker that moved stops the build with its
+  name). Never change those two stories for this one's sake.
+- **Two languages.** Every word of this story is in English and German: `STR` (`[English, German]` by key, read
+  through `T(key, ...values)`) in `engine/e2_text.js` for the panel, the headset's panels, the story's labels and the
+  explore panes, and each set's own `setLang` for its labels and controls (a getter). A switch (EN | DE) sits on the
+  story panel and above the explore tabs, page and headset (`setLang`, which redraws everything at once). The
+  language is per device: German when `navigator.language` is, kept in `localStorage` (`passLang`), `#pass&lang=de`
+  or `&lang=en` in a link; never in `collab.state()`. The shell's own words (top bar, Stories screen, menu) stay
+  English. British English, and plain, natural German for a 12-year-old ("du"), not word for word; the cell's
+  protein names (their roles are in German, `ROLE_DE`) and most city names stay as in their stories (open, see `docs/questions-for-authors.md`).
+  Add a string in both languages, or the smoke test fails.
+- **The narration in two languages.** One recording per language, on one timeline (`NARRATION_SYNC`, `NARRATION_ENDS`
+  the later of the two): `audio/narration-pass.mp3` (English, Kokoro's `af_heart`) and `audio/narration-pass-de.mp3`
+  (German, Piper's Thorsten voice), both made by `node tools/voice/narrate.mjs pass` from the text in each language
+  (each stretch as long as the longer of the two lines needs). The story plays the language on show (`AUDIO` and
+  `audioLang` in `engine/e7_app.js`, from `setLang`): switched, page or headset, the other file is loaded in place
+  through `HOST.audio.narration` (the shell keeps one file at a time; while Web Audio decodes it the `<audio>` element
+  plays it), the clock, playing and the slideshow kept (checked in headless Chromium; untested on a headset). A missing file leaves that language silent. In a shared room each device plays
+  its own language on the station's clock (the language stays out of `collab.state()`). After the text changes in
+  either language, run `narrate.mjs pass` again and check both (`node tools/voice/check.mjs pass` and `--lang de`);
+  the German pronunciations are in `tools/voice/say.json`'s `de` section. How the German voice sounds is unheard here.
+- **Life size and tabletop in one story.** The fish are life size as the flock is (1 unit is 1 m, eyes at 1.6 m): on a
+  screen a wide lens (the `lens` track, 58 degrees among the fish, 32 for the globe and the cell) and the flock's
+  `followView`; in a headset the fish set hangs in a holder (`GL.life`, `placeLife`) that undoes the pose `xrPlace`
+  gives `GL.world` for the globe and the cell, so the school stays round you while the other two float in front of
+  you. In passthrough the sea is hidden (`fish_water` 0, per device) and the school swims in your room at a third of
+  life size, shrunk round your eyes so it stays at eye level (round the floor it swam a metre below them: "too low" on
+  the Quest). The rise to the globe shrinks the sea on a screen (`fish_scale`) and only fades it in a headset (the
+  viewer never moves). Among the fish the ray hits the sea (`kind: 'sea'`): in explore mode the trigger is the shark,
+  and the grip moves the school (`XR.lifeOff`, the holder's offset in the rig's frame, eased; `carrySea` in
+  `engine/e5_xr.js`): it follows the hand's move, one hand at a time, within 2 m up or down and 6 m to the side. Outside
+  a room it is per device (`XR.lifeTo`: people differ in height), reset by Recenter and for a new wearer. At a station
+  it is the station's, for everyone there (`XR.lifeSt`, `sea` in `collab.state()`, metres in the station rig's frame to
+  the centimetre: every headset there has the station's spot as its rig, so it is one place in the room, and the
+  school's frame, where `fishSync` works, moves with it); moved in all three directions where `HOST.anchor.locked`
+  allows the grip, gliding in on the others' headsets, never reset by Recenter, a new wearer or a new session; walking
+  away goes back to your own; a screen following the station keeps and passes it on but draws nothing differently.
+  Never in the `place` hook. While it is carried no shark steering starts. The school's height, the grip and the new shark were checked on a Quest 3, with the endotype junction over a real
+  wall, the PET scanner's base and the fitted card titles.
+- **The outbreak** is the globe set's seeded S/E/I/R model on the real route network: the same start and settings give
+  the same outbreak on every device, so a shared room shares only those; each person plays its days. The story and
+  the Outbreak tab say it is a simple model, not a forecast.
+- Explore: Fish (be the shark: the pointer, a controller's ray with the trigger held, or a tracked hand's index
+  fingertip; let go while Be the shark is on, the shark stays, cruising round the school and through it now and then,
+  clear of your head, until you steer it again, turn Be the shark off or leave the fish (the set's `hold`, from
+  `sharking()` every frame); the story's sharks and Now and then pass through and go; neighbours watched 1 to 12;
+  links; the school's size), Outbreak (pick any airport on the globe, by click,
+  ray or search, as the start or to look it up; play, the day, the chart of cities in each state, the settings), Cell
+  (a protein's places and partners there, the cell map's seven moves and what each changes) and Scenes. In a shared
+  room the school belongs to the station as the flock does (`fishSync`), fish by fish (the leader's every fish three
+  times a second, the quiet effect `fishes`: the flock's `birds`).
+- **Up to four sharks at once** (the owner's wish: be the shark shared with everyone at the station; the set's `MAXS`): passing ones (the story's, Now and then, one sent, one let go and swimming off) and people's own. At
+  a station everyone there sees every shark and every school flees all of them (each fish from each shark within
+  4.5 m, the forces added up; the warning passes on as before). Be the shark there: yours goes to the others as the
+  quiet effect `steered` about 15 times a second while you steer it or keep it (`fishSend`: where it is drawn now, in
+  the set's frame, how it moves and swims, your member id and colour; once more with `off` as you let it go, and it
+  swims off there as here), and theirs are drawn here 120 ms behind their samples (the relay's time, `clock`), between
+  the two samples round that moment (a cubic along their velocities), past the last for at most half a second; with
+  none for 1.5 s it swims off as a passing one does (taken up again if they go on). Each person's shark is tinted
+  with their colour (the shell's member colour: its back takes a little of it and a faint glow of it runs along its
+  edge; it still reads as a shark); passing ones keep the shark's own colours. The fish flee another person's shark
+  where it is now (its drawn place carried on by its velocity for those 120 ms), as its owner's fish do. A fifth
+  shark wanted: a passing one is not sent (Send a shark greyed: *Four sharks already*; the story's and Now and then
+  wait), a steered one (yours, or another person's) takes the place of the oldest passing one, which goes, and with
+  four people's sharks swimming yours is refused and the panel says so (`f.full`: "Four sharks are swimming already.
+  Wait until one swims off." in both languages). Outside a room it works as before (yours, the story's and the ones
+  you send), only now several may swim at once. The school, fish by fish, as the flock's birds (see the flock's
+  notes: `pack`, `align`, `fishSend`; about 3.6 KB for 300 fish, 7.2 KB for 600): measured in Node, a follower 3.7 m
+  off (median) within 0.15 m after 1 s and 3 mm after 3 s, and 2 mm with a shark passing through both; in headless
+  Chromium, three pages drawing in software at 4 to 5 frames a second, a follower's fish 1 to 8 cm from the leader's
+  (median) alone and 4 cm with two people's sharks in the school, and another person's shark drawn on a third page
+  within 0.3 m of where its owner had it 120 ms before. Untested on headsets: how four sharks and their tints look,
+  and how others' sharks and the school feel at these rates over Wi-Fi.
+
+## The flock (`stories/flock.js`) is built the same way
+
+`stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
+`--check` as for the tour): the tour's kit, one set (`sets/flock.js`, manifest
+`sets/flock.md`) and engine parts adapted from the tour's (no Proteins tab, no
+scene list).
+
+- The set is a live simulation, so unlike other sets its `update` is not a pure
+  function of the params and the time: 200 birds (100 to 400) in steps of a
+  thirtieth of a second (the birds glide on between steps in the shader); each
+  follows its seven nearest neighbours (the neighbour search is a sorted grid),
+  keeps its distance, and flees a falcon, with alarm passing from neighbour to
+  neighbour; the flock as a whole follows a whim (a heading turning now left,
+  now right) and a weak pull to a roost in front of you, and every 88 s swoops
+  round you. A story key `flock_hunt` sends a falcon each time it passes a whole
+  number. Tune the flight by numbers (bearing rate, distance, reversals), not
+  by eye: the flock and the screen camera are easy to make dizzying.
+- Life size: 1 unit is 1 m, the viewer stands at the origin, the ground is
+  y = 0, the sunset is towards -z. In a headset `xrPlace` puts the land under
+  your feet (a standing eye height, 1.6 m, below the rig: the reference space
+  is `local`, so the floor is unknown) and never moves it; the grip moves only
+  the panel. In passthrough AR the sky and the land are hidden (`flock_sky` 0)
+  and the flock flies in your room at a third of life size.
+- The engine tells the set where you are every frame (`see(head, hands)`, in
+  its frame: the head and controllers in a headset; on a screen a fixed spot,
+  1.6 m above the middle of the field, so the flock never follows the camera),
+  and `scatter(dir)` sends a falcon where you point (a click on the sky, or the
+  trigger pointed at the sky).
+- In a shared room the flock belongs to the station (`flockSync` in
+  `engine/e4_explore.js`): the set's origin is the station's spot on every
+  device, and it roosts and swoops round that spot instead of round each viewer
+  (`see(head, hands, spot)`). Every device there sends where its flock is twice
+  a second (a quiet effect `flock`: its flight time, middle and velocity, and
+  since when it is there); the one there longest leads (heard in the last 2 s;
+  a page back from a pause or a hidden tab counts as new; ties by member id), so
+  a newcomer never pulls the others' flock to its own: the others take its
+  flight time (so the roost and the whim match), and every bird gets the same
+  pull towards the leader's middle (a damped spring; more than 12 m off, as on
+  joining, the flock moves there at once: the set's `follow`). Only the leader
+  sends falcons of its own (the story's and *Now and then*; a page new at the
+  station listens 1.5 s first, the set's `hush`); every falcon,
+  also one someone points at the sky, goes out as it starts (`onLaunch`, the
+  effect `falcon`), so all see the same one; up to four in the air at once (the
+  set's `MAXF`: a fifth
+  is not launched here, and Send a falcon says *Four falcons already*; one from
+  another device takes the place of the oldest, so two devices that each sent a
+  fourth at once, or one still flying a falcon gone elsewhere, end with the same
+  four; Now and then waits while one is in the air), and the birds
+  flee every falcon near them. Every value from another device is bounded
+  (positions and velocities under 10 km in size, a snapshot whose fish or birds
+  would not be finite is ignored), and who sent an effect is the relay's word for
+  it (the shell passes it to the story's `effect(type, data, by)`), not its data's.
+- Bird by bird (the owner's wish: the birds shared exactly): while
+  anyone else is at the station the leader also sends every bird three times a
+  second (the quiet effect `birds`, from `flockSend` after the frame's step, so
+  where they are drawn now: the set's `pack`, positions in cm from the flock's
+  middle as 16-bit numbers and velocities in steps of 0.15 m/s as 8-bit ones, 9
+  bytes a bird in base64, about 2.4 KB for 200 and 4.8 KB for 400, well under the
+  relay's 64 KB a message; with presence, `flock` and `birds` a page sends some
+  20 messages a second, under the relay's 60). The others take only the one they
+  follow, with as many birds (the count is in `state()`): each bird's difference
+  from the leader's, carried on by its velocity to the moment this page's flock is
+  drawn at, is taken up frame by frame (`align`: time constant 0.25 s, at most
+  12 m/s, so no bird jumps and the shader's gliding between steps stays smooth),
+  on top of the flock's own flight, which is the same on both, so they stay in
+  step between snapshots; far apart, as on joining, the birds are first paired
+  afresh, each of the leader's with the nearest of ours, ours only renumbered, so
+  none crosses the flock. A bird's own wingbeat and lean are the same on every
+  device (drawn once at the start, by index). Times are the relay's at the frame
+  a thing was drawn in (`FSY.at`; what a page sends goes after its step), and a
+  leader whose frames come slower than ten a second (its steps fall behind) says
+  its pace, which the others carry what it sends on at. Measured: in Node, two
+  flocks 13 m apart (median) within 0.18 m after 1 s and 0.01 m after 3 s; in
+  headless Chromium, three pages drawing in software at 5 to 10 frames a second,
+  0.03 to 0.1 m with no falcon and 0.1 to 0.48 m with two passing (the median
+  distance between a follower's bird and the leader's at the same moment).
+  Untested on headsets.
+- On a screen the camera stands where you do and turns to follow the flock
+  (`followView`: a dead zone, eased turns of up to 50 degrees a second; from
+  afar it aims at the flock instead and comes round to the view's side at up
+  to 60); dragging takes the camera over (View: Look around). Wings and reeds
+  move on real time, so they keep moving while the story is paused.
+
+## The robot gang (`stories/robots.js`) is built the same way
+
+`stories/robots.js` is generated from `tools/robots/` (`node tools/robots/build.mjs`,
+`--check` as for the tour): the tour's kit, one set (`sets/robots.js`, manifest
+`sets/robots.md`) and engine parts adapted from the flock's. `tools/robots/SPEC.md`
+is the contract between them.
+
+- A live simulation, like the flock: `update(S, t, dt)` advances it (steps of at
+  most 1/60 s), and seeking the story changes only the params (the rule, the
+  count), not the robots' past. Robots are discs (radius 0.17 m) that drive
+  like real ones (turn on the spot, smooth speed); the rule (`robots_rule`:
+  dock, bump and turn, follow you, conga line, keep away) only changes their
+  targets, so a switch is smooth. They never leave the floor polygon, never
+  overlap, and bump off walls, furniture, each other and your feet. The
+  counters `robots_dust` and `robots_crumbs` act each time they pass a whole
+  number. Tests and `sweep.mjs` run it fast with `simStory(t0, t1)` and
+  `simExplore(sec)`.
+- The set works on a room description in its own frame (floor at y = 0,
+  1 unit = 1 m): `{ kind: 'model' | 'real' | 'box', floor, walls, blocks }`,
+  given with `setRoom()` (it rebuilds the colliders, the floor texture and the
+  drawn room, but skips a room that has not changed to the centimetre, and a
+  refined room of the same kind keeps its cleaned floor; a floor under 1 m² or
+  too thin for a robot gives way to a box room). On a screen it is the model living room
+  and you are an avatar: a click on the floor walks it there (`floorPoint`,
+  then `walkTo`), a drag turns the view.
+- In a headset the room is yours. Every story asks for `plane-detection` and
+  `mesh-detection` as optional features when it starts an AR session (a session
+  survives story changes; VR asks for no room scan, so the robots get the
+  virtual room there and no *Set up your room*), and `xrRoom` (`engine/e5_xr.js`) reads
+  `frame.detectedPlanes` and `frame.detectedMeshes` (only when
+  `session.enabledFeatures` lists them, inside try/catch) when they change,
+  once a second besides (poses can move on their own, and a first read may
+  come before tracking has them), at most twice a second, and at once after a
+  reference-space reset; a reset's transform carries the robots, piles and
+  cleaned floor to the new coordinates (`shift`; without one they start again
+  from the dock). The
+  floor is the plane labelled floor; walls are planes labelled wall (or tall
+  unlabelled ones); furniture is seats, cupboards, beds and detected volumes
+  (tables and desks are left out, and volumes raised more than 12 cm off the
+  floor: the robots go under them).
+- A real room must not move with the rig, which carries the panels and may be
+  anchored: `GL.world` is the reference space moved down to the floor (world
+  matrix = inverse(rig) x translation(0, floor, 0)), so set x and z are
+  reference x and z. Without a room (no feature, no room setup) a virtual
+  room hangs on the rig 1.6 m below your head, as the flock's land does: the
+  model living room in VR, a bare 4 m x 5 m box in passthrough; the panel then
+  offers *Set up your room* (`initiateRoomCapture`, once a session), and
+  planes that arrive later take over. Nothing here moves `GL.rig`.
+- Your head is the player (no avatar), the trigger aimed at the floor spills
+  crumbs there, and the grip moves only the panel (outside a shared room). In passthrough
+  (`robots_room` 0) nothing opaque is drawn: a glowing line along each wall's
+  base, ripples where a robot bumps it, and the cleaned trail.
+- The cleaned floor (a DataTexture of the room's cells, about 335 KB) goes to the GPU at most ten times a second, in a
+  headset every 0.4 s, and only the boxes of the cells cleaned since the last time (a box per trail: a disc
+  joins the box it touches, `MAP.boxes`; `mapSend` sends each through the renderer's `copyTextureToTexture`,
+  texSubImage2D from a small copy of its rows); a new map, the dust again, more than 32 boxes or boxes over half the map
+  together send all of it, as before (also in the set's harness, which has no `GL.renderer`). How the trail's 0.4 s
+  steps look on a headset is untested.
+
+## The design room (`stories/design.js`) is built the same way
+
+`stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as
+for the tour): the tour's kit, the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
+only the fields a card shows, and the miniatures' names in `tools/lowpoly/`), one set (`sets/table.js`) and engine parts
+adapted from the flock's (the shared-room, headset-setting and subtitle lines copied unchanged). `tools/design/SPEC.md`
+is the contract. Rebuild it after changing `props.json` or the miniatures' names, and `lowpoly.js`
+(`node tools/lowpoly/build.mjs`) after changing a miniature.
+
+- **Not one of the stories** (a table with the low-poly versions of all props): its entry is in `STORY_EXTRA`, so it is on no Stories screen and not counted;
+  `#design` or `HOST.go('design')` opens it, and `tools/release.mjs` lists it in `version.json` (live updates swap it).
+  No narration and no chapters: it opens straight into explore mode, the table; its one short intro line (6 s) plays
+  for a new wearer or Intro, and its end never starts Repeat.
+- **The table**, life size like the flock's land (1 unit is 1 m, the floor 1.6 m under your eyes in a headset): round,
+  2.3 m across, its top at 0.86 m and its middle 1.55 m in front of you; a plate per story round the rim in the story's
+  colour with a place card (kicker and title), its miniatures (12 cm, from `lowpoly.js`, built a few per frame so the
+  table fills in without a stall) on rings from the rim in; in the middle the stage, where the picked prop stands 40 cm
+  tall and turns. Lit as the props are (sky light, a light over your shoulder, a cool rim light), dark navy.
+- **Few draws**: each miniature is merged as it is built into at most two meshes (`mergeMini` in `sets/table.js`: its
+  opaque parts and its see-through ones), every part's colour and look carried per vertex (`aMat`: its material's
+  colour, roughness, metalness and its glow in its own colour; `aSee`: its opacity and whether it adds its light), drawn
+  by two `MeshStandardMaterial`s shared by every miniature (`miniMat`, their shaders patched in `onBeforeCompile`; the
+  see-through one premultiplied, so a part that adds its light, haze, leaves what is behind it as it was, its alpha too);
+  a two-sided part is doubled with its faces and normals turned, so both stay one-sided, and see-through parts keep their
+  order (glass before haze). The plates, their glowing edges, the place cards' faces and backs and the homes' discs and
+  rings are one mesh each (`merged`), and what never moves has its matrices worked out once (`still`). The picking
+  proxy, the hover rings and glow and the stage's copy (`clone()` of the merged group, its own matrix updated again) are
+  as before. Measured in a pretend headset: 70 draws an eye (from 235), 1.5 ms of script a frame (from 4.4), 313
+  objects (from 573), pictures of the table, a plate, from above and the stage as before (under 1 % of pixels apart,
+  the stage's turning prop aside). How the merged miniatures look on a headset is untested.
+- **Pointing** at a miniature (the mouse, a controller's ray, a hand) lights it and shows its name; a click, the
+  trigger or a pinch puts it on the stage and its card on the panel (Prop: its name, story, what it shows, size and
+  frame, params with range and meaning, named views, what reuses it, source and manifest; All props: every story's
+  props to pick from). In a headset the grip picks a miniature up (it follows the hand and, free moving on, turns with
+  it), both grips size it, let go it stays; *Tidy the table* puts them all back. On a screen the camera goes round the
+  table (drag, wheel; View: the table, the stage, from above; a story's heading flies to its plate).
+- **Shared rooms**: the same hook lines as every story. `state()` is the prop on the stage and one top-level field per
+  miniature moved by hand (`[x, y, z, qx, qy, qz, qw, s]` in the table's frame, rounded), so two people moving two
+  miniatures both keep theirs; no effects; `view()` null. In a room it is a station like a story's, placed from the
+  headset's menu (*Design room here*) or the page's Shared dialog, never by Arrange all ("Shared rooms": "The design
+  room in a room"); outside a room the menu's *Design room* opens it. Its station's icon is its own miniature,
+  `design.table` (skipped by `tools/design/build.mjs`, as are the shell's circles' icons, `all.stories` and `all.lobby`:
+  not props on the table).
+
+
+## From CLAUDE.md
+
+These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word for word, beside the area they belong to.
+
+- `stories/lbi.js` is built from `tools/lbi/`: edit there and run
+  `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
+  (`node tools/nmd/build.mjs`; data from the authors' files, kept out of the repository, via
+  `node tools/nmd/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
+  `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
+  and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
+  `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
+  (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
+  `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
+  `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
+  from the authors' files via `tools/endo/data/gen_data.py`, which are not in the
+  repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.
+  `stories/pet.js` likewise from `tools/pet/` (`node tools/pet/build.mjs`; data from the paper's tables and the
+  figures' readings in `tools/pet/data/figures.json` via `node tools/pet/data/gen_data.mjs`); it includes
+  `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js` (its opening network's 3D organs), so rebuild it after changing those. No patient data in it (the authors' VR viewer holds a
+  patient's scan: never use its data).
+  `stories/micro.js` likewise from `tools/micro/` (`node tools/micro/build.mjs`; data from Iva Buljan's GraphML, kept out of
+  the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's
+  body and tissue sets (its organs are its own 3D models, `tools/micro/sets/organs.js`), so rebuild it after changing
+  those.
+  `stories/ovary.js` likewise from `tools/ovary/` (`node tools/ovary/build.mjs`; data from the poster's numbers, typed in,
+  and the figures' readings in `tools/ovary/data/figures.json` via `node tools/ovary/data/gen_data.mjs`); it includes
+  `tools/lbi/sets/body.js`, so rebuild it after changing that. Its neighbor network (and the network by kind) is
+  illustrative and its count tags are read off the poster's lines (say so); no charts beyond the donors' histogram, and
+  no GTEx image or picture from the poster in it. American spelling, as in the qubits story.
+  `stories/qubits.js` likewise from `tools/qubits/` (`node tools/qubits/build.mjs`; its maths checked by
+  `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
+  Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It and the aging ovary
+  story use American spelling (color, gray, neighborhood, aging), as asked; keep it so there and British everywhere else.
+  `stories/mutation.js` likewise from `tools/mutation/` (`node tools/mutation/build.mjs`; its maths checked by
+  `node tools/mutation/test-mmath.mjs`; example numbers only, computed live, and the poster's numbers typed in
+  `tools/mutation/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
+  the authors' circuit and says so; never call the circuit "better" or "more accurate". No patient data and none of the
+  poster's pictures (its figures are redrawn in 3D). British spelling.
+  `stories/topo.js` likewise from `tools/topo/` (`node tools/topo/build.mjs`; its data and decoders checked by
+  `node tools/topo/test-data.mjs`; data from the authors' files via `tools/topo/data/gen_data.py`, which runs their
+  package topocyte (GPL-3, offline only, none of its code copied) and the poster's figure scripts; the files are not in
+  the repository). Every number is topocyte's: never write science in the app (no persistence, functional PCA,
+  classifier or score computed there), only look up `TOPO_DATA` through `TDATA`. No GTEx ids, donor details or images,
+  and none of the poster's pictures (slides are numbered); "Cancer cell" stays (the cell classifier's label, the
+  author's wish). It includes `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js`, so rebuild it after changing
+  those. British spelling.
+  `stories/soil.js` likewise from `tools/soil/` (`node tools/soil/build.mjs`; its data, decoders and key numbers checked
+  by `node tools/soil/test-data.mjs`; data from the authors' three CSVs via `tools/soil/data/gen_data.py` and the
+  slides' readings via `tools/soil/data/reconcile.py`, none of those files in the repository). Look numbers up in
+  `SOIL_DATA` through `SDATA`; compute nothing scientific in the app. Unknowns are illustrative and say so; keep its
+  hedges (the BNI wheat greener and leaking less in the slides' measurements; the microbes and their network follow the
+  fertiliser and the plots, not the wheat line; rising together is not working together; strong indications, not yet
+  proof) and the two N2O measurements as an open question. The network is ours, built for the story: never call a link
+  an interaction or a hub a keystone. Kinds numbered, never named by their ids; no sequences, no pictures from the
+  slides, no e-mail addresses. It includes `tools/topo/sets/look.js` and `tools/lbi/sets/web.js`, so rebuild it after
+  changing those. British spelling.
+  `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
+  `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
+  `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in
+  both (`STR` in `tools/pass/engine/e2_text.js`, the sets' own `setLang`), German plain and natural for a 12-year-old;
+  the language is per device and never in `collab.state()`.
+

@@ -15,7 +15,7 @@ cards are made from both at build time. The models themselves load at run time f
 (`node tools/lowpoly/build.mjs`, `HOST.lowpoly()` in `index.html`). The design room's own miniature, `design.table`, is
 only its station icon in a shared room (the build skips it: not a prop on the table), and so are the shell's two
 circles' miniatures, `all.stories` and `all.lobby` (story `all`, skipped too). In a room the headset menu's
-*Design room here* (or Add a station on the page) puts the table at a circle, never Arrange all (`shared.js`; AGENTS.md
+*Design room here* (or Add a station on the page) puts the table at a circle, never Arrange all (`shared.js`; docs/agents/shared-rooms.md
 "Shared rooms", "The design room in a room").
 
 | Path | What it is |

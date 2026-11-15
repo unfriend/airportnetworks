@@ -332,7 +332,7 @@ Everything else story-specific is still the topo story's, marked `TODO(soil B)` 
 story labels, `FIT`, `NARROW` and `LOW` (measure them), the stand view, explore's scenes, tabs, state, actions, panes
 (HTML in `e4_explore.js`, canvas twins in `e6_panels.js`), picking, `APP.enterExplore`'s scene for a moment, `openStart`
 and the hash. **Keep every shared line identical** (the headset code in `e5_xr.js`, the shared-room hooks, the slideshow,
-`fitTitle`, the landing screen, the headset settings, the panels setting, captions, the loading step queue: AGENTS.md,
+`fitTitle`, the landing screen, the headset settings, the panels setting, captions, the loading step queue: docs/agents/shell.md and docs/agents/shared-rooms.md,
 "Shared rooms" and "Inside a story"); before finishing, diff the shared parts against the then-current
 `tools/topo/engine/` (another builder may change them meanwhile) and take their changes. `FACTS` holds every number the
 text shows, from `SOIL_DATA`; none is typed in.

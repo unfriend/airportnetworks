@@ -145,7 +145,7 @@ asdf10k-collab-backend](#compared-with-asdf10k-collab-backend) lists what matche
   rooms back would lock their own address out (`--guesses` still limits unknown codes under `--public`).
 - **Never logged:** the start line says a password is needed, never which; a URL in an error line loses `?token=`, `key=`
   and the key in `/peerjs/<key>/`; the headsets' logs never hold it (the app strips it).
-- **In the app** (AGENTS.md, "Shared rooms"): each device enters it once, on a page in the Shared dialog (*This relay
+- **In the app** (docs/agents/shared-rooms.md, "Shared rooms"): each device enters it once, on a page in the Shared dialog (*This relay
   needs its password*, a password field and **Use**; *That is not this relay's password* after a wrong one; **Forget the
   password** in its relay part), in a headset under the menu's **Circles** tab, **Relay password** (a keypad page of the
   26 lower-case letters and the ten digits). On a Quest the 2D page in Quest Browser before VR or AR is the easiest
@@ -1119,7 +1119,7 @@ paths under `/scenes/` are the scenes' files ([Your own scenes](#your-own-scenes
 ## Hot reload (`--watch`)
 
 While you work on the app, `node relay/server.mjs --static . --watch --build` (or `--lan --watch --build` for
-headsets) makes every page and headset it serves follow your edits (index.html's `HOST.live`; AGENTS.md "Hot reload
+headsets) makes every page and headset it serves follow your edits (index.html's `HOST.live`; docs/agents/shell.md "Hot reload
 and live updates"). The page asks `/api/ping`; when it says `watch: true` it opens `/api/watch`, a stream of
 Server-Sent Events (`text/event-stream`, `Cache-Control: no-store`, `retry: 2000`, a comment line every 20 s):
 
@@ -1335,7 +1335,7 @@ and a browser answers by itself, so only a device that has gone falls silent. 10
 ## Rooms on this network
 
 Browsers cannot search the local network, so devices meet through the address they share on the internet (the app's
-*Rooms on this network*, in AGENTS.md "Shared rooms"). The relay hashes the address it sees for each request and socket
+*Rooms on this network*, in docs/agents/shared-rooms.md "Shared rooms"). The relay hashes the address it sees for each request and socket
 into a **network id**: the first 6 hex digits (24 bits) of SHA-256 of `networks-near-1|<name>`, where the name is the
 address itself (a public IPv4 address), its /24 for a private one (`192.168.1.0/24`: a relay on the LAN sees each
 headset's own address, and one Wi-Fi is one network), its /64 for IPv6, `loopback` for this machine. The page makes the

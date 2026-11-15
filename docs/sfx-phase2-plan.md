@@ -2,7 +2,7 @@
 
 > **Since v100 (30 October 2026, the owner after listening):** the continuous `machine` hum and every background but
 > the flock's (`dusk`) and the pass story's (`sea`) are gone; `vacuum` is the only continuous sound left. The `machine`
-> spans and beds below are history: a story that asks for them now hears nothing. AGENTS.md ("Sound effects") is current.
+> spans and beds below are history: a story that asks for them now hears nothing. docs/agents/shell.md ("Sound effects") is current.
 
 Written 29 October 2026, read-only against the repository as it stood during the v98 release round. The owner listened
 to phase 1 ("sounds are fine, go on"): effects are **on by default** from the next release (v99), and phase 2 adds
@@ -771,7 +771,7 @@ logs `whoosh` and `flutter` on every page. The robots: crumbs from one page log 
 
 **A, the shell side and the tests** (strongest model for the recipes; owns `sfx.js`, `index.html` if needed,
 `tools/sfx.html`, `tools/sfx-render.mjs`, `tools/sfx-cues.mjs`, `tools/audio.mjs`, the sound parts of
-`tools/smoke.mjs` and `tools/collab.mjs`, AGENTS.md's and CLAUDE.md's sound notes, README.txt, HANDOVER.md):
+`tools/smoke.mjs` and `tools/collab.mjs`, docs/agents/shell.md's and CLAUDE.md's sound notes, README.txt, HANDOVER.md):
 
 1. First, in about 45 minutes: the interface (default on, the mute, `pitch`/`dur`/`n`, `drone`, `SFX_LIB.length`), every
    new name registered with a stand-in recipe, the story block of 1.2 written into **the flock's engine as the
@@ -811,7 +811,7 @@ story's track (`--story all`) before the release.
 
 ## 6. Docs to update, and what stays untested
 
-- AGENTS.md: "Sound effects" (phase 2 built, on by default, the mute, `pitch`/`dur`/`n`, drones, the new sounds and where
+- docs/agents/shell.md: "Sound effects" (phase 2 built, on by default, the mute, `pitch`/`dur`/`n`, drones, the new sounds and where
   each is used, the cue checker, `--story` renders), "Inside a story" (the sound effects block, `sfxCue`/`sfxHold`
   beside the keys, `sfxLive`), Testing (the new checks), the robots' `onBump`. CLAUDE.md: the sound line (on by default;
   after changing a story's cues run `tools/sfx-cues.mjs <key>` and `tools/sfx-render.mjs --story <key>`; report how it
