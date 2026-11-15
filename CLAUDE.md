@@ -220,9 +220,13 @@ Follow "Working economically" in `AGENTS.md`. In particular:
 - Ask for (or read) a token budget before large work, and say roughly what a
   multi-agent run will cost before starting one. Ultracode or other
   "exhaustive" modes are for showpiece work, not routine changes.
-- Sub-agents and workflow agents that review, verify, sweep screenshots or
-  extract data get `model: 'sonnet'` (or `'haiku'` for mechanical checks) and
-  low or medium effort; keep the strongest model for building and integration.
+- Models (the owner, 15 November 2026: "opus is used for planning and code and
+  sonnet for the cheaper part"): the main conversation runs on Opus
+  (`"model": "opus"` in `.claude/settings.json`). Sub-agents and workflow agents
+  that plan, build, integrate or fix code get `model: 'opus'`; those that
+  review, verify, run tests, sweep screenshots, measure, extract data or write
+  docs get `model: 'sonnet'` (or `'haiku'` for mechanical checks), at low or
+  medium effort. Fable only when the owner asks for it.
 - One critique and one fix round; batch verification; only high-severity
   findings get verified.
 - In the main conversation, view screenshots as small contact sheets, read line

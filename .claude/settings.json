@@ -1,5 +1,18 @@
 {
   "permissions": {
-    "allow": ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "WebSearch", "Agent", "Workflow", "Skill"]
-  }
+    "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Agent",
+      "Workflow",
+      "Skill"
+    ]
+  },
+  "model": "opus"
 }
