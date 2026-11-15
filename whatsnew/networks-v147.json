@@ -1,0 +1,14 @@
+{
+  "version": "networks-v147",
+  "date": "2026-11-15",
+  "new": [
+    "Fixed: the headset menu's Debug tab drew nothing on a headset that keeps a calibration (a place) for a room. v146's room names broke its Places list."
+  ],
+  "test": [
+    "Open the menu's Debug tab in AR and in VR on a headset that has calibrated in a room: the Places list shows each room, by name where it has one.",
+    "Everything from v146 still to try: sequences, press and point, the colour picker, room names and the Bliss XP room."
+  ],
+  "untested": [
+    "The Debug tab on a real headset (the fix was checked in the shared-rooms test's places round only)."
+  ]
+}

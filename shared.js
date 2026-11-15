@@ -5006,8 +5006,8 @@
         y += 76;
       }
       ctx.font = FONT(22); ctx.fillStyle = MUTED;
-      const cap = placeCap(), used = PLC.list.reduce((n, q) => n + placeN(q), 0);
-      ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? ` · ${used} of ${cap} anchors` : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
+      const aCap = placeCap(), used = PLC.list.reduce((n, q) => n + placeN(q), 0);
+      ctx.fillText(fit(ctx, 'Places on this headset: ' + PLC.list.length + (PLC.list.length ? ` · ${used} of ${aCap} anchors` : ' (calibrate in a room to keep one)'), w), x, y); y += 40;
       for (const p of PLC.list.slice(0, 8)) {
         const on = !!C.code && p === R.saved, id = p.code + (p.pair ? '|' + p.pair : ''), fa = placeArmed(id);
         const h = (Date.now() - p.at) / 3600000, when = h < 1 ? 'this hour' : h < 24 ? Math.floor(h) + ' h ago' : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago';
@@ -5020,7 +5020,7 @@
       }
       // (the anchor budget, v131: a line in place of v130's setting)
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      y += wrapText(ctx, `A new place keeps two anchors; past ${cap} in all, the places made first keep one each (at their first cross), then the place used least recently goes.`, x, y, w, 28, 2) + 10;
+      y += wrapText(ctx, `A new place keeps two anchors; past ${aCap} in all, the places made first keep one each (at their first cross), then the place used least recently goes.`, x, y, w, 28, 2) + 10;
       for (const o of PLC.dropped.slice(0, 3)) { ctx.fillStyle = AMBER; ctx.fillText(fit(ctx, `Dropped: room ${o.code}'s ${o.name} (${o.why === 'gone' ? 'the area was forgotten' : 'spots A and B taped again'})`, w), x, y); y += 30; }
       // the room's areas (v131): their letters and names, who measured each, and Forget area (two presses: its tombstone)
       if (C.code) {
