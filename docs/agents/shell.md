@@ -227,6 +227,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   same way, in `look` beside these (see "The two sound switches" under "Sound
   effects"); `HOST.xr.sig()` leaves them out (the stories' panels do not show
   them).
+  - On the desktop preview camera (v155): its overlay's own *Labels* and *Cards* switches (this device's, never the
+    room's): `shared.js` wraps `HOST.xr.labels()` (`'hidden'` there with its Labels hidden; shown, the room's mode, on top
+    where the room hides them) and `HOST.xr.sig()`, and draws the name tags and the circles' cards by them; `HOST.xr.cards()`
+    and every headset are untouched ("The desktop preview camera" in `docs/agents/shared-rooms.md`).
   - The frame rate: beside these, a fifth setting that is never the room's but each
     headset's own (`HOST.xr.fps()`, `HOST.xr.setFps(on)`, `xrFps` in `localStorage`, off by default, `#fps=on|off` in a
     link; not in `HOST.xr.sig()`): the menu's *Frame rate: on/off* row (Settings, under Moving and Subtitles), or a double press of B or Y (`buttons[5]` of either controller pressed twice within 0.4 s, `BY` in `sticks`, a button held as its controller

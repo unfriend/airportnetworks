@@ -195,10 +195,13 @@
     hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set(), pc: false };
   // the desktop preview camera (v153, "the preview camera" below): camera mode's observer on a desktop page, CAM.on with
   // CAM.pc, in a pretend headset session the shell makes (want: Start pressed; sess: the pretend session; cur: the pose shown
-  // now, { p, q, fov } in room coordinates; edit: changed here and not yet written; auto: Follow what it looks at). PCP: a
-  // headset placing it (the menu's Place the preview camera: the next trigger press)
+  // now, { p, q, fov } in room coordinates; edit: changed here and not yet written; auto: Follow what it looks at; held: the
+  // keys held for smooth moving, code -> move; mo: its moving now (pcMotion); lock: the mouse caught; opt: this device's own
+  // Speed, Keys, Labels and Cards, kept in localStorage). PCP: a headset placing it (the menu's Place the preview camera:
+  // the next trigger press)
   const PC = { want: false, wantAt: 0, sess: null, link: false, phase: 'off', err: '', el: null, cur: null, def: true, edit: false, runT: 0, drag: null, seenAt: 0, idle: false,
-    list: false, auto: true, autoAt: 0, patch: null, keys: false, drawAt: 0, why: '', m: null, vs: null, fov: 60 };
+    list: false, auto: true, autoAt: 0, patch: null, keys: false, drawAt: 0, why: '', m: null, vs: null, fov: 60,
+    held: new Map(), mo: null, shift: false, lock: false, lockNo: false, opt: { speed: 'normal', keys: 'smooth', mouse: 'catch', labels: true, cards: true } };
   const PCP = { on: false, at: 0 };
   const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
@@ -4104,10 +4107,14 @@
   }
   // the cards' mode (HOST.xr.cards: the station cards and the name tags with the story panels; an older shell: its labels)
   const cardMode = () => (HOST.xr.cards ? HOST.xr.cards() : HOST.xr.labels());
+  // on the preview camera its own switches (this device's, never the room's): the name tags follow its Labels, the circles'
+  // cards its Cards; shown: as the room has them, in 3D where the room hides them (pcShown, the preview camera below)
+  const tagMode = () => (CAM.pc ? pcShown(PC.opt.labels, cardMode(), 'fixed') : cardMode());
+  const stCardMode = () => (CAM.pc ? pcShown(PC.opt.cards, cardMode(), 'fixed') : cardMode());
   const _M = new THREE.Matrix4(), _c = new THREE.Color(), _ONE = new THREE.Vector3(1, 1, 1);
   function drawPeople(dt) {
     const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
-    const vr = HOST.mode !== 'immersive-ar', cm = cardMode();
+    const vr = HOST.mode !== 'immersive-ar', cm = tagMode();
     // (a camera, camera mode: never drawn; a camera itself draws everyone in a headset, or nobody: its People switch)
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head || C.pres.get(id).cam || (CAM.on && !CAM.people)) dropPerson(id);
     const L = liveSt(), all = !L || peopleAll() || CAM.on;
@@ -4226,7 +4233,7 @@
   const DIRTY = [];   // (the cards whose content changed this frame: one of them drawn, drawPreviews)
   const DP = { ids: new Set(), hov: new Set() };
   function drawPreviews(dt) {
-    const ids = DP.ids, hovSt = DP.hov, cm = cardMode(), L = liveSt(), t = performance.now();
+    const ids = DP.ids, hovSt = DP.hov, cm = stCardMode(), L = liveSt(), t = performance.now();
     haloBuild(); HALO.n = 0;
     ICON.okNow = dt < 1.4 / (hzTarget() || 72);   // (this frame was not late: a miniature may be built, iconDef)
     ids.clear(); for (const s of C.st) ids.add(s.id);
@@ -10877,18 +10884,47 @@
   // back as it ends: a real headset on this computer afterwards is untouched; nothing of it is ever offered to a headset or
   // to camera mode). Its place: the room's key pcam ({ p: [x, y, z], q: [x, y, z, w], fov, ts, by } in room coordinates);
   // with none, a default 3 m behind the station followed, 1.6 m up, looking at it (pcamDefault, not written until moved).
-  // Placed and fine-tuned on the page itself (no headset needed): the overlay (#pcam: Follow, Panels, People, Sound,
-  // Subtitles, Full screen, Stop, and its numbers typed: x, y, z in metres from spot A, aim and tilt in degrees, field of
-  // view), a mouse drag (aim and tilt), keys (arrows or WASD along the floor, Q/E or Page Down/Page Up height, + and - or
-  // the wheel the field of view, Shift fine: 1 cm and 0.1 degree, R level); one write when a drag or a run of keys ends,
-  // never a frame. On every page's room map its glyph and wedge, dragged to place and aim it (one write when let go). From
-  // a headset: the menu's Place the preview camera, then the next trigger press (pcamTake). The overlay hides after 3 s
-  // without the mouse (an onlooker's screen shows no buttons) and comes back as it moves. Untested on a real TV, projector
-  // or headset
-  const PCAM = { fov: 60, min: 20, max: 110, back: 3, eye: 1.6, idle: 3000, run: 500, px: 1920 * 1080 };   // (px: the most pixels drawn: a TV across a room needs no more, and a heavy story stays smooth on a 4K screen)
+  // Placed and fine-tuned on the page itself (no headset needed): the overlay (#pcam: Follow, Panels, People, Labels, Cards,
+  // Sound, Subtitles, Full screen, Stop, and its numbers typed: x, y, z in metres from spot A, aim and tilt in degrees, field
+  // of view; Speed and Keys), a mouse drag (aim and tilt), the mouse caught by a click on the picture (pointer lock: it turns
+  // and tilts the camera, Esc lets it go), keys held (Keys: smooth, the default: WASD or the arrows along the floor, Q/E or
+  // Page Down/Page Up height, J/L turn, I/K tilt, moving every frame with a short ease in and out, Shift slow; Keys: steps,
+  // a step a press as before v155), + and - or the wheel the field of view, R level; one write when a drag or a run of keys
+  // ends, and while it moves smoothly at most two a second (the headsets' marker and the room map follow), never a frame.
+  // On every page's room map its glyph and wedge, dragged to place and aim it (one write when let go). From a headset: the
+  // menu's Place the preview camera, then the next trigger press (pcamTake). The overlay and the mouse pointer hide after
+  // 3 s without the mouse (an onlooker's screen shows no buttons) and come back as it moves. Untested on a real TV,
+  // projector, keyboard, mouse or headset
+  // (px: the most pixels drawn: a TV across a room needs no more, and a heavy story stays smooth on a 4K screen; ramp: the
+  // seconds smooth moving takes to reach its speed and to stop; look: the mouse's turn eased in over about this many
+  // seconds; every: ms between its writes while it moves)
+  const PCAM = { fov: 60, min: 20, max: 110, back: 3, eye: 1.6, idle: 3000, run: 500, px: 1920 * 1080, ramp: 0.25, look: 0.05, every: 500 };
+  // Speed (metres and degrees a second; height at half the metres, Shift a quarter of all; the mouse caught turns the
+  // camera by the degrees a second / 450 a pixel: 0.1 at normal)
+  const PC_SPEED = { slow: [0.25, 15], normal: [0.75, 45], fast: [2, 90] }, PC_SPEEDS = Object.keys(PC_SPEED);
   const DEG = Math.PI / 180;
   const _pcq = new THREE.Quaternion(), _pcp = new THREE.Vector3(), _pcs = new THREE.Vector3(), _pcm = new THREE.Matrix4(), _pcw = new THREE.Matrix4();
   const pcOffered = () => !!(DEV === 'screen' && C.code && !C.local);
+  // its own settings (this device's, kept in localStorage, never in the room or a story's state): Speed, Keys (smooth or
+  // steps), Mouse (a click catches it, or drag only: a click on a TV's picture then never takes the mouse), Labels and
+  // Cards (shown or hidden)
+  (function pcOptLoad() {
+    const sp = get('collabPcamSpeed'), ky = get('collabPcamKeys'), ms = get('collabPcamMouse');
+    if (PC_SPEEDS.includes(sp)) PC.opt.speed = sp;
+    if (ky === 'smooth' || ky === 'steps') PC.opt.keys = ky;
+    if (ms === 'catch' || ms === 'drag') PC.opt.mouse = ms;
+    PC.opt.labels = get('collabPcamLabels') !== 'hidden'; PC.opt.cards = get('collabPcamCards') !== 'hidden';
+  })();
+  const pcOptPut = () => { put('collabPcamSpeed', PC.opt.speed); put('collabPcamKeys', PC.opt.keys); put('collabPcamMouse', PC.opt.mouse); put('collabPcamLabels', PC.opt.labels ? 'shown' : 'hidden'); put('collabPcamCards', PC.opt.cards ? 'shown' : 'hidden'); };
+  // a mode as the camera shows it: hidden by its own switch, else the room's (the headsets'), or d where the room hides it
+  function pcShown(on, m, d) { return !on ? 'hidden' : m === 'hidden' ? d : m; }
+  // the labels inside the scenes (the stories read HOST.xr.labels() every frame, and HOST.xr.sig() in their panels'
+  // signatures): on the preview camera its own Labels switch, the room's and every headset's setting untouched
+  if (HOST.xr && typeof HOST.xr.labels === 'function') {
+    const l0 = HOST.xr.labels, s0 = HOST.xr.sig;
+    HOST.xr.labels = () => (CAM.pc ? pcShown(PC.opt.labels, l0(), 'face') : l0());
+    if (typeof s0 === 'function') HOST.xr.sig = () => s0() + (CAM.pc ? '|pc' + HOST.xr.labels() + (PC.opt.cards ? '' : 'c') : '');
+  }
   // the room's key as read: { p, q (a unit quaternion), fov (20 to 110), ts, by }, or null (none, or a value of another shape)
   function pcamOf(v) {
     if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
@@ -10983,6 +11019,7 @@
       const w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k));
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     }
+    pcMotion();   // (moving smoothly: where it is by now)
     const P = pcamNow();
     PC.m.compose(_pcp.fromArray(P.p), _pcq.fromArray(P.q), _pcs.set(1, 1, 1));
     PC.fov = P.fov;
@@ -11084,7 +11121,9 @@
   function pcStop(why) {
     log('preview camera stop', { why });
     sesPut('collabPcam', null);
+    pcHalt('stop');
     if (PC.edit) pcRunEnd();
+    pcUnlock();
     try { if (PC.sess && !PC.sess.ended) PC.sess.end(); } catch (e) { /* ended already */ }
   }
   // the session started (camSession, first): the camera's only when it is the pretend session its own request gave; ended:
@@ -11098,7 +11137,8 @@
     }
     if (s && PC.want) {
       Object.assign(CAM, { on: true, pc: true, want: false, sess: null, hidden: false, list: false, panels: true, people: true });
-      Object.assign(PC, { want: false, phase: 'live', edit: false, drag: null, list: false, seenAt: performance.now(), idle: false, auto: !C.follow && !C.who, autoAt: 0 });
+      Object.assign(PC, { want: false, phase: 'live', edit: false, drag: null, list: false, seenAt: performance.now(), idle: false, auto: !C.follow && !C.who, autoAt: 0, mo: null, shift: false, lock: false });
+      PC.held.clear();
       CAM.sent.clear();
       document.body.classList.add('pcam');
       pcKeys();
@@ -11109,12 +11149,14 @@
       return true;
     }
     if (!s && CAM.pc) {
+      pcHalt('end');
       if (PC.edit) pcRunEnd();
+      pcUnlock();
       clearTimeout(PC.runT); PC.runT = 0;
       Object.assign(CAM, { on: false, pc: false, hidden: false, list: false });
       Object.assign(PC, { phase: 'off', link: false, sess: null, edit: false, drag: null, list: false, idle: false });
       sesPut('collabPcam', null);
-      document.body.classList.remove('pcam');
+      document.body.classList.remove('pcam', 'pcam-idle');
       pcPatch(false);
       try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) { /* not here */ }
       log('preview camera off', { who: C.who, st: C.follow });
@@ -11178,18 +11220,29 @@
     pcamWrite(P, PC.why || 'keys');
   }
   const PC_CODE = { ArrowUp: 'f', KeyW: 'f', ArrowDown: 'b', KeyS: 'b', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', KeyQ: 'dn', PageDown: 'dn', KeyE: 'up', PageUp: 'up',
-    Equal: 'in', NumpadAdd: 'in', Minus: 'out', NumpadSubtract: 'out', KeyR: 'lv' };
+    KeyJ: 'tl', KeyL: 'tr', KeyI: 'tu', KeyK: 'td', Equal: 'in', NumpadAdd: 'in', Minus: 'out', NumpadSubtract: 'out', KeyR: 'lv' };
+  const PC_HOLD = new Set(['f', 'b', 'l', 'r', 'up', 'dn', 'tl', 'tr', 'tu', 'td']);   // (the moves held, with Keys: smooth)
   // keys while it runs (the window's, first): the camera's moves; no other key reaches the story or the page (the stories'
-  // Space and /, the shell's Escape), as a camera changes nothing; the browser's own with Ctrl, Alt or Cmd, Tab and F keys
+  // Space and /, the shell's Escape), as a camera changes nothing; the browser's own with Ctrl, Alt or Cmd, Tab and F keys.
+  // A key held whose keyup could be lost stops it all (pcHalt): the window losing the focus, the tab hidden, the mouse let go
   function pcKeys() {
     if (PC.keys) return;
     PC.keys = true;
-    quiet(() => window.addEventListener('keydown', pcKey, true));
+    quiet(() => {
+      window.addEventListener('keydown', pcKey, true);
+      window.addEventListener('keyup', pcKeyUp, true);
+      window.addEventListener('blur', () => pcHalt('blur'));
+      document.addEventListener('visibilitychange', () => { if (document.hidden) pcHalt('hidden'); });
+      document.addEventListener('pointerlockchange', pcLockChange);
+      document.addEventListener('pointerlockerror', () => pcLockFailed('refused'));
+    });
   }
+  const pcBrowserKey = ev => ev.ctrlKey || ev.metaKey || ev.altKey || /^(Tab|F\d{1,2})$/.test(ev.key);
   function pcKey(ev) {
     if (!CAM.pc) return;
-    PC.seenAt = performance.now();
-    if (PC.idle) { PC.idle = false; pcRender(); }
+    PC.shift = ev.shiftKey;
+    if (ev.key === 'Meta') { for (const c of PC.held.keys()) pcLetGo(c); }   // (a Mac sends no keyup for a key let go while Cmd is down)
+    if (!PC.lock) { PC.seenAt = performance.now(); if (PC.idle) { PC.idle = false; pcRender(); } }   // (the mouse caught: the picture stays clear)
     const tg = ev.target;
     if (tg && tg.closest && tg.closest('input, textarea, select')) {   // (its numbers typed: Enter takes them)
       if (ev.key === 'Enter' && tg.dataset && tg.dataset.pn) { ev.preventDefault(); pcTyped(); }
@@ -11197,7 +11250,7 @@
       ev.stopImmediatePropagation();
       return;
     }
-    if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(Tab|F\d{1,2})$/.test(ev.key)) return;
+    if (pcBrowserKey(ev)) return;
     ev.stopImmediatePropagation();
     if (ev.key === 'Escape') { if (PC.list) { PC.list = false; pcRender(); } return; }
     let k = PC_CODE[ev.code], fine = ev.shiftKey;
@@ -11206,10 +11259,68 @@
     if (ev.key === '+' || ev.key === '-') { k = ev.key === '+' ? 'in' : 'out'; fine = false; }
     if (!k) return;
     ev.preventDefault();
+    if (PC.opt.keys === 'smooth' && PC_HOLD.has(k)) {   // (held: it moves until let go; the keyboard's repeats change nothing)
+      if (!PC.held.has(ev.code)) { pcMotion(); PC.held.set(ev.code, k); pcMoveStart(); }
+      return;
+    }
     pcNudge(k, fine);
   }
-  // one key's step: along the floor relative to its aim (10 cm, Shift 1 cm), up and down (5 cm, Shift 1 cm), the field of
-  // view (1 degree, Shift 0.1), or level (its roll 0)
+  function pcKeyUp(ev) {
+    if (!CAM.pc) return;
+    PC.shift = ev.shiftKey;
+    pcLetGo(ev.code);
+    const tg = ev.target;
+    if ((tg && tg.closest && tg.closest('input, textarea, select')) || pcBrowserKey(ev)) return;
+    ev.stopImmediatePropagation();
+  }
+  // a key let go: where it is by now, then it eases to a stop
+  function pcLetGo(code) { if (PC.held.has(code)) { pcMotion(); PC.held.delete(code); } }
+  // stop at once, written once (a key's keyup could be lost: the window lost the focus, the tab hidden, the mouse let go;
+  // Stop, the session's end, numbers typed)
+  function pcHalt(why) {
+    if (!PC.held.size && !PC.mo) return;
+    pcMotion();
+    PC.held.clear(); PC.mo = null; PC.shift = false;   // (a Shift let go while the window was away would keep it slow)
+    log('preview camera halt', { why });
+    pcRunEnd();
+  }
+  function pcMoveStart() {
+    if (PC.mo || !CAM.pc) return;
+    const P = pcamNow(), a = pcamAngles(P.q), t = performance.now();
+    PC.mo = { p: P.p.slice(), aim: a.aim, tilt: a.tilt, roll: a.roll, fov: P.fov, v: [0, 0, 0, 0, 0], la: 0, lt: 0, t, wrote: t, cur: P };
+  }
+  // moving smoothly (Keys: smooth, and the mouse caught), every frame of its session and as a key goes down or up (so how
+  // long a key is held counts exactly, whatever the frame rate): its speeds (forward, right, up, turn, tilt) go towards the
+  // keys held, reaching full speed in PCAM.ramp and stopping as gently (a TV's picture never jerks), the mouse's turn is
+  // eased in (PCAM.look), and it moves on along the floor relative to its aim; written at most every PCAM.every ms while it
+  // moves (the headsets' marker and the room map follow) and once as it stops, never a frame
+  function pcMotion() {
+    const M = PC.mo;
+    if (!M) return;
+    if (PC.cur && M.cur !== PC.cur) {   // (changed meanwhile: the wheel, Level, a drag, a write's rounding)
+      const a = pcamAngles(PC.cur.q);
+      Object.assign(M, { p: PC.cur.p.slice(), aim: a.aim, tilt: a.tilt, roll: a.roll, fov: PC.cur.fov });
+    }
+    const t = performance.now(), dt = Math.min(0.2, Math.max(0, (t - M.t) / 1000));   // (a long pause between frames: no jump)
+    M.t = t;
+    const S = PC_SPEED[PC.opt.speed] || PC_SPEED.normal, f = PC.shift ? 0.25 : 1, H = new Set(PC.held.values()), d = (a, b) => (H.has(a) ? 1 : 0) - (H.has(b) ? 1 : 0);
+    const top = [S[0], S[0], S[0] / 2, S[1] * DEG, S[1] * DEG], want = [d('f', 'b'), d('r', 'l'), d('up', 'dn'), d('tr', 'tl'), d('tu', 'td')].map((x, i) => x * top[i] * f);
+    const o = M.v.slice();
+    for (let i = 0; i < 5; i++) { const c = top[i] / PCAM.ramp * dt; M.v[i] += Math.max(-c, Math.min(c, want[i] - M.v[i])); }
+    const u = i => (o[i] + M.v[i]) / 2 * dt, e = dt ? 1 - Math.exp(-dt / PCAM.look) : 0, la = M.la * e, lt = M.lt * e;
+    M.la -= la; M.lt -= lt;
+    const still = !H.size && M.v.every(x => x === 0) && Math.abs(M.la) < 1e-3 * DEG && Math.abs(M.lt) < 1e-3 * DEG;
+    M.aim += u(3) + la + (still ? M.la : 0); M.tilt = Math.max(-89 * DEG, Math.min(89 * DEG, M.tilt + u(4) + lt + (still ? M.lt : 0)));
+    const fx = Math.cos(M.aim), fz = Math.sin(M.aim);
+    M.p[0] += fx * u(0) - fz * u(1); M.p[2] += fz * u(0) + fx * u(1); M.p[1] += u(2);
+    PC.cur = M.cur = { p: M.p.slice(), q: pcamQ(M.aim, M.tilt, M.roll), fov: M.fov };
+    PC.edit = true; PC.why = 'moving';
+    if (still) { PC.mo = null; pcRunEnd(); return; }   // (stopped: written once)
+    if (t - M.wrote >= PCAM.every) { M.wrote = t; pcamWrite(PC.cur, 'moving'); }
+  }
+  // one key's step (Keys: steps, and the keys never held): along the floor relative to its aim (10 cm, Shift 1 cm), up and
+  // down (5 cm, Shift 1 cm), a turn or a tilt (1 degree, Shift 0.1), the field of view (1 degree, Shift 0.1), or level (its
+  // roll 0)
   function pcNudge(k, fine) {
     const P = pcamNow(), a = pcamAngles(P.q), m = fine ? 0.01 : 0.1, hs = fine ? 0.01 : 0.05, z = fine ? 0.1 : 1, fx = Math.cos(a.aim), fz = Math.sin(a.aim), p = P.p.slice();
     let fov = P.fov, q = P.q;
@@ -11219,6 +11330,8 @@
     else if (k === 'l') { p[0] += fz * m; p[2] -= fx * m; }
     else if (k === 'up') p[1] += hs;
     else if (k === 'dn') p[1] -= hs;
+    else if (k === 'tl' || k === 'tr') q = pcamQ(a.aim + (k === 'tr' ? z : -z) * DEG, a.tilt, a.roll);
+    else if (k === 'tu' || k === 'td') q = pcamQ(a.aim, Math.max(-89 * DEG, Math.min(89 * DEG, a.tilt + (k === 'tu' ? z : -z) * DEG)), a.roll);
     else if (k === 'in') fov = Math.max(PCAM.min, Math.round((fov - z) * 10) / 10);
     else if (k === 'out') fov = Math.min(PCAM.max, Math.round((fov + z) * 10) / 10);
     else if (k === 'lv') q = pcamQ(a.aim, a.tilt, 0);
@@ -11229,6 +11342,7 @@
   function pcTyped() {
     if (!PC.el || !CAM.pc) return;
     const num = k => { const n = PC.el.querySelector(`[data-pn="${k}"]`), x = n ? parseFloat(String(n.value).replace(',', '.')) : NaN; return Number.isFinite(x) ? x : NaN; };
+    pcHalt('typed');
     if (PC.edit) pcRunEnd();
     const P = pcamNow(), a = pcamAngles(P.q), p = ['x', 'y', 'z'].map((k, i) => (Number.isFinite(num(k)) && Math.abs(num(k)) < 500 ? num(k) : P.p[i]));
     const aim = Number.isFinite(num('aim')) ? num('aim') * DEG : a.aim, tilt = Number.isFinite(num('tilt')) ? Math.max(-89, Math.min(89, num('tilt'))) * DEG : a.tilt;
@@ -11237,17 +11351,18 @@
     PC.seenAt = performance.now();
     pcRender();
   }
-  // the mouse on the picture: a drag turns (left and right) and tilts (up and down), 0.2 degrees a pixel (Shift 0.02); the
-  // wheel the field of view
+  // the mouse on the picture: a drag turns (left and right) and tilts (up and down), 0.2 degrees a pixel (Shift 0.02); a
+  // click (no drag) catches it (pcLockAsk); the wheel the field of view
   function pcDown(ev) {
-    PC.seenAt = performance.now();
-    if (!CAM.pc || ev.button !== 0 || (ev.target.closest && ev.target.closest('.pc-bar, button, input'))) return;
+    if (!PC.lock) PC.seenAt = performance.now();
+    if (!CAM.pc || ev.button !== 0 || PC.lock || (ev.target.closest && ev.target.closest('.pc-bar, button, input'))) return;
     const a = pcamAngles(pcamNow().q);
     PC.drag = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, lx: ev.clientX, ly: ev.clientY, aim: a.aim, tilt: a.tilt, roll: a.roll, moved: false };
     try { PC.el.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
     ev.preventDefault();
   }
   function pcMove(ev) {
+    if (PC.lock) { pcLook(ev.movementX, ev.movementY, ev.shiftKey); return; }   // (the mouse caught: it turns the camera; the picture stays clear)
     PC.seenAt = performance.now();
     if (PC.idle) { PC.idle = false; pcRender(); }
     const D = PC.drag;
@@ -11265,7 +11380,49 @@
     const D = PC.drag;
     if (!D || ev.pointerId !== D.pid) return;
     PC.drag = null;
-    if (D.moved) pcRunEnd();
+    if (D.moved) { pcRunEnd(); return; }
+    if (ev.type === 'pointerup') { try { PC.el.releasePointerCapture(ev.pointerId); } catch (e) { /* not captured */ } if (PC.opt.mouse === 'catch') pcLockAsk(); }   // (a click on the picture; Mouse: drag only, never)
+  }
+  // the mouse caught (pointer lock on the overlay, asked by a click on the picture): the browser hides the pointer, its
+  // movement turns and tilts the camera (pcLook), and Esc (the browser's own) lets it go; refused (or a browser without it),
+  // the drag stays (the help line says so)
+  const pcLocked = () => !!(PC.el && document.pointerLockElement === PC.el);
+  function pcLockAsk() {
+    if (!CAM.pc || !PC.el || pcLocked()) return;
+    if (typeof PC.el.requestPointerLock !== 'function') { pcLockFailed('none'); return; }
+    try { const r = PC.el.requestPointerLock(); if (r && typeof r.catch === 'function') r.catch(e => pcLockFailed(e && e.name || 'refused')); }
+    catch (e) { pcLockFailed(e && e.name || 'refused'); }
+  }
+  function pcLockFailed(why) {
+    if (pcLocked()) return;
+    if (!PC.lockNo) log('preview camera mouse not caught', { why });
+    PC.lockNo = true;
+    pcRender();
+  }
+  function pcLockChange() {
+    const on = pcLocked();
+    if (on === PC.lock) return;
+    PC.lock = on;
+    if (on) { PC.lockNo = false; if (PC.drag) { const D = PC.drag; PC.drag = null; if (D.moved) pcRunEnd(); } }
+    else pcHalt('mouse let go');   // (a key held as Esc let the mouse go: its keyup could be lost)
+    PC.seenAt = performance.now(); PC.idle = false;
+    log('preview camera mouse', { caught: on });
+    pcRender();
+  }
+  function pcUnlock() {
+    try { if (pcLocked() && document.exitPointerLock) document.exitPointerLock(); } catch (e) { /* not caught */ }
+    PC.lock = false;
+  }
+  // the mouse caught, moved: a turn and a tilt of the Speed's degrees a second / 450 a pixel (0.1 at normal; Shift a quarter),
+  // eased in by pcMotion; a jump of more than 300 px in one event (a browser's own as the mouse is caught) is dropped
+  function pcLook(dx, dy, fine) {
+    if (!CAM.pc || !Number.isFinite(dx) || !Number.isFinite(dy) || (!dx && !dy) || Math.abs(dx) > 300 || Math.abs(dy) > 300) return;
+    pcMoveStart();
+    const M = PC.mo;
+    if (!M) return;
+    const k = (PC_SPEED[PC.opt.speed] || PC_SPEED.normal)[1] / 450 * (fine ? 0.25 : 1) * DEG;
+    M.la += dx * k;
+    M.lt = Math.max(-89 * DEG, Math.min(89 * DEG, M.tilt + M.lt - dy * k)) - M.tilt;
   }
   function pcWheel(ev) {
     if (!CAM.pc || (ev.target.closest && ev.target.closest('.pc-bar'))) return;   // (the Follow list scrolls)
@@ -11307,11 +11464,16 @@
       <div class="pc-live"><div class="pc-bar"><p class="pc-status"></p><div class="pc-btns">
         <button type="button" data-pc="follow" aria-expanded="false">Follow: what it looks at</button>
         <button type="button" data-pc="panels">Panels: shown</button><button type="button" data-pc="people">People: shown</button>
+        <button type="button" data-pc="labels" title="The small labels inside the scenes and people's name tags, on this screen only">Labels: shown</button>
+        <button type="button" data-pc="cards" title="The cards over the circles, on this screen only">Cards: shown</button>
         <button type="button" data-pc="sound">Sound: on</button><button type="button" data-pc="subs">Subtitles: off</button>
         <button type="button" data-pc="full">Full screen</button><button type="button" data-pc="stop">Stop</button></div>
         <div class="pc-list" hidden></div>
-        <div class="pc-nums">${num('x', 'x', 'm', '0.01')}${num('y', 'y', 'm', '0.01')}${num('z', 'z', 'm', '0.01')}${num('aim', 'Aim', '°', '0.1')}${num('tilt', 'Tilt', '°', '0.1')}${num('fov', 'Field of view', '°', '0.1')}<button type="button" data-pc="level">Level</button></div>
-        <p class="pc-help">Measured from spot A on the floor: x along the line from spot A towards spot B, z to the right of that line, y up. Aim 0 looks from spot A towards spot B and grows to the right; tilt looks up. Drag the picture to turn and tilt it; arrows or WASD move it along the floor, Q and E (or Page Down and Page Up) down and up, the + and − keys or the wheel zoom in and out, Shift for fine steps, R levels it.</p></div>
+        <div class="pc-nums">${num('x', 'x', 'm', '0.01')}${num('y', 'y', 'm', '0.01')}${num('z', 'z', 'm', '0.01')}${num('aim', 'Aim', '°', '0.1')}${num('tilt', 'Tilt', '°', '0.1')}${num('fov', 'Field of view', '°', '0.1')}<button type="button" data-pc="level">Level</button>
+          <button type="button" data-pc="speed" title="How fast the keys and the mouse move it (Shift: a quarter)">Speed: normal</button><button type="button" data-pc="keys" title="Smooth: it moves while a key is held. Steps: a step a press">Keys: smooth</button><button type="button" data-pc="mouse" title="Catch on click: a click on the picture takes the mouse to look around (Esc lets it go). Drag only: never">Mouse: catch on click</button></div>
+        <p class="pc-mouse"></p>
+        <p class="pc-help"></p></div>
+        <p class="pc-lock">Mouse caught: Esc lets it go</p>
         <p class="pc-sub" hidden></p></div>`;
     document.body.appendChild(el);
     PC.el = el;
@@ -11341,6 +11503,10 @@
     else if (act === 'none') { PC.auto = false; unfollow(); PC.list = false; }
     else if (act === 'panels') CAM.panels = !CAM.panels;
     else if (act === 'people') CAM.people = !CAM.people;
+    else if (act === 'labels' || act === 'cards') { PC.opt[act] = !PC.opt[act]; pcOptPut(); }
+    else if (act === 'speed') { PC.opt.speed = PC_SPEEDS[(PC_SPEEDS.indexOf(PC.opt.speed) + 1) % PC_SPEEDS.length]; pcOptPut(); }
+    else if (act === 'keys') { pcHalt('keys'); PC.opt.keys = PC.opt.keys === 'smooth' ? 'steps' : 'smooth'; pcOptPut(); }
+    else if (act === 'mouse') { PC.opt.mouse = PC.opt.mouse === 'catch' ? 'drag' : 'catch'; pcOptPut(); if (PC.opt.mouse === 'drag') pcUnlock(); }
     else if (act === 'sound') HOST.audio.mute(!HOST.audio.muted);
     else if (act === 'subs') CAM.subs = !CAM.subs;
     else if (act === 'level') pcLevel();
@@ -11371,7 +11537,8 @@
       text('.pc-go', PC.phase === 'starting' ? 'Starting the preview camera...' : 'Start the preview camera');
       return;
     }
-    el.classList.toggle('idle', PC.idle);
+    el.classList.toggle('idle', PC.idle); el.classList.toggle('locked', PC.lock);
+    document.body.classList.toggle('pcam-idle', PC.idle);   // (the pointer hidden over the picture too)
     const P = pcamNow(), a = pcamAngles(P.q), K = pcamVal(), m = K && member(K.by), mu0 = !!(HOST.audio && HOST.audio.muted);
     text('.pc-status', PC.def ? 'Not placed yet: drag the picture, use the keys or type its numbers (or place it on the room map, or from a headset\'s menu).'
       : 'Placed' + (K && K.by === C.id ? ' here' : m ? ' by ' + (m.name || 'someone') : '') + (PC.edit ? ' (moving)' : '') + '.' +
@@ -11379,6 +11546,14 @@
     text('[data-pc="follow"]', pcFollowing()); q('[data-pc="follow"]').setAttribute('aria-expanded', String(PC.list));
     text('[data-pc="panels"]', CAM.panels ? 'Panels: shown' : 'Panels: hidden'); pressed('[data-pc="panels"]', CAM.panels);
     text('[data-pc="people"]', CAM.people ? 'People: shown' : 'People: hidden'); pressed('[data-pc="people"]', CAM.people);
+    text('[data-pc="labels"]', PC.opt.labels ? 'Labels: shown' : 'Labels: hidden'); pressed('[data-pc="labels"]', PC.opt.labels);
+    text('[data-pc="cards"]', PC.opt.cards ? 'Cards: shown' : 'Cards: hidden'); pressed('[data-pc="cards"]', PC.opt.cards);
+    text('[data-pc="speed"]', 'Speed: ' + PC.opt.speed); text('[data-pc="keys"]', 'Keys: ' + PC.opt.keys); text('[data-pc="mouse"]', PC.opt.mouse === 'catch' ? 'Mouse: catch on click' : 'Mouse: drag only');
+    text('.pc-mouse', PC.opt.mouse === 'drag' ? 'Drag the picture to turn and tilt it (Mouse: drag only).' : PC.lockNo ? 'Drag the picture to turn and tilt it (the mouse could not be caught here; a click tries again).' : 'Click the picture to look with the mouse; Esc lets the mouse go. Or drag the picture to turn and tilt it.');
+    text('.pc-help', 'Measured from spot A on the floor: x along the line from spot A towards spot B, z to the right of that line, y up. Aim 0 looks from spot A towards spot B and grows to the right; tilt looks up. ' +
+      (PC.opt.keys === 'smooth' ? 'Hold W, A, S and D (or the arrows) to move along the floor, Q and E (or Page Down and Page Up) to go down and up, J and L to turn, I and K to tilt; Shift for slow. '
+        : 'Each press moves it a step: W, A, S and D (or the arrows) along the floor, Q and E (or Page Down and Page Up) down and up, J and L turn, I and K tilt; Shift for fine steps. ') +
+      'The + and − keys or the wheel zoom in and out; R levels it.');
     const mu = !!(HOST.audio && HOST.audio.muted);
     text('[data-pc="sound"]', mu ? 'Sound: off' : 'Sound: on'); pressed('[data-pc="sound"]', !mu);
     text('[data-pc="subs"]', CAM.subs ? 'Subtitles: on' : 'Subtitles: off'); pressed('[data-pc="subs"]', CAM.subs);
@@ -11418,7 +11593,9 @@
     const cv = HOST.renderer && HOST.renderer.domElement;
     return { on: CAM.pc, want: PC.want, phase: PC.phase, offered: pcOffered(), link: PC.link, err: PC.err, patched: !!PC.patch, pose: P && { p: P.p.slice(), q: P.q.slice(), fov: P.fov }, def: CAM.pc ? PC.def : !K,
       key: K, edit: PC.edit, idle: PC.idle, list: PC.list, auto: PC.auto, follow: C.who ? 'person:' + C.who : C.follow ? 'station:' + C.follow : '', station: C.live, story: L ? L.story : '',
-      angles: P && (A => ({ aim: A.aim / DEG, tilt: A.tilt / DEG, roll: A.roll / DEG }))(pcamAngles(P.q)), cam, canvas: cv ? [cv.width, cv.height] : null, src: R.src, aligned: R.aligned, quiet: [...CAM.sent] };
+      angles: P && (A => ({ aim: A.aim / DEG, tilt: A.tilt / DEG, roll: A.roll / DEG }))(pcamAngles(P.q)), cam, canvas: cv ? [cv.width, cv.height] : null, src: R.src, aligned: R.aligned, quiet: [...CAM.sent],
+      moving: !!PC.mo, held: [...PC.held.keys()], speed: PC.mo ? PC.mo.v.slice() : null, lock: PC.lock, lockNo: PC.lockNo, opt: Object.assign({}, PC.opt),
+      labels: HOST.xr.labels(), tags: tagMode(), cards: stCardMode() };
   }
   const PC_CSS = `
 #pcam { position: fixed; inset: 0; z-index: 90; font: 14px/1.35 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #e7eef8; }
@@ -11449,9 +11626,14 @@
 #pcam .pc-nums input { width: 78px; font: inherit; font-size: 13px; color: #e7eef8; background: rgba(4, 10, 20, 0.9); border: 1px solid rgba(149, 166, 189, 0.4); border-radius: 6px; padding: 4px 6px; }
 #pcam .pc-nums i { font-style: normal; }
 #pcam .pc-help { margin: 8px 0 0; color: #a9b8cc; font-size: 12px; }
+#pcam .pc-bar > p.pc-mouse { margin: 8px 0 0; }
+#pcam.locked .pc-bar { display: none; }
+#pcam .pc-lock { display: none; position: absolute; left: 50%; top: 12px; transform: translateX(-50%); margin: 0; white-space: nowrap; background: rgba(4, 10, 20, 0.82); border-radius: 999px; padding: 6px 14px; font-size: 13px; pointer-events: none; }
+#pcam.live.locked:not(.idle) .pc-lock { display: block; }
 #pcam .pc-sub { position: absolute; left: 16px; right: 16px; bottom: 16px; max-width: 900px; margin: 0 auto; text-align: center; background: rgba(4, 10, 20, 0.78); border-radius: 10px; padding: 6px 12px; font-size: clamp(16px, 2.2vmin + 10px, 30px); line-height: 1.3; pointer-events: none; }
 body.pcam > :not(#gl):not(#pcam) { display: none !important; }
 body.pcam #gl { width: 100vw !important; height: 100vh !important; }
+body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
 @media (max-width: 640px) { #pcam .pc-help { display: none; } }
 `;
 

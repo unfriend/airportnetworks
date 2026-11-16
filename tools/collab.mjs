@@ -7485,13 +7485,15 @@ async function previewRound(dir) {
     const o0 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none' }));
     await pics('preview-2-overlay.png', D);
     await sleep(3800);
-    const o1 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none', cursor: getComputedStyle(document.getElementById('pcam')).cursor }));
+    const o1 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none', cursor: getComputedStyle(document.getElementById('pcam')).cursor,
+      gl: getComputedStyle(document.getElementById('gl')).cursor }));
     await pics('preview-3-idle.png', D);
     await D.mouse.move(620, 440);
     await sleep(300);
-    const o2 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none' }));
-    check('preview: its overlay shows, hides itself (and the pointer) after 3 s without the mouse moving, and comes back as it moves',
-      !o0.idle && o0.bar && o1.idle && !o1.bar && o1.cursor === 'none' && !o2.idle && o2.bar, JSON.stringify({ o0, o1, o2 }));
+    const o2 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none', cursor: getComputedStyle(document.getElementById('pcam')).cursor,
+      gl: getComputedStyle(document.getElementById('gl')).cursor }));
+    check('preview: its overlay shows, hides itself and the pointer (over the overlay and the canvas: cursor none) after 3 s without the mouse moving, and both come back as it moves',
+      !o0.idle && o0.bar && o1.idle && !o1.bar && o1.cursor === 'none' && o1.gl === 'none' && !o2.idle && o2.bar && o2.cursor !== 'none' && o2.gl !== 'none', JSON.stringify({ o0, o1, o2 }));
     // its numbers typed: x, y, z, aim, tilt and field of view, Enter: one write
     // (typed all at once, then Enter in the last: the overlay shows the camera's numbers in every field but the one being typed)
     await D.evaluate(() => {
@@ -7504,8 +7506,11 @@ async function previewRound(dir) {
     check('preview: its numbers typed (x, y, z in metres, aim, tilt and field of view in degrees), Enter: one write (ts, by), the three.js camera on it (1 mm, 0.1 degree)',
       n3 === 1 && !!k3 && near(k3.v.p, [2.25, 1.85, -0.5], 1e-9) && Math.abs(a3.aim + 60 * DEG) < 0.01 * DEG && Math.abs(a3.tilt + 10 * DEG) < 0.01 * DEG && Math.abs(a3.roll) < 0.01 * DEG && k3.v.fov === 50 && k3.v.by === dId && k3.v.ts > k2.v.ts && onKey(c3, k3.v),
       JSON.stringify({ n3, k3, a3, cam: c3.cam }));
-    // keys: a run of three ArrowUp and a Shift+E (one write as the run ends: 30 cm along its aim, 1 cm up); Space reaches no story
+    // keys with Keys: steps (a step a press, as before v155; kept in localStorage): a run of three ArrowUp and a Shift+E (one
+    // write as the run ends: 30 cm along its aim, 1 cm up); Space reaches no story
     await D.evaluate(() => document.activeElement && document.activeElement.blur());
+    const ks0 = await D.evaluate(() => { const b = document.querySelector('#pcam [data-pc="keys"]'), t0 = b.textContent; b.click(); return { t0, t1: b.textContent, opt: HOST.collab.preview().opt.keys, kept: localStorage.getItem('collabPcamKeys') }; });
+    check('preview: Keys is smooth by default; pressed: steps (kept on this device)', ks0.t0 === 'Keys: smooth' && ks0.t1 === 'Keys: steps' && ks0.opt === 'steps' && ks0.kept === 'steps', JSON.stringify(ks0));
     const play0 = await peek(D, 'APP.playing');
     for (const k of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'Shift+KeyE', 'Space']) { await D.keyboard.press(k); await sleep(60); }
     const mid = await pv(D);
@@ -7581,6 +7586,139 @@ async function previewRound(dir) {
     check('preview: a turn with a roll: its Level button says so (roll 5.0 degrees); R levels it (one write: roll 0, its aim and tilt kept)',
       rolled && !lv0.disabled && /roll 5\.0/.test(lv0.text) && nR1 - nR0 === 1 && k8.v.by === dId && Math.abs(a8.roll) < 0.01 * DEG && Math.abs(angle(a8.aim, a7.aim)) < 0.02 * DEG && Math.abs(a8.tilt - a7.tilt) < 0.02 * DEG,
       JSON.stringify({ rolled, lv0, nR0, nR1, a8, a7 }));
+    // Keys: steps also turns (J, L) and tilts (I, K) a step a press: 1 degree, Shift 0.1; one write as the run ends
+    const st0 = await pv(D), nS0 = await sets(D);
+    for (const k of ['KeyJ', 'KeyJ', 'Shift+KeyI']) { await D.keyboard.press(k); await sleep(60); }
+    await sleep(900);
+    const st1 = await pv(D), nS1 = await sets(D), sd = (a, b) => ((a - b + 540) % 360) - 180;
+    check('preview: Keys: steps: J twice and Shift+I turn it 2 degrees left and tilt it 0.1 degree up, one write as the run ends',
+      Math.abs(sd(st1.angles.aim, st0.angles.aim) + 2) < 0.02 && Math.abs(st1.angles.tilt - st0.angles.tilt - 0.1) < 0.02 && nS1 - nS0 === 1 && near(st1.pose.p, st0.pose.p, 0.0011),
+      JSON.stringify({ a0: st0.angles, a1: st1.angles, n: nS1 - nS0 }));
+    // Keys: smooth (the default): a key held moves it every frame, its speed eased in and out (0.25 s), Speed normal: 0.75 m/s
+    // and 45 degrees a second (Shift a quarter); written at most every 0.5 s while it moves and once as it stops. The time held
+    // is measured around Playwright's own key events
+    const pcb = sel => D.evaluate(s => { const b = document.querySelector('#pcam [data-pc="' + s + '"]'); b.click(); return b.textContent; }, sel);
+    const stopped = () => until(D, () => { const c = HOST.collab.preview(); return !c.moving && !c.edit; }, null, 8000);
+    const hold = async (keys, ms, during) => {
+      await stopped();
+      const c0 = await pv(D), n0 = await sets(D), last = keys[keys.length - 1];
+      for (const k of keys.slice(0, -1)) await D.keyboard.down(k);
+      const a0 = Date.now(); await D.keyboard.down(last); const a1 = Date.now();
+      let mid = null;
+      if (during) mid = await during(); else { await sleep(ms / 2); mid = await pv(D); await sleep(ms / 2); }
+      const b0 = Date.now(); await D.keyboard.up(last); const b1 = Date.now();
+      for (const k of keys.slice(0, -1).reverse()) await D.keyboard.up(k);
+      const ok = await stopped(), c1 = await pv(D), n1 = await sets(D);
+      const at = await D.evaluate(n => (window.__sent || []).filter(m => m.t === 'set' && m.keys.includes('pcam')).slice(n).map(m => Math.round(m.at)), n0);
+      return { c0, c1, mid, ok, n: n1 - n0, at, held: (b0 + b1 - a0 - a1) / 2000, slack: (a1 - a0 + b1 - b0) / 2000 };
+    };
+    const along = (c0, c1) => { const a = c0.angles.aim * DEG, d = [c1.pose.p[0] - c0.pose.p[0], c1.pose.p[2] - c0.pose.p[2]]; return { fwd: d[0] * Math.cos(a) + d[1] * Math.sin(a), side: -d[0] * Math.sin(a) + d[1] * Math.cos(a), up: c1.pose.p[1] - c0.pose.p[1] }; };
+    const about = (got, v, h) => Math.abs(got - v * h.held) <= v * h.slack + 0.06 * v * h.held + 0.01;   // (within 6%, the key events' own time and 1 cm)
+    const sm = await pcb('keys');
+    const hW = await hold(['KeyW'], 1500), gW = along(hW.c0, hW.c1), gaps = hW.at.slice(1, -1).map((t, i) => t - hW.at[i]);
+    await pics('preview-6-keys.png', D);
+    check('preview: Keys: smooth again; W held about 1.5 s moves it forward along its aim at 0.75 m/s (speed x time held), level, its turn kept; moving while held',
+      sm === 'Keys: smooth' && hW.ok && hW.mid.moving && hW.mid.edit && hW.mid.held.includes('KeyW') && about(gW.fwd, 0.75, hW) && Math.abs(gW.side) < 0.01 && Math.abs(gW.up) < 0.002 && qAngle(hW.c1.pose.q, hW.c0.pose.q) < 0.02 * DEG,
+      JSON.stringify({ sm, g: gW, held: hW.held, slack: hW.slack, want: 0.75 * hW.held, mid: hW.mid.moving }));
+    check('preview: while it moves smoothly it is written at most about twice a second (0.5 s apart), and once more as it stops (the key on its last place)',
+      hW.n >= 3 && hW.n <= Math.ceil((hW.held + 0.3) / 0.5) + 1 && gaps.every(g => g >= 480) && !!hW.c1.key && near(hW.c1.key.p, hW.c1.pose.p, 1e-9) && hW.c1.key.by === dId,
+      JSON.stringify({ n: hW.n, at: hW.at, gaps, held: hW.held }));
+    const hS = await hold(['Shift', 'KeyW'], 1200), gS = along(hS.c0, hS.c1);
+    check('preview: Shift held slows it to a quarter (W: 0.1875 m/s)', hS.ok && about(gS.fwd, 0.1875, hS) && Math.abs(gS.side) < 0.01, JSON.stringify({ g: gS, held: hS.held, want: 0.1875 * hS.held }));
+    const hL = await hold(['KeyL'], 1000), hI = await hold(['KeyI'], 600);
+    const dL = sd(hL.c1.angles.aim, hL.c0.angles.aim), dI = hI.c1.angles.tilt - hI.c0.angles.tilt;
+    check('preview: L held turns it right and I held tilts it up at 45 degrees a second, its place kept',
+      hL.ok && hI.ok && about(dL, 45, hL) && Math.abs(hL.c1.angles.tilt - hL.c0.angles.tilt) < 0.05 && about(dI, 45, hI) && Math.abs(sd(hI.c1.angles.aim, hI.c0.angles.aim)) < 0.05 && near(hL.c1.pose.p, hL.c0.pose.p, 0.0011) && near(hI.c1.pose.p, hI.c0.pose.p, 0.0011),
+      JSON.stringify({ dL, held: hL.held, dI, heldI: hI.held }));
+    const sp = [await pcb('speed')], spKept = await D.evaluate(() => localStorage.getItem('collabPcamSpeed'));
+    const hF = await hold(['KeyE'], 700), gF = along(hF.c0, hF.c1);
+    sp.push(await pcb('speed'), await pcb('speed'));
+    check('preview: Speed: normal, then fast (kept on this device): E held goes up at 1 m/s (height at half the speed); then slow, then normal again',
+      sp.join('|') === 'Speed: fast|Speed: slow|Speed: normal' && spKept === 'fast' && hF.ok && about(gF.up, 1, hF) && Math.abs(gF.fwd) < 0.01, JSON.stringify({ sp, spKept, g: gF, held: hF.held }));
+    // a key held whose keyup could be lost stops it at once: the window losing the focus, the tab hidden (written once)
+    const halt = async (key, fn) => {
+      await stopped();
+      const n0 = await sets(D);
+      await D.keyboard.down(key); await sleep(500);
+      await D.evaluate(fn);
+      await sleep(100);
+      const h0 = await pv(D); await sleep(400); const h1 = await pv(D), n1 = await sets(D);
+      await D.keyboard.up(key); await sleep(300);
+      const h2 = await pv(D);
+      return { moving: h0.moving, held: h0.held, still: near(h0.pose.p, h1.pose.p, 1e-9) && near(h1.pose.p, h2.pose.p, 1e-9), n: n1 - n0, moved: dist(h0.pose.p, (await pv(D)).pose.p) };
+    };
+    const hb = await halt('KeyD', () => window.dispatchEvent(new Event('blur')));
+    const hh = await halt('KeyA', () => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); delete document.hidden; });
+    check('preview: a key held stops at once when the window loses the focus or the tab is hidden (its keyup could be lost), written once; the key let go later moves nothing',
+      !hb.moving && !hb.held.length && hb.still && hb.n >= 1 && !hh.moving && !hh.held.length && hh.still && hh.n >= 1, JSON.stringify({ hb, hh }));
+    // the mouse caught: a click on the picture asks for pointer lock (headless Chromium grants it); its movement turns and tilts
+    // the camera (0.1 degree a pixel at normal speed, Shift a quarter; fed here as pointermove events with movementX and
+    // movementY, since Playwright's mouse moves nothing while the pointer is locked); a jump of more than 300 px dropped
+    await D.mouse.move(480, 500); await sleep(200);
+    const ml = await D.evaluate(() => document.querySelector('#pcam .pc-mouse').textContent);
+    await D.mouse.click(480, 500);
+    const locked = await until(D, () => HOST.collab.preview().lock, null, 4000);
+    await sleep(200);
+    const lk0 = await D.evaluate(() => ({ el: document.pointerLockElement ? document.pointerLockElement.id : '', pill: getComputedStyle(document.querySelector('#pcam .pc-lock')).display, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display,
+      text: document.querySelector('#pcam .pc-lock').textContent }));
+    await pics('preview-7-mouse.png', D);
+    await stopped();
+    const mk = await pv(D), nM0 = await sets(D);
+    await D.evaluate(() => {
+      const el = document.getElementById('pcam'), mv = (x, y, shiftKey) => el.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 1, pointerType: 'mouse', movementX: x, movementY: y, shiftKey }));
+      for (let i = 0; i < 10; i++) mv(20, -10, false);
+      mv(600, 0, false);   // (a jump: dropped)
+      mv(40, 0, true);     // (Shift: a quarter)
+    });
+    const mStop = await stopped(), mq = await pv(D), nM1 = await sets(D);
+    check('preview: a click on the picture catches the mouse (pointer lock on the overlay; its bar hidden, Mouse caught: Esc lets it go); before, the overlay says to click',
+      locked && lk0.el === 'pcam' && lk0.pill === 'block' && lk0.bar === 'none' && /Esc lets it go/.test(lk0.text) && /^Click the picture to look with the mouse; Esc lets the mouse go/.test(ml), JSON.stringify({ locked, lk0, ml }));
+    check('preview: the mouse caught turns it (200 px right: 20 degrees, Shift 40 px: 1 more) and tilts it (100 px up: 10 degrees), eased in, written once it settles; a 600 px jump dropped; its place kept',
+      mStop && Math.abs(sd(mq.angles.aim, mk.angles.aim) - 21) < 0.05 && Math.abs(mq.angles.tilt - mk.angles.tilt - 10) < 0.05 && near(mq.pose.p, mk.pose.p, 0.0011) && nM1 - nM0 >= 1 && !!mq.key && Math.abs(sd(angOf(mq.key.q).aim / DEG, mk.angles.aim) - 21) < 0.05,
+      JSON.stringify({ a0: mk.angles, a1: mq.angles, n: nM1 - nM0 }));
+    // the mouse let go (as Esc does) while a key is held: it stops at once; the overlay back
+    await D.keyboard.down('KeyS'); await sleep(400);
+    await D.evaluate(() => document.exitPointerLock());
+    const unl = await until(D, () => !HOST.collab.preview().lock, null, 4000);
+    await sleep(100);
+    const u0 = await pv(D); await sleep(400); const u1 = await pv(D);
+    await D.keyboard.up('KeyS');
+    const ub = await D.evaluate(() => ({ bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display, pill: getComputedStyle(document.querySelector('#pcam .pc-lock')).display }));
+    check('preview: the mouse let go while S is held: it stops at once (its keyup could be lost), and the overlay is back',
+      unl && !u0.lock && !u0.moving && !u0.held.length && near(u0.pose.p, u1.pose.p, 1e-9) && ub.bar !== 'none' && ub.pill === 'none' && !u0.idle, JSON.stringify({ unl, u0: { moving: u0.moving, held: u0.held, idle: u0.idle }, ub }));
+    // Labels: hidden on the camera: the scenes' labels (HOST.xr.labels()) and people's name tags, this screen only (kept on
+    // this device; the headset's and the room's settings untouched); shown again. Cards: hidden: the circles' cards
+    const go2 = run(H, 60000);
+    const tagged = await until(D, id => { const o = HOST.collab.overlay().people.get(id); return !!(o && o.g.visible && (o.tag.visible || o.sign.visible)); }, hId, 20000);
+    const look0 = JSON.stringify((await roomInfo(rc)).keys.look || null), lab0 = await D.evaluate(() => HOST.xr.labels()), hLab0 = await H.evaluate(() => HOST.xr.labels()), aLab0 = await A.evaluate(() => HOST.xr.labels());
+    const labState = () => D.evaluate(id => { const o = HOST.collab.overlay().people.get(id), c = HOST.collab.preview(); return { labels: HOST.xr.labels(), tags: c.tags, tag: !!o && o.tag.visible, sign: !!o && o.sign.visible, sig: HOST.xr.sig(), kept: localStorage.getItem('collabPcamLabels') }; }, hId);
+    const lb1 = await pcb('labels'); await sleep(600);
+    const lab1 = await labState(), hLab1 = await H.evaluate(() => HOST.xr.labels()), aLab1 = await A.evaluate(() => HOST.xr.labels());
+    await pics('preview-8-labels.png', D);
+    const lb2 = await pcb('labels'); await sleep(600);
+    const lab2 = await labState(), look1 = JSON.stringify((await roomInfo(rc)).keys.look || null);
+    check('preview: Labels: hidden takes the scenes\' labels and the name tags off the camera only (kept on this device; the headset\'s, the other page\'s and the room\'s settings untouched); shown again, they are back',
+      tagged && lb1 === 'Labels: hidden' && lab1.labels === 'hidden' && lab1.tags === 'hidden' && !lab1.tag && !lab1.sign && lab1.kept === 'hidden' && hLab1 === hLab0 && aLab1 === aLab0 && lb2 === 'Labels: shown' &&
+        lab2.labels === (lab0 === 'hidden' ? 'face' : lab0) && (lab2.tag || lab2.sign) && lab2.kept === 'shown' && lab2.sig !== lab1.sig && look1 === look0,
+      JSON.stringify({ tagged, lb1, lb2, lab0, lab1, lab2, hLab0, hLab1, aLab0, aLab1, look0, look1 }));
+    // (following nobody, every circle's card shows on the camera; then the second circle followed again)
+    const follow = pick => D.evaluate(async pick => { document.querySelector('#pcam [data-pc="follow"]').click(); await new Promise(r => setTimeout(r, 50)); document.querySelector(`#pcam [data-pc="${pick}"]`).click(); }, pick);
+    const cardsOn = () => D.evaluate(() => [...HOST.collab.overlay().cards.values()].filter(c => c.mesh.visible).length);
+    await follow('none');
+    const twoCards = () => until(D, () => [...HOST.collab.overlay().cards.values()].filter(c => c.mesh.visible).length >= 2, null, 8000);
+    await twoCards();
+    const cd0 = await cardsOn();
+    const cb1 = await pcb('cards'); await sleep(600);
+    const cd1 = await cardsOn(), cs1 = await D.evaluate(() => ({ cards: HOST.collab.preview().cards, kept: localStorage.getItem('collabPcamCards') }));
+    const cb2 = await pcb('cards');
+    await twoCards();
+    const cd2 = await cardsOn();
+    const cs2 = await D.evaluate(() => HOST.collab.preview().cards);
+    await follow('st:' + S2.id);
+    const back2 = await until(D, id => HOST.collab.preview().follow === 'station:' + id, S2.id, 8000);
+    check('preview: Cards: hidden takes the circles\' cards off the camera only (kept on this device; following nobody, both circles\' cards on show before); shown again',
+      cd0 >= 2 && cb1 === 'Cards: hidden' && cd1 === 0 && cs1.cards === 'hidden' && cs1.kept === 'hidden' && cb2 === 'Cards: shown' && cs2 !== 'hidden' && cd2 >= 2 && back2, JSON.stringify({ cd0, cd1, cd2, cs1, cs2, back2 }));
+    await H.evaluate(() => { window.__go = false; }); await go2;
     // D sends nothing but its presence and its place
     const sent = await D.evaluate(id => (window.__sent || []).filter(m => !(m.t === 'fx' && m.k === 'p.' + id) && !(m.t === 'set' && m.keys.length && m.keys.every(k => k === 'pcam'))), dId);
     const presN = await D.evaluate(id => (window.__sent || []).filter(m => m.t === 'fx' && m.k === 'p.' + id).length, dId), info = await roomInfo(rc);

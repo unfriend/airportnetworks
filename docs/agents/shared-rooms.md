@@ -626,7 +626,7 @@ The plan is `docs/shared-space-plan.md`.
   from a fixed spot in the real room; placed from a headset, fine-tuned on the desktop, its field of view settable so it
   could match a real camera later; then "build it but make it so that it can be placed on desktop too"). The preview
   camera section of `shared.js` (`PC`, `PCP`, `pcStart`, `pcSession`, `pcSessionMake`, `pcPatch`, `pcStep`, `pcRender`,
-  `pcamWrite`, `pcamTake`, `pcamMark`, `pcamDraw`), with small hooks elsewhere. Camera mode's sibling: `CAM.on` with
+  `pcamWrite`, `pcamTake`, `pcamMark`, `pcamDraw`; v155: `pcKey`, `pcMotion`, `pcLook`, `pcHalt`), with small hooks elsewhere. Camera mode's sibling: `CAM.on` with
   `CAM.pc`, so every guard of camera mode applies (`HOST.collab.cameraMode()` true; kind `cam`).
   - Offered on a computer's page (`DEV` `'screen'`: not a phone or a tablet, which have Camera mode, nor a headset's
     browser) in a room that is not on this device only (`pcOffered`): *Preview camera* in the Shared dialog's room row,
@@ -665,8 +665,9 @@ The plan is `docs/shared-space-plan.md`.
     rules (nothing changed there). With no `pcam`, the camera starts 3 m behind the station it follows (or the first),
     1.6 m up, looking at it (`pcamDefault`; with no station, 3 m behind spot A looking towards spot B), not written until
     someone moves it. Every change is written once, when a drag or a run of keys ends, numbers are typed, a map drag is
-    let go or a headset's trigger is pulled (never a frame); the camera shows a change made on its page at once
-    (`PC.edit`) and the room's again once written; one written elsewhere it jumps to.
+    let go or a headset's trigger is pulled, and while it moves smoothly at most every 0.5 s and once as it stops (never a
+    frame); the camera shows a change made on its page at once (`PC.edit`) and the room's again once written; one written
+    elsewhere it jumps to.
   - What it shows (as camera mode): the station it follows at its spot as a headset in the room sees it (`place`, its
     story loaded, on the station's clock), the other circles' icons and cards, everyone in a headset with head and hands
     whatever circle they are at (`drawPeople` in VR: there is no camera image; rays, dots, name tags); no menu, notices,
@@ -689,17 +690,62 @@ The plan is `docs/shared-space-plan.md`.
     (the overlay says so); aim 0 looks from spot A towards spot B and grows to the right (towards +z), tilt looks up.
   - Its overlay (`#pcam`, built once, its listeners the shell's, its CSS `PC_CSS`; the page's own UI hidden behind it,
     `body.pcam`): a bar with its status (*Not placed yet...* or *Placed by Ann.*), *Follow*, *Panels*, *People* (this
-    camera's own, as camera mode's), *Sound* (this device's mute), *Subtitles* (the captions as a strip at the foot),
-    *Full screen*, *Stop*, its numbers, *Level* (enabled with the roll it would take out), and a line of help. It hides
-    itself and the pointer after 3 s without the mouse moving (not while a field is typed in, the list is open or a drag
-    runs) and comes back as the mouse moves or a key is pressed. On the picture: a drag turns (left, right) and tilts (up,
-    down), 0.2 degrees a pixel, Shift 0.02; the wheel the field of view (1 degree, Shift 0.1). Keys (by their place on
-    the keyboard, `ev.code`): arrows or WASD move it along the floor relative to its aim (10 cm, Shift 1 cm), Q and E or
-    Page Down and Page Up down and up (5 cm, Shift 1 cm), the + and - keys zoom in and out (the field of view 1 degree,
-    Shift 0.1; also by the character typed, always 1 degree, since a German keyboard's + and - are other keys and + needs
-    Shift on a US one), R levels it (roll 0). A run of keys is written once, 0.5 s after its last key (`pcEdit`, `pcRunEnd`).
-    While it runs no other key reaches the story or the page (a window listener first: the stories' Space and /, the
-    shell's Escape), but the browser's own with Ctrl, Alt or Cmd, Tab and the F keys.
+    camera's own, as camera mode's), *Labels* and *Cards* (below), *Sound* (this device's mute), *Subtitles* (the captions
+    as a strip at the foot), *Full screen*, *Stop*, its numbers, *Level* (enabled with the roll it would take out),
+    *Speed* and *Keys* (below), a line about the mouse (*Click the picture to look with the mouse; Esc lets the mouse go.
+    Or drag the picture to turn and tilt it.*; once the browser refused to catch it, *Drag the picture...*) and a line of
+    help that names the keys of the Keys setting. It hides itself and the mouse pointer after 3 s without the mouse moving
+    (not while a field is typed in, the list is open or a drag runs; the pointer: `cursor: none` on `#pcam` and on the
+    canvas `#gl`, `body.pcam-idle`) and both come back as the mouse moves or a key is pressed (while the mouse is caught,
+    neither brings the bar back: the picture stays clear). On the picture: a drag turns (left, right) and tilts (up, down),
+    0.2 degrees a pixel, Shift 0.02; a click (no drag) catches the mouse (below); the wheel the field of view (1 degree,
+    Shift 0.1).
+  - Keys (by their place on the keyboard, `ev.code`, so QWERTZ and other layouts work), with *Keys: smooth* (the default;
+    v155; the owner, 16 November 2026: "Preview cam needs options for continuous movement with wasd/ijkl or mouse"): while
+    a key is held the camera moves every frame of its session (`pcMotion`, from `pcFrameStep`, and as a key goes down or up,
+    so how long a key is held counts exactly whatever the frame rate; a frame more than 0.2 s late moves it no further):
+    W and S (or the up and down arrows) forward and back along the floor relative to its aim, A and D (or the left and
+    right arrows) sideways, Q and E (or Page Down and Page Up) down and up, J and L turn it left and right, I and K tilt it
+    up and down (tilt held within 89 degrees). Each speed (forward, sideways, up, turn, tilt) goes towards the keys held at
+    a steady rate, full speed in 0.25 s (`PCAM.ramp`) and to a stop as gently, so a TV's picture never jerks and a hold
+    moves it speed x time. *Speed: slow / normal / fast* (the button cycles; `PC_SPEED`): 0.25, 0.75 or 2 m/s along the
+    floor (height half that) and 15, 45 or 90 degrees a second; Shift held, a quarter of all. The keyboard's repeats change
+    nothing while a key is held (`PC.held`, code to move). *Keys: steps* is the earlier behaviour, a step a press (and the
+    keyboard's repeats): along the floor 10 cm (Shift 1 cm), down and up 5 cm (Shift 1 cm), J, L, I and K 1 degree (Shift
+    0.1). In both: the + and - keys zoom in and out (the field of view 1 degree, Shift 0.1; also by the character typed,
+    always 1 degree, since a German keyboard's + and - are other keys and + needs Shift on a US one), R levels it (roll 0).
+    A run of steps (and the wheel) is written once, 0.5 s after its last key (`pcEdit`, `pcRunEnd`).
+    While it runs no other key reaches the story or the page, down or up (a window listener first, `pcKey` and `pcKeyUp`:
+    the stories' Space and /, the shell's Escape), but the browser's own with Ctrl, Alt or Cmd, Tab and the F keys. A key
+    held whose keyup could be lost stops it all at once and writes once (`pcHalt`): the window losing the focus (`blur`),
+    the tab hidden (`visibilitychange`), the mouse let go (`pointerlockchange` ending the lock), numbers typed, Keys
+    changed, Stop; Cmd pressed lets every held key go (a Mac sends no keyup for a key let go while Cmd is down); a halt
+    also forgets Shift (a Shift let go while the window was away would keep it slow).
+  - The mouse caught (pointer lock, the owner's "mouse catching and hiding"), with *Mouse: catch on click* (the default)
+    or *Mouse: drag only* (`PC.opt.mouse`, `collabPcamMouse`: a click on the picture then never takes the mouse, for a TV
+    someone may click to wake; choosing it lets a caught mouse go): a click on the picture (not on the bar's
+    buttons or fields) asks for pointer lock on `#pcam` (`pcLockAsk`, as the click is let go; a drag stays a drag); while
+    it is caught the browser hides the pointer, the bar hides and *Mouse caught: Esc lets it go* shows at the top until the
+    overlay goes idle, and its movement (`movementX`, `movementY`) turns and tilts the camera (`pcLook`): the Speed's
+    degrees a second / 450 a pixel (0.1 degree at normal, 0.033 slow, 0.2 fast), Shift a quarter, eased in over about 50 ms
+    (`PCAM.look`) by the same frame step; a jump of more than 300 px in one event (a browser's own as the mouse is caught) is
+    dropped. Esc (the browser's own) lets it go (`pcLockChange`: the overlay back, any held key stopped). Refused, or a
+    browser without it (`pointerlockerror`, a rejected promise: `PC.lockNo`), the drag stays and the mouse line says so; a
+    later click asks again. Works with the overlay idle and in full screen (`#pcam` is inside the element shown full screen).
+  - Its writes while it moves smoothly (keys held or the mouse caught): never a frame; at most one every 0.5 s
+    (`PCAM.every`), so the headsets' marker and the room map follow it, and one as it stops, each with `ts` (by `pcamWrite`,
+    with its rounding: the place to the millimetre, the turn to 4 decimals); what it shows while it moves is its own
+    (`PC.edit`, unrounded), as for a run of keys.
+  - *Labels: shown / hidden* and *Cards: shown / hidden*: this camera's own (as camera mode's Panels and People; kept in
+    `localStorage` with *Speed*, *Keys* and *Mouse*: `collabPcamLabels`, `collabPcamCards`, `collabPcamSpeed`, `collabPcamKeys`,
+    `collabPcamMouse`;
+    never in the room, a story's `state()` or `collab.state()`, no FORMAT change), the headsets' Labels and Cards settings
+    and the room's `look` untouched. The headsets' Labels setting covers the scenes' small labels and their Cards setting
+    the larger ones: the story panels, the station cards over the circles and people's name tags. On the camera:
+    *Labels* takes away the scenes' small labels (`shared.js` wraps `HOST.xr.labels()`, which every story reads each frame,
+    and `HOST.xr.sig()`, in their panels' signatures: `'hidden'` on the camera) and people's name tags (`tagMode`); *Cards*
+    the cards over the circles (`stCardMode`); the story panels stay with *Panels*. Shown means as the room has them (on top
+    or in 3D), or where the room hides them, labels on top and the cards and name tags in 3D (`pcShown`).
   - From a headset: the menu's Circles tab has *Place the preview camera* beside *Back to the lobby* (always in a room,
     so a camera can be placed before its screen is started; greyed until lined up, in a room on this device only and in
     camera mode): pressed, the next trigger press away from the menu takes the controller's tip (its target ray's origin
@@ -723,12 +769,16 @@ The plan is `docs/shared-space-plan.md`.
     either): the status line then ends *Sound starts at a click or a key.*
   - For tests: `HOST.collab.previewOn()`, `previewOffered()`, `previewStart(why)`, `previewStop()`, `preview()` (`{ on,
     want, phase, offered, link, err, patched, pose, def, key, edit, idle, list, auto, follow, station, story, angles, cam:
-    the three.js camera of its last frame { p, q, fov, vp }, canvas, src, aligned, quiet }`), `pcam()`, `setPcam(pose,
-    why)`, `pcamPlace(on)`, `pcamPlacing()`, `mapCam()` (the map's glyph and handle in pixels).
+    the three.js camera of its last frame { p, q, fov, vp }, canvas, src, aligned, quiet, moving, held: the codes held,
+    speed: its five speeds while it moves, lock, lockNo, opt: { speed, keys, labels, cards }, labels: HOST.xr.labels() as
+    the stories read it, tags, cards: the name tags' and the circles' cards' modes }`), `pcam()`, `setPcam(pose, why)`,
+    `pcamPlace(on)`, `pcamPlacing()`, `mapCam()` (the map's glyph and handle in pixels).
   - Tests: `node tools/collab.mjs --preview` (`docs/agents/testing.md`).
   - Untested: everything on a real TV or projector and on a real computer's GPU (only headless Chromium in software here;
     Firefox and Safari, which have no WebXR, only by reading: the `navigator.xr` stand-in and the wrapper with no browser
-    layer), a heavy story's frame rate on a computer, full screen, the sound; on a real headset the placing (the
+    layer), a heavy story's frame rate on a computer, full screen, the sound; a real keyboard and mouse (how smooth moving
+    and the mouse's turn look on a TV, the speeds, a real browser's pointer lock and its own Esc, in full screen and not,
+    the pointer hidden, a Mac's Cmd); on a real headset the placing (the
     controller's tip and ray, how close it gets to a real camera's spot), the marker's look and the menu row.
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every

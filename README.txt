@@ -469,10 +469,14 @@ stories, the circles, everyone in a headset). Place it on any page's room map
 preview camera, then pull the trigger with the controller held where the
 camera should be, aimed where it should look), or on the camera's own screen:
 type its numbers (x, y, z in metres from spot A, aim, tilt, field of view),
-drag the picture to turn and tilt it, arrows or WASD to move it, Q and E for
-height, + and - or the wheel to zoom, Shift for fine steps, R to level it. Its
-controls hide after 3 s without the mouse; Full screen and Stop are among them.
-Untested on a real TV, projector or headset.
+hold WASD or the arrows to move it smoothly along the floor, Q and E for
+height, J and L to turn it, I and K to tilt it (Shift: slow; Speed: slow,
+normal or fast; Keys: steps moves it a step a press instead), click the picture
+to look around with the mouse (Esc lets the mouse go) or drag it, + and - or
+the wheel to zoom, R to level it. Labels and Cards hide the labels, name tags
+and circles' cards on this screen only. Its controls and the mouse pointer hide
+after 3 s without the mouse; Full screen and Stop are among them. Untested on a
+real TV, projector, keyboard, mouse or headset.
 Vive trackers (v126): when the relay runs on the PC with SteamVR and its trackers
 (relay/README.md says how), the Shared dialog has The PC's trackers: Use the PC's
 trackers in this room, then line them up by hand: lay a tracker flat on spot A

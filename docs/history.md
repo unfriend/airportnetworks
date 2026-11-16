@@ -241,6 +241,16 @@ observer apply to it; it writes only its own place, `pcam` (FORMAT networks-48).
 a camera of its own: the stories' shared hooks stay identical everywhere, so the camera goes through the same `HOST.xr.request`
 and `xrAdopt` path as a headset, and shows exactly what a headset at a circle sees.
 
+The owner, 16 November 2026, after trying it: "Preview cam needs options for continuous movement with wasd/ijkl or mouse ,
+mouse catching and hiding, turn off labels". Read as (told to the owner): holding WASD moves the camera smoothly, holding
+IJKL turns and tilts it, a click on the picture catches the mouse, which then turns and tilts the view, Esc lets it go;
+the pointer hides with the buttons; a Labels switch turns labels off. So *Keys: smooth* became the default (a key held
+moves it every frame, eased in and out over 0.25 s so a TV's picture never jerks; *Speed* slow, normal or fast), with
+*Keys: steps* keeping the earlier step a press; the mouse caught by pointer lock; *Labels* and *Cards* on the camera
+only (the headsets' Labels and Cards settings are the room's, so the camera's own switches never touch them; the story
+panels already had *Panels*). Its writes while it moves stay rare (at most two a second and one as it stops), as every
+move by hand in a room is written as it ends, not every frame.
+
 ### Two locks
 
 Two locks: the owner, 29 October 2026: "one toggle for locking the circles' movement globally and one toggle per room for locking its panels and story elements"; a "room" there is a story's circle. The circles lock was the layout lock of v96.
