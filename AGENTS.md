@@ -277,11 +277,11 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 
 ## Things that are easy to forget
 
-- On Windows, Git's `core.autocrlf=true` checks files out with CRLF, and the builds' and `tools/release.mjs`'s `--check`
-  then fail (the studio's vendor test, the shell's hashes): build and release from a checkout with LF (for a worktree,
-  `git config extensions.worktreeConfig true`, `git config --worktree core.autocrlf false`, then check out again).
-  `tools/studio/build.mjs` and `tools/release.mjs` take their folder with `fileURLToPath` (v149); 29 other tools'
-  `new URL(import.meta.url).pathname` still fails there (the list and the fix: `docs/agents/testing.md`, "Windows").
+- Windows: `.gitattributes` (`* text=auto eol=lf`) checks every text file out with LF whatever `core.autocrlf` says,
+  since the builds' and `tools/release.mjs`'s `--check` compare bytes (a CRLF checkout failed them). A checkout whose
+  files are still CRLF, once, on a clean tree: `git rm --cached -r -q .`, then `git reset --hard`. A tool finds its own
+  folder with `fileURLToPath(import.meta.url)`, never `new URL(import.meta.url).pathname` (`C:\C:\...` on Windows):
+  `docs/agents/testing.md`, "Windows".
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
   also add it to `SHELL`, and to `APP_FILES` (or `APP_DIRS`) in

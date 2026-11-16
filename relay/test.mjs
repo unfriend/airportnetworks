@@ -1523,7 +1523,7 @@ try {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-watch-')), put = (f, t) => { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); };
     put('index.html', '<!doctype html><title>t</title>'); put('shared.js', '// s'); put('sw.js', '// w'); put('stories/a.js', '// a'); put('stories/list.js', 'self.STORY_LIST = [];');
     // a built story: tools/a/build.mjs writes stories/a.js from its source; tools/b's build fails
-    put('tools/a/build.mjs', "import fs from 'fs'; import path from 'path'; const here = path.dirname(new URL(import.meta.url).pathname);\n" +
+    put('tools/a/build.mjs', "import fs from 'fs'; import path from 'path'; import { fileURLToPath } from 'url'; const here = path.dirname(fileURLToPath(import.meta.url));\n" +
       "fs.writeFileSync(path.join(here, '../../stories/a.js'), '// built from ' + fs.readFileSync(path.join(here, 'sets/src.js'), 'utf8'));\n");
     put('tools/a/sets/src.js', 'one'); put('tools/b/build.mjs', "throw new Error('broken on purpose');\n"); put('tools/b/x.js', '1');
     const no = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--watch'], { stdio: ['ignore', 'pipe', 'pipe'] });

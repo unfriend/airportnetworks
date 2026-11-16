@@ -11,8 +11,9 @@
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 import { spawn } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const fails = [], errors = [];
 const check = (name, ok, detail) => { console.log((ok ? 'ok   ' : 'FAIL ') + name + (!ok && detail ? ': ' + detail : '')); if (!ok) fails.push(name); };

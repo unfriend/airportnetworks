@@ -4,7 +4,8 @@
 // Embedded: the 254 curated proteins (symbol, name, role, module, essential), their 375 interactions,
 // a 3D layout of each curated module (local coordinates, flattest axis = y) and of the 13-node ATP synthase network.
 import fs from 'fs';
-const here = new URL('..', import.meta.url).pathname;
+import { fileURLToPath } from 'url';
+const here = fileURLToPath(new URL('..', import.meta.url));
 const d = JSON.parse(fs.readFileSync(here + 'data/proteins.json', 'utf8'));
 
 // deterministic random numbers (same generator as K.rng)

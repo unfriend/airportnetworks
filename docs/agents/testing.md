@@ -8,26 +8,34 @@ There is no unit-test suite. When the suites run (the owner's rule: the full sui
 `dev` gets only `node --check` on the changed files, the builds' `--check` and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
-## Windows: tools that find their own folder wrong (known, not fixed)
+## Windows: a tool's own folder, and line endings (fixed 16 November 2026)
 
-The owner (16 November 2026): "note down the path bug for now". On Windows, `path.dirname(new URL(import.meta.url).pathname)`
-gives `/C:/...`, and `path.join`/`path.resolve` then make it `C:\C:\...`: the tool stops with ENOENT on its first file.
-The fix is `fileURLToPath(import.meta.url)` (`import { fileURLToPath } from 'url'`), as `tools/studio/build.mjs` and
-`tools/release.mjs` have had since v149. On Linux and macOS (the owner's cloud machine) all of them work, so this only
-matters on the Windows PC. Still with the old line (found with a search for `import.meta.url).pathname`):
-
-- Story builds: `tools/design/build.mjs`, `tools/endo/build.mjs`, `tools/flock/build.mjs`, `tools/lbi/build.mjs`,
-  `tools/lowpoly/build.mjs`, `tools/micro/build.mjs`, `tools/mutation/build.mjs`, `tools/nmd/build.mjs`,
-  `tools/ovary/build.mjs`, `tools/pass/build.mjs`, `tools/pet/build.mjs`, `tools/qubits/build.mjs`,
-  `tools/robots/build.mjs`, `tools/soil/build.mjs`, `tools/topo/build.mjs`.
-- Their data generators and tests: `tools/lbi/data/gen_int.mjs`, `tools/micro/data/gen_data.mjs`,
-  `tools/nmd/data/gen_data.mjs`, `tools/ovary/data/gen_data.mjs`, `tools/pet/data/gen_data.mjs`,
-  `tools/mutation/test-mmath.mjs`, `tools/pass/test-sets.mjs`, `tools/soil/test-data.mjs`, `tools/topo/test-data.mjs`.
-- Suites and helpers: `tools/smoke.mjs`, `relay/test.mjs`, `tools/collab.mjs`, `tools/peer.mjs`,
-  `tools/studio/test/make.mjs`.
-
-On Windows, also mind line endings: Git's `core.autocrlf=true` makes the builds' and `tools/release.mjs`'s `--check` fail
-even where the folder is found (AGENTS.md, "Things that are easy to forget").
+- **A tool's own folder.** On Windows, `path.dirname(new URL(import.meta.url).pathname)` gives `/C:/...`, which
+  `path.join`/`path.resolve` make `C:\C:\...`: the tool stopped with ENOENT on its first file. Every tool now takes its
+  folder with `fileURLToPath(import.meta.url)` (`import { fileURLToPath } from 'url'`; inside a smoke block that loads its
+  modules with `await import()`, `(await import('node:url')).fileURLToPath(import.meta.url)`): the studio's build and
+  `tools/release.mjs` since v149, the other 29 (the story builds, their data generators and tests, `tools/smoke.mjs`,
+  `relay/test.mjs` and the small build its watch test writes, `tools/collab.mjs`, `tools/peer.mjs`,
+  `tools/studio/test/make.mjs`) since. On Linux and macOS nothing changes but a folder with a space in its name, which
+  the old line left as `%20`. A new tool does the same; a search for `import.meta.url).pathname` finds a slip.
+- **Line endings.** `.gitattributes` (`* text=auto eol=lf`) makes every checkout LF, whatever `core.autocrlf` says: the
+  builds' and `tools/release.mjs`'s `--check` compare bytes, and the Windows PC's `core.autocrlf=true` (CRLF) failed
+  them. Every text file was already stored with LF, so no file's content changed; Git tells binary files apart as before.
+  A checkout whose files are still CRLF (made before the rule) turns LF on a clean tree with `git rm --cached -r -q .`,
+  then `git reset --hard` (two commands: Windows PowerShell 5.1 has no `&&`; untracked and ignored files are kept). The
+  Python data generators that write story data (`tools/endo`, `tools/soil`, `tools/topo` `data/gen_data.py`) open their
+  output with `newline='\n'`, so a run on Windows writes LF too.
+- **Checked on the Windows PC** when both were fixed: all 16 builds' `--check` and `tools/release.mjs --check` pass; the
+  four small tests pass (`tools/pass/test-sets.mjs` after `node tools/pass/build.mjs`, as its usage says); the data
+  generators whose inputs are in the repository (lbi, ovary, pet) write their data files unchanged;
+  `tools/studio/test/make.mjs` writes the same files (its listings differ only in their times); `relay/test.mjs` gives
+  the results it gives without the fix, but `--watch` now passes (its 5 failures about a relay stopped by SIGTERM and
+  restarted come from Windows, with or without the fix); the smoke blocks with the changed lines, served by a plain file
+  server as the smoke test asks (the relay's `--static` serves no `tools/`): studio recorder, studio paint (11) and studio
+  examples (6) pass, developer mode passes but for its two "Older and Newer" steps, which fail without the fix too (they
+  wait for v142), and its release step now passes. `tools/collab.mjs` and `tools/peer.mjs` (shared-room runs), the micro
+  and nmd generators (their inputs stay out of the repository) and the three Python generators only as far as their
+  syntax and finding their folder.
 
 ## The smoke test (`tools/smoke.mjs`)
 

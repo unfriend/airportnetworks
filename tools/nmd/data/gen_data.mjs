@@ -14,7 +14,8 @@
 // every endotype, and a fixed 2D layout. Everything is deterministic.
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
 const DIR = path.resolve(process.argv[2] || path.join(root, 'ikerdata'));
 if (!fs.existsSync(path.join(DIR, 'iker_nodes.tsv'))) { console.error(`No authors' files in ${DIR}: give the folder that holds iker_nodes.tsv, iker_edges.tsv and the group files.`); process.exit(1); }
 const tsv = f => {

@@ -5,7 +5,8 @@
 // After a new run of the analysis, first run tools/endo/data/gen_data.py (it writes sets/data.js).
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data first, then the sets in the order the story uses them (motor: the muscle story's, for the dive in)
 const SET_FILES = ['sets/data', '../nmd/sets/motor', 'sets/syn', 'sets/net', 'sets/tree'];

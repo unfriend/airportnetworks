@@ -10,7 +10,8 @@
 // history). The bands and axes read off the figures stay in figures.json, unused.
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 const FIG = JSON.parse(fs.readFileSync(path.join(here, 'figures.json'), 'utf8'));
 const OUT = path.join(here, '../sets/data.js');
 

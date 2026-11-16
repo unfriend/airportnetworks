@@ -6,7 +6,8 @@
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const PARTS = ['models-a.js', 'models-b.js'];
 let out = `// Low-poly miniatures of every story's sets: LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris,

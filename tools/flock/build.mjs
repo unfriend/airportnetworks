@@ -3,7 +3,8 @@
 //                                   node tools/flock/build.mjs --check -> exits 1 if stories/flock.js is out of date
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['flock'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];

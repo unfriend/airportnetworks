@@ -160,6 +160,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
 const STORIES = {
   airports: {
@@ -350,7 +351,7 @@ const STORIES = {
 // (the trigger there runs nothing: stations are walk-in only) and one it moves by its card
 const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';   // (PICK_STORY: its card is pointed at)
 
-const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
 const NAMES_ONLY = argv.includes('--names');   // (only room names: namesRound, a relay of its own with --proxy)

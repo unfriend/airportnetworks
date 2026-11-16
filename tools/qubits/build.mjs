@@ -5,7 +5,8 @@
 // Check the maths first with node tools/qubits/test-qmath.mjs.
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the maths, the data and the look first, then the sets in the order the story uses them
 const SET_FILES = ['sets/qmath', 'sets/data', 'sets/look', 'sets/pairs', 'sets/cube', 'sets/chart'];

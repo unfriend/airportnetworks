@@ -3,7 +3,8 @@
 //                                   node tools/lbi/build.mjs --check -> exits 1 if stories/lbi.js is out of date
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the sets in the order the story uses them (crowd and sankey share sets/clinic.js)
 const SET_FILES = ['int', 'mac', 'web', 'dna', 'atp', 'clinic', 'scale', 'body', 'tissue'];

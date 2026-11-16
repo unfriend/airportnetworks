@@ -4,7 +4,8 @@
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 import { createRequire } from 'module';
 const ctx = { Buffer, console, require: createRequire(import.meta.url) };
 vm.createContext(ctx);

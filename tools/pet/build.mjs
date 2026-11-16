@@ -5,7 +5,8 @@
 // After changing the figures' readings or the generator, first run node tools/pet/data/gen_data.mjs (it writes sets/data.js).
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, the organ icons and the microanatomy story's 3D organs (ORGAN3D, for the vision row's network; without its
 // harness gallery, which would be a second SETS.organs) first, then the sets in the order the story uses them (body:

@@ -8,8 +8,9 @@ import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const only = process.argv.slice(2);
 const want = k => !only.length || only.includes(k);
 // a page without a page: a canvas whose 2D context draws nothing, a screen, a window

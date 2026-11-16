@@ -8,7 +8,8 @@
 // usage (from the repository root): node tools/micro/data/gen_data.mjs <graphml>
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 const src = process.argv[2];
 if (!src) { console.error('usage: node tools/micro/data/gen_data.mjs <graphml>'); process.exit(1); }
 const xml = fs.readFileSync(src, 'utf8');

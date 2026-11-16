@@ -7,7 +7,8 @@
 // Check the data and its decoders first with node tools/soil/test-data.mjs.
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, its decoders and the looks first, then the globe, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/sdata', 'sets/look', '../topo/sets/look', '../lbi/sets/web', 'sets/soil', 'sets/field', 'sets/net'];

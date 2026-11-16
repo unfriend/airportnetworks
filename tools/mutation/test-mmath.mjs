@@ -4,8 +4,9 @@
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 const M = require('./sets/mmath.js');
 const t0 = Date.now();
 let bad = 0;

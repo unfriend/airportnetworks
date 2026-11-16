@@ -6982,7 +6982,7 @@ if (runs('studio paths')) {
 if (runs('studio recorder')) {
   const { spawn } = await import('node:child_process');
   const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
-  const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const ROOT = path.resolve(path.dirname((await import('node:url')).fileURLToPath(import.meta.url)), '..');
   const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rec-'));
   fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
   let RL = null;
@@ -9593,7 +9593,7 @@ if (runs('studio paint')) {
   {
     const { spawn } = await import('node:child_process');
     const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
-    const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+    const ROOT = path.resolve(path.dirname((await import('node:url')).fileURLToPath(import.meta.url)), '..');
     const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-paint-'));
     fs.cpSync(path.join(ROOT, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
     let RL = null;
@@ -10104,7 +10104,7 @@ if (runs('studio screens')) {
 if (runs('studio examples')) {
   const { spawn } = await import('node:child_process');
   const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
-  const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+  const ROOT = path.resolve(path.dirname((await import('node:url')).fileURLToPath(import.meta.url)), '..');
   const EXD = path.join(ROOT, 'tools', 'studio', 'test', 'examples');
   const bad = list => { if (list.length) errors.push(...list.map(b => 'studio examples: ' + b)); };
   // (in the page: the headset's Scene pane drawn and scrolled through: the example buttons drawn and those that can be
@@ -15482,7 +15482,7 @@ if (runs('developer mode')) {
   await step('developer mode: tools/release.mjs writes and checks whatsnew/', async () => {
     const { spawnSync } = await import('node:child_process');
     const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
-    const here = path.dirname(path.dirname(new URL(import.meta.url).pathname)), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
+    const here = path.dirname(path.dirname((await import('node:url')).fileURLToPath(import.meta.url))), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
     try {
       for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
       fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });

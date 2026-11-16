@@ -11,7 +11,8 @@
 // usage (from the repository root): node tools/pet/data/gen_data.mjs
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 const FIG = JSON.parse(fs.readFileSync(path.join(here, 'figures.json'), 'utf8'));
 const r2 = x => Math.round(x * 100) / 100, r3 = x => Math.round(x * 1000) / 1000;
 

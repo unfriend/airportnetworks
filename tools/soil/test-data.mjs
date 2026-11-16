@@ -5,7 +5,8 @@
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(here, 'sets/data.js'), 'utf8');
 const ctx = { Buffer, console };
 vm.createContext(ctx);

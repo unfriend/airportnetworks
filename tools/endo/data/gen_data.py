@@ -206,6 +206,6 @@ def main(pkl, xlsx):
 //   cut Uint8 1 where the merge joins two endotypes (the test accepts that split), 0 inside an endotype
 '''
     js = head + 'const ENDO_DATA = ' + json.dumps(D_, separators=(',', ':')) + ';\n'
-    open(OUT, 'w').write(js); print('wrote', OUT, len(js) // 1024, 'KB')
+    open(OUT, 'w', encoding='utf-8', newline='\n').write(js); print('wrote', OUT, len(js) // 1024, 'KB')  # (LF and UTF-8 on Windows too)
 
 if __name__ == '__main__': main(*sys.argv[1:3])

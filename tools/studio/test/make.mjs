@@ -67,7 +67,8 @@ import zlib from 'zlib';
 import { execFileSync } from 'child_process';
 import { layoutText } from '../../../relay/scenes.mjs';
 import { scenePictures } from './pictures.mjs';
-const here = path.dirname(new URL(import.meta.url).pathname);
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 // ---- index.json and files.json: what tools/studio/scan.mjs writes (the relay's own listing rules), run after the files
 const scan = folder => execFileSync(process.execPath, [path.join(here, '../scan.mjs'), folder], { stdio: 'inherit' });
