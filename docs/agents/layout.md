@@ -241,6 +241,8 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
   lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
   `push`). `push.mjs` sends one scene folder to any relay that takes uploads, as it is (`relay/README.md`, "Uploading").
+  `unity/` makes a scene folder from a part of a Unity scene (`import.mjs`, `unity.mjs` the scene reader, the checks
+  `check.mjs`, `corners.mjs`, `studio-check.mjs`; its `README.md`; only on the `unity-importer` branch).
 - `examples/` - example scenes that ship with the app (v137): scene folders with their listings exactly as
   `tools/studio/scan.mjs` writes them (`examples/index.json`, `examples/<name>/files.json`), opened read only from the
   studio's Scene pane and copied to a relay from there ("The studio"). The first, `bliss-xp`, the Bliss XP room ("The Bliss

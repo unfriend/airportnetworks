@@ -123,6 +123,26 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   terminal (or `COLLAB_TOKEN`) and sent only as `Authorization`. Checked against a local relay with a password (new
   scene, the same again, a changed file kept and replaced, an 80 MB file, the layout's history); the hidden prompt in a
   real terminal and a relay behind HTTPS are untested.
+- **From a Unity scene** (`tools/studio/unity/`, its `README.md`; on the `unity-importer` branch only, kept out of `dev`). `import.mjs` makes a scene folder from a part of a
+  Unity scene file (the owner's Annette environment): placed FBX models as GLBs by `convert.mjs` where Unity has them
+  (`Z · W · X · S · N⁻¹ · B⁻¹`: the README), `ObjectsToTrigger` boxes as trigger cubes, AudioSources as mono MP3 sounds,
+  built-in primitives as shapes; lights, particles and other scripts listed as not ported. Worlds whose doors are copied
+  into each world become one stay cube per door, the first world shown by a sequence that starts as the scene opens;
+  one file in one place in several worlds with other pictures stays each world's own object and GLB (`--merge-copies`
+  makes it one object whose pictures the cubes switch, `tex`: the owner saw pictures come out wrong that way); Timelines (`timeline.mjs`, `anim.mjs`) become recorded paths (`start: 'shown'`, files over 600 keys or
+  120 s; an object a timeline turns off is parked 300 m under the floor by its path) and, where they play takes at
+  given moments, own sequences the doors start and stop (a held first frame added to the GLB: `glb.mjs`). For the
+  second scene, dancequest2 (16 November 2026): takes cut to Unity's clip window (`cropAnimations`), Timeline audio
+  tracks (foley) as sounds the sequences play, Timelines turned on by another Timeline's activation track started by
+  its sequence, a trigger's on-leaving actions as a sequence its cube starts as you leave, the owner's CLEANER and
+  activator reset scripts folded into the stay cubes, OBJ models and `.prefab` placements (`grab: true` for grabbable
+  ones), `--skip` parts, lighter shared GLBs for small copies (`--small-under`, `--small-keep`), uneven scales evened in
+  the model's own frame.
+  `.import.json` keeps the ids stable across runs. The output goes to `tools/studio/test/local/` (git-ignored), never
+  into the repository; `check.mjs` prints where each object stands. Four things the studio cannot do yet, found while
+  porting (a trigger inside one world works in all; doors restart the sequences of the world you are in; a looping
+  sequence stopped twice takes the wrong cycle; a key cube is stamped again when a headset comes back to its station),
+  are in its README, "What the studio cannot do yet".
 - **Fewer triangles and Change texture** (the owner: 20 % by default for everything, adjustable per model with a preview;
   `tools/studio/SPEC.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
   mesh to a share of its triangles with meshoptimizer's simplifier: its normals and texture coordinates weighed, so its
