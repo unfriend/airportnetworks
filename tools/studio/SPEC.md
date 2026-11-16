@@ -1686,8 +1686,18 @@ shell's), and each scene may set it.
   otherwise; `false` and `null` again as the studio goes (`dispose`). Told again at another studio circle (the station's
   id is part of what it wants: the shell lets it lapse when the station changes). The shell draws or hides the other
   stations' rings, cards and icons (hidden ones are not walked into either, but the lobby) and runs the occlusion.
+- **The floor grid** (v156; the owner, 16 November 2026: "add an option to hide the blue studio floor grid for a studio
+  scene"): `grid: 'hidden'` in the same record, written only when hidden (absent or `'shown'`: shown, so a scene's settings
+  and `layout.json` are as before otherwise; anything else makes them bad). A row *Floor grid: Shown / Hidden* beside the
+  others, one Undo step. Hidden, the stage's blue 1 m grid and its origin mark are not drawn (`stage_grid: 0` to
+  `sets/stage.js`); its dark floor and sky stay (in AR none of it is drawn anyway). FORMAT networks-50 (an older device
+  would drop the field from the state and send it back without it).
+- **A camera shows no editing** (v156; the owner: "looks like edit mode is on in the desktop cam view in a studio scene"):
+  while `HOST.collab.cameraMode()` (camera mode on a phone, the desktop preview camera) `editOn()` is false, so the studio
+  draws as a visitor sees it (no cube edges, markers, boxes or tags), whatever this device's own Edit is; Edit comes back
+  as it was when the camera stops.
 - **Untested on a headset**: the circles hidden at a studio's circle, and the occlusion setting with the shell's
-  real-world occlusion.
+  real-world occlusion; the grid hidden in a headset.
 
 ## The lobby (the owner, 6 November 2026)
 

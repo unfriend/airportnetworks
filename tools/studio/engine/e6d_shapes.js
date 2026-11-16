@@ -162,13 +162,19 @@ Object.assign(ITEM_ACT, {
 // - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
 //   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
 //   ('off'), while this scene shows here (null again otherwise, on dispose)
+// - grid: 'shown' | 'hidden' (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"):
+//   hidden, the stage's blue 1 m grid and its origin mark are not drawn (its dark floor and sky stay); written only when
+//   hidden, so a scene's settings and layout.json are as before otherwise (FORMAT networks-50: an older device would drop it)
 const SETTINGS0 = { others: 'shown', real: 'device' };
 function normSettings(x) {
   if (x === undefined || x === null) return Object.assign({}, SETTINGS0);
   if (typeof x !== 'object' || Array.isArray(x)) return null;
   const one = (k, list) => (x[k] === undefined ? SETTINGS0[k] : list.includes(x[k]) ? x[k] : null);
   const r = { others: one('others', ['shown', 'hidden']), real: one('real', ['device', 'always', 'never']) };
-  return Object.values(r).includes(null) ? null : r;
+  const g = x.grid === undefined || x.grid === 'shown' ? 'shown' : x.grid === 'hidden' ? 'hidden' : null;
+  if (g === null || Object.values(r).includes(null)) return null;
+  if (g === 'hidden') r.grid = 'hidden';
+  return r;
 }
 function putSettings(S) {
   if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
@@ -187,7 +193,9 @@ function settingsBlocks(B, st) {
   B.push({ label: 'Other circles' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:others:' + v, label: n, act: 'setting', v: 'others:' + v, on: S.others === v })) },
     { p: 'Hidden: in a shared room, while you are at this studio\'s circle the other circles\' rings, cards and icons are not shown. Saved with the scene.', c: 'faint' },
     { label: 'Real world hides the scene' + who, row: [['device', 'As each headset has it'], ['always', 'Always'], ['never', 'Never']].map(([v, n]) => ({ id: 'set:real:' + v, label: n, act: 'setting', v: 'real:' + v, on: S.real === v })) },
-    { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' });
+    { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' },
+    { label: 'Floor grid' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:grid:' + v, label: n, act: 'setting', v: 'grid:' + v, on: (S.grid || 'shown') === v })) },
+    { p: 'Hidden: the blue 1 m grid on the floor and the mark at the scene\'s middle are not drawn (in VR; in AR there is no floor anyway). Saved with the scene.', c: 'faint' });
 }
 // the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
 const HOOK = { hide: false, occ: null };

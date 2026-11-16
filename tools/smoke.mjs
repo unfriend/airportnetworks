@@ -5892,7 +5892,7 @@ if (runs('studio shapes')) {
     const out = [];
     await ss(`(${hooks}, UNDO.length = 0, X.tab = 'scene', renderPanes(), STUDIO.u2 = UNDO.length, 0)`);
     const txt = (await sp.textContent('#pane-scene')).replace(/\s+/g, ' ');
-    if (!/Other circles.*Shown.*Hidden/.test(txt) || !/Real world hides the scene.*As each headset has it.*Always.*Never/.test(txt)) out.push('the Scene pane\'s settings rows: ' + txt.slice(0, 500));
+    if (!/Other circles.*Shown.*Hidden/.test(txt) || !/Real world hides the scene.*As each headset has it.*Always.*Never/.test(txt) || !/Floor grid.*Shown.*Hidden/.test(txt)) out.push('the Scene pane\'s settings rows: ' + txt.slice(0, 500));
     await sp.click('#pane-scene [data-id="set:others:hidden"]');
     await sp.click('#pane-scene [data-id="set:real:always"]');
     await hk(1);
@@ -5914,6 +5914,21 @@ if (runs('studio shapes')) {
     await ss(`(undo(), 0)`); await hk(9);
     const s3 = await ss(`[JSON.stringify(STU.settings), JSON.stringify(window.__hk.slice(8))]`);
     if (s3[0] !== '{"others":"hidden","real":"device"}' || s3[1] !== '[["hide",true]]') out.push('Undo of a setting: ' + JSON.stringify(s3));
+    // the floor grid (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"): written only
+    // when hidden, the stage's grid and origin mark not drawn (its floor and sky still), Undo brings it back; and a camera
+    // (camera mode or the desktop preview camera) shows no editing, whatever this device's Edit
+    await ss(`(STUDIO.sg = JSON.stringify(STU.settings), setSetting('grid:hidden'), 0)`);
+    await sp.waitForTimeout(400);
+    const g1 = await ss(`(() => { const G = GL.sets.stage, c = G.group.children; G.setAlpha(1); G.update({ stage_floor: 1, stage_grid: 0 }); const d = [c[1].visible, c[2].visible, c[0].visible]; return [JSON.stringify(STU.settings), JSON.stringify(normSettings({ others: 'shown', real: 'device', grid: 'shown' })), normSettings({ grid: 'x' }), d]; })()`);
+    if (g1[0] !== '{"others":"hidden","real":"device","grid":"hidden"}' || g1[1] !== '{"others":"shown","real":"device"}' || g1[2] !== null || g1[3].join() !== 'false,false,true') out.push('the floor grid hidden: ' + JSON.stringify(g1));
+    const gw = await ss(`(() => { const G = GL.sets.stage; return G.group.visible ? [G.group.children[1].visible, G.group.children[2].visible] : 'stage not shown'; })()`);
+    if (Array.isArray(gw) && gw.join() !== 'false,false') out.push('the floor grid hidden in the frame: ' + JSON.stringify(gw));
+    await ss(`(undo(), 0)`);
+    await sp.waitForTimeout(400);
+    const g2 = await ss(`[JSON.stringify(STU.settings) === STUDIO.sg, GL.sets.stage.group.visible ? GL.sets.stage.group.children[1].visible : true]`);
+    if (!g2[0] || !g2[1]) out.push('the floor grid back by Undo: ' + JSON.stringify(g2));
+    const cm = await ss(`(() => { const was = HOST.collab.cameraMode; const a = editOn(); HOST.collab.cameraMode = () => true; const b = editOn(); HOST.collab.cameraMode = was; return [a, b, editOn()]; })()`);
+    if (!cm[0] || cm[1] || !cm[2]) out.push('a camera shows no editing: ' + JSON.stringify(cm));
     // the headset's Scene pane: the same rows, one pressed
     const xr = await ss(`(() => {
       XR.on = true;

@@ -47,7 +47,7 @@ SETS.stage = function (K) {
   let alpha = 1;
   return {
     group,
-    params: { stage_floor: 1 },
+    params: { stage_floor: 1, stage_grid: 1 },
     anchors: { centre: [0, 1, 0], floor: [0, 0, 0] },
     labels: [],
     // [az, el, dist, tx, ty, tz]
@@ -60,7 +60,8 @@ SETS.stage = function (K) {
     setAlpha(a) { alpha = a; group.visible = a > 0.01; },
     update(S) {
       const f = (S.stage_floor === undefined ? 1 : S.stage_floor) * alpha;
-      floor.visible = grid.visible = sky.visible = mark.visible = f > 0.01;
+      floor.visible = sky.visible = f > 0.01;
+      grid.visible = mark.visible = f > 0.01 && S.stage_grid !== 0;   // (the scene's Floor grid: Hidden, v156)
     },
     dispose() { for (const x of disposable) x.dispose(); },
   };

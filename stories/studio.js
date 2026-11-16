@@ -16627,7 +16627,7 @@ SETS.stage = function (K) {
   let alpha = 1;
   return {
     group,
-    params: { stage_floor: 1 },
+    params: { stage_floor: 1, stage_grid: 1 },
     anchors: { centre: [0, 1, 0], floor: [0, 0, 0] },
     labels: [],
     // [az, el, dist, tx, ty, tz]
@@ -16640,7 +16640,8 @@ SETS.stage = function (K) {
     setAlpha(a) { alpha = a; group.visible = a > 0.01; },
     update(S) {
       const f = (S.stage_floor === undefined ? 1 : S.stage_floor) * alpha;
-      floor.visible = grid.visible = sky.visible = mark.visible = f > 0.01;
+      floor.visible = sky.visible = f > 0.01;
+      grid.visible = mark.visible = f > 0.01 && S.stage_grid !== 0;   // (the scene's Floor grid: Hidden, v156)
     },
     dispose() { for (const x of disposable) x.dispose(); },
   };
@@ -23083,7 +23084,10 @@ function editLocked() {
     return !!(XR.on && HOST.room && HOST.room.placing && HOST.room.placing() && HOST.anchor.locked('globe'));
   } catch (e) { return false; }
 }
-const editOn = () => STU.edit && !OPT.visit && !!STU.scene && !editLocked();
+// (a camera, a phone's camera mode or the desktop preview camera (v156), shows the scene as people see it: never editing,
+// whatever this device's own Edit is; guarded, an older shell has no cameraMode)
+const camShows = () => { try { return !!(HOST.collab && HOST.collab.cameraMode && HOST.collab.cameraMode()); } catch (e) { return false; } };
+const editOn = () => STU.edit && !OPT.visit && !camShows() && !!STU.scene && !editLocked();
 function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;
@@ -24337,13 +24341,19 @@ Object.assign(ITEM_ACT, {
 // - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
 //   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
 //   ('off'), while this scene shows here (null again otherwise, on dispose)
+// - grid: 'shown' | 'hidden' (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"):
+//   hidden, the stage's blue 1 m grid and its origin mark are not drawn (its dark floor and sky stay); written only when
+//   hidden, so a scene's settings and layout.json are as before otherwise (FORMAT networks-50: an older device would drop it)
 const SETTINGS0 = { others: 'shown', real: 'device' };
 function normSettings(x) {
   if (x === undefined || x === null) return Object.assign({}, SETTINGS0);
   if (typeof x !== 'object' || Array.isArray(x)) return null;
   const one = (k, list) => (x[k] === undefined ? SETTINGS0[k] : list.includes(x[k]) ? x[k] : null);
   const r = { others: one('others', ['shown', 'hidden']), real: one('real', ['device', 'always', 'never']) };
-  return Object.values(r).includes(null) ? null : r;
+  const g = x.grid === undefined || x.grid === 'shown' ? 'shown' : x.grid === 'hidden' ? 'hidden' : null;
+  if (g === null || Object.values(r).includes(null)) return null;
+  if (g === 'hidden') r.grid = 'hidden';
+  return r;
 }
 function putSettings(S) {
   if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
@@ -24362,7 +24372,9 @@ function settingsBlocks(B, st) {
   B.push({ label: 'Other circles' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:others:' + v, label: n, act: 'setting', v: 'others:' + v, on: S.others === v })) },
     { p: 'Hidden: in a shared room, while you are at this studio\'s circle the other circles\' rings, cards and icons are not shown. Saved with the scene.', c: 'faint' },
     { label: 'Real world hides the scene' + who, row: [['device', 'As each headset has it'], ['always', 'Always'], ['never', 'Never']].map(([v, n]) => ({ id: 'set:real:' + v, label: n, act: 'setting', v: 'real:' + v, on: S.real === v })) },
-    { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' });
+    { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' },
+    { label: 'Floor grid' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:grid:' + v, label: n, act: 'setting', v: 'grid:' + v, on: (S.grid || 'shown') === v })) },
+    { p: 'Hidden: the blue 1 m grid on the floor and the mark at the scene\'s middle are not drawn (in VR; in AR there is no floor anyway). Saved with the scene.', c: 'faint' });
 }
 // the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
 const HOOK = { hide: false, occ: null };
@@ -38143,6 +38155,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   if (XR.on && !XR.clear) S = Object.assign({}, S, { stage_floor: 0 });   // passthrough: the scene stands in your room
+  if (STU.settings.grid === 'hidden') S = Object.assign({}, S, { stage_grid: 0 });   // (the scene's Floor grid: Hidden, v156)
   updateSets(S, tSet, dt);
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)

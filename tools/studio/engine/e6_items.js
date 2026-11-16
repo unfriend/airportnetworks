@@ -1447,7 +1447,10 @@ function editLocked() {
     return !!(XR.on && HOST.room && HOST.room.placing && HOST.room.placing() && HOST.anchor.locked('globe'));
   } catch (e) { return false; }
 }
-const editOn = () => STU.edit && !OPT.visit && !!STU.scene && !editLocked();
+// (a camera, a phone's camera mode or the desktop preview camera (v156), shows the scene as people see it: never editing,
+// whatever this device's own Edit is; guarded, an older shell has no cameraMode)
+const camShows = () => { try { return !!(HOST.collab && HOST.collab.cameraMode && HOST.collab.cameraMode()); } catch (e) { return false; } };
+const editOn = () => STU.edit && !OPT.visit && !camShows() && !!STU.scene && !editLocked();
 function setEdit(on) {
   if (OPT.visit) return;
   STU.edit = !!on;

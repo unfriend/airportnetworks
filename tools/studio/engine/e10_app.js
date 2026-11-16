@@ -210,6 +210,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   if (XR.on && !XR.clear) S = Object.assign({}, S, { stage_floor: 0 });   // passthrough: the scene stands in your room
+  if (STU.settings.grid === 'hidden') S = Object.assign({}, S, { stage_grid: 0 });   // (the scene's Floor grid: Hidden, v156)
   updateSets(S, tSet, dt);
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)

@@ -322,7 +322,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   - A shape `{ id, name, shape: 'cube' | 'sphere' | 'cylinder' | 'plane', p, q, size, colour: '#rrggbb', look: 'colour' |
     'hide' }` in `shapes` and an empty `{ id, name, p, q }` in `empties` ("Shapes and empties" below).
   - Any item or group with `locked: true` ("Locked in place" below).
-  - The scene's `settings` `{ others: 'shown' | 'hidden', real: 'device' | 'always' | 'never' }` ("The scene's settings"
+  - The scene's `settings` `{ others: 'shown' | 'hidden', real: 'device' | 'always' | 'never', grid?: 'hidden' }` ("The scene's settings"
     below; a layout without them a new scene's; bad ones counted).
   - An object's, a shape's or an empty's `behaviour` `{ kind: 'look' | 'follow' | 'avoid' | 'item' | 'wall', who:
     'nearest' | 'first', range, dist, speed, area, target, at, gap }` (only its kind's fields; "Behaviours" and "Things on
@@ -773,8 +773,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     locked item's other fields (light, colour, look, clip, its cube lists) is allowed.
   - The scene's settings (`settings`, in `layout.json` and in `state()`, so for everyone at that studio's circle; rows on
     the Scene pane while editing, page and headset, one Undo step each, counted by *Unsaved changes*; a new scene's:
-    shown, as each headset has it): *Other circles: Shown / Hidden* and *Real world hides the scene: As each headset has
-    it / Always / Never*. The studio tells the shell each time what it wants changes (`settingsStep`, every frame,
+    shown, as each headset has it): *Other circles: Shown / Hidden*, *Real world hides the scene: As each headset has
+    it / Always / Never* and *Floor grid: Shown / Hidden* (v156; the owner, 16 November 2026: "add an option to hide the
+    blue studio floor grid for a studio scene": `grid: 'hidden'`, written only when hidden; the stage's blue 1 m grid and
+    origin mark not drawn, its floor and sky kept; FORMAT networks-50). A camera (camera mode, the desktop preview camera)
+    shows no editing look (v156; the owner: "looks like edit mode is on in the desktop cam view in a studio scene"):
+    `editOn()` is false while `HOST.collab.cameraMode()`, whatever this device's Edit. The studio tells the shell each time what it wants changes (`settingsStep`, every frame,
     guarded: `HOST.collab.hideOthers(true)` while this device is at this studio's station with the other circles hidden,
     `false` otherwise; `HOST.occlusion.scene(null | 'both' | 'off')` while the scene shows here, `null` otherwise), and both
     back (`false`, `null`) as it goes (`dispose`); away from the station, on the Stories screen or for another scene (a
