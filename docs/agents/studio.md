@@ -1241,6 +1241,62 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   up's placement in practice (a few cm where the trackers' own offsets do not average out, which turns with the
   performer), takes made through a real relay.
 
+## Nice to have, later: glTF round trips (Blender, Unity)
+
+Discussed with the owner on 16 November 2026 and parked as nice to have ("note all of this down as nice to have for
+later"). Nothing of it is built.
+
+**Why glTF.** No finished open standard covers a studio scene: models placed in a room, trigger cubes, sounds,
+sequences, press and hover. The glTF family comes closest and is heading that way:
+
+- Placement: glTF 2.0 nodes (ISO).
+- Motions and timelines: animations and `KHR_animation_pointer` (ratified).
+- Shows and hides: `KHR_node_visibility`.
+- Press and hover: `KHR_node_selectability` and `KHR_node_hoverability` (both review drafts, Nov 2026).
+- Sounds: `KHR_audio_emitter` (a draft, from OMI's `OMI_audio_emitter`).
+- Cubes, sequences and behaviours: `KHR_interactivity` (behaviour graphs; submitted for ratification July 2026;
+  Babylon.js and Needle support it, three.js r128 does not).
+- Trigger volumes: OMI's `OMI_physics_shape` and `OMI_physics_body`.
+
+MPEG-I Scene Description (ISO/IEC 23090-14, glTF plus `MPEG_*`) has triggers, media and anchors, but almost no
+tooling. OpenUSD is too heavy for three.js r128. X3D is close in ideas (ProximitySensor, TouchSensor, Sound,
+TimeSensor) but old.
+
+**Decided.**
+
+- `layout.json` stays the studio's own format and is not renamed. Its `p`, `q` and `s` already are a glTF node's
+  translation, rotation (same quaternion order) and scale, in metres with Y up, and models are GLB already.
+- Renaming fields would touch every engine part, the test scene, the XP generator, the relay and the shared format,
+  and would need a reader for old files, for no gain the owner would see. So no existing layout file is rewritten.
+- The mapping lives in the export and import code.
+- When a part of the format is touched anyway, new fields follow glTF's shapes where they fit (an emitter like
+  `KHR_audio_emitter`, visibility like `KHR_node_visibility`), so the mapping stays mechanical.
+- The runtime is not moved onto `KHR_interactivity`: it is a general graph language, far wider than cubes, sequences
+  and press.
+
+**The pieces, rough cost in tokens.**
+
+1. **Export a scene as one GLB** (about 0.4–0.6M). *Download as GLB*: every object, shape and empty becomes a node with
+   its model inside, using three.js r128's `GLTFExporter`, already in `stories/studio.js`.
+   - Each node carries its studio record (id and fields) in glTF `extras`, which Blender keeps as custom properties.
+   - Sounds and cubes become empty nodes with their records; sounds are also written as `KHR_audio_emitter`.
+2. **Import a GLB back** (about 0.6–1M). Nodes are matched to items by the id in `extras`:
+   - moved, turned or scaled items update;
+   - deleted ones go;
+   - nodes new in Blender become objects, their meshes saved as GLB files in `models/`;
+   - a summary is shown before saving.
+
+   Start with transforms, additions and deletions. Meshes edited in Blender (an object saved as a new model file) come
+   second.
+3. **Unity through UnityGLTF** (about 0.2–0.4M on top of 2). Export the Unity scene with UnityGLTF and import it with
+   piece 2, plus reading its `KHR_audio_emitter` sounds and its animations.
+   - Unity's trigger colliders and scripts have no standard form in its export, so cubes and sequences are set up in
+     the studio afterwards.
+   - The owner ported a Unity scene by hand before v149: `tools/studio/push.mjs` uploads a scene folder an importer
+     made.
+
+All three come to about 1.2–2M tokens, built the usual way: Opus builds, Sonnet reviews, at most one fix round.
+
 ## From CLAUDE.md
 
 These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word for word, beside the area they belong to.
