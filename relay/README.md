@@ -731,6 +731,17 @@ line, short, with the temporary paths taken out and no query. The 4 min 16 s ste
 install ffmpeg` (Debian, Ubuntu), `winget install ffmpeg` (Windows). The Docker image (`relay/Dockerfile`, Alpine) installs it
 (`apk add --no-cache ffmpeg`); an image built without that line runs as before and says so.
 
+**From a folder on your computer** (`tools/studio/push.mjs`, Node's own modules, as the relay): `node
+tools/studio/push.mjs <scene folder> <relay> [--as <scene>] [--replace] [--dry]` sends one scene folder as it is, by
+the requests above: nothing is converted again (it is for GLBs, sounds and pictures already made, by an importer for
+instance), the scene is made when it is not there (named after the folder, or `--as`), exactly the files the listing
+would show are sent (the same rules, `relay/scenes.mjs`), each checked by `uploadPath` first, and `layout.json` last, so
+the studio never reads a layout before its files. A file the relay has at the same size is skipped; one that differs,
+and a `layout.json` the relay already has (perhaps saved in the studio since), are kept there unless `--replace` (the
+relay keeps the old layout in `.history/`). `--dry` says what it would send. The password is asked for in the terminal
+without being shown (piped input: its first line), or taken from `COLLAB_TOKEN`; it goes only into the `Authorization`
+header, never into a URL or the output.
+
 ### Converting a video
 
 *(v143, optional, off in the studio unless the Upload pane's option is on; `node relay/test.mjs --video` tests it.)* A screen

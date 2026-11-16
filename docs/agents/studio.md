@@ -116,6 +116,13 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   row still uses them; nothing of it is made, uploaded or kept), and *Triangles kept, every model* above the list sets
   every model row's share at once as it moves (`UP.keepAll`, `upKeep()`; a row's own slider can still differ after, a
   line then says so, and a later drop starts at it).
+- **Pushing a folder** (`tools/studio/push.mjs`; `relay/README.md`, "Uploading"). A scene folder already made on a
+  computer (GLBs, sounds, pictures, `layout.json`, for instance an importer's) sent to a relay as it is, without the
+  upload page's converting: the relay's own listing and upload rules, `layout.json` last, same-size files skipped, files
+  that differ and a layout already there kept unless `--replace`, `--dry`. The password is asked for hidden in the
+  terminal (or `COLLAB_TOKEN`) and sent only as `Authorization`. Checked against a local relay with a password (new
+  scene, the same again, a changed file kept and replaced, an 80 MB file, the layout's history); the hidden prompt in a
+  real terminal and a relay behind HTTPS are untested.
 - **Fewer triangles and Change texture** (the owner: 20 % by default for everything, adjustable per model with a preview;
   `tools/studio/SPEC.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
   mesh to a share of its triangles with meshoptimizer's simplifier: its normals and texture coordinates weighed, so its
