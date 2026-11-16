@@ -615,9 +615,10 @@ function triggerStep(now) {
     let inside, at = Tr;
     if (c.rec.key) {
       // (its key, v140: active while that item's middle, where it is drawn, is inside; the item's place is the room's, so
-      // the same for everyone here, entered at the room's time now)
+      // the same for everyone here, entered at the room's time now; away from the station it keeps its state, v149, so it is
+      // not entered again, later than the others, as you come back)
       const k = STU.items.get(c.rec.key);
-      inside = !away && !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
+      inside = away ? !!c.wasIn : !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
       c.allIn = null;
     } else if (c.rec.all) {
       // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of

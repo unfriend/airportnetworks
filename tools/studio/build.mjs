@@ -6,7 +6,8 @@
 //                                   node tools/studio/build.mjs --check -> exits 1 if stories/studio.js is out of date
 import fs from 'fs';
 import path from 'path';
-const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
+import { fileURLToPath } from 'url';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
 // (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that

@@ -20926,9 +20926,10 @@ function triggerStep(now) {
     let inside, at = Tr;
     if (c.rec.key) {
       // (its key, v140: active while that item's middle, where it is drawn, is inside; the item's place is the room's, so
-      // the same for everyone here, entered at the room's time now)
+      // the same for everyone here, entered at the room's time now; away from the station it keeps its state, v149, so it is
+      // not entered again, later than the others, as you come back)
       const k = STU.items.get(c.rec.key);
-      inside = !away && !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
+      inside = away ? !!c.wasIn : !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
       c.allIn = null;
     } else if (c.rec.all) {
       // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of
@@ -28788,7 +28789,8 @@ function seqCmd(id, cmd, m, why) {
   else if (cmd === 'rewind') val = { n, on: false, at: 0, t: -1, ts: m, by: seqWho() };
   else if (cmd === 'stop') {
     const P = seqEff(q, 0, behNow(), true), U = seqU(q, P, m);   // (never the preview here: it writes nothing of its own)
-    if (!U || !P) return false;
+    // (stopped already: nothing, v149; a new ts on a stopped loop would move it to another cycle, seqU)
+    if (!U || !P || !P.on) return false;
     val = { n, on: false, at: P.at, t: r2(U.u), ts: m, by: seqWho() };
   } else return false;
   M.set(id, val); SEQ.last.set(id, { at: performance.now() });

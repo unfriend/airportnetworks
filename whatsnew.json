@@ -1,17 +1,15 @@
 {
-  "version": "networks-v148",
-  "date": "2026-11-15",
+  "version": "networks-v149",
+  "date": "2026-11-16",
   "new": [
-    "The developer notebook in the headset: the menu's Debug tab has a Notes button (developer mode). It lists your notes (New, Done, All) with their transcripts, pins and both pictures; Play, Mark done and Delete (press twice)."
+    "Studio: stopping a sequence that is already stopped does nothing. Before, a looping sequence stopped twice jumped to a later cycle, so what it showed or hid could win over a cube.",
+    "Studio: a cube with a key keeps its state while your headset is away from its station. Before, coming back entered it again, so its shows won over the cubes entered before."
   ],
   "test": [
-    "Record a note (hold B or Y), then open Debug, Notes: is it in the list, and does it open with its pictures?",
-    "Play a note in VR and in AR; does Stop, Back or closing the menu stop it?",
-    "Mark a note done and delete one, then check the notes page on a laptop agrees.",
-    "Scroll a long list or transcript with Up, More and the stick."
+    "Play a looping sequence that shows and hides things, stop it, then press Stop again: does what is shown stay the same?",
+    "With a key cube active, take the headset off until the scene hides, put it on again: does the scene look as before, and does nothing the cube starts begin again?"
   ],
   "untested": [
-    "All of it on a real headset: pressing, scrolling, how the pictures look.",
-    "Whether Quest Browser lets a note play from inside a session (it says so if it is blocked). How the recordings sound is unheard."
+    "Both on a real headset; only the code was checked here (no test run)."
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "version": "networks-v149",
+  "date": "2026-11-16",
+  "new": [
+    "Studio: stopping a sequence that is already stopped does nothing. Before, a looping sequence stopped twice jumped to a later cycle, so what it showed or hid could win over a cube.",
+    "Studio: a cube with a key keeps its state while your headset is away from its station. Before, coming back entered it again, so its shows won over the cubes entered before."
+  ],
+  "test": [
+    "Play a looping sequence that shows and hides things, stop it, then press Stop again: does what is shown stay the same?",
+    "With a key cube active, take the headset off until the scene hides, put it on again: does the scene look as before, and does nothing the cube starts begin again?"
+  ],
+  "untested": [
+    "Both on a real headset; only the code was checked here (no test run)."
+  ]
+}

@@ -277,6 +277,11 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 
 ## Things that are easy to forget
 
+- On Windows, Git's `core.autocrlf=true` checks files out with CRLF, and the builds' and `tools/release.mjs`'s `--check`
+  then fail (the studio's vendor test, the shell's hashes): build and release from a checkout with LF (for a worktree,
+  `git config extensions.worktreeConfig true`, `git config --worktree core.autocrlf false`, then check out again).
+  `tools/studio/build.mjs` and `tools/release.mjs` take their folder with `fileURLToPath` (v149); the other tools'
+  `new URL(import.meta.url).pathname` still fails there.
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
   also add it to `SHELL`, and to `APP_FILES` (or `APP_DIRS`) in

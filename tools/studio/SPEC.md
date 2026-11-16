@@ -531,7 +531,8 @@ Not part of the record: `qr.<id>` in `state()` (never in `layout.json`, the draf
 no `changed()`): `{ n, on, at, t, ts, by }`: `on` playing, `at` the room's ms of its time 0, `t` where it stopped (s; -1
 rewound), `ts` when it was set, `by` who. Absent: never started. A `sync: 'own'` sequence keeps its state in `STU.qOwn`
 (never written). Commands (`seqCmd`: start from the beginning, stop where it is, rewind); at most one write a sequence from one
-device in 150 ms. An effective state (`seqEff`) is the record's, or one derived from a playing sequence's `seq` event (never
+device in 150 ms. A stop of a sequence that is not playing does nothing (v149: a new `ts` on a stopped loop put it in a later
+cycle, so a show or hide of it could win over a cube entered since). An effective state (`seqEff`) is the record's, or one derived from a playing sequence's `seq` event (never
 written: every device works it out alike; the later `ts` wins; at most four hops), or this device's preview.
 
 ### Firing and late joiners
@@ -2636,7 +2637,8 @@ studio reads it as any plain folder of scenes (`&scenes=examples&scene=bliss-xp`
   hand, never sized, no Undo step) and a page drags it along the floor at the height where it was taken; its record written
   as it moves, for everyone. Not while locked in place, on a tracker, worn, or the circle's story locked (`visitMove`).
 - A cube's `key` (an object's, a shape's or an empty's id; *Reacts to: An item (a key)...*): active while that item's
-  middle is inside it, for everyone here, not by people. FORMAT `networks-44`.
+  middle is inside it, for everyone here, not by people. FORMAT `networks-44`. Away from the station (`xrAway`) it keeps
+  the state it had (v149), so coming back does not enter it again, later than every other cube.
 
 ## The room scan (v141, the owner, 13 November 2026)
 

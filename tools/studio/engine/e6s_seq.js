@@ -148,7 +148,8 @@ function seqCmd(id, cmd, m, why) {
   else if (cmd === 'rewind') val = { n, on: false, at: 0, t: -1, ts: m, by: seqWho() };
   else if (cmd === 'stop') {
     const P = seqEff(q, 0, behNow(), true), U = seqU(q, P, m);   // (never the preview here: it writes nothing of its own)
-    if (!U || !P) return false;
+    // (stopped already: nothing, v149; a new ts on a stopped loop would move it to another cycle, seqU)
+    if (!U || !P || !P.on) return false;
     val = { n, on: false, at: P.at, t: r2(U.u), ts: m, by: seqWho() };
   } else return false;
   M.set(id, val); SEQ.last.set(id, { at: performance.now() });

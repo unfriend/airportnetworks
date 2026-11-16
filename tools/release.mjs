@@ -21,11 +21,12 @@
 // also kept in whatsnew/ (see below), so developer mode can page back through them.
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import vm from 'vm';
 
 const args = process.argv.slice(2), check = args.includes('--check');
 const ri = args.indexOf('--root');
-const root = ri >= 0 ? path.resolve(args[ri + 1]) : path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = ri >= 0 ? path.resolve(args[ri + 1]) : path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8').replace(/^﻿/, '');
 function fingerprint(s) {
   let a = 0xdeadbeef, b = 0x41c6ce57;
