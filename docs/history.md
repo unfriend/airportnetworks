@@ -81,7 +81,7 @@ file, the detail file says what is current.
 
 Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's words that explain why rules exist.
 
-### FORMAT bumps (networks-10 to networks-47)
+### FORMAT bumps (networks-10 to networks-48)
 
 (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
@@ -126,7 +126,7 @@ which an older device would drop or refuse; networks-44 in v140: an optional `gr
 (anyone may move it without editing) and an optional `key` on a cube's (the item it reacts to): "Moved by anyone" and "Cubes
 with a key" under "The studio"); networks-45 in v143: the studio's `state()` gained a field per screen, `v.<id>` (a video
 or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores); networks-46 in v144: a field per painting, `d.<id>` (strokes drawn in the air:
-"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops).
+"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops); networks-48 in v153: the room's key `pcam` (the desktop preview camera's place, `{ p, q, fov, ts, by }` in room coordinates: "The desktop preview camera" below) and `pc: 1` in a camera's presence, which an older device ignores (it shows the preview camera as a phone's camera).
 
 ### All stories and Back to the lobby (v104)
 
@@ -226,6 +226,20 @@ Own station hidden: the owner, 31 October 2026: "just hide it once i am inside, 
 (v124; the owner, 8 November 2026: "Camera mode, where an android in ar mode is aligned with the room and
   then acts as a camera, i can just record the screen to see what people see in vr with the real world overlaid, would
   make sense combined with the follow feature to give people outside an option to see the things too";
+
+### The desktop preview camera (v153)
+
+The owner, 16 November 2026: "A preview cam on desktop that shows what people are doing inside the virtual world and that
+i can move around so that i can place it in real space in the real position". Asked what it is for and how to place it,
+the owner chose: mainly a screen for onlookers (a TV or a projector at an event showing what the people in headsets are
+doing, from a fixed spot in the real room), placed first from a headset (hold a controller at the real spot, aim it,
+press), then fine-tuned on the desktop (position, height, aim, field of view) with mouse and keys, the field of view
+settable so it could match a real camera later (not built). Asked whether to build it, the owner: "build it but make it so
+that it can be placed on desktop too": so it is placed from a computer alone as well (the room map, its typed numbers, the
+mouse and keys), not only fine-tuned there. Built as camera mode's sibling (`CAM.pc`), so camera mode's rules for an
+observer apply to it; it writes only its own place, `pcam` (FORMAT networks-48). Why a pretend headset session rather than
+a camera of its own: the stories' shared hooks stay identical everywhere, so the camera goes through the same `HOST.xr.request`
+and `xrAdopt` path as a headset, and shows exactly what a headset at a circle sees.
 
 ### Two locks
 

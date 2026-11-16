@@ -1303,6 +1303,10 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   station followed again. A headset session cannot survive a reload, so the page
   then shows one button, *Enter VR to continue* (or AR), which enters as Enter VR
   does and plays on as before.
+  Not for the desktop preview camera's pretend session (`HOST.collab.previewOn()`): it starts again by itself
+  (`pcResume`, "The desktop preview camera" in `docs/agents/shared-rooms.md`). The headset's update panel (`xrTick`) is
+  never drawn on a camera's picture (camera mode's or the preview camera's: nobody there can press it); such a device
+  takes a release at its next reload.
 - **In a shared room** ("Updating a room" under "Shared rooms"): the bar and the headset's panel have a third
   button, *Reload every device* (Update the room's two presses: *Reload every device? Press again*), while this device is
   in a room that is not on this device alone. A new `FORMAT` asked about on a page outside a headset in a room is taken

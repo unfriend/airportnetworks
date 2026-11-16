@@ -3934,7 +3934,8 @@ HOST.live = (function () {
   // a reload that keeps this device's place (put back as the story starts: restoring)
   function reload(why) {
     const P = HOST.place() || { key: HOST.curKey, picking: HOST.picking };
-    P.xr = HOST.session ? HOST.mode || 'immersive-vr' : '';
+    // (not the desktop preview camera's pretend session: it starts again by itself, shared.js's pcResume)
+    P.xr = HOST.session && !(HOST.collab && HOST.collab.previewOn && HOST.collab.previewOn()) ? HOST.mode || 'immersive-vr' : '';
     P.at = Date.now(); P.why = why;
     ses.put('livePlace', JSON.stringify(P));
     if (why !== 'asked') ses.put('liveReloadAt', String(Date.now()));
@@ -4005,7 +4006,8 @@ HOST.live = (function () {
     return '';
   };
   function xrTick() {
-    const on = !!(L.ask && !L.ask.hidden && (HOST.session || XQ.test) && HOST.cur);   // (test: a test without a headset)
+    // (test: a test without a headset; never on a camera's picture, camera mode's or the preview camera's: nobody there can press it)
+    const on = !!(L.ask && !L.ask.hidden && (HOST.session || XQ.test) && HOST.cur && !(HOST.collab && HOST.collab.cameraMode && HOST.collab.cameraMode()));
     if (!on) { if (XQ.mesh) XQ.mesh.visible = false; XQ.placed = false; return; }
     let sc = null;
     try { sc = HOST.cur.collab.scene(); } catch (e) { /* not built yet */ }

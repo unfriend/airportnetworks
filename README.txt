@@ -461,6 +461,18 @@ Follow a person or a circle in its small overlay; Panels, People, Sound,
 Subtitles and Hide are the phone's own (a double tap brings the controls back),
 and Exit ends it. It changes nothing in the room. Film it with Android's own
 screen recorder (untested on a real phone).
+A computer can be a preview camera for a TV or a projector (v153): Preview
+camera in its Shared dialog, or the room's link with &camera added on a
+computer, shows the room from one fixed spot as the headsets see it (the
+stories, the circles, everyone in a headset). Place it on any page's room map
+(drag the camera, or its handle to aim it), from a headset's menu (Place the
+preview camera, then pull the trigger with the controller held where the
+camera should be, aimed where it should look), or on the camera's own screen:
+type its numbers (x, y, z in metres from spot A, aim, tilt, field of view),
+drag the picture to turn and tilt it, arrows or WASD to move it, Q and E for
+height, + and - or the wheel to zoom, Shift for fine steps, R to level it. Its
+controls hide after 3 s without the mouse; Full screen and Stop are among them.
+Untested on a real TV, projector or headset.
 Vive trackers (v126): when the relay runs on the PC with SteamVR and its trackers
 (relay/README.md says how), the Shared dialog has The PC's trackers: Use the PC's
 trackers in this room, then line them up by hand: lay a tracker flat on spot A

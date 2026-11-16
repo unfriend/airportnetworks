@@ -372,6 +372,7 @@ const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your 
 const BEHAVE_ONLY = argv.includes('--behave');   // (only the studio's behaviours shared: behaveRound, a relay of its own with --scenes)
 const NARR_ONLY = argv.includes('--narration');   // (only the narration in headsets and the welcome: narrationRound, in a room of its own)
 const CAMERA_ONLY = argv.includes('--camera');   // (only camera mode: cameraRound, in a room of its own)
+const PREVIEW_ONLY = argv.includes('--preview');   // (only the desktop preview camera: previewRound, in a room of its own)
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const SHIPS_ONLY = argv.includes('--ships');   // (only the spaceships in a shared room: shipsRound, in a room of its own)
 const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
@@ -1642,7 +1643,7 @@ async function namesRound(dir) {
       w.onclose = e => res({ code: e.code, got });
       setTimeout(() => { try { w.close(); } catch (e) { /* gone */ } }, 5000);
     });
-    check('room names: a device of networks-46 is refused by the networks-47 room (the bump)', FORMAT === 'networks-47' && (old.code === 4006 || old.got.some(g => /4006|version/.test(g))), JSON.stringify(old));
+    check('room names: a device of networks-46 is refused by a room of networks-47 (the bump) or later', +FORMAT.split('-')[1] >= 47 && (old.code === 4006 || old.got.some(g => /4006|version/.test(g))), JSON.stringify(old));
   } finally {
     for (const c of all) await c.close().catch(() => {});
     for (const s of servers) s.close();
@@ -7374,6 +7375,273 @@ async function cameraRound(dir) {
   }
 }
 
+// ---- the desktop preview camera (previewRound; --preview runs only it, also in the main run after camera mode): a room of
+// its own with two story circles, a page (A) that places the camera on its room map with no headset in the room, a desktop
+// page (D, a computer's: its own navigator.xr offering nothing) that runs it, and a pretend headset (H, Quest Browser's
+// user agent) lined up on the floor spots that places it from its menu. The Shared dialog's Preview camera on the pages (not
+// in the headset's browser); with no place in the room its default (3 m behind the first circle, 1.6 m up, looking at it),
+// nothing written; on A's room map the camera dragged (one write as it is let go, with ts and by) and its handle dragged to
+// aim it (one more); Preview camera pressed on D: the story's own xrStart gets the shell's pretend immersive-vr session
+// through HOST.xr.request (three.js r128's WebXR path drawing it, the canvas at the page's size), the room's frame its own
+// (src pcam), the three.js camera at the key's place and turn (1 mm, 0.1 degree) with its field of view, A hearing a member
+// of kind cam named Preview camera; it follows the circle it looks at; the overlay hides after 3 s without the mouse and
+// comes back as it moves; its numbers typed (one write), keys (a run of them, one write: 30 cm along its aim, 1 cm up with
+// Shift; Space reaching no story), the wheel (one write), a drag on the picture (one write: aim and tilt); the headset's
+// menu draws the camera's marker at its place, Place the preview camera, the controller aimed (the marker where a press
+// would put it, the ray the shell's), the trigger: the key from the headset (its tip, its ray, level; 1 cm, 0.1 degree)
+// and D's three.js camera on it (1 mm, 0.1 degree); the headset drawn on D, head and hands; D sends nothing but its
+// presence and pcam; Stop ends the pretend session (the page a page again, XRWebGLLayer the browser's own, kind desktop);
+// a link with &camera: its own page, Start the preview camera; a circle under the camera's glyph on A's map keeps its
+// click and drag, the camera untouched. dir: pictures (preview-*.png)
+async function previewRound(dir) {
+  const ROOM0 = ROOM;
+  ROOM = [2, 0, 1, 0.3];   // (the room as the headset calibrates it: spot A its origin, spot B 2 m along its x axis)
+  const K1 = 'qubits', K2 = HEADSET_STORY, SA = apply(ROOM, [0, 0, 0]), SB = apply(ROOM, [2, 0, 0]), DEG = Math.PI / 180;
+  // aim (0 along the room's +x, growing towards +z), tilt and roll of a turn [x, y, z, w], as the app reads them (three.js's YXZ)
+  const angOf = q => {
+    const [x, y, z, w] = q, m13 = 2 * (x * z + w * y), m33 = 1 - 2 * (x * x + y * y), m23 = 2 * (y * z - w * x), m21 = 2 * (x * y + w * z), m22 = 1 - 2 * (x * x + z * z);
+    const yaw = Math.atan2(m13, m33);
+    return { aim: Math.atan2(-Math.cos(yaw), -Math.sin(yaw)), tilt: Math.asin(Math.max(-1, Math.min(1, -m23))), roll: Math.atan2(m21, m22) };
+  };
+  // (the angle between two turns; the key's are written to 4 decimals, so they are made unit first, as the app reads them)
+  const qAngle = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / (Math.hypot(...a) * Math.hypot(...b))));
+  const A = await openDevice('#stories', { width: 640, height: 400 });
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { HOST.collab.add(k[0], { x: 0.5, z: -2.5, yaw: 0 }); HOST.collab.add(k[1], { x: 4, z: -2.5, yaw: 0 }); }, [K1, K2]);
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const sts = await A.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2);
+  let D = null, H = null, L = null;
+  const pics = async (file, page) => { if (dir) await page.screenshot({ path: path.join(dir, file) }); };
+  const keyNow = async () => (await roomInfo(rc)).keys.pcam || null;   // (the room's key as the relay holds it: { v, by, ... })
+  const sets = p => p.evaluate(() => (window.__sent || []).filter(m => m.t === 'set' && m.keys.includes('pcam')).length);
+  const pv = p => p.evaluate(() => HOST.collab.preview());
+  // D's three.js camera on the key (1 mm, 0.1 degree) with its field of view (0.1 degree)
+  const onKey = (c, v) => !!c && !!c.cam && !!v && dist(c.cam.p, v.p) < 0.001 && qAngle(c.cam.q, v.q) < 0.1 * DEG && Math.abs(c.cam.fov - v.fov) < 0.1;
+  try {
+    D = await openDevice('#s=' + rc, { width: 960, height: 540 });
+    H = await openDevice('#s=' + rc + '&flock', { width: 320, height: 200 }, QUEST_UA, true);
+    for (const p of [D, H]) await until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
+    const aId = await A.evaluate(() => HOST.collab.id), dId = await D.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
+    check('preview: FORMAT is networks-48 (the room\'s key pcam)', FORMAT === 'networks-48', FORMAT);
+    // the Shared dialog's Preview camera: on a computer's page, with its line; none in a headset's browser
+    const row = p => p.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 400)); const b = document.querySelector('#shared [data-sh="pcam"]');
+      return { offered: HOST.collab.previewOffered(), button: !!b, text: b ? b.closest('.sh-pcam').textContent.replace(/\s+/g, ' ').trim() : '' }; });
+    const rD = await row(D), rH = await row(H);
+    await H.evaluate(() => HOST.collab.dialog(false));
+    check('preview: the Shared dialog\'s Preview camera on a computer\'s page, with a line saying what it is and that it is not placed yet (none in a headset\'s browser)',
+      rD.offered && rD.button && /TV or a projector/.test(rD.text) && /Not placed yet/.test(rD.text) && !rH.button && !rH.offered, JSON.stringify({ rD, rH }));
+    // no place in the room: the default, nothing written
+    const d0 = await pv(A);
+    check('preview: with no place in the room, its default is 3 m behind the first circle, 1.6 m up, looking at it (60 degrees), and nothing is written',
+      d0.def && !d0.key && near(d0.pose.p, [S1.x, 1.6, S1.z + 3], 1e-6) && near(d0.pose.q, [0, 0, 0, 1], 1e-6) && d0.pose.fov === 60 && !(await keyNow()), JSON.stringify(d0));
+    // placed on A's room map, with no headset in the room: the camera dragged (one write as it is let go), then its handle
+    const drag = (from, to) => A.evaluate(async ([from, to]) => {
+      const cv = document.getElementById('shMap'), r = cv.getBoundingClientRect();
+      const ev = (t, x, y, b) => cv.dispatchEvent(new PointerEvent(t, { bubbles: true, pointerId: 7, isPrimary: true, button: 0, buttons: b, clientX: r.left + x, clientY: r.top + y }));
+      ev('pointerdown', from[0], from[1], 1);
+      for (let k = 1; k <= 8; k++) { ev('pointermove', from[0] + (to[0] - from[0]) * k / 8, from[1] + (to[1] - from[1]) * k / 8, 1); await new Promise(res => setTimeout(res, 40)); }
+      ev('pointerup', to[0], to[1], 0);
+      await new Promise(res => setTimeout(res, 300));
+    }, [from, to]);
+    const px = T => A.evaluate(T => { const tf = HOST.collab.mapView(); return [tf.X(T[0]), tf.Y(T[1])]; }, T);
+    await A.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 500)); });
+    const m0 = await A.evaluate(() => HOST.collab.mapCam());
+    await drag([m0.x, m0.y], await px([1.5, 1.0]));
+    const k1 = await keyNow(), n1 = await sets(A);
+    await pics('preview-1-map.png', A);
+    check('preview: on a page\'s room map (no headset in the room) the camera dragged places it: one write as it is let go (ts, by), its height, turn and field of view kept',
+      !!m0 && n1 === 1 && !!k1 && near([k1.v.p[0], k1.v.p[2]], [1.5, 1.0], 0.002) && k1.v.p[1] === 1.6 && near(k1.v.q, [0, 0, 0, 1], 1e-4) && k1.v.fov === 60 && Number.isFinite(k1.v.ts) && k1.v.by === aId && k1.by === aId,
+      JSON.stringify({ m0, n1, k1 }));
+    // its handle dragged towards the second circle's story aims it there
+    const [c2x, c2z] = [S2.x, S2.z - 1.4], aim2 = Math.atan2(c2z - 1.0, c2x - 1.5);
+    await sleep(400);
+    const m1 = await A.evaluate(() => HOST.collab.mapCam());
+    await drag([m1.hx, m1.hy], await px([c2x, c2z]));
+    const k2 = await keyNow(), n2 = await sets(A), a2 = k2 && angOf(k2.v.q);
+    check('preview: its handle on the map dragged aims it (towards the second circle): one more write, its place kept, level',
+      n2 === 2 && !!a2 && near(k2.v.p, k1.v.p, 1e-9) && Math.abs(angle(a2.aim, aim2)) < 0.3 * DEG && Math.abs(a2.tilt) < 1e-3 && Math.abs(a2.roll) < 1e-3 && k2.v.ts >= k1.v.ts,
+      JSON.stringify({ n2, k2, a2, aim2 }));
+    await A.evaluate(() => HOST.collab.dialog(false));
+    // Preview camera pressed on D: the pretend session through the story's own xrStart
+    await D.evaluate(() => { window.__sent = []; HOST.collab.dialog(true); });
+    await until(D, () => !!document.querySelector('#shared [data-sh="pcam"]'), null, 4000);
+    await D.evaluate(() => document.querySelector('#shared [data-sh="pcam"]').click());
+    const on = await until(D, () => HOST.collab.previewOn() && !!HOST.session && HOST.renderer.xr.isPresenting, null, 15000);
+    await until(D, () => { const c = HOST.collab.preview(); return !!(c.cam && c.cam.p) && HOST.curKey === 'flock'; }, null, 40000);
+    await sleep(800);
+    const c1 = await pv(D), s1 = await D.evaluate(() => ({ pcam: !!(HOST.session && HOST.session.pcam), mode: HOST.mode, dlg: !document.getElementById('shared').hidden, body: document.body.className,
+      shown: !document.getElementById('pcam').hidden, live: document.getElementById('pcam').classList.contains('live'), key: HOST.curKey, layer: !/native code/.test(String(window.XRWebGLLayer)) }));
+    const mA = await A.evaluate(id => { const m = HOST.collab.members.find(x => x.id === id); return m && { kind: m.kind, name: m.name }; }, dId);
+    check('preview: Preview camera starts the story\'s session through HOST.xr.request: the shell\'s pretend immersive-vr session, three.js presenting it, the canvas at the page\'s size, the room its own frame (src pcam)',
+      on && s1.pcam && s1.mode === 'immersive-vr' && !s1.dlg && /\bpcam\b/.test(s1.body) && s1.shown && s1.live && s1.layer && c1.on && c1.src === 'pcam' && c1.aligned && near(c1.canvas, [960, 540], 1) && near(c1.cam.vp, [960, 540], 1),
+      JSON.stringify({ on, s1, c1 }));
+    check('preview: the three.js camera stands at the room\'s place for it (1 mm, 0.1 degree) with its field of view', onKey(c1, k2.v), JSON.stringify({ cam: c1.cam, key: k2.v }));
+    check('preview: the page hears it as a camera (kind cam, named Preview camera); it follows the circle it looks at (the second: its story loaded)',
+      !!mA && mA.kind === 'cam' && mA.name === 'Preview camera' && c1.auto && c1.follow === 'station:' + S2.id && c1.station === S2.id && s1.key === K2, JSON.stringify({ mA, c1 }));
+    // the overlay hides after 3 s without the mouse, and comes back as it moves
+    await D.mouse.move(600, 430);
+    const o0 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none' }));
+    await pics('preview-2-overlay.png', D);
+    await sleep(3800);
+    const o1 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none', cursor: getComputedStyle(document.getElementById('pcam')).cursor }));
+    await pics('preview-3-idle.png', D);
+    await D.mouse.move(620, 440);
+    await sleep(300);
+    const o2 = await D.evaluate(() => ({ idle: HOST.collab.preview().idle, bar: getComputedStyle(document.querySelector('#pcam .pc-bar')).display !== 'none' }));
+    check('preview: its overlay shows, hides itself (and the pointer) after 3 s without the mouse moving, and comes back as it moves',
+      !o0.idle && o0.bar && o1.idle && !o1.bar && o1.cursor === 'none' && !o2.idle && o2.bar, JSON.stringify({ o0, o1, o2 }));
+    // its numbers typed: x, y, z, aim, tilt and field of view, Enter: one write
+    // (typed all at once, then Enter in the last: the overlay shows the camera's numbers in every field but the one being typed)
+    await D.evaluate(() => {
+      const v = { x: '2.25', y: '1.85', z: '-0.5', aim: '-60', tilt: '-10', fov: '50' }, f = document.querySelector('#pcam [data-pn="fov"]');
+      for (const k in v) document.querySelector(`#pcam [data-pn="${k}"]`).value = v[k];
+      f.focus(); f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+    });
+    await sleep(900);
+    const k3 = await keyNow(), n3 = await sets(D), a3 = k3 && angOf(k3.v.q), c3 = await pv(D);
+    check('preview: its numbers typed (x, y, z in metres, aim, tilt and field of view in degrees), Enter: one write (ts, by), the three.js camera on it (1 mm, 0.1 degree)',
+      n3 === 1 && !!k3 && near(k3.v.p, [2.25, 1.85, -0.5], 1e-9) && Math.abs(a3.aim + 60 * DEG) < 0.01 * DEG && Math.abs(a3.tilt + 10 * DEG) < 0.01 * DEG && Math.abs(a3.roll) < 0.01 * DEG && k3.v.fov === 50 && k3.v.by === dId && k3.v.ts > k2.v.ts && onKey(c3, k3.v),
+      JSON.stringify({ n3, k3, a3, cam: c3.cam }));
+    // keys: a run of three ArrowUp and a Shift+E (one write as the run ends: 30 cm along its aim, 1 cm up); Space reaches no story
+    await D.evaluate(() => document.activeElement && document.activeElement.blur());
+    const play0 = await peek(D, 'APP.playing');
+    for (const k of ['ArrowUp', 'ArrowUp', 'ArrowUp', 'Shift+KeyE', 'Space']) { await D.keyboard.press(k); await sleep(60); }
+    const mid = await pv(D);
+    await sleep(1000);
+    const k4 = await keyNow(), n4 = await sets(D), c4 = await pv(D), play1 = await peek(D, 'APP.playing');
+    const want4 = [2.25 + 0.3 * Math.cos(-60 * DEG), 1.86, -0.5 + 0.3 * Math.sin(-60 * DEG)];
+    check('preview: keys (ArrowUp three times, Shift+E) move it 30 cm along its aim and 1 cm up, shown at once and written once as the run ends (ts); Space reaches no story',
+      mid.edit && n4 === 2 && !!k4 && near(k4.v.p, want4, 0.0011) && qAngle(k4.v.q, k3.v.q) < 0.01 * DEG && k4.v.ts > k3.v.ts && !c4.edit && onKey(c4, k4.v) && play0 === play1,
+      JSON.stringify({ mid: mid.edit, n4, k4, want4, play0, play1 }));
+    // the wheel: the field of view, one write; a drag on the picture: aim and tilt (0.2 degrees a pixel), one write
+    await D.mouse.move(600, 430);
+    for (let k = 0; k < 2; k++) { await D.mouse.wheel(0, 100); await sleep(60); }
+    await sleep(900);
+    const k5 = await keyNow(), n5 = await sets(D);
+    await D.mouse.move(600, 430); await D.mouse.down(); await D.mouse.move(650, 410, { steps: 6 }); await D.mouse.up();
+    await sleep(500);
+    const k6 = await keyNow(), n6 = await sets(D), a6 = k6 && angOf(k6.v.q), c6 = await pv(D);
+    check('preview: the wheel widens its field of view (2 degrees, one write); a drag on the picture turns and tilts it (50 px right: 10 degrees; 20 px up: 4 degrees; one write)',
+      n5 === 3 && k5 && k5.v.fov === 52 && n6 === 4 && !!a6 && Math.abs(a6.aim - (-50 * DEG)) < 0.1 * DEG && Math.abs(a6.tilt - (-6 * DEG)) < 0.1 * DEG && near(k6.v.p, k4.v.p, 1e-9) && onKey(c6, k6.v),
+      JSON.stringify({ n5, fov: k5 && k5.v.fov, n6, a6: a6 && { aim: a6.aim / DEG, tilt: a6.tilt / DEG }, cam: c6.cam }));
+    // the headset: lined up on the room's floor spots (its controller's tip on each tape cross), then into the first circle
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 600);
+    const touch = async p => { await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650); await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150); };
+    await H.evaluate(() => HOST.room.calibrate());
+    await touch([SA[0], TIP, SA[2]]); await touch([SB[0], TIP, SB[2]]);
+    await H.evaluate(() => window.__xr.ctrl(0, null)); await frames(H, 400);
+    const inH = await walk(H, S1, K1, 0, 150000);
+    check('preview: the headset lines up on the floor spots and walks into the first circle', inH && await H.evaluate(() => HOST.room.src === 'marks' && HOST.room.aligned));
+    // its menu open: the camera's marker at the room's place for it (opaque lines over everything)
+    await H.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); });
+    await frames(H, 300);
+    const mk0 = await H.evaluate(() => { const g = HOST.collab.overlay().pcam; return { visible: g.visible, p: g.position.toArray(), q: g.quaternion.toArray(), opaque: !g.material.transparent, depth: g.material.depthTest, n: g.geometry.attributes.position ? g.geometry.attributes.position.count : 0 }; });
+    check('preview: the headset\'s open menu draws the camera\'s marker at its place in the room (opaque lines over everything)',
+      mk0.visible && near(mk0.p, k6.v.p, 1e-6) && qAngle(mk0.q, k6.v.q) < 0.01 * DEG && mk0.opaque && !mk0.depth && mk0.n > 20, JSON.stringify(mk0));
+    // Place the preview camera, the controller held at P aimed along d (room coordinates), the trigger: the key from the headset
+    const PR = [1.0, 1.5, 2.5], DR = unit([1.2, -0.25, -1.6]);
+    const pressRow = id => H.evaluate(async id => { const X = window.__xr; X.step(); X.step(); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); } return r ? r.label : null; }, id);
+    const lb0 = await pressRow('pcam');
+    await H.evaluate(([o, d]) => window.__xr.ctrl(0, o, d), [apply(ROOM, PR), rot(ROOM[3], DR)]);
+    await frames(H, 500);
+    const mk1 = await H.evaluate(() => { const g = HOST.collab.overlay().pcam, h = HOST.collab.internals().hov.get(0); return { placing: HOST.collab.pcamPlacing(), visible: g.visible, p: g.position.toArray(), hov: h && h.target && h.target.kind, label: (HOST.collab.menuFind('pcam') || {}).label }; });
+    const nH0 = await sets(H);
+    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true'));
+    await frames(H, 300);
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    const k7 = await keyNow(), a7 = k7 && angOf(k7.v.q), nH1 = await sets(H), placing = await H.evaluate(() => HOST.collab.pcamPlacing());
+    check('preview: the headset\'s Place the preview camera: the marker shows where a press would put it, the ray is the shell\'s (nothing for the story)',
+      lb0 === 'Place the preview camera' && mk1.placing && mk1.visible && dist(mk1.p, PR) < 0.01 && mk1.hov === 'pcam' && mk1.label === 'Placing: pull the trigger', JSON.stringify({ lb0, mk1 }));
+    check('preview: the trigger writes its place from the headset: the controller\'s tip (1 cm), looking along its ray (0.1 degree), level; one write, placing over',
+      !!k7 && k7.v.by === hId && dist(k7.v.p, PR) < 0.01 && Math.abs(angle(a7.aim, Math.atan2(DR[2], DR[0]))) < 0.1 * DEG && Math.abs(a7.tilt - Math.asin(DR[1])) < 0.1 * DEG && Math.abs(a7.roll) < 0.01 * DEG &&
+        nH1 - nH0 === 1 && !placing, JSON.stringify({ k7, a7, want: { aim: Math.atan2(DR[2], DR[0]), tilt: Math.asin(DR[1]) }, nH0, nH1, placing }));
+    const got = await until(D, ts => { const c = HOST.collab.preview(); return !!c.key && c.key.ts === ts && !!c.cam; }, k7 && k7.v.ts, 8000);
+    await sleep(500);
+    const c7 = await pv(D);
+    check('preview: the desktop camera jumps to the headset\'s place: its three.js camera there (1 mm, 0.1 degree), its field of view kept', got && onKey(c7, k7.v) && k7.v.fov === 52, JSON.stringify({ got, cam: c7.cam, key: k7 && k7.v }));
+    // the headset drawn on the desktop camera: head and hands (a VR look: no camera image), wherever it is
+    const run = (p, ms) => p.evaluate(async ms => { window.__go = true; const t0 = performance.now(); while (window.__go && performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); } }, ms);
+    await H.evaluate(([o, d]) => window.__xr.ctrl(0, o, d), [apply(ROOM, [0.7, 1.2, -2.2]), rot(ROOM[3], [0, 0, -1])]);
+    const go = run(H, 60000);
+    const seen = await until(D, id => { const o = HOST.collab.overlay().people.get(id); return !!(o && o.g.visible && o.avatar.visible && o.rays.some(r => r.visible)); }, hId, 20000);
+    await pics('preview-4-people.png', D);
+    await H.evaluate(() => { window.__go = false; }); await go;
+    const pp = await D.evaluate(id => { const o = HOST.collab.overlay().people.get(id); return o ? { g: o.g.visible, head: o.avatar.visible, hands: o.hands.map(h => h.visible), rays: o.rays.map(r => r.visible) } : null; }, hId);
+    check('preview: the desktop camera draws the person in a headset: head, hand and ray', seen && !!pp && pp.head && pp.hands.some(Boolean), JSON.stringify(pp));
+    // a turn with a roll (written by the page here, as a headset could): Level says so; R levels it (one write: roll 0)
+    await A.evaluate(([p, q]) => { const e = new THREE.Euler().setFromQuaternion(new THREE.Quaternion(...q), 'YXZ'); e.z = 5 * Math.PI / 180; HOST.collab.setPcam({ p, q: new THREE.Quaternion().setFromEuler(e).toArray(), fov: 52 }, 'test'); }, [k7.v.p, k7.v.q]);
+    const rolled = await until(D, () => { const c = HOST.collab.preview(), b = document.querySelector('#pcam [data-pc="level"]'); return !!c.angles && Math.abs(c.angles.roll - 5) < 0.05 && /roll/.test(b.textContent); }, null, 8000);
+    const lv0 = await D.evaluate(() => { const b = document.querySelector('#pcam [data-pc="level"]'); return { text: b.textContent, disabled: b.disabled }; }), nR0 = await sets(D);
+    await D.keyboard.press('KeyR'); await sleep(700);
+    const k8 = await keyNow(), a8 = angOf(k8.v.q), nR1 = await sets(D);
+    check('preview: a turn with a roll: its Level button says so (roll 5.0 degrees); R levels it (one write: roll 0, its aim and tilt kept)',
+      rolled && !lv0.disabled && /roll 5\.0/.test(lv0.text) && nR1 - nR0 === 1 && k8.v.by === dId && Math.abs(a8.roll) < 0.01 * DEG && Math.abs(angle(a8.aim, a7.aim)) < 0.02 * DEG && Math.abs(a8.tilt - a7.tilt) < 0.02 * DEG,
+      JSON.stringify({ rolled, lv0, nR0, nR1, a8, a7 }));
+    // D sends nothing but its presence and its place
+    const sent = await D.evaluate(id => (window.__sent || []).filter(m => !(m.t === 'fx' && m.k === 'p.' + id) && !(m.t === 'set' && m.keys.length && m.keys.every(k => k === 'pcam'))), dId);
+    const presN = await D.evaluate(id => (window.__sent || []).filter(m => m.t === 'fx' && m.k === 'p.' + id).length, dId), info = await roomInfo(rc);
+    const byD = Object.entries(info.keys).filter(([, e]) => e.by === dId).map(([k]) => k);
+    check('preview: the desktop camera sends nothing but its presence and its place (pcam), and no other key of the room is its', !sent.length && presN > 5 && byD.every(k => k === 'pcam'),
+      JSON.stringify({ sent: sent.slice(0, 8), presN, byD }));
+    // Stop: the pretend session ends, the page is a page again (following on), the browser's XRWebGLLayer back
+    await D.mouse.move(610, 420); await sleep(200);
+    await D.evaluate(() => document.querySelector('#pcam [data-pc="stop"]').click());
+    await until(D, () => !HOST.session && !HOST.collab.previewOn(), null, 8000);
+    await sleep(300);
+    const x = await D.evaluate(() => ({ on: HOST.collab.previewOn(), session: !!HOST.session, presenting: HOST.renderer.xr.isPresenting, body: document.body.className, shown: !document.getElementById('pcam').hidden,
+      layer: String(window.XRWebGLLayer), cam: HOST.collab.cameraMode(), follow: HOST.collab.following(), patched: HOST.collab.preview().patched, stored: sessionStorage.getItem('collabPcam') }));
+    const mA2 = await until(A, id => { const m = HOST.collab.members.find(q => q.id === id); return !!m && m.kind === 'desktop' && m.name !== 'Preview camera'; }, dId, 8000);
+    check('preview: Stop ends the pretend session: a page again for the room (kind desktop), following on; the browser\'s own XRWebGLLayer back, nothing kept for a reload',
+      !x.on && !x.session && !x.presenting && !/\bpcam\b/.test(x.body) && !x.shown && /native code/.test(x.layer) && !x.cam && !x.patched && x.follow === S2.id && !x.stored && mA2, JSON.stringify({ x, mA2 }));
+    // a link with &camera on a computer: its own page, Start the preview camera (the dialog not opened); started, stopped
+    L = await openDevice('#s=' + rc + '&camera', { width: 960, height: 540 });
+    const lk = await until(L, () => { const e = document.getElementById('pcam'), b = e && e.querySelector('.pc-go'); return !!(e && !e.hidden && b && !b.disabled && !b.hidden); }, null, 20000);
+    await until(L, () => !!(HOST.cur && HOST.cur.collab && HOST.cur.collab.scene && HOST.cur.collab.scene()) && !HOST.busy, null, 40000);   // (its story built: Start presses its Enter VR)
+    const lv = await L.evaluate(() => { const e = document.getElementById('pcam'); return { pre: e.classList.contains('pre'), go: e.querySelector('.pc-go').textContent, dlg: !document.getElementById('shared').hidden, cam: !!document.getElementById('camera') && !document.getElementById('camera').hidden }; });
+    await pics('preview-5-link.png', L);
+    await L.evaluate(() => document.querySelector('#pcam .pc-go').click());
+    const lon = await until(L, () => HOST.collab.previewOn() && HOST.renderer.xr.isPresenting, null, 15000);
+    check('preview: a link with &camera on a computer opens its own page: Start the preview camera (once joined; no dialog, not camera mode\'s page), which starts it',
+      lk && lv.pre && lv.go === 'Start the preview camera' && !lv.dlg && !lv.cam && lon, JSON.stringify({ lk, lv, lon }));
+    // a reload while it runs (as a new release or Update the room reloads a page, keeping its place): it starts again by
+    // itself, no Enter VR to continue
+    await L.evaluate(() => HOST.live.reload('room'));
+    await sleep(1500);
+    await L.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    const back = await until(L, () => HOST.collab.previewOn() && HOST.renderer.xr.isPresenting, null, 60000);
+    const lb = await L.evaluate(() => ({ go: !document.getElementById('xrgo').hidden, log: window.__collabLog.filter(e => /^preview camera/.test(e.ev)).map(e => e.ev + (e.start ? ' ' + e.start : '')) }));
+    await L.evaluate(() => HOST.collab.previewStop());
+    const loff = await until(L, () => !HOST.collab.previewOn() && !HOST.session && !sessionStorage.getItem('collabPcam'), null, 8000);
+    check('preview: reloaded while it runs (a release or Update the room), it starts again by itself (no Enter VR to continue); stopped, it stays stopped',
+      back && !lb.go && lb.log.includes('preview camera reload') && loff, JSON.stringify({ back, lb, loff }));
+    // a circle under the camera's glyph on A's map: a click there follows the circle and a drag moves it; the camera is
+    // not touched (mapGrab tests circles first)
+    await A.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 500)); });
+    const g0 = await A.evaluate(() => { const m = HOST.collab.mapCam(), tf = HOST.collab.mapView(); return m && [tf.ix(m.x), tf.iz(m.y)]; });
+    const id3 = await A.evaluate(([k, x, z]) => HOST.collab.add(k, { x, z, yaw: 0 }), [K1, g0[0], g0[1]]);
+    await until(A, id => !!HOST.collab.station(id) && !HOST.collab.internals().pending.size, id3, 5000);
+    await sleep(500);
+    const kc0 = JSON.stringify((await keyNow()).v), nc0 = await sets(A), S3 = await A.evaluate(id => HOST.collab.station(id), id3);
+    const m3 = await A.evaluate(() => HOST.collab.mapCam()), d3 = await px([S3.x, S3.z]);
+    await drag([m3.x, m3.y], [m3.x, m3.y]);
+    const f3 = await A.evaluate(() => HOST.collab.following());
+    await drag([m3.x, m3.y], await px([S3.x + 1, S3.z]));
+    await sleep(300);
+    const S3b = await A.evaluate(id => HOST.collab.station(id), id3), kc1 = JSON.stringify((await keyNow()).v), nc1 = await sets(A);
+    check('preview: a circle under the camera\'s glyph on the map keeps its click (followed) and its drag (moved); the camera not touched',
+      !!id3 && near(d3, [m3.x, m3.y], 2) && f3 === id3 && Math.abs(S3b.x - (S3.x + 1)) < 0.05 && Math.abs(S3b.z - S3.z) < 0.05 && kc1 === kc0 && nc1 === nc0,
+      JSON.stringify({ id3, d3, m3, f3, S3, S3b, kc0, kc1, nc0, nc1 }));
+  } finally {
+    ROOM = ROOM0;
+    if (H) await H.evaluate(() => window.__xr && window.__xr.end()).catch(() => {});
+    for (const p of [A, D, H, L].filter(Boolean)) await p.context().close().catch(() => {});
+  }
+}
+
 // ---- rooms across updates (v136; reloadRound, --reload): a relay that serves a copy of the app restarted serving
 // another, as a deploy on Coolify, and Update the room. Three copies made in a temporary folder by tools/release.mjs (as
 // tools/live.mjs does): old (this code, its FORMAT F), new (this code, F + 1) and v135 (the release before, git 7c32b37,
@@ -7722,6 +7990,7 @@ try {
   if (WALK_ONLY) { await walkRound(); break main; }
   if (SHIPS_ONLY) { await shipsRound(); break main; }
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
+  if (PREVIEW_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await previewRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
   if (AREAS_ONLY) { await areasRound(); break main; }
@@ -10008,6 +10277,8 @@ try {
   await trackersRound(shots);
   // ------------------------------------------- camera mode (a phone filming the room; a room of its own) --
   await cameraRound(shots);
+  // ------------------------------- the desktop preview camera (a screen for onlookers; a room of its own) --
+  await previewRound(shots);
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -10088,8 +10359,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

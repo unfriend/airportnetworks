@@ -1663,6 +1663,36 @@ handles let go, no places kept (nothing in `roomFrames` or `roomFrame`), and *Ex
 joined, no dialog; with `--shots` its pictures, `camera-*.png`: the overlay while aiming, following,
 panels hidden, subtitles, and the link's page).
 
+### collab.mjs --preview
+
+`--preview` runs only the desktop preview camera (`previewRound`, also in the main run after camera mode; a room of its
+own with two story circles, a page A, a desktop page D (a computer's: `openDevice` with no user agent, its pretend
+`navigator.xr` offering nothing, every set and fx it sends recorded) and a pretend headset H (Quest Browser's user agent),
+about three minutes; with `--shots` its pictures, `preview-*.png`: A's dialog, D's overlay, D's picture with the overlay
+hidden, the headset drawn on D, the link's page): `FORMAT` networks-48; the Shared dialog's *Preview camera* on D with its
+line (*TV or a projector*, *Not placed yet*), none in H's browser; with no `pcam`, the default (3 m behind the first
+circle, 1.6 m up, looking at it, 60 degrees) and nothing written; on A's room map (no headset in the room) the camera
+dragged: one write as it is let go (`ts`, `by`; its height, turn and field of view kept), then its handle dragged towards
+the second circle: one more write (aimed there within 0.3 degrees, level); *Preview camera* pressed on D: the story's
+own `xrStart` gets the shell's pretend `immersive-vr` session (three.js presenting it, the canvas and its viewport
+960 x 540, the room's frame src `pcam`, the dialog closed, `body.pcam`), its three.js camera at the key's place and turn
+(1 mm, 0.1 degree) with its field of view, A hearing a member of kind `cam` named *Preview camera*, D following the
+circle it looks at (*What it looks at*: the second, its story loaded); the overlay shown, hidden with the pointer after
+3 s without the mouse, back as it moves; its numbers typed and Enter: one write (`ts`, `by`), the three.js camera on it;
+keys (ArrowUp three times, Shift+E): shown at once, one write as the run ends (30 cm along its aim, 1 cm up), Space
+reaching no story; the wheel (two steps: 52 degrees, one write) and a drag on the picture (50 px right, 20 px up: aim
++10 and tilt +4 degrees, one write); H lined up on the floor spots and in the first circle, its menu open: the camera's
+marker at its place (opaque lines, over everything); *Place the preview camera*: the marker where a press would put it,
+the ray's hover the shell's (`pcam`), the button *Placing: pull the trigger*; the trigger: one write from H (the
+controller's tip within 1 cm, its ray within 0.1 degree, level), placing over; D's three.js camera on it (1 mm, 0.1
+degree, its field of view kept); H drawn on D (head, hand, ray); a turn with a roll (5 degrees, written by A): D's
+*Level* says so, R levels it (one write, aim and tilt kept); D sent nothing but its presence and `pcam`; *Stop*: the
+pretend session ended, a page again (kind `desktop`, following on), the browser's `XRWebGLLayer` back, nothing kept for
+a reload; a link with `&camera` on a computer: its own page, *Start the preview camera* (no dialog, not camera mode's
+page), which starts it; reloaded as a release reloads a page (`HOST.live.reload`), it starts again by itself (no *Enter
+VR to continue*); stopped, it stays stopped; a circle added under the camera's glyph on A's map keeps its click (A
+follows it) and its drag (it moves), and the camera's key is not touched (`mapGrab` tests circles first).
+
 ### collab.mjs --design
 
 `--design` runs only the design room

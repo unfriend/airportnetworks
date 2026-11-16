@@ -26,8 +26,8 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-47';   // the shared state's format (keys, the stories' state()): bump when it changes shape
-  // networks-47 (v146): the room's key name; the studio's sequences and press reactions
+  const FORMAT = 'networks-48';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
@@ -184,13 +184,20 @@
   // was written and whether it was still held (ts, h: smoothing, below), so the same place written again is no change
   const SM_RE = /^st\.([\w-]{1,32})(?:\.(place|panel|view))?$/;
   const bare = v => { if (!v || typeof v !== 'object' || Array.isArray(v) || !('ts' in v || 'h' in v)) return v; const o = Object.assign({}, v); delete o.ts; delete o.h; return o; };
-  const sig = (k, v) => J(SM_RE.test(k) ? bare(v) : v);
+  const sig = (k, v) => J(SM_RE.test(k) || k === 'pcam' ? bare(v) : v);   // (pcam, the preview camera's place: also a move by hand)
   const now = () => clock() + C.offset;   // the relay's clock
   // camera mode (v124, "camera mode" below): a phone filming the room in AR; on while its session runs (want: Start pressed;
   // sess: the session its own request gave, the only one that is the camera's). Its kind is 'cam' (the relay's members,
   // presence), never a headset's
   const CAM = { pk: '', ok: null, want: false, wantAt: 0, asked: 0, sess: null, on: false, link: false, phase: 'off', err: '', el: null, src: null, srcBusy: false, noHit: false,
-    hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set() };
+    hit: null, hitAt: 0, drawAt: 0, hidden: false, hintAt: 0, panels: true, people: true, subs: false, list: false, taps: [], sent: new Set(), pc: false };
+  // the desktop preview camera (v153, "the preview camera" below): camera mode's observer on a desktop page, CAM.on with
+  // CAM.pc, in a pretend headset session the shell makes (want: Start pressed; sess: the pretend session; cur: the pose shown
+  // now, { p, q, fov } in room coordinates; edit: changed here and not yet written; auto: Follow what it looks at). PCP: a
+  // headset placing it (the menu's Place the preview camera: the next trigger press)
+  const PC = { want: false, wantAt: 0, sess: null, link: false, phase: 'off', err: '', el: null, cur: null, def: true, edit: false, runT: 0, drag: null, seenAt: 0, idle: false,
+    list: false, auto: true, autoAt: 0, patch: null, keys: false, drawAt: 0, why: '', m: null, vs: null, fov: 60 };
+  const PCP = { on: false, at: 0 };
   const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
   // counts as here; in VR the shell's panel asks once per room (askHere), and the answer is kept per room code
@@ -750,7 +757,7 @@
   // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen; reload: 1, this app
   // obeys the room's reload orders in its turn, so a relay that moves the room on refuses it only after its turn, v136)
   function hello() {
-    send({ t: 'hello', name: CAM.on ? 'Camera' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 });   // (a camera: named so in the lists)
+    send({ t: 'hello', name: CAM.on ? (CAM.pc ? 'Preview camera' : 'Camera') : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 });   // (a camera: named so in the lists)
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
@@ -839,7 +846,8 @@
   }
   // stored writes: one batch, one seq; the value shown here at once (optimistic), acknowledged when it comes back
   function publish(pairs, force) {
-    if (CAM.on) { camQuiet(pairs.map(p => p[0])); return false; }   // (a camera writes nothing to the room: camera mode)
+    // (a camera writes nothing to the room: camera mode; the desktop preview camera only its own place, pcam)
+    if (CAM.on && !(CAM.pc && pairs.every(p => p[0] === 'pcam'))) { camQuiet(pairs.map(p => p[0])); return false; }
     const out = [];
     for (const [k, v] of pairs) {
       const s = sig(k, v);
@@ -2245,6 +2253,7 @@
       if (!P) C.pres.set(id, (P = { id }));
       P.at = performance.now(); P.st = typeof v.st === 'string' ? v.st : '';
       P.cam = v.kind === 'cam';   // (a phone in camera mode: never drawn, never a person in a headset)
+      P.pc = P.cam && v.pc === 1;   // (the desktop preview camera: on the room map as its place, pcam)
       P.bv = typeof v.bv === 'string' ? v.bv.slice(0, 8) : '';   // its Quest Browser version (versionNote)
       P.sp = typeof v.sp === 'string' ? v.sp.slice(0, 64) : ''; P.al = typeof v.al === 'string' ? v.al.slice(0, 8) : '';   // its shared space and what aligns it (alignedHere)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
@@ -3463,6 +3472,9 @@
     OV.camRet = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.065, 40).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
     OV.camRet.renderOrder = 75; OV.camRet.visible = false; OV.root.add(OV.camRet);
+    // the desktop preview camera's place (pcamMark): a small camera and the outline of its view, opaque lines over everything
+    OV.pcam = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: CYAN, depthTest: false, depthWrite: false }));
+    OV.pcam.renderOrder = 53; OV.pcam.visible = false; OV.pcam.frustumCulled = false; OV.room.add(OV.pcam);
     OV.root.visible = false;
   }
   const MARK = 0xffb43b;
@@ -3511,6 +3523,7 @@
     }
     eyeSpots(eye && OV.marks.visible, t);   // (asked by eye: the crosses lit, a beam and a letter over each)
     areaMarks(eye, OV.marks.visible ? mk : null, t);
+    pcamMark();   // (the desktop preview camera's place: while placing it, and while the menu is open)
     for (let i = 0; i < 2; i++) {
       const h = C.rays.get(i), A = OV.aims[i];
       A.visible = !!(tipMode() && h && C.frameN - h.n <= 2);
@@ -4385,7 +4398,7 @@
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
       // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
       // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
-      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st) : '', C.via, hosting(), C.takeover, C.peer,
+      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st + (P.pc ? 'p' : '')) : '', PCP.on, R.aligned, C.via, hosting(), C.takeover, C.peer,
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
@@ -5271,7 +5284,10 @@
       // back to the lobby from wherever this headset is (v142): its story ends here, every circle shows again. Not at the
       // room's arc, which everyone in the room is at without walking in (arcStep would take it straight back)
       const arcNow = arcSt();
-      button(S, 'tolobby', x, y, w, 56, 'Back to the lobby', HOST.session && !CAM.on && C.live && !(arcNow && arcNow.id === C.live) ? () => { sfx('enter'); toLobby(''); } : null, { px: 22 });
+      button(S, 'tolobby', x, y, bw, 56, 'Back to the lobby', HOST.session && !CAM.on && C.live && !(arcNow && arcNow.id === C.live) ? () => { sfx('enter'); toLobby(''); } : null, { px: 22 });
+      // the desktop preview camera's place from this controller (v153): the next trigger press, its tip looking along its ray
+      // (pcamPlace; pressed again while placing: stop). Beside Back to the lobby, so the menu grows no taller
+      button(S, 'pcam', x + bw + 16, y, bw, 56, PCP.on ? 'Placing: pull the trigger' : 'Place the preview camera', HOST.session && !CAM.on && !C.local && R.aligned ? () => pcamPlace(!PCP.on) : null, { px: 21, on: PCP.on });
       y += 72;
       // at an All stories circle: its switch (Own stories, or With the room's circles: the room's circle of the story
       // picked here shares its moment; never refused by either lock) and back to its cards, for everyone at the circle
@@ -5315,7 +5331,7 @@
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
           const cam = m.id === C.id ? CAM.on : m.kind === 'cam' || !!(P && P.cam);   // (a phone in camera mode: a camera, never a headset here or elsewhere)
-          ctx.fillText(fit(ctx, (cam ? 'camera (filming)' : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
+          ctx.fillText(fit(ctx, (cam ? ((m.id === C.id ? CAM.pc : !!(P && P.pc)) ? 'preview camera' : 'camera (filming)') : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -7377,7 +7393,7 @@
     }
     h.hk = '';
     // calibrating (or Touch the spot): the trigger anywhere else takes a mark (or the spot) at the controller's tip
-    if (tip) { C.hov.set(i, { target: { kind: R.calib ? 'mark' : CK.arm ? 'check' : 'area' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
+    if (tip) { C.hov.set(i, { target: { kind: R.calib ? 'mark' : CK.arm ? 'check' : AD.on && AD.on.step !== 'replace' ? 'area' : 'pcam' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
     C.hov.set(i, null);
     return null;
   }
@@ -7392,6 +7408,7 @@
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'check') { checkTake(i); return; }   // Touch the spot (its Stop checking still works)
     if (h.target.kind === 'area') { areaTake(i); return; }   // an area's cross, as it is added (its Stop still works)
+    if (h.target.kind === 'pcam') { pcamTake(i); return; }   // the preview camera's place (the menu's button again stops it)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
     else if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
@@ -7624,7 +7641,7 @@
     if (HD.ok && HOST.sfx) HOST.sfx.listen(HD.p, HD.q);   // (the sound effects hear from your head)
     if (C.code && R.session) trkHere();   // (the Index on the PC: in the room, as the PC's trackers see it, before its frame is decided)
     if (C.code) R.update(f);
-    if (C.code && R.session && R.lfOK && HD.ok) { R.originCheck(t); R.sample(t); }
+    if (C.code && R.session && R.lfOK && HD.ok) { if (!CAM.pc) R.originCheck(t); R.sample(t); }   // (the preview camera's jumps are moves by hand)
     if (C.code && R.session) R.upload(t);
     if (HOST.session) placesStep(f, t, local);   // (where this headset is: the places' anchors, in a room or in none)
     if (C.code && R.session) gripStep(f, local);   // (the grips in room coordinates: presence's g, HOST.collab.body)
@@ -7638,7 +7655,7 @@
       presenceOut(t);
     } else if (C.code && R.session) statusOut(t);   // (not lined up yet, or no head pose: the pages' list still hears how it goes)
     if (C.code && R.session && !CAM.on) { guideStep(t); eyeStep(t); }   // (never a camera's: it lines up from its overlay)
-    if (CAM.on) camStep(f, t);
+    if (CAM.on) { if (CAM.pc) pcStep(t); else camStep(f, t); }   // (the desktop preview camera: the preview camera, below)
     phStep();   // (a phone's AR: its menu button and sheet)
     welStep(t);   // (Getting around, once a session; never a camera's: welCan)
     devStep(t);   // (developer mode: what is new, after the startup flow and the welcome; never a camera's: devCan)
@@ -7806,7 +7823,7 @@
     _q.setFromRotationMatrix(_m.extractRotation(R.mi)).multiply(HD.q);
     const head = [r3(R.hr.x), r3(R.hr.y), r3(R.hr.z), r3(_q.x), r3(_q.y), r3(_q.z), r3(_q.w)], hands = [];
     // a camera (camera mode): where it is (for the pages' room maps), the circle it shows, that it is a camera; no hands
-    if (CAM.on) { fx('p.' + C.id, { st: C.mine || '', head, hands, kind: 'cam', ts: Math.round(now()) }); return; }
+    if (CAM.on) { fx('p.' + C.id, Object.assign({ st: C.mine || '', head, hands, kind: 'cam', ts: Math.round(now()) }, CAM.pc ? { pc: 1 } : {})); return; }   // (pc: the desktop preview camera)
     // (the rays, the left hand's first: controller i is the session's input source i, in no fixed order of hands)
     for (const [i, h] of [...C.rays].sort((a, b) => handOf(a[0]) - handOf(b[0]))) {
       if (C.frameN - h.n > 2) continue;   // a controller the story no longer points with (counted in frames: a slow frame is no reason)
@@ -7847,7 +7864,7 @@
   function statusOut(t) {
     if (t - C.presAt < 1000) return;
     C.presAt = t;
-    if (CAM.on) { fx('p.' + C.id, { st: C.mine || '', kind: 'cam', ts: Math.round(now()) }); return; }   // (a camera not lined up yet)
+    if (CAM.on) { fx('p.' + C.id, Object.assign({ st: C.mine || '', kind: 'cam', ts: Math.round(now()) }, CAM.pc ? { pc: 1 } : {})); return; }   // (a camera not lined up yet)
     fx('p.' + C.id, { st: C.mine || '', bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', lu: luOut(), ts: Math.round(now()) });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
@@ -9255,6 +9272,8 @@
   }
   function align(f, local) {
     const t = performance.now();
+    // the desktop preview camera: its pretend session's local-floor space is the room's frame, nothing to line up
+    if (CAM.pc) { if (R.src !== 'pcam' || !R.frame) { R.frame = { o: [0, 0, 0], x: [1, 0, 0] }; R.src = 'pcam'; setState('pcam'); } return; }
     if (R.calib) return;   // calibrating: the old frame (if any) holds until both marks are in
     if (!here()) { ownFrame(f, local); return; }
     if (R.src === 'own') { R.frame = null; R.src = ''; }
@@ -9774,7 +9793,7 @@
     return { waiting: 'asking the headset...', 'shared-wait': 'lining up with the room...', restoring: 'finding last time\'s marks...',
       adopted: 'lined up through the shared space', shared: 'room ready (its origin)', marks: 'lined up from your two spots',
       anchor: 'lined up from your two spots', own: 'elsewhere: the room is round you', calibrate: 'not lined up: calibrate', floor: 'on your floor (this session)',
-      trackers: 'lined up by the PC\'s trackers',
+      trackers: 'lined up by the PC\'s trackers', pcam: 'a preview camera: the room is its own',
       'mark-a': 'touch spot A', 'mark-b': 'touch spot B' }[R.state] || R.state;
   }
 
@@ -9797,7 +9816,7 @@
   // (used: paired with one of mine); res: the last result ({ d m, by, at; spot: a check on its own }) until the next check
   // or frame
   const CK = { ok: 0.1, red: 0.25, win: 20000, late: 20000, keep: 300000, armFor: 30000, arm: false, self: '', pk: '', armAt: 0, mine: null, theirs: new Map(), res: null, n: 0 };
-  const tipMode = () => !!(R.calib || CK.arm || (AD.on && AD.on.step !== 'replace'));   // (the trigger takes the controller's tip: a mark, the spot, or an area's cross)
+  const tipMode = () => !!(R.calib || CK.arm || (AD.on && AD.on.step !== 'replace') || PCP.on);   // (the trigger takes the controller's tip: a mark, the spot, an area's cross, or the preview camera's place)
   // the room's frame came from a headset with another Quest Browser version (two versions never shared one space)
   const otherVersion = () => { const P = R.sharedId ? val(kFrame(R.sharedId)) : null, W = validFrame(P) && P.by !== C.id ? C.pres.get(P.by) : null; return !!(BROWSER && W && W.bv && W.bv !== BROWSER); };
   // how this headset lines up with the room, in plain words: k 'ok' (lined up), 'wait' (lining up), 'no' (not lined up, w
@@ -10380,6 +10399,7 @@
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
     notesRelease();   // (the notebook's Notes page: its sound stopped, its pictures and recording let go)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
+    PCP.on = false;   // (placing the preview camera: not across sessions)
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
     // controllers or hands are known), unless it is open by then
@@ -10556,6 +10576,7 @@
   if (HOST.xr && typeof HOST.xr.request === 'function') {
     const ask0 = HOST.xr.request;
     HOST.xr.request = mode => {
+      if (mode === 'immersive-vr' && PC.want) return pcRequest();   // (the desktop preview camera: its pretend session, below)
       if (mode === 'immersive-ar' && !CAM.want && phoneDev()) return phAsk(ask0, mode);   // (a phone's AR: its menu button, below)
       if (mode !== 'immersive-ar' || !CAM.want) return ask0(mode);
       CAM.asked = performance.now();
@@ -10570,6 +10591,7 @@
   // the session started (watch, first): the camera's when Start was pressed for it; ended: camera mode off (the page
   // follows on as a page does)
   function camSession(s) {
+    if (pcSession(s)) return;   // (the desktop preview camera's pretend session: the preview camera, below)
     if (s && CAM.want && (!CAM.sess || s !== CAM.sess)) {   // another session (not the one its own request gave): not the camera's
       log('camera: not this session', { asked: !!CAM.asked });
       Object.assign(CAM, { want: false, sess: null, phase: CAM.link ? 'start' : 'off' });
@@ -10834,6 +10856,689 @@
 #camera .cam-hint { position: absolute; left: 16px; right: 16px; top: 46%; margin: 0; text-align: center; font-size: 15px; text-shadow: 0 1px 3px #000, 0 0 8px #000; }
 `;
 
+  // ============================================================== the preview camera ==
+  // The desktop preview camera (v153; the owner, 16 November 2026: "A preview cam on desktop that shows what people are
+  // doing inside the virtual world and that i can move around so that i can place it in real space in the real position";
+  // a screen for onlookers, a TV or a projector at an event, showing from a fixed spot in the real room what the people in
+  // headsets are doing; placed from a headset's menu, and "build it but make it so that it can be placed on desktop too").
+  // Camera mode's sibling: CAM.on with CAM.pc, so every guard of camera mode applies (an observer that writes nothing to the
+  // room but its own place, pcam, and sends only its presence; no menu, notice, subtitle strip or frame rate drawn in 3D; no
+  // sound zone, its narration a page's; it walks into no circle). Offered on a computer's page (DEV 'screen', not a phone or
+  // a headset's browser) in a room that is not on this device only: the Shared dialog's Preview camera, or a link with
+  // &camera (its own page: Start the preview camera). Starting presses the page's Enter VR, so the story on show starts its
+  // session as a headset's does (xrStart, HOST.xr.request, xrAdopt: the stories unchanged), and HOST.xr.request (wrapped in
+  // camera mode above) gives it a pretend immersive-vr session the shell makes (pcSessionMake: no device; a frame on each of
+  // the page's animation frames; one view filling the canvas at the page's size, its device pixel ratio at most 2, with the
+  // camera's vertical field of view), whose local and local-floor spaces are the room's frame (align: src 'pcam', nothing to
+  // line up) and whose viewer is the camera. three.js r128's own WebXR path draws it: while it runs XRWebGLLayer gives the
+  // pretend session a layer that draws to the canvas itself and the context's makeXRCompatible answers at once (pcPatch, put
+  // back as it ends: a real headset on this computer afterwards is untouched; nothing of it is ever offered to a headset or
+  // to camera mode). Its place: the room's key pcam ({ p: [x, y, z], q: [x, y, z, w], fov, ts, by } in room coordinates);
+  // with none, a default 3 m behind the station followed, 1.6 m up, looking at it (pcamDefault, not written until moved).
+  // Placed and fine-tuned on the page itself (no headset needed): the overlay (#pcam: Follow, Panels, People, Sound,
+  // Subtitles, Full screen, Stop, and its numbers typed: x, y, z in metres from spot A, aim and tilt in degrees, field of
+  // view), a mouse drag (aim and tilt), keys (arrows or WASD along the floor, Q/E or Page Down/Page Up height, + and - or
+  // the wheel the field of view, Shift fine: 1 cm and 0.1 degree, R level); one write when a drag or a run of keys ends,
+  // never a frame. On every page's room map its glyph and wedge, dragged to place and aim it (one write when let go). From
+  // a headset: the menu's Place the preview camera, then the next trigger press (pcamTake). The overlay hides after 3 s
+  // without the mouse (an onlooker's screen shows no buttons) and comes back as it moves. Untested on a real TV, projector
+  // or headset
+  const PCAM = { fov: 60, min: 20, max: 110, back: 3, eye: 1.6, idle: 3000, run: 500, px: 1920 * 1080 };   // (px: the most pixels drawn: a TV across a room needs no more, and a heavy story stays smooth on a 4K screen)
+  const DEG = Math.PI / 180;
+  const _pcq = new THREE.Quaternion(), _pcp = new THREE.Vector3(), _pcs = new THREE.Vector3(), _pcm = new THREE.Matrix4(), _pcw = new THREE.Matrix4();
+  const pcOffered = () => !!(DEV === 'screen' && C.code && !C.local);
+  // the room's key as read: { p, q (a unit quaternion), fov (20 to 110), ts, by }, or null (none, or a value of another shape)
+  function pcamOf(v) {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+    const ok = (a, n) => Array.isArray(a) && a.length === n && a.every(x => typeof x === 'number' && Number.isFinite(x) && Math.abs(x) < 1000);
+    if (!ok(v.p, 3) || !ok(v.q, 4) || typeof v.fov !== 'number' || !Number.isFinite(v.fov)) return null;
+    const l = Math.hypot(v.q[0], v.q[1], v.q[2], v.q[3]);
+    if (!(l > 0.5 && l < 1.5)) return null;
+    return { p: v.p.slice(), q: v.q.map(x => x / l), fov: Math.min(PCAM.max, Math.max(PCAM.min, v.fov)), ts: Number.isFinite(v.ts) ? v.ts : 0, by: typeof v.by === 'string' ? v.by.slice(0, 64) : '' };
+  }
+  const pcamVal = () => pcamOf(val('pcam'));
+  // a turn from aim (along the floor: 0 looks from spot A towards spot B, the room's +x, growing to the right, towards +z),
+  // tilt (up) and roll, in radians, and back (three.js's YXZ: about the vertical, then up and down, then the roll)
+  function pcamQ(aim, tilt, roll) {
+    return _pcq.setFromEuler(new THREE.Euler(tilt, Math.atan2(-Math.cos(aim), -Math.sin(aim)), roll || 0, 'YXZ')).toArray();
+  }
+  function pcamAngles(q) {
+    const e = new THREE.Euler().setFromQuaternion(_pcq.fromArray(q), 'YXZ');
+    return { aim: Math.atan2(-Math.cos(e.y), -Math.sin(e.y)), tilt: e.x, roll: e.z };
+  }
+  // its place from a controller: at o, looking along d (room coordinates), level
+  const pcamFrom = (o, d, fov) => ({ p: [o.x, o.y, o.z], q: pcamQ(Math.atan2(d.z, d.x), Math.max(-89, Math.min(89, Math.asin(Math.max(-1, Math.min(1, d.y))) / DEG)) * DEG, 0), fov });
+  // with no place in the room: 3 m behind the station followed (or the first), 1.6 m up, looking at it; with no station, 3 m
+  // behind spot A looking towards spot B
+  function pcamDefault() {
+    const s = C.stById.get(C.follow) || C.stById.get(C.whoSt) || C.st.find(x => x.kind !== LOBBY_ST) || null;
+    const yaw = s ? s.yaw : -Math.PI / 2, [fx, fz] = fwd(yaw);
+    return { p: [(s ? s.x : 0) - PCAM.back * fx, PCAM.eye, (s ? s.z : 0) - PCAM.back * fz], q: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)], fov: PCAM.fov };
+  }
+  // the place shown now: this page's while it is changed here and not yet written (a drag, a run of keys), else the room's,
+  // else the default
+  function pcamNow() {
+    if (PC.edit && PC.cur) return PC.cur;
+    const K = pcamVal();
+    PC.def = !K;
+    PC.cur = K ? { p: K.p, q: K.q, fov: K.fov } : pcamDefault();
+    return PC.cur;
+  }
+  // written to the room once (a drag let go, a run of keys ended, numbers typed, a headset's press, the map): its place to
+  // the millimetre, its turn to 4 decimals, the field of view to 0.1 degree, when (ts) and by whom. Anyone in the room, never
+  // refused by either lock (as look, near, trk and name); never by a phone in camera mode
+  function pcamWrite(P, why) {
+    if (!C.code || (CAM.on && !CAM.pc) || !P) return false;
+    const v = pcamOf({ p: P.p, q: P.q, fov: P.fov });
+    if (!v) return false;
+    const out = { p: v.p.map(r3), q: v.q.map(r4), fov: Math.round(v.fov * 10) / 10, ts: Math.round(now()), by: C.id };
+    publish([['pcam', out]]);
+    log('preview camera placed', { why, p: out.p, fov: out.fov });
+    changed();
+    return true;
+  }
+  // where it is, in a line (the Shared dialog)
+  function pcamLine() {
+    const K = pcamVal(), m = K && member(K.by);
+    if (!K) return 'Not placed yet: drag its camera on the room map, or start it and move it.';
+    return `Placed${m ? ' by ' + (m.name || 'someone') : ''}: x ${K.p[0].toFixed(2)} m, z ${K.p[2].toFixed(2)} m, ${K.p[1].toFixed(2)} m up.`;
+  }
+
+  // the pretend session: its spaces are the room's (local, local-floor) or the camera (viewer); a frame on each of the
+  // page's animation frames, every callback asked for since given that frame, as a headset's are
+  function pcSpace(type) {
+    return { type, addEventListener() {}, removeEventListener() {},
+      getOffsetReferenceSpace(T) { const o = pcSpace(type); o.off = (this.off ? this.off.clone() : new THREE.Matrix4()).multiply(new THREE.Matrix4().fromArray(T.matrix)); return o; } };
+  }
+  function pcWorld(sp, out) {
+    if (sp && sp.type === 'viewer') out.copy(PC.m); else out.identity();
+    return sp && sp.off ? out.multiply(sp.off) : out;
+  }
+  function pcRigid(m) {
+    m.decompose(_pcp, _pcq, _pcs);
+    return { position: { x: _pcp.x, y: _pcp.y, z: _pcp.z, w: 1 }, orientation: { x: _pcq.x, y: _pcq.y, z: _pcq.z, w: _pcq.w }, matrix: Float32Array.from(m.elements) };
+  }
+  function pcRel(sp, base) {
+    if (!sp || !base) return null;
+    pcWorld(base, _pcw).invert();
+    return { transform: pcRigid(_pcw.multiply(pcWorld(sp, _pcm))), emulatedPosition: false };
+  }
+  const pcAspect = () => { const cv = HOST.renderer && HOST.renderer.domElement; return cv && cv.width && cv.height ? cv.width / cv.height : 16 / 9; };
+  function pcViewer(s, base) {
+    const P = pcRel(PC.vs, base);
+    if (!P) return null;
+    const n = s.renderState.depthNear || 0.1, f = s.renderState.depthFar || 1000, t = 1 / Math.tan(PC.fov * DEG / 2), a = pcAspect();
+    P.views = [{ eye: 'none', projectionMatrix: new Float32Array([t / a, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]), transform: P.transform }];
+    return P;
+  }
+  // once a frame of the pretend session: the canvas at the page's size (device pixel ratio at most 2, and at most PCAM.px
+  // pixels in all; three.js refuses its
+  // setSize while presenting, so it is set here), and the camera where its place is now
+  function pcFrameStep() {
+    const cv = HOST.renderer && HOST.renderer.domElement;
+    if (cv) {
+      const cw = cv.clientWidth || innerWidth, ch = cv.clientHeight || innerHeight, k = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(PCAM.px / Math.max(1, cw * ch)));
+      const w = Math.max(1, Math.round(cw * k)), h = Math.max(1, Math.round(ch * k));
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    }
+    const P = pcamNow();
+    PC.m.compose(_pcp.fromArray(P.p), _pcq.fromArray(P.q), _pcs.set(1, 1, 1));
+    PC.fov = P.fov;
+  }
+  function pcSessionMake() {
+    const s = new EventTarget(), cbs = new Map();
+    let n = 0, raf = 0;
+    PC.m = PC.m || new THREE.Matrix4(); PC.vs = pcSpace('viewer');
+    const tickAll = t => {
+      raf = 0;
+      if (s.ended || !cbs.size) return;
+      const list = [...cbs.values()];
+      cbs.clear();
+      pcFrameStep();
+      const f = { session: s, getViewerPose: b => pcViewer(s, b), getPose: (sp, b) => pcRel(sp, b),
+        createAnchor: () => Promise.reject(new DOMException('A preview camera keeps no anchors', 'NotSupportedError')) };
+      for (const cb of list) { try { cb(t, f); } catch (e) { if (typeof reportError === 'function') reportError(e); else setTimeout(() => { throw e; }); } }
+    };
+    return Object.assign(s, {
+      pcam: true, mode: 'immersive-vr', visibilityState: 'visible', environmentBlendMode: 'opaque', interactionMode: 'world-space', inputSources: [],
+      enabledFeatures: ['viewer', 'local', 'local-floor'], renderState: { depthNear: 0.1, depthFar: 1000, inlineVerticalFieldOfView: null, baseLayer: null }, ended: false,
+      // (every listener on it outlives a story change, as on a headset's own session: index.html keeps those of an XRSession)
+      addEventListener(type, fn, opts) { const q = HOST.quiet; HOST.quiet = true; try { return EventTarget.prototype.addEventListener.call(s, type, fn, opts); } finally { HOST.quiet = q; } },
+      updateRenderState(o) { if (o && typeof o === 'object') Object.assign(s.renderState, o); },
+      requestReferenceSpace: type => (['local', 'local-floor', 'viewer'].includes(type) ? Promise.resolve(type === 'viewer' ? PC.vs : pcSpace(type))
+        : Promise.reject(new DOMException(type + ' is not offered by a preview camera', 'NotSupportedError'))),
+      requestAnimationFrame(cb) { const id = ++n; cbs.set(id, cb); if (!raf && !s.ended) raf = window.requestAnimationFrame(tickAll); return id; },
+      cancelAnimationFrame(id) { cbs.delete(id); },
+      end() {
+        if (s.ended) return Promise.resolve();
+        s.ended = true; cbs.clear();
+        if (raf) { window.cancelAnimationFrame(raf); raf = 0; }
+        const ev = new Event('end'); ev.session = s;
+        s.dispatchEvent(ev);
+        return Promise.resolve();
+      },
+    });
+  }
+  // while the pretend session runs: XRWebGLLayer gives it a layer that draws to the canvas (any other session gets the
+  // browser's own), the context's makeXRCompatible answers at once (a computer with no headset may refuse), and navigator.xr
+  // a stand-in where the browser has none (the stories' xrStart asks for it). All put back as it ends
+  function pcPatch(on) {
+    if (on && !PC.patch) {
+      const N = window.XRWebGLLayer, gl = HOST.renderer && HOST.renderer.getContext(), P = PC.patch = { N, had: 'XRWebGLLayer' in window, gl: null, xr: false };
+      const W = function (s, g, init) { if (s && s.pcam) return pcLayer(g); if (!N) throw new TypeError('XRWebGLLayer is not supported here'); return new N(s, g, init); };
+      if (N) { W.prototype = N.prototype; if (typeof N.getNativeFramebufferScaleFactor === 'function') W.getNativeFramebufferScaleFactor = s => N.getNativeFramebufferScaleFactor(s); }
+      window.XRWebGLLayer = W;
+      if (gl && !Object.prototype.hasOwnProperty.call(gl, 'makeXRCompatible')) { gl.makeXRCompatible = () => Promise.resolve(); P.gl = gl; }
+      if (!navigator.xr) {
+        try {
+          Object.defineProperty(navigator, 'xr', { configurable: true, value: { isSessionSupported: () => Promise.resolve(false), addEventListener() {}, removeEventListener() {},
+            requestSession: () => Promise.reject(new DOMException('No WebXR in this browser', 'NotSupportedError')) } });
+          P.xr = true;
+        } catch (e) { /* kept as it was */ }
+      }
+      log('preview camera patch', { layer: !!N, compat: !!P.gl, xr: P.xr });
+    } else if (!on && PC.patch) {
+      const P = PC.patch;
+      PC.patch = null;
+      if (P.had) window.XRWebGLLayer = P.N; else delete window.XRWebGLLayer;
+      if (P.gl) delete P.gl.makeXRCompatible;
+      if (P.xr) try { delete navigator.xr; } catch (e) { /* kept */ }
+    }
+  }
+  function pcLayer(gl) {
+    const cv = gl.canvas;
+    return { framebuffer: null, antialias: true, ignoreDepthValues: false, get framebufferWidth() { return cv.width; }, get framebufferHeight() { return cv.height; },
+      getViewport: () => ({ x: 0, y: 0, width: cv.width, height: cv.height }) };
+  }
+  // HOST.xr.request's answer while Start was pressed (the wrapper in camera mode above): the pretend session
+  function pcRequest() {
+    if (PC.sess && !PC.sess.ended) return Promise.reject(new DOMException('The preview camera runs already', 'InvalidStateError'));
+    PC.sess = pcSessionMake();
+    log('preview camera session', {});
+    return Promise.resolve(PC.sess);
+  }
+  // Start (the dialog's button, the link's page, a reload while it ran): the story on show starts its session, as Enter VR
+  // does
+  function pcStart(why) {
+    if (!pcOffered() || HOST.session || !HOST.renderer || PC.want) { log('preview camera refused', { why, room: !!C.code, local: C.local, dev: DEV, session: !!HOST.session, want: PC.want }); pcShow(); return false; }
+    Object.assign(PC, { want: true, wantAt: performance.now(), sess: null, err: '', phase: 'starting' });
+    log('preview camera', { start: why });
+    if (DLG.open) dialog(false);
+    pcPatch(true);
+    pcShow();
+    const b = document.getElementById('btnVR'), at = PC.wantAt;
+    if (b) b.click();
+    setTimeout(() => { if (PC.want && PC.wantAt === at && !HOST.session) pcFailed('The story is still loading: try again in a moment.'); }, 3000);
+    return true;
+  }
+  function pcFailed(text) {
+    Object.assign(PC, { want: false, phase: PC.link ? 'start' : 'off', err: text || '' });
+    if (PC.sess && !PC.sess.ended) try { PC.sess.end(); } catch (e) { /* ended */ }
+    PC.sess = null;
+    pcPatch(false);
+    log('preview camera failed', { text });
+    pcShow();
+  }
+  function pcStop(why) {
+    log('preview camera stop', { why });
+    sesPut('collabPcam', null);
+    if (PC.edit) pcRunEnd();
+    try { if (PC.sess && !PC.sess.ended) PC.sess.end(); } catch (e) { /* ended already */ }
+  }
+  // the session started (camSession, first): the camera's only when it is the pretend session its own request gave; ended:
+  // a page again. True: handled here
+  function pcSession(s) {
+    if (s && PC.want && s !== PC.sess) {
+      log('preview camera: not this session', {});
+      Object.assign(PC, { want: false, phase: PC.link ? 'start' : 'off' });
+      pcPatch(false); pcShow();
+      return false;
+    }
+    if (s && PC.want) {
+      Object.assign(CAM, { on: true, pc: true, want: false, sess: null, hidden: false, list: false, panels: true, people: true });
+      Object.assign(PC, { want: false, phase: 'live', edit: false, drag: null, list: false, seenAt: performance.now(), idle: false, auto: !C.follow && !C.who, autoAt: 0 });
+      CAM.sent.clear();
+      document.body.classList.add('pcam');
+      pcKeys();
+      sesPut('collabPcam', C.code);   // (a reload while it runs, a new release or Update the room: it starts again by itself)
+      log('preview camera on', { who: C.who, st: C.follow, placed: !!pcamVal() });
+      if (PC.auto) pcAuto(true);
+      pcShow();
+      return true;
+    }
+    if (!s && CAM.pc) {
+      if (PC.edit) pcRunEnd();
+      clearTimeout(PC.runT); PC.runT = 0;
+      Object.assign(CAM, { on: false, pc: false, hidden: false, list: false });
+      Object.assign(PC, { phase: 'off', link: false, sess: null, edit: false, drag: null, list: false, idle: false });
+      sesPut('collabPcam', null);
+      document.body.classList.remove('pcam');
+      pcPatch(false);
+      try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) { /* not here */ }
+      log('preview camera off', { who: C.who, st: C.follow });
+      pcShow(); changed();
+      return true;
+    }
+    return false;
+  }
+  // a reload while it ran (sessionStorage collabPcam, this room): started again by itself once the room and the story are
+  // there (a pretend session needs no tap), within a minute; else its own page asks
+  function pcResume(code) {
+    const t0 = performance.now();
+    const go = () => {
+      if (CAM.pc || C.code !== code && C.code) return;
+      const ok = C.code === code && C.status === 'open' && HOST.cur && !HOST.busy && !HOST.session && HOST.cur.collab && HOST.cur.collab.scene && HOST.cur.collab.scene();
+      if (ok && pcStart('reload')) return;
+      if (performance.now() - t0 < 60000) setTimeout(go, 500); else { PC.link = true; pcShow(); }
+    };
+    setTimeout(go, 500);
+  }
+  // every frame of its session (tick): what it follows, the overlay hiding itself, its words
+  function pcStep(t) {
+    if (PC.auto) pcAuto(false, t);
+    if (!PC.idle && t - PC.seenAt > PCAM.idle && !PC.drag && !PC.list && !pcTyping()) { PC.idle = true; pcRender(); }
+    if (t - PC.drawAt > 200) { PC.drawAt = t; pcRender(); }
+  }
+  const pcTyping = () => { const a = document.activeElement; return !!(PC.el && a && PC.el.contains(a) && a.matches('input')); };
+  // Follow what it looks at (unless the page followed someone or a circle before, or one is picked in its list): the circle
+  // nearest the middle of its view along the floor, within its view; another taken only once it is 5 degrees nearer the
+  // middle, never while the camera is being moved. force: the nearest now, in view or not
+  function pcAuto(force, t) {
+    t = t || performance.now();
+    if (!force && (t - PC.autoAt < 500 || PC.edit || PC.drag)) return;
+    PC.autoAt = t;
+    const P = pcamNow(), a = pcamAngles(P.q).aim, half = Math.atan(Math.tan(P.fov * DEG / 2) * pcAspect()) + 10 * DEG;
+    let best = null, bd = Infinity, cur = Infinity;
+    for (const s of C.st) {
+      if (s.kind === LOBBY_ST) continue;
+      const [cx, cz] = content(s), d = Math.abs(angDiff(Math.atan2(cz - P.p[2], cx - P.p[0]), a));
+      if (s.id === C.follow) cur = d;
+      if (d < bd) { bd = d; best = s; }
+    }
+    if (!best || best.id === C.follow) return;
+    if (!force && (bd > half || (cur <= half && bd > cur - 5 * DEG))) return;
+    log('preview camera follows', { st: best.id, why: 'looks at it' });
+    choose(best.id, 'follow');
+  }
+  // a change made here (keys, the wheel, a drag, Level): shown at once, written once the run ends (ms after the last change;
+  // -1 a drag's, written as it is let go)
+  function pcEdit(P, ms, why) {
+    PC.cur = { p: P.p.slice(), q: P.q.slice(), fov: P.fov }; PC.edit = true; PC.why = why;
+    clearTimeout(PC.runT); PC.runT = 0;
+    if (ms >= 0) PC.runT = setTimeout(pcRunEnd, ms);
+    pcRender();
+  }
+  function pcRunEnd() {
+    clearTimeout(PC.runT); PC.runT = 0;
+    if (!PC.edit) return;
+    const P = PC.cur;
+    PC.edit = false;
+    pcamWrite(P, PC.why || 'keys');
+  }
+  const PC_CODE = { ArrowUp: 'f', KeyW: 'f', ArrowDown: 'b', KeyS: 'b', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', KeyQ: 'dn', PageDown: 'dn', KeyE: 'up', PageUp: 'up',
+    Equal: 'in', NumpadAdd: 'in', Minus: 'out', NumpadSubtract: 'out', KeyR: 'lv' };
+  // keys while it runs (the window's, first): the camera's moves; no other key reaches the story or the page (the stories'
+  // Space and /, the shell's Escape), as a camera changes nothing; the browser's own with Ctrl, Alt or Cmd, Tab and F keys
+  function pcKeys() {
+    if (PC.keys) return;
+    PC.keys = true;
+    quiet(() => window.addEventListener('keydown', pcKey, true));
+  }
+  function pcKey(ev) {
+    if (!CAM.pc) return;
+    PC.seenAt = performance.now();
+    if (PC.idle) { PC.idle = false; pcRender(); }
+    const tg = ev.target;
+    if (tg && tg.closest && tg.closest('input, textarea, select')) {   // (its numbers typed: Enter takes them)
+      if (ev.key === 'Enter' && tg.dataset && tg.dataset.pn) { ev.preventDefault(); pcTyped(); }
+      else if (ev.key === 'Escape') tg.blur();
+      ev.stopImmediatePropagation();
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey || /^(Tab|F\d{1,2})$/.test(ev.key)) return;
+    ev.stopImmediatePropagation();
+    if (ev.key === 'Escape') { if (PC.list) { PC.list = false; pcRender(); } return; }
+    let k = PC_CODE[ev.code], fine = ev.shiftKey;
+    // (the field of view by the character too: a German keyboard's + and - are other keys (BracketRight, Slash), and + needs
+    // Shift on a US one; by the character always a whole degree)
+    if (ev.key === '+' || ev.key === '-') { k = ev.key === '+' ? 'in' : 'out'; fine = false; }
+    if (!k) return;
+    ev.preventDefault();
+    pcNudge(k, fine);
+  }
+  // one key's step: along the floor relative to its aim (10 cm, Shift 1 cm), up and down (5 cm, Shift 1 cm), the field of
+  // view (1 degree, Shift 0.1), or level (its roll 0)
+  function pcNudge(k, fine) {
+    const P = pcamNow(), a = pcamAngles(P.q), m = fine ? 0.01 : 0.1, hs = fine ? 0.01 : 0.05, z = fine ? 0.1 : 1, fx = Math.cos(a.aim), fz = Math.sin(a.aim), p = P.p.slice();
+    let fov = P.fov, q = P.q;
+    if (k === 'f') { p[0] += fx * m; p[2] += fz * m; }
+    else if (k === 'b') { p[0] -= fx * m; p[2] -= fz * m; }
+    else if (k === 'r') { p[0] -= fz * m; p[2] += fx * m; }
+    else if (k === 'l') { p[0] += fz * m; p[2] -= fx * m; }
+    else if (k === 'up') p[1] += hs;
+    else if (k === 'dn') p[1] -= hs;
+    else if (k === 'in') fov = Math.max(PCAM.min, Math.round((fov - z) * 10) / 10);
+    else if (k === 'out') fov = Math.min(PCAM.max, Math.round((fov + z) * 10) / 10);
+    else if (k === 'lv') q = pcamQ(a.aim, a.tilt, 0);
+    pcEdit({ p, q, fov }, k === 'lv' ? 0 : PCAM.run, k === 'lv' ? 'level' : 'keys');
+  }
+  function pcLevel() { const P = pcamNow(), a = pcamAngles(P.q); pcEdit({ p: P.p, q: pcamQ(a.aim, a.tilt, 0), fov: P.fov }, 0, 'level'); }
+  // its numbers typed (Enter, or leaving the field): those given, the rest as they are
+  function pcTyped() {
+    if (!PC.el || !CAM.pc) return;
+    const num = k => { const n = PC.el.querySelector(`[data-pn="${k}"]`), x = n ? parseFloat(String(n.value).replace(',', '.')) : NaN; return Number.isFinite(x) ? x : NaN; };
+    if (PC.edit) pcRunEnd();
+    const P = pcamNow(), a = pcamAngles(P.q), p = ['x', 'y', 'z'].map((k, i) => (Number.isFinite(num(k)) && Math.abs(num(k)) < 500 ? num(k) : P.p[i]));
+    const aim = Number.isFinite(num('aim')) ? num('aim') * DEG : a.aim, tilt = Number.isFinite(num('tilt')) ? Math.max(-89, Math.min(89, num('tilt'))) * DEG : a.tilt;
+    const fov = Number.isFinite(num('fov')) ? Math.min(PCAM.max, Math.max(PCAM.min, num('fov'))) : P.fov;
+    pcamWrite({ p, q: pcamQ(aim, tilt, a.roll), fov }, 'typed');
+    PC.seenAt = performance.now();
+    pcRender();
+  }
+  // the mouse on the picture: a drag turns (left and right) and tilts (up and down), 0.2 degrees a pixel (Shift 0.02); the
+  // wheel the field of view
+  function pcDown(ev) {
+    PC.seenAt = performance.now();
+    if (!CAM.pc || ev.button !== 0 || (ev.target.closest && ev.target.closest('.pc-bar, button, input'))) return;
+    const a = pcamAngles(pcamNow().q);
+    PC.drag = { pid: ev.pointerId, x: ev.clientX, y: ev.clientY, lx: ev.clientX, ly: ev.clientY, aim: a.aim, tilt: a.tilt, roll: a.roll, moved: false };
+    try { PC.el.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
+    ev.preventDefault();
+  }
+  function pcMove(ev) {
+    PC.seenAt = performance.now();
+    if (PC.idle) { PC.idle = false; pcRender(); }
+    const D = PC.drag;
+    if (!D || ev.pointerId !== D.pid) return;
+    if (!ev.buttons) { pcUp(ev); return; }
+    if (!D.moved && Math.hypot(ev.clientX - D.x, ev.clientY - D.y) < 3) return;
+    D.moved = true;
+    const k = (ev.shiftKey ? 0.02 : 0.2) * DEG;
+    D.aim += (ev.clientX - D.lx) * k; D.tilt = Math.max(-89 * DEG, Math.min(89 * DEG, D.tilt - (ev.clientY - D.ly) * k));
+    D.lx = ev.clientX; D.ly = ev.clientY;
+    const P = pcamNow();
+    pcEdit({ p: P.p, q: pcamQ(D.aim, D.tilt, D.roll), fov: P.fov }, -1, 'drag');
+  }
+  function pcUp(ev) {
+    const D = PC.drag;
+    if (!D || ev.pointerId !== D.pid) return;
+    PC.drag = null;
+    if (D.moved) pcRunEnd();
+  }
+  function pcWheel(ev) {
+    if (!CAM.pc || (ev.target.closest && ev.target.closest('.pc-bar'))) return;   // (the Follow list scrolls)
+    ev.preventDefault();
+    PC.seenAt = performance.now();
+    const d = ev.deltaY || ev.deltaX, P = pcamNow(), z = ev.shiftKey ? 0.1 : 1;
+    if (!d) return;
+    pcEdit({ p: P.p, q: P.q, fov: Math.min(PCAM.max, Math.max(PCAM.min, Math.round((P.fov + (d > 0 ? z : -z)) * 10) / 10)) }, PCAM.run, 'wheel');
+  }
+  function pcFull() {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(e => log('preview camera full screen', { e: e && e.message }));
+    } catch (e) { /* not here */ }
+  }
+  // the overlay (#pcam; before it runs, its own page): built once, its listeners the shell's (a story change must not
+  // remove them)
+  function pcShow() {
+    if (PC.link && PC.phase === 'off' && !CAM.pc && !HOST.session) PC.phase = 'start';
+    const want = CAM.pc || PC.phase === 'start' || PC.phase === 'starting';
+    if (!want && !PC.el) return;
+    pcBuild();
+    PC.el.hidden = !want;
+    pcRender();
+  }
+  function pcBuild() {
+    if (PC.el) return PC.el;
+    const st = document.createElement('style');
+    st.textContent = PC_CSS;
+    document.head.appendChild(st);
+    const el = document.createElement('div');
+    el.id = 'pcam'; el.className = 'pre'; el.hidden = true;
+    const num = (k, label, unit, step) => `<label>${label} <input type="number" data-pn="${k}" step="${step}" inputmode="decimal" aria-label="${label} (${unit === '°' ? 'degrees' : 'metres'})"><i>${unit}</i></label>`;
+    el.innerHTML = `<div class="pc-pre" role="dialog" aria-label="Preview camera"><h2>Preview camera</h2>
+      <p>This screen shows the room from one fixed spot, with the stories, the circles and everyone in a headset as the headsets see them: for a TV or a projector, for the people watching.</p>
+      <p>Place it on the room map, from a headset's menu (Place the preview camera), or here with the mouse and keys.</p>
+      <p class="pc-why" hidden></p><p class="pc-err" hidden></p>
+      <button class="pc-go" type="button" data-pc="go">Start the preview camera</button><button type="button" data-pc="close">Not now</button></div>
+      <div class="pc-live"><div class="pc-bar"><p class="pc-status"></p><div class="pc-btns">
+        <button type="button" data-pc="follow" aria-expanded="false">Follow: what it looks at</button>
+        <button type="button" data-pc="panels">Panels: shown</button><button type="button" data-pc="people">People: shown</button>
+        <button type="button" data-pc="sound">Sound: on</button><button type="button" data-pc="subs">Subtitles: off</button>
+        <button type="button" data-pc="full">Full screen</button><button type="button" data-pc="stop">Stop</button></div>
+        <div class="pc-list" hidden></div>
+        <div class="pc-nums">${num('x', 'x', 'm', '0.01')}${num('y', 'y', 'm', '0.01')}${num('z', 'z', 'm', '0.01')}${num('aim', 'Aim', '°', '0.1')}${num('tilt', 'Tilt', '°', '0.1')}${num('fov', 'Field of view', '°', '0.1')}<button type="button" data-pc="level">Level</button></div>
+        <p class="pc-help">Measured from spot A on the floor: x along the line from spot A towards spot B, z to the right of that line, y up. Aim 0 looks from spot A towards spot B and grows to the right; tilt looks up. Drag the picture to turn and tilt it; arrows or WASD move it along the floor, Q and E (or Page Down and Page Up) down and up, the + and − keys or the wheel zoom in and out, Shift for fine steps, R levels it.</p></div>
+        <p class="pc-sub" hidden></p></div>`;
+    document.body.appendChild(el);
+    PC.el = el;
+    quiet(() => {
+      el.addEventListener('click', pcClick);
+      el.addEventListener('change', ev => { if (ev.target.dataset && ev.target.dataset.pn) pcTyped(); });
+      el.addEventListener('pointerdown', pcDown);
+      el.addEventListener('pointermove', pcMove);
+      el.addEventListener('pointerup', pcUp);
+      el.addEventListener('pointercancel', pcUp);
+      el.addEventListener('wheel', pcWheel, { passive: false });
+      document.addEventListener('fullscreenchange', () => pcRender());
+    });
+    return el;
+  }
+  function pcClick(ev) {
+    PC.seenAt = performance.now();
+    const b = ev.target.closest && ev.target.closest('[data-pc]');
+    if (!b || b.disabled || !PC.el.contains(b)) return;
+    const i = b.dataset.pc.indexOf(':'), act = i < 0 ? b.dataset.pc : b.dataset.pc.slice(0, i), arg = i < 0 ? '' : b.dataset.pc.slice(i + 1);
+    if (act === 'go') { pcStart('button'); return; }
+    if (act === 'close') { PC.phase = 'off'; PC.link = false; pcShow(); return; }
+    if (act === 'follow') PC.list = !PC.list;
+    else if (act === 'auto') { PC.auto = true; PC.list = false; if (C.who) whoStop('preview camera'); pcAuto(true); }
+    else if (act === 'who') { if (followPerson(arg)) { PC.auto = false; PC.list = false; } }
+    else if (act === 'st') { if (C.stById.has(arg)) { PC.auto = false; choose(arg, 'follow'); PC.list = false; } }
+    else if (act === 'none') { PC.auto = false; unfollow(); PC.list = false; }
+    else if (act === 'panels') CAM.panels = !CAM.panels;
+    else if (act === 'people') CAM.people = !CAM.people;
+    else if (act === 'sound') HOST.audio.mute(!HOST.audio.muted);
+    else if (act === 'subs') CAM.subs = !CAM.subs;
+    else if (act === 'level') pcLevel();
+    else if (act === 'full') pcFull();
+    else if (act === 'stop') { pcStop('button'); return; }
+    log('preview camera', { act, arg });
+    pcRender();
+  }
+  function pcFollowing() {
+    if (PC.auto) { const L = C.stById.get(C.follow); return 'Follow: what it looks at' + (L ? ' (' + stTitle(L) + ')' : ''); }
+    return camFollowing();
+  }
+  function pcRender() {
+    const el = PC.el;
+    if (!el || el.hidden) return;
+    const q = s => el.querySelector(s), text = (s, v) => { const n = q(s); if (n && n.textContent !== v) n.textContent = v; };
+    const show = (s, on) => { const n = q(s); if (n && n.hidden === !!on) n.hidden = !on; }, pressed = (s, on) => { const n = q(s); if (n && n.getAttribute('aria-pressed') !== String(on)) n.setAttribute('aria-pressed', String(on)); };
+    el.classList.toggle('live', CAM.pc); el.classList.toggle('pre', !CAM.pc);
+    if (!CAM.pc) {   // its own page: Start the preview camera
+      const why = IS_HEADSET ? 'The preview camera is for a computer\'s screen: in a headset, the room is all around you already.' :
+        DEV !== 'screen' ? 'The preview camera is for a computer\'s screen: on a phone, Camera mode films the room through its camera.' :
+          !C.code ? 'Joining the room...' : C.local ? 'This room is on this device only: the preview camera needs a room the headsets are in.' : '';
+      text('.pc-why', why); show('.pc-why', !!why);
+      text('.pc-err', PC.err); show('.pc-err', !!PC.err);
+      const go = q('.pc-go');
+      go.hidden = DEV !== 'screen';
+      go.disabled = !pcOffered() || PC.phase === 'starting' || !!HOST.session;
+      text('.pc-go', PC.phase === 'starting' ? 'Starting the preview camera...' : 'Start the preview camera');
+      return;
+    }
+    el.classList.toggle('idle', PC.idle);
+    const P = pcamNow(), a = pcamAngles(P.q), K = pcamVal(), m = K && member(K.by), mu0 = !!(HOST.audio && HOST.audio.muted);
+    text('.pc-status', PC.def ? 'Not placed yet: drag the picture, use the keys or type its numbers (or place it on the room map, or from a headset\'s menu).'
+      : 'Placed' + (K && K.by === C.id ? ' here' : m ? ' by ' + (m.name || 'someone') : '') + (PC.edit ? ' (moving)' : '') + '.' +
+      (!mu0 && HOST.audio && HOST.audio.running && !HOST.audio.running() ? ' Sound starts at a click or a key.' : ''));
+    text('[data-pc="follow"]', pcFollowing()); q('[data-pc="follow"]').setAttribute('aria-expanded', String(PC.list));
+    text('[data-pc="panels"]', CAM.panels ? 'Panels: shown' : 'Panels: hidden'); pressed('[data-pc="panels"]', CAM.panels);
+    text('[data-pc="people"]', CAM.people ? 'People: shown' : 'People: hidden'); pressed('[data-pc="people"]', CAM.people);
+    const mu = !!(HOST.audio && HOST.audio.muted);
+    text('[data-pc="sound"]', mu ? 'Sound: off' : 'Sound: on'); pressed('[data-pc="sound"]', !mu);
+    text('[data-pc="subs"]', CAM.subs ? 'Subtitles: on' : 'Subtitles: off'); pressed('[data-pc="subs"]', CAM.subs);
+    text('[data-pc="full"]', document.fullscreenElement ? 'Leave full screen' : 'Full screen');
+    for (const [k, v] of [['x', P.p[0].toFixed(3)], ['y', P.p[1].toFixed(3)], ['z', P.p[2].toFixed(3)], ['aim', (a.aim / DEG).toFixed(1)], ['tilt', (a.tilt / DEG).toFixed(1)], ['fov', P.fov.toFixed(1)]]) {
+      const n = q(`[data-pn="${k}"]`);
+      if (n && document.activeElement !== n && n.value !== v) n.value = v;
+    }
+    const lv = q('[data-pc="level"]'), tilted = Math.abs(a.roll) >= 0.05 * DEG;
+    lv.disabled = !tilted; text('[data-pc="level"]', tilted ? `Level (roll ${(a.roll / DEG).toFixed(1)}°)` : 'Level');
+    // whom to follow: what it looks at, a person in a headset (as a page follows them), a circle (not the lobby), or nobody
+    const ppl = C.members.filter(m => m.id !== C.id && (m.kind === 'ar' || m.kind === 'vr')), sts = C.st.filter(s => s.kind !== LOBBY_ST);
+    const lsig = PC.list ? [PC.auto, C.who, C.follow, ppl.map(m => m.id + m.name + m.color), sts.map(s => s.id + s.story)].join('|') : '';
+    const ls = q('.pc-list');
+    if (ls.dataset.sig !== lsig) {
+      ls.dataset.sig = lsig;
+      ls.innerHTML = !PC.list ? '' : `<button type="button" data-pc="auto" aria-pressed="${PC.auto}">What it looks at</button><p>A person in a headset: the camera shows whichever circle they are at.</p>` +
+        (ppl.length ? ppl.map(m => `<button type="button" data-pc="who:${esc(m.id)}" aria-pressed="${!PC.auto && C.who === m.id}"><i style="background:${esc(m.color || '#888')}"></i>${esc(m.name || 'Someone')}</button>`).join('') : '<span>Nobody in a headset yet.</span>') +
+        '<p>Or a circle:</p>' + sts.map(s => `<button type="button" data-pc="st:${esc(s.id)}" aria-pressed="${!PC.auto && !C.who && C.follow === s.id}"><i style="background:${esc(meta(lookKey(s)).col)}"></i>${esc(stTitle(s))}</button>`).join('') +
+        `<button type="button" data-pc="none" aria-pressed="${!PC.auto && !C.who && !C.follow}">Nobody</button>`;
+    }
+    show('.pc-list', PC.list);
+    const sub = CAM.subs && !away() ? captionNow(performance.now())[0] : '';
+    text('.pc-sub', sub); show('.pc-sub', !!sub);
+  }
+  // for tests: where it stands, and the three.js camera of its last frame (its pose in the room, and its field of view)
+  function pcState() {
+    const L = liveSt(), K = pcamVal(), P = CAM.pc ? pcamNow() : K || pcamDefault();   // (not running: the room's place, else where it would start)
+    let cam = null;
+    try {
+      const xr = HOST.renderer && HOST.renderer.xr, s = PC.sess;
+      if (CAM.pc && xr && xr.isPresenting && s) {
+        const c = xr.getCamera(new THREE.PerspectiveCamera(60, 1, s.renderState.depthNear, s.renderState.depthFar)).cameras[0];
+        if (c) { c.matrix.decompose(_pcp, _pcq, _pcs); cam = { p: _pcp.toArray(), q: _pcq.toArray(), fov: 2 * Math.atan(1 / c.projectionMatrix.elements[5]) / DEG, vp: c.viewport ? [c.viewport.z, c.viewport.w] : null }; }
+      }
+    } catch (e) { cam = { err: e.message }; }
+    const cv = HOST.renderer && HOST.renderer.domElement;
+    return { on: CAM.pc, want: PC.want, phase: PC.phase, offered: pcOffered(), link: PC.link, err: PC.err, patched: !!PC.patch, pose: P && { p: P.p.slice(), q: P.q.slice(), fov: P.fov }, def: CAM.pc ? PC.def : !K,
+      key: K, edit: PC.edit, idle: PC.idle, list: PC.list, auto: PC.auto, follow: C.who ? 'person:' + C.who : C.follow ? 'station:' + C.follow : '', station: C.live, story: L ? L.story : '',
+      angles: P && (A => ({ aim: A.aim / DEG, tilt: A.tilt / DEG, roll: A.roll / DEG }))(pcamAngles(P.q)), cam, canvas: cv ? [cv.width, cv.height] : null, src: R.src, aligned: R.aligned, quiet: [...CAM.sent] };
+  }
+  const PC_CSS = `
+#pcam { position: fixed; inset: 0; z-index: 90; font: 14px/1.35 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #e7eef8; }
+#pcam[hidden] { display: none !important; }
+#pcam.pre { background: rgba(4, 10, 20, 0.95); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+#pcam.live { background: transparent; cursor: grab; touch-action: none; user-select: none; }
+#pcam.live.idle { cursor: none; }
+#pcam.live .pc-pre, #pcam.pre .pc-live { display: none; }
+#pcam .pc-pre { max-width: 460px; text-align: center; }
+#pcam .pc-pre h2 { font-size: 22px; margin: 0 0 12px; }
+#pcam .pc-pre p { color: #a9b8cc; margin: 0 0 10px; }
+#pcam .pc-pre .pc-why { color: #e7eef8; }
+#pcam .pc-err { color: #ffb43b; }
+#pcam button { font: inherit; font-size: 13px; color: #e7eef8; background: rgba(149, 166, 189, 0.2); border: 1px solid rgba(149, 166, 189, 0.4); border-radius: 8px; padding: 6px 10px; min-height: 32px; cursor: pointer; }
+#pcam button[aria-pressed="true"] { border-color: #46d9ff; background: rgba(70, 217, 255, 0.22); }
+#pcam .pc-go { display: block; width: 100%; font-size: 20px; padding: 16px; margin: 18px 0 10px; background: #46d9ff; color: #04131c; font-weight: 700; border-color: #46d9ff; }
+#pcam button:disabled { opacity: 0.45; cursor: default; }
+#pcam .pc-bar { position: absolute; left: 12px; top: 12px; max-width: min(780px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; background: rgba(4, 10, 20, 0.82); border-radius: 12px; padding: 10px 12px; cursor: default; user-select: text; }
+#pcam.idle .pc-bar { display: none; }
+#pcam .pc-bar > p { margin: 0 0 8px; font-size: 13px; }
+#pcam .pc-btns, #pcam .pc-nums, #pcam .pc-list { display: flex; flex-wrap: wrap; gap: 6px; }
+#pcam .pc-list { margin-top: 8px; max-height: 40vh; overflow-y: auto; }
+#pcam .pc-list p { flex-basis: 100%; margin: 4px 0 0; color: #a9b8cc; font-size: 12px; }
+#pcam .pc-list span { color: #a9b8cc; font-size: 12px; }
+#pcam .pc-list i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+#pcam .pc-nums { margin-top: 8px; align-items: center; }
+#pcam .pc-nums label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #a9b8cc; }
+#pcam .pc-nums input { width: 78px; font: inherit; font-size: 13px; color: #e7eef8; background: rgba(4, 10, 20, 0.9); border: 1px solid rgba(149, 166, 189, 0.4); border-radius: 6px; padding: 4px 6px; }
+#pcam .pc-nums i { font-style: normal; }
+#pcam .pc-help { margin: 8px 0 0; color: #a9b8cc; font-size: 12px; }
+#pcam .pc-sub { position: absolute; left: 16px; right: 16px; bottom: 16px; max-width: 900px; margin: 0 auto; text-align: center; background: rgba(4, 10, 20, 0.78); border-radius: 10px; padding: 6px 12px; font-size: clamp(16px, 2.2vmin + 10px, 30px); line-height: 1.3; pointer-events: none; }
+body.pcam > :not(#gl):not(#pcam) { display: none !important; }
+body.pcam #gl { width: 100vw !important; height: 100vh !important; }
+@media (max-width: 640px) { #pcam .pc-help { display: none; } }
+`;
+
+  // a headset places the preview camera (the menu's Place the preview camera): the next trigger press away from the menu
+  // takes the controller's tip and the way its ray points, in room coordinates, level (pcamTake); that press is the
+  // shell's, never the story's (tipMode). While placing, and while the menu is open, the camera shows as a small marker with
+  // the outline of its view (pcamMark: opaque lines, over everything), where a press would put it while placing
+  function pcamPlace(on) {
+    on = !!on;
+    if (on && (!C.code || !R.session || CAM.on || !R.aligned || R.calib || CK.arm || (AD.on && AD.on.step !== 'replace'))) {
+      notice('Not now', !R.aligned ? 'Line up with the room first: the camera\'s place is in the room\'s coordinates.' : 'Finish what the trigger is doing first.', 4000);
+      return false;
+    }
+    if (PCP.on === on) return on;
+    PCP.on = on; PCP.at = performance.now();
+    log('preview camera placing', { on });
+    if (on) notice('Place the preview camera', 'Hold a controller where the screen\'s camera should be, aim it where it should look, and pull the trigger.', 0);
+    else NOTE.until = 0;
+    changed();
+    return on;
+  }
+  function pcamTake(i) {
+    const h = C.rays.get(i);
+    if (!PCP.on || !h) return;
+    // (the room lost meanwhile: placing ends, else every trigger press stays the shell's while the menu row is greyed)
+    if (!R.aligned) { PCP.on = false; notice('Not placed', 'Line up with the room first: the camera\'s place is in the room\'s coordinates.', 4000); changed(); return; }
+    const K = pcamVal(), P = pcamFrom(steady(h).applyMatrix4(R.mi), h.d.clone().transformDirection(R.mi).normalize(), K ? K.fov : PCAM.fov);
+    PCP.on = false; NOTE.until = 0;
+    if (pcamWrite(P, 'headset')) { sfx('place', h.o); notice('Preview camera placed', 'The screen now shows the room from where the controller was, looking along its ray.', 4000); }
+    changed();
+  }
+  // where a press would put it now (the first controller pointing), or null
+  function pcamAimed() {
+    for (const h of C.rays.values()) {
+      if (C.frameN - h.n > 2) continue;
+      const K = pcamVal();
+      return pcamFrom(h.o.clone().applyMatrix4(R.mi), h.d.clone().transformDirection(R.mi).normalize(), K ? K.fov : PCAM.fov);
+    }
+    return null;
+  }
+  // the marker: a small camera (behind its eye) and the outline of its view 60 cm out (16:9), with a little roof on its top
+  // edge (which way is up)
+  function pcamGeom(fov) {
+    const D = 0.6, hh = D * Math.tan(fov * DEG / 2), hw = hh * 16 / 9, P = [], seg = (a, b) => P.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    const F = [[-hw, -hh, -D], [hw, -hh, -D], [hw, hh, -D], [-hw, hh, -D]];
+    for (let k = 0; k < 4; k++) { seg([0, 0, 0], F[k]); seg(F[k], F[(k + 1) % 4]); }
+    seg([-hw * 0.4, hh, -D], [0, hh * 1.3, -D]); seg([0, hh * 1.3, -D], [hw * 0.4, hh, -D]);
+    const V = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]].map(v => [v[0] * 0.07, v[1] * 0.045, v[2] * 0.1]);
+    for (const [a, b] of [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]) seg(V[a], V[b]);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    return g;
+  }
+  function pcamMark() {
+    const G = OV.pcam;
+    if (!G) return;
+    const on = !!(R.session && !CAM.on && OV.room.visible && R.aligned && (PCP.on || PNL.open));
+    const P = !on ? null : (PCP.on && pcamAimed()) || pcamVal();
+    G.visible = !!P;
+    if (!P) return;
+    if (G.userData.fov !== P.fov) { G.geometry.dispose(); G.geometry = pcamGeom(P.fov); G.userData.fov = P.fov; }
+    G.position.fromArray(P.p); G.quaternion.fromArray(P.q);
+  }
+  // the room map (every page's): the camera and its view's wedge (16:9), its place dragged to move it along the floor, the
+  // handle at the wedge's middle dragged to aim it; one write when let go. Dim while not placed (the default)
+  function pcamMap() {
+    const D = MAP.drag;
+    if (D && D.pc && D.pose) return Object.assign({ def: false }, D.pose);
+    const K = CAM.pc ? pcamNow() : pcamVal();
+    return K ? Object.assign({ def: CAM.pc ? PC.def : false }, K) : Object.assign({ def: true }, pcamDefault());
+  }
+  function pcamDraw(ctx, X, Y, sc) {
+    const M = pcamMap();
+    MAP.pc = null;
+    if (!M || !C.code) return;
+    const a = pcamAngles(M.q).aim, half = Math.atan(Math.tan(M.fov * DEG / 2) * 16 / 9), px = X(M.p[0]), py = Y(M.p[2]);
+    const L = Math.max(34, Math.min(90, 2.5 * sc)), hx = px + Math.cos(a) * L * 0.75, hy = py + Math.sin(a) * L * 0.75;
+    ctx.save();
+    ctx.globalAlpha = M.def ? 0.5 : 1;
+    ctx.fillStyle = 'rgba(70,217,255,0.12)'; ctx.strokeStyle = '#46d9ff'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.arc(px, py, L, a - half, a + half); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f2f6fc'; ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#46d9ff'; ctx.fillText(M.def ? 'Preview camera (not placed)' : 'Preview camera', px + 12, py + 14);
+    ctx.translate(px, py); ctx.rotate(a);
+    ctx.fillRect(-8, -5, 12, 10); ctx.beginPath(); ctx.moveTo(4, -2.5); ctx.lineTo(9, -6); ctx.lineTo(9, 6); ctx.lineTo(4, 2.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    MAP.pc = { x: px, y: py, hx, hy };
+  }
+
   // ============================================================== a phone's AR ==
   // A phone's (or a tablet's) AR session (v125; the owner, 8 November 2026: "No access to menu in ar on android, make it one
   // button on the top right"): a phone has no stick to click and no hand to pinch, so the shell's menu could not be opened in
@@ -11060,6 +11765,7 @@
       else if (act === 'follow') { choose(arg, 'follow'); dialog(false); if (!C.cardsOpen) HOST.closePicker(); }   // (an All stories circle's cards: its Stories screen stays)
       else if (act === 'unfollow') unfollow();
       else if (act === 'camera') { camStart('dialog'); return; }   // (camera mode: within this tap, as Enter AR)
+      else if (act === 'pcam') { pcStart('dialog'); return; }   // (the desktop preview camera)
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
@@ -11100,7 +11806,14 @@
     const at = ev => { const r = DLG.map.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
     DLG.map.addEventListener('pointerdown', ev => {
       if (MAP.drag || ev.button !== 0) return;
-      const [px, py] = at(ev), g = mapGrab(px, py), s = g && C.stById.get(g.id);
+      const [px, py] = at(ev), g = mapGrab(px, py), s = g && !g.pc && C.stById.get(g.id);
+      if (g && g.pc && MAP.tf) {   // (the preview camera: written once, as it is let go)
+        const M = pcamMap();
+        MAP.drag = { pc: true, turn: g.turn, pid: ev.pointerId, px, py, moved: false, tf: MAP.tf, ox: M.p[0] - MAP.tf.ix(px), oz: M.p[2] - MAP.tf.iz(py), from: M, pose: null };
+        try { DLG.map.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
+        ev.preventDefault();
+        return;
+      }
       if (!s || !MAP.tf) return;
       MAP.drag = { id: g.id, turn: g.turn, pid: ev.pointerId, px, py, moved: false, tf: MAP.tf, ox: s.x - MAP.tf.ix(px), oz: s.z - MAP.tf.iz(py),
         from: { x: s.x, z: s.z, yaw: s.yaw }, pose: null, at: 0, sent: '', locked: circlesLocked() };   // (locked: a click still follows)
@@ -11110,6 +11823,16 @@
     DLG.map.addEventListener('pointermove', ev => {
       const D = MAP.drag;
       if (!D || ev.pointerId !== D.pid) return;
+      if (D.pc) {   // the preview camera: moved along the floor, or aimed (its tilt, roll and field of view kept)
+        if (!ev.buttons) { end(ev); return; }
+        const r = DLG.map.getBoundingClientRect(), [qx, qy] = at(ev), px = Math.max(0, Math.min(r.width, qx)), py = Math.max(0, Math.min(r.height, qy));
+        if (!D.moved && Math.hypot(px - D.px, py - D.py) < 4) return;
+        D.moved = true;
+        const x = D.tf.ix(px), z = D.tf.iz(py), F = D.from, A = pcamAngles(F.q);
+        D.pose = D.turn ? { p: F.p.slice(), q: pcamQ(Math.atan2(z - F.p[2], x - F.p[0]), A.tilt, A.roll), fov: F.fov } : { p: [x + D.ox, F.p[1], z + D.oz], q: F.q.slice(), fov: F.fov };
+        drawMap();
+        return;
+      }
       const s = C.stById.get(D.id);
       if (!s) { MAP.drag = null; return; }
       if (!ev.buttons) { end(ev); return; }   // the button came up where we did not hear it
@@ -11126,6 +11849,11 @@
       const D = MAP.drag;
       if (!D || ev.pointerId !== D.pid) return;
       MAP.drag = null;
+      if (D.pc) {   // (the preview camera: one write as it is let go; an interrupted drag writes nothing)
+        if (D.moved && D.pose && ev.type === 'pointerup' && pcamWrite(D.pose, 'map')) sfx('place', null, { pan: (ev.clientX / Math.max(1, innerWidth) * 2 - 1) * 0.35 });
+        drawMap();
+        return;
+      }
       if (ev.type === 'pointercancel' || ev.type === 'lostpointercapture') {   // interrupted: back where it was
         if (D.moved) { D.pose = D.from; D.sent = ''; mapSend(D, true); }
       } else if (D.moved) { mapSend(D, true); if (!D.locked) sfx('place', null, { pan: (ev.clientX / Math.max(1, innerWidth) * 2 - 1) * 0.35 }); }
@@ -11216,6 +11944,8 @@
         (reloadCan() ? `<div class="row sh-reload"><button class="btn${reloadArmed() ? ' armed' : ''}" type="button" data-sh="reload" aria-pressed="${reloadArmed()}"${RL.busy ? ' disabled' : ''} title="${esc(reloadWhat())}">${esc(reloadLabel())}</button><span>${esc(reloadWhat())}</span></div>` : '') +
         // camera mode: a phone that has AR shows the room through its camera, for filming
         (camOffered() && !HOST.session ? `<div class="row sh-cam"><button class="btn primary" type="button" data-sh="camera">Camera mode</button><span>Show this room through this phone's camera, as the headsets see it, for filming: Android's screen recorder records it.</span></div>` : '') +
+        // the desktop preview camera: this screen shows the room from one fixed spot, for a TV or a projector (v153)
+        (pcOffered() && !HOST.session ? `<div class="row sh-pcam"><button class="btn primary" type="button" data-sh="pcam">Preview camera</button><span>Show this room on this screen from one fixed spot, as the headsets see it, for a TV or a projector. ${esc(pcamLine())}</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       const nin = $('#shRoomName'), nrow = $('.sh-name');
       if (nin) {
@@ -11265,7 +11995,7 @@
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? 'camera (filming)' : 'screen', cam: 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${HOST.ships && HOST.ships.person && HOST.ships.person(m.id) ? ' · ' + esc(HOST.ships.person(m.id)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? (P.pc ? 'preview camera' : 'camera (filming)') : 'screen', cam: P && P.pc ? 'preview camera' : 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${HOST.ships && HOST.ships.person && HOST.ships.person(m.id) ? ' · ' + esc(HOST.ships.person(m.id)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
       guideList();
@@ -11308,6 +12038,8 @@
     for (const s of C.st) pts.push([s.x, s.z], content(s));
     for (const P of C.pres.values()) if (P.head) pts.push([P.head[0], P.head[2]]);
     for (const T of tk) pts.push([T.p[0], T.p[2]]);
+    const PCm = pcamMap();   // (the desktop preview camera, placed or where it would start)
+    if (PCm) pts.push([PCm.p[0], PCm.p[2]]);
     const ars = areasAll();   // (the room's tape crosses, every area's, v131)
     for (const A of ars) pts.push([A.a[0], A.a[2]], [A.b[0], A.b[2]]);
     let x0 = Math.min(...pts.map(p => p[0])) - 1.2, x1 = Math.max(...pts.map(p => p[0])) + 1.2;
@@ -11352,7 +12084,7 @@
       ctx.fillText(m.title, b[0], b[1] + 8);
     }
     for (const [id, P] of C.pres) {
-      if (!P.head) continue;
+      if (!P.head || P.pc) continue;   // (the desktop preview camera: drawn as its place, pcamDraw)
       const m = member(id) || {}, col = m.color || '#f2f6fc', h = P.head;
       ctx.strokeStyle = col; ctx.lineWidth = 1.5;
       for (const r of P.hands) { const len = r[6] > 0.05 ? r[6] : 1.2; ctx.beginPath(); ctx.moveTo(X(r[0]), Y(r[2])); ctx.lineTo(X(r[0] + r[3] * len), Y(r[2] + r[5] * len)); ctx.stroke(); }
@@ -11365,6 +12097,7 @@
       ctx.restore();
       ctx.fillStyle = col; ctx.fillText(m.name || 'Someone', X(h[0]) + 12, Y(h[2]) + 12);
     }
+    pcamDraw(ctx, X, Y, sc);
     // the PC's trackers: a small dot each (dim while not seen) with its name, else the end of its serial
     ctx.font = '11px B612, "Segoe UI", Arial, sans-serif';
     for (const T of tk) {
@@ -11374,7 +12107,9 @@
     }
     MAP.trk = tk.length;
   }
-  // the station whose dot (to move it) or square (to turn it) is under the pointer
+  // the station whose dot (to move it) or square (to turn it) is under the pointer (or the preview camera: its place, to
+  // move it, or its handle, to aim it). Circles first: the camera only where no circle is within reach, since its dim
+  // default sits 3 m behind the circle followed, maybe on another one (a press there still follows or moves that circle)
   function mapGrab(px, py) {
     if (!MAP.tf) return null;
     let best = null, bd = 16;
@@ -11383,7 +12118,11 @@
       if (d < bd) { bd = d; best = { id: s.id, turn: false }; }
       if (q + 4 < bd) { bd = q + 4; best = { id: s.id, turn: true }; }   // a dot wins over a square at the same spot
     }
-    return best;
+    const G = MAP.pc;
+    if (best || !G) return best;
+    if (Math.hypot(G.hx - px, G.hy - py) < 9) return { pc: true, turn: true };
+    if (Math.hypot(G.x - px, G.y - py) < 11) return { pc: true, turn: false };
+    return null;
   }
   function mapSend(D, final) {
     const s = C.stById.get(D.id), P = D.pose, t = performance.now();
@@ -11415,6 +12154,7 @@
       changing = 0;
       renderDialog();
       camRender();   // (camera mode's overlay, when it shows)
+      pcRender();   // (the desktop preview camera's, likewise)
       document.querySelectorAll('[data-open-shared]').forEach(b => {
         b.classList.toggle('on', !!C.code);
         b.textContent = C.code ? 'Shared: ' + C.code : 'Shared';
@@ -11449,6 +12189,7 @@
     // VR (index.html) applies in a room only elsewhere
     here: () => here(),
     mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
+    mapCam: () => MAP.pc,   // where the room map drew the preview camera ({ x, y, hx, hy }: its place and its handle, in pixels), or null
     // the circles lock (no circle moved, added or removed) and a station's own lock (its scene and panels, at its circle)
     lock: on => setLock(on), get locked() { return circlesLocked(); },
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
@@ -11629,7 +12370,7 @@
     boot(hp) {
       if (hp.has('debug')) DEBUG = true;
       if (reloadBack()) return;   // (back from Update the room with the old release: once more before anything joins)
-      if (hp.has('camera')) CAM.link = true;   // (camera mode's link: one big button, Start the camera)
+      if (hp.has('camera')) { if (DEV === 'screen') PC.link = true; else CAM.link = true; }   // (camera mode's link: one big button, Start the camera; a computer's, the preview camera's)
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
       if (hp.has('peer')) setPeer(hp.get('peer'), 'link');
       if (hp.has('net')) pretendNet(hp.get('net'));   // (a pretend network, for tests: #net=<word>, off)
@@ -11641,6 +12382,9 @@
       detect().then(() => {
         join(code);
         if (CAM.link) { camShow(); return; }   // (camera mode's link: its own page, no dialog)
+        // (the preview camera's link: its own page; a reload while it ran: it starts again by itself)
+        if (DEV === 'screen' && sesGet('collabPcam') === code) { pcResume(code); return; }
+        if (PC.link) { pcShow(); return; }
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);
       });
     },
@@ -11658,6 +12402,12 @@
     // where it stands for tests ({ on, lined, follow, station, hidden, panels, people, ... }), offered here, and started (within
     // a tap, as Enter AR is)
     cameraMode: () => CAM.on, camera: () => camState(), cameraOffered: () => camOffered(), cameraStart: why => camStart(why || 'api'),
+    // the desktop preview camera (a computer's screen showing the room from one fixed spot): offered here, started, stopped,
+    // where it stands for tests ({ on, pose, key, def, edit, idle, follow, station, cam: the three.js camera's pose and field
+    // of view, canvas, quiet, ... }); its place (the room's key pcam, read: { p, q, fov, ts, by } or null), written ({ p, q,
+    // fov }: false with no room or in camera mode), and from a headset, the next trigger press (place(true); false: stop)
+    previewOn: () => CAM.pc, previewOffered: () => pcOffered(), previewStart: why => pcStart(why || 'api'), previewStop: () => pcStop('api'), preview: () => pcState(),
+    pcam: () => pcamVal(), setPcam: (P, why) => pcamWrite(P, why || 'api'), pcamPlace: on => pcamPlace(on !== false), pcamPlacing: () => PCP.on,
     // a phone's AR session (v125): its menu button and sheet ({ ar, shown, overlaid, button, open, sheet, menu, rect, rows }),
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },

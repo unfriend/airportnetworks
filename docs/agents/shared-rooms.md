@@ -32,7 +32,7 @@ generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: 
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code), `trk` (the PC's trackers in this room, `{ on, m: { a, b } | null, names, by, at }`: "Vive trackers"
-below; set by anyone, never refused by either lock; FORMAT networks-38), and `name` (a label for the room, `{ v, by, at }`: "Room names" below). The current `FORMAT` is networks-47 (`shared.js`); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
+below; set by anyone, never refused by either lock; FORMAT networks-38), `name` (a label for the room, `{ v, by, at }`: "Room names" below), and `pcam` (the desktop preview camera's place, `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates: "The desktop preview camera" below; set by anyone, never refused by either lock; FORMAT networks-48). The current `FORMAT` is networks-48 (`shared.js`); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (the owner: a circle with all stories, like the single-player story menu, the default for new shared rooms; and a Back to the lobby circle). Two kinds of circle that are the shell's own, not stories: never in `stories/list.js`, never started
@@ -562,7 +562,8 @@ The plan is `docs/shared-space-plan.md`.
     headset's browser (`IS_HEADSET`), in a room that is not on this device only (`camOffered`): *Camera mode* in the
     Shared dialog's room row, with a line saying what it is; and a link with `&camera` (`#s=XYZ&camera`): its own page
     (`#camera` before the session, `.cam-pre`) with one big button, *Start the camera* (a tap must start a session), the
-    dialog not opened. A headset's browser, or a device without AR, gets a sentence instead of the button.
+    dialog not opened. A headset's browser, or a device without AR, gets a sentence instead of the button (since v153 a
+    computer's page, `DEV` `'screen'`, opens the desktop preview camera's own page for `&camera` instead: below).
   - Starting (`camStart`, within the tap): `CAM.want` set, then the page's Enter AR button pressed (`btnAR.click()`), so
     the story on show starts its AR session as Enter AR does. `HOST.xr.request` (index.html) takes `extra` ({ features,
     init }), and `shared.js` wraps it: while `CAM.want`, AR also asks for `hit-test` and `dom-overlay` (`domOverlay: {
@@ -619,6 +620,116 @@ The plan is `docs/shared-space-plan.md`.
     station, story, hidden, panels, people, subs, list, words, quiet }`), `cameraOffered()`, `cameraStart(why)`.
   - Untested on a real phone: everything (the hit test on a tape cross and how close it lines up, a heavy story's frame
     rate on a phone, the DOM overlay on real Chrome, the recording with Android's screen recorder, sound in it).
+- The desktop preview camera (v153; the owner, 16 November 2026: "A preview cam on desktop that shows what people are
+  doing inside the virtual world and that i can move around so that i can place it in real space in the real position";
+  asked what for, a screen for onlookers: a TV or a projector at an event showing what the people in headsets are doing,
+  from a fixed spot in the real room; placed from a headset, fine-tuned on the desktop, its field of view settable so it
+  could match a real camera later; then "build it but make it so that it can be placed on desktop too"). The preview
+  camera section of `shared.js` (`PC`, `PCP`, `pcStart`, `pcSession`, `pcSessionMake`, `pcPatch`, `pcStep`, `pcRender`,
+  `pcamWrite`, `pcamTake`, `pcamMark`, `pcamDraw`), with small hooks elsewhere. Camera mode's sibling: `CAM.on` with
+  `CAM.pc`, so every guard of camera mode applies (`HOST.collab.cameraMode()` true; kind `cam`).
+  - Offered on a computer's page (`DEV` `'screen'`: not a phone or a tablet, which have Camera mode, nor a headset's
+    browser) in a room that is not on this device only (`pcOffered`): *Preview camera* in the Shared dialog's room row,
+    with a line saying what it is and where it stands (*Not placed yet...*, or *Placed by Ann: x, z, height*); and a link
+    with `&camera` on such a page (`PC.link`): its own page (`#pcam`, `.pc-pre`), *Start the preview camera* (the dialog
+    not opened; on a phone `&camera` is camera mode's link, as before).
+  - Starting (`pcStart`): `PC.want` set, `pcPatch(true)`, then the page's Enter VR pressed (`btnVR.click()`), so the story
+    on show starts its session as a headset's does (its own `xrStart`, `HOST.xr.request`, three.js's `setSession`,
+    `xrAdopt` on a story change: the stories unchanged). `HOST.xr.request` (wrapped in camera mode's section) answers
+    `immersive-vr` while `PC.want` with the shell's pretend session (`pcRequest`, `pcSessionMake`), never the browser's;
+    `pcSession` (first in `camSession`) takes only that session as the camera's (another session: not the camera's,
+    Start's wish dropped). No request within 3 s: *The story is still loading: try again in a moment.*
+  - The pretend session: an `EventTarget` with `mode` `immersive-vr` (a VR look: a computer has no camera image),
+    `environmentBlendMode` `opaque`, no input sources, `enabledFeatures` viewer, local and local-floor (no shared space,
+    no anchors: `createAnchor` refuses); its local and local-floor spaces are the room's frame itself (`align`: src
+    `'pcam'`, state `pcam`; nothing to line up, nothing calibrated or kept), its viewer the camera's place; a frame on
+    each of the page's animation frames (every callback asked since gets that frame, as a headset's do), with one view
+    filling the canvas at the page's size (device pixel ratio at most 2, and at most `PCAM.px`, 1920 x 1080's pixels, in all:
+    a 4K TV is drawn at about 1080p, enough across a room and smooth for a heavy story; `pcFrameStep` sets the canvas's size, since
+    three.js refuses `setSize` while presenting, and `#gl` is made 100vw x 100vh), its projection the camera's vertical
+    field of view at the canvas's aspect, near and far from `renderState`. Listeners on it are added with `HOST.quiet`
+    (as index.html keeps an `XRSession`'s), so a story change keeps three.js's. three.js r128's own WebXR path draws it:
+    while it runs (`pcPatch`) `window.XRWebGLLayer` is a wrapper that gives the pretend session a layer drawing to the
+    canvas itself (`framebuffer: null`, the canvas's size, one viewport) and any other session the browser's own layer,
+    the context gets its own `makeXRCompatible` answering at once (a computer with no headset may refuse), and a browser
+    without `navigator.xr` (Firefox, Safari) gets a stand-in offering nothing (the stories' `xrStart` asks for it); all
+    put back as it ends, so a real headset on that computer afterwards is untouched, and nothing of it is ever offered
+    to a headset or to camera mode.
+  - Its place in the room: the key `pcam` = `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates (FORMAT
+    networks-48): `p` to the millimetre, `q` to 4 decimals (made unit as it is read), `fov` the vertical field of view in
+    degrees to 0.1 (20 to 110, default 60), `ts` the relay's time of the write, `by` the writer. One camera for the room
+    (two screens at once would want a key per camera, `pcam.<id>`, each with its glyph on the map and the headset's row
+    asking which: not built). Read by `pcamOf` (a value of another shape reads as none); compared without `ts` and `h`
+    (`sig`); set by anyone in the room, never refused by either lock (as `look`, `near`, `trk` and `name`), never by a
+    phone in camera mode; the relay and the room on a device (peer to peer, this device only) store it by their usual key
+    rules (nothing changed there). With no `pcam`, the camera starts 3 m behind the station it follows (or the first),
+    1.6 m up, looking at it (`pcamDefault`; with no station, 3 m behind spot A looking towards spot B), not written until
+    someone moves it. Every change is written once, when a drag or a run of keys ends, numbers are typed, a map drag is
+    let go or a headset's trigger is pulled (never a frame); the camera shows a change made on its page at once
+    (`PC.edit`) and the room's again once written; one written elsewhere it jumps to.
+  - What it shows (as camera mode): the station it follows at its spot as a headset in the room sees it (`place`, its
+    story loaded, on the station's clock), the other circles' icons and cards, everyone in a headset with head and hands
+    whatever circle they are at (`drawPeople` in VR: there is no camera image; rays, dots, name tags); no menu, notices,
+    subtitle strip or frame rate in 3D, no sound zone (its narration a page's), never a 3D update panel (index.html's
+    `xrTick`: not on a camera's picture, camera mode's either). Walking never enters a circle.
+  - Follow (the overlay's *Follow* list): *What it looks at* (`PC.auto`, the default unless the page followed someone or
+    a circle before: the circle, not the lobby, nearest the middle of its view along the floor, within its view; another
+    taken only once 5 degrees nearer the middle, never while it is being moved; `pcAuto`), a person in a headset, a circle
+    or nobody (as camera mode's).
+  - Placed and fine-tuned on a computer, no headset needed: on every page's room map (the Shared dialog's) the camera is a
+    small cyan glyph with its view's wedge (16:9) and a handle at the wedge's middle (dim, *Preview camera (not placed)*,
+    at the default while there is no key; the camera's own presence is not drawn there as a box): its glyph dragged moves
+    it along the floor, its handle dragged aims it (tilt, roll and field of view kept); one write as it is let go, an
+    interrupted drag writes nothing (`mapGrab`, `MAP.drag.pc`, `pcamMap`, `pcamDraw`). A circle's dot or square within
+    reach wins over the camera, so a dim default lying on another circle never takes that circle's click or drag (drag the
+    camera from a free spot of its glyph). So it can be set up on the map and
+    then started, or a second laptop can place it for the TV's page. On the camera's page, its overlay's numbers can be
+    typed (x, y, z in metres, aim and tilt in degrees, the field of view): Enter or leaving a field writes them (`pcTyped`).
+    The room's origin: spot A on the floor, x along the line from spot A towards spot B, z to the right of that line, y up
+    (the overlay says so); aim 0 looks from spot A towards spot B and grows to the right (towards +z), tilt looks up.
+  - Its overlay (`#pcam`, built once, its listeners the shell's, its CSS `PC_CSS`; the page's own UI hidden behind it,
+    `body.pcam`): a bar with its status (*Not placed yet...* or *Placed by Ann.*), *Follow*, *Panels*, *People* (this
+    camera's own, as camera mode's), *Sound* (this device's mute), *Subtitles* (the captions as a strip at the foot),
+    *Full screen*, *Stop*, its numbers, *Level* (enabled with the roll it would take out), and a line of help. It hides
+    itself and the pointer after 3 s without the mouse moving (not while a field is typed in, the list is open or a drag
+    runs) and comes back as the mouse moves or a key is pressed. On the picture: a drag turns (left, right) and tilts (up,
+    down), 0.2 degrees a pixel, Shift 0.02; the wheel the field of view (1 degree, Shift 0.1). Keys (by their place on
+    the keyboard, `ev.code`): arrows or WASD move it along the floor relative to its aim (10 cm, Shift 1 cm), Q and E or
+    Page Down and Page Up down and up (5 cm, Shift 1 cm), the + and - keys zoom in and out (the field of view 1 degree,
+    Shift 0.1; also by the character typed, always 1 degree, since a German keyboard's + and - are other keys and + needs
+    Shift on a US one), R levels it (roll 0). A run of keys is written once, 0.5 s after its last key (`pcEdit`, `pcRunEnd`).
+    While it runs no other key reaches the story or the page (a window listener first: the stories' Space and /, the
+    shell's Escape), but the browser's own with Ctrl, Alt or Cmd, Tab and the F keys.
+  - From a headset: the menu's Circles tab has *Place the preview camera* beside *Back to the lobby* (always in a room,
+    so a camera can be placed before its screen is started; greyed until lined up, in a room on this device only and in
+    camera mode): pressed, the next trigger press away from the menu takes the controller's tip (its target ray's origin
+    held still, `steady`) and the way its ray points, in room coordinates, level (roll 0), the field of view kept
+    (`pcamTake`); the button again stops it, and so does losing the room meanwhile (the press then places nothing and says
+    to line up first, rather than every trigger press staying the shell's while the row is greyed). That press is the shell's, never the story's (`tipMode`: the ray's hover is
+    `pcam`, only the menu itself pointable meanwhile, the aim's ring at the tip, a notice saying what to do). While placing,
+    and while the menu is open, headsets draw the camera as a small marker with the outline of its view 60 cm out and a
+    little roof on its top edge (`OV.pcam`: cyan opaque lines over everything, nothing see-through), where a press would put
+    it while placing (`pcamAimed`), else at its place.
+  - An observer: it writes nothing to the room but `pcam` (`publish` refuses everything else, `fx` everything but its
+    presence; `camQuiet` logs each once), its presence is camera mode's with `pc: 1` (`{ st, head, hands: [], kind: 'cam',
+    pc: 1, ts }`; others mark it `P.pc`), its hello names it *Preview camera*; the pages' people list and the headset menu's
+    people rows say *preview camera*; never drawn in a headset or counted as one (camera mode's `P.cam`).
+  - Stop (or the session ending) ends the pretend session: a page again (kind `desktop`), following on, `pcPatch(false)`,
+    full screen left. A reload while it runs (a release, *Update the room*, by hand) starts it again by itself in that
+    room (sessionStorage `collabPcam`, `pcResume`: once the room and the story are there, within a minute, else its own
+    page; index.html's `reload()` keeps no *Enter VR to continue* for it, `HOST.collab.previewOn()`); Stop clears it.
+    A new release is not asked about on its picture: it takes it at its next reload.
+    Started again by itself, its sound waits for a click or a key (the browser's rule; the shell's unlock runs first on
+    either): the status line then ends *Sound starts at a click or a key.*
+  - For tests: `HOST.collab.previewOn()`, `previewOffered()`, `previewStart(why)`, `previewStop()`, `preview()` (`{ on,
+    want, phase, offered, link, err, patched, pose, def, key, edit, idle, list, auto, follow, station, story, angles, cam:
+    the three.js camera of its last frame { p, q, fov, vp }, canvas, src, aligned, quiet }`), `pcam()`, `setPcam(pose,
+    why)`, `pcamPlace(on)`, `pcamPlacing()`, `mapCam()` (the map's glyph and handle in pixels).
+  - Tests: `node tools/collab.mjs --preview` (`docs/agents/testing.md`).
+  - Untested: everything on a real TV or projector and on a real computer's GPU (only headless Chromium in software here;
+    Firefox and Safari, which have no WebXR, only by reading: the `navigator.xr` stand-in and the wrapper with no browser
+    layer), a heavy story's frame rate on a computer, full screen, the sound; on a real headset the placing (the
+    controller's tip and ray, how close it gets to a real camera's spot), the marker's look and the menu row.
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
