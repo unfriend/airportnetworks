@@ -1,0 +1,16 @@
+{
+  "version": "networks-v155",
+  "date": "2026-11-16",
+  "new": [
+    "Preview camera: hold W, A, S and D to move it smoothly along the floor, Q and E to go down and up, J and L to turn, I and K to tilt; Shift for slow; Speed: slow, normal or fast. Keys: steps brings back a step a press.",
+    "A click on the picture catches the mouse to look around (Esc lets it go); Mouse: drag only turns that off. The mouse pointer hides with the buttons.",
+    "Labels and Cards switches hide the labels, people's name tags and the circles' cards on the camera's screen only, never in a headset."
+  ],
+  "test": [
+    "On the laptop or TV: hold W and J together, then let go: it should glide and stop gently, the Quest's marker following. Then click the picture, look around with the mouse, press Esc.",
+    "Labels: hidden on the camera while the Quest still shows its labels."
+  ],
+  "untested": [
+    "A real keyboard and mouse, the mouse caught in full screen, how smooth the movement looks on a TV or projector, Firefox and Safari, and the Quest's marker following while it moves."
+  ]
+}

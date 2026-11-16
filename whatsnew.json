@@ -1,19 +1,16 @@
 {
-  "version": "networks-v154",
+  "version": "networks-v155",
   "date": "2026-11-16",
   "new": [
-    "Studio: trigger cubes can switch other trigger cubes off and on. On a cube's card, Pick what it hides (switches off) or Pick what it shows (switches on), then press the other cube, or a group's member to take all of the group's cubes. A cube some cube switches on waits switched off until then.",
-    "A cube switched off while you stand in it acts as if you walked out: what it showed hides again, its loops stop, its 'as you leave' reactions run; what a stay cube made stays. Switched on while you stand in it, it acts as if you walked in.",
-    "Sequences and press reactions can switch cubes on and off too (Switch it on / Switch it off). While editing, a switched-off cube is drawn darker and its card says what switched it off.",
-    "Rooms are now format 49: every device needs this release to join the same room."
+    "Preview camera: hold W, A, S and D to move it smoothly along the floor, Q and E to go down and up, J and L to turn, I and K to tilt; Shift for slow; Speed: slow, normal or fast. Keys: steps brings back a step a press.",
+    "A click on the picture catches the mouse to look around (Esc lets it go); Mouse: drag only turns that off. The mouse pointer hides with the buttons.",
+    "Labels and Cards switches hide the labels, people's name tags and the circles' cards on the camera's screen only, never in a headset."
   ],
   "test": [
-    "In the headset: two cubes that switch each other off (a pair of radio buttons): walk into one, then the other; the first one should keep the second off.",
-    "A door: a cube in front of a room switches on a cube inside it; walking in should start what the inside cube does only after you passed the first.",
-    "Switch a cube off from a press on an object, and from a sequence; walk into it and check nothing happens until it is switched on again."
+    "On the laptop or TV: hold W and J together, then let go: it should glide and stop gently, the Quest's marker following. Then click the picture, look around with the mouse, press Esc.",
+    "Labels: hidden on the camera while the Quest still shows its labels."
   ],
   "untested": [
-    "Everything with a real head and real controllers: walking into switching cubes, picking cubes with the trigger, how the darker cube and its tag read in the headset.",
-    "Cubes for everyone switching each other across several real headsets; a late joiner to a pair of such cubes may settle the other way."
+    "A real keyboard and mouse, the mouse caught in full screen, how smooth the movement looks on a TV or projector, Firefox and Safari, and the Quest's marker following while it moves."
   ]
 }
