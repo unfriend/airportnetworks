@@ -129,7 +129,7 @@ async function scanSave(root, w) {
   say('Saving the room scan: making the model...');
   try {
     const m = { root, clips: [], guess: { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: 'room scan' }, ext: 'glb', missing: [] };
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), keep: w.keep > 0 && w.keep < 1 ? w.keep : 0, picture: pvShotSoon, step: l => say(`Saving the room scan: ${l.toLowerCase()}...`) });
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), ktx2: ktxNow(), keep: w.keep > 0 && w.keep < 1 ? w.keep : 0, picture: pvShotSoon, step: l => say(`Saving the room scan: ${l.charAt(0).toLowerCase() + l.slice(1)}...`) });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture };
     if (gen !== STU.gen || GL.gone) return;

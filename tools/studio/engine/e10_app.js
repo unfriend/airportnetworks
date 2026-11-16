@@ -502,6 +502,7 @@ return {
     for (const it of STU.items.values()) if (it.kind === 'o') dropModel(it);
     for (const E of LIB.values()) if (E.root) disposeTree(E.root, true);
     LIB.clear(); SND.clear();
+    ktxDispose();   // (the KTX2 transcoder's and encoder's workers stopped: e5_models.js, engine/ktx2.js)
     if (GL.env) GL.env.dispose();
     for (const id of [...GH.keys()]) ghostDrop(id);
     if (GHOST.edges) GHOST.edges.dispose();

@@ -51,7 +51,7 @@ async function vwLoad(src) {
     const r = UP.rows[src.ri];
     if (!r || r.kind !== 'model') throw new Error('that row is not a model');
     let m = null;
-    try { m = (await upLoad(r)).m; } finally { r.main.buf = null; }   // (its bytes freed: loaded again when converted)
+    try { m = (await upLoad(r, maxTexView())).m; } finally { r.main.buf = null; }   // (its bytes freed: loaded again when converted)
     const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size), n = vwTris(m.root);
     r.tris = r.tris || n;
     return { root: m.root, own: true, fbx: r.main.ext === 'fbx', title: r.main.name, q: g.q, s: g.s, light: vwNormals(m.root) ? 'lit' : 'scan', lite: true, keep: r.keep === undefined ? FT_DEFAULT : r.keep, n0: n, cur: n };
@@ -63,12 +63,12 @@ async function vwLoad(src) {
     return { root: vwClone(it.E), own: false, title: it.rec.name, q: it.rec.q, s: it.rec.s, light: it.rec.light, rec: it.rec, lite: true, keep: FT.id === it.id ? FT.keep : FT_DEFAULT, n0: b.n0, cur: b.cur };
   }
   // an Add card: what a press would place (the GLB that stands for an original, else the file); the scene's model when it
-  // is loaded here, else fetched and loaded as the converter loads it (its pictures at the studio's limit)
+  // is loaded here, else fetched and loaded as the converter loads it (its pictures at most 4,096 px: maxTexView)
   const p = glbFor().get(src.path) || src.path, E = LIB.get(p);
   if (E && E.state === 'ready' && E.root && E.guess) return { root: vwClone(E), own: false, title: baseName(p), q: E.guess.q, s: E.guess.s, light: E.info && E.info.scan ? 'scan' : 'lit', lite: false };
   const buf = await getBytes(fileUrl(p));
   const dir = p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
-  const m = await CONV.load({ ext: extOf(p), data: buf, base, name: stem(p), maxTex: maxTexNow(), url: u => resolveUrl(u, base, dir, new Set(), null) });
+  const m = await CONV.load({ ext: extOf(p), data: buf, base, name: stem(p), maxTex: maxTexView(), url: u => resolveUrl(u, base, dir, new Set(), null) });
   const size = new THREE.Box3().setFromObject(m.root).getSize(new THREE.Vector3()), g = CONV.guessFor(m.guess, size);
   return { root: m.root, own: true, fbx: extOf(p) === 'fbx', title: baseName(p), q: g.q, s: g.s, light: vwNormals(m.root) ? 'lit' : 'scan', lite: false };
 }

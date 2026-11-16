@@ -29,11 +29,13 @@ const browser = await chromium.launch({
 });
 // every page here starts with the headsets' welcome off (v124, Getting around: once a session, in front of a pretend
 // headset's view, which the steps that read pixels or panels back do not expect); browser.newPage makes its context
-// through browser.newContext, so this covers both
+// through browser.newContext, so this covers both. And with the studio's textures JPEG/PNG at most 2,048 px (v151: a page
+// makes KTX2 by default, which a plain GLTFLoader cannot read back), as the steps written before it expect; the KTX2
+// steps' pages ask for none ({ studioTex: null }: the default, KTX2 up to 8k)
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
-  const ctx = await newContext(o);
-  await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+  const { studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
+  await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
   return ctx;
 };
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
@@ -2234,7 +2236,7 @@ if (runs('studio')) {
     const bad = [];
     await ss(`(X.tab = 'upload', renderPanes(), 0)`);
     const pane0 = await stp.evaluate(() => document.querySelector('#pane-upload').textContent.replace(/\s+/g, ' '));
-    if (!/No relay that takes uploads/.test(pane0) || !/node relay\/server\.mjs --lan --scenes <folder>/.test(pane0) || !/Drop files or folders here/.test(pane0) || !/For Quest: on/.test(pane0)) bad.push('the Upload pane without a relay: ' + pane0.slice(0, 400));
+    if (!/No relay that takes uploads/.test(pane0) || !/node relay\/server\.mjs --lan --scenes <folder>/.test(pane0) || !/Drop files or folders here/.test(pane0) || !/TexturesCompressed \(KTX2\), up to 8k ?Compressed \(KTX2\), up to 4k ?JPEG\/PNG, up to 4k ?JPEG\/PNG, up to 2k ?JPEG\/PNG: textures as pictures, .* at most 2,048 px/.test(pane0)) bad.push('the Upload pane without a relay: ' + pane0.slice(0, 600));
     // a drop of files onto the pane (the event, flat: as files are dropped from a desktop)
     await stp.evaluate(async () => {
       const get = async (p, name) => new File([await (await fetch('tools/studio/test/scenes/test/' + p)).arrayBuffer()], name || p.split('/').pop());
@@ -2263,7 +2265,7 @@ if (runs('studio')) {
     if (!/figure_spec\.png/.test(up.rows[0].notes.join())) bad.push('the figure\'s row does not say what it names and was not dropped: ' + JSON.stringify(up.rows[0].notes));
     await ss('(renderPanes(), 0)');   // (the pane as it is now: a slow machine draws it a moment later)
     const plan = await stp.evaluate(() => document.querySelector('#pane-upload .stu-plan').textContent.replace(/\s+/g, ' '));
-    if (!/A short sound \(0\.6 s\): sounds\/tone\.wav, mono, 16-bit, 22\.05 kHz/.test(plan) || !/A long sound \(25 s\): sounds\/long\.wav, mono WAV at 8 kHz/.test(plan) || !/Kept as it is/.test(plan) || !/textures at most 2048 px|textures at most 2,048 px/.test(plan)) bad.push('the plan\'s words: ' + plan.slice(0, 600));
+    if (!/A short sound \(0\.6 s\): sounds\/tone\.wav, mono, 16-bit, 22\.05 kHz/.test(plan) || !/A long sound \(25 s\): sounds\/long\.wav, mono WAV at 8 kHz/.test(plan) || !/Kept as it is/.test(plan) || !/textures JPEG\/PNG, at most 2,048 px/.test(plan)) bad.push('the plan\'s words: ' + plan.slice(0, 600));
     // numbered names against each other: the same name twice
     const twice = await ss(`(() => { const r = UP.rows.slice(0, 1).map(x => Object.assign({}, x, { src: x.src.slice(), out: [] })); const keep = UP.rows; UP.rows = keep.concat(r.map(x => Object.assign(x, { main: Object.assign({}, x.main, { path: 'other/figure.fbx' }), src: [Object.assign({}, x.main, { path: 'other/figure.fbx' })] }))); upNames(); const o = UP.rows[UP.rows.length - 1].out[0]; UP.rows = keep; upNames(); return o; })()`);
     if (twice !== 'models/figure 2.glb') bad.push('a second figure.fbx is not numbered: ' + twice);
@@ -5415,6 +5417,230 @@ if (runs('studio viewer')) {
     await vp.close();
   });
 }
+// The studio's compressed textures (v151, tools/studio/SPEC.md, "Compressed textures (KTX2)"; engine/ktx2.js), on a page
+// of its own at the test scene with the page's default texture kind (KTX2 up to 8k: { studioTex: null }): a GLB written in
+// the page from a quad whose colour picture is 4,096 px (with its mips more than the encoder's 12,582,912 texels: encoded in
+// strips) and has alpha in its top rows, and whose normal map is 1,002 x 602 (made 1,004 x 604): its glTF (KHR_texture_basisu
+// used and required, every image image/ktx2 with no other source, the record's ktx2) and its KTX2s (UASTC, the level
+// chains down to 1 x 1, colour sRGB with alpha and data linear); loaded for display through the studio's KTX2Loader as
+// compressed textures (ASTC 4 x 4 here: SwiftShader offers it), the full chain, colour as sRGB, and drawn at 1:1 within a
+// small tolerance of the picture it was made from; the cap dropping its top levels (an explicit &maxtex=); read for
+// conversion as plain pictures (the level nearest under maxTex, its full size counted) and made again as a JPEG/PNG GLB that
+// a plain GLTFLoader reads, a fill record kept; placed in the scene, its card's words; the Upload pane's Textures row and
+// its line, a choice kept on this device; a pretend headset session offering no KTX2 (JPEG/PNG at most 2,048 px, and the
+// words say compressed textures are made on a laptop or desktop)
+if (runs('studio ktx2')) {
+  const kp = await browser.newPage({ viewport: { width: 1280, height: 800 }, studioTex: null });
+  kp.on('pageerror', e => errors.push('studio ktx2: ' + (e.stack || e.message)));
+  kp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio ktx2: ' + m.text()); });
+  const ss = s => kp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => kp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio ktx2: ' + b)); };
+  let made = false;
+  await step('studio ktx2: a GLB written with KTX2 textures in the page (a 4,096 px picture with alpha, in strips; a 1,002 x 602 normal map): KHR_texture_basisu used and required, every image image/ktx2 with no other source, its record, UASTC level chains to 1 x 1, colour sRGB and data linear', async () => {
+    const out = [];
+    await kp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await kp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STU.scene === 'test' && STU.listing === 'ok'`, 30000)) { bad(['the test scene did not open']); return; }
+    const kind = await ss(`[texKind(), maxTexNow(), JSON.stringify(ktxNow()), ktxCan(), CONV.ktx2.EFFORT]`);
+    if (JSON.stringify(kind) !== '["ktx8",8192,"{\\"effort\\":1}",true,1]') out.push('the page\'s texture kind by default: ' + JSON.stringify(kind));
+    const r = await ss(`(async () => {
+      const T = THREE, cv = document.createElement('canvas'); cv.width = cv.height = 4096; const x = cv.getContext('2d');
+      const g = x.createLinearGradient(0, 0, 4096, 4096); g.addColorStop(0, '#c0392b'); g.addColorStop(0.5, '#27ae60'); g.addColorStop(1, '#2c3e8f'); x.fillStyle = g; x.fillRect(0, 0, 4096, 4096);
+      let s = 3; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 400; i++) { x.fillStyle = 'hsl(' + Math.round(rnd() * 360) + ',60%,' + Math.round(30 + rnd() * 40) + '%)'; x.fillRect(rnd() * 4096, rnd() * 4096, 8 + rnd() * 300, 8 + rnd() * 300); }
+      x.fillStyle = '#fff'; x.font = '220px sans-serif'; x.fillText('KTX2 strips', 1500, 2100);
+      x.clearRect(0, 0, 4096, 64); x.fillStyle = 'rgba(255, 200, 0, 0.5)'; x.fillRect(0, 0, 4096, 64);   // (alpha in its top rows only)
+      const nv = document.createElement('canvas'); nv.width = 1002; nv.height = 602; const y = nv.getContext('2d'); y.fillStyle = '#8080ff'; y.fillRect(0, 0, 1002, 602);
+      for (let i = 0; i < 60; i++) { y.fillStyle = 'rgb(' + Math.round(100 + rnd() * 60) + ',' + Math.round(100 + rnd() * 60) + ',255)'; y.fillRect(rnd() * 1002, rnd() * 602, 40, 40); }
+      const map = new T.Texture(cv), nrm = new T.Texture(nv); map.needsUpdate = nrm.needsUpdate = true;
+      const geo = new T.PlaneGeometry(2, 2), mat = new T.MeshStandardMaterial({ name: 'quad', map, normalMap: nrm, transparent: true }), mesh = new T.Mesh(geo, mat); mesh.name = 'quad';
+      const root = new T.Group(); root.add(mesh);
+      const m = { root, clips: [], guess: { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: 'test' }, ext: 'glb', missing: [] }, steps = [];
+      const res = await CONV.toGLB(m, { name: 'quad', maxTex: maxTexNow(), ktx2: ktxNow(), fill: false, from: 'quad.glb', step: (l, f) => steps.push(l) });
+      window.__ktx = { glb: res.glb, src: cv, nrm: nv };
+      const K = CONV.ktx2, { json, bin } = K.glbSplit(res.glb), infos = (json.images || []).map(im => { const v = json.bufferViews[im.bufferView]; return Object.assign({ mime: im.mimeType }, K.info(bin.subarray(v.byteOffset, v.byteOffset + v.byteLength))); });
+      const lv = (json.images || []).map(im => { const v = json.bufferViews[im.bufferView], P = K.parse(bin.slice(v.byteOffset, v.byteOffset + v.byteLength)); return P.lv.map((L, i) => [Math.max(1, P.w >> i), Math.max(1, P.h >> i)]).pop(); });
+      const aligned = (json.bufferViews || []).every(v => (v.byteOffset || 0) % 4 === 0);
+      return { ok: res.ok, why: res.why, used: json.extensionsUsed, req: json.extensionsRequired, tex: json.textures, rec: res.record.ktx2, infos, lv, aligned, list: res.ktx2 && res.ktx2.list, notes: res.notes.filter(n => /KTX2/.test(n)), steps: steps.filter(l => /Compressing texture/.test(l)).slice(0, 3), bytes: res.glb.byteLength, len: new DataView(res.glb).getUint32(8, true) };
+    })()`);
+    if (!r.ok) { bad(['the KTX2 GLB was not written: ' + r.why]); return; }
+    made = true;
+    if (!r.used.includes('KHR_texture_basisu') || !r.req.includes('KHR_texture_basisu')) out.push('the extension used and required: ' + JSON.stringify([r.used, r.req]));
+    if (r.tex.length !== 2 || !r.tex.every(t => t.source === undefined && t.extensions && Number.isInteger(t.extensions.KHR_texture_basisu.source))) out.push('the textures: ' + JSON.stringify(r.tex));
+    if (JSON.stringify(r.rec) !== '{"n":2,"effort":1,"max":8192,"zstd":true}') out.push('the record\'s ktx2: ' + JSON.stringify(r.rec));
+    if (r.len !== r.bytes || !r.aligned) out.push('the GLB\'s length or alignment: ' + JSON.stringify([r.len, r.bytes, r.aligned]));
+    const col = r.infos.find(i => i.w === 4096), nm = r.infos.find(i => i.w === 1004);
+    if (!col || !nm || !r.infos.every(i => i.mime === 'image/ktx2' && i.uastc && i.sc === 2)) out.push('the images: ' + JSON.stringify(r.infos));
+    else {
+      if (!(col.h === 4096 && col.levels === 13 && col.srgb && col.alpha)) out.push('the colour picture\'s KTX2: ' + JSON.stringify(col));
+      if (!(nm.h === 604 && nm.levels === 10 && !nm.srgb && !nm.alpha)) out.push('the normal map\'s KTX2 (1,004 x 604, linear): ' + JSON.stringify(nm));
+    }
+    if (!r.lv.every(p => p[0] === 1 && p[1] === 1)) out.push('the level chains do not end at 1 x 1: ' + JSON.stringify(r.lv));
+    const big = (r.list || []).find(x => x.w === 4096);
+    if (!big || !(big.strips > big.levels + 4) || !big.alpha) out.push('the 4,096 px picture was not encoded in strips with alpha: ' + JSON.stringify(r.list));
+    if (!r.notes.length || !r.steps.length) out.push('its notes and progress: ' + JSON.stringify([r.notes, r.steps]));
+    console.log(`     KTX2 GLB: ${(r.bytes / 1048576).toFixed(1)} MB; ${(r.list || []).map(x => `${x.w}x${x.h} ${x.levels} levels in ${x.strips} strips, ${(x.ms / 1000).toFixed(1)} s`).join('; ')}`);
+    bad(out);
+  });
+  // one picture used both as colour and as data (base colour and emission, a normal map and roughness and metalness: three
+  // textures of one picture): written twice, sRGB for its colour uses and linear for its data uses (a texture used both
+  // ways copied for its data use); a black and white checkerboard's level 1 is 188 in the sRGB copy (averaged in linear
+  // light) and 128 in the linear one
+  await step('studio ktx2: a picture used both as colour and as data written twice, an sRGB KTX2 for base colour and emission and a linear one for the normal map and roughness, each use pointed at its own (a texture used both ways copied); its mips 188 and 128', async () => {
+    const r = await ss(`(async () => {
+      const T = THREE, cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'), id = x.createImageData(64, 64);
+      for (let i = 0; i < 64 * 64; i++) { const v = ((i % 64) + Math.floor(i / 64)) % 2 ? 255 : 0; id.data.set([v, v, v, 255], i * 4); }
+      x.putImageData(id, 0, 0);
+      const t1 = new T.Texture(cv), t2 = new T.Texture(cv), t3 = new T.Texture(cv); t1.needsUpdate = t2.needsUpdate = t3.needsUpdate = true;
+      const mat = new T.MeshStandardMaterial({ name: 'both', map: t1, normalMap: t1, emissiveMap: t2, emissive: 0xffffff, roughnessMap: t3, metalnessMap: t3 });
+      const root = new T.Group(), mesh = new T.Mesh(new T.PlaneGeometry(1, 1), mat); mesh.name = 'both'; root.add(mesh);
+      const m = { root, clips: [], guess: { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: 'test' }, ext: 'glb', missing: [] };
+      const res = await CONV.toGLB(m, { name: 'both', maxTex: 1024, ktx2: ktxNow(), fill: false, from: 'both.glb' });
+      const K = CONV.ktx2, { json, bin } = K.glbSplit(res.glb), bytesOf = i => { const v = json.bufferViews[json.images[i].bufferView]; return bin.slice(v.byteOffset, v.byteOffset + v.byteLength); };
+      const src = t => t.extensions.KHR_texture_basisu.source, M = json.materials[0], P = M.pbrMetallicRoughness;
+      const slot = s => { const t = json.textures[s.index]; return { tex: s.index, img: src(t), srgb: K.info(bytesOf(src(t))).srgb }; };
+      const lv1 = async i => { const d = await K.decode(bytesOf(i), 32); let a = 0; for (let k = 0; k < d.data.length; k += 4) a += d.data[k]; return { w: d.w, level: d.level, mean: a / (d.data.length / 4) }; };
+      return { ok: res.ok, why: res.why, n: json.images.length, mimes: json.images.map(i => i.mimeType), tex: json.textures.length, rec: res.record.ktx2, notes: res.notes.filter(n => /second cop/.test(n)),
+        base: slot(P.baseColorTexture), em: slot(M.emissiveTexture), nrm: slot(M.normalTexture), mr: slot(P.metallicRoughnessTexture),
+        copies: (res.ktx2.list || []).map(x => [x.srgb, x.copy]), l1: [await lv1(0), await lv1(1)], plain: K.roles({ images: [{}], textures: [{ source: 0 }], materials: [{ normalTexture: { index: 0 }, extensions: { KHR_materials_clearcoat: { clearcoatRoughnessTexture: { index: 0 } } } }] }).get(0) };
+    })()`);
+    const out = [];
+    if (!r.ok) { bad(['the GLB was not written: ' + r.why]); return; }
+    if (r.n !== 2 || !r.mimes.every(x => x === 'image/ktx2') || r.tex !== 4 || JSON.stringify(r.rec) !== '{"n":2,"effort":1,"max":1024,"zstd":true}') out.push('two images, four textures, its record: ' + JSON.stringify([r.n, r.mimes, r.tex, r.rec]));
+    if (!(r.base.srgb && r.em.srgb && r.base.img === r.em.img && !r.nrm.srgb && !r.mr.srgb && r.nrm.img === r.mr.img && r.nrm.img !== r.base.img && r.nrm.tex !== r.base.tex)) out.push('each use pointed at its own: ' + JSON.stringify([r.base, r.em, r.nrm, r.mr]));
+    if (JSON.stringify(r.copies) !== '[[true,false],[false,true]]' || !r.notes.length) out.push('the list and the note: ' + JSON.stringify([r.copies, r.notes]));
+    const [a, b] = r.l1;
+    if (!(a.w === 32 && a.level === 1 && Math.abs(a.mean - 188) < 6 && b.w === 32 && b.level === 1 && Math.abs(b.mean - 128) < 6)) out.push('level 1 of the sRGB and the linear copy (188 and 128): ' + JSON.stringify(r.l1));
+    if (r.plain !== false) out.push('a clearcoat slot not taken as data: ' + JSON.stringify(r.plain));
+    console.log(`     one picture as colour and as data: level 1 ${a.mean.toFixed(1)} (sRGB) and ${b.mean.toFixed(1)} (linear)`);
+    bad(out);
+  });
+  await step('studio ktx2: loaded for display through the studio\'s KTX2Loader (compressed: ASTC 4 x 4 here, the full chain, colour sRGB), drawn at 1:1 within a small tolerance of the picture it was made from; the cap drops its top levels', async () => {
+    if (!made) { bad(['no KTX2 GLB to load']); return; }
+    const r = await ss(`(async () => {
+      const T = THREE, m = await CONV.load({ ext: 'glb', data: window.__ktx.glb.slice(0), base: '', maxTex: OPT.maxtex, ktx2: ktxLoader(), url: () => null });
+      let map = null, nrm = null; m.root.traverse(o => { if (o.isMesh) { map = o.material.map; nrm = o.material.normalMap; } });
+      const astc = GL.renderer.extensions.has('WEBGL_compressed_texture_astc');
+      const info = map && { c: !!map.isCompressedTexture, f: map.format, astc: map.format === T.RGBA_ASTC_4x4_Format, mips: map.mipmaps.length, w: map.image.width, enc: map.encoding === T.sRGBEncoding ? 'sRGB' : 'linear',
+        n: nrm && { c: !!nrm.isCompressedTexture, mips: nrm.mipmaps.length, w: nrm.image.width, h: nrm.image.height, enc: nrm.encoding === T.sRGBEncoding ? 'sRGB' : 'linear' } };
+      // drawn at 1:1, nearest, a 1,024 px window of its middle, the KTX2 one and the picture it was made from
+      const draw = tex => {
+        const R = GL.renderer, sc = new T.Scene(), cam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 2), rt = new T.WebGLRenderTarget(1024, 1024), px = new Uint8Array(1024 * 1024 * 4);
+        tex.minFilter = tex.magFilter = T.NearestFilter; tex.repeat.set(0.25, 0.25); tex.offset.set(0.375, 0.375); tex.encoding = T.LinearEncoding; tex.needsUpdate = true;
+        const mesh = new T.Mesh(new T.PlaneGeometry(2, 2), new T.MeshBasicMaterial({ map: tex })); mesh.position.z = -1; sc.add(mesh);
+        const was = R.getRenderTarget(), xr = R.xr.enabled;
+        try { R.xr.enabled = false; R.setRenderTarget(rt); R.clear(); R.render(sc, cam); R.readRenderTargetPixels(rt, 0, 0, 1024, 1024, px); } finally { R.setRenderTarget(was); R.xr.enabled = xr; rt.dispose(); mesh.geometry.dispose(); mesh.material.dispose(); }
+        return px;
+      };
+      // (the picture as three.js draws it on the quad, the right way up: its texture's flipY, which the exporter wrote into
+      // the GLB's image by turning it over; the GLB's own texture is not flipped)
+      const A = draw(map), src = new T.Texture(window.__ktx.src); src.flipY = true; src.generateMipmaps = false;
+      const B = draw(src);
+      let sum = 0, worst = 0, n = 0, lit = 0, far = 0;
+      for (let i = 0; i < A.length; i += 4) for (let k = 0; k < 3; k++) { const d = Math.abs(A[i + k] - B[i + k]); sum += d; worst = Math.max(worst, d); n++; if (B[i + k] > 20) lit++; if (d > 24) far++; }
+      src.dispose();
+      // the cap: an explicit &maxtex= of 1,024 drops its top two levels (capCompressed), its words and its bytes
+      const was = [OPT.maxtexSet, OPT.maxtex]; OPT.maxtexSet = true; OPT.maxtex = 1024;
+      let cap = null; try { cap = capCompressed(map); } finally { OPT.maxtexSet = was[0]; OPT.maxtex = was[1]; }
+      const after = { mips: map.mipmaps.length, w: map.image.width, top: map.mipmaps[0].width };
+      CONV.disposeTree(m.root);
+      return { astc, info, mean: sum / n, worst, far: far / n, lit: lit / n, cap, after };
+    })()`);
+    const out = [], I = r.info;
+    if (!I || !I.c || !I.n || !I.n.c) out.push('not compressed textures: ' + JSON.stringify(I));
+    else {
+      if (r.astc && !I.astc) out.push('this renderer offers ASTC, but the texture is not ASTC 4 x 4: ' + JSON.stringify(I));
+      if (!r.astc) console.log('     (no ASTC here: format ' + I.f + ')');
+      if (!(I.mips === 13 && I.w === 4096 && I.enc === 'sRGB')) out.push('the colour picture: ' + JSON.stringify(I));
+      if (!(I.n.mips === 10 && I.n.w === 1004 && I.n.h === 604 && I.n.enc === 'linear')) out.push('the normal map: ' + JSON.stringify(I.n));
+    }
+    // (UASTC is lossy: a texel at a hard edge in a 4 x 4 block of three colours may be far off, as in any block format)
+    if (!(r.mean < 2 && r.far < 0.002 && r.lit > 0.3)) out.push(`drawn at 1:1, not within the tolerance of the picture it was made from: mean ${r.mean.toFixed(2)}, ${(r.far * 100).toFixed(3)} % more than 24 off (worst ${r.worst}), lit ${r.lit.toFixed(2)}`);
+    console.log(`     drawn at 1:1 against the picture: mean difference ${r.mean.toFixed(2)} of 255, ${(r.far * 100).toFixed(3)} % of samples more than 24 off, worst ${r.worst}`);
+    if (!r.cap || r.cap.to !== 1024 || r.after.mips !== 11 || r.after.w !== 1024 || r.after.top !== 1024 || !/^KTX2, (ASTC|BC7|ETC2|BC3|RGBA|compressed|uncompressed)/.test(r.cap.ktx) || !(r.cap.bytes > 1000000 && r.cap.bytes < 2000000)) out.push('the cap: ' + JSON.stringify([r.cap, r.after]));
+    bad(out);
+  });
+  await step('studio ktx2: read for conversion as plain pictures (the level nearest under maxTex, the full size counted) and made again as a JPEG/PNG GLB that a plain GLTFLoader reads; a KTX2 GLB\'s fill record kept', async () => {
+    if (!made) { bad(['no KTX2 GLB to read']); return; }
+    const r = await ss(`(async () => {
+      const T = THREE, K = CONV.ktx2;
+      // (its record said filled, as a scan's GLB made with its gaps filled says: read for conversion, its pictures count as filled)
+      const glb = CONV.glbPatch(window.__ktx.glb.slice(0), j => { j.asset.extras.studio.fill = 2; });
+      const m = await CONV.load({ ext: 'glb', data: glb, base: '', maxTex: 2048, url: () => null });
+      let map = null, nrm = null; m.root.traverse(o => { if (o.isMesh) { map = o.material.map; nrm = o.material.normalMap; } });
+      const got = { c: !!(map && map.isCompressedTexture), canvas: !!(map && map.image instanceof HTMLCanvasElement), w: map && map.image.width, of: map && K.of(map.image), nw: nrm && nrm.image.width, filled: !!(map && CONV.filled(map) && CONV.filled(nrm)) };
+      const st = CONV.stats(m.root, []);
+      got.stats = st.textures.map(t => t.w + 'x' + t.h + ' ' + t.kind);
+      const res = await CONV.toGLB(m, { name: 'quad', maxTex: 2048, from: 'quad.glb' });
+      const j = CONV.glbJSON(res.glb), back = await new Promise((ok, no) => new T.GLTFLoader().parse(res.glb.slice(0), '', ok, no));
+      let bm = null; back.scene.traverse(o => { if (o.isMesh) bm = o.material.map; });
+      return { got, ok: res.ok, why: res.why, mimes: (j.images || []).map(i => i.mimeType), ext: j.extensionsUsed || [], fill: res.record.fill, ktx2: res.record.ktx2 || null, back: bm && [bm.image.width, bm.image.height] };
+    })()`);
+    const out = [];
+    if (r.got.c || !r.got.canvas || r.got.w !== 2048 || !r.got.of || r.got.of.w !== 4096 || r.got.of.level !== 1 || r.got.nw !== 1004) out.push('read for conversion: ' + JSON.stringify(r.got));
+    if (!r.got.filled) out.push('its pictures did not count as filled (the record\'s fill): ' + JSON.stringify(r.got));
+    if (JSON.stringify(r.got.stats) !== '["4096x4096 KTX2","1004x604 KTX2"]') out.push('its numbers: ' + JSON.stringify(r.got.stats));
+    if (!r.ok || r.mimes.some(x => x === 'image/ktx2') || r.ext.includes('KHR_texture_basisu') || r.ktx2 || r.fill !== 2 || !r.back || r.back[0] !== 2048) out.push('made again as JPEG/PNG: ' + JSON.stringify(r));
+    bad(out);
+  });
+  await step('studio ktx2: placed in the scene (its card: KTX2, ASTC here, kept compressed, its memory); the Upload pane\'s Textures row and its line, a choice kept on this device; a pretend headset session offers no KTX2', async () => {
+    const out = [];
+    if (made) {
+      const bytes = Buffer.from(await ss(`(() => { const u = new Uint8Array(window.__ktx.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+      await kp.route('**/scenes/test/models/quad.glb*', route => route.fulfill({ body: bytes, contentType: 'model/gltf-binary' }));
+      await ss(`(setFiles(STU.files.concat({ path: 'models/quad.glb', bytes: ${bytes.length}, at: 5, kind: 'model' })), addModel('models/quad.glb'), 0)`);
+      if (!await until(`(() => { const E = LIB.get('models/quad.glb'); return !!(E && (E.state === 'ready' || E.state === 'failed')); })()`, 60000)) out.push('the KTX2 GLB placed did not load');
+      else {
+        const e = await ss(`(() => { const E = LIB.get('models/quad.glb'); return { state: E.state, err: E.err, tex: E.info && E.info.textures }; })()`);
+        if (e.state !== 'ready' || !e.tex || !e.tex.every(t => /^KTX2, /.test(t.ktx) && t.bytes > 0)) out.push('its model: ' + JSON.stringify(e));
+        const id = await ss(`([...STU.items.values()].find(it => it.rec.file === 'models/quad.glb') || {}).id || ''`);
+        await ss(`(select(${JSON.stringify(id)}), X.tab = 'item', renderPanes(), 0)`);
+        const cardText = await kp.evaluate(() => document.querySelector('#pane-item').textContent.replace(/\s+/g, ' '));
+        if (!/4096 × 4096 \(KTX2, (ASTC|BC7|ETC2|RGBA|compressed|uncompressed)[^)]* here\)/.test(cardText) || !/Its textures are KTX2 \(compressed\): all kept compressed on the GPU, \d+(\.\d)? MB with their mipmaps\./.test(cardText)) out.push('its card: ' + cardText.slice(0, 700));
+        await ss(`(select(''), 0)`);
+      }
+    }
+    // what is only looked at is read at most 4,096 px whatever the kind (the viewer's Add card, here: maxTexView), what is
+    // written at the kind's own size
+    if (made) {
+      const b2 = Buffer.from(await ss(`(() => { const u = new Uint8Array(window.__ktx.glb); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); })()`), 'base64');
+      await kp.route('**/scenes/test/models/quad2.glb*', route => route.fulfill({ body: b2, contentType: 'model/gltf-binary' }));
+      const v = await ss(`(async () => {
+        setFiles(STU.files.concat({ path: 'models/quad2.glb', bytes: 1, at: 6, kind: 'model' }));
+        const L = CONV.load, seen = []; CONV.load = o => { seen.push(o.maxTex); return L(o); };
+        let got = null, w = 0;
+        try { got = await vwLoad({ kind: 'add', path: 'models/quad2.glb' }); got.root.traverse(o => { if (o.isMesh && o.material.map) w = o.material.map.image.width; }); } finally { CONV.load = L; if (got) vwFreeGot(got); }
+        const was = localStorage.getItem('studioTexKind'); localStorage.setItem('studioTexKind', 'img2');
+        const two = [maxTexNow(), maxTexView()]; if (was === null) localStorage.removeItem('studioTexKind'); else localStorage.setItem('studioTexKind', was);
+        return { seen, w, kind: [texKind(), maxTexNow(), maxTexView()], two };
+      })()`);
+      if (JSON.stringify(v) !== '{"seen":[4096],"w":4096,"kind":["ktx8",8192,4096],"two":[2048,2048]}') out.push('the viewer\'s reading at most 4,096 px: ' + JSON.stringify(v));
+    }
+    // the Upload pane: the Textures row, KTX2 up to 8k on, its line; JPEG/PNG up to 4k pressed and kept on this device; back
+    await ss(`(X.tab = 'upload', renderPanes(), 0)`);
+    const pane = () => kp.evaluate(() => document.querySelector('#pane-upload').textContent.replace(/\s+/g, ' '));
+    const p0 = await pane();
+    if (!/Compressed \(KTX2\), up to 8k/.test(p0) || !/Compressed: textures stay compressed on a headset's GPU \(ASTC on a Quest, a quarter of the memory of JPEG or PNG\), so they may be 8,192 px/.test(p0)) out.push('the Upload pane\'s Textures row: ' + p0.slice(0, 800));
+    const on = () => kp.evaluate(() => [...document.querySelectorAll('#pane-upload [data-act="up:tex"]')].map(b => b.dataset.v + ':' + (b.classList.contains('on') || b.getAttribute('aria-pressed') === 'true')));
+    await kp.click('#pane-upload [data-act="up:tex"][data-v="img4"]');
+    const k1 = await ss(`[texKind(), maxTexNow(), ktxNow(), localStorage.getItem('studioTexKind'), texKindWords()]`), b1 = await on();
+    if (JSON.stringify(k1.slice(0, 4)) !== '["img4",4096,null,"img4"]' || k1[4] !== 'textures JPEG/PNG, at most 4,096 px' || !b1.includes('img4:true')) out.push('JPEG/PNG up to 4k: ' + JSON.stringify([k1, b1]));
+    await kp.click('#pane-upload [data-act="up:tex"][data-v="ktx4"]');
+    const k2 = await ss(`[texKind(), maxTexNow(), localStorage.getItem('studioTexKind'), texKindWords()]`);
+    if (JSON.stringify(k2) !== '["ktx4",4096,"ktx4","textures compressed (KTX2), at most 4,096 px"]') out.push('KTX2 up to 4k: ' + JSON.stringify(k2));
+    await kp.click('#pane-upload [data-act="up:tex"][data-v="ktx8"]');
+    if (await ss(`localStorage.getItem('studioTexKind')`) !== null) out.push('KTX2 up to 8k (the default) not stored as the default');
+    // a pretend headset session: JPEG/PNG at most 2,048 px whatever this device chose, no KTX2, and the words say why
+    await ss(`(localStorage.setItem('studioTexKind', 'ktx4'), 0)`);
+    const h = await ss(`(() => { const was = XR.on; XR.on = true; try { return [texKind(), maxTexNow(), ktxNow(), texKindWords(), texLine()]; } finally { XR.on = was; } })()`);
+    if (JSON.stringify(h.slice(0, 3)) !== '["img2",2048,null]' || h[3] !== 'textures JPEG/PNG, at most 2,048 px: compressed (KTX2) textures are made on a laptop or desktop' || !/compressed \(KTX2\) textures are made on a laptop or desktop page/.test(h[4])) out.push('in a headset session: ' + JSON.stringify(h));
+    await ss(`(localStorage.removeItem('studioTexKind'), 0)`);
+    bad(out);
+  });
+  await kp.close();
+}
+
 // The studio's shapes, empties, locks, the scene's settings and the lobby hook (tools/studio/SPEC.md, "Shapes and
 // empties", "Locked in place", "The scene's settings"), on a page of its own at the test scene: the Add pane's four shapes
 // and an empty, a shape's card (its kind, look, colour, size; page and headset); pixels read back from renders: a shape that

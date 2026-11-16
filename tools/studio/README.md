@@ -53,7 +53,9 @@ drop into what the studio wants, and sorts it into the scene's folders:
    textures, an OBJ's MTL and the MTL's textures, a glTF's `.bin`), wherever they were in what you dropped, are one row;
    each sound is one row; anything left (a picture no model names, a text file) is kept as it is. A model whose texture
    is not there says so.
-4. **For Quest** (on by default: textures at most 2,048 px; off: 4,096) and **Replace files with the same name** (off: a
+4. **Textures**: *Compressed (KTX2), up to 8k* (the default on a page: best for headsets), *Compressed (KTX2), up to 4k*,
+   *JPEG/PNG, up to 4k* or *JPEG/PNG, up to 2k* ("Compressed textures (KTX2)" below; this computer remembers it, and every
+   GLB the page makes uses it), and **Replace files with the same name** (off: a
    name already taken gets a number, `eva_001 2.glb`). Each model's row has **Triangles kept** (20 % to start) and
    **Preview**: the model over the whole window ("Looking closely: the viewer" below), with all its triangles and the
    share kept side by side; the share you choose there comes back to the row.
@@ -64,7 +66,7 @@ What it makes:
 
 | You drop | It makes |
 | --- | --- |
-| A model: FBX, OBJ with its MTL, glTF with its `.bin`, GLB, PLY, STL | `models/<name>.glb`: metres and Y up (the studio's guess of its units and up axis baked in), textures drawn down and stored as JPEG (PNG where see-through), animations and skins kept, an FBX material of opacity 0 (3ds Max's habit) drawn solid, a mesh without normals marked to be shown as scanned. It is loaded back and checked; if something did not come through, the row says why and nothing is made. |
+| A model: FBX, OBJ with its MTL, glTF with its `.bin`, GLB, PLY, STL | `models/<name>.glb`: metres and Y up (the studio's guess of its units and up axis baked in), textures as **Textures** says (compressed as KTX2, or drawn down and stored as JPEG, PNG where see-through), animations and skins kept, an FBX material of opacity 0 (3ds Max's habit) drawn solid, a mesh without normals marked to be shown as scanned. It is loaded back and checked; if something did not come through, the row says why and nothing is made. |
 | A sound up to 20 s | `sounds/<name>.wav`: mono, 16-bit, at its own rate (at most 48 kHz): loops without a gap |
 | A sound longer than 20 s | with ffmpeg on the relay: `sounds/<name>.mp3`, mono, 96 kbit/s (streamed when it plays); without: an MP3, M4A/AAC or OGG kept as it is (a stereo file plays from one point), anything else a mono WAV at 22.05 kHz |
 | A video: MP4, M4V, MOV, MKV (a WebM with a picture too) | `videos/<name>.<ext>` as it is (a screen plays it, "Screens" in `SPEC.md`); with **Convert videos to MP4 (H.264)** on: `videos/<name>.mp4` made by the relay's ffmpeg, and the file you gave in `originals/` |
@@ -75,7 +77,7 @@ Without a relay that takes uploads the plan still shows, and **Convert** offers 
 **Videos and the option to convert them.** A video is kept as you gave it, into `videos/`. **Convert videos to MP4
 (H.264): off / on** (off by default, kept on this computer; greyed with the reason where the relay has no ffmpeg with the
 H.264 and AAC encoders, or takes no uploads) has the relay make an H.264 MP4 (`yuv420p`, AAC 128 kbit/s, `+faststart`,
-at most 720 high with **For Quest** on, else 1080, never larger) as a job: the row shows its progress, one video is made
+at most 720 high with **Videos for Quest (720p)** on, the default, else 1080, never larger) as a job: the row shows its progress, one video is made
 at a time and the next waits, and the file you gave goes to `originals/`. A conversion that fails says why and leaves your
 file in `originals/`. Headsets and phones play MP4 (H.264) most surely; other files may not play everywhere. See
 `relay/README.md` ("Converting a video") for the relay's side.
@@ -85,6 +87,28 @@ In a scene, the Add list shows `models/`, `sounds/` and anything outside `origin
 for it: placing the original places the GLB. An FBX (or OBJ, PLY, STL, glTF) object's card has **Convert to GLB**, and
 Add has **Convert every model**: with a relay the GLB goes into `models/` and every object placed from the original
 switches to it where it stands; without one it is downloaded.
+
+## Compressed textures (KTX2)
+
+A picture in a JPEG or PNG is unpacked on the GPU to 4 bytes a pixel (with its mipmaps a third more): a 4,096 px texture
+takes 85 MB of a headset's memory, an 8,192 px one 341 MB, which is why the studio held textures to 2,048 px for Quest.
+A KTX2 texture (Basis Universal UASTC, the glTF extension `KHR_texture_basisu`) stays compressed on the GPU: on a Quest
+it becomes ASTC 4x4 as it loads, a byte a pixel, so an 8,192 px texture takes 85 MB and a 4,096 px one 21 MB (on a
+desktop it becomes BC7, on a phone ETC2 or ASTC). So with **Textures: Compressed (KTX2)** a GLB's textures may be 8,192 px.
+
+- **Made on a laptop or desktop**, in the page itself, on all its cores but one (at most six workers), with Basis
+  Universal's encoder (`basis/` next to the app). Some seconds a texture: on 4 slow cloud cores (3 workers) a 4,096 px
+  texture took 2.5 s and an 8,192 px one 8 s; a desktop is faster. A headset never makes them: its own saves (Fewer
+  triangles, Change texture) write JPEG/PNG at most 2,048 px, and its card says so.
+- **The file is bigger than a JPEG**: about 10 bits a pixel on a photographic texture (an 8,192 px one 80 MB in the GLB,
+  a 4,096 px one 20 MB), less on flat colours. It is the headset's memory that it saves, and its loading (no JPEG to
+  unpack).
+- **The quality** is close to the original: about 45 dB on a busy scan-like test picture, 52 dB on a smoother one.
+- Every GLB the page makes uses the choice: the Upload pane's rows, **Convert to GLB**, **Convert every model**,
+  **Fewer triangles** and **Change texture**'s Save, the missing-texture buttons, a take.
+- `tools/studio/convert.mjs <model> --ktx2` does the same on a computer (`--effort 0` to `10`; 1 by default).
+- A KTX2 GLB's card says what its textures became here (*KTX2, ASTC here*) and their memory. Converting it again (or
+  making it lighter) reads its textures back to plain pictures first.
 
 ## Looking closely: the viewer
 

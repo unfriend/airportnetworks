@@ -1,6 +1,6 @@
 {
   "app": "networks",
-  "version": "networks-v150",
+  "version": "networks-v151",
   "format": "networks-47",
   "shell": {
     "n": 150,
@@ -77,8 +77,8 @@
       "needs": 145
     },
     "studio": {
-      "fp": "ac1695406b9378b5",
-      "needs": 148
+      "fp": "4372bf7963adf4da",
+      "needs": 150
     }
   }
 }

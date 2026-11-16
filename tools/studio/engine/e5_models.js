@@ -6,12 +6,29 @@
 // for in the scene's pictures by the ladder (engine/images.js: the path it gives, its file name in any case, the same name
 // as another kind of picture, a name of the same words; an FBX's C:\Users\... path is ignored), TIFF, PSD and DDS read
 // in the page; one not there leaves the model untextured and its card says so and offers pictures (Textures, below). Textures larger than OPT.maxtex (4,096 px) on a side
-// are drawn down before they reach the GPU. A file no object uses any more is dropped and its memory freed.
+// are drawn down before they reach the GPU. A GLB's KTX2 pictures (KHR_texture_basisu, which the converter writes:
+// engine/ktx2.js) are transcoded by three.js r133's KTX2Loader to what this GPU keeps compressed (ASTC on a Quest) and kept
+// so; one larger than the GPU takes (or an explicit &maxtex=) drops its top mip levels. A file no object uses any more is
+// dropped and its memory freed.
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
 // turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter; and the
 // simplifier for Fewer triangles only when first asked: meshoptLoad, from the vendored meshopt_simplifier.js)
-const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad() });
+// (and its KTX2 encoder and transcoder from the app's own basis/ folder, next to index.html: engine/ktx2.js)
+const basisUrl = () => new URL('basis/', location.href).href;
+const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad(), basis: basisUrl });
+// The scene's KTX2 pictures as the GPU keeps them: three.js r133's KTX2Loader (vendored, pasted in by build.mjs), one for
+// the studio (made when a model first loads, given back in dispose: its transcoding workers stopped), its transcoder the
+// app's basis/ folder, its formats what this renderer offers (ASTC on a Quest, BC7 on a desktop, ETC2 or ASTC on a phone;
+// RGBA as a last resort), 2 workers in a headset session and 4 on a page
+let KTXL = null;
+function ktxLoader() {
+  if (typeof THREE.KTX2Loader !== 'function' || !GL.renderer) return null;
+  if (!KTXL) KTXL = new THREE.KTX2Loader().setTranscoderPath(basisUrl()).detectSupport(GL.renderer);
+  KTXL.setWorkerLimit(XR.on ? 2 : 4);
+  return KTXL;
+}
+function ktxDispose() { if (KTXL) { try { KTXL.dispose(); } catch (e) { /* gone */ } KTXL = null; } if (CONV.ktx2) CONV.ktx2.stop(); }
 const MODEL_EXT = CONV.MODEL_EXT;
 const TEX_KEYS = ['map', 'emissiveMap', 'normalMap', 'bumpMap', 'specularMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap', 'lightMap', 'displacementMap'];
 function lib(path) {
@@ -96,7 +113,7 @@ function whyFailed(e) {
   const m = String((e && e.message) || e || '');
   if (/DRACOLoader|draco/i.test(m)) return 'Compressed with Draco, which the studio cannot read: export it without mesh compression.';
   if (/meshopt/i.test(m)) return 'Compressed with meshopt, which the studio cannot read: export it without compression.';
-  if (/basisu|KTX2/i.test(m)) return 'Its textures are KTX2/Basis, which the studio cannot read: export PNG or JPEG textures.';
+  if (/basisu|KTX2|transcod/i.test(m)) return 'Its KTX2 (Basis) textures could not be read here (' + m.slice(0, 120) + '): convert it again, or export PNG or JPEG textures.';
   if (/FBX version not supported/i.test(m)) return 'An FBX older than version 7, which the studio cannot read: export it as FBX 2011 or newer.';
   if (/Unknown format/i.test(m)) return 'Not a model the studio can read (GLB, glTF, FBX, OBJ, PLY or STL).';
   if (e && e.status === 404) return 'The file is not in the scene\'s folder any more.';
@@ -105,7 +122,7 @@ function whyFailed(e) {
 }
 function parseModel(E, buf, missing, texPaths, found) {
   const dir = E.path.includes('/') ? E.path.slice(0, E.path.lastIndexOf('/') + 1) : '', base = sceneUrl(STU.scene) + encPath(dir);
-  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), maxTex: OPT.maxtex, url: u => resolveUrl(u, base, dir, texPaths, found) })
+  return CONV.load({ ext: extOf(E.path), data: buf, base, name: stem(E.path), maxTex: OPT.maxtex, ktx2: ktxLoader() || undefined, url: u => resolveUrl(u, base, dir, texPaths, found) })
     .then(res => { for (const m of res.missing) missing.add(m); return res; });
 }
 // the scene's pictures (every picture kind the ladder knows, refused ones too: one named exactly is said to be refused)
@@ -224,8 +241,10 @@ function finishModel(E, res) {
   E.guess = guessFor(res.guess, size);
 }
 // a texture larger than the cap on a side, drawn down to it (keeping its shape) before it reaches the GPU
-// (pics: the pictures drawn down so far, each once, its canvas for the other textures that show it)
+// (pics: the pictures drawn down so far, each once, its canvas for the other textures that show it). A KTX2 one, kept
+// compressed: capCompressed
 function capTexture(t, pics) {
+  if (t.isCompressedTexture) return capCompressed(t);
   const img = t.image, w = img.width, h = img.height, cap = OPT.maxtex, was = pics.get(img);
   if (was) { if (was.cv) { t.image = was.cv; t.needsUpdate = true; } return was.out; }
   const src = typeof img.src === 'string' && !/^(blob|data):/.test(img.src) ? baseName(img.src.split(/[?#]/)[0]) : '';
@@ -242,6 +261,31 @@ function capTexture(t, pics) {
   pics.get(img).cv = cv;
   t.image = cv; t.needsUpdate = true;
   out.to = Math.max(cw, ch);
+  return out;
+}
+// A KTX2 texture as the GPU keeps it: its levels made by the converter down to 1 x 1, so one larger than this GPU takes
+// (renderer.capabilities.maxTextureSize: 8,192 in a Quest 3's Quest Browser), or than an explicit &maxtex=, drops its top
+// levels (the next is half as large) rather than being drawn down through a canvas, which a compressed picture cannot be.
+// The card says what it became here: "KTX2, ASTC here", and its bytes count as they are
+const CT_FMT = () => {
+  const T = THREE, m = new Map([[T.RGBA_ASTC_4x4_Format, 'ASTC'], [T.RGBA_BPTC_Format, 'BC7'], [T.RGBA_S3TC_DXT5_Format, 'BC3'], [T.RGB_S3TC_DXT1_Format, 'BC1'],
+    [T.RGBA_ETC2_EAC_Format, 'ETC2'], [T.RGB_ETC2_Format, 'ETC2'], [T.RGB_ETC1_Format, 'ETC1'], [T.RGBA_PVRTC_4BPPV1_Format, 'PVRTC'], [T.RGB_PVRTC_4BPPV1_Format, 'PVRTC'], [T.RGBAFormat, 'RGBA']]);
+  return f => m.get(f) || 'compressed';
+};
+let ctFmt = null;
+function capCompressed(t) {
+  const L = t.mipmaps || [], w = t.image.width, h = t.image.height, R = GL.renderer;
+  const gpu = (R && R.capabilities && R.capabilities.maxTextureSize) || 4096, cap = Math.min(gpu, OPT.maxtexSet ? OPT.maxtex : Infinity);
+  const fmt = (ctFmt || (ctFmt = CT_FMT()))(t.format), out = { name: t.name || 'inside the file', w, h, to: 0, ktx: fmt === 'RGBA' ? 'KTX2, uncompressed here (this GPU offers no compressed format)' : `KTX2, ${fmt} here`, bytes: 0 };
+  let drop = 0;
+  while (L.length - drop > 1 && Math.max(L[drop].width, L[drop].height) > cap) drop++;
+  if (drop) {
+    t.mipmaps = L.slice(drop);
+    t.image = { width: t.mipmaps[0].width, height: t.mipmaps[0].height };
+    t.needsUpdate = true;
+    out.to = Math.max(t.image.width, t.image.height);
+  }
+  out.bytes = t.mipmaps.reduce((n, l) => n + ((l.data && l.data.byteLength) || 0), 0);
   return out;
 }
 // The scale and turn a file starts with (stored in the item from then on: a layout never changes when this guess does):

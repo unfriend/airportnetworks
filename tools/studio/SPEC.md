@@ -122,8 +122,8 @@ placed by itself).
 
 ## Models
 
-- `.glb`/`.gltf` (GLTFLoader: PBR materials, every animation clip; no Draco, Meshopt or KTX2: such a file says so on
-  its card), `.fbx` (FBXLoader, binary or ASCII, version 7 and up; `fflate`, `NURBSCurve` and `TGALoader` with it).
+- `.glb`/`.gltf` (GLTFLoader: PBR materials, every animation clip, KTX2 textures since v151: "Compressed textures
+  (KTX2)" below; no Draco or Meshopt: such a file says so on its card), `.fbx` (FBXLoader, binary or ASCII, version 7 and up; `fflate`, `NURBSCurve` and `TGALoader` with it).
   The add-ons are three.js r128's own, vendored in `tools/studio/vendor/` (see its README) and pasted into the built
   file by `build.mjs` with their licence lines (no extra file to load, works offline). Wrap them so their globals do not
   leak beyond `THREE.*` (fflate's UMD must not need `module` or `define`).
@@ -133,7 +133,9 @@ placed by itself).
   PSD and DDS pictures are read in the page. One not found: the model shows untextured and its card says *Missing texture
   x.png: put it in the scene's folder*, and offers pictures for it.
 - Textures larger than 4,096 px on a side are drawn down to 4,096 (`&maxtex=` changes it, 512 to 8,192) before they go
-  to the GPU, and the card says so: the atelier's 8,192 px JPEG alone would take about 340 MB of the headset's memory.
+  to the GPU, and the card says so: the atelier's 8,192 px JPEG alone would take about 340 MB of the headset's memory. A
+  KTX2 texture is not drawn down: it drops its top mip levels only when larger than the GPU takes or than an explicit
+  `&maxtex=` ("Compressed textures (KTX2)").
 - When a file is first placed its item gets the file's units and up axis as its starting scale and turn (stored in the
   item from then on, so a layout never changes when this guess does): FBX `GlobalSettings`' `UnitScaleFactor` (cm per
   unit: the scale `factor / 100`) and `UpAxis`/`UpAxisSign` (Z up: a quarter turn about x), read from the file's bytes
@@ -917,8 +919,9 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
 
 - **One converter, two places.** The conversion code is one module (`tools/studio/engine/convert.js`, or where it fits)
   used by `convert.mjs` in its headless page and pasted into `stories/studio.js` (with `GLTFExporter`, now in the app,
-  loaded only when converting: see the vendor README). The GLB it writes is in metres and Y up, its textures at most
-  4,096 px (or 2,048: *for Quest*), and records what it baked in: `asset.extras.studio = { from: '<the original's path in
+  loaded only when converting: see the vendor README). The GLB it writes is in metres and Y up, its textures as the page's
+  texture kind says (v151: KTX2 at most 8,192 or 4,096 px, or JPEG/PNG at most 4,096 or 2,048; "Compressed textures
+  (KTX2)"), and records what it baked in: `asset.extras.studio = { from: '<the original's path in
   the scene>', s: <the scale applied>, q: [x, y, z, w] <the turn applied>, at: <ms> }` (since v120 also `size`, its size
   in metres, and `n`, its triangles, for the Add pane's cards).
 - **A scene's folders.** What the studio makes goes into folders of the scene: `models/` (GLB), `sounds/` and
@@ -935,6 +938,82 @@ into 3.0 MB with its skin and take exact, 0.03 s instead of 0.55 s.
 - **The Add list prefers GLB.** A GLB whose `asset.extras.studio.from` names another file of the scene (or, without
   extras, has the same base name) stands for it: the original shows only under *Originals*; placing places the GLB. A
   placed original's card says *A converted GLB is in the scene: switch to it* (the same switch as after converting).
+
+## Compressed textures (KTX2) (the owner, 16 November 2026)
+
+The owner: "yes build it, encoding in browser since that can be done on a desktop and be fast". A JPEG or PNG texture
+reaches the GPU as raw RGBA (4 bytes a pixel, a third more for its mipmaps: 21 MB at 2,048 px, 85 MB at 4,096, 341 MB at
+8,192), so the studio held textures to 2,048 px for Quest. The owner uses 4k and 8k textures in Unity on Quest (Unity
+ships ASTC); v150's Debug tab on a Quest 3: Adreno 740, `MAX_TEXTURE_SIZE` 8,192, ASTC, ETC1 and ETC2 among its formats.
+
+- **The format.** glTF's `KHR_texture_basisu`: each image a KTX2 file of Basis Universal UASTC LDR 4x4 with zstd
+  supercompression, its mip chain to 1 x 1 inside; the texture's `extensions.KHR_texture_basisu.source` names it and the
+  texture has no other `source` (no fallback); the extension is in `extensionsUsed` and `extensionsRequired`. The
+  GLB's record: `asset.extras.studio.ktx2 = { n, effort, max, zstd: true }`. Colour pictures (base colour, emission) have
+  an sRGB transfer function and perceptual encoding; data (normals, roughness and metalness, occlusion, and every other
+  texture slot, the materials' extensions' too, but a diffuse, specular, sheen or diffuse transmission colour) linear; a
+  picture used as both is written twice, an sRGB KTX2 for its colour uses and a linear one for its data uses, each
+  texture pointed at its own (one used both ways copied). Alpha: any texel of the picture under 255 makes every level RGBA.
+- **On the device.** three.js r133's `KTX2Loader` (`tools/studio/vendor/`, with its `WorkerPool`; r143's needs
+  `THREE.Data3DTexture`, which r128 lacks, and from r144 there is no `examples/js`) transcodes as the model loads, in
+  workers (2 in a headset session, 4 on a page), to what the GPU offers: ASTC 4x4 on a Quest (8 bits a pixel: 85 MB at
+  8,192 px, 21 MB at 4,096), BC7 on a desktop, ETC2 or ASTC on a phone, RGBA as a last resort. It stays a
+  `CompressedTexture`. A texture larger than the GPU takes (`renderer.capabilities.maxTextureSize`) or than an explicit
+  `&maxtex=` drops its top levels. The card: *KTX2, ASTC here* in its Textures line, *Its textures are KTX2 (compressed):
+  all kept compressed on the GPU, N MB with their mipmaps*; the budget counts a KTX2 texture as big only over 4,096 px.
+- **Made in the page, on a laptop or desktop.** The Upload pane's *Textures* row (in place of *For Quest*): *Compressed
+  (KTX2), up to 8k* (the default on a page: best for headsets), *Compressed (KTX2), up to 4k*, *JPEG/PNG, up to 4k*,
+  *JPEG/PNG, up to 2k*, this device's own (`studioTexKind` in `localStorage`), with a line saying what it means; every
+  GLB-writing path uses it (the Upload pane's rows, Convert to GLB, Convert every model, Fewer triangles' and Change
+  texture's Save, the missing-texture buttons, a take, the room scan), and their lines say it. **A headset never
+  encodes**: in a session, or on a headset browser's own page, the kind is *JPEG/PNG, up to 2k* and the words say
+  *compressed (KTX2) textures are made on a laptop or desktop*. A page without workers or WebAssembly writes JPEG/PNG up
+  to 4k. The videos' height, *For Quest*'s other part, is *Videos for Quest (720p)* beside *Convert videos*.
+- **How it is made** (`engine/ktx2.js`). The exporter writes the GLB as ever, but its pictures are taken from its own
+  canvases as it writes them (no PNG or JPEG is made: `toBlob` is replaced for the synchronous length of its `parse`,
+  and a tag stands in the GLB for each). Each picture: sized to a multiple of 4 a side and at most the kind's limit; its
+  mip chain made in the page (a box filter, colour in linear light); every level cut into full-width strips (each a
+  multiple of 4 rows but the last, at most 4 million texels, at least a quarter of a million where the level is so big)
+  and each strip encoded alone (one level, no mips) by a pool of workers (the computer's cores less one, at most 6; the
+  encoder's WebAssembly compiled once in the page); the strips' level data joined level by level into one KTX2. Why
+  strips: the encoder's WebAssembly refuses more than 12,582,912 source texels in one encode, mipmaps included, so a
+  4,096 px picture cannot be encoded whole; UASTC with no rate-distortion pass is made block by block, each alone, so
+  the joined blocks are exactly those of a whole encode (byte for byte without zstd at efforts 0 to 2;
+  `tools/studio/test-ktx2.mjs`), and with zstd each strip's frame joined to the next is still one valid stream. The glTF
+  is rewritten (each image's bufferView the KTX2's bytes, `image/ktx2`, the extension), BIN made again 4-byte aligned.
+- **Measured** (scan-like test pictures made in the page: fractal noise in colour, cracks, grain; 3 workers on 4 slow
+  cloud cores; PSNR of level 0 read back against the picture):
+
+  | Picture | Effort | Time | PSNR | File |
+  | --- | --- | --- | --- | --- |
+  | 4,096 px, busy | 0 / 1 / 2 | 2.5 / 2.6 / 11.2 s | 45.17 / 45.17 / 45.18 dB | 10.2 / 10.2 / 10.3 bits a texel (20 MB) |
+  | 8,192 px, busy | 0 / 1 / 2 | 8.0 / 8.0 / 43.1 s | 45.20 / 45.20 / 45.20 dB | 10.1 / 10.1 / 10.3 bits a texel (81 MB) |
+  | 4,096 px, smoother | 0 / 1 / 2 | 2.9 / 2.2 / 11.5 s | 52.35 / 52.35 / 52.56 dB | 9.4 / 9.4 / 9.9 bits a texel |
+  | 8,192 px, smoother | 0 / 2 | 8.6 / 48.9 s | 52.40 / 52.61 dB | 9.4 / 9.8 bits a texel |
+  | 2,048 px, busy | 0 / 3 / 4 | 1.5 / 3.1 / 9.2 s | 45.14 / 45.14 / 45.27 dB | 10.2 / 10.3 / 10.4 bits a texel |
+
+  Efforts 0 and 1 write the same file (the encoder's UASTC level 0 of 0 to 4); 2 takes 4.5 times as long for at most
+  0.2 dB, 4 about seven times for 0.1 to 0.8 dB. **The default is 1**, the fastest (`KT.EFFORT`; `convert.mjs --effort`).
+  zstd on (it saves little on photographic content without RDO, more on flat colours), RDO off (it would make the file
+  smaller at a cost in quality and three times the time, and blocks would no longer be made alone). On the GPU: 21 MB at
+  4,096 px against RGBA's 85 MB, 85 MB at 8,192 against 341 MB.
+- **Read back for conversion.** Whatever re-exports a model or reads its pixels (Convert to GLB from a KTX2 GLB, Fewer
+  triangles, Change texture, the texture buttons, the Add pane's pictures, the viewer, takes, the converter's own check)
+  loads it with a stand-in KTX2 loader (`KT.decoder`) that transcodes the largest level at most `maxTex` to RGBA in a
+  worker of its own and hands it over as a texture on a canvas, so the exporter and every pixel reader work as on PNG; a
+  GLB made again so keeps its fill record. Fewer triangles' fill preview on the scene's own (compressed) model leaves its
+  pictures alone.
+- **Looked at, not written.** What only shows a picture reads it at most 4,096 px whatever the kind (`maxTexView()`: the
+  viewer's Add card and an Upload row's Preview, Change texture's preview on the placed model), as before KTX2: an 8,192
+  px picture would be 268 MB as RGBA (341 MB with its mips on a GPU) for a look. Save, Convert and the Upload pane's rows
+  read their pictures again at the kind's own size.
+- **Served.** `basis/` next to `index.html` (`basis/README.md`: Basis Universal's encoder at commit `073eb6a`, three.js
+  r133's transcoder, Apache-2.0, SHA-256 of each): the relay's `APP_DIRS`, GitHub Pages; the service worker keeps what
+  it fetched as any app file (not in `SHELL`: the encoder is 3.4 MB). The encoder and the transcoder each define a global
+  `BASIS`: they only ever run in workers of their own.
+- Tests: `node tools/studio/test-ktx2.mjs` (Node) and `node tools/smoke.mjs --only 'studio ktx2'`.
+- **Untested**: everything on a real Quest (memory, transcoding time in a session, how ASTC looks), real 8,192 px scans,
+  encode times on a real desktop, Safari and Firefox.
 
 ## Textures: found, added, converted (the owner, 4 November 2026)
 
@@ -1018,8 +1097,9 @@ itself, and lets a picture be given by hand, baked at once into the model's GLB.
 - **In the GLB** (`toGLB`): separate roughness and metalness pictures are packed into one (roughness in green, metalness
   in blue, as three.js reads them and glTF keeps them; r128's exporter drops them otherwise); a bump map (FBX's, an
   MTL's `bump`) becomes a normal map from its slopes (a Sobel filter over its brightness, as steep as its `bumpScale`
-  says) instead of being left out; each note says so. Textures are still drawn down (2,048 For Quest, else 4,096) and
-  written as JPEG when opaque, PNG otherwise.
+  says) instead of being left out; each note says so. Textures are still drawn down (to the texture kind's limit: 2,048
+  or 4,096 px for JPEG/PNG, 4,096 or 8,192 for KTX2) and written as JPEG when opaque, PNG otherwise, or as KTX2
+  ("Compressed textures (KTX2)").
 - **The Upload pane**: a model's row lists each texture name it gives with what it will have and how it was found, or,
   missing, the dropped pictures no model uses (likeliest first) as *Use <file>* and *Choose a file...*. Found by the
   ladder against what was dropped, then `only`: exactly one model lacking exactly one texture and exactly one dropped
@@ -1053,7 +1133,8 @@ then sorted into a folder if possible".
 - **What the person does.** Pick a scene or *New scene* (a name: `POST /api/scenes`); drop files or whole folders onto
   the pane (or *Choose files*); the pane shows the plan, one row per thing it will make, before anything happens;
   *Convert and upload*; progress per row; then *Open the scene* (the studio on that scene, editing on) and what was made.
-  *For Quest* (textures at most 2,048 px) is on by default; off, 4,096. *Replace files with the same name* is off by
+  *Textures* (v151, in place of *For Quest*: "Compressed textures (KTX2)") is *Compressed (KTX2), up to 8k* by default on a
+  page; *Compressed (KTX2), up to 4k*, *JPEG/PNG, up to 4k* or *JPEG/PNG, up to 2k* (For Quest's old default) the others. *Replace files with the same name* is off by
   default (a new name is numbered: `eva_001 2.glb`). v127 (the owner, 9 November 2026: "add option to remove items from
   upload list before uploading, one slider for all models reduction when uploading"):
   - a **×** at the top right of every row still to make takes it out of the plan (`upDrop`): its files leave what was
@@ -2768,7 +2849,8 @@ bar writes the record's `play` alone with no Undo step (as v140's moves by anyon
   takes either), served with their types; uploads take them anywhere a sound may go, and under `videos/`.
 - The Upload pane puts a dropped video into `videos/<name>.<ext>` as it is.
 - **Converting (optional, off by default):** the Upload pane's *Convert videos to MP4 (H.264): off / on* (kept on this
-  device), and *For Quest* making it 720p (else 1080p at most). On, a video goes to the relay's `POST
+  device), and *Videos for Quest (720p)* (on by default; the videos' part of *For Quest* until v151) making it 720p (else
+  1080p at most). On, a video goes to the relay's `POST
   /api/scenes/<name>/video?path=videos/<name>.mp4[&from=<a file there>]&h=720|1080`: the relay's `ffmpeg` makes it H.264
   (`-preset veryfast -crf 23`, `yuv420p`), AAC 128 kbit/s, its height at most `h` (never larger), `+faststart`, as a job
   (one at a time; 202 `{ job }`; `GET /api/scenes/<name>/jobs/<job>` its state, `{ state: 'queued' | 'running' | 'done' |

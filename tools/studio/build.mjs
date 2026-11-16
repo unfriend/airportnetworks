@@ -1,6 +1,8 @@
 // Assembles stories/studio.js (the studio: your own scenes, a page that is not a story) from the tour's kit
 // (tools/lbi/kit.js), three.js r128's own add-ons vendored in vendor/ (pasted with their licence lines, each wrapped so
-// nothing of them shows outside the story but THREE.*: fflate's UMD sees no module, exports, define or global self),
+// nothing of them shows outside the story but THREE.*: fflate's UMD sees no module, exports, define or global self), and
+// two of three.js r133's, KTX2Loader.js and WorkerPool.js (the last plain-script KTX2Loader that needs nothing r128 lacks:
+// the scene's KTX2 textures transcoded to what the GPU keeps compressed; vendor/README.md),
 // meshoptimizer's simplifier (vendor/, inside meshoptLoad()), the sets and the engine parts in this folder.
 // usage (from the repository root): node tools/studio/build.mjs        -> writes stories/studio.js
 //                                   node tools/studio/build.mjs --check -> exits 1 if stories/studio.js is out of date
@@ -10,9 +12,9 @@ import { fileURLToPath } from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['stage', 'looks'];
-// (images: the pictures the browser cannot show, and texture names; convert: the converter; both modules that
-// tools/studio/convert.mjs loads in its headless page too)
-const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'ik', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e6g_behave', 'e6h_ghost', 'e6i_tex', 'e6j_voice', 'e6k_trk', 'e6l_puppet', 'e6m_anim', 'e6n_plays', 'e6o_walls', 'e6p_scan', 'e6q_screens', 'e6r_paint', 'e6s_seq', 'e6t_press', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e7f_viewer', 'e7g_examples', 'e7h_colour', 'e7h_seqview', 'e8_xr', 'e9_panels', 'e10_app'];
+// (images: the pictures the browser cannot show, and texture names; ktx2: compressed textures, KTX2 written in workers and
+// read back; convert: the converter; modules that tools/studio/convert.mjs loads in its headless page too)
+const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'ktx2', 'convert', 'ik', 'e5_models', 'e6_items', 'e6b_cuts', 'e6c_groups', 'e6d_shapes', 'e6e_motion', 'e6f_path', 'e6g_behave', 'e6h_ghost', 'e6i_tex', 'e6j_voice', 'e6k_trk', 'e6l_puppet', 'e6m_anim', 'e6n_plays', 'e6o_walls', 'e6p_scan', 'e6q_screens', 'e6r_paint', 'e6s_seq', 'e6t_press', 'e7_explore', 'e7b_upload', 'e7c_direct', 'e7d_lite', 'e7e_pics', 'e7f_viewer', 'e7g_examples', 'e7h_colour', 'e7h_seqview', 'e8_xr', 'e9_panels', 'e10_app'];
 // (e6e_motion: simple motions, and the pipeline that draws an item's pose; e6f_path: recorded paths, the recorder;
 // e6g_behave: behaviours, shared from the headset they react to; e6m_anim: a selected model's timeline while editing; e6n_plays: trigger cubes that start things (a clip, a sound, a recorded path, a motion) as you walk in or out; e6o_walls: things on the room's walls (a behaviour's kind 'wall', on the walls this headset's room scan finds); e6p_scan: the headset's room scan saved as a model of the scene; e6q_screens: screens, video and audio players with a playlist, shared or each person's own (kind v); e6r_paint: paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can (kind d); e6h_ghost: the ghost where a moving item is placed, the
 // page's arrows on it, and Pause; e6i_tex: trigger cubes that change pictures on objects; e6j_voice: recordings past 2
@@ -26,14 +28,15 @@ const ENGINE = ['e2_scene', 'e3_story', 'e4_files', 'images', 'convert', 'ik', '
 // the app, opened read only or copied to the relay; e7h_colour: the shared colour picker, page popover and headset block; e6s_seq: sequences, timelines of events on items, kind q; e7h_seqview: a sequence's lane view on a page)
 // the app's add-ons, in the order they need each other (the NURBS curve before the FBX loader that asks for it); the
 // GLTFExporter last, inside a function the converter calls the first time it converts (exporterLoad)
-const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'OBJLoader', 'MTLLoader', 'PLYLoader', 'STLLoader', 'SkeletonUtils', 'TransformControls'];
+// (WorkerPool and KTX2Loader are r133's, not r128's: the KTX2Loader needs the pool, and nothing else of r133)
+const VENDOR = ['NURBSUtils', 'NURBSCurve', 'TGALoader', 'FBXLoader', 'GLTFLoader', 'WorkerPool', 'KTX2Loader', 'OBJLoader', 'MTLLoader', 'PLYLoader', 'STLLoader', 'SkeletonUtils', 'TransformControls'];
 const LATER = ['GLTFExporter'];
 
 // ---- the vendored add-ons
 const fflate = read('vendor/fflate.min.js').trim();
 const iife = f => {
   const src = read(`vendor/${f}.js`).trim();
-  if (!/^\( function \(\) \{/.test(src) || !/THREE\.\w+ = \w+;\s*\} \)\(\);$/.test(src)) throw new Error(`vendor/${f}.js is not the IIFE three.js r128 ships (it would leak names): check vendor/README.md`);
+  if (!/^\( function \(\) \{/.test(src) || !/THREE\.\w+ = \w+;\s*\} \)\(\);$/.test(src)) throw new Error(`vendor/${f}.js is not the IIFE three.js r128 (or r133) ships (it would leak names): check vendor/README.md`);
   return src;
 };
 const three = VENDOR.map(f => `// ---- ${f}.js\n${iife(f)}\n`).join('\n') + '\n' +
@@ -55,7 +58,8 @@ return (meshoptLoad.s = MeshoptSimplifier);
 }
 `;
 const vendor = [
-  '// three.js r128\'s own add-ons (three@0.128.0, examples/js; MIT, as three.min.js: three.LICENSE.txt), unchanged, and',
+  '// three.js r128\'s own add-ons (three@0.128.0, examples/js; MIT, as three.min.js: three.LICENSE.txt), and r133\'s',
+  '// KTX2Loader and WorkerPool (three@0.133.0, examples/js: the KTX2 textures; MIT likewise), unchanged, and',
   '// fflate 0.6.9 (MIT, Arjun Barrett, https://github.com/101arrowz/fflate), which the FBX loader needs to unpack',
   '// compressed binary arrays. Each add-on is its own function that sets THREE.<name> only; fflate is kept in this',
   '// story\'s closure (its UMD wrapper finds no module, exports, define or global self).',

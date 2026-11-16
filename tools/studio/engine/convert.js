@@ -21,9 +21,14 @@
 //                       false; o.keep: made lighter first), loaded back and checked against it; o.picture(root): called
 //                       with the GLB as loaded back (metres, Y up) before it is freed, its answer given back as picture
 //   glbJSON(buf), glbPatch(buf, fn), glbRecord(json)   a GLB's JSON chunk, changed, and its asset.extras.studio
+//   ktx2                the compressed textures' module (engine/ktx2.js): toGLB's o.ktx2 makes the GLB's pictures KTX2
+//                       (KHR_texture_basisu, UASTC, zstd: encoded in workers here); load(o) reads a GLB's KTX2 pictures as
+//                       the GPU keeps them through o.ktx2 (three.js r133's KTX2Loader: the studio's scene), else back as
+//                       plain pictures at most o.maxTex (everything that re-exports, reads pixels or makes pictures)
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
 // simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
-// renderer for drawing both to compare their looks (convert.mjs only: the app's one renderer is the shell's)
+// renderer for drawing both to compare their looks (convert.mjs only: the app's one renderer is the shell's); hooks.basis():
+// the address of the app's basis/ folder (the KTX2 encoder and transcoder: engine/ktx2.js)
 function makeConverter(THREE, hooks) {
   const T = THREE, H = hooks || {};
   const AX = new T.Vector3(1, 0, 0), AZ = new T.Vector3(0, 0, 1);
@@ -33,6 +38,9 @@ function makeConverter(THREE, hooks) {
   const TEX_KEYS = ['map', 'normalMap', 'emissiveMap', 'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'specularMap', 'bumpMap', 'lightMap'];
   // pictures and their names (engine/images.js; fflate unpacks a zipped TIFF or PSD: the studio's own copy, or the page's)
   const IM = H.images || makeImages(typeof fflate !== 'undefined' ? fflate : null);
+  // compressed textures (engine/ktx2.js): the GLB's pictures made KTX2 (toGLB's o.ktx2), and a GLB's KTX2 pictures read
+  // back as plain ones where nothing keeps them compressed (load without o.ktx2)
+  const KT = H.ktx2 || (typeof makeKTX2 === 'function' ? makeKTX2(T, { basis: H.basis }) : null);
   // what a texture not found becomes while the model loads: a tiny white picture (3 x 1, so it is told apart), dropped after
   let missingUrl = '';
   const MISSING = () => missingUrl || (missingUrl = (() => { const c = document.createElement('canvas'); c.width = 3; c.height = 1; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 3, 1); return c.toDataURL(); })());
@@ -270,7 +278,11 @@ function makeConverter(THREE, hooks) {
         clips = root.animations || [];
       } else if (ext === 'glb' || ext === 'gltf') {
         await prep(namesIn(ext, o.data).textures);
-        const g = await new Promise((res, rej) => new T.GLTFLoader(manager).parse(o.data, o.base, res, rej));
+        // (its KTX2 pictures, KHR_texture_basisu: kept compressed through three.js's KTX2Loader, o.ktx2, the studio's scene;
+        // else read back as plain pictures, the largest level at most o.maxTex, for whatever reads them)
+        const gl = new T.GLTFLoader(manager), kl = o.ktx2 || (KT ? KT.decoder({ max: o.maxTex }) : null);
+        if (kl) gl.setKTX2Loader(kl);
+        const g = await new Promise((res, rej) => gl.parse(o.data, o.base, res, rej));
         root = g.scene || (g.scenes && g.scenes[0]); clips = g.animations || []; asset = g.asset || null;
         guess = { unit: 100, up: 1, sign: 1, read: true, gltf: true, format: ext === 'glb' ? 'binary glTF' : 'glTF' };
       } else if (ext === 'obj') {
@@ -346,7 +358,7 @@ function makeConverter(THREE, hooks) {
   // tex: the pictures laid on, [{ name (the name the model gave, '' for a slot added), mat (a material's name, or its
   // index; '*' every one without that slot), slot, from (the picture's path in the scene), how }], tris: { from, to,
   // keep } when it was made lighter (Fewer triangles), fill: how many of its pictures had the gaps between their pieces
-  // filled (fillModel) }
+  // filled (fillModel), ktx2: { n, effort, max, zstd } when its pictures are KTX2 (o.ktx2) }
   const SLOT_OK = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
   const HOW_OK = ['path', 'name', 'ext', 'similar', 'only', 'chosen', 'stem'];
   const texList = list => (Array.isArray(list) ? list : []).filter(x => x && typeof x === 'object' && typeof x.from === 'string' && x.from && (x.name || SLOT_OK.includes(x.slot))).slice(0, 40).map(x => ({
@@ -364,7 +376,10 @@ function makeConverter(THREE, hooks) {
     // (size and n: what the GLB holds, for the Add pane's cards; absent in a GLB written before v120)
     const size = Array.isArray(r.size) && r.size.length === 3 && r.size.every(v => Number.isFinite(v) && v >= 0 && v < 1e6) ? r.size.slice() : null;
     const n = Number.isInteger(r.n) && r.n >= 0 ? r.n : null;
-    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl, size, n };
+    // (ktx2: its pictures are KTX2, how many, the encoder's effort and their largest side; absent before v151)
+    const k = r.ktx2 && typeof r.ktx2 === 'object' && Number.isInteger(r.ktx2.n) && r.ktx2.n > 0
+      ? { n: Math.min(999, r.ktx2.n), effort: Number.isInteger(r.ktx2.effort) && r.ktx2.effort >= 0 && r.ktx2.effort <= 10 ? r.ktx2.effort : null, max: Number.isInteger(r.ktx2.max) && r.ktx2.max > 0 ? Math.min(16384, r.ktx2.max) : null, zstd: r.ktx2.zstd !== false } : null;
+    return { from: typeof r.from === 'string' ? r.from.slice(0, 200) : '', s: Number.isFinite(r.s) && r.s > 0 ? r.s : 1, q, at: +r.at || 0, scan: !!r.scan, tex: texList(r.tex), tris: tr, fill: fl, size, n, ktx2: k };
   }
 
   // ---- pictures laid onto materials. matsOf: the model's materials in the order they are met, each with whether its
@@ -425,13 +440,20 @@ function makeConverter(THREE, hooks) {
       for (const a of [g.index, ...Object.values(g.attributes), ...Object.values(g.morphAttributes || {}).flat()]) if (a && a.array) bufs.add(a.array);
       for (const m of [].concat(o.material || [])) for (const k of TEX_KEYS) {
         const t = m[k];
-        if (t && t.isTexture && !tex.has(t.image || t)) tex.set(t.image || t, { w: (t.image && (t.image.naturalWidth || t.image.width)) || 0, h: (t.image && (t.image.naturalHeight || t.image.height)) || 0, kind: t.format === T.RGBFormat ? 'JPEG' : '' });
+        if (!t || !t.isTexture || tex.has(t.image || t)) continue;
+        // (a KTX2 picture: as the GPU keeps it, its levels' own bytes; read back as a plain one, its full size and a byte a
+        // texel with its mipmaps, as a GPU that keeps it compressed holds it)
+        const kt = KT && KT.of(t.image);
+        if (t.isCompressedTexture) tex.set(t.image || t, { w: t.image.width, h: t.image.height, kind: 'KTX2', bytes: (t.mipmaps || []).reduce((n, l) => n + ((l.data && l.data.byteLength) || 0), 0) });
+        else if (kt) tex.set(t.image, { w: kt.w, h: kt.h, kind: 'KTX2', bytes: (kt.w * kt.h * 4) / 3 });
+        else tex.set(t.image || t, { w: (t.image && (t.image.naturalWidth || t.image.width)) || 0, h: (t.image && (t.image.naturalHeight || t.image.height)) || 0, kind: t.format === T.RGBFormat ? 'JPEG' : '' });
       }
     });
     const size = new T.Box3().setFromObject(root).getSize(new T.Vector3()).toArray();
     const textures = [...tex.values()].filter(t => t.w);
-    // the headset's memory for it, about: its vertex buffers, and every texture as RGBA with its mipmaps (4/3)
-    const gpu = [...bufs].reduce((n, a) => n + a.byteLength, 0) + textures.reduce((n, t) => n + (t.w * t.h * 4 * 4) / 3, 0);
+    // the headset's memory for it, about: its vertex buffers, and every texture as RGBA with its mipmaps (4/3), a KTX2 one
+    // as its compressed bytes
+    const gpu = [...bufs].reduce((n, a) => n + a.byteLength, 0) + textures.reduce((n, t) => n + (t.bytes !== undefined ? t.bytes : (t.w * t.h * 4 * 4) / 3), 0);
     return { tris: Math.round(tris), verts, meshes, skinned, bones: bones.size, size, textures, gpu, normals, clips: cl.map(c => ({ name: c.name, duration: c.duration, tracks: c.tracks.length })) };
   }
   const disposeTree = root => {
@@ -690,7 +712,9 @@ function makeConverter(THREE, hooks) {
         const ranges = multi ? g.groups.filter(gr => (gr.materialIndex || 0) === mi).map(gr => [Math.max(0, gr.start), Math.min(all, gr.start + gr.count)]) : [[0, all]];
         for (const slot of FILL_SLOTS) {
           const t = mt[slot];
-          if (!t || !t.isTexture) continue;
+          // (a KTX2 picture kept compressed, the studio's own model's: no pixels to read here; the GLB was filled as it was
+          // made where it needed it, its record says so, and a lighter one is made from its pictures read back)
+          if (!t || !t.isTexture || t.isCompressedTexture) continue;
           const [w, h] = sizeOf(t.image);
           if (!w || !h) continue;
           let e = plan.get(t.image);
@@ -846,7 +870,8 @@ function makeConverter(THREE, hooks) {
   // ---- a loaded model (load's result) as one binary glTF. o: { name, maxTex (its textures' longer side at most),
   // weld (true: its triangles' shared corners welded into an index), from (the original's path, for the record), fill
   // (false: its pictures' gaps not filled), keep (a share of its triangles kept), look (draw both and compare: needs
-  // hooks.renderer), step(label) (progress) }. The guess goes into the file (its root's
+  // hooks.renderer), step(label) (progress), ktx2 ({ effort }: its pictures written as KTX2, engine/ktx2.js, at most maxTex
+  // on their longer side, which may then be 8,192) }. The guess goes into the file (its root's
   // scale and turn), so the GLB is in metres and Y up, as glTF is. Loaded back and compared with the original: triangles,
   // size, skins, bones, animations, and where the bones and a sample of skinned corners are at a few moments of every
   // animation. -> { ok, why, notes, before, after, check, look, sheet, glb, record, missing }. Nothing is changed on a
@@ -856,6 +881,9 @@ function makeConverter(THREE, hooks) {
     const step = o.step || (() => {}), maxTex = o.maxTex || 4096, notes = [];
     if (H.exporter) H.exporter();
     if (!T.GLTFExporter) throw new Error('no GLTFExporter');
+    // (its pictures as KTX2: refused here, before anything is done, where this page cannot encode them)
+    const ktx = o.ktx2 ? { effort: Number.isInteger(o.ktx2.effort) ? o.ktx2.effort : KT ? KT.EFFORT : 1, max: maxTex } : null;
+    if (ktx && !(KT && KT.can())) throw new Error('this page cannot compress textures (KTX2 needs web workers and WebAssembly): choose JPEG/PNG');
     const ext = m.ext, clips = m.clips || [];
     step('Making it lighter', 0.05);
     const wrap = new T.Object3D();
@@ -1073,24 +1101,46 @@ function makeConverter(THREE, hooks) {
     await yieldNow();
     const t0 = performance.now();
     // (a picture the browser cannot encode, as a headset short of memory, leaves the exporter waiting for ever: a limit)
+    // (KTX2: the exporter's pictures taken from its own canvases as it writes them, no PNG or JPEG made: KT.capture)
+    let caps = null;
     let glb = await new Promise((res, rej) => {
       const t = setTimeout(() => rej(new Error('its textures could not be written here (out of memory?): try it on a laptop')), o.exportMs || 240000);
-      try { new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex }); } catch (err) { clearTimeout(t); rej(err); }
+      const go = () => new T.GLTFExporter().parse(wrap, b => { clearTimeout(t); res(b); }, { binary: true, animations: outClips, onlyVisible: false, truncateDrawRange: true, embedImages: true, maxTextureSize: maxTex });
+      try { if (ktx) caps = KT.capture(go); else go(); } catch (err) { clearTimeout(t); rej(err); }
     });
+    // its pictures made KTX2 (UASTC LDR 4x4, zstd), every level in strips across workers (engine/ktx2.js), its glTF
+    // rewritten: KHR_texture_basisu, used and required, no other source
+    let kres = null;
+    const exportMs = performance.now() - t0;   // (the exporter's own time; the KTX2 pass says its own)
+    if (ktx) {
+      step('Compressing its textures (KTX2)', 0.4);
+      await yieldNow();
+      kres = await KT.glb(glb, caps, { effort: ktx.effort, max: ktx.max, step: (l, f) => step(l, 0.4 + 0.33 * f) });
+      caps = null;
+      glb = kres.glb;
+      const mbs = b => (b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' KB' : (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB');
+      const cps = kres.list.filter(x => x.copy).length;   // (a picture used both as colour and as data: written twice, ktx2.js's split)
+      if (kres.n) notes.push(`textures as KTX2 (Basis Universal UASTC, zstd; effort ${ktx.effort}): ${kres.n === 1 ? 'its picture' : kres.n + ' pictures'} (${kres.list.map(x => x.w === x.h ? `${x.w} px` : `${x.w} × ${x.h}`).join(', ')}) in ${(kres.ms / 1000).toFixed(1)} s with ${kres.workers} worker${kres.workers === 1 ? '' : 's'}: about ${mbs(kres.after)} on a headset's GPU in place of ${mbs(kres.before)}, ${mbs(kres.file)} in the file` +
+        (cps ? `; ${cps === 1 ? 'one of them is a second copy' : cps + ' of them are second copies'} of a picture used both as colour and as data (normals, roughness...), made linear for that use` : ''));
+    }
     const record = { from: String(o.from || '').slice(0, 200), s: g.s, q: wrap.quaternion.toArray().map(v => Math.round(v * 1e6) / 1e6), at: Date.now(),
       size: ref.size.map(v => Math.round(v * 1000) / 1000), n: ref.tris };
     if (!before.normals) record.scan = true;
     if (o.tex && o.tex.length) record.tex = texList(o.tex);
     if (red) record.tris = { from: red.from, to: red.to, keep: red.keep };
     if (fill && fill.list.length + fill.again) record.fill = fill.list.length + fill.again;
+    if (kres && kres.n) record.ktx2 = { n: kres.n, effort: ktx.effort, max: ktx.max, zstd: true };
     glb = glbPatch(glb, j => { j.asset = Object.assign({}, j.asset, { extras: Object.assign({}, j.asset && j.asset.extras, { studio: record }) }); });
-    const exportMs = performance.now() - t0;
 
     // ---- loaded back and compared
     step('Checking it', 0.75);
     await yieldNow();
     const t1 = performance.now();
-    const gb = await new Promise((res, rej) => new T.GLTFLoader().parse(glb.slice(0), '', res, rej));
+    // (its KTX2 pictures read back as plain ones, at most 1,024 px: enough for the comparison and its picture; their full
+    // sizes are counted)
+    const gl = new T.GLTFLoader();
+    if (KT) gl.setKTX2Loader(KT.decoder({ max: 1024 }));
+    const gb = await new Promise((res, rej) => gl.parse(glb.slice(0), '', res, rej));
     const back = gb.scene, after = stats(back, gb.animations);
     // (its materials with texture coordinates as loaded back, by name and their meshes' names: the studio finds a trigger
     // cube's material again in them, as the order may differ from the original's)
@@ -1189,9 +1239,10 @@ function makeConverter(THREE, hooks) {
     wrap.remove(m.root);
     step(why.length ? 'Not written' : 'Converted', 1);
     return { ok: !why.length, why: why.join('; '), notes, before, after, check, look, sheet, glb, record, picture, mats, missing: m.missing || [], ms: { export: Math.round(exportMs), back: Math.round(after.parse) },
+      ktx2: kres && kres.n ? { n: kres.n, ms: kres.ms, workers: kres.workers, list: kres.list, before: kres.before, after: kres.after, file: kres.file } : null,
       reduced: red ? { from: red.from, to: red.to, keep: red.keep, morph: red.morph, ms: red.ms } : null };
   }
 
-  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS, drew,
+  return { fbxGuess, guessFor, namesIn, mtlNames, load, toGLB, glbJSON, glbPatch, glbRecord, texList, stats, disposeTree, MODEL_EXT, reduce, weldOf, triCount, KEEP_MIN, fillModel, filled, FILL_SLOTS, drew, ktx2: KT,
     IM, texFind: IM.texFind, texRank: IM.texRank, slotOf: IM.slotOf, normStem: IM.normStem, picture, toImage, meanOf, matsOf, addTextures };
 }

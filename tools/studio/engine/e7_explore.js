@@ -96,12 +96,13 @@ function budget() {
     if (it.kind !== 'o' || !it.E || !it.E.info) continue;
     tris += it.E.info.tris;
     if (it.E.info.tris > 300000 && !heavy.includes(it.rec.file)) heavy.push(it.rec.file);
-    for (const t of it.E.info.textures) if ((t.to || Math.max(t.w, t.h)) > 2048) big.add(it.rec.file + '|' + t.name);
+    // (a KTX2 one kept compressed holds a quarter of RGBA's memory: over 4,096 px is as much as an RGBA one over 2,048)
+    for (const t of it.E.info.textures) if ((t.to || Math.max(t.w, t.h)) > (t.ktx ? 4096 : 2048)) big.add(it.rec.file + '|' + t.name);
   }
   const out = [];
   if (tris > 500000) out.push(`${fmt(tris)} triangles in the scene: more than a Quest draws smoothly (about 500,000).`);
   for (const f of heavy) out.push(`${baseName(f)} has more than 300,000 triangles: heavy for a Quest.`);
-  if (big.size > 6) out.push(`${big.size} textures over 2,048 px: a Quest may run short of memory.`);
+  if (big.size > 6) out.push(`${big.size} textures over 2,048 px (over 4,096 for KTX2): a Quest may run short of memory.`);
   return { tris, notes: out };
 }
 function paneBlocks(tab) {
@@ -188,7 +189,7 @@ function paneBlocks(tab) {
     // (the page converts: every model to place that is not a GLB yet)
     const conv = L.models.filter(f => extOf(f.path) !== 'glb');
     if (!XR.on && conv.length) B.push({ page: true, row: [{ id: 'convertAll', label: CV.all ? `Converting ${CV.all.i} of ${CV.all.n}...` : `Convert every model to GLB (${conv.length})`, act: 'convertAll', dis: !!CV.busy || !!CV.all }] },
-      { page: true, p: `GLB loads faster and sits right without guessing; textures at most ${fmt(maxTexNow())} px (For Quest, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
+      { page: true, p: `GLB loads faster and sits right without guessing; ${texKindWords()} (Textures, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
     else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
     if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
@@ -357,7 +358,7 @@ function itemBlocks(it, B, ed) {
       // (the scale it started at, and why: what the file says of its units and up axis, and what was made of it)
       const gw = guessWords(E.guess), g0 = r.s === E.guess.s;
       kv.push(['Size', `${metres(sz.x)} × ${metres(sz.y)} × ${metres(sz.z)} (x, height, z)`], ['Scale', String(r.s) + (gw ? (g0 ? ` (${gw})` : ` (placed first at ${E.guess.s}: ${gw})`) : '')],
-        ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
+        ['Triangles', fmt(info.tris)], ['Textures', info.textures.length ? info.textures.map(t => `${t.name} ${t.w} × ${t.h}${t.ktx ? ` (${t.ktx}${t.to ? `, shown at ${fmt(t.to)}` : ''})` : t.to ? ` (drawn at ${fmt(t.to)})` : ''}`).join('; ') : 'none'],
         ['Animations', info.clips.length ? info.clips.map(c => `${c[0]} (${c[1].toFixed(1)} s)`).join('; ') : 'none']);
     }
     B.push({ kv });
@@ -365,7 +366,10 @@ function itemBlocks(it, B, ed) {
     if (info) {
       if (info.solid) B.push({ p: 'Its material says it is fully see-through (opacity 0, a habit of 3ds Max\'s exports): drawn solid.', c: 'faint' });
       if (!info.normals) B.push({ p: 'It has no normals (as a scan\'s mesh often has none): as scanned it shows its own colours; lit, its faces are shaded flat.', c: 'faint' });
-      for (const t of info.textures) if (t.to) B.push({ p: `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
+      for (const t of info.textures) if (t.to) B.push({ p: t.ktx ? `${t.name} is ${fmt(Math.max(t.w, t.h))} px: shown from its next level down, ${fmt(t.to)} px (this GPU, or &maxtex=, takes no more).` : `${t.name} is ${fmt(Math.max(t.w, t.h))} px: drawn at ${fmt(t.to)} px to spare the headset's memory.`, c: 'faint' });
+      // (KTX2 pictures: what this GPU keeps them as, and their memory)
+      const kt = info.textures.filter(t => t.ktx);
+      if (kt.length) B.push({ p: `Its textures are KTX2 (compressed): ${kt.length === info.textures.length ? 'all' : kt.length + ' of ' + info.textures.length} kept compressed on the GPU, ${mb(kt.reduce((n, t) => n + (t.bytes || 0), 0))} with their mipmaps.`, c: 'faint' });
       if (info.tris > 300000) B.push({ p: `More than 300,000 triangles: heavy for a Quest.`, c: 'amber' });
     }
     // GLB first: a GLB of this file in the scene (switch to it), or Convert to GLB (pages; a headset says where)
@@ -374,7 +378,7 @@ function itemBlocks(it, B, ed) {
     else if (MODEL_EXT.includes(extOf(r.file)) && extOf(r.file) !== 'glb') {
       if (XR.on) B.push({ p: 'Convert on a laptop: as a GLB it loads faster and sits right without guessing (Convert to GLB on this card, on a page).', c: 'faint' });
       else B.push({ page: true, row: [{ id: 'convert', label: CV.busy === r.file ? 'Converting...' : 'Convert to GLB', act: 'convert', v: r.file, dis: dis || !!CV.busy }] },
-        { page: true, p: `As a GLB it loads faster and sits right without guessing (textures at most ${fmt(maxTexNow())} px). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
+        { page: true, p: `As a GLB it loads faster and sits right without guessing (${texKindWords()}). ` + (canUpload() ? 'It goes into models/, and every object placed from this file switches to it where it stands.' : 'It is downloaded: put it in the scene\'s models/ folder.'), c: 'faint' });
     }
     if (CV.note && !XR.on && (CV.busy === r.file || CV.item === it.id || CV.note.includes(baseName(r.file)))) B.push({ page: true, p: CV.note, c: CV.noteC });
     B.push({ label: 'Light', row: [{ id: 'light:lit', label: 'Lit', act: 'i:light', v: 'lit', on: r.light === 'lit', dis }, { id: 'light:scan', label: 'As scanned', act: 'i:light', v: 'scan', on: r.light === 'scan', dis }] });
@@ -686,7 +690,7 @@ function texBlocks(it, E, B) {
           { page: true, label: 'As', row: SLOTS_ADD.map(k => ({ id: 'texslot:' + k, label: SLOT_NAME[k], act: 'tex:slot', v: k, on: A.slot === k })) });
         if (mat.slots.includes(A.slot)) B.push({ page: true, p: `${matLabel(mat)} has a ${SLOT_NAME[A.slot].toLowerCase()} picture already: this one takes its place.`, c: 'faint' });
         B.push({ page: true, row: [{ id: 'texgo', label: 'Add and convert', act: 'tex:go', primary: true, dis: busy || !!A.pic.why }, { id: 'texcancel', label: 'Cancel', act: 'tex:cancel' }] },
-          { page: true, p: `It is converted to a GLB with the picture in it at once (textures at most ${fmt(maxTexNow())} px)` + (canUpload() ? ': into models/, and what is placed from it switches to it.' : ': downloaded, to put in the scene\'s models/ folder.'), c: 'faint' });
+          { page: true, p: `It is converted to a GLB with the picture in it at once (${texKindWords()})` + (canUpload() ? ': into models/, and what is placed from it switches to it.' : ': downloaded, to put in the scene\'s models/ folder.'), c: 'faint' });
       }
     }
   }

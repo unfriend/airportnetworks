@@ -92,6 +92,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   (`docs/agents/stories.md`).
 - `tools/studio/` - the sources of `stories/studio.js`: engine parts, sets, `vendor/` (never edited), the build,
   `scan.mjs`, `convert.mjs`, the test scenes, `r2sync.mjs`, `push.mjs`, `ik.js` (`docs/agents/studio.md`).
+- `basis/` - Basis Universal's KTX2 encoder and transcoder (v151, the studio's), copied unchanged (`basis/README.md`).
 - `tools/studio/xp/` - the Bliss XP room's generator; `examples/` - example scenes that ship with the app
   (`examples/bliss-xp` generated, never edited by hand).
 - `tools/lowpoly/` - the miniatures' sources (`models-a.js`, `models-b.js`, each under 1,200 triangles, `tris` exact),

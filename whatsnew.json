@@ -1,13 +1,18 @@
 {
-  "version": "networks-v150",
+  "version": "networks-v151",
   "date": "2026-11-16",
   "new": [
-    "Debug tab: the largest texture this headset takes and which compressed texture formats it offers (ASTC is what Unity uses on a Quest), on a new line Textures; the GPU's name on the Browser line."
+    "Studio: compressed textures (KTX2, the ASTC kind Unity uses on a Quest). A laptop or desktop page encodes them while it converts, up to 8k; a Quest 3 then holds an 8k texture in about 85 MB instead of 341 MB, a 4k one in 21 MB.",
+    "Upload pane: For Quest is now a Textures choice (Compressed up to 8k, the default on a page; Compressed up to 4k; JPEG/PNG up to 4k or 2k) and its own Videos for Quest (720p) switch.",
+    "In a headset nothing is encoded: its own saves (Fewer triangles, Change texture) stay JPEG/PNG up to 2k. Models converted before keep their textures; convert them again from the originals to compress them."
   ],
   "test": [
-    "On the Quest 3 (and a Quest 2 or 3S if there is one): open the menu, Debug tab, and note the Textures line and the end of the Browser line. They decide whether 4k and 8k textures can work like in Unity."
+    "On a laptop or desktop: upload a model with 4k or 8k textures (Compressed up to 8k), note how long it takes and the file size; the card says KTX2.",
+    "On the Quest 3: open that scene, check the model looks right (colours, normals, no seams or dark edges), the card says ASTC here, and the frame rate and memory hold with several such models.",
+    "Fewer triangles and Change texture on a page and in the headset still save, and a converted model still opens in the viewer."
   ],
   "untested": [
-    "What a Quest shows there: only a desktop browser drawing in software was checked (it says 8,192 px and lists ASTC among others)."
+    "Anything on a Quest: transcoding to ASTC, its memory and the look were only checked in a desktop browser drawing in software.",
+    "Real 8k scans and real desktop encode times (here 4 slow cores: about 8 s for an 8k texture); a model with several 8k textures may run a small laptop out of memory while converting."
   ]
 }

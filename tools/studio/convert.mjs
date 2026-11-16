@@ -1,5 +1,6 @@
 // node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]
 //                                [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]
+//                                [--ktx2] [--effort <0 to 10>]
 // A model made lighter for a headset (tools/studio/SPEC.md, "GLB first, and converting"), in headless Chromium with the
 // studio's own converter (tools/studio/engine/convert.js, the same module the studio's Convert to GLB and Upload pane
 // use) and three.js r128's own loaders and exporter (tools/studio/vendor/, and three.min.js from the repository's root).
@@ -29,6 +30,11 @@
 // --texture <material>:<slot>=<picture> lays a picture on a material that had none in that slot (<material> a material's
 // name, its number from 0, or * for every one; <slot> map, normalMap, roughnessMap, metalnessMap, aoMap, emissiveMap,
 // alphaMap or orm). What was found and given is printed, and kept in the GLB's record (asset.extras.studio.tex).
+// --ktx2 writes its pictures as KTX2 (KHR_texture_basisu: Basis Universal UASTC LDR 4x4, zstd; tools/studio/engine/ktx2.js,
+// the studio's own), which a headset keeps compressed on its GPU (ASTC on a Quest), so --max-texture is 8,192 by default
+// then; every level of each picture is encoded in strips by workers in the page (the computer's cores less one, at most
+// 6), with the basis/ folder's encoder; --effort <0 to 10> the encoder's effort (1 by default: see the studio's SPEC.md).
+// The GLB is checked loaded back with its KTX2 pictures read back to plain ones, as the studio reads them to convert.
 // Needs Playwright with a Chromium build (as tools/smoke.mjs; PLAYWRIGHT_MODULE and CHROMIUM_PATH as there).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -38,12 +44,14 @@ import { sceneFiles } from '../../relay/scenes.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '../..');
 const EXTS = ['.fbx', '.glb', '.gltf', '.obj', '.ply', '.stl'];
 const USAGE = 'usage: node tools/studio/convert.mjs <in.fbx|.glb|.gltf|.obj|.ply|.stl> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]\n' +
-  '       [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]';
+  '       [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>] [--ktx2] [--effort <0 to 10>]';
 const SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap', 'orm'];
 const args = process.argv.slice(2), pos = [], given = [];
-let maxTex = 4096, weld = true, fill = true, shots = '', texDir = '', keep = 1;
+let maxTex = 0, weld = true, fill = true, shots = '', texDir = '', keep = 1, ktx2 = false, effort = null;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--max-texture') { maxTex = Number(args[++i]); continue; }
+  if (args[i] === '--ktx2') { ktx2 = true; continue; }
+  if (args[i] === '--effort') { effort = Number(args[++i]); if (!Number.isInteger(effort) || effort < 0 || effort > 10) { console.log(`--effort: the KTX2 encoder's effort, a whole number 0 to 10\n${USAGE}`); process.exit(1); } continue; }
   if (args[i] === '--keep') { keep = Number(args[++i]); if (!(keep >= 0.02 && keep <= 1)) { console.log(`--keep: a share of the triangles kept, 0.02 to 1 (0.2: a fifth)\n${USAGE}`); process.exit(1); } continue; }
   if (args[i] === '--textures') { texDir = path.resolve(args[++i] || ''); if (!args[i] || !fs.existsSync(texDir) || !fs.statSync(texDir).isDirectory()) { console.log(`--textures: no folder ${texDir}\n${USAGE}`); process.exit(1); } continue; }
   if (args[i] === '--texture') {
@@ -60,11 +68,13 @@ for (let i = 0; i < args.length; i++) {
   if (args[i].startsWith('--') || pos.length >= 2) { console.log(USAGE); process.exit(1); }
   pos.push(args[i]);
 }
+if (!maxTex) maxTex = ktx2 ? 8192 : 4096;
+if (effort !== null && !ktx2) { console.log('--effort is the KTX2 encoder\'s: give --ktx2 too'); process.exit(1); }
 if (!pos.length || !(maxTex >= 256 && maxTex <= 16384)) { console.log(USAGE + '\n  --max-texture: 256 to 16384'); process.exit(1); }
 const input = path.resolve(pos[0]), ext = path.extname(input).toLowerCase();
 if (!EXTS.includes(ext) || !fs.existsSync(input)) { console.log(`${input}: not there, or not ${EXTS.join(', ')}\n${USAGE}`); process.exit(1); }
 const base = path.basename(input, path.extname(input));
-const output = path.resolve(pos[1] || path.join(path.dirname(input), ext === '.glb' ? `${base}-${maxTex}.glb` : `${base}.glb`));
+const output = path.resolve(pos[1] || path.join(path.dirname(input), ext === '.glb' ? `${base}-${ktx2 ? 'ktx2-' : ''}${maxTex}.glb` : `${base}.glb`));
 if (output === input) { console.log('the output would overwrite the input: give another name'); process.exit(1); }
 if (path.extname(output).toLowerCase() !== '.glb') { console.log('the output is a binary glTF: name it .glb'); process.exit(1); }
 
@@ -97,12 +107,14 @@ try {
   await page.route('http://convert.local/**', async route => {
     const u = new URL(route.request().url()), p = decodeURIComponent(u.pathname);
     if (p === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><meta charset="utf-8"><title>convert</title>' +
-      ['three.min.js', ...LIBS.filter(f => !f.startsWith('meshopt')), 'images.js', 'convert.js'].map(f => `<script src="/lib/${f}"></script>`).join('') +
+      ['three.min.js', ...LIBS.filter(f => !f.startsWith('meshopt')), 'images.js', 'ktx2.js', 'convert.js'].map(f => `<script src="/lib/${f}"></script>`).join('') +
       // (meshoptimizer's simplifier is an ES module: imported as one, for the converter's reduce)
       '<script type="module">import { MeshoptSimplifier } from "/lib/meshopt_simplifier.js"; window.MeshoptSimplifier = MeshoptSimplifier;</script>' });
     if (p === '/lib/three.min.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(REPO, 'three.min.js')) });
     if (p.startsWith('/lib/') && LIBS.includes(p.slice(5))) return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'vendor', p.slice(5))) });
-    if (p === '/lib/convert.js' || p === '/lib/images.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'engine', p.slice(5))) });
+    if (p === '/lib/convert.js' || p === '/lib/images.js' || p === '/lib/ktx2.js') return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(HERE, 'engine', p.slice(5))) });
+    // (the KTX2 encoder and transcoder, as the app serves them: basis/, its workers import them from here)
+    if (/^\/basis\/basis_(en|trans)coder\.(js|wasm)$/.test(p)) return route.fulfill({ contentType: p.endsWith('.wasm') ? 'application/wasm' : 'text/javascript', body: fs.readFileSync(path.join(REPO, p.slice(1))) });
     if (p.startsWith('/in/') && extra.has(p.slice(4))) return route.fulfill({ body: fs.readFileSync(extra.get(p.slice(4))) });
     if (p === '/in/' + path.basename(input)) return route.fulfill({ body: bytes });
     if (p.startsWith('/in/') && listing.includes(p.slice(4))) return route.fulfill({ body: fs.readFileSync(path.join(path.dirname(input), ...p.slice(4).split('/'))) });
@@ -111,7 +123,7 @@ try {
   });
   await page.goto('http://convert.local/');
   await page.waitForFunction(() => !!window.MeshoptSimplifier, null, { timeout: 30000 });
-  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, fill, keep, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
+  try { out = await page.evaluate(convertInPage, { file: path.basename(input), ext, listing: files, labels, maxTex, weld, fill, keep, ktx2, effort, given: given.map(g => ({ name: g.name || '', mat: g.mat === undefined ? '' : g.mat, slot: g.slot || '', path: g.path })) }); } catch (err) {
     console.log(`${path.basename(input)}: could not be read or written (${String(err.message).split('\n')[0].replace(/^page\.evaluate: /, '')})`);
     if (logs.length) console.log(logs.slice(0, 8).map(t => '  ' + t.slice(0, 200)).join('\n'));
     process.exitCode = 1;
@@ -184,6 +196,8 @@ if (A) {
     console.log(`  fewer triangles: ${int(R.from)} became ${int(R.to)}: ${(got * 100).toFixed(1)} % kept, ${(R.keep * 100).toFixed(0)} % asked (${(R.ms / 1000).toFixed(2)} s)` + (got > R.keep * 1.25 ? ': not as far as asked (seams, borders or small parts held it back)' : ''));
   }
   if (out.look) console.log(`  looks: ${out.look}${out.sheetFile ? ` (the pictures: ${out.sheetFile}; the original above, the GLB below)` : ''}`);
+  // (KTX2: each picture, what it was taken as, its levels and strips, how long and how big)
+  if (out.ktx2) for (const x of out.ktx2.list) console.log(`  KTX2: ${x.w}x${x.h}${x.was && (x.was[0] !== x.w || x.was[1] !== x.h) ? ` (from ${x.was[0]}x${x.was[1]}: a multiple of 4)` : ''}, ${x.srgb ? 'colour (sRGB)' : 'data (linear)'}${x.alpha ? ' with alpha' : ''}: ${x.levels} levels in ${x.strips} strips, ${(x.ms / 1000).toFixed(1)} s, ${mb(x.bytes)} (${((x.bytes * 8) / (x.w * x.h)).toFixed(2)} bits a texel)`);
 }
 // (the missing textures' 404s are said above, as missing textures)
 const warns = [...new Set(out.logs.filter(t => !/Use MeshStandardMaterial|Creating normalized normal|bigger than maxTextureSize|Failed to load resource: .*404/.test(t)))].slice(0, 12);
@@ -195,10 +209,10 @@ console.log('(times in headless Chromium on this machine, drawing in software: a
 
 // ---- in the page: the studio's converter (engine/convert.js) loads it, gives it the guess, lightens and exports it, loads
 // it back and compares; the file names it gives are found beside it (by its path, else by name, case aside)
-async function convertInPage({ file, ext, listing, labels, maxTex, weld, fill, keep, given }) {
+async function convertInPage({ file, ext, listing, labels, maxTex, weld, fill, keep, ktx2, effort, given }) {
   const T = THREE, have = new Set(listing), lower = new Map(listing.map(p => [p.slice(p.lastIndexOf('/') + 1).toLowerCase(), p]));
   const enc = p => '/in/' + p.split('/').map(encodeURIComponent).join('/');
-  const C = makeConverter(T, { renderer: (w, h) => { const r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(w, h, false); return r; } });
+  const C = makeConverter(T, { basis: () => location.origin + '/basis/', renderer: (w, h) => { const r = new T.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(w, h, false); return r; } });
   const pics = listing.filter(p => !p.startsWith('~given/') && C.IM.isPicture(p)), found = new Map(), byName = new Map(given.filter(g => g.name).map(g => [g.name.toLowerCase(), g]));
   // a name the model gives: one given (--texture), a picture by the studio's ladder, anything else (a .bin, an MTL) by
   // its path or its name
@@ -227,9 +241,9 @@ async function convertInPage({ file, ext, listing, labels, maxTex, weld, fill, k
     if (!d.done) throw new Error(d.why[0] || `no material ${JSON.stringify(g.mat)} to lay ${g.path.split('/').pop()} on`);
     tex.push({ name: '', mat: g.mat, slot: g.slot, from: lab(g.path), how: 'chosen' });
   }
-  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, fill, keep, from: file, look: true, tex });
+  const r = await C.toGLB(m, { name: file.replace(/\.[^.]+$/, ''), maxTex, weld, fill, keep, from: file, look: true, tex, ktx2: ktx2 ? (effort === null ? {} : { effort }) : null });
   r.before.parse = r.before.ready = ready;
-  const out = { ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, check: r.check, look: r.look, sheet: r.sheet, record: r.record, format: m.guess.format || ext, tex, why2: m.why, reduced: r.reduced };
+  const out = { ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, check: r.check, look: r.look, sheet: r.sheet, record: r.record, format: m.guess.format || ext, tex, why2: m.why, reduced: r.reduced, ktx2: r.ktx2 };
   if (r.ok) await fetch('/out', { method: 'POST', body: r.glb });
   return out;
 }

@@ -13,6 +13,7 @@ const OPT = {
   visit: HP0.has('visit'), edit: HP0.has('edit'), scene: HP0.get('scene') || '', scenes: okFolder(HP0.get('scenes')),
   examples: okFolder(HP0.get('examples')) || 'examples',   // (the scenes that ship with the app, v137: e7g_examples.js)
   maxtex: clamp(Math.round(+HP0.get('maxtex') || 4096), 512, 8192),
+  maxtexSet: HP0.has('maxtex'),   // (given: KTX2 textures are held to it too, else only to what the GPU takes: e5_models.js)
 };
 const okScene = s => typeof s === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(s);
 const okFile = s => typeof s === 'string' && s.length > 0 && s.length <= 200 && !/(^|\/)\.\.(\/|$)/.test(s) && !/^\//.test(s) && !/[\\\0]/.test(s);

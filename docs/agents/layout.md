@@ -202,8 +202,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.
 - `tools/studio/` - the sources of `stories/studio.js` (the studio, v111: your own scenes; "The studio" below): its
   engine parts adapted from the design room's (`engine/e*.js`; `engine/convert.js`, the converter, and
-  `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, modules shared with
-  `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
+  `engine/images.js`, the picture reader (TIFF, PSD, DDS) and the texture names' ladder, and `engine/ktx2.js` (v151), the
+  compressed textures (KTX2 written in the page's workers in strips and read back; "Compressed textures (KTX2)" in
+  `docs/agents/studio.md`), modules shared with `convert.mjs`; `engine/e7b_upload.js`, GLB records, Convert to GLB, textures baked in and the Upload pane; `engine/e7d_lite.js`,
   Fewer triangles and Change texture on a card and the Upload pane's share; `engine/e7e_pics.js`, the Add
   pane's pictures of the models (v120: made with every GLB and by Make pictures, kept in `previews/`); `engine/e7f_viewer.js`,
   the viewer (v125: a model over the whole window, from Preview, Look closer and Look); `engine/e6b_cuts.js` the
@@ -220,7 +221,8 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,
-  `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`, and
+  `PLYLoader`, `STLLoader`, `NURBSCurve` and `NURBSUtils`, `SkeletonUtils`, `TransformControls`, `GLTFExporter`; and r133's
+  `KTX2Loader` and `WorkerPool`, v151, the last plain-script KTX2 loader that needs nothing r128 lacks; and
   fflate 0.6.9, which the FBX loader needs; pasted into the built file with their licence lines, each wrapped so
   nothing leaks but `THREE.*`, `GLTFExporter` last inside `exporterLoad()`, defined only when the studio first
   converts; and meshoptimizer's `meshopt_simplifier.js`, 1.3.0, MIT, inside `meshoptLoad()`, its WebAssembly made only
@@ -234,13 +236,20 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `test/scenes/cuts/`, about 30 KB: a wall whose door a cube opens, two boxes of one file with a hole in one, the dancer
   and the figure, for cut-outs; and `test/scenes/puppet/`, about 60 KB: `rig.glb`, our own humanoid with Mixamo's bone
   names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes; and `test/examples/tiny/`, about 30 KB, an example scene as the app ships
-  them in `examples/`, for the Scene pane's Examples), `test-images.mjs` (the picture reader checked in Node); see its `README.md` and `SPEC.md`.
+  them in `examples/`, for the Scene pane's Examples), `test-images.mjs` (the picture reader checked in Node), `test-ktx2.mjs`
+  (v151: the KTX2 container, the GLB, the mips and the strips in Node, with `basis/`'s own encoder and transcoder); see its `README.md` and `SPEC.md`.
   `engine/ik.js` (v125; in the build since v126, as `convert.js` is: `e6l_puppet.js` uses it) is the trackers' solver for
   phase 3 of `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver
   (ik.js)" there), a plain module like `convert.js`, checked by `test-ik.mjs`.
   For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
   lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
   `push`). `push.mjs` sends one scene folder to any relay that takes uploads, as it is (`relay/README.md`, "Uploading").
+- `basis/` - Basis Universal's encoder (`basis_encoder.js` and `.wasm`, Binomial's commit `073eb6a`) and three.js r133's
+  build of its transcoder (`basis_transcoder.js` and `.wasm`), Apache-2.0 (`LICENSE.txt`), copied unchanged (v151; sources
+  and SHA-256 in `basis/README.md`): the studio's KTX2 textures, written in a laptop or desktop page's workers and
+  transcoded as a model loads (`tools/studio/engine/ktx2.js`, `tools/studio/vendor/KTX2Loader.js`). Fetched only when the
+  studio first needs them: served by the relay (`APP_DIRS`) and GitHub Pages, kept by the service worker as any app file it
+  fetched, not in its `SHELL` (the encoder is 3.4 MB).
 - `examples/` - example scenes that ship with the app (v137): scene folders with their listings exactly as
   `tools/studio/scan.mjs` writes them (`examples/index.json`, `examples/<name>/files.json`), opened read only from the
   studio's Scene pane and copied to a relay from there ("The studio"). The first, `bliss-xp`, the Bliss XP room ("The Bliss

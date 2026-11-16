@@ -66,7 +66,7 @@ function liteSaveWords(it, b, what) {
   if (!canUpload()) return `Save downloads ${stem(b.src)}.glb ${what}: put it in the scene's models/ folder.`;
   if (b.into && b.into !== b.src) return `Save makes ${b.into} again from ${baseName(b.src)} ${what}; every object placed from it shows the new one where it stands.`;
   if (b.into) return `Save makes ${b.into} again ${what} (the one it has now is kept in originals/); the objects stay where they stand.`;
-  return `Save makes models/${stem(b.src)}.glb ${what} (textures at most ${fmt(maxTexNow())} px), and every object placed from ${baseName(b.src)} switches to it where it stands.`;
+  return `Save makes models/${stem(b.src)}.glb ${what} (${texKindWords()}), and every object placed from ${baseName(b.src)} switches to it where it stands.`;
 }
 function ftOpen(id) {
   const it = STU.items.get(id);
@@ -246,7 +246,7 @@ async function ctPick(path, file) {
   let url = '';
   try {
     url = file ? URL.createObjectURL(file) : fileUrl(path, true);
-    const img = await CONV.picture(url, { max: maxTexNow(), ext: extOf(name) });
+    const img = await CONV.picture(url, { max: maxTexView(), ext: extOf(name) });   // (shown only: Save reads it again at the kind's size)
     if (gen !== CT.gen || CT.id !== it.id || !it.model) return;
     const t = new THREE.Texture(img), old = CT.tex;
     t.name = name; t.flipY = !['glb', 'gltf'].includes(extOf(it.rec.file)); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.LinearEncoding; t.needsUpdate = true;

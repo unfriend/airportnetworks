@@ -75,8 +75,8 @@ function sceneLists() {
 
 // --------------------------------------------------------- Convert to GLB --
 // A model of the scene converted in this page (the converter, engine/convert.js): fetched again and loaded afresh (the
-// placed one is left alone), given the studio's guess, its textures at most 2,048 px (For Quest) or 4,096, written as a
-// GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
+// placed one is left alone), given the studio's guess, its textures as this page's texture kind says (below: KTX2 at most
+// 8,192 or 4,096 px, or JPEG/PNG at most 4,096 or 2,048), written as a GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
 // from this file before, else a free name) and every object placed from the original switches to it; else it is
 // downloaded. A failure changes nothing. Pictures laid on by hand (o.tex: [{ name, mat, slot, from, url }], "Textures:
 // found, added, converted" in tools/studio/SPEC.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
@@ -87,7 +87,41 @@ const CV = { busy: '', note: '', noteC: 'muted', done: [], all: null, item: '' }
 // (any: Fewer triangles and Change texture, which write from a headset too; Convert to GLB and the texture buttons are a page's)
 const canConvert = (p, any) => STU.fileMap.has(p) && MODEL_EXT.includes(extOf(p)) && editOn() && (any || !XR.on);
 const canUpload = () => SRC.kind === 'relay' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
-const maxTexNow = () => (UP.quest ? 2048 : 4096);
+// The kind of textures every GLB this page writes gets (Upload's rows, Convert to GLB, Convert every model, Fewer
+// triangles' and Change texture's Save, the missing-texture buttons, a take, a room scan): this device's own, chosen on the
+// Upload pane (studioTexKind in localStorage; the owner, 16 November 2026: KTX2, "encoding in browser since that can be
+// done on a desktop and be fast"). KTX2 stays compressed on a headset's GPU (ASTC on a Quest: a quarter of RGBA's memory),
+// so it may be 8,192 px; it is encoded in this page's workers (engine/ktx2.js), on a laptop or desktop only: a headset (in
+// a session, or Quest Browser's own page) writes JPEG/PNG at most 2,048 px as before, and says so. A page that cannot
+// encode (no workers or WebAssembly) writes JPEG/PNG at most 4,096
+const TEXK = {
+  ktx8: { label: 'Compressed (KTX2), up to 8k', max: 8192, ktx: true },
+  ktx4: { label: 'Compressed (KTX2), up to 4k', max: 4096, ktx: true },
+  img4: { label: 'JPEG/PNG, up to 4k', max: 4096, ktx: false },
+  img2: { label: 'JPEG/PNG, up to 2k', max: 2048, ktx: false },
+};
+const HEADSET_UA = typeof navigator !== 'undefined' && /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
+const onHeadset = () => !!XR.on || HEADSET_UA;
+const ktxCan = () => !!(CONV.ktx2 && CONV.ktx2.can());
+const texKindOwn = () => { const k = store.get('studioTexKind'); return TEXK[k] ? k : 'ktx8'; };
+const texKind = () => (onHeadset() ? 'img2' : TEXK[texKindOwn()].ktx && !ktxCan() ? 'img4' : texKindOwn());
+const maxTexNow = () => TEXK[texKind()].max;
+// what a picture only looked at is read at (the viewer, an Upload row's Preview, Change texture's preview): at most 4,096
+// px whatever the kind, as before KTX2 (an 8,192 px picture is 268 MB as RGBA, 341 MB with its mips on a GPU; only what
+// is written needs the kind's full size, and Save reads its pictures again for that)
+const maxTexView = () => Math.min(maxTexNow(), 4096);
+const ktxNow = () => (TEXK[texKind()].ktx ? { effort: CONV.ktx2.EFFORT } : null);
+// in words, for the lines under Convert to GLB, Save and the texture buttons, and the Upload pane's rows
+const texKindWords = () => `textures ${TEXK[texKind()].ktx ? 'compressed (KTX2)' : 'JPEG/PNG'}, at most ${fmt(maxTexNow())} px` + (onHeadset() ? ': compressed (KTX2) textures are made on a laptop or desktop' : '');
+// what each kind means (the Upload pane's line under its choice)
+function texLine() {
+  const k = texKind();
+  if (onHeadset()) return 'Textures JPEG/PNG, at most 2,048 px: compressed (KTX2) textures are made on a laptop or desktop page, which encodes them on all its cores.';
+  const own = TEXK[texKindOwn()].ktx && !ktxCan() ? ' This browser cannot encode KTX2 (no web workers or WebAssembly): JPEG/PNG up to 4k instead.' : '';
+  return (TEXK[k].ktx ? `Compressed: textures stay compressed on a headset's GPU (ASTC on a Quest, a quarter of the memory of JPEG or PNG), so they may be ${fmt(TEXK[k].max)} px. Encoded here, in this page, on ${CONV.ktx2.workers()} of this computer's cores: some seconds a texture.`
+    : `JPEG/PNG: textures as pictures, unpacked to full size on a headset's GPU, so at most ${fmt(TEXK[k].max)} px.`) +
+    ' Every GLB this page makes uses it (Upload, Convert to GLB, Fewer triangles, Change texture); this device remembers it.' + own;
+}
 // (only the pictures chosen by hand, or by the Upload pane's own rungs, are laid on again: the ladder finds the rest)
 const BY_HAND = ['chosen', 'only', 'stem'];
 async function convertFile(path, o = {}) {
@@ -151,7 +185,7 @@ async function convertFile(path, o = {}) {
     // from itself, it is as light as it is)
     const keep = o.keep !== undefined ? o.keep : prev && prev.tris && !self && prev.from === path ? prev.tris.keep : 0;
     // (with its picture for the Add pane, drawn from the GLB as loaded back: e7e_pics.js)
-    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.toLowerCase()}...`; dirty(); } });
+    const r = await CONV.toGLB(m, { name, maxTex: maxTexNow(), ktx2: ktxNow(), from: keepOld || path, tex: recTex, keep, picture: pvShotSoon, step: l => { CV.note = `${lab}: ${l.charAt(0).toLowerCase() + l.slice(1)}...`; dirty(); } });
     CONV.disposeTree(m.root);
     STUDIO.lastGLB = { name: name + '.glb', glb: r.glb, record: r.record, ok: r.ok, why: r.why, notes: r.notes, before: r.before, after: r.after, picture: !!r.picture, mats0, mats: r.mats };
     const info = r.record && r.record.size ? { size: r.record.size, n: r.record.n } : null;
@@ -170,7 +204,7 @@ async function convertFile(path, o = {}) {
       // (a recorded path kept as a file, turned into a new file first: e6j_voice.js; an object whose file could not be
       // turned is not switched, and the note says why)
       const pm = out === path ? null : await pathFilesTurned(path, r.record), n = out === path ? 0 : switchToGLB(path, out, r.record, texRemap(mats0, r.mats), pm), held = heldWords(pm, path, out);
-      CV.note = `${baseName(path)} is now ${out} (${size}, textures at most ${fmt(maxTexNow())} px)` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost + (held ? ' ' + held : '');
+      CV.note = `${baseName(path)} is now ${out} (${size}, ${texKindWords()})` + (n ? `: ${n} object${n === 1 ? '' : 's'} switched to it where ${n === 1 ? 'it stands' : 'they stand'}.` : '.') + (keepOld ? ` The old one is ${keepOld}.` : '') + lost + (held ? ' ' + held : '');
       CV.noteC = held ? 'amber' : 'green';
       CV.done.push(out);
       // its picture, into the scene beside it (previews/<out>.jpg); a picture that could not go is kept for this page
@@ -620,7 +654,7 @@ function rowPlan(r) {
   const d = r.dur, len = d > 0 && isFinite(d) ? (d >= 60 ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s` : `${d.toFixed(d < 10 ? 1 : 0)} s`) : '';
   if (r.kind === 'model') {
     const more = r.src.length - 1;
-    return `A model: ${r.out[0]} (metres, Y up, textures at most ${fmt(maxTexNow())} px)` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
+    return `A model: ${r.out[0]} (metres, Y up, ${texKindWords()})` + (more ? `, with ${more} file${more === 1 ? '' : 's'} it names` : '') + '; the given files to originals/.';
   }
   if (r.kind === 'video') {
     return r.conv ? `A video: ${r.out[0]}, made an H.264 MP4 by the relay's ffmpeg (at most ${UP.quest ? 720 : 1080} high, a job that can take minutes); the given file to ${r.out[1]}.`
@@ -677,8 +711,8 @@ async function upRun() {
   } finally { UP.busy = false; dirty(true); }
 }
 // a model row's model read, with the files it names among those given (by its plan: a texture name given a picture is
-// that picture, whatever its name): for converting, and for its preview (Fewer triangles' picture)
-async function upLoad(r) {
+// that picture, whatever its name): for converting, and for its preview (the viewer: max, its pictures' limit there)
+async function upLoad(r, max) {
   const e = r.main, urls = new Map();
   for (const f of r.src) { const u = URL.createObjectURL(f.file); UP.blobs.push(u); urls.set(f.path.toLowerCase(), u); if (!urls.has(f.name.toLowerCase())) urls.set(f.name.toLowerCase(), u); }
   const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/') + 1) : '', base = 'upload:/' + dir;
@@ -693,7 +727,7 @@ async function upLoad(r) {
     return urls.get((dir + rel).toLowerCase()) || urls.get(baseName(rel).toLowerCase()) || null;
   };
   if (!e.buf) e.buf = await e.file.arrayBuffer();
-  const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: maxTexNow(), url });
+  const nm = e.name.replace(/\.[^.]*$/, ''), m = await CONV.load({ ext: e.ext, data: e.buf, base, name: nm, maxTex: max || maxTexNow(), url });
   return { m, nm, gltf: ['glb', 'gltf'].includes(e.ext), blobFor };
 }
 // one row: converted (a model, a sound) and its files uploaded, the given ones to originals/ (each once a run)
@@ -735,7 +769,7 @@ async function upRow(r, relay, scene, sent) {
         if (c.length === 1 && await lay(c[0], 'map', 'stem')) r.notes.push(`It had no colour picture: ${c[0].name} laid on (its name matches the model's).`);
       }
       const keep = r.keep === undefined ? FT_DEFAULT : r.keep;   // (Triangles kept: 20 % unless the row says otherwise)
-      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, picture: pvShotSoon, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
+      res = await CONV.toGLB(m, { name: nm, maxTex: maxTexNow(), ktx2: ktxNow(), from: r.from, tex, keep: keep < 0.995 ? keep : 0, picture: pvShotSoon, step: (l, f) => { r.msg = l + '...'; r.p = 0.05 + f * 0.5; dirty(); } });
       CONV.disposeTree(m.root);
       for (const [n, w] of Object.entries(m.why || {})) r.notes.push(`Texture ${n}: ${w}.`);
     } catch (err) { res = { ok: false, why: whyFailed(err).replace(/\.$/, ''), notes: [], missing: [] }; }
@@ -890,15 +924,19 @@ function uploadBlocks(B) {
     if (!(SRC.kind === 'relay' && SRC.state === 'ok')) B.push({ code: 'node relay/server.mjs --lan --scenes <folder>' }, { p: 'Then open its address /upload (each folder in <folder> is a scene; it saves layouts and takes uploads; with ffmpeg installed it makes long sounds MP3).', c: 'faint' });
   }
   B.push({ drop: true, dis: busy });
+  // the kind of textures every GLB this page makes gets (texKind, above); a headset has no Upload pane
+  B.push({ label: 'Textures', row: Object.keys(TEXK).map(k => ({ id: 'up:tex:' + k, label: TEXK[k].label, act: 'up:tex', v: k, on: texKind() === k, dis: busy || onHeadset() || (TEXK[k].ktx && !ktxCan()) })) },
+    { p: texLine(), c: 'faint' });
   B.push({ row: [
-    { id: 'up:quest', label: 'For Quest: ' + (UP.quest ? 'on' : 'off'), act: 'up:quest', on: UP.quest, dis: busy },
     { id: 'up:replace', label: 'Replace files with the same name: ' + (UP.replace ? 'on' : 'off'), act: 'up:replace', on: UP.replace, dis: busy || !relay },
-  ] }, { p: `For Quest: textures at most ${UP.quest ? '2,048' : '4,096'} px. Replace off: a name taken gets a number (eva_001 2.glb).`, c: 'faint' });
+  ] }, { p: 'Replace off: a name taken gets a number (eva_001 2.glb).', c: 'faint' });
   if (relay && UP.vidFor !== SRC.base) upCaps();
   const canConv = relay && !!(UP.vid && UP.vid.video);
-  B.push({ row: [{ id: 'up:convert', label: 'Convert videos to MP4 (H.264): ' + (UP.convert && canConv ? 'on' : 'off'), act: 'up:convert', on: UP.convert && canConv, dis: busy || !canConv }] },
+  // (videos for Quest: 720 high, else 1080; the textures' For Quest of before v151, kept for the videos alone)
+  B.push({ row: [{ id: 'up:convert', label: 'Convert videos to MP4 (H.264): ' + (UP.convert && canConv ? 'on' : 'off'), act: 'up:convert', on: UP.convert && canConv, dis: busy || !canConv },
+    { id: 'up:quest', label: 'Videos for Quest (720p): ' + (UP.quest ? 'on' : 'off'), act: 'up:quest', on: UP.quest, dis: busy || !canConv || !UP.convert }] },
     { p: !relay ? 'Converting videos needs a relay that takes uploads.' : !UP.vid ? 'Asking the relay whether it can convert videos...' : !UP.vid.video ? 'This relay cannot convert videos (it needs ffmpeg with the H.264 and AAC encoders).'
-      : `Off: a video goes into videos/ as given. On: the relay's ffmpeg makes an H.264 MP4 at most ${UP.quest ? 720 : 1080} high (For Quest: 720; else 1080), a job that can take minutes; the given file is kept in originals/.`, c: 'faint' });
+      : `Off: a video goes into videos/ as given. On: the relay's ffmpeg makes an H.264 MP4 at most ${UP.quest ? 720 : 1080} high (Videos for Quest: 720; else 1080), a job that can take minutes; the given file is kept in originals/.`, c: 'faint' });
   if (UP.planning) B.push({ p: 'Reading what was dropped...', c: 'faint' });
   if (UP.rows.length) {
     const n = k => UP.rows.filter(r => r.kind === k).length;
@@ -995,6 +1033,7 @@ const UP_ACT = {
   'up:choose': () => { const i = $('#stuFiles'); if (i) i.click(); },
   'up:folder': () => { const i = $('#stuFolder'); if (i) i.click(); },
   'up:quest': () => { UP.quest = !UP.quest; upChanged(); },
+  'up:tex': v => { if (TEXK[v] && !UP.busy && !onHeadset() && (!TEXK[v].ktx || ktxCan())) { store.set('studioTexKind', v === 'ktx8' ? null : v); upChanged(); } },
   'up:convert': () => { UP.convert = !UP.convert; store.set('studioUpConvert', UP.convert ? 'on' : null); upNames(); upChanged(); },
   'up:replace': () => { UP.replace = !UP.replace; upNames(); upChanged(); },
   'up:run': () => upRun(),

@@ -607,6 +607,37 @@ closer on the ball placed and tinted red (its tint on the viewer's materials and
 
 ### smoke: studio shapes
 
+Its *studio ktx2* steps (v151, `--only 'studio ktx2'`, about a minute) run on a page of their own at `&scene=test` with
+the page's default texture kind, KTX2 up to 8k (`browser.newPage({ studioTex: null })`: every other page of the smoke test
+and of `tools/collab.mjs` starts with the studio's textures *JPEG/PNG, up to 2k*, `studioTexKind` = `img2`, as their steps,
+written before v151, read the GLBs they make back with a plain GLTFLoader): the kind by default (`ktx8`, 8,192 px, effort
+1); a GLB written in the page from a quad whose colour picture is 4,096 px (with its mips more than the encoder's
+12,582,912 texels) and has alpha in its top 64 rows and whose normal map is 1,002 x 602: `KHR_texture_basisu` used and
+required, both textures with the extension and no other source, the record's `ktx2` `{ n: 2, effort: 1, max: 8192, zstd:
+true }`, the GLB's length and every bufferView 4-byte aligned, both images `image/ktx2`, UASTC, zstd; the colour one 4,096 px,
+13 levels, sRGB, alpha; the normal map 1,004 x 604 (a multiple of 4), 10 levels, linear, no alpha; every chain ending at
+1 x 1; the 4,096 px one made in more strips than levels; its notes and progress. A 64 px black and white checkerboard
+used as base colour and normal map (one texture), emission (another) and roughness and metalness (a third), all one
+picture: two images, an sRGB KTX2 for base colour and emission and a linear one for the normal map and roughness, four
+textures (the one used both ways copied for its data use), the list's copy and the note; level 1 of each read back by the
+transcoder 188 (averaged in linear light) and 128; a clearcoat slot taken as data. Loaded for display through the studio's
+`ktxLoader()`: compressed textures, ASTC 4 x 4 where the renderer offers it (SwiftShader does), 13 levels at 4,096 px and
+sRGB for colour, 10 at 1,004 x 604 and linear for the normal map; drawn at 1:1 (nearest, a 1,024 px window of the middle,
+into a target read back) against the picture it was made from (as three.js draws it on the quad, flipped): a mean
+difference under 2 of 255 and under 0.2 % of samples more than 24 off (here 0.13 and 0.008 %); `capCompressed` with an
+explicit `&maxtex=` of 1,024 dropping its top two levels (11 left, 1,024 px, its words *KTX2, ASTC here*, its bytes).
+Read for conversion (no KTX2 loader, maxTex 2,048): plain pictures on canvases, level 1 (2,048 px) of the 4,096 px one,
+its full size counted (`CONV.stats`: *4096x4096 KTX2*, *1004x604 KTX2*), its pictures counting as filled where its record
+says `fill`; made again with no KTX2 as a GLB of PNG or JPEG that a plain GLTFLoader reads at 2,048 px, its record's fill
+kept and no `ktx2`. Placed in the scene (routed as `models/quad.glb`): its model ready, every texture `KTX2, ... here` with
+its bytes, the card's Textures line *4096 × 4096 (KTX2, ASTC here)* and *Its textures are KTX2 (compressed): all kept
+compressed on the GPU, N MB with their mipmaps.*; the viewer's Add card (`vwLoad`, routed as `models/quad2.glb`)
+reading it at most 4,096 px with the default kind (`maxTexView()`, `CONV.load` wrapped to see its `maxTex`: 4,096 where
+`maxTexNow()` is 8,192), and with *JPEG/PNG, up to 2k* both 2,048; the Upload pane's *Textures* row and its line; *JPEG/PNG, up to 4k*
+pressed (kept as `img4`, its words), *Compressed (KTX2), up to 4k* (`ktx4`) and back to the default (nothing stored); a
+pretend headset session (`XR.on`): *JPEG/PNG, up to 2k* whatever was chosen, no KTX2, and the words *compressed (KTX2)
+textures are made on a laptop or desktop*.
+
 Its *studio shapes* steps run on a seventh page, at `&scene=test` : the Add pane's four shapes and an empty
 (their records, geometries and names), a shape's card (a colour's swatch, *Hides things*, size per side and every side, its
 kind, five Undo steps), the page's arrows sizing it per axis in its own frame, the Items pane's Shapes and Empties cards, the
@@ -1937,7 +1968,7 @@ few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
 endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
 
-## The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`)
+## The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`, `test-ktx2.mjs`)
 
 The studio's two tools: `node tools/studio/scan.mjs <folder> [--check]` writes a plain folder's `index.json` and
 `<name>/files.json` as the relay's API answers them (only what changed; `--check` exits 1 when one is not current, the
@@ -1950,7 +1981,24 @@ four moments of each clip, and pictures from three sides) and writes nothing whe
 (`<name>-<max>.glb` for a GLB). It is both a tool for the owner's batches and the test of the converter on real files
 (the owner's two, outside the repository). `--textures <dir>` adds pictures to look in, `--texture <name>=<picture>`
 gives a texture the model names and `--texture <material>:<slot>=<picture>` lays one on; it prints what each texture was
-found as and writes `tex` into the record. `node tools/studio/test-images.mjs` (seconds, no browser) reads the textures
+found as and writes `tex` into the record. `--ktx2` (v151) writes its pictures as KTX2 with the studio's own encoder in
+workers of the page (`basis/`, served to it; `--max-texture` 8,192 by default then, `--effort <0 to 10>` 1 by default),
+checks the GLB loaded back with its KTX2 pictures read back to plain ones (at most 1,024 px, their full sizes counted) and
+prints each picture's levels, strips, time and bits a texel; a GLB input's default output is `<name>-ktx2-<max>.glb`.
+`node tools/studio/test-ktx2.mjs` (v151, seconds, no browser) checks `tools/studio/engine/ktx2.js` in Node: the KTX2
+container written and read (levels smallest first, aligned to 16 bytes, or 1 supercompressed; its DFD's sRGB and alpha),
+a cut file refused in words, a GLB split and made again with a bufferView replaced (4-byte aligned, the lengths right),
+colour and data images (every texture slot, the extensions' too: clearcoat and transmission data, a sheen colour colour),
+an image used both ways split (its data uses on a linear copy with a bufferView of its own, a texture used both ways
+copied, one used as data only pointed at it), the mip chain (sizes to 1 x 1, colour averaged in linear light: black and white to 188, data and
+alpha to 128, an odd side's shares), the strips (8,192 px: 16 of 512 rows; none under a quarter of a million texels);
+and with `basis/`'s own encoder and transcoder (`require`d) and the module's own worker code run in a `vm` as a worker
+runs it: a 260 x 132 level whole and in three strips the same blocks byte for byte (no zstd), the strips joined with zstd
+read back by the transcoder to the same pixels as the whole (and over 35 dB from the picture), and `encode()` through a
+pool that runs that worker code making a 512 x 520 chain (10 levels) in strips, sRGB, alpha forced on every strip though
+only the top rows have it, read back at level 0 and at the largest level at most 64 px (4: 32 x 32), and levels 0, 3 and 4
+pixel for pixel as each level encoded on its own reads back; run it after changing `ktx2.js` or `basis/`.
+`node tools/studio/test-images.mjs` (seconds, no browser) reads the textures
 test scene's pictures and more kinds made in memory back against the pixels they were made from (exactly, or within the
 block format's error for DXT1, DXT5 and BC5), and checks the refusals, broken and forged files refused in words and
 quickly (strips or tiles of no size, sizes their data cannot hold, RLE counts past the end, a Deflate strip that unpacks

@@ -1336,6 +1336,13 @@ try {
     const missing = [];
     for (const f of want) if (!f || fs.existsSync(path.join(REPO, f))) { const r = await req('HEAD', '/' + f); if (r.status !== 200) missing.push(`/${f} (${r.status})`); }
     ok(!missing.length, 'every file sw.js caches is served' + (missing.length ? ': not ' + missing.join(' ') : ''));
+    // (the studio's KTX2 encoder and transcoder, basis/, v151: not in SHELL, fetched when first used; the WebAssembly as
+    // application/wasm, which compiling it as it streams needs, and gzipped)
+    const bas = [];
+    for (const f of fs.readdirSync(path.join(REPO, 'basis'))) { const r = await req('HEAD', '/basis/' + f); if (r.status !== 200) bas.push(`/basis/${f} (${r.status})`); }
+    ok(!bas.length && fs.readdirSync(path.join(REPO, 'basis')).length >= 6, 'every file of basis/ is served' + (bas.length ? ': not ' + bas.join(' ') : ''));
+    const bw = await req('GET', '/basis/basis_transcoder.wasm', { headers: { 'Accept-Encoding': 'gzip' } });
+    ok(bw.status === 200 && /^application\/wasm/.test(bw.headers['content-type']) && bw.headers['content-encoding'] === 'gzip', `basis/basis_transcoder.wasm served as WebAssembly, gzipped (${bw.status} ${bw.headers['content-type']} ${bw.headers['content-encoding']})`);
     const data = 'iker_nodes.tsv';   // (the authors' files: never served, also from a copy kept in the folder)
     const not = ['/ikerdata/' + encodeURIComponent(data), '/tools/smoke.mjs', '/tools/lbi/build.mjs', '/docs/shared-space-plan.md', '/relay/server.mjs', '/relay/README.md',
       '/AGENTS.md', '/README.md', '/stories/', '/audio', '/ikerdata/', '/stories/x/../../tools/smoke.mjs', '/INDEX.HTML'];

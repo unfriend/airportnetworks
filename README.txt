@@ -94,8 +94,10 @@ its circle) moves every item there again, for everyone (one Undo step).
 - Upload (<address>/upload, or the studio's Upload tab on a laptop or desktop):
   pick a scene or New scene, drop files or whole folders, read the plan, then
   Convert and upload. Models (FBX, OBJ with its MTL, glTF, GLB, PLY, STL) become
-  GLB files in the scene's models/ folder (metres, upright, textures made
-  smaller: For Quest, on by default, 2,048 px at most); sounds become mono, so
+  GLB files in the scene's models/ folder (metres, upright, textures as the
+  Textures choice says: compressed as KTX2 up to 8,192 px by default, which a
+  headset keeps compressed, made on the laptop; or JPEG/PNG up to 4,096 or
+  2,048 px); sounds become mono, so
   they come from one point (sounds/); everything you gave is also kept as it was
   in originals/. Then Open the scene.
 - Formats, if you prepare files by hand: GLB for models (FBX works but loads

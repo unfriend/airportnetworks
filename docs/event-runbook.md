@@ -352,7 +352,9 @@ stands. Details: [tools/studio/README.md](../tools/studio/README.md) (the format
   `COLLAB_TOKEN=<word>` first, as in section 1; the scenes' files then need it too). It prints how many scenes it found.
 - [ ] Upload on a laptop or desktop, not a headset: open `https://<address>:8787/upload`, pick a scene or **New scene**,
   drop the files or whole folders, read the plan (one row per thing it will make; a missing texture is said there), keep
-  **For Quest** on, **Convert and upload**, then **Open the scene**. Models become GLB in `models/`, sounds mono in
+  **Textures: Compressed (KTX2), up to 8k** (the default since v151: textures stay compressed on the Quest, a quarter of
+  JPEG's memory; encoded on the laptop, some seconds a texture; untested on a Quest until tried there: **JPEG/PNG, up to
+  2k** is v150's way), **Convert and upload**, then **Open the scene**. Models become GLB in `models/`, sounds mono in
   `sounds/`, and what you gave is kept in `originals/`. `ffmpeg` on the laptop makes long sounds mono MP3 (without it
   they are kept as given). A big scan: **Preview** on its row shows it over the whole window, all its triangles beside
   the share kept (20 %), to spin and look at closely before it is converted.
