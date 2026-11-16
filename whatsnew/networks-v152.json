@@ -1,0 +1,15 @@
+{
+  "version": "networks-v152",
+  "date": "2026-11-16",
+  "new": [
+    "Automatic quality: when frames run late, every headset now drops from 90 to 72 Hz first, before it lowers foveation or resolution (until now only a Quest 3S did). Coming back up, 90 Hz returns last.",
+    "The Debug tab's refresh rate step can still be set to last or never by hand; a setting made there before wins."
+  ],
+  "test": [
+    "On the Quest 3, in a heavy story or a big studio scene: the Debug tab's Frame rate line should say 72 Hz once it struggles, with foveation and resolution still untouched (Automatic quality: Level 0).",
+    "Leave the heavy scene for a light one: after a while it should go back to 90 Hz."
+  ],
+  "untested": [
+    "On a real headset: how often it now drops to 72 Hz, whether 72 Hz feels comfortable, and how quickly it comes back to 90 Hz. Checked only with a pretend headset in a desktop browser."
+  ]
+}
