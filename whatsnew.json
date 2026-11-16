@@ -1,15 +1,18 @@
 {
-  "version": "networks-v152",
+  "version": "networks-v153",
   "date": "2026-11-16",
   "new": [
-    "Automatic quality: when frames run late, every headset now drops from 90 to 72 Hz first, before it lowers foveation or resolution (until now only a Quest 3S did). Coming back up, 90 Hz returns last.",
-    "The Debug tab's refresh rate step can still be set to last or never by hand; a setting made there before wins."
+    "Preview camera: a computer in a shared room shows the room's virtual world from one fixed real spot, for a TV or projector: the stories at their circles and everyone in a headset. The Shared dialog's room row: Preview camera (or a room link with &camera).",
+    "Place it from a headset (menu, Circles tab: Place the preview camera, then hold the controller at the real spot, aim it and pull the trigger), or on a computer: drag it and its aim on the room map, type its numbers (measured from spot A), or on its picture drag to turn, WASD or arrows to move, Q and E for height, + and - to zoom, Shift for fine steps, R to level.",
+    "Its buttons hide after 3 s so the screen shows only the room; it starts again by itself after a reload. Rooms are now format 48: every device needs this release to join the same room."
   ],
   "test": [
-    "On the Quest 3, in a heavy story or a big studio scene: the Debug tab's Frame rate line should say 72 Hz once it struggles, with foveation and resolution still untouched (Automatic quality: Level 0).",
-    "Leave the heavy scene for a light one: after a while it should go back to 90 Hz."
+    "On a laptop joined to a room the Quest is in: Preview camera, then place it on the room map and check the Quest shows up where it really is from that spot.",
+    "On the Quest: menu, Circles tab, Place the preview camera, hold the controller where the laptop or TV's camera spot is, aim, pull the trigger; the laptop's picture should jump there. The cyan marker shows where it is while the menu is open.",
+    "Full screen on a TV or projector, and the frame rate of a heavy story there."
   ],
   "untested": [
-    "On a real headset: how often it now drops to 72 Hz, whether 72 Hz feels comfortable, and how quickly it comes back to 90 Hz. Checked only with a pretend headset in a desktop browser."
+    "Everything on a real headset, TV or projector, and on a real computer's GPU: only headless Chromium drawing in software was checked.",
+    "How accurately a controller places it, how the marker looks in the headset, Firefox and Safari, and the sound on the camera's computer (after it restarts by itself, sound waits for a click or a key)."
   ]
 }

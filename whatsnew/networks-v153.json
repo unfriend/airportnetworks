@@ -1,0 +1,18 @@
+{
+  "version": "networks-v153",
+  "date": "2026-11-16",
+  "new": [
+    "Preview camera: a computer in a shared room shows the room's virtual world from one fixed real spot, for a TV or projector: the stories at their circles and everyone in a headset. The Shared dialog's room row: Preview camera (or a room link with &camera).",
+    "Place it from a headset (menu, Circles tab: Place the preview camera, then hold the controller at the real spot, aim it and pull the trigger), or on a computer: drag it and its aim on the room map, type its numbers (measured from spot A), or on its picture drag to turn, WASD or arrows to move, Q and E for height, + and - to zoom, Shift for fine steps, R to level.",
+    "Its buttons hide after 3 s so the screen shows only the room; it starts again by itself after a reload. Rooms are now format 48: every device needs this release to join the same room."
+  ],
+  "test": [
+    "On a laptop joined to a room the Quest is in: Preview camera, then place it on the room map and check the Quest shows up where it really is from that spot.",
+    "On the Quest: menu, Circles tab, Place the preview camera, hold the controller where the laptop or TV's camera spot is, aim, pull the trigger; the laptop's picture should jump there. The cyan marker shows where it is while the menu is open.",
+    "Full screen on a TV or projector, and the frame rate of a heavy story there."
+  ],
+  "untested": [
+    "Everything on a real headset, TV or projector, and on a real computer's GPU: only headless Chromium drawing in software was checked.",
+    "How accurately a controller places it, how the marker looks in the headset, Firefox and Safari, and the sound on the camera's computer (after it restarts by itself, sound waits for a click or a key)."
+  ]
+}
