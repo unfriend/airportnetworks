@@ -8,6 +8,27 @@ There is no unit-test suite. When the suites run (the owner's rule: the full sui
 `dev` gets only `node --check` on the changed files, the builds' `--check` and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
+## Windows: tools that find their own folder wrong (known, not fixed)
+
+The owner (16 November 2026): "note down the path bug for now". On Windows, `path.dirname(new URL(import.meta.url).pathname)`
+gives `/C:/...`, and `path.join`/`path.resolve` then make it `C:\C:\...`: the tool stops with ENOENT on its first file.
+The fix is `fileURLToPath(import.meta.url)` (`import { fileURLToPath } from 'url'`), as `tools/studio/build.mjs` and
+`tools/release.mjs` have had since v149. On Linux and macOS (the owner's cloud machine) all of them work, so this only
+matters on the Windows PC. Still with the old line (found with a search for `import.meta.url).pathname`):
+
+- Story builds: `tools/design/build.mjs`, `tools/endo/build.mjs`, `tools/flock/build.mjs`, `tools/lbi/build.mjs`,
+  `tools/lowpoly/build.mjs`, `tools/micro/build.mjs`, `tools/mutation/build.mjs`, `tools/nmd/build.mjs`,
+  `tools/ovary/build.mjs`, `tools/pass/build.mjs`, `tools/pet/build.mjs`, `tools/qubits/build.mjs`,
+  `tools/robots/build.mjs`, `tools/soil/build.mjs`, `tools/topo/build.mjs`.
+- Their data generators and tests: `tools/lbi/data/gen_int.mjs`, `tools/micro/data/gen_data.mjs`,
+  `tools/nmd/data/gen_data.mjs`, `tools/ovary/data/gen_data.mjs`, `tools/pet/data/gen_data.mjs`,
+  `tools/mutation/test-mmath.mjs`, `tools/pass/test-sets.mjs`, `tools/soil/test-data.mjs`, `tools/topo/test-data.mjs`.
+- Suites and helpers: `tools/smoke.mjs`, `relay/test.mjs`, `tools/collab.mjs`, `tools/peer.mjs`,
+  `tools/studio/test/make.mjs`.
+
+On Windows, also mind line endings: Git's `core.autocrlf=true` makes the builds' and `tools/release.mjs`'s `--check` fail
+even where the folder is found (AGENTS.md, "Things that are easy to forget").
+
 ## The smoke test (`tools/smoke.mjs`)
 
 The smoke test (serve the folder, then run it) loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
