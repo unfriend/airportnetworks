@@ -12367,6 +12367,9 @@ if (runs('frame rate')) {
   fp.on('pageerror', e => errors.push('frame rate: ' + (e.stack || e.message)));
   fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('frame rate: ' + m.text()); });
   await fp.addInitScript(FPS_FAKE);
+  // (the refresh rate this block checks is the one asked as a session starts: automatic quality's rate step kept last, as
+  // before v151, so a slow machine's late frames do not ask 72 Hz in the middle of a step)
+  await fp.addInitScript(() => { try { localStorage.setItem('xrRateStep', 'last'); } catch (e) { /* storage blocked */ } });
   // (leaving a page whose headset session has ended takes a few seconds in headless Chromium, more on a loaded machine)
   const open = async hash => {
     await fp.goto('about:blank', { timeout: 90000 });
@@ -12652,7 +12655,7 @@ if (runs('frame rate')) {
 // acceptable on a Quest 3S): a pretend Quest (FPS_FAKE, whose frame times the test sets) in a page of its own. Frames 22 ms
 // apart at 90 Hz are late: the picture steps down (fixed foveation 0.75, 1; the view's scale 0.9, 0.8, 0.7 where the views
 // have requestViewportScale, which a stub gives; else it stops at L2), the refresh rate a step of its own (last on this
-// browser, first with rateStep 'first', as a Quest 3S would have it), a CPU-bound window logs 'cpu' and does not step,
+// browser when set so, first by default since v151 and in its own step), a CPU-bound window logs 'cpu' and does not step,
 // frames on time step it back up, auto off leaves foveation the story's and the view whole, the step is kept per scene
 if (runs('auto quality')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
@@ -12669,7 +12672,7 @@ if (runs('auto quality')) {
   // (windows of 0.4 s, 3 clean ones to step up, short holds: the test's clock is the frames' own times)
   const TIMES = { win: 400, up: 3, hold: 3000, warm: 100, settle: 100, upFail: 1500, rate: 100, minN: 6, deep: 3000, light: 6000, cpu: 1000 };   // (cpu: never CPU-bound here, a loaded machine's script is slow; its own step sets 0.6)
   const start = async (o = {}, rateStep, stub) => {
-    await fp.evaluate(([o, rs, T]) => { Object.assign(window.__fp.o, o); window.__fp.asks = []; window.__fp.fov = []; window.__collabLog.length = 0; HOST.cur.peek('xrStart("immersive-vr")'); if (rs) HOST.xr.setRateStep(rs); HOST.xr.aqTest(Object.assign({ reset: true }, T)); }, [o, rateStep || '', TIMES]);
+    await fp.evaluate(([o, rs, T]) => { Object.assign(window.__fp.o, o); window.__fp.asks = []; window.__fp.fov = []; window.__collabLog.length = 0; HOST.cur.peek('xrStart("immersive-vr")'); HOST.xr.setRateStep(rs); HOST.xr.aqTest(Object.assign({ reset: true }, T)); }, [o, rateStep || 'last', TIMES]);   // (the picture's ladder steps with the rate last unless a step asks otherwise; the default, first, has its own step)
     await fp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
     await fp.evaluate(stub => { const F = window.__fp; F.vsAsks = []; F.views = F.frame().getViewerPose().views; if (stub) for (const v of F.views) v.requestViewportScale = x => F.vsAsks.push(x); }, !!stub);   // (the views' API is learnt at the first frame, so a stub comes before it)
     await frames(6, 11.1);
@@ -12693,16 +12696,16 @@ if (runs('auto quality')) {
   const aql = () => fp.evaluate(() => window.__collabLog.filter(e => e.ev === 'auto quality').map(e => ({ act: e.act, level: e.level, low: e.low, vs: e.vs, why: e.why, from: e.from })));
   // frames in batches until fn holds on aq() (or the batches run out)
   const until = async (fn, dt, busy = 0, max = 40) => { let a = await aq(); for (let i = 0; i < max && !fn(a); i++) { await frames(10, dt, busy); a = await aq(); } return a; };
-  await step('auto quality: on by default; a Quest 3S is told from a Quest 3 (rate step first or last); #aq=off turns it off, kept', async () => {
+  await step('auto quality: on by default, the rate step first on every headset (v151); a Quest 3S is still told from a Quest 3; #aq=off turns it off, kept', async () => {
     const bad = [];
     await open('airports');
     const d = await fp.evaluate(() => ({ auto: HOST.xr.auto(), fov: HOST.xr.fov(), sc: HOST.xr.scale(), rs: HOST.xr.rateStep(), a3s: HOST.xr.rate3S('Mozilla/5.0 (Linux; Android 12; Quest 3S) AppleWebKit/537.36 OculusBrowser/35.0 VR Safari/537.36'),
       a3: HOST.xr.rate3S('Mozilla/5.0 (Linux; Android 12; Quest 3) AppleWebKit/537.36 OculusBrowser/35.0 VR Safari/537.36'), a2: HOST.xr.rate3S('Quest 2'), fovs: HOST.xr.fovs().join(), scales: HOST.xr.scales().join() }));
-    if (!d.auto || d.fov !== 'auto' || d.sc !== 'auto' || d.rs !== 'last') bad.push('the defaults: ' + JSON.stringify(d));
+    if (!d.auto || d.fov !== 'auto' || d.sc !== 'auto' || d.rs !== 'first') bad.push('the defaults: ' + JSON.stringify(d));   // (72 Hz first on every headset: v151)
     if (!d.a3s || d.a3 || d.a2) bad.push('3S told wrongly: ' + JSON.stringify(d));
     if (d.fovs !== 'auto,story,0,0.5,1' || d.scales !== 'auto,1,0.9,0.8') bad.push('the lists: ' + d.fovs + ' / ' + d.scales);
-    await fp.evaluate(() => { HOST.xr.setRateStep('first'); });
-    if (await fp.evaluate(() => localStorage.getItem('xrRateStep')) !== 'first') bad.push('rateStep not kept');
+    await fp.evaluate(() => { HOST.xr.setRateStep('last'); });
+    if (await fp.evaluate(() => localStorage.getItem('xrRateStep')) !== 'last') bad.push('rateStep not kept');
     await fp.evaluate(() => { HOST.xr.setRateStep('last'); localStorage.removeItem('xrRateStep'); });
     await open('airports&aq=off');
     if (await fp.evaluate(() => [HOST.xr.auto(), localStorage.getItem('xrAuto')].join()) !== 'false,off') bad.push('#aq=off: ' + await fp.evaluate(() => [HOST.xr.auto(), localStorage.getItem('xrAuto')].join()));

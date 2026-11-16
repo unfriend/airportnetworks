@@ -1645,13 +1645,14 @@ HOST.xr = (function () {
   //  - The ladder: L0 to L5 are the picture (fixed foveation 0.5, 0.75, 1, 1; the view's scale 1, 1, 1, 0.9, 0.8, 0.7, the
   //    latter by requestViewportScale on the views of getViewerPose, in dress: without that API it stops at L2). The refresh
   //    rate is one more step (90 to 72 Hz, where the session lists 72 and updateTargetFrameRate exists): the first step down
-  //    on a Quest 3S (rateStep 'first'; the owner accepts 72 Hz there), the last on any other headset ('last'), or none
-  //    ('never'); stepping up reverses it. Each step is logged as 'auto quality'.
+  //    on every headset (rateStep 'first', v151; the owner, 16 November 2026: "fallback first to 72 fps before reducing
+  //    resolution etc"; until then only a Quest 3S), the last ('last') or none ('never') when set so on the Debug tab;
+  //    stepping up reverses it. Each step is logged as 'auto quality'.
   //  - L4 or deeper for 30 s makes the next session's framebuffer 0.9 (Resolution auto); 2 minutes at L1 or lighter takes it back.
   //  - Off (setAuto(false), #aq=off): the story's foveation and a scale of 1, as before.
   const LV = [{ fov: 0.5, vs: 1 }, { fov: 0.75, vs: 1 }, { fov: 1, vs: 1 }, { fov: 1, vs: 0.9 }, { fov: 1, vs: 0.8 }, { fov: 1, vs: 0.7 }];
   const AQ = { auto: true, lv: 0, low: false, lowHz: 72, why: '', vs: 1, vsSent: 1, vsApi: null, vp: null, vpLogged: false, s: null, key: null,
-    t: 0, skipUntil: 0, started: 0, win: null, bad: false, clean: 0, noUp: 0, upAt: -1e9, cpuAt: -1e9, deep: 0, light: 0, ring: [], rs: 'last', frames: 0, steps: 0, lowSent: false };
+    t: 0, skipUntil: 0, started: 0, win: null, bad: false, clean: 0, noUp: 0, upAt: -1e9, cpuAt: -1e9, deep: 0, light: 0, ring: [], rs: 'first', frames: 0, steps: 0, lowSent: false };
   const AQT = { win: 1000, up: 10, hold: 60000, warm: 1500, settle: 1000, upFail: 15000, deep: 30000, light: 120000, rate: 2000, cpu: 0.6, late: 1.5, minN: 8 };
   // a Quest 3S by what Quest Browser says about itself ('Quest 3S'; a 'Quest 3' is not one)
   const rate3S = ua => /\bQuest\s?3S\b/i.test(String(ua === undefined ? (navigator.userAgent || '') : ua));
@@ -1659,8 +1660,8 @@ HOST.xr = (function () {
   try {
     AQ.auto = localStorage.getItem('xrAuto') !== 'off';
     const r = localStorage.getItem('xrRateStep');
-    AQ.rs = RSTEPS.includes(r) ? r : (rate3S() ? 'first' : 'last');
-  } catch (e) { AQ.rs = rate3S() ? 'first' : 'last'; }
+    AQ.rs = RSTEPS.includes(r) ? r : 'first';   // (72 Hz first on every headset, v151; rate3S stays for the logs and tests)
+  } catch (e) { AQ.rs = 'first'; }
   const fovEff = () => (FV.v === 'auto' ? (AQ.auto ? LV[AQ.lv].fov : 'story') : FV.v);
   const rateCan = () => !!(HZ.api && HZ.list && HZ.list.includes(AQ.lowHz) && HZ.want > AQ.lowHz);
   // the steps, lightest first: { lv, low }
@@ -1936,7 +1937,7 @@ HOST.xr = (function () {
       try { localStorage.setItem('xrFov', String(f)); } catch (e) { /* storage blocked */ }
     },
     // automatic quality (v145): on by default (xrAuto, #aq=on|off); aq() { level, fov, vs, why, auto, rate, rateStep, ... };
-    // the refresh rate as a step of it ('first' on a Quest 3S, else 'last', or 'never': xrRateStep); frameTimes() the last
+    // the refresh rate as a step of it ('first' by default, v151; 'last' or 'never': xrRateStep); frameTimes() the last
     // 10 s of frames (shared.js logs it); aqTest({ win, up, hold, warm, settle, ... }) shortens its times for tests
     auto: () => AQ.auto,
     setAuto(on) {

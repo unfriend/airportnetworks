@@ -267,7 +267,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     3S lists and runs at by default, whether it takes 90 or 120 from the page, how heavy stories hold 11.1 ms, and how
     foveation and a lower resolution look and what they save there.
   - Automatic quality (`index.html`, `HOST.xr`; the owner's decisions: 90 Hz is the target, automatic quality is **on by
-    default**, a Quest 3S may drop to 72 Hz first, the look changes it makes are approved). Each headset's own, never the
+    default**, every headset drops to 72 Hz first (v151; until then a Quest 3S only), the look changes it makes are approved). Each headset's own, never the
     room's, never in `collab.state()` or `HOST.xr.sig()`: `HOST.xr.auto()`, `setAuto(on)` (`xrAuto` in `localStorage`,
     `#aq=on|off`; the Debug tab's *Automatic quality: on/off* row with a line from `HOST.xr.aq()`, *Level 2 of 5:
     foveation 1, view 100 % · why*). *Foveation* and *Resolution* on the Debug tab now start with *auto* (`FOVS` is auto,
@@ -282,11 +282,13 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     step up; a step up that fails again within 15 s holds further steps up for 60 s. The level is kept per scene in
     `sessionStorage` `aqLevels`. L4 or deeper for 30 s makes the next session's framebuffer 0.9 (`xrAqScale`); 2 minutes at L1
     or lighter clears it.
-  - The refresh rate as a ladder step (the owner: a Quest 3S may drop to 72 Hz first): taken only where the session lists 72
+  - The refresh rate as a ladder step (the owner, 16 November 2026: "fallback first to 72 fps before reducing resolution
+    etc"; until v150 only a Quest 3S dropped to 72 Hz first): taken only where the session lists 72
     Hz, has `updateTargetFrameRate` and the wanted rate is above 72. `rate3S(ua)` (`/\bQuest\s?3S\b/i` on the user agent: a
-    plain Quest 3 is not a 3S); `HOST.xr.rateStep()` is `'first'` (L0 at 90, L0 at 72, then L1 to L5 at 72: the default on a
-    3S), `'last'` (L0 to L5 at the wanted rate, then L5 at 72; the default elsewhere) or `'never'` (`xrRateStep`,
-    `setRateStep(v)`, `rateSteps()`); stepping up reverses the order, so the wanted rate comes back last on a 3S. `hzAsk`
+    plain Quest 3 is not a 3S; kept for the logs and tests, no longer deciding the default); `HOST.xr.rateStep()` is `'first'`
+    (L0 at 90, L0 at 72, then L1 to L5 at 72: the default on every headset since v151), `'last'` (L0 to L5 at the wanted
+    rate, then L5 at 72; the default on a Quest 3 until v150) or `'never'` (`xrRateStep`,
+    `setRateStep(v)`, `rateSteps()`); stepping up reverses the order, so the wanted rate comes back last. `hzAsk`
     asks the lower of the two while the rate step is down; each rate step is logged as `auto quality` and as `frame rate`
     (why `auto quality`); the next 2 s are not judged.
   - Logs and hooks: `HOST.xr.aq()` (`{ level, fov, vs, why, auto, rate, low, rateStep, vsApi, steps, next, noUp, clean }`),
