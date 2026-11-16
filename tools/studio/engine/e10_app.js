@@ -435,7 +435,9 @@ const STUDIO = {
   ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
   // (its since: the room's time for an everyone cube), and when it went in and out on the clock of what cubes start
-  cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [] } : null; },
+  cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [], on: c.on !== false, raw: !!c.raw, by: c.offBy ? c.offBy.id : '', why: swWhy(c) } : null; },
+  // (cubes that switch cubes, v154: each cube's switch, and the last frame's passes and held cubes)
+  switches: () => ({ on: Object.fromEntries(SW.list.map(c => [c.id, c.on !== false])), passes: SW.passes, held: SW.held }),
   // the scenes that ship with the app (e7g_examples.js): their list, whether one is open, a copy under way
   examples: () => exState(),
   // the walls here for things on walls (v137, e6o_walls.js): with a list ([{ a: [x, z], b: [x, z], y0, y1 }] in the scene's

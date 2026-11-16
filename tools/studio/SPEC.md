@@ -299,7 +299,8 @@ hold is kept the same way, and cuts nothing until that object is back. Anything 
   headsets each see what their own place reveals.
 - `mode`: `'while'` (active while you are inside) or `'stay'` (once you have been inside it stays active for you until
   the scene is opened again or *Reset what I have seen* is pressed).
-- `show` and `hide`: any number of objects and sounds each. For an item: the cubes now active for you that list it in
+- `show` and `hide`: any number of objects and sounds each (and other items: shapes, empties, screens, paintings, cut-outs;
+  other cubes too since v154, switched off and on: "Cubes that switch cubes" below; never the cube itself). For an item: the cubes now active for you that list it in
   `show` (S) and in `hide` (H). Shown if S has any and H none; hidden if H has any and S none; both: the one entered most
   recently decides (a `'stay'` cube walked into again counts as entered again, v117). Neither: hidden if any cube lists it in `show` (it waits for its cube), else shown.
 - Shown and hidden fade over 0.4 s (opacity, then `visible` off; a sound's gain). An object shown with `start:
@@ -350,6 +351,83 @@ same studio scene". `triggerStep` in `engine/e6_items.js`, `trgFire` in `engine/
   `behNow` and `trgClock` held by the test.
 - **Untested on headsets**: everyone cubes across real headsets at a circle (how in step their runs look over Wi-Fi, a
   head entering at a cube's face, many heads in and out).
+
+## Cubes that switch cubes (v154, the owner, 16 November 2026)
+
+The owner: "can triggercubes now be disabled by other trigger cubes? can they also be disabled as part of a group?" Offered a
+design, they answered "Yes, build it", and to "If you are standing inside a cube when another cube switches it off, what
+should happen to what that cube was doing for you?" chose "As if you left": its while-inside effects end at once (items it
+showed hide again, loops come off); things it made stay from then on stay. `cubeSwitch`, `swDecide`, `swWhy` and
+`triggerStep` in `engine/e6_items.js`.
+
+- **What may switch a cube**: a cube's `show` and `hide` lists (an id of another cube; never its own: `norm` drops it, as a
+  bad id is dropped, and `toggleLinks` leaves it out), a sequence's `show` and `hide` events and a press's or hover's `show`
+  and `hide` entries (`SEQ_SHOW` has `c`; their pickers offer *Switch it on* / *Switch it off*, with no fade row: a cube
+  switches at once). Records keep their shape (ids): nothing new in `layout.json` or `state()`.
+- **Switched off** (hidden): the cube reacts to no one. Its head, heads or key inside (`c.raw`) count only while it is
+  switched on (`c.on`): `c.inside = c.raw && c.on`. So it is not entered, and what it shows, hides, changes and starts does
+  not happen. **Switched on** (shown): as ever. The rule is the items' rule with the same sources: of the active cubes, the
+  sequences and the presses that name it, shown (on) if S has any and H none, hidden (off) if H has any and S none, both:
+  the one entered last decides (`enteredLater`'s order: the entry moment, then the id); neither: off if any cube, sequence or
+  press lists it in `show` (it waits for one to switch it on), else on.
+- **Whose**: each person's own, unless what switches it is for everyone: a cube with `all: true` (its heads are everyone's),
+  a shared sequence (`qr.<id>`) or a shared press (`pr.<id>`); a sequence with `sync: 'own'` or a press with `who: 'own'`
+  this device's only. A cube switched for one person but not for another acts for the second only (an everyone cube too:
+  each device works out what it starts from its own switches).
+- **Switched off while it is active for you: as if you left it** (the owner's choice). What it showed hides again at once
+  (show and hide are not debounced), its texture changes go, its loops and holds come off and its `when: 'leave'` entries
+  fire as on leaving (debounced: 0.3 s after the switch, `PLAY_EDGE`; switched off and on again within 0.3 s is no leave and
+  no new entry, as walking out and in). A `stay` cube already entered stays active (that is what leaving a stay cube does):
+  what it made stays, its loops go on, it still switches what it lists; switched off, it is not entered again (so walking
+  into it is no new entry) until it is switched on. *Reset what I have seen* and the lobby clear what was seen as ever.
+- **Switched on while you are inside: as if you walked in**: its enter entries fire, a `stay` cube counts as entered again
+  (`since` renewed, so it is the one entered last).
+- **The moment** (an everyone cube or one with a key, whose moments are the room's): switched off, the moment of the source
+  that switched it (a cube's entry, from its heads' samples when it was entered in this frame; a sequence's event; a
+  press's stamp); switched on by a source, a hair (1 µs) after that source's moment, so it counts as entered after what
+  switched it on; switched on because what switched it off stopped, the moment that everyone cube's heads left (their latest
+  sample), else the room's time now. So `c.inT`, `c.outT` and `since` are the same room moments on every device that has
+  the same heads.
+- **Loops and chains**: settled each frame before the cubes are worked out (`cubeSwitch`, after the sequences' and the
+  presses' show and hide, which now come first in `triggerStep`: they depend on nothing the cubes work out in that
+  frame). It starts from the frame before (`c.on`) and makes passes over the cubes in the order of their ids, each cube
+  decided from the others as they stand (a cube counts as active while settling if it is switched on and its head, heads
+  or key are inside, or it is a stay cube already entered; one newly active takes the moment of an entry now, after
+  every other), until a pass changes nothing. A chain therefore settles in the frame it starts, whatever its order. Two
+  cubes that switch each other off settle: walked into at once, the one with the lower id is off (the passes go in id
+  order); walked into one after the other, the first one keeps the second off whatever their ids (entered, it switches
+  the second off in that frame, so the second is switched off before your head reaches it and is never entered). A ring
+  that has no answer (three cubes each switching the next off, or any odd ring) never settles: after as many passes as
+  there are cubes that switch or are switched by cubes, and two more, the cubes still changing are held at what they had
+  in the frame before and the others settled again (`SW.held` counts them), so nothing flickers and the next frame holds
+  them the same way. Every device with the same heads and the same frame before works out the same; a device that comes
+  late (or after *Reset what I have seen*) to a pair or a ring decides from what it finds, and so does one that gets the
+  heads entering a pair of everyone cubes in the same frame though their samples differ (the lower id off there; known
+  limit).
+- **Away from its station**: each cube keeps its switch (nothing is settled), as a cube with a key keeps its state.
+- **Editing** (page and headset twins, from the same blocks): picking for a cube, a press on another cube (in the scene,
+  its Items card or a group's name, and a group's member: all of the group's members, its cubes too, the picking cube left
+  out) puts it on the list or takes it off, one Undo step, a tick over it (*✓ switched on by Ant*, *✕ switched off by Ant*);
+  the selected cube's green and red lines run to the cubes it lists as to items; a cube switched off for you is drawn with
+  its edges much darker (`CUBE_EDGE.off`, opaque, "Nothing see-through while editing"), its tag *Bee · switched off* in grey;
+  its card's heading says *· switched off* and an amber line *Switched off by Ant.* (*by the sequence Flip*, *by a press on
+  Knob*, *by pointing at Knob*; or *Switched off: it waits for Ant to switch it on*, *... for the sequence Flip ...*, *... for
+  Knob to be pressed or pointed at*) with *It reacts to no one until it is switched on again.* (a stay cube already entered:
+  *It is not entered again, but what it made as it stays once entered stays.*); the rows of a cube's lists say *· switched
+  on* / *· switched off* for a cube; the Items card's faint line *switched off*. A sequence's event row and a press's row say
+  *switches on* / *switches off*, their sentences *the cube Bee is switched off*. The cube's card has no preview of its own
+  (Try on its starts fires them as before, switched off or not).
+- **Duplicate and Delete**: a cube's copy keeps its lists and joins every list its original is in (other cubes'
+  `cubeCopy`, the sequences' `seqCopy`, the presses' `pressCopy`), so a copy of a cube that waits to be switched on waits too;
+  a group's copy maps its cubes' lists onto the copies (as for its other members); Delete takes a cube out of every list,
+  event and entry in the same step. One Undo step each.
+- **Shared**: FORMAT networks-49: nothing changes shape, but an older device would keep a cube's id in a list and let a
+  switched-off cube act for its people (an everyone cube starting its runs for everyone), so a room refuses it.
+- **For tests**: `STUDIO.cube(id)` gains `on`, `raw`, `by` (the id of what switched it off, '' when none or waiting) and
+  `why` (the card's words); `STUDIO.switches()` is `{ on: { id: bool }, passes, held }` of the last frame.
+  `node tools/smoke.mjs --only 'studio cube switches'`.
+- **Untested on a headset**: walking into switching cubes with a real head, how a darker cube and its tag read there,
+  picking cubes with the trigger, everyone cubes switching each other across real headsets at a circle.
 
 ## AR or VR only (the owner, 11 November 2026)
 
@@ -554,6 +632,7 @@ Each sequence's last `show` and `hide` event per item at or before now (in this 
 source `{ id, since, cut }` in the cubes' rule: the later `since` decides, then the higher id; a cube's `since` is its entry
 moment in the same units. What a sequence showed stays shown until another source decides or it is rewound. An item a
 `show` event names waits hidden until shown (`LISTS.shown`). A winning source with `cut` shows or hides at once (`it.snap`).
+An event may name a cube (v154): shown and hidden it is switched on and off ("Cubes that switch cubes"), at once.
 `tex` events are one more source for `texStep` (the one entered last wins per object, material and slot); their pictures are read
 as a cube's are.
 
@@ -1468,10 +1547,10 @@ duplicating, the frame step), its look `LOOKS.group` in `sets/looks.js`.
 - **Deleting a member** (or its being deleted from the room) takes it out of its group in the same change; a group left
   with fewer than 2 members goes too (not one picking its members now). Undo brings both back.
 - **Trigger cubes**: in a cube's *Pick what it shows* / *Pick what it hides*, pointing at a grouped item (a cube of the
-  group too) puts all of its group's members (not its cubes) in the list, or takes them all out when all are in it (one
-  change); under Items the group's heading does the same. The lists still name the members one by one. A cube in a group of
-  cubes alone (nothing a cube can list) is selected as an ungrouped cube is (its group, as a click on any member), which
-  ends the pick.
+  group too) puts all of its group's members, its cubes too (v154: switched off and on, "Cubes that switch cubes"), in the
+  list, or takes them all out when all are in it (one change); the picking cube, a member or not, is left out. Under Items
+  the group's heading does the same. The lists still name the members one by one. (Until v153 a group's cubes were left
+  out, and a cube in a group of cubes alone was selected as an ungrouped cube was, which ended the pick.)
 - **Drawn while editing**: a selected group as a dashed box in its colour, a little darker (opaque since v131), round all
   its members (`LOOKS.group`, over everything), its name in the selection's label. Not editing, nothing of it is drawn.
 - **Shared rooms**: the group's record is its field in `state()` (`g.<id>`), and a move writes its members' records in the
@@ -2982,8 +3061,8 @@ press: { do: [entries], hover: [entries], who }
   `plays`); a cube's `press` is ignored. `who`: absent = everyone here, `'own'` = each person's own (`'all'` is read as absent).
   Entries `{ on, what, clip?, how?, fade? }` (at most 16 a list, one per `on|what`, the order kept; fields in that order):
   `on` any item id (often the item itself), `what` one of `clip`, `sound`, `path`, `motion` (what a cube's entry does), `show`,
-  `hide` (one more source in the cubes' "entered last decides" rule, `fade: 'cut'` for an instant one) or `seq` (starts or stops
-  a sequence); no picture changes. `how` once, loop or stop (`seq` the same); `hold` too, for a clip or a path, in `hover` only.
+  `hide` (one more source in the cubes' "entered last decides" rule, `fade: 'cut'` for an instant one; on a cube, v154, it
+  switches the cube on or off: "Cubes that switch cubes") or `seq` (starts or stops a sequence); no picture changes. `how` once, loop or stop (`seq` the same); `hold` too, for a clip or a path, in `hover` only.
   A loop in `do` **toggles**: an odd press starts it, the next stops it. Entries naming an item a layout lacks, or one the
   entry cannot be done to, are dropped on reading it (`readLayout`); Delete takes the entries naming the deleted items out of
   every other item's press in the same change; Duplicate makes the copy's own entries that name the original name the copy and
@@ -3070,6 +3149,11 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
 
 ## Tests
 
+- Cubes that switch cubes (v154): the smoke test's *studio cube switches* steps (`--only 'studio cube switches'`): a cube
+  hiding another (switched off for you, its card, tag, look and line), one that waits, switched off while inside as leaving
+  and on as walking in, a stay cube keeping what it made, picking cubes singly and a group's, a sequence and a press switching
+  one, a pair, a chain and a ring settling or held, Duplicate, Delete, the state and `layout.json`, and two pages with an
+  everyone cube switching another at one room moment: "Testing" in `docs/agents/testing.md`.
 - Sequences (v146): the smoke test's *studio sequences* steps (`--only 'studio sequences'`): "Testing" in `docs/agents/testing.md`.
 - v137: the smoke test's *studio everyone*, *studio walls*, *studio shows* and *studio examples* steps (each `--only` of
   its own): "Testing" in `docs/agents/testing.md`.

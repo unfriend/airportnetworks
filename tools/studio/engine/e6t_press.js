@@ -122,7 +122,7 @@ function prSrc(it, key, since, cut) {
   const m = it.psrc || (it.psrc = new Map());
   let s = m.get(key);
   if (!s) m.set(key, (s = { id: it.id, since: 0, cut: false }));
-  s.since = since; s.cut = cut;
+  s.since = since; s.cut = cut; s.hv = key[0] === 'h';   // (pointing's, for a cube's card: v154)
   return s;
 }
 // in triggerStep after the cubes and the sequences: what pointing now is (begun, kept 0.3 s after it ends), then each item's
@@ -277,7 +277,7 @@ const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex');
 function prWords(e, list) {
   const t = STU.items.get(e.on), nm = t ? t.rec.name : 'an item not in the scene', hv = list === 'hover', cut = e.fade === 'cut' ? ' (at once)' : '';
   let w;
-  if (e.what === 'show' || e.what === 'hide') w = (e.what === 'show' ? 'shows' : 'hides') + (hv ? ' while pointed at' : '') + cut;
+  if (e.what === 'show' || e.what === 'hide') w = (t && t.kind === 'c' ? (e.what === 'show' ? 'switches on' : 'switches off') : e.what === 'show' ? 'shows' : 'hides') + (hv ? ' while pointed at' : '') + (t && t.kind === 'c' ? '' : cut);   // (a cube: switched, v154)
   else if (e.what === 'seq') w = e.how === 'stop' ? 'stops the sequence' : e.how === 'loop' ? (hv ? 'loops the sequence while pointed at' : 'loops the sequence, pressed again stops') : 'starts the sequence';
   else {
     const what = e.what === 'clip' ? e.clip || 'its animation' : e.what === 'sound' ? 'the sound' : e.what === 'path' ? 'its recorded path' : 'its motion';
@@ -296,6 +296,7 @@ function prSentence(P) {
   const t = STU.items.get(P.on);
   if (!t || !P.what) return 'Pick what it does.';
   const nm = t.rec.name, hv = P.list === 'hover', lead = hv ? 'While pointed at' : 'When pressed', h = P.how;
+  if (t.kind === 'c' && (P.what === 'show' || P.what === 'hide')) return `${lead}, the cube ${nm} is switched ${P.what === 'show' ? 'on' : 'off'}${hv ? '' : ' until something switches it again'}.`;   // (v154)
   if (P.what === 'show') return `${lead}, ${nm} shows${P.fade === 'cut' ? ' at once' : ' (fades in)'}.`;
   if (P.what === 'hide') return `${lead}, ${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
   if (P.what === 'seq') return h === 'stop' ? `${lead}, ${nm} stops.` : h === 'loop' ? `${lead}, ${nm} starts from its beginning${hv ? ', and stops when you point away' : '; pressed again, it stops'}.` : `${lead}, ${nm} starts from its beginning.`;
@@ -335,7 +336,7 @@ function pressBlocks(it, B, dis) {
   sect('hover', 'While pointed at');
   B.push({ p: 'Pointing is always each person\'s own: nobody else sees what you point at react.', c: 'faint' });
   if (P && P.step === 'obj') {
-    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': the item the reaction acts on (this item, another, or a sequence).', c: 'amber' });
+    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': the item the reaction acts on (this item, another, a cube to switch on or off, or a sequence).', c: 'amber' });
     const cands = [it].concat([...STU.items.values()].filter(t => t.id !== it.id && prOpts(t).length)).filter(t => prOpts(t).length);
     sqPaged(B, `Items (${cands.length})`, cands.map(t => ({ id: 'pron:' + t.id, label: t.id === it.id ? 'This item' : t.rec.name, sub: t.id === it.id ? t.rec.name : KIND_NAME[t.kind], act: 'i:prOn', v: t.id, dis })), P.page, 'prPg');
   } else if (P) {
@@ -347,7 +348,7 @@ function pressBlocks(it, B, dis) {
     if (others.length) B.push({ label: clips.length ? 'Or' : 'What', row: others.map(o => ({ id: 'prwhat:' + o.what, label: o.label, act: 'i:prWhat', v: o.what, on: P.what === o.what, dis })) });
     if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
     else if (P.what) {
-      if (P.what === 'show' || P.what === 'hide') B.push({ label: 'How', row: [{ id: 'prfade:fade', label: 'Fade', act: 'i:prFade', v: '', on: P.fade !== 'cut', dis }, { id: 'prfade:cut', label: 'At once', act: 'i:prFade', v: 'cut', on: P.fade === 'cut', dis }] });
+      if (P.what === 'show' || P.what === 'hide') { if (!(t && t.kind === 'c')) B.push({ label: 'How', row: [{ id: 'prfade:fade', label: 'Fade', act: 'i:prFade', v: '', on: P.fade !== 'cut', dis }, { id: 'prfade:cut', label: 'At once', act: 'i:prFade', v: 'cut', on: P.fade === 'cut', dis }] }); }   // (a cube switches at once: no fade, v154)
       else B.push({ label: 'How', row: prHows(P.list, P.what).map(h => ({ id: 'prhow:' + h, label: prHowWord(P.list, P.what, h), act: 'i:prHow', v: h, on: P.how === h, dis })) });
       B.push({ kv: [['It will', prSentence(P)]] });
       const d = prNorm(P), same = !!d && (p[P.list] || []).some(e => prKey(e) === prKey(d));

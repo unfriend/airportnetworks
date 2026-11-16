@@ -1,18 +1,19 @@
 {
-  "version": "networks-v153",
+  "version": "networks-v154",
   "date": "2026-11-16",
   "new": [
-    "Preview camera: a computer in a shared room shows the room's virtual world from one fixed real spot, for a TV or projector: the stories at their circles and everyone in a headset. The Shared dialog's room row: Preview camera (or a room link with &camera).",
-    "Place it from a headset (menu, Circles tab: Place the preview camera, then hold the controller at the real spot, aim it and pull the trigger), or on a computer: drag it and its aim on the room map, type its numbers (measured from spot A), or on its picture drag to turn, WASD or arrows to move, Q and E for height, + and - to zoom, Shift for fine steps, R to level.",
-    "Its buttons hide after 3 s so the screen shows only the room; it starts again by itself after a reload. Rooms are now format 48: every device needs this release to join the same room."
+    "Studio: trigger cubes can switch other trigger cubes off and on. On a cube's card, Pick what it hides (switches off) or Pick what it shows (switches on), then press the other cube, or a group's member to take all of the group's cubes. A cube some cube switches on waits switched off until then.",
+    "A cube switched off while you stand in it acts as if you walked out: what it showed hides again, its loops stop, its 'as you leave' reactions run; what a stay cube made stays. Switched on while you stand in it, it acts as if you walked in.",
+    "Sequences and press reactions can switch cubes on and off too (Switch it on / Switch it off). While editing, a switched-off cube is drawn darker and its card says what switched it off.",
+    "Rooms are now format 49: every device needs this release to join the same room."
   ],
   "test": [
-    "On a laptop joined to a room the Quest is in: Preview camera, then place it on the room map and check the Quest shows up where it really is from that spot.",
-    "On the Quest: menu, Circles tab, Place the preview camera, hold the controller where the laptop or TV's camera spot is, aim, pull the trigger; the laptop's picture should jump there. The cyan marker shows where it is while the menu is open.",
-    "Full screen on a TV or projector, and the frame rate of a heavy story there."
+    "In the headset: two cubes that switch each other off (a pair of radio buttons): walk into one, then the other; the first one should keep the second off.",
+    "A door: a cube in front of a room switches on a cube inside it; walking in should start what the inside cube does only after you passed the first.",
+    "Switch a cube off from a press on an object, and from a sequence; walk into it and check nothing happens until it is switched on again."
   ],
   "untested": [
-    "Everything on a real headset, TV or projector, and on a real computer's GPU: only headless Chromium drawing in software was checked.",
-    "How accurately a controller places it, how the marker looks in the headset, Firefox and Safari, and the sound on the camera's computer (after it restarts by itself, sound waits for a click or a key)."
+    "Everything with a real head and real controllers: walking into switching cubes, picking cubes with the trigger, how the darker cube and its tag read in the headset.",
+    "Cubes for everyone switching each other across several real headsets; a late joiner to a pair of such cubes may settle the other way."
   ]
 }

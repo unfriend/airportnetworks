@@ -7424,7 +7424,7 @@ async function previewRound(dir) {
     H = await openDevice('#s=' + rc + '&flock', { width: 320, height: 200 }, QUEST_UA, true);
     for (const p of [D, H]) await until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
     const aId = await A.evaluate(() => HOST.collab.id), dId = await D.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
-    check('preview: FORMAT is networks-48 (the room\'s key pcam)', FORMAT === 'networks-48', FORMAT);
+    check('preview: FORMAT is networks-48 (the room\'s key pcam) or later', +FORMAT.split('-')[1] >= 48, FORMAT);
     // the Shared dialog's Preview camera: on a computer's page, with its line; none in a headset's browser
     const row = p => p.evaluate(async () => { HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 400)); const b = document.querySelector('#shared [data-sh="pcam"]');
       return { offered: HOST.collab.previewOffered(), button: !!b, text: b ? b.closest('.sh-pcam').textContent.replace(/\s+/g, ' ').trim() : '' }; });

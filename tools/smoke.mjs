@@ -6,6 +6,7 @@
 // --only <words>: only the steps whose names start with the words, and the blocks that hold them (--only studio: the
 // studio's pages, about a quarter of the run; --only 'studio texture swaps': the trigger cubes that change pictures;
 // --only 'studio cube starts': the trigger cubes that start a clip, a sound, a recorded path or a motion;
+// --only 'studio cube switches': trigger cubes that switch other cubes off and on (and sequences and presses that do), v154;
 // --only 'studio edit speed': what the studio's edit mode no longer does every frame, a minute;
 // --only 'studio everyone', 'studio walls', 'studio shows', 'studio examples': cubes for everyone, things on walls, AR or VR
 // only, and the example scenes (v137);
@@ -4339,7 +4340,7 @@ if (runs('studio groups')) {
     bad(out);
   });
 
-  await step('studio groups: a cube\'s pick toggles a whole group (a member pointed at, a cube in the group too, the group\'s name under Items); the state with g.<id> and back, bad records refused, an id two groups name staying in the lower id\'s; layout.json with and without groups', async () => {
+  await step('studio groups: a cube\'s pick toggles a whole group (a member pointed at, its cubes too, the group\'s name under Items); the state with g.<id> and back, bad records refused, an id two groups name staying in the lower id\'s; layout.json with and without groups', async () => {
     const r = await ss(`(() => {
       const G = window.__gr, gid = G.gid(), out = {}, J = x => JSON.stringify(x), K = v => J(Object.keys(v).sort().map(k => [k, v[k]])), k0 = K(collabState()), L = () => STU.items.get('lmp001').rec.show.slice().sort().join();
       select('lmp001'); itemAct('pickFor', 'show');
@@ -4350,12 +4351,13 @@ if (runs('studio groups')) {
       X.tab = 'items'; renderPanes(); document.querySelector('#pane-items .stu-gh[data-act="linkg"][data-v="' + gid + '"]').click(); out.row = L();
       out.steps = UNDO.length - u;
       STU.pick = null; while (UNDO.length > u) undo(); select(''); X.tab = 'scene';
-      // a cube in a group of cubes alone (nothing a cube can list): pointed at while picking, its group is selected (as a
-      // click on any member selects its group), which ends the pick, as pointing at an ungrouped cube does
+      // a group of cubes alone: pointed at while picking, both go on the list (v154: a cube switches cubes off and on; until
+      // then its group was selected, which ended the pick)
       putItem('pad001', 'c', norm('c', { name: 'Pad', p: [-4, 1, 0] })); putItem('pad002', 'c', norm('c', { name: 'Pad 2', p: [-4, 1, 2] }));
       putItem('pads01', 'g', norm('g', { name: 'Pads', items: ['pad001', 'pad002'] }));
       select('lmp001'); itemAct('pickFor', 'show'); const sh0 = L(); pressItem('pad001');
-      out.pads = [STU.sel, !!STU.pick, L() === sh0];
+      out.pads = [STU.sel, !!STU.pick, L() === sh0.split(',').concat('pad001', 'pad002').filter(Boolean).sort().join()];
+      STU.pick = null; undo();
       for (const id of ['pads01', 'pad001', 'pad002']) removeItem(id);
       select('');
       // the state
@@ -4386,8 +4388,8 @@ if (runs('studio groups')) {
     })()`).catch(e => ({ err: e.message }));
     const out = [];
     if (r.err) { bad(['cube pick and state: ' + r.err]); return; }
-    if (r.add !== 'box001,dan001,fre001,hol001,out001,voi001' || r.rem !== 'hol001' || r.cube[0] !== r.add || r.cube[1] !== 'lmp001' || r.row !== 'hol001' || r.steps !== 4) out.push('a cube\'s pick toggling the group\'s members: ' + JSON.stringify(r));
-    if (JSON.stringify(r.pads) !== '["pads01",false,true]') out.push('a cube in a group of cubes alone, pointed at while picking: its group selected, the pick ended: ' + JSON.stringify(r.pads));
+    if (r.add !== 'box001,cube01,dan001,fre001,hol001,out001,voi001' || r.rem !== 'hol001' || r.cube[0] !== r.add || r.cube[1] !== 'lmp001' || r.row !== 'hol001' || r.steps !== 4) out.push('a cube\'s pick toggling the group\'s members: ' + JSON.stringify(r));
+    if (JSON.stringify(r.pads) !== '["lmp001",true,true]') out.push('a group of cubes alone, pointed at while picking: both on the list, the pick going on: ' + JSON.stringify(r.pads));
     if (!r.state[1] || !/"items":\["box001","dan001","fre001","voi001","out001","cube01"\]/.test(r.state[0])) out.push('the state with the group: ' + JSON.stringify(r.state));
     if (r.norm[0] !== null || r.norm[1] !== null || r.norm[2] !== null || r.norm[3] !== '{"name":"Group","items":["box001","dan001"]}' || !/^\{"name":"Lamps and things Lamps and things[^"]*","items":\["dan001"\]\}$/.test(r.norm[4]) || JSON.parse(r.norm[4]).name.length > 60) out.push('norm: ' + JSON.stringify(r.norm));
     if (!r.badRoom) out.push('a bad group record from the room was taken');
@@ -8336,6 +8338,274 @@ if (runs('studio cube starts')) {
     await cp.close();
   });
 }
+// Cubes that switch cubes (v154, tools/studio/SPEC.md, "Cubes that switch cubes"): a cube's show and hide lists, a sequence's
+// show and hide events and a press's entries may name a cube, switched on and off; on the test scene with its clocks held by
+// the test (behNow and trgClock both window.__T, so a room moment and a run moment are the same). Bee (a big cube) holds Ant
+// (a small one) in the middle: IN is inside both, BEE inside Bee only, OUT inside neither
+if (runs('studio cube switches')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio cube switches: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio cube switches: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio cube switches: ' + b)); };
+  // (in the page: one frame's steps with your head at p at the held time T; a cube made from a short form, Bee and Ant by
+  // default where they stand; what this block made taken away, the runs, the sequences' and presses' states and what you
+  // have seen forgotten)
+  const HELP = `window.__cs = window.__cs || {
+    at: (p, T) => { if (T !== undefined) window.__T = T; shownFor(p); itemsStep(0, performance.now()); return 0; },
+    one: (p, T) => { if (T !== undefined) window.__T = T; shownFor(p); return 0; },
+    mk: (id, o) => { putItem(id, 'c', norm('c', Object.assign({ name: id, p: [4, 1, 4], size: [1, 2, 1] }, o), id)); return 0; },
+    clean: () => { for (const it of [...STU.items.values()]) if (/^sw/.test(it.id)) removeItem(it.id); STU.rev++; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); PRESS.try.clear(); SEQ.last.clear(); PRESS.last.clear(); STU.pick = null; trgReset('t'); resetSeen(); shownFor(null); return 0; },
+    sw: () => JSON.stringify(Object.fromEntries(Object.entries(STUDIO.switches().on).filter(([k]) => /^sw/.test(k)))),
+  }`;
+  const T0 = 1e6, IN = [4, 1.6, 4], BEE = [5.2, 1.6, 4], OUT = [9, 1.6, 9];
+  const BIG = { name: 'Bee', p: [4, 1, 4], size: [3, 2, 3] }, SMALL = { name: 'Ant', p: [4, 1, 4], size: [1, 2, 1] };
+  const mk = (id, o) => `window.__cs.mk(${JSON.stringify(id)}, ${JSON.stringify(o)})`;
+  const at = (p, T) => ss(`window.__cs.at(${JSON.stringify(p)}, ${T})`);
+
+  await step('studio cube switches: a cube hides another: walked into, the other reacts to no one (what it hides comes back; its card, both twins, and the Items pane say Switched off by its name; drawn much darker, its tag says so; a selected cube\'s red line runs to it); out again it is switched on and entered, as walking in; norm drops a cube\'s own id', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio cube switches: the test scene did not load'); return; }
+    await ss(`(${HELP}, behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0}, GL.renderer.setAnimationLoop(null), 0)`);
+    const out = [];
+    await ss(`(${mk('swb001', Object.assign({ hide: ['box001'] }, BIG))}, ${mk('swa001', Object.assign({ hide: ['swb001'] }, SMALL))}, 0)`);
+    await at(OUT, T0);
+    const r0 = await ss(`[STU.items.get('box001').shown, window.__cs.sw()]`);
+    if (r0[0] !== true || r0[1] !== '{"swa001":true,"swb001":true}') out.push('nobody inside: both on, the box shown: ' + JSON.stringify(r0));
+    await at(BEE, T0 + 100);
+    const r1 = await ss(`[STU.items.get('box001').shown, STUDIO.cube('swb001').inside]`);
+    if (r1[0] !== false || r1[1] !== true) out.push('in Bee alone: it hides the box: ' + JSON.stringify(r1));
+    await at(IN, T0 + 200);
+    const r2 = await ss(`(() => { const b = STUDIO.cube('swb001'); return [STU.items.get('box001').shown, b.on, b.raw, b.inside, b.act, b.by, b.why, STUDIO.cube('swa001').inside, b.outT]; })()`);
+    if (JSON.stringify(r2) !== JSON.stringify([true, false, true, false, false, 'swa001', 'Switched off by Ant', true, T0 + 200])) out.push('in Ant too: Bee switched off by Ant, as if left there, the box back: ' + JSON.stringify(r2));
+    // its card (the page's twin and the blocks both twins draw), the Items pane, its look and tag, the selected Ant's red line
+    const ed = await ss(`(() => {
+      select('swb001'); X.tab = 'item'; renderPanes(); itemsStep(0.5, performance.now()); itemsStep(0.5, performance.now());
+      const card = document.querySelector('#pane-item').textContent, B = paneBlocks('item'), L = STU.items.get('swb001').look, col = new THREE.Color(L.col);
+      const r = [/Switched off by Ant\\. It reacts to no one until it is switched on again\\./.test(card), B.some(b => !b.page && !b.xr && /^Switched off by Ant/.test(b.p || '')), B.some(b => b.h === 'Bee' && /switched off/.test(b.sub || ''))];
+      select(''); itemsStep(0.5, performance.now());
+      r.push(L.line.material.color.getHex() === col.clone().multiplyScalar(0.42).getHex(), /Bee · switched off/.test(L.name.userData.text || ''));
+      const I = paneBlocks('items'), card2 = I.flatMap(b => b.grid || []).find(c => c.id === 'sel:swb001');
+      r.push(!!card2 && /switched off/.test(card2.sub2 || ''));
+      select('swa001'); itemsStep(0, performance.now());
+      const P = GL.links.geometry.attributes.position, C = GL.links.geometry.attributes.color, n = GL.links.geometry.drawRange.count;
+      r.push(n === 2 && +C.getX(0).toFixed(2) === 1 && +P.getX(1).toFixed(2) === 4 && +P.getY(1).toFixed(2) === 1);
+      select('');
+      return r;
+    })()`);
+    if (ed.some(v => v !== true)) out.push('editing: the card and its blocks, Bee\'s look and tag, the Items card, Ant\'s red line to Bee: ' + JSON.stringify(ed));
+    await at(BEE, T0 + 300);
+    const r3 = await ss(`(() => { const b = STUDIO.cube('swb001'); return [STU.items.get('box001').shown, b.on, b.inside, b.act, b.inT, b.by, b.why]; })()`);
+    if (JSON.stringify(r3) !== JSON.stringify([false, true, true, true, T0 + 300, '', ''])) out.push('out of Ant, still in Bee: Bee switched on and entered, the box hidden again: ' + JSON.stringify(r3));
+    const n = await ss(`[JSON.stringify(norm('c', { p: [0, 1, 0], show: ['swa001', 'box001'], hide: ['swa001'] }, 'swa001')), JSON.stringify(norm('c', { p: [0, 1, 0], show: ['swb001'] }, 'swa001').show)]`);
+    if (n[0] !== JSON.stringify({ name: 'Cube', p: [0, 1, 0], yaw: 0, size: [1.2, 2, 1.2], mode: 'while', show: ['box001'], hide: [] }) || n[1] !== '["swb001"]') out.push('norm drops a cube\'s own id, keeps another cube\'s: ' + JSON.stringify(n));
+    bad(out);
+  });
+
+  await step('studio cube switches: a cube some cube shows waits switched off (it reacts to nobody) until one shows it; a stay cube walked into switches it on for good; Reset what I have seen switches it off again', async () => {
+    const out = [];
+    await ss(`(window.__cs.clean(), ${mk('swa001', { name: 'Ant', p: [4, 1, 4], mode: 'stay', show: ['swd001'] })}, ${mk('swd001', { name: 'Dot', p: [8, 1, 4], hide: ['box001'] })}, 0)`);
+    const D = [8, 1.6, 4];
+    await at(OUT, T0 + 1000);
+    await at(D, T0 + 1100);
+    const w0 = await ss(`(() => { const d = STUDIO.cube('swd001'); return [d.on, d.raw, d.inside, d.by, d.why, STU.items.get('box001').shown]; })()`);
+    if (JSON.stringify(w0) !== JSON.stringify([false, true, false, '', 'Switched off: it waits for Ant to switch it on', true])) out.push('Dot waits switched off for Ant, even with you inside: ' + JSON.stringify(w0));
+    await at(IN, T0 + 1200); await at(OUT, T0 + 1300);
+    const w1 = await ss(`[STUDIO.cube('swd001').on, STUDIO.cube('swa001').act]`);
+    await at(D, T0 + 1400);
+    const w2 = await ss(`[STUDIO.cube('swd001').inside, STU.items.get('box001').shown]`);
+    await ss(`(resetSeen(), 0)`); await at(D, T0 + 1500);
+    const w3 = await ss(`[STUDIO.cube('swd001').on, STUDIO.cube('swd001').inside, STU.items.get('box001').shown]`);
+    if (JSON.stringify([w1, w2, w3]) !== JSON.stringify([[true, true], [true, false], [false, false, true]])) out.push('Ant (stays) switches Dot on for good; Reset switches it off again: ' + JSON.stringify([w1, w2, w3]));
+    bad(out);
+  });
+
+  await step('studio cube switches: switched off while you are inside is as leaving: what it showed hides again at once, its loop comes off 0.3 s later and its leave entry fires then; switched on while inside is as walking in (its entries fire); a stay cube switched off keeps what it made', async () => {
+    const out = [];
+    const PL = [{ on: 'box001', what: 'clip', clip: 'Bob', how: 'loop' }, { on: 'snd001', what: 'sound', how: 'once', when: 'leave' }];
+    await ss(`(window.__cs.clean(), ${mk('swb001', Object.assign({ show: ['fig001'], plays: PL }, BIG))}, ${mk('swa001', Object.assign({ hide: ['swb001'] }, SMALL))}, 0)`);
+    const R = `(() => { const R = (STU.items.get('box001').tr || {}).clip; return R ? [R.at, R.off] : null; })()`;
+    const lv = () => `STUDIO.plays().log.filter(e => e[0] === 'start' && e[2] === 'snd001' && e[6] === 'leave').map(e => e[7])`;
+    await at(OUT, T0 + 2000); await at(BEE, T0 + 2100);
+    const s0 = await ss(`[STU.items.get('fig001').shown, ${R}]`);
+    await at(IN, T0 + 2200);
+    const s1 = await ss(`[STU.items.get('fig001').shown, ${R}, STUDIO.cube('swb001').on]`);
+    await at(IN, T0 + 2600);
+    const s2 = await ss(`[${R}, ${lv()}]`);
+    if (JSON.stringify([s0, s1, s2]) !== JSON.stringify([[true, [T0 + 2100, 0]], [false, [T0 + 2100, 0], false], [[T0 + 2100, T0 + 2500], [T0 + 2500]]])) out.push('switched off while inside: as leaving (fig hidden at once, the loop off and the leave entry at 0.3 s): ' + JSON.stringify([s0, s1, s2]));
+    await at(BEE, T0 + 3000);
+    const s3 = await ss(`[STU.items.get('fig001').shown, ${R}, STUDIO.cube('swb001').inT]`);
+    if (JSON.stringify(s3) !== JSON.stringify([true, [T0 + 3000, 0], T0 + 3000])) out.push('switched on while inside: as walking in (fig shown, the loop started again): ' + JSON.stringify(s3));
+    // a stay cube: switched off, it keeps what it made (fig shown, its loop on), and it is not entered again
+    await ss(`(setRec('swb001', { mode: 'stay' }), trgReset('t'), resetSeen(), 0)`);
+    await at(OUT, T0 + 4000); await at(BEE, T0 + 4100); await at(IN, T0 + 4200); await at(IN, T0 + 4800);
+    const s4 = await ss(`(() => { const b = STUDIO.cube('swb001'); return [b.on, b.act, STU.items.get('fig001').shown, ${R}, ${lv()}.filter(t => t > ${T0 + 4000})]; })()`);
+    if (JSON.stringify(s4) !== JSON.stringify([false, true, true, [T0 + 4100, 0], [T0 + 4500]])) out.push('a stay cube switched off keeps what it made (its leave entry fires): ' + JSON.stringify(s4));
+    bad(out);
+  });
+
+  await step('studio cube switches: picking: another cube goes on a cube\'s list by a press in the scene or its Items card (ticked over it), one Undo step; a group\'s cubes go on together with its other members, the picking cube left out', async () => {
+    const out = [];
+    await ss(`(window.__cs.clean(), ${mk('swa001', SMALL)}, ${mk('swc001', { name: 'Cat', p: [12, 1, 4] })}, ${mk('swe001', { name: 'Eel', p: [14, 1, 4] })}, 0)`);
+    const pk = await ss(`(() => {
+      const J = x => JSON.stringify(x), r = [], u0 = UNDO.length;
+      select('swa001'); itemAct('pickFor', 'hide', 'swa001');
+      pressItem('swc001');
+      r.push(J(STU.items.get('swa001').rec.hide), UNDO.length - u0, STU.sel, !!STU.pick);
+      itemsStep(0, performance.now());
+      const tk = STU.items.get('swc001').tick; r.push(!!tk && tk.visible && /switched off by Ant/.test(tk.userData.text));
+      const card = paneBlocks('items').flatMap(b => b.grid || []).find(c => c.id === 'sel:swe001');
+      r.push(card && card.act, J(card && card.ticks));
+      undo(); r.push(J(STU.items.get('swa001').rec.hide));
+      putItem('swg001', 'g', norm('g', { name: 'Pair', items: ['swc001', 'swe001', 'fig001', 'swa001'] }));
+      pressItem('swe001');
+      r.push(J(STU.items.get('swa001').rec.hide));
+      const gh = paneBlocks('items').find(b => b.gh && b.gh.v === 'swg001');
+      r.push(gh && gh.gh.act, /^✓ /.test(gh && gh.gh.label));
+      pressItem('swc001');
+      r.push(J(STU.items.get('swa001').rec.hide));
+      STU.pick = null; select('');
+      return r;
+    })()`);
+    const want = ['["swc001"]', 1, 'swa001', true, true, 'link', JSON.stringify([['show', false], ['hide', false]]), '[]', '["swc001","swe001","fig001"]', 'linkg', true, '[]'];
+    if (JSON.stringify(pk) !== JSON.stringify(want)) out.push('picking cubes, singly and a group\'s: ' + JSON.stringify(pk) + ' (wanted ' + JSON.stringify(want) + ')');
+    bad(out);
+  });
+
+  await step('studio cube switches: a sequence\'s hide event switches a cube off as it plays (its card says by the sequence), rewound it is on again; a press switches on a cube that waits for it, its card says so first', async () => {
+    const out = [];
+    await ss(`(window.__cs.clean(), ${mk('swb001', Object.assign({ hide: ['box001'] }, BIG))},
+      putItem('swq001', 'q', norm('q', { name: 'Flip', len: 2, ev: [{ t: 0.5, on: 'swb001', what: 'hide' }] }, 'swq001')), 0)`);
+    await at(BEE, T0 + 5000);
+    await ss(`(SEQ.last.clear(), window.__T = ${T0 + 5000}, seqCmd('swq001', 'start', ${T0 + 5000}, 'test'), 0)`);
+    const q = [], cb = `(() => { const b = STUDIO.cube('swb001'); return [b.on, b.inside, b.by, b.why, STU.items.get('box001').shown]; })()`;
+    for (const dt of [200, 600]) { await at(BEE, T0 + 5000 + dt); q.push(await ss(cb)); }
+    await ss(`(SEQ.last.clear(), window.__T = ${T0 + 6000}, seqCmd('swq001', 'rewind', ${T0 + 6000}, 'test'), 0)`);
+    await at(BEE, T0 + 6100); q.push(await ss(cb));
+    const qw = [[true, true, '', '', false], [false, false, 'swq001', 'Switched off by the sequence Flip', true], [true, true, '', '', false]];
+    if (JSON.stringify(q) !== JSON.stringify(qw)) out.push('a sequence switches Bee off at 0.5 s, rewound it is on again: ' + JSON.stringify(q));
+    const words = await ss(`[seqEvWords(STU.items.get('swq001').rec.ev[0]), seqOpts(STU.items.get('swb001')).map(o => o.label).join()]`);
+    if (words[0] !== '0.50 s · Bee · switches off' || words[1] !== 'Switch it on,Switch it off') out.push('a sequence\'s words for a cube: ' + JSON.stringify(words));
+    // a press: Knob's press shows Bee, so Bee waits switched off until Knob is pressed (shared: a stamp in the room's state)
+    await ss(`(window.__cs.clean(), ${mk('swb001', Object.assign({ hide: ['box001'] }, BIG))},
+      putItem('swp001', 'p', norm('p', { name: 'Knob', shape: 'cube', p: [20, 0.25, 4], size: [0.5, 0.5, 0.5], press: { do: [{ on: 'swb001', what: 'show' }] } })), 0)`);
+    await at(BEE, T0 + 8000);
+    const p0 = await ss(`(() => { const b = STUDIO.cube('swb001'); return [b.on, b.why, STU.items.get('box001').shown]; })()`);
+    await ss(`(window.__T = ${T0 + 8100}, pressFire('swp001'), 0)`);
+    await at(BEE, T0 + 8200);
+    const p1 = await ss(`(() => { const b = STUDIO.cube('swb001'); return [b.on, b.inside, STU.items.get('box001').shown, !!HOST.cur.collab.state()['pr.swp001'], prWords(STU.items.get('swp001').rec.press.do[0], 'do')]; })()`);
+    if (JSON.stringify([p0, p1]) !== JSON.stringify([[false, 'Switched off: it waits for Knob to be pressed or pointed at', true], [true, true, false, true, 'Bee · switches on']])) out.push('a press switches on a cube that waits for it: ' + JSON.stringify([p0, p1]));
+    bad(out);
+  });
+
+  await step('studio cube switches: two cubes that switch each other off settle in the frame you walk in and hold (20 frames alike, the lower id off); walked into one after the other, the first keeps the second off, whichever id is lower; a chain against the id order settles in one frame; a ring of three that cannot settle keeps what it had, frame after frame', async () => {
+    const out = [];
+    await ss(`(window.__cs.clean(), ${mk('swa001', { hide: ['swb001'] })}, ${mk('swb001', { hide: ['swa001'] })}, 0)`);
+    await at(OUT, T0 + 9000);
+    const seen = new Set();
+    for (let k = 0; k < 20; k++) { await ss(`window.__cs.one(${JSON.stringify(IN)}, ${T0 + 9100 + k * 16})`); seen.add(await ss(`window.__cs.sw()`)); }
+    if (seen.size !== 1 || [...seen][0] !== '{"swa001":false,"swb001":true}') out.push('two cubes switching each other off: ' + JSON.stringify([...seen]));
+    // one after the other (side by side, overlapping in the middle): into the lower id first, then the higher id first; the
+    // first one switches the second off as it is entered, so the second is never entered (10 frames in the overlap alike)
+    for (const [j, first, want] of [[0, [3.5, 1.6, 4], '{"swa001":true,"swb001":false}'], [1, [6, 1.6, 4], '{"swa001":false,"swb001":true}']]) {
+      const t = T0 + 9410 + j * 45;   // (between the frames above and the chain's below)
+      await ss(`(window.__cs.clean(), ${mk('swa001', { p: [4, 1, 4], size: [2, 2, 2], hide: ['swb001'] })}, ${mk('swb001', { p: [5.5, 1, 4], size: [2, 2, 2], hide: ['swa001'] })}, 0)`);
+      await at(OUT, t);
+      await ss(`window.__cs.one(${JSON.stringify(first)}, ${t + 5})`);
+      const r = new Set([await ss(`window.__cs.sw()`)]);
+      for (let k = 0; k < 10; k++) { await ss(`window.__cs.one([4.75, 1.6, 4], ${t + 10 + k * 3})`); r.add(await ss(`window.__cs.sw()`)); }
+      if (r.size !== 1 || [...r][0] !== want) out.push('two cubes switching each other off, walked into one after the other from ' + JSON.stringify(first) + ': ' + JSON.stringify([...r]));
+    }
+    // a chain against the id order (Cat switches Bee off, Bee switches Ant off): in one frame Ant on, Bee off, Cat on
+    await ss(`(window.__cs.clean(), ${mk('swa001', {})}, ${mk('swb001', { hide: ['swa001'] })}, ${mk('swc001', { hide: ['swb001'] })}, 0)`);
+    await at(OUT, T0 + 9500);
+    await ss(`window.__cs.one(${JSON.stringify(IN)}, ${T0 + 9600})`);
+    const ch = await ss(`[window.__cs.sw(), STUDIO.switches().passes, STUDIO.switches().held]`);
+    if (ch[0] !== '{"swa001":true,"swb001":false,"swc001":true}' || ch[2] !== 0) out.push('a chain against the id order settles in one frame: ' + JSON.stringify(ch));
+    // a ring of three: no answer is right; held as it was, the same every frame
+    await ss(`(window.__cs.clean(), ${mk('swa001', { hide: ['swb001'] })}, ${mk('swb001', { hide: ['swc001'] })}, ${mk('swc001', { hide: ['swa001'] })}, 0)`);
+    await at(OUT, T0 + 9800);
+    const rg = new Set();
+    let held = 0;
+    for (let k = 0; k < 20; k++) { await ss(`window.__cs.one(${JSON.stringify(IN)}, ${T0 + 9900 + k * 16})`); rg.add(await ss(`window.__cs.sw()`)); held = Math.max(held, await ss(`STUDIO.switches().held`)); }
+    if (rg.size !== 1 || held !== 3) out.push('a ring of three is held: ' + JSON.stringify([[...rg], held]));
+    bad(out);
+  });
+
+  await step('studio cube switches: Duplicate puts a cube\'s copy on every list its original is on (cubes, sequences, presses) and keeps its own lists; Delete takes it off them; a group\'s copy maps its cubes; one Undo step each; the state and layout.json carry cube ids in lists, events and entries and give them back', async () => {
+    const out = [];
+    await ss(`(window.__cs.clean(), ${mk('swa001', { hide: ['swb001'] })}, ${mk('swb001', { name: 'Bee', p: [8, 1, 4], show: ['box001'] })}, ${mk('swc001', { name: 'Cat', p: [12, 1, 4], show: ['swb001'] })},
+      putItem('swq001', 'q', norm('q', { name: 'Flip', len: 2, ev: [{ t: 0.5, on: 'swb001', what: 'hide' }] }, 'swq001')),
+      putItem('swp001', 'p', norm('p', { name: 'Knob', shape: 'cube', p: [20, 0.25, 4], size: [0.5, 0.5, 0.5], press: { do: [{ on: 'swb001', what: 'hide' }] } })), 0)`);
+    const d = await ss(`(() => {
+      const J = x => JSON.stringify(x), G = id => STU.items.get(id).rec, r = [], u0 = UNDO.length, C = (l, n) => J(l.map(i => (i === n ? 'copy' : i)));
+      const nid = duplicateItem('swb001');
+      r.push(C(G('swa001').hide, nid), C(G('swc001').show, nid), J(G('swq001').ev.map(e => (e.on === nid ? 'copy' : e.on))), J(G('swp001').press.do.map(e => (e.on === nid ? 'copy' : e.on))), J(G(nid).show), UNDO.length - u0);
+      undo();
+      r.push(J(G('swa001').hide), STU.items.has(nid));
+      deleteItem('swb001');
+      r.push(J(G('swa001').hide), J(G('swc001').show), G('swq001').ev.length, 'press' in G('swp001'), UNDO.length - u0);
+      undo();
+      r.push(J(G('swa001').hide), G('swq001').ev.length);
+      putItem('swg001', 'g', norm('g', { name: 'Pair', items: ['swa001', 'swb001'] }));
+      const before = new Set(STU.items.keys());
+      duplicateGroup(STU.items.get('swg001'));
+      const made = [...STU.items.keys()].filter(k => !before.has(k)), ac = made.find(k => STU.items.get(k).kind === 'c' && J(G(k).hide) !== '[]'), bc = made.find(k => STU.items.get(k).kind === 'c' && k !== ac);
+      r.push(J(G(ac).hide.map(i => (i === bc ? 'copy' : i))), J(G('swc001').show.map(i => (i === bc ? 'copy' : i))));
+      undo(); removeItem('swg001'); STU.rev++;
+      // the state and layout.json
+      const s = collabState(), a = J(s); collabApply(JSON.parse(a));
+      const L = layoutOut(), back = readLayout(JSON.parse(J(L)));
+      r.push(J(s['c.swa001'].hide), J(collabState()) === a, J(L.cubes.find(c => c.id === 'swa001').hide), J(back.items.find(x => x.id === 'swa001').rec) === J(G('swa001')),
+        J(back.items.find(x => x.id === 'swq001').rec.ev), J(back.items.find(x => x.id === 'swp001').rec.press), back.seqBad || 0, back.bad);
+      return r;
+    })()`);
+    const want = ['["swb001","copy"]', '["swb001","copy"]', '["swb001","copy"]', '["swb001","copy"]', '["box001"]', 1, '["swb001"]', false, '[]', '[]', 0, false, 1, '["swb001"]', 1, '["copy"]', '["swb001","copy"]',
+      '["swb001"]', true, '["swb001"]', true, JSON.stringify([{ t: 0.5, on: 'swb001', what: 'hide' }]), JSON.stringify({ do: [{ on: 'swb001', what: 'hide' }] }), 0, 0];
+    if (JSON.stringify(d) !== JSON.stringify(want)) out.push('Duplicate, Delete, a group\'s copy, the state and layout.json: ' + JSON.stringify(d) + ' (wanted ' + JSON.stringify(want) + ')');
+    await ss(`(window.__cs.clean(), behNow = () => performance.now(), trgClock = () => performance.now(), 0)`);
+    bad(out);
+    await sp.close();
+  });
+
+  await step('studio cube switches: a cube for everyone switches another for everyone: another person\'s head in Bee, then in Ant too, on two pages whose clocks differ: Bee switched off at Ant\'s entry moment on both (its out moment that room moment) and its loop off 0.3 s after it', async () => {
+    const pages = [], out = [];
+    const open = async () => {
+      const pg = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      pg.on('pageerror', e => errors.push('studio cube switches: ' + (e.stack || e.message)));
+      pg.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio cube switches: ' + m.text()); });
+      await pg.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+      await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      const ok = await pg.waitForFunction(() => HOST.cur.peek(`STUDIO.ready() && !!STU.items.get('box001').model`), null, { timeout: 120000 }).then(() => true, () => false);
+      pages.push(pg);
+      return ok ? pg : null;
+    };
+    const A = await open(), B = A && await open();
+    if (!A || !B) { bad(['the test scene did not load']); for (const p of pages) await p.close(); return; }
+    const EV = `window.__ev2 = { clocks: (room, local) => { behNow = () => room; trgClock = () => local; return 0; },
+      other: (p, ts) => { BEH.fake = p ? [{ id: 'zz', p, ts }] : null; shownFor([20, 1.6, 20]); itemsStep(0, performance.now()); return 0; } }`;
+    const PL = [{ on: 'box001', what: 'clip', clip: 'Bob', how: 'loop' }];
+    const setup = `(${EV}, ${HELP}, GL.renderer.setAnimationLoop(null), ${mk('swb001', Object.assign({ all: true, hide: ['box001'], plays: PL }, BIG))}, ${mk('swa001', Object.assign({ all: true, hide: ['swb001'] }, SMALL))}, 0)`;
+    for (const P of [A, B]) await P.evaluate(s => HOST.cur.peek(s), setup);
+    const res = [];
+    for (const [P, lag] of [[A, 4e6], [B, 3e6]]) {
+      const ev = s => P.evaluate(s => HOST.cur.peek(s), s), Tr = 5e6;
+      await ev(`(window.__ev2.clocks(${Tr}, ${Tr - lag}), window.__ev2.other(${JSON.stringify(BEE)}, ${Tr - 300}), 0)`);
+      await ev(`(window.__ev2.clocks(${Tr + 100}, ${Tr + 100 - lag}), window.__ev2.other(${JSON.stringify(IN)}, ${Tr - 100}), 0)`);
+      const r1 = await ev(`(() => { const b = STUDIO.cube('swb001'), R = STU.items.get('box001').tr.clip; return [b.on, b.by, b.outT - trgClock() + behNow(), R.at - trgClock() + behNow(), R.off, STU.items.get('box001').shown]; })()`);
+      await ev(`(window.__ev2.clocks(${Tr + 400}, ${Tr + 400 - lag}), window.__ev2.other(${JSON.stringify(IN)}, ${Tr + 200}), 0)`);
+      const r2 = await ev(`(() => { const R = STU.items.get('box001').tr.clip; return [R.off - trgClock() + behNow(), STUDIO.cube('swa001').since]; })()`);
+      res.push([r1, r2]);
+      await ev(`(window.__ev2.other(null), window.__cs.clean(), 0)`);
+    }
+    const want = [[false, 'swa001', 5e6 - 100, 5e6 - 300, 0, true], [5e6 + 200, 5e6 - 100]];
+    for (const [k, r] of res.entries()) if (JSON.stringify(r) !== JSON.stringify(want)) out.push(`page ${'AB'[k]}: Bee (for everyone) switched off by Ant (for everyone) at Ant's entry moment: ` + JSON.stringify(r) + ' (wanted ' + JSON.stringify(want) + ')');
+    bad(out);
+    for (const p of pages) await p.close();
+  });
+}
 // Sequences (v146, tools/studio/SPEC.md, "Sequences"): items of kind q, timelines of events on other items, played on the
 // room's clock from a shared play state (qr.<id>), on the test scene with its clocks held by the test (behNow and trgClock are
 // both window.__T, so a room moment and a run moment are the same). Steps: the record and norm; waiting until started; a
@@ -8400,7 +8670,7 @@ if (runs('studio sequences')) {
       change(() => putItem('seq001', 'q', norm('q', { name: 'Intro', len: 4, ev: ${JSON.stringify(MAIN)} }, 'seq001')));
       const st = window.__sq.st(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
       const q = back.items.find(x => x.id === 'seq001');
-      const lay = JSON.parse(JSON.stringify(L)); lay.sequences.push({ id: 'seq002', name: 'Bad', ev: [{ t: 1, on: 'nope01', what: 'show' }, { t: 1, on: 'cube01', what: 'show' }, { t: 1, on: 'box001', what: 'clip' }, { t: 1, on: 'box001', what: 'show' }] });
+      const lay = JSON.parse(JSON.stringify(L)); lay.sequences.push({ id: 'seq002', name: 'Bad', ev: [{ t: 1, on: 'nope01', what: 'show' }, { t: 1, on: 'cube01', what: 'tex', mat: 0, slot: 'map', file: '' }, { t: 1, on: 'box001', what: 'clip' }, { t: 1, on: 'box001', what: 'show' }] });   // (a picture on a cube: the wrong kind; a cube shown is one since v154)
       const bl = readLayout(lay), q2 = bl.items.find(x => x.id === 'seq002');
       const r = [!!st['q.seq001'], JSON.stringify(st['q.seq001']) === JSON.stringify(STU.items.get('seq001').rec), !!L.sequences && L.sequences.length === 1 && !('play' in L.sequences[0]) && L.sequences[0].id === 'seq001', !!q && JSON.stringify(q.rec) === JSON.stringify(STU.items.get('seq001').rec),
         bl.seqBad, q2 && q2.rec.ev.length, Object.keys(st).some(k => k.startsWith('qr.')), UNDO.length - u0, unsaved()];

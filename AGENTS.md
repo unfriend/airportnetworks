@@ -362,8 +362,8 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
-  tint, viewer, shapes, behaviours, motions, paths, recorder, texture swaps, cube starts, edit speed, everyone, walls,
-  shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, colour, xp).
+  tint, viewer, shapes, behaviours, motions, paths, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
+  walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, colour, xp).
 - Every test page sets `collabAutoAll` and `collabAutoWelcome` to `off` and `collabAskDefault` to `walk` unless its
   round asks otherwise: keep that when adding a round.
 

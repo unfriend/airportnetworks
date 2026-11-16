@@ -556,8 +556,8 @@ two sounds' reach at 20 m, said on the card; ×400 holding a place at 1 km (ever
 *Voice*'s copy on the dancer's copy, *Out*'s still on the figure beside it, *Curtain*'s copy hiding the dancer's copy,
 the copies in *Lamp*'s list, one step), *Ungroup* and *Delete* (every member and the hole, *Lamp* letting them go) with
 Undo; *Free* moved into the figure's own group, the figure then deleted and its group, left with one, going in the same
-step (*Out* left following nothing), Undo bringing both back; *Lamp*'s pick toggling the group's members (a member, a cube
-of the group, the group's heading under Items; a cube in a group of cubes alone selecting its group, ending the pick); the
+step (*Out* left following nothing), Undo bringing both back; *Lamp*'s pick toggling the group's members, its cube too (a member, a cube
+of the group, the group's heading under Items; a group of cubes alone putting both on the list, the pick going on, v154); the
 state with `g.<id>` and back, `norm`'s rules, a bad group from the room
 ignored, an id two groups name staying in the lower id's in either order of the keys; `layout.json` with and without
 `groups`, and groups naming items the layout lacks; a pretend headset's trigger (the group, then the member), its grip
@@ -868,6 +868,40 @@ keeping its entries, a group (the box and *S*) copied (the cube's copy on the bo
 figure with an entry on its take converted to a GLB in the page and switched to it: its entry kept, its take played on its
 GLB's model; and the lobby stopping every run at once (the box at rest, the sound stopped, logged) and a cube you stand in
 firing again the next frame.
+
+### smoke: studio cube switches
+
+Its *studio cube switches* steps (`--only 'studio cube switches'`, about two minutes) run on a page of their own at
+`&scene=test` with editing on, the clocks held by the test (`behNow` and `trgClock` both `window.__T`), with cubes made
+in the page: *Bee* (3 m) holding *Ant* (1 m) in its middle, and a pretend head inside both, in Bee alone or outside
+("Cubes that switch cubes" under "The studio"). Ant hiding Bee: in Bee alone the box hidden; in Ant too Bee switched off
+by Ant (`on` false, `raw` true, not inside, its out moment then, the box shown again); the page's card (*Switched off by
+Ant. It reacts to no one until it is switched on again.*), the blocks both twins draw and its heading, Bee's edges much
+darker (`CUBE_EDGE.off`, 0.42 of its colour) and its tag *Bee · switched off*, the Items card's *switched off*, Ant
+selected: one red line to Bee's middle; out of Ant, Bee switched on and entered at that moment; `norm` dropping a cube's
+own id from its lists and keeping another cube's. *Dot*, which Ant (a stay cube) shows: switched off with you inside
+(*Switched off: it waits for Ant to switch it on*), on for good once Ant was entered, off again after *Reset what I have
+seen*. Bee showing the figure and looping *Bob* on the box, with a leave entry on the tone: switched off by Ant while
+inside, the figure hidden at once, the loop off and the leave entry fired 0.3 s later (both at that moment); switched on
+(out of Ant, in Bee) the figure shown and the loop started again at once; as a stay cube, switched off it stays active
+(the figure shown, the loop on) and its leave entry fires. Picking (Ant's *Pick what it hides*): a press on *Cat* puts
+it on the list (one Undo step, the pick going on, Ant still selected, a tick *✕ switched off by Ant* over Cat), *Eel*'s
+Items card with `link` and its Shows and Hides ticks, Undo; a group of Cat, Eel, the figure and Ant itself: a press on
+Eel puts Cat, Eel and the figure on the list (not Ant), the group's heading `linkg` and ticked, again taking them off. A
+sequence (*Flip*) hiding Bee at 0.5 s: on at 0.2 s, off at 0.6 s (*Switched off by the sequence Flip*), on again once
+rewound; its event row *0.50 s · Bee · switches off* and the options *Switch it on*, *Switch it off*. A press on *Knob*
+showing Bee: Bee waits (*Switched off: it waits for Knob to be pressed or pointed at*), pressed (`pr.<id>` in the state)
+it is on and entered; its row *Bee · switches on*. Two cubes switching each other off walked into at once: 20 frames
+alike, the lower id off; side by side and walked into one after the other (the lower id first, then the higher id
+first): the first one keeps the second off, 10 frames alike; a chain against the id order (Cat off Bee, Bee off Ant)
+settled in one frame (Ant on, Bee off, Cat on, nothing held); a ring of three held (`STUDIO.switches()` `held` 3), 20
+frames alike. Duplicate Bee: the copy on Ant's hide list and Cat's show list beside Bee, an event and a press entry for
+it beside Bee's, its own lists kept, one Undo step; Delete Bee: off every list, Flip's event and Knob's press gone, Undo
+bringing them back; a group of Ant and Bee copied (Ant's copy hiding Bee's copy, Cat showing both); the state and
+`layout.json` giving back cube ids in lists, a sequence's event and a press's entry on a cube. Two pages whose clocks
+differ, Bee and Ant both for everyone (Bee hiding the box and looping Bob on it): another person's head in Bee (its
+sample 300 ms before the room's now), then in Ant too: on both pages Bee switched off by Ant with its out moment Ant's
+entry (that head's sample), the box shown, the loop's start the first sample, coming off 0.3 s after the switch.
 
 ### smoke: studio edit speed
 
@@ -1669,7 +1703,7 @@ panels hidden, subtitles, and the link's page).
 own with two story circles, a page A, a desktop page D (a computer's: `openDevice` with no user agent, its pretend
 `navigator.xr` offering nothing, every set and fx it sends recorded) and a pretend headset H (Quest Browser's user agent),
 about three minutes; with `--shots` its pictures, `preview-*.png`: A's dialog, D's overlay, D's picture with the overlay
-hidden, the headset drawn on D, the link's page): `FORMAT` networks-48; the Shared dialog's *Preview camera* on D with its
+hidden, the headset drawn on D, the link's page): `FORMAT` networks-48 or later; the Shared dialog's *Preview camera* on D with its
 line (*TV or a projector*, *Not placed yet*), none in H's browser; with no `pcam`, the default (3 m behind the first
 circle, 1.6 m up, looking at it, 60 degrees) and nothing written; on A's room map (no headset in the room) the camera
 dragged: one write as it is let go (`ts`, `by`; its height, turn and field of view kept), then its handle dragged towards

@@ -253,7 +253,7 @@ function paneBlocks(tab) {
     // (groups first, each with its members under it; picking for a cube, a group's name puts all of its members in or out)
     const gs = all.filter(it => it.kind === 'g'), grouped = new Set();
     for (const g of gs) {
-      const ms = members(g), inAll = !!P && ms.some(m => m.kind !== 'c') && ms.filter(m => m.kind !== 'c').every(m => P.rec.show.includes(m.id) || P.rec.hide.includes(m.id));
+      const ms = members(g), ml = P ? ms.filter(m => m.id !== P.id) : [], inAll = !!P && ml.length > 0 && ml.every(m => P.rec.show.includes(m.id) || P.rec.hide.includes(m.id));   // (its cubes too, v154)
       for (const m of ms) grouped.add(m.id);
       B.push({ label: g === gs[0] ? `Groups (${gs.length})` : '', gh: { id: 'sel:' + g.id, label: (inAll ? '✓ ' : '') + '▣ ' + g.rec.name, sub: itemSub(g), act: P ? 'linkg' : 'sel', v: g.id, on: g.id === STU.sel || (!!GP && GP === g), sel: g.id === STU.sel, lock: !!g.rec.locked, col: g.look.col } });
       if (ms.length) B.push({ grid: ms.map(m => itemCard(m, C)) });
@@ -299,7 +299,7 @@ function itemSub(it) {
   if (it.kind === 'q') return seqSub(r) + (r.sync === 'own' ? ' · each person' : '') + (r.locked ? ' · locked' : '');
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
-  return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.act ? ' · active for you' : '');
+  return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.on === false ? ' · switched off' : '') + (it.act ? ' · active for you' : '');
 }
 // an item as a card of the Items pane (C: the pane's picks, the selected cube and which GLB stands for a file): an object
 // its model's picture (as the Add pane shows it for that file: an original a GLB stands for shows the GLB's), else the plain
@@ -311,10 +311,11 @@ const kTris = n => (n < 1000 ? String(n) : n < 9950 ? (n / 1000).toFixed(1).repl
 function itemCard(it, C) {
   const r = it.rec, { P, GP, selCube } = C;
   const pkOf = id => (P ? (P.rec.show.includes(id) ? 'show' : P.rec.hide.includes(id) ? 'hide' : '') : '');
-  const inP = it.kind !== 'c' ? pkOf(it.id) : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
+  // (another cube is listed as an item is, v154: switched off and on; a sequence and a group never)
+  const lists = SEQ_SHOW.includes(it.kind), inP = lists ? pkOf(it.id) : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
   const ticks = id => (selCube && id !== selCube.id ? [['show', selCube.rec.show.includes(id)], ['hide', selCube.rec.hide.includes(id)]] : null);
-  const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && it.kind !== 'c' ? 'link' : 'sel', v: it.id,
-    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: it.kind !== 'c' ? ticks(it.id) : null };
+  const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && lists && it.id !== P.id ? 'link' : 'sel', v: it.id,
+    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: lists ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
     r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : ''];
@@ -336,7 +337,7 @@ function itemCard(it, C) {
   else if (it.kind === 'q') { const P = seqEff(it), U = seqU(it, P, behNow()); card.tile = { k: 'seq', col: seqCol(r) }; card.sub = seqSub(r) + (U && U.playing ? ' · playing' : ''); state.unshift(r.sync === 'own' ? 'each person' : '', r.loop ? 'loops' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
-  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
+  else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.on === false ? 'switched off' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
@@ -429,12 +430,14 @@ function itemBlocks(it, B, ed) {
       { label: 'Place', row: [{ id: 'turn', label: 'Turn 90°', act: 'i:turn', dis: mv }] },
       { label: 'Preview (this device only, while editing)', row: [{ id: 'preview:seen', label: 'As seen', act: 'i:preview', v: 'seen', on: pv === 'seen', dis }, { id: 'preview:cut', label: 'Cut', act: 'i:preview', v: 'cut', on: pv === 'cut', dis }, { id: 'preview:whole', label: 'Whole', act: 'i:preview', v: 'whole', on: pv === 'whole', dis }] });
   } else if (it.kind === 'c') {
-    B.push({ h: r.name, sub: 'Trigger cube' + (r.all ? ' · for everyone here' : '') + (it.act ? (r.all ? ' · active' : ' · active for you') : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
+    B.push({ h: r.name, sub: 'Trigger cube' + (r.all ? ' · for everyone here' : '') + (it.on === false ? ' · switched off' : '') + (it.act ? (r.all ? ' · active' : ' · active for you') : '') }, { kv: [['Size', r.size.map(metres).join(' × ') + ' (x, height, z)']] });
+    // (switched off for you by another cube, a sequence or a press, v154: what did it, and what that means)
+    if (it.on === false) B.push({ p: swWhy(it) + '. ' + (it.act ? 'It is not entered again, but what it made as it stays once entered stays.' : 'It reacts to no one until it is switched on again.'), c: 'amber' });
     // what it shows and hides, each a button (it flashes in the scene), its card, and ✕ (off the list) (the owner, 5 November 2026)
     for (const [l, word] of [['show', 'Shows'], ['hide', 'Hides']]) {
       if (!r[l].length) { B.push({ kv: [[word, 'nothing']] }); continue; }
       r[l].forEach((id, k) => B.push({ label: k ? '' : `${word} (${r[l].length})`, row: [
-        { id: `flash:${l}:${id}`, label: (l === 'show' ? '✓ ' : '✕ ') + nameOf(id), act: 'i:flash', v: id, col: l === 'hide' ? 'red' : undefined },
+        { id: `flash:${l}:${id}`, label: (l === 'show' ? '✓ ' : '✕ ') + nameOf(id) + (STU.items.has(id) && STU.items.get(id).kind === 'c' ? (l === 'show' ? ' · switched on' : ' · switched off') : ''), act: 'i:flash', v: id, col: l === 'hide' ? 'red' : undefined },
         { id: `open:${l}:${id}`, label: 'Its card', act: 'i:open', v: id, dis: !STU.items.has(id) },
         { id: `unlist:${l}:${id}`, label: '✕', act: 'i:unlist', v: l + ':' + id, dis }] }));
     }
@@ -447,10 +450,10 @@ function itemBlocks(it, B, ed) {
       { p: r.key ? 'It reacts to its key, so it works for everyone here alike.' : r.all ? 'Everyone here: as soon as anyone in a headset is inside it, it works for everyone at this circle, at the same moment (what it shows, hides, changes and starts)' + (r.mode === 'stay' ? ', and stays so once anyone has been inside.' : '.') : 'Each person: it works only for whoever is inside it; the others see nothing change.', c: 'faint' },
       { label: `Shows ${r.show.length} · hides ${r.hide.length}`, row: [{ id: 'pick:show', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'show' ? 'Done' : 'Pick what it shows', act: 'i:pickFor', v: 'show', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'show'), dis },
         { id: 'pick:hide', label: STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide' ? 'Done' : 'Pick what it hides', act: 'i:pickFor', v: 'hide', on: !!(STU.pick && STU.pick.id === it.id && STU.pick.list === 'hide'), dis }] });
-    if (STU.pick && STU.pick.id === it.id) B.push({ p: XR.on ? 'Point at objects and sounds and pull the trigger to add or remove them; Done when finished.' : 'Click objects and sounds (or their names under Items) to add or remove them; Done when finished.', c: 'amber' });
+    if (STU.pick && STU.pick.id === it.id) B.push({ p: (XR.on ? 'Point at objects, sounds and other cubes and pull the trigger to add or remove them' : 'Click objects, sounds and other cubes (or their names under Items) to add or remove them') + '; a cube it hides is switched off while this one is active, one it shows waits switched off until this one switches it on. Done when finished.', c: 'amber' });
     texCubeBlocks(it, B, dis);   // (the pictures it puts on objects while you are in it: e6i_tex.js)
     playCubeBlocks(it, B, dis);   // (what it starts as you walk in or out: e6n_plays.js)
-    B.push({ p: 'Lines from the cube: green to what it shows, red to what it hides, amber to what it changes the pictures of, blue to what it starts.', c: 'faint' });
+    B.push({ p: 'Lines from the cube: green to what it shows (a cube: switches on), red to what it hides (a cube: switches off), amber to what it changes the pictures of, blue to what it starts.', c: 'faint' });
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
@@ -820,7 +823,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -1349,11 +1352,10 @@ function pressItem(id, ray) {
   if (!it || !editOn()) return;
   if (STU.prp) { itemAct('prOn', id, STU.prp.id); return; }   // (an item picking what a reaction acts on: e6t_press.js)
   const g = GROUP_KINDS.includes(it.kind) ? groupOf(id) : null;
-  // (a cube picking what it shows or hides: an item in a group puts in all of its group's members a cube can list (not its
-  // cubes); a cube in a group of cubes alone, nothing to list, is selected as an ungrouped cube is (its group, as a click
-  // on any member), which ends the pick)
-  const gl = g && STU.pick ? members(g).filter(m => m.kind !== 'c' && m.id !== STU.pick.id).map(m => m.id) : [];
-  if (STU.pick && id !== STU.pick.id && (it.kind !== 'c' || gl.length)) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
+  // (a cube picking what it shows or hides: an item in a group puts in all of its group's members, its cubes too, the
+  // picking cube left out; another cube alone goes in or out as an item does: hidden, it is switched off, v154)
+  const gl = g && STU.pick ? members(g).filter(m => m.id !== STU.pick.id).map(m => m.id) : [];
+  if (STU.pick && id !== STU.pick.id) { if (gl.length) toggleLinks(STU.pick.id, STU.pick.list, gl); else toggleLink(STU.pick.id, STU.pick.list, id); return; }
   if (STU.follow && id !== STU.follow) { if (FOLLOW_KINDS.includes(it.kind)) itemAct('follow', id, STU.follow); return; }   // (a sound picking what it follows: an object, a shape or an empty)
   if (STU.cutTo && id !== STU.cutTo) { if (it.kind === 'o') itemAct('cutOn', id, STU.cutTo); return; }
   if (STU.keyPick && id !== STU.keyPick) { if (KEY_KINDS.includes(it.kind)) itemAct('key', id, STU.keyPick); return; }   // (a cube picking its key: v140)   // (a cut-out picking the object it cuts)

@@ -10,7 +10,8 @@
 // whole result out from that value and the room's time (a late joiner too): firing the events at or before where the
 // sequence is now, the runs' own code placing each where it would be by now.
 const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq'];
-const SEQ_RUN = ['clip', 'sound', 'path', 'motion'], SEQ_SHOW = ['o', 's', 'p', 'e', 'v', 'd', 'x'];
+// (what show and hide may name: a cube too, v154, switched on and off; what a cube's lists, a press's entries and a sequence's events take)
+const SEQ_RUN = ['clip', 'sound', 'path', 'motion'], SEQ_SHOW = ['o', 's', 'p', 'e', 'v', 'd', 'x', 'c'];
 const SEQ = { last: new Map(), nudge: null, opened: -1, t0: 0, log: [], fired: 0, parents: null, rev: -1, texList: [], texRev: -1, page: 0 };
 Object.assign(STU, { qr: new Map(), qOwn: new Map(), qprev: null, qsel: -1, badSeq: 0 });
 const seqNow = () => behNow();
@@ -325,8 +326,8 @@ function seqEvWords(e) {
   else if (e.what === 'sound') w = e.how === 'stop' ? 'stops' : e.how === 'loop' ? 'the sound · loops' : 'the sound · once';
   else if (e.what === 'path') w = e.how === 'stop' ? 'stops its path' : `its recorded path · ${e.how}`;
   else if (e.what === 'motion') w = e.how === 'stop' ? 'stops its motion' : `its motion · ${e.how}`;
-  else if (e.what === 'show') w = e.fade === 'cut' ? 'shows (at once)' : 'shows';
-  else if (e.what === 'hide') w = e.fade === 'cut' ? 'hides (at once)' : 'hides';
+  else if (e.what === 'show') w = t && t.kind === 'c' ? 'switches on' : e.fade === 'cut' ? 'shows (at once)' : 'shows';   // (a cube: switched on and off, v154)
+  else if (e.what === 'hide') w = t && t.kind === 'c' ? 'switches off' : e.fade === 'cut' ? 'hides (at once)' : 'hides';
   else if (e.what === 'tex') w = `${SLOT_NAME[e.slot] || e.slot} → ${e.file ? baseName(e.file) : 'its own picture'}`;
   else w = e.how === 'stop' ? 'stops' : 'starts';
   return `${T} · ${nm} · ${w}`;
@@ -349,7 +350,8 @@ function seqStateWords(q) {
 function seqOpts(t) {
   if (!t) return [];
   const out = playOpts(t).filter(o => !o.dis);
-  if (SEQ_SHOW.includes(t.kind)) out.push({ what: 'show', label: 'Show it' }, { what: 'hide', label: 'Hide it' });
+  if (t.kind === 'c') out.push({ what: 'show', label: 'Switch it on' }, { what: 'hide', label: 'Switch it off' });   // (a cube, v154: shown and hidden is switched on and off)
+  else if (SEQ_SHOW.includes(t.kind)) out.push({ what: 'show', label: 'Show it' }, { what: 'hide', label: 'Hide it' });
   if (t.kind === 'o') out.push({ what: 'tex', label: 'Change a texture...' });
   return out;
 }
@@ -367,6 +369,7 @@ function sqSentence(P) {
   const t = STU.items.get(P.on);
   if (!t || !P.what) return 'Pick what to do.';
   const nm = t.rec.name, T = `At ${P.at.toFixed(2)} s, `, h = P.how;
+  if (t.kind === 'c' && (P.what === 'show' || P.what === 'hide')) return `${T}the cube ${nm} is switched ${P.what === 'show' ? 'on' : 'off'}.`;   // (v154)
   if (P.what === 'show') return `${T}${nm} shows${P.fade === 'cut' ? ' at once' : ' (fades in)'}.`;
   if (P.what === 'hide') return `${T}${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
   if (P.what === 'tex') return `${T}${nm}'s ${(SLOT_NAME[P.slot] || P.slot).toLowerCase()} becomes ${P.file ? baseName(P.file) : 'its own picture'}.`;
@@ -416,7 +419,7 @@ function seqBlocks(q, B, dis, ed) {
   B.push({ row: [{ id: 'sqadd', label: P ? 'Cancel' : 'Add an event...', act: 'i:sqPick', on: !!P, dis: ld || (!P && (full || !cands.length)) }] });
   if (full) B.push({ p: `${n >= SEQ_EV_MAX ? SEQ_EV_MAX + ' events: the most a sequence takes' : SEQ_EV_SCENE + ' events: the most a scene takes'}.`, c: 'amber' });
   if (P && P.step === 'obj') {
-    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': an item to play something on, show or hide, or another sequence.', c: 'amber' });
+    B.push({ p: (XR.on ? 'Point at it and pull the trigger' : 'Click it in the scene, or pick it here') + ': an item to play something on, show or hide, a cube to switch on or off, or another sequence.', c: 'amber' });
     sqPaged(B, `Items (${cands.length})`, cands.map(t => ({ id: 'sqon:' + t.id, label: t.rec.name, sub: KIND_NAME[t.kind], act: 'i:sqOn', v: t.id, dis: ld })), P.page, 'sqPg');
   } else if (P) {
     const t = STU.items.get(P.on), opts = seqOpts(t);
@@ -428,7 +431,7 @@ function seqBlocks(q, B, dis, ed) {
     if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
     else if (P.what) {
       if (SQ_HOWS[P.what]) B.push({ label: 'How', row: SQ_HOWS[P.what].map(h => ({ id: 'sqhow:' + h, label: sqHowWord(P.what, h), act: 'i:sqHow', v: h, on: P.how === h, dis: ld })) });
-      if (P.what === 'show' || P.what === 'hide') B.push({ label: 'How', row: [{ id: 'sqfade:fade', label: 'Fade', act: 'i:sqFade', v: '', on: P.fade !== 'cut', dis: ld }, { id: 'sqfade:cut', label: 'At once', act: 'i:sqFade', v: 'cut', on: P.fade === 'cut', dis: ld }] });
+      if ((P.what === 'show' || P.what === 'hide') && t.kind !== 'c') B.push({ label: 'How', row: [{ id: 'sqfade:fade', label: 'Fade', act: 'i:sqFade', v: '', on: P.fade !== 'cut', dis: ld }, { id: 'sqfade:cut', label: 'At once', act: 'i:sqFade', v: 'cut', on: P.fade === 'cut', dis: ld }] });
       if (P.what === 'tex') {
         const ms = t.model ? ctMats(t) : [];
         if (!t.model) B.push({ p: `${t.rec.name}'s model is not here yet: its materials show once it is.`, c: 'faint' });

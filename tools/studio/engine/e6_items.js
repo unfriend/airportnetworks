@@ -81,7 +81,8 @@ function norm(kind, x, id) {
     if (!sz || (has('yaw') && !fin(x.yaw))) return null;
     let yaw = has('yaw') ? x.yaw : 0;
     if (Math.abs(yaw) > 3.1416) yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
-    const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(okId))].slice(0, 400) : null);
+    // (its lists: any of this scene's items, other cubes too, v154: switched off and on; never itself, dropped as a bad id is)
+    const ids = k => (!has(k) ? [] : Array.isArray(x[k]) ? [...new Set(x[k].filter(i => okId(i) && i !== id))].slice(0, 400) : null);
     const r = { name: name('Cube'), p: P, yaw: nz(r4(yaw)), size: sz.map(v => r3(Math.min(100, Math.max(0.05, v)))), mode: one('mode', ['while', 'stay'], 'while'), show: ids('show'), hide: ids('hide') };
     // the pictures it puts on objects while it is active for you, kept only when there are any (an entry that is not one
     // dropped, at most 16: e6i_tex.js); not a list (and not null) makes the record bad
@@ -598,6 +599,93 @@ const shownHere = it => !it.rec || !it.rec.shows || it.rec.shows === sessKind();
 const enteredLater = (a, b) => !b || a.since > b.since || (a.since === b.since && a.id > b.id);
 const LISTS = { rev: -1, shown: new Set(), all: false };
 const _trS = new Map(), _trH = new Map();
+// ------------------------------------------------------ cubes that switch cubes --
+// (v154; the owner, 16 November 2026: "can triggercubes now be disabled by other trigger cubes? can they also be disabled
+// as part of a group?") A cube's show and hide lists, a sequence's show and hide events and a press's or hover's show and
+// hide entries may name a cube (never itself): hidden, it is switched off (it reacts to no one: a head, heads or a key
+// inside count for nothing, so it is not entered and what it shows, hides, changes and starts does not happen), shown,
+// switched on. The rule is the items' (the same sources, entered last decides), so a cube some cube, sequence or press
+// lists in show waits switched off until one shows it; each person's own unless what switches it is for everyone (a cube
+// with all: true, a shared sequence or press). Switched off while it is active for you: as if you left it (the owner's
+// choice: what it shows hides again, its loops and holds come off and its leave entries fire, as on leaving; what a stay
+// cube made stays, and it is not entered again); switched on while you are inside: as if you walked in.
+// Settled each frame before the cubes are worked out (cubeSwitch), from the frame before: passes over the cubes in the
+// order of their ids, each deciding from the others as they stand, until a pass changes nothing (a chain settles in the
+// same frame; two that switch each other off, walked into at once: the lower id off; one after the other: the first keeps
+// the second off whatever their ids, as it switches the second off in the frame it is entered). A ring that cannot settle (three cubes each switching the next off: no answer is right) is held: the cubes
+// still changing after as many passes as there are cubes that switch or are switched keep what they had, so nothing
+// flickers, and every device with the same heads and the same frame before works out the same
+const SW = { rev: -1, list: [], by: new Map(), n: 0, held: 0, passes: 0 };
+function swRev() {
+  if (SW.rev === STU.rev) return;
+  SW.rev = STU.rev;
+  SW.list = [...STU.items.values()].filter(c => c.kind === 'c').sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  SW.by = new Map();   // (a cube's id: the cubes that list it in show, s, and in hide, h)
+  for (const c of SW.list) for (const [l, k] of [[c.rec.show, 's'], [c.rec.hide, 'h']]) for (const i of l) {
+    const t = STU.items.get(i);
+    if (!t || t.kind !== 'c' || i === c.id) continue;
+    let e = SW.by.get(i);
+    if (!e) SW.by.set(i, (e = { s: [], h: [] }));
+    e[k].push(c);
+  }
+  const k = new Set();
+  for (const [i, e] of SW.by) { k.add(i); for (const c of e.s.concat(e.h)) k.add(c.id); }
+  SW.n = k.size;   // (how many cubes switch or are switched by cubes: the passes a frame may take)
+}
+// a source's moment for the rule: a sequence's or a press's its own; a cube's its entry (provisional while settling, c.ps)
+const swLater = (a, b) => { if (!b) return true; const x = a.kind === 'c' ? a.ps : a.since, y = b.kind === 'c' ? b.ps : b.since; return x > y || (x === y && a.id > b.id); };
+// active as the cubes stand while settling: inside and switched on, or a stay cube already entered
+const swAct = c => (c.pn && c.raw) || (c.rec.mode === 'stay' && STU.seen.has(c.id));
+// switched on or off now, and by what: the winner (the source that decides), null when none does
+function swDecide(c, S, H) {
+  let s = S.get(c.id) || null, h = H.get(c.id) || null;   // (the sequences' and the presses' first)
+  const e = SW.by.get(c.id);
+  if (e) { for (const y of e.s) if (swAct(y) && swLater(y, s)) s = y; for (const y of e.h) if (swAct(y) && swLater(y, h)) h = y; }
+  const on = s || h ? (s && h ? s === h || swLater(s, h) : !!s) : !LISTS.shown.has(c.id);
+  SW.w = on ? s : h;
+  return on;
+}
+// the room moment a source's state changed this frame (what an everyone cube or a cube with a key it switches takes as the
+// moment it is entered or left): a sequence's or a press's own; a cube's entry, else the moment its heads went in (entAt)
+const swMoment = (w, Tr) => (w.kind !== 'c' ? w.since : w.act && !(w.raw && !w.wasIn) ? w.since : w.rec.all ? w.entAt : Tr);
+function cubeSwitch(S, H, Tr, away) {
+  swRev();
+  const L = SW.list;
+  for (const c of L) { c.onCh = false; if (c.on === undefined) { c.on = !LISTS.shown.has(c.id); c.offBy = null; } }
+  if (away) return;   // (away from its station: each keeps what it had)
+  if (!SW.by.size && !L.some(c => S.has(c.id) || H.has(c.id) || c.on === false || LISTS.shown.has(c.id))) return;   // (nothing switches a cube: all on, as ever)
+  // (each one's moment as a source: an entry it keeps, else as one entered now, after every other: its heads' moment for an
+  // everyone cube, ties by the id, as the cubes' own entries are given in that order)
+  const now = Math.max(Tr, STU.act) + 1e-3;
+  for (const c of L) { c.pn = c.on; c.ps = c.act && !(c.raw && !c.wasIn) ? c.since : c.rec.all ? c.entAt : now; }
+  let held = null, ch = null;
+  for (let round = 0; round <= L.length; round++) {
+    for (let pass = 0; pass <= SW.n + 1; pass++) {
+      ch = null;
+      for (const c of L) { if (held && held.has(c)) continue; const on = swDecide(c, S, H); if (on !== c.pn) { c.pn = on; (ch || (ch = [])).push(c); } }
+      SW.passes = pass + 1;
+      if (!ch) break;
+    }
+    if (!ch) break;
+    // (a ring that cannot settle: the cubes still changing keep what they had)
+    held = held || new Set();
+    for (const c of ch) { held.add(c); c.pn = c.on; }
+  }
+  SW.held = held ? held.size : 0;
+  for (const c of L) {
+    swDecide(c, S, H);
+    const on = c.pn, w = SW.w;   // (as settled, and what decides it; one held keeps its state and what it was switched off by)
+    if (held && held.has(c)) { if (c.on) c.offBy = null; continue; }
+    if (on !== c.on) {
+      // (the moment, for an everyone cube or one with a key: a winner's; switched on as its switcher stopped, the moment its
+      // heads left; else the room's time now)
+      const was = c.offBy;
+      c.swAt = !(c.rec.all || c.rec.key) ? Tr : w ? swMoment(w, Tr) + (on ? 1e-3 : 0) : was && was.kind === 'c' && !was.raw && was.rec.all && STU.items.get(was.id) === was ? was.lvAt : Tr;
+      c.on = on; c.onCh = true;
+    }
+    c.offBy = on ? null : w;   // (what keeps it off: a cube, a sequence's or a press's source; null: it waits for one to show it)
+  }
+}
 function triggerStep(now) {
   const hp = headPoint(_hp), S = _trS, H = _trH, away = !STU.head && xrAway();
   S.clear(); H.clear();   // (the two maps reused each frame)
@@ -610,25 +698,39 @@ function triggerStep(now) {
   // (the room's time now, and how far this device's clock for what cubes start is behind it: a room moment there is
   // ts - off; the heads only while a cube works for everyone)
   const Tr = behNow(), off = Tr - trgClock(), hs = LISTS.all && !away ? behHeads(Tr) : null, sess = sessKind();
-  for (const c of STU.items.values()) {
-    if (c.kind !== 'c') continue;
-    let inside, at = Tr;
+  // the sequences' and the presses' show and hide first (one more source each, e6s_seq.js and e6t_press.js; they depend on
+  // nothing the cubes work out this frame), so a cube they switch is switched in this frame
+  seqShowHide(S, H, Tr);
+  pressShowHide(S, H, Tr);
+  swRev();
+  // each cube's inside whether or not it is switched on (c.raw), and the room moments an everyone cube's heads give
+  for (const c of SW.list) {
+    let raw;
+    c.entAt = c.lvAt = Tr;
     if (c.rec.key) {
       // (its key, v140: active while that item's middle, where it is drawn, is inside; the item's place is the room's, so
       // the same for everyone here, entered at the room's time now; away from the station it keeps its state, v149, so it is
       // not entered again, later than the others, as you come back)
       const k = STU.items.get(c.rec.key);
-      inside = away ? !!c.wasIn : !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
+      raw = away ? !!c.raw : !!k && KEY_KINDS.includes(k.kind) && inCube(c.rec, itemTopInto(k, _kp, true));
       c.allIn = null;
     } else if (c.rec.all) {
       // (everyone here: any head inside; entered at the earliest sample of those inside now, left at the latest sample of
       // those inside before; a head gone from the list left now)
       const ins = hs ? hs.filter(h => inCube(c.rec, h.p)) : [], was = c.allIn || new Map(), now = new Map(ins.map(h => [h.id, h.ts]));
-      inside = ins.length > 0;
-      if (inside && !c.wasIn) at = Math.min(...ins.map(h => h.ts));
-      else if (!inside && c.wasIn) { at = 0; for (const id of was.keys()) { const h = hs && hs.find(x => x.id === id); at = Math.max(at, h ? h.ts : Tr); } }
+      raw = ins.length > 0;
+      if (raw) c.entAt = Math.min(...ins.map(h => h.ts));
+      else if (c.raw) { let at = 0; for (const id of was.keys()) { const h = hs && hs.find(x => x.id === id); at = Math.max(at, h ? h.ts : Tr); } c.lvAt = at; }
       c.allIn = now;
-    } else { inside = !!hp && inCube(c.rec, hp); c.allIn = null; }
+    } else { raw = !!hp && inCube(c.rec, hp); c.allIn = null; }
+    c.raw = raw;
+  }
+  cubeSwitch(S, H, Tr, away);   // (which are switched on: v154)
+  for (const c of SW.list) {
+    // (inside: its head, heads or key inside and switched on; a switch is as walking in or out, at the switch's moment)
+    const inside = c.raw && c.on !== false;
+    let at = Tr;
+    if (inside !== !!c.wasIn) at = c.onCh ? c.swAt : inside ? c.entAt : c.lvAt;
     c.inside = inside;
     if (inside && !c.wasIn) c.inT = at - off;
     else if (!inside && c.wasIn) c.outT = at - off;
@@ -642,8 +744,6 @@ function triggerStep(now) {
     for (const i of c.rec.show) if (enteredLater(c, S.get(i))) S.set(i, c);
     for (const i of c.rec.hide) if (enteredLater(c, H.get(i))) H.set(i, c);
   }
-  seqShowHide(S, H, Tr);   // (the sequences' show and hide events, one more source: e6s_seq.js)
-  pressShowHide(S, H, Tr);   // (what a press shows or hides, and while pointed at: e6t_press.js)
   for (const it of STU.items.values()) {
     if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
     // (away from its station nothing is shown: so what starts when shown starts from its beginning when you are back; an
@@ -669,6 +769,20 @@ function triggerStep(now) {
   pressStep(Tr);   // (what presses and pointing start, e6t_press.js)
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
 }
+// why a cube is switched off for you, in words ('' while it is on, v154): what switched it off (a cube, a sequence, a press
+// or pointing), or what it waits for (the first cube, sequence or press that would switch it on)
+function swWhy(c) {
+  if (!c || c.kind !== 'c' || c.on !== false) return '';
+  const nm = w => { const t = w && STU.items.get(w.id); return !t ? '' : t.kind === 'c' ? t.rec.name : t.kind === 'q' ? 'the sequence ' + t.rec.name : (w.hv ? 'pointing at ' : 'a press on ') + t.rec.name; };
+  if (c.offBy) { const n = nm(c.offBy); return n ? 'Switched off by ' + n : 'Switched off'; }
+  const e = SW.by.get(c.id), y = e && e.s[0];
+  if (y) return `Switched off: it waits for ${y.rec.name} to switch it on`;
+  for (const t of STU.items.values()) {
+    if (t.kind === 'q' && t.rec.ev.some(x => x.what === 'show' && x.on === c.id)) return `Switched off: it waits for the sequence ${t.rec.name} to switch it on`;
+    if (t.rec && t.rec.press && prEntries(t.rec.press).some(x => x.what === 'show' && x.on === c.id)) return `Switched off: it waits for ${t.rec.name} to be pressed or pointed at`;
+  }
+  return 'Switched off';
+}
 // why an item is hidden, in a tag's words: only for the other kind of session (v137), or a cube hides it from you
 const hidWord = it => (it.notHere ? (it.rec.shows === 'ar' ? ' · AR only' : ' · VR only') : ' · hidden');
 // what is shown for you with your head at p (the tests: [x, y, z] in the scene's frame, or null for nobody)
@@ -677,7 +791,8 @@ function shownFor(p) {
   triggerStep(performance.now());
   return Object.fromEntries([...STU.items.values()].filter(it => it.kind !== 'c' && it.kind !== 'g' && it.kind !== 'q').map(it => [it.id, it.shown]));
 }
-function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = false; c.allIn = null; } dirty(true); }
+// (and each cube's switch worked out afresh from what switches it now: v154)
+function resetSeen() { trgReset('seen'); STU.seen.clear(); for (const c of STU.items.values()) if (c.kind === 'c') { c.act = c.wasIn = c.raw = false; c.allIn = null; c.on = undefined; c.offBy = null; } dirty(true); }
 
 // ------------------------------------------------------ sounds that follow --
 // A sound may follow an object (rec.on: its id): its whole model (the object's holder, there from the first frame), a
@@ -850,8 +965,9 @@ function itemsStep(dt, now) {
         const sz = it.holder.scale;
         L.name.position.set(0, sz.y / 2 + 0.04, 0);
         L.corners.forEach((c, k) => c.position.set((k & 1 ? 0.5 : -0.5) * sz.x, (k & 2 ? 0.5 : -0.5) * sz.y, (k & 4 ? 0.5 : -0.5) * sz.z));
-        L.look({ inside: it.inside, selected: STU.sel === it.id && editing, hot: STU.hover === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
-        if (it.tagR !== r) { it.tagR = r; L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : ''), L.col, 0.085); }   // (its words built only when its record changes)
+        const off = it.on === false;   // (switched off for you, v154: drawn darker, its tag says so)
+        L.look({ inside: it.inside, off, selected: STU.sel === it.id && editing, hot: STU.hover === it.id, hotCorner: STU.hotCorner && STU.hotCorner.id === it.id ? STU.hotCorner.k : -1 });
+        if (it.tagR !== r || it.tagOff !== off) { it.tagR = r; it.tagOff = off; L.name.userData.set(tagName(r) + (r.mode === 'stay' ? ' · stays' : '') + (off ? ' · switched off' : ''), off ? '#6c7d94' : L.col, 0.085); }   // (its words built only when they change)
       }
     } else if (it.kind === 'p') shapeStep(it, editing);   // (e6d_shapes.js)
     else if (it.kind === 'd') paintItemStep(it, editing);   // (its meshes, built in slices; its look and tag: e6r_paint.js)
@@ -974,15 +1090,15 @@ function editStep(editing) {
   // ticks over what a cube's list holds while picking for it
   const P = editing && STU.pick ? STU.items.get(STU.pick.id) : null;
   for (const it of STU.items.values()) {
-    if (it.kind === 'c' || it.kind === 'g' || it.kind === 'q') continue;
+    if (it.kind === 'g' || it.kind === 'q') continue;   // (another cube on the list too, v154: switched on or off)
     const on = !!P && (P.rec.show.includes(it.id) || P.rec.hide.includes(it.id));
     if (on && !it.tick) { it.tick = LOOKS.tag(30); GL.edit.add(it.tick); }
     if (!it.tick) continue;
     it.tick.visible = on;
     if (!on) continue;
-    const sh = P.rec.show.includes(it.id);
-    it.tick.userData.set((sh ? '✓ shown by ' : '✕ hidden by ') + P.rec.name, sh ? '#3ee08f' : '#ff5a4b', 0.075);
-    itemTopInto(it, it.tick.position, false); it.tick.position.y += 0.1;
+    const sh = P.rec.show.includes(it.id), cb = it.kind === 'c';
+    it.tick.userData.set((sh ? (cb ? '✓ switched on by ' : '✓ shown by ') : cb ? '✕ switched off by ' : '✕ hidden by ') + P.rec.name, sh ? '#3ee08f' : '#ff5a4b', 0.075);
+    itemTopInto(it, it.tick.position, false); it.tick.position.y += cb ? 0.16 : 0.1;   // (over a cube's own name)
   }
 }
 // what editing draws: the selected and the pointed-at object's outlines (over everything; opaque, v131), a cube's lines,
@@ -1550,6 +1666,9 @@ function duplicateItem(id) {
     if (it.kind === 'o') texCopy(id, nid);
     // (and what a cube starts on it, on its copy too, beside the original's: e6n_plays.js)
     if (PLAY_ITEMS.includes(it.kind)) { playCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }   // (and in every sequence: e6s_seq.js; and the presses: e6t_press.js)
+    // (a cube's copy is switched as it is, v154: in every cube list, sequence and press its original is in, so one that waits
+    // for a cube to switch it on waits too)
+    if (it.kind === 'c') { cubeCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }
   });
   select(nid);
   sfxAct('place', 'world', null);
@@ -1666,7 +1785,7 @@ function toggleLink(cubeId, list, id) { toggleLinks(cubeId, list, [id]); }
 // several at once (a group's members): out of the list when all of them are in it, else all in it (one change)
 function toggleLinks(cubeId, list, ids) {
   const c = STU.items.get(cubeId);
-  ids = ids.filter(i => i !== cubeId && STU.items.has(i) && STU.items.get(i).kind !== 'c' && STU.items.get(i).kind !== 'g');
+  ids = ids.filter(i => i !== cubeId && STU.items.has(i) && SEQ_SHOW.includes(STU.items.get(i).kind));   // (another cube too, v154: never itself, a group or a sequence)
   if (!c || c.kind !== 'c' || !ids.length || !editOn()) return;
   const other = list === 'show' ? 'hide' : 'show', on = ids.every(i => c.rec[list].includes(i)), not = l => l.filter(i => !ids.includes(i));
   change(() => setRec(cubeId, { [list]: on ? not(c.rec[list]) : not(c.rec[list]).concat(ids), [other]: not(c.rec[other]) }));

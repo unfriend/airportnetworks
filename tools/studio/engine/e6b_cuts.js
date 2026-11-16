@@ -272,7 +272,7 @@ function duplicateCut(x) {
   sfxAct('place', 'world', null);
   return nid;
 }
-// a copy of a cut-out put in every cube's list (show or hide) its original is in (within the change that makes it)
+// a copy of a cut-out (or of a cube, v154) put in every cube's list (show or hide) its original is in (within the change that makes it)
 function cubeCopy(from, to) {
   for (const c of [...STU.items.values()]) {
     if (c.kind !== 'c') continue;

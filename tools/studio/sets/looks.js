@@ -14,7 +14,8 @@
 // (while editing its edges show where it is: a ball's three great circles, a cylinder's rims and four lines along it, a
 // plane's outline; an unseen fill for the pointer). An empty: a small axis cross and its name, drawn only while editing.
 // A model still loading (or one this device cannot find): a grey box with a line of text over it. Each item's colour
-// comes from its id, so it is the same on every device (a cut-out's is one for all; a shape's is its record's).
+// comes from its id, so it is the same on every device (a cut-out's is one for all; a shape's is its record's). A cube
+// switched off for you by another cube, a sequence or a press (v154): its edges much darker, still opaque.
 const LOOKS = (function () {
   const PAL = ['#46d9ff', '#ffb43b', '#3ee08f', '#ff5ad9', '#9db4ff', '#ff7a59', '#c3e85a', '#c08cff', '#5fe0c8', '#ffe066'];
   const colOf = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PAL[h % PAL.length]; };
@@ -258,7 +259,7 @@ const LOOKS = (function () {
   // a cube: its box (scaled to its size) under `body`, the name and the corners under `deco` (not scaled, so they keep
   // their size); both follow the cube's place and yaw. Its edges only (v131: no see-through walls) and, where its fill
   // was, an unseen box both ways round (`fill`: the pointer finds it from outside and from inside, as before)
-  const CUBE_EDGE = { plain: 0.7, inside: 1, lit: 0.6 };   // (its colour darker; as it is; towards white by this much)
+  const CUBE_EDGE = { plain: 0.7, inside: 1, lit: 0.6, off: 0.42 };   // (its colour darker; as it is; towards white by this much; switched off: much darker)
   function cube(id) {
     const col = new THREE.Color(colOf(id));
     const body = new THREE.Group(), deco = new THREE.Group();
@@ -277,10 +278,10 @@ const LOOKS = (function () {
     let lk = '';
     return {
       body, deco, fill, line, name, corners, col: '#' + col.getHexString(),
-      // inside: its edges in its own colour (else darker); selected or hot (the pointer on it): lighter; selected: its
-      // corners shown
+      // inside: its edges in its own colour (else darker); selected or hot (the pointer on it): lighter; switched off for
+      // you by another cube, a sequence or a press (v154): much darker, still opaque; selected: its corners shown
       look(o) {
-        const k = o.selected || o.hot ? 'lit' : o.inside ? 'inside' : 'plain';
+        const k = o.selected || o.hot ? 'lit' : o.off ? 'off' : o.inside ? 'inside' : 'plain';
         if (k !== lk) { lk = k; if (k === 'lit') line.material.color.copy(col).lerp(white, CUBE_EDGE.lit); else line.material.color.copy(col).multiplyScalar(CUBE_EDGE[k]); }
         for (const c of corners) { c.visible = !!o.selected; c.scale.setScalar(o.hotCorner === c.userData.corner ? 0.065 : 0.045); }
         name.visible = !(o.hot || o.selected);   // (the engine's label names it then: the two overlapped)

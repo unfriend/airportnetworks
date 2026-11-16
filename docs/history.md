@@ -81,7 +81,7 @@ file, the detail file says what is current.
 
 Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's words that explain why rules exist.
 
-### FORMAT bumps (networks-10 to networks-48)
+### FORMAT bumps (networks-10 to networks-49)
 
 (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
@@ -126,7 +126,7 @@ which an older device would drop or refuse; networks-44 in v140: an optional `gr
 (anyone may move it without editing) and an optional `key` on a cube's (the item it reacts to): "Moved by anyone" and "Cubes
 with a key" under "The studio"); networks-45 in v143: the studio's `state()` gained a field per screen, `v.<id>` (a video
 or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores); networks-46 in v144: a field per painting, `d.<id>` (strokes drawn in the air:
-"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops); networks-48 in v153: the room's key `pcam` (the desktop preview camera's place, `{ p, q, fov, ts, by }` in room coordinates: "The desktop preview camera" below) and `pc: 1` in a camera's presence, which an older device ignores (it shows the preview camera as a phone's camera).
+"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops); networks-48 in v153: the room's key `pcam` (the desktop preview camera's place, `{ p, q, fov, ts, by }` in room coordinates: "The desktop preview camera" below) and `pc: 1` in a camera's presence, which an older device ignores (it shows the preview camera as a phone's camera). networks-49 in v154: a studio cube's `show` and `hide` lists, a sequence's show and hide events and a press's show and hide entries may name another cube, switched off and on ("Cubes that switch cubes" under "The studio"); the records keep their shape, but an older device would keep the ids and let a switched-off cube act for its people (and, for a cube for everyone, start its runs for everyone).
 
 ### All stories and Back to the lobby (v104)
 
@@ -470,6 +470,16 @@ narration heard from out of the circle, the locks and the People toggle in use.
 
 ### Cubes for everyone
 - v137; the owner, 11 November 2026: "Trigger cube starts are each person's own, the same as how cubes already show and hide things. THIS MIGHT NEED A SWITCH FOR BOTH OPTIONS if possible, so it should also be possible to have a cube that triggers things for everyone in the same studio scene".
+
+### Cubes that switch cubes
+- v154; the owner, 16 November 2026: "can triggercubes now be disabled by other trigger cubes? can they also be disabled as part
+  of a group?" Told that neither worked yet (a cube's pick skipped other cubes, a group's pick left its cubes out, sequences
+  and presses could not show or hide a cube), asked "Trigger cubes switching other trigger cubes off and on (from a cube's
+  hide/show lists, a whole group's cubes at once, and from sequences and press reactions): build it now?", they answered
+  "Yes, build it". To "If you are standing inside a cube when another cube switches it off, what should happen to what that
+  cube was doing for you?" they chose "As if you left": its while-inside effects end at once (items it showed hide again,
+  loops come off); things it made stay from then on stay. Until v153 a click on a cube while picking selected it (ending
+  the pick), and a cube in a group of cubes alone did the same. FORMAT networks-49.
 
 ### Moved by anyone
 - v140; the owner, 13 November 2026: "possibility to have objects that people can move in studio non edit mode".
