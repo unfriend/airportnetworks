@@ -1785,6 +1785,24 @@ Before handing over (or making anything more public), someone has to decide thes
      and the grip shields (A/X the other choice). AR only for people in one room (no VR in the room: they cannot see the
      others); VR headsets elsewhere join as their avatars. Score keys one per person, written by its owner; a new
      `FORMAT`. Open: opt-in or forced, the fire button, shield kind, real cover, free play, timed rounds or lives.
+   - **Cardinal on a laptop, played from the room over MIDI (maybe later; the owner, 16 November 2026: "leave that
+     cardinal midi thing in the maybe later section").** Cardinal (https://github.com/DISTRHO/Cardinal, a modular
+     synthesiser from VCV Rack, GPLv3+) runs as its own desktop app on a laptop in the room, its sound through real
+     speakers (people in AR hear the room itself). Its README: "All variants have MIDI input and output support"; it names
+     no OSC. The chain as discussed: something in a headset (walking into a trigger cube, pressing an object, a slider, hand
+     height) goes through the room as a short message, as presses and sequences do; a page of the app on that laptop, in
+     the same room (as the preview camera's page; it could be the same laptop), turns it into MIDI notes and controller
+     values with the browser's Web MIDI API (Chrome or Edge; Safari has none); a virtual MIDI cable on the laptop (macOS's
+     IAC Driver, loopMIDI on Windows, a virtual ALSA port on Linux) takes them to Cardinal, whose MIDI-to-CV modules drive
+     the patch (the cube you stand in sets the filter, a pressed drum triggers the kick, hands' heights turn knobs).
+     Backwards: Cardinal's MIDI out (its clock, notes) through the page into the room, so studio items can pulse on the
+     beat. Optional: its sound streamed peer to peer into the headsets of people elsewhere (about 0.1 to 0.3 s late, so
+     speakers for those in the room), and its window shown as a studio screen by screen sharing (to look at only: its knobs
+     are turned through the mapped MIDI, not from the headset). What it would take: a MIDI bridge mode for a laptop page in
+     a room, and a reaction "send a MIDI note or controller value" for presses, trigger cubes and sequences, plus MIDI clock
+     coming back; about the size of the preview camera. Not chosen: Cardinal's web build inside the app (about 87 MB to
+     download, about 270 MB unpacked, its own AudioContext on a deprecated ScriptProcessorNode on the main thread, no
+     embedding API); a free first test is opening https://cardinal.kx.studio/live in Quest Browser as a flat page.
    - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
