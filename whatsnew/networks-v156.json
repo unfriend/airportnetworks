@@ -1,0 +1,16 @@
+{
+  "version": "networks-v156",
+  "date": "2026-11-16",
+  "new": [
+    "Preview camera (and a phone's camera mode) in a studio scene: no editing look any more (no cube edges, markers, boxes or tags), whatever that computer's Edit is.",
+    "Studio: a scene setting Floor grid: Shown / Hidden (Scene pane, while editing, beside Other circles): hidden, the blue 1 m floor grid and the mark in the middle are not drawn. Saved with the scene, for everyone at that circle.",
+    "Rooms are now format 50: every device needs this release to join the same room."
+  ],
+  "test": [
+    "On the laptop: preview camera on a studio circle with Edit on in the studio: the camera's picture should show the scene as a visitor sees it.",
+    "In the headset (VR): a studio scene with Floor grid: Hidden: no blue grid; Shown again: back."
+  ],
+  "untested": [
+    "The grid hidden in a real headset, and a studio scene on a real preview camera."
+  ]
+}
