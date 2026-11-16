@@ -1,0 +1,13 @@
+{
+  "version": "networks-v150",
+  "date": "2026-11-16",
+  "new": [
+    "Debug tab: the largest texture this headset takes and which compressed texture formats it offers (ASTC is what Unity uses on a Quest), on a new line Textures; the GPU's name on the Browser line."
+  ],
+  "test": [
+    "On the Quest 3 (and a Quest 2 or 3S if there is one): open the menu, Debug tab, and note the Textures line and the end of the Browser line. They decide whether 4k and 8k textures can work like in Unity."
+  ],
+  "untested": [
+    "What a Quest shows there: only a desktop browser drawing in software was checked (it says 8,192 px and lists ASTC among others)."
+  ]
+}

@@ -5446,6 +5446,38 @@
       return true;
     } catch (e) { T.needsUpdate = true; return false; }
   }
+  // the GPU's texture limits (v150; the owner, 16 November 2026, before compressed textures: "add the debug lines so i can
+  // check"): the largest texture side WebGL allows here and the compressed texture formats it offers (on a Quest, ASTC is
+  // what a KTX2 texture would become; without any, every texture stays raw pixels, 4 bytes each) on a line of their own,
+  // and the GPU's own name (with ANGLE's graphics API under it) on the Browser line. Read once per WebGL context, from the
+  // list of extensions without turning any on but the two read here, and logged once (so a headset's log on the relay
+  // carries it, ASTC's profiles too). HOST.collab.gpuInfo() for tests
+  const GPUI = { gl: null, info: null };
+  const GPU_FORMATS = [['WEBGL_compressed_texture_astc', 'ASTC'], ['WEBGL_compressed_texture_etc', 'ETC2'], ['WEBGL_compressed_texture_etc1', 'ETC1'],
+    ['EXT_texture_compression_bptc', 'BC7'], ['WEBGL_compressed_texture_s3tc', 'S3TC'], ['EXT_texture_compression_rgtc', 'RGTC'], ['WEBGL_compressed_texture_pvrtc', 'PVRTC']];
+  function gpuInfo() {
+    const R = HOST.renderer, gl = R && R.getContext ? R.getContext() : null;
+    if (!gl) return { lines: ['Textures: no renderer yet'] };
+    if (GPUI.gl === gl && GPUI.info) return GPUI.info;
+    const I = { max: 0, gl2: typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext, formats: [], astc: [], name: '' };
+    try {
+      I.max = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
+      const ex = gl.getSupportedExtensions() || [];
+      I.formats = GPU_FORMATS.filter(f => ex.includes(f[0])).map(f => f[1]);
+      const a = ex.includes('WEBGL_compressed_texture_astc') && gl.getExtension('WEBGL_compressed_texture_astc');
+      I.astc = a && a.getSupportedProfiles ? a.getSupportedProfiles() : [];
+      const di = ex.includes('WEBGL_debug_renderer_info') && gl.getExtension('WEBGL_debug_renderer_info');
+      I.name = String((di && gl.getParameter(di.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || '');
+    } catch (e) { I.err = String(e && e.message || e); }
+    // (one line, so the tab stays well under the canvas: the GPU's name goes on the Browser line, ANGLE's wrapper and
+    // (TM) taken off it: "Qualcomm, Adreno 740, OpenGL ES 3.2")
+    I.lines = ['Textures: at most ' + (I.max ? I.max.toLocaleString('en-GB') + ' px' : 'unknown') + (I.gl2 ? '' : ' (WebGL 1)') + ' · ' +
+      (I.formats.length ? 'compressed: ' + I.formats.join(', ') : 'no compressed formats')];
+    I.short = I.name.replace(/^ANGLE \((.*)\)$/, '$1').replace(/\s*\(TM\)/g, '').replace(/\s+/g, ' ').trim();
+    GPUI.gl = gl; GPUI.info = I;
+    log('gpu', { max: I.max, gl2: I.gl2, formats: I.formats, astc: I.astc, name: I.name, err: I.err });
+    return I;
+  }
   // the Debug tab's read-outs
   function debugLines() {
     const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^\w+:\/\//, '').replace(/\/.*$/, '') : 'no relay known';
@@ -5453,9 +5485,9 @@
     return [
       'App: release ' + (sh.n || '?') + ' · rooms ' + FORMAT,
       'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
-      'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
+      'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown') + (gpuInfo().short ? ' · ' + gpuInfo().short : ''),
       'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...') + (hzTarget() ? ' · the headset at ' + hzTarget() + ' Hz' : ''),
-    ].concat(HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : [], HOST.ships && HOST.ships.line ? ['Spaceships: ' + HOST.ships.line()] : []);
+    ].concat(gpuInfo().lines, HOST.occlusion && HOST.occlusion.line ? ['Real world: ' + HOST.occlusion.line()] : [], HOST.ships && HOST.ships.line ? ['Spaceships: ' + HOST.ships.line()] : []);
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
   // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
@@ -11461,6 +11493,7 @@
     mirroring: () => !!(OV.panelG && OV.panelG.visible && OV.mirror && Object.values(OV.mirror).some(m => m.visible)),
     strip: () => ({ rows: STRIP.rows, patched: OV.panel ? OV.panel.patched || 0 : 0, lines: PNL.strip ? PNL.strip.lines.slice() : null, at: PNL.strip ? PNL.strip.y : -1, x: PNL.strip ? PNL.strip.x : 0, w: PNL.strip ? PNL.strip.w : 0, lh: STRIP.lh, ver: OV.panel ? OV.panel.tex.version : 0 }),
     stripMs: ms => { if (ms !== undefined) STRIP.ms = +ms; return STRIP.ms; },
+    gpuInfo: () => { const I = gpuInfo(); return { max: I.max, gl2: I.gl2, formats: (I.formats || []).slice(), astc: (I.astc || []).slice(), name: I.name, short: I.short, lines: I.lines.slice() }; },
     menuFind: id => {
       if (!PNL.open || !OV.panel) return null;
       const S = OV.panel, find = () => { S.sig = ''; drawPanel(); return S.regions.find(r => r.id === id) || null; };
