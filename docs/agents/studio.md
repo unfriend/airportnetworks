@@ -42,7 +42,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   not found leaves the model untextured and its card says *Missing texture x.png: put it in the scene's folder* and
   offers pictures for it. Textures
   over 4,096 px are drawn down before they reach the GPU (`&maxtex=` 512 to 8,192; the card says so: the atelier's 8,192
-  px JPEG alone would take about 340 MB of a Quest's memory). The units and up axis are guessed when a file is first
+  px JPEG alone would take about 340 MB of a Quest's memory; every texture reaches the GPU as raw pixels, 4 bytes each and a third more for its mipmaps: 21 MB at 2,048 px, 85 MB at 4,096, 341 MB at 8,192). What a Quest 3 offers (the owner, 16 November 2026, from v150's Debug tab): textures of at most 8,192 px a side in Quest Browser (its Adreno 740 takes 16,384 natively, but the browser's WebGL stops at 8,192, so nothing larger can work there), and ASTC, ETC1 and ETC2 among its compressed formats, so KTX2 textures with Basis UASTC would reach it as ASTC 4x4 (8 bits a pixel: 85 MB at 8,192 px, 21 MB at 4,096; not built yet: three.js r128 has no plain-script KTX2 loader, r133 to r147 do). The units and up axis are guessed when a file is first
   placed and then stored in the item (`s`, `q`), so a layout never changes when the guess does: an FBX's
   `GlobalSettings` (`UnitScaleFactor`, `UpAxis`, `UpAxisSign`, read from the file's bytes, since the loader ignores
   them), taken when they make the model's largest side 5 cm to 60 m, else 1 unit is 1 m if that does, else it is sized
