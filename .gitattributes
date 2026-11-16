@@ -1,0 +1,5 @@
+# Line endings: LF in the repository and in every checkout, whatever core.autocrlf says (the owner, 16 November 2026).
+# The builds' and tools/release.mjs's --check compare files byte for byte, so a Windows checkout with
+# core.autocrlf=true (CRLF) failed them. Every text file was already stored with LF; binary files are told apart by
+# Git as before (text=auto).
+* text=auto eol=lf
