@@ -117,6 +117,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v159 (17 November 2026; FORMAT networks-52), on `dev` only: a dub techno demo.** `examples/dub-techno`
+    (`tools/studio/dub/`) and a Cardinal patch mapped to it (`tools/output/cardinal/`, its README the setup). Cardinal
+    cannot follow MIDI clock ticks, so it keeps its own 120 bpm clock and the output page's Start re-aligns it. Unheard.
 - **networks-v158 (17 November 2026; FORMAT networks-52), on `dev` only: streams on studio cards, trails, loops on the
     beat, MIDI clock both ways.** The owner's three asks for the MIDI cubes (values to send, trails for items and hands
     seen by everyone at the circle, a loop recorder for movement and events with both clocks). Contract: the "v158" section

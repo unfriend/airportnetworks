@@ -1,23 +1,18 @@
 {
-  "version": "networks-v158",
+  "version": "networks-v159",
   "date": "2026-11-17",
   "new": [
-    "Studio cards have Streams: an object's, shape's, empty's, sound's or cube's position, turn (yaw, pitch, roll), speed, velocity per axis, acceleration, turning speed, size, shown, clip, path or motion phase, the nearest person's distance, or how many people stand in a cube, sent by the output page as a MIDI controller (also 14-bit), a note when it crosses a level (louder when it moves faster) or OSC.",
-    "Trails: an item can leave a glowing trail, and the scene's Hand trails draw people's hands; everyone at the circle sees them.",
-    "Loops on the beat: Record on the beat records an item's movement for 1, 2, 4 or 8 bars from the next downbeat and loops it locked to the room's beat; a sequence can be locked to the beat too, and Record events records presses, cube and pointing sends, show and hide into it, quantised.",
-    "The room's beat has bars. The output page takes MIDI clock with Start and Song Position, can lead with its own Tempo (Tap, Start, Stop), and sends MIDI clock out so a DAW or Cardinal follows the room.",
-    "A new room format (networks-52): every device needs this release."
+    "An example scene, dub-techno (Scene pane, Examples): a mixing desk in the room whose faders, turntable, orb, pads, dub wand, dance floor and drop zone send MIDI on channel 1, with trails and a beat-locked wobble sphere.",
+    "A Cardinal patch made for it, tools/output/cardinal/dub-techno.vcv: mellow 120 bpm dub techno (kick, offbeat hats, a minor 9th stab through a dub delay and a big reverb) that the room plays and shapes.",
+    "Cardinal keeps its own 120 bpm clock (it cannot follow MIDI clock ticks); the output page's Start puts it back to bar 1 at the room's downbeat."
   ],
   "test": [
-    "Output page: Tempo 120, Start, MIDI clock out to a loopMIDI port; your DAW or Cardinal should follow and start on the bar.",
-    "The other way: your DAW sends clock into the output page with MIDI clock to the room's beat on; a motion On the beat follows.",
-    "Add a stream on a shape's card (Speed to CC 21), carry it in a headset and watch the value on the output page; try a threshold note.",
-    "Record on the beat (2 bars) while carrying something; it should loop exactly on the bar and stretch when the tempo changes.",
-    "Record events on a sequence while pressing items; turn Hand trails on and wave at someone at the same circle."
+    "Load dub-techno.vcv in Cardinal, set its MIDI input to your loopMIDI or IAC port, open the output page on the same port, Tempo 120, MIDI clock out, Start.",
+    "Copy dub-techno to the relay from the Scene pane, go to its circle, carry the faders and the wand, press the pads, step into the drop zone (the kick stops) and onto the dance floor (hats come in).",
+    "Does it sound mellow? Report anything harsh or too quiet; every CC at 0 should still sound good."
   ],
   "untested": [
-    "Real MIDI ports, DAWs and Cardinal, clock jitter over Wi-Fi.",
-    "Trails on a Quest (look over passthrough, cost with many), hand trails over a real network.",
-    "Record on the beat with the grip held across the downbeat on a real headset."
+    "Nobody has listened to the patch; it was only loaded in Cardinal's web build and its levels measured.",
+    "Real MIDI into Cardinal from the output page, drift over a long set, the scene in a headset."
   ]
 }
