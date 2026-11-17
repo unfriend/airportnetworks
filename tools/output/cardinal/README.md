@@ -76,7 +76,8 @@ So:
 1. **Cardinal**: install it from https://cardinal.kx.studio/ (Windows, macOS, Linux; free). Either:
    - **the standalone app** (*Cardinal*): File, Open, `dub-techno.vcv`. Pick the audio device in its Engine menu.
      MIDI: the standalone takes the system's MIDI through its own backend: on Windows and macOS its Engine menu's
-     *Enable/Reconnect MIDI* where the build offers it; on Linux with JACK, connect the virtual port to Cardinal's MIDI
+     *Enable/Reconnect MIDI* (it opens every MIDI input there is at that moment, IAC and loopMIDI included, with no port
+     to pick: click it again after a port appears; the item shows only with the system's own audio, not JACK); on Linux with JACK, connect the virtual port to Cardinal's MIDI
      input in your JACK patchbay (a2jmidid bridges ALSA ports into JACK).
    - **as a plugin** in a DAW or a host such as Carla or Reaper (*Cardinal* or *Cardinal Synth*, VST3, CLAP, LV2, AU):
      load it on an instrument track, open its window, File, Open, `dub-techno.vcv`, and route the virtual MIDI port into

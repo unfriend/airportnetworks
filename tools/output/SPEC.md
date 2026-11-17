@@ -385,8 +385,8 @@ A **send entry**, fields written in this order, only those set:
    keeping `out` in their members list. Every listener the page adds on `window`, `document` or MIDI objects is added
    with `HOST.quiet` set.
 2. `output.js`: `HOST.out`. Starting follows a studio circle (the first by id; a picker of the room's circles, a
-   non-studio one giving people and trackers only), sets `body.outp`, shows the overlay `#out` (a side panel at the left,
-   420 px, scrolling; the story's picture stays visible at the right; CSS injected once, `OUT_CSS`). Sections:
+   non-studio one giving people and trackers only), sets `body.outp`, shows the overlay `#out` (a side panel at the right,
+   420 px, scrolling; the story's picture stays visible at the left, so the studio's panel and cards stay usable; CSS injected once, `OUT_CSS`). Sections:
    - Status: room, relay, circle, scene, *Stop*; a warning while the tab is hidden (*Keep this tab in front: a hidden tab
      stops the scene's frames*).
    - MIDI: *MIDI: Off / On*, output and input pickers, status, *Test note* (60 on channel 1).

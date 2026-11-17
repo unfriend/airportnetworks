@@ -813,8 +813,8 @@ The plan is `docs/shared-space-plan.md`.
     relay's `/api/ping` says of OSC, `{ out, in, trk }`, or null), `persons()` (`[{ id, name, color, kind, st, body }]`:
     every member in a headset with a head heard in the last 2 s; the spec named it `people()`, which stays the presence
     Map the tests read), and for tests `presIn(id, v)` (a presence as if heard from member `id`).
-  - The page (`output.js`; its overlay `#out`, a side panel at the left, 420 px, scrolling, under the top bar, the story's
-    picture visible at the right; its CSS `OUT_CSS`, injected once): Status (the room, how it runs, *Follows*, the scene;
+  - The page (`output.js`; its overlay `#out`, a side panel at the right (v160; the studio's panel on the left stays usable), 420 px, scrolling, under the top bar, the story's
+    picture visible at the left; its CSS `OUT_CSS`, injected once): Status (the room, how it runs, *Follows*, the scene;
     *Keep this tab in front* while the tab is hidden, since a hidden tab stops the scene's frames), MIDI (*MIDI: On/Off*,
     the output and input ports by name, *Test note*: 60 on channel 1, *MIDI clock to the room's beat*), OSC (what the
     relay says, *OSC*, *Trackers as OSC (the relay)*), Events (*Every press and sequence on the default addresses*, *Also

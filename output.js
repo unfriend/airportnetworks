@@ -931,8 +931,8 @@
 
   // --------------------------------------------------------------- the overlay --
   const OUT_CSS = `
-#out { position: fixed; left: 0; top: calc(60px + env(safe-area-inset-top, 0px)); bottom: 0; width: min(420px, 100vw); z-index: 9; overflow-y: auto; box-sizing: border-box;
-  padding: 10px 12px 24px; background: rgba(4, 10, 20, 0.97); color: #e7eef8; font: 13px/1.4 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; border-right: 1px solid rgba(149, 166, 189, 0.3); }
+#out { position: fixed; right: 0; top: calc(60px + env(safe-area-inset-top, 0px)); bottom: 0; width: min(420px, 100vw); z-index: 9; overflow-y: auto; box-sizing: border-box;
+  padding: 10px 12px 24px; background: rgba(4, 10, 20, 0.97); color: #e7eef8; font: 13px/1.4 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; border-left: 1px solid rgba(149, 166, 189, 0.3); }
 #out[hidden] { display: none !important; }
 #out h2 { font-size: 17px; margin: 0; flex: 1; }
 #out h3 { font-size: 13px; margin: 14px 0 6px; color: #9db4ff; text-transform: uppercase; letter-spacing: 0.04em; }

@@ -1,18 +1,15 @@
 {
-  "version": "networks-v159",
+  "version": "networks-v160",
   "date": "2026-11-17",
   "new": [
-    "An example scene, dub-techno (Scene pane, Examples): a mixing desk in the room whose faders, turntable, orb, pads, dub wand, dance floor and drop zone send MIDI on channel 1, with trails and a beat-locked wobble sphere.",
-    "A Cardinal patch made for it, tools/output/cardinal/dub-techno.vcv: mellow 120 bpm dub techno (kick, offbeat hats, a minor 9th stab through a dub delay and a big reverb) that the room plays and shapes.",
-    "Cardinal keeps its own 120 bpm clock (it cannot follow MIDI clock ticks); the output page's Start puts it back to bar 1 at the room's downbeat."
+    "The output page's panel now sits at the right of the window, so the studio's panel, item list and cards on the left stay usable while it runs.",
+    "The Cardinal README says how its standalone app takes MIDI on a Mac or PC: Engine, Enable/Reconnect MIDI opens every port there is, the IAC bus included."
   ],
   "test": [
-    "Load dub-techno.vcv in Cardinal, set its MIDI input to your loopMIDI or IAC port, open the output page on the same port, Tempo 120, MIDI clock out, Start.",
-    "Copy dub-techno to the relay from the Scene pane, go to its circle, carry the faders and the wand, press the pads, step into the drop zone (the kick stops) and onto the dance floor (hats come in).",
-    "Does it sound mellow? Report anything harsh or too quiet; every CC at 0 should still sound good."
+    "Open the output page in the studio's circle and edit an item: its card on the left and the output page on the right should both be usable.",
+    "On a narrow window the output page still covers the whole width, as before."
   ],
   "untested": [
-    "Nobody has listened to the patch; it was only loaded in Cardinal's web build and its levels measured.",
-    "Real MIDI into Cardinal from the output page, drift over a long set, the scene in a headset."
+    "Real MIDI into Cardinal from the output page, the dub-techno scene in a headset."
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "version": "networks-v160",
+  "date": "2026-11-17",
+  "new": [
+    "The output page's panel now sits at the right of the window, so the studio's panel, item list and cards on the left stay usable while it runs.",
+    "The Cardinal README says how its standalone app takes MIDI on a Mac or PC: Engine, Enable/Reconnect MIDI opens every port there is, the IAC bus included."
+  ],
+  "test": [
+    "Open the output page in the studio's circle and edit an item: its card on the left and the output page on the right should both be usable.",
+    "On a narrow window the output page still covers the whole width, as before."
+  ],
+  "untested": [
+    "Real MIDI into Cardinal from the output page, the dub-techno scene in a headset."
+  ]
+}
