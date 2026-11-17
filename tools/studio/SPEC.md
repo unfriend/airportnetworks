@@ -3350,6 +3350,29 @@ the headset card's `picker` block). **Records are unchanged**: `'#rrggbb'` lower
   field. No `FORMAT` change from this feature.
 - Untested on a headset: dragging the ring and square with a real ray, how the picker reads at arm's length.
 
+## Live sound (v162, the owner, 17 November 2026)
+
+The contract is `tools/output/SPEC.md`, "v162" section 5; the code `engine/e6_items.js` (`LIVE_FILE`, `liveEmit`,
+`addLive`, `ITEM_ACT.live`, `liveFile`) and `engine/e7_explore.js` (`liveBlocks`). No new field: a sound whose `file` is
+`'@live'`, which an older device keeps and writes back unchanged (it would only call the file missing).
+
+- **The record.** `name` defaults to *Live sound*; `vol`, `r`, `on`, `bone`, `o`, `path`, `stream`, `trail`, `shows`,
+  `locked` as any sound; `loop` and `start` kept but unused; `sync`, `skip` and `len` dropped. Never fetched or decoded
+  (`it.F` null; `STUDIO.ready()` does not wait for it).
+- **Playing.** The shown, heard live item nearest the listener (your head, or the page's camera) claims
+  `HOST.collab.liveNode()` while it is on the same context as `HOST.audio.fx()`: `it.lv = { g, p }` (its gain at `fa * vol
+  *` a cube's run, 0.1 s fades; an HRTF panner, inverse, `refDistance` `r`, rolloff 1, at most 50 m), its place set each
+  frame. Another takes over only when 0.5 m nearer. Every other live item is silent. None shown, the scene not on show,
+  away (the away timer's first stop), another context, an item gone or `dispose()`: its nodes go and
+  `liveRelease('studio')`, so the stream plays everywhere at the shell's fixed level. Muted: the shell's node is at 0
+  already; the studio keeps no mute of its own for it. Who hears it at all is the shell's (`liveWant`).
+- **UI.** Add's sound list: *Live sound (from the output page)* first. A file sound's card: *Source* with *Live sound:
+  off* (a press makes it live, its file kept in memory, not saved). A live sound's card (page and headset alike): Source
+  *Live sound: from the output page*, its state now, *Heard by devices elsewhere (their Room's live sound setting);
+  silent while the output page is not streaming*, *Only the nearest live sound plays* with several, and *Live sound: on*:
+  a press gives it its last file back, or lists the scene's sounds to pick one.
+- **Tests.** `STUDIO.live()` `{ items, claimer, node, pos, gain }`; smoke `--only 'studio live'`.
+
 ## Formats guide (`tools/studio/README.md`, and briefly on the Scene pane where no scene is found)
 
 Models: GLB (one file, textures and animations inside); FBX works, converted it loads faster and sits right without

@@ -194,7 +194,7 @@ function paneBlocks(tab) {
       { page: true, p: `GLB loads faster and sits right without guessing; ${texKindWords()} (Textures, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
     else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
     if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
-    B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
+    B.push({ label: `Sounds (${L.sounds.length})`, list: [{ id: 'addlive', label: 'Live sound (from the output page)', sub: 'the room\'s live sound, from where it stands', act: 'addlive', dis: full('s') }].concat(L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') }))) });
     if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
     if (L.orig.length) {
       B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
@@ -300,6 +300,7 @@ function itemSub(it) {
   if (it.kind === 'd') return paintSub(r) + me;
   if (it.kind === 'q') return seqSub(r) + (r.sync === 'own' ? ' · each person' : '') + (r.locked ? ' · locked' : '');
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
+  if (isLive(it)) return 'Live sound' + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.on === false ? ' · switched off' : '') + (it.act ? ' · active for you' : '');
 }
@@ -338,7 +339,7 @@ function itemCard(it, C) {
   else if (it.kind === 'd') { card.tile = { k: 'paint', col: paintCols(r)[0] || it.look.col, cols: paintCols(r) }; card.sub = paintSub(r) + (r.src ? ' · in a file' : ''); }
   else if (it.kind === 'q') { const P = seqEff(it), U = seqU(it, P, behNow()); card.tile = { k: 'seq', col: seqCol(r) }; card.sub = seqSub(r) + (U && U.playing ? ' · playing' : ''); state.unshift(r.sync === 'own' ? 'each person' : '', r.loop ? 'loops' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
-  else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
+  else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(isLive(it) ? 'Live sound' : baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.on === false ? 'switched off' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   if (r && r.stream) state.push(`streams ${r.stream.length}`);   // (v158: e6v_stream.js)
@@ -492,6 +493,9 @@ function itemBlocks(it, B, ed) {
     screenBlocks(it, B, dis, mv);   // (a screen: e6q_screens.js)
   } else if (it.kind === 'd') {
     paintingBlocks(it, B, dis, mv);   // (a painting: e6r_paint.js)
+  } else if (isLive(it)) {
+    liveBlocks(it, B, dis);   // (the room's live sound from the output page: v162)
+    pathBlocks(it, B, dis, mv);
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -503,6 +507,7 @@ function itemBlocks(it, B, ed) {
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
     else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
     B.push({ p: 'Mono files place best: a stereo one is played from its point, mixed (Upload makes sounds mono).', c: 'faint' });
+    B.push({ label: 'Source', row: [{ id: 'live:on', label: 'Live sound: off', act: 'i:live', v: 'on', on: false, dis }] });
     B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
       { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] },
       { label: 'Plays', row: [{ id: 'loop:on', label: 'Loop', act: 'i:loop', v: 'on', on: r.loop, dis }, { id: 'loop:off', label: 'Once', act: 'i:loop', v: 'off', on: !r.loop, dis },
@@ -789,6 +794,7 @@ function act(a, v) {
     },
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
+    addlive: () => addLive(),
     cube: () => addCube(),
     // (the room scan: e6p_scan.js; Save asks for the next frame of the AR session, editing on, never for a visitor)
     scanStart: () => { if (editOn() && !OPT.visit) scanStart(); },
@@ -1480,4 +1486,24 @@ function tcAttach() {
   const T = X.tcDrag && (tc.object === it.holder || (tc.object === TCP && TCP.userData.id === it.id)) ? tc.object : tcTarget(it);
   if (T === TCP) tcProxy(it);
   if (tc.object !== T) tc.attach(T);
+}
+
+// a sound whose source is the room's live sound (v162, tools/output/SPEC.md "v162" 5): the stream from the output page, from
+// where it stands; Source switches it back to a file (the one it had, else one picked from the scene's sounds)
+function liveBlocks(it, B, dis) {
+  const r = it.rec, ls = HOST.collab && HOST.collab.liveSound ? HOST.collab.liveSound() : null, many = [...STU.items.values()].filter(isLive).length > 1;
+  B.push({ h: r.name, sub: 'Live sound' + hiddenSub(it, it.heard) }, { kv: [['Source', 'Live sound: from the output page'], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)],
+    ['Follows', r.on ? followWords(it) + (r.o ? `, ${cmOrM(Math.hypot(...r.o))} from it` : ', on it') : 'nothing'], ['Now', !ls ? 'this page cannot play it' : ls.playing ? (LIVE.id === it.id ? 'playing from here' : 'playing, from another live sound') : ls.on ? 'the output page streams' : 'the output page is not streaming']] });
+  followBlocks(it, B, dis);
+  B.push({ p: 'Heard by devices elsewhere (their Room\'s live sound setting); silent while the output page is not streaming.', c: 'faint' });
+  if (many) B.push({ p: 'Only the nearest live sound plays.', c: 'muted' });
+  if (HOST.audio && HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
+  B.push({ label: 'Source', row: [{ id: 'live:off', label: 'Live sound: on', act: 'i:live', v: 'off', on: true, dis }] });
+  if (STU.livePick === it.id) {
+    const L = sceneLists();
+    B.push({ p: L.sounds.length ? 'A file instead: pick one of the scene\'s sounds.' : 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'muted' });
+    if (L.sounds.length) B.push({ list: L.sounds.map(f => ({ id: 'livef:' + f.path, label: f.path, sub: mb(f.bytes), act: 'i:liveFile', v: f.path, dis })) });
+  }
+  B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
+    { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] });
 }

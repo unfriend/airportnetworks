@@ -22,6 +22,7 @@
 // --only 'studio streams': streams on a card (values of an item to the output page as MIDI and OSC), out.value(), v158;
 // --only 'studio loops': loops on the beat: the room's beat with bars, paths and sequences on the beat, Record on the beat, press and send events, Record events, v158;
 // --only 'studio trails': trails of light behind items and people's hands, for everyone at the circle, v158;
+// --only 'studio live': the room's live sound heard (Opus frames encoded in the test, decoded by the shell) and a studio item set to Live sound, v162;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -5019,6 +5020,141 @@ if (runs('studio colour')) {
     bad(out);
   });
   await cp.close();
+}
+// The room's live sound (v162, tools/output/SPEC.md "v162" 3b and 5), on a page of its own at the test scene, no relay: the
+// shell's hearing side fed Opus frames this test encodes (WebCodecs' AudioEncoder, a 440 Hz tone) through
+// HOST.collab.liveFx and liveIn, decoded and scheduled through the shell's context; then a studio sound item set to Live
+// sound with the shell's node stubbed (a GainNode on HOST.audio.fx(), made here; liveClaim and liveRelease counted): the
+// nearer of two live items claims, its panner where it is, a move hands over, the record through state() and layout.json
+// with file '@live', no request for '@live', and the claim let go when the items go and on another story
+if (runs('studio live')) {
+  const lp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const reqs = [];
+  lp.on('request', r => { if (/@live/.test(r.url())) reqs.push(r.url()); });
+  lp.on('pageerror', e => errors.push('studio live: ' + (e.stack || e.message)));
+  lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio live: ' + m.text()); });
+  const ss = s => lp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => lp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) { console.log('  studio live:', list.join('\n    ')); errors.push(...list.map(b => 'studio live: ' + b)); } };
+  let ok = false;
+  await step('studio live: the shell decodes the stream (liveFx, liveIn) and plays it through its context, a gap counted, a stop dropping it', async () => {
+    const out = [];
+    await lp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=rig&edit');
+    await lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    ok = await until(`STUDIO.ready()`, 120000);
+    if (!ok) { bad(['the rig scene did not load']); return; }
+    await lp.evaluate(() => HOST.audio.mute(false));
+    await lp.click('#explore .tabs button[data-tab="scene"]');   // (a tap: the context may run)
+    if (!await lp.waitForFunction(() => !!HOST.audio.fx(), null, { timeout: 15000 }).then(() => true, () => false)) { bad(['no sound context after a tap']); ok = false; return; }
+    const r = await lp.evaluate(async () => {
+      const o = { mode: HOST.collab.liveMode(), api: ['liveSound', 'liveMode', 'setLiveMode', 'liveNode', 'liveClaim', 'liveRelease', 'liveIn', 'liveFx'].every(k => typeof HOST.collab[k] === 'function') };
+      if (typeof AudioEncoder === 'undefined') return Object.assign(o, { skip: 'no AudioEncoder in this browser' });
+      // (50 frames of 20 ms, a tone, encoded here: test code may make what the app may not)
+      const chunks = [];
+      const enc = new AudioEncoder({ output: c => { const b = new Uint8Array(c.byteLength); c.copyTo(b); chunks.push(b); }, error: e => { o.encErr = e.message; } });
+      enc.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 1, bitrate: 64000 });
+      for (let k = 0; k < 50; k++) {
+        const f = new Float32Array(960);
+        for (let i = 0; i < 960; i++) f[i] = 0.5 * Math.sin(2 * Math.PI * 440 * (k * 960 + i) / 48000);
+        const d = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: 960, numberOfChannels: 1, timestamp: k * 20000, data: f });
+        enc.encode(d); d.close();
+      }
+      await enc.flush(); enc.close();
+      o.chunks = chunks.length;
+      const frame = (seq, bytes, sid) => { const b = new ArrayBuffer(16 + bytes.length), v = new DataView(b); v.setUint8(0, 1); v.setUint8(1, 1); v.setUint16(2, sid); v.setUint32(4, seq); v.setFloat64(8, HOST.collab.now()); new Uint8Array(b, 16).set(bytes); return b; };
+      HOST.collab.liveIn(frame(0, chunks[0], 7));   // (before any stream: ignored)
+      o.before = HOST.collab.liveSound().frames;
+      HOST.collab.liveFx({ on: true, sid: 7, cfg: { codec: 'opus', sampleRate: 48000, numberOfChannels: 1 }, kbps: 64, by: 'outpage' });
+      const t0 = performance.now();
+      while ((HOST.collab.liveSound().src !== 'cfg' || performance.now() - t0 < 300) && performance.now() - t0 < 5000) await new Promise(r => setTimeout(r, 50));
+      // (every frame but the 10th, in time; one with another sid: ignored)
+      for (let i = 0; i < chunks.length; i++) {
+        if (i !== 10) HOST.collab.liveIn(frame(i, chunks[i], 7));
+        if (i === 20) HOST.collab.liveIn(frame(21, chunks[i], 9));
+        await new Promise(r => setTimeout(r, 20));
+      }
+      await new Promise(r => setTimeout(r, 150));
+      o.s = HOST.collab.liveSound();
+      const n = HOST.collab.liveNode();
+      o.node = !!n && n.context === HOST.audio.fx();
+      HOST.collab.liveFx({ on: false, sid: 7, why: 'stopped' });
+      o.stopped = HOST.collab.liveSound();
+      return o;
+    });
+    if (!r.api || r.mode !== 'auto') out.push('the API: ' + JSON.stringify(r));
+    else if (r.skip) console.log('  studio live: ' + r.skip + ' (the decode not checked)');
+    else {
+      const s = r.s || {};
+      if (r.encErr || r.chunks < 45 || r.before !== 0) out.push('the frames made here: ' + JSON.stringify({ encErr: r.encErr, chunks: r.chunks, before: r.before }));
+      if (!s.on || s.src !== 'cfg' || s.by !== 'outpage' || s.frames !== r.chunks - 1 || s.lost !== 1 || !s.playing || !(s.level > 0.05) || !(s.lagMs > 100 && s.lagMs < 1500) || s.claimed || s.want || !r.node) out.push('heard: ' + JSON.stringify(s) + ' node ' + r.node);
+      if (r.stopped.on || r.stopped.src || r.stopped.why) out.push('after on: false: ' + JSON.stringify(r.stopped));
+      console.log('  studio live: heard ' + JSON.stringify({ frames: s.frames, lost: s.lost, late: s.late, level: s.level, lagMs: s.lagMs }));
+    }
+    bad(out);
+  });
+  if (ok) await step('studio live: the nearer of two live items claims the shell\'s node, its panner where it is, a move hands over, released when they go', async () => {
+    const out = await ss(`(async () => {
+      const out = [], J = JSON.stringify, C = HOST.collab, keep = { node: C.liveNode, claim: C.liveClaim, release: C.liveRelease };
+      const ctx = HOST.audio.fx(), g = ctx.createGain(), log = [];
+      C.liveNode = () => g; C.liveClaim = o => (log.push('claim:' + o), true); C.liveRelease = o => (log.push('release:' + o), true);
+      const wait = async (f, ms) => { const t = performance.now(); while (!f() && performance.now() - t < (ms || 15000)) await new Promise(r => setTimeout(r, 30)); return f(); };
+      try {
+        GL.camera.updateMatrixWorld(true);
+        const cam = GL.camera.getWorldPosition(new THREE.Vector3()), at = (d) => [+(cam.x + d).toFixed(3), 1.2, +cam.z.toFixed(3)];
+        // the record: file '@live', named Live sound, sync dropped; no file asked for
+        const n = norm('s', { file: '@live', p: [0, 1, 0], sync: 'abcdef', skip: 2, len: 3 });
+        if (!n || n.name !== 'Live sound' || n.file !== '@live' || 'sync' in n || 'skip' in n || 'len' in n || n.loop !== true) out.push('norm: ' + J(n));
+        setEdit(true);
+        const a = addLive();
+        if (!a || STU.items.get(a).rec.file !== '@live' || STU.items.get(a).F !== null) out.push('Add: ' + J(a && STU.items.get(a).rec));
+        setRec(a, { p: at(1) });
+        if (!await wait(() => STUDIO.live().claimer === a)) out.push('one live item did not claim: ' + J([STUDIO.live(), log, STU.items.get(a).heard, STU.items.get(a).fa]));
+        await wait(() => STUDIO.live().gain > 0.9);
+        const L1 = STUDIO.live(), p1 = STU.items.get(a).holder.getWorldPosition(new THREE.Vector3());
+        if (!L1.node || !L1.pos || Math.hypot(L1.pos[0] - p1.x, L1.pos[1] - p1.y, L1.pos[2] - p1.z) > 0.01 || log[0] !== 'claim:studio' || !(L1.gain > 0.5)) out.push('its panner: ' + J([L1, p1, log]));
+        // the panner follows the item
+        setRec(a, { p: at(2) });
+        await wait(() => STUDIO.live().pos && Math.abs(STUDIO.live().pos[0] - at(2)[0]) < 0.01);
+        if (Math.abs(STUDIO.live().pos[0] - at(2)[0]) > 0.01) out.push('the panner did not follow: ' + J(STUDIO.live()));
+        // a second one 0.3 m nearer: no handover; 1.5 m nearer: it claims
+        const b = addLive();
+        setRec(b, { p: at(1.7) });
+        await new Promise(r => setTimeout(r, 300));
+        if (STUDIO.live().claimer !== a) out.push('handed over for 0.3 m: ' + J(STUDIO.live()));
+        setRec(b, { p: at(0.5) });
+        if (!await wait(() => STUDIO.live().claimer === b)) out.push('no handover to the nearer: ' + J(STUDIO.live()));
+        if (J(STUDIO.live().items.sort()) !== J([a, b].sort())) out.push('items: ' + J(STUDIO.live()));
+        if (!paneBlocks('item').some(x => x.p === 'Only the nearest live sound plays.')) out.push('the card does not say only the nearest plays');
+        // through state() and layout.json
+        const st = HOST.cur.collab.state(), sj = J(st);
+        if (!sj.includes('"file":"@live"')) out.push('state() has no @live');
+        const back = readLayout(JSON.parse(J(layoutOut())));
+        if (back.bad || back.items.filter(x => x.kind === 's' && x.rec.file === '@live').length !== 2) out.push('layout.json: ' + J(back).slice(0, 300));
+        HOST.cur.collab.apply(JSON.parse(sj));
+        if (J(HOST.cur.collab.state()) !== sj) out.push('apply(state()) changed it');
+        // Source off: a file again (none kept: a list of the scene's sounds), then on again
+        select(b); itemAct('live', 'off', b);
+        if (STU.livePick !== b) out.push('Source off did not ask for a file: ' + STU.livePick);
+        const f = sceneLists().sounds[0];
+        if (f) { itemAct('liveFile', f.path, b); if (STU.items.get(b).rec.file !== f.path) out.push('a file picked: ' + J(STU.items.get(b).rec)); itemAct('live', 'on', b); itemAct('live', 'off', b); if (STU.items.get(b).rec.file !== f.path) out.push('the last file not kept: ' + J(STU.items.get(b).rec)); itemAct('live', 'on', b); }
+        // gone: the claim let go
+        deleteItem(b); deleteItem(a);
+        if (!await wait(() => !STUDIO.live().claimer && log[log.length - 1] === 'release:studio')) out.push('not released when they went: ' + J([STUDIO.live(), log]));
+      } finally { Object.assign(C, { liveNode: keep.node, liveClaim: keep.claim, liveRelease: keep.release }); }
+      // the real shell: claimed by a live item, released on dispose (another story)
+      const c = addLive();
+      if (!await wait(() => C.liveSound().claimed === 'studio')) out.push('the shell was not claimed: ' + J([C.liveSound(), STUDIO.live()]));
+      window.__liveKept = c;
+      return out;
+    })()`);
+    if (reqs.length) out.push('asked for @live: ' + reqs.join(' '));
+    await lp.evaluate(() => HOST.start('flock'));
+    await lp.waitForFunction(() => HOST.curKey === 'flock', null, { timeout: 30000 }).catch(() => {});
+    const s = await lp.evaluate(() => HOST.collab.liveSound());
+    if (s.claimed) out.push('still claimed after the studio went: ' + JSON.stringify(s));
+    bad(out);
+  });
+  await lp.close();
 }
 // The studio's edit mode as fast as viewing (v136; the owner: "The edit mode still has worse framerates than not
 // editing, why?"; tools/studio/SPEC.md, "Editing without the cost"), on a page of its own at the test scene: what edit mode

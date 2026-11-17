@@ -545,6 +545,7 @@
       mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0, arcOff: '' });   // (arcOff: the arc left by hand, for this visit only)
     C.cardsOpen = false;   // (the page's Stories screen an All stories circle opened stays: in no room it is the landing page)
     C.pres.clear();
+    if (HOST.collab) liveLeave();   // (the room's live sound: unsubscribed with the socket, its decoder and node gone, any claim let go)
     R.left();
     HOST.audio.zone(null);
     if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('leave');   // (this headset's own narration in the room goes with it)
@@ -577,6 +578,7 @@
       // a relay that does not answer as the room is joined: the room goes on, peer to peer or on this device (closed)
       if (!C.welcomed) C.openTimer = setTimeout(() => { if (C.ws !== ws || C.welcomed || ws.readyState !== 0) return; log('no answer', {}); drop('no answer'); }, 6000);
     }
+    if (C.via === 'relay') ws.binaryType = 'arraybuffer';   // (the room's live sound comes as binary frames: liveIn, v162)
     C.ws = ws; C.status = 'connecting'; C.heard = clock();
     log('connect', { code: C.code, via: C.via });
     wire(ws);
@@ -593,6 +595,7 @@
     ws.onmessage = ev => {
       if (C.ws !== ws) return;
       C.heard = clock();
+      if (typeof ev.data !== 'string') { liveIn(ev.data); return; }   // (a frame of the room's live sound, never JSON: v162)
       let m = null;
       try { m = JSON.parse(ev.data); } catch (e) { /* not JSON */ }
       if (m && m.t) recv(m);
@@ -2289,6 +2292,11 @@
       if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
     } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
     } else if (m.k === '@osc') { if (!m.by && OUT.on && HOST.out && HOST.out.oscFx) { try { HOST.out.oscFx(m.v); } catch (e) { log('osc in failed', { e: e && e.message }); } }   // (the relay's OSC in and its status: the shell's, never a story's, only the output page's)
+    } else if (m.k === '@snd') {   // (the room's live sound, the relay's own (v162): its status for the output page, else a stream announced or stopped)
+      if (!m.by && m.v && typeof m.v === 'object') {
+        if (m.v.st) { if (OUT.on && HOST.out && HOST.out.sndFx) { try { HOST.out.sndFx(m.v.st); } catch (e) { log('snd status failed', { e: e && e.message }); } } }
+        else liveFx(m.v);
+      }
     } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
     } else if (m.k === 'q.reload') { reloadIn(m.v, m.by);   // Update the room: this device reloads in its turn (v136)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
@@ -3333,6 +3341,7 @@
     if (t - C.pumpAt > 1500) C.busy = clock();   // (this page was busy, or hidden: nothing heard meanwhile is no sign of silence)
     C.pumpAt = t;
     attachCheck();
+    if (HOST.collab) liveStep();   // (the room's live sound: subscribed or not, v162; not while this file is still being read)
     // (in no room, with the dialog or the menu open: the rooms on this network looked for again now and then)
     if (!C.code) { if ((C.listing.dialog || (C.listing.menu && HOST.session)) && C.nearAt && t - C.nearAt > 15000 && !C.nearBusy) nearFind('again'); return; }
     if (C.local) probe(t);
@@ -4972,6 +4981,13 @@
         y += 76;
         button(S, 'sfxvol', x, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
         ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'Volume and Narration: this headset\'s own (until the lobby); Sound effects: the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
+        y += 76;
+      }
+      // the room's live sound (v162: from the output page; this headset's own, each press the next of auto, on, off)
+      if (C.code) {
+        const la = liveAvail();
+        button(S, 'live', x, y, bw, 60, "Room's live sound: " + LV.mode, la ? () => setLiveMode(liveNext()) : null, { px: 22, on: la && LV.mode !== 'off', dis: !la });
+        ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, la ? LIVE_SHORT[LV.mode] + (liveSound().playing ? ': playing now' : '') : 'Rooms on a relay only', x + bw + 16, y + 2, bw, 28, 2);
         y += 76;
       }
       // the design room and the studio, side by side: outside a room each opens (the props table, your own scenes); in a
@@ -11824,6 +11840,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     add('sound', mu ? 'Sound: off' : 'Sound: on', !mu, () => (HOST.audio.mute ? HOST.audio.mute(!mu) : HOST.audio.toggle()));
     if (HOST.xr.setVoice) { const vo = !HOST.xr.voice || HOST.xr.voice(); add('voice', vo ? 'Narration: on' : 'Narration: off', vo, () => HOST.xr.setVoice(!vo)); }
     if (HOST.sfx) { const so = HOST.sfx.on(); add('sfx', so ? 'Sound effects: on' : 'Sound effects: off', so, () => HOST.sfx.set(!so)); }
+    if (C.code) { const la = liveAvail(); add('live', "Room's live sound: " + LV.mode, la && LV.mode !== 'off', la ? () => setLiveMode(liveNext()) : null, { wide: true, note: la ? LIVE_SHORT[LV.mode] : 'Rooms on a relay only' }); }   // (v162: from the output page)
     const su = HOST.xr.subs();
     add('subs', su ? 'Subtitles: on' : 'Subtitles: off', su, () => HOST.xr.setSubs(!su));
     if (HOST.slides) { const sl = !!HOST.slides.global(); add('slides', sl ? 'Slideshow: on' : 'Slideshow: off', sl, () => HOST.slides.setGlobal(!sl)); }
@@ -11964,6 +11981,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'camera') { camStart('dialog'); return; }   // (camera mode: within this tap, as Enter AR)
       else if (act === 'pcam') { pcStart('dialog'); return; }   // (the desktop preview camera)
       else if (act === 'output') { if (OUT.on) outStop('dialog'); else outStart('dialog'); return; }   // (the output page: MIDI and OSC)
+      else if (act === 'live') setLiveMode(liveNext());   // (the room's live sound here: auto, on, off)
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
@@ -12146,6 +12164,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         (pcOffered() && !HOST.session ? `<div class="row sh-pcam"><button class="btn primary" type="button" data-sh="pcam">Preview camera</button><span>Show this room on this screen from one fixed spot, as the headsets see it, for a TV or a projector. ${esc(pcamLine())}</span></div>` : '') +
         // the output page (MIDI and OSC): this page sends and takes MIDI (Web MIDI) and, through the relay, OSC for the room
         (outOffered() && !HOST.session ? `<div class="row sh-outp"><button class="btn${OUT.on ? '' : ' primary'}" type="button" data-sh="output"${OUT.busy ? ' disabled' : ''}>${OUT.on ? 'Stop the output page' : 'Output page (MIDI and OSC)'}</button><span>${OUT.on ? 'This page is the room\'s output page.' : 'Make this page the room\'s output page: it sends what happens in the studio (cubes walked into, presses, sequences, people, trackers) as MIDI and OSC to music and light software on this computer, and takes MIDI and OSC back in. Chrome or Edge, on a laptop or the room\'s PC.'}${OUT.err ? ' ' + esc(OUT.err) : ''}</span></div>` : '') +
+        // the room's live sound here (v162: this device's own; each press the next of auto, on, off), never on the output page
+        (C.code && !OUT.on ? `<div class="row sh-live"><button class="btn" type="button" data-sh="live"${liveAvail() ? '' : ' disabled'}>Room's live sound: ${LV.mode}</button><span>${esc(LIVE_NOTE[LV.mode])}. ${esc(liveState())}.</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       const nin = $('#shRoomName'), nrow = $('.sh-name');
       if (nin) {
@@ -12508,6 +12528,189 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     try { C.ws.send(buf); return true; } catch (e) { return false; }
   }
 
+  // ============================================== live sound: hearing ==
+  // (v162, tools/output/SPEC.md "v162" 3b) The room's live sound: the output page streams one sound input of its computer
+  // through the relay as Opus frames (binary, a 16-byte header: tag, ch, sid, seq, at). A device that wants it (liveWant:
+  // never the output page, never while its Sound button is off; 'auto' when it is elsewhere, not in the room) subscribes
+  // (snd-sub), decodes with WebCodecs' AudioDecoder and plays through the shell's one context (HOST.audio.fx(); never a
+  // context of its own) with a 0.25 s jitter buffer into one GainNode, LV.out: to the destination at LIVE_LEVEL, or to a
+  // studio item that claims it (liveClaim: heard from where it stands). This device's own setting ('liveSound' in
+  // localStorage), never in state(); not a story's background: the owner asked for it, and it plays only while the output
+  // page streams
+  const LIVE_LEVEL = 0.8, LIVE_AHEAD = 0.25, LIVE_MIN = 0.03, LIVE_MAX = 0.6, LIVE_MODES = ['auto', 'on', 'off'];
+  const LV = { mode: 'auto', sub: false, subWs: null, on: false, sid: 0, cfg: null, by: '', kbps: 0, dec: null, gen: 0, ctx: null, out: null, gt: -1, claim: '', claimKey: '', next: 0, anchor: null,
+    seq: -1, ats: new Map(), frames: 0, lost: 0, late: 0, skipped: 0, level: 0, lagMs: 0, heardAt: 0, why: '', cant: '', sig: '' };
+  try { const m = localStorage.getItem('liveSound'); if (LIVE_MODES.includes(m)) LV.mode = m; } catch (e) { /* storage blocked: auto */ }
+  const LIVE_CANT = 'This browser cannot play the room\'s live sound.';
+  // (a room on a relay that knows live sound: never peer to peer, on this device or an old relay)
+  const liveAvail = () => !!(C.code && C.via === 'relay' && C.snd);
+  function liveWant() {
+    if (OUT.on || !liveAvail() || LV.cant || LV.mode === 'off' || HOST.audio.muted) return false;
+    return LV.mode === 'on' || !here();
+  }
+  // (from the pump, at most 5 times a second, in a room or not): subscribed or not, again on each new socket (a reconnect
+  // starts unsubscribed), a claim of a story no longer on show let go, the fade while muted
+  function liveStep() {
+    const want = liveWant(), open = !!(C.ws && C.ws.readyState === 1 && C.status === 'open' && C.via === 'relay');
+    if (LV.sub && LV.subWs !== C.ws) { LV.sub = false; LV.subWs = null; liveDrop('', false); }   // (another socket: the stream is announced again on it)
+    if (want && open && !LV.sub) { if (send({ t: 'snd-sub', on: true })) { LV.sub = true; LV.subWs = C.ws; } }
+    else if (!want && LV.sub) { if (open) send({ t: 'snd-sub', on: false }); LV.sub = false; LV.subWs = null; liveDrop('', true); }
+    if (LV.claim && LV.claimKey !== (HOST.curKey || '')) liveRelease(LV.claim);
+    liveGain();
+    const s = liveSound(), sig = [s.want, s.on, s.playing, s.why, s.avail].join('|');
+    if (sig !== LV.sig) { LV.sig = sig; if (C.code) changed(); }   // (the dialog's and the menu's line)
+  }
+  // the decoder and the schedule go (a stream stopped, another socket); nodes: LV.out and any claim too (unsubscribed, left)
+  function liveDrop(why, nodes) {
+    LV.gen++;
+    if (LV.dec) { try { if (LV.dec.state !== 'closed') LV.dec.close(); } catch (e) { /* closed */ } }
+    Object.assign(LV, { dec: null, on: false, sid: 0, cfg: null, by: '', kbps: 0, anchor: null, seq: -1, level: 0, lagMs: 0 });
+    LV.ats.clear();
+    if (typeof why === 'string') LV.why = ['', 'stopped', 'gone', 'taken'].includes(why) ? '' : why.slice(0, 120);
+    if (nodes) {
+      if (LV.out) try { LV.out.disconnect(); } catch (e) { /* gone */ }
+      Object.assign(LV, { out: null, ctx: null, gt: -1, claim: '', claimKey: '' });
+    }
+  }
+  function liveLeave() { LV.sub = false; LV.subWs = null; liveDrop('', true); LV.sig = ''; }
+  // the relay's @snd for a member: a stream announced (its cfg) or stopped
+  function liveFx(v) {
+    if (!v || typeof v !== 'object') return;
+    if (v.on === true) {
+      const cfg = v.cfg, sid = v.sid;
+      if (!Number.isInteger(sid) || sid < 1 || sid > 65535 || !cfg || typeof cfg !== 'object' || cfg.codec !== 'opus' || ![8000, 12000, 16000, 24000, 48000].includes(cfg.sampleRate) || ![1, 2].includes(cfg.numberOfChannels)) return;
+      liveDrop('', false);
+      Object.assign(LV, { on: true, sid, by: typeof v.by === 'string' ? v.by.slice(0, 40) : '', kbps: Number.isFinite(v.kbps) ? Math.round(v.kbps) : 0 });
+      const c = { codec: 'opus', sampleRate: cfg.sampleRate, numberOfChannels: cfg.numberOfChannels };
+      if (typeof cfg.description === 'string' && cfg.description && cfg.description.length <= 512) {
+        try { c.description = Uint8Array.from(atob(cfg.description), ch => ch.charCodeAt(0)); } catch (e) { return; }
+      }
+      LV.cfg = c;
+      if (typeof AudioDecoder === 'undefined' || typeof EncodedAudioChunk === 'undefined') { LV.cant = LV.why = LIVE_CANT; log('live sound: no AudioDecoder'); return; }
+      const gen = LV.gen;
+      const go = () => {
+        if (gen !== LV.gen) return;
+        try {
+          const dec = new AudioDecoder({ output: d => liveOutData(d, dec), error: e => { log('live sound: decoder failed', { e: e && e.message }); if (LV.dec === dec) { LV.dec = null; LV.anchor = null; } } });
+          dec.configure(c);
+          LV.dec = dec;
+        } catch (e) { LV.cant = LV.why = LIVE_CANT; log('live sound: decoder refused', { e: e && e.message }); }
+      };
+      if (AudioDecoder.isConfigSupported) AudioDecoder.isConfigSupported(c).then(r => { if (gen !== LV.gen) return; if (r && r.supported) go(); else { LV.cant = LV.why = LIVE_CANT; log('live sound: cfg not supported'); } }, () => go());
+      else go();
+    } else if (v.on === false && v.sid === LV.sid) liveDrop(typeof v.why === 'string' ? v.why : '', false);
+  }
+  // a binary frame from the relay: checked, gaps counted (the decoder simply goes on), decoded
+  function liveIn(buf) {
+    if (buf && ArrayBuffer.isView(buf)) buf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    if (!(buf instanceof ArrayBuffer) || buf.byteLength < 17 || buf.byteLength > 4016) return;
+    const dv = new DataView(buf);
+    if (dv.getUint8(0) !== 1 || !LV.on || dv.getUint16(2) !== LV.sid) return;
+    const seq = dv.getUint32(4), at = dv.getFloat64(8);
+    if (LV.seq >= 0 && seq <= LV.seq) return;   // (late or twice: the schedule has moved on)
+    if (LV.seq >= 0 && seq > LV.seq + 1) LV.lost += seq - LV.seq - 1;
+    LV.seq = seq; LV.frames++;
+    const dec = LV.dec;
+    if (!dec || dec.state !== 'configured') return;   // (still being set up: this frame missed)
+    if (LV.ats.size > 200) LV.ats.clear();
+    LV.ats.set(seq, at);
+    try { dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: seq, data: new Uint8Array(buf, 16) })); } catch (e) { LV.lost++; }
+  }
+  // the node everything plays into, on the shell's context (made again on a new one): to the destination unless claimed
+  function liveNode() {
+    const ctx = HOST.audio && HOST.audio.fx ? HOST.audio.fx() : null;
+    if (!ctx || (LV.out && LV.ctx === ctx)) return LV.out;
+    if (LV.out) { try { LV.out.disconnect(); } catch (e) { /* gone */ } LV.claim = ''; LV.claimKey = ''; }   // (a claim on the old context goes with it)
+    try {
+      const g = ctx.createGain();
+      g.gain.value = 0; LV.gt = -1;
+      g.connect(ctx.destination);
+      Object.assign(LV, { out: g, ctx, anchor: null });
+      liveGain();
+    } catch (e) { LV.out = null; LV.ctx = null; }
+    return LV.out;
+  }
+  // its level: 0 while this device's Sound button is off (a 0.1 s fade; not Sound effects, not Narration), 1 for a claimer
+  // (it has its own gain), else LIVE_LEVEL
+  function liveGain() {
+    if (!LV.out) return;
+    const tg = HOST.audio.muted ? 0 : LV.claim ? 1 : LIVE_LEVEL;
+    if (tg === LV.gt) return;
+    LV.gt = tg;
+    try { LV.out.gain.setTargetAtTime(tg, LV.out.context.currentTime, 0.03); } catch (e) { /* closed */ }
+  }
+  // a story's item that plays it from where it stands (the studio): the link to the destination cut, the claimer links
+  // liveNode() to its own nodes; only the claimer releases (the shell does too: leaving, another story)
+  function liveClaim(owner) {
+    if (typeof owner !== 'string' || !owner) return false;
+    const out = liveNode();
+    if (!out) return false;
+    if (LV.claim !== owner) { try { out.disconnect(out.context.destination); } catch (e) { /* not linked */ } }
+    LV.claim = owner.slice(0, 24); LV.claimKey = HOST.curKey || '';
+    liveGain();
+    return true;
+  }
+  function liveRelease(owner) {
+    if (!LV.claim || owner !== LV.claim) return false;
+    LV.claim = ''; LV.claimKey = '';
+    if (LV.out) { try { LV.out.disconnect(); LV.out.connect(LV.out.context.destination); } catch (e) { /* closed */ } }   // (the claimer's own link goes too)
+    liveGain();
+    return true;
+  }
+  // a decoded frame: copied to an AudioBuffer on the shell's context and scheduled LIVE_AHEAD behind, each next one at the end
+  // of the one before; one due too soon or too far ahead moves the schedule back to LIVE_AHEAD (late)
+  function liveOutData(d, dec) {
+    try {
+      const ctx = HOST.audio && HOST.audio.fx ? HOST.audio.fx() : null, at = LV.ats.get(d.timestamp);
+      LV.ats.delete(d.timestamp);
+      if (dec !== LV.dec || !ctx) { LV.skipped++; return; }   // (no context: dropped, nothing kept)
+      const out = liveNode();
+      if (!out) { LV.skipped++; return; }
+      const n = d.numberOfFrames, nc = Math.max(1, Math.min(2, d.numberOfChannels)), b = ctx.createBuffer(nc, n, d.sampleRate);
+      let sum = 0;
+      for (let c = 0; c < nc; c++) {
+        const f = new Float32Array(n);
+        try { d.copyTo(f, { planeIndex: c, format: 'f32-planar' }); } catch (e) {
+          // (a decoder that gives interleaved samples only: taken apart here)
+          const all = new Float32Array(n * d.numberOfChannels);
+          d.copyTo(all, { planeIndex: 0 });
+          for (let i = 0; i < n; i++) f[i] = all[i * d.numberOfChannels + c];
+        }
+        b.copyToChannel(f, c);
+        if (c === 0) for (let i = 0; i < n; i++) sum += f[i] * f[i];
+      }
+      LV.level = LV.level * 0.8 + Math.min(1, Math.sqrt(sum / Math.max(1, n))) * 0.2;
+      const t = ctx.currentTime;
+      if (LV.anchor !== ctx) { LV.next = t + LIVE_AHEAD; LV.anchor = ctx; }
+      else if (LV.next < t + LIVE_MIN || LV.next > t + LIVE_MAX) { LV.next = t + LIVE_AHEAD; LV.late++; }
+      const src = ctx.createBufferSource();
+      src.buffer = b; src.connect(out); src.start(LV.next);
+      src.onended = () => { try { src.disconnect(); } catch (e) { /* gone */ } };
+      if (Number.isFinite(at)) LV.lagMs = Math.round(now() - at + (LV.next - t) * 1000);
+      LV.next += b.duration; LV.heardAt = performance.now();
+    } finally { try { d.close(); } catch (e) { /* closed */ } }
+  }
+  function liveSound() {
+    return { mode: LV.mode, want: liveWant(), on: LV.on, playing: LV.heardAt > 0 && performance.now() - LV.heardAt < 500, level: Math.round(LV.level * 1000) / 1000, lagMs: LV.lagMs,
+      frames: LV.frames, lost: LV.lost, late: LV.late, skipped: LV.skipped, src: LV.cfg ? 'cfg' : '', by: LV.by, claimed: LV.claim, why: LV.why, avail: liveAvail(), sub: LV.sub };
+  }
+  function setLiveMode(m) {
+    if (!LIVE_MODES.includes(m) || m === LV.mode) return;
+    LV.mode = m;
+    try { localStorage.setItem('liveSound', m); } catch (e) { /* storage blocked */ }
+    liveStep(); changed();
+  }
+  // the settings rows' words (the Shared dialog, the headset menu, the phone sheet)
+  const LIVE_NOTE = { auto: 'Plays here when this device is elsewhere, not in the room', on: 'Plays here even in the room', off: 'Never plays here' };
+  const LIVE_SHORT = { auto: 'Plays when you are elsewhere', on: 'Plays even in the room', off: 'Never plays' };
+  const liveNext = () => LIVE_MODES[(LIVE_MODES.indexOf(LV.mode) + 1) % LIVE_MODES.length];
+  function liveState() {
+    if (!liveAvail()) return C.via === 'relay' && C.status === 'open' ? 'Not available: this relay is too old for live sound' : 'Not available: rooms on a relay only';
+    if (LV.cant) return LV.cant;
+    const s = liveSound();
+    return s.playing ? 'Playing now' : s.on ? (s.want ? 'Starting...' : 'The output page is streaming') : 'The output page is not streaming';
+  }
+
   HOST.collab = {
     get id() { return C.id; }, get code() { return C.code; }, get joined() { return !!C.code; }, get status() { return C.status; },
     get relay() { return C.relay; }, get members() { return C.members; }, get name() { return C.name; }, get color() { return C.color; },
@@ -12763,6 +12966,9 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     osc: msgs => osc(msgs), oscCfg: o => oscCfg(o), oscPing: () => oscPing(), persons: () => persons(),
     sndCan: () => sndCan(), sndWhy: () => sndWhy(), sndStart: (cfg, kbps) => sndStart(cfg, kbps), sndStop: () => sndStop(), sndSend: (seq, at, ch, bytes) => sndSend(seq, at, ch, bytes),
     presIn: (id, v) => onFx({ t: 'fx', k: 'p.' + id, v, by: id }),
+    // the room's live sound, heard here (v162: "live sound: hearing"); liveIn and liveFx for tests
+    liveSound: () => liveSound(), liveMode: () => LV.mode, setLiveMode: m => setLiveMode(m), liveNode: () => liveNode(),
+    liveClaim: owner => liveClaim(owner), liveRelease: owner => liveRelease(owner), liveIn: buf => liveIn(buf), liveFx: v => liveFx(v),
     // a phone's AR session (v125): its menu button and sheet ({ ar, shown, overlaid, button, open, sheet, menu, rect, rows }),
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },

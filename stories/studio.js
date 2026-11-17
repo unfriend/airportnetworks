@@ -21665,8 +21665,12 @@ const STU = {
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
   keyPick: '',   // (a cube picking the item it reacts to, its key: v140)
+  livePick: '',   // (a live sound whose card lists the scene's sounds, to be a file again: v162)
   trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
 };
+// a sound whose source is the room's live sound (v162: tools/output/SPEC.md "v162" 5), streamed by the output page: a
+// reserved name no upload can make (no folder, no sound extension), never fetched or decoded (liveEmit)
+const LIVE_FILE = '@live', isLive = it => !!(it && it.kind === 's' && it.rec.file === LIVE_FILE);
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
 const fin = v => typeof v === 'number' && isFinite(v);
@@ -21755,7 +21759,8 @@ function norm(kind, x, id) {
     // an offset with no object is dropped, whatever it is (checked only with an object)
     const on = has('on'), o = on && has('o') ? vecOf(x.o, 3, 1000) : null;
     if (on && (!okId(x.on) || (has('bone') && typeof x.bone !== 'string') || (has('o') && !o))) return null;
-    const r ={ name: name(stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
+    const live = x.file === LIVE_FILE;
+    const r ={ name: name(live ? 'Live sound' : stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
       loop: has('loop') ? x.loop : true, start: one('start', ['always', 'shown'], 'always') };
     if (on) {
       r.on = x.on;
@@ -21767,7 +21772,7 @@ function norm(kind, x, id) {
     // a voice recorded with an item's movement (v125, e6j_voice.js), kept only when set: the item whose recorded path it
     // plays with (sync: its id), where in its file that path's start is (skip: s, -10 to 600, to the ms; 0 none) and how
     // long of it plays (len: s, to 600, to the ms); a skip or a len without sync is dropped
-    if (x.sync != null) {
+    if (x.sync != null && !live) {   // (a live sound plays with nothing: sync, skip and len dropped)
       if (!okId(x.sync) || (has('skip') && !fin(x.skip)) || (has('len') && !(fin(x.len) && x.len > 0))) return null;
       r.sync = x.sync;
       const sk = has('skip') ? nz(r3(clamp(x.skip, -10, 600))) : 0;
@@ -22020,12 +22025,13 @@ function applyRec(it, was, glide) {
 }
 // the file an item uses (once the scene's listing is known)
 function itemFile(it) {
+  if (isLive(it)) { it.F = null; return; }   // (the room's live sound: no file)
   if (STU.listing !== 'ok') return;
   if (it.kind === 'o') {
     const E = lib(it.rec.file);
     if (it.E !== E) { dropModel(it); libRelease(it.E, it.id); it.E = E; }
     E.users.add(it.id);
-  } else if (it.kind === 's') it.F = snd(it.rec.file);
+  } else if (it.kind === 's') it.F = isLive(it) ? null : snd(it.rec.file);   // (a live sound: no file, liveEmit)
 }
 function dropModel(it) {
   if (!it.model) return;
@@ -22869,7 +22875,7 @@ function emitStep(now) {
     if (ctx) for (const it of STU.items.values()) if (it.st && it.st.ctx !== ctx) streamDrop(it);
     sndForget(); EM.ctx = ctx;
   }
-  if (!ctx) return;
+  if (!ctx) { liveEmit(null, now); return; }
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
   let any = false;
   for (const it of STU.items.values()) {
@@ -22895,12 +22901,67 @@ function emitStep(now) {
     if (it.pan.refDistance !== it.rec.r) it.pan.refDistance = it.rec.r;
     if (want <= 0.0005) { if (!it.zeroAt) it.zeroAt = now; if (now - it.zeroAt > 700) emitStop(it); } else it.zeroAt = 0;
   }
+  if (liveEmit(ctx, now)) any = true;   // (the room's live sound from the nearest live item)
   // the listener: your head in a headset, the camera on a page
   if (any) {
     if (XR.on && GL.renderer.xr.isPresenting) { _ep.copy(XR.head); _eq.copy(XR.headQ); } else { GL.camera.getWorldPosition(_ep); GL.camera.getWorldQuaternion(_eq); }
     listen(ctx, _ep, _eq);
     EM.lis = true;
   }
+}
+// The room's live sound (v162, tools/output/SPEC.md "v162" 5): a sound whose file is '@live' plays the stream the output
+// page sends (shared.js "live sound: hearing"), from where it stands. The shown live item nearest the listener (switching
+// only when another is 0.5 m nearer) claims the shell's node (HOST.collab.liveClaim('studio')): its own gain (vol, its fades
+// as other emitters') and an HRTF panner as emitStart's. Every other live item is silent; with none shown, the scene not on
+// show, away, another context or dispose, the claim is let go (liveRelease) and the stream plays everywhere at the shell's
+// fixed level. Muted: the shell's node is at 0 already, so no mute of its own. Who hears it at all is the shell's (liveWant)
+const LIVE = { id: '', node: null, lv: null };   // (the claimer, the shell's node it is linked to, its nodes: kept here too, so an item gone without emitStop leaves nothing linked)
+const _lp = new THREE.Vector3(), _lq = new THREE.Vector3();
+function liveOff() {
+  const lv = LIVE.lv, it = STU.items.get(LIVE.id);
+  if (lv) {
+    if (LIVE.node) try { LIVE.node.disconnect(lv.g); } catch (e) { /* not linked */ }
+    for (const n of [lv.g, lv.p]) try { n.disconnect(); } catch (e) { /* gone */ }
+  }
+  if (it) it.lv = null;
+  if (LIVE.id || LIVE.node) { try { if (HOST.collab && HOST.collab.liveRelease) HOST.collab.liveRelease('studio'); } catch (e) { /* an older shell */ } }
+  LIVE.id = ''; LIVE.node = null; LIVE.lv = null;
+}
+// each frame (from emitStep; ctx null: everything let go); true while a live item plays (the listener is set then)
+function liveEmit(ctx, now) {
+  const Co = HOST.collab, node = ctx && Co && Co.liveNode ? Co.liveNode() : null;
+  if (!ctx || !node || node.context !== ctx || GL.gone || !STU.scene || APP.mode !== 'explore' || AWAY.st >= 1) { if (LIVE.id || LIVE.node) liveOff(); return false; }
+  if (XR.on && GL.renderer.xr.isPresenting) _lq.copy(XR.head); else GL.camera.getWorldPosition(_lq);
+  let best = null, bd = Infinity, cd = Infinity;
+  for (const it of STU.items.values()) {
+    if (!isLive(it) || !it.heard || !(it.fa > 0.0005)) continue;
+    it.holder.getWorldPosition(_lp);
+    const d = _lp.distanceTo(_lq);
+    if (it.id === LIVE.id) cd = d;
+    if (d < bd) { bd = d; best = it; }
+  }
+  if (best && LIVE.id && best.id !== LIVE.id && cd < Infinity && bd > cd - 0.5) best = STU.items.get(LIVE.id);   // (a handover only 0.5 m nearer)
+  if (!best) { if (LIVE.id || LIVE.node) liveOff(); return false; }
+  if (best.id !== LIVE.id || node !== LIVE.node || !best.lv) {
+    liveOff();
+    try {
+      const g = ctx.createGain(), p = ctx.createPanner();
+      g.gain.value = 0;
+      p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = best.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
+      best.holder.getWorldPosition(_lp); setPos(p, _lp);
+      g.connect(p); p.connect(ctx.destination);
+      if (!Co.liveClaim('studio')) { for (const n of [g, p]) try { n.disconnect(); } catch (e) { /* gone */ } return false; }
+      node.connect(g);
+      best.lv = LIVE.lv = { g, p, gt: -1 };
+      LIVE.id = best.id; LIVE.node = node;
+    } catch (e) { liveOff(); return false; }
+  }
+  const lv = best.lv, tg = trgSound(best), want = best.fa * best.rec.vol * (tg == null ? 1 : tg);
+  if (lv.gt !== want) { try { lv.g.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } lv.gt = want; }
+  best.holder.getWorldPosition(_lp);
+  setPos(lv.p, _lp);
+  if (lv.p.refDistance !== best.rec.r) lv.p.refDistance = best.rec.r;
+  return true;
 }
 function setPos(n, p) {
   try { if (n.positionX) { n.positionX.value = p.x; n.positionY.value = p.y; n.positionZ.value = p.z; } else n.setPosition(p.x, p.y, p.z); } catch (e) { /* an old engine */ }
@@ -22951,6 +23012,7 @@ function emitStart(it, ctx, buf, now, want) {
 }
 // stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
 function emitStop(it, drop) {
+  if (it.lv || (LIVE.id && LIVE.id === it.id)) liveOff();   // (the live item playing: its nodes go, the stream plays everywhere again until it claims once more)
   const s = it.src;
   if (it.st) {
     if (s) { it.src = null; try { it.st.gain.gain.setValueAtTime(0, it.st.ctx.currentTime); } catch (e) { /* closed */ } try { it.st.el.pause(); } catch (e) { /* gone */ } }
@@ -23033,7 +23095,7 @@ function streamDrop(it) {
   try { S.el.pause(); S.el.removeAttribute('src'); S.el.load(); } catch (e) { /* gone */ }
   for (const n of [S.node, S.gain, S.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
 }
-function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
+function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); if (drop) liveEmit(null, 0); }
 
 // ---------------------------------------------------------------- away --
 // While this headset is away from the studio's station (in the lobby: xrAway) the frame idles after a second (e8_xr.js), so
@@ -23066,7 +23128,7 @@ function awayFree() {
 function awayWake() {
   AWAY.freed = false; AWAY.wakes++;
   for (const E of LIB.values()) if (E.users.size && E.state === 'idle' && STU.fileMap.has(E.path)) libLoad(E);
-  for (const it of STU.items.values()) if (it.kind === 's') it.F = snd(it.rec.file);   // (decoded again as it is wanted)
+  for (const it of STU.items.values()) if (it.kind === 's') it.F = isLive(it) ? null : snd(it.rec.file);   // (decoded again as it is wanted)
   STU.libRev++; dirty();
 }
 function awayStep() {
@@ -23268,6 +23330,15 @@ function addSound(path) {
   sfxAct('place', 'world', null);
   return id;
 }
+// a sound that plays the room's live sound (v162): the output page's stream, from where it stands
+function addLive() {
+  if (!canAdd('s')) return '';
+  const at = frontAt(), id = newId();
+  change(() => putItem(id, 's', norm('s', { name: nameFor('Live sound'), file: LIVE_FILE, p: [at[0], 1.2, at[1]] })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
 function addCube() {
   if (!canAdd('c')) return '';
   const at = frontAt(), id = newId();
@@ -23403,6 +23474,14 @@ const ITEM_ACT = {
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   loop: (it, v) => setRec(it.id, { loop: v === 'on' }),
+  // a sound's source (v162): the room's live sound, or a file again (the one it had, kept in memory only, or one picked
+  // from the scene's sounds on its card: livePick)
+  live: (it, v) => {
+    if (it.kind !== 's') return;
+    if (v === 'on' && !isLive(it)) { it.lastFile = it.rec.file; STU.livePick = ''; setRec(it.id, { file: LIVE_FILE }); }
+    else if (v === 'off' && isLive(it)) { if (it.lastFile && STU.fileMap.has(it.lastFile)) setRec(it.id, { file: it.lastFile }); else STU.livePick = STU.livePick === it.id ? '' : it.id; }
+  },
+  liveFile: (it, path) => { STU.livePick = ''; if (it.kind === 's' && typeof path === 'string' && path !== LIVE_FILE && STU.fileMap.has(path)) setRec(it.id, { file: path }); },
   // a sound: what it follows, from where it is now (an object, then one of its bones; a shape or an empty; the offset
   // worked out here), onto it (no offset), or nothing (where it is now); picking it by pointing (followPick), the card's
   // list of bones
@@ -32890,7 +32969,7 @@ function paneBlocks(tab) {
       { page: true, p: `GLB loads faster and sits right without guessing; ${texKindWords()} (Textures, under Upload). ` + (canUpload() ? 'Each goes into models/, and what is placed from it switches to it.' : 'Without a relay that takes uploads, each is downloaded.'), c: 'faint' });
     else if (XR.on && conv.length) B.push({ p: `${conv.length} model${conv.length === 1 ? '' : 's'} could be converted to GLB (faster to load): convert on a laptop, under Add or Upload.`, c: 'faint' });
     if (CV.note && !XR.on) B.push({ page: true, p: CV.note, c: CV.noteC });
-    B.push({ label: `Sounds (${L.sounds.length})`, list: L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') })) });
+    B.push({ label: `Sounds (${L.sounds.length})`, list: [{ id: 'addlive', label: 'Live sound (from the output page)', sub: 'the room\'s live sound, from where it stands', act: 'addlive', dis: full('s') }].concat(L.sounds.map(f => ({ id: 'adds:' + f.path, label: f.path, sub: mb(f.bytes) + (SND.get(f.path) && SND.get(f.path).stream ? ' · streamed' : ''), act: 'adds', v: f.path, dis: full('s') }))) });
     if (!L.sounds.length) B.push({ p: 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'faint' });
     if (L.orig.length) {
       B.push({ row: [{ id: 'orig', label: `Originals (${L.orig.length}) ${X.orig ? '▾' : '▸'}`, act: 'orig', on: X.orig }] });
@@ -32996,6 +33075,7 @@ function itemSub(it) {
   if (it.kind === 'd') return paintSub(r) + me;
   if (it.kind === 'q') return seqSub(r) + (r.sync === 'own' ? ' · each person' : '') + (r.locked ? ' · locked' : '');
   if (it.kind === 'e') { const n = followersOf(it.id).length; return 'empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : '') + me; }
+  if (isLive(it)) return 'Live sound' + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   if (it.kind === 's') return baseName(r.file) + ` · ${Math.round(r.vol * 100)} %` + (r.on ? ' · → ' + followWords(it) : '') + me;
   return `shows ${r.show.length}, hides ${r.hide.length}` + (r.mode === 'stay' ? ' · stays' : '') + (it.on === false ? ' · switched off' : '') + (it.act ? ' · active for you' : '');
 }
@@ -33034,7 +33114,7 @@ function itemCard(it, C) {
   else if (it.kind === 'd') { card.tile = { k: 'paint', col: paintCols(r)[0] || it.look.col, cols: paintCols(r) }; card.sub = paintSub(r) + (r.src ? ' · in a file' : ''); }
   else if (it.kind === 'q') { const P = seqEff(it), U = seqU(it, P, behNow()); card.tile = { k: 'seq', col: seqCol(r) }; card.sub = seqSub(r) + (U && U.playing ? ' · playing' : ''); state.unshift(r.sync === 'own' ? 'each person' : '', r.loop ? 'loops' : ''); }
   else if (it.kind === 'e') { const n = followersOf(it.id).length; card.tile = { k: 'empty', col: it.look.col }; card.sub = 'Empty' + (n ? ` · ${n} sound${n > 1 ? 's' : ''}` : ''); }
-  else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
+  else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(isLive(it) ? 'Live sound' : baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.on === false ? 'switched off' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
   if (r && r.stream) state.push(`streams ${r.stream.length}`);   // (v158: e6v_stream.js)
@@ -33188,6 +33268,9 @@ function itemBlocks(it, B, ed) {
     screenBlocks(it, B, dis, mv);   // (a screen: e6q_screens.js)
   } else if (it.kind === 'd') {
     paintingBlocks(it, B, dis, mv);   // (a painting: e6r_paint.js)
+  } else if (isLive(it)) {
+    liveBlocks(it, B, dis);   // (the room's live sound from the output page: v162)
+    pathBlocks(it, B, dis, mv);
   } else {
     const F = it.F;
     B.push({ h: r.name, sub: 'Sound' + hiddenSub(it, it.heard) }, { kv: [['File', r.file + (STU.fileMap.get(r.file) ? ' · ' + mb(STU.fileMap.get(r.file).bytes) : '')], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)], ['Plays', syncOf(it) ? `with ${syncOf(it).rec.name}'s recorded path` : (r.loop ? 'in a loop, ' : 'once, ') + (r.start === 'always' ? 'always' : 'when a cube shows it')],
@@ -33199,6 +33282,7 @@ function itemBlocks(it, B, ed) {
     else if (!(HOST.audio && HOST.audio.fx && HOST.audio.fx())) B.push({ p: 'No sound yet: tap anywhere, or turn on the Sound button.', c: 'faint' });
     else if (HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
     B.push({ p: 'Mono files place best: a stereo one is played from its point, mixed (Upload makes sounds mono).', c: 'faint' });
+    B.push({ label: 'Source', row: [{ id: 'live:on', label: 'Live sound: off', act: 'i:live', v: 'on', on: false, dis }] });
     B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
       { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] },
       { label: 'Plays', row: [{ id: 'loop:on', label: 'Loop', act: 'i:loop', v: 'on', on: r.loop, dis }, { id: 'loop:off', label: 'Once', act: 'i:loop', v: 'off', on: !r.loop, dis },
@@ -33485,6 +33569,7 @@ function act(a, v) {
     },
     orig: () => { X.orig = !X.orig; },
     adds: () => addSound(v),
+    addlive: () => addLive(),
     cube: () => addCube(),
     // (the room scan: e6p_scan.js; Save asks for the next frame of the AR session, editing on, never for a visitor)
     scanStart: () => { if (editOn() && !OPT.visit) scanStart(); },
@@ -34176,6 +34261,26 @@ function tcAttach() {
   const T = X.tcDrag && (tc.object === it.holder || (tc.object === TCP && TCP.userData.id === it.id)) ? tc.object : tcTarget(it);
   if (T === TCP) tcProxy(it);
   if (tc.object !== T) tc.attach(T);
+}
+
+// a sound whose source is the room's live sound (v162, tools/output/SPEC.md "v162" 5): the stream from the output page, from
+// where it stands; Source switches it back to a file (the one it had, else one picked from the scene's sounds)
+function liveBlocks(it, B, dis) {
+  const r = it.rec, ls = HOST.collab && HOST.collab.liveSound ? HOST.collab.liveSound() : null, many = [...STU.items.values()].filter(isLive).length > 1;
+  B.push({ h: r.name, sub: 'Live sound' + hiddenSub(it, it.heard) }, { kv: [['Source', 'Live sound: from the output page'], ['Volume', Math.round(r.vol * 100) + ' %'], ['Full volume within', metres(r.r)],
+    ['Follows', r.on ? followWords(it) + (r.o ? `, ${cmOrM(Math.hypot(...r.o))} from it` : ', on it') : 'nothing'], ['Now', !ls ? 'this page cannot play it' : ls.playing ? (LIVE.id === it.id ? 'playing from here' : 'playing, from another live sound') : ls.on ? 'the output page streams' : 'the output page is not streaming']] });
+  followBlocks(it, B, dis);
+  B.push({ p: 'Heard by devices elsewhere (their Room\'s live sound setting); silent while the output page is not streaming.', c: 'faint' });
+  if (many) B.push({ p: 'Only the nearest live sound plays.', c: 'muted' });
+  if (HOST.audio && HOST.audio.muted) B.push({ p: 'The Sound button is off on this device: nothing plays.', c: 'faint' });
+  B.push({ label: 'Source', row: [{ id: 'live:off', label: 'Live sound: on', act: 'i:live', v: 'off', on: true, dis }] });
+  if (STU.livePick === it.id) {
+    const L = sceneLists();
+    B.push({ p: L.sounds.length ? 'A file instead: pick one of the scene\'s sounds.' : 'No sounds in the scene\'s folder (.mp3, .ogg, .wav, .m4a...).', c: 'muted' });
+    if (L.sounds.length) B.push({ list: L.sounds.map(f => ({ id: 'livef:' + f.path, label: f.path, sub: mb(f.bytes), act: 'i:liveFile', v: f.path, dis })) });
+  }
+  B.push({ label: 'Volume', row: [{ id: 'vol:-', label: 'Quieter', act: 'i:vol', v: -1, dis }, { id: 'vol:+', label: 'Louder', act: 'i:vol', v: 1, dis }] },
+    { label: 'Full volume within', row: [{ id: 'reach:-', label: 'Nearer', act: 'i:reach', v: -1, dis }, { id: 'reach:+', label: 'Further', act: 'i:reach', v: 1, dis }] });
 }
 // ================================================================= UPLOAD ==
 // GLB first (tools/studio/SPEC.md, "GLB first, and converting" and "The upload page"). What the studio makes goes into
@@ -39871,6 +39976,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  live: () => ({ items: [...STU.items.values()].filter(isLive).map(it => it.id), claimer: LIVE.id, node: !!LIVE.node, pos: LIVE.lv ? [LIVE.lv.p.positionX ? LIVE.lv.p.positionX.value : 0, LIVE.lv.p.positionY ? LIVE.lv.p.positionY.value : 0, LIVE.lv.p.positionZ ? LIVE.lv.p.positionZ.value : 0] : null, gain: LIVE.lv ? LIVE.lv.gt : 0 }),   // (the room's live sound from a studio item: e6_items.js liveEmit)
   away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
   state: () => ({
@@ -39977,7 +40083,7 @@ const STUDIO = {
   get screenClock() { return screenClock; },
   set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
-  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
+  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || isLive(it) || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
   // (its since: the room's time for an everyone cube), and when it went in and out on the clock of what cubes start
   cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [], on: c.on !== false, raw: !!c.raw, by: c.offBy ? c.offBy.id : '', why: swWhy(c) } : null; },
