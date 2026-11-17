@@ -1756,6 +1756,18 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
+   - **Open problem: a studio circle made for one scene can come up empty (seen in v157's end-to-end round, not
+     fixed).** In a circle made with `addScene` ("Studio: <scene>"), where every device writes the scene's layout
+     itself, the room's state ended as `{ scene, settings }` with no items in five of eight runs, written by the headset
+     that walked in first, so every device showed an empty scene. A plain circle whose scene is picked on a page did not
+     show it. Worth fixing before scene circles are used with several headsets: `docs/agents/shared-rooms.md`, "Known
+     races".
+   - **glTF round trips: Blender and Unity (nice to have; the owner, 16 November 2026: "note all of this down as nice to
+     have for later").** Export a studio scene as one GLB (each item a node with its studio record in `extras`), edit it in
+     Blender, import it back by id; Unity scenes through UnityGLTF and the same import. `layout.json` keeps its own names
+     (its `p`, `q`, `s` already are glTF's translation, rotation, scale), so no layout file is rewritten. The standards
+     looked at, the decisions and rough costs (about 1.2 to 2M tokens for all three pieces): `docs/agents/studio.md`, "Nice
+     to have, later: glTF round trips (Blender, Unity)".
    - **Snapping in the studio (maybe later; the owner, 14 November 2026: "put snapping on the for later list for
      now").** As discussed: a setting of this device's own in the Scene pane while editing (never saved or shared): move
      off / 1 / 5 / 10 / 25 / 50 cm, turn off / 5 / 15 / 45 / 90 degrees, size off / 10 / 25 %, and a drop onto the floor
