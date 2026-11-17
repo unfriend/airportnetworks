@@ -1,4 +1,5 @@
-node_modules/
+node_modules
+.claude/worktrees/
 tools/lbi/shots/
 tools/lbi/data/*.json
 tools/lbi/data/airports_*
