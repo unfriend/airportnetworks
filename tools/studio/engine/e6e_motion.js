@@ -50,7 +50,10 @@ function normMotion(x) {
   if (!axis || !start) return null;
   const v = has('speed') ? x.speed : D.speed, a = has('amount') ? x.amount : D.amount;
   const rd = D.unit === 'deg' ? n => Math.round(n * 10) / 10 : D.unit === 'm' ? r3 : r2;
-  return { kind: x.kind, speed: (v < 0 ? -1 : 1) * clamp(r2(Math.abs(v)), 0.1, 600), amount: nz(clamp(rd(a), 0, D.max)), axis, start };
+  const m = { kind: x.kind, speed: (v < 0 ? -1 : 1) * clamp(r2(Math.abs(v)), 0.1, 600), amount: nz(clamp(rd(a), 0, D.max)), axis, start };
+  // (on the room's beat, v157: beats a period, kept only when set; anything but one of the steps makes it bad; e6u_send.js)
+  if (x.beat != null) { if (!BEATS.includes(x.beat)) return null; m.beat = x.beat; }
+  return m;
 }
 
 // ----------------------------------------------------------- the pipeline --
@@ -129,8 +132,9 @@ function drawnPose(it, now, clockS, out) {
   const mo = it.rec && it.rec.motion;
   if (mo) {
     // (a motion a cube starts: at rest until a run, then the run's moment, e6n_plays.js; else its own clock)
-    const tm = trgMotion(it, mo);
-    if (tm === undefined) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
+    const tm = trgMotion(it, mo), bt = tm === undefined ? motionBeatT(mo) : null;   // (on the room's beat while it has one: e6u_send.js)
+    if (bt !== null) out.premultiply(motionDelta(it, mo, bt, out, _mD));
+    else if (tm === undefined) out.premultiply(motionDelta(it, mo, motionTime(it, mo, now, clockS), out, _mD));
     else if (tm) out.premultiply(motionDelta(it, tm.mo, tm.t, out, _mD));
   }
   return out;
@@ -187,6 +191,7 @@ function motionBlocks(it, B, dis) {
   if (m.kind !== 'pulse') B.push({ label: 'Axis', row: [['y', 'Upright (y)'], ['x', 'Side to side (x)'], ['z', 'Front to back (z)']].map(([v, n]) => ({ id: 'maxis:' + v, label: n, act: 'i:maxis', v, on: m.axis === v, dis })) });
   B.push({ label: 'Starts', row: [{ id: 'mstart:always', label: 'Always', act: 'i:mstart', v: 'always', on: m.start === 'always', dis }, { id: 'mstart:shown', label: 'When shown', act: 'i:mstart', v: 'shown', on: m.start === 'shown', dis }] },
     { p: 'Drawn over where it stands: its place is not changed. Always: in step for everyone at a circle. When shown: from when a cube shows it to you. It keeps moving while selected, a ghost where it is placed; carried, it rests there, so it can be placed (Pause stands everything still).', c: 'faint' });
+  beatBlocks(it, B, dis);   // (on the room's beat: e6u_send.js)
   playNote(it, 'motion', B);   // (a cube that starts it: e6n_plays.js)
 }
 // the card's actions (one Undo step each): a kind (its own speed and amount, the axis and start kept; None takes it
@@ -198,7 +203,7 @@ Object.assign(ITEM_ACT, {
     const m = it.rec.motion, D = MOTION[v];
     if (!D) { setRec(it.id, { motion: undefined }); return; }
     if (m && m.kind === v) return;
-    setRec(it.id, { motion: { kind: v, speed: D.speed, amount: D.amount, axis: m ? m.axis : 'y', start: m ? m.start : 'always' } });
+    setRec(it.id, { motion: { kind: v, speed: D.speed, amount: D.amount, axis: m ? m.axis : 'y', start: m ? m.start : 'always', beat: m ? m.beat : undefined } });
   },
   mspeed: (it, d) => motionSet(it, m => ({ speed: (m.speed < 0 ? -1 : 1) * stepOf(MOTION_SPEEDS, Math.abs(m.speed), +d) })),
   mrev: it => motionSet(it, m => ({ speed: -m.speed })),

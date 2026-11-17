@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -392,6 +392,254 @@ async function trackerSteps() {
     ok(!/bad (datagram|reading)/.test(E.out.slice(at)), 'none of its datagrams or readings ignored');
     E.kill();
   });
+}
+
+// ---- OSC for the output page (--osc-out, --osc-in; relay/osc.mjs, tools/output/SPEC.md, Wire 3): the codec, a relay
+// sending to a UDP listener here and taking datagrams on its in port, the trackers as OSC. `node relay/test.mjs --osc`
+// runs only these (seconds)
+async function oscSteps() {
+  const dgram = await import('node:dgram');
+  const { encode, decode, checkMsg, parseTarget, parseIn } = await import('./osc.mjs');
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const str = s => { const b = Buffer.from(s, 'utf8'), o = Buffer.alloc((b.length + 4) & ~3); b.copy(o); return o; };
+  const i32 = v => { const b = Buffer.alloc(4); b.writeInt32BE(v); return b; };
+  const raw = (addr, tags, ...parts) => Buffer.concat([str(addr), str(',' + tags), ...parts]);
+  const bundle = (...els) => Buffer.concat([str('#bundle'), Buffer.alloc(8, 1), ...els.flatMap(e => [i32(e.length), e])]);
+
+  await step('osc: the codec (round trips of every type, padding at every length mod 4, exact bytes, a bundle in a bundle, bad packets refused, int64 and float64 normalised)', async () => {
+    const m1 = ['/a/b', 'ifsTFN', -7, 2.5, 'hé llo'], m2 = ['/x', 'iiff', 2147483647, -2147483648, 0.25, -1e10], m3 = ['/n', ''];
+    ok([m1, m2, m3].every(m => { const d = decode(encode(m)); return d && d.length === 1 && same(d[0], m); }), 'i, f, s, T, F, N and none at all: round trips');
+    ok(encode(['/foo', 'i', 1000]).equals(Buffer.from('2f666f6f000000002c690000000003e8', 'hex')) && encode(['/foo', 'f', 1]).equals(Buffer.from('2f666f6f000000002c6600003f800000', 'hex')),
+      'exact bytes: address and type tags NUL-padded to 4, int32 and float32 big-endian');
+    let padOk = true;
+    for (let n = 0; n <= 9; n++) {
+      const a = '/' + 'x'.repeat(n), s = 'y'.repeat(n), b = encode([a, 'si', s, n]);
+      padOk = padOk && b.length % 4 === 0 && b[a.length] === 0 && b.readInt32BE(b.length - 4) === n && same(decode(b)[0], [a, 'si', s, n]);
+    }
+    ok(padOk, 'addresses and strings of every length 1 to 10 (every length mod 4): padded, each with its NUL, round trips');
+    const A = encode(['/one', 'i', 1]), B = encode(['/two', 's', 'b']), C = encode(['/three', 'f', 0.5]);
+    ok(same(decode(bundle(A, bundle(B, C))), [['/one', 'i', 1], ['/two', 's', 'b'], ['/three', 'f', 0.5]]), 'a bundle in a bundle: flattened, in order, timetags ignored');
+    let deep = A;
+    for (let d = 0; d < 4; d++) deep = bundle(deep);
+    ok(same(decode(deep), [['/one', 'i', 1]]) && decode(bundle(deep)) === null, 'nested to depth 4 taken; deeper refused');
+    const h = v => { const b = Buffer.alloc(8); b.writeBigInt64BE(v); return b; }, d = v => { const b = Buffer.alloc(8); b.writeDoubleBE(v); return b; };
+    const N = decode(raw('/n', 'hhdSc' + 'TFNI', h(5000000000n), h(2n ** 62n), d(0.1), str('big S'), i32(0x41)));
+    ok(N && same(N[0], ['/n', 'iffssTFNI', 5000000000, 2 ** 62, 0.1, 'big S', 'A']),
+      'int64 within a safe integer as i, beyond as f; float64 as f; S and c as s; T, F, N, I kept: ' + JSON.stringify(N && N[0]));
+    const bad = [Buffer.alloc(0), Buffer.from('nonsense'), raw('/b', 'b', i32(1), Buffer.alloc(4)), raw('/t', 't', Buffer.alloc(8)), raw('/r', 'r', i32(1)), raw('/a', '[i]', i32(1)),
+      raw('/x', 'i'), raw('/x', 'i', i32(1), i32(2)), Buffer.concat([str('/x'), Buffer.from(',i\0'), i32(1)]), Buffer.from('/abc'), raw('/x', 'f', Buffer.from('7fc00000', 'hex')),
+      Buffer.concat([str('#bundle'), Buffer.alloc(8), i32(12), A]), Buffer.concat([str('#bundle'), Buffer.alloc(8), i32(7), A]), Buffer.concat([str('/x'), str('i'), i32(1)]), raw('no slash', '')];
+    ok(bad.every(b => decode(b) === null), 'bad packets refused whole: empty, not OSC, blobs, timetags, colours, arrays, too few or too many bytes, bad padding, NaN, a bundle\'s element of the wrong size, no comma, no slash: ' + bad.map(b => (decode(b) === null ? 0 : 1)).join(''));
+    ok(!checkMsg(['/a b', '']) && !checkMsg(['a', '']) && !checkMsg(['/a', ',i', 1]) && !checkMsg(['/a', 'i', 1.5]) && !checkMsg(['/a', 'i', 2 ** 31]) && !checkMsg(['/a', 'f', NaN]) && !checkMsg(['/a', 'f', 1e300]) &&
+      !checkMsg(['/a', 's', 'x'.repeat(257)]) && !checkMsg(['/a', 'i']) && !checkMsg(['/a', 'i', 1, 2]) && !checkMsg(['/a', 'b', 1]) && !checkMsg(['/' + 'x'.repeat(256), '']) && !checkMsg('/a') && encode(['/a', 'i', 'x']) === null &&
+      checkMsg(['/' + 'x'.repeat(255), '']) && checkMsg(['/a', 's', 'x'.repeat(256)]) && checkMsg(['/a', 'TFN']),
+      'a page\'s message checked (address, types, each argument, their count)');
+    ok(same(parseTarget('127.0.0.1:9000'), { host: '127.0.0.1', port: 9000 }) && same(parseTarget('studio-pc.local:7000'), { host: 'studio-pc.local', port: 7000 }) &&
+      [':9000', '1.2.3:9000', '999.1.1.1:9', 'host:0', 'host:70000', 'host', 'a b:1'].every(x => parseTarget(x) === null), '--osc-out\'s words');
+    ok(same(parseIn('9001'), { addr: '127.0.0.1', port: 9001 }) && same(parseIn('127.0.0.1:0'), { addr: '127.0.0.1', port: 0 }) && ['x', '1.2.3:9', '9:70000', 'host:9'].every(x => parseIn(x) === null), '--osc-in\'s words');
+  });
+
+  // a UDP listener here (the targets of --osc-out), keeping every datagram
+  async function listener() {
+    const s = dgram.createSocket({ type: 'udp4', recvBufferSize: 8 << 20 }), L = { s, got: [] };
+    s.on('message', b => L.got.push({ b, rt: Date.now() }));
+    await new Promise(r => s.bind(0, '127.0.0.1', r));
+    L.port = s.address().port;
+    L.msgs = () => L.got.map(g => decode(g.b)?.[0]).filter(Boolean);
+    return L;
+  }
+  const udpSend = (p, buf) => new Promise(r => { const s = dgram.createSocket('udp4'); s.send(buf, p, '127.0.0.1', () => { s.close(); r(); }); });
+  const inPortOf = p => +((/in on UDP [\d.]+:(\d+)/.exec(p.out) || [])[1] || 0);
+  const at = (P, room, id) => socket(`ws://127.0.0.1:${P.port}/api/ws?room=${room}&id=${id}`);
+  const roomAt = async P => (await req('POST', '/api/rooms', { body: { app: 'networks', version: 'v1' }, at: P.port })).json().code;
+  const isOsc = m => m.t === 'fx' && m.k === '@osc';
+  async function member(P, room, id, hello) { const c = at(P, room, id); c.welcome = await c.next(is('welcome')); if (hello) c.send({ t: 'hello', name: id, color: '#336699', kind: 'desktop', ...hello }); return c; }
+
+  await step('osc: nothing without --osc-out or --osc-in (no osc in /api/ping; osc from an output page dropped, osc-cfg answered with nothing on)', async () => {
+    ok(!('osc' in (await req('GET', '/api/ping')).json()), '/api/ping says nothing of OSC');
+    const code = await newRoom(), c = await joined(code, 'op0', { name: 'Output page', kind: 'desktop', out: 1 });
+    c.send({ t: 'osc', m: [['/a', 'i', 1]] }); c.send({ t: 'osc-cfg', trk: true });
+    const st = await c.next(isOsc);
+    ok(st && st.by === '' && same(st.v.st, { out: 0, in: 0, trk: 'off', sent: 0, got: 0, dropped: 1 }) && !c.q.some(is('error')), 'osc dropped and counted; the status says no target, no in port, trackers off: ' + JSON.stringify(st && st.v));
+    c.ws.close();
+  });
+
+  const L = await listener();
+  const O = await start(['--osc-out', `127.0.0.1:${L.port}`, '--osc-in', '0', '--ping', '0.2', '--timeout', '5']), inPort = inPortOf(O);
+  try {
+    await step('osc: --osc-out and --osc-in: the start line, /api/ping\'s osc (never a target\'s address), out in hello and the members list', async () => {
+      ok(inPort > 0 && new RegExp(`OSC: out to 127\\.0\\.0\\.1:${L.port}; in on UDP 127\\.0\\.0\\.1:${inPort}`).test(O.out) && O.out.indexOf('OSC:') < O.out.indexOf('listening on'), 'the start line: the targets and the in port (before the relay listens): ' + (/OSC:.*/.exec(O.out) || [''])[0]);
+      const p = await req('GET', '/api/ping', { at: O.port });
+      ok(same(p.json().osc, { out: 1, in: inPort, trk: false }) && !p.text.includes(String(L.port)), '/api/ping: osc { out: 1, in, trk: false }, no target address: ' + JSON.stringify(p.json().osc));
+      const code = await roomAt(O), a = await member(O, code, 'op1', { out: 1 }), b = await member(O, code, 'pg1', {});
+      const ms = await b.next(is('members', m => m.members.length === 2 && m.members.every(x => x.name)));
+      ok(ms && ms.members.find(x => x.id === 'op1').out === 1 && !('out' in ms.members.find(x => x.id === 'pg1')), 'out: 1 for the output page alone in the members list');
+      ok(/hello op1 "op1" desktop output page/.test(O.out), 'the log says which member is an output page');
+      const st = (await req('GET', '/api/rooms/' + code, { at: O.port })).json();
+      ok(st.members.find(x => x.id === 'op1').out === 1, '... and in GET /api/rooms/<code>');
+      a.ws.close(); b.ws.close();
+    });
+
+    await step('osc: an output page\'s osc goes to the targets as the exact bytes; a bad message dropped and counted, the rest sent; another member refused; a member\'s own @osc refused', async () => {
+      const code = await roomAt(O), a = await member(O, code, 'op2', { out: 1 }), b = await member(O, code, 'pg2', {});
+      await sleep(100);
+      L.got.length = 0;
+      const good = [['/studio/cube/ab12cd/enter', 'ssssi', 'Ada', '#336699', 'pg2', 'Door', 1], ['/room/person/1/head', 'fffffff', 1.5, 1.7, -0.25, 0, 0.7071, 0, 0.7071], ['/x', 'TFN']];
+      a.send({ t: 'osc', m: [good[0], ['/bad address', 'i', 1], good[1], ['/y', 'i', 0.5], good[2]] });
+      for (let i = 0; i < 100 && L.got.length < 3; i++) await sleep(10);
+      await sleep(100);
+      ok(L.got.length === 3 && L.got.every((g, i) => g.b.equals(encode(good[i]))), `the listener got the three good ones as their exact bytes, in order (${L.got.length})`);
+      b.send({ t: 'osc', m: [['/z', 'i', 1]] });
+      const e = await b.next(is('error'));
+      b.send({ t: 'osc', m: [['/z', 'i', 1]] });
+      await sleep(200);
+      ok(e && e.code === 'bad' && /output page/.test(e.text) && L.got.length === 3 && !b.q.some(is('error')), 'a member whose hello had no out: refused (once), nothing sent: ' + (e && e.text));
+      a.send({ t: 'osc', m: [] }); a.send({ t: 'osc', m: Array.from({ length: 129 }, () => ['/a', '']) }); a.send({ t: 'osc', m: 'x' });
+      const errs = [await a.next(is('error')), await a.next(is('error')), await a.next(is('error'))];
+      ok(errs.every(x => x && x.code === 'bad'), 'no messages, 129, not a list: refused as bad');
+      a.send({ t: 'fx', k: '@osc', v: { at: 1, m: [['/studio/press', 's', 'ab12cd']] } });
+      ok((await a.next(is('error')))?.code === 'bad' && await b.none(isOsc, 200), 'a member\'s own @osc refused (not a key a member may use), nobody gets it');
+      a.send({ t: 'osc-cfg', trk: false });
+      const st = await a.next(isOsc);
+      ok(st && st.by === '' && same(st.v.st, { out: 1, in: inPort, trk: 'off', sent: 3, got: 0, dropped: 2 }), 'osc-cfg answered at once with the room\'s counts (3 sent, 2 bad dropped): ' + JSON.stringify(st && st.v.st));
+      a.send({ t: 'osc-cfg', trk: 'yes' });
+      ok((await a.next(is('error')))?.code === 'bad', 'osc-cfg with trk not a boolean: bad');
+      const st2 = await a.next(m => isOsc(m) && m.v.st, 2600);
+      ok(!!st2, 'the status again within 2 s while connected');
+      ok(!O.out.includes('Ada') && !O.out.includes('/studio/cube'), 'no message\'s contents in the log');
+      a.ws.close(); b.ws.close();
+    });
+
+    await step('osc: at most 2,000 messages a second from a member: the rest dropped, counted and said in the log (counts only)', async () => {
+      const code = await roomAt(O), a = await member(O, code, 'op3', { out: 1 });
+      await sleep(1100);
+      L.got.length = 0;
+      const frame = Array.from({ length: 100 }, (_, i) => ['/rate', 'i', i]);
+      for (let i = 0; i < 30; i++) a.send({ t: 'osc', m: frame });
+      a.send({ t: 'osc-cfg', trk: false });
+      const st = (await a.next(isOsc)).v.st;
+      ok(st.sent === 2000 && st.dropped === 1000, `3,000 in a burst: 2,000 sent, 1,000 dropped (${st.sent}, ${st.dropped})`);
+      for (let i = 0; i < 200 && L.got.length < 2000; i++) await sleep(10);
+      ok(L.got.length >= 1900 && L.got.length <= 2000, `the listener got them (${L.got.length}; UDP on this machine may lose a few)`);
+      let said = '';
+      for (let i = 0; i < 300 && !said; i++) { await sleep(20); said = (new RegExp(`${code} OSC from op3: (\\d+) dropped`).exec(O.out) || [])[1] || ''; }
+      ok(said === '1000' && !/\/rate/.test(O.out), 'the log: 1000 dropped, never their contents: ' + said);
+      a.ws.close();
+    });
+
+    await step('osc: a datagram on the in port reaches every output page of every room as @osc (by \'\', at, its messages normalised), nobody else; a bad one counted', async () => {
+      const r1 = await roomAt(O), r2 = await roomAt(O);
+      const a = await member(O, r1, 'op4', { out: 1 }), b = await member(O, r1, 'pg4', {}), c = await member(O, r2, 'op5', { out: 1 });
+      await sleep(150);
+      const t0 = Date.now();
+      await udpSend(inPort, encode(['/studio/press', 's', 'ab12cd']));
+      const x = await a.next(m => isOsc(m) && m.v.m), y = await c.next(m => isOsc(m) && m.v.m);
+      ok(x && y && x.by === '' && same(x.v.m, [['/studio/press', 's', 'ab12cd']]) && same(y.v.m, x.v.m) && x.v.at >= t0 - 5 && x.v.at <= Date.now(), 'both rooms\' output pages got it, by \'\', at the relay\'s time');
+      await udpSend(inPort, bundle(encode(['/studio/beat', 'f', 120]), bundle(raw('/d', 'dS', Buffer.from('3ff8000000000000', 'hex'), str('w')))));
+      const z = await a.next(m => isOsc(m) && m.v.m);
+      ok(z && same(z.v.m, [['/studio/beat', 'f', 120], ['/d', 'fs', 1.5, 'w']]), 'a bundle in a bundle: one @osc with its messages flattened and normalised: ' + JSON.stringify(z && z.v.m));
+      await udpSend(inPort, Buffer.from('not osc at all'));
+      await udpSend(inPort, raw('/blob', 'b', i32(1), Buffer.alloc(4)));
+      await sleep(200);
+      ok(await b.none(isOsc, 100) && !a.q.some(m => isOsc(m) && m.v.m), 'a member that is not an output page gets none; bad packets reach nobody');
+      a.send({ t: 'osc-cfg', trk: false });
+      const st = await a.next(m => isOsc(m) && m.v.st);
+      ok(st && st.v.st.got === 3, 'got: the messages that came in (3): ' + JSON.stringify(st && st.v.st));
+      a.ws.close(); b.ws.close(); c.ws.close();
+    });
+  } finally { O.kill(); }
+
+  await step('osc: --public without a password refuses to start (either flag), with one it starts; RELAY_ARGS; bad words and a held in port stop the start', async () => {
+    const run = (args, env = {}) => new Promise(resolve => {
+      const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+      procs.push(p);
+      let out = '';
+      p.stdout.on('data', d => { out += d; if (/listening on/.test(out)) { p.kill(); } });
+      p.on('exit', code => resolve({ code, out }));
+      setTimeout(() => { p.kill(); }, 3000);
+    });
+    const a = await run(['--public', '--osc-out', '127.0.0.1:9']), b = await run(['--public', '--osc-in', '0']);
+    ok(a.code === 1 && b.code === 1 && /needs the relay's password/.test(a.out) && /needs the relay's password/.test(b.out), '--public with --osc-out or --osc-in and no password: refused, in a sentence');
+    const PASS = 'osc' + crypto.randomBytes(5).toString('hex'), c = await run(['--public', '--osc-out', '127.0.0.1:9', '--osc-in', '0'], { COLLAB_TOKEN: PASS });
+    ok(/listening on/.test(c.out) && /OSC: out to 127\.0\.0\.1:9/.test(c.out) && !c.out.includes(PASS), 'with a password: it starts (the password in no line)');
+    const d = await run([], { RELAY_ARGS: '--osc-out 127.0.0.1:9,127.0.0.1:10 --osc-in 127.0.0.1:0' });
+    ok(/OSC: out to 127\.0\.0\.1:9, 127\.0\.0\.1:10; in on UDP 127\.0\.0\.1:\d+/.test(d.out), 'RELAY_ARGS, two targets comma separated, an address for the in port');
+    const e = await Promise.all([run(['--osc-out', 'nohost']), run(['--osc-in', 'x']), run(['--osc-out', Array.from({ length: 9 }, (_, i) => '127.0.0.1:' + (9 + i)).join(',')])]);
+    ok(e.every(x => x.code === 1) && /--osc-out takes host:port/.test(e[0].out) && /--osc-in takes/.test(e[1].out) && /at most 8/.test(e[2].out), 'a bad target, a bad port, nine targets: refused, saying why');
+    const held = dgram.createSocket('udp4');
+    await new Promise(r => held.bind(0, '127.0.0.1', r));
+    const f = await run(['--osc-in', '127.0.0.1:' + held.address().port]);
+    held.close();
+    ok(f.code === 1 && /--osc-in: cannot listen on UDP/.test(f.out), 'a UDP port another program holds: a sentence, exit 1');
+    const P2 = await start(['--osc-in', '0', '--quiet'], { COLLAB_TOKEN: PASS });
+    ok((await req('GET', '/api/ping', { at: P2.port })).status === 401 && (await req('GET', '/api/ping?token=' + PASS, { at: P2.port })).json().osc?.out === 0, 'with a password /api/ping needs it as ever; then osc { out: 0, in }');
+    P2.kill();
+  });
+
+  await step('osc: the trackers as OSC (--trackers and --osc-out, asked by an output page): /room/tracker/<serial> in the room\'s coordinates equal to @trk\'s within 1 mm, ok and kind, names every 2 s, never a base station; another room\'s page asking takes them', async () => {
+    const { startFake, qAngle } = await import('../tools/trackers/fake.mjs');
+    const T = await start(['--trackers', '0', '--osc-out', `127.0.0.1:${L.port}`, '--ping', '0.2', '--timeout', '5']);
+    const udp = +((/Trackers: the bridge's readings on UDP 127\.0\.0\.1:(\d+)/.exec(T.out) || [])[1] || 0);
+    const F = startFake({ port: udp, turn: 37 * Math.PI / 180, move: [2.4, 0.012, -1.1] });
+    try {
+      ok(/OSC: the trackers go as OSC/.test(T.out) && (await req('GET', '/api/ping', { at: T.port })).json().osc?.trk === true, 'the start line says so; /api/ping osc.trk true');
+      const code = await roomAt(T), op = await member(T, code, 'op6', { out: 1 }), hs = await member(T, code, 'hs6', {});
+      L.got.length = 0;
+      op.send({ t: 'osc-cfg', trk: true });
+      ok((await op.next(isOsc)).v.st.trk === 'unaligned', 'asked before the room is lined up: trk \'unaligned\'');
+      await sleep(300);
+      ok(!L.got.length, 'nothing sent while the room is not lined up');
+      hs.send({ t: 'set', batch: [['trk', { on: true, m: { a: F.spots.a, b: F.spots.b }, names: { 'LHR-FA4E0A01': 'Spot A', 'LHR-FA4EF0D0': 'Index' }, by: 'hs6', at: Date.now() }]], cid: 'trk' });
+      await sleep(300);
+      hs.q.length = 0; L.got.length = 0;
+      await sleep(2200);
+      const trk = hs.q.filter(m => m.t === 'fx' && m.k === '@trk' && m.v.l === 'hand');
+      const osc = L.got.map(g => ({ m: decode(g.b)?.[0], rt: g.rt })).filter(x => x.m);
+      const poses = osc.filter(x => /^\/room\/tracker\/[^/]+$/.test(x.m[0])), names = osc.filter(x => /\/name$/.test(x.m[0]));
+      const per = n => poses.filter(x => x.m[0] === '/room/tracker/' + n).length;
+      ok(per('LHR-FA4E0A01') >= 150 && per('LHR-FA4E0A01') <= 265, `on every bridge datagram (90 a second; at most 120): ${per('LHR-FA4E0A01')} in 2.2 s for one tracker`);
+      ok(poses.every(x => x.m[1] === 'fffffffis') && !poses.some(x => /LHB-/.test(x.m[0])) && new Set(poses.map(x => x.m[0])).size === 8, 'types fffffffis; the 5 trackers, the headset and its controllers; never a base station');
+      const last = Object.fromEntries(trk.at(-1).v.t.map(t => [t[0], t]));
+      let dp = 0, dq = 0;
+      for (const n of ['LHR-FA4E0A01', 'LHR-FA4E0B02', 'LHR-FA4E0E05']) {
+        const x = poses.filter(p => p.m[0] === '/room/tracker/' + n).at(-1).m, t = last[n];
+        dp = Math.max(dp, Math.hypot(x[2] - t[1], x[3] - t[2], x[4] - t[3]) * 1000);
+        dq = Math.max(dq, qAngle([x[5], x[6], x[7], x[8]], [t[4], t[5], t[6], t[7]]));
+      }
+      ok(dp <= 1 && dq <= 0.05, `the still trackers where @trk has them: within ${dp.toFixed(2)} mm and ${dq.toFixed(3)} degrees (1 mm)`);
+      const circ = poses.filter(p => p.m[0] === '/room/tracker/LHR-FA4E0C03').slice(-20);
+      let dc = 0;
+      for (const { m } of circ) dc = Math.max(dc, Math.min(...F.history.get('LHR-FA4E0C03').map(h => Math.hypot(h.p[0] - m[2], h.p[1] - m[3], h.p[2] - m[4]))) * 1000);
+      ok(circ.length === 20 && dc <= 1, `the circling one within ${dc.toFixed(2)} mm of where the bridge had it, in room coordinates`);
+      const kinds = Object.fromEntries(poses.map(x => [x.m[0].split('/')[3], x.m[10]]));
+      ok(Object.values(kinds).join('') === 'ttttthlr' && poses.slice(-8).every(x => x.m[9] === 1), 'kinds t, h, l, r; ok 1: ' + Object.values(kinds).join(''));
+      const nm = Object.fromEntries(names.map(x => [x.m[0].split('/')[3], x.m[2]]));
+      ok(names.length >= 8 && names.length <= 16 && nm['LHR-FA4E0A01'] === 'Spot A' && nm['LHR-FA4EF0D0'] === 'Index' && nm['LHR-FA4E0B02'] === '' && names.every(x => x.m[1] === 's'), `names every 2 s (${names.length} in 2.2 s), from trk.names, '' none`);
+      op.q.length = 0; op.send({ t: 'osc-cfg', trk: false });
+      ok((await op.next(isOsc)).v.st.trk === 'off', 'asked off: trk \'off\'');
+      await sleep(100); L.got.length = 0; await sleep(300);
+      ok(!L.got.length, 'nothing sent once off');
+      op.q.length = 0; op.send({ t: 'osc-cfg', trk: true });
+      ok((await op.next(isOsc)).v.st.trk === 'on', 'asked again: trk \'on\'');
+      const code2 = await roomAt(T), op2 = await member(T, code2, 'op7', { out: 1 });
+      op2.send({ t: 'osc-cfg', trk: true });
+      ok((await op2.next(isOsc)).v.st.trk === 'unaligned', 'another room\'s page asking last: its room (not lined up)');
+      op.q.length = 0;
+      const st = await op.next(m => isOsc(m) && m.v.st, 2600);
+      ok(st && st.v.st.trk === 'other' && st.v.st.sent > 500, 'the first page told \'other\'; its room\'s count has the trackers\' messages: ' + JSON.stringify(st && st.v.st));
+      await sleep(100); L.got.length = 0; await sleep(300);
+      ok(!L.got.length, 'the room that asked last is not lined up: nothing sent');
+      op2.ws.close();
+      await sleep(300); L.got.length = 0; await sleep(300);
+      ok(L.got.length > 0, 'that page gone: the first room\'s trackers again');
+      F.pause(true);
+      await sleep(300); L.got.length = 0; await sleep(300);
+      ok(!L.got.length, 'the bridge silent: nothing (OSC goes with each datagram)');
+      F.pause(false);
+      op.ws.close(); hs.ws.close();
+    } finally { F.stop(); T.kill(); }
+  });
+  L.s.close();
 }
 
 // ---- rooms across updates (v136): a room moves on to a newer networks-<n> once nobody of its own is connected (or a reload
@@ -980,6 +1228,12 @@ if (process.argv.includes('--video')) {   // only the video conversion's steps (
 
 if (process.argv.includes('--rooms')) {   // only the rooms' steps (v136)
   try { await roomSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv.includes('--osc')) {   // only the OSC steps (the output page)
+  try { await oscSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
@@ -3425,6 +3679,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   fs.rmSync(SC, { recursive: true, force: true });
 
   await trackerSteps();
+  await oscSteps();
   await notesSteps();
   await videoSteps();
 

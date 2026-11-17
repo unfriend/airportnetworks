@@ -1045,6 +1045,85 @@ Untested until it runs on the owner's PC: the bridge with SteamVR and real track
 the rate on Windows), `TRK_FLOOR`, the lag from SteamVR to a headset through the relay, and how steady the lining up
 by hand is.
 
+## OSC and the output page (`--osc-out`, `--osc-in`)
+
+The output page (`output.js`: a computer's page opened in a room with `&output`, or from the Shared dialog; its setting
+up is `tools/output/README.md`, the contract `tools/output/SPEC.md`) follows a studio circle and sends what happens there
+as MIDI and OSC, and takes MIDI and OSC back as room actions. MIDI it does itself (the browser's Web MIDI); OSC is UDP,
+which a page cannot speak, so it hands its OSC messages to the relay over its room socket, and the relay sends and takes
+the UDP. Run the relay on the same machine as the programs that take the OSC (or on their network):
+
+```sh
+node relay/server.mjs --lan --trackers --osc-out 127.0.0.1:9000 --osc-in 9001
+```
+
+- `--osc-out <host:port>`: where the OSC goes. Repeatable and comma separated (`--osc-out 127.0.0.1:9000,192.168.1.20:7000`),
+  at most 8 targets; `host` an IPv4 address or a name (looked up once as the relay starts, again after a send error, at
+  most once every 10 s). Every message goes to **every** target alike, as one datagram, from one UDP socket on a port
+  the system picks. Nothing else is ever sent anywhere: the targets are only the ones on the command line.
+- `--osc-in <port>` or `--osc-in <addr:port>`: take OSC on that UDP port (on `127.0.0.1`, this machine only, unless an address is given;
+  `0` picks a free one, which the start line and `/api/ping` say). Each packet that comes in goes to every output page in
+  every room on the relay. UDP has no password, so OSC from another machine needs the address said: `--osc-in
+  0.0.0.0:9001` (then anything on the network that can reach the port can press, start and show in every room).
+- With `--trackers` too: the trackers go as OSC themselves, lined up, for the room whose output page asks (its
+  *Trackers as OSC* switch), straight from the relay at the bridge's rate (below).
+- Both work in `RELAY_ARGS` too. A port in use for `--osc-in` stops the start with a sentence (as `--trackers`).
+- **The password.** With `--public` and no password (`COLLAB_TOKEN`, `--token`) either flag stops the start: OSC sends
+  and takes UDP on the machine's network, and nobody else should drive it. The output page's socket brings the password
+  as every page's does (`?token=`); nothing of OSC carries it or writes it down, and no log line says a message's
+  contents, a target in an answer, or a member's address. The start line names the targets (it is the relay's own
+  console).
+- Start lines: `OSC: out to 127.0.0.1:9000, 192.168.1.20:7000; in on UDP 127.0.0.1:9001 ...` and, with `--trackers`,
+  `OSC: the trackers go as OSC (/room/tracker/<serial>), lined up, for the room whose output page asks for them`.
+
+**What goes where.**
+
+| From | Message | To |
+| --- | --- | --- |
+| the output page | `{ t: 'osc', m: [[address, types, ...args], ...] }` (1 to 128 messages, the frame at most 64 KB) | each message one datagram to every `--osc-out` target |
+| a UDP packet on `--osc-in` | `{ t: 'fx', k: '@osc', v: { at, m: [[address, types, ...args], ...] }, by: '' }` (`at` the relay's ms as it came; a bundle's messages flattened) | every member whose hello said `out: 1`, in every room |
+| the output page | `{ t: 'osc-cfg', trk: true \| false }` | the trackers as OSC for its room on or off; answered at once with a status |
+| the relay | `{ t: 'fx', k: '@osc', v: { st: { out, in, trk, sent, got, dropped } }, by: '' }` | to an output page after its `osc-cfg` and every 2 s while it is connected |
+| the bridge's datagrams (`--trackers`) | `/room/tracker/<serial>` `fffffffis` and every 2 s `/room/tracker/<serial>/name` `s` | every `--osc-out` target |
+
+- **Who may.** Only a member whose `hello` said `out: 1` (the output page) may send `osc` or `osc-cfg`; anyone else is
+  refused once as `bad` (and then ignored silently). The relay keeps `out` and adds `out: 1` to that member in the
+  members list. A member cannot send `@osc` of its own (`@` is not in a key a member may use: refused as `bad`).
+- **Messages out** (the page's): `address` `/` and printable characters without spaces, at most 256 in all; `types`
+  letters of `ifsTFN` (no comma), at most 32; one argument per `i` (an integer within 32 bits), `f` (a finite number
+  within float32's range) or `s` (a string, at most 256 characters, no NUL), none for `T`, `F`, `N`. Encoded as OSC 1.0
+  (`relay/osc.mjs`: NUL-padded strings, big-endian int32 and float32). A bad message is dropped and counted, the rest
+  sent. With no `--osc-out` they are dropped silently (counted). At most 2,000 messages a second from one member (a fixed
+  one-second window); the rest dropped, counted and said in the log at most once a second, as a count.
+- **Messages in** are normalised: `i` (`i`, and `h` within a safe integer), `f` (`f`, `d`, and an `h` beyond), `s` (`s`,
+  `S`, `c`), and `T`, `F`, `N`, `I` with no argument. Bundles are flattened (nested to depth 4; timetags ignored: a
+  message is taken as it comes). A packet with any other type (`b` blobs, `t`, `r`, `m`, arrays), a float that is not a
+  number, or a bad layout is dropped whole and counted. At most 500 `@osc` a second to one member; one whose socket holds
+  more than 256 KB unsent is skipped (as `@trk`).
+- **The status** `st`: `out` the number of targets, `in` the UDP port (0 none), `trk` for that page: `'off'` (not asked,
+  or no `--trackers` or no `--osc-out`), `'on'` (sending for its room), `'none'` (the bridge silent for 5 s),
+  `'unaligned'` (its room's `trk` not on or not lined up), `'other'` (another room's output page asked after it: one
+  room's trackers at a time, the latest page still connected that asked). `sent` and `dropped` count its room's
+  messages (sent on UDP, the trackers' among them; dropped as bad, over the rate, with no target, or not handed to a
+  backed-up page), `got` the messages that came in on `--osc-in` since the relay started.
+- **The trackers as OSC.** On every datagram from the bridge (at most 120 a second), one message per device seen in the
+  last 5 s (the trackers, the Index and its controllers; never base stations): `/room/tracker/<serial>` with x, y, z,
+  qx, qy, qz, qw in the room's coordinates (metres, floor at y = 0), exactly as `@trk` turns them from the room's `trk`
+  key (`trk.on` and `m` lined up: [The PC's Vive trackers](#the-pcs-vive-trackers---trackers)), then `ok` (1, or 0 once
+  the reading is 0.5 s old) and its kind (`'t'` a tracker, `'h'` the headset, `'l'` and `'r'` its controllers); every 2 s
+  also `/room/tracker/<serial>/name` with its name from `trk.names` (`''` none). SteamVR's own space is never sent. A
+  room not lined up gets nothing (its page's status says `'unaligned'`).
+- `GET /api/ping` gains `osc: { out, in, trk }` (the number of targets, the UDP port or 0, whether `--trackers` is on)
+  only when `--osc-out` or `--osc-in` was given; never a target's address.
+- Peer-to-peer rooms and rooms on one device have no relay, so no OSC (the output page says so; its MIDI still works).
+
+The addresses the output page sends and takes (the studio's events, people, items, streams; `/studio/press` and the
+rest coming in) are tools/output/SPEC.md's Wire 4: the relay passes every message as it is and reads none of them.
+
+Untested until tried on the owner's machines: OSC to real programs (TouchDesigner, Max, Pd), UDP through Windows'
+firewall (allow Node on private networks for `--osc-in`), a name looked up on a real network, and the trackers' OSC rate
+on the PC with SteamVR. Here: only UDP on 127.0.0.1 with the fake bridge (`node relay/test.mjs --osc`).
+
 ## The developer notebook (`--notes`, `--no-notes`)
 
 A voice note with what the app knew at that moment (v142; the owner, 13 November 2026: "a developer notebook function where
@@ -1096,7 +1175,7 @@ shared password](#the-shared-password-collab_token)).
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with the notebook on (`--scenes`, `--notes`) also `notes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s) |
+| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with the notebook on (`--scenes`, `--notes`) also `notes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s); with `--osc-out` or `--osc-in` also `osc: { out, in, trk }` (the number of targets, the UDP port or 0, `--trackers` on; never an address) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either. A room that has a name (the room key `name`, `{ v, by, at }`, v146: a label for people, the code stays the address) gains `title` (cleaned: control, zero-width and bidi characters out, spaces collapsed, at most 40 characters; absent when the room has none), also with `--unlisted` and `--public`: the label is the room's own, shown on its network, and no member's name. `GET /api/rooms` rows gain `title` likewise. No log line prints a title |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken', version }` if not, the room's version since v136): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
@@ -1112,7 +1191,7 @@ shared password](#the-shared-password-collab_token)).
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `sfx.js`, `occlusion.js`, `ships.js`, `notes.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
-`spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `version.json` (the release's version file, for
+`spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `output.js` (the output page's), `version.json` (the release's version file, for
 live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the miniatures), and the files directly in `stories/`, `audio/`,
 `icons/`, `notes/` (the developer notebook's page, at `/notes/`; `/notes` moves there) and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
 `examples/` with its scene folders as deep as a scene's files go (the studio's example scenes, v137: `examples/<scene>/`
@@ -1136,7 +1215,7 @@ Server-Sent Events (`text/event-stream`, `Cache-Control: no-store`, `retry: 2000
 
 | event | data | the page |
 | --- | --- | --- |
-| `hello` | `{ shell: { 'index.html': fp, 'sfx.js': fp, 'occlusion.js': fp, 'ships.js': fp, 'shared.js': fp, 'sw.js': fp, 'three.min.js': fp, 'peerjs.min.js': fp }, stories: { <key>: fp }, list: fp, build }`, at once on every connection | the first: the shell as it is; after a lost connection (the relay restarted, the laptop slept): a shell file changed meanwhile reloads, a story changed meanwhile is swapped or marked, the list is read again |
+| `hello` | `{ shell: { 'index.html': fp, 'sfx.js': fp, 'occlusion.js': fp, 'ships.js': fp, 'shared.js': fp, 'sw.js': fp, 'three.min.js': fp, 'peerjs.min.js': fp, 'output.js': fp }, stories: { <key>: fp }, list: fp, build }`, at once on every connection | the first: the shell as it is; after a lost connection (the relay restarted, the laptop slept): a shell file changed meanwhile reloads, a story changed meanwhile is swapped or marked, the list is read again |
 | `story` | `{ key, fp }`: `stories/<key>.js` changed | swaps it in place at once where it is on show (its place kept: mode, time, explore state, view, the headset's placement; at a station the room's clock and state, nothing written to the room); fetched fresh next time elsewhere |
 | `list` | `{ fp }`: `stories/list.js` changed | reads the list again: new and changed cards, no reload |
 | `shell` | `{ file, fp }`: a shell file changed | reloads with its place kept (a headset session ends: the page shows Enter VR to continue) |
@@ -1165,12 +1244,14 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
 | relay | `set` | `batch, seq, by, cid` | to everybody, the writer included (its acknowledgement) |
 | client | `fx` | `k, v` | ephemeral, not stored |
-| relay | `fx` | `k, v, by` | to everybody but the sender; `by: ''` for the relay's own, `@trk` (`--trackers`: [The PC's Vive trackers](#the-pcs-vive-trackers---trackers)) |
+| relay | `fx` | `k, v, by` | to everybody but the sender; `by: ''` for the relay's own, `@trk` (`--trackers`: [The PC's Vive trackers](#the-pcs-vive-trackers---trackers)) and `@osc` (to output pages only: [OSC and the output page](#osc-and-the-output-page---osc-out---osc-in)) |
+| client | `osc` | `m [[address, types, ...args], ...]` | the output page only (`hello` with `out: 1`): OSC to the `--osc-out` targets ([OSC and the output page](#osc-and-the-output-page---osc-out---osc-in)) |
+| client | `osc-cfg` | `trk` | the output page only: the trackers as OSC for its room on or off |
 | client | `ping` | `c` (client ms) | |
 | relay | `pong` | `c, now` | `c` echoed (a number, else null); `now` relay ms |
 | relay | `error` | `code, text` (+ `cid, keys` for writes) | see below |
 
-A member is `{ id, name, color, kind, here, version, since }`. `hello` is tidied, not refused: `name` trimmed to
+A member is `{ id, name, color, kind, here, version, since }`, and `out: 1` for an output page (its `hello` said `out: 1`). `hello` is tidied, not refused: `name` trimmed to
 32 characters, `color` kept only as `#rgb` to `#rrggbbaa`, `kind` one of `ar`, `vr`, `desktop` (else
 `desktop`), `here` true only if `true`, `version` up to 64 characters; `reload` is kept by the relay (true only if `1`)
 and never listed. Before its hello a member is listed with empty values.
@@ -1417,7 +1498,7 @@ does not yet:
 node relay/test.mjs
 ```
 
-(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--rooms` the rooms'.)
+(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--rooms` the rooms'.)
 
 It starts the relay on a free port (timeouts of 1 s, serving the repository), and checks the API, joining and
 its refusals, welcome and members, ordering and acknowledgement, last writer wins, null refused outside the
@@ -1536,8 +1617,17 @@ tracker `ok` 0, one switched off left out after 5 s, then 60 a second again); ba
 counted and said in the log, the good reading beside them taken; the password on both endpoints (and in no log line);
 `--trackers` in `RELAY_ARGS`; a UDP port another relay holds stopping the start with a sentence; and, when `python3` is
 on the machine, `tools/trackers/bridge.py --fake` sending to the relay (its ten devices taken with their kinds and
-hands, nothing ignored). It exits
-1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+hands, nothing ignored); and OSC for the output page (`--osc-out`, `--osc-in`; `node relay/test.mjs --osc` runs only
+these): the codec (every type round trip, exact bytes, padding at every length mod 4, a bundle in a bundle and depth 4,
+bad packets refused whole, int64 and float64 normalised, a page's message checked), nothing without the flags, the start
+line and `/api/ping`'s `osc` (no target address), `out` in the members list, an output page's messages reaching a UDP
+listener as their exact bytes (a bad one dropped and counted), another member refused, a member's own `@osc` refused,
+2,000 a second then dropped and said as a count, a datagram on the in port reaching only the output pages of every room
+(a bundle flattened, bad packets nowhere), `osc-cfg` and the status every 2 s, `--public` without a password refusing
+either flag (with one it starts), `RELAY_ARGS`, bad words, nine targets and a held port refused; and the trackers as OSC
+with the fake bridge: about 90 a second, within 1 mm and 0.05 degrees of `@trk`, kinds and `ok`, names every 2 s, never
+a base station, nothing while not lined up, off or silent, another room's page taking them and giving them back. It
+exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks

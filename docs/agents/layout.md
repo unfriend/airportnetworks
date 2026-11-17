@@ -77,6 +77,14 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   page (not part of the app) for checking a network before an event: do two
   devices link directly, how fast, and inside VR or AR (`&peer=` picks another
   introduction server).
+- `output.js` - the output page (v157; `HOST.out`; "The output page (MIDI and OSC)" in `docs/agents/shared-rooms.md`): a
+  computer's page in a room (`&output`, or the Shared dialog's *Output page (MIDI and OSC)*) that follows a studio circle
+  and sends what happens there as MIDI (Web MIDI) and OSC (through the relay), and takes MIDI and OSC back in as the
+  room's actions; loaded by `shared.js` the first time it starts, as `peerjs.min.js` is (in `SHELL`, `APP_FILES`, the
+  release's shell fingerprint and `--watch`'s shell files). `tools/output/` - its `SPEC.md` (the plan and the contracts
+  between the lanes: the room's keys, the studio's `HOST.cur.out`, the relay's messages, the OSC addresses, MIDI),
+  `README.md` (setting it up: loopMIDI, the IAC Driver, ALSA, Cardinal, the relay's flags) and `test-page.mjs` (its own
+  test, Web MIDI and the studio stubbed).
 - `room-test/` - a test page (not part of the app; served by GitHub Pages and by the relay, `APP_DIRS`) for one Quest 3
   before building real-world occlusion (the owner, 4 November 2026: "start with a test page"): in AR, through the app's
   own renderer path (three.js r128's WebXR with a plain `XRWebGLLayer`, the stories' renderer settings, the `local`
@@ -119,7 +127,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   relay and `tools/studio/r2sync.mjs` share), `test-r2.mjs` (the signer against AWS's published examples, byte for byte)
   and `s3fake.mjs` (a stand-in S3 for the tests that checks every signature; never served, not part of the app). With
   `--trackers` (v126) it takes the PC's Vive trackers from `tools/trackers/bridge.py` on UDP 127.0.0.1 and sends them,
-  lined up, to the rooms that use them: `trackers.mjs` ("Vive trackers" below).
+  lined up, to the rooms that use them: `trackers.mjs` ("Vive trackers" below). With `--osc-out` and `--osc-in` (v157)
+  it sends the output page's OSC on UDP to the targets on its command line and hands OSC coming in to the output pages,
+  and with `--trackers` too it sends the trackers as OSC itself: `osc.mjs` (the OSC 1.0 codec and the UDP sockets).
 - `tools/trackers/` - the Vive trackers (v126; "Vive trackers" below): `SPEC.md` (the plan and the contracts between the
   lanes), `bridge.py` (SteamVR's poses to the relay on the same PC: Python 3 and pyopenvr, named in its PEP 723 block, so
   `uv run tools/trackers/bridge.py` fetches both, at the versions in `bridge.py.lock`; `--fake` without SteamVR),
@@ -217,7 +227,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `engine/e6l_puppet.js` (v126) a Mixamo character worn with trackers, its lining up and its takes; `engine/e6m_anim.js` (v127) a
   selected model's timeline while editing, held for its circle, and since v128 a recorded path's; `engine/e6n_plays.js` (v136)
   trigger cubes that start things: a clip, a sound, a recorded path or a motion as you walk in or out; `engine/e6o_walls.js` (v137)
-  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e6q_screens.js` (v143) screens, video and audio players with playlists; `engine/e6r_paint.js` (v144) paintings, strokes drawn in the air; `engine/e6s_seq.js` (v146) sequences, timelines of events on items; `engine/e7h_seqview.js` (v146) a sequence's lane view on a page; `engine/e6t_press.js` (v146) press and hover reactions; `engine/e7h_colour.js` (v146) the shared colour picker; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
+  things on the room's walls, from the room scan's planes; `engine/e6p_scan.js` (v141) the headset's room scan saved as a model of the scene; `engine/e6q_screens.js` (v143) screens, video and audio players with playlists; `engine/e6r_paint.js` (v144) paintings, strokes drawn in the air; `engine/e6s_seq.js` (v146) sequences, timelines of events on items; `engine/e7h_seqview.js` (v146) a sequence's lane view on a page; `engine/e6t_press.js` (v146) press and hover reactions; `engine/e6u_send.js` (v157) sends to the output page (MIDI and OSC: send entries, the effect `send`, `sw`, `bt`, `HOST.cur.out`); `engine/e7h_colour.js` (v146) the shared colour picker; `engine/e7g_examples.js` (v137) the scenes that ship with the app,
   opened read only or copied to the relay), two sets (`stage`, the
   floor and sky round the scene, and `looks`, the items' looks: cubes, speaker markers, rings, grey boxes, shapes, empties' crosses), `vendor/`
   (three.js r128's own add-ons, unchanged, MIT: `GLTFLoader`, `FBXLoader`, `TGALoader`, `OBJLoader`, `MTLLoader`,

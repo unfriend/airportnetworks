@@ -21,6 +21,9 @@
 //   node relay/server.mjs --lan --trackers   (on the Windows PC with SteamVR: the Vive trackers' poses from
 //                                   tools/trackers/bridge.py, on UDP 127.0.0.1:47800, sent to the rooms that use them in
 //                                   room coordinates; relay/trackers.mjs, tools/trackers/SPEC.md)
+//   node relay/server.mjs --lan --trackers --osc-out 127.0.0.1:9000 --osc-in 9001   (OSC for the output page, output.js:
+//                                   its messages sent on UDP to the targets named here, OSC coming in on UDP 9001 handed to
+//                                   it, the trackers as OSC; relay/osc.mjs, tools/output/SPEC.md)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -35,7 +38,8 @@ import { fileURLToPath } from 'node:url';
 import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout, isLayout, layoutText, validName, inside, kindOf, kindAt,
   uploadPath, newSceneName, MAX_DEPTH, MAX_FILES, MAX_LAYOUT, MAX_SCENES, MAX_PATH, LAYOUT, LISTING, SCENE_TYPES, typeOf, listable, scenesOf, MARKER, isRecording, isPainting, ORIGINALS } from './scenes.mjs';
 import { R2, R2Error, r2Config } from './r2.mjs';
-import { makeTrackers, TRK_PORT } from './trackers.mjs';
+import { makeTrackers, TRK_PORT, frameOf, toRoom, quatToRoom } from './trackers.mjs';
+import { makeOsc, encode as oscEncode, parseTarget, parseIn, OSC_RATE, OSC_IN_RATE, OSC_MAX_FRAME, OSC_MAX_MSGS, OSC_MAX_TARGETS } from './osc.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2 } from './notes.mjs';
 
 const PROTO = 1;
@@ -52,6 +56,9 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // --trackers [port]: the Vive trackers' bridge on UDP 127.0.0.1 (47800 when no port is given; 0 picks a free one);
   // -1: off
   trackers: -1,
+  // --osc-out <host:port> (repeatable, comma separated) and --osc-in [<addr>:]<port>: OSC for the output page (output.js;
+  // relay/osc.mjs, tools/output/SPEC.md); none: no OSC at all
+  'osc-out': [], 'osc-in': '',
   // --notes <dir>: the developer notebook's notes kept in <dir> (else in .notes/ of the scenes' folder, or under .notes/ in R2);
   // --no-notes: none (tools/notes/SPEC.md, "The relay")
   notes: '', 'no-notes': false,
@@ -102,13 +109,19 @@ const HELP = `usage: node relay/server.mjs [options]
                    starts): a restart, such as a deploy, no longer empties them (off: rooms live in memory only)
   --trackers [<port>]  the PC's Vive trackers: take tools/trackers/bridge.py's readings on UDP 127.0.0.1:<port> (${TRK_PORT};
                    0 picks a free one), list them at /api/trackers and send them, lined up, to the rooms that use them
+  --osc-out <host:port>  OSC for the output page (output.js, on a computer in the room: tools/output/README.md): each
+                   message it hands the relay goes as a UDP datagram to every such target (an IPv4 address or a name;
+                   repeatable or comma separated, at most 8); with --trackers also the trackers, lined up, for the room
+                   whose output page asks for them
+  --osc-in [<addr>:]<port>  take OSC on UDP <port> (on 127.0.0.1 unless <addr> says, 0.0.0.0 for the LAN; 0 picks a free one) and hand every
+                   message to the output pages of every room
   --notes <dir>    the developer notebook's notes (voice recordings with pictures, pins and context, POST /api/notes, listed at
                    GET /api/notes, read by tools/notes/notes.mjs and notes/): kept in <dir>. Without it they are kept in .notes/
                    inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes
   --no-notes       no notes at all (every notes endpoint answers 404)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
-                   --logs only with a token, and --scenes only with a password
+                   --logs only with a token, and --scenes, --osc-out and --osc-in only with a password
   --origin <list>  only pages from these origins (comma separated, may be repeated) and the relay's own pages may open
                    a socket or read the API (CORS for them alone; other origins 403)
   --allow-no-origin  with --origin or --public: also sockets that send no Origin (not a browser: tools, scripts)
@@ -138,6 +151,7 @@ for (let i = 0; i < ARGV.length; i++) {
   if (name === 'proxy') { const v = ARGV[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
   if (name === 'trackers') { const v = ARGV[i + 1]; if (v !== undefined && /^\d+$/.test(v) && +v < 65536) { OPT.trackers = +v; i++; } else OPT.trackers = TRK_PORT; continue; }
   if (name === 'origin') { const v = ARGV[++i]; if (v === undefined) { console.log(HELP); process.exit(1); } OPT.origin.push(...v.split(',')); continue; }
+  if (name === 'osc-out') { const v = ARGV[++i]; if (v === undefined || v.startsWith('--')) { console.log(HELP); process.exit(1); } OPT['osc-out'].push(...v.split(',')); continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
   const v = ARGV[++i];
   OPT[name] = typeof OPT[name] === 'number' ? Number(v) : v;
@@ -147,7 +161,7 @@ if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); proce
 const TOKEN = String(OPT.token || '').trim();   // '' none: no password asked (as ever)
 const PEER = !OPT['no-peer'];
 // --trackers: the bridge's readings (relay/trackers.mjs); null: none of it (no socket, no endpoint, no @trk)
-const TRK = OPT.trackers >= 0 ? makeTrackers({ port: OPT.trackers, log: (...a) => log(...a) }) : null;
+const TRK = OPT.trackers >= 0 ? makeTrackers({ port: OPT.trackers, log: (...a) => log(...a), onTake: (list, current) => trackersOsc(list, current) }) : null;
 
 // ---- a public server (--public; each rule also on its own). On a laptop at an event none of this is on: the relay
 // behaves as it always has (CORS for every origin, the open rooms listed with their people's names, no limits per address)
@@ -240,6 +254,22 @@ if (SCENES_ON && PUB && !TOKEN) {
   process.exit(1);
 }
 const SAVE = SCENES_ON && !OPT['scenes-readonly'];
+// --osc-out and --osc-in: OSC for the output page (relay/osc.mjs). OSC_OUT the targets, OSC_IN where it listens (null: not
+// at all), OSC the sockets (null: neither flag, no OSC of any kind: /api/ping says nothing, 'osc' dropped)
+const OSC_OUT = [];
+for (const w of OPT['osc-out'].map(x => x.trim()).filter(Boolean)) {
+  const t = parseTarget(w);
+  if (!t) { console.log(`--osc-out takes host:port (an IPv4 address or a name, a port 1 to 65535): not ${JSON.stringify(w)}`); process.exit(1); }
+  if (!OSC_OUT.some(x => x.host === t.host && x.port === t.port)) OSC_OUT.push(t);
+}
+if (OSC_OUT.length > OSC_MAX_TARGETS) { console.log(`--osc-out: at most ${OSC_MAX_TARGETS} targets`); process.exit(1); }
+const OSC_IN = OPT['osc-in'] === '' ? null : parseIn(OPT['osc-in']);
+if (OPT['osc-in'] !== '' && !OSC_IN) { console.log(`--osc-in takes a UDP port, or an IPv4 address and a port (9001, 127.0.0.1:9001; 0 picks a free one): not ${JSON.stringify(OPT['osc-in'])}`); process.exit(1); }
+if ((OSC_OUT.length || OSC_IN) && PUB && !TOKEN) {
+  console.log('--public with --osc-out or --osc-in needs the relay\'s password: set COLLAB_TOKEN in the environment (or pass --token). OSC sends and takes UDP on this machine\'s network: nobody else should drive it');
+  process.exit(1);
+}
+const OSC = OSC_OUT.length || OSC_IN ? makeOsc({ out: OSC_OUT, inAddr: OSC_IN ? OSC_IN.addr : '', inPort: OSC_IN ? OSC_IN.port : -1, log: (...a) => log(...a), onIn: (msgs, at) => oscIn(msgs, at) }) : null;
 // the developer notebook (tools/notes/SPEC.md): on wherever the relay keeps scenes, or with --notes <dir>; never on a public
 // server without a password (they are voices and pictures of the owner's rooms)
 if (OPT['no-notes'] && OPT.notes) { console.log('--notes and --no-notes: one or the other'); process.exit(1); }
@@ -448,7 +478,7 @@ function makeRoom(code, app, version) {
 // its own version is connected (or a reload order asked for it: next), and never an older one (a device that missed the
 // update, waking in an upgraded room, is refused and reloads). Other versions: only the same one, as ever
 const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
-const pub = m => ({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since });
+const pub = m => ({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since, ...(m.out ? { out: 1 } : {}) });
 const people = r => [...r.members.values()].map(pub);
 const stations = r => [...r.keys.keys()].filter(k => /^st\.[^.]+$/.test(k)).length;
 const idle = r => (r.members.size ? 0 : Math.round((Date.now() - r.empty) / 1000));
@@ -480,7 +510,8 @@ function join(ws, q, net, who, fid) {
     old.close(4008, 'replaced');
     m.ws = ws; m.net = net;
   } else {
-    m = { id, ws, net, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0 };
+    m = { id, ws, net, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0,
+      out: false, osc: { n: 0, t0: 0 }, oscIn: { n: 0, t0: 0 }, oscDropped: 0, oscBad: 0, oscSaid: 0, oscRefused: false, oscTrk: false };
     room.members.set(id, m);
   }
   if (net) { room.nets.delete(net); room.nets.add(net); if (room.nets.size > 8) room.nets.delete(room.nets.values().next().value); }
@@ -498,6 +529,7 @@ function leave(room, m, why = 'leave') {
   if (room.members.get(m.id) !== m) return;
   m.ws.onmessage = m.ws.onclose = () => {};
   room.members.delete(m.id);
+  OSC_TRK.delete(m);
   if (!room.members.size) { room.empty = Date.now(); keepTouch(); }
   broadcast(room, { t: 'members', members: people(room) });
   log(`${room.code} ${why} ${m.id} (${room.members.size} in the room)`);
@@ -530,15 +562,18 @@ function message(room, m, text) {
     return broadcast(room, { t: 'fx', k: msg.k, v: msg.v, by: m.id }, m);
   }
   if (msg.t === 'ping') return send(m, { t: 'pong', c: Number.isFinite(msg.c) ? msg.c : null, now: Date.now() });
+  if (msg.t === 'osc') return oscFrom(room, m, msg, text);
+  if (msg.t === 'osc-cfg') return oscCfg(room, m, msg);
   if (msg.t === 'hello') {
     const version = str(msg.version, 64);
     if (msg.proto !== undefined && msg.proto !== PROTO) return kick(room, m, 'proto', `this relay speaks protocol ${PROTO}`, 4005);
     if (version && room.version && version !== room.version && !takeOver(room, m, version)) return kick(room, m, 'version', `the room runs version ${room.version}`, 4006);
     if (version && !room.version) { room.version = version; keepTouch(); }   // a room made without a version takes the first one
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
-      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1 });
+      kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1, out: msg.out === 1 });
+    if (!m.out) { OSC_TRK.delete(m); m.oscTrk = false; }
     broadcast(room, { t: 'members', members: people(room) });
-    return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''} ${version}`);
+    return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''}${m.out ? ' output page' : ''} ${version}`);
   }
   refuse(room, m, null, [], `bad message: unknown t ${JSON.stringify(String(msg.t)).slice(0, 40)}`, 'bad');
 }
@@ -816,6 +851,10 @@ setInterval(() => {
       if (now - m.ws.last > OPT.timeout * 1000) { kick(room, m, 'timeout', `silent for ${OPT.timeout} s`, 4009); continue; }
       if (now - m.ws.pinged >= OPT.ping * 1000) { m.ws.send(9, EMPTY); m.ws.pinged = now; }
       if (m.fxDropped) { log(`${room.code} refused ${m.fxDropped} fx from ${m.id} (more than ${FX_RATE} a second)`); m.fxDropped = 0; }
+      if ((m.oscDropped || m.oscBad) && now - m.oscSaid >= 1000) {   // (counts only, never what the messages said)
+        log(`${room.code} OSC from ${m.id}: ${[m.oscDropped && `${m.oscDropped} dropped (more than ${OSC_RATE} a second)`, m.oscBad && `${m.oscBad} bad`].filter(Boolean).join(', ')}`);
+        m.oscDropped = m.oscBad = 0; m.oscSaid = now;
+      }
     }
     if (!room.members.size && now - room.empty > OPT.expire * 1000) { rooms.delete(room.code); stored -= room.size; keepTouch(); log(`${room.code} expired`); }
   }
@@ -992,7 +1031,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}) });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -1032,6 +1071,97 @@ function trackersSend(room, msg) {
   for (const m of room.members.values()) {
     if (m.ws.closing || m.ws.socket.destroyed || m.ws.socket.writableLength > TRK.BACKLOG) { TRK.count.skipped++; continue; }
     m.ws.write(buf);
+  }
+}
+// ---- OSC for the output page (--osc-out, --osc-in; relay/osc.mjs, tools/output/SPEC.md, Wire 3). Only a member whose
+// hello said out: 1 may hand over OSC ({ t: 'osc', m }) or ask for the trackers as OSC ({ t: 'osc-cfg', trk }); what
+// comes in on UDP goes to every such member of every room as the fx '@osc' (by '': the relay's own, as @trk). Counted per
+// room (sent: messages sent on UDP, the trackers' among them; dropped: refused as bad, over the rate, with no target, or
+// not handed to a member that was backed up) and for the relay (got: messages that came in). Never logged: a message's
+// contents, a member's address, the password
+const OSC_TRK = new Map();   // the members that asked for the trackers as OSC -> their room, the latest last
+const OSC_BACKLOG = 256 << 10, OSC_TRK_RATE = 120;
+const TRKO = { win: { n: 0, t0: 0 }, namesAt: 0, heard: 0 };
+const oscCount = r => r.osc || (r.osc = { sent: 0, dropped: 0 });
+function quota(r, cap, n) {   // as over(), for n at once: how many of them the one-second window still takes
+  const now = Date.now();
+  if (now - r.t0 >= 1000) { r.t0 = now; r.n = 0; }
+  const k = Math.max(0, Math.min(n, cap - r.n));
+  r.n += k;
+  return k;
+}
+// (refused once a socket: a page that is not the output page sends no OSC, and a bug there must not fill the log)
+function oscRefuse(room, m, t) {
+  if (m.oscRefused) return;
+  m.oscRefused = true;
+  refuse(room, m, null, [], `bad message: ${t} only from the output page (its hello says out: 1)`, 'bad');
+}
+function oscFrom(room, m, msg, text) {
+  if (!m.out) return oscRefuse(room, m, 'osc');
+  if (text.length > OSC_MAX_FRAME || !Array.isArray(msg.m) || !msg.m.length || msg.m.length > OSC_MAX_MSGS) return refuse(room, m, null, [], `bad osc: 1 to ${OSC_MAX_MSGS} messages, at most ${OSC_MAX_FRAME >> 10} KB`, 'bad');
+  const c = oscCount(room), n = msg.m.length;
+  if (!OSC || !OSC_OUT.length) { c.dropped += n; return; }   // (no target: silently)
+  const k = quota(m.osc, OSC_RATE, n);
+  if (k < n) { c.dropped += n - k; m.oscDropped += n - k; }
+  for (let i = 0; i < k; i++) {
+    const buf = oscEncode(msg.m[i]);
+    if (!buf) { c.dropped++; m.oscBad++; continue; }
+    OSC.send(buf); c.sent++;
+  }
+}
+function oscCfg(room, m, msg) {
+  if (!m.out) return oscRefuse(room, m, 'osc-cfg');
+  if (typeof msg.trk !== 'boolean') return refuse(room, m, null, [], 'bad osc-cfg: trk true or false', 'bad');
+  OSC_TRK.delete(m);
+  if (msg.trk) OSC_TRK.set(m, room);
+  m.oscTrk = msg.trk;
+  oscStatus(room, m);
+}
+// the room whose trackers go as OSC: the latest member still connected that asked
+function oscTrkRoom() {
+  let r = null;
+  for (const [m, room] of OSC_TRK) if (room.members.get(m.id) === m) r = room;
+  return r;
+}
+const trkFrame = room => { const v = room.keys.get('trk')?.v; return v && typeof v === 'object' && v.on === true ? frameOf(v.m) : null; };
+function oscTrkState(room, m) {
+  if (!m.oscTrk || !TRK || !OSC_OUT.length) return 'off';
+  if (oscTrkRoom() !== room) return 'other';
+  if (!trkFrame(room)) return 'unaligned';
+  return Date.now() - TRKO.heard > 5000 ? 'none' : 'on';
+}
+function oscStatus(room, m) {
+  if (m.ws.closing) return;
+  const c = oscCount(room);
+  send(m, { t: 'fx', k: '@osc', v: { st: { out: OSC_OUT.length, in: OSC ? OSC.inPort : 0, trk: oscTrkState(room, m), sent: c.sent, got: OSC ? OSC.count.got : 0, dropped: c.dropped } }, by: '' });
+}
+// a UDP packet's messages to every output page: one frame for all, never to a socket that is closing or backed up
+function oscIn(msgs, at) {
+  const buf = Ws.frame(1, Buffer.from(JSON.stringify({ t: 'fx', k: '@osc', v: { at, m: msgs }, by: '' })));
+  for (const room of rooms.values()) {
+    for (const m of room.members.values()) {
+      if (!m.out) continue;
+      if (m.ws.closing || m.ws.socket.destroyed || m.ws.socket.writableLength > OSC_BACKLOG || over(m.oscIn, OSC_IN_RATE)) { oscCount(room).dropped++; continue; }
+      m.ws.write(buf);
+    }
+  }
+}
+// the trackers as OSC (relay/trackers.mjs's onTake, after each good datagram from the bridge): every device but base
+// stations seen in the last 5 s, in the room's coordinates from its trk key exactly as @trk, at most OSC_TRK_RATE times a
+// second; every 2 s also each one's name. SteamVR's own space is never sent
+function trackersOsc(list, current) {
+  if (list.length) TRKO.heard = Date.now();
+  if (!OSC || !OSC_OUT.length || !OSC_TRK.size) return;
+  const room = oscTrkRoom(), F = room && trkFrame(room);
+  if (!F || over(TRKO.win, OSC_TRK_RATE)) return;
+  const now = Date.now(), names = now - TRKO.namesAt >= 2000, c = oscCount(room);
+  const nm = names ? room.keys.get('trk').v.names : null, nameOf = id => (nm && typeof nm === 'object' && typeof nm[id] === 'string' ? nm[id].slice(0, 256) : '');
+  if (names) TRKO.namesAt = now;
+  for (const d of current()) {
+    const p = toRoom(F, d.p), q = quatToRoom(F, d.q);
+    const out = [[`/room/tracker/${d.id}`, 'fffffffis', p[0], p[1], p[2], q[0], q[1], q[2], q[3], d.ok ? 1 : 0, d.kind]];
+    if (names) out.push([`/room/tracker/${d.id}/name`, 's', nameOf(d.id)]);
+    for (const msg of out) { const buf = oscEncode(msg); if (buf) { OSC.send(buf); c.sent++; } else c.dropped++; }
   }
 }
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
@@ -1185,7 +1315,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // files are: examples/<scene>/<at most 4 folders>/<file>. basis/ holds Basis Universal's encoder and transcoder, v151:
 // the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js']);
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis']), APP_DEEP = new Set(['examples']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
@@ -1263,7 +1393,7 @@ function fingerprint(s) {
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
-const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
+const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js', 'output.js'];   // (output.js: the output page's, loaded on demand as peerjs.min.js is)
 const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
 const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
 const MAX_WATCHERS = 200;
@@ -2641,6 +2771,17 @@ if (TRK) {   // (asked for: a port another program holds stops the start, as a n
   TRK.attach(() => rooms.values(), trackersSend);
   console.log(`Trackers: the bridge's readings on UDP 127.0.0.1:${at} (uv run tools/trackers/bridge.py${at === TRK_PORT ? '' : ' --port ' + at}, after SteamVR); rooms whose key trk is on and lined up get them`);
 }
+if (OSC) {   // (a UDP port another program holds for --osc-in stops the start, as --trackers)
+  let at;
+  try { at = await OSC.listen(); } catch (err) {
+    console.log(OSC_IN ? `--osc-in: cannot listen on UDP ${OSC_IN.addr}:${OSC_IN.port} (${err.code || err.message}): is another program using it? (--osc-in <port> takes another port)` : `--osc-out: no UDP socket (${err.code || err.message})`);
+    process.exit(1);
+  }
+  console.log(`OSC: ${OSC_OUT.length ? 'out to ' + OSC.targets.join(', ') : 'nothing out (no --osc-out)'}; ${OSC_IN ? `in on UDP ${OSC_IN.addr}:${at}` : 'nothing in (no --osc-in)'}` +
+    ' (only for the output page: a computer\'s page opened with &output, tools/output/README.md)');
+  if (TRK && OSC_OUT.length) console.log('OSC: the trackers go as OSC (/room/tracker/<serial>), lined up, for the room whose output page asks for them');
+  setInterval(() => { for (const room of rooms.values()) for (const m of room.members.values()) if (m.out) oscStatus(room, m); }, 2000).unref();
+}
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
@@ -2696,6 +2837,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
     for (const res of [...W.clients, ...SW.clients]) res.end();
     for (const p of FF.procs) p.kill('SIGKILL');   // (a conversion under way: never left running on its own)
     if (TRK) TRK.close();
+    if (OSC) OSC.close();
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

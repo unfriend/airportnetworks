@@ -46,11 +46,13 @@ function normPressRec(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   for (const k of ['do', 'hover']) if (x[k] !== undefined && x[k] !== null && !Array.isArray(x[k])) return null;
   if (x.who !== undefined && x.who !== null && x.who !== 'own' && x.who !== 'all') return null;
-  const d = x.do ? normPressList(x.do, 'do') : [], h = x.hover ? normPressList(x.hover, 'hover') : [];
-  if (!d.length && !h.length) return false;
+  const d = x.do ? normPressList(x.do, 'do') : [], h = x.hover ? normPressList(x.hover, 'hover') : [], sn = sendKeep(x.send, 'press');   // (its sends, v157: e6u_send.js)
+  if (sn === null) return null;
+  if (!d.length && !h.length && !sn) return false;
   const r = {};
   if (d.length) r.do = d;
   if (h.length) r.hover = h;
+  if (sn) r.send = sn;
   if (x.who === 'own') r.who = 'own';
   return r;
 }
@@ -80,7 +82,8 @@ const pressable = it => !!(it && PRESS_KINDS.includes(it.kind) && it.rec && it.r
 // state). At most one press of an item every 250 ms from this device. False: nothing happened
 function pressFire(id) {
   const it = STU.items.get(id);
-  if (!it || !PRESS_KINDS.includes(it.kind) || !it.rec.press || !(it.rec.press.do && it.rec.press.do.length)) return false;
+  // (an item with only send entries is pressable too: a press writes its stamp, which the output page sends; v157)
+  if (!it || !PRESS_KINDS.includes(it.kind) || !it.rec.press || !((it.rec.press.do && it.rec.press.do.length) || (it.rec.press.send && it.rec.press.send.length))) return false;
   const now = performance.now(), L = PRESS.last.get(id);
   if (L !== undefined && now - L < PRESS_GAP) return false;
   PRESS.last.set(id, now);
@@ -258,11 +261,12 @@ function pressDeleted(gone) {
 }
 // a press as a record keeps it: the lists given (an empty one gone), who kept; undefined when nothing is left
 function pressBuild(p, patch) {
-  const d = 'do' in patch ? patch.do : p.do, h = 'hover' in patch ? patch.hover : p.hover, who = 'who' in patch ? patch.who : p.who;
-  if (!(d && d.length) && !(h && h.length)) return undefined;
+  const d = 'do' in patch ? patch.do : p.do, h = 'hover' in patch ? patch.hover : p.hover, who = 'who' in patch ? patch.who : p.who, sn = 'send' in patch ? patch.send : p.send;
+  if (!(d && d.length) && !(h && h.length) && !(sn && sn.length)) return undefined;
   const r = {};
   if (d && d.length) r.do = d;
   if (h && h.length) r.hover = h;
+  if (sn && sn.length) r.send = sn;   // (its sends: e6u_send.js)
   if (who === 'own') r.who = 'own';
   return r;
 }

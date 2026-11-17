@@ -486,6 +486,22 @@ lights, and give it a name there. The room map shows them as small dots; in a
 headset, Trackers: shown on the menu's Debug tab draws each as a small puck with
 its name. The PC's own page in VR with the Valve Index lines itself up from the
 trackers (no spots and no shared space needed). Untested with real trackers.
+The output page (v157; MIDI and OSC): a laptop or the room's PC (Chrome or
+Edge) presses Output page (MIDI and OSC) in its Shared dialog, or opens the
+room's link with &output added. It follows a studio circle and sends what
+happens there as MIDI (to a virtual port: loopMIDI on Windows, the IAC Driver
+on a Mac, a virtual ALSA port on Linux; then Cardinal, a DAW ...) and as OSC
+(through a relay on the same machine or network started with --osc-out and
+--osc-in): presses, sequences starting and stopping, trigger cubes walked into
+and out of with who it was, people's heads and hands, the PC's trackers,
+items, and streams such as a head's height as a controller. MIDI and OSC
+coming in press items, start and stop sequences, show and hide items and
+switch cubes, and MIDI clock sets the room's beat, which motions can follow. A
+cube sends only when it is switched on on its card (Sends to the output
+page); what it shows stays each person's own. The scene's sends are set on
+the studio's cards; streams and incoming mappings on the output page (kept on
+that machine; Export and Import). Setting it up: tools/output/README.md.
+Untested with real MIDI and OSC software, virtual cables and headsets.
 In a headset you stay in a story once you
 have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
@@ -633,7 +649,11 @@ a Windows PC with SteamVR, node relay/server.mjs --lan --trackers and uv run
 tools/trackers/bridge.py send every tracker's pose to the rooms on that relay
 that turn them on, lined up by hand on the two spots (the Shared dialog's
 Trackers); setting it up: tools/trackers/README.md (untested with real
-trackers). Without a relay (none known, or none answers) a room runs peer to
+trackers). The output page's OSC (v157): node relay/server.mjs --lan
+--osc-out 127.0.0.1:9000 --osc-in 9001 sends OSC on UDP only to the targets on
+its command line and takes OSC in on its port, from this machine only unless an address such as
+0.0.0.0:9001 is given (relay/README.md, "OSC and the
+output page"). Without a relay (none known, or none answers) a room runs peer to
 peer: one page hosts it and the others link to it directly (PeerJS, vendored;
 its public introduction server and Cloudflare's STUN server introduce the
 devices, and they and the other devices see each device's IP address). The

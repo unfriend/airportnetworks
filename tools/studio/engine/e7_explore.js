@@ -130,6 +130,7 @@ function paneBlocks(tab) {
     if (STU.badTex) B.push({ p: `${STU.badTex} of the trigger cubes' texture changes in layout.json could not be read.`, c: 'amber' });
     if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
     if (STU.badSeq) B.push({ p: `${STU.badSeq} of the sequences' events in layout.json could not be read.`, c: 'amber' });
+    if (STU.badSend) B.push({ p: `${STU.badSend} of the sends to the output page in layout.json could not be read.`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -318,7 +319,7 @@ function itemCard(it, C) {
     on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: lists ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
-    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : ''];
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : '', (r.press && r.press.send) || r.send ? 'sends' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : it.notHere ? (r.shows === 'ar' ? 'only in AR' : 'only in VR') : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);
@@ -347,7 +348,7 @@ function itemBlocks(it, B, ed) {
   // (recording a path here: its size steps off, rs; e6f_path.js)
   const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true), rs = mv || recording(it);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
-  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
+  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); sendBlocks(it, B, dis || !!r.locked); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
     B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
@@ -453,6 +454,7 @@ function itemBlocks(it, B, ed) {
     if (STU.pick && STU.pick.id === it.id) B.push({ p: (XR.on ? 'Point at objects, sounds and other cubes and pull the trigger to add or remove them' : 'Click objects, sounds and other cubes (or their names under Items) to add or remove them') + '; a cube it hides is switched off while this one is active, one it shows waits switched off until this one switches it on. Done when finished.', c: 'amber' });
     texCubeBlocks(it, B, dis);   // (the pictures it puts on objects while you are in it: e6i_tex.js)
     playCubeBlocks(it, B, dis);   // (what it starts as you walk in or out: e6n_plays.js)
+    sendBlocks(it, B, dis);   // (what it sends to the output page, opted in: e6u_send.js)
     B.push({ p: 'Lines from the cube: green to what it shows (a cube: switches on), red to what it hides (a cube: switches off), amber to what it changes the pictures of, blue to what it starts.', c: 'faint' });
   } else if (it.kind === 'p') {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
@@ -512,7 +514,7 @@ function itemBlocks(it, B, ed) {
   if (full && cutObj(it) && !dis) B.push({ p: cutsOn(r.on).length >= CUT_MAX ? `${CUT_MAX} cut-outs on ${cutObj(it).rec.name}: the most one model takes.` : `The scene has ${LIMITS.x} cut-outs: the most it can hold.`, c: 'amber' });
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
-  if (PRESS_KINDS.includes(it.kind)) pressBlocks(it, B, dis);   // (what pressing it and pointing at it do: e6t_press.js)
+  if (PRESS_KINDS.includes(it.kind)) { pressBlocks(it, B, dis); sendBlocks(it, B, dis); }   // (what pressing it and pointing at it do: e6t_press.js; and send: e6u_send.js)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -823,7 +825,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -1013,7 +1015,7 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName', 'stuSendNum', 'stuSendOsc'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
   if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { if (i.type === 'text') i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }   // (a slider keeps the keyboard's focus too)
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
@@ -1336,7 +1338,7 @@ function clickAt(mx, my) {
   const ray = pointerRay(mx, my), h = editOn() ? pagePick(ray) : null;
   if (h) { pressItem(h.id, h.ray); return; }
   // (without editing: a click on an item that can be pressed presses it, a visitor too: e6t_press.js)
-  if (!editOn()) { GL.world.updateMatrixWorld(true); const ph = visitPick(ray), pit = ph && STU.items.get(ph.id); if (pit && pressable(pit) && pit.rec.press.do) { pressGo(pit.id, ph.point, null); return; } }
+  if (!editOn()) { GL.world.updateMatrixWorld(true); const ph = visitPick(ray), pit = ph && STU.items.get(ph.id); if (pit && pressable(pit) && (pit.rec.press.do || pit.rec.press.send)) { pressGo(pit.id, ph.point, null); return; } }
   if (X.view === 'walk') {
     const p = walkFloor(ray);
     if (p) { WALK.to = p; sfxAct('step', 'world', p.toArray()); return; }

@@ -422,6 +422,13 @@ const STUDIO = {
   press: id => pressState(id),
   pressFire: id => pressFire(id),
   hover: id => { PRESS.fake = id === null || id === undefined ? null : String(id); return PRESS.fake; },
+  // sends to the output page (v157, e6u_send.js): the output page's API (HOST.cur.out), this device's effects sent and dropped,
+  // an item's send list written as an edit (one Undo step, checked as a layout's; null takes it away), a motion's beat; and
+  // what was sent and emitted last (tests)
+  out: OUT_API,
+  sends: () => ({ out: SENDS.out, dropped: SENDS.dropped, log: SENDS.log.slice(), emitted: OUTL.log.slice(), listeners: OUTL.fns.length, sw: Object.fromEntries(STU.sw), bt: STU.bt, badSend: STU.badSend }),
+  sendSet: (id, list) => sendSet(id, list),
+  beatSet: (id, b) => beatSet(id, b),
   seqViewDrag: (i, dt) => seqViewDrag(i, dt),
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)
@@ -456,6 +463,8 @@ return {
   caption: xrCaption,
   recenter: xrRecenterAsk,
   panels: () => (XR.main && XR.foot ? { main: XR.main, foot: XR.foot } : null),   // (for the shell's menu, its Story tab)
+  // the output page's API (v157, e6u_send.js; tools/output/SPEC.md, Wire 2): poses, events, actions
+  out: OUT_API,
   // walking into the room's Back to the lobby circle (the shell asks, where the headsets charge): this device forgets what
   // it has seen, so the scene starts afresh next time (e6d_shapes.js); nothing is written to the room
   lobby: () => studioLobby(),
