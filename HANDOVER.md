@@ -52,7 +52,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (13 November 2026, brought up to date on 17 November): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v156 (FORMAT networks-50, the v156 to v140 entries below; v139 and v136 to v138
+  - *The branches.* `dev` is networks-v157 (FORMAT networks-51, the v157 to v140 entries below; v139 and v136 to v138
     before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT
     networks-41, the v135 entry below): v134 was released to both on 11 November 2026 at the owner's word ("push all to
     main and run the full tests afterwards ... in case there is anything to fix also push that to dev and main"), the
@@ -60,7 +60,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     visitors get at https://stories.lbi-netmed.com/ (GitHub Pages), what the main site's relay runs
     (https://main.lab.lbi-netmed.com/) and the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on
     every push to `dev`. Before that `main` was networks-v129 (10 November 2026, after the first whole release run since
-    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v156 are the entries below. The AI agents'
+    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v157 are the entries below. The AI agents'
     working branch since v140, `claude/trusting-hypatia-ca5qv0`, is `dev`'s commit (`claude/affectionate-pasteur-stzjl3`,
     the one before it, stayed at v139). Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
@@ -72,15 +72,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     November the owner tried v137 at the test place (the Bliss XP example greyed at a studio circle, which made v138) and
     then the ships, areas and *My menu* there (which made v139). On 16 November the owner read v150's Debug tab on a
     Quest 3 (Adreno 740, textures at most 8,192 px, ASTC, ETC1 and ETC2), which made v151's compressed textures; nothing
-    else of v140 to v156 is reported tried on a device yet. `whatsnew.json` (developer mode's box, `#dev=on`) lists what
-    to try for v156; the others' are in their entries below and in `whatsnew/`.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v156 on the devices (a Quest, an
+    else of v140 to v157 is reported tried on a device yet. `whatsnew.json` (developer mode's box, `#dev=on`) lists what
+    to try for v157; the others' are in their entries below and in `whatsnew/`.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v157 on the devices (a Quest, an
     Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
     untested. Then, at the owner's word, `main` gets `dev` after the full suites (step 7 there): every suite since v135 has
     run only in parts (each entry says which), and `sw.js`'s rules changed in v137 (`examples/` passed through), so `tools/update.mjs` runs too, as do
     `tools/collab.mjs --studio` (examples at a circle, v138) and `--menus` with `MENUS_STORY=studio` (v139), and since
     then `node tools/studio/test-ktx2.mjs` (v151), `node relay/test.mjs` (`basis/` served, v151) and the collab run with
-    its new `--preview` round (v153, v155; the room's FORMAT is networks-50 since v156). Each release
+    its new `--preview` round (v153, v155), and v157's output page tests (`tools/output/`; the room's FORMAT is
+    networks-51 since v157). Each release
     goes to `dev` with the cheap checks first. Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
     passed when run again), peer to peer's hand-over from a headset that hosts, and a code with no room (both red once in
@@ -116,6 +117,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v157 (17 November 2026; FORMAT networks-51, shell 157), on `dev` only: MIDI and OSC in and out.** Built in
+    another session from the maybe-later Cardinal entry (Deferred, below). An output page (Shared dialog: *Output page*,
+    or `&output`) on a laptop or the PC sends the room's events and streams as MIDI (Chrome or Edge) and OSC (through a
+    relay started with `--osc-out` and `--osc-in`); studio cards gain *Sends* (cubes, presses, pointing, sequences);
+    MIDI and OSC coming in press items, run sequences, show or hide items and set the room's beat. Test: a loopMIDI port
+    and the output page's *Test note*. Untested: real MIDI and OSC software, timing, anything in a headset.
+    `tools/output/README.md`, `docs/agents/shared-rooms.md` "The output page (MIDI and OSC)".
 - **networks-v156 (16 November 2026; FORMAT networks-50, shell 156), on `dev` only: a camera shows no editing, and a scene
     can hide its floor grid.** The owner: "looks like edit mode is on in the desktop cam view in a studio scene". The
     preview camera and a phone's camera mode draw a studio scene as a visitor sees it; a scene setting *Floor grid:
