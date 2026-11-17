@@ -73,9 +73,12 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `ships.js` - the spaceships (`HOST.ships`).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, `PEERJS-LICENSE.txt`) - loaded only for a peer-to-peer room; `p2p/` - a network
   test page, not part of the app.
+- `output.js` - the output page (`HOST.out`: MIDI and OSC from a room and the studio, `&output`), loaded on demand;
+  `tools/output/` its `SPEC.md`, `README.md` (setting it up) and `test-page.mjs` (`docs/agents/shared-rooms.md`).
 - `room-test/` - the room and depth test page for a Quest 3 (not part of the app; its test `tools/room-test.mjs`).
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages), its tests, Dockerfile and `README.md`;
-  `scenes.mjs`, `r2.mjs`, `test-r2.mjs`, `s3fake.mjs`, `trackers.mjs`, `notes.mjs`.
+  `scenes.mjs`, `r2.mjs`, `test-r2.mjs`, `s3fake.mjs`, `trackers.mjs`, `notes.mjs`, `osc.mjs` (OSC on UDP, `--osc-out`,
+  `--osc-in`).
 - `tools/trackers/` - the Vive trackers: `SPEC.md`, `bridge.py`, `fake.mjs`, `README.md`.
 - `docs/` - the shared rooms' plan and lessons, the handover pages (`data-and-permissions.md`,
   `questions-for-authors.md`, `setup-and-release.md`, `event-runbook.md`, `narration.md`, generated: never edit),
@@ -104,7 +107,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 | --- | --- | --- |
 | `docs/agents/layout.md` | every file and folder in full | adding, moving or looking for a file |
 | `docs/agents/shell.md` | how the shell and stories fit together: loading, controllers after standby, the headset Stories screen, the address and history, Repeat, slideshow, placement and anchors, the headset settings (labels, cards, free moving, subtitles, frame rate, refresh rate, automatic quality, menu sharing, moving with the sticks), focus mode, phones and tablets, panels per story, developer mode, sound and sound effects, real-world occlusion, the developer notebook, spaceships, hot reload and live updates, inside a story (`LOAD`, `CH`, `NARRATION_SYNC`, framing) | touching `index.html`, `sfx.js`, `occlusion.js`, `notes.js`, `ships.js`, `sw.js`, sound, headset settings or a story's frame, load or panel code |
-| `docs/agents/shared-rooms.md` | shared rooms in full: the room's keys and `FORMAT`, All stories and lobby circles, the room's arc, relay, peer to peer and on-device rooms, room names, rooms on this network, alignment (shared space, floor spots, room setup guide, check by eye, Touch the spot, areas, places), camera mode, the desktop preview camera, stations, cards, icons, locks, the headset menu and its tabs, others' moves smoothed, the relay (public hosting, password, scenes on disk and in R2, updating a room), the hooks every story keeps, what each story shares; the PC's Vive trackers | touching `shared.js`, `relay/`, a story's `collab` hooks or `state()`, `tools/trackers/` |
+| `docs/agents/shared-rooms.md` | shared rooms in full: the room's keys and `FORMAT`, All stories and lobby circles, the room's arc, relay, peer to peer and on-device rooms, room names, rooms on this network, alignment (shared space, floor spots, room setup guide, check by eye, Touch the spot, areas, places), camera mode, the desktop preview camera, the output page (MIDI and OSC), stations, cards, icons, locks, the headset menu and its tabs, others' moves smoothed, the relay (public hosting, password, scenes on disk and in R2, updating a room), the hooks every story keeps, what each story shares; the PC's Vive trackers | touching `shared.js`, `relay/`, a story's `collab` hooks or `state()`, `tools/trackers/` |
 | `docs/agents/studio.md` | the studio: scenes, models and the GLB converter, textures, uploads, Fewer triangles, the viewer, `layout.json`, trigger cubes, sounds, cut-outs, groups, shapes, behaviours, walls, motions, recorded paths, ghosts, timelines, screens, paintings, sequences, press and hover, the room scan, examples and the Bliss XP room, editing, saving, placement, performance, props and characters on trackers, and the parked glTF round trips (Blender, Unity: nice to have) | touching `tools/studio/`, `examples/` or the relay's scenes |
 | `docs/agents/stories.md` | how the built stories are made from `tools/<key>/` (kit, sets, build budget, `keepClear`, life size) and each one's sets, data, permissions, explore tabs, headset and room behaviour, spelling | touching any story or its `tools/<key>/` sources |
 | `docs/agents/testing.md` | every suite, every smoke block (`### smoke: <block>`) and collab round (`### collab.mjs --<flag>`) and what it checks, the tools, useful URL hashes | running or changing a test, or judging what a change needs |
@@ -239,7 +242,11 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Motions, paths, behaviours and trackers draw through the pose pipeline; an item's record never changes while it
   moves.
 - Nothing see-through while editing: every editing look is opaque lines, small opaque meshes and opaque tags.
-- Trigger cubes are each person's own unless `all: true`; what they reveal is never in `state()` or sent.
+- Trigger cubes are each person's own unless `all: true`; what they reveal is never in `state()` or sent. The one
+  exception (the owner, 16 November 2026): only for a cube opted in to send (its record has `send` entries), the fact that
+  a person walked into it or out of it goes to the room as the ephemeral effect `send` from that person's device; what the
+  cube shows, hides, changes or starts for them stays their own. Pointing at an item whose press has `hover`/`unhover`
+  sends is sent likewise; nothing else of pointing is.
 - A sequence's play state (`qr.<id>`), a press stamp (`pr.<id>`) and a screen's `play` are never in `layout.json` or
   Undo.
 - Locked items refuse every move, size and delete; a copy is never locked; the room's records and Undo are never
@@ -363,7 +370,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
-  walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, colour, xp).
+  walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp).
 - Every test page sets `collabAutoAll` and `collabAutoWelcome` to `off` and `collabAskDefault` to `walk` unless its
   round asks otherwise: keep that when adding a round.
 
@@ -373,8 +380,9 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/sfx-cues.mjs <url> <key\|all>`, then `node tools/sfx-render.mjs <url> <out> [--story <key>]` | after changing a story's cues or a sound (report how it sounds as unheard) |
 | `node tools/live.mjs` | after touching `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs` or the relay's `--watch` |
 | `git worktree add /tmp/old <commit> && node tools/update.mjs /tmp/old .` | after changing `sw.js` or how files load |
-| `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video` for parts) | after touching `shared.js`, the relay or a story's hooks |
-| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
+| `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video`, `--osc` for parts) | after touching `shared.js`, the relay or a story's hooks |
+| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
+| `node tools/output/test-page.mjs` | after touching `output.js` or the output page's part of `shared.js` (Web MIDI and the studio stubbed; `tools/collab.mjs --output` is the end-to-end round with the relay's OSC) |
 | `node tools/peer.mjs` | links two `p2p/` pages through `/peerjs` |
 | `node tools/room-test.mjs` | after changing `room-test/` |
 | `node tools/perf.mjs [url] [--only words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` | measuring, not a test (exits 0; no GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`, so do not rename them) |

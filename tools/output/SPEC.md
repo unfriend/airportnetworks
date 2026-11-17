@@ -1,0 +1,506 @@
+# The output page: MIDI and OSC from the rooms and the studio (plan and contracts)
+
+The owner, 16 November 2026: send and receive MIDI and OSC from the shared rooms and the studio. The owner's answers:
+
+1. "make it opt in by default and say who entered": a trigger cube sends only when it is opted in on that cube (off by
+   default), and what it sends says who walked in or out (their room name, colour and member id).
+2. "both": MIDI and OSC.
+3. "in and out": both directions.
+4. "output page and then midi or local relay for osc and trackers i guess?": a page of the app on a laptop or the PC in
+   the room (the output page) does MIDI itself through the browser's Web MIDI API, and hands OSC to a relay on the same
+   machine or network, which sends and takes the UDP and also sends the Vive trackers as OSC itself.
+
+This file is the contract between the three lanes that build it in parallel (RELAY, PAGE, STUDIO) and the integrator.
+The idea came from HANDOVER.md's "Cardinal on a laptop, played from the room over MIDI" (the maybe list), which this
+builds in a more general form.
+
+## Contents
+
+- The picture
+- Who owns which file
+- FORMAT
+- An exception to a rule (cubes)
+- Wire 1: the room (studio state fields, the effect `send`, hello and presence)
+- Wire 2: the studio's API for the output page (`HOST.cur.out`)
+- Wire 3: the output page and the relay (`osc`, `osc-cfg`, `@osc`, `/api/ping`)
+- Wire 4: OSC on UDP (address scheme and arguments)
+- Wire 5: MIDI (what the page sends and takes)
+- `layout.json`: the `send` entries, their validation, the motion's `beat`
+- Lane STUDIO
+- Lane PAGE
+- Lane RELAY
+- Tests: each lane's own, and the integrator's end-to-end round
+- Known limits (say them in the docs) and untested
+
+## The picture
+
+```
+headsets and pages in the room (each person's own cubes and pointing)
+   |  room keys and effects through the relay as ever:
+   |  studio state (pr.<id> presses, qr.<id> sequences, the new sw.<id> and bt), the new effect 'send'
+   v
+the output page (a laptop or the room's PC; Chrome or Edge; #s=XYZ&output)
+   - follows one studio circle and runs the studio scene itself (HOST.cur.out: poses, events, actions)
+   - people's heads and hands (HOST.collab), trackers (HOST.collab.trackers())
+   - Web MIDI: out to a virtual port (loopMIDI, IAC, ALSA) -> Cardinal, a DAW ...; in from any port
+   - OSC: messages over its room socket to the relay ('osc'), and back ('@osc')
+   v
+relay/server.mjs --lan --osc-out host:port [--osc-out ...] --osc-in port [--trackers]
+   - UDP OSC out only to the targets on its command line; UDP OSC in on its port, to the output pages
+   - the trackers as OSC itself, at the bridge's rate, in the room's coordinates
+```
+
+## Who owns which file
+
+Disjoint: a lane edits only its own files. Nobody bumps `VERSION` in `sw.js`, runs `tools/release.mjs`, touches
+`whatsnew.json` or commits: the integrator does. Never write the forbidden host name the brief names (the old one) anywhere.
+
+| Lane | Files |
+| --- | --- |
+| RELAY | `relay/osc.mjs` (new), `relay/server.mjs` (flags, `osc` and `osc-cfg` messages, `@osc`, `/api/ping`, `out` in hello and the members list, `'output.js'` in `APP_FILES`), `relay/trackers.mjs` (a hook for each datagram), `relay/test.mjs` (`--osc`), `relay/README.md` ("OSC and the output page") |
+| PAGE | `output.js` (new: the output page), `shared.js` (FORMAT, `&output`, loading `output.js`, the Shared dialog's button, `@osc` intake, `HOST.collab.osc*`, hello and presence `out`, *output page* in the people lists, `HOST.collab.people()`), `index.html` (only if a hook there is unavoidable), `sw.js` (`'./output.js'` in `SHELL` only; never `VERSION`), `tools/output/README.md` (new: setting it up), `tools/output/test-page.mjs` (new: its own test), `docs/agents/shared-rooms.md` (a section "The output page (MIDI and OSC)", and the studio's row of "What each story shares": `sw.<id>`, `bt`, the effect `send`) |
+| STUDIO | `tools/studio/**` (engine, `SPEC.md`, `README.md`, `scan.mjs` if it reads records), `stories/studio.js` (only by `node tools/studio/build.mjs`), `tools/smoke.mjs` (one new block, `'studio sends'`), `docs/agents/studio.md` |
+| integrator | `tools/collab.mjs` (`--output`), `docs/agents/testing.md`, `docs/agents/layout.md`, `AGENTS.md` (a line), `README.txt`, `docs/history.md` (FORMAT history, the owner's words), `HANDOVER.md` (the Cardinal entry: built), `sw.js` `VERSION`, `version.json`, `index.html`'s stamp, `whatsnew.json` |
+
+`node relay/test.mjs` checks that every file `SHELL` names is served: it passes only once PAGE's `SHELL` line and RELAY's
+`APP_FILES` entry are both in (neither lane chases that on its own).
+
+## FORMAT
+
+`networks-50` becomes **`networks-51`** (lane PAGE edits `const FORMAT` in `shared.js`). Why: the studio's records gain
+`send` (cubes, a press record, sequences) and a motion's `beat`, its state gains `sw.<id>` and `bt` (an older device
+would drop them, write records back without them, or ignore an outside switch), and presence and hello gain `out`.
+
+## An exception to a rule (cubes)
+
+AGENTS.md: "Trigger cubes are each person's own unless `all: true`; what they reveal is never in `state()` or sent." The
+owner's decision makes one exception, which every lane's docs state in these words: **only for a cube opted in to send
+(its record has `send` entries), the fact that a person walked into it or out of it is sent as an ephemeral effect from
+that person's device; what the cube shows, hides, changes or starts for them stays their own and is never sent.** A
+pointing (hover) on an item whose press has `hover`/`unhover` send entries is likewise sent; nothing else of pointing is.
+Nothing goes into `state()` for either. AGENTS.md's rule line is amended by the integrator.
+
+## Wire 1: the room
+
+### Studio state (`collab.state()` of `stories/studio.js`)
+
+Beside the existing fields (`o.<id>`, `c.<id>`, ..., `qr.<id>`, `pr.<id>`):
+
+- Records as in `layout.json` carry the new optional fields: `c.<id>.send`, `o.<id>.press.send`, `p.<id>.press.send`,
+  `q.<id>.send`, and `o|p|e.<id>.motion.beat` ("`layout.json`" below).
+- **`sw.<id>`** = `{ on: 1 | 0, at, by }`: an outside switch of an item (an object, a shape, an empty, a sound or a cube),
+  written only through `HOST.cur.out.act()` (the output page). `on` 1 shows it (a cube: switched on), 0 hides it (a cube:
+  switched off); `at` the room's ms (`behNow()`) of the write; `by` the writer's member id (at most 32 characters). It is
+  one more source in the cubes' "entered last decides" rule, exactly as a press's show and hide entries are
+  (`{ id: 'sw', since: at, cut: false }`, a 0.4 s fade; a cube switches at once): in force until a later source decides.
+  Shared, never in `layout.json`, Undo, the draft or *Unsaved changes*; an id not in the scene is ignored (and not
+  written back); absent: no outside switch. Changing the scene clears them all. Not cleared by *Reset what I have seen*
+  or the lobby (it is the room's).
+- **`bt`** = `{ bpm, at, by }`: the room's beat, written only through `HOST.cur.out.act({ do: 'beat' })`. `bpm` 20 to 300
+  (to 0.01), `at` the room's ms of one beat (any beat: phase = ((now - at) / (60000 / bpm)) mod 1), `by` as above.
+  Absent: no beat. At most one write a second from a device (a removal at once). Never in `layout.json` or Undo.
+- `apply()` checks every field of both (a bad value ignored, the field treated as absent) and never publishes.
+
+### The effect `send` (on the studio station's `e.<station>`, through `HOST.collab.effect('send', data, quiet)`)
+
+Published by a person's device (a headset, or a page in Walk view), never by a camera (`HOST.collab.cameraMode()`), the
+preview camera or the output page (`HOST.collab.outOn()`, below):
+
+```
+data = { id: <item id, 6 chars [a-z0-9]>, ev: <event>, at: <room ms of the moment>, t?: <s, an 'at' marker only>, try?: 1 }
+```
+
+- A cube that is **each person's own** (no `all: true`, no `key`) with send entries: `ev` `'enter'` as its inside
+  (`c.raw && c.on`) becomes true for this device, `'leave'` 0.3 s after it stops (`PLAY_EDGE`, as `plays` debounce; back
+  within that: nothing). Only when the cube has at least one entry for that `ev`, or (as integrated) for `'leave'` a held
+  entry for `'enter'`, so the held note ends as the person walks out (likewise `'unhover'` after a held `'hover'`, and
+  the output page's own `'off'` and everyone cubes' `'leave'`). A `stay` cube sends by the head itself
+  (enter as entered, leave as the head leaves), whatever it keeps showing. Not quiet.
+- An item whose `press.send` has `'hover'` or `'unhover'` entries: `'hover'` as this device's pointing on it begins
+  (`hoverNow`, a real pointing; the card's *Try pointing* sends nothing), `'unhover'` 0.3 s after it ends. Quiet (`q: 1`).
+- *Try* on any send row of a card (any kind, any `ev`, editing): one effect with `try: 1` (and `t` for an `'at'` row).
+- Never sent: everyone cubes and cubes with a key (the output page works those out itself), presses and sequences
+  (already shared by `pr.<id>` and `qr.<id>`), cube switches.
+- At most 10 `send` effects a second from a device and one per (id, ev) per 100 ms; the rest dropped and counted
+  (`STUDIO.sends().dropped`).
+- Every device's `studioEffect` ignores `send` unless something listens on `HOST.cur.out` (the output page); a bad
+  `data` (shape, an unknown id) is ignored.
+
+### Hello, presence, the people lists (lane PAGE; the relay keeps `out`)
+
+- The output page's hello: `{ t: 'hello', name: 'Output page', color, kind: 'desktop', here: false, version: FORMAT,
+  proto, dev: 'screen', reload: 1, out: 1 }`. The relay keeps `m.out = true` and adds `out: 1` to that member in its
+  members list (`pub`); the peer-to-peer and on-device hubs in `shared.js` do the same.
+- Its presence, once a second: `{ st: <the station it follows>, kind: 'desktop', out: 1, ts }` (no head: it is never a
+  person, never drawn, never counted as a head). Others mark it `P.out`; the pages' people list and the headset menu's
+  people rows say *output page*.
+- It is not an observer: it writes the studio's state as any page following a station does (presses, sequences, `sw`,
+  `bt`), and nothing else of the room.
+
+## Wire 2: the studio's API for the output page (`HOST.cur.out`, lane STUDIO; also `STUDIO.out`)
+
+The studio's returned object gains `out` (present from the studio's first frame; `HOST.cur.out` is undefined for every
+other story, and the page then offers people and trackers only). All poses in the scene's frame, which at a station is
+the room's (metres, floor at y = 0, quaternions `[x, y, z, w]`).
+
+```
+out = {
+  v: 1,
+  ready(): bool,                     // a scene open and its items in (LOAD.done and a scene)
+  scene(): string,                   // the scene's name ('' none)
+  list(): [{ id, k, name, send, press, all, key }],
+      // every item: k 'o' object, 'p' shape, 'e' empty, 's' sound, 'c' cube, 'q' sequence (no cut-outs, groups, screens,
+      // paintings); send: its send entries as recorded (a cube's, a sequence's, a press's), [] none; press: 'all' | 'own' |
+      // '' (no press record); all: a cube's all: true; key: a cube's key id or ''
+  pose(id): { p: [x, y, z], q: [x, y, z, w], shown: bool } | null,
+      // where it is drawn now on this device (motions, paths, behaviours, trackers, carries: the holder's world pose in the
+      // scene's frame; an object's p its holder's origin); a sequence or an unknown id: null
+  listen(fn): () => void,            // fn(ev) for each event (below); several listeners; returns the remover
+  act(a): { ok: true } | { ok: false, why: string },   // an action from outside (below)
+  beat(): { bpm, at, by } | null,    // the room's beat as applied
+  sends(): { out: n, dropped: n },   // this device's send effects sent and dropped (as STUDIO.sends())
+}
+```
+
+### Events (`fn(ev)`)
+
+```
+ev = { ev, id, k, name, who, at, t?, send, try? }
+```
+
+- `ev`: `'enter'`, `'leave'`, `'on'`, `'off'` (cubes), `'press'`, `'hover'`, `'unhover'` (objects and shapes), `'start'`,
+  `'stop'`, `'at'` (sequences). `id`, `k`, `name` the item's. `who`: a member id, or `''` (nobody: a key cube, a cube
+  switched by a cube). `at`: the room's ms of the moment. `t`: an `'at'` event's time in the sequence (s). `send`: the
+  item's send entries whose `on` is `ev` (and whose `t` is `t` for `'at'`), copies, possibly `[]`. `try`: 1 when it came
+  from a card's *Try*.
+- Emitted only while at least one listener is registered (no cost otherwise), from the studio's frame (after
+  `pressStep`), or at once from `studioEffect` for an effect. A listener that throws is logged once and kept.
+- Where each comes from, on the output page:
+  - `'enter'`, `'leave'` of a person's own cube: the effect `send` (`who` = the effect's `by`).
+  - `'enter'`, `'leave'` of an everyone cube (`all: true`) with send entries: worked out here from the heads
+    (`behHeads`), as every device does, `PLAY_EDGE` on leaving; `who` = the member id of the earliest head inside at
+    entering (the last inside at leaving). Of a cube with a key: the same, `who` `''`.
+  - `'on'`, `'off'`: a cube with send entries for them switched on or off as this device works it out (only shared
+    sources count here: everyone cubes, shared sequences and presses, `sw`); `who` = the deciding source's `by` (a press
+    stamp's, a sequence state's, an `sw`'s), else `''`.
+  - `'press'`: every new shared press stamp `pr.<id>` (`who` = its `by`), **also for items with no send entries** (`send`
+    `[]`), only when its `at` is within 2 s of now (no replay of old presses as the page joins or the scene opens).
+  - `'hover'`, `'unhover'`: the effect `send`.
+  - `'start'`, `'stop'`: a shared sequence's effective state starting or stopping (a command, a `seq` event, a cube's
+    or a press's `seq` entry, `start: 'open'`; `stop` also when a sequence without `loop` passes its `len`), also with no
+    send entries, `who` = the state's `by`, only for states set within 2 s of now. Own-sync sequences never.
+  - `'at'`: a shared sequence playing crosses one of its `'at'` send entries' `t` (each cycle of a loop), in real time
+    only (never in the catch-up of a late join or a seek); `who` = the state's `by`.
+  - Anything with `try: 1`: the effect `send` (`who` = its `by`).
+
+### Actions (`act(a)`)
+
+| `a` | What it does | Refused (`why`) |
+| --- | --- | --- |
+| `{ do: 'press', id }` | `pressFire(id)` as a press here (the stamp written, everyone's entries fire), with or without editing | no such item; no press record; `press.who: 'own'` (*its press is each person's own*); within 250 ms of the last |
+| `{ do: 'start' \| 'stop' \| 'toggle' \| 'rewind', id }` | `seqCmd` on a shared sequence (toggle: stop when playing, else start) | not a sequence; `sync: 'own'`; the circle's story locked |
+| `{ do: 'show' \| 'hide' \| 'flip' \| 'clear', id }` | writes `sw.<id>` `{ on: 1 }` / `{ on: 0 }` / the opposite of whether it is shown here now / removes it | not an object, shape, empty, sound or cube |
+| `{ do: 'beat', bpm, at }` | writes `bt` (`bpm` 0 or absent: removes it); at most once a second, the last kept and written when the second is up | `bpm` outside 20 to 300 |
+
+`by` in what it writes is this device's member id. `act` never throws; with no scene, `{ ok: false, why: 'no scene' }`.
+
+## Wire 3: the output page and the relay
+
+Only over the output page's own room socket, only when the room runs on a relay (`C.via === 'relay'`) and the relay's
+`/api/ping` says `osc`. Peer-to-peer and on-device rooms: no OSC (MIDI still works); the page says so.
+
+### Page to relay
+
+- `{ t: 'osc', m: [msg, ...] }`: 1 to 128 messages, the frame at most 64 KB. `msg` = `[address, types, ...args]`:
+  `address` `/^\/[!-~]{0,255}$/` (no spaces), `types` `/^[ifsTFN]{0,32}$/` (no leading comma), one arg per `i` (an
+  integer within int32), `f` (a finite number) or `s` (a string, at most 256 characters), none for `T`, `F`, `N`. Each
+  message becomes one UDP datagram to **every** `--osc-out` target. A bad message is dropped and counted, the rest sent.
+  Accepted only from a member whose hello said `out: 1` (else refused once as `bad`, as an unknown message is); with no
+  `--osc-out`, dropped silently (counted). At most 2,000 messages a second per member (fixed one-second window, as
+  `over()`); the rest dropped and counted (said in the log at most once a second, never their contents).
+- `{ t: 'osc-cfg', trk: true | false }`: the trackers as OSC for this member's room (below) on or off. From an `out`
+  member only. The relay answers with a status at once.
+
+### Relay to page (fx with `by: ''`, the shell's own, never passed to a story, never taken from a member)
+
+- `{ t: 'fx', k: '@osc', v: { at: <relay ms>, m: [msg, ...] }, by: '' }`: one per UDP packet that came in on `--osc-in`
+  (a bundle's messages flattened, nested bundles to depth 4, timetags ignored), to **every** member with `out` in every
+  room of the relay (an event's relay has one). Incoming types are normalised: `i` (`i`, and `h` within a safe integer),
+  `f` (`f`, `d`, and other `h`), `s` (`s`, `S`, `c`), `T`, `F`, `N`, `I` (no arg). A packet with any other type (`b`,
+  `t`, `r`, `m`, arrays) or a bad layout is dropped and counted. At most 500 `@osc` a second per member; a member whose
+  socket holds more than 256 KB unsent is skipped (as `@trk`).
+- `{ t: 'fx', k: '@osc', v: { st: { out: <targets>, in: <UDP port or 0>, trk: <'off' | 'on' | 'none' | 'unaligned' |
+  'other'>, sent: n, got: n, dropped: n } }, by: '' }`: to an `out` member after its `osc-cfg` and every 2 s while it is
+  connected. `trk`: `'off'` not asked or no `--trackers`, `'on'` sending for this room, `'none'` the bridge silent,
+  `'unaligned'` the room's `trk` not on or not lined up, `'other'` another room's output page asked last.
+
+### `/api/ping` (password as ever)
+
+Gains `osc: { out: <number of targets>, in: <UDP port or 0>, trk: <bool: --trackers on too> }` only when `--osc-out` or
+`--osc-in` was given. Target addresses are never in an answer.
+
+### The relay's command line (lane RELAY)
+
+- `--osc-out <host:port>`: repeatable and comma-separated, at most 8 targets; `host` an IPv4 address or a name (looked
+  up once at start; again after a send error, at most once every 10 s), `port` 1 to 65535. Datagrams from one UDP socket
+  bound to an ephemeral port.
+- `--osc-in <port>` or `--osc-in <addr:port>`: listen for OSC on UDP (default address 127.0.0.1, since UDP has no password: `0.0.0.0:<port>` for OSC from the LAN; 0 picks a free port, which
+  the start line and `/api/ping` say). Also in `RELAY_ARGS`.
+- With `--public` and no password (`--token` / `COLLAB_TOKEN`), either flag stops the start with a line saying they need
+  the relay's password. The socket's password rule is the usual one (`?token=`); nothing of OSC carries or logs it.
+- Start lines: `OSC: out to 127.0.0.1:9000, 192.168.1.20:7000; in on UDP 127.0.0.1:9001` and, with `--trackers`, that the
+  trackers go as OSC for the room whose output page asks. A port in use for `--osc-in` stops the start (as `--trackers`).
+
+### The trackers as OSC (the relay itself)
+
+With `--trackers` and `--osc-out`, and the trackers asked for by an output page (`osc-cfg { trk: true }`; the room of
+the latest such member still connected): on every bridge datagram (at most 120 a second), one message per device in it
+seen in the last 5 s (trackers, the Index and its controllers; never base stations), in that room's coordinates from its
+`trk` key (`trk.on` and `m` lined up; `frameOf`, `toRoom`, `quatToRoom` as `@trk`): address `/room/tracker/<serial>`,
+types `fffffffis`: x, y, z, qx, qy, qz, qw, ok (1 or 0, 0 once 0.5 s old), kind (`'t'`, `'h'`, `'l'`, `'r'`). Every 2 s
+also `/room/tracker/<serial>/name` `s` with its name from `trk.names` (`''` none). Counted with the room's OSC. Raw SteamVR
+space is never sent. `relay/trackers.mjs` gains `o.onTake(list)` (called after each good datagram with its readings) or
+an equivalent the lane chooses; `@trk` is unchanged.
+
+## Wire 4: OSC on UDP (defaults)
+
+Every address the page or the relay makes. `<slot>` is 1 to 16 (below), `<id>` an item's id, numbers as OSC floats.
+
+| Address | Types | Args | From |
+| --- | --- | --- | --- |
+| `/studio/cube/<id>/<ev>` (`enter`, `leave`, `on`, `off`) | `ssssi` | who's name, who's colour (`#rrggbb` or `''`), who's member id (`''` nobody), the cube's name, 1 (`enter`, `on`) or 0 | page |
+| `/studio/item/<id>/<ev>` (`press`, `hover`, `unhover`) | `ssssi` | as above (1 press, hover; 0 unhover) | page |
+| `/studio/seq/<id>/<ev>` (`start`, `stop`) | `ssssi` | as above (1 start, 0 stop) | page |
+| `/studio/seq/<id>/at` | `ssssif` | as above, 1, the marker's `t` (s) | page |
+| an entry's own `osc` address | the same types and args as its default | | page |
+| `/room/person/<slot>/head`, `/room/person/<slot>/hand/l`, `/hand/r` | `fffffff` | x, y, z, qx, qy, qz, qw (room coordinates) | page (People raw) |
+| `/room/person/<slot>/info` | `ssss` | name, colour, member id, kind (`ar`, `vr`) | page (on change and every 2 s) |
+| `/room/person/<slot>/gone` | | | page |
+| `/studio/item/<id>/pose` | `fffffffi` | x, y, z, qx, qy, qz, qw, shown (1 or 0) | page (Items raw) |
+| a stream's own address | `ff` | the value scaled 0 to 1, the value as measured (m, degrees) | page (Streams) |
+| `/room/tracker/<serial>`, `/room/tracker/<serial>/name` | above | above | relay |
+
+Incoming addresses the page always takes (when OSC is on; `<ref>` an item's id or its exact name):
+
+| Address | Args | Action (`act`) |
+| --- | --- | --- |
+| `/studio/press` | `s ref` | `press` |
+| `/studio/seq/start`, `/studio/seq/stop`, `/studio/seq/toggle`, `/studio/seq/rewind` | `s ref` | the same |
+| `/studio/show`, `/studio/hide`, `/studio/flip`, `/studio/clear` | `s ref` | the same |
+| `/studio/beat` | `f bpm` (or `i`) | `beat` with `at` = now: each such message is a beat (send one per beat to lock the phase) |
+| `/studio/beat/stop` | | `beat` with bpm 0 |
+
+Plus the page's own incoming mappings (Lane PAGE). Anything else is shown in the page's log and ignored.
+
+## Wire 5: MIDI (the output page, Web MIDI)
+
+- Access: `navigator.requestMIDIAccess({ sysex: false })` only (Chrome, Edge; elsewhere the page says MIDI needs Chrome or
+  Edge). The page uses only: `access.outputs` and `access.inputs` (iterated with `.values()`), `access.onstatechange`
+  (assigned), `port.id`, `port.name`, `port.state`, `output.send(array)` (no timestamp: timing by the page's timers),
+  `input.onmidimessage = fn` (assigned, `e.data` a `Uint8Array`). The tests' stub implements exactly this.
+- One output port and one input port, picked by name (kept in `localStorage`; none picked: the first of each).
+- Events: an entry with `note`: note on (`0x90 | ch-1`, note, `val` default 100), then note off (`0x80 | ch-1`, note, 0)
+  after `noteLen` ms (default 100) or, with `hold`, at the paired end (`enter`/`leave`, `on`/`off`, `hover`/`unhover`,
+  `start`/`stop`; held per item, entry and who; a person gone, Stop, MIDI off: every held note off). An entry with `cc`:
+  CC (`0xB0 | ch-1`, cc, `val` default 127), with `hold` 0 at the paired end. `ch` 0 (*by person*): the channel is
+  `who`'s slot (no slot or `who` `''`: channel 1).
+- Streams: CC (`0xB0 | ch-1`, cc, round(value 0..1 * 127)) only when the 0..127 value changes.
+- In: note on (velocity > 0), note off (or note on with velocity 0), CC, program change, and the realtime bytes clock
+  (`0xF8`), start (`0xFA`), continue (`0xFB`), stop (`0xFC`), for the incoming mappings; clock also for the beat
+  (*MIDI clock to the room's beat*, off by default): bpm = 60000 / (24 x the median of the last 48 tick intervals); a beat
+  at every 24th tick counted from the last start (or the first tick heard); `act({ do: 'beat', bpm, at })` when bpm moved
+  by 0.5 or more, or the beat's predicted moment is more than 20 ms off, at most once a second; stop: `act({ do: 'beat',
+  bpm: 0 })`. Times by `HOST.collab.now()` (the room's clock) at the message.
+- Slots: each person in a headset (members with a head in presence) gets the lowest free slot 1 to 16 as first seen
+  (kept while the page runs; freed 60 s after they leave); the 17th and later have none (not sent by slot).
+
+## `layout.json`: the `send` entries (lane STUDIO)
+
+A **send entry**, fields written in this order, only those set:
+
+```
+{ on, t, osc, note, cc, val, ch, hold }
+```
+
+- `on`: by the record: a cube `'enter' | 'leave' | 'on' | 'off'`; a press record (`press.send`, objects and shapes)
+  `'press' | 'hover' | 'unhover'`; a sequence `'start' | 'stop' | 'at'`.
+- `t`: required for `'at'` only (0 to 600 s, to 0.01; past `len` kept, never reached); absent otherwise.
+- `osc`: an address of its own, `/^\/[A-Za-z0-9_.\-\/]{0,127}$/` without `//`; absent: the default (Wire 4).
+- `note` or `cc` (never both): an integer 0 to 127; neither: OSC only.
+- `val`: 0 to 127 (only with `note` or `cc`); absent: 100 for a note, 127 for a CC.
+- `ch`: 0 to 16 (0: by person); absent: 1 (1 is never written).
+- `hold`: `true` only with `note` or `cc` and `on` one of `'enter'`, `'on'`, `'hover'`, `'start'`.
+- At most 8 entries a record; an exact duplicate is dropped; an entry that is not one is dropped and counted when read
+  from a layout (said on the Scene pane with the other bad entries, as `plays`). The list is kept only when it has an
+  entry. A press record is kept when any of `do`, `hover`, `send` has an entry (an item with only send entries is
+  pressable: a click writes its stamp).
+- Where: a cube `{ ..., plays, send }`; `press: { do, hover, send, who }` (`who: 'own'`: its `press` sends happen only on
+  that device and never reach the output page: its card says so); a sequence `{ ..., ev, send }` (`sync: 'own'`: the
+  same).
+- A cube's `send` is the owner's opt-in: no `send`, nothing about that cube is ever sent.
+- Delete, Duplicate, groups' copies: `send` belongs to its own record and names nothing else, so a copy copies it and
+  nothing else changes.
+- A motion's **`beat`**: one of 0.25, 0.5, 1, 2, 4, 8, 16 (beats a period), absent: off. While the room has `bt`, the
+  motion's cycle count is `c = sign(speed) x (behNow() - bt.at) / (beat x 60000 / bt.bpm)` in place of
+  `(speed / 60) x t` (its `start: 'shown'` ignored meanwhile); without `bt`, as before. Pause and rests as ever.
+
+## Lane STUDIO (`tools/studio/`, one round)
+
+1. Validation: one `normSend(list, kind)` for `readLayout`, `collabApply`, the cards and `scan.mjs` if it checks records;
+   motion `beat`; the state fields `sw.<id>` and `bt` in `collabState` and `collabApply`.
+2. `sw` as a source in the cubes' rule (`triggerStep`, `cubeSwitch`, beside `pressShowHide`'s sources); `bt` in the
+   motions (`motionDelta`'s cycle count).
+3. The effect `send` out (Wire 1) from cubes and pointing, with the rate limits; in, through `studioEffect`.
+4. `HOST.cur.out` and `STUDIO.out` (Wire 2), its events and actions; `STUDIO.sends()`; for tests also
+   `STUDIO.sendSet(id, list | null)` (a record's `send`, or a press's `send`, written as an edit with one Undo step,
+   validated as a layout's) and `STUDIO.beatSet(motionItemId, beat | null)`.
+5. The cards, page HTML and headset canvas twins from the same blocks:
+   - A cube's card: *Sends to the output page: Off / On* (On adds `[{ on: 'enter' }, { on: 'leave' }]`, Off takes the
+     list away; one Undo step each), a line: *Only that someone walked in or out goes to the room (with their name and
+     colour); what the cube shows stays each person's own.*, then one row per entry in words (*Walking in · OSC
+     /studio/cube/ab12cd/enter · note 36, channel 1, held while inside*), *Try* (the effect with `try: 1`), ✕ (one Undo
+     step), and *Add a send...*: When (the record's `on` values, *At ... s* with the sequence card's nudges for `'at'`),
+     MIDI (*None*, *Note*, *Controller*; the number and value with −12 −1 +1 +12 / −10 −1 +1 +10 steps, a page also by
+     typing), Channel (1 to 16 or *By person*), *Hold until ...* (where allowed), OSC (*Default address* shown; on a page a
+     field for its own address, in a headset only the default or the one it has), a sentence, *Add* or *Replace*.
+   - An object's and a shape's card: *Sends* under *When pressed* / *While pointed at*, `on` *When pressed*, *As
+     pointing begins*, *As pointing ends*; the Items pane's faint line *sends*.
+   - A sequence's card: *Sends* (*At the start*, *At the stop*, *At ... s*).
+   - A motion's card: *On the beat: Off / ¼ / ½ / 1 / 2 / 4 / 8 / 16* with a line: *Follows the room's beat (from the
+     output page's MIDI clock or OSC) while there is one.*
+   - A selected item with sends: no new lines in the scene (nothing see-through; nothing new drawn).
+6. Rebuild `stories/studio.js` (`node tools/studio/build.mjs`); `tools/studio/SPEC.md` section "Sends to the output page
+   (MIDI and OSC)"; `docs/agents/studio.md` a bullet; `tools/studio/README.md` if it lists record fields.
+
+## Lane PAGE (`output.js`, `shared.js`, one round)
+
+1. `shared.js`: FORMAT `networks-51`; `&output` in `boot` (a computer's page, `DEV === 'screen'`; on a phone or headset:
+   ignored); *Output page (MIDI and OSC)* in the Shared dialog's room row (computer pages in a room not on this device
+   only), with a line saying what it is; `output.js` loaded on demand from `appRoot()` as `peerjs.min.js` is, then
+   `HOST.out.start(why)`; reload resume (sessionStorage `collabOut` = the room code, as `collabPcam`); hello and presence
+   `out`; `P.out`, *output page* in both people lists; `@osc` taken in `onFx` only with `by` `''`, handed to `HOST.out`;
+   `HOST.collab.outOn()` (true while this page runs as the output page), `HOST.collab.osc(msgs)` (sends `{ t: 'osc' }`,
+   false when not on a relay or not open), `HOST.collab.oscCfg(o)`, `HOST.collab.people()` (`[{ id, name, color, kind,
+   st, body }]`: every member in a headset with a head heard in the last 2 s, `body` from `body(id)`), and the hubs
+   keeping `out` in their members list. Every listener the page adds on `window`, `document` or MIDI objects is added
+   with `HOST.quiet` set.
+2. `output.js`: `HOST.out`. Starting follows a studio circle (the first by id; a picker of the room's circles, a
+   non-studio one giving people and trackers only), sets `body.outp`, shows the overlay `#out` (a side panel at the left,
+   420 px, scrolling; the story's picture stays visible at the right; CSS injected once, `OUT_CSS`). Sections:
+   - Status: room, relay, circle, scene, *Stop*; a warning while the tab is hidden (*Keep this tab in front: a hidden tab
+     stops the scene's frames*).
+   - MIDI: *MIDI: Off / On*, output and input pickers, status, *Test note* (60 on channel 1).
+   - OSC: what the relay says (`osc` from `/api/ping` and `@osc` `st`), *OSC: Off / On*, *Trackers as OSC (the relay):
+     Off / On* (`osc-cfg`).
+   - Events: *The scene's sends* (always on while MIDI or OSC is), *Every press and sequence on the default addresses:
+     Off / On*, *Also what this page caused: Off / On* (off by default: events whose `who` is this page are not sent).
+     How an event is sent: each entry of `ev.send` gives one OSC message (its `osc` or the default address, Wire 4)
+     while OSC is on, and a MIDI message when it has `note` or `cc` while MIDI is on; an event with `send` `[]` (a press
+     or a sequence's start or stop without entries) goes out only with *Every press and sequence* on, as one OSC
+     message on its default address (no MIDI).
+   - People: slots, names, colours, kind; *People as OSC: Off / On* (15 a second at most each), *Everyone in the room /
+     At this circle*.
+   - Items: *Items as OSC: Off / On* (`pose` of each item that moved more than 1 mm or 0.2 degrees, or was shown or
+     hidden, at most 30 a second each; all once as it is turned on).
+   - Streams and Incoming: tables with Add, edit, ✕, on/off per row, a live value per stream, *Learn* per incoming row
+     (the next MIDI or OSC message fills its `from`).
+   - Log: the last 200 messages in and out (`HOST.out.log()`).
+   - *Export* (downloads `output-mapping.json`) and *Import* (a file or pasted text, validated, replacing the mapping).
+3. The mapping, in `localStorage` `outMap` (validated on read, a bad row dropped and said): `{ out: 1, opt, streams,
+   incoming }`:
+   - `opt`: `{ midi, midiOut, midiIn, osc, oscTrk, all, echo, people, peopleWhere: 'room' | 'circle', items, clock,
+     noteLen }` (booleans off by default, `noteLen` 100, `peopleWhere` `'room'`).
+   - A stream: `{ id, on, name, src, v, min, max, curve, smooth, hz, midi, osc }`: `src` `{ k: 'head' | 'hand' | 'tracker'
+     | 'item' | 'dist', who: 1-16 | 'any', hand: 'l' | 'r', id, a, b, flat }` (`'any'`: the lowest slot present; `dist`
+     between endpoints `a` and `b`, each `{ k: 'head' | 'hand' | 'tracker' | 'item', who, hand, id }`, `flat: true` along
+     the floor only), `v` `'x' | 'y' | 'z' | 'yaw' | 'pitch' | 'speed' | 'd'` (`'d'` for dist only; height is a head's
+     `'y'`), `min` and `max` the measured range mapped to 0 to 1 and clamped, `curve` `'lin' | 'inv'`, `smooth` 0 to 0.95
+     (each sample: `y += (1 - smooth) * (x - y)`), `hz` 1 to 60 (anything using a person at most 15), `midi` `{ ch: 1-16,
+     cc: 0-127 } | null`, `osc` an address or `''`.
+   - An incoming row: `{ id, on, name, from, act }`: `from` `{ midi: 'note' | 'cc' | 'pc' | 'start' | 'stop' | 'continue',
+     ch: 0 (any) | 1-16, n: 0-127, min: 1-127 (a CC fires as it crosses min upward; default 64) }` or `{ osc: address,
+     arg: index of the number to test (default 0), min (default 0.5; no number: fires) }`; `act` `{ do, id, hold }` with
+     `do` from the table of `act()` (not `beat`), `hold: true` for `show`/`hide`/`start`/`stop` (note off, or the value
+     back below `min`, does the opposite).
+   - Ids six characters `[a-z0-9]`; at most 64 streams and 64 incoming rows.
+4. `HOST.out` for tests: `start(why)`, `stop()`, `on()`, `state()` (`{ on, phase, room, via, station, story, studio:
+   bool, midi: { on, ok, err, outs, ins, out, in }, osc: { on, relay, sent, got, dropped }, people: [{ slot, id, name,
+   color, kind }], opt, streams, incoming, events }`), `log(n)` (`[{ at, dir: 'out' | 'in', via: 'midi' | 'osc' | 'room',
+   text, m }]`, `m` the MIDI bytes or the OSC message array), `map(json)` (get; with an argument set, returning the
+   problems found), `midiIn(bytes)` and `oscIn(msg)` (as if from the port or the relay).
+5. Its own test and docs (below; `tools/output/README.md`: loopMIDI on Windows, the IAC Driver on macOS, `snd-virmidi` or
+   a2jmidid on Linux, Cardinal's MIDI modules, the relay's flags, the address tables of this file by reference).
+
+## Lane RELAY (`relay/`, one round)
+
+1. `relay/osc.mjs`: `encode(msg)` (Wire 3's JSON message to an OSC 1.0 datagram: address and type tags NUL-padded to 4
+   bytes, int32 and float32 big-endian, strings NUL-padded), `decode(buf)` (messages and bundles, Wire 3's normalised
+   types; `null` for a bad packet), `makeOsc({ out, inAddr, inPort, log })` (sockets, sends, the incoming callback,
+   counts, lookups), each testable without the server.
+2. `relay/server.mjs`: the flags and start lines, `osc` and `osc-cfg` messages, `out` in hello and `pub`, `@osc` in and
+   status, `/api/ping`'s `osc`, the trackers' OSC, `'output.js'` in `APP_FILES`, the `--public` rule, help text, a clean
+   close of the sockets as the relay stops. No member's address, no target's contents, no password in a log line.
+3. `relay/trackers.mjs`: the per-datagram hook; nothing else changes.
+4. `relay/README.md`: "OSC and the output page" (the flags, an example `node relay/server.mjs --lan --trackers --osc-out
+   127.0.0.1:9000 --osc-in 9001`, what goes where, the password rule).
+
+## Tests
+
+Cheap checks for every lane: `node --check` on every changed `.js`/`.mjs`. Each lane runs only its own tests, once at the
+end, and does not chase failures that are the machine's. Playwright: `ln -s /opt/node-tools/node_modules
+/home/user/airportnetworks/node_modules` only while running, removed after. Screenshots (few, 640 x 400) to
+`/tmp/claude-0/-home-user-airportnetworks/807e65b1-c085-5dcc-a329-4d92419b27cf/scratchpad/output-shots/`.
+
+- **RELAY**: `node relay/test.mjs --osc` (a new part, also in the full run): the codec (round trips of every type,
+  padding at every length mod 4, a bundle in a bundle, bad packets refused, int64 and float64 normalised); a relay with
+  `--osc-out 127.0.0.1:<a UDP listener> --osc-in 0`: a member with `out: 1` sends `osc` and the listener gets the exact
+  bytes; a member without `out` is refused; the rate cap drops and counts; a datagram sent to the in port reaches only
+  the `out` members as `@osc`; `osc-cfg` answers with `st`; `/api/ping`'s `osc`; `--public` without a password refuses to
+  start, with one it starts; with `--trackers 0` and `tools/trackers/fake.mjs`, the room's `trk` lined up by a `set`, the
+  listener gets `/room/tracker/<serial>` in room coordinates equal to `@trk`'s within 1 mm. Then `node relay/test.mjs`
+  (whole) once.
+- **STUDIO**: `node tools/studio/build.mjs` then `--check`; `node tools/studio/scan.mjs tools/studio/test/scenes --check`;
+  a new smoke block `node tools/smoke.mjs http://127.0.0.1:8123/ --only 'studio sends'`: validation (a layout with good
+  and bad entries: kept, dropped, counted), both twins of each card show the rows, `STUDIO.sendSet` and Undo; with a
+  listener on `STUDIO.out`: a press stamp gives `'press'` with its `by`, a sequence's start, an `'at'` and its stop, an
+  everyone cube entered by a pretend head gives `'enter'` with that head's id, `studioEffect('send', ...)` gives the
+  event with `who` = by; this device entering its own cube with sends calls `HOST.collab.effect('send', ...)` (a spy)
+  and one without sends does not; `act()` for each `do` writes `pr`, `qr`, `sw`, `bt` and refuses as the table says;
+  `sw` shows, hides and switches a cube; a motion with `beat` follows `bt`'s phase. Also `--only 'studio press'`,
+  `'studio sequences'` and `'studio cube switches'` once (nothing of theirs broken).
+- **PAGE**: `tools/output/test-page.mjs` (Playwright; a served folder; a room on this device, `#net=...`, or the existing
+  relay; MIDI stubbed as in Wire 5; `HOST.cur.out` stubbed by a fake studio API with two items, so it needs neither of
+  the other lanes): starting from `&output` and from the dialog, the overlay, MIDI ports picked, an event with a note
+  entry gives note on and off bytes on the stub (and held ones at their pair), CC streams from pretend presence (the
+  shell's test hooks for presence), incoming note and CC and OSC (`HOST.out.oscIn`) call the stub's `act` as mapped,
+  MIDI clock at 120 bpm gives `act({ do: 'beat', bpm: ~120 })`, export and import round trip, `HOST.collab.osc` false
+  off a relay. Then `node tools/smoke.mjs http://127.0.0.1:8123/ --only 'developer mode'` (a quick check that the shell
+  still starts).
+- **Integrator, end to end**: `node tools/collab.mjs --output` (a new round): a relay with `--osc-out 127.0.0.1:<UDP
+  listener in the test> --osc-in 0 --trackers 0 --scenes <the test scenes>`; the output page (`#s=XYZ&output`, MIDI
+  stubbed by `addInitScript`, sends kept in `window.__midiSent`) following a studio circle; send entries written with
+  `STUDIO.sendSet` from a second page; then (1) a pretend headset walking into a cube with `[{ on: 'enter', note: 36 }]`:
+  the listener gets `/studio/cube/<id>/enter` with that headset's name, colour and id, and `__midiSent` a note on 36;
+  leaving gives `leave` (and the note off); a cube without `send`: nothing at all, from the effect to UDP; (2) a press
+  from the second page: `/studio/item/<id>/press`; (3) UDP `/studio/press <id>` into the relay's in port: the room's
+  `pr.<id>` advances; an incoming MIDI note mapped to `start` a sequence: its `qr.<id>.on`; `/studio/hide <id>`: `sw.<id>`
+  and the item hidden on the second page; (4) 48 clock ticks at 120 bpm: `bt.bpm` within 0.5 of 120; (5) the fake bridge
+  and `trk` lined up: `/room/tracker/<serial>` datagrams; (6) *People as OSC*: `/room/person/1/head`; (7) a stream head
+  `y` to CC 7: `0xB0 7 v` on the stub. Then the release run as ever (smoke, `relay/test.mjs`, the collab rounds touched:
+  `--preview`, `--studio`, `--quick`).
+
+## Known limits (say them in the docs) and untested
+
+- A hidden output tab stops the scene's frames (browsers throttle them): everyone cubes, presses' and sequences' events
+  and Items wait until it is in front again (effects still arrive). Keep it in front, on its own screen or window.
+- Person-own cubes switched by that person's own cubes or presses: the output page sees only shared switches (`'on'`,
+  `'off'` events and its own view of shown and hidden).
+- Own presses (`who: 'own'`) and own sequences (`sync: 'own'`) never reach the output page.
+- OSC goes to every target alike; no per-target routing. No OSC in peer-to-peer rooms or a room on one device.
+- Two people pressing within a few hundred ms may lose a press (as ever); a note held for a person who leaves the room
+  ends when they are gone (2 s).
+- Only one room's trackers as OSC per relay (the latest output page that asked).
+- Untested until tried on the owner's machines: Web MIDI with real virtual ports (loopMIDI, IAC, ALSA) and Cardinal, real
+  MIDI clock jitter from a DAW, OSC to real apps (TouchDesigner, Max, Pd, Cardinal has no OSC), UDP through Windows'
+  firewall, the trackers' OSC rate on the PC, cubes and pointing with real headsets, how in time it all feels. Only
+  headless Chromium with stubs and UDP on 127.0.0.1 here.

@@ -1267,7 +1267,7 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   in place at once on every page showing it (also mid-chapter) and is fetched
   fresh next time on the others; the list is read again (cards appear or change,
   no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `three.min.js`,
-  `peerjs.min.js`) reloads the page with its place kept. `--build` also runs a
+  `peerjs.min.js`, `output.js`) reloads the page with its place kept. `--build` also runs a
   built story's `tools/<key>/build.mjs` when its sources change (the folders its
   build names, `../lbi/` and the like, and the story files it cuts from; not
   `shots/`, `gen/`, `data/`), one build at a time, a moment after the last

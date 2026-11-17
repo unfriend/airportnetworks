@@ -3121,6 +3121,88 @@ press: { do: [entries], hover: [entries], who }
   joiner to a looping sequence fires only the current cycle's events; hover is never shared (others do not see what you
   point at react); presses fire only with editing off.
 
+## Sends to the output page (MIDI and OSC) (v157, the owner, 16 November 2026)
+
+"Make it opt in by default and say who entered", "both" (MIDI and OSC), "in and out", "output page and then midi or local
+relay for osc and trackers". The contract between the studio, the output page (`output.js`) and the relay is
+`tools/output/SPEC.md`; this is the studio's part (`engine/e6u_send.js`).
+
+- **Send entries** (the scene's own mapping, in `layout.json` and the state): a cube `{ ..., plays, send }`, a press
+  `{ do, hover, send, who }` (objects and shapes), a sequence `{ ..., ev, send }`. An entry `{ on, t, osc, note, cc, val,
+  ch, hold }`, fields in that order, only those set: `on` a cube's `enter`, `leave`, `on`, `off`; a press's `press`,
+  `hover`, `unhover`; a sequence's `start`, `stop`, `at` (`t` its moment, 0 to 600 s to 0.01, required for `at` only);
+  `osc` an address of its own (`/^\/[A-Za-z0-9_.\-\/]{0,127}$/`, no `//`; absent: the default `/studio/cube|item|seq/<id>/<ev>`);
+  `note` or `cc` (never both) 0 to 127; `val` 0 to 127 (absent: 100 a note, 127 a controller); `ch` 0 (by person) to 16
+  (absent: 1, never written); `hold: true` only with a note or a controller and `on` `enter`, `on`, `hover` or `start`. One
+  check, `normSend(list, kind)`, for `norm` (so `readLayout`, `collabApply`, the cards and `STUDIO.sendSet` alike): an entry
+  with a bad value (a wrong `on`, note and cc both, a note of 128, a hold where none can be, a bad address) is dropped, a
+  field that does not apply is not written (`t` but for `at`; `val`, `ch`, `hold` without MIDI), an exact duplicate dropped,
+  at most 8; the list kept only with an entry; not a list (and not null) makes the record bad. A layout's dropped entries
+  are counted (`sendBad`) and said on the Scene pane (*N of the sends to the output page in layout.json could not be read*).
+  A press with only send entries is kept and pressable (a click writes its stamp, `pressFire`). Delete, Duplicate and a
+  group's copies: `send` names nothing else, so a copy copies it.
+- **The exception to "a cube is each person's own"**: only for a cube opted in to send (its record has send entries), the
+  fact that a person walked into it or out of it is sent as an ephemeral effect from that person's device; what the cube
+  shows, hides, changes or starts for them stays their own and is never sent. A pointing at an item whose press has
+  `hover`/`unhover` entries is likewise sent; nothing else of pointing is. Nothing goes into `state()` for either.
+- **The effect `send`** (`HOST.collab.effect('send', { id, ev, at, t?, try? })`, `sendFx`): from a person's device only (a
+  headset, or a page in Walk view; never a camera, the preview camera or the output page, whose `headPoint` is null). A
+  cube each person's own (no `all`, no `key`) with entries: `enter` as its inside (`c.raw && c.on`) becomes true here,
+  `leave` 0.3 s after it stops (`PLAY_EDGE`; back within that, nothing), each only when the cube has an entry for it, or, for
+  `leave`, a held entry for `enter` (`sendEnds`, the integrator's fix: the output page lets the held note go at the
+  leave, which would otherwise sound until the person is gone; the same for `unhover` after a held `hover` and, on the
+  output page, a cube's `off` after a held `on` and an everyone cube's `leave`) (a stay cube by the head itself). Pointing (a real one, `hoverNow`; the card's *Try pointing* sends nothing; never for a
+  press that is each person's own): `hover` as it begins, `unhover` 0.3 s after it ends, quiet. *Try* on any send row
+  (editing): one effect with `try: 1` (and `t`). At most 10 a second from a device and one per item and event per 100 ms
+  on the runs' clock (`trgClock`); the rest dropped and counted (`STUDIO.sends().dropped`). Every device's `studioEffect`
+  ignores `send` unless something listens on `HOST.cur.out` (`sendHeard`; a bad one, an unknown id, an event the item
+  cannot have, ignored).
+- **`sw.<id>`** `{ on, at, by }` in the state: an outside switch of an object, shape, empty, sound or cube, written only by
+  `HOST.cur.out.act()`; one more source in the cubes' rule (`swShowHide`, after the presses': `{ id: 'sw', since: at }`, a
+  0.4 s fade, a cube switched at once; a cube's card says *Switched off by the output page*). Never in `layout.json`, Undo,
+  the draft or *Unsaved changes*; an id not in the scene ignored and not written back; cleared as the scene changes, not
+  by *Reset what I have seen* or the lobby. **`bt`** `{ bpm, at, by }`: the room's beat (20 to 300 bpm), written by
+  `act({ do: 'beat' })` at most once a second (the last kept and written when the second is up; a removal at once).
+  `collabApply` checks both and treats a bad one as absent.
+- **A motion's `beat`** (0.25, 0.5, 1, 2, 4, 8, 16 beats a period; absent off; anything else makes the motion bad): while
+  the room has `bt`, the motion's cycle count is `sign(speed) x (behNow() - bt.at) / (beat x 60000 / bt.bpm)` (its `start:
+  'shown'` ignored meanwhile; `motionBeatT` in `drawnPose`); without `bt`, as before; a motion a cube starts keeps its run's
+  clock; Pause and rests as ever. The card: *On the beat: Off / ¼ / ½ / 1 / 2 / 4 / 8 / 16* (one Undo step), and the line
+  *Follows the room's beat (from the output page's MIDI clock or OSC) while there is one.*
+- **`HOST.cur.out`** (also `STUDIO.out`; Wire 2 of `tools/output/SPEC.md`): `ready()`, `scene()`, `list()`, `pose(id)` (the
+  holder's world pose in the scene's frame, as drawn here), `listen(fn)` (several; the remover returned), `act(a)`,
+  `beat()`, `sends()`. Events (only while a listener is registered; from the frame after `pressStep`, `sendStep` at the end
+  of `triggerStep`, or at once from an effect): a new shared press stamp (`press`, items without entries too, within 2 s of
+  now), a shared sequence's `start` and `stop` (with or without entries, within 2 s), its `at` entries crossed in real time
+  (each loop's cycle; a start just now catches up 250 ms at most, never a late join or a seek), a cube with `on`/`off`
+  entries switched on or off as this device works it out (`who` the deciding source's: an `sw`'s, a press stamp's, a
+  sequence state's; `c.onBy`, `c.offBy`), an everyone cube's or a key cube's `enter` and `leave` worked out here from the
+  heads (`who` the earliest head inside; at leaving the last; a key cube's nobody), and the effect `send`. A press's and a
+  sequence's `by` is the presser's room name: `who` is the member of that name (`whoOf`), else `''`. A listener that throws
+  is logged once and kept. Actions as Wire 2's table (`press` refused within 250 ms, for a press each person's own, an item
+  without a press; sequences refused when own or the circle's story is locked; `show`/`hide`/`flip`/`clear` for objects,
+  shapes, empties, sounds and cubes; `beat` 20 to 300); `act` never throws.
+- **The cards** (page HTML and headset canvas twins from the same blocks): a cube's *Sends to the output page: Off / On* (On
+  adds walking in and out on their default addresses, no MIDI; Off takes the list away; one Undo step each) and the line
+  *Only that someone walked in or out goes to the room (with their name and colour); what the cube shows stays each
+  person's own.*; an object's and a shape's *Sends* under *When pressed* / *While pointed at*; a sequence's *Sends*. One row
+  per entry in words (*Walking in · OSC /studio/cube/ab12cd/enter · note 36, channel 1, held while inside*: a press opens it
+  to change, *Replace*), *Try*, ✕ (one Undo step); *Add a send...*: When (*At ... s* with the sequence card's nudges), MIDI
+  (*None*, *Note*, *Controller*; the number −12 −1 +1 +12, the value −10 −1 +1 +10; a page also types the number), Channel
+  (−1, +1, *1*, *By person*), *Hold until ...* where allowed, OSC (the default shown; a page has a field for its own, *Use
+  it*; a headset only the default or the one the entry has), a sentence, *Add* or *Replace* (one Undo step). The Items pane's
+  faint line says *sends*. Nothing new is drawn in the scene for sends.
+- **For tests**: `STUDIO.sends()` (`out`, `dropped`, the last sent and emitted, the listeners, `sw`, `bt`), `STUDIO.sendSet(id,
+  list | null)` (a cube's, a sequence's or a press's list as an edit, one Undo step, checked as a layout's),
+  `STUDIO.beatSet(id, beat | null)`, `SENDS.spy` (in place of `HOST.collab.effect`); `node tools/smoke.mjs --only 'studio
+  sends'`.
+- Known limits: a hidden output tab stops the scene's frames (everyone cubes, presses' and sequences' events wait; effects
+  still arrive); cubes each person's own switched by that person's own cubes or presses are not seen by the output page
+  (only shared switches); a press each person's own and a sequence `sync: 'own'` never reach it; two people of the same
+  room name are told apart by the first only (a press's and a sequence's `by` is a name).
+- Untested on a headset: walking into a cube that sends and pointing with a real ray, how in time the room's beat looks on
+  real headsets, the headset card's rows with real controllers.
+
 ## The colour picker (v146, the owner, 15 November 2026)
 
 One picker for an object's tint, a shape's colour and the paint colour (`engine/e7h_colour.js`; the page's `#stuCpk` popover and

@@ -90,6 +90,9 @@ function norm(kind, x, id) {
     // what it starts as you walk in or out, kept only when there is something (an entry that is not one dropped, at most
     // 16: e6n_plays.js); not a list (and not null) makes the record bad
     if (x.plays != null) { const t = Array.isArray(x.plays) ? normPlays(x.plays) : null; if (!t) return null; if (t.length) r.plays = t; }
+    // what it sends to the output page (v157, e6u_send.js: the owner's opt-in; no send, nothing about it is ever sent), kept
+    // only when there is an entry; not a list (and not null) makes the record bad
+    if (x.send != null) { const t = sendKeep(x.send, 'c'); if (t === null) return null; if (t) r.send = t; }
     // works for everyone here (v137), kept only when set: true; absent, false or null: each person's own; anything else
     // makes it bad
     if (x.all === true) r.all = true; else if (x.all != null && x.all !== false) r.all = null;
@@ -581,6 +584,7 @@ function sceneClock(now) {
 const _hp = new THREE.Vector3(), _kp = new THREE.Vector3();
 function headPoint(out) {
   if (STU.head) return out.fromArray(STU.head);
+  if (outPage()) return null;   // (the output page is never a person: e6u_send.js)
   if (xrAway()) return null;   // (away from its station in a room: the scene hidden, nobody in it)
   if (XR.on && GL.renderer.xr.isPresenting) { GL.world.updateWorldMatrix(true, false); return GL.world.worldToLocal(out.copy(XR.head)); }   // (its parents and itself: worldToLocal needs no more, the frame's own walk did the rest)
   if (APP.mode === 'explore' && X.view === 'walk') return out.copy(WALK.pos);
@@ -684,6 +688,7 @@ function cubeSwitch(S, H, Tr, away) {
       c.on = on; c.onCh = true;
     }
     c.offBy = on ? null : w;   // (what keeps it off: a cube, a sequence's or a press's source; null: it waits for one to show it)
+    c.onBy = on ? w : null;   // (and what switched it on: who did it, for the output page, e6u_send.js)
   }
 }
 function triggerStep(now) {
@@ -702,6 +707,7 @@ function triggerStep(now) {
   // nothing the cubes work out this frame), so a cube they switch is switched in this frame
   seqShowHide(S, H, Tr);
   pressShowHide(S, H, Tr);
+  swShowHide(S, H);   // (the output page's outside switches, sw.<id>: one more source, e6u_send.js)
   swRev();
   // each cube's inside whether or not it is switched on (c.raw), and the room moments an everyone cube's heads give
   for (const c of SW.list) {
@@ -768,12 +774,13 @@ function triggerStep(now) {
   seqFire(Tr);   // (what the sequences' events start, e6s_seq.js)
   pressStep(Tr);   // (what presses and pointing start, e6t_press.js)
   trgFire();   // (what the cubes start as you walk in or out: e6n_plays.js)
+  sendStep(Tr);   // (this device's own cubes and pointing sent, and what the output page works out: e6u_send.js)
 }
 // why a cube is switched off for you, in words ('' while it is on, v154): what switched it off (a cube, a sequence, a press
 // or pointing), or what it waits for (the first cube, sequence or press that would switch it on)
 function swWhy(c) {
   if (!c || c.kind !== 'c' || c.on !== false) return '';
-  const nm = w => { const t = w && STU.items.get(w.id); return !t ? '' : t.kind === 'c' ? t.rec.name : t.kind === 'q' ? 'the sequence ' + t.rec.name : (w.hv ? 'pointing at ' : 'a press on ') + t.rec.name; };
+  const nm = w => { if (w && w.id === 'sw') return 'the output page'; const t = w && STU.items.get(w.id); return !t ? '' : t.kind === 'c' ? t.rec.name : t.kind === 'q' ? 'the sequence ' + t.rec.name : (w.hv ? 'pointing at ' : 'a press on ') + t.rec.name; };
   if (c.offBy) { const n = nm(c.offBy); return n ? 'Switched off by ' + n : 'Switched off'; }
   const e = SW.by.get(c.id), y = e && e.s[0];
   if (y) return `Switched off: it waits for ${y.rec.name} to switch it on`;
@@ -1831,6 +1838,8 @@ function collabState() {
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   for (const [id, v] of STU.qr) if (seqRec(id)) s['qr.' + id] = v;   // (a sequence's shared play state: e6s_seq.js)
   for (const [id, v] of STU.pr) if (STU.items.has(id)) s['pr.' + id] = v;   // (an item's press stamp: e6t_press.js)
+  for (const [id, v] of STU.sw) { const it = STU.items.get(id); if (it && SW_KINDS.includes(it.kind)) s['sw.' + id] = v; }   // (an outside switch: e6u_send.js)
+  if (STU.bt) s.bt = STU.bt;   // (the room's beat)
   return s;
 }
 // A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
@@ -1887,9 +1896,24 @@ function collabApply(v) {
     if (val && STU.items.has(m[1])) { const o = STU.pr.get(m[1]); if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.pr.set(m[1], val); } else if (!val) pk.add(m[1]);
   }
   for (const id of [...STU.pr.keys()]) if (!pk.has(id)) STU.pr.delete(id);
+  // (the outside switches and the beat, v157: as the room has them; an id not in the scene, or a bad one, ignored: e6u_send.js)
+  const swk = new Set();
+  for (const k of Object.keys(v)) {
+    const m = /^sw\.([a-z0-9]{6})$/.exec(k), it = m && STU.items.get(m[1]);
+    if (!m || !it || !SW_KINDS.includes(it.kind)) continue;
+    const val = normSw(v[k]);
+    if (!val) continue;
+    swk.add(m[1]);
+    const o = STU.sw.get(m[1]);
+    if (!o || JSON.stringify(o) !== JSON.stringify(val)) STU.sw.set(m[1], val);
+  }
+  for (const id of [...STU.sw.keys()]) if (!swk.has(id)) STU.sw.delete(id);
+  const bt = normBt(v.bt);
+  if (!bt) STU.bt = null; else if (!STU.bt || JSON.stringify(STU.bt) !== JSON.stringify(bt)) STU.bt = bt;
   dirty();
 }
 function studioEffect(type, data, by) {
   if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
   else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
+  else if (type === 'send') sendHeard(data, by);   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
 }

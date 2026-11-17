@@ -1786,7 +1786,9 @@ Before handing over (or making anything more public), someone has to decide thes
      others); VR headsets elsewhere join as their avatars. Score keys one per person, written by its owner; a new
      `FORMAT`. Open: opt-in or forced, the fire button, shield kind, real cover, free play, timed rounds or lives.
    - **Cardinal on a laptop, played from the room over MIDI (maybe later; the owner, 16 November 2026: "leave that
-     cardinal midi thing in the maybe later section").** Cardinal (https://github.com/DISTRHO/Cardinal, a modular
+     cardinal midi thing in the maybe later section"). Built in v157 as the output page (MIDI and OSC, both ways;
+     `output.js`, `tools/output/README.md` for setting it up with Cardinal, `docs/agents/shared-rooms.md` "The output
+     page (MIDI and OSC)"); untested with Cardinal, real virtual cables and headsets. What was planned:** Cardinal (https://github.com/DISTRHO/Cardinal, a modular
      synthesiser from VCV Rack, GPLv3+) runs as its own desktop app on a laptop in the room, its sound through real
      speakers (people in AR hear the room itself). Its README: "All variants have MIDI input and output support"; it names
      no OSC. The chain as discussed: something in a headset (walking into a trigger cube, pressing an object, a slider, hand

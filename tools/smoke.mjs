@@ -18,6 +18,7 @@
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
 // --only 'studio sequences': timelines of events on items (kind q), shared on the room's clock, v146;
 // --only 'studio press': an object's or shape's reactions to a press and to being pointed at, shared by a stamp, v146;
+// --only 'studio sends': sends to the output page (MIDI and OSC): send entries, the cards, HOST.cur.out's events and actions, sw and bt, v157;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -9326,6 +9327,197 @@ if (runs('studio press')) {
     bad(out);
   });
   await pp.close();
+}
+// Sends to the output page (v157; tools/output/SPEC.md, tools/studio/SPEC.md "Sends to the output page (MIDI and OSC)"):
+// the send entries' checks (a cube's, a press's, a sequence's, a motion's beat; a layout's bad ones counted), the cards'
+// rows on both twins and their Undo steps, the events HOST.cur.out gives a listener (a press stamp, a sequence's start, an
+// 'at' and its stop, an everyone cube entered by a pretend head, the effect 'send'), this device's own cube sending the
+// effect (a spy) and one without sends not, act() for each do, sw and bt in the state, and a motion on the beat
+if (runs('studio sends')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio sends: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio sends: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio sends: ' + b)); };
+  const J = JSON.stringify, T0 = 1e6;
+  // (in the page: one frame at the held time T with your head at h; the events a listener got; what this block made taken away)
+  const HELP = `window.__sx = window.__sx || {
+    at: (T, h) => { window.__T = T; STU.head = (h || [20, 1.6, 20]).slice(0, 3); itemsStep(0.1, performance.now()); return 0; },
+    evs: () => { const e = window.__sxe.splice(0); return e.map(x => [x.ev, x.id, x.who, x.at, x.t === undefined ? null : x.t, x.send.length, x.try || 0].join(':')); },
+    clean: () => {
+      for (const it of [...STU.items.values()]) if (/^sx/.test(it.id)) removeItem(it.id);
+      for (const id of ['box001', 'fig001', 'cube01']) if (STU.items.has(id)) setRec(id, { press: undefined, send: undefined, all: undefined, motion: undefined });
+      STU.qr.clear(); STU.pr.clear(); STU.sw.clear(); STU.bt = null; PRESS.last.clear(); SEQ.last.clear(); SENDS.last.clear(); SENDS.win.length = 0; SENDS.hov.clear();
+      BEH.fake = null; SENDS.spy = null; trgReset('t'); resetSeen(); window.__sx.at(window.__T); window.__sxe.length = 0; return 0;
+    },
+  }`;
+  await step('studio sends: the record: a cube\'s, a press\'s and a sequence\'s send entries checked (a wrong on, note and cc both, a note of 128, a hold on leaving, a bad address and a duplicate dropped; t only for at; channel 1 not written; at most 8; not a list a bad record), a press with only sends kept, a motion\'s beat; the state and layout.json carry them; a layout\'s bad entries counted and said on the Scene pane', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio sends: the test scene did not load'); return; }
+    await ss(`(${HELP}, GL.renderer.setAnimationLoop(null), behNow = () => window.__T, trgClock = () => window.__T, window.__T = ${T0}, window.__sxe = [], window.__sxoff = STUDIO.out.listen(e => window.__sxe.push(e)), 0)`);
+    const out = [];
+    const r = await ss(`(() => {
+      const C = send => norm('c', { name: 'C', p: [0, 1, 0], send }), B = STU.items.get('box001').rec, O = press => norm('o', Object.assign({}, B, { press }));
+      const many = Array.from({ length: 9 }, (_, i) => ({ on: 'enter', note: i }));
+      return [JSON.stringify(C([{ on: 'enter' }, { on: 'enter' }, { on: 'press' }, { on: 'leave', note: 36, cc: 7 }, { on: 'leave', note: 128 }, { on: 'enter', note: 36, ch: 1, val: 100, hold: true },
+        { on: 'leave', note: 40, hold: true }, { on: 'enter', osc: '/a//b' }, { on: 'enter', osc: '/my/addr', t: 3 }, { on: 'on', cc: 7, val: 64, ch: 0 }]).send),
+        C(many).send.length, C('x'), 'send' in C([]), 'send' in C([{ on: 'start' }]),
+        JSON.stringify(norm('q', { name: 'Q', send: [{ on: 'at', t: 1.234 }, { on: 'at' }, { on: 'start', note: 60 }] }, 'sxq001').send),
+        JSON.stringify(O({ send: [{ on: 'press' }] }).press), JSON.stringify(O({ who: 'own', send: [{ on: 'hover', cc: 1 }] }).press), 'press' in O({ send: [{ on: 'enter' }] }), O({ send: 5 }),
+        JSON.stringify(normMotion({ kind: 'spin', beat: 2 })), normMotion({ kind: 'spin', beat: 3 })];
+    })()`);
+    if (r[0] !== '[{"on":"enter"},{"on":"enter","note":36,"val":100,"hold":true},{"on":"enter","osc":"/my/addr"},{"on":"on","cc":7,"val":64,"ch":0}]') out.push('a cube\'s entries checked: ' + r[0]);
+    if (r[1] !== 8 || r[2] !== null || r[3] !== false || r[4] !== false) out.push('at most 8, not a list a bad record, none kept absent: ' + J(r.slice(1, 5)));
+    if (r[5] !== '[{"on":"at","t":1.23},{"on":"start","note":60}]') out.push('a sequence\'s: ' + r[5]);
+    if (r[6] !== '{"send":[{"on":"press"}]}' || r[7] !== '{"send":[{"on":"hover","cc":1}],"who":"own"}' || r[8] !== false || r[9] !== null) out.push('a press with only sends kept, who own after: ' + J(r.slice(6, 10)));
+    if (r[10] !== '{"kind":"spin","speed":6,"amount":0,"axis":"y","start":"always","beat":2}' || r[11] !== null) out.push('a motion\'s beat: ' + J(r.slice(10)));
+    const l = await ss(`(() => {
+      window.__sx.clean(); setRec('cube01', { send: [{ on: 'enter', note: 36 }] }); setRec('box001', { press: { send: [{ on: 'press' }] } });
+      const st = HOST.cur.collab.state(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      const lay = JSON.parse(JSON.stringify(L)); lay.cubes.find(c => c.id === 'cube01').send.push({ on: 'press' }, { on: 'enter', note: 999 }); lay.objects.find(o => o.id === 'box001').press.send.push({ on: 'enter' });
+      const bl = readLayout(lay); STU.badSend = bl.sendBad; X.tab = 'scene'; renderPanes();
+      const said = /3 of the sends to the output page in layout\\.json could not be read/.test(document.querySelector('#pane-scene').textContent); STU.badSend = 0;
+      return [JSON.stringify(st['c.cube01'].send), JSON.stringify(st['o.box001'].press), JSON.stringify(back.items.find(x => x.id === 'cube01').rec.send), JSON.stringify(back.items.find(x => x.id === 'box001').rec.press), bl.sendBad, said];
+    })()`);
+    if (l[0] !== '[{"on":"enter","note":36}]' || l[1] !== '{"send":[{"on":"press"}]}' || l[2] !== l[0] || l[3] !== l[1]) out.push('the state and layout.json carry them: ' + J(l.slice(0, 4)));
+    if (l[4] !== 3 || !l[5]) out.push('a layout\'s bad entries counted and said on the Scene pane: ' + J(l.slice(4)));
+    bad(out);
+  });
+
+  await step('studio sends: the cards (page and headset twins): a cube\'s Sends to the output page On (walking in and out, one Undo step), Add a send... (a note, held, one step) with the page\'s fields only on the page, Try (the effect with try), ✕ (one step), Off; an object\'s Sends under its press; a sequence\'s At ... s; a motion\'s On the beat; Undo of STUDIO.sendSet', async () => {
+    const out = [];
+    const r = await ss(`(() => {
+      window.__sx.clean(); setEdit(true); select('cube01'); X.tab = 'item'; renderPanes();
+      const page = () => document.querySelector('#pane-item').textContent, xr = () => paneBlocks('item').filter(b => !b.page), rows = () => xr().flatMap(b => (b.row || []).map(x => x.label));
+      const res = [/Sends to the output page/.test(page()) && rows().includes('On'), /Only that someone walked in or out goes to the room/.test(page())];
+      const u0 = UNDO.length; itemAct('sxOn', 'on'); renderPanes();
+      res.push(UNDO.length - u0, JSON.stringify(STU.items.get('cube01').rec.send), page().includes('Walking in · OSC /studio/cube/cube01/enter · no MIDI'), rows().includes('Walking out · OSC /studio/cube/cube01/leave · no MIDI'));
+      itemAct('sxPick'); itemAct('sxMidi', 'note'); itemAct('sxN', -12); itemAct('sxCh', 'person'); itemAct('sxHold', 'on'); renderPanes();
+      res.push(!!document.querySelector('#stuSendNum') && !!document.querySelector('#stuSendOsc'), !xr().some(b => b.input), rows().includes('Hold until they walk out') || xr().some(b => b.label === 'Hold until they walk out'));
+      const u1 = UNDO.length; itemAct('sxAdd'); renderPanes();
+      res.push(UNDO.length - u1, JSON.stringify(STU.items.get('cube01').rec.send[2]), page().includes('Walking in · OSC /studio/cube/cube01/enter · note 48, channel by person, held while inside'));
+      const spy = []; SENDS.spy = (t, d, q) => { spy.push([t, d.id, d.ev, d.try || 0, q]); return true; }; window.__T += 1000; itemAct('sxTry', 1); SENDS.spy = null;
+      res.push(JSON.stringify(spy));
+      const u2 = UNDO.length; itemAct('sxDel', 2); res.push(UNDO.length - u2, STU.items.get('cube01').rec.send.length);
+      itemAct('sxOn', 'off'); res.push('send' in STU.items.get('cube01').rec);
+      // an object's press, a sequence, a motion
+      const u3 = UNDO.length, got = STUDIO.sendSet('box001', [{ on: 'press', note: 60 }, { on: 'hover' }]); select('box001'); renderPanes();
+      res.push(UNDO.length - u3, JSON.stringify(got), page().includes('When pressed · OSC /studio/item/box001/press · note 60, channel 1'), rows().includes('As pointing begins · OSC /studio/item/box001/hover · no MIDI'));
+      undo(); res.push('press' in STU.items.get('box001').rec);
+      putItem('sxq001', 'q', norm('q', { name: 'Intro', len: 2, send: [{ on: 'at', t: 0.5 }] }, 'sxq001')); select('sxq001'); renderPanes();
+      res.push(page().includes('At 0.50 s · OSC /studio/seq/sxq001/at · no MIDI'), rows().includes('At 0.50 s · OSC /studio/seq/sxq001/at · no MIDI'));
+      setRec('box001', { motion: { kind: 'spin', speed: 6 } }); select('box001'); renderPanes();
+      const u4 = UNDO.length; itemAct('mbeat', '2'); renderPanes();
+      res.push(UNDO.length - u4, STU.items.get('box001').rec.motion.beat, /On the beat/.test(page()) && rows().includes('¼'), /Follows the room's beat/.test(page()));
+      select(''); setEdit(false);
+      return res;
+    })()`);
+    if (r[0] !== true || r[1] !== true) out.push('the cube\'s card says Sends to the output page and what goes out: ' + J(r.slice(0, 2)));
+    if (r[2] !== 1 || r[3] !== '[{"on":"enter"},{"on":"leave"}]' || !r[4] || !r[5]) out.push('On: walking in and out, one step, its rows on both twins: ' + J(r.slice(2, 6)));
+    if (!r[6] || !r[7] || !r[8]) out.push('Add a send...: the page\'s fields only on the page, Hold until they walk out: ' + J(r.slice(6, 9)));
+    if (r[9] !== 1 || r[10] !== '{"on":"enter","note":48,"ch":0,"hold":true}' || !r[11]) out.push('Add: one step, the entry, its words: ' + J(r.slice(9, 12)));
+    if (r[12] !== '[["send","cube01","leave",1,false]]') out.push('Try sends the effect with try: ' + r[12]);
+    if (r[13] !== 1 || r[14] !== 2 || r[15] !== false) out.push('✕ one step, Off takes the list away: ' + J(r.slice(13, 16)));
+    if (r[16] !== 1 || r[17] !== '[{"on":"press","note":60},{"on":"hover"}]' || !r[18] || !r[19] || r[20] !== false) out.push('an object\'s Sends, STUDIO.sendSet one step and Undo: ' + J(r.slice(16, 21)));
+    if (!r[21] || !r[22]) out.push('a sequence\'s At ... s on both twins: ' + J(r.slice(21, 23)));
+    if (r[23] !== 1 || r[24] !== 2 || !r[25] || !r[26]) out.push('a motion\'s On the beat: ' + J(r.slice(23)));
+    bad(out);
+  });
+
+  await step('studio sends: a listener on STUDIO.out: a press stamp gives press with its by (a member\'s name as their id); a sequence\'s start, an at and its stop; an everyone cube entered by a pretend head gives enter with that head\'s id and leave 0.3 s after; the effect send gives the event with who its by (a bad one ignored); nothing old replayed', async () => {
+    const r = await ss(`(() => {
+      window.__sx.clean(); const T = ${T0} + 10000, res = [];
+      const d0 = Object.getOwnPropertyDescriptor(HOST.collab, 'members');
+      Object.defineProperty(HOST.collab, 'members', { configurable: true, get: () => [{ id: 'm1abc', name: 'Ann' }] });
+      STU.pr.set('fig001', { n: 1, at: T - 60000, by: 'Ann' }); window.__sx.at(T); res.push(window.__sx.evs());   // (an old stamp: nothing)
+      STU.pr.set('box001', { n: 1, at: T, by: 'Ann' }); window.__sx.at(T + 16); res.push(window.__sx.evs());
+      putItem('sxq001', 'q', norm('q', { name: 'Intro', len: 2, send: [{ on: 'at', t: 0.5 }, { on: 'stop', note: 1 }] }, 'sxq001')); window.__sx.at(T + 20);
+      seqCmd('sxq001', 'start', T + 100, 'test'); window.__sx.at(T + 116); window.__sx.at(T + 700); window.__sx.at(T + 2200); res.push(window.__sx.evs());
+      setRec('cube01', { all: true, send: [{ on: 'enter' }, { on: 'leave', cc: 3 }] }); window.__sx.at(T + 3000);
+      BEH.fake = [{ id: 'zz', p: [0, 1.6, 0], ts: T + 3010 }]; window.__sx.at(T + 3016); BEH.fake = null; window.__sx.at(T + 3100); window.__sx.at(T + 3300); res.push(window.__sx.evs()); window.__sx.at(T + 3500); res.push(window.__sx.evs());
+      studioEffect('send', { id: 'cube01', ev: 'enter', at: T + 4000 }, 'm2xyz'); studioEffect('send', { id: 'nope01', ev: 'enter', at: 1 }, 'm2xyz'); studioEffect('send', { id: 'box001', ev: 'stop', at: 1 }, 'm2xyz');
+      studioEffect('send', { id: 'sxq001', ev: 'at', at: T + 4100, t: 0.5, try: 1 }, 'm2xyz'); res.push(window.__sx.evs());
+      Object.defineProperty(HOST.collab, 'members', d0);
+      return res;
+    })()`);
+    const T = T0 + 10000, want = [[], [`press:box001:m1abc:${T}::0:0`], [`start:sxq001::${T + 100}::0:0`, `at:sxq001::${T + 600}:0.5:1:0`, `stop:sxq001::${T + 2100}::1:0`],
+      [`enter:cube01:zz:${T + 3010}::1:0`], [`leave:cube01:zz:${T + 3100}::1:0`], [`enter:cube01:m2xyz:${T + 4000}::1:0`, `at:sxq001:m2xyz:${T + 4100}:0.5:1:1`]];
+    if (J(r) !== J(want)) bad(['the events: ' + J(r) + ' wanted ' + J(want)]);
+  });
+
+  await step('studio sends: this device walking into its own cube with sends calls the effect send (a spy: enter as it walks in, leave 0.3 s after it walks out, in again within that nothing), a cube without sends never; pointing with hover entries sends hover and unhover (quiet); at most 10 a second, the rest dropped and counted', async () => {
+    const r = await ss(`(() => {
+      window.__sx.clean(); const T = ${T0} + 20000, spy = [], res = [];
+      SENDS.spy = (t, d, q) => { spy.push([t, d.id, d.ev, d.at, q ? 1 : 0].join(':')); return true; };
+      setRec('cube01', { send: [{ on: 'enter', note: 36 }, { on: 'leave' }] }); putItem('sxc001', 'c', norm('c', { name: 'Plain', p: [6, 1, 6], size: [1, 2, 1] }, 'sxc001'));
+      const IN = [0, 1.6, 0], OUT = [20, 1.6, 20];
+      window.__sx.at(T, OUT); window.__sx.at(T + 100, IN); window.__sx.at(T + 200, OUT); window.__sx.at(T + 300, IN); window.__sx.at(T + 400, OUT); window.__sx.at(T + 600, OUT); window.__sx.at(T + 800, OUT);
+      window.__sx.at(T + 900, [6, 1.6, 6]); window.__sx.at(T + 1500, OUT);
+      res.push(spy.splice(0));
+      setRec('box001', { press: { send: [{ on: 'hover' }, { on: 'unhover' }] } }); STUDIO.hover('box001'); window.__sx.at(T + 2000); STUDIO.hover(''); window.__sx.at(T + 2100); window.__sx.at(T + 2400); STUDIO.hover(null);
+      res.push(spy.splice(0));
+      const d0 = SENDS.dropped; for (let k = 0; k < 12; k++) { window.__T = T + 5000 + k * 10; sendFx({ id: 'cube01', ev: 'e' + k, at: window.__T }); }
+      res.push(spy.length, SENDS.dropped - d0, STUDIO.out.sends().dropped === SENDS.dropped);
+      SENDS.spy = null; return res;
+    })()`);
+    const T = T0 + 20000, want = [[`send:cube01:enter:${T + 100}:0`, `send:cube01:leave:${T + 400}:0`], [`send:box001:hover:${T + 2000}:1`, `send:box001:unhover:${T + 2100}:1`], 10, 2, true];
+    if (J(r) !== J(want)) bad(['own cube and pointing sent, the rate: ' + J(r) + ' wanted ' + J(want)]);
+  });
+
+  await step('studio sends: act(): press writes pr (refused within 250 ms, for an own press, for a cube), start/stop/toggle/rewind write qr (refused for an own sequence and an item), show/hide/flip/clear write sw (refused for a sequence), beat writes bt (refused outside 20 to 300, removed by 0); sw hides and shows an object (0.4 s fade) and switches a cube off (its card says by the output page); the state carries sw and bt and apply gives them back; a motion on the beat follows bt\'s phase', async () => {
+    const out = [];
+    const r = await ss(`(() => {
+      window.__sx.clean(); const T = ${T0} + 30000, A = a => { const x = STUDIO.out.act(a); return x.ok ? 'ok' : x.why; }, res = [];
+      window.__sx.at(T);
+      setRec('box001', { press: { send: [{ on: 'press' }] } }); setRec('fig001', { press: { do: [{ on: 'fig001', what: 'show' }], who: 'own' } });
+      putItem('sxq001', 'q', norm('q', { name: 'Intro', len: 4 }, 'sxq001')); putItem('sxq002', 'q', norm('q', { name: 'Own', len: 4, sync: 'own' }, 'sxq002'));
+      res.push([A({ do: 'press', id: 'box001' }), (STU.pr.get('box001') || {}).n, A({ do: 'press', id: 'box001' }), A({ do: 'press', id: 'fig001' }), A({ do: 'press', id: 'cube01' }), A({ do: 'jump' })]);
+      res.push([A({ do: 'start', id: 'sxq001' }), STU.qr.get('sxq001').on, A({ do: 'toggle', id: 'sxq001' }), STU.qr.get('sxq001').on, A({ do: 'toggle', id: 'sxq001' }), STU.qr.get('sxq001').on, A({ do: 'rewind', id: 'sxq001' }), STU.qr.get('sxq001').t,
+        A({ do: 'start', id: 'sxq002' }), A({ do: 'stop', id: 'box001' })]);
+      const dI = Object.getOwnPropertyDescriptor(HOST.collab, 'id'), dJ = Object.getOwnPropertyDescriptor(HOST.collab, 'joined');
+      Object.defineProperty(HOST.collab, 'id', { configurable: true, get: () => 'outpg1' }); Object.defineProperty(HOST.collab, 'joined', { configurable: true, get: () => true });
+      res.push([A({ do: 'hide', id: 'box001' }), JSON.stringify(STU.sw.get('box001')), A({ do: 'show', id: 'sxq001' })]);
+      window.__sx.at(T + 200); const a1 = +STU.items.get('box001').a.toFixed(2); window.__sx.at(T + 600); res.push([STU.items.get('box001').shown, a1 > 0 && a1 < 1]);
+      window.__T = T + 700; res.push([A({ do: 'flip', id: 'box001' }), STU.sw.get('box001').on]); window.__sx.at(T + 800); res.push(STU.items.get('box001').shown);
+      res.push([A({ do: 'hide', id: 'cube01' })]); window.__sx.at(T + 900); res.push([STUDIO.cube('cube01').on, STUDIO.cube('cube01').why]);
+      res.push([A({ do: 'clear', id: 'cube01' }), STU.sw.has('cube01')]); window.__sx.at(T + 1000); res.push(STUDIO.cube('cube01').on);
+      res.push([A({ do: 'beat', bpm: 10 }), A({ do: 'beat', bpm: 120, at: T }), JSON.stringify(STU.bt), JSON.stringify(STUDIO.out.beat())]);
+      const st = HOST.cur.collab.state(); res.push([JSON.stringify(st['sw.box001']), JSON.stringify(st.bt), 'sw.cube01' in st]);
+      st['sw.fig001'] = { on: 1, at: T, by: 'x' }; st['sw.zzzzzz'] = { on: 1, at: T, by: 'x' }; st['sw.sxq001'] = { on: 0, at: T }; st['sw.box001'] = { on: 2, at: T };
+      collabApply(st); res.push([[...STU.sw.keys()].join(), JSON.stringify(STU.bt)]);
+      const s2 = HOST.cur.collab.state(); collabApply(s2); res.push(JSON.stringify(HOST.cur.collab.state()) === JSON.stringify(s2));
+      res.push([A({ do: 'beat', bpm: 0 }), STU.bt]);
+      Object.defineProperty(HOST.collab, 'id', dI); Object.defineProperty(HOST.collab, 'joined', dJ);
+      return res;
+    })()`);
+    if (J(r[0]) !== J(['ok', 1, 'pressed less than 250 ms ago', 'its press is each person\'s own', 'no such item', 'not an action'])) out.push('press: ' + J(r[0]));
+    if (J(r[1]) !== J(['ok', true, 'ok', false, 'ok', true, 'ok', -1, 'it plays for each person on their own', 'not a sequence'])) out.push('sequences: ' + J(r[1]));
+    if (r[2][0] !== 'ok' || !/^\{"on":0,"at":\d+,"by":"outpg1"\}$/.test(r[2][1]) || r[2][2] !== 'not an object, shape, empty, sound or cube') out.push('show and hide write sw with this device\'s member id: ' + J(r[2]));
+    if (J(r[3]) !== '[false,true]') out.push('sw hides the box with a fade: ' + J(r[3]));
+    if (J(r[4]) !== '["ok",1]' || r[5] !== true) out.push('flip shows it again: ' + J(r.slice(4, 6)));
+    if (r[6][0] !== 'ok' || J(r[7]) !== J([false, 'Switched off by the output page'])) out.push('sw switches a cube off: ' + J(r.slice(6, 8)));
+    if (J(r[8]) !== '["ok",false]' || r[9] !== true) out.push('clear: ' + J(r.slice(8, 10)));
+    const T = T0 + 30000;
+    if (r[10][0] !== 'the bpm is outside 20 to 300' || r[10][1] !== 'ok' || r[10][2] !== J({ bpm: 120, at: T, by: 'outpg1' }) || r[10][3] !== r[10][2]) out.push('beat: ' + J(r[10]));
+    if (!/"on":1/.test(r[11][0] || '') || r[11][1] !== J({ bpm: 120, at: T, by: 'outpg1' }) || r[11][2] !== false) out.push('the state carries sw and bt: ' + J(r[11]));
+    if (r[12][0] !== 'fig001' || r[12][1] !== J({ bpm: 120, at: T, by: 'outpg1' })) out.push('apply: a good sw kept, an unknown id, a sequence and a bad value ignored: ' + J(r[12]));
+    if (r[13] !== true) out.push('apply(state()) gives the same state back');
+    if (J(r[14]) !== '["ok",null]') out.push('beat 0 removes it at once: ' + J(r[14]));
+    // a motion on the beat: a spin of one turn a beat at 120 bpm, half a turn at 250 ms past a beat, a whole one at 500 ms
+    const m = await ss(`(() => {
+      window.__sx.clean(); const T = ${T0} + 40000;
+      putItem('sxs001', 'p', norm('p', { name: 'Spinner', shape: 'cube', p: [3, 1, -3], size: [0.3, 0.3, 0.3], motion: { kind: 'spin', speed: 60, beat: 1 } }, 'sxs001'));
+      STU.bt = { bpm: 120, at: T, by: '' }; const c = t => { window.__T = t; itemsStep(0, performance.now()); const d = STUDIO.pose('sxs001').drawn; return d ? +(d[0] / Math.hypot(d[0], d[1], d[2])).toFixed(3) : null; };
+      const res = [c(T + 250), c(T + 500), c(T + 125)];
+      STU.bt = null; return res;
+    })()`);
+    if (m[0] !== -1 || m[1] !== 1 || !(Math.abs(m[2]) < 0.01)) out.push('a motion on the beat follows bt\'s phase (cos of the turn at 250, 500, 125 ms): ' + J(m));
+    bad(out);
+  });
+  await ss(`(window.__sx.clean(), window.__sxoff && window.__sxoff(), 0)`).catch(() => 0);
+  await sp.close();
 }
 // Trigger cubes that work for everyone here (v137, all: true; tools/studio/SPEC.md, "Cubes for everyone"), on two pages of
 // their own at the test scene: pretend heads (BEH.fake: another person's, with the time stamp of its sample) against an

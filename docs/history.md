@@ -81,7 +81,7 @@ file, the detail file says what is current.
 
 Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's words that explain why rules exist.
 
-### FORMAT bumps (networks-10 to networks-50)
+### FORMAT bumps (networks-10 to networks-51)
 
 (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
@@ -126,7 +126,7 @@ which an older device would drop or refuse; networks-44 in v140: an optional `gr
 (anyone may move it without editing) and an optional `key` on a cube's (the item it reacts to): "Moved by anyone" and "Cubes
 with a key" under "The studio"); networks-45 in v143: the studio's `state()` gained a field per screen, `v.<id>` (a video
 or audio player with a playlist and its shared play state: "Screens" under "The studio"), which an older device ignores); networks-46 in v144: a field per painting, `d.<id>` (strokes drawn in the air:
-"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops); networks-48 in v153: the room's key `pcam` (the desktop preview camera's place, `{ p, q, fov, ts, by }` in room coordinates: "The desktop preview camera" below) and `pc: 1` in a camera's presence, which an older device ignores (it shows the preview camera as a phone's camera). networks-49 in v154: a studio cube's `show` and `hide` lists, a sequence's show and hide events and a press's show and hide entries may name another cube, switched off and on ("Cubes that switch cubes" under "The studio"); the records keep their shape, but an older device would keep the ids and let a switched-off cube act for its people (and, for a cube for everyone, start its runs for everyone).; networks-48 in v153: the room's key `pcam` (the desktop preview camera's place); networks-49 in v154: a trigger cube's show and hide lists may name other cubes; networks-50 in v156: a studio scene's settings may carry `grid: 'hidden'` (the floor grid hidden)
+"Paintings" under "The studio"), which an older device ignores); networks-47 in v146: the room's key `name` (a label for the room, `{ v, by, at }`: "Room names" below) and the studio's new state fields, `q.<id>` (a sequence), `qr.<id>` (its play state) and `pr.<id>` (an item's press stamp) and an optional `press` on an object's and a shape's record, which an older device ignores or drops); networks-48 in v153: the room's key `pcam` (the desktop preview camera's place, `{ p, q, fov, ts, by }` in room coordinates: "The desktop preview camera" below) and `pc: 1` in a camera's presence, which an older device ignores (it shows the preview camera as a phone's camera). networks-49 in v154: a studio cube's `show` and `hide` lists, a sequence's show and hide events and a press's show and hide entries may name another cube, switched off and on ("Cubes that switch cubes" under "The studio"); the records keep their shape, but an older device would keep the ids and let a switched-off cube act for its people (and, for a cube for everyone, start its runs for everyone).; networks-48 in v153: the room's key `pcam` (the desktop preview camera's place); networks-49 in v154: a trigger cube's show and hide lists may name other cubes; networks-50 in v156: a studio scene's settings may carry `grid: 'hidden'` (the floor grid hidden); networks-51 in v157: the studio's records may carry `send` entries (a cube's, a press record's, a sequence's) and a motion's `beat`, its state gains `sw.<id>` (an outside switch by the output page) and `bt` (the room's beat), and hello and presence gain `out` (the output page: "The output page (MIDI and OSC)" in `docs/agents/shared-rooms.md`); an older device would drop the new fields, write records back without them, or ignore an outside switch
 
 ### All stories and Back to the lobby (v104)
 
@@ -494,6 +494,15 @@ narration heard from out of the circle, the locks and the People toggle in use.
   desktop cam view in a studio scene, if easy please turn that off, also add an option to hide the blue studio floor grid
   for a studio scene". A camera (camera mode, the desktop preview camera) never shows editing; a scene's settings gained
   *Floor grid: Shown / Hidden*, written only when hidden. FORMAT networks-50.
+- The output page, MIDI and OSC: v157; the owner, 16 November 2026, asked to send and receive MIDI and OSC from the shared
+  rooms and the studio, and answered the questions put to them: whether a trigger cube sends by itself, "make it opt in by
+  default and say who entered" (a cube sends only when its card's *Sends to the output page* is on, and the message
+  names the person: the one exception to "what a cube reveals is never sent", and only the fact of walking in or out);
+  MIDI or OSC, "both"; which ways, "in and out"; where it runs, "output page and then midi or local relay for osc and
+  trackers i guess?" (a page of the app on a laptop or the room's PC running the studio scene itself, Web MIDI there, OSC
+  on UDP through a relay on that machine or network, `--osc-out`, `--osc-in`, which also sends the trackers as OSC).
+  It builds the "Cardinal on a laptop" item the owner had parked in the maybe-later list the same day. The scene's own
+  sends are kept in `layout.json`; streams and incoming mappings on the output page's machine. FORMAT networks-51.
 
 ### Moved by anyone
 - v140; the owner, 13 November 2026: "possibility to have objects that people can move in studio non edit mode".

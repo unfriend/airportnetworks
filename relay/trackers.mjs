@@ -93,7 +93,7 @@ export function quatToRoom(F, q) {
 }
 
 // ---- the intake, the API's answers and the rooms' messages
-// o: { port, log }. Its methods: listen() (a promise of the port it listens on: 0 picks a free one), attach(rooms, send)
+// o: { port, log, onTake }. Its methods: listen() (a promise of the port it listens on: 0 picks a free one), attach(rooms, send)
 // (the 60 a second loop: rooms() the relay's rooms, send(room, msg) to every member), ping(), list(), still(id, ms),
 // close()
 export function makeTrackers(o = {}) {
@@ -121,6 +121,19 @@ export function makeTrackers(o = {}) {
       if (silent) { silent = false; log(`trackers: the bridge is sending (${summary(now)})`); }
     }
     heard = now;
+    // o.onTake(list, current): after each good datagram (the relay's trackers as OSC, tools/output/SPEC.md): its readings,
+    // and current() every device but base stations seen in the last 5 s, as @trk has them ({ id, k, kind, p, q, ok }:
+    // raw, in SteamVR's space; ok false once 0.5 s old)
+    if (o.onTake) { try { o.onTake(r.list, () => current(now)); } catch (err) { log(`trackers: ${err.message}`); } }
+  }
+  function current(now) {
+    const list = [];
+    for (const d of dev.values()) {
+      if (d.k === 'base' || now - d.at > GONE) continue;
+      const kind = d.k === 'ctl' ? d.h : LETTER[d.k];
+      if (kind) list.push({ id: d.id, k: d.k, kind, p: d.p, q: d.q, ok: d.ok && now - d.at <= STALE });
+    }
+    return list;
   }
   function summary(now) {
     const n = { trk: 0, hmd: 0, ctl: 0, base: 0 };

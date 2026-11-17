@@ -32,7 +32,7 @@ generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: 
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code), `trk` (the PC's trackers in this room, `{ on, m: { a, b } | null, names, by, at }`: "Vive trackers"
-below; set by anyone, never refused by either lock; FORMAT networks-38), `name` (a label for the room, `{ v, by, at }`: "Room names" below), and `pcam` (the desktop preview camera's place, `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates: "The desktop preview camera" below; set by anyone, never refused by either lock; FORMAT networks-48). The current `FORMAT` is networks-50 (`shared.js`; v156: a studio scene's settings may carry `grid: 'hidden'`, `docs/agents/studio.md`); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
+below; set by anyone, never refused by either lock; FORMAT networks-38), `name` (a label for the room, `{ v, by, at }`: "Room names" below), and `pcam` (the desktop preview camera's place, `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates: "The desktop preview camera" below; set by anyone, never refused by either lock; FORMAT networks-48). The current `FORMAT` is networks-51 (`shared.js`; the output page, MIDI and OSC: the studio's `send` entries, a motion's `beat`, its state's `sw.<id>` and `bt`, the effect `send`, and `out` in hello and presence; "The output page" below); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (the owner: a circle with all stories, like the single-player story menu, the default for new shared rooms; and a Back to the lobby circle). Two kinds of circle that are the shell's own, not stories: never in `stories/list.js`, never started
@@ -780,6 +780,76 @@ The plan is `docs/shared-space-plan.md`.
     and the mouse's turn look on a TV, the speeds, a real browser's pointer lock and its own Esc, in full screen and not,
     the pointer hidden, a Mac's Cmd); on a real headset the placing (the
     controller's tip and ray, how close it gets to a real camera's spot), the marker's look and the menu row.
+- The output page (MIDI and OSC; FORMAT networks-51; the owner, 16 November 2026: "make it opt in by default and say who
+  entered", "both", "in and out", "output page and then midi or local relay for osc and trackers i guess?"). The
+  contract between the shell, the studio and the relay is `tools/output/SPEC.md`; setting it up is
+  `tools/output/README.md`. A computer's page in a room (Chrome or Edge, a laptop or the room's PC) that follows a
+  studio circle and runs its scene itself, and sends what happens there as MIDI (the browser's Web MIDI, one output port)
+  and as OSC (over its own room socket to the relay, which sends UDP only to its `--osc-out` targets), and takes MIDI
+  (one input port) and OSC (the relay's `--osc-in`) back in as the room's actions.
+  - Its code is `output.js` (`HOST.out`), loaded on demand from `appRoot()` the first time it starts, as `peerjs.min.js`
+    is (in `sw.js` `SHELL` and the relay's `APP_FILES`). `shared.js` keeps only the shell's part ("the output page":
+    `OUT`, `outOffered`, `outStart`, `outStop`, `outMark`, `outResume`, `osc`, `oscCfg`, `oscPing`, `persons`).
+  - Started: the Shared dialog's *Output page (MIDI and OSC)* (a computer's page, `DEV` `'screen'`, in a room not on this
+    device; `.sh-outp`; the same button stops it), a link with `&output` (a computer's page only: a phone or a headset
+    ignores it; a room on this device too, MIDI only), or by itself after a reload while it ran (sessionStorage
+    `collabOut` = the room's code, as `collabPcam`). Never in a headset session, never with camera mode or the preview
+    camera (each refuses the other).
+  - It is not an observer: it follows a studio circle (the one followed, else the first studio circle by id; its
+    *Follows* picker takes any circle: a story that is not the studio gives people and trackers only) and writes the
+    studio's state as any page following it does, only through the studio's `HOST.cur.out.act()` (presses, sequences,
+    `sw.<id>`, `bt`); nothing else of the room.
+  - Its hello: `name: 'Output page'`, `kind: 'desktop'`, `here: false`, `out: 1` (sent again as it starts and stops: the
+    relay keeps `m.out` and lists `out: 1` in its members; the peer-to-peer and on-device hubs keep it as `m.outp`, since
+    a hub member's `out` is its link's send, and list `out: 1` too). Its presence, once a second (a page's is every 2 s):
+    `{ st, kind: 'desktop', out: 1, ts }`, never a head: others mark it `P.out`; it is never drawn, never a person in a
+    headset, never in `heads()` or `persons()`. The pages' people list and the headset menu's people rows say *output
+    page*.
+  - The relay's `@osc` (fx with `by: ''`: OSC in, and the relay's OSC status) is taken in `onFx` only from the relay
+    itself and only while this page runs as the output page (`HOST.out.oscFx`); never passed to a story.
+  - `HOST.collab`: `outOn()`, `outOffered()`, `outStart(why)` (a promise), `outStop(why)`, `outMark(on)` (output.js's own:
+    its hello, presence, body class `outp`, sessionStorage), `osc(msgs)` (`{ t: 'osc', m }` in pieces of 128; false off a
+    relay, not open, or not the output page), `oscCfg({ trk })` (`{ t: 'osc-cfg' }`), `oscPing()` (a promise of what the
+    relay's `/api/ping` says of OSC, `{ out, in, trk }`, or null), `persons()` (`[{ id, name, color, kind, st, body }]`:
+    every member in a headset with a head heard in the last 2 s; the spec named it `people()`, which stays the presence
+    Map the tests read), and for tests `presIn(id, v)` (a presence as if heard from member `id`).
+  - The page (`output.js`; its overlay `#out`, a side panel at the left, 420 px, scrolling, under the top bar, the story's
+    picture visible at the right; its CSS `OUT_CSS`, injected once): Status (the room, how it runs, *Follows*, the scene;
+    *Keep this tab in front* while the tab is hidden, since a hidden tab stops the scene's frames), MIDI (*MIDI: On/Off*,
+    the output and input ports by name, *Test note*: 60 on channel 1, *MIDI clock to the room's beat*), OSC (what the
+    relay says, *OSC*, *Trackers as OSC (the relay)*), Events (*Every press and sequence on the default addresses*, *Also
+    what this page caused*: off, so what this page's own actions cause is not sent back; *Note length*), People (slots 1
+    to 16, the lowest free one as first seen, freed 60 s after they leave; *People as OSC*, 15 a second at most each;
+    *Everyone in the room* or *At this circle*), Items (*Items as OSC*: a pose as an item moves more than 1 mm or 0.2
+    degrees or is shown or hidden, 30 a second at most each), Streams and Incoming (tables, an edit form each, *Learn*:
+    the next MIDI or OSC message fills a row), the mapping's *Export* (`output-mapping.json`) and *Import* (a file or
+    pasted), and the log (the last 200 messages in and out; streams and people are not logged one by one).
+  - The scene's sends: each `send` entry of an event (`HOST.cur.out.listen`) gives one OSC message (its own `osc` address
+    or the default, `/studio/cube|item|seq/<id>/<ev>`, `ssssi`: who's name, colour, member id, the item's name, 1 or 0;
+    `at` adds the marker's time) while OSC is on, and a note (on, then off after the note length or, held, at the paired
+    end: enter/leave, on/off, hover/unhover, start/stop; per item, entry and person; a person gone, Stop or MIDI off ends
+    every held note) or a CC while MIDI is on; channel 0 is the person's slot. An event without entries (every press and
+    sequence start or stop) goes out only with *Every press and sequence*, on its default address, as OSC only.
+  - What the output page keeps is this machine's: localStorage `outMap` (`{ out: 1, opt, streams, incoming }`, validated
+    as read, a bad row dropped and said); the scene's sends are the scene's (`layout.json`, `docs/agents/studio.md`).
+  - The cube rule's one exception (AGENTS.md): only for a cube opted in to send (its record has `send` entries), the fact
+    that a person walked into it or out of it is sent as an ephemeral effect from that person's device; what the cube
+    shows, hides, changes or starts for them stays their own and is never sent. Pointing at an item whose press has
+    `hover`/`unhover` entries is likewise sent. Nothing goes into `state()` for either.
+  - Tests: `node tools/output/test-page.mjs` (MIDI and the studio's API stubbed; a room on this device and one on a plain
+    relay), then the integrator's end-to-end round `node tools/collab.mjs --output`.
+  - Known races (seen in the end-to-end round, v157; neither is the output page's): in a studio circle made for a scene
+    (`addScene`, "Studio: <scene>"), where every device writes the scene's layout itself, the room's state was seen to end
+    as `{ scene, settings }` with no items, written by the pretend headset that walked in first, and every device then
+    empty (five of eight runs with the pretend headset's frames stopped between steps); a plain circle whose scene is
+    picked on a page did not show it. Not yet fixed: worth a look before scene circles are used with several headsets.
+    Fixed while integrating: an item named in an incoming mapping just after it was added was refused until the output
+    page's item list (read once a second) caught up; a name not found now reads the list again at once. And a cube or
+    an item whose only entry for a start holds a note (`hold`) now also sends its paired end (`leave`, `unhover`,
+    `off`), so the note ends.
+  - Untested until tried: Web MIDI with real virtual ports (loopMIDI, the IAC Driver, ALSA) and Cardinal, real MIDI clock
+    from a DAW, OSC to real apps, UDP through a firewall, the trackers' OSC rate on the PC, cubes and pointing from real
+    headsets, how in time it feels.
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
@@ -1943,7 +2013,7 @@ What each story shares:
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
-| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, what it starts, `plays`, when it has anything, v136, `all: true` when it works for everyone here, v137, and `key` when it reacts to an item, v140), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`) or `d.<id>` (a painting: its strokes or the file that keeps them, v144) or `q.<id>` (a sequence: its record, v146) with `qr.<id>` (its shared play state, `{ n, on, at, t, ts, by }`) and `pr.<id>` (an item's last press, `{ n, at, by }`); an object's and a shape's record carries its `press` `{ do, hover, who }` when set; an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128; the kind `wall`, `{ at, who, range, speed, gap }`, v137) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, an object's, a sound's, a shape's and an empty's `shows` (`'ar'` or `'vr'`, v137) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom (an everyone cube's heads are each device's from presence), what a cube has started for whom, where an item stands on a wall (each headset's own walls), editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, a sequence's preview or an own-sync sequence's play state, what is pointed at (hover) or a press made with `who: 'own'`, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio") |
+| studio (not a story) | the scene's name (`scene`, `''` none) and one field per item, `o.<id>` (an object), `c.<id>` (a trigger cube, with its texture changes `tex` when it has any, v124, what it starts, `plays`, when it has anything, v136, `all: true` when it works for everyone here, v137, and `key` when it reacts to an item, v140), `s.<id>` (a sound, with what it follows: `on`, `bone`, `o`, and, a voice recorded with a movement, `sync`, `skip`, `len`, v125) or `x.<id>` (a cut-out: the object it cuts, `on`, and its `p`, `q` and `size` in that object's frame) or `g.<id>` (a group: its `name` and `items`, its members' ids) or `p.<id>` (a shape: `shape`, `p`, `q`, `size`, `colour`, `look`) or `e.<id>` (an empty: `p`, `q`) or `d.<id>` (a painting: its strokes or the file that keeps them, v144) or `q.<id>` (a sequence: its record, v146) with `qr.<id>` (its shared play state, `{ n, on, at, t, ts, by }`) and `pr.<id>` (an item's last press, `{ n, at, by }`), `sw.<id>` (an outside switch of an item or a cube, `{ on: 1 | 0, at, by }`, written only by the output page through `HOST.cur.out.act()`) and `bt` (the room's beat, `{ bpm, at, by }`, likewise); a cube's, a press's and a sequence's record carries its `send` entries when set, and a motion its `beat` ("The output page", FORMAT networks-51); an object's and a shape's record carries its `press` `{ do, hover, who }` when set; an object's record carries its `faces` when set, and its `tint` and `bright` (v125) when set, an object's, a shape's and an empty's its `motion` (v120) when set, an object's, a shape's, an empty's and a sound's its recorded `path` (its keys, or a recording kept as a file: `src`, `len`, `n`, v125), and an object's, a shape's and an empty's its `behaviour` (v120; a `follow` one's `side` when not in front, v127; a `follow` or `item` one's `face` when set from its card, v128; the kind `wall`, `{ at, who, range, speed, gap }`, v137) when set, an object's, a shape's and an empty's the tracker it follows, `trk` `{ id, o, q }` (v126), and an object's who wears it, `puppet` `{ on, rig, by, map, cal, s, floor }` (v126), when set, an object's, a sound's, a shape's and an empty's `shows` (`'ar'` or `'vr'`, v137) when set, and any record its `locked` when locked: its record as in `layout.json`, without `id` (an item absent from a state applied is removed there; a bad record is ignored and the item kept; changing the scene clears the items and the device that changed it writes the new scene's saved layout); and `settings` (the scene's: `others`, `real`; absent: a new scene's); never which cubes are active for whom (an everyone cube's heads are each device's from presence), what a cube has started for whom, where an item stands on a wall (each headset's own walls), editing, the selection, a group's picking, Walk, the stick walk, sound, a cut-out's *Preview*, a recording under way, Pause or *Start again*, a sequence's preview or an own-sync sequence's play state, what is pointed at (hover) or a press made with `who: 'own'`, or what the lobby made this device forget | `beh` (quiet, about ten times a second from the headset a behaviour reacts to, which drives it: `{ at, b: [[id, tx, tz, d, since], ...] }`, each item's move along the floor and turn from its placed pose in the scene's frame, a last `1` when it stops; the others draw it 120 ms behind: "Behaviours" under "The studio"), `send` (from a person's device, never a camera, the preview camera or the output page: `{ id, ev, at, t?, try? }`, a person walking into or out of their own cube opted in to send, or pointing at an item whose press sends on `hover`/`unhover`, or a card's *Try*; at most 10 a second; taken only by the output page: "The output page") |
 
 Rules that matter most (from `docs/multiplayer.md`):
 

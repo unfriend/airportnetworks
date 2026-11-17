@@ -963,7 +963,7 @@ function uploadBlocks(B) {
 // the page's HTML for the pane's own blocks: the drop zone, a text field, the plan
 function uploadHTML(b) {
   if (b.drop) return `<div class="stu-drop${b.dis ? ' off' : ''}" data-drop="1"><b>Drop files or folders here</b><span>or</span><div class="actions"><button class="btn" type="button" data-act="up:choose" data-v=""${b.dis ? ' disabled' : ''}>Choose files</button><button class="btn" type="button" data-act="up:folder" data-v=""${b.dis ? ' disabled' : ''}>Choose a folder</button></div></div>`;
-  if (b.input) return `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="64" autocomplete="off">${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
+  if (b.input) return (b.label ? `<p class="stu-l">${esc(b.label)}</p>` : '') + `<div class="actions stu-in"><input type="text" id="${b.input.id}" value="${esc(b.input.value)}" placeholder="${esc(b.input.ph)}" maxlength="${b.input.max || 64}" autocomplete="off"${b.input.aria ? ` aria-label="${esc(b.input.aria)}"` : ''}>${b.row.map(x => `<button class="btn${x.primary ? ' primary' : ''}" type="button" data-act="${x.act}" data-v=""${x.dis ? ' disabled' : ''} data-id="${esc(x.id)}">${esc(x.label)}</button>`).join('')}</div>`;
   if (b.plan) return `<p class="stu-l">${esc(b.label)}</p><ul class="stu-plan">${b.plan.map((r, ri) => {
     const st = { plan: '', work: 'working', done: 'done', failed: 'failed' }[r.state] || '';
     const x = r.state === 'plan' ? `<button class="btn stu-x" type="button" data-act="up:drop" data-v="${ri}" title="Take it out of the plan (it is not uploaded)" aria-label="Take ${esc(r.title)} out of the plan"${UP.busy || UP.planning ? ' disabled' : ''}>×</button>` : '';
@@ -1012,6 +1012,7 @@ function uploadBind() {
   });
   ex.addEventListener('input', ev => {
     if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); }
+    if (ev.target.id === 'stuSendNum' || ev.target.id === 'stuSendOsc') sxInput(ev.target.id, ev.target.value);   // (a send's number and address: e6u_send.js)
     if (ev.target.id === 'stuSceneName') { NS.name = ev.target.value; const b = ex.querySelector('[data-act="scenemake"]'); if (b) b.disabled = NS.making || !NS.name.trim(); }   // (the Scene pane's New scene)
   });
   ex.addEventListener('keydown', ev => {

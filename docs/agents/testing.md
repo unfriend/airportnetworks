@@ -1064,6 +1064,10 @@ Its *studio sequences* steps (`--only 'studio sequences'`, about two minutes) ru
 
 Its *studio press* steps (`--only 'studio press'`, a few minutes): the record's rules, a press firing for everyone from `pr.<id>` (a late joiner too, an odd press starting a loop and the next stopping it), `who: 'own'`, hover starting on pointing and ending 0.3 s after, show and hide as sources, a `seq` entry started on the presser's device only, pressable only with editing off (a visitor and a locked story still press), the page's click and the headset's trigger, the 250 ms limit, Delete and Duplicate, the card and *Try press*.
 
+### smoke: studio sends
+
+Its *studio sends* steps (`--only 'studio sends'`, a couple of minutes; v157, `tools/studio/SPEC.md` "Sends to the output page (MIDI and OSC)") run on a page of their own at `&scene=test&edit` with the studio's clocks held by the test: the send entries' rules (a cube's, a press's, a sequence's: a wrong `on`, note and cc both, a note of 128, a hold on leaving, a bad address and a duplicate dropped; `t` only for `at`; channel 1 never written; at most 8; a press with only sends kept; a motion's `beat`), the state and `layout.json` carrying them and a layout's bad entries counted on the Scene pane; the cards on both twins (a cube's *Sends to the output page* On and Off, *Add a send...* with the page-only fields, Try sending the effect with `try`, ✕, an object's Sends, a sequence's *At ... s*, a motion's *On the beat*, each one Undo step, `STUDIO.sendSet` and Undo); a listener on `STUDIO.out` getting a press stamp's `press` with its `by` as a member id, a sequence's `start`, an `at` and its `stop`, an everyone cube entered by a pretend head (`enter` with that head's id, `leave` 0.3 s after), the effect `send` with `who` its `by` (a bad one ignored), nothing old replayed; this device's own cube sending `enter` and `leave` (a spy in place of `HOST.collab.effect`; back within 0.3 s nothing), a cube without sends never, pointing sending `hover` and `unhover` (quiet), at most 10 a second (the rest counted); `act()` for each `do` and its refusals, `sw` hiding and showing an object (a 0.4 s fade) and switching a cube off (*Switched off by the output page*), `sw` and `bt` in the state and `apply()`, and a motion on the beat following `bt`'s phase.
+
 ### smoke: studio colour
 
 Its *studio colour* steps (`--only 'studio colour'`, a minute): the picker for a tint, a shape's colour and the paint colour on a page (ring and square, hex, swatches, recents `studioColours`, arrow keys, the preview on this device only, one Undo step a drag, Esc taking the preview back) and on the headset's card (a drag as a timeline's bar is, its strip sent alone, one Undo step when let go, a lost controller committing). After changing `tools/studio/xp/`, the `studio xp` steps also check what the Bliss room's presses and sequences do.
@@ -1268,6 +1272,23 @@ two old members there, who get the order again: one that ignores orders refused 
 read back with its seq, version and keys, another relay's write taken, expired rooms and bad keys left out, a bad file
 kept aside as `.bad`, nothing without it; and the order needing the password); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
+
+`node relay/test.mjs --osc` (also in the full run; `relay/osc.mjs`, `tools/output/SPEC.md` Wire 3): the OSC codec (round
+trips of every type, padding at every length mod 4, a bundle in a bundle and the depth limit, bad packets refused, int64
+and float64 normalised, `checkMsg`, the flags' words); a relay without the flags doing nothing of OSC; with `--osc-out`
+to a UDP listener here and `--osc-in 0`: the start line, `/api/ping`'s `osc` with no target's address, `out: 1` in the
+members list; an output page's `osc` reaching the listener byte for byte, bad messages dropped and counted; a member
+without `out`, empty, 129-message and non-list frames, and a member's own `@osc` refused; `osc-cfg` answered with its
+status, the status every 2 s, no contents in the log; the rate cap (3,000 in a burst: 2,000 sent, 1,000 dropped and a
+count in the log); a datagram on the in port reaching the `out` pages of two rooms only (bundles flattened and
+normalised, bad packets nowhere); `--public` without a password refused for either flag, with one starting, `RELAY_ARGS`,
+bad words, nine targets and a held port refused; with `--trackers 0` and `tools/trackers/fake.mjs` (SteamVR space turned
+37 degrees and moved): `/room/tracker/<serial>` at about 90 a second each, the still trackers within 1 mm and 0.05
+degrees of `@trk`, the circling one within 1 mm of the truth, kinds and names, and the status through `unaligned`, `on`,
+`off`, `on` and `other` as a second room's output page asks. Before that, `node tools/output/test-page.mjs` is the output
+page's own test (Web MIDI and `HOST.cur.out` stubbed; a room on this device and a plain relay): `&output` and the
+dialog's button, MIDI notes and their held ends, OSC arguments, slots and a CC stream from pretend presence, incoming
+MIDI, OSC and MIDI clock calling `act()`, Learn, validation, Export and Import, a reload resuming it, a phone ignoring it.
 
 ### collab.mjs main run (per story, then the rounds `codeRound`, `allRound`, `guideRound`, `placesRound`, `areasRound`, `reloadRound`, the design room, settings, follow, pretend headset, peer to peer, rooms on this network)
 
@@ -2000,6 +2021,39 @@ performer's (0.6 to 2 mm); a 3 s take (its countdown, Stop) saved through the re
 more. A held time: the fake paused for a moment, each device waiting for the last reading (a page busy drawing in software
 takes the relay's messages late), the relay's time held (`HOST.collab.trkTime`) between the last samples. With `--shots`,
 `trackers-1-dialog.png`.
+
+### collab.mjs --output
+
+`--output` runs only the output page end to end (`outputRound`, also in the main run after the preview camera's round;
+v157, `tools/output/SPEC.md`, Tests: integrator; four or five minutes): a relay of its own with `--osc-out` to a UDP
+listener in the test, `--osc-in 127.0.0.1:0`, `--trackers 0` and `--scenes` (the test scene), its ping saying `osc`
+(one target, its in port, trackers) and no target's address; page A (Anna) adds a plain studio circle, a pretend AR
+headset H (Hana, aligned through the shared space as in the studio round) walks into it, A follows it and picks the test
+scene on its Scene pane, and both have its four items (not a circle made for the scene: see "Known races" in the
+output page's section of `docs/agents/shared-rooms.md`);
+the output page O (`#s=XYZ&output` on a computer's page; Web MIDI stubbed as Wire 5 names it, one output *loopMIDI Port*
+and one input *Pads*, what it sends kept in `window.__midiSent`) starts by itself, follows that circle and listens to
+`HOST.cur.out`; its mapping (MIDI, OSC, MIDI clock; a stream and an incoming row) set with no problems; the others hear it
+as the output page and never as a person (`HOST.collab.persons()`). Send entries are written on A with
+`STUDIO.sendSet` (cube01: a held note 36 on entering and its leave; a new cube Gate with only a held note 38 on entering;
+box001's press: note 60) and a cube Plain without any; then (1) H's head walked into cube01 gives
+`/studio/cube/cube01/enter` `ssssi` on UDP saying who (Hana, her colour and member id), the cube's name and 1, note on 36
+on the stub, and walking out its `leave` with 0 and the note off (H's effects spied: exactly enter and leave); Gate
+(only a held enter) still sends its leave, so note 38 ends as H walks out, with no OSC for the leave; Plain (walked into
+too) sends nothing at all: no effect, no event on O, nothing on UDP; (2) `pressFire` on A gives
+`/studio/item/box001/press` saying Anna and note 60 on and off; (3) `/studio/press box001` sent on UDP to the relay's in
+port advances `pr.box001` on A (its `by` *Output page*), a note 62 from the stub's input port, mapped to start the
+sequence Intro by its name (added on A just before), writes `qr.sq0001` on, and `/studio/hide Box` (by name) writes
+`sw.box001` by O's member id and hides the box on A (then `/studio/clear`); (4) 48 ticks of MIDI clock at 120 bpm (at
+their exact moments, `HOST.out.midiIn(bytes, at)`) give `bt` within 0.5 bpm of 120 on A, by O; (5) *People as OSC*:
+H alone in `persons()` and in slot 1, `/room/person/1/head` `fffffff` 1.6 m up at its circle (within 5 cm), 6 to 50 in
+3 s, and `/room/person/1/info` `ssss` (Hana, colour, id, `ar`); (6) the stream (the head's height, 0 to 2 m, to CC 7):
+`0xB0 7 102` on the stub, at most three CCs (only as the value changes); (7) `tools/trackers/fake.mjs` on the relay's
+bridge port, the room's `trk` lined up by a write from A and *Trackers as OSC* on: O's status `on`,
+`/room/tracker/LHR-FA4E0A01` `fffffffis` within 1 mm of the room's origin (ok 1, kind `t`), 60 or more in 2.5 s, all eight
+tracked devices and no base station, and its `/name` (*Spot A*); and nothing on UDP that is not OSC. `--shots <dir>`:
+`output-1-page.png` (O's overlay) and `output-2-cube-card.png` (cube01's card, its Sends rows). Untested here: real MIDI
+ports and software, real OSC programs, a firewall, a real headset's cubes and pointing.
 
 ### collab.mjs --smooth
 

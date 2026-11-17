@@ -379,6 +379,7 @@ const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for
 const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration kept per room: placesRound, rooms of their own)
 const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses in one room: areasRound, a room of its own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
+const OUTPUT_ONLY = argv.includes('--output');   // (only the output page, MIDI and OSC, end to end: outputRound, a relay of its own with --osc-out, --osc-in, --trackers and --scenes, the fake bridge)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -3628,6 +3629,260 @@ async function trackersRound(dir) {
   } finally {
     for (const p of pages) { await p.evaluate(() => window.__xr && window.__xr.end()).catch(() => {}); await p.context().close().catch(() => {}); }
     if (F) F.stop();
+    await relayOff(R);
+    fs.rmSync(SC, { recursive: true, force: true });
+  }
+}
+// ---- the output page end to end (outputRound; --output runs only it, also in the main run after the preview camera's
+// round; tools/output/SPEC.md, Tests: integrator; v157): a relay of its own with --osc-out to a UDP listener here, --osc-in,
+// --trackers and --scenes; page A (a laptop) adds a studio circle for the test scene and writes the send entries
+// (STUDIO.sendSet), a pretend AR headset H walks into it, and the output page O (#s=XYZ&output, Web MIDI stubbed as Wire 5
+// names it: what it sends kept in window.__midiSent) follows it. Then: (1) H walking into an opted-in cube gives
+// /studio/cube/<id>/enter on UDP with H's name, colour and member id and note on 36 on the stub; walking out its leave and
+// note off; a cube with only a held enter entry still lets its note go as H walks out; a cube without send: no effect, no
+// event, no UDP; (2) a press on A: /studio/item/box001/press saying Anna, and its note; (3) UDP into the relay's in port:
+// /studio/press advances pr.box001, a MIDI note from the stub's input port mapped to start a sequence writes qr (on), and
+// /studio/hide by the item's name writes sw and hides the box on A; (4) 48 ticks of MIDI clock at 120 bpm: bt.bpm within
+// 0.5 of 120 on A; (5) People as OSC: /room/person/1/head where H stands and its info; (6) a stream (the head's height to
+// CC 7): 0xB0 7 102 on the stub; (7) the fake bridge and the room's trk lined up: /room/tracker/<serial> in the room's
+// coordinates (spot A's tracker within 1 mm of the origin) and its name, at the bridge's rate. --shots <dir>: the output
+// page and the cube's card with its sends
+async function outputRound(dir) {
+  const dgram = (await import('node:dgram')).default;
+  const { encode, decode } = await import(new URL('../relay/osc.mjs', import.meta.url).href);
+  const { startFake } = await import(new URL('trackers/fake.mjs', import.meta.url).href);
+  const SC = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-out-'));
+  fs.cpSync(path.join(root, 'tools', 'studio', 'test', 'scenes', 'test'), path.join(SC, 'test'), { recursive: true });
+  const pages = [], got = [];
+  let R = null, F = null, L = null, tx = null;
+  // the UDP listener (--osc-out's target): every message of every datagram, with the time it came
+  L = dgram.createSocket('udp4');
+  L.on('message', b => { const m = decode(b); if (m) for (const x of m) got.push({ at: Date.now(), m: x }); else got.push({ at: Date.now(), m: null, bad: b.length }); });
+  await new Promise(r => L.bind(0, '127.0.0.1', r));
+  tx = dgram.createSocket('udp4');
+  const lport = L.address().port;
+  const sinceUdp = (t0, fn) => got.filter(g => g.at >= t0 && g.m && fn(g.m)).map(g => g.m);
+  const waitUdp = async (t0, fn, ms) => { const end = Date.now() + (ms || 8000); while (Date.now() < end) { const x = sinceUdp(t0, fn)[0]; if (x) return x; await sleep(40); } return null; };
+  const sopen = async (url, name, size, midi) => {
+    const ctx = await browser.newContext({ viewport: size || { width: 640, height: 400 } });
+    await ctx.addInitScript(([n, midi]) => {
+      try { localStorage.setItem('collabName', n); } catch (e) { /* storage blocked */ }
+      if (!midi) return;
+      // Web MIDI as Wire 5 names it: outputs and inputs (values()), onstatechange, id, name, state, send(bytes), onmidimessage
+      window.__midiSent = [];
+      const port = (id, name, type) => ({ id, name, type, state: 'connected', onmidimessage: null, send(b) { window.__midiSent.push(Array.from(b)); } });
+      const access = { outputs: new Map([['o1', port('o1', 'loopMIDI Port', 'output')]]), inputs: new Map([['i1', port('i1', 'Pads', 'input')]]), onstatechange: null, sysexEnabled: false };
+      window.__midi = access;
+      navigator.requestMIDIAccess = o => (o && o.sysex ? Promise.reject(new DOMException('no sysex', 'SecurityError')) : Promise.resolve(access));
+    }, [name, !!midi]);
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('output round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|WebSocket connection/.test(m.text())) errors.push('output round: ' + m.text()); });
+    await p.goto(url, { timeout: 90000 });
+    await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    pages.push(p);
+    return p;
+  };
+  const sp = (p, s) => p.evaluate(s => HOST.cur.peek(s), s);
+  const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
+  const midiSent = O => O.evaluate(() => window.__midiSent.map(b => b.join(',')));
+  const J = JSON.stringify;
+  try {
+    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--osc-out', '127.0.0.1:' + lport, '--osc-in', '127.0.0.1:0', '--quiet'], {}, 8870);
+    const trkUdp = +((/readings on UDP 127\.0\.0\.1:(\d+)/.exec(R.out) || [])[1] || 0), inUdp = +((/in on UDP [\d.]+:(\d+)/.exec(R.out) || [])[1] || 0);
+    const sb = `http://127.0.0.1:${R.port}/`, ping = await (await fetch(sb + 'api/ping')).json();
+    check('output: the relay with --osc-out, --osc-in and --trackers says so (its ping: osc { out: 1, in: its port, trk: true }, no target\'s address)',
+      trkUdp > 0 && inUdp > 0 && !!ping.osc && ping.osc.out === 1 && ping.osc.in === inUdp && ping.osc.trk === true && !J(ping).includes(String(lport)), J({ trkUdp, inUdp, ping }));
+    const A = await sopen(sb + 'index.html#stories', 'Anna', { width: 1000, height: 640 });
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 10000);
+    const rc = await A.evaluate(() => HOST.collab.code), aId = await A.evaluate(() => HOST.collab.id);
+    const H = await sopen(sb + 'index.html#s=' + rc, 'Hana', { width: 320, height: 200 });
+    await until(H, c => HOST.collab.code === c && HOST.collab.status === 'open', rc, 20000);
+    await ready(H, 'airports');
+    await H.evaluate(() => HOST.renderer.setAnimationLoop(null));
+    // the pretend headset aligned through the shared space (as in the studio round)
+    await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+    await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+    await H.evaluate(() => HOST.room.sharedAlign(true));
+    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
+    await H.evaluate(() => window.__xr.begin());
+    await frames(H, 400);
+    await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+    await frames(H, 300);
+    const al = await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted');
+    // a plain studio circle; the headset walks in, A follows it and picks the test scene on its Scene pane (that page writes
+    // the scene's records for the room). (Not a circle made for the scene, addScene: there every device writes the layout
+    // itself, and here one that had not read it yet could publish the scene with no items, every item gone everywhere:
+    // seen in five of eight runs with a pretend headset whose frames stop between steps; see the report)
+    const sid = await A.evaluate(b => HOST.collab.add('studio', b), { x: 0.5, z: -1, yaw: 0 });
+    await until(A, () => !HOST.collab.internals().pending.size, null, 5000);
+    const st = await A.evaluate(id => HOST.collab.station(id), sid);
+    const inS = !!st && await walk(H, st, 'studio', ROOM[3] + st.yaw, 90000);
+    await A.evaluate(id => HOST.collab.follow(id), sid);
+    await ready(A, 'studio', 90000);
+    await sUntil(A, `SRC.state === 'ok' && atStation() && !!document.querySelector('#pane-scene [data-act="scene"][data-v="test"]')`, 30000);
+    await A.evaluate(() => document.querySelector('#pane-scene [data-act="scene"][data-v="test"]').click());
+    const aIn = await sUntil(A, `STU.scene === 'test' && STUDIO.ready() && atStation()`, 60000);
+    const FOUR = `['box001', 'fig001', 'snd001', 'cube01'].every(id => STU.items.has(id))`;
+    const roomSt = async () => { const k = (((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys || {})['st.' + sid + '.x'] || {}); return { by: k.by, keys: Object.keys(k.v || {}).join() }; };
+    let pre = false, hIn = false;
+    for (let k = 0; k < 40 && !pre; k++) { await frames(H, 300); hIn = !!await sp(H, `STU.scene === 'test' && STUDIO.ready() && atStation()`); pre = hIn && !!await sp(H, FOUR) && !!await sp(A, FOUR); }
+    const preInfo = { pre, room: await roomSt(), A: await sp(A, `[...STU.items.keys()].join()`), H: await sp(H, `[...STU.items.keys()].join()`), aId: await A.evaluate(() => HOST.collab.id), hId: await H.evaluate(() => HOST.collab.id) };
+    // the output page: a laptop's page with the link's &output, following the studio circle by itself
+    const O = await sopen(sb + 'index.html#s=' + rc + '&output', 'Olaf', { width: 1100, height: 700 }, true);
+    const oOn = await until(O, () => !!HOST.out && HOST.out.on() && HOST.collab.outOn(), null, 30000);
+    const oIn = oOn && await until(O, id => { const S = HOST.out.state(); return S.station === id && S.story === 'studio' && S.studio && HOST.cur.out.ready() && HOST.cur.out.scene() === 'test'; }, sid, 90000);
+    const oId = await O.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id), hColor = (await H.evaluate(() => HOST.collab.color) || '').toLowerCase(), aColor = (await A.evaluate(() => HOST.collab.color) || '').toLowerCase();
+    const bad = await O.evaluate(() => HOST.out.map({ out: 1, opt: { midi: true, osc: true, clock: true },
+      streams: [{ id: 'hgt001', on: false, name: 'height', src: { k: 'head', who: 'any' }, v: 'y', min: 0, max: 2, curve: 'lin', smooth: 0, hz: 15, midi: { ch: 1, cc: 7 }, osc: '' }],
+      incoming: [{ id: 'pad001', on: true, name: 'pad', from: { midi: 'note', ch: 0, n: 62 }, act: { do: 'start', id: 'Intro' } }] }));
+    const oscOn = await until(O, () => { const S = HOST.out.state(); return S.midi.ok && S.midi.out === 'loopMIDI Port' && S.midi.in === 'Pads' && !!S.osc.relay && S.osc.relay.out === 1; }, null, 10000);
+    const others = await A.evaluate(id => { const Q = HOST.collab.people().get(id); return { out: !!Q && Q.out === true, persons: HOST.collab.persons().map(p => p.id) }; }, oId);
+    check('output: the pretend headset walks into a studio circle and page A follows it and picks the test scene there, every item in on both; the output page (the link\'s &output) starts, follows that circle by itself and listens to the studio scene there; its mapping set, MIDI on the stub\'s ports, OSC on through the relay; the others hear it as the output page, never as a person',
+      al && inS && hIn && aIn && pre && oOn && oIn && Array.isArray(bad) && !bad.length && oscOn && others.out && !others.persons.includes(oId),
+      J({ al, inS, hIn, aIn, preInfo, oOn, oIn, bad, oscOn, others, S: await O.evaluate(() => HOST.out && HOST.out.state()) }));
+
+    // every device has the scene's four items from its layout (a circle made for a scene: each writes it itself)
+    const have = [];
+    let hFour = false;
+    for (let k = 0; k < 30 && !hFour; k++) { await frames(H, 300); hFour = !!await sp(H, FOUR); }
+    for (const p of [A, O]) have.push(await sUntil(p, FOUR, 15000));
+    check('output: page A, the output page and the headset each have the test scene\'s four items', hFour && have.every(Boolean),
+      J({ preInfo, oId, post: await roomSt(), hFour, have, items: await Promise.all([A, O, H].map(p => sp(p, `[...STU.items.keys()].join() + ' ' + STU.listing + ' ' + STU.write + ' ' + STU.fresh`))), room: Object.keys((((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys || {})['st.' + sid + '.x'] || {}).v || {}) }));
+
+    // ---- (1) cubes: opted in (enter held on note 36, leave), only a held enter, and none
+    await sp(A, `(change(() => { putItem('oc0002', 'c', norm('c', { name: 'Plain', p: [3, 1, 2], size: [1.2, 2, 1.2] }, 'oc0002')); putItem('oc0003', 'c', norm('c', { name: 'Gate', p: [-3, 1, 2], size: [1.2, 2, 1.2] }, 'oc0003')); }), 0)`);
+    // (the headset takes that edit before the next: its frames are stopped between the test's steps)
+    let hNew = false;
+    for (let k = 0; k < 30 && !hNew; k++) { await frames(H, 300); hNew = !!await sp(H, `!!STU.items.get('oc0003')`); }
+    await sp(A, `[STUDIO.sendSet('cube01', [{ on: 'enter', note: 36, hold: true }, { on: 'leave' }]), STUDIO.sendSet('oc0003', [{ on: 'enter', note: 38, hold: true }]), STUDIO.sendSet('box001', [{ on: 'press', note: 60 }])]`);
+    const recs = `JSON.stringify([(STU.items.get('cube01') || { rec: {} }).rec.send, (STU.items.get('oc0003') || { rec: {} }).rec.send, ((STU.items.get('box001') || { rec: {} }).rec.press || {}).send, !!STU.items.get('oc0002')])`;
+    const want1 = await sp(A, recs);
+    // (what the room holds for the circle's state just after, and who wrote it: for a record lost to someone else's write)
+    const roomX = async () => { const k = ((await (await fetch(sb + 'api/rooms/' + rc)).json()).keys || {})['st.' + sid + '.x'] || {}; return { by: k.by === aId ? 'A' : k.by === oId ? 'O' : k.by === hId ? 'H' : k.by, cube01: J(((k.v || {})['c.cube01'] || {}).send || null) }; };
+    const x1 = await roomX(), aLog = await A.evaluate(() => (window.__collabLog || []).filter(e => /^state/.test(e.ev)).slice(-8).map(e => [e.t, e.ev, (e.kept || []).join(' ')].join(' ')));
+    let hHas = false;
+    for (let k = 0; k < 30 && !hHas; k++) { await frames(H, 300); hHas = (await sp(H, recs)) === want1; }
+    const oHas = await sUntil(O, `${recs} === ${J(want1)}`, 10000);
+    await H.evaluate(() => { window.__fx = []; window.__fxKeep = HOST.collab.effect; HOST.collab.effect = (t, d, q) => { if (t === 'send') window.__fx.push(d); return window.__fxKeep(t, d, q); }; });
+    const OUTSIDE = '[0, 1.6, 3.5]', walkIn = async at => { await sp(H, `(STU.head = ${at}, 0)`); await frames(H, 900); };
+    await walkIn(OUTSIDE);
+    await O.evaluate(() => { window.__midiSent.length = 0; });
+    let t0 = Date.now();
+    await walkIn('[0, 1.6, 0]');
+    const enter = await waitUdp(t0, m => m[0] === '/studio/cube/cube01/enter', 8000);
+    const mIn = await midiSent(O);
+    t0 = Date.now();
+    await walkIn(OUTSIDE);
+    await frames(H, 400);
+    const leave = await waitUdp(t0, m => m[0] === '/studio/cube/cube01/leave', 8000);
+    await sleep(300);
+    const mOut = await midiSent(O);
+    const fx1 = await H.evaluate(() => window.__fx.map(d => d.id + ':' + d.ev));
+    check('output: (1) the headset walking into a cube opted in to send: /studio/cube/cube01/enter on UDP saying who (the headset\'s name, colour and member id), the cube\'s name and 1, and note on 36 on the stub; walking out: its leave (0) and the note off',
+      oHas && hHas && !!enter && J(enter) === J(['/studio/cube/cube01/enter', 'ssssi', 'Hana', hColor, hId, 'Doorway', 1]) && mIn.includes('144,36,100') &&
+        !!leave && J(leave) === J(['/studio/cube/cube01/leave', 'ssssi', 'Hana', hColor, hId, 'Doorway', 0]) && mOut.includes('128,36,0') && J(fx1) === J(['cube01:enter', 'cube01:leave']),
+      J({ want1, x1, aLog, hHas, oHas, enter, mIn, leave, mOut, fx1, hColor, hId, log: await O.evaluate(() => HOST.out.log(12).map(e => e.dir + ' ' + e.via + ' ' + e.text)) }));
+    // a cube whose only entry is a held enter: its leave still goes (so the note ends as the person walks out), with no OSC of
+    // its own; a cube without send: nothing at all (no effect, no event, nothing on UDP)
+    await H.evaluate(() => { window.__fx.length = 0; });
+    await O.evaluate(() => { window.__midiSent.length = 0; });
+    const ev0 = await O.evaluate(() => HOST.out.state().events);
+    t0 = Date.now();
+    await walkIn('[-3, 1.6, 2]');
+    await walkIn(OUTSIDE);
+    await frames(H, 400);
+    await walkIn('[3, 1.6, 2]');
+    await walkIn(OUTSIDE);
+    await frames(H, 400);
+    await sleep(500);
+    const fx2 = await H.evaluate(() => window.__fx.map(d => d.id + ':' + d.ev)), m2 = await midiSent(O), u2 = sinceUdp(t0, m => /^\/studio\/cube\//.test(m[0])).map(m => m[0]);
+    const ev2 = await O.evaluate(() => HOST.out.log(40).filter(e => e.via === 'room' && /Plain|Gate/.test(e.text)).map(e => e.text));
+    const inPlain = await sp(H, `(STU.head = [3, 1.6, 2], itemsStep(0.1, performance.now()), (() => { const x = STU.items.get('oc0002').inside; STU.head = ${OUTSIDE}; return x; })())`);
+    check('output: (1) a cube whose only entry is a held enter (note 38) lets its note go as the headset walks out (its leave sent, no OSC of its own); a cube without send (walked into too) sends nothing at all: no effect, no event on the output page, nothing on UDP',
+      J(fx2) === J(['oc0003:enter', 'oc0003:leave']) && m2.includes('144,38,100') && m2.includes('128,38,0') && J(u2) === J(['/studio/cube/oc0003/enter']) && ev2.length === 2 && ev2.every(t => /Gate/.test(t)) && inPlain === true,
+      J({ fx2, m2, u2, ev2, ev0, inPlain }));
+
+    // ---- (2) a press on page A: /studio/item/box001/press saying Anna, and its note 60
+    await O.evaluate(() => { window.__midiSent.length = 0; });
+    t0 = Date.now();
+    const pr0 = await sp(A, `(STU.pr.get('box001') || { n: 0 }).n`), fired = await sp(A, `pressFire('box001')`);
+    const press = await waitUdp(t0, m => m[0] === '/studio/item/box001/press', 10000);
+    await sleep(300);
+    const m3 = await midiSent(O);
+    check('output: (2) a press on another page (its stamp shared): /studio/item/box001/press on UDP saying who pressed (Anna, her colour and member id), the item\'s name and 1, and note 60 on and off on the stub',
+      fired === true && !!press && J(press) === J(['/studio/item/box001/press', 'ssssi', 'Anna', aColor, aId, 'Box', 1]) && m3.includes('144,60,100') && m3.includes('128,60,0'), J({ pr0, fired, press, m3 }));
+
+    // ---- (3) incoming: OSC on UDP into the relay's in port, and a MIDI note from the stub's input port, run room actions
+    const udpIn = m => new Promise(r => tx.send(encode(m), inUdp, '127.0.0.1', () => r()));
+    await sleep(400);
+    const n0 = await sp(A, `(STU.pr.get('box001') || { n: 0 }).n`);
+    await udpIn(['/studio/press', 's', 'box001']);
+    const pressed = await sUntil(A, `(STU.pr.get('box001') || { n: 0 }).n === ${n0 + 1}`, 8000);
+    const prBy = await sp(A, `STU.pr.get('box001')`);
+    await sp(A, `(change(() => putItem('sq0001', 'q', norm('q', { name: 'Intro', len: 4 }, 'sq0001'))), 0)`);
+    const qIn = await sUntil(O, `!!STU.items.get('sq0001')`, 10000);
+    await O.evaluate(() => window.__midi.inputs.get('i1').onmidimessage({ data: new Uint8Array([0x90, 62, 100]) }));
+    const started = await sUntil(A, `!!STU.qr.get('sq0001') && STU.qr.get('sq0001').on === true`, 8000);
+    await udpIn(['/studio/hide', 's', 'Box']);
+    const swA = await sUntil(A, `!!STU.sw.get('box001') && STU.sw.get('box001').on === 0 && STU.sw.get('box001').by === ${J(oId)}`, 8000);
+    const hidA = swA && await sUntil(A, `!STU.items.get('box001').shown`, 5000);
+    const inLog = await O.evaluate(() => HOST.out.log(30).filter(e => e.dir === 'in').map(e => e.text));
+    const st3 = await O.evaluate(() => HOST.out.state().osc);
+    check('output: (3) OSC into the relay\'s in port and MIDI in run the room\'s actions: /studio/press box001 advances pr.box001 on page A, a note from the stub\'s input mapped to start the sequence Intro (by its name) starts it there (qr on), /studio/hide Box (by name) writes sw.box001 by the output page and hides the box on page A',
+      pressed && !!prBy && prBy.by === 'Output page' && qIn && started && swA && hidA && !!st3 && st3.got >= 2, J({ n0, pressed, prBy, qIn, started, swA, hidA, st3, inLog }));
+    await udpIn(['/studio/clear', 's', 'box001']);
+    await sUntil(A, `!STU.sw.has('box001')`, 5000);
+
+    // ---- (4) MIDI clock: 48 ticks at 120 bpm (at their exact moments, as the PAGE test does) give the room's beat
+    await O.evaluate(() => { const t0 = HOST.collab.now(); HOST.out.midiIn([0xFA], t0); for (let i = 0; i <= 48; i++) HOST.out.midiIn([0xF8], t0 + i * 60000 / (120 * 24)); });
+    const beat = await sUntil(A, `!!STU.bt && Math.abs(STU.bt.bpm - 120) < 0.5`, 8000);
+    const bt = await sp(A, `STU.bt`);
+    check('output: (4) 48 ticks of MIDI clock at 120 bpm give the room\'s beat: bt.bpm within 0.5 of 120 on page A, written by the output page', beat && !!bt && bt.by === oId, J({ bt }));
+
+    // ---- (5) People as OSC: the headset's head where it stands, and its info; (6) a stream: its height to CC 7
+    await O.evaluate(() => { const m = HOST.out.map(); m.opt.people = true; m.streams[0].on = true; HOST.out.map(m); window.__midiSent.length = 0; });
+    t0 = Date.now();
+    await frames(H, 3000);
+    const heads = sinceUdp(t0, m => m[0] === '/room/person/1/head'), info = sinceUdp(t0, m => m[0] === '/room/person/1/info');
+    const hd = heads[heads.length - 1], m6 = await midiSent(O), slots = await O.evaluate(() => HOST.out.slots());
+    const ccs = m6.filter(b => /^176,7,/.test(b)).map(b => +b.split(',')[2]);
+    const pers = await O.evaluate(() => HOST.collab.persons().map(p => p.id));
+    check('output: (5) People as OSC: the headset (the only person: never the output page) in slot 1; /room/person/1/head (fffffff) where it stands in the room (1.6 m up at its circle, within 5 cm), several a second (at most 15), and /room/person/1/info with its name, colour, member id and kind ar',
+      J(pers) === J([hId]) && slots[hId] === 1 && !!hd && hd[1] === 'fffffff' && Math.abs(hd[3] - 1.6) < 0.05 && Math.hypot(hd[2] - st.x, hd[4] - st.z) < 0.05 && heads.length >= 6 && heads.length <= 50 &&
+        info.some(m => J(m) === J(['/room/person/1/info', 'ssss', 'Hana', hColor, hId, 'ar'])), J({ pers, slots, n: heads.length, hd, st: [st.x, st.z], info: info.slice(0, 2) }));
+    check('output: (6) a stream, the head\'s height (0 to 2 m) to CC 7: 0xB0 7 102 on the stub (1.6 m), sent only as the value changes', ccs.includes(102) && ccs.length <= 3, J({ ccs }));
+
+    // ---- (7) the trackers as OSC from the relay itself: the fake bridge, the room's trk lined up, the output page asking
+    F = startFake({ port: trkUdp, rate: 60 });
+    await A.evaluate(([a, b, by]) => HOST.collab.publish([['trk', { on: true, m: { a, b }, names: { 'LHR-FA4E0A01': 'Spot A' }, by, at: Date.now() }]]), [F.spots.a, F.spots.b, aId]);
+    await O.evaluate(() => { const m = HOST.out.map(); m.opt.oscTrk = true; HOST.out.map(m); });
+    const on7 = await until(O, () => (HOST.out.state().osc.st || {}).trk === 'on', null, 10000);
+    t0 = Date.now();
+    await sleep(2500);
+    const tk = sinceUdp(t0, m => m[0] === '/room/tracker/LHR-FA4E0A01'), tn = sinceUdp(t0, m => m[0] === '/room/tracker/LHR-FA4E0A01/name');
+    const kinds = [...new Set(sinceUdp(t0, m => /^\/room\/tracker\/[^/]+$/.test(m[0])).map(m => m[0].split('/')[3] + ':' + m[10]))].sort();
+    const t1 = tk[tk.length - 1], mm = t1 ? Math.hypot(t1[2], t1[3], t1[4]) * 1000 : 99;
+    check('output: (7) the trackers as OSC from the relay once the output page asks and the room\'s trk is lined up (its status on): /room/tracker/<serial> fffffffis in the room\'s coordinates (spot A\'s tracker within 1 mm of the origin, ok 1, kind t) at about the bridge\'s rate, every tracked device (no base station), and its name',
+      on7 && !!t1 && t1[1] === 'fffffffis' && mm < 1 && t1[9] === 1 && t1[10] === 't' && tk.length >= 60 && tn.some(m => m[2] === 'Spot A') && kinds.length === 8 && !kinds.some(k => /LHB/.test(k)),
+      J({ on7, n: tk.length, t1, mm, tn: tn.slice(0, 1), kinds, st: await O.evaluate(() => HOST.out.state().osc.st) }));
+    check('output: nothing on UDP that is not OSC, no target address in any answer', !got.some(g => !g.m), J(got.filter(g => !g.m).slice(0, 3)));
+
+    if (dir) {
+      fs.mkdirSync(dir, { recursive: true });
+      await O.screenshot({ path: path.join(dir, 'output-1-page.png') });
+      await sp(A, `(setEdit(true), select('cube01'), X.tab = 'item', renderPanes(), 0)`);
+      await sleep(400);
+      await A.evaluate(() => { const el = [...document.querySelectorAll('#pane-item *')].find(e => e.children.length === 0 && /Sends to the output page/.test(e.textContent)); if (el) el.scrollIntoView({ block: 'start' }); });
+      await sleep(300);
+      await A.screenshot({ path: path.join(dir, 'output-2-cube-card.png') });
+      await sp(A, `(select(''), setEdit(false), 0)`);
+    }
+  } finally {
+    for (const p of pages) { await p.evaluate(() => window.__xr && window.__xr.end()).catch(() => {}); await p.context().close().catch(() => {}); }
+    if (F) F.stop();
+    for (const s of [L, tx]) if (s) try { s.close(); } catch (e) { /* closed */ }
     await relayOff(R);
     fs.rmSync(SC, { recursive: true, force: true });
   }
@@ -8130,6 +8385,7 @@ try {
   if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
   if (PREVIEW_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await previewRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
+  if (OUTPUT_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await outputRound(shots); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
   if (AREAS_ONLY) { await areasRound(); break main; }
   if (RELOAD_ONLY) { await reloadRound(); break main; }
@@ -10417,6 +10673,8 @@ try {
   await cameraRound(shots);
   // ------------------------------- the desktop preview camera (a screen for onlookers; a room of its own) --
   await previewRound(shots);
+  // ----------------- the output page, MIDI and OSC end to end (a relay of its own with --osc-out, --osc-in, --trackers) --
+  await outputRound(shots);
 
   // ------------------------------------------------------ pictures --
   if (shots) {
@@ -10497,8 +10755,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

@@ -26,10 +26,12 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-50';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-51';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
   // networks-49 (v154): the studio's cubes switch cubes (a cube's show and hide lists, a sequence's show and hide events and a
   // press's show and hide entries may name a cube; an older device would keep the ids and let a switched-off cube act)
+  // networks-51: the output page (MIDI and OSC, output.js): the studio's records gain send entries and a motion's beat, its
+  // state sw.<id> (an outside switch) and bt (the room's beat), the effect send; hello and presence gain out
   // its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never back (relay/server.mjs's
   // takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer room reloads
   const fmtN = v => { const m = /^networks-(\d+)$/.exec(v || ''); return m ? +m[1] : 0; };
@@ -203,6 +205,9 @@
     list: false, auto: true, autoAt: 0, patch: null, keys: false, drawAt: 0, why: '', m: null, vs: null, fov: 60,
     held: new Map(), mo: null, shift: false, lock: false, lockNo: false, opt: { speed: 'normal', keys: 'smooth', mouse: 'catch', labels: true, cards: true } };
   const PCP = { on: false, at: 0 };
+  // the output page (MIDI and OSC, output.js, loaded on demand: "the output page" below): on while this page runs as it;
+  // link: the page's link had &output; busy: output.js loading
+  const OUT = { on: false, link: false, busy: null, err: '' };
   const kind = () => (HOST.session ? (CAM.on ? 'cam' : HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
   // counts as here; in VR the shell's panel asks once per room (askHere), and the answer is kept per room code
@@ -762,7 +767,8 @@
   // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen; reload: 1, this app
   // obeys the room's reload orders in its turn, so a relay that moves the room on refuses it only after its turn, v136)
   function hello() {
-    send({ t: 'hello', name: CAM.on ? (CAM.pc ? 'Preview camera' : 'Camera') : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 });   // (a camera: named so in the lists)
+    send(Object.assign({ t: 'hello', name: CAM.on ? (CAM.pc ? 'Preview camera' : 'Camera') : OUT.on ? 'Output page' : C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV, reload: 1 },
+      OUT.on ? { out: 1 } : {}));   // (a camera, the output page: named so in the lists; out: the relay takes its OSC)
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
@@ -1049,7 +1055,7 @@
       this.iv = setInterval(() => this.tick(), 2000);
     }
     now() { return Date.now() + this.off; }
-    people() { return [...this.members.values()].map(m => Object.assign({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since }, m.id === this.host ? { host: true } : {})); }
+    people() { return [...this.members.values()].map(m => Object.assign({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since }, m.id === this.host ? { host: true } : {}, m.outp ? { out: 1 } : {})); }
     to(m, msg) { if (!this.mute) m.out(JSON.stringify(msg)); }
     cast(msg, except) { if (this.mute) return; const s = JSON.stringify(msg); for (const m of this.members.values()) if (m !== except) m.out(s); }
     // w: { id, out(text), end() }. The same page again (a new link while its old one hangs on): the new one wins
@@ -1088,7 +1094,7 @@
         const version = typeof msg.version === 'string' ? msg.version.slice(0, 64) : '';
         if (version && version !== FORMAT) return this.kick(m, 'version', 'the room runs version ' + FORMAT);
         Object.assign(m, { name: typeof msg.name === 'string' ? msg.name.trim().slice(0, 32) : '', color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
-          kind: ['ar', 'vr', 'desktop', 'cam'].includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, dev: typeof msg.dev === 'string' ? msg.dev.slice(0, 8) : '' });
+          kind: ['ar', 'vr', 'desktop', 'cam'].includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, dev: typeof msg.dev === 'string' ? msg.dev.slice(0, 8) : '', outp: msg.out === 1 });   // (outp: the output page; m.out is its link's own)
         this.cast({ t: 'members', members: this.people() });
         if (this.onhello) this.onhello(m);
         return;
@@ -2259,6 +2265,7 @@
       P.at = performance.now(); P.st = typeof v.st === 'string' ? v.st : '';
       P.cam = v.kind === 'cam';   // (a phone in camera mode: never drawn, never a person in a headset)
       P.pc = P.cam && v.pc === 1;   // (the desktop preview camera: on the room map as its place, pcam)
+      P.out = v.out === 1;   // (the output page: never a person, never drawn, never a head)
       P.bv = typeof v.bv === 'string' ? v.bv.slice(0, 8) : '';   // its Quest Browser version (versionNote)
       P.sp = typeof v.sp === 'string' ? v.sp.slice(0, 64) : ''; P.al = typeof v.al === 'string' ? v.al.slice(0, 8) : '';   // its shared space and what aligns it (alignedHere)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
@@ -2277,6 +2284,7 @@
       // (their spaceship, ships.js: a presence without one has landed; a camera flies none)
       if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
     } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
+    } else if (m.k === '@osc') { if (!m.by && OUT.on && HOST.out && HOST.out.oscFx) { try { HOST.out.oscFx(m.v); } catch (e) { log('osc in failed', { e: e && e.message }); } }   // (the relay's OSC in and its status: the shell's, never a story's, only the output page's)
     } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
     } else if (m.k === 'q.reload') { reloadIn(m.v, m.by);   // Update the room: this device reloads in its turn (v136)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
@@ -3343,7 +3351,8 @@
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);
     menusExpire(t);   // (someone's menu shown to their circle, not heard of for a while: gone)
     // a desktop says which station it follows, now and then (headsets say it with their presence)
-    if (!HOST.session && t - C.deskAt > 2000) { C.deskAt = t; fx('p.' + C.id, { st: C.follow || '' }); }
+    // (the output page: once a second, with out; never a head)
+    if (!HOST.session && t - C.deskAt > (OUT.on ? 1000 : 2000)) { C.deskAt = t; fx('p.' + C.id, OUT.on ? { st: C.follow || '', kind: 'desktop', out: 1, ts: Math.round(now()) } : { st: C.follow || '' }); }
     // (v137: the page's Shared dialog, left open into a headset session, drew its map 5 times a second and built its HTML at
     // every change, for nobody to see: nothing meanwhile, once when the session ends)
     if (DLG.open && !HOST.session) { if (DLG.stale) { DLG.stale = false; renderDialog(); } drawMap(); guideList(); }
@@ -4407,7 +4416,7 @@
       C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
       // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
       // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
-      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st + (P.pc ? 'p' : '')) : '', PCP.on, R.aligned, C.via, hosting(), C.takeover, C.peer,
+      PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '') + (m.out ? 'o' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st + (P.pc ? 'p' : '')) : '', PCP.on, R.aligned, C.via, hosting(), C.takeover, C.peer,
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
@@ -5340,7 +5349,8 @@
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
           const cam = m.id === C.id ? CAM.on : m.kind === 'cam' || !!(P && P.cam);   // (a phone in camera mode: a camera, never a headset here or elsewhere)
-          ctx.fillText(fit(ctx, (cam ? ((m.id === C.id ? CAM.pc : !!(P && P.pc)) ? 'preview camera' : 'camera (filming)') : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
+          const op = m.id === C.id ? OUT.on : !!(m.out || (P && P.out));   // (the output page: MIDI and OSC, a laptop or the room's PC)
+          ctx.fillText(fit(ctx, (cam ? ((m.id === C.id ? CAM.pc : !!(P && P.pc)) ? 'preview camera' : 'camera (filming)') : op ? 'output page' : { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' && !cam ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + stTitle(s) : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -10904,7 +10914,7 @@
   const PC_SPEED = { slow: [0.25, 15], normal: [0.75, 45], fast: [2, 90] }, PC_SPEEDS = Object.keys(PC_SPEED);
   const DEG = Math.PI / 180;
   const _pcq = new THREE.Quaternion(), _pcp = new THREE.Vector3(), _pcs = new THREE.Vector3(), _pcm = new THREE.Matrix4(), _pcw = new THREE.Matrix4();
-  const pcOffered = () => !!(DEV === 'screen' && C.code && !C.local);
+  const pcOffered = () => !!(DEV === 'screen' && C.code && !C.local && !OUT.on);   // (not while this page is the output page)
   // its own settings (this device's, kept in localStorage, never in the room or a story's state): Speed, Keys (smooth or
   // steps), Mouse (a click catches it, or drag only: a click on a TV's picture then never takes the mouse), Labels and
   // Cards (shown or hidden)
@@ -11950,6 +11960,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'unfollow') unfollow();
       else if (act === 'camera') { camStart('dialog'); return; }   // (camera mode: within this tap, as Enter AR)
       else if (act === 'pcam') { pcStart('dialog'); return; }   // (the desktop preview camera)
+      else if (act === 'output') { if (OUT.on) outStop('dialog'); else outStart('dialog'); return; }   // (the output page: MIDI and OSC)
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
@@ -12130,6 +12141,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         (camOffered() && !HOST.session ? `<div class="row sh-cam"><button class="btn primary" type="button" data-sh="camera">Camera mode</button><span>Show this room through this phone's camera, as the headsets see it, for filming: Android's screen recorder records it.</span></div>` : '') +
         // the desktop preview camera: this screen shows the room from one fixed spot, for a TV or a projector (v153)
         (pcOffered() && !HOST.session ? `<div class="row sh-pcam"><button class="btn primary" type="button" data-sh="pcam">Preview camera</button><span>Show this room on this screen from one fixed spot, as the headsets see it, for a TV or a projector. ${esc(pcamLine())}</span></div>` : '') +
+        // the output page (MIDI and OSC): this page sends and takes MIDI (Web MIDI) and, through the relay, OSC for the room
+        (outOffered() && !HOST.session ? `<div class="row sh-outp"><button class="btn${OUT.on ? '' : ' primary'}" type="button" data-sh="output"${OUT.busy ? ' disabled' : ''}>${OUT.on ? 'Stop the output page' : 'Output page (MIDI and OSC)'}</button><span>${OUT.on ? 'This page is the room\'s output page.' : 'Make this page the room\'s output page: it sends what happens in the studio (cubes walked into, presses, sequences, people, trackers) as MIDI and OSC to music and light software on this computer, and takes MIDI and OSC back in. Chrome or Edge, on a laptop or the room\'s PC.'}${OUT.err ? ' ' + esc(OUT.err) : ''}</span></div>` : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       const nin = $('#shRoomName'), nrow = $('.sh-name');
       if (nin) {
@@ -12179,7 +12192,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
           m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
         return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? (P.pc ? 'preview camera' : 'camera (filming)') : 'screen', cam: P && P.pc ? 'preview camera' : 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${HOST.ships && HOST.ships.person && HOST.ships.person(m.id) ? ' · ' + esc(HOST.ships.person(m.id)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: P && P.cam ? (P.pc ? 'preview camera' : 'camera (filming)') : (m.id === C.id ? OUT.on : m.out || (P && P.out)) ? 'output page' : 'screen', cam: P && P.pc ? 'preview camera' : 'camera (filming)' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' && m.kind !== 'cam' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(stTitle(s)) : ''}${showsMenu(m.id) ? ' · showing their menu' : ''}${HOST.ships && HOST.ships.person && HOST.ships.person(m.id) ? ' · ' + esc(HOST.ships.person(m.id)) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
       guideList();
@@ -12339,6 +12352,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       renderDialog();
       camRender();   // (camera mode's overlay, when it shows)
       pcRender();   // (the desktop preview camera's, likewise)
+      if (OUT.on && HOST.out && HOST.out.changed) try { HOST.out.changed(); } catch (e) { /* its own slip */ }   // (the output page's overlay)
       document.querySelectorAll('[data-open-shared]').forEach(b => {
         b.classList.toggle('on', !!C.code);
         b.textContent = C.code ? 'Shared: ' + C.code : 'Shared';
@@ -12349,6 +12363,94 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
   // (and, in no room, the network is found again: a laptop that woke elsewhere, a phone that changed networks)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { wake('page'); if (!C.code && C.netAt && performance.now() - C.netAt > 60000) netAgain('page'); } });
   window.addEventListener('online', () => { wake('network'); netAgain('network'); });
+
+  // ------------------------------------------------------- the output page --
+  // The output page (the owner, 16 November 2026: "output page and then midi or local relay for osc and trackers i
+  // guess?"; tools/output/SPEC.md): a computer's page in a room (Chrome or Edge, a laptop or the room's PC) that follows a
+  // studio circle and runs its scene itself, and sends what happens there (cubes walked into and who, presses, sequences,
+  // people's heads and hands, trackers, items) as MIDI through the browser's Web MIDI and as OSC through the relay's UDP
+  // (relay/server.mjs --osc-out, --osc-in), and takes MIDI and OSC back in as the room's actions. Its code is output.js,
+  // loaded the first time it starts (as peerjs.min.js is): HOST.out. Here only what the shell keeps: offered, started
+  // (the Shared dialog's button, a link with &output, a reload while it ran: sessionStorage collabOut), its hello and
+  // presence (out: 1, never a person), the relay's @osc handed to it, and its socket's osc and osc-cfg messages. Not a
+  // camera: it writes the studio's state as any page following a station does
+  const outOffered = () => !!(DEV === 'screen' && C.code && !C.local && !CAM.on);
+  let OUTLIB = null;
+  function outLib() {
+    if (HOST.out && HOST.out.start) return Promise.resolve(HOST.out);
+    if (OUTLIB) return OUTLIB;
+    return (OUTLIB = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = appRoot() + 'output.js'; s.async = true;
+      s.onload = () => (HOST.out && HOST.out.start ? res(HOST.out) : rej(new Error('output.js did not load')));
+      s.onerror = () => rej(new Error('output.js did not load'));
+      document.head.appendChild(s);
+    }).catch(e => { OUTLIB = null; throw e; }));
+  }
+  // started: a computer's page in a room (a room on this device too, by the link: MIDI only), not a camera, not in a session
+  function outStart(why) {
+    if (DEV !== 'screen' || !C.code || CAM.on || HOST.session || OUT.busy) { log('output page refused', { why, room: !!C.code, dev: DEV, cam: CAM.on, session: !!HOST.session }); return Promise.resolve(false); }
+    if (OUT.on) return Promise.resolve(true);
+    OUT.err = '';
+    if (DLG.open) dialog(false);
+    log('output page', { start: why });
+    const p = OUT.busy = outLib().then(O => O.start(why), e => { OUT.err = 'The output page did not load: ' + e.message + '.'; log('output page failed', { e: e.message }); return false; });
+    changed();
+    return p.finally(() => { OUT.busy = null; changed(); });
+  }
+  function outStop(why) { if (OUT.on && HOST.out && HOST.out.stop) HOST.out.stop(why); }
+  // output.js says it runs (or stopped): its hello again (out: the relay takes its OSC), its presence, a reload resumes it
+  function outMark(on) {
+    on = !!on && !!C.code;
+    if (on === OUT.on) return OUT.on;
+    OUT.on = on;
+    document.body.classList.toggle('outp', on);
+    sesPut('collabOut', on ? C.code : null);
+    log('output page ' + (on ? 'on' : 'off'), { st: C.follow });
+    if (C.ws && C.ws.readyState === 1) hello();
+    C.deskAt = 0;
+    changed();
+    return OUT.on;
+  }
+  // a reload while it ran (sessionStorage collabOut, this room) or the link's &output: started once the room is open and a
+  // story is here (within a minute)
+  function outResume(code, why) {
+    const t0 = performance.now();
+    const go = () => {
+      if (OUT.on || (C.code !== code && C.code)) return;
+      if (C.code === code && C.status === 'open' && C.welcomed && !HOST.busy && !HOST.session) { outStart(why); return; }
+      if (performance.now() - t0 < 60000) setTimeout(go, 500);
+    };
+    setTimeout(go, 500);
+  }
+  // OSC through the relay (only the output page's own socket, only on a relay): 1 to 128 messages [address, types, ...args]
+  const oscCan = () => !!(OUT.on && C.code && C.via === 'relay' && C.ws && C.ws.readyState === 1);
+  function osc(msgs) {
+    if (!oscCan() || !Array.isArray(msgs) || !msgs.length) return false;
+    for (let i = 0; i < msgs.length; i += 128) if (!send({ t: 'osc', m: msgs.slice(i, i + 128) })) return false;
+    return true;
+  }
+  const oscCfg = o => (oscCan() ? send({ t: 'osc-cfg', trk: !!(o && o.trk) }) : false);
+  // what the relay's /api/ping says of OSC ({ out, in, trk }), or null (not a relay, no OSC there, no answer)
+  function oscPing() {
+    if (!C.code || C.via !== 'relay') return Promise.resolve(null);
+    return api('ping', undefined, 5000).then(r => {
+      const o = r.ok && r.j && r.j.osc;
+      return o && typeof o === 'object' ? { out: Math.max(0, +o.out | 0), in: Math.max(0, +o.in | 0), trk: o.trk === true } : null;
+    }, () => null);
+  }
+  // the people in a headset, for the output page: every member in a headset with a head heard in the last 2 s, with their
+  // circle and their head and hands (body)
+  function persons() {
+    const out = [], t = performance.now();
+    for (const m of C.members) {
+      if (m.id === C.id || (m.kind !== 'ar' && m.kind !== 'vr')) continue;
+      const P = C.pres.get(m.id);
+      if (!P || !P.head || P.cam || t - P.at > 2000) continue;
+      out.push({ id: m.id, name: m.name || '', color: m.color || '', kind: m.kind, st: P.st || '', body: body(m.id) });
+    }
+    return out;
+  }
 
   HOST.collab = {
     get id() { return C.id; }, get code() { return C.code; }, get joined() { return !!C.code; }, get status() { return C.status; },
@@ -12555,6 +12657,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       if (hp.has('debug')) DEBUG = true;
       if (reloadBack()) return;   // (back from Update the room with the old release: once more before anything joins)
       if (hp.has('camera')) { if (DEV === 'screen') PC.link = true; else CAM.link = true; }   // (camera mode's link: one big button, Start the camera; a computer's, the preview camera's)
+      if (hp.has('output') && DEV === 'screen') OUT.link = true;   // (the output page's link: MIDI and OSC; a phone's or a headset's: ignored)
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
       if (hp.has('peer')) setPeer(hp.get('peer'), 'link');
       if (hp.has('net')) pretendNet(hp.get('net'));   // (a pretend network, for tests: #net=<word>, off)
@@ -12568,6 +12671,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         if (CAM.link) { camShow(); return; }   // (camera mode's link: its own page, no dialog)
         // (the preview camera's link: its own page; a reload while it ran: it starts again by itself)
         if (DEV === 'screen' && sesGet('collabPcam') === code) { pcResume(code); return; }
+        // (the output page's link, or a reload while it ran: it starts by itself once the room is open)
+        if (DEV === 'screen' && (OUT.link || sesGet('collabOut') === code)) { outResume(code, OUT.link ? 'link' : 'reload'); return; }
         if (PC.link) { pcShow(); return; }
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);
       });
@@ -12592,6 +12697,14 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // fov }: false with no room or in camera mode), and from a headset, the next trigger press (place(true); false: stop)
     previewOn: () => CAM.pc, previewOffered: () => pcOffered(), previewStart: why => pcStart(why || 'api'), previewStop: () => pcStop('api'), preview: () => pcState(),
     pcam: () => pcamVal(), setPcam: (P, why) => pcamWrite(P, why || 'api'), pcamPlace: on => pcamPlace(on !== false), pcamPlacing: () => PCP.on,
+    // the output page (MIDI and OSC, output.js: HOST.out): whether this page runs as it, offered here (the dialog's button),
+    // started (a promise: true when it runs) and stopped; output.js's own: outMark(on) (its hello and presence), osc(msgs)
+    // (to the relay's UDP targets: false off a relay or not open), oscCfg({ trk }) (the trackers as OSC by the relay),
+    // oscPing() (what the relay's /api/ping says of OSC, or null), persons() (the people in a headset: [{ id, name, color,
+    // kind, st, body }]; people() stays the presence Map). For tests: presIn(id, v) a presence as if heard from member id
+    outOn: () => OUT.on, outOffered: () => outOffered(), outStart: why => outStart(why || 'api'), outStop: why => outStop(why || 'api'), outMark: on => outMark(on),
+    osc: msgs => osc(msgs), oscCfg: o => oscCfg(o), oscPing: () => oscPing(), persons: () => persons(),
+    presIn: (id, v) => onFx({ t: 'fx', k: 'p.' + id, v, by: id }),
     // a phone's AR session (v125): its menu button and sheet ({ ar, shown, overlaid, button, open, sheet, menu, rect, rows }),
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },

@@ -63,6 +63,7 @@ function normSeq(x, name, self) {
   if (x.sync === 'own') r.sync = 'own';
   if (has('col') && x.col !== null) { if (typeof x.col !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(x.col)) return null; r.col = x.col.toLowerCase(); }
   if (has('ev')) { if (!Array.isArray(x.ev)) return null; r.ev = normSeqEv(x.ev, self); } else r.ev = [];
+  if (x.send != null) { const t = sendKeep(x.send, 'q'); if (t === null) return null; if (t) r.send = t; }   // (its sends to the output page, v157: e6u_send.js)
   return lockOf(x, r);
 }
 // a play state as the room keeps it (null: not one)
@@ -134,7 +135,9 @@ function seqEff(q, d = 0, Tr = behNow(), noPv = false) {
   return best;
 }
 const seqCan = () => !editLocked();
-const seqWho = () => { try { return HOST.collab && HOST.collab.joined && HOST.collab.name ? words(HOST.collab.name, 40) : ''; } catch (e) { return ''; } };
+// (the output page is named so in the room, whatever this device's own name: its presses and starts say so, and the output page
+// knows them as its own, e6u_send.js)
+const seqWho = () => { try { return HOST.collab && HOST.collab.joined ? (outPage() ? 'Output page' : HOST.collab.name ? words(HOST.collab.name, 40) : '') : ''; } catch (e) { return ''; } };
 // a command on a sequence's play state at room moment m (now): start (from its beginning), stop (held at where it is) or rewind
 // (nothing of it applies). No Undo step, no change: it is not an edit. One device writes at most once in 150 ms for a
 // sequence (a second within it takes the first one's number)
