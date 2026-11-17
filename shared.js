@@ -11133,7 +11133,7 @@
   }
   function pcStop(why) {
     log('preview camera stop', { why });
-    sesPut('collabPcam', null);
+    PC.link = false;   // (stopped by hand: the address loses &camera, and a reload stays a page)
     pcHalt('stop');
     if (PC.edit) pcRunEnd();
     pcUnlock();
@@ -11155,7 +11155,7 @@
       CAM.sent.clear();
       document.body.classList.add('pcam');
       pcKeys();
-      sesPut('collabPcam', C.code);   // (a reload while it runs, a new release or Update the room: it starts again by itself)
+      PC.link = true;   // (its address has &camera: a reload while it runs, a new release or Update the room starts it again by itself)
       log('preview camera on', { who: C.who, st: C.follow, placed: !!pcamVal() });
       if (PC.auto) pcAuto(true);
       pcShow();
@@ -11168,7 +11168,6 @@
       clearTimeout(PC.runT); PC.runT = 0;
       Object.assign(CAM, { on: false, pc: false, hidden: false, list: false });
       Object.assign(PC, { phase: 'off', link: false, sess: null, edit: false, drag: null, list: false, idle: false });
-      sesPut('collabPcam', null);
       document.body.classList.remove('pcam', 'pcam-idle');
       pcPatch(false);
       try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) { /* not here */ }
@@ -11178,7 +11177,7 @@
     }
     return false;
   }
-  // a reload while it ran (sessionStorage collabPcam, this room): started again by itself once the room and the story are
+  // its link, &camera (a reload while it ran too: its address says so): started by itself once the room and the story are
   // there (a pretend session needs no tap), within a minute; else its own page asks
   function pcResume(code) {
     const t0 = performance.now();
@@ -12344,7 +12343,19 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (!C.code) return '';
     const relay = C.linked || (!C.served && C.relay) ? '&relay=' + encodeURIComponent(C.relay.replace(/^http/, 'ws')) : '';
     const peer = C.peer ? '&peer=' + encodeURIComponent(C.peer).replace(/%3A/gi, ':').replace(/%2F/gi, '/') : '';   // (another introduction server, or off)
-    return '#s=' + C.code + relay + peer;
+    return '#s=' + C.code + relay + peer + pageFlag();
+  }
+  // the output page and the cameras have addresses of their own (v161; the owner, 17 November 2026: "give the output page
+  // as well as the camera page its own url, when reloading i ended up in camera mode multiple times"): &output while the
+  // output page runs or its link waits, &camera while camera mode or the preview camera runs or its link waits. A reload
+  // starts again only what its address says (no longer the tab's sessionStorage), so #s=XYZ is always a plain page.
+  // Headsets never get either (their address stays the room's, as Quest's shared spaces are per address)
+  const navReload = () => { try { const n = performance.getEntriesByType('navigation')[0]; return !!n && n.type === 'reload'; } catch (e) { return false; } };
+  const pageFlag = () => (OUT.on || OUT.link ? '&output' : CAM.on || CAM.link || PC.link ? '&camera' : '');
+  function urlSync() {
+    if (!C.code || !HOST.hist) return;
+    const h = location.hash, has = /[#&]output(?=&|$)/.test(h) ? '&output' : /[#&]camera(?=&|$)/.test(h) ? '&camera' : '';
+    if (has !== pageFlag()) HOST.hist.replace(hash());
   }
   // the UI follows the session: the page's dialog and the Shared buttons, at most a few times a second
   let changing = 0;
@@ -12352,6 +12363,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (changing) return;
     changing = setTimeout(() => {
       changing = 0;
+      urlSync();   // (&output, &camera: the address says what this page is)
       renderDialog();
       camRender();   // (camera mode's overlay, when it shows)
       pcRender();   // (the desktop preview camera's, likewise)
@@ -12374,7 +12386,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
   // people's heads and hands, trackers, items) as MIDI through the browser's Web MIDI and as OSC through the relay's UDP
   // (relay/server.mjs --osc-out, --osc-in), and takes MIDI and OSC back in as the room's actions. Its code is output.js,
   // loaded the first time it starts (as peerjs.min.js is): HOST.out. Here only what the shell keeps: offered, started
-  // (the Shared dialog's button, a link with &output, a reload while it ran: sessionStorage collabOut), its hello and
+  // (the Shared dialog's button, a link with &output, a reload while it ran: its address has &output, v161), its hello and
   // presence (out: 1, never a person), the relay's @osc handed to it, and its socket's osc and osc-cfg messages. Not a
   // camera: it writes the studio's state as any page following a station does
   const outOffered = () => !!(DEV === 'screen' && C.code && !C.local && !CAM.on);
@@ -12408,14 +12420,14 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (on === OUT.on) return OUT.on;
     OUT.on = on;
     document.body.classList.toggle('outp', on);
-    sesPut('collabOut', on ? C.code : null);
+    if (!on) OUT.link = false;   // (stopped: the address is the room's plain one again, and a reload stays a page)
     log('output page ' + (on ? 'on' : 'off'), { st: C.follow });
     if (C.ws && C.ws.readyState === 1) hello();
     C.deskAt = 0;
     changed();
     return OUT.on;
   }
-  // a reload while it ran (sessionStorage collabOut, this room) or the link's &output: started once the room is open and a
+  // the link's &output (a reload while it ran too: its address says so): started once the room is open and a
   // story is here (within a minute)
   function outResume(code, why) {
     const t0 = performance.now();
@@ -12672,11 +12684,12 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       detect().then(() => {
         join(code);
         if (CAM.link) { camShow(); return; }   // (camera mode's link: its own page, no dialog)
-        // (the preview camera's link: its own page; a reload while it ran: it starts again by itself)
-        if (DEV === 'screen' && sesGet('collabPcam') === code) { pcResume(code); return; }
-        // (the output page's link, or a reload while it ran: it starts by itself once the room is open)
-        if (DEV === 'screen' && (OUT.link || sesGet('collabOut') === code)) { outResume(code, OUT.link ? 'link' : 'reload'); return; }
-        if (PC.link) { pcShow(); return; }
+        // (the preview camera's link, &camera on a computer: its own page, Start; a reload of that address, by hand, a new
+        // release or Update the room: it starts by itself. v161: only the address says so, never the tab's memory, so a
+        // plain #s=XYZ reloads as a plain page)
+        if (DEV === 'screen' && PC.link) { if (navReload()) pcResume(code); else pcShow(); return; }   // (a link opened afresh: its page, Start)
+        // (the output page's link, &output, also a reload while it ran: it starts by itself once the room is open)
+        if (DEV === 'screen' && OUT.link) { outResume(code, 'link'); return; }
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);
       });
     },

@@ -1,0 +1,16 @@
+{
+  "version": "networks-v161",
+  "date": "2026-11-17",
+  "new": [
+    "The output page and the cameras have addresses of their own: while the output page runs the address ends in &output, while the preview camera or camera mode runs it ends in &camera.",
+    "A reload starts again only what the address says: a plain room address (#s=XYZ) always reloads as a plain page, never in camera mode (before, the tab remembered it).",
+    "A link with &camera on a computer opened afresh shows its Start page; reloading that address starts the preview camera by itself."
+  ],
+  "test": [
+    "Start the output page from the Shared dialog: the address gets &output; reload: it comes back; Stop: the address loses it; reload: a plain page.",
+    "The same with the preview camera (&camera), and on an Android phone with camera mode (a reload shows its Start the camera page)."
+  ],
+  "untested": [
+    "Camera mode on a real phone with the new address; bookmarks of the new addresses in Safari."
+  ]
+}

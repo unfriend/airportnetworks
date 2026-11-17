@@ -7986,7 +7986,7 @@ async function previewRound(dir) {
     await until(D, () => !HOST.session && !HOST.collab.previewOn(), null, 8000);
     await sleep(300);
     const x = await D.evaluate(() => ({ on: HOST.collab.previewOn(), session: !!HOST.session, presenting: HOST.renderer.xr.isPresenting, body: document.body.className, shown: !document.getElementById('pcam').hidden,
-      layer: String(window.XRWebGLLayer), cam: HOST.collab.cameraMode(), follow: HOST.collab.following(), patched: HOST.collab.preview().patched, stored: sessionStorage.getItem('collabPcam') }));
+      layer: String(window.XRWebGLLayer), cam: HOST.collab.cameraMode(), follow: HOST.collab.following(), patched: HOST.collab.preview().patched, stored: /[#&]camera(&|$)/.test(location.hash) }));
     const mA2 = await until(A, id => { const m = HOST.collab.members.find(q => q.id === id); return !!m && m.kind === 'desktop' && m.name !== 'Preview camera'; }, dId, 8000);
     check('preview: Stop ends the pretend session: a page again for the room (kind desktop), following on; the browser\'s own XRWebGLLayer back, nothing kept for a reload',
       !x.on && !x.session && !x.presenting && !/\bpcam\b/.test(x.body) && !x.shown && /native code/.test(x.layer) && !x.cam && !x.patched && x.follow === S2.id && !x.stored && mA2, JSON.stringify({ x, mA2 }));
@@ -8008,7 +8008,7 @@ async function previewRound(dir) {
     const back = await until(L, () => HOST.collab.previewOn() && HOST.renderer.xr.isPresenting, null, 60000);
     const lb = await L.evaluate(() => ({ go: !document.getElementById('xrgo').hidden, log: window.__collabLog.filter(e => /^preview camera/.test(e.ev)).map(e => e.ev + (e.start ? ' ' + e.start : '')) }));
     await L.evaluate(() => HOST.collab.previewStop());
-    const loff = await until(L, () => !HOST.collab.previewOn() && !HOST.session && !sessionStorage.getItem('collabPcam'), null, 8000);
+    const loff = await until(L, () => !HOST.collab.previewOn() && !HOST.session && !/[#&]camera(&|$)/.test(location.hash), null, 8000);
     check('preview: reloaded while it runs (a release or Update the room), it starts again by itself (no Enter VR to continue); stopped, it stays stopped',
       back && !lb.go && lb.log.includes('preview camera reload') && loff, JSON.stringify({ back, lb, loff }));
     // a circle under the camera's glyph on A's map: a click there follows the circle and a drag moves it; the camera is

@@ -1,15 +1,16 @@
 {
-  "version": "networks-v160",
+  "version": "networks-v161",
   "date": "2026-11-17",
   "new": [
-    "The output page's panel now sits at the right of the window, so the studio's panel, item list and cards on the left stay usable while it runs.",
-    "The Cardinal README says how its standalone app takes MIDI on a Mac or PC: Engine, Enable/Reconnect MIDI opens every port there is, the IAC bus included."
+    "The output page and the cameras have addresses of their own: while the output page runs the address ends in &output, while the preview camera or camera mode runs it ends in &camera.",
+    "A reload starts again only what the address says: a plain room address (#s=XYZ) always reloads as a plain page, never in camera mode (before, the tab remembered it).",
+    "A link with &camera on a computer opened afresh shows its Start page; reloading that address starts the preview camera by itself."
   ],
   "test": [
-    "Open the output page in the studio's circle and edit an item: its card on the left and the output page on the right should both be usable.",
-    "On a narrow window the output page still covers the whole width, as before."
+    "Start the output page from the Shared dialog: the address gets &output; reload: it comes back; Stop: the address loses it; reload: a plain page.",
+    "The same with the preview camera (&camera), and on an Android phone with camera mode (a reload shows its Start the camera page)."
   ],
   "untested": [
-    "Real MIDI into Cardinal from the output page, the dub-techno scene in a headset."
+    "Camera mode on a real phone with the new address; bookmarks of the new addresses in Safari."
   ]
 }

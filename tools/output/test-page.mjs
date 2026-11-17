@@ -370,12 +370,20 @@ try {
     check('their people list says output page', await until(B, () => /output page/.test((document.querySelector('.sh-people') || {}).textContent || ''), null, 5000));
     check('it is never one of the people in a headset', await B.evaluate(() => HOST.collab.persons().length === 0));
     await shot(P, 'output-page-relay');
-    // a reload while it runs: it starts again by itself
+    check('its address says so: &output (v161, the output page\'s own address)', await until(P, () => /[#&]output(&|$)/.test(location.hash), null, 3000), await P.evaluate(() => location.hash));
+    // a reload while it runs: it starts again by itself (its address has &output)
     await P.reload();
     await P.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 60000 });
     check('a reload while it ran starts it again by itself', await until(P, () => HOST.out && HOST.out.on(), null, 20000));
     await P.evaluate(() => HOST.out.stop());
     check('stopped: the others no longer hear it as the output page', await until(B, id => { const Q = HOST.collab.people().get(id); return !Q || !Q.out; }, pid, 8000));
+    check('stopped: its address is the room\'s plain one again', await until(P, () => /^#s=[A-Z]{3}/.test(location.hash) && !/[#&](output|camera)(&|$)/.test(location.hash), null, 3000), await P.evaluate(() => location.hash));
+    // a plain room address reloads as a plain page (v161: the tab's memory no longer restarts it)
+    await P.reload();
+    await P.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 60000 });
+    await until(P, () => HOST.collab.status === 'open', null, 15000);
+    await new Promise(r => setTimeout(r, 2500));
+    check('a reload of the plain address stays a plain page', await P.evaluate(() => !(HOST.out && HOST.out.on()) && !HOST.collab.cameraMode() && !HOST.collab.outOn()));
     await B.context().close(); await P.context().close();
   }
   // a phone's link: &output ignored

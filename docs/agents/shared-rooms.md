@@ -762,8 +762,9 @@ The plan is `docs/shared-space-plan.md`.
     people rows say *preview camera*; never drawn in a headset or counted as one (camera mode's `P.cam`).
   - Stop (or the session ending) ends the pretend session: a page again (kind `desktop`), following on, `pcPatch(false)`,
     full screen left. A reload while it runs (a release, *Update the room*, by hand) starts it again by itself in that
-    room (sessionStorage `collabPcam`, `pcResume`: once the room and the story are there, within a minute, else its own
-    page; index.html's `reload()` keeps no *Enter VR to continue* for it, `HOST.collab.previewOn()`); Stop clears it.
+    room (v161: its address has `&camera` while it runs, `PC.link`; a reload of that address, `navReload()`, runs
+    `pcResume`: once the room and the story are there, within a minute, else its own page; a link opened afresh shows its
+    page with Start; the tab's sessionStorage no longer restarts it, so a plain `#s=XYZ` reloads as a plain page; index.html's `reload()` keeps no *Enter VR to continue* for it, `HOST.collab.previewOn()`); Stop clears it.
     A new release is not asked about on its picture: it takes it at its next reload.
     Started again by itself, its sound waits for a click or a key (the browser's rule; the shell's unlock runs first on
     either): the status line then ends *Sound starts at a click or a key.*
@@ -792,8 +793,11 @@ The plan is `docs/shared-space-plan.md`.
     `OUT`, `outOffered`, `outStart`, `outStop`, `outMark`, `outResume`, `osc`, `oscCfg`, `oscPing`, `persons`).
   - Started: the Shared dialog's *Output page (MIDI and OSC)* (a computer's page, `DEV` `'screen'`, in a room not on this
     device; `.sh-outp`; the same button stops it), a link with `&output` (a computer's page only: a phone or a headset
-    ignores it; a room on this device too, MIDI only), or by itself after a reload while it ran (sessionStorage
-    `collabOut` = the room's code, as `collabPcam`). Never in a headset session, never with camera mode or the preview
+    ignores it; a room on this device too, MIDI only), or by itself after a reload while it ran (v161: its address has
+    `&output` while it runs or its link waits, so a reload starts it again; stopped, the address is the room's plain one;
+    the tab's sessionStorage no longer restarts it). The address (`hash()`, `pageFlag()`, kept in step by `urlSync()` in
+    `changed()`): `&output` for the output page, `&camera` for camera mode and the preview camera; a headset never gets
+    either. Never in a headset session, never with camera mode or the preview
     camera (each refuses the other).
   - It is not an observer: it follows a studio circle (the one followed, else the first studio circle by id; its
     *Follows* picker takes any circle: a story that is not the studio gives people and trackers only) and writes the

@@ -377,7 +377,7 @@ A **send entry**, fields written in this order, only those set:
 1. `shared.js`: FORMAT `networks-51`; `&output` in `boot` (a computer's page, `DEV === 'screen'`; on a phone or headset:
    ignored); *Output page (MIDI and OSC)* in the Shared dialog's room row (computer pages in a room not on this device
    only), with a line saying what it is; `output.js` loaded on demand from `appRoot()` as `peerjs.min.js` is, then
-   `HOST.out.start(why)`; reload resume (sessionStorage `collabOut` = the room code, as `collabPcam`); hello and presence
+   `HOST.out.start(why)`; reload resume (v161: the address carries `&output` while it runs, `pageFlag()`; no sessionStorage); hello and presence
    `out`; `P.out`, *output page* in both people lists; `@osc` taken in `onFx` only with `by` `''`, handed to `HOST.out`;
    `HOST.collab.outOn()` (true while this page runs as the output page), `HOST.collab.osc(msgs)` (sends `{ t: 'osc' }`,
    false when not on a relay or not open), `HOST.collab.oscCfg(o)`, `HOST.collab.people()` (`[{ id, name, color, kind,
