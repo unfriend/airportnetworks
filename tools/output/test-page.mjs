@@ -3,7 +3,8 @@
 // items, so it needs neither the relay's OSC nor the studio's sends.
 //   node tools/output/test-page.mjs [--shots <dir>]
 // It serves the folder itself (any free port) and starts a plain relay (relay/server.mjs, no OSC flags) for the part that
-// needs a room on a relay (the Shared dialog's button, the presence the others see, HOST.collab.osc). Needs Playwright
+// needs a room on a relay (the Shared dialog's button, the presence the others see, HOST.collab.osc, live sound: v162, with
+// getUserMedia stubbed by the test's own oscillator and a listener of its own on the relay). Needs Playwright
 // (PLAYWRIGHT_MODULE: its path when installed elsewhere; CHROMIUM_PATH: a Chromium of its own). Exits 1 on a failure.
 // Afterwards, as the spec says: node tools/smoke.mjs http://127.0.0.1:8123/ --only 'developer mode'.
 import http from 'node:http';
@@ -45,7 +46,7 @@ try {
   });
 } catch (e) { console.log('note the relay part is skipped: ' + e.message); relay = null; rport = 0; }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--autoplay-policy=no-user-gesture-required', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 // every page: the tests' room defaults (AGENTS.md), Web MIDI stubbed (two outputs, one input; what is sent kept in
 // window.__midiSent)
 async function open(hash, name, size) {
@@ -58,6 +59,28 @@ async function open(hash, name, size) {
     const access = { outputs, inputs, onstatechange: null, sysexEnabled: false };
     window.__midi = { access, asked: [] };
     navigator.requestMIDIAccess = o => { window.__midi.asked.push(o); return o && o.sysex ? Promise.reject(new DOMException('no sysex', 'SecurityError')) : Promise.resolve(access); };
+    // live sound (v162): the input is the TEST's own oscillator (test code may make an AudioContext; app code may not:
+    // AudioContext is then wrapped to count the ones anybody else makes); two inputs, named once one was given
+    const RealAC = window.AudioContext;
+    window.__snd = { asked: [], acNew: 0, ac: null };
+    if (navigator.mediaDevices && RealAC) {
+      navigator.mediaDevices.getUserMedia = async c => {
+        window.__snd.asked.push(JSON.parse(JSON.stringify(c || {})));
+        const ac = window.__snd.ac || (window.__snd.ac = new RealAC({ sampleRate: 48000 }));
+        const o = ac.createOscillator(), g = ac.createGain(), d = ac.createMediaStreamDestination();
+        o.frequency.value = 440; g.gain.value = 0.5; d.channelCount = 2;
+        o.connect(g); g.connect(d); o.start();
+        await ac.resume();
+        window.__snd.streams = (window.__snd.streams || []).concat([d.stream]);
+        return d.stream;
+      };
+      navigator.mediaDevices.enumerateDevices = async () => {
+        const n = window.__snd.asked.length > 0;
+        return [{ kind: 'audioinput', deviceId: 'bh2', groupId: 'g1', label: n ? 'BlackHole 2ch' : '' }, { kind: 'audioinput', deviceId: 'mic1', groupId: 'g2', label: n ? 'Built-in Microphone' : '' },
+          { kind: 'audiooutput', deviceId: 'spk1', groupId: 'g2', label: n ? 'Speakers' : '' }];
+      };
+      window.AudioContext = class extends RealAC { constructor(...a) { super(...a); window.__snd.acNew++; } };
+    }
   }, name);
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(name + ': ' + (e.stack || e.message)));
@@ -110,6 +133,8 @@ try {
   check('output.js was loaded on demand', await A.evaluate(() => [...document.scripts].some(s => /output\.js$/.test(s.src))));
   check('no OSC off a relay: HOST.collab.osc is false', await A.evaluate(() => HOST.collab.osc([['/x', '']]) === false && HOST.collab.via === 'local'));
   check('the overlay says why there is no OSC', await A.evaluate(() => /No OSC here/.test(document.querySelector('#out [data-sec="osc"]').textContent)));
+  check('live sound off a relay: the switch greyed, saying rooms on a relay only', await A.evaluate(() => { const b = document.querySelector('#out [data-sec="live"]'), x = b && b.querySelector('[data-o="snd"]'); return !!x && x.disabled && /needs a room on a relay/.test(b.textContent) && HOST.collab.sndCan() === false; }),
+    await A.evaluate(() => (document.querySelector('#out [data-sec="live"]') || {}).textContent));
   // a story for the fake studio API to hang on (the flock: small), then the API
   await A.evaluate(() => HOST.start('flock'));
   await until(A, () => HOST.curKey === 'flock' && !!HOST.cur && !HOST.busy, null, 40000);
@@ -364,6 +389,77 @@ try {
     await P.click('[data-sh="output"]');
     check('its button starts it', await until(P, () => HOST.out && HOST.out.on() && HOST.collab.outOn(), null, 10000));
     check('HOST.collab.osc goes to the relay while it runs', await P.evaluate(() => HOST.collab.osc([['/test/hello', 'i', 1]]) === true));
+    // ---- live sound (v162): a listener of the test's own on the relay (subscribed), the output page streaming the
+    // stubbed input as Opus; what the relay forwards counted there
+    {
+      const L = { q: [], bins: [] }, ws = new WebSocket(`ws://127.0.0.1:${rport}/api/ws?room=${code}&id=listen1`);
+      ws.binaryType = 'arraybuffer';
+      ws.onmessage = e => { if (typeof e.data === 'string') L.q.push(JSON.parse(e.data)); else L.bins.push(Buffer.from(e.data)); };
+      await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+      ws.send(JSON.stringify({ t: 'hello', name: 'Listener', kind: 'desktop' }));
+      ws.send(JSON.stringify({ t: 'snd-sub', on: true }));
+      const sndOf = on => L.q.find(m => m.t === 'fx' && m.k === '@snd' && m.by === '' && m.v && m.v.on === on);
+      const lv = () => P.evaluate(() => HOST.out.state().snd);
+      check('live sound: the section is there, off, with the input picker and the help', await P.evaluate(() => { const b = document.querySelector('#out [data-sec="live"]'); return !!b && /Stream sound to the room: Off/.test(b.textContent) && !!b.querySelector('[data-oc="sndDev"]') && /BlackHole 2ch/.test(b.textContent) && /Names show once/.test(b.textContent); }),
+        await P.evaluate(() => (document.querySelector('#out [data-sec="live"]') || {}).textContent));
+      check('live sound: the relay and the page can (sndCan, no why)', await P.evaluate(() => HOST.collab.sndCan() && HOST.collab.sndWhy() === ''), await P.evaluate(() => HOST.collab.sndWhy()));
+      await P.evaluate(() => { window.__snd.starts = []; const f = HOST.collab.sndStart; HOST.collab.sndStart = (cfg, k) => { window.__snd.starts.push({ cfg, k }); return f(cfg, k); }; window.__snd.ac0 = window.__snd.acNew; });
+      const r = await P.evaluate(() => HOST.out.snd(true, 'bh2'));
+      check('live sound: snd(true): asking, then live', r && (r.phase === 'live' || r.phase === 'asking'), r);
+      check('live sound: getUserMedia asked for the picked input, nothing done to the sound, stereo, 48 kHz', await P.evaluate(() => { const a = window.__snd.asked[0] && window.__snd.asked[0].audio; return !!a && a.deviceId && a.deviceId.exact === 'bh2' && a.echoCancellation === false && a.noiseSuppression === false && a.autoGainControl === false && a.channelCount === 2 && a.sampleRate === 48000; }),
+        await P.evaluate(() => window.__snd.asked));
+      check('live sound: frames go out', await until(P, () => HOST.out.state().snd.frames > 20, null, 8000), await lv());
+      const f0 = (await lv()).frames, t0 = Date.now();
+      await sleep(2000);
+      const f1 = (await lv()).frames, rate = (f1 - f0) / ((Date.now() - t0) / 1000);
+      check('live sound: about 50 frames a second (20 ms)', rate > 40 && rate < 60, rate);
+      const starts = await P.evaluate(() => window.__snd.starts);
+      check('live sound: sndStart called once, with an Opus cfg', starts.length === 1 && starts[0].cfg.codec === 'opus' && starts[0].cfg.sampleRate === 48000 && [1, 2].includes(starts[0].cfg.numberOfChannels) && starts[0].k === 128, starts);
+      const S = await lv();
+      check('live sound: the level is above 0 and kbit/s measured', S.level > 0.05 && S.kbps > 20 && S.kbps < 400 && S.phase === 'live' && S.on, S);
+      check('live sound: the inputs named once one was given', S.devs.includes('BlackHole 2ch') && S.devs.includes('Built-in Microphone') && !S.devs.includes('Speakers'), S.devs);
+      const on = sndOf(true);
+      check('live sound: the listener got @snd on with the cfg', !!on && on.v.cfg.codec === 'opus' && on.v.by === (await P.evaluate(() => HOST.collab.id)) && on.v.kbps === 128, L.q.filter(m => m.k === '@snd'));
+      const b = L.bins[L.bins.length - 1];
+      check('live sound: and the frames, with the stream\'s sid and an Opus packet', L.bins.length > 50 && !!b && b[0] === 1 && b.readUInt16BE(2) === on.v.sid && b.length > 16 && b.length < 2000 && Math.abs(b.readDoubleBE(8) - Date.now()) < 5000,
+        { n: L.bins.length, head: b && [...b.subarray(0, 16)] });
+      const seqs = L.bins.map(x => x.readUInt32BE(4));
+      check('live sound: in order, from 0', seqs[0] === 0 && seqs.every((x, i) => !i || x === seqs[i - 1] + 1), seqs.slice(0, 8));
+      check('live sound: the meter moves', await until(P, () => +(document.querySelector('#out [data-snd-meter]') || { getAttribute: () => 0 }).getAttribute('aria-valuenow') > 0, null, 2000));
+      check('live sound: no AudioContext made by the app for it', await P.evaluate(() => window.__snd.acNew === window.__snd.ac0), await P.evaluate(() => [window.__snd.ac0, window.__snd.acNew]));
+      // the relay's word: the listeners (st, as shared.js's @snd hands it on), then taken by another output page
+      await P.evaluate(() => HOST.out.sndFx({ on: true, mine: true, sid: 3, subs: 1, frames: 10, bytes: 3000, dropped: 0, bad: 0, why: '' }));
+      check('live sound: Listeners: 1 from st', await until(P, () => /Listeners: 1/.test(document.querySelector('#out [data-snd-live]').textContent), null, 2000));
+      if (SHOTS) await P.evaluate(() => document.querySelector('#out [data-sec="live"]').scrollIntoView());
+      await shot(P, 'output-live-sound');
+      await P.evaluate(() => HOST.out.sndFx({ on: true, mine: false, sid: 4, subs: 1, frames: 0, bytes: 0, dropped: 0, bad: 0, why: 'taken' }));
+      const tk = await lv();
+      check('live sound: taken by another output page: off, saying so, the input let go', tk.phase === 'off' && !tk.on && /Another output page/.test(tk.note), tk);
+      L.q = []; L.bins = [];
+      await P.evaluate(() => HOST.out.snd(true));
+      check('live sound: on again', await until(P, () => HOST.out.state().snd.frames > 10, null, 8000), await lv());
+      check('live sound: the listener gets the new stream', !!sndOf(true) && L.bins.length > 0, L.q.filter(m => m.k === '@snd'));
+      await P.evaluate(() => HOST.out.snd(false));
+      await sleep(300);
+      const off = sndOf(false), n0 = L.bins.length;
+      check('live sound: Off sends snd-stop (the listener told: stopped)', !!off && off.v.why === 'stopped', L.q.filter(m => m.k === '@snd'));
+      await sleep(400);
+      check('live sound: no more frames after Off', L.bins.length === n0 && (await lv()).phase === 'off', L.bins.length - n0);
+      check('live sound: the switch kept off (outSnd)', await P.evaluate(() => { const j = JSON.parse(localStorage.getItem('outSnd')); return j.on === false && j.dev === 'bh2' && j.kbps === 128; }), await P.evaluate(() => localStorage.getItem('outSnd')));
+      // stopping the output page while streaming stops the stream first
+      L.q = [];
+      await P.evaluate(() => HOST.out.snd(true));
+      await until(P, () => HOST.out.state().snd.frames > 5, null, 8000);
+      await P.evaluate(() => HOST.out.stop());
+      await sleep(300);
+      check('live sound: the output page stopped while streaming: every input track stopped, the listener told, the switch kept on for the next start', await P.evaluate(() => window.__snd.streams.every(s => s.getTracks().every(t => t.readyState === 'ended')) && JSON.parse(localStorage.getItem('outSnd')).on === true) && !!sndOf(false),
+        await P.evaluate(() => ({ kept: localStorage.getItem('outSnd'), ended: window.__snd.streams.map(s => s.getTracks().map(t => t.readyState)) })));
+      ws.close();
+      await P.evaluate(() => HOST.collab.dialog(true));
+      await P.click('[data-sh="output"]');
+      await until(P, () => HOST.out && HOST.out.on(), null, 10000);
+      check('live sound: a plain page cannot stream (sndWhy says why)', await B.evaluate(() => HOST.collab.sndCan() === false && /Only the output page/.test(HOST.collab.sndWhy()) && HOST.collab.sndSend(0, 0, 2, new Uint8Array(10)) === false));
+    }
     const pid = await P.evaluate(() => HOST.collab.id);
     check('the others hear its presence as the output page (out, no head)', await until(B, id => { const Q = HOST.collab.people().get(id); return !!Q && Q.out === true && !Q.head; }, pid, 6000));
     await B.evaluate(() => HOST.collab.dialog(true));

@@ -1124,6 +1124,44 @@ Untested until tried on the owner's machines: OSC to real programs (TouchDesigne
 firewall (allow Node on private networks for `--osc-in`), a name looked up on a real network, and the trackers' OSC rate
 on the PC with SteamVR. Here: only UDP on 127.0.0.1 with the fake bridge (`node relay/test.mjs --osc`).
 
+## Live sound (from the output page, v162)
+
+The output page can stream one sound input of its computer to the room (its switch *Stream sound to the room*; setting
+it up: tools/output/README.md, *Live sound*). It encodes the sound as Opus in 20 ms frames (about 320 bytes each at 128
+kbit/s, 50 a second) and sends each frame as a **binary WebSocket frame** on its room socket; the relay forwards it, once,
+to every member of that room that asked for it, and keeps nothing. No flag: every relay of v162 or later does it, and
+says so (`snd: true` in `/api/ping`, `snd: 1` in `welcome`); a page on an older relay says the relay is too old.
+Relay rooms only: peer-to-peer rooms and rooms on one device have no live sound. The contract is tools/output/SPEC.md,
+"v162: live sound from the output page".
+
+- **A frame** is 16 bytes of header, big-endian, then one Opus packet: `tag` u8 (1), `ch` u8 (1 or 2), `sid` u16 (the
+  sender writes 0; the relay writes the stream's id), `seq` u32 (from 0 at each start), `at` f64 (when its first sample
+  was captured, on the relay's clock, ms). At most 4,016 bytes in all (`SND_MAX_FRAME`); smaller than 17 or larger, or
+  another tag: dropped and counted as bad.
+- **Messages** (text, as ever):
+
+| from | `t` | fields | meaning |
+| --- | --- | --- | --- |
+| the output page | `snd-start` | `cfg { codec: 'opus', sampleRate, numberOfChannels, description? }`, `kbps?` | starts (or restarts) the room's stream; `sampleRate` 8000, 12000, 16000, 24000 or 48000, 1 or 2 channels, `description` base64 (at most 512 characters); `kbps` 8 to 256, shown to listeners only |
+| the output page | `snd-stop` | | stops it |
+| any member | `snd-sub` | `on: true \| false` | hear the room's stream, or not; a new socket starts without it (the page asks again on `welcome`) |
+| relay | `fx` `@snd` (`by: ''`) | `{ on: true, sid, cfg, kbps, by }` / `{ on: false, sid, why }` | to the members that asked: a stream started (and at once to one that asks while it runs) or stopped (`why`: `stopped`, `gone`: the sender left or is no longer the output page, `taken`: another output page started) |
+| relay | `fx` `@snd` (`by: ''`) | `{ st: { on, mine, sid, subs, frames, bytes, dropped, bad, why } }` | to the sender on each change and every 2 s (`subs`: its listeners now), and to an output page whose stream was taken (`mine: false`, `why: 'taken'`) |
+
+- **One sender a room**: the latest output page that sent `snd-start`. The one before is told `taken`, and its frames are
+  dropped from then on (it stops by itself).
+- **Limits.** At most 100 frames a second a sender (`SND_RATE`; the rest dropped and counted). A listener whose socket is
+  closing or backed up past 64 KB (`SND_BACKLOG`) misses frames rather than queueing them: late audio is worth nothing.
+- **Who may send.** Only a member whose `hello` said `out: 1`: a binary frame from a socket that never did closes it
+  with 1003 (as before v162); `snd-start` and `snd-stop` from a plain member are refused once a socket (`bad`). A sender
+  whose hello drops `out`, or who leaves, ends its stream (`gone`).
+- **Never kept or logged**: no frame's bytes and no cfg's description. The log says `<room> live sound from <id> started
+  (<ch> ch, <rate> Hz)`, `... stopped (<why>)`, and the counts of dropped and bad frames when they change.
+
+Untested until tried on real machines: real loopback inputs (BlackHole, VB-Audio Cable), latency and dropouts over a real
+network and Wi-Fi, and how it sounds. Here: `node relay/test.mjs --snd` (the relay) and `node tools/output/test-page.mjs`
+(the output page with a stubbed input).
+
 ## The developer notebook (`--notes`, `--no-notes`)
 
 A voice note with what the app knew at that moment (v142; the owner, 13 November 2026: "a developer notebook function where
@@ -1234,11 +1272,12 @@ development only: `--build` runs the build scripts of the folder it watches.
 Connect to `/api/ws?room=XYZ&id=<client id>` (`wss://` behind HTTPS; `&token=<password>` when the relay has one). The room code is case-insensitive; the
 client id is 1-64 characters `A-Z a-z 0-9 _ -`, random per page load and kept across reconnects. An optional
 `&proto=1` is checked. A second socket with the same id replaces the first (`replaced`). Every message is one
-JSON object with a `t` field, as a text frame; at most 1 MB.
+JSON object with a `t` field, as a text frame; at most 1 MB. The one exception: live sound's audio frames from the output page,
+binary (v162, [Live sound](#live-sound-from-the-output-page-v162)); a binary frame from any other socket closes it with 1003.
 
 | from | `t` | fields | meaning |
 | --- | --- | --- | --- |
-| relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto` | first message on every socket: the whole room |
+| relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto, snd` (`snd: 1`: live sound, v162) | first message on every socket: the whole room |
 | relay | `members` | `members [...]` | to everybody after any join, leave, hello or timeout (the joiner too) |
 | client | `hello` | `name, color, kind, here, version` (`proto`, `dev` and `reload` optional) | who I am; again after any change (`reload: 1`, v136: this app obeys the room's reload orders in its turn, [Rooms across updates](#rooms-across-updates-v136)) |
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
@@ -1247,6 +1286,8 @@ JSON object with a `t` field, as a text frame; at most 1 MB.
 | relay | `fx` | `k, v, by` | to everybody but the sender; `by: ''` for the relay's own, `@trk` (`--trackers`: [The PC's Vive trackers](#the-pcs-vive-trackers---trackers)) and `@osc` (to output pages only: [OSC and the output page](#osc-and-the-output-page---osc-out---osc-in)) |
 | client | `osc` | `m [[address, types, ...args], ...]` | the output page only (`hello` with `out: 1`): OSC to the `--osc-out` targets ([OSC and the output page](#osc-and-the-output-page---osc-out---osc-in)) |
 | client | `osc-cfg` | `trk` | the output page only: the trackers as OSC for its room on or off |
+| client | `snd-start`, `snd-stop`, `snd-sub` | see [Live sound](#live-sound-from-the-output-page-v162) | the output page's live sound (v162), and hearing it; the audio itself goes as binary frames |
+| relay | `fx` `@snd` | `by: ''` | live sound's start, stop and status ([Live sound](#live-sound-from-the-output-page-v162)) |
 | client | `ping` | `c` (client ms) | |
 | relay | `pong` | `c, now` | `c` echoed (a number, else null); `now` relay ms |
 | relay | `error` | `code, text` (+ `cid, keys` for writes) | see below |
@@ -1498,7 +1539,7 @@ does not yet:
 node relay/test.mjs
 ```
 
-(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--rooms` the rooms'.)
+(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--snd` live sound's, `--rooms` the rooms'.)
 
 It starts the relay on a free port (timeouts of 1 s, serving the repository), and checks the API, joining and
 its refusals, welcome and members, ordering and acknowledgement, last writer wins, null refused outside the
@@ -1626,8 +1667,13 @@ listener as their exact bytes (a bad one dropped and counted), another member re
 (a bundle flattened, bad packets nowhere), `osc-cfg` and the status every 2 s, `--public` without a password refusing
 either flag (with one it starts), `RELAY_ARGS`, bad words, nine targets and a held port refused; and the trackers as OSC
 with the fake bridge: about 90 a second, within 1 mm and 0.05 degrees of `@trk`, kinds and `ok`, names every 2 s, never
-a base station, nothing while not lined up, off or silent, another room's page taking them and giving them back. It
-exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+a base station, nothing while not lined up, off or silent, another room's page taking them and giving them back; and live
+sound (v162; `--snd` alone): `snd` in `/api/ping` and `welcome`, a plain member's binary frame closing it with 1003 and its
+`snd-start` refused once, bad cfgs and `snd-sub` refused, an output page's frames reaching a subscriber byte for byte but
+`sid` (none to a member not subscribed, the cfg at once to a late one, none after unsubscribing), 150 frames in a second
+(about 100 through, the rest counted in `st`), a 5,000-byte frame and a wrong tag counted as bad, a second output page
+taking the stream (the first told `taken`, its frames dropped), and `snd-stop`, the sender leaving and its hello without
+`out` (`stopped`, `gone`). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks

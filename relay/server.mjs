@@ -418,7 +418,11 @@ class Ws {
       if (this.parts) return this.fail(1002, 'a new message inside a fragmented one');
       if (!fin) { this.parts = [payload]; this.partOp = op; this.partLen = payload.length; return; }
     } else return this.fail(1002, 'unknown opcode');
-    if (op === 2) return this.fail(1003, 'text messages only');
+    if (op === 2) {   // binary: only where a handler takes it (a room's member: live sound, v162); else as before
+      if (!this.onbinary) return this.fail(1003, 'text messages only');
+      if (!this.closing) this.onbinary(payload);
+      return;
+    }
     let text;
     try { text = UTF8.decode(payload); } catch { return this.fail(1007, 'invalid UTF-8'); }
     if (!this.closing) this.onmessage(text);
@@ -505,13 +509,15 @@ function join(ws, q, net, who, fid) {
   let m = room.members.get(id);
   if (m) {   // the same page again (a reconnect while its old socket hangs on): the new socket wins
     const old = m.ws;
-    old.onmessage = old.onclose = () => {};
+    old.onmessage = old.onclose = old.onbinary = () => {};
     old.text(JSON.stringify({ t: 'error', code: 'replaced', text: 'connected again elsewhere' }));
     old.close(4008, 'replaced');
     m.ws = ws; m.net = net;
+    m.sndSub = false;   // a new socket starts without the room's live sound: the page asks again on welcome
   } else {
     m = { id, ws, net, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0,
-      out: false, osc: { n: 0, t0: 0 }, oscIn: { n: 0, t0: 0 }, oscDropped: 0, oscBad: 0, oscSaid: 0, oscRefused: false, oscTrk: false };
+      out: false, osc: { n: 0, t0: 0 }, oscIn: { n: 0, t0: 0 }, oscDropped: 0, oscBad: 0, oscSaid: 0, oscRefused: false, oscTrk: false,
+      outEver: false, snd: { n: 0, t0: 0 }, sndSub: false, sndRefused: false, sndTaken: false };
     room.members.set(id, m);
   }
   if (net) { room.nets.delete(net); room.nets.add(net); if (room.nets.size > 8) room.nets.delete(room.nets.values().next().value); }
@@ -519,17 +525,21 @@ function join(ws, q, net, who, fid) {
   ws.onmessage = text => {   // a value nested too deeply for JSON.stringify must not stop the relay
     try { message(room, m, text); } catch (err) { refuse(room, m, null, [], `bad message: ${err.message}`, 'bad'); }
   };
+  ws.onbinary = buf => {   // live sound's frames (v162); as onmessage, nothing in them may stop the relay
+    try { sndBin(room, m, buf); } catch (err) { log(`${code} live sound: ${err.message}`); }
+  };
   ws.onclose = () => leave(room, m);
   // (the room's own members see each other's names: its people list. --unlisted only keeps them out of what anyone else can ask)
-  send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO });
+  send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO, snd: 1 });
   broadcast(room, { t: 'members', members: people(room) });
   log(`${code} join ${id} (${room.members.size} in the room)`);
 }
 function leave(room, m, why = 'leave') {
   if (room.members.get(m.id) !== m) return;
-  m.ws.onmessage = m.ws.onclose = () => {};
+  m.ws.onmessage = m.ws.onclose = m.ws.onbinary = () => {};
   room.members.delete(m.id);
   OSC_TRK.delete(m);
+  if (room.snd && room.snd.by === m) sndStop(room, m, 'gone');
   if (!room.members.size) { room.empty = Date.now(); keepTouch(); }
   broadcast(room, { t: 'members', members: people(room) });
   log(`${room.code} ${why} ${m.id} (${room.members.size} in the room)`);
@@ -564,6 +574,9 @@ function message(room, m, text) {
   if (msg.t === 'ping') return send(m, { t: 'pong', c: Number.isFinite(msg.c) ? msg.c : null, now: Date.now() });
   if (msg.t === 'osc') return oscFrom(room, m, msg, text);
   if (msg.t === 'osc-cfg') return oscCfg(room, m, msg);
+  if (msg.t === 'snd-start') return sndStart(room, m, msg);
+  if (msg.t === 'snd-stop') return m.out ? (room.snd && room.snd.by === m ? sndStop(room, m, 'stopped') : sndStatus(room, m)) : sndRefuse(room, m, 'snd-stop');
+  if (msg.t === 'snd-sub') return sndSub(room, m, msg);
   if (msg.t === 'hello') {
     const version = str(msg.version, 64);
     if (msg.proto !== undefined && msg.proto !== PROTO) return kick(room, m, 'proto', `this relay speaks protocol ${PROTO}`, 4005);
@@ -572,6 +585,8 @@ function message(room, m, text) {
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
       kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1, out: msg.out === 1 });
     if (!m.out) { OSC_TRK.delete(m); m.oscTrk = false; }
+    if (m.out) m.outEver = true;
+    if (!m.out && room.snd && room.snd.by === m) sndStop(room, m, 'gone');
     broadcast(room, { t: 'members', members: people(room) });
     return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''}${m.out ? ' output page' : ''} ${version}`);
   }
@@ -851,6 +866,11 @@ setInterval(() => {
       if (now - m.ws.last > OPT.timeout * 1000) { kick(room, m, 'timeout', `silent for ${OPT.timeout} s`, 4009); continue; }
       if (now - m.ws.pinged >= OPT.ping * 1000) { m.ws.send(9, EMPTY); m.ws.pinged = now; }
       if (m.fxDropped) { log(`${room.code} refused ${m.fxDropped} fx from ${m.id} (more than ${FX_RATE} a second)`); m.fxDropped = 0; }
+      if (room.snd && room.snd.by === m && (room.snd.dropped !== room.snd.saidDropped || room.snd.bad !== room.snd.saidBad)) {   // (counts only)
+        const s = room.snd;
+        log(`${room.code} live sound from ${m.id}: ${s.frames} frames, ${s.dropped} dropped, ${s.bad} bad so far`);
+        s.saidDropped = s.dropped; s.saidBad = s.bad;
+      }
       if ((m.oscDropped || m.oscBad) && now - m.oscSaid >= 1000) {   // (counts only, never what the messages said)
         log(`${room.code} OSC from ${m.id}: ${[m.oscDropped && `${m.oscDropped} dropped (more than ${OSC_RATE} a second)`, m.oscBad && `${m.oscBad} bad`].filter(Boolean).join(', ')}`);
         m.oscDropped = m.oscBad = 0; m.oscSaid = now;
@@ -1031,7 +1051,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -1164,6 +1184,93 @@ function trackersOsc(list, current) {
     for (const msg of out) { const buf = oscEncode(msg); if (buf) { OSC.send(buf); c.sent++; } else c.dropped++; }
   }
 }
+// ---- live sound from the output page (v162; tools/output/SPEC.md "v162"). The output page (hello out: 1) captures one
+// sound input, encodes it as Opus and sends each 20 ms packet as a binary frame (16 bytes of header: tag 1, ch, sid,
+// seq, at; then the packet). The relay keeps one sender a room (the latest snd-start wins; the one before is told
+// 'taken'), stamps the stream's sid into each frame and writes it once to every member that asked ({ t: 'snd-sub',
+// on: true }) and is not backed up; nothing is stored, and neither a frame's bytes nor a cfg is ever logged
+const SND_MAX_FRAME = 4016, SND_RATE = 100, SND_BACKLOG = 64 << 10, SND_HEAD = 16;
+const SND_RATES = [8000, 12000, 16000, 24000, 48000];
+const sndOf = r => r.snd || (r.snd = { by: null, sid: 0, cfg: null, kbps: 0, frames: 0, bytes: 0, dropped: 0, bad: 0, why: '', saidDropped: 0, saidBad: 0 });
+const sndSubs = (room, but) => [...room.members.values()].filter(x => x.sndSub && x !== but && !x.ws.closing);
+function sndCfg(c) {   // the encoder's decoderConfig, checked and copied (nothing else of it is kept), or null
+  if (!c || typeof c !== 'object' || Array.isArray(c) || c.codec !== 'opus' || !SND_RATES.includes(c.sampleRate) || (c.numberOfChannels !== 1 && c.numberOfChannels !== 2)) return null;
+  if (c.description !== undefined && !(typeof c.description === 'string' && c.description.length <= 512 && /^[A-Za-z0-9+/]*={0,2}$/.test(c.description))) return null;
+  return { codec: 'opus', sampleRate: c.sampleRate, numberOfChannels: c.numberOfChannels, ...(c.description !== undefined ? { description: c.description } : {}) };
+}
+// (refused once a socket, as oscRefuse: a page that is not the output page never starts a stream)
+function sndRefuse(room, m, t) {
+  if (m.sndRefused) return;
+  m.sndRefused = true;
+  refuse(room, m, null, [], `bad message: ${t} only from the output page (its hello says out: 1)`, 'bad');
+}
+function sndTell(members, v) {
+  const buf = Ws.frame(1, Buffer.from(JSON.stringify({ t: 'fx', k: '@snd', v, by: '' })));
+  for (const x of members) if (!x.ws.closing) x.ws.write(buf);
+}
+const sndOn = s => ({ on: true, sid: s.sid, cfg: s.cfg, kbps: s.kbps, by: s.by ? s.by.id : '' });
+// (s.by stays the last sender after a stop, with cfg null, so its counters and the reason reach it)
+function sndStatus(room, m) {
+  if (m.ws.closing) return;
+  const s = sndOf(room), last = s.by === m, mine = last && !!s.cfg;
+  send(m, { t: 'fx', k: '@snd', v: { st: { on: !!s.cfg, mine, sid: s.sid, subs: s.cfg ? sndSubs(room, s.by).length : 0, frames: last ? s.frames : 0, bytes: last ? s.bytes : 0,
+    dropped: last ? s.dropped : m.sndDropped || 0, bad: last ? s.bad : 0, why: mine ? '' : m.sndTaken ? 'taken' : last ? s.why : '' } }, by: '' });
+}
+function sndStart(room, m, msg) {
+  if (!m.out) return sndRefuse(room, m, 'snd-start');
+  const cfg = sndCfg(msg.cfg);
+  if (!cfg) return refuse(room, m, null, [], 'bad snd-start: cfg { codec: \'opus\', sampleRate, numberOfChannels }', 'bad');
+  const s = sndOf(room), was = s.by, k = Number(msg.kbps);
+  if (was && was !== m && s.cfg) {   // another output page had it: it stops (its frames are dropped from now on)
+    was.sndTaken = true;
+    sndTell(sndSubs(room, was).filter(x => x !== m), { on: false, sid: s.sid, why: 'taken' });
+    if (room.members.get(was.id) === was) sndStatus(room, was);
+  }
+  m.sndTaken = false; m.sndDropped = 0;
+  s.sid = (s.sid + 1) & 0xffff || 1;
+  Object.assign(s, { by: m, cfg, kbps: Number.isFinite(k) && k >= 8 && k <= 256 ? Math.round(k) : 0, frames: 0, bytes: 0, dropped: 0, bad: 0, why: '', saidDropped: 0, saidBad: 0 });
+  sndTell(sndSubs(room, m), sndOn(s));
+  sndStatus(room, m);
+  log(`${room.code} live sound from ${m.id} started (${cfg.numberOfChannels} ch, ${cfg.sampleRate} Hz)`);
+}
+function sndStop(room, m, why) {   // only the current sender's stream
+  const s = room.snd;
+  if (!s || s.by !== m || !s.cfg) return;
+  sndTell(sndSubs(room, m), { on: false, sid: s.sid, why });
+  Object.assign(s, { cfg: null, kbps: 0, why });
+  log(`${room.code} live sound from ${m.id} stopped (${why})`);
+  if (room.members.get(m.id) === m) sndStatus(room, m);   // (it is told: on false, why)
+}
+function sndSub(room, m, msg) {
+  if (typeof msg.on !== 'boolean') return refuse(room, m, null, [], 'bad snd-sub: on true or false', 'bad');
+  const was = m.sndSub;
+  m.sndSub = msg.on;
+  const s = room.snd;
+  if (msg.on && !was && s && s.cfg && s.by !== m) sndTell([m], sndOn(s));   // a late listener gets the cfg at once
+  if (s && s.cfg && s.by && s.by !== m && was !== msg.on) sndStatus(room, s.by);         // (the listeners count changed)
+}
+function sndBin(room, m, buf) {
+  if (!m.outEver) return m.ws.fail(1003, 'binary frames only from the output page');
+  const s = sndOf(room);
+  if (s.by !== m || !s.cfg) { m.sndDropped = (m.sndDropped || 0) + 1; return; }   // not the stream's sender (taken, or stopped): dropped, its own count
+  if (buf.length < SND_HEAD + 1 || buf.length > SND_MAX_FRAME || buf[0] !== 1) { s.bad++; return; }
+  if (!quota(m.snd, SND_RATE, 1)) { s.dropped++; return; }
+  buf.writeUInt16BE(s.sid, 2);
+  s.frames++; s.bytes += buf.length;
+  const f = Ws.frame(2, buf);
+  for (const x of room.members.values()) {
+    if (x === m || !x.sndSub) continue;
+    if (x.ws.closing || x.ws.socket.destroyed || x.ws.socket.writableLength > SND_BACKLOG) { s.dropped++; continue; }   // audio never queues up
+    x.ws.write(f);
+  }
+}
+setInterval(() => {   // the sender (and an output page that was told 'taken') hears how it goes every 2 s
+  for (const room of rooms.values()) {
+    if (!room.snd) continue;
+    for (const m of room.members.values()) if (m.out && ((room.snd.by === m && room.snd.cfg) || m.sndTaken)) sndStatus(room, m);
+  }
+}, 2000).unref();
+
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
 function peerHttp(req, res, url) {
   if (cors(req, res)) return;
@@ -1378,6 +1485,7 @@ async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true
   }
   stream({}, 200, { 'Content-Length': st.size });
 }
+
 
 // ---- --watch: while developing, the pages the relay serves follow the app's files (index.html's HOST.live). /api/ping
 // says watch: true; /api/watch is a stream of Server-Sent Events: hello (the fingerprints of the shell's files and the
