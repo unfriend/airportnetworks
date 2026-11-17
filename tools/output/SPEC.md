@@ -504,3 +504,158 @@ end, and does not chase failures that are the machine's. Playwright: `ln -s /opt
   MIDI clock jitter from a DAW, OSC to real apps (TouchDesigner, Max, Pd, Cardinal has no OSC), UDP through Windows'
   firewall, the trackers' OSC rate on the PC, cubes and pointing with real headsets, how in time it all feels. Only
   headless Chromium with stubs and UDP on 127.0.0.1 here.
+
+# v158: streams in the scene, trails, loops on the beat, MIDI clock both ways
+
+The owner, 17 November 2026: values to send for objects ("xyz plus velocity plus what else"), the scene's streams set on
+an item's card (the recommendation they chose), trails "for both [items and people's hands] and show to everyone at the
+circle", a loop recorder "movement for now, both clocks should be possible", then "also do the events". This section is
+the contract between lane STUDIO (`tools/studio/`, `stories/studio.js`), lane PAGE (`output.js`, `tools/output/`) and the
+integrator (FORMAT, VERSION, release, `docs/agents/`, HANDOVER, whatsnew). **FORMAT networks-52** (records gain `stream`,
+`trail`, a path's `sync`/`beats`, a sequence's `beats`, `settings.hands`, an event kind `press` and `send`, `bt.bar`):
+the integrator bumps it in `shared.js`; lanes write `networks-52` where they mention it.
+
+## 1. The room's beat with bars (`bt`)
+
+- `bt` = `{ bpm, at, bar, by }`. New: `bar`, beats per bar, an integer 1 to 16, **written always from v158**; with `bar`,
+  `at` is the room's ms of a **downbeat** (a bar's first beat). A `bt` without `bar` (an older writer) reads as `bar: 4`
+  with `at` taken as a downbeat. Helpers in the studio (lane STUDIO, also exported on `HOST.cur.out`): `beatMs()` =
+  60000 / bpm; `beatPos(now)` = (now - at) / beatMs (beats since that downbeat, may be negative); `barPos(now)` =
+  beatPos / bar.
+- `act({ do: 'beat', bpm, at, bar })`: `bar` optional (absent: the current `bt.bar`, else 4); `bar` outside 1..16 refused
+  (*bar 1 to 16*). Same rate limit as before. `HOST.cur.out.beat()` returns `bar` too.
+- Writers: the output page (MIDI clock in, OSC in, or its own tempo: section 5). Nothing else writes `bt`.
+
+## 2. Streams in the scene (an item's card: *Streams*)
+
+- A record of an object `o`, shape `p`, empty `e`, sound `s` or cube `c` may carry `stream`: a list (1 to 8, kept only
+  when it has an entry; at most 64 entries in a scene, beyond them dropped and counted, said on the Scene pane as the
+  other bad entries) of entries, fields in this order, only those set:
+  `{ v, min, max, curve, smooth, hz, cc, wide, note, at, vel, val, ch, osc }`
+  - `v` (required): what is measured.
+    - Pose and motion of the item as drawn (`out.pose`; cubes too: a cube's middle): `'x' 'y' 'z'` (m, scene/room frame),
+      `'yaw' 'pitch' 'roll'` (degrees, -180..180 / -90..90 / -180..180; yaw and pitch as the page's streams measure them
+      today, roll about the item's own forward axis), `'speed'` (m/s), `'vx' 'vy' 'vz'` (m/s, signed), `'acc'` (m/s²,
+      magnitude), `'spin'` (deg/s, magnitude of its turning speed).
+    - The item's state (computed by the studio: `out.value`): `'size'` (its drawn scale over its placed scale, a pulse
+      motion's, 1 at rest), `'shown'` (0 or 1, as on the device running it), `'clip'` (its clip's phase 0..1, 0 none),
+      `'path'` (its recorded path's phase 0..1), `'motion'` (its motion's phase 0..1), `'near'` (m: the distance from its
+      middle to the nearest head of a person in a headset at the circle, `heads()`; none: no value).
+    - Cubes only: `'count'` (how many people's heads at the circle are inside it now, by `heads()`, 0..).
+  - `min`, `max`: the measured range mapped to 0..1 and clamped (numbers, min ≠ max; absent: the value's default range,
+    table below); `curve` `'inv'` (absent: linear); `smooth` 0..0.95 (absent 0); `hz` 1..60 (absent 30; `near` and
+    `count` at most 15).
+  - Output, one of: `cc` 0..127 (a stream: a CC whenever the 0..127 value changes; `wide: true` makes it 14-bit, CC `cc`
+    the high 7 bits and `cc + 32` the low ones, allowed only for `cc` 0..31); or `note` 0..127 (a threshold: note on when
+    the scaled value crosses `at` upward, `at` 0.01..0.99, absent 0.5; note off when it falls below `at - 0.05`, or after
+    the page's note length if it never does within 2 s; velocity `vel: 'speed'` = 1 + round(126 × min(1, the item's speed
+    / 3 m/s)) at the crossing, else `val` 1..127, absent 100). Neither: OSC only. `ch` 1..16 (absent 1; 0 by person is not
+    offered for streams).
+  - `osc`: an address of its own (the send entries' rule); absent: `/studio/item/<id>/<v>` (cubes `/studio/cube/<id>/<v>`),
+    args `ff` (scaled 0..1, value as measured); a threshold also sends `i` 1 or 0 on that address + `/gate`.
+  - Default ranges: x, z -3..3; y 0..2.5; yaw, roll -180..180; pitch -90..90; speed 0..3; vx vy vz -3..3; acc 0..20;
+    spin 0..720; size 0.5..2; shown, clip, path, motion 0..1; near 0..4; count 0..4.
+  - Validation (`normStream`, one function, lane STUDIO; the page validates again as it reads `list()`): a bad entry
+    dropped and counted; an exact duplicate dropped; `cc` with `note` both: bad; `wide` without `cc` or with cc > 31: bad.
+- The card (page and headset, editing on; not for a visitor; not refused by a lock in place): *Streams*: a row per entry
+  (*Speed → CC 21 ch 1*, *Y → note 36 at 50 %*), each with *Try* (sends a 0 → 1 → 0 sweep over 1 s through the effect
+  `send` with `try: 1` and `ev: 'stream'`, `v`) and ✕; *Add a stream...*: the value (grouped: Where, How it moves, Its
+  state, People), then CC or Note (number with − / +, channel), the range (*Range from its movement*: watches for 5 s and
+  takes min and max of what it measured, widened by 5 %; or − / + on each end), smoothing, OSC address (page only, a text
+  field). One Undo step each. The Items card gains *streams 2* in its faint line.
+- `HOST.cur.out` gains (lane STUDIO): `list()` items carry `stream` (copies of the validated entries, `[]` none);
+  `value(id, v)` → number | null for the state values (`size shown clip path motion near count`; null for the kinematic
+  ones, which the page measures from `pose()` itself); `pose(id)` also for cubes (their middle, yaw only).
+
+## 3. Trails (everyone at the circle sees them)
+
+- A record of an object, shape, empty or sound may carry `trail` `{ len, w, col }`: `len` 0.5..10 s (absent 3), `w` 0.005
+  ..0.1 m (absent 0.02), `col` `'#rrggbb'` (absent: the item's own colour: a shape's colour, else the studio's accent
+  for its kind). Present: drawn always (editing or not, on every device at the circle and pages following it); absent:
+  none. Behind the item's middle as drawn (motions, paths, behaviours, carries, trackers: where each device draws it).
+- The scene's settings gain `hands`: `{ len, w }` (absent: off; written only when on), people's hand trails: each person
+  in a headset at the circle (`HOST.collab.persons()` / `body()`, smoothed presence; this device's own hands from its
+  controllers or tracked wrists) leaves a trail from each hand in their colour. A row on the Scene pane while editing
+  (*Hand trails: Off / On*, length, width), one Undo step, shared as every setting.
+- Drawn by each device from what it draws (nothing new is sent). One batched draw for every trail: a camera-facing
+  ribbon (two vertices per sample), sampled at most 60 a second and at least every 2 cm of movement, its colour fading to
+  black by age and blended additively in the ships' way (colour One/One, alpha Zero/One, `ADD` in `ships.js`), so it adds
+  light and never darkens and leaves the layer's alpha alone in AR; depth-tested, no depth write. At most 16,384 ribbon
+  vertices a frame (beyond: the oldest samples of the longest trails dropped first, counted in `STUDIO.trails()`).
+  A trail jumps (no line across) when its item jumps more than 1 m in a frame or is hidden. Nothing while away from the
+  station.
+- `STUDIO.trails()` for tests: `{ items, hands, verts, dropped }`.
+
+## 4. Loops on the beat (movement and events)
+
+- **Movement.** A recorded path gains `sync: 'beat'` and `beats` (an integer 1..256), both or neither. While the room has
+  `bt`: the path's moment s = ((beatPos(now) mod beats) / beats) × D (D its recorded length), so it loops exactly on the
+  beat and stretches with the tempo (its `play`, `speed`, `start` ignored meanwhile); without `bt`, as before. A cube's
+  start of it, a timeline hold and Pause win as they win over a path's clock today.
+  - Its card's path rows gain *On the beat: Off / n beats* (− / + by a bar, *Fit*: the nearest whole bar to its length
+    at the current tempo), and the recorder gains *Record on the beat: 1 / 2 / 4 / 8 bars* (only while the room has `bt`;
+    greyed with *needs the room's beat (output page)*): armed, it counts in to the next downbeat (the card says *in 3*,
+    *in 2*, ...; a soft `step` sound at the item on each beat of the count-in), records from that downbeat exactly
+    bars × bar beats of the room's beat (on a headset while carried: the carry may start any time before; let go early,
+    it stays where let go until the end), stops itself at the end downbeat, joins the loop (the existing loop join) and
+    writes `path` with `play: 'loop'`, `sync: 'beat'`, `beats`, its key times in seconds at the tempo it was recorded at.
+    One Undo step. The tempo changing mid-recording: samples are taken by beat position and converted at the end, so the
+    loop is exact in beats.
+- **Events.** A sequence gains `beats` (an integer 1..256): while the room has `bt`, its time t = ((beatPos(now) - its
+  start beat) mod beats) / beats × len for a loop (its start rounded down to a downbeat), so it runs locked to the bar;
+  without `bt` as before. New event kinds (SEQ_WHAT gains them; FORMAT networks-52):
+  - `{ t, on, what: 'press' }`: fires the item's press as if pressed (its `do` entries for everyone, its sends: the
+    output page hears `press` with `who` `''`), on an object or shape with a press record.
+  - `{ t, on, what: 'send', ev }`: `ev` `'enter' | 'leave'` (a cube) or `'hover' | 'unhover'` (an item): only its send
+    entries go out (the output page hears that event with `who` `''`, as from the sequence); nothing is shown or hidden.
+  - A sequence card's recorder: *Record events: 1 / 2 / 4 / 8 bars*, *Grid: 1/16 · 1/8 · 1/4 · Off*, *Overdub: on/off*
+    (on: added to the events it has; off: replaces the recorded kinds `press`, `send`, `show`, `hide`, `seq` it had and
+    keeps clips, sounds, paths, motions, pictures). Needs the room's `bt`. Count-in as the movement's; it records, from
+    any device (page or headset; the output page too through `act`), what happens on shared sources during those bars:
+    a new press stamp `pr.<id>` → `press`; a `send` effect enter/leave/hover/unhover with send entries (and the device's
+    own) → `send`; an outside switch `sw.<id>` → `show`/`hide` (flip resolved); another shared sequence started or
+    stopped → `seq`. Times as beat positions, quantised to the grid, written as seconds at the tempo then; `len` = bars ×
+    bar × beatMs/1000, `beats` = bars × bar, `loop: 'loop'`; the sequence started on the beat at the end (its `qr`).
+    One Undo step. At most 200 events (the existing cap): beyond them dropped and said.
+- `STUDIO.loops()` for tests: `{ armed, phase: 'count' | 'rec' | '', id, kind: 'path' | 'seq', from, to, got }`, and a
+  clock hook the tests set (`loopClock`), as `recClock` and `trgClock`.
+
+## 5. MIDI clock both ways (lane PAGE)
+
+- **In** (as v157, plus): Start (0xFA) marks a downbeat at that moment (the next tick's beat), Song Position Pointer
+  (0xF2, sixteenths) sets the tick count (a beat is 24 ticks, a sixteenth 6), so `at` names a downbeat; *Beats a bar*
+  (1..16, default 4) on the MIDI part sets `bar`. Stop (0xFC) removes `bt`. OSC in: `/studio/beat f bpm [i bar]` (each a
+  beat, as before), new `/studio/bar f bpm [i bar]` (each a downbeat).
+- **The room's own tempo** (room as master): a *Tempo* part: bpm field (20..300), *Beats a bar*, *Tap* (4 taps or more,
+  the median interval), *Start* (writes `bt` with `at` = the next 10 ms rounded room moment as a downbeat), *Stop*
+  (removes it). Disabled while *MIDI clock to the room's beat* is on and clock is coming in (the page says who leads).
+- **Out** (*MIDI clock out*, off by default, to the chosen output port): while `bt` is set, 24 clock bytes a beat, sent
+  with Web MIDI timestamps (`output.send(bytes, ts)`, ts in `performance.now()` ms from the room's time: `ts = perf +
+  (roomMs - rnow())`), a scheduler every 25 ms looking 100 ms ahead; when `bt` appears or its downbeat moves by more than
+  a tick (another writer), Stop then Song Position (the bar's start) and Start at the next downbeat; a tempo change goes
+  on at the new rate from the current phase; `bt` removed: Stop. Never sent back into the room it came from: when clock
+  out and clock in are both on and `bt.by` is this page because of incoming clock, clock out still runs (separate ports;
+  the page warns *a loop: the input and output may be the same cable* when the two ports' names match). Clock bytes are
+  not logged one by one (a line a second: *clock out 120.00 bpm*).
+- **Streams from the scene** (lane PAGE): the page reads `list()` once a second (and at once on `STUDIO.rev` changes if
+  exposed) and runs each item's `stream` entries beside its own table's rows (shown under *Streams from the scene*,
+  read only, with their live value); kinematic values measured from `pose(id)` every frame (velocity and acceleration
+  from the drawn pose with the frame's own time, smoothed as the entry says; roll from the turn), state values from
+  `value(id, v)`. Its own table's sources gain `vx vy vz acc roll spin` for heads, hands, trackers and items, and `wide`
+  14-bit CC and threshold notes as above. Note ends on Stop, MIDI off and the item gone, as held notes.
+- Wire 4 additions: `/studio/item/<id>/<v>`, `/studio/cube/<id>/<v>` `ff`, `.../gate` `i`; incoming `/studio/bar`.
+
+## 6. Tests and docs
+
+- Lane STUDIO: `tools/studio/SPEC.md` sections for each (*Streams on a card*, *Trails*, *Loops on the beat*); smoke steps
+  `--only 'studio streams'`, `--only 'studio trails'`, `--only 'studio loops'` (pixels for trails; clock hooks for loops;
+  validation round trips through state and `layout.json`); run only those and `--only 'studio sends'`, and
+  `node tools/studio/build.mjs --check`.
+- Lane PAGE: `tools/output/test-page.mjs` gains clock in with Start/SPP and bar, tempo Start/Stop/Tap, clock out timing
+  (24 per beat within 2 ms of their timestamps on the stub, Start at a downbeat), scene streams (velocity of a moving
+  pretend item within 5 %, 14-bit pairs, a threshold note on and off, velocity from speed); `tools/output/README.md`
+  (clock both ways with a DAW and Cardinal). Web MIDI's `send(bytes, ts)` added to the stub.
+- Integrator: FORMAT, VERSION v158, `tools/release.mjs`, `whatsnew.json`, `docs/agents/studio.md`, `shared-rooms.md`,
+  `testing.md`, HANDOVER.
+- Untested here: everything with real MIDI ports, a DAW and Cardinal, timing over a real network, trails' look and cost on
+  a Quest.
