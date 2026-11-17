@@ -659,3 +659,263 @@ the integrator bumps it in `shared.js`; lanes write `networks-52` where they men
   `testing.md`, HANDOVER.
 - Untested here: everything with real MIDI ports, a DAW and Cardinal, timing over a real network, trails' look and cost on
   a Quest.
+
+# v162: live sound from the output page
+
+The owner (17 November 2026, "go as described"): the output page can **stream one sound input of its computer to the
+room**, and devices that are elsewhere hear it; a studio sound item can be the live sound, heard from where it stands.
+Relay rooms only. Latency of about 0.3 to 0.5 s is accepted. This section is the contract for both builders; where it
+names a function, a key, a message or a text, use exactly that.
+
+## 0. Lanes and files
+
+| Lane | Owns |
+| --- | --- |
+| **A: sending** | `relay/server.mjs` (all of section 2), `relay/test.mjs` (`--snd`, also in the main run), `relay/README.md` (a paragraph "Live sound"), `shared.js` section "live sound: sending" (section 3a) plus the one line in `welcome()`, its line in `HOST.collab`, `output.js` (section 4), `tools/output/test-page.mjs`, `tools/output/README.md` ("Live sound": BlackHole 2ch and a Multi-Output Device on a Mac, VB-Audio Cable on Windows, Chrome or Edge) |
+| **B: hearing** | `shared.js` section "live sound: hearing" (section 3b), its lines in `HOST.collab`, `wire()`/`connect()` (binary in), `onFx` (`@snd`), `leave()`, the Shared dialog row, the headset menu row, the phone sheet row (section 6); the studio: `tools/studio/engine/**` (section 5), `tools/studio/SPEC.md` ("Live sound"), `stories/studio.js` only by `node tools/studio/build.mjs`, `tools/smoke.mjs` (block `'studio live'`), `docs/agents/shared-rooms.md` (a section "Live sound"), `docs/agents/studio.md` (a line) |
+| integrator | `sw.js` `VERSION` (no new file: nothing for `SHELL` or `APP_FILES`), `tools/release.mjs`, `whatsnew.json`, `AGENTS.md` (a line), `docs/agents/testing.md`, `docs/history.md`, optional `tools/collab.mjs --live` (end to end: an output page with a fake input, a page elsewhere hears frames) |
+
+Neither lane touches the other's files. Placement in `shared.js` (so the merge is clean): both new sections go between
+the end of `persons()` (the output page's section, "the people in a headset, for the output page") and `HOST.collab = {`:
+first A's, headed `// ============================================== live sound: sending ==`, then B's, headed
+`// ============================================== live sound: hearing ==`. In `HOST.collab`, A adds its line directly
+after the line `osc: msgs => osc(msgs), oscCfg: ..., persons: () => persons(),`; B adds its lines directly after the
+line `presIn: (id, v) => onFx(...)`. A's `welcome()` line goes as the last statement of `welcome(m)`; every other edit
+outside the two sections is B's.
+
+## 1. The wire
+
+Text messages are JSON as ever; audio goes as **binary WebSocket frames** (opcode 2), which the relay's parser already
+reassembles (it refused them with 1003: section 2 changes that).
+
+### 1a. An audio frame (binary, both directions, unchanged by the relay but for `sid`)
+
+16 bytes of header, big-endian, then one Opus packet (an `EncodedAudioChunk`'s bytes):
+
+| Bytes | Field | |
+| --- | --- | --- |
+| 0 | `tag` u8 | `1` (an audio frame; any other tag: dropped and counted as bad) |
+| 1 | `ch` u8 | channels, 1 or 2 (as the cfg) |
+| 2-3 | `sid` u16 | the stream's id: the sender writes 0, **the relay writes the room's current `sid`** before forwarding |
+| 4-7 | `seq` u32 | the frame's number since this `snd-start`, from 0 |
+| 8-15 | `at` f64 | when its first sample was captured, on the relay's clock (`HOST.collab.now()`), ms |
+| 16- | Opus | 1 to 4,000 bytes (`SND_MAX_FRAME` = 4,016 for the whole frame) |
+
+20 ms frames at 128 kbit/s are about 320 bytes: 50 frames a second.
+
+### 1b. Text messages
+
+From the output page to the relay:
+
+- `{ t: 'snd-start', cfg }`: it starts (or restarts, with a new cfg) the room's stream. `cfg` is the encoder's
+  `decoderConfig`: `{ codec: 'opus', sampleRate, numberOfChannels, description? }`, `sampleRate` one of 8000, 12000,
+  16000, 24000, 48000 (48000 expected), `numberOfChannels` 1 or 2, `description` (absent for Opus as Chrome makes it;
+  else base64, at most 512 characters). Optional `kbps` (8 to 256, shown to listeners in the dialog line only).
+- `{ t: 'snd-stop' }`: it stops.
+
+From any member to the relay:
+
+- `{ t: 'snd-sub', on: true | false }`: hear the room's stream, or not. The relay never sends audio to a member that has
+  not said `on: true` on this socket (a reconnect starts unsubscribed: the hearing side says it again on `welcome`).
+
+From the relay to members, as an effect with `by: ''` (the relay's own, as `@osc`; never stored, never in a key):
+
+- to every subscriber (and to one that just subscribed, at once, while a stream runs):
+  `{ t: 'fx', k: '@snd', v: { on: true, sid, cfg, kbps, by: <sender's member id> }, by: '' }`, and when it stops
+  `{ t: 'fx', k: '@snd', v: { on: false, sid, why }, by: '' }`, `why` one of `'stopped'`, `'gone'` (the sender left or
+  is no longer the output page), `'taken'` (another output page started).
+- to the sender (and to an output page that was told `'taken'`), on every change and every 2 s while it streams:
+  `{ t: 'fx', k: '@snd', v: { st: { on, mine, sid, subs, frames, bytes, dropped, bad, why } }, by: '' }`; `mine` false
+  with `why: 'taken'` when another output page has the stream; `subs` the subscribers now (the listeners count).
+
+`/api/ping` gains `snd: true`; `welcome` gains `snd: 1`. A page on a relay without them says the relay is too old.
+
+### 1c. Limits
+
+- One sender a room: **the latest output page that sent `snd-start`**; the one before is told `st.why: 'taken'` and
+  its frames are dropped from then on (it stops its encoder and says so).
+- A frame over `SND_MAX_FRAME` (4,016 bytes) or under 17: dropped, counted `bad`. At most `SND_RATE` = 100 frames a
+  second a sender (`quota()`); the rest dropped, counted `dropped`.
+- A subscriber whose socket is closing, destroyed, or backed up past `SND_BACKLOG` = 64 KB (`writableLength`) misses the
+  frame (counted `dropped`): audio never queues up behind a slow device.
+- Nothing of it is stored or logged but these lines: `<room> live sound from <id> started (<ch> ch, <rate> Hz)`,
+  `... stopped (<why>)`, and the counters in the per-tick line. Never a frame's bytes, never a cfg's description.
+
+## 2. The relay (lane A, `relay/server.mjs`)
+
+- `Ws.frame()`/`frame(fin, op, payload)`: `op === 2` goes to `this.onbinary(payload)` when set (after the same
+  closing check as text); without `onbinary`, 1003 as now.
+- In `join` (where `ws.onmessage` is set): `ws.onbinary = buf => sndBin(room, m, buf)`, wrapped in try as `onmessage`
+  is. The member record gains `outEver: false, snd: { n: 0, t0: 0 }, sndSub: false, sndRefused: false`; `outEver` is set
+  when a hello says `out: 1`.
+- A new section after the OSC one: `// ---- live sound from the output page (v162; tools/output/SPEC.md "v162")`, with
+  `SND_MAX_FRAME = 4016, SND_RATE = 100, SND_BACKLOG = 64 << 10`, the room's `room.snd = { by: null (the member),
+  sid: 0, cfg: null, kbps: 0, frames: 0, bytes: 0, dropped: 0, bad: 0 }` (made on first use), and:
+  - `sndStart(room, m, msg)`: `!m.out` -> `sndRefuse(room, m, 'snd-start')` (once a socket, as `oscRefuse`); a bad cfg
+    -> `refuse(..., 'bad snd-start: cfg { codec: \'opus\', sampleRate, numberOfChannels }', 'bad')`; else a previous
+    sender (another member) gets `st` with `why: 'taken'`, subscribers get `on: false, why: 'taken'` for the old `sid`,
+    `sid` = (`sid` + 1) & 0xffff (never 0: 0 skips to 1), cfg kept, counters zeroed, every subscriber gets `on: true`,
+    the sender its `st`.
+  - `sndStop(room, m, why)`: only the current sender (from `snd-stop`, from `leave()`, from a hello without `out`):
+    subscribers get `on: false`, cfg cleared, the sender its `st`.
+  - `sndSub(room, m, msg)`: `on` not a boolean -> `refuse(..., 'bad snd-sub: on true or false', 'bad')`; sets
+    `m.sndSub`; `on: true` while a stream runs: that member gets `on: true` with the cfg at once. An output page may
+    subscribe (the relay does not care); the shell never makes it.
+  - `sndBin(room, m, buf)`: `!m.outEver` -> `m.ws.fail(1003, 'binary frames only from the output page')` (the existing
+    relay test's "a binary frame: 1003" stays true); not the current sender, or no stream: dropped, counted; size and tag
+    checked; over the rate: dropped; else bytes 2-3 set to `sid`, then **one** `Ws.frame(2, buf)` written to every
+    subscriber but the sender under the backlog rule (as `oscIn`).
+  - `sndStatus(room, m)`: the `st` above; called on change and from the existing 2 s interval for output pages.
+- `message()`: `snd-start`, `snd-stop`, `snd-sub` dispatched next to `osc`/`osc-cfg`. The hello: a member that was the
+  sender and now says no `out` -> `sndStop(room, m, 'gone')`. `leave()`: the sender -> `sndStop(room, m, 'gone')`.
+- `welcome` gains `snd: 1`; `/api/ping` gains `snd: true` (always: no flag turns it off).
+- `relay/test.mjs`: a step **"live sound"** in the main run and alone as `--snd`: `/api/ping` and `welcome` say snd; a
+  plain member's binary frame: 1003; `snd-start` from a plain member: `bad`; an output page starts, a subscriber gets
+  `@snd on` with the cfg and then the frames byte for byte but `sid`; a member not subscribed gets none; one that
+  subscribes late gets the cfg at once; 150 frames in one second: about 100 through, `dropped` counted in `st`; a frame
+  of 5,000 bytes: `bad`; a second output page's `snd-start`: the first told `taken`, its frames dropped; `snd-stop` and
+  the sender leaving: subscribers told `on: false` (`stopped`, `gone`).
+
+## 3. `shared.js`
+
+### 3a. "live sound: sending" (lane A)
+
+- In `welcome(m)`: `C.snd = m.snd === 1;` (a room on this device or peer to peer: never set, so false).
+- `sndCan()`: `OUT.on && C.code && C.via === 'relay' && C.snd && C.ws && C.ws.readyState === 1`.
+- `sndWhy()`: `''` when it can, else one of `'Live sound needs a room on a relay: not peer to peer or on this device.'`,
+  `'This relay is too old for live sound.'`, `'Not connected to the room.'`, `'Only the output page streams sound.'`.
+- `sndStart(cfg, kbps)`: checks the cfg as the relay does, `send({ t: 'snd-start', cfg, kbps })`; true when sent.
+- `sndStop()`: `send({ t: 'snd-stop' })`.
+- `sndSend(seq, at, ch, bytes)`: builds the 16-byte header (`sid` 0) and the packet into one `ArrayBuffer`, false when
+  `!sndCan()` or `C.ws.bufferedAmount > 65536` (dropped here, never queued), else `C.ws.send(buf)` and true.
+- `HOST.collab` line: `sndCan: () => sndCan(), sndWhy: () => sndWhy(), sndStart: (cfg, kbps) => sndStart(cfg, kbps),
+  sndStop: () => sndStop(), sndSend: (seq, at, ch, bytes) => sndSend(seq, at, ch, bytes),`.
+- The `st` coming back reaches `output.js` as `HOST.out.sndFx(st)` (B's `onFx` line calls it, section 3b).
+
+### 3b. "live sound: hearing" (lane B)
+
+- `connect()`: `ws.binaryType = 'arraybuffer'` for the relay's socket. `wire()`'s `onmessage`: a non-string `ev.data`
+  goes to `liveIn(ev.data)` (after `C.heard = clock()`), never to `JSON.parse`.
+- `onFx`, next to the `@osc` branch: `m.k === '@snd' && !m.by`: `v.st` -> `HOST.out.sndFx(v.st)` while `OUT.on`
+  (guarded and logged as `@osc` is), else `liveFx(v)`.
+- State `LV = { mode, sub, sid, cfg, by, dec, ctx, out, claim: '', next: 0, anchor: null, seq: -1, frames: 0, lost: 0,
+  late: 0, level: 0, lagMs: 0, heardAt: 0 }`; `mode` from localStorage `liveSound` (`'auto' | 'on' | 'off'`, default
+  `'auto'`; read and written in try).
+- `liveWant()`: false while `OUT.on` (the output page never plays it back), off a relay or without `C.snd`, with mode
+  `'off'`, or while `HOST.audio.muted`; mode `'on'`: true; `'auto'`: `!here()` (a computer's page is elsewhere; a
+  headset elsewhere by its own setting; a camera is here).
+- `liveStep()` (from the existing pump, at most 5 times a second): `send({ t: 'snd-sub', on })` when `liveWant()`
+  changes, and again after each `welcome`; on unsubscribing, the decoder and nodes go (`liveDrop(why)`).
+- `liveFx(v)`: `on: true` -> a new `AudioDecoder` configured with `cfg` (`AudioDecoder.isConfigSupported` first; not
+  supported: `why` says so, unsubscribes), `sid` kept, the jitter buffer reset; `on: false` with this `sid` ->
+  `liveDrop(v.why)`.
+- `liveIn(buf)`: tag, `sid` checked; a gap in `seq` counts `lost` (the decoder simply goes on); `lagMs` from `at` and
+  `HOST.collab.now()`; decoded `AudioData` copied to an `AudioBuffer` on `HOST.audio.fx()` (no context: dropped and
+  counted, nothing kept) and scheduled on an `AudioBufferSourceNode` into `LV.out`.
+- The jitter buffer: target **0.25 s**. The first frame after a reset (`LV.anchor`) plays at `ctx.currentTime + 0.25`;
+  each next frame at the end of the one before. A frame due less than 0.03 s ahead: the schedule moves forward to
+  `currentTime + 0.25` (counted `late`); more than 0.6 s ahead: moved back to `currentTime + 0.25` (counted `late`).
+- `LV.out`: one `GainNode` on `HOST.audio.fx()` (made again on a new context; never a context of its own). Unclaimed
+  it is connected to `ctx.destination` at `LIVE_LEVEL` = 0.8 (the everywhere case); claimed (section 5) the shell
+  disconnects it from the destination and the claimer connects it to its own nodes. Its gain fades to 0 in 0.1 s while
+  `HOST.audio.muted` (this device's Sound button only: not Sound effects, not Narration) and back. Not a background of a
+  story: the owner asked for it, and it plays only while the output page streams.
+- `level`: the decoded frames' RMS, smoothed (0 to 1), for the dialog and tests.
+- API in `HOST.collab`: `liveSound()` -> `{ mode, want, on (a stream announced), playing (a frame scheduled in the last
+  0.5 s), level, lagMs (capture to play-out, ms), frames, lost, late, src: 'cfg' | '' (a cfg in hand), by, claimed
+  (the owner's name or ''), why }`; `liveMode()` and `setLiveMode(m)` (`'auto' | 'on' | 'off'`; anything else ignored;
+  stored, `changed()`); `liveNode()` -> `LV.out` or null; `liveClaim(owner)` -> true (the destination link cut;
+  `owner` a short name, `'studio'`); `liveRelease(owner)` -> the destination link back (only the claimer releases);
+  `liveIn(buf)`, `liveFx(v)` for tests.
+- A story change, the lobby, leaving the room: `liveRelease` of any claim (the shell does it in `leave()` and when a
+  story is disposed), decoder and nodes dropped, `snd-sub` off.
+
+## 4. `output.js` (lane A): the section *Live sound*
+
+- A new section key `'live'` after `'osc'` in `show()`'s list, `secLive()` in `render()`'s map. It shows: a switch
+  `Stream sound to the room: On / Off` (`onOff`, act `snd`); an input picker (a `<select>` of `enumerateDevices()`'s
+  `audioinput`s, labelled only once permission was given: before it, one entry *Default input* and a note *Names show
+  once the browser may use an input*); a level meter (a bar, its `aria-valuenow`); `kbit/s` sent; `Listeners: n`
+  (`st.subs`); and a line saying why it cannot (`HOST.collab.sndWhy()`) or that another output page took it.
+  Help text: *Streams one sound input of this computer to everyone elsewhere in the room (headsets and pages not in it),
+  and to a studio item set to Live sound. To send what this computer plays, pick a loopback input: BlackHole 2ch with
+  a Multi-Output Device on a Mac, VB-Audio Cable on Windows. About half a second late.*
+- localStorage `outSnd`: `{ on, dev, kbps }` (`kbps` 128 by default). After a reload it resumes when it was on and
+  `navigator.permissions.query({ name: 'microphone' })` says `granted`; else it waits for a click on the switch.
+- Capture: `getUserMedia({ audio: { deviceId: dev ? { exact: dev } : undefined, echoCancellation: false,
+  noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48000 } })`, then
+  `new MediaStreamTrackProcessor({ track })` -> `AudioData` -> `AudioEncoder` (`{ codec: 'opus', sampleRate:
+  data.sampleRate, numberOfChannels: data.numberOfChannels (1 or 2), bitrate: kbps * 1000, opus: { frameDuration:
+  20000 } }`). **No `AudioContext` of its own** (the rule). Without `MediaStreamTrackProcessor` or `AudioEncoder`:
+  the switch is greyed, *Live sound needs Chrome or Edge*. (No fallback through `HOST.audio.ctx` in this round: Chrome
+  and Edge have both, which the output page needs anyway.)
+- The first chunk's metadata gives `decoderConfig`: `HOST.collab.sndStart(cfg, kbps)` before its first frame is sent;
+  each chunk then `sndSend(seq++, at, ch, bytes)` with `at = HOST.collab.now() - (chunk.duration / 1000)`. A false
+  from `sndSend` counts a drop. Off, stopped, the room left, `st.why === 'taken'`, the track ended: the encoder closed,
+  the tracks stopped, `sndStop()` (unless taken), the switch Off with the reason.
+- `HOST.out.sndFx(st)` (new): keeps `st` for the section. `HOST.out.state()` gains `snd: { on, phase ('off' | 'asking'
+  | 'live' | 'error'), dev, devs (labels), level, kbps (measured), frames, drops, st, err }`; `HOST.out.snd(on, dev)`
+  for tests. `stop()` stops it first.
+- `tools/output/test-page.mjs`: an init script stubs `getUserMedia` with a stream from the **test's own**
+  `AudioContext` (an `OscillatorNode` into `createMediaStreamDestination()`; test code may, app code may not) and
+  `enumerateDevices` with two inputs; checks the section, `snd(true)`: phase `live`, `sndStart` called once with an
+  Opus cfg, frames about 50 a second, level above 0; `taken`; Off sends `snd-stop`; no `AudioContext` made by app code
+  (a counting wrapper installed after the stub).
+
+## 5. The studio (lane B): a sound item as Live sound
+
+- The record: a sound whose **`file` is `'@live'`** (`LIVE_FILE`), a reserved name no upload can make (no folder,
+  no sound extension). `okFile` already passes it; `norm('s', ...)` for it: `name` defaults to *Live sound*, `vol`, `r`,
+  `on`, `bone`, `o`, `path`, `stream`, `trail`, `shows`, `locked` as any sound; `loop`, `start` kept but unused; `sync`,
+  `skip`, `len` dropped. `snd()` is never called for it (no fetch, no decode, no *not in the scene's folder*: its status
+  says *Live sound: from the output page*). `scan.mjs` and the relay's scene code read no sound records, so nothing
+  there.
+- Playing (`e6_items.js`, `emitStep`): live items are skipped by the file path. Each step the shown live item nearest
+  the listener (switching only when another is 0.5 m nearer) is the claimer: while `HOST.collab.liveNode()` gives a node
+  on the same context as `HOST.audio.fx()`, it gets `it.lv = { g, p }`, a `GainNode` (`vol`, and its fades as other
+  emitters') and an HRTF `PannerNode` exactly as `emitStart`'s (inverse, `refDistance` `r`, rolloff 1, max 50 m),
+  `liveNode().connect(g)`, `HOST.collab.liveClaim('studio')`; its place set every step as the others'. Every other live
+  item is silent; when none is shown, the studio's scene is not on show, the context changes, or `dispose()`: nodes go,
+  `liveRelease('studio')`, and the stream plays everywhere at the fixed level again. Muted: the shell's gain is 0
+  already; the studio keeps no mute of its own for it.
+- UI: Add's sound list gets *Live sound (from the output page)* first; a sound card (page and headset twins) a row
+  *Source: Live sound* / *Source: a file* (a button `Live sound: on / off`; off asks for a file as Add does, the item's
+  last file kept in memory, not saved). With several live items the card says *Only the nearest live sound plays*.
+  The card says who hears it: *Heard by devices elsewhere (their Room's live sound setting); silent while the output page
+  is not streaming*.
+- `STUDIO.live()` for tests: `{ items: [ids], claimer: id | '', node: bool }`.
+- Smoke block `'studio live'`: a stub `liveNode()` (a `GainNode` on `HOST.audio.fx()`, made by the test) and stubbed
+  `liveClaim`/`liveRelease`; a live item claims, its panner's place follows the item; two live items: the nearer claims,
+  and moving the camera hands over; the record round-trips through `state()` and `layout.json` with `file: '@live'`;
+  no request for `@live` (no 404); `dispose` releases.
+
+## 6. Settings and texts (lane B)
+
+- localStorage `liveSound` (this device's, never in `state()` or `collab.state()`), as `HOST.collab.setLiveMode`.
+- The Shared dialog, in a room, right after the output page's row (`sh-outp`), never on the output page itself:
+  `<div class="row sh-live">` with a button `data-sh="live"` (each press the next: auto, on, off) labelled
+  `Room's live sound: auto` / `on` / `off`, and a `<span>`: auto *Plays here when this device is elsewhere, not in the
+  room*; on *Plays here even in the room*; off *Never plays here*; then the state: *Playing now* / *The output page is not
+  streaming* / *Not available: rooms on a relay only* (peer to peer, on this device, an old relay: the button disabled).
+  Its click case next to `act === 'output'`.
+- The headset menu's Settings tab, after the *Effects volume* row and before the design room and studio buttons, in a
+  room only: `button(S, 'live', x, y, bw, 60, "Room's live sound: " + mode, ...)` with the same short note right of it
+  (*Plays when you are elsewhere* / *Plays even in the room* / *Never plays*, or *Rooms on a relay only*). The phone AR
+  sheet (`phRows`): the same row after Sound effects.
+
+## 7. FORMAT
+
+**No change** (stays `networks-52`). The room's keys do not change; audio and `@snd` are relay effects, never keys or
+state; `snd-*` are relay messages outside FORMAT (as `osc` was; the relay's support is said by `snd: 1` and `/api/ping`).
+The studio's record gains no field: `file: '@live'` is a value of an existing field, which an older device keeps and
+writes back unchanged (it would only call the file missing). `liveSound` and `outSnd` are per device.
+
+## 8. Tests each lane runs, and untested
+
+- A: `node --check` on its files, `node relay/test.mjs --snd`, `node tools/output/test-page.mjs`.
+- B: `node --check shared.js`, `node tools/studio/build.mjs` and `--check`, `node tools/smoke.mjs <url> --only 'studio
+  live'`, and a short page check of `HOST.collab.liveSound()` with `liveFx`/`liveIn` fed frames encoded in the test.
+- Integrator (before `main`): the full release run; `tools/collab.mjs --live` if written.
+- Untested here, say so: real loopback inputs (BlackHole, VB-Cable), latency and dropouts over a real network and
+  Wi-Fi, how it sounds (unheard), positional live sound in a headset, a Quest Browser's `AudioDecoder` (if it lacks
+  one, `why` says *This browser cannot play the room's live sound*).
