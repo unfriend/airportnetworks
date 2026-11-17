@@ -12539,7 +12539,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
   // page streams
   const LIVE_LEVEL = 0.8, LIVE_AHEAD = 0.25, LIVE_MIN = 0.03, LIVE_MAX = 0.6, LIVE_MODES = ['auto', 'on', 'off'];
   const LV = { mode: 'auto', sub: false, subWs: null, on: false, sid: 0, cfg: null, by: '', kbps: 0, dec: null, gen: 0, ctx: null, out: null, gt: -1, claim: '', claimKey: '', next: 0, anchor: null,
-    seq: -1, ats: new Map(), frames: 0, lost: 0, late: 0, skipped: 0, level: 0, lagMs: 0, heardAt: 0, why: '', cant: '', sig: '' };
+    seq: -1, ats: new Map(), frames: 0, lost: 0, late: 0, skipped: 0, level: 0, lagMs: 0, heardAt: 0, why: '', cant: '', sig: '', fails: [] };
   try { const m = localStorage.getItem('liveSound'); if (LIVE_MODES.includes(m)) LV.mode = m; } catch (e) { /* storage blocked: auto */ }
   const LIVE_CANT = 'This browser cannot play the room\'s live sound.';
   // (a room on a relay that knows live sound: never peer to peer, on this device or an old relay)
@@ -12579,7 +12579,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (v.on === true) {
       const cfg = v.cfg, sid = v.sid;
       if (!Number.isInteger(sid) || sid < 1 || sid > 65535 || !cfg || typeof cfg !== 'object' || cfg.codec !== 'opus' || ![8000, 12000, 16000, 24000, 48000].includes(cfg.sampleRate) || ![1, 2].includes(cfg.numberOfChannels)) return;
-      liveDrop('', false);
+      liveDrop('', false); LV.fails = []; LV.why = '';
       Object.assign(LV, { on: true, sid, by: typeof v.by === 'string' ? v.by.slice(0, 40) : '', kbps: Number.isFinite(v.kbps) ? Math.round(v.kbps) : 0 });
       const c = { codec: 'opus', sampleRate: cfg.sampleRate, numberOfChannels: cfg.numberOfChannels };
       if (typeof cfg.description === 'string' && cfg.description && cfg.description.length <= 512) {
@@ -12591,14 +12591,27 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       const go = () => {
         if (gen !== LV.gen) return;
         try {
-          const dec = new AudioDecoder({ output: d => liveOutData(d, dec), error: e => { log('live sound: decoder failed', { e: e && e.message }); if (LV.dec === dec) { LV.dec = null; LV.anchor = null; } } });
-          dec.configure(c);
-          LV.dec = dec;
+          liveDecoder(c);
         } catch (e) { LV.cant = LV.why = LIVE_CANT; log('live sound: decoder refused', { e: e && e.message }); }
       };
       if (AudioDecoder.isConfigSupported) AudioDecoder.isConfigSupported(c).then(r => { if (gen !== LV.gen) return; if (r && r.supported) go(); else { LV.cant = LV.why = LIVE_CANT; log('live sound: cfg not supported'); } }, () => go());
       else go();
     } else if (v.on === false && v.sid === LV.sid) liveDrop(typeof v.why === 'string' ? v.why : '', false);
+  }
+  // the decoder for a stream's cfg; one that fails (a bad packet closes it) is made again from the same cfg, at most 3 times
+  // in 10 s, then live sound says so until the stream starts again
+  function liveDecoder(c) {
+    const dec = new AudioDecoder({ output: d => liveOutData(d, dec), error: e => {
+      log('live sound: decoder failed', { e: e && e.message });
+      if (LV.dec !== dec) return;
+      LV.dec = null; LV.anchor = null;
+      const t = performance.now();
+      LV.fails = LV.fails.filter(x => t - x < 10000); LV.fails.push(t);
+      if (LV.fails.length > 3 || !LV.on || LV.cfg !== c) { if (LV.on) LV.why = 'The room\'s live sound could not be decoded here.'; return; }
+      try { liveDecoder(c); } catch (err) { LV.why = 'The room\'s live sound could not be decoded here.'; }
+    } });
+    dec.configure(c);
+    LV.dec = dec;
   }
   // a binary frame from the relay: checked, gaps counted (the decoder simply goes on), decoded
   function liveIn(buf) {
@@ -12658,7 +12671,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     return true;
   }
   // a decoded frame: copied to an AudioBuffer on the shell's context and scheduled LIVE_AHEAD behind, each next one at the end
-  // of the one before; one due too soon or too far ahead moves the schedule back to LIVE_AHEAD (late)
+  // of the one before; one due too soon moves the schedule back to LIVE_AHEAD, one too far ahead is dropped (late)
   function liveOutData(d, dec) {
     try {
       const ctx = HOST.audio && HOST.audio.fx ? HOST.audio.fx() : null, at = LV.ats.get(d.timestamp);
@@ -12682,7 +12695,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       LV.level = LV.level * 0.8 + Math.min(1, Math.sqrt(sum / Math.max(1, n))) * 0.2;
       const t = ctx.currentTime;
       if (LV.anchor !== ctx) { LV.next = t + LIVE_AHEAD; LV.anchor = ctx; }
-      else if (LV.next < t + LIVE_MIN || LV.next > t + LIVE_MAX) { LV.next = t + LIVE_AHEAD; LV.late++; }
+      else if (LV.next < t + LIVE_MIN) { LV.next = t + LIVE_AHEAD; LV.late++; }   // (ran dry: starts again LIVE_AHEAD behind)
+      else if (LV.next > t + LIVE_MAX) { LV.late++; LV.skipped++; return; }   // (too far ahead, after a burst or a faster sender: this frame dropped so the queue drains; moving the schedule back would play over what is already queued)
       const src = ctx.createBufferSource();
       src.buffer = b; src.connect(out); src.start(LV.next);
       src.onended = () => { try { src.disconnect(); } catch (e) { /* gone */ } };

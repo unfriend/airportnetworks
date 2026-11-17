@@ -1013,6 +1013,7 @@
           if (!enc) {
             const ch = data.numberOfChannels;
             if (ch < 1 || ch > 2) { sndFail(gen, `The input has ${ch} channels: live sound takes 1 or 2.`); break; }
+            if (![8000, 12000, 16000, 24000, 48000].includes(data.sampleRate)) { sndFail(gen, `The input runs at ${data.sampleRate} Hz: set it to 48 kHz (Audio MIDI Setup on a Mac, the Sound control panel on Windows).`); break; }
             const cfg = { codec: 'opus', sampleRate: data.sampleRate, numberOfChannels: ch, bitrate: S.kbps * 1000, opus: { frameDuration: 20000 } };
             const ok = await window.AudioEncoder.isConfigSupported(cfg).then(x => x && x.supported, () => false);
             if (gen !== S.gen) break;
@@ -1110,7 +1111,7 @@
     if (S.phase === 'off' && S.resume && t - S.devsAt > 1000) {   // after a reload: on again by itself only if the input was allowed before
       S.resume = false;
       if (sndApis() && navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'microphone' }).then(p => { if (O.on && p && p.state === 'granted' && O.snd.phase === 'off') sndOn(); else if (O.on) { O.snd.note = 'It was on: press the switch to stream again.'; O.dirty = true; } }, () => {});
+        navigator.permissions.query({ name: 'microphone' }).then(p => { if (O.on && p && p.state === 'granted' && O.snd.phase === 'off') { sndOn(); O.snd.note = 'On again by itself: it was on when this page last closed. Turn it off to stop.'; O.dirty = true; } else if (O.on) { O.snd.note = 'It was on: press the switch to stream again.'; O.dirty = true; } }, () => {});
       }
     }
   }
@@ -1266,7 +1267,7 @@ body.outp #gl { cursor: default; }
     const S = O.snd, why = sndWhyNot(), can = sndApis() && (!why || /Not connected/.test(why)), st = S.st;
     const devs = S.named ? S.devs : [];
     const opts = `<option value=""${S.dev ? '' : ' selected'}>Default input</option>` + devs.map(d => `<option value="${esc(d.id)}"${d.id === S.dev ? ' selected' : ''}>${esc(d.label)}</option>`).join('');
-    const state = S.phase === 'asking' ? 'Asking the browser for the input...' : S.phase === 'error' ? S.err : S.phase === 'live' ? (S.started ? 'Streaming.' : 'Starting the stream...') : S.note || 'Off.';
+    const state = S.phase === 'asking' ? 'Asking the browser for the input...' : S.phase === 'error' ? S.err : S.phase === 'live' ? (S.started ? 'Streaming.' : 'Starting the stream...') + (S.note ? ' ' + S.note : '') : S.note || 'Off.';
     const relay = st && st.on && !st.mine && st.why !== 'taken' && S.phase !== 'live' ? ' Another output page in this room streams now.' : '';
     return `<h3>Live sound</h3><div class="o-btns">${onOff(S.on && S.phase !== 'error', 'Stream sound to the room', 'snd', 'One sound input of this computer, to everyone elsewhere in the room').replace('<button ', can || S.on ? '<button ' : '<button disabled ')}</div>
       ${!can ? `<p class="o-warn">${esc(why)}</p>` : ''}

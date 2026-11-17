@@ -1222,7 +1222,7 @@ function sndStart(room, m, msg) {
   if (!cfg) return refuse(room, m, null, [], 'bad snd-start: cfg { codec: \'opus\', sampleRate, numberOfChannels }', 'bad');
   const s = sndOf(room), was = s.by, k = Number(msg.kbps);
   if (was && was !== m && s.cfg) {   // another output page had it: it stops (its frames are dropped from now on)
-    was.sndTaken = true;
+    was.sndTaken = true; was.sndTakenN = 0;
     sndTell(sndSubs(room, was).filter(x => x !== m), { on: false, sid: s.sid, why: 'taken' });
     if (room.members.get(was.id) === was) sndStatus(room, was);
   }
@@ -1267,7 +1267,11 @@ function sndBin(room, m, buf) {
 setInterval(() => {   // the sender (and an output page that was told 'taken') hears how it goes every 2 s
   for (const room of rooms.values()) {
     if (!room.snd) continue;
-    for (const m of room.members.values()) if (m.out && ((room.snd.by === m && room.snd.cfg) || m.sndTaken)) sndStatus(room, m);
+    for (const m of room.members.values()) {
+      if (!m.out || !((room.snd.by === m && room.snd.cfg) || m.sndTaken)) continue;
+      sndStatus(room, m);
+      if (m.sndTaken && room.snd.by !== m && (m.sndTakenN = (m.sndTakenN || 0) + 1) >= 3) m.sndTaken = false;   // (told three times: enough)
+    }
   }
 }, 2000).unref();
 
