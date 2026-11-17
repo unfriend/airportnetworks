@@ -265,6 +265,22 @@ local network found each other this way, and then shared a peer-to-peer room; he
       for the narration). **Exit** ends the camera; the page then follows on as a laptop does.
     - Untested on a real phone: how closely it lines up on a tape cross, the frame rate of a heavy story on a phone,
       the overlay in Chrome's AR, and the recording itself. Try it before the event.
+12b. **A TV or projector for onlookers (the preview camera, v153 to v156)**: a laptop or desktop joined to the room shows
+    the room's virtual world from one fixed real spot: the circle it looks at (its story), the other circles' icons and
+    cards, and everyone in a headset (head, hands, rays, name tags). It changes nothing in the room but its own place.
+    - Start it: in the laptop's Shared dialog press **Preview camera**, or open the room's link with `&camera` added on
+      the laptop and press **Start the preview camera**. **Full screen**, then put the window on the TV or projector.
+    - Place it where the screen's viewpoint should be: from a headset (menu, **Circles** tab, **Place the preview
+      camera**: hold the controller at that real spot, aim it, pull the trigger), or on the laptop (drag it and its aim on
+      the Shared dialog's room map, type its numbers measured from spot A, or on the picture: hold W, A, S, D to move,
+      Q and E for height, J, L, I, K or the mouse to look; Shift for slow). Its place is kept in the room.
+    - For a clean picture: wait 3 s and the buttons and the mouse pointer hide; **Labels: hidden** and **Cards: hidden**
+      (this screen only), **Panels**, **People**; **Mouse: drag only** so a click to wake it never takes the mouse. In a
+      studio scene it shows no editing look; a scene can hide its blue floor grid (its **Floor grid** setting).
+    - It starts again by itself after a reload, but its sound then waits for a click or a key. Every device in the room
+      needs the same release (the room's format).
+    - Untested on a real TV, projector and headset: placing from the controller, the frame rate of a heavy story on the
+      laptop. Try it before the event.
 13. **The PC's Vive trackers** (optional; v126, untested with real trackers): the Windows PC with SteamVR is then the
     relay laptop (steps 1 and 2 on it), since only rooms on that relay get the trackers (not peer-to-peer rooms, not the
     relays on Coolify). With SteamVR running, `python tools/trackers/bridge.py --list` should list every tracker; then

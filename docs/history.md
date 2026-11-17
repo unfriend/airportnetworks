@@ -454,6 +454,24 @@ narration heard from out of the circle, the locks and the People toggle in use.
 ### Textures
 - The owner, 4 November 2026: "it needs a way to add textures to models in case they are missing, preferably with autoassign and direct convert to good formats".
 
+### Texture size, compressed textures and three.js r128 (v150, v151)
+- The owner, 16 November 2026: "Why max 2k texture for quest? Can we compress somehow to get more? Is this a hard limit?
+  In unity i also uses 4k and 8k and it worked, what is different in unity and how could we match it?" The 2,048 px cap
+  was a memory choice, not a hard limit: a texture sits in the GPU uncompressed (RGBA, 4 bytes a pixel plus a third for
+  mips: 8k is about 341 MB), while Unity ships ASTC, which a Quest's GPU reads compressed (8k about 85 MB).
+- "add the debug lines so i can check": v150's Debug tab lines (*Textures: at most ... · compressed: ...*, the GPU's name on
+  the Browser line). The owner then read on the Quest 3: Adreno 740, at most 8,192 px, ASTC, ETC1 and ETC2.
+- "yes build it, encoding in browser since that can be done on a desktop and be fast?": v151, Basis UASTC in KTX2,
+  encoded in the page on a laptop or desktop (workers, strips under the encoder's 12.6 million texel limit), loaded as
+  ASTC 4x4 through three.js r133's plain-script KTX2Loader on our r128 (r133 to r143 ship one; r144 on have none, and
+  r143's needs `Data3DTexture`, which r128 lacks). Headsets never encode.
+- "why not update the three.js if newer versions support it?" (the same day): not needed for compressed textures (the
+  r133 loader runs on r128), and an upgrade is not a drop-in: the plain-script builds and `examples/js` went (r148 to
+  r161: the app would become ES modules), colour management and `colorSpace` (r152), shader chunks (r154) and physically
+  correct lights (r155) change how every story looks and must be tuned again, WebGL 1 went (r163), and WebXR changed
+  (r170, r187). So r128 stays until there is a reason worth a pass over all sixteen stories, the design room and the
+  studio.
+
 ### The upload page
 - The owner, 4 November 2026: "the relay should offer an upload page where everything gets converted into the right formats directly and then sorted into a folder if possible".
 - v127, the owner, 9 November 2026: "add option to remove items from upload list before uploading, one slider for all models reduction when uploading" (the × per row and *Triangles kept, every model*).
