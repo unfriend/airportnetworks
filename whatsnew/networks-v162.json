@@ -1,0 +1,23 @@
+{
+  "version": "networks-v162",
+  "date": "2026-11-17",
+  "new": [
+    "Live sound: the output page's new switch, Stream sound to the room, sends one sound input of its computer through the relay to the room.",
+    "People elsewhere (a laptop at home, a headset in another place) hear it by default; devices in the room do not.",
+    "A per-device setting, Room's live sound: auto, on or off, in the Shared dialog and the headset menu's Settings.",
+    "A studio sound item can be set to Live sound: the stream then plays from where that item stands.",
+    "Rooms on a relay only: peer to peer and rooms on this device say it is not available."
+  ],
+  "test": [
+    "On a Mac: BlackHole 2ch and a Multi-Output Device as the system output, Cardinal playing; the output page streams from BlackHole.",
+    "A laptop joined from elsewhere and a Quest elsewhere hear it; a headset in the room does not, until its setting is On.",
+    "The Sound button turns it on and off on each device (a page starts with Sound off, so a remote laptop presses Sound first).",
+    "In a studio scene, a Live sound item: walk round it in a headset; the sound comes from it."
+  ],
+  "untested": [
+    "How it sounds (unheard here).",
+    "Whether Quest Browser has WebCodecs' AudioDecoder.",
+    "Latency and dropouts on real networks and Wi-Fi.",
+    "The headset menu's taller Settings tab on a device."
+  ]
+}

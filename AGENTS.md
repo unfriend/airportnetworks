@@ -73,7 +73,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `ships.js` - the spaceships (`HOST.ships`).
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, `PEERJS-LICENSE.txt`) - loaded only for a peer-to-peer room; `p2p/` - a network
   test page, not part of the app.
-- `output.js` - the output page (`HOST.out`: MIDI and OSC from a room and the studio, `&output`), loaded on demand;
+- `output.js` - the output page (`HOST.out`: MIDI and OSC from a room and the studio, `&output`; v162 streams one sound
+  input to the room through the relay, heard elsewhere and by studio *Live sound* items), loaded on demand;
   `tools/output/` its `SPEC.md`, `README.md` (setting it up) and `test-page.mjs` (`docs/agents/shared-rooms.md`).
 - `room-test/` - the room and depth test page for a Quest 3 (not part of the app; its test `tools/room-test.mjs`).
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages), its tests, Dockerfile and `README.md`;

@@ -117,6 +117,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v162 (17 November 2026; FORMAT networks-52), on `dev` only: live sound from the output page.** The output
+    page's *Stream sound to the room* captures one input of its computer (BlackHole 2ch with a Multi-Output Device on a
+    Mac, VB-Audio Cable on Windows), encodes it as Opus and sends it through the relay (relay rooms only, never stored).
+    Devices elsewhere hear it by default (*Room's live sound: auto / on / off*, per device); a studio sound item set to
+    *Live sound* plays it from where it stands. Contract: the "v162" section of `tools/output/SPEC.md`. Untested: real
+    loopback inputs, Quest Browser's WebCodecs, latency on real networks; unheard.
 - **networks-v159 (17 November 2026; FORMAT networks-52), on `dev` only: a dub techno demo.** `examples/dub-techno`
     (`tools/studio/dub/`) and a Cardinal patch mapped to it (`tools/output/cardinal/`, its README the setup). Cardinal
     cannot follow MIDI clock ticks, so it keeps its own 120 bpm clock and the output page's Start re-aligns it. Unheard.
