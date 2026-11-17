@@ -350,6 +350,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  live: () => ({ items: [...STU.items.values()].filter(isLive).map(it => it.id), claimer: LIVE.id, node: !!LIVE.node, pos: LIVE.lv ? [LIVE.lv.p.positionX ? LIVE.lv.p.positionX.value : 0, LIVE.lv.p.positionY ? LIVE.lv.p.positionY.value : 0, LIVE.lv.p.positionZ ? LIVE.lv.p.positionZ.value : 0] : null, gain: LIVE.lv ? LIVE.lv.gt : 0 }),   // (the room's live sound from a studio item: e6_items.js liveEmit)
   away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
   state: () => ({
@@ -456,7 +457,7 @@ const STUDIO = {
   get screenClock() { return screenClock; },
   set screenClock(f) { screenClock = f; },
   // every object's model in (or failed) and every sound fetched: the scene is ready
-  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
+  ready: () => STU.listing === 'ok' && [...STU.items.values()].every(it => (it.kind !== 'o' || it.model || (it.E && it.E.state === 'failed')) && (it.kind !== 's' || isLive(it) || (it.F && !['idle', 'probing', 'loading'].includes(it.F.state)))),
   // a trigger cube here (v137): who is inside (anyone, for one that works for everyone), active, when it was entered last
   // (its since: the room's time for an everyone cube), and when it went in and out on the clock of what cubes start
   cube: id => { const c = STU.items.get(id); return c && c.kind === 'c' ? { all: !!c.rec.all, inside: !!c.inside, act: !!c.act, since: c.since || 0, inT: c.inT, outT: c.outT, who: c.allIn ? [...c.allIn.keys()] : [], on: c.on !== false, raw: !!c.raw, by: c.offBy ? c.offBy.id : '', why: swWhy(c) } : null; },

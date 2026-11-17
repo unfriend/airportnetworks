@@ -21,8 +21,12 @@ const STU = {
   stId: '', fresh: false,   // (the station whose state was applied last; a scene opened for a circle made for it: collabApply)
   settings: { others: 'shown', real: 'device' }, lockSaid: null, lobbyAt: 0,   // (the scene's settings: normSettings; a lock's refusal just said; the lobby)
   keyPick: '',   // (a cube picking the item it reacts to, its key: v140)
+  livePick: '',   // (a live sound whose card lists the scene's sounds, to be a file again: v162)
   trkList: '', pupSlot: '',   // (the card's list of trackers open, for an item; a puppet's part whose trackers are listed: e6k_trk.js, e6l_puppet.js)
 };
+// a sound whose source is the room's live sound (v162: tools/output/SPEC.md "v162" 5), streamed by the output page: a
+// reserved name no upload can make (no folder, no sound extension), never fetched or decoded (liveEmit)
+const LIVE_FILE = '@live', isLive = it => !!(it && it.kind === 's' && it.rec.file === LIVE_FILE);
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000, r4 = v => Math.round(v * 1e4) / 1e4;
 const nz = v => (v === 0 ? 0 : v);   // (no -0)
 const fin = v => typeof v === 'number' && isFinite(v);
@@ -111,7 +115,8 @@ function norm(kind, x, id) {
     // an offset with no object is dropped, whatever it is (checked only with an object)
     const on = has('on'), o = on && has('o') ? vecOf(x.o, 3, 1000) : null;
     if (on && (!okId(x.on) || (has('bone') && typeof x.bone !== 'string') || (has('o') && !o))) return null;
-    const r ={ name: name(stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
+    const live = x.file === LIVE_FILE;
+    const r ={ name: name(live ? 'Live sound' : stem(x.file)), file: x.file, p: P, vol: has('vol') ? r2(Math.min(2, Math.max(0, x.vol))) : 1, r: has('r') ? r2(Math.min(20, Math.max(0.1, x.r))) : 1.5,
       loop: has('loop') ? x.loop : true, start: one('start', ['always', 'shown'], 'always') };
     if (on) {
       r.on = x.on;
@@ -123,7 +128,7 @@ function norm(kind, x, id) {
     // a voice recorded with an item's movement (v125, e6j_voice.js), kept only when set: the item whose recorded path it
     // plays with (sync: its id), where in its file that path's start is (skip: s, -10 to 600, to the ms; 0 none) and how
     // long of it plays (len: s, to 600, to the ms); a skip or a len without sync is dropped
-    if (x.sync != null) {
+    if (x.sync != null && !live) {   // (a live sound plays with nothing: sync, skip and len dropped)
       if (!okId(x.sync) || (has('skip') && !fin(x.skip)) || (has('len') && !(fin(x.len) && x.len > 0))) return null;
       r.sync = x.sync;
       const sk = has('skip') ? nz(r3(clamp(x.skip, -10, 600))) : 0;
@@ -376,12 +381,13 @@ function applyRec(it, was, glide) {
 }
 // the file an item uses (once the scene's listing is known)
 function itemFile(it) {
+  if (isLive(it)) { it.F = null; return; }   // (the room's live sound: no file)
   if (STU.listing !== 'ok') return;
   if (it.kind === 'o') {
     const E = lib(it.rec.file);
     if (it.E !== E) { dropModel(it); libRelease(it.E, it.id); it.E = E; }
     E.users.add(it.id);
-  } else if (it.kind === 's') it.F = snd(it.rec.file);
+  } else if (it.kind === 's') it.F = isLive(it) ? null : snd(it.rec.file);   // (a live sound: no file, liveEmit)
 }
 function dropModel(it) {
   if (!it.model) return;
@@ -1225,7 +1231,7 @@ function emitStep(now) {
     if (ctx) for (const it of STU.items.values()) if (it.st && it.st.ctx !== ctx) streamDrop(it);
     sndForget(); EM.ctx = ctx;
   }
-  if (!ctx) return;
+  if (!ctx) { liveEmit(null, now); return; }
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
   let any = false;
   for (const it of STU.items.values()) {
@@ -1251,12 +1257,67 @@ function emitStep(now) {
     if (it.pan.refDistance !== it.rec.r) it.pan.refDistance = it.rec.r;
     if (want <= 0.0005) { if (!it.zeroAt) it.zeroAt = now; if (now - it.zeroAt > 700) emitStop(it); } else it.zeroAt = 0;
   }
+  if (liveEmit(ctx, now)) any = true;   // (the room's live sound from the nearest live item)
   // the listener: your head in a headset, the camera on a page
   if (any) {
     if (XR.on && GL.renderer.xr.isPresenting) { _ep.copy(XR.head); _eq.copy(XR.headQ); } else { GL.camera.getWorldPosition(_ep); GL.camera.getWorldQuaternion(_eq); }
     listen(ctx, _ep, _eq);
     EM.lis = true;
   }
+}
+// The room's live sound (v162, tools/output/SPEC.md "v162" 5): a sound whose file is '@live' plays the stream the output
+// page sends (shared.js "live sound: hearing"), from where it stands. The shown live item nearest the listener (switching
+// only when another is 0.5 m nearer) claims the shell's node (HOST.collab.liveClaim('studio')): its own gain (vol, its fades
+// as other emitters') and an HRTF panner as emitStart's. Every other live item is silent; with none shown, the scene not on
+// show, away, another context or dispose, the claim is let go (liveRelease) and the stream plays everywhere at the shell's
+// fixed level. Muted: the shell's node is at 0 already, so no mute of its own. Who hears it at all is the shell's (liveWant)
+const LIVE = { id: '', node: null, lv: null };   // (the claimer, the shell's node it is linked to, its nodes: kept here too, so an item gone without emitStop leaves nothing linked)
+const _lp = new THREE.Vector3(), _lq = new THREE.Vector3();
+function liveOff() {
+  const lv = LIVE.lv, it = STU.items.get(LIVE.id);
+  if (lv) {
+    if (LIVE.node) try { LIVE.node.disconnect(lv.g); } catch (e) { /* not linked */ }
+    for (const n of [lv.g, lv.p]) try { n.disconnect(); } catch (e) { /* gone */ }
+  }
+  if (it) it.lv = null;
+  if (LIVE.id || LIVE.node) { try { if (HOST.collab && HOST.collab.liveRelease) HOST.collab.liveRelease('studio'); } catch (e) { /* an older shell */ } }
+  LIVE.id = ''; LIVE.node = null; LIVE.lv = null;
+}
+// each frame (from emitStep; ctx null: everything let go); true while a live item plays (the listener is set then)
+function liveEmit(ctx, now) {
+  const Co = HOST.collab, node = ctx && Co && Co.liveNode ? Co.liveNode() : null;
+  if (!ctx || !node || node.context !== ctx || GL.gone || !STU.scene || APP.mode !== 'explore' || AWAY.st >= 1) { if (LIVE.id || LIVE.node) liveOff(); return false; }
+  if (XR.on && GL.renderer.xr.isPresenting) _lq.copy(XR.head); else GL.camera.getWorldPosition(_lq);
+  let best = null, bd = Infinity, cd = Infinity;
+  for (const it of STU.items.values()) {
+    if (!isLive(it) || !it.heard || !(it.fa > 0.0005)) continue;
+    it.holder.getWorldPosition(_lp);
+    const d = _lp.distanceTo(_lq);
+    if (it.id === LIVE.id) cd = d;
+    if (d < bd) { bd = d; best = it; }
+  }
+  if (best && LIVE.id && best.id !== LIVE.id && cd < Infinity && bd > cd - 0.5) best = STU.items.get(LIVE.id);   // (a handover only 0.5 m nearer)
+  if (!best) { if (LIVE.id || LIVE.node) liveOff(); return false; }
+  if (best.id !== LIVE.id || node !== LIVE.node || !best.lv) {
+    liveOff();
+    try {
+      const g = ctx.createGain(), p = ctx.createPanner();
+      g.gain.value = 0;
+      p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = best.rec.r; p.rolloffFactor = 1; p.maxDistance = 50;
+      best.holder.getWorldPosition(_lp); setPos(p, _lp);
+      g.connect(p); p.connect(ctx.destination);
+      if (!Co.liveClaim('studio')) { for (const n of [g, p]) try { n.disconnect(); } catch (e) { /* gone */ } return false; }
+      node.connect(g);
+      best.lv = LIVE.lv = { g, p, gt: -1 };
+      LIVE.id = best.id; LIVE.node = node;
+    } catch (e) { liveOff(); return false; }
+  }
+  const lv = best.lv, tg = trgSound(best), want = best.fa * best.rec.vol * (tg == null ? 1 : tg);
+  if (lv.gt !== want) { try { lv.g.gain.setTargetAtTime(want, ctx.currentTime, 0.1); } catch (e) { /* closed */ } lv.gt = want; }
+  best.holder.getWorldPosition(_lp);
+  setPos(lv.p, _lp);
+  if (lv.p.refDistance !== best.rec.r) lv.p.refDistance = best.rec.r;
+  return true;
 }
 function setPos(n, p) {
   try { if (n.positionX) { n.positionX.value = p.x; n.positionY.value = p.y; n.positionZ.value = p.z; } else n.setPosition(p.x, p.y, p.z); } catch (e) { /* an old engine */ }
@@ -1307,6 +1368,7 @@ function emitStart(it, ctx, buf, now, want) {
 }
 // stopped: a decoded sound's source goes; a streamed one is paused (drop: its element and nodes go too)
 function emitStop(it, drop) {
+  if (it.lv || (LIVE.id && LIVE.id === it.id)) liveOff();   // (the live item playing: its nodes go, the stream plays everywhere again until it claims once more)
   const s = it.src;
   if (it.st) {
     if (s) { it.src = null; try { it.st.gain.gain.setValueAtTime(0, it.st.ctx.currentTime); } catch (e) { /* closed */ } try { it.st.el.pause(); } catch (e) { /* gone */ } }
@@ -1389,7 +1451,7 @@ function streamDrop(it) {
   try { S.el.pause(); S.el.removeAttribute('src'); S.el.load(); } catch (e) { /* gone */ }
   for (const n of [S.node, S.gain, S.pan]) try { n.disconnect(); } catch (e) { /* gone */ }
 }
-function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); }
+function emitAll(drop) { for (const it of STU.items.values()) if (it.kind === 's') emitStop(it, drop); if (drop) liveEmit(null, 0); }
 
 // ---------------------------------------------------------------- away --
 // While this headset is away from the studio's station (in the lobby: xrAway) the frame idles after a second (e8_xr.js), so
@@ -1422,7 +1484,7 @@ function awayFree() {
 function awayWake() {
   AWAY.freed = false; AWAY.wakes++;
   for (const E of LIB.values()) if (E.users.size && E.state === 'idle' && STU.fileMap.has(E.path)) libLoad(E);
-  for (const it of STU.items.values()) if (it.kind === 's') it.F = snd(it.rec.file);   // (decoded again as it is wanted)
+  for (const it of STU.items.values()) if (it.kind === 's') it.F = isLive(it) ? null : snd(it.rec.file);   // (decoded again as it is wanted)
   STU.libRev++; dirty();
 }
 function awayStep() {
@@ -1624,6 +1686,15 @@ function addSound(path) {
   sfxAct('place', 'world', null);
   return id;
 }
+// a sound that plays the room's live sound (v162): the output page's stream, from where it stands
+function addLive() {
+  if (!canAdd('s')) return '';
+  const at = frontAt(), id = newId();
+  change(() => putItem(id, 's', norm('s', { name: nameFor('Live sound'), file: LIVE_FILE, p: [at[0], 1.2, at[1]] })));
+  select(id);
+  sfxAct('place', 'world', null);
+  return id;
+}
 function addCube() {
   if (!canAdd('c')) return '';
   const at = frontAt(), id = newId();
@@ -1759,6 +1830,14 @@ const ITEM_ACT = {
   vol: (it, d) => { const S = [0, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2], i = S.findIndex(x => x >= it.rec.vol - 1e-6); setRec(it.id, { vol: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   reach: (it, d) => { const S = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20], i = S.findIndex(x => x >= it.rec.r - 1e-6); setRec(it.id, { r: S[clamp((i < 0 ? S.length - 1 : i) + (+d), 0, S.length - 1)] }); },
   loop: (it, v) => setRec(it.id, { loop: v === 'on' }),
+  // a sound's source (v162): the room's live sound, or a file again (the one it had, kept in memory only, or one picked
+  // from the scene's sounds on its card: livePick)
+  live: (it, v) => {
+    if (it.kind !== 's') return;
+    if (v === 'on' && !isLive(it)) { it.lastFile = it.rec.file; STU.livePick = ''; setRec(it.id, { file: LIVE_FILE }); }
+    else if (v === 'off' && isLive(it)) { if (it.lastFile && STU.fileMap.has(it.lastFile)) setRec(it.id, { file: it.lastFile }); else STU.livePick = STU.livePick === it.id ? '' : it.id; }
+  },
+  liveFile: (it, path) => { STU.livePick = ''; if (it.kind === 's' && typeof path === 'string' && path !== LIVE_FILE && STU.fileMap.has(path)) setRec(it.id, { file: path }); },
   // a sound: what it follows, from where it is now (an object, then one of its bones; a shape or an empty; the offset
   // worked out here), onto it (no offset), or nothing (where it is now); picking it by pointing (followPick), the card's
   // list of bones

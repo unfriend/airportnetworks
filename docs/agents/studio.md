@@ -1363,6 +1363,17 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   (`OfflineAudioContext` rates, `webkitdirectory`), uploads from GitHub Pages to a relay elsewhere, a streamed sound on
   a renewed context or reaching its end without a loop, and a plain `.gltf` with an external `.bin` (no test file).
 
+## Live sound (v162)
+
+A sound whose `file` is `'@live'` (`LIVE_FILE`, *Live sound (from the output page)* first in Add's sound list; on its
+card *Live sound: on / off*) plays the room's live sound (the output page's stream, `docs/agents/shared-rooms.md` "Live
+sound") from where it stands: the shown live item nearest the listener (a handover only when another is 0.5 m nearer)
+claims the shell's node (`HOST.collab.liveClaim('studio')`) into its own gain (`vol`, its fades) and an HRTF panner as
+`emitStart`'s (`liveEmit`, `e6_items.js`); none shown, the scene not on show, away, another context or `dispose`: let go,
+and the stream plays everywhere at the shell's level. Never fetched or decoded (`it.F` null; `norm` drops `sync`, `skip`,
+`len` for it). Turning it off asks for a file (the one it had, kept in memory only, or one picked from the scene's sounds).
+`STUDIO.live()` for tests; smoke `--only 'studio live'`. `tools/studio/SPEC.md` "Live sound".
+
 ## Props on trackers and a character worn with them
 
 - **The trackers here** (`engine/e6k_trk.js`, `trkStep`, first in `behaveStep` each frame): the shell's

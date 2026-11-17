@@ -2066,6 +2066,43 @@ a headset's hand-over at an event, and how long PeerJS's public server keeps a s
 reads when its icon or ring is pointed at, the story and its narration heard from out of the circle, the locks and the
 People toggle in use.
 
+## Live sound (v162, `shared.js` "live sound: hearing"; `tools/output/SPEC.md` "v162")
+
+The owner (17 November 2026, "go as described"): the output page streams one sound input of its computer to the room
+(lane A: "live sound: sending", the relay, `output.js`), and devices elsewhere hear it. The hearing side:
+
+- **The wire.** Binary WebSocket frames from the relay (`ws.binaryType = 'arraybuffer'` on the relay's socket; `wire()`
+  passes a non-string message to `liveIn`, never to `JSON.parse`): a 16-byte big-endian header (`tag` 1, `ch`, `sid`,
+  `seq`, `at` on the relay's clock) and one Opus packet. The relay's effect `@snd` (`by: ''`): `{ on: true, sid, cfg,
+  kbps, by }` or `{ on: false, sid, why }` to subscribers (`liveFx`), `{ st }` to the output page (`HOST.out.sndFx`).
+- **Who hears it** (`liveWant`): never the output page itself, never off a relay (peer to peer, on this device, an old
+  relay without `welcome.snd`), never while this device's Sound button is off; per device (`localStorage` `liveSound`,
+  `auto` by default): `on` always, `off` never, `auto` when this device is elsewhere (`!here()`: a computer's page, a
+  headset elsewhere by its own setting; a camera is here). `liveStep` (from the pump) sends `{ t: 'snd-sub', on }` when
+  that changes and again on each new socket (a reconnect starts unsubscribed); unsubscribing drops the decoder and node.
+- **Playing.** WebCodecs' `AudioDecoder` (`isConfigSupported` first; none or refused: `why` says *This browser cannot play
+  the room's live sound* and it stops asking), each decoded frame copied to an `AudioBuffer` on `HOST.audio.fx()` (no
+  context: dropped, counted `skipped`) and scheduled 0.25 s behind, each next one at the end of the one before; one due
+  under 0.03 s or over 0.6 s ahead moves the schedule back to 0.25 s (`late`); a gap in `seq` is counted `lost` and the
+  decoder goes on. Everything goes into one `GainNode`, `LV.out` (made again on a new context, never a context of its
+  own): to the destination at `LIVE_LEVEL` 0.8, or, claimed, to the claimer's nodes (`liveClaim(owner)` cuts the
+  destination link, `liveRelease(owner)` puts it back; leaving the room, unsubscribing and another story let any claim
+  go). It fades to 0 while the Sound button is off (not Sound effects, not Narration). Not a story's background: the
+  owner asked for it, and it plays only while the output page streams.
+- **API** (`HOST.collab`): `liveSound()` `{ mode, want, on, playing, level, lagMs, frames, lost, late, skipped, src, by,
+  claimed, why, avail, sub }`, `liveMode()`, `setLiveMode(m)`, `liveNode()`, `liveClaim(owner)`, `liveRelease(owner)`,
+  `liveIn(buf)`, `liveFx(v)` (for tests). The calls in `pump()` and `leave()` wait for `HOST.collab` (the pump runs while
+  the file is still being read).
+- **Settings rows.** The Shared dialog, in a room and not on the output page: `.sh-live`, a button `data-sh="live"`
+  (*Room's live sound: auto / on / off*, each press the next) and what it means and its state (*Playing now*, *The output
+  page is not streaming*, *Not available: rooms on a relay only*, or *this relay is too old*; the button disabled then).
+  The headset menu's Settings tab, after *Effects volume*, in a room: the same button (`live`) and a short note; the phone
+  AR sheet (`phRows`): the row `live` after Sound effects. Never in `state()` or `collab.state()`; FORMAT unchanged.
+- **Tests.** `node tools/smoke.mjs <url> --only 'studio live'` (frames encoded in the test with `AudioEncoder`, fed to
+  `liveFx`/`liveIn`). Untested here: a real relay stream end to end (lane A; `tools/collab.mjs --live` if written),
+  latency and dropouts over real networks, how it sounds (unheard), positional live sound in a headset, and whether Quest
+  Browser has `AudioDecoder`.
+
 ## Vive trackers (`tools/trackers/`, `relay/trackers.mjs`)
 
 Vive Tracker 3.0s in the shared rooms (v126; the owner's choice:

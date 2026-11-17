@@ -1064,6 +1064,18 @@ Its *studio sequences* steps (`--only 'studio sequences'`, about two minutes) ru
 
 Its *studio press* steps (`--only 'studio press'`, a few minutes): the record's rules, a press firing for everyone from `pr.<id>` (a late joiner too, an odd press starting a loop and the next stopping it), `who: 'own'`, hover starting on pointing and ending 0.3 s after, show and hide as sources, a `seq` entry started on the presser's device only, pressable only with editing off (a visitor and a locked story still press), the page's click and the headset's trigger, the 250 ms limit, Delete and Duplicate, the card and *Try press*.
 
+### smoke: studio live
+
+`--only 'studio live'` (v162, a minute; `tools/output/SPEC.md` "v162" 3b and 5), on a page of its own at
+`&scene=rig&edit` with no relay: 50 Opus frames of a 440 Hz tone encoded in the test (`AudioEncoder`; skipped, said, in
+a browser without it) fed to `HOST.collab.liveFx` and `liveIn` with one left out and one of another `sid`: decoded and
+played through the shell's context (`liveSound()`: `playing`, a level, `lost` 1, a lag about the 0.25 s buffer), then
+dropped on `on: false`; then with the shell's node stubbed (a `GainNode` made by the test, `liveClaim`/`liveRelease`
+counted): `norm` of a live record, Add's live sound, the claim and its panner at the item, the panner following a move,
+no handover for 0.3 m and one for more, the card's *Only the nearest*, the records through `state()`, `apply()` and
+`layout.json` with `file: '@live'`, Source off and on (a file picked, the last file kept), released when the items go;
+the real shell claimed by a live item and released when another story comes; no request for `@live`.
+
 ### smoke: studio sends
 
 Its *studio streams*, *studio loops* and *studio trails* steps (v158, `--only 'studio streams'`, `'studio loops'`,
