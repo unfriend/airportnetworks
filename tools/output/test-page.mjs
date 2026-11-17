@@ -53,7 +53,7 @@ async function open(hash, name, size) {
   await ctx.addInitScript(n => {
     try { for (const [k, v] of [['collabAutoAll', 'off'], ['collabAutoWelcome', 'off'], ['collabAskDefault', 'walk'], ['collabName', n]]) localStorage.setItem(k, v); } catch (e) { /* storage blocked */ }
     window.__midiSent = [];
-    const port = (id, name, type) => ({ id, name, type, state: 'connected', onmidimessage: null, send(b) { window.__midiSent.push({ port: name, b: Array.from(b) }); } });
+    const port = (id, name, type) => ({ id, name, type, state: 'connected', onmidimessage: null, send(b, ts) { window.__midiSent.push({ port: name, b: Array.from(b), ts: ts === undefined ? null : ts, perf: performance.now(), room: typeof HOST !== 'undefined' && HOST.collab ? HOST.collab.now() : 0 }); } });
     const outputs = new Map([['o1', port('o1', 'Virtual A', 'output')], ['o2', port('o2', 'Virtual B', 'output')]]), inputs = new Map([['i1', port('i1', 'Keys', 'input')]]);
     const access = { outputs, inputs, onstatechange: null, sysexEnabled: false };
     window.__midi = { access, asked: [] };
@@ -75,11 +75,28 @@ const FAKE = () => {
     { id: 'cube01', k: 'c', name: 'Door', send: [{ on: 'enter', note: 36, hold: true }, { on: 'leave' }], press: '', all: false, key: '' },
     { id: 'lamp01', k: 'o', name: 'Lamp', send: [], press: 'all', all: false, key: '' }];
   const poses = { cube01: { p: [1, 0.5, 0], q: [0, 0, 0, 1], shown: true }, lamp01: { p: [-1, 1, 2], q: [0, 0, 0, 1], shown: true } };
-  const out = { v: 1, ready: () => true, scene: () => 'Fake', list: () => items, pose: id => (poses[id] ? JSON.parse(JSON.stringify(poses[id])) : null),
+  // (a pose moves by move[id]: { v: m/s, spin: degrees a second about y, t0 }, on the frame's own time, as the studio draws)
+  const pose = id => {
+    const P = poses[id];
+    if (!P) return null;
+    const R = JSON.parse(JSON.stringify(P)), M = window.__fake.move[id];
+    if (M) {
+      const t = (document.timeline.currentTime - M.t0) / 1000;
+      for (let i = 0; i < 3; i++) R.p[i] += M.v[i] * t;
+      if (M.spin) { const a = M.spin * t * Math.PI / 360; R.q = [0, Math.sin(a), 0, Math.cos(a)]; }
+    }
+    return R;
+  };
+  const out = { v: 1, ready: () => true, scene: () => 'Fake', list: () => items, pose, rev: () => window.__fake.rev,
+    value: (id, v) => { const V = window.__fake.vals[id]; return V && V[v] !== undefined ? V[v] : null; },
     listen(fn) { L.push(fn); return () => { const i = L.indexOf(fn); if (i >= 0) L.splice(i, 1); }; },
-    act(a) { acts.push(JSON.parse(JSON.stringify(a))); return a.id === 'nothing' ? { ok: false, why: 'no such item' } : { ok: true }; },
-    beat: () => null, sends: () => ({ out: 0, dropped: 0 }) };
-  window.__fake = { out, L, acts, poses, emit: ev => L.slice().forEach(f => f(ev)) };
+    act(a) {
+      acts.push(JSON.parse(JSON.stringify(a)));
+      if (a.do === 'beat') window.__fake.bt = a.bpm ? { bpm: a.bpm, at: a.at, bar: a.bar || 4, by: HOST.collab.id } : null;
+      return a.id === 'nothing' ? { ok: false, why: 'no such item' } : { ok: true };
+    },
+    beat: () => (window.__fake.bt ? Object.assign({}, window.__fake.bt) : null), sends: () => ({ out: 0, dropped: 0 }) };
+  window.__fake = { out, L, acts, poses, items, move: {}, vals: {}, rev: 0, bt: null, emit: ev => L.slice().forEach(f => f(ev)) };
   HOST.cur.out = out;
 };
 const sent = page => page.evaluate(() => window.__midiSent.map(x => x.b.join(',')));
@@ -181,6 +198,122 @@ try {
   // Learn: the next message fills a row's from
   await A.evaluate(() => { HOST.out.learn('in0001'); HOST.out.midiIn([0xB5, 22, 90]); });
   check('Learn: the next MIDI message fills the row', await A.evaluate(() => { const r = HOST.out.state().incoming.find(x => x.id === 'in0001'); return r.from.midi === 'cc' && r.from.n === 22 && r.from.ch === 6 && !HOST.out.state().learn; }));
+
+  // ---- v158: clock in with Start, song position and Beats a bar; OSC /studio/bar; the Tempo part; clock out; the scene's streams
+  const TK = 60000 / (120 * 24);
+  const clk = await A.evaluate(TK => {
+    const m = HOST.out.map(); m.opt.bar = 3; m.opt.clock = true; HOST.out.map(m);
+    window.__fake.acts.length = 0;
+    const t0 = Math.round(HOST.collab.now()) + 3000;
+    HOST.out.midiIn([0xFA], t0);
+    for (let i = 0; i < 48; i++) HOST.out.midiIn([0xF8], t0 + i * TK);
+    const a1 = window.__fake.acts.filter(a => a.do === 'beat');
+    window.__fake.acts.length = 0;
+    HOST.out.midiIn([0xFC]);
+    const stop = window.__fake.acts.filter(a => a.do === 'beat');
+    window.__fake.acts.length = 0;
+    const t1 = t0 + 5000;
+    HOST.out.midiIn([0xF2, 4, 0]); HOST.out.midiIn([0xFB]);   // (one beat in: a sixteenth is 6 ticks)
+    for (let i = 0; i < 30; i++) HOST.out.midiIn([0xF8], t1 + i * TK);
+    const a2 = window.__fake.acts.filter(a => a.do === 'beat');
+    window.__fake.acts.length = 0;
+    HOST.out.midiIn([0xFC]);
+    for (let i = 0; i < 48; i++) HOST.out.midiIn([0xF8], t1 + 3000 + i * TK);   // (ticks after Stop: nothing written)
+    const a3 = window.__fake.acts.filter(a => a.do === 'beat' && a.bpm);
+    return { t0, t1, a1, stop, a2, a3 };
+  }, TK);
+  check('clock in: Start is a downbeat (at = the tick after Start, bar 3, ~120 bpm)', clk.a1.length >= 1 && clk.a1[0].at === clk.t0 && clk.a1[0].bar === 3 && Math.abs(clk.a1[0].bpm - 120) < 0.5, clk);
+  check('clock in: Stop takes the beat away', clk.stop.some(a => a.bpm === 0), clk.stop);
+  check('clock in: a song position (a beat in) and Continue: at names the downbeat a beat earlier', clk.a2.length >= 1 && Math.abs(clk.a2[0].at - (clk.t1 - 24 * TK)) <= 1 && clk.a2[0].bar === 3, clk.a2);
+  check('clock in: ticks after Stop write nothing', clk.a3.length === 0, clk.a3);
+  const ob = await A.evaluate(() => { window.__fake.acts.length = 0; window.__fake.bt = null; HOST.out.oscIn(['/studio/bar', 'fi', 100, 5]); const a = window.__fake.acts.slice(); HOST.out.oscIn(['/studio/beat', 'f', 100]); return { a, b: window.__fake.acts.slice(1), now: HOST.collab.now() }; });
+  check('OSC /studio/bar: a downbeat now, with its bar', ob.a.length === 1 && ob.a[0].bpm === 100 && ob.a[0].bar === 5 && Math.abs(ob.a[0].at - ob.now) < 200, ob);
+  check('OSC /studio/beat: a beat, its bar\'s downbeat kept (at a whole beat before now)', ob.b.length === 1 && ob.b[0].bpm === 100 && ((ob.b[0].at - ob.a[0].at) / 600) % 1 < 0.05, ob);
+  // the Tempo part: disabled while clock in leads, Tap, Start (a downbeat at the next 10 ms), Stop
+  await A.evaluate(TK => { const t = HOST.collab.now(); for (let i = 0; i < 30; i++) HOST.out.midiIn([0xF8], t + i * TK); HOST.out.changed(); HOST.out.step(); }, TK);
+  check('Tempo is disabled while MIDI clock in leads, saying so', await until(A, () => { const b = document.querySelector('#out [data-o="tstart"]'); return !!b && b.disabled && /MIDI clock in leads/.test(document.querySelector('#out [data-sec="tempo"]').textContent); }, null, 3000));
+  await A.evaluate(() => { const m = HOST.out.map(); m.opt.clock = false; HOST.out.map(m); });
+  check('and enabled with clock in off', await until(A, () => { const b = document.querySelector('#out [data-o="tstart"]'); return !!b && !b.disabled; }, null, 3000));
+  const tap = await A.evaluate(() => [HOST.out.tap(1000), HOST.out.tap(1500), HOST.out.tap(2001), HOST.out.tap(2500), HOST.out.tap(3000)]);
+  check('Tap: 4 taps or more, the median interval (500 ms: 120 bpm)', tap[0] === 0 && tap[2] === 0 && Math.abs(tap[3] - 120) < 0.5 && Math.abs(tap[4] - 120) < 0.5 && Math.abs((await A.evaluate(() => HOST.out.state().clock.tempo)) - 120) < 0.5, tap);
+  await A.evaluate(() => { window.__fake.acts.length = 0; document.querySelector('#out [data-o="tstart"]').click(); });
+  const ts1 = await A.evaluate(() => window.__fake.acts.slice());
+  check('Tempo Start: the beat with its downbeat at the next 10 ms', ts1.length === 1 && ts1[0].do === 'beat' && Math.abs(ts1[0].bpm - 120) < 0.5 && ts1[0].bar === 3 && ts1[0].at % 10 === 0, ts1);
+  await A.evaluate(() => { window.__fake.acts.length = 0; document.querySelector('#out [data-o="tstop"]').click(); });
+  check('Tempo Stop: the beat taken away', (await A.evaluate(() => window.__fake.acts)).some(a => a.do === 'beat' && a.bpm === 0));
+  // clock out: 24 a beat with their timestamps, Start at a downbeat, again when the downbeat moves, on at a new tempo, Stop
+  await A.evaluate(() => { const m = HOST.out.map(); m.opt.clockOut = true; m.opt.bar = 4; HOST.out.map(m); window.__midiSent.length = 0; window.__fake.bt = { bpm: 120, at: Math.round(HOST.collab.now()) - 3700, bar: 4, by: 'xx' }; });
+  await sleep(1600);
+  const co = await A.evaluate(() => ({ bt: window.__fake.bt, s: window.__midiSent.filter(x => x.port === 'Virtual B' && x.b[0] >= 0xF2).map(x => ({ b: x.b, r: x.ts - x.perf + x.room })) }));
+  const coCheck = (S, bt, from) => {
+    const tk = 60000 / bt.bpm / 24, bar = 60000 / bt.bpm * bt.bar, st = S.filter(x => x.b[0] === 0xFA && x.r >= from), F = S.filter(x => x.b[0] === 0xF8 && x.r >= (st[0] ? st[0].r - 0.5 : Infinity));
+    const ph = st[0] ? ((st[0].r - bt.at) % bar + bar) % bar : NaN, gaps = F.slice(1).map((x, i) => x.r - F[i].r);
+    return { start: st.length, ph: Math.min(ph, bar - ph), ticks: F.length, gap: gaps.length ? [Math.min(...gaps), Math.max(...gaps)] : null, beat: F.filter(x => x.r < F[0].r + 60000 / bt.bpm - 1).length, tk };
+  };
+  let cc = coCheck(co.s, co.bt, -Infinity);
+  check('clock out: Song Position then Start at a downbeat (within 2 ms)', co.s.some(x => x.b[0] === 0xF2) && cc.start === 1 && cc.ph <= 2, { cc, first: co.s.slice(0, 4) });
+  check('clock out: 24 ticks a beat, each within 2 ms of its place', cc.ticks >= 30 && cc.beat === 24 && cc.gap && Math.abs(cc.gap[0] - cc.tk) <= 2 && Math.abs(cc.gap[1] - cc.tk) <= 2, cc);
+  check('clock out: one log line a second, not one a tick', await A.evaluate(() => HOST.out.log().filter(e => /^clock out \d/.test(e.text)).length <= 3 && !HOST.out.log().some(e => e.m && e.m[0] === 0xF8)));
+  await A.evaluate(() => { window.__midiSent.length = 0; window.__fake.bt = Object.assign({}, window.__fake.bt, { at: window.__fake.bt.at + 300 }); });
+  await sleep(2600);
+  const co2 = await A.evaluate(() => ({ bt: window.__fake.bt, s: window.__midiSent.filter(x => x.port === 'Virtual B' && x.b[0] >= 0xF2).map(x => ({ b: x.b, r: x.ts - x.perf + x.room })) }));
+  cc = coCheck(co2.s, co2.bt, -Infinity);
+  check('clock out: another writer moves the downbeat: Stop, Song Position, Start at the new downbeat', co2.s.some(x => x.b[0] === 0xFC) && co2.s.some(x => x.b[0] === 0xF2) && cc.start === 1 && cc.ph <= 2, { cc, first: co2.s.slice(0, 6).map(x => x.b) });
+  // a tempo change from the latest downbeat (as clock in and Tempo write it): no Start, on at the new rate
+  await A.evaluate(() => { const b = window.__fake.bt, B = 60000 / b.bpm * b.bar, now = HOST.collab.now(); window.__midiSent.length = 0; window.__fake.bt = { bpm: 125, at: Math.round(b.at + Math.floor((now - b.at) / B) * B), bar: 4, by: 'xx' }; });
+  await sleep(900);
+  const co3 = await A.evaluate(() => window.__midiSent.filter(x => x.port === 'Virtual B' && x.b[0] >= 0xF2).map(x => ({ b: x.b, r: x.ts - x.perf + x.room })));
+  const g3 = co3.filter(x => x.b[0] === 0xF8).slice(8).map((x, i, a) => (i ? x.r - a[i - 1].r : null)).filter(x => x !== null);
+  check('clock out: a tempo change goes on at the new rate (no Start, ticks 20 ms apart)', !co3.some(x => x.b[0] === 0xFA || x.b[0] === 0xFC) && g3.length > 10 && g3.every(x => Math.abs(x - 20) <= 2), { first: co3.slice(0, 4), g3: g3.slice(0, 6) });
+  await A.evaluate(() => { window.__midiSent.length = 0; window.__fake.bt = null; });
+  await sleep(200);
+  check('clock out: the beat gone, Stop', await A.evaluate(() => window.__midiSent.some(x => x.b[0] === 0xFC) && !HOST.out.state().clock.out.run));
+  await A.evaluate(() => { const m = HOST.out.map(); m.opt.clockOut = false; HOST.out.map(m); });
+  // the scene's streams: read from list(), checked again, measured from pose() every frame and from value()
+  await A.evaluate(() => {
+    const F = window.__fake, t0 = document.timeline.currentTime;
+    F.vals = { lamp01: { shown: 0 }, cube01: { count: 2 } };
+    F.move = { lamp01: { v: [0.5, 0, 0], spin: 90, t0 } };
+    F.items[1].stream = [{ v: 'vx', cc: 21 }, { v: 'speed' }, { v: 'spin', cc: 22, ch: 2 }, { v: 'shown', note: 36, vel: 'speed' }, { v: 'count', cc: 23 }, { v: 'x', cc: 40, wide: true }, { v: 'x', cc: 3, note: 4 }];
+    F.items[0].stream = [{ v: 'y', min: 0, max: 1, cc: 1, wide: true }, { v: 'count', cc: 5 }, { v: 'y', min: 0, max: 1, cc: 1, wide: true }];
+    F.rev++; window.__midiSent.length = 0;
+  });
+  await sleep(1000);
+  const sc = await A.evaluate(() => HOST.out.state());
+  const scOf = v => sc.scene.find(x => x.v === v) || {};
+  check('scene streams read from list(): bad ones dropped and counted, a duplicate dropped', sc.scene.length === 6 && sc.sceneBad === 3, { n: sc.scene.length, bad: sc.sceneBad });
+  check('scene stream: a moving item\'s velocity within 5 % (vx 0.5 m/s)', Math.abs(scOf('vx').x - 0.5) <= 0.025, scOf('vx'));
+  check('scene stream: its speed within 5 %, its turning speed within 5 % (90 degrees a second)', Math.abs(scOf('speed').x - 0.5) <= 0.025 && Math.abs(scOf('spin').x - 90) <= 4.5, [scOf('speed'), scOf('spin')]);
+  s = await sent(A);
+  check('scene stream: 14-bit CC (y 0.5 of 0 to 1: CC 1 = 64, CC 33 = 0)', hasBytes(s, [0xB0, 1, 64]) && hasBytes(s, [0xB0, 33, 0]), s.filter(x => x.startsWith('176,1,') || x.startsWith('176,33')));
+  check('scene stream: a state value from value() (2 people of 0 to 4: CC 5 = 64)', hasBytes(s, [0xB0, 5, 64]), s.filter(x => x.startsWith('176,5,')));
+  await A.evaluate(() => { window.__midiSent.length = 0; window.__fake.vals.lamp01.shown = 1; });
+  await sleep(300);
+  check('scene stream: a threshold note on, its velocity from the speed (0.5 m/s: 22)', hasBytes(await sent(A), [0x90, 36, 22]), await sent(A));
+  await A.evaluate(() => { window.__fake.vals.lamp01.shown = 0; });
+  await sleep(300);
+  check('and off as it falls below', hasBytes(await sent(A), [0x80, 36, 0]), await sent(A));
+  await A.evaluate(() => { window.__midiSent.length = 0; window.__fake.emit({ ev: 'stream', id: 'lamp01', k: 'o', name: 'Lamp', who: 'h1abcd', at: HOST.collab.now(), v: 'vx', try: 1, send: [] }); });
+  await sleep(1300);
+  s = await sent(A);
+  check('a card\'s Try: a sweep 0 to 1 to 0 on that stream (CC 21 reaches 127 and 0)', hasBytes(s, [0xB0, 21, 127]) && hasBytes(s, [0xB0, 21, 0]), s.filter(x => x.startsWith('176,21,')));
+  check('the scene\'s streams shown on the page with their live values', await until(A, () => /Streams from the scene/.test(document.querySelector('#out [data-sec="streams"]').textContent) && [...document.querySelectorAll('#out [data-live^="sc"]')].some(x => /→/.test(x.textContent)), null, 3000));
+  // the page's own table: the new values, a 14-bit CC and a threshold note (validated; older rows read as before)
+  const own = await A.evaluate(() => {
+    const m = HOST.out.map();
+    m.streams = [{ id: 'str101', on: true, name: 'lamp vx', src: { k: 'item', id: 'lamp01' }, v: 'vx', min: -1, max: 1, hz: 30, midi: { ch: 2, cc: 9, wide: true }, osc: '' },
+      { id: 'str102', on: true, name: 'lamp roll', src: { k: 'item', id: 'lamp01' }, v: 'roll', min: -180, max: 180, midi: { ch: 2, note: 50, at: 0.6, vel: 'speed' }, osc: '/r' },
+      { id: 'str103', src: { k: 'item', id: 'lamp01' }, v: 'x', midi: { ch: 1, cc: 40, wide: true } }, { id: 'str104', src: { k: 'item', id: 'lamp01' }, v: 'x', midi: { ch: 1, cc: 3, note: 4 } },
+      { id: 'str105', src: { k: 'item', id: 'lamp01' }, v: 'acc', midi: { ch: 1, note: 3, at: 1.5 } }];
+    window.__midiSent.length = 0;
+    return HOST.out.map(m);
+  });
+  check('own streams: vx and roll and a note taken, a bad 14-bit, a CC with a note and a threshold of 1.5 dropped', own.length === 3 && await A.evaluate(() => HOST.out.state().streams.map(r => r.id).join() === 'str101,str102'), own);
+  await sleep(800);
+  const lv = await A.evaluate(() => HOST.out.state().live.str101);
+  s = await sent(A);
+  check('own stream: an item\'s vx (within 20 %) as a 14-bit CC pair on channel 2', lv && Math.abs(lv.x - 0.5) < 0.1 && s.some(x => x.startsWith('177,9,')) && s.some(x => x.startsWith('177,41,')), { lv, s: s.slice(0, 6) });
+  await A.evaluate(() => { window.__fake.move = {}; const m = HOST.out.map(); m.streams = []; HOST.out.map(m); window.__fake.items.forEach(x => { delete x.stream; }); window.__fake.rev++; });
 
   // ---- the mapping: validation, Export and Import round trip
   const probs = await A.evaluate(() => HOST.out.map({ out: 1, opt: { midi: true, midiOut: 'Virtual B', osc: true, noteLen: 80 }, streams: [{ id: 'bad', src: { k: 'head' } }, { id: 'str002', src: { k: 'dist', a: { k: 'head', who: 1 }, b: { k: 'item', id: 'lamp01' }, flat: true }, v: 'd', min: 0, max: 4, hz: 20, midi: { ch: 2, cc: 9 }, osc: '' }],

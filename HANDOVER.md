@@ -117,6 +117,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v158 (17 November 2026; FORMAT networks-52), on `dev` only: streams on studio cards, trails, loops on the
+    beat, MIDI clock both ways.** The owner's three asks for the MIDI cubes (values to send, trails for items and hands
+    seen by everyone at the circle, a loop recorder for movement and events with both clocks). Contract: the "v158" section
+    of `tools/output/SPEC.md`. Known: `--only 'studio sends'`'s step "a listener on STUDIO.out" fails as it did on v157
+    (its cube is made an everyone cube before the effect is expected); not chased on `dev`. Untested: real MIDI ports, a
+    DAW, Cardinal, anything in a headset.
 - **networks-v157 (17 November 2026; FORMAT networks-51, shell 157), on `dev` only: MIDI and OSC in and out.** Built in
     another session from the maybe-later Cardinal entry (Deferred, below). An output page (Shared dialog: *Output page*,
     or `&output`) on a laptop or the PC sends the room's events and streams as MIDI (Chrome or Edge) and OSC (through a

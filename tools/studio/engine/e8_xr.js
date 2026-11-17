@@ -393,7 +393,7 @@ function xrGrab(c, on) {
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
     const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
-    if (REC && REC.id === it.id) { buzz(c, 0.15, 12); return; }   // (recording its path: one hand carries it, a path has no size)
+    if (REC && REC.id === it.id && !(REC.beat && REC.by === 'beat' && !other.some(k => k.grab.id === it.id))) { buzz(c, 0.15, 12); return; }   // (recording its path: one hand carries it, a path has no size; on the beat, v158, a hand may take it up, or again, while it records)
     const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
     const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
     if (grp) { if (lockWhy(grp)) refuse(grp); else groupGrab(c, grp, q0); return; }
@@ -459,7 +459,9 @@ function xrLetGo(c) {
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
   // (recording its path: kept, its place as it was; e6f_path.js. Else where the hand left it)
-  if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  // (on the beat, v158: let go early it stays where it was let go until the recording's end downbeat, which writes it; e6w_loops.js)
+  if (it && REC && REC.id === it.id && REC.beat && REC.by === 'beat') { it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  else if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
 }

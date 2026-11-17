@@ -65,10 +65,22 @@ function normSw(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || (v.on !== 1 && v.on !== 0) || !fin(v.at) || v.at < 0) return null;
   return { on: v.on, at: Math.round(v.at), by: typeof v.by === 'string' ? v.by.slice(0, 32) : '' };
 }
+// (v158: bar, beats a bar, 1 to 16, with at a downbeat; written always from v158, kept as given: a bt without it, an older
+// writer's, reads as 4 beats a bar with at a downbeat (btBar), and is given back as it was, so nothing is written back)
 function normBt(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || !fin(v.bpm) || v.bpm < 20 || v.bpm > 300 || !fin(v.at) || v.at < 0) return null;
-  return { bpm: r2(v.bpm), at: Math.round(v.at), by: typeof v.by === 'string' ? v.by.slice(0, 32) : '' };
+  if (v.bar !== undefined && v.bar !== null && !(Number.isInteger(v.bar) && v.bar >= 1 && v.bar <= 16)) return null;
+  const r = { bpm: r2(v.bpm), at: Math.round(v.at) };
+  if (v.bar != null) r.bar = v.bar;
+  r.by = typeof v.by === 'string' ? v.by.slice(0, 32) : '';
+  return r;
 }
+// the room's beat in numbers (v158; also on HOST.cur.out): beats a bar, a beat's ms, beats since its downbeat at the room
+// moment now (may be less than 0), bars likewise; null without a beat
+const btBar = () => (STU.bt && STU.bt.bar) || 4;
+const beatMs = () => (STU.bt ? 60000 / STU.bt.bpm : null);
+const beatPos = now => (STU.bt ? (now - STU.bt.at) / (60000 / STU.bt.bpm) : null);
+const barPos = now => (STU.bt ? beatPos(now) / btBar() : null);
 // an item's send list (a cube's or a sequence's own, a press's), and its kind of list ('' none can be)
 const sendKind = it => (!it ? '' : it.kind === 'c' ? 'c' : it.kind === 'q' ? 'q' : PRESS_KINDS.includes(it.kind) ? 'press' : '');
 const sendList = it => (!it ? [] : it.kind === 'c' || it.kind === 'q' ? it.rec.send || [] : PRESS_KINDS.includes(it.kind) && it.rec.press ? it.rec.press.send || [] : []);
@@ -133,6 +145,7 @@ function sendFx(data, quiet) {
   const L = SENDS.last.get(k);
   if (SENDS.win.length >= SEND_RATE || (L !== undefined && now - L < SEND_GAP)) { SENDS.dropped++; return false; }
   SENDS.win.push(now); SENDS.last.set(k, now);
+  loopHeard(data);   // (this device's own walking in or pointing, while it records events on the beat: e6w_loops.js)
   SENDS.log.push([data.id, data.ev, data.at, data.try || 0]); if (SENDS.log.length > 100) SENDS.log.shift();
   // (the output page itself: its own listeners, as from itself; a person's device: the room)
   if (!SENDS.spy && (outPage() || !sendsHere())) { if (OUTL.fns.length) { SENDS.out++; studioEffect('send', data, myId()); return true; } return false; }
@@ -185,13 +198,14 @@ function sendPointing(Tr) {
 
 // ------------------------------------------------------- the output page's side --
 // an event to the listeners: { ev, id, k, name, who, at, t?, send, try? }
-function outEmit(it, ev, who, at, t, tr) {
+function outEmit(it, ev, who, at, t, tr, x) {
   if (!OUTL.fns.length || !it) return;
   const send = sendList(it).filter(e => e.on === ev && (ev !== 'at' || e.t === t)).map(e => Object.assign({}, e));
   const o = { ev, id: it.id, k: it.kind, name: it.rec.name, who: who || '', at: Math.round(at) };
   if (ev === 'at') o.t = t;
   o.send = send;
   if (tr) o.try = 1;
+  if (x) Object.assign(o, x);   // (a stream's Try, v158: its v and stream entries; e6v_stream.js)
   OUTL.log.push([ev, it.id, o.who, o.at]); if (OUTL.log.length > 100) OUTL.log.shift();
   for (const fn of OUTL.fns.slice()) {
     try { fn(Object.assign({}, o, { send: send.map(e => Object.assign({}, e)) })); } catch (e) { if (!OUTL.said.has(fn)) { OUTL.said.add(fn); try { console.warn('studio: an output listener failed', e); } catch (x) { /* no console */ } } }
@@ -244,7 +258,8 @@ function outStep(Tr) {
     const key = P ? [P.n, P.on, P.at, P.ts, P.src].join('|') : '', o = OUTL.q.get(q.id), who = P ? whoOf(P.by) : '';
     OUTL.q.set(q.id, { key, playing, u: U ? U.u : 0, cyc: U ? U.cyc : 0 });
     const ats = (q.rec.send || []).filter(e => e.on === 'at');
-    const cross = (lo, hi) => { const done = new Set(); for (const e of ats) if (e.t > lo && e.t <= hi && !done.has(e.t)) { done.add(e.t); outEmit(q, 'at', who, U.at0 + (U.cyc * q.rec.len + e.t) * 1000, e.t); } };
+    const cross = (lo, hi) => { const done = new Set(); for (const e of ats) if (e.t > lo && e.t <= hi && !done.has(e.t)) { done.add(e.t); outEmit(q, 'at', who, seqAt(U, q.rec.len, U.cyc, e.t), e.t); } };
+    seqOutEvents(q, o, U, P, key);   // (its press and send events crossed in real time, v158: e6w_loops.js)
     if (!o) { if (playing && Tr - P.at <= OUT_RECENT && !fresh) outEmit(q, 'start', who, P.at); continue; }
     const restart = playing && o.playing && key !== o.key && P.on;
     if (playing && (!o.playing || restart)) {
@@ -264,6 +279,7 @@ function outStep(Tr) {
 // the effect 'send' (studioEffect): ignored unless something listens here (the output page); a bad one ignored
 function sendHeard(data, by) {
   if (!OUTL.fns.length || !data || typeof data !== 'object' || Array.isArray(data) || !okId(data.id) || typeof data.ev !== 'string' || !fin(data.at)) return;
+  if (data.ev === 'stream') { streamHeard(data, by); return; }   // (a stream's Try, v158: e6v_stream.js)
   const it = STU.items.get(data.id), k = sendKind(it);
   if (!k || !SEND_ONS[k].includes(data.ev)) return;
   const tr = data.try === 1;
@@ -320,12 +336,12 @@ function outAct(a) {
       dirty();
       return { ok: true };
     }
-    if (d === 'beat') return beatAct(a.bpm, a.at);
+    if (d === 'beat') return beatAct(a.bpm, a.at, a.bar);
     return { ok: false, why: 'not an action' };
   } catch (e) { return { ok: false, why: 'failed: ' + (e && e.message) }; }
 }
 // the room's beat: written at most once a second (the last kept and written when the second is up), taken away at once
-function beatAct(bpm, at) {
+function beatAct(bpm, at, bar) {
   if (bpm === undefined || bpm === null || bpm === 0) {
     if (BEAT.t) { clearTimeout(BEAT.t); TIMERS.delete(BEAT.t); BEAT.t = 0; }
     BEAT.pend = null;
@@ -333,7 +349,10 @@ function beatAct(bpm, at) {
     return { ok: true };
   }
   if (!fin(bpm) || bpm < 20 || bpm > 300) return { ok: false, why: 'the bpm is outside 20 to 300' };
-  BEAT.pend = { bpm: r2(bpm), at: Math.round(fin(at) && at >= 0 ? at : behNow()), by: myId() };
+  // (beats a bar, v158: absent the room's now, else 4; written always)
+  if (bar !== undefined && bar !== null && !(Number.isInteger(bar) && bar >= 1 && bar <= 16)) return { ok: false, why: 'bar 1 to 16' };
+  const b = bar != null ? bar : (BEAT.pend && BEAT.pend.bar) || btBar();
+  BEAT.pend = { bpm: r2(bpm), at: Math.round(fin(at) && at >= 0 ? at : behNow()), bar: b, by: myId() };
   const wait = 1000 - (performance.now() - BEAT.last);
   if (wait <= 0) beatWrite();
   else if (!BEAT.t) BEAT.t = later(() => { BEAT.t = 0; beatWrite(); }, wait);
@@ -349,8 +368,14 @@ const OUT_API = {
   ready: () => outReady(),
   scene: () => STU.scene || '',
   list: () => [...STU.items.values()].filter(it => OUT_KINDS.includes(it.kind)).map(it => ({ id: it.id, k: it.kind, name: it.rec.name, send: sendList(it).map(e => Object.assign({}, e)),
-    press: PRESS_KINDS.includes(it.kind) && it.rec.press ? (it.rec.press.who === 'own' ? 'own' : 'all') : '', all: it.kind === 'c' && !!it.rec.all, key: it.kind === 'c' && it.rec.key ? it.rec.key : '' })),
+    press: PRESS_KINDS.includes(it.kind) && it.rec.press ? (it.rec.press.who === 'own' ? 'own' : 'all') : '', all: it.kind === 'c' && !!it.rec.all, key: it.kind === 'c' && it.rec.key ? it.rec.key : '',
+    stream: (it.rec.stream || []).map(e => Object.assign({}, e)) })),   // (its streams, v158: e6v_stream.js)
   pose: id => outPose(id),
+  // (v158: an item's state value for its streams, null for the kinematic ones and where there is none; the beat in numbers)
+  value: (id, v) => outValue(id, v),
+  beatMs: () => beatMs(),
+  beatPos: now => beatPos(now === undefined ? behNow() : now),
+  barPos: now => barPos(now === undefined ? behNow() : now),
   listen(fn) {
     if (typeof fn !== 'function') return () => {};
     if (!OUTL.fns.length) OUTL.gen = -1;   // (the first listener: what is there now is taken as seen)
@@ -358,7 +383,7 @@ const OUT_API = {
     return () => { const i = OUTL.fns.indexOf(fn); if (i >= 0) OUTL.fns.splice(i, 1); };
   },
   act: a => outAct(a),
-  beat: () => (STU.bt ? Object.assign({}, STU.bt) : null),
+  beat: () => (STU.bt ? Object.assign({}, STU.bt, { bar: btBar() }) : null),   // (bar always given, v158)
   sends: () => ({ out: SENDS.out, dropped: SENDS.dropped }),
 };
 

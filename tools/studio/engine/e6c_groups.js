@@ -256,21 +256,21 @@ function duplicateGroup(g) {
     for (const m of ms) { map.set(m.id, fresh()); if (m.kind === 'o') for (const x of cutsOn(m.id)) map.set(x.id, fresh()); }
     // (copies are never locked, follow no tracker and are worn by nobody: they are new, to be put where they go)
     for (const m of ms) if (m.kind === 'o') {
-      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined })));
+      putItem(map.get(m.id), 'o', streamFit(norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined }))));
       for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
-    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, streamFit(norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined }))));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
     // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
     const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', streamFit(norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined }))));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
       else if (r.on) { const nd = measureNode(m), at = m.holder.position.clone().add(d); nr.p = at.toArray(); if (nd) nr.o = offsetAt(nd, at, followK(followOf(m))); }   // (what it followed, beside where it is)
       if (r.sync && ids.has(r.sync)) nr.sync = map.get(r.sync);   // (a voice plays with the copy's recorded path: e6j_voice.js)
-      putItem(map.get(m.id), 's', norm('s', nr));
+      putItem(map.get(m.id), 's', streamFit(norm('s', nr)));   // (streams as far as the scene's 64 go: e6v_stream.js)
     }
     // (a copy's press entries naming the group's items name their copies; others' presses naming a member gain one for its copy: e6t_press.js)
     const mapP = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);

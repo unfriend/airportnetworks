@@ -74,6 +74,8 @@ function norm(kind, x, id) {
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
     if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (what pressing and pointing at it do, kept only when it has an entry: e6t_press.js)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'c') {
@@ -99,6 +101,7 @@ function norm(kind, x, id) {
     // the item it reacts to, its key (v140), kept only when set: an object's, a shape's or an empty's id; the cube is then
     // active while that item's middle is inside it, for everyone here (people walking in do nothing); anything else bad
     if (x.key != null) r.key = okId(x.key) ? x.key : null;
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -128,6 +131,8 @@ function norm(kind, x, id) {
       if (has('len')) r.len = r3(Math.min(600, Math.max(0.001, x.len)));
     }
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'x') {
@@ -152,6 +157,8 @@ function norm(kind, x, id) {
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
     if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (e6t_press.js)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'e') {
@@ -163,6 +170,8 @@ function norm(kind, x, id) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
@@ -929,7 +938,9 @@ function itemsStep(dt, now) {
   awayArm(); if (AWAY.freed) awayStep();   // (the away timer begun once; a model freed while away loaded again on the first frame back)
   paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
+  loopStep();   // (loops on the beat: a count-in, a recording begun and ended on the room's downbeats; e6w_loops.js)
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
+  streamStep();   // (Range from its movement, watching: e6v_stream.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
   for (const it of STU.items.values()) {
     if (it.kind === 'g' || it.kind === 'q') continue;   // (groups once their members have their places: groupsStep; a sequence has nothing to draw)
@@ -1668,8 +1679,9 @@ function duplicateItem(id) {
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
     // (a copy is never locked, follows no tracker and is worn by nobody: it is new, to be put where it goes)
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined, trk: undefined, puppet: undefined },
-      it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
+    STREAMCUT = 0;
+    putItem(nid, it.kind, streamFit(norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined, trk: undefined, puppet: undefined },
+      it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {}))));   // (its streams only as far as the scene's 64 go: e6v_stream.js)
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
@@ -1681,6 +1693,7 @@ function duplicateItem(id) {
     if (it.kind === 'c') { cubeCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }
   });
   select(nid);
+  if (STREAMCUT) recSay(nid, `The copy has ${STREAMCUT === (it.rec.stream || []).length ? 'none' : 'only some'} of its streams: the scene has ${STREAM_SCENE}, the most it takes.`, 'amber');
   sfxAct('place', 'world', null);
   return nid;
 }
@@ -1806,7 +1819,7 @@ function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
   if (CPK.open && CPK.open.id && CPK.open.id !== id) cpkCancel();   // (a colour picker belongs to the item on the card: e7h_colour.js)
-  if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
+  if (REC && REC.by === 'page' && REC.id !== id) { if (REC.beat) loopCancel('selected'); else recEnd(true); }   // (a page's recording: kept as Stop keeps it; on the beat cancelled, as it ends only at its end downbeat; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
@@ -1862,6 +1875,7 @@ function collabApply(v) {
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
   const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0, q: 0 };
   let evs = 0;   // (the sequences' events: 2,000 a scene)
+  let sts = 0;   // (the streams: 64 a scene, v158)
   let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
     const m = /^([ocsxgpevdq])\.([a-z0-9]{6})$/.exec(k);
@@ -1871,6 +1885,7 @@ function collabApply(v) {
     if (rec && m[1] === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) rec = null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
+    streamCap(rec, sts); if (rec.stream) sts += rec.stream.length;   // (the streams: 64 a scene, those past it dropped; e6v_stream.js)
     keep.add(m[2]); n[m[1]]++; if (m[1] === 'q') evs += rec.ev.length; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
@@ -1915,5 +1930,5 @@ function collabApply(v) {
 function studioEffect(type, data, by) {
   if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
   else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
-  else if (type === 'send') sendHeard(data, by);   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
+  else if (type === 'send') { loopHeard(data); sendHeard(data, by); }   // (and recorded as an event on the beat, v158: e6w_loops.js)   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
 }

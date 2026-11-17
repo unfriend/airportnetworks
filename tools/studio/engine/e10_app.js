@@ -215,6 +215,7 @@ function frame(now, xrFrame) {
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)
   itemsStep(dt, performance.now());
+  trailStep();   // (the items' and hands' trails, from where they are drawn this frame: e6x_trails.js)
   cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
@@ -428,7 +429,22 @@ const STUDIO = {
   out: OUT_API,
   sends: () => ({ out: SENDS.out, dropped: SENDS.dropped, log: SENDS.log.slice(), emitted: OUTL.log.slice(), listeners: OUTL.fns.length, sw: Object.fromEntries(STU.sw), bt: STU.bt, badSend: STU.badSend }),
   sendSet: (id, list) => sendSet(id, list),
+  // streams on a card (v158, e6v_stream.js): an item's list written as an edit (one Undo step; null takes it away), the card's
+  // pick, a watch under way, its last ranges; loops on the beat (e6w_loops.js): the recording armed or under way, its phase
+  // and beats, what it got; and their clock (the tests replace it, as trgClock)
+  streamSet: (id, list) => streamSet(id, list),
+  streams: () => streamState(),
+  loops: () => loopState(),
+  get loopClock() { return loopClock; },
+  set loopClock(f) { loopClock = f; },
   beatSet: (id, b) => beatSet(id, b),
+  // trails (v158, e6x_trails.js): what was drawn this frame ({ items, hands, verts, dropped, map }), the vertex cap (null the
+  // default), pretend hands ([{ id, hand: 'l' | 'r', color, p }] in the scene's frame; null none) and the clock (ms)
+  trails: () => trailState(),
+  trailCap: n => { TRL.cap = n == null ? TRAIL_MAX : Math.max(4, Math.min(TRAIL_MAX, Math.floor(n / 2) * 2)); return TRL.cap; },
+  trailFake: L => { TRL.fake = Array.isArray(L) ? L : null; },
+  get trailClock() { return trailClock; },
+  set trailClock(f) { trailClock = f; },
   seqViewDrag: (i, dt) => seqViewDrag(i, dt),
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)

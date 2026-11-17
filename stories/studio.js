@@ -17750,9 +17750,10 @@ function openScene(name, how, again) {
   clearItems();
   libClear();
   pvClear();
+  if (typeof trailClear === 'function') trailClear();   // (the old scene's trails go with it: e6x_trails.js)
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
-    bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, sxp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
+    bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
@@ -17778,7 +17779,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad; STU.badStream = L.streamBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
     for (const it of STU.items.values()) itemFile(it);   // (items the room placed before the listing came)
@@ -17845,7 +17846,7 @@ async function refreshFiles(changed) {
 // naming an item the layout lacks, or one of the wrong kind, dropped
 const LIMITS = { o: 300, c: 100, s: 60, x: 100, g: 50, p: 200, e: 100, v: 20, d: 50, q: 50 };
 function readLayout(j) {
-  const out = { items: [], bad: 0, texBad: 0, playBad: 0, seqBad: 0, sendBad: 0, at: 0, by: '', settings: normSettings() };
+  const out = { items: [], bad: 0, texBad: 0, playBad: 0, seqBad: 0, sendBad: 0, streamBad: 0, at: 0, by: '', settings: normSettings() };
   if (!j || typeof j !== 'object') return out;
   if (j.studio !== 1) { out.bad = 1; return out; }
   out.at = Date.parse(j.saved) || 0;
@@ -17853,7 +17854,7 @@ function readLayout(j) {
   const S = normSettings(j.settings);
   if (S) out.settings = S; else out.bad++;
   const ids = new Set();
-  let keys = 0, ppts = 0, evs = 0;   // (the sequences' events: 2,000 a scene; the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
+  let keys = 0, ppts = 0, evs = 0, streams = 0;   // (and the streams: 64 a scene, v158)   // (the sequences' events: 2,000 a scene; the recorded paths' keys: 6,000 a scene, in the layout's order; an item past them is a bad one; the paintings' points in records: 4,000)
   for (const [kind, list] of [['o', j.objects], ['c', j.cubes], ['s', j.sounds], ['x', j.cuts], ['g', j.groups], ['p', j.shapes], ['e', j.empties], ['v', j.screens], ['d', j.paintings], ['q', j.sequences]]) {
     if (list === undefined) continue;
     if (!Array.isArray(list)) { out.bad++; continue; }
@@ -17870,6 +17871,9 @@ function readLayout(j) {
       // (the sends to the output page, v157: an entry that is not one dropped and counted, as the starts are; e6u_send.js)
       const sl = kind === 'c' || kind === 'q' ? [x.send, rec.send] : PRESS_KINDS.includes(kind) && x.press && typeof x.press === 'object' ? [x.press.send, rec.press && rec.press.send] : [];
       if (Array.isArray(sl[0])) out.sendBad += sl[0].length - (sl[1] ? sl[1].length : 0);
+      // (the streams, v158: an entry that is not one dropped and counted, and those past the scene's 64; e6v_stream.js)
+      if (STREAM_KINDS.includes(kind) && Array.isArray(x.stream)) out.streamBad += x.stream.length - (rec.stream ? rec.stream.length : 0);
+      out.streamBad += streamCap(rec, streams); if (rec.stream) streams += rec.stream.length;
       out.items.push({ id, kind, rec });
     }
   }
@@ -17963,7 +17967,7 @@ async function loadSaved() {
     if (gen !== STU.gen) return;
     const L = readLayout(layout);
     putLayout(L.items, L.settings);
-    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad;
+    STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.savedAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad; STU.badStream = L.streamBad;
   } catch (e) { STU.saveNote = e.status === 404 ? 'This scene has no saved layout yet.' : 'The saved layout could not be read: ' + e.message; }
   dirty(true);
 }
@@ -21714,6 +21718,8 @@ function norm(kind, x, id) {
     if (x.trk != null) r.trk = normTrk(x.trk);   // (the tracker it follows, kept only when set: e6k_trk.js)
     if (x.puppet != null) r.puppet = normPuppet(x.puppet);   // (worn with trackers, kept only when set: e6l_puppet.js)
     if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (what pressing and pointing at it do, kept only when it has an entry: e6t_press.js)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'c') {
@@ -21739,6 +21745,7 @@ function norm(kind, x, id) {
     // the item it reacts to, its key (v140), kept only when set: an object's, a shape's or an empty's id; the cube is then
     // active while that item's middle is inside it, for everyone here (people walking in do nothing); anything else bad
     if (x.key != null) r.key = okId(x.key) ? x.key : null;
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
     return lockOf(x, r);
   }
   if (kind === 's') {
@@ -21768,6 +21775,8 @@ function norm(kind, x, id) {
       if (has('len')) r.len = r3(Math.min(600, Math.max(0.001, x.len)));
     }
     if (x.path != null) r.path = normPath(x.path);   // (its recorded path: kept while it follows something, played once it does not)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'x') {
@@ -21792,6 +21801,8 @@ function norm(kind, x, id) {
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
     if (x.press != null) { const pr = normPressRec(x.press); if (pr === null) return null; if (pr) r.press = pr; }   // (e6t_press.js)
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, grabOf(x, r)));
   }
   if (kind === 'e') {
@@ -21803,6 +21814,8 @@ function norm(kind, x, id) {
     if (x.motion != null) r.motion = normMotion(x.motion);
     if (x.path != null) r.path = normPath(x.path);
     if (x.trk != null) r.trk = normTrk(x.trk);
+    if (x.stream != null) { const t = streamKeep(x.stream, kind); if (t === null) return null; if (t) r.stream = t; }   // (its streams to the output page, v158: e6v_stream.js)
+    if (x.trail != null) { const t = trailKeep(x.trail); if (t === null) return null; r.trail = t; }   // (a trail of light behind it, v158: e6x_trails.js)
     return lockOf(x, showsOf(x, r));
   }
   if (kind === 'v') return normScreen(x, P, has, name, one);   // (a screen: e6q_screens.js)
@@ -22569,7 +22582,9 @@ function itemsStep(dt, now) {
   awayArm(); if (AWAY.freed) awayStep();   // (the away timer begun once; a model freed while away loaded again on the first frame back)
   paintTick(editing);   // (paint mode's frame: the stroke's new vertices sent, the build's slice begun; e6r_paint.js)
   triggerStep(now);
+  loopStep();   // (loops on the beat: a count-in, a recording begun and ended on the room's downbeats; e6w_loops.js)
   recStep();   // (a recording under way here: its samples, its end; e6f_path.js)
+  streamStep();   // (Range from its movement, watching: e6v_stream.js)
   restScan();   // (what rests at its placed pose this frame: held here, or Pause; e6e_motion.js)
   for (const it of STU.items.values()) {
     if (it.kind === 'g' || it.kind === 'q') continue;   // (groups once their members have their places: groupsStep; a sequence has nothing to draw)
@@ -23308,8 +23323,9 @@ function duplicateItem(id) {
   // takes none of its sounds, but its cut-outs, each onto the copy where it is on the object)
   change(() => {
     // (a copy is never locked, follows no tracker and is worn by nobody: it is new, to be put where it goes)
-    putItem(nid, it.kind, norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined, trk: undefined, puppet: undefined },
-      it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {})));
+    STREAMCUT = 0;
+    putItem(nid, it.kind, streamFit(norm(it.kind, Object.assign({}, it.rec, { name: nameFor(it.rec.name.replace(/ \d+$/, '')), p: [it.rec.p[0] + 0.5, it.rec.p[1], it.rec.p[2]], locked: undefined, cutsLocked: undefined, trk: undefined, puppet: undefined },
+      it.kind === 's' && it.rec.on ? { o: [o[0] + 0.5, o[1], o[2]] } : {}))));   // (its streams only as far as the scene's 64 go: e6v_stream.js)
     // (each cut-out's copy in the cube lists its original is in: a door a cube opens opens in the copy too, cubeCopy)
     if (it.kind === 'o') for (const x of cutsOn(id)) { const xid = newId(); if (countOf('x') < LIMITS.x && putItem(xid, 'x', norm('x', Object.assign({}, x.rec, { on: nid, name: nameFor(x.rec.name.replace(/ \d+$/, '')), locked: undefined })))) cubeCopy(x.id, xid); }
     // (a picture a cube puts on the object goes on its copy too, an entry beside the original's: e6i_tex.js)
@@ -23321,6 +23337,7 @@ function duplicateItem(id) {
     if (it.kind === 'c') { cubeCopy(id, nid); seqCopy(id, nid); pressCopy(id, nid); }
   });
   select(nid);
+  if (STREAMCUT) recSay(nid, `The copy has ${STREAMCUT === (it.rec.stream || []).length ? 'none' : 'only some'} of its streams: the scene has ${STREAM_SCENE}, the most it takes.`, 'amber');
   sfxAct('place', 'world', null);
   return nid;
 }
@@ -23446,7 +23463,7 @@ function select(id) {
   id = STU.items.has(id) ? id : '';
   if (id === STU.sel) return;
   if (CPK.open && CPK.open.id && CPK.open.id !== id) cpkCancel();   // (a colour picker belongs to the item on the card: e7h_colour.js)
-  if (REC && REC.by === 'page' && REC.id !== id) recEnd(true);   // (a page's recording: kept as Stop keeps it; e6f_path.js)
+  if (REC && REC.by === 'page' && REC.id !== id) { if (REC.beat) loopCancel('selected'); else recEnd(true); }   // (a page's recording: kept as Stop keeps it; on the beat cancelled, as it ends only at its end downbeat; e6f_path.js)
   STU.sel = id;
   if (STU.pick && STU.pick.id !== id) STU.pick = null;   // (picking belongs to the cube on the card)
   if (STU.txp && STU.txp.id !== id) STU.txp = null;   // (and its texture pick)
@@ -23502,6 +23519,7 @@ function collabApply(v) {
   if (!fresh || items || v.settings !== undefined) { const S = normSettings(v.settings); if (S) putSettings(S); }
   const keep = new Set(), n = { o: 0, c: 0, s: 0, x: 0, g: 0, p: 0, e: 0, v: 0, d: 0, q: 0 };
   let evs = 0;   // (the sequences' events: 2,000 a scene)
+  let sts = 0;   // (the streams: 64 a scene, v158)
   let keys = 0, ppts = 0;   // (the recorded paths' keys: 6,000 a scene, in the state's order; a record past them is a bad one; paintings: only new ones are held to 4,000 points in records, readers keep what they are given)
   for (const k of Object.keys(v)) {
     const m = /^([ocsxgpevdq])\.([a-z0-9]{6})$/.exec(k);
@@ -23511,6 +23529,7 @@ function collabApply(v) {
     if (rec && m[1] === 'q' && evs + rec.ev.length > SEQ_EV_SCENE) rec = null;
     if (rec && rec.path && keys + pathN(rec.path) > PATH_MAX.scene) rec = null;
     if (!rec) { if (it && it.kind === m[1]) keep.add(m[2]); continue; }   // (a bad record: ignored, the item kept as it is)
+    streamCap(rec, sts); if (rec.stream) sts += rec.stream.length;   // (the streams: 64 a scene, those past it dropped; e6v_stream.js)
     keep.add(m[2]); n[m[1]]++; if (m[1] === 'q') evs += rec.ev.length; if (rec.path) keys += pathN(rec.path); if (rec.strokes) ppts += ptsOf(rec.strokes);
     if (it && it.kind === m[1] && JSON.stringify(it.rec) === JSON.stringify(rec)) continue;
     putItem(m[2], m[1], rec, { glide: true });
@@ -23555,7 +23574,7 @@ function collabApply(v) {
 function studioEffect(type, data, by) {
   if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
   else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
-  else if (type === 'send') sendHeard(data, by);   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
+  else if (type === 'send') { loopHeard(data); sendHeard(data, by); }   // (and recorded as an event on the beat, v158: e6w_loops.js)   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
 }
 
 // =============================================================== CUT-OUTS ==
@@ -24132,21 +24151,21 @@ function duplicateGroup(g) {
     for (const m of ms) { map.set(m.id, fresh()); if (m.kind === 'o') for (const x of cutsOn(m.id)) map.set(x.id, fresh()); }
     // (copies are never locked, follow no tracker and are worn by nobody: they are new, to be put where they go)
     for (const m of ms) if (m.kind === 'o') {
-      putItem(map.get(m.id), 'o', norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined })));
+      putItem(map.get(m.id), 'o', streamFit(norm('o', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined, puppet: undefined }))));
       for (const x of cutsOn(m.id)) putItem(map.get(x.id), 'x', norm('x', Object.assign({}, x.rec, { on: map.get(m.id), name: base(x.rec.name), locked: undefined })));
     }
-    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined })));
+    for (const m of ms) if (m.kind === 'p' || m.kind === 'e' || m.kind === 'v' || m.kind === 'd') putItem(map.get(m.id), m.kind, streamFit(norm(m.kind, Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), locked: undefined, trk: undefined }))));
     const mapL = l => [...new Set(l.map(i => map.get(i) || i))];
     // (a cube of the group puts its pictures on the copies of its group's objects, others' on the same: e6i_tex.js)
     // (and what it starts, on the copies of its group's items, others' on the same: e6n_plays.js)
     const mapT = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
-    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined })));
+    for (const m of ms) if (m.kind === 'c') putItem(map.get(m.id), 'c', streamFit(norm('c', Object.assign({}, m.rec, { name: base(m.rec.name), p: add(m.rec.p), show: mapL(m.rec.show), hide: mapL(m.rec.hide), tex: mapT(m.rec.tex), plays: mapT(m.rec.plays), locked: undefined }))));
     for (const m of ms) if (m.kind === 's') {
       const r = m.rec, nr = Object.assign({}, r, { name: base(r.name), p: add(r.p), locked: undefined });
       if (r.on && ids.has(r.on)) nr.on = map.get(r.on);   // (it follows the copy of its object: the same bone and offset)
       else if (r.on) { const nd = measureNode(m), at = m.holder.position.clone().add(d); nr.p = at.toArray(); if (nd) nr.o = offsetAt(nd, at, followK(followOf(m))); }   // (what it followed, beside where it is)
       if (r.sync && ids.has(r.sync)) nr.sync = map.get(r.sync);   // (a voice plays with the copy's recorded path: e6j_voice.js)
-      putItem(map.get(m.id), 's', norm('s', nr));
+      putItem(map.get(m.id), 's', streamFit(norm('s', nr)));   // (streams as far as the scene's 64 go: e6v_stream.js)
     }
     // (a copy's press entries naming the group's items name their copies; others' presses naming a member gain one for its copy: e6t_press.js)
     const mapP = l => (l ? l.map(e => Object.assign({}, e, { on: map.get(e.on) || e.on })) : undefined);
@@ -24368,6 +24387,7 @@ Object.assign(ITEM_ACT, {
 // - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
 //   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
 //   ('off'), while this scene shows here (null again otherwise, on dispose)
+// - hands: { len, w } (v158, e6x_trails.js): people's hand trails, written only when on (absent: off)
 // - grid: 'shown' | 'hidden' (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"):
 //   hidden, the stage's blue 1 m grid and its origin mark are not drawn (its dark floor and sky stay); written only when
 //   hidden, so a scene's settings and layout.json are as before otherwise (FORMAT networks-50: an older device would drop it)
@@ -24378,8 +24398,10 @@ function normSettings(x) {
   const one = (k, list) => (x[k] === undefined ? SETTINGS0[k] : list.includes(x[k]) ? x[k] : null);
   const r = { others: one('others', ['shown', 'hidden']), real: one('real', ['device', 'always', 'never']) };
   const g = x.grid === undefined || x.grid === 'shown' ? 'shown' : x.grid === 'hidden' ? 'hidden' : null;
-  if (g === null || Object.values(r).includes(null)) return null;
+  const h = normHands(x.hands);   // (people's hand trails, v158: e6x_trails.js; written only when on)
+  if (g === null || h === null || Object.values(r).includes(null)) return null;
   if (g === 'hidden') r.grid = 'hidden';
+  if (h) r.hands = h;
   return r;
 }
 function putSettings(S) {
@@ -24389,7 +24411,7 @@ function putSettings(S) {
 // a row pressed: 'others:hidden', 'real:always'... (one change: Undo takes it back; for everyone at a station)
 function setSetting(v) {
   if (!editOn()) return;
-  const i = String(v).indexOf(':'), S = i > 0 ? normSettings(Object.assign({}, STU.settings, { [String(v).slice(0, i)]: String(v).slice(i + 1) })) : null;
+  const i = String(v).indexOf(':'), S = String(v).startsWith('hands:') ? handsSetting(v) : i > 0 ? normSettings(Object.assign({}, STU.settings, { [String(v).slice(0, i)]: String(v).slice(i + 1) })) : null;
   if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
   change(() => putSettings(S), [SET_ID]);
   sfxAct('click', 'world', null);
@@ -24402,6 +24424,7 @@ function settingsBlocks(B, st) {
     { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' },
     { label: 'Floor grid' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:grid:' + v, label: n, act: 'setting', v: 'grid:' + v, on: (S.grid || 'shown') === v })) },
     { p: 'Hidden: the blue 1 m grid on the floor and the mark at the scene\'s middle are not drawn (in VR; in AR there is no floor anyway). Saved with the scene.', c: 'faint' });
+  handsBlocks(B, who);   // (people's hand trails, v158: e6x_trails.js)
 }
 // the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
 const HOOK = { hide: false, occ: null };
@@ -24604,7 +24627,9 @@ function motionMiddle(it, m, out) {
 const motionTime = (it, m, now, clockS) => (m.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : clockS);   // (never shown yet: its start)
 // its motion at time t as a change in the scene's frame (into out), for its pose m before it
 function motionDelta(it, mo, t, m, out) {
-  const c = (mo.speed / 60) * t, ph = 2 * Math.PI * (c - Math.floor(c)), s = Math.sin(ph), A = _ma.fromArray(MAXIS[mo.axis]), u = _mu.fromArray(MCROSS[mo.axis]);
+  const c = (mo.speed / 60) * t, ph = 2 * Math.PI * (c - Math.floor(c));
+  it.mph = c - Math.floor(c);   // (its phase, for a stream: e6v_stream.js)
+  const s = Math.sin(ph), A = _ma.fromArray(MAXIS[mo.axis]), u = _mu.fromArray(MCROSS[mo.axis]);
   const M = motionMiddle(it, m, _mmid);
   // (a change X about the middle: T(M) X T(-M))
   const about = X => out.makeTranslation(M.x, M.y, M.z).multiply(X).multiply(_mt.makeTranslation(-M.x, -M.y, -M.z));
@@ -24837,13 +24862,17 @@ function normPath(x) {
   const play = !has('play') ? 'loop' : PATH_PLAYS.includes(x.play) ? x.play : null, start = !has('start') ? 'always' : ['always', 'shown'].includes(x.start) ? x.start : null;
   if (!play || !start || (has('speed') && !fin(x.speed))) return null;
   const speed = clamp(r2(has('speed') ? x.speed : 1), 0.25, 4);
+  // (on the room's beat, v158: sync 'beat' and beats, 1 to 256, both or neither; e6w_loops.js)
+  const sy = x.sync != null, bs = x.beats != null;
+  if (sy !== bs || (sy && (x.sync !== 'beat' || !Number.isInteger(x.beats) || x.beats < 1 || x.beats > 256))) return null;
+  const beat = r => (sy ? Object.assign(r, { sync: 'beat', beats: x.beats }) : r);
   if (has('src')) {
     if (has('k') || !okRecFile(x.src) || !fin(x.len) || !Number.isInteger(x.n) || x.n < 2 || x.n > PATH_MAX.fileKeys) return null;
     const len = r3(x.len);
-    return len > 0 && len <= PATH_MAX.long ? { src: x.src, len, n: x.n, play, start, speed } : null;
+    return len > 0 && len <= PATH_MAX.long ? beat({ src: x.src, len, n: x.n, play, start, speed }) : null;
   }
   const k = normKeys(x.k, PATH_MAX.keys, PATH_MAX.secs);
-  return k ? { k, play, start, speed } : null;
+  return k ? beat({ k, play, start, speed }) : null;
 }
 // its path, when it plays here (a sound's waits while it follows something)
 const pathOf = it => (it && it.rec && it.rec.path && PATH_ITEMS.includes(it.kind) && !(it.kind === 's' && it.rec.on) ? it.rec.path : null);
@@ -24893,7 +24922,10 @@ POSE.path = (it, now, clockS, m) => {
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
   // (a path a cube starts: where its run has it, waiting at its start until one, e6n_plays.js; its timeline's hold wins)
   const tm = (it.tgM & 4) && !animHold(it, 'path') ? trgPathAt(it, P) : null;
-  pathAt(P, tm != null ? tm : pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
+  // (on the room's beat while it has one, v158: locked to its beats, stretched with the tempo; e6w_loops.js)
+  const bm = tm == null && !animHold(it, 'path') ? pathBeatS(P) : null, s = tm != null ? tm : bm != null ? bm : pathTime(P, pathT(it, P, now, clockS)), D = pathLen(P);
+  it.pph = D > 0 ? clamp(s / D, 0, 1) : 0;   // (its phase, for a stream: e6v_stream.js)
+  pathAt(P, s, _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -24961,10 +24993,12 @@ function recSample(force) {
   const R = REC, it = R && R.it;
   if (!it) return;
   recFloor(R);   // (Stays on the floor: kept to it before it is sampled, and so before it is drawn)
-  const now = recClock();
+  const now = R.beat ? loopClock() : recClock();
   if (!force && now - R.last < 1000 / PATH_HZ - 0.5) return;
   R.last = now;
-  const t = clamp((now - R.t0) / 1000, 0, R.cap), H = it.holder, q = it.kind === 's' ? _pq3.identity() : H.quaternion, prev = R.S[R.S.length - 1];
+  // (on the beat, v158: its time by the room's beat position since its first downbeat, in seconds at the tempo it began at;
+  // turned into the tempo at its end as it ends: recBeatEnd, e6w_loops.js)
+  const t = R.beat ? clamp(((beatPos(now) == null ? R.beat.from : beatPos(now)) - R.beat.from) * R.beat.spb, 0, R.beat.beats * R.beat.spb) : clamp((now - R.t0) / 1000, 0, R.cap), H = it.holder, q = it.kind === 's' ? _pq3.identity() : H.quaternion, prev = R.S[R.S.length - 1];
   const s = [t, H.position.x, H.position.y, H.position.z, q.x, q.y, q.z, q.w];
   if (prev && t - prev[0] < 0.002) { s[0] = prev[0]; R.S[R.S.length - 1] = s; } else R.S.push(s);
 }
@@ -24997,7 +25031,7 @@ function recStep() {
   recSample(false);
   recGhost(R);
   const now = recClock();
-  if (now - R.t0 >= R.cap * 1000) {
+  if (!R.beat && now - R.t0 >= R.cap * 1000) {
     R.capped = true;
     if (R.by === 'xr' && R.c && R.c.grab && R.c.grab.id === R.id) xrLetGo(R.c); else recEnd(true);   // (a headset's: as if let go)
     return;
@@ -25048,12 +25082,13 @@ function pathJoin(R, play) {
     S[n - 1] = [last[0]].concat(first.slice(1));
     return { S, info: { cut: 0, d: ap[0], a: ap[1], snap: true, changed: true } };
   }
+  // (on the beat, v158: its length is its beats, so no stillness is cut: only its end is bent onto its start)
   let j = 1;
-  while (j < n && !beyond(sampleApart(S0[j], first, mid), JOIN.still)) j++;
+  while (!R.beat && j < n && !beyond(sampleApart(S0[j], first, mid), JOIN.still)) j++;
   if (j >= n) return { S: S0 };   // (never that far from where it began: as recorded; too little to keep, as it says)
   const i0 = j - 1;
   let k = n - 2;
-  while (k > i0 && !beyond(sampleApart(S0[k], last, mid), JOIN.still)) k--;
+  while (!R.beat && k > i0 && !beyond(sampleApart(S0[k], last, mid), JOIN.still)) k--;
   const e = Math.min(n - 1, k + 1), t0 = S0[i0][0], S = S0.slice(i0, e + 1).map(x => [x[0] - t0].concat(x.slice(1)));
   S[0][0] = 0;
   const m = S.length, D = S[m - 1][0];
@@ -25089,6 +25124,7 @@ function recEnd(save) {
   if (!R) return;
   const it = STU.items.get(R.id) === R.it ? R.it : null;
   if (it && save) recSample(true);
+  if (R.beat) recBeatEnd(R);   // (on the beat, v158: its times turned into the tempo at its end; e6w_loops.js)
   REC = null; RECLAST = R;
   voiceEnd(R);   // (the microphone stopped: its sound kept only with what is kept, e6j_voice.js)
   if (!it) { voiceDrop(R); recSay(R.id, '', ''); if (R.by === 'page' && SNAP) endChange(); return; }
@@ -25158,7 +25194,7 @@ function recPath(it, R, raw) {
   return prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
 }
 function recPrep(it, R, raw) {
-  const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
+  const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, R.beat ? 'loop' : old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
   const c0 = J.info && J.info.c0 ? J.info.c0 : 0;   // (the stillness cut from its start: its voice is cut alike, e6j_voice.js)
   if (S.length < 2 || S[S.length - 1][0] < 0.1) return { why: hand ? 'Too short to keep: hold the grip a moment longer.' : 'Too short to keep: record a moment longer.' };
   // (its length is its last sample's: refused here, before simplifying, when it needs a file and nothing keeps one)
@@ -25176,18 +25212,21 @@ function recFinish(it, R, prep, keep) {
   const tol = new THREE.Quaternion();
   if (k.every(e => Math.hypot(e[1], e[2], e[3]) < 0.005 && tol.set(e[4], e[5], e[6], e[7]).normalize().angleTo(_pkq.identity()) < Math.PI / 180)) return { why: 'It did not move: nothing recorded.' };
   if (k.length < 2) return { why: 'Too short to keep.' };
-  const play = old ? old.play : 'loop', start = old ? old.start : 'always', speed = old ? old.speed : 1, len = k[k.length - 1][0];
+  // (on the beat it must reach its end downbeat: one ended early would play at the wrong length, out of step with the beat)
+  if (R.beat && k[k.length - 1][0] < R.beat.beats * (R.beat.spbEnd || R.beat.spb) - 0.05) return { why: 'The recording on the beat ended before its end downbeat: nothing recorded.' };
+  const play = R.beat ? 'loop' : old ? old.play : 'loop', start = old ? old.start : 'always', speed = old ? old.speed : 1, len = k[k.length - 1][0];
+  const bs = R.beat ? { sync: 'beat', beats: R.beat.beats } : old && old.sync ? { sync: old.sync, beats: old.beats } : {};   // (on the beat, v158: e6w_loops.js)
   // (longer than 120 s, or of more than 600 keys: kept as a file of the scene, which needs a relay that takes uploads)
   if (k.length > PATH_MAX.keys || len > PATH_MAX.secs) {
     if (k.length > PATH_MAX.fileKeys) return { why: `This movement needs ${fmt(k.length)} keys: a recording holds ${fmt(PATH_MAX.fileKeys)} at most. Record a shorter or a calmer movement.` };
     if (!canUpload()) return { why: len > PATH_MAX.secs ? 'A recording longer than 2 minutes needs a relay that takes uploads (it is kept as a file of the scene).' : `This movement needs ${fmt(k.length)} keys: a path holds ${PATH_MAX.keys} at most in the layout, and a longer one is kept as a file of the scene, which needs a relay that takes uploads. Record a shorter or a calmer movement.` };
-    const path = normPath({ src: 'recordings/x.json', len, n: k.length, play, start, speed });   // (its file's name once it is in: recKeep)
+    const path = normPath(Object.assign({ src: 'recordings/x.json', len, n: k.length, play, start, speed }, bs));   // (its file's name once it is in: recKeep)
     if (!path) return { why: `The recording could not be kept (longer than ${PATH_MAX.long / 60} minutes?).` };
     return { path, keys: k, join: J.info || null, c0 };
   }
   const total = pathKeys(it.id) + k.length;
   if (total > PATH_MAX.scene) return { why: `With this movement the scene's recorded paths would hold ${fmt(total)} keys: ${fmt(PATH_MAX.scene)} at most. Delete a recording, or record a shorter movement.` };
-  const path = normPath({ k, play, start, speed });
+  const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
   const st = collabState();
@@ -25282,7 +25321,8 @@ function pathBlocks(it, B, dis, mv) {
   if (rec) {
     const t = Math.max(0, (recClock() - REC.t0) / 1000), most = REC.cap === PATH_MAX.long ? '10 minutes' : '120 s';
     const lit = REC.lit ? ' At its ghost: let go here and its end goes exactly on its start.' : ' To loop smoothly, end at its ghost (it lights).';
-    if (REC.by === 'xr') B.push({ label: head, p: `● Recording ${secs(t)}: let go to keep it (at most ${most}).` + lit, c: 'red' });
+    if (REC.beat) B.push({ label: head, p: `● Recording on the beat: it stops by itself at the end downbeat and loops on the beat.` + (REC.by === 'beat' ? ' Let go early and it stays where you let go until then.' : ''), c: 'red' });   // (v158: e6w_loops.js)
+    else if (REC.by === 'xr') B.push({ label: head, p: `● Recording ${secs(t)}: let go to keep it (at most ${most}).` + lit, c: 'red' });
     else B.push({ label: head, p: `● Recording ${secs(t)}: move it with the arrows (Move, Turn) or its card's buttons (Turn 90°, On the floor...); Stop keeps the movement (at most ${most}).` + lit.replace('let go', 'Stop'), c: 'red' },
       { row: [{ id: 'recstop', label: 'Stop', act: 'i:recStop', primary: true }, { id: 'reccancel', label: 'Cancel', act: 'i:recCancel' }] });
     floorRows(it, B, true);
@@ -25313,6 +25353,7 @@ function pathBlocks(it, B, dis, mv) {
     animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
     playNote(it, 'path', B);   // (a cube that starts it: e6n_plays.js)
   }
+  pathBeatBlocks(it, B, dis, mv || fol || busy || rec);   // (on the room's beat, and Record on the beat, v158: e6w_loops.js)
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)
   const J = REC_NOTE.id === it.id && REC_NOTE.join && RECLAST && RECLAST.id === it.id ? REC_NOTE.join : null;
@@ -25346,14 +25387,14 @@ const pathSet = (it, fn) => { const P = it.rec.path; if (P) setRec(it.id, { path
 Object.assign(ITEM_ACT, {
   // a page: Record (Stop when one runs here); a headset: armed for the next grip (again: not), Hold it disarmed
   rec: it => {
-    if (recording(it)) { recEnd(true); return; }
+    if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(true); return; }   // (on the beat it ends only at its end downbeat: e6w_loops.js)
     if (XR.on) return;
     beginChange([it.id]);   // (Record to Stop is one change)
     if (!recBegin(it, 'page')) { endChange(); return; }
     tcAttach();
   },
-  recStop: it => { if (recording(it)) recEnd(true); },
-  recCancel: it => { if (recording(it)) recEnd(false); },
+  recStop: it => { if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(true); } },
+  recCancel: it => { if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(false); } },
   recArm: it => {
     if (XR.rec === it.id || !XR.on) { XR.rec = ''; return; }
     const why = recWhy(it);
@@ -30138,7 +30179,7 @@ function duplicatePainting(it) {
 // t, ts, by }: shared on the room's clock, never in layout.json, the draft, Unsaved changes or Undo. Every device works the
 // whole result out from that value and the room's time (a late joiner too): firing the events at or before where the
 // sequence is now, the runs' own code placing each where it would be by now.
-const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq'];
+const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq', 'press', 'send'];   // (press and send: v158, e6w_loops.js)
 // (what show and hide may name: a cube too, v154, switched on and off; what a cube's lists, a press's entries and a sequence's events take)
 const SEQ_RUN = ['clip', 'sound', 'path', 'motion'], SEQ_SHOW = ['o', 's', 'p', 'e', 'v', 'd', 'x', 'c'];
 const SEQ = { last: new Map(), nudge: null, opened: -1, t0: 0, log: [], fired: 0, parents: null, rev: -1, texList: [], texRev: -1, page: 0 };
@@ -30152,7 +30193,7 @@ const seqQs = () => [...STU.items.values()].filter(q => q.kind === 'q');
 
 // ---------------------------------------------------------------- the record --
 // what an event's target may be, by what
-const seqKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'tex' ? ['o'] : what === 'seq' ? ['q'] : PLAY_KINDS[what]);
+const seqKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'tex' ? ['o'] : what === 'seq' ? ['q'] : what === 'press' ? PRESS_KINDS : what === 'send' ? ['c'].concat(PRESS_KINDS) : PLAY_KINDS[what]);
 function normSeqEv(list, self) {
   const out = [];
   for (const e of list) {
@@ -30171,6 +30212,11 @@ function normSeqEv(list, self) {
     } else if (e.what === 'show' || e.what === 'hide') {
       if (e.fade !== undefined && e.fade !== null && e.fade !== 'cut') continue;
       if (e.fade === 'cut') r.fade = 'cut';
+    } else if (e.what === 'press') {
+      // (v158: the item's press as if pressed, its do entries for everyone, its sends; nothing else to say)
+    } else if (e.what === 'send') {
+      if (!SEQ_SENDS.includes(e.ev)) continue;   // (v158: only its send entries go out; a cube's enter or leave, an item's hover or unhover)
+      r.ev = e.ev;
     } else {
       if (!Number.isInteger(e.mat) || e.mat < 0 || e.mat > 255 || !TXS_SLOTS.includes(e.slot)) continue;
       if (!(e.file === '' || (okFile(e.file) && CONV.IM.isPicture(e.file)))) continue;
@@ -30193,6 +30239,8 @@ function normSeq(x, name, self) {
   if (has('col') && x.col !== null) { if (typeof x.col !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(x.col)) return null; r.col = x.col.toLowerCase(); }
   if (has('ev')) { if (!Array.isArray(x.ev)) return null; r.ev = normSeqEv(x.ev, self); } else r.ev = [];
   if (x.send != null) { const t = sendKeep(x.send, 'q'); if (t === null) return null; if (t) r.send = t; }   // (its sends to the output page, v157: e6u_send.js)
+  // (on the room's beat, v158: its length is that many beats while the room has one, its start rounded down to a downbeat; e6w_loops.js)
+  if (x.beats != null) { if (!Number.isInteger(x.beats) || x.beats < 1 || x.beats > 256) return null; r.beats = x.beats; }
   return lockOf(x, r);
 }
 // a play state as the room keeps it (null: not one)
@@ -30211,6 +30259,8 @@ const seqBase = q => (q.rec.sync === 'own' ? STU.qOwn : STU.qr).get(q.id) || nul
 // this run), stopAt }, or null while it is rewound or never started
 function seqU(q, P, Tr) {
   if (!P || (P.t === -1 && !P.on)) return null;
+  const L = seqLock(q, P);
+  if (L) return seqUBeat(q, P, Tr, L);   // (on the room's beat, v158: e6w_loops.js)
   const len = q.rec.len, loop = q.rec.loop === 'loop';
   let playing = !!P.on, u, cyc = 0, ended = false;
   if (playing) {
@@ -30246,8 +30296,8 @@ function seqEff(q, d = 0, Tr = behNow(), noPv = false) {
     const len = p.rec.len;
     for (const e of evs) {
       let cyc = U.cyc, m = null;
-      if (e.t <= U.u) m = U.at0 + (cyc * len + e.t) * 1000;
-      else if (cyc >= 1) m = U.at0 + ((cyc - 1) * len + e.t) * 1000;
+      if (e.t <= U.u) m = seqAt(U, len, cyc, e.t);
+      else if (cyc >= 1) m = seqAt(U, len, cyc - 1, e.t);
       if (m !== null) cands.push({ m, how: e.how });
     }
   }
@@ -30317,13 +30367,15 @@ function seqShowHide(S, H, Tr) {
         if (e.what === 'show' || e.what === 'hide') {
           if (_sqD.has(e.on)) continue;
           _sqD.add(e.on);
-          const src = { id: q.id, since: U.at0 + (cyc * len + e.t) * 1000, cut: e.fade === 'cut' }, M = e.what === 'show' ? S : H;
+          const src = { id: q.id, since: seqAt(U, len, cyc, e.t), cut: e.fade === 'cut' }, M = e.what === 'show' ? S : H;
           if (enteredLater(src, M.get(e.on))) M.set(e.on, src);
+        } else if (e.what === 'press') {
+          seqPressShowHide(q, e, seqAt(U, len, cyc, e.t), S, H, _sqD);   // (an item pressed by the sequence: its show and hide entries, v158)
         } else if (e.what === 'tex') {
           const k = e.on + '|' + e.mat + '|' + e.slot;
           if (_sqD.has(k)) continue;
           _sqD.add(k);
-          (tex || (tex = [])).push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file, since: U.at0 + (cyc * len + e.t) * 1000, id: q.id });
+          (tex || (tex = [])).push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file, since: seqAt(U, len, cyc, e.t), id: q.id });
         }
       }
     }
@@ -30343,11 +30395,13 @@ function seqFire(Tr) {
     const fire = (cyc, lo, hi) => {
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        if (e.t <= lo || e.t > hi || !SEQ_RUN.includes(e.what)) continue;
+        if (e.t <= lo || e.t > hi) continue;
+        if (e.what === 'press') { seqPressRuns(q, e, i, cyc, roomToRun(seqAt(U, len, cyc, e.t))); continue; }   // (v158: e6w_loops.js)
+        if (!SEQ_RUN.includes(e.what)) continue;
         const t = STU.items.get(e.on);
         if (!t || !PLAY_KINDS[e.what].includes(t.kind)) continue;
         SEQ.fired++;
-        trgStart({ c: q, e, ek: q.id + '|' + i + '|' + cyc, src: 'seq' }, roomToRun(U.at0 + (cyc * len + e.t) * 1000), false);
+        trgStart({ c: q, e, ek: q.id + '|' + i + '|' + cyc, src: 'seq' }, roomToRun(seqAt(U, len, cyc, e.t)), false);
       }
     };
     if (!q.sq || q.sq.key !== key) { seqClear(q); q.sq = { key, u: U.u, cyc: U.cyc, fired: 0 }; const n0 = SEQ.fired; fire(U.cyc, -1, U.u); q.sq.fired = SEQ.fired - n0; }
@@ -30461,6 +30515,8 @@ function seqEvWords(e) {
   else if (e.what === 'show') w = t && t.kind === 'c' ? 'switches on' : e.fade === 'cut' ? 'shows (at once)' : 'shows';   // (a cube: switched on and off, v154)
   else if (e.what === 'hide') w = t && t.kind === 'c' ? 'switches off' : e.fade === 'cut' ? 'hides (at once)' : 'hides';
   else if (e.what === 'tex') w = `${SLOT_NAME[e.slot] || e.slot} → ${e.file ? baseName(e.file) : 'its own picture'}`;
+  else if (e.what === 'press') w = 'pressed';
+  else if (e.what === 'send') w = `sends ${SEND_EV_WORD[e.ev] || e.ev}`;
   else w = e.how === 'stop' ? 'stops' : 'starts';
   return `${T} · ${nm} · ${w}`;
 }
@@ -30468,6 +30524,8 @@ function seqWhy(e) {
   const t = STU.items.get(e.on);
   if (!t || !seqKinds(e.what).includes(t.kind)) return 'It names an item not in the scene (or one this cannot be done to).';
   if (SEQ_RUN.includes(e.what)) return playWhy(e);
+  if (e.what === 'press' && !t.rec.press) return 'It has no press: nothing happens.';
+  if (e.what === 'send' && !seqSendEvs(t).includes(e.ev)) return 'It has no send entries for that: nothing goes out.';
   return '';
 }
 function seqStateWords(q) {
@@ -30485,6 +30543,8 @@ function seqOpts(t) {
   if (t.kind === 'c') out.push({ what: 'show', label: 'Switch it on' }, { what: 'hide', label: 'Switch it off' });   // (a cube, v154: shown and hidden is switched on and off)
   else if (SEQ_SHOW.includes(t.kind)) out.push({ what: 'show', label: 'Show it' }, { what: 'hide', label: 'Hide it' });
   if (t.kind === 'o') out.push({ what: 'tex', label: 'Change a texture...' });
+  if (PRESS_KINDS.includes(t.kind) && t.rec.press) out.push({ what: 'press', label: 'Press it' });   // (v158: e6w_loops.js)
+  if (seqSendEvs(t).length) out.push({ what: 'send', label: 'Only its sends' });
   return out;
 }
 const SQ_HOWS = { clip: ['once', 'loop', 'hold', 'stop'], path: ['once', 'loop', 'hold', 'stop'], sound: ['once', 'loop', 'stop'], motion: ['once', 'loop', 'stop'], seq: ['once', 'stop'] };
@@ -30494,6 +30554,7 @@ function sqDraft(P) {
   if (P.what === 'clip' && P.how !== 'stop') e.clip = P.clip;
   if (SEQ_RUN.includes(P.what) || P.what === 'seq') e.how = P.how;
   if ((P.what === 'show' || P.what === 'hide') && P.fade === 'cut') e.fade = 'cut';
+  if (P.what === 'send') e.ev = P.ev;
   if (P.what === 'tex') { e.mat = P.mat; e.slot = P.slot; e.file = P.file; }
   return e;
 }
@@ -30506,6 +30567,8 @@ function sqSentence(P) {
   if (P.what === 'hide') return `${T}${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
   if (P.what === 'tex') return `${T}${nm}'s ${(SLOT_NAME[P.slot] || P.slot).toLowerCase()} becomes ${P.file ? baseName(P.file) : 'its own picture'}.`;
   if (P.what === 'seq') return `${T}${nm} ${h === 'stop' ? 'stops' : 'starts from its beginning'}.`;
+  if (P.what === 'press') return `${T}${nm} is pressed, as if someone pressed it (what it does, for everyone; its sends go out from nobody).`;
+  if (P.what === 'send') return `${T}only ${nm}'s sends for ${SEND_EV_WORD[P.ev] || P.ev} go out (the output page hears it from nobody); nothing is shown or hidden.`;
   if (h === 'stop') return `${T}${nm} stops what a sequence or a cube started.`;
   const what = P.what === 'clip' ? P.clip : P.what === 'sound' ? 'the sound' : P.what === 'path' ? 'its recorded path' : 'its motion';
   return `${T}${nm} plays ${what} ${h === 'once' ? 'once from its start' : h === 'loop' ? 'again and again until the sequence stops' : 'to its end and holds there until the sequence stops'}.`;
@@ -30563,6 +30626,7 @@ function seqBlocks(q, B, dis, ed) {
     if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
     else if (P.what) {
       if (SQ_HOWS[P.what]) B.push({ label: 'How', row: SQ_HOWS[P.what].map(h => ({ id: 'sqhow:' + h, label: sqHowWord(P.what, h), act: 'i:sqHow', v: h, on: P.how === h, dis: ld })) });
+      if (P.what === 'send') B.push({ label: 'Which', row: seqSendEvs(t).map(v => ({ id: 'sqev:' + v, label: SEND_EV_WORD[v], act: 'i:sqEv', v, on: P.ev === v, dis: ld })) });
       if ((P.what === 'show' || P.what === 'hide') && t.kind !== 'c') B.push({ label: 'How', row: [{ id: 'sqfade:fade', label: 'Fade', act: 'i:sqFade', v: '', on: P.fade !== 'cut', dis: ld }, { id: 'sqfade:cut', label: 'At once', act: 'i:sqFade', v: 'cut', on: P.fade === 'cut', dis: ld }] });
       if (P.what === 'tex') {
         const ms = t.model ? ctMats(t) : [];
@@ -30590,7 +30654,7 @@ function seqBlocks(q, B, dis, ed) {
 }
 const ms0 = t => (t && t.model ? ctMats(t) : []);
 const sqNormOne = (e, id) => normSeqEv([e], id)[0] || null;
-const sqEvKey = e => [e.on, e.what, e.clip || '', e.how || '', e.fade || '', e.mat, e.slot, e.file].join('|');
+const sqEvKey = e => [e.on, e.what, e.clip || '', e.how || '', e.fade || '', e.mat, e.slot, e.file, e.ev || ''].join('|');
 const sqSet = (q, patch) => { if (q.kind === 'q' && !q.rec.locked) setRec(q.id, patch); };
 Object.assign(ITEM_ACT, {
   sqLen: (q, d) => sqSet(q, { len: r2(Math.min(600, Math.max(0.1, q.rec.len + (+d || 0)))) }),
@@ -30641,8 +30705,10 @@ Object.assign(ITEM_ACT, {
     const s = String(v), what = s.startsWith('clip:') ? 'clip' : s, clip = what === 'clip' ? s.slice(5) : '';
     if (!seqOpts(t).some(o => o.what === what && (what !== 'clip' || o.clip === clip))) return;
     P.what = what; P.clip = clip; P.file = null;
+    if (what === 'send') P.ev = seqSendEvs(t)[0] || '';
     if (!(SQ_HOWS[what] || []).includes(P.how)) P.how = 'once';
   },
+  sqEv: (q, v) => { const P = STU.plp, t = P && P.seq && P.id === q.id ? STU.items.get(P.on) : null; if (t && seqSendEvs(t).includes(v)) P.ev = v; },
   sqHow: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id && (SQ_HOWS[P.what] || []).includes(v)) P.how = v; },
   sqFade: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.fade = v === 'cut' ? 'cut' : ''; },
   sqMat: (q, i) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.mat = Math.max(0, +i || 0); },
@@ -30663,7 +30729,7 @@ Object.assign(ITEM_ACT, {
     STU.plp = null;
   },
 });
-PANE_ONLY.push('sqSel', 'sqEvPg', 'sqPreview', 'sqPreviewEnd', 'sqPick', 'sqOn', 'sqBack', 'sqWhat', 'sqHow', 'sqFade', 'sqMat', 'sqSlot', 'sqPic', 'sqPg', 'sqCPg', 'sqPPg', 'sqAtD', 'sqAtNow', 'sqNudge');
+PANE_ONLY.push('sqEv', 'sqSel', 'sqEvPg', 'sqPreview', 'sqPreviewEnd', 'sqPick', 'sqOn', 'sqBack', 'sqWhat', 'sqHow', 'sqFade', 'sqMat', 'sqSlot', 'sqPic', 'sqPg', 'sqCPg', 'sqPPg', 'sqAtD', 'sqAtNow', 'sqNudge');
 // the page's slider for the time of an event being added (tenths of a second)
 function seqAtSet(v, done) { const P = STU.plp; if (P && P.seq) { P.at = r2(Math.min(600, v / 10)); if (done) dirty(true); } }
 // the transport, which anyone may press (a visitor too, editing or not), refused only while the circle's story is locked
@@ -30718,7 +30784,7 @@ function seqSig() {
   const P = seqEff(q), U = seqU(q, P, behNow());
   // nothing that moves with the clock or a scrub: the bar is patched on its own strip, and the state line gives no seconds while it moves
   const pv = !!P && P.src === 'preview';
-  return [P ? (pv ? 'pv|' + P.on : P.n + '|' + P.on + '|' + P.ts) : '', U && U.ended, U && U.playing, STU.qprev && STU.qprev.id === q.id, STU.qsel, STU.qpage, seqCan(), STU.plp && STU.plp.seq ? [STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.fade, STU.plp.at, STU.plp.mat, STU.plp.slot, STU.plp.file, STU.plp.page, STU.plp.cpage, STU.plp.ppage].join() : ''].join();
+  return [P ? (pv ? 'pv|' + P.on : P.n + '|' + P.on + '|' + P.ts) : '', U && U.ended, U && U.playing, STU.qprev && STU.qprev.id === q.id, STU.qsel, STU.qpage, seqCan(), STU.plp && STU.plp.seq ? [STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.fade, STU.plp.ev, STU.plp.at, STU.plp.mat, STU.plp.slot, STU.plp.file, STU.plp.page, STU.plp.cpage, STU.plp.ppage].join() : ''].join();
 }
 // for tests (STUDIO.seq(id), STUDIO.seqs())
 function seqState(id) {
@@ -31010,7 +31076,7 @@ const PR_HOWS = { clip: ['once', 'loop', 'stop'], path: ['once', 'loop', 'stop']
 const prHows = (list, what) => (list === 'hover' && (what === 'clip' || what === 'path') ? ['once', 'loop', 'hold', 'stop'] : PR_HOWS[what] || []);
 const prHowWord = (list, what, h) => (what === 'seq' ? (h === 'stop' ? 'Stop it' : h === 'loop' ? (list === 'hover' ? 'Loop it' : 'Toggle it') : 'Start it') : h === 'loop' && list === 'do' ? 'Loop (toggles)' : HOW_WORD[h]);
 // what can be done to an item by a reaction: its run kinds, show and hide, starting a sequence (never a picture)
-const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex');
+const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex' && o.what !== 'press' && o.what !== 'send');   // (a press and its sends are a sequence's events only: v158)
 function prWords(e, list) {
   const t = STU.items.get(e.on), nm = t ? t.rec.name : 'an item not in the scene', hv = list === 'hover', cut = e.fade === 'cut' ? ' (at once)' : '';
   let w;
@@ -31234,10 +31300,22 @@ function normSw(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || (v.on !== 1 && v.on !== 0) || !fin(v.at) || v.at < 0) return null;
   return { on: v.on, at: Math.round(v.at), by: typeof v.by === 'string' ? v.by.slice(0, 32) : '' };
 }
+// (v158: bar, beats a bar, 1 to 16, with at a downbeat; written always from v158, kept as given: a bt without it, an older
+// writer's, reads as 4 beats a bar with at a downbeat (btBar), and is given back as it was, so nothing is written back)
 function normBt(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v) || !fin(v.bpm) || v.bpm < 20 || v.bpm > 300 || !fin(v.at) || v.at < 0) return null;
-  return { bpm: r2(v.bpm), at: Math.round(v.at), by: typeof v.by === 'string' ? v.by.slice(0, 32) : '' };
+  if (v.bar !== undefined && v.bar !== null && !(Number.isInteger(v.bar) && v.bar >= 1 && v.bar <= 16)) return null;
+  const r = { bpm: r2(v.bpm), at: Math.round(v.at) };
+  if (v.bar != null) r.bar = v.bar;
+  r.by = typeof v.by === 'string' ? v.by.slice(0, 32) : '';
+  return r;
 }
+// the room's beat in numbers (v158; also on HOST.cur.out): beats a bar, a beat's ms, beats since its downbeat at the room
+// moment now (may be less than 0), bars likewise; null without a beat
+const btBar = () => (STU.bt && STU.bt.bar) || 4;
+const beatMs = () => (STU.bt ? 60000 / STU.bt.bpm : null);
+const beatPos = now => (STU.bt ? (now - STU.bt.at) / (60000 / STU.bt.bpm) : null);
+const barPos = now => (STU.bt ? beatPos(now) / btBar() : null);
 // an item's send list (a cube's or a sequence's own, a press's), and its kind of list ('' none can be)
 const sendKind = it => (!it ? '' : it.kind === 'c' ? 'c' : it.kind === 'q' ? 'q' : PRESS_KINDS.includes(it.kind) ? 'press' : '');
 const sendList = it => (!it ? [] : it.kind === 'c' || it.kind === 'q' ? it.rec.send || [] : PRESS_KINDS.includes(it.kind) && it.rec.press ? it.rec.press.send || [] : []);
@@ -31302,6 +31380,7 @@ function sendFx(data, quiet) {
   const L = SENDS.last.get(k);
   if (SENDS.win.length >= SEND_RATE || (L !== undefined && now - L < SEND_GAP)) { SENDS.dropped++; return false; }
   SENDS.win.push(now); SENDS.last.set(k, now);
+  loopHeard(data);   // (this device's own walking in or pointing, while it records events on the beat: e6w_loops.js)
   SENDS.log.push([data.id, data.ev, data.at, data.try || 0]); if (SENDS.log.length > 100) SENDS.log.shift();
   // (the output page itself: its own listeners, as from itself; a person's device: the room)
   if (!SENDS.spy && (outPage() || !sendsHere())) { if (OUTL.fns.length) { SENDS.out++; studioEffect('send', data, myId()); return true; } return false; }
@@ -31354,13 +31433,14 @@ function sendPointing(Tr) {
 
 // ------------------------------------------------------- the output page's side --
 // an event to the listeners: { ev, id, k, name, who, at, t?, send, try? }
-function outEmit(it, ev, who, at, t, tr) {
+function outEmit(it, ev, who, at, t, tr, x) {
   if (!OUTL.fns.length || !it) return;
   const send = sendList(it).filter(e => e.on === ev && (ev !== 'at' || e.t === t)).map(e => Object.assign({}, e));
   const o = { ev, id: it.id, k: it.kind, name: it.rec.name, who: who || '', at: Math.round(at) };
   if (ev === 'at') o.t = t;
   o.send = send;
   if (tr) o.try = 1;
+  if (x) Object.assign(o, x);   // (a stream's Try, v158: its v and stream entries; e6v_stream.js)
   OUTL.log.push([ev, it.id, o.who, o.at]); if (OUTL.log.length > 100) OUTL.log.shift();
   for (const fn of OUTL.fns.slice()) {
     try { fn(Object.assign({}, o, { send: send.map(e => Object.assign({}, e)) })); } catch (e) { if (!OUTL.said.has(fn)) { OUTL.said.add(fn); try { console.warn('studio: an output listener failed', e); } catch (x) { /* no console */ } } }
@@ -31413,7 +31493,8 @@ function outStep(Tr) {
     const key = P ? [P.n, P.on, P.at, P.ts, P.src].join('|') : '', o = OUTL.q.get(q.id), who = P ? whoOf(P.by) : '';
     OUTL.q.set(q.id, { key, playing, u: U ? U.u : 0, cyc: U ? U.cyc : 0 });
     const ats = (q.rec.send || []).filter(e => e.on === 'at');
-    const cross = (lo, hi) => { const done = new Set(); for (const e of ats) if (e.t > lo && e.t <= hi && !done.has(e.t)) { done.add(e.t); outEmit(q, 'at', who, U.at0 + (U.cyc * q.rec.len + e.t) * 1000, e.t); } };
+    const cross = (lo, hi) => { const done = new Set(); for (const e of ats) if (e.t > lo && e.t <= hi && !done.has(e.t)) { done.add(e.t); outEmit(q, 'at', who, seqAt(U, q.rec.len, U.cyc, e.t), e.t); } };
+    seqOutEvents(q, o, U, P, key);   // (its press and send events crossed in real time, v158: e6w_loops.js)
     if (!o) { if (playing && Tr - P.at <= OUT_RECENT && !fresh) outEmit(q, 'start', who, P.at); continue; }
     const restart = playing && o.playing && key !== o.key && P.on;
     if (playing && (!o.playing || restart)) {
@@ -31433,6 +31514,7 @@ function outStep(Tr) {
 // the effect 'send' (studioEffect): ignored unless something listens here (the output page); a bad one ignored
 function sendHeard(data, by) {
   if (!OUTL.fns.length || !data || typeof data !== 'object' || Array.isArray(data) || !okId(data.id) || typeof data.ev !== 'string' || !fin(data.at)) return;
+  if (data.ev === 'stream') { streamHeard(data, by); return; }   // (a stream's Try, v158: e6v_stream.js)
   const it = STU.items.get(data.id), k = sendKind(it);
   if (!k || !SEND_ONS[k].includes(data.ev)) return;
   const tr = data.try === 1;
@@ -31489,12 +31571,12 @@ function outAct(a) {
       dirty();
       return { ok: true };
     }
-    if (d === 'beat') return beatAct(a.bpm, a.at);
+    if (d === 'beat') return beatAct(a.bpm, a.at, a.bar);
     return { ok: false, why: 'not an action' };
   } catch (e) { return { ok: false, why: 'failed: ' + (e && e.message) }; }
 }
 // the room's beat: written at most once a second (the last kept and written when the second is up), taken away at once
-function beatAct(bpm, at) {
+function beatAct(bpm, at, bar) {
   if (bpm === undefined || bpm === null || bpm === 0) {
     if (BEAT.t) { clearTimeout(BEAT.t); TIMERS.delete(BEAT.t); BEAT.t = 0; }
     BEAT.pend = null;
@@ -31502,7 +31584,10 @@ function beatAct(bpm, at) {
     return { ok: true };
   }
   if (!fin(bpm) || bpm < 20 || bpm > 300) return { ok: false, why: 'the bpm is outside 20 to 300' };
-  BEAT.pend = { bpm: r2(bpm), at: Math.round(fin(at) && at >= 0 ? at : behNow()), by: myId() };
+  // (beats a bar, v158: absent the room's now, else 4; written always)
+  if (bar !== undefined && bar !== null && !(Number.isInteger(bar) && bar >= 1 && bar <= 16)) return { ok: false, why: 'bar 1 to 16' };
+  const b = bar != null ? bar : (BEAT.pend && BEAT.pend.bar) || btBar();
+  BEAT.pend = { bpm: r2(bpm), at: Math.round(fin(at) && at >= 0 ? at : behNow()), bar: b, by: myId() };
   const wait = 1000 - (performance.now() - BEAT.last);
   if (wait <= 0) beatWrite();
   else if (!BEAT.t) BEAT.t = later(() => { BEAT.t = 0; beatWrite(); }, wait);
@@ -31518,8 +31603,14 @@ const OUT_API = {
   ready: () => outReady(),
   scene: () => STU.scene || '',
   list: () => [...STU.items.values()].filter(it => OUT_KINDS.includes(it.kind)).map(it => ({ id: it.id, k: it.kind, name: it.rec.name, send: sendList(it).map(e => Object.assign({}, e)),
-    press: PRESS_KINDS.includes(it.kind) && it.rec.press ? (it.rec.press.who === 'own' ? 'own' : 'all') : '', all: it.kind === 'c' && !!it.rec.all, key: it.kind === 'c' && it.rec.key ? it.rec.key : '' })),
+    press: PRESS_KINDS.includes(it.kind) && it.rec.press ? (it.rec.press.who === 'own' ? 'own' : 'all') : '', all: it.kind === 'c' && !!it.rec.all, key: it.kind === 'c' && it.rec.key ? it.rec.key : '',
+    stream: (it.rec.stream || []).map(e => Object.assign({}, e)) })),   // (its streams, v158: e6v_stream.js)
   pose: id => outPose(id),
+  // (v158: an item's state value for its streams, null for the kinematic ones and where there is none; the beat in numbers)
+  value: (id, v) => outValue(id, v),
+  beatMs: () => beatMs(),
+  beatPos: now => beatPos(now === undefined ? behNow() : now),
+  barPos: now => barPos(now === undefined ? behNow() : now),
   listen(fn) {
     if (typeof fn !== 'function') return () => {};
     if (!OUTL.fns.length) OUTL.gen = -1;   // (the first listener: what is there now is taken as seen)
@@ -31527,7 +31618,7 @@ const OUT_API = {
     return () => { const i = OUTL.fns.indexOf(fn); if (i >= 0) OUTL.fns.splice(i, 1); };
   },
   act: a => outAct(a),
-  beat: () => (STU.bt ? Object.assign({}, STU.bt) : null),
+  beat: () => (STU.bt ? Object.assign({}, STU.bt, { bar: btBar() }) : null),   // (bar always given, v158)
   sends: () => ({ out: SENDS.out, dropped: SENDS.dropped }),
 };
 
@@ -31695,6 +31786,914 @@ function beatSet(id, b) {
   change(() => motionSet(it, () => ({ beat: b === null ? undefined : b })));
   return STU.items.get(id).rec.motion.beat || null;
 }
+// ============================================================== STREAMS ON A CARD ==
+// Values from the scene sent as MIDI and OSC (v158; the owner, 17 November 2026: "xyz plus velocity plus what else", then the
+// scene's streams set on an item's card; tools/output/SPEC.md "v158" section 2 is the contract, tools/studio/SPEC.md "Streams
+// on a card" the studio's part). An object's, a shape's, an empty's, a sound's or a cube's record may carry stream entries:
+//   stream: [{ v, min, max, curve, smooth, hz, cc, wide, note, at, vel, val, ch, osc }]   (fields in this order, only those set)
+// v what is measured (STREAM_V): where it is drawn and how it moves (the output page measures those itself from out.pose()),
+// its state (out.value(), worked out here), people near it, and a cube's count of heads inside. min and max the range mapped
+// to 0..1 (absent: the value's own, STREAM_RANGE); curve 'inv'; smooth 0..0.95; hz 1..60 (near and count at most 15); then
+// cc (wide: 14-bit, cc 0..31) or note (at: its threshold, vel 'speed' or val its velocity), or neither (OSC only); ch 1..16;
+// osc an address of its own (the send entries' rule). The output page (output.js) runs them; nothing of it is sent by the
+// studio but a card's Try (the effect send with ev 'stream'). At most 8 an item and 64 a scene.
+const STREAM_MAX = 8, STREAM_SCENE = 64, STREAM_KINDS = ['o', 'p', 'e', 's', 'c'];
+const STREAM_GROUPS = [
+  ['Where', ['x', 'y', 'z', 'yaw', 'pitch', 'roll']],
+  ['How it moves', ['speed', 'vx', 'vy', 'vz', 'acc', 'spin']],
+  ['Its state', ['size', 'shown', 'clip', 'path', 'motion']],
+  ['People', ['near', 'count']],
+];
+const STREAM_V = STREAM_GROUPS.flatMap(g => g[1]), STREAM_STATE = ['size', 'shown', 'clip', 'path', 'motion', 'near', 'count'];
+const STREAM_RANGE = { x: [-3, 3], z: [-3, 3], y: [0, 2.5], yaw: [-180, 180], roll: [-180, 180], pitch: [-90, 90], speed: [0, 3], vx: [-3, 3], vy: [-3, 3], vz: [-3, 3], acc: [0, 20], spin: [0, 720], size: [0.5, 2], shown: [0, 1], clip: [0, 1], path: [0, 1], motion: [0, 1], near: [0, 4], count: [0, 4] };
+const STREAM_WORD = { x: 'X', y: 'Y', z: 'Z', yaw: 'Yaw', pitch: 'Pitch', roll: 'Roll', speed: 'Speed', vx: 'Speed along x', vy: 'Speed up', vz: 'Speed along z', acc: 'Acceleration', spin: 'Turning speed',
+  size: 'Size', shown: 'Shown', clip: 'Its animation', path: 'Its recorded path', motion: 'Its motion', near: 'Nearest person', count: 'People inside' };
+const STREAM_UNIT = { x: 'm', y: 'm', z: 'm', yaw: '°', pitch: '°', roll: '°', speed: 'm/s', vx: 'm/s', vy: 'm/s', vz: 'm/s', acc: 'm/s²', spin: '°/s', size: '×', near: 'm' };
+const STREAM_SMOOTH = [0, 0.25, 0.5, 0.75, 0.9, 0.95];
+Object.assign(STU, { stp: null, badStream: 0 });
+// a watch of an item's values for Range from its movement: { id, v, until, lo, hi, n }, and a kinematic memory per item
+const STW = { w: null, k: new Map(), log: [] };
+
+// ---------------------------------------------------------------- the record --
+// a list as a record keeps it (null: not a list); an entry that is not one is dropped (counted where a layout is read), an
+// exact duplicate dropped, at most 8; a field that does not apply is not written, nor one at its default (hz 30, ch 1, at
+// 0.5, val 100, smooth 0, a range end at the value's own)
+function normStream(list, kind) {
+  if (!Array.isArray(list)) return null;
+  const out = [], seen = new Set();
+  for (const e of list) {
+    if (out.length >= STREAM_MAX) break;
+    const r = normStreamOne(e, kind);
+    if (!r) continue;
+    const k = JSON.stringify(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+function normStreamOne(e, kind) {
+  if (!e || typeof e !== 'object' || Array.isArray(e) || !STREAM_V.includes(e.v) || (e.v === 'count' && kind !== 'c')) return null;
+  const has = k => e[k] !== undefined && e[k] !== null, int = (x, a, b) => Number.isInteger(x) && x >= a && x <= b, D = STREAM_RANGE[e.v];
+  if ((has('min') && !fin(e.min)) || (has('max') && !fin(e.max))) return null;
+  const lo = has('min') ? r4(e.min) : D[0], hi = has('max') ? r4(e.max) : D[1];
+  if (lo === hi || Math.abs(lo) > 1e6 || Math.abs(hi) > 1e6) return null;
+  if (has('curve') && e.curve !== 'inv') return null;
+  if (has('smooth') && !(fin(e.smooth) && e.smooth >= 0 && e.smooth <= 0.95)) return null;
+  const hmax = e.v === 'near' || e.v === 'count' ? 15 : 60;
+  if (has('hz') && !int(e.hz, 1, hmax)) return null;
+  if (has('cc') && has('note')) return null;
+  if (has('cc') && !int(e.cc, 0, 127)) return null;
+  if (has('note') && !int(e.note, 0, 127)) return null;
+  if (has('wide') && typeof e.wide !== 'boolean') return null;
+  if (e.wide === true && !(has('cc') && e.cc <= 31)) return null;
+  if (has('at') && !(fin(e.at) && e.at >= 0.01 && e.at <= 0.99)) return null;
+  if (has('vel') && e.vel !== 'speed') return null;
+  if (has('val') && !int(e.val, 1, 127)) return null;
+  if (has('ch') && !int(e.ch, 1, 16)) return null;
+  if (has('osc') && (typeof e.osc !== 'string' || !SEND_OSC.test(e.osc) || e.osc.includes('//'))) return null;
+  const r = { v: e.v };
+  if (lo !== D[0]) r.min = lo;
+  if (hi !== D[1]) r.max = hi;
+  if (e.curve === 'inv') r.curve = 'inv';
+  if (has('smooth') && r2(e.smooth) > 0) r.smooth = r2(e.smooth);
+  if (has('hz') && e.hz !== 30) r.hz = e.hz;
+  if (has('cc')) { r.cc = e.cc; if (e.wide === true) r.wide = true; }
+  if (has('note')) {
+    r.note = e.note;
+    if (has('at') && r2(e.at) !== 0.5) r.at = r2(e.at);
+    if (e.vel === 'speed') r.vel = 'speed'; else if (has('val') && e.val !== 100) r.val = e.val;
+  }
+  if ((has('cc') || has('note')) && has('ch') && e.ch !== 1) r.ch = e.ch;
+  if (has('osc')) r.osc = e.osc;
+  return r;
+}
+// a list given for a record: kept only when it has an entry (else undefined); null a bad one (not a list)
+const streamKeep = (x, kind) => { if (x == null) return undefined; const l = normStream(x, kind); return l === null ? null : l.length ? l : undefined; };
+// the scene's entries but one item's (the scene's 64)
+const streamCount = except => [...STU.items.values()].reduce((n, it) => n + (it.id !== except && it.rec && it.rec.stream ? it.rec.stream.length : 0), 0);
+// a record whose entries would take the scene past 64: the rest dropped (n: the scene's so far, in the order read); how many
+function streamCap(rec, n) {
+  if (!rec || !rec.stream) return 0;
+  const room = Math.max(0, STREAM_SCENE - n);
+  if (rec.stream.length <= room) return 0;
+  const cut = rec.stream.length - room;
+  if (room) rec.stream = rec.stream.slice(0, room); else delete rec.stream;
+  return cut;
+}
+// a copy's record (Duplicate, a group's copy): its streams trimmed to what the scene's 64 still takes, so every device
+// keeps the same (apply trims past 64 in the order read: a copy past it would differ here); STREAMCUT counts what went
+let STREAMCUT = 0;
+const streamFit = rec => { if (rec) STREAMCUT += streamCap(rec, streamCount()); return rec; };
+// the default OSC address of a stream (Wire 4)
+const streamAddr = (it, v) => `/studio/${it.kind === 'c' ? 'cube' : 'item'}/${it.id}/${v}`;
+
+// --------------------------------------------------------------- the values --
+// an item's state value now (out.value): null for the kinematic ones (the page measures those from out.pose) and where there
+// is none (no head near, an unknown id)
+function outValue(id, v) {
+  const it = STU.items.get(id);
+  if (!it || !STREAM_KINDS.includes(it.kind) || !STREAM_STATE.includes(v)) return null;
+  try {
+    if (v === 'shown') return (it.kind === 'c' ? it.on !== false : !!it.shown && !it.notHere) ? 1 : 0;
+    if (v === 'size') {
+      const H = it.holder;
+      if (!H || H.matrixAutoUpdate) return 1;
+      const k = _svV.setFromMatrixColumn(H.matrix, 0).length(), k0 = H.scale.x;
+      return k0 > 0 ? r4(k / k0) : 1;
+    }
+    if (v === 'clip') return it.action && it.dur > 0 ? r4(clamp(it.action.time / it.dur, 0, 1)) : 0;
+    if (v === 'path') return pathOf(it) && fin(it.pph) ? r4(it.pph) : 0;
+    if (v === 'motion') return it.rec.motion && fin(it.mph) ? r4(it.mph) : 0;
+    const hs = behHeads(behNow());
+    if (v === 'count') return it.kind === 'c' ? hs.filter(h => inCube(it.rec, h.p)).length : null;
+    if (!hs.length) return null;
+    const p = itemTopInto(it, _svP, true);
+    let d = Infinity;
+    for (const h of hs) d = Math.min(d, h.p.distanceTo(p));
+    return fin(d) ? r4(d) : null;
+  } catch (e) { return null; }
+}
+const _svV = new THREE.Vector3(), _svP = new THREE.Vector3(), _svE = new THREE.Euler(), _svQ = new THREE.Quaternion(), _svQ2 = new THREE.Quaternion();
+// a value measured here from where an item is drawn (Range from its movement; the output page measures its own): its place,
+// its turn as yaw, pitch and roll (degrees), and its speeds from the last frame's (K: this item's memory)
+function streamMeasure(id, v, now) {
+  if (STREAM_STATE.includes(v)) return outValue(id, v);
+  const P = outPose(id);
+  if (!P) return null;
+  let K = STW.k.get(id);
+  const t = now / 1000, p = P.p, q = _svQ.fromArray(P.q);
+  if (!K || t - K.t > 1 || t <= K.t) { K = { t, p: p.slice(), q: P.q.slice(), v: [0, 0, 0], a: 0, w: 0, seen: K ? K.seen : 0 }; STW.k.set(id, K); }
+  else {
+    const dt = t - K.t, nv = [0, 1, 2].map(i => (p[i] - K.p[i]) / dt);
+    K.a = Math.hypot(nv[0] - K.v[0], nv[1] - K.v[1], nv[2] - K.v[2]) / dt;
+    K.w = (_svQ2.fromArray(K.q).angleTo(q) * 180 / Math.PI) / dt;
+    K.v = nv; K.t = t; K.p = p.slice(); K.q = P.q.slice(); K.seen++;
+  }
+  if (v === 'x' || v === 'y' || v === 'z') return p['xyz'.indexOf(v)];
+  if (v === 'yaw' || v === 'pitch' || v === 'roll') { _svE.setFromQuaternion(q, 'YXZ'); return (v === 'yaw' ? _svE.y : v === 'pitch' ? _svE.x : _svE.z) * 180 / Math.PI; }
+  if (!K.seen) return null;   // (a speed needs two frames)
+  if (v === 'speed') return Math.hypot(...K.v);
+  if (v === 'vx' || v === 'vy' || v === 'vz') return K.v['xyz'.indexOf(v[1])];
+  if (v === 'acc') return K.a;
+  if (v === 'spin') return K.w;
+  return null;
+}
+// each frame (itemsStep): a watch under way for Range from its movement takes this frame's value; done after 5 s, its range
+// the least and most measured widened by 5 % each way (nothing measured: said so)
+function streamStep() {
+  const W = STW.w;
+  if (!W) return;
+  const now = performance.now(), it = STU.items.get(W.id);
+  if (!it || !STU.stp || STU.stp.id !== W.id) { STW.w = null; return; }
+  const x = streamMeasure(W.id, W.v, now);
+  if (fin(x)) { W.lo = Math.min(W.lo, x); W.hi = Math.max(W.hi, x); W.n++; }
+  if (now - W.last > 250) { W.last = now; dirty(); }
+  if (now < W.until) return;
+  STW.w = null;
+  const P = STU.stp;
+  if (!W.n || !(W.hi - W.lo > 1e-6)) { P.note = W.n ? 'It did not change in 5 s: the range is as it was.' : 'Nothing measured in 5 s: the range is as it was.'; dirty(true); return; }
+  const pad = (W.hi - W.lo) * 0.05;
+  P.min = r4(W.lo - pad); P.max = r4(W.hi + pad); P.note = `Range from its movement: ${fmtV(P.v, P.min)} to ${fmtV(P.v, P.max)}.`;
+  STW.log.push([W.id, W.v, W.n, P.min, P.max]); if (STW.log.length > 20) STW.log.shift();
+  dirty(true);
+}
+const fmtV = (v, x) => (Math.abs(x) >= 100 ? Math.round(x) : Math.abs(x) >= 10 ? x.toFixed(1) : x.toFixed(2)) + (STREAM_UNIT[v] ? ' ' + STREAM_UNIT[v] : '');
+
+// -------------------------------------------------------------------- the card --
+function streamWords(it, e) {
+  const D = STREAM_RANGE[e.v], lo = e.min !== undefined ? e.min : D[0], hi = e.max !== undefined ? e.max : D[1];
+  const out = e.cc !== undefined ? `CC ${e.cc}${e.wide ? ' (14-bit)' : ''} ch ${e.ch || 1}` : e.note !== undefined ? `note ${e.note} at ${Math.round((e.at === undefined ? 0.5 : e.at) * 100)} % ch ${e.ch || 1}` : 'OSC only';
+  return `${STREAM_WORD[e.v]} → ${out} · ${fmtV(e.v, lo)} to ${fmtV(e.v, hi)}` + (e.curve ? ' · inverted' : '') + (e.smooth ? ` · smoothed ${Math.round(e.smooth * 100)} %` : '');
+}
+const stP = it => (STU.stp && STU.stp.id === it.id ? STU.stp : null);
+const stNew = (it, e, idx) => {
+  const D = STREAM_RANGE[e ? e.v : 'y'];
+  return { id: it.id, idx, v: e ? e.v : 'y', out: e && e.cc !== undefined ? 'cc' : e && e.note !== undefined ? 'note' : 'none', n: e ? (e.cc !== undefined ? e.cc : e.note !== undefined ? e.note : 20) : 20,
+    ch: e && e.ch ? e.ch : 1, wide: !!(e && e.wide), at: e && e.at !== undefined ? e.at : 0.5, vel: e && e.vel === 'speed' ? 'speed' : 'val', val: e && e.val !== undefined ? e.val : 100,
+    min: e && e.min !== undefined ? e.min : D[0], max: e && e.max !== undefined ? e.max : D[1], curve: !!(e && e.curve), smooth: e && e.smooth ? e.smooth : 0, hz: e && e.hz ? e.hz : 30,
+    osc: (e && e.osc) || '', oscText: undefined, oscBad: false, note: '' };
+};
+function stDraft(P, kind) {
+  const e = { v: P.v, min: P.min, max: P.max };
+  if (P.curve) e.curve = 'inv';
+  if (P.smooth) e.smooth = P.smooth;
+  if (P.hz !== 30) e.hz = P.v === 'near' || P.v === 'count' ? Math.min(15, P.hz) : P.hz;
+  if (P.out === 'cc') { e.cc = P.n; if (P.wide && P.n <= 31) e.wide = true; e.ch = P.ch; }
+  if (P.out === 'note') { e.note = P.n; e.at = P.at; if (P.vel === 'speed') e.vel = 'speed'; else e.val = Math.max(1, P.val); e.ch = P.ch; }
+  if (P.osc) e.osc = P.osc;
+  return normStreamOne(e, kind);
+}
+function stSentence(it, P) {
+  const d = stDraft(P, it.kind);
+  if (!d) return 'Not one the scene can keep (the range\'s two ends must differ).';
+  const osc = `OSC ${d.osc || streamAddr(it, d.v)} (0 to 1, and the value as measured)`;
+  const what = `${STREAM_WORD[d.v].toLowerCase()} of ${it.rec.name}`;
+  if (d.cc !== undefined) return `The output page sends the ${what} as MIDI controller ${d.cc}${d.wide ? ' and ' + (d.cc + 32) + ' (14-bit)' : ''} on channel ${d.ch || 1}, whenever it changes, and ${osc}.`;
+  if (d.note !== undefined) return `As the ${what} rises past ${Math.round((d.at === undefined ? 0.5 : d.at) * 100)} % of its range, the output page plays note ${d.note} on channel ${d.ch || 1} (velocity ${d.vel === 'speed' ? 'from its speed' : d.val || 100}), and lets go as it falls back; ${osc} with a gate.`;
+  return `The output page sends the ${what} as ${osc}.`;
+}
+// the Streams rows (an object's, a shape's, an empty's, a sound's and a cube's card while editing, page and headset; not
+// refused by a lock in place): a row per entry (a press opens it to change; Try; ✕), and Add a stream...
+function streamBlocks(it, B) {
+  if (!STREAM_KINDS.includes(it.kind) || !editOn()) return;
+  const L = it.rec.stream || [], P = stP(it), full = L.length >= STREAM_MAX || (!P && streamCount() >= STREAM_SCENE);
+  const head = L.length ? `Streams (${L.length})` : 'Streams', at = B.length;
+  if (!L.length && !P) B.push({ p: 'A stream sends a value of it (where it is, how fast it moves, its state, who is near) to the output page as MIDI and OSC, many times a second.', c: 'faint' });
+  L.forEach((e, k) => B.push({ row: [
+    { id: `ste:${k}`, label: streamWords(it, e), act: 'i:stEdit', v: k, on: !!(P && P.idx === k) },
+    { id: `sttry:${k}`, label: 'Try', act: 'i:stTry', v: k },
+    { id: `stx:${k}`, label: '✕', act: 'i:stDel', v: k, col: 'red' }] }));
+  B.push({ row: [{ id: 'stadd', label: P ? 'Cancel' : 'Add a stream...', act: 'i:stPick', on: !!P, dis: !P && full }] });
+  B[at].label = head;   // (the heading on the first of its rows: a page draws no heading alone)
+  if (full) B.push({ p: L.length >= STREAM_MAX ? `${STREAM_MAX} streams: the most one item takes.` : `The scene has ${STREAM_SCENE} streams: the most it takes.`, c: 'amber' });
+  if (P) stPickBlocks(it, B, P, L);
+}
+function stPickBlocks(it, B, P, L) {
+  for (const [g, vs] of STREAM_GROUPS) {
+    const opts = vs.filter(v => v !== 'count' || it.kind === 'c');
+    B.push({ label: g, row: opts.map(v => ({ id: 'stv:' + v, label: STREAM_WORD[v], act: 'i:stV', v, on: P.v === v })) });
+  }
+  B.push({ label: 'Sends', row: [['none', 'OSC only'], ['cc', 'Controller'], ['note', 'Note']].map(([v, l]) => ({ id: 'stout:' + v, label: l, act: 'i:stOut', v, on: P.out === v })) });
+  if (P.out !== 'none') {
+    const nm = P.out === 'cc' ? 'Controller' : 'Note';
+    B.push({ label: `${nm}: ${P.n}`, row: [-12, -1, 1, 12].map(d => ({ id: 'stn:' + d, label: (d > 0 ? '+' : '−') + Math.abs(d), act: 'i:stN', v: d })) },
+      { label: `Channel: ${P.ch}`, row: [{ id: 'stch:-', label: '−1', act: 'i:stCh', v: -1, dis: P.ch <= 1 }, { id: 'stch:+', label: '+1', act: 'i:stCh', v: 1, dis: P.ch >= 16 }] });
+    if (P.out === 'cc') B.push({ label: '14-bit (controller and controller + 32)', row: [{ id: 'stwide:off', label: 'Off', act: 'i:stWide', v: 'off', on: !P.wide }, { id: 'stwide:on', label: 'On', act: 'i:stWide', v: 'on', on: P.wide, dis: P.n > 31 }] });
+    if (P.out === 'note') B.push({ label: `Plays as it rises past ${Math.round(P.at * 100)} %`, row: [-0.1, -0.05, 0.05, 0.1].map(d => ({ id: 'stat:' + d, label: (d > 0 ? '+' : '−') + Math.round(Math.abs(d) * 100) + ' %', act: 'i:stAt', v: d })) },
+      { label: 'Velocity' + (P.vel === 'speed' ? ': from its speed' : `: ${P.val}`), row: [{ id: 'stvel:speed', label: 'From its speed', act: 'i:stVel', v: 'speed', on: P.vel === 'speed' }, { id: 'stvel:val', label: 'Fixed', act: 'i:stVel', v: 'val', on: P.vel !== 'speed' }]
+        .concat(P.vel === 'speed' ? [] : [-10, 10].map(d => ({ id: 'stval:' + d, label: (d > 0 ? '+' : '−') + Math.abs(d), act: 'i:stVal', v: d }))) });
+  }
+  // the range: from its movement (5 s watched), or each end stepped by a tenth of the value's own range
+  const W = STW.w && STW.w.id === it.id ? STW.w : null;
+  B.push({ kv: [['Range', `${fmtV(P.v, P.min)} to ${fmtV(P.v, P.max)} → 0 to 1` + (P.curve ? ', inverted' : '')]] },
+    { row: [{ id: 'strange', label: W ? `Watching: ${Math.max(0, Math.ceil((W.until - performance.now()) / 1000))} s` : 'Range from its movement', act: 'i:stWatch', on: !!W }, { id: 'strange:def', label: 'Its own range', act: 'i:stRangeDef' }] },
+    { label: 'Low end', row: [-1, 1].map(d => ({ id: 'stmin:' + d, label: d > 0 ? '+' : '−', act: 'i:stMin', v: d })) },
+    { label: 'High end', row: [-1, 1].map(d => ({ id: 'stmax:' + d, label: d > 0 ? '+' : '−', act: 'i:stMax', v: d })) },
+    { label: 'Curve', row: [{ id: 'stcurve:lin', label: 'As it is', act: 'i:stCurve', v: 'lin', on: !P.curve }, { id: 'stcurve:inv', label: 'Inverted', act: 'i:stCurve', v: 'inv', on: P.curve }] },
+    { label: 'Smoothing', row: STREAM_SMOOTH.map(s => ({ id: 'stsm:' + s, label: s ? Math.round(s * 100) + ' %' : 'Off', act: 'i:stSmooth', v: s, on: P.smooth === s })) });
+  if (W) B.push({ p: 'Move it (or let it move) for 5 s: its least and most become the range.', c: 'amber' });
+  if (P.note) B.push({ p: P.note, c: 'muted' });
+  const own = P.osc || '';
+  B.push({ kv: [['OSC', own ? `its own address ${own}` : `the default address ${streamAddr(it, P.v)}`]] },
+    { page: true, label: 'OSC address of its own (empty: the default)', input: { id: 'stuStreamOsc', value: P.oscText === undefined ? own : P.oscText, ph: streamAddr(it, P.v), max: 128, aria: 'Its own OSC address' }, row: [{ id: 'stosc', label: 'Use it', act: 'i:stOsc', v: '' }] });
+  if (P.oscBad) B.push({ page: true, p: 'Not an OSC address: it starts with / and has letters, digits and _ . - / only (no //).', c: 'amber' });
+  B.push({ kv: [['It will', stSentence(it, P)]] });
+  const d = stDraft(P, it.kind), rep = P.idx >= 0 && P.idx < L.length;
+  B.push({ row: [{ id: 'stdo', label: rep ? 'Replace' : 'Add', act: 'i:stAdd', primary: true, dis: !d || (!rep && (L.length >= STREAM_MAX || streamCount() >= STREAM_SCENE)) }] });
+}
+// writes an item's list (an edit: the caller's change); an empty one takes it away
+const streamWrite = (it, L) => setRec(it.id, { stream: L && L.length ? L : undefined });
+const stepEnd = (P, d) => (STREAM_RANGE[P.v][1] - STREAM_RANGE[P.v][0]) / 10 * d;
+Object.assign(ITEM_ACT, {
+  stPick: it => { if (!STREAM_KINDS.includes(it.kind)) return; STU.stp = stP(it) ? null : stNew(it, null, -1); STW.w = null; },
+  stEdit: (it, k) => { const e = (it.rec.stream || [])[+k]; if (!e) return; STU.stp = stP(it) && STU.stp.idx === +k ? null : stNew(it, e, +k); STW.w = null; },
+  stV: (it, v) => {
+    const P = stP(it);
+    if (!P || !STREAM_V.includes(v) || (v === 'count' && it.kind !== 'c')) return;
+    if (P.v !== v) { const D = STREAM_RANGE[v]; P.v = v; P.min = D[0]; P.max = D[1]; P.note = ''; STW.w = null; }
+  },
+  stOut: (it, v) => { const P = stP(it); if (P && ['none', 'cc', 'note'].includes(v)) { if (P.out !== v) P.n = v === 'note' ? 60 : 20; P.out = v; } },
+  stN: (it, d) => { const P = stP(it); if (P) { P.n = clampI(P.n + (+d || 0), 0, 127); if (P.n > 31) P.wide = false; } },
+  stCh: (it, d) => { const P = stP(it); if (P) P.ch = clampI(P.ch + (+d || 0), 1, 16); },
+  stWide: (it, v) => { const P = stP(it); if (P) P.wide = v === 'on' && P.n <= 31; },
+  stAt: (it, d) => { const P = stP(it); if (P) P.at = r2(clamp(P.at + (+d || 0), 0.05, 0.95)); },
+  stVel: (it, v) => { const P = stP(it); if (P) P.vel = v === 'speed' ? 'speed' : 'val'; },
+  stVal: (it, d) => { const P = stP(it); if (P) P.val = clampI(P.val + (+d || 0), 1, 127); },
+  stMin: (it, d) => { const P = stP(it); if (P) { const x = r4(P.min + stepEnd(P, +d || 0)); if (x !== P.max) P.min = x; } },
+  stMax: (it, d) => { const P = stP(it); if (P) { const x = r4(P.max + stepEnd(P, +d || 0)); if (x !== P.min) P.max = x; } },
+  stRangeDef: it => { const P = stP(it); if (P) { [P.min, P.max] = STREAM_RANGE[P.v]; P.note = ''; } },
+  stCurve: (it, v) => { const P = stP(it); if (P) P.curve = v === 'inv'; },
+  stSmooth: (it, v) => { const P = stP(it); if (P && STREAM_SMOOTH.includes(+v)) P.smooth = +v; },
+  stWatch: it => {
+    const P = stP(it);
+    if (!P) return;
+    if (STW.w && STW.w.id === it.id) { STW.w = null; return; }
+    STW.k.delete(it.id);
+    STW.w = { id: it.id, v: P.v, until: performance.now() + 5000, lo: Infinity, hi: -Infinity, n: 0, last: 0 };
+    P.note = '';
+  },
+  stOsc: it => { const P = stP(it); if (!P) return; const s = (P.oscText === undefined ? P.osc : P.oscText).trim(); if (!s) { P.osc = ''; P.oscBad = false; } else if (SEND_OSC.test(s) && !s.includes('//')) { P.osc = s; P.oscBad = false; } else P.oscBad = true; P.oscText = undefined; },
+  // Try: one effect send with ev 'stream' and its value (the output page sweeps it 0 → 1 → 0 over 1 s)
+  stTry: (it, k) => { const e = (it.rec.stream || [])[+k]; if (e) sendFx({ id: it.id, ev: 'stream', at: Math.round(behNow()), try: 1, v: e.v }); },
+  stAdd: it => {
+    const P = stP(it);
+    if (!P) return;
+    if (P.oscText !== undefined) ITEM_ACT.stOsc(it);
+    if (P.oscBad) return;
+    const d = stDraft(P, it.kind);
+    if (!d) return;
+    const L = (it.rec.stream || []).slice();
+    if (P.idx >= 0 && P.idx < L.length) L[P.idx] = d;
+    else if (L.length >= STREAM_MAX || streamCount() >= STREAM_SCENE) return;
+    else L.push(d);
+    streamWrite(it, normStream(L, it.kind));
+    STU.stp = null; STW.w = null;
+  },
+  stDel: (it, k) => { const L = (it.rec.stream || []).slice(); if (!(+k >= 0 && +k < L.length)) return; L.splice(+k, 1); streamWrite(it, L); if (STU.stp && STU.stp.id === it.id) STU.stp = null; },
+});
+PANE_ONLY.push('stPick', 'stEdit', 'stV', 'stOut', 'stN', 'stCh', 'stWide', 'stAt', 'stVel', 'stVal', 'stMin', 'stMax', 'stRangeDef', 'stCurve', 'stSmooth', 'stWatch', 'stOsc', 'stTry');
+// the page's address field, as typed (e7b_upload.js's input listener): kept until Use it or Add
+function stInput(id, value) { if (id === 'stuStreamOsc' && STU.stp) STU.stp.oscText = String(value); }
+function streamSig() {
+  const P = STU.stp, W = STW.w;
+  return P ? [P.id, P.idx, P.v, P.out, P.n, P.ch, P.wide, P.at, P.vel, P.val, P.min, P.max, P.curve, P.smooth, P.osc, P.oscBad, P.note, W ? Math.ceil((W.until - performance.now()) / 1000) : ''].join() : '';
+}
+// for tests: STUDIO.streamSet(id, list | null) (an edit, one Undo step), STUDIO.streams()
+function streamSet(id, list) {
+  const it = STU.items.get(id);
+  if (!it || !STREAM_KINDS.includes(it.kind)) return null;
+  const L = list === null || list === undefined ? [] : normStream(list, it.kind);
+  if (L === null) return null;
+  change(() => streamWrite(it, L));
+  return (STU.items.get(id).rec.stream || []).map(e => Object.assign({}, e));
+}
+const streamState = () => ({ pick: STU.stp ? Object.assign({}, STU.stp) : null, watch: STW.w ? Object.assign({}, STW.w) : null, log: STW.log.slice(), count: streamCount(), bad: STU.badStream });
+// a stream's Try heard (the effect send with ev 'stream', try: 1; sendHeard): the event { ev: 'stream', id, k, name, who, at,
+// v, stream: its entries for v, send: [], try: 1 } to the output page, which sweeps them 0 → 1 → 0 over 1 s
+function streamHeard(data, by) {
+  if (data.try !== 1 || !STREAM_V.includes(data.v)) return;
+  const it = STU.items.get(data.id), L = it && STREAM_KINDS.includes(it.kind) ? (it.rec.stream || []).filter(e => e.v === data.v) : [];
+  if (!L.length) return;
+  outEmit(it, 'stream', typeof by === 'string' ? by.slice(0, 32) : '', data.at, undefined, true, { v: data.v, stream: L.map(e => Object.assign({}, e)) });
+}
+// ============================================================== LOOPS ON THE BEAT ==
+// Movement and events locked to the room's beat (v158; the owner, 17 November 2026: a loop recorder, "movement for now, both
+// clocks should be possible", then "also do the events"; tools/output/SPEC.md "v158" section 4 is the contract,
+// tools/studio/SPEC.md "Loops on the beat" the studio's part). The room's beat is bt (e6u_send.js: written only by the output
+// page, from MIDI clock, OSC or its own tempo), with bar, beats a bar, and at a downbeat.
+// - A recorded path may carry sync: 'beat' and beats (1 to 256, both or neither): while the room has a beat its moment is
+//   ((beatPos mod beats) / beats) × its length, so it loops exactly on the beat and stretches with the tempo (its play, speed
+//   and start ignored meanwhile); without one, as before. A cube's start of it, a timeline's hold and Pause win, as ever.
+//   Record on the beat (1, 2, 4 or 8 bars, only while the room has a beat) counts in to the next downbeat (a soft step at
+//   the item on each beat), records from that downbeat exactly bars × bar beats, its samples taken by beat position, stops
+//   itself at the end downbeat, joins the loop (its end bent onto its start, nothing cut) and writes its path with play
+//   'loop', sync 'beat' and beats, its keys in seconds at the tempo at its end: one Undo step.
+// - A sequence may carry beats (1 to 256): while the room has a beat its time runs locked to the bar, its start rounded down
+//   to a downbeat (seqLock, seqUBeat). Its events gain press (an item pressed as if pressed: its do entries for everyone,
+//   worked out alike on every device from the sequence's state, no stamp written; the output page hears press from nobody)
+//   and send (only an item's send entries go out: the output page hears that event from nobody; nothing shown or hidden).
+//   Record events (1, 2, 4 or 8 bars, a grid, overdub) records what happens on the room's shared sources over those bars
+//   (a new press stamp, a person's walking in or out of a cube with sends or pointing at an item with sends, an outside
+//   switch, another shared sequence started or stopped) as events quantised to the grid, its length those bars, looped and
+//   started on the beat at the end downbeat.
+// This device's own while it runs (LOOP.on): nothing is written until its end.
+let loopClock = () => behNow();   // (the clock of the loops: the room's ms; the tests set their own, as recClock and trgClock)
+const LOOP_BARS = [1, 2, 4, 8], LOOP_GRIDS = [[0.25, '1/16'], [0.5, '1/8'], [1, '1/4'], [0, 'Off']], SEQ_SENDS = ['enter', 'leave', 'hover', 'unhover'], LOOP_KINDS = ['press', 'send', 'show', 'hide', 'seq'];
+const SEND_EV_WORD = { enter: 'walking in', leave: 'walking out', hover: 'pointing begins', unhover: 'pointing ends' };
+const LOOP = { on: null, grid: store.get('studioLoopGrid') === null ? 0.25 : +store.get('studioLoopGrid'), over: store.get('studioLoopOver') === '1', note: '', noteId: '', log: [], seen: null };
+if (!LOOP_GRIDS.some(g => g[0] === LOOP.grid)) LOOP.grid = 0.25;
+const EPS = 1e-6;
+// a time-based tolerance in beats (1.5 ms): room moments are rounded to whole ms, and a beat is not a whole number of ms at
+// most tempos (128 bpm), so a moment on a downbeat may land up to a few thousandths of a beat before it
+const tolB = () => Math.max(EPS, STU.bt ? 1.5 / beatMs() : 0);
+// the next downbeat strictly after the room moment now, in beats since bt.at
+const nextDownbeat = now => { const b = btBar(), p = beatPos(now); return (Math.floor(p / b + tolB()) + 1) * b; };
+const beatMoment = p => STU.bt.at + p * beatMs();
+
+// ------------------------------------------------------------------ paths --
+// a path on the beat: its moment (s) now while the room has a beat, else null (as before)
+function pathBeatS(P) {
+  if (P.sync !== 'beat' || !STU.bt) return null;
+  const D = pathLen(P), x = beatPos(loopClock()) / P.beats;
+  return D > 0 ? (x - Math.floor(x)) * D : 0;
+}
+// a recording on the beat as it ends: its samples' times (seconds at the tempo it began at) turned into the tempo at its end
+function recBeatEnd(R) {
+  const B = R.beat;
+  if (!B || B.done) return;
+  B.done = true;
+  const k = STU.bt ? (60 / STU.bt.bpm) / B.spb : 1;
+  if (Math.abs(k - 1) > 1e-9) for (const s of R.S) s[0] *= k;
+  B.spbEnd = B.spb * k;
+}
+
+// -------------------------------------------------------------- sequences --
+// a sequence locked to the beat now: { sb (its start beat, a downbeat), at0 (that room moment), k (how much longer a second
+// of it is than a second) } or null (no beats, no room beat, a preview, never started)
+function seqLock(q, P) {
+  if (!q.rec.beats || !STU.bt || !P || P.src === 'preview' || !(P.at > 0)) return null;
+  const b = btBar(), sb = Math.floor(beatPos(P.at) / b + tolB()) * b, bm = beatMs();
+  return { sb, at0: beatMoment(sb), k: (q.rec.beats * bm) / (q.rec.len * 1000) };
+}
+// seqU on the beat: its time ((beatPos - its start beat) mod beats) / beats × len; stopped where it stopped, in its cycle then
+function seqUBeat(q, P, Tr, L) {
+  const len = q.rec.len, loop = q.rec.loop === 'loop', B = q.rec.beats;
+  let playing = !!P.on, u, cyc = 0, ended = false;
+  if (playing) {
+    const x = Math.max(0, (beatPos(Tr) - L.sb) / B);
+    if (loop) { cyc = Math.floor(x + tolB()); u = Math.max(0, (x - cyc) * len); } else { u = x * len; if (u >= len) { u = len; ended = true; playing = false; } }
+  } else {
+    u = Math.min(len, Math.max(0, P.t));
+    if (loop && P.ts >= P.at) cyc = Math.max(0, Math.floor((beatPos(P.ts) - L.sb) / B + tolB()));
+  }
+  return { u, cyc, playing, ended, at0: L.at0, k: L.k, stopAt: ended ? L.at0 + len * 1000 * L.k : P.ts };
+}
+// the room moment of a sequence's time t in cycle cyc (k: its seconds stretched on the beat, else 1)
+const seqAt = (U, len, cyc, t) => U.at0 + (cyc * len + t) * 1000 * (U.k || 1);
+// the events an item can be sent by: a cube's walking in and out, an item's pointing (its send entries for them)
+const seqSendEvs = t => (!t ? [] : t.kind === 'c' ? ['enter', 'leave'] : PRESS_KINDS.includes(t.kind) && t.rec.press ? ['hover', 'unhover'] : []).filter(ev => sendEnds(t, ev) || sendHas(t, ev));
+// a press event: the item's show and hide entries as sources from its moment (seqShowHide, latest first: D the targets decided)
+function seqPressShowHide(q, e, since, S, H, D) {
+  const t = STU.items.get(e.on), L = t && PRESS_KINDS.includes(t.kind) && t.rec.press && t.rec.press.do;
+  if (!L) return;
+  for (let j = L.length - 1; j >= 0; j--) {
+    const d = L[j];
+    if ((d.what !== 'show' && d.what !== 'hide') || D.has(d.on)) continue;
+    D.add(d.on);
+    const src = { id: q.id, since, cut: d.fade === 'cut' }, M = d.what === 'show' ? S : H;
+    if (enteredLater(src, M.get(d.on))) M.set(d.on, src);
+  }
+}
+// a press event crossed (seqFire): the item's run entries started as the sequence's own runs (they come off as it stops, as
+// its events' do); never its seq entries (a shared sequence is written by one device: a sequence's own seq events do that)
+function seqPressRuns(q, e, i, cyc, T) {
+  const t = STU.items.get(e.on), L = t && PRESS_KINDS.includes(t.kind) && t.rec.press && t.rec.press.do;
+  if (!L) return;
+  L.forEach((d, j) => {
+    if (!SEQ_RUN.includes(d.what)) return;
+    const x = STU.items.get(d.on);
+    if (!x || !PLAY_KINDS[d.what].includes(x.kind)) return;
+    SEQ.fired++;
+    trgStart({ c: q, e: d, ek: q.id + '|' + i + '|' + cyc + '|p' + j, src: 'seq' }, T, false);
+  });
+}
+// the output page's side (outStep): a shared sequence's press and send events crossed in real time (each cycle of a loop),
+// from nobody; o its last frame's { key, playing, u, cyc }
+function seqOutEvents(q, o, U, P, key) {
+  if (!U || !U.playing || !o) return;
+  const evs = q.rec.ev.filter(e => e.what === 'press' || e.what === 'send'), len = q.rec.len;
+  if (!evs.length) return;
+  const cross = (cyc, lo, hi) => {
+    for (const e of evs) {
+      if (e.t <= lo || e.t > hi) continue;
+      const t = STU.items.get(e.on), m = seqAt(U, len, cyc, e.t);
+      if (!t) continue;
+      if (e.what === 'press') { if (PRESS_KINDS.includes(t.kind) && t.rec.press) outEmit(t, 'press', '', m); }
+      else if (sendKind(t) && SEND_ONS[sendKind(t)].includes(e.ev)) outEmit(t, e.ev, '', m);
+    }
+  };
+  // (a start just now: what it passed since it started, in real time; not what lies between its downbeat and its start)
+  if (!o.playing || o.key !== key) { if (behNow() - P.at <= 250) cross(U.cyc, (P.at - seqAt(U, len, U.cyc, 0)) / 1000 / (U.k || 1) - 1e-6, U.u); return; }
+  if (U.cyc === o.cyc) cross(U.cyc, o.u, U.u);
+  else if (U.cyc === o.cyc + 1) { cross(o.cyc, o.u, len); cross(U.cyc, -1, U.u); }
+}
+
+// ------------------------------------------------------------- recording --
+// LOOP.on: { kind: 'path' | 'seq', id, bars, bar, beats, from, to (beats since bt.at: its first and end downbeats), phase
+// ('count' | 'rec'), tick (the last count-in beat sounded), got, by, caps (the shared sources' last values: seq), evs }
+const loopWhy = (it, kind) => {
+  if (!STU.bt) return 'needs the room\'s beat (output page)';
+  if (!editOn()) return 'Turn on Edit to record.';
+  if (LOOP.on) return 'Another loop is being recorded here.';
+  if (kind === 'path') return recWhy(it);
+  return it.rec.locked ? 'It is locked.' : '';
+};
+const loopSay = (id, text) => { LOOP.noteId = id; LOOP.note = text || ''; dirty(true); };
+function loopArm(it, kind, bars) {
+  if (!LOOP_BARS.includes(bars)) return false;
+  const why = loopWhy(it, kind);
+  if (why) { loopSay(it.id, why); return false; }
+  const now = loopClock(), bar = btBar(), from = nextDownbeat(now);
+  LOOP.on = { kind, id: it.id, bars, bar, beats: bars * bar, from, to: from + bars * bar, phase: 'count', tick: Math.floor(beatPos(now) + tolB()), got: 0, evs: [], caps: kind === 'seq' ? loopCaps() : null };
+  loopSay(it.id, '');
+  LOOP.log.push(['arm', kind, it.id, bars, from]); if (LOOP.log.length > 50) LOOP.log.shift();
+  return true;
+}
+function loopCancel(why) {
+  const L = LOOP.on;
+  if (!L) return;
+  LOOP.on = null;
+  if (L.kind === 'path' && REC && REC.beat && REC.id === L.id) recEnd(false);
+  LOOP.log.push(['cancel', L.kind, L.id, why || '']);
+  loopSay(L.id, why === 'beat' ? 'The room\'s beat stopped: nothing recorded.' : 'Cancelled: nothing recorded.');
+}
+// each frame (itemsStep, before recStep): the count-in (a soft step at the item on each beat), the recording begun at its
+// first downbeat, ended at its end downbeat
+function loopStep() {
+  const L = LOOP.on;
+  if (!L) return;
+  const it = STU.items.get(L.id);
+  if (!it || !editOn()) { loopCancel('gone'); return; }
+  if (!STU.bt) { loopCancel('beat'); return; }
+  const now = loopClock(), p = beatPos(now);
+  if (L.kind === 'seq') loopSeen(now);
+  if (L.phase === 'count') {
+    const b = Math.floor(p + tolB());
+    if (b > L.tick && p < L.from - tolB()) { L.tick = b; sfxAct('step', 'world', it.holder ? it.holder.getWorldPosition(new THREE.Vector3()).toArray() : null, { force: true }); dirty(); }
+    if (p < L.from - tolB()) return;
+    L.phase = 'rec'; L.spb = 60 / STU.bt.bpm;
+    if (L.kind === 'path') {
+      const by = XR.on ? 'beat' : 'page';
+      if (by === 'page') beginChange([it.id]);
+      if (!recBegin(it, by)) { if (by === 'page') endChange(); LOOP.on = null; return; }
+      REC.beat = { from: L.from, beats: L.beats, spb: L.spb };
+      REC.last = -1e9; REC.S.length = 0; recSample(true); REC.S[0][0] = 0;   // (its first sample at the downbeat itself: t 0)
+      L.by = by;
+    }
+    sfxAct('pulse', 'world', null, { gain: 0.5 });
+    LOOP.log.push(['rec', L.kind, L.id, L.from]);
+    dirty(true);
+  }
+  if (L.kind === 'path') {
+    if (!REC || !REC.beat || REC.id !== L.id) { LOOP.on = null; return; }   // (ended otherwise: Cancel, the item gone)
+    L.got = REC.S.length;
+    if (p < L.to - tolB()) return;
+    LOOP.on = null;
+    REC.last = -1e9;
+    if (L.by === 'page') recEnd(true); else change(() => recEnd(true), [L.id]);
+    LOOP.log.push(['end', 'path', L.id, L.to]);
+    return;
+  }
+  L.got = L.evs.length;
+  if (p < L.to - tolB()) return;
+  LOOP.on = null;
+  loopSeqEnd(it, L);
+}
+
+// ---------------------------------------------------- events on shared sources --
+// the shared sources' values now (a press stamp, an outside switch, another shared sequence's state): what is new since is
+// an event (loopSeen)
+function loopCaps() {
+  const C = { pr: new Map(), sw: new Map(), qr: new Map() };
+  for (const [id, v] of STU.pr) C.pr.set(id, v.n + '|' + v.at);
+  for (const [id, v] of STU.sw) C.sw.set(id, v.on + '|' + v.at);
+  for (const [id, v] of STU.qr) C.qr.set(id, v);
+  return C;
+}
+function loopSeen() {
+  const L = LOOP.on, C = L.caps;
+  for (const [id, v] of STU.pr) {
+    const k = v.n + '|' + v.at;
+    if (C.pr.get(id) === k) continue;
+    C.pr.set(id, k);
+    const t = STU.items.get(id);
+    if (t && PRESS_KINDS.includes(t.kind) && t.rec.press) loopGot({ on: id, what: 'press' }, v.at);
+  }
+  for (const [id, v] of STU.sw) {
+    const k = v.on + '|' + v.at;
+    if (C.sw.get(id) === k) continue;
+    C.sw.set(id, k);
+    if (STU.items.has(id)) loopGot({ on: id, what: v.on ? 'show' : 'hide' }, v.at);
+  }
+  for (const [id, v] of STU.qr) {
+    const o = C.qr.get(id);
+    if (o === v) continue;
+    C.qr.set(id, v);
+    if (id === L.id || !seqRec(id) || seqRec(id).rec.sync === 'own' || (o && o.n === v.n && o.on === v.on && o.at === v.at && o.ts === v.ts)) continue;
+    if (v.on && (!o || !o.on || o.at !== v.at)) loopGot({ on: id, what: 'seq', how: 'once' }, v.at);
+    else if (!v.on && v.t >= 0 && o && o.on) loopGot({ on: id, what: 'seq', how: 'stop' }, v.ts);
+  }
+}
+// a send heard (the effect from a person's device, or this device's own: sendFx): walking in or out of a cube, pointing at an
+// item, with send entries for it
+function loopHeard(data) {
+  const L = LOOP.on;
+  if (!L || L.kind !== 'seq' || !data || data.try || !SEQ_SENDS.includes(data.ev) || !okId(data.id) || !fin(data.at)) return;
+  const t = STU.items.get(data.id);
+  if (t && seqSendEvs(t).includes(data.ev)) loopGot({ on: data.id, what: 'send', ev: data.ev }, data.at);
+}
+// one event at a room moment m: kept while the recording runs (counted in, it waits for the first downbeat), at its beat
+// position since the first downbeat
+function loopGot(e, m) {
+  const L = LOOP.on;
+  if (!L || L.phase !== 'rec' || !fin(m)) return;
+  const rel = beatPos(m) - L.from;
+  if (rel < -tolB() || rel >= L.beats - tolB()) return;
+  L.evs.push(Object.assign({ b: Math.max(0, rel) }, e));
+}
+// the end: the events quantised to the grid (a position on the end downbeat goes round to the first), as seconds at the tempo
+// then; overdub keeps the events it had, else those of the recorded kinds go; at most 200 (the rest dropped and said); its
+// length the bars, beats, looped: one Undo step; then started on the beat at the end downbeat
+function loopSeqEnd(q, L) {
+  const spb = 60 / STU.bt.bpm, g = LOOP.grid, B = L.beats, seen = new Set(), add = [];
+  for (const e of L.evs) {
+    let b = g ? Math.round(e.b / g) * g : e.b;
+    if (b >= B - tolB()) b -= B;
+    const ev = { t: r2(Math.max(0, b) * spb), on: e.on, what: e.what };
+    if (e.ev) ev.ev = e.ev;
+    if (e.how) ev.how = e.how;
+    const k = JSON.stringify(ev);
+    if (seen.has(k)) continue;
+    seen.add(k); add.push(ev);
+  }
+  const keep = LOOP.over ? q.rec.ev : q.rec.ev.filter(e => !LOOP_KINDS.includes(e.what)), room = Math.min(SEQ_EV_MAX - keep.length, SEQ_EV_SCENE - seqEvCount(q.id) - keep.length);
+  const put = add.slice(0, Math.max(0, room)), lost = add.length - put.length, len = r2(Math.min(600, B * spb));
+  change(() => setRec(q.id, { ev: keep.concat(put), len, beats: B, loop: 'loop' }));
+  seqCmd(q.id, 'start', Math.round(beatMoment(L.to)), 'loop');
+  LOOP.log.push(['end', 'seq', q.id, L.to, put.length, lost]);
+  loopSay(q.id, `Recorded ${put.length} event${put.length === 1 ? '' : 's'} over ${L.bars} bar${L.bars > 1 ? 's' : ''}` + (lost ? `; ${lost} more dropped (a sequence takes ${SEQ_EV_MAX}).` : '.') + (add.length ? '' : ' Nothing happened on the room\'s presses, cubes, switches or sequences meanwhile.'));
+}
+
+// --------------------------------------------------------------- the cards --
+const loopMine = (it, kind) => (LOOP.on && LOOP.on.id === it.id && LOOP.on.kind === kind ? LOOP.on : null);
+function loopStatus(it, kind, B) {
+  const L = loopMine(it, kind);
+  if (L) {
+    const p = beatPos(loopClock()) || 0;
+    if (L.phase === 'count') B.push({ p: `Counting in: in ${Math.max(1, Math.ceil(L.from - p - tolB()))}`, c: 'amber' });
+    else B.push({ p: `● Recording on the beat: bar ${Math.min(L.bars, Math.floor((p - L.from) / L.bar) + 1)} of ${L.bars}` + (kind === 'seq' ? `, ${L.evs.length} event${L.evs.length === 1 ? '' : 's'}` : ''), c: 'red' });
+    B.push({ row: [{ id: 'lpcancel', label: 'Cancel', act: 'i:lpCancel' }] });
+  }
+  if (LOOP.noteId === it.id && LOOP.note) B.push({ p: LOOP.note, c: 'muted' });
+}
+const beatsWords = n => `${n} beat${n === 1 ? '' : 's'}` + (n % btBar() === 0 ? ` (${n / btBar()} bar${n / btBar() === 1 ? '' : 's'})` : '');
+// a path's rows (pathBlocks, after how it plays): On the beat, and Record on the beat
+function pathBeatBlocks(it, B, dis, no) {
+  const P = it.rec.path, bt = !!STU.bt;
+  if (recording(it)) { if (REC.beat) loopStatus(it, 'path', B); return; }   // (an ordinary recording: its own rows; on the beat: where it is)
+  if (P) {
+    B.push({ label: 'On the beat' + (P.sync ? `: ${beatsWords(P.beats)}` : ': Off'), row: [{ id: 'pbeat:off', label: 'Off', act: 'i:pbeat', v: 'off', on: !P.sync, dis },
+      { id: 'pbeat:-', label: '− a bar', act: 'i:pbeat', v: '-', dis: dis || !P.sync || P.beats <= 1 }, { id: 'pbeat:+', label: '+ a bar', act: 'i:pbeat', v: '+', dis: dis || (P.sync && P.beats >= 256) },
+      { id: 'pbeat:fit', label: 'Fit', act: 'i:pbeat', v: 'fit', dis: dis || !bt }] });
+    if (P.sync) B.push({ p: bt ? `It loops on the room's beat (${STU.bt.bpm} bpm): ${beatsWords(P.beats)} a loop, stretched with the tempo.` : 'Without the room\'s beat it plays as before.', c: 'faint' });
+  }
+  const L = loopMine(it, 'path');
+  B.push({ label: 'Record on the beat', row: LOOP_BARS.map(n => ({ id: 'lprec:' + n, label: `${n} bar${n > 1 ? 's' : ''}`, act: 'i:lpRec', v: n, on: !!(L && L.bars === n), dis: dis || no || !bt || (!!LOOP.on && !L) })) });
+  if (!bt) B.push({ p: 'Record on the beat needs the room\'s beat (output page).', c: 'faint' });
+  else if (!L) B.push({ p: 'It counts in to the next downbeat, records exactly those bars and loops them on the beat.' + (XR.on ? ' Take it up with the grip before or as it starts.' : ' Move it with the arrows or its card\'s buttons meanwhile.'), c: 'faint' });
+  loopStatus(it, 'path', B);
+}
+// a sequence's rows (after its card): On the beat, and Record events
+function seqBeatBlocks(q, B, dis) {
+  const r = q.rec, bt = !!STU.bt, L = loopMine(q, 'seq');
+  B.push({ label: 'On the beat' + (r.beats ? `: ${beatsWords(r.beats)}` : ': Off'), row: [{ id: 'qbeat:off', label: 'Off', act: 'i:qbeat', v: 'off', on: !r.beats, dis },
+    { id: 'qbeat:-', label: '− a bar', act: 'i:qbeat', v: '-', dis: dis || !r.beats || r.beats <= 1 }, { id: 'qbeat:+', label: '+ a bar', act: 'i:qbeat', v: '+', dis: dis || r.beats >= 256 },
+    { id: 'qbeat:fit', label: 'Fit', act: 'i:qbeat', v: 'fit', dis: dis || !bt }] });
+  if (r.beats) B.push({ p: bt ? `Its ${r.len.toFixed(1)} s run as ${beatsWords(r.beats)} of the room's beat (${STU.bt.bpm} bpm), its start on a downbeat.` : 'Without the room\'s beat it plays as before.', c: 'faint' });
+  B.push({ label: 'Record events', row: LOOP_BARS.map(n => ({ id: 'lpev:' + n, label: `${n} bar${n > 1 ? 's' : ''}`, act: 'i:lpEv', v: n, on: !!(L && L.bars === n), dis: dis || !bt || (!!LOOP.on && !L) })) },
+    { label: 'Grid', row: LOOP_GRIDS.map(([g, l]) => ({ id: 'lpgrid:' + g, label: l, act: 'i:lpGrid', v: g, on: LOOP.grid === g })) },
+    { label: 'Overdub', row: [{ id: 'lpover:off', label: 'Off', act: 'i:lpOver', v: 'off', on: !LOOP.over }, { id: 'lpover:on', label: 'On', act: 'i:lpOver', v: 'on', on: LOOP.over }] });
+  B.push({ p: bt ? 'It counts in to the next downbeat and records what happens meanwhile on the room\'s presses, cubes with sends, outside switches and sequences, from any device, as events on the grid; then it loops them on the beat. Overdub keeps the events it has; off, the presses, sends, shows, hides and sequences it had go.' : 'Record events needs the room\'s beat (output page).', c: 'faint' });
+  loopStatus(q, 'seq', B);
+}
+// beats one bar more or less, or the whole bars nearest its length at the tempo now (at least one)
+function beatsStep(n, len, v) {
+  const b = btBar();
+  if (v === 'fit') return STU.bt ? Math.min(256, Math.max(1, Math.round(len / (b * beatMs() / 1000))) * b) : n;
+  if (v === '+') return n ? Math.min(256, n + b) : STU.bt ? beatsStep(0, len, 'fit') : b;
+  if (v === '-') return n ? Math.max(1, n - b) : 0;
+  return 0;
+}
+Object.assign(ITEM_ACT, {
+  pbeat: (it, v) => {
+    const P = it.rec.path;
+    if (!P) return;
+    const n = v === 'off' ? 0 : beatsStep(P.sync ? P.beats : 0, pathLen(P), v);
+    setRec(it.id, { path: normPath(Object.assign({}, P, n ? { sync: 'beat', beats: n } : { sync: undefined, beats: undefined })) || P });
+  },
+  qbeat: (q, v) => { if (q.kind !== 'q' || q.rec.locked) return; const n = v === 'off' ? 0 : beatsStep(q.rec.beats || 0, q.rec.len, v); setRec(q.id, { beats: n || undefined }); },
+  lpRec: (it, v) => { const L = loopMine(it, 'path'); if (L) { loopCancel('card'); return; } loopArm(it, 'path', +v); },
+  lpEv: (q, v) => { if (q.kind !== 'q') return; const L = loopMine(q, 'seq'); if (L) { loopCancel('card'); return; } loopArm(q, 'seq', +v); },
+  lpCancel: () => loopCancel('card'),
+  lpGrid: (it, v) => { const g = +v; if (LOOP_GRIDS.some(x => x[0] === g)) { LOOP.grid = g; store.set('studioLoopGrid', String(g)); } },
+  lpOver: (it, v) => { LOOP.over = v === 'on'; store.set('studioLoopOver', LOOP.over ? '1' : null); },
+});
+PANE_ONLY.push('lpRec', 'lpEv', 'lpCancel', 'lpGrid', 'lpOver');
+function loopSig() {
+  const L = LOOP.on, p = L && STU.bt ? beatPos(loopClock()) : 0;
+  return [L ? [L.id, L.kind, L.phase, L.bars, Math.floor(p + tolB()), L.evs.length].join() : '', LOOP.grid, LOOP.over, LOOP.note, STU.bt ? STU.bt.bpm + '/' + btBar() : ''].join('|');
+}
+// for tests: STUDIO.loops()
+const loopState = () => { const L = LOOP.on; return { armed: !!L, phase: L ? L.phase : '', id: L ? L.id : '', kind: L ? L.kind : '', from: L ? L.from : 0, to: L ? L.to : 0, got: L ? L.got : 0, grid: LOOP.grid, over: LOOP.over, note: LOOP.note, log: LOOP.log.slice() }; };
+// ================================================================== TRAILS ==
+// Trails (v158; the owner, 17 November 2026: trails "for both [items and people's hands] and show to everyone at the
+// circle"; tools/output/SPEC.md "v158" section 3 is the contract, tools/studio/SPEC.md "Trails" the studio's part). An
+// object's, a shape's, an empty's or a sound's record may carry
+//   trail: { len, w, col }   (len 0.5..10 s, w 0.005..0.1 m, col '#rrggbb': absent the kind's own colour)
+// and the scene's settings may carry hands: { len, w } (people's hand trails, in their colours; absent: off). Each device
+// draws them from what it draws (nothing is sent): behind the item's middle as drawn here (motions, paths, behaviours,
+// carries, trackers), and from the hands of the people in a headset at this circle (the shell's persons(), smoothed
+// presence) and this device's own controllers. One batched draw: a ribbon facing the camera (two vertices a sample, opened
+// in view space in the vertex shader, so each eye of a headset sees it face on), fading to black with age and blended in
+// the ships' way (colour One/One, alpha Zero/One: it adds light, never darkens, and leaves the layer's alpha alone in AR),
+// depth-tested, writing no depth. At most 16,384 vertices a frame: past it, the oldest samples of the longest trails go
+// first (counted). A trail jumps (no line across) where its item jumps more than 1 m in a frame or is hidden.
+const TRAIL_MAX = 16384, TRAIL_DT = 1 / 60, TRAIL_STEP = 0.02, TRAIL_JUMP = 1, TRAIL_KINDS = ['o', 'p', 'e', 's'];
+const TRAIL_LENS = [0.5, 1, 2, 3, 5, 7.5, 10], TRAIL_WS = [0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.1];
+const TRAIL_COL = { o: '#46d9ff', e: '#ffb43b', s: '#3ee08f' };   // (the kind's own colour; a shape takes its own)
+// the trails here: key ('i:<id>', 'h:<member>:l') -> { pts: [{ x, y, z, t, s }] (oldest first; s: its stretch, a jump
+// starts another), seg, last: [x, y, z] (last frame's place), col, len, w, head: { x, y, z } | null, seen }
+const TRL = { map: new Map(), mesh: null, geo: null, cap: TRAIL_MAX, dropped: 0, verts: 0, items: 0, hands: 0, fake: null };
+let trailClock = () => performance.now();
+
+// ---------------------------------------------------------------- the record --
+// a trail as a record keeps it: len and w always (rounded, held at their limits), col only when set (lower case); null a bad
+// one (not an object, a length or a width that is not a number, a colour that is not #rrggbb)
+function normTrail(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const has = k => x[k] !== undefined && x[k] !== null;
+  if ((has('len') && !fin(x.len)) || (has('w') && !fin(x.w)) || (has('col') && !(typeof x.col === 'string' && /^#[0-9a-f]{6}$/i.test(x.col)))) return null;
+  const r = { len: has('len') ? r2(clamp(x.len, 0.5, 10)) : 3, w: has('w') ? r3(clamp(x.w, 0.005, 0.1)) : 0.02 };
+  if (has('col')) r.col = x.col.toLowerCase();
+  return r;
+}
+// a given record's trail: kept when given (undefined: none); null a bad one
+const trailKeep = x => (x == null ? undefined : normTrail(x));
+// the hands' setting as the scene's settings keep it: { len, w } (undefined: off; null: bad)
+function normHands(x) {
+  if (x == null || x === false) return undefined;
+  if (x === true) return { len: 3, w: 0.02 };
+  const t = normTrail(x);
+  return t && x.col === undefined ? { len: t.len, w: t.w } : null;
+}
+
+// --------------------------------------------------------------- every frame --
+const _tv = new THREE.Vector3(), _tm = new THREE.Matrix4();
+function trailBuild() {
+  const g = TRL.geo = new THREE.BufferGeometry(), n = TRAIL_MAX;
+  const side = new Float32Array(n);
+  for (let i = 0; i < n; i++) side[i] = i % 2 ? 1 : -1;
+  const dyn = (a, k) => { const b = new THREE.BufferAttribute(a, k); b.setUsage(THREE.DynamicDrawUsage); return b; };
+  g.setAttribute('position', dyn(new Float32Array(n * 3), 3));
+  g.setAttribute('aDir', dyn(new Float32Array(n * 3), 3));
+  g.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
+  g.setAttribute('aW', dyn(new Float32Array(n), 1));
+  g.setAttribute('color', dyn(new Float32Array(n * 3), 3));
+  g.setIndex(dyn(new Uint16Array((n / 2) * 6), 1));
+  g.setDrawRange(0, 0);
+  const m = new THREE.ShaderMaterial({
+    vertexShader: `attribute vec3 aDir; attribute float aSide; attribute float aW; attribute vec3 color; varying vec3 vC;
+      void main() {
+        vC = color;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vec3 t = (modelViewMatrix * vec4(aDir, 0.0)).xyz, v = normalize(-mv.xyz), n = cross(t, v);
+        float l = length(n);
+        n = l > 1e-6 ? n / l : vec3(0.0, 1.0, 0.0);
+        mv.xyz += n * aSide * aW;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `varying vec3 vC; void main() { gl_FragColor = vec4(vC, 1.0); }`,
+    transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+  });
+  const mesh = TRL.mesh = new THREE.Mesh(g, m);
+  mesh.frustumCulled = false; mesh.renderOrder = 8; mesh.visible = false; mesh.name = 'trails';
+  mesh.raycast = () => {};   // (never pointed at)
+  GL.items.add(mesh);
+}
+// a trail's state, made as needed
+function trailOf(key, col, len, w) {
+  let T = TRL.map.get(key);
+  if (!T) { T = { pts: [], seg: 0, last: null, col: new THREE.Color(), len, w, head: null, seen: 0 }; TRL.map.set(key, T); }
+  T.col.set(col); T.len = len; T.w = w; T.seen = TRL.gen;
+  return T;
+}
+// where it is now (p, the scene's frame), or null (hidden: the trail breaks): a sample when 1/60 s has passed since the last
+// and it moved 2 cm (or a quarter second went by); a jump of more than 1 m in a frame breaks it
+function trailFeed(T, p, t) {
+  if (!p) { T.head = null; T.last = null; T.seg++; return; }
+  if (T.last && Math.hypot(p.x - T.last[0], p.y - T.last[1], p.z - T.last[2]) > TRAIL_JUMP) T.seg++;
+  T.last = [p.x, p.y, p.z];
+  const L = T.pts[T.pts.length - 1];
+  const fresh = !L || L.s !== T.seg;
+  const take = fresh || (t - L.t >= TRAIL_DT * 1000 - 2 && (Math.hypot(p.x - L.x, p.y - L.y, p.z - L.z) >= TRAIL_STEP || t - L.t >= 250));
+  if (take) T.pts.push({ x: p.x, y: p.y, z: p.z, t, s: T.seg });
+  T.head = take ? null : { x: p.x, y: p.y, z: p.z, t, s: T.seg };   // (where it is now, between samples)
+}
+// the hands to trail now: [key, colour, p] (the scene's frame): the people in a headset at this circle (their presence,
+// in room coordinates, which are the scene's at a station) and this device's own controllers in its session
+function trailHands(out) {
+  const sid = stationId();
+  let L = null;
+  try { L = sid && HOST.collab && HOST.collab.persons ? HOST.collab.persons() : null; } catch (e) { L = null; }
+  if (Array.isArray(L)) for (const P of L) {
+    if (!P || P.st !== sid || !P.body || !Array.isArray(P.body.hands)) continue;
+    P.body.hands.forEach((h, i) => { if (Array.isArray(h) && h.length >= 3 && h.slice(0, 3).every(fin)) out.push(['h:' + P.id + ':' + 'lr'[i], cssHex(P.color), new THREE.Vector3(h[0], h[1], h[2])]); });
+  }
+  if (Array.isArray(TRL.fake)) for (const f of TRL.fake) out.push(['h:' + f.id + ':' + f.hand, cssHex(f.color), new THREE.Vector3().fromArray(f.p)]);
+  if (XR.on && GL.renderer.xr.isPresenting) {
+    let me = '#46d9ff';
+    try { if (HOST.collab && HOST.collab.color) me = cssHex(HOST.collab.color); } catch (e) { /* not in a room */ }
+    _tm.copy(GL.items.matrixWorld).invert();
+    for (const c of XR.ctrls) {
+      if (!c.src || !c.g || !(c.src.handedness === 'left' || c.src.handedness === 'right')) continue;
+      out.push(['h:me:' + c.src.handedness[0], me, new THREE.Vector3().setFromMatrixPosition(c.g.matrixWorld).applyMatrix4(_tm)]);
+    }
+  }
+  return out;
+}
+const cssHex = c => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c : '#46d9ff');
+function trailStep() {
+  const S = STU.settings, now = trailClock();
+  TRL.gen = (TRL.gen || 0) + 1;
+  let any = false;
+  const away = !STU.scene || GL.gone || xrAway() || XR.stories;
+  if (!away) {
+    GL.items.updateWorldMatrix(true, false);
+    for (const it of STU.items.values()) {
+      const tr = TRAIL_KINDS.includes(it.kind) && it.rec.trail;
+      if (!tr) continue;
+      any = true;
+      const T = trailOf('i:' + it.id, tr.col || (it.kind === 'p' ? it.rec.colour : TRAIL_COL[it.kind]), tr.len, tr.w);
+      const vis = it.shown && !it.notHere && it.holder;
+      trailFeed(T, vis ? itemTopInto(it, _tv, true) : null, now);
+    }
+    if (S.hands) for (const [k, col, p] of trailHands([])) { any = true; trailFeed(trailOf(k, col, S.hands.len, S.hands.w), p, now); }
+  }
+  // (trails no longer asked for go; those that are fade out with age)
+  for (const [k, T] of TRL.map) {
+    if (T.seen !== TRL.gen) { T.head = null; T.last = null; }
+    const old = now - T.len * 1000;
+    while (T.pts.length && T.pts[0].t < old) T.pts.shift();
+    if (!T.pts.length && T.seen !== TRL.gen) TRL.map.delete(k);
+  }
+  if (!any && !TRL.map.size) { if (TRL.mesh) TRL.mesh.visible = false; TRL.verts = TRL.items = TRL.hands = 0; return; }
+  trailDraw(now);
+}
+// the cap: while the trails' vertices pass it, the oldest samples of the longest trail go (counted)
+function trailCapNow() {
+  const L = [...TRL.map.values()];
+  const n = T => T.pts.length + (T.head ? 1 : 0);
+  let total = L.reduce((a, T) => a + n(T) * 2, 0);
+  while (total > TRL.cap) {
+    let A = null, B = 0;
+    for (const T of L) { const k = n(T); if (!A || k > n(A)) { if (A) B = Math.max(B, n(A)); A = T; } else B = Math.max(B, k); }
+    if (!A || !A.pts.length) break;
+    const cut = Math.min(A.pts.length, Math.max(1, Math.min(Math.ceil((total - TRL.cap) / 2), n(A) - B)));
+    A.pts.splice(0, cut); TRL.dropped += cut; total -= cut * 2;
+  }
+}
+function trailDraw(now) {
+  if (!TRL.mesh) trailBuild();
+  trailCapNow();
+  const g = TRL.geo, P = g.attributes.position.array, D = g.attributes.aDir.array, W = g.attributes.aW.array, C = g.attributes.color.array, I = g.index.array;
+  let v = 0, ix = 0, items = 0, hands = 0;
+  for (const [k, T] of TRL.map) {
+    const pts = T.head && (!T.pts.length || T.pts[T.pts.length - 1] !== T.head) ? T.pts.concat([T.head]) : T.pts;
+    if (pts.length < 2) continue;
+    if (k[0] === 'i') items++; else hands++;
+    const hw = T.w / 2, r = T.col.r, gg = T.col.g, b = T.col.b;
+    for (let i = 0; i < pts.length; i++) {
+      if (v + 2 > TRL.cap) break;
+      const p = pts[i], a = pts[i > 0 && pts[i - 1].s === p.s ? i - 1 : i], c = pts[i + 1 < pts.length && pts[i + 1].s === p.s ? i + 1 : i];
+      const age = clamp(1 - (now - p.t) / (T.len * 1000), 0, 1), f = age * age;
+      for (let s = 0; s < 2; s++) {
+        const j = v + s;
+        P[j * 3] = p.x; P[j * 3 + 1] = p.y; P[j * 3 + 2] = p.z;
+        D[j * 3] = c.x - a.x; D[j * 3 + 1] = c.y - a.y; D[j * 3 + 2] = c.z - a.z;
+        W[j] = hw; C[j * 3] = r * f; C[j * 3 + 1] = gg * f; C[j * 3 + 2] = b * f;
+      }
+      if (i > 0 && pts[i - 1].s === p.s && v >= 2) { I[ix++] = v - 2; I[ix++] = v - 1; I[ix++] = v; I[ix++] = v - 1; I[ix++] = v + 1; I[ix++] = v; }
+      v += 2;
+    }
+  }
+  TRL.verts = v; TRL.items = items; TRL.hands = hands;
+  for (const k of ['position', 'aDir', 'aW', 'color']) { const A = g.attributes[k]; A.updateRange.offset = 0; A.updateRange.count = v * A.itemSize; A.needsUpdate = true; }
+  g.index.updateRange.offset = 0; g.index.updateRange.count = ix; g.index.needsUpdate = true;
+  g.setDrawRange(0, ix);
+  TRL.mesh.visible = ix > 0;
+}
+// gone with the studio (dispose) or the scene (another opened)
+function trailClear() { TRL.map.clear(); if (TRL.mesh) { TRL.mesh.visible = false; TRL.geo.setDrawRange(0, 0); } }
+
+// -------------------------------------------------------------------- the card --
+// Trail: Off / On, its length and width (− / +) and its colour (the kind's own, or the shapes' ten); one Undo step each,
+// for everyone at the circle. Not refused by a lock in place (a look, as a tint)
+function trailBlocks(it, B) {
+  if (!TRAIL_KINDS.includes(it.kind) || !editOn()) return;
+  const t = it.rec.trail, own = it.kind === 'p' ? it.rec.colour : TRAIL_COL[it.kind];
+  B.push({ label: 'Trail' + (t ? `: ${t.len} s, ${Math.round(t.w * 1000)} mm` : ''), row: [{ id: 'trail:off', label: 'Off', act: 'i:trail', v: 'off', on: !t }, { id: 'trail:on', label: 'On', act: 'i:trail', v: 'on', on: !!t }] });
+  if (!t) { B.push({ p: 'A trail of light behind it as it moves, which everyone at this circle sees.', c: 'faint' }); return; }
+  B.push({ label: `Length: ${t.len} s`, row: [{ id: 'trlen:-', label: '−', act: 'i:trailLen', v: -1, dis: t.len <= TRAIL_LENS[0] }, { id: 'trlen:+', label: '+', act: 'i:trailLen', v: 1, dis: t.len >= 10 }] },
+    { label: `Width: ${Math.round(t.w * 1000)} mm`, row: [{ id: 'trw:-', label: '−', act: 'i:trailW', v: -1, dis: t.w <= TRAIL_WS[0] }, { id: 'trw:+', label: '+', act: 'i:trailW', v: 1, dis: t.w >= 0.1 }] },
+    { label: 'Trail colour', row: [{ id: 'trcol:own', label: 'Its own', act: 'i:trailCol', v: '', on: !t.col, sw: own }].concat(SHAPE_COLS.map(([c, n]) => ({ id: 'trcol:' + c, label: n, act: 'i:trailCol', v: c, on: t.col === c, sw: c }))) });
+}
+// the next step up or down a ladder from x
+const ladder = (L, x, d) => (d > 0 ? L.find(v => v > x + 1e-9) || L[L.length - 1] : [...L].reverse().find(v => v < x - 1e-9) || L[0]);
+Object.assign(ITEM_ACT, {
+  trail: (it, v) => { if (TRAIL_KINDS.includes(it.kind)) setRec(it.id, { trail: v === 'on' ? (it.rec.trail || { len: 3, w: 0.02 }) : undefined }); },
+  trailLen: (it, d) => { const t = it.rec.trail; if (t) setRec(it.id, { trail: Object.assign({}, t, { len: ladder(TRAIL_LENS, t.len, +d) }) }); },
+  trailW: (it, d) => { const t = it.rec.trail; if (t) setRec(it.id, { trail: Object.assign({}, t, { w: ladder(TRAIL_WS, t.w, +d) }) }); },
+  trailCol: (it, v) => {
+    const t = it.rec.trail;
+    if (!t || (v && !/^#[0-9a-f]{6}$/.test(v))) return;
+    const n = Object.assign({}, t); if (v) n.col = v; else delete n.col;
+    setRec(it.id, { trail: n });
+  },
+});
+// the Scene pane's row (while editing): Hand trails: Off / On, length, width (the scene's setting, one Undo step)
+function handsBlocks(B, who) {
+  const H = STU.settings.hands;
+  B.push({ label: 'Hand trails' + who, row: [{ id: 'set:hands:off', label: 'Off', act: 'setting', v: 'hands:off', on: !H }, { id: 'set:hands:on', label: 'On', act: 'setting', v: 'hands:on', on: !!H }] });
+  if (H) B.push({ label: `Hand trails: ${H.len} s`, row: [{ id: 'set:hands:len:-', label: '−', act: 'setting', v: 'hands:len:-1', dis: H.len <= TRAIL_LENS[0] }, { id: 'set:hands:len:+', label: '+', act: 'setting', v: 'hands:len:1', dis: H.len >= 10 }] },
+    { label: `Hand trails: ${Math.round(H.w * 1000)} mm wide`, row: [{ id: 'set:hands:w:-', label: '−', act: 'setting', v: 'hands:w:-1', dis: H.w <= TRAIL_WS[0] }, { id: 'set:hands:w:+', label: '+', act: 'setting', v: 'hands:w:1', dis: H.w >= 0.1 }] });
+  B.push({ p: 'On: each person in a headset at this circle leaves a trail of light from each hand, in their colour. Saved with the scene.', c: 'faint' });
+}
+// a Hand trails press ('hands:on', 'hands:off', 'hands:len:-1', 'hands:w:1'): the settings it gives (setSetting)
+function handsSetting(v) {
+  const p = String(v).split(':'), H = STU.settings.hands, S = Object.assign({}, STU.settings);
+  if (p[1] === 'off') delete S.hands;
+  else if (p[1] === 'on') S.hands = H || { len: 3, w: 0.02 };
+  else if (H && (p[1] === 'len' || p[1] === 'w')) S.hands = Object.assign({}, H, { [p[1]]: ladder(p[1] === 'len' ? TRAIL_LENS : TRAIL_WS, H[p[1]], +p[2]) });
+  else return null;
+  return normSettings(S);
+}
+// for tests: STUDIO.trails() ({ items, hands, verts, dropped }: the trails drawn this frame, their vertices, the samples the
+// cap dropped), STUDIO.trailCap(n) (the cap, null the default), STUDIO.trailFake([{ id, hand, color, p }]) (pretend hands),
+// and the clock (STUDIO.trailClock, ms)
+const trailState = () => ({ items: TRL.items, hands: TRL.hands, verts: TRL.verts, dropped: TRL.dropped, map: [...TRL.map].map(([k, T]) => [k, T.pts.length, T.head ? 1 : 0]) });
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -31828,6 +32827,7 @@ function paneBlocks(tab) {
     if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
     if (STU.badSeq) B.push({ p: `${STU.badSeq} of the sequences' events in layout.json could not be read.`, c: 'amber' });
     if (STU.badSend) B.push({ p: `${STU.badSend} of the sends to the output page in layout.json could not be read.`, c: 'amber' });
+    if (STU.badStream) B.push({ p: `${STU.badStream} of the streams to the output page in layout.json could not be read (or were past the scene's ${STREAM_SCENE}).`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -32037,6 +33037,7 @@ function itemCard(it, C) {
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.on === false ? 'switched off' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
+  if (r && r.stream) state.push(`streams ${r.stream.length}`);   // (v158: e6v_stream.js)
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
 }
@@ -32045,7 +33046,7 @@ function itemBlocks(it, B, ed) {
   // (recording a path here: its size steps off, rs; e6f_path.js)
   const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true), rs = mv || recording(it);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
-  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); sendBlocks(it, B, dis || !!r.locked); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
+  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); if (ed) seqBeatBlocks(it, B, !!r.locked); sendBlocks(it, B, dis || !!r.locked); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
     B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
@@ -32212,6 +33213,8 @@ function itemBlocks(it, B, ed) {
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
   if (PRESS_KINDS.includes(it.kind)) { pressBlocks(it, B, dis); sendBlocks(it, B, dis); }   // (what pressing it and pointing at it do: e6t_press.js; and send: e6u_send.js)
+  if (ed) streamBlocks(it, B);   // (values of it streamed to the output page: e6v_stream.js)
+  if (ed) trailBlocks(it, B);   // (a trail of light behind it, for everyone at the circle: e6x_trails.js)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -32522,7 +33525,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -32712,7 +33715,7 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName', 'stuSendNum', 'stuSendOsc'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName', 'stuSendNum', 'stuSendOsc', 'stuStreamOsc'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
   if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { if (i.type === 'text') i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }   // (a slider keeps the keyboard's focus too)
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }
@@ -34188,7 +35191,8 @@ function uploadBind() {
   });
   ex.addEventListener('input', ev => {
     if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); }
-    if (ev.target.id === 'stuSendNum' || ev.target.id === 'stuSendOsc') sxInput(ev.target.id, ev.target.value);   // (a send's number and address: e6u_send.js)
+    if (ev.target.id === 'stuSendNum' || ev.target.id === 'stuSendOsc') sxInput(ev.target.id, ev.target.value);
+    if (ev.target.id === 'stuStreamOsc') stInput(ev.target.id, ev.target.value);   // (a stream's address: e6v_stream.js)   // (a send's number and address: e6u_send.js)
     if (ev.target.id === 'stuSceneName') { NS.name = ev.target.value; const b = ex.querySelector('[data-act="scenemake"]'); if (b) b.disabled = NS.making || !NS.name.trim(); }   // (the Scene pane's New scene)
   });
   ex.addEventListener('keydown', ev => {
@@ -36946,7 +37950,7 @@ function xrGrab(c, on) {
     // joins it, a corner too. The other hand carrying a member of its group on its own (or by a corner): this one alone,
     // never the group round what that hand holds)
     const gOf = GROUP_KINDS.includes(it.kind) ? groupOf(it.id) : null, other = XR.ctrls.filter(k => k !== c && k.grab);
-    if (REC && REC.id === it.id) { buzz(c, 0.15, 12); return; }   // (recording its path: one hand carries it, a path has no size)
+    if (REC && REC.id === it.id && !(REC.beat && REC.by === 'beat' && !other.some(k => k.grab.id === it.id))) { buzz(c, 0.15, 12); return; }   // (recording its path: one hand carries it, a path has no size; on the beat, v158, a hand may take it up, or again, while it records)
     const solo = !!gOf && other.some(k => (k.grab.target === 'item' || k.grab.target === 'corner') && (k.grab.id === it.id || groupOf(k.grab.id) === gOf));
     const grp = gOf && (other.some(k => k.grab.target === 'group' && k.grab.id === gOf.id) || (h.corner === undefined && STU.sel !== it.id && !solo)) ? gOf : null;
     if (grp) { if (lockWhy(grp)) refuse(grp); else groupGrab(c, grp, q0); return; }
@@ -37012,7 +38016,9 @@ function xrLetGo(c) {
   if (o) { if (o.grab.target === 'item') xrRegrip(o); return; }
   const it = STU.items.get(G.id);
   // (recording its path: kept, its place as it was; e6f_path.js. Else where the hand left it)
-  if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  // (on the beat, v158: let go early it stays where it was let go until the recording's end downbeat, which writes it; e6w_loops.js)
+  if (it && REC && REC.id === it.id && REC.beat && REC.by === 'beat') { it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  else if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
 }
@@ -38730,6 +39736,7 @@ function frame(now, xrFrame) {
   GL.world.updateMatrixWorld(true);
   behaveStep(dt, performance.now());   // (behaviours: who each reacts to, what this device drives; e6g_behave.js)
   itemsStep(dt, performance.now());
+  trailStep();   // (the items' and hands' trails, from where they are drawn this frame: e6x_trails.js)
   cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
@@ -38943,7 +39950,22 @@ const STUDIO = {
   out: OUT_API,
   sends: () => ({ out: SENDS.out, dropped: SENDS.dropped, log: SENDS.log.slice(), emitted: OUTL.log.slice(), listeners: OUTL.fns.length, sw: Object.fromEntries(STU.sw), bt: STU.bt, badSend: STU.badSend }),
   sendSet: (id, list) => sendSet(id, list),
+  // streams on a card (v158, e6v_stream.js): an item's list written as an edit (one Undo step; null takes it away), the card's
+  // pick, a watch under way, its last ranges; loops on the beat (e6w_loops.js): the recording armed or under way, its phase
+  // and beats, what it got; and their clock (the tests replace it, as trgClock)
+  streamSet: (id, list) => streamSet(id, list),
+  streams: () => streamState(),
+  loops: () => loopState(),
+  get loopClock() { return loopClock; },
+  set loopClock(f) { loopClock = f; },
   beatSet: (id, b) => beatSet(id, b),
+  // trails (v158, e6x_trails.js): what was drawn this frame ({ items, hands, verts, dropped, map }), the vertex cap (null the
+  // default), pretend hands ([{ id, hand: 'l' | 'r', color, p }] in the scene's frame; null none) and the clock (ms)
+  trails: () => trailState(),
+  trailCap: n => { TRL.cap = n == null ? TRAIL_MAX : Math.max(4, Math.min(TRAIL_MAX, Math.floor(n / 2) * 2)); return TRL.cap; },
+  trailFake: L => { TRL.fake = Array.isArray(L) ? L : null; },
+  get trailClock() { return trailClock; },
+  set trailClock(f) { trailClock = f; },
   seqViewDrag: (i, dt) => seqViewDrag(i, dt),
   // a screen here (v143, e6q_screens.js): its record, the entry and time now, the length known, its element and its sound's panner,
   // whether the picture is drawn, its bar; and the clock of its play state (the tests replace it, as trgClock)

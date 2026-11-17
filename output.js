@@ -36,15 +36,18 @@
   const IN_RE = /^\/[!-~]{0,255}$/;   // (an incoming address: anything OSC allows without spaces)
   const ACTS = ['press', 'start', 'stop', 'toggle', 'rewind', 'show', 'hide', 'flip', 'clear'];
   const HOLDS = { show: 'hide', hide: 'show', start: 'stop', stop: 'start' };
-  const SRCS = ['head', 'hand', 'tracker', 'item', 'dist'], VALS = ['x', 'y', 'z', 'yaw', 'pitch', 'speed', 'd'];
+  const SRCS = ['head', 'hand', 'tracker', 'item', 'dist'], VALS = ['x', 'y', 'z', 'yaw', 'pitch', 'roll', 'speed', 'vx', 'vy', 'vz', 'acc', 'spin', 'd'];
   const MIDI_IN = ['note', 'cc', 'pc', 'start', 'stop', 'continue'];
-  const OPT0 = { midi: false, midiOut: '', midiIn: '', osc: false, oscTrk: false, all: false, echo: false, people: false, peopleWhere: 'room', items: false, clock: false, noteLen: 100 };
+  const OPT0 = { midi: false, midiOut: '', midiIn: '', osc: false, oscTrk: false, all: false, echo: false, people: false, peopleWhere: 'room', items: false, clock: false, noteLen: 100,
+    clockOut: false, bar: 4, tempo: 120 };
   const newId = () => { let s = ''; for (const b of crypto.getRandomValues(new Uint8Array(6))) s += 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]; return s; };
   const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
   function normOpt(o) {
     const r = Object.assign({}, OPT0);
     if (!o || typeof o !== 'object') return r;
-    for (const k of ['midi', 'osc', 'oscTrk', 'all', 'echo', 'people', 'items', 'clock']) r[k] = o[k] === true;
+    for (const k of ['midi', 'osc', 'oscTrk', 'all', 'echo', 'people', 'items', 'clock', 'clockOut']) r[k] = o[k] === true;
+    r.bar = isInt(o.bar, 1, 16) ? o.bar : 4;
+    r.tempo = isNum(o.tempo, 20, 300) ? Math.round(o.tempo * 100) / 100 : 120;
     r.midiOut = str(o.midiOut, 128); r.midiIn = str(o.midiIn, 128);
     r.peopleWhere = o.peopleWhere === 'circle' ? 'circle' : 'room';
     r.noteLen = isNum(o.noteLen, 5, 10000) ? Math.round(o.noteLen) : 100;
@@ -73,12 +76,25 @@
     if (!VALS.includes(v) || (v === 'd' && src.k !== 'dist')) return why(`stream ${x.id}: its value`);
     const min = isNum(x.min, -1e6, 1e6) ? x.min : 0, max = isNum(x.max, -1e6, 1e6) ? x.max : 1;
     if (min === max) return why(`stream ${x.id}: its range is empty`);
-    const midi = x.midi && typeof x.midi === 'object' ? (isInt(x.midi.ch, 1, 16) && isInt(x.midi.cc, 0, 127) ? { ch: x.midi.ch, cc: x.midi.cc } : undefined) : null;
+    const midi = x.midi ? normMidi(x.midi) : null;
     if (midi === undefined) return why(`stream ${x.id}: its MIDI`);
     const osc = x.osc === undefined || x.osc === '' || x.osc === null ? '' : ADDR_RE.test(x.osc) && !x.osc.includes('//') ? x.osc : undefined;
     if (osc === undefined) return why(`stream ${x.id}: its OSC address`);
     return { id: x.id, on: x.on !== false, name: str(x.name, 40), src, v, min, max, curve: x.curve === 'inv' ? 'inv' : 'lin', smooth: isNum(x.smooth, 0, 0.95) ? x.smooth : 0,
       hz: isNum(x.hz, 1, 60) ? Math.round(x.hz) : 15, midi, osc };
+  }
+  // a stream's MIDI: { ch, cc, wide? } (a controller; wide: 14-bit, cc and cc + 32, only for cc 0 to 31) or { ch, note, at?,
+  // vel?, val? } (a note as the value crosses at upward); undefined: a bad one
+  function normMidi(m) {
+    if (typeof m !== 'object' || !isInt(m.ch, 1, 16) || (m.cc === undefined) === (m.note === undefined)) return undefined;
+    if (m.cc !== undefined) {
+      if (!isInt(m.cc, 0, 127) || (m.wide !== undefined && m.wide !== false && !(m.wide === true && m.cc <= 31))) return undefined;
+      return Object.assign({ ch: m.ch, cc: m.cc }, m.wide === true ? { wide: true } : {});
+    }
+    if (!isInt(m.note, 0, 127) || (m.at !== undefined && !isNum(m.at, 0.01, 0.99)) || (m.vel !== undefined && m.vel !== 'speed') || (m.val !== undefined && !isInt(m.val, 1, 127))) return undefined;
+    const r = { ch: m.ch, note: m.note };
+    for (const k of ['at', 'vel', 'val']) if (m[k] !== undefined) r[k] = m[k];
+    return r;
   }
   function normFrom(f) {
     if (!f || typeof f !== 'object') return null;
@@ -130,7 +146,9 @@
     osc: { relay: null, pinged: 0, st: null, sent: 0, got: 0, dropped: 0, cfgAt: 0, q: [] },
     slots: new Map(), held: new Map(), offs: new Map(), log: [], events: 0, learn: '', edit: null, msg: '',
     live: new Map(), inc: new Map(), items: new Map(), itemsAt: 0, list: [], listAt: 0, peopleAt: 0, infoAt: 0, pers: [],
-    clock: { n: 0, last: 0, iv: [], bpm: 0, at: 0, sentAt: -1e9 }, dirty: true, renderAt: 0, liveAt: 0, logSig: '', secs: {},
+    clock: { pos: 0, run: null, last: 0, iv: [], bpm: 0, at: 0, bar: 0, sentAt: -1e9, heard: -1e9, force: false },
+    co: { run: false, bt: null, bar: 4, i: 0, last: 0, logAt: 0, ticks: 0, timer: 0 }, taps: [],
+    ss: new Map(), ssBad: 0, ssList: null, lidN: 0, frameT: -1e9, tempoOn: false, ssSig: '', kin: new Map(), kinAt: -1e9, raf: 0, snotes: new Map(), tries: [], tryL: new Map(), rev: undefined, dirty: true, renderAt: 0, liveAt: 0, logSig: '', secs: {},
   };
   function load() {
     const r = normMap(get(KEY) || '{"out":1}');
@@ -172,6 +190,7 @@
   function midiOff() {
     const M = O.midi;
     releaseAll('MIDI off');
+    coStop('MIDI off');
     if (M.inp) try { M.inp.onmidimessage = null; } catch (e) { /* gone */ }
     if (M.access) try { M.access.onstatechange = null; } catch (e) { /* gone */ }
     Object.assign(M, { access: null, ok: false, out: null, inp: null, outs: [], ins: [], busy: false });
@@ -226,12 +245,19 @@
   function releaseAll(why) {
     for (const [k, H] of [...O.held]) { O.held.delete(k); midiSend(H.off, H.text + ' (' + why + ')'); }
     for (const [T, off] of [...O.offs]) { clearTimeout(T); O.offs.delete(T); midiSend(off, 'note off (' + why + ')'); }   // (notes still sounding: off now)
+    for (const L of [...O.snotes.keys()]) streamOff(L, why);
   }
   // MIDI in (a port's message, or HOST.out.midiIn for tests; at: the room's ms of it, default now)
   function midiIn(data, at) {
     if (!O.on || !data || !data.length) return;
     const b = [...data].map(x => x & 255), s = b[0], t = Number.isFinite(at) ? at : rnow();
     if (s === 0xF8) { if (opt().clock) clockTick(t); return; }   // (24 a beat: never logged one by one)
+    if (s === 0xF2 && b.length >= 3) {   // (Song Position Pointer: sixteenths from the song's start; a beat is 24 ticks, a sixteenth 6)
+      const n = (b[1] & 127) | ((b[2] & 127) << 7);
+      O.clock.pos = n * 6; O.clock.force = true;
+      note('in', 'midi', 'song position ' + n + ' (sixteenths)', b);
+      return;
+    }
     let m = null;
     if (s === 0xFA || s === 0xFB || s === 0xFC) m = { midi: { 0xFA: 'start', 0xFB: 'continue', 0xFC: 'stop' }[s] };
     else {
@@ -244,7 +270,8 @@
     note('in', 'midi', m ? midiText(m) : 'not used: ' + hex(b), b);
     if (!m) return;
     if (m.midi === 'start') clockStart(t);
-    if (m.midi === 'stop' && opt().clock) clockStop();
+    if (m.midi === 'continue') { O.clock.run = true; O.clock.force = true; }
+    if (m.midi === 'stop') { O.clock.run = false; if (opt().clock) clockStop(); }
     if (O.learn && (m.midi !== 'note' || m.on)) { learnFrom(m.midi === 'note' || m.midi === 'cc' || m.midi === 'pc' ? { midi: m.midi, ch: m.ch, n: m.n } : { midi: m.midi, ch: 0 }); return; }
     for (const r of O.map.incoming) {
       const f = r.from;
@@ -260,34 +287,123 @@
     }
   }
   const midiText = m => (m.midi === 'note' ? `note ${m.n} ${m.on ? 'on' : 'off'}, channel ${m.ch}` : m.midi === 'cc' ? `CC ${m.n} = ${m.v}, channel ${m.ch}` : m.midi === 'pc' ? `program ${m.n}, channel ${m.ch}` : m.midi);
-  // MIDI clock to the room's beat (off by default): bpm from the median of the last 48 tick intervals, a beat at every 24th
-  // tick from the last start (or the first tick heard); written when it moved by 0.5 bpm or the beat is 20 ms off, at most
-  // once a second
-  function clockStart() { Object.assign(O.clock, { n: 0, last: 0, iv: [] }); }
+  // MIDI clock to the room's beat (off by default): bpm from the median of the last 48 tick intervals; the ticks counted
+  // from Start (a downbeat: the next tick is the bar's first) or a Song Position Pointer, else from the first tick heard; at
+  // every beat the room's beat written with at = the latest downbeat (Beats a bar: bar) when it moved by 0.5 bpm or the
+  // downbeat is 20 ms off, at most once a second (at once after Start, Continue or a song position); after Stop, nothing
+  // until Start or Continue
+  function clockStart() { Object.assign(O.clock, { pos: 0, run: true, last: 0, iv: [], force: true }); }   // (the tempo measured afresh: it may have changed while stopped)
+  const clockLeads = () => !!(O.on && opt().clock && performance.now() - O.clock.heard < 1500);
   function clockTick(t) {
     const K = O.clock;
+    K.heard = performance.now();
     if (K.last) { const d = t - K.last; if (d > 0 && d < 1000) { K.iv.push(d); if (K.iv.length > 48) K.iv.shift(); } else K.iv = []; }
     K.last = t;
-    const beat = K.n % 24 === 0;
-    K.n++;
-    if (!beat || K.iv.length < 12) return;
+    const pos = K.pos, bar = opt().bar;
+    K.pos++;
+    if (pos % 24 !== 0 || K.run === false || K.iv.length < 12) return;
     const s = K.iv.slice().sort((a, b) => a - b), med = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
     const bpm = Math.round(6000000 / (24 * med)) / 100;
     if (bpm < 20 || bpm > 300) return;
+    const down = t - (pos % (24 * bar)) * med;   // (the latest downbeat)
     let off = Infinity;
-    if (K.bpm) { const P = 60000 / K.bpm, k = Math.round((t - K.at) / P); off = Math.abs(t - (K.at + k * P)); }
-    if (K.bpm && Math.abs(bpm - K.bpm) < 0.5 && off <= 20) return;
-    if (performance.now() - K.sentAt < 1000) return;
-    K.sentAt = performance.now(); K.bpm = bpm; K.at = t;
-    act({ do: 'beat', bpm, at: Math.round(t) }, 'MIDI clock');
+    if (K.bpm) { const B = 24 * bar * med, d = down - K.at; off = Math.abs(d - Math.round(d / B) * B); }
+    if (!K.force && K.bpm && K.bar === bar && Math.abs(bpm - K.bpm) < 0.5 && off <= 20) return;
+    if (!K.force && performance.now() - K.sentAt < 1000) return;
+    K.sentAt = performance.now(); K.bpm = bpm; K.at = down; K.bar = bar; K.force = false;
+    act({ do: 'beat', bpm, at: Math.round(down), bar }, 'MIDI clock');
   }
   function clockStop() {
     const K = O.clock;
-    clockStart();
+    K.run = false; K.last = 0;
     if (!K.bpm) return;
     K.bpm = 0; K.sentAt = -1e9;
     act({ do: 'beat', bpm: 0 }, 'MIDI stop');
   }
+  // the room's beat as the studio has applied it ({ bpm, at, bar, by }; a beat without bar: 4), or null
+  function roomBeat() {
+    let b = null;
+    try { b = O.api && typeof O.api.beat === 'function' ? O.api.beat() : null; } catch (e) { b = null; }
+    if (!b || !isNum(b.bpm, 20, 300) || !Number.isFinite(b.at)) return null;
+    return { bpm: b.bpm, at: b.at, bar: isInt(b.bar, 1, 16) ? b.bar : 4, by: typeof b.by === 'string' ? b.by : '' };
+  }
+
+  // ---------------------------------------------------------- the room's own tempo --
+  // Tempo: the room as master (Start writes the beat with its downbeat at the next 10 ms; Tap: 4 taps or more, the median)
+  function tempoStart(why) {
+    const at = Math.ceil(rnow() / 10) * 10;
+    O.tempoOn = true;
+    return act({ do: 'beat', bpm: opt().tempo, at, bar: opt().bar }, why || 'Tempo');
+  }
+  function tempoStop() { O.tempoOn = false; return act({ do: 'beat', bpm: 0 }, 'Tempo'); }
+  // a new tempo or bar while the Tempo part leads: from the latest downbeat, at the new rate
+  function tempoAgain() {
+    const b = roomBeat();
+    if (!O.tempoOn || !b || clockLeads()) return;
+    const B = 60000 / b.bpm * b.bar, d = rnow() - b.at, down = b.at + Math.floor(d / B) * B;
+    act({ do: 'beat', bpm: opt().tempo, at: Math.round(down), bar: opt().bar }, 'Tempo');
+  }
+  function tap(t) {
+    const T = O.taps, now = Number.isFinite(t) ? t : performance.now();
+    if (T.length && now - T[T.length - 1] > 2000) T.length = 0;
+    T.push(now);
+    if (T.length > 9) T.shift();
+    if (T.length < 4) { say(`Tap ${4 - T.length} more time${T.length === 3 ? '' : 's'}.`); return 0; }
+    const iv = T.slice(1).map((x, i) => x - T[i]).sort((a, b) => a - b), med = iv.length % 2 ? iv[(iv.length - 1) / 2] : (iv[iv.length / 2 - 1] + iv[iv.length / 2]) / 2;
+    const bpm = clamp(Math.round(6000000 / med) / 100, 20, 300);
+    opt().tempo = bpm; save(); tempoAgain();
+    say(`Tapped: ${bpm.toFixed(2)} bpm.`);
+    return bpm;
+  }
+
+  // ------------------------------------------------------------ MIDI clock out --
+  // while the room has a beat: 24 clock bytes a beat on the output port, each with Web MIDI's timestamp (performance.now()'s
+  // ms, from the room's: ts = perf + (room ms - the room's now)), a scheduler every 25 ms looking 100 ms ahead; a beat that
+  // appears, or whose downbeat moves by more than a tick (another writer): Stop, Song Position (the bar's start) and Start
+  // at the next downbeat; a tempo change goes on at the new rate from where it is; the beat gone: Stop
+  const CO_AHEAD = 100;
+  function midiAt(bytes, ts) {
+    const M = O.midi;
+    if (!opt().midi || !M.out) return false;
+    try { M.out.send(bytes, ts); return true; } catch (e) { return false; }
+  }
+  function coStop(why) {
+    const CO = O.co;
+    if (!CO.run) return;
+    CO.run = false; CO.bt = null;
+    if (midiAt([0xFC], performance.now())) note('out', 'midi', 'clock out: Stop (' + why + ')', [0xFC]);
+  }
+  function coBegin(bt, now, perf) {
+    const CO = O.co, tk = 60000 / bt.bpm / 24, BT = 24 * bt.bar;
+    const i = Math.ceil((now + 20 - bt.at) / (tk * BT)) * BT, bars = i / BT, six = bt.bar * 4, most = Math.floor(16383 / six) + 1;
+    const sp = (((bars % most) + most) % most) * six, ts = perf + (bt.at + i * tk - now);
+    if (CO.run) midiAt([0xFC], perf);
+    midiAt([0xF2, sp & 127, (sp >> 7) & 127], perf);
+    midiAt([0xFA], ts);
+    note('out', 'midi', `clock out: ${CO.run ? 'Stop, ' : ''}song position ${sp}, Start at the next downbeat (${bt.bpm} bpm, ${bt.bar} a bar)`, [0xF2, sp & 127, (sp >> 7) & 127]);
+    Object.assign(CO, { run: true, bt, bar: bt.bar, i, last: bt.at + (i - 1) * tk });
+  }
+  function coStep() {
+    if (!O.on) return;
+    const CO = O.co, M = O.midi, bt = opt().midi && opt().clockOut && M.out ? roomBeat() : null;
+    if (!bt) { coStop(!opt().clockOut || !opt().midi ? 'off' : !M.out ? 'no output port' : 'the room\'s beat stopped'); return; }
+    const now = rnow(), perf = performance.now(), tk = 60000 / bt.bpm / 24;
+    if (!CO.run) coBegin(bt, now, perf);
+    else if (CO.bt.bpm !== bt.bpm || CO.bt.at !== bt.at || CO.bar !== bt.bar) {
+      // where the downbeat stands before the last tick sent, on the old grid and on the new one
+      const o = CO.bt, Bo = 60000 / o.bpm * o.bar, Bn = 60000 / bt.bpm * bt.bar;
+      const Do = o.at + Math.floor((CO.last - o.at) / Bo) * Bo, Dn = bt.at + Math.floor((CO.last - bt.at) / Bn) * Bn, d = Do - Dn;
+      if (CO.bar !== bt.bar || Math.abs(d - Math.round(d / Bn) * Bn) > tk) coBegin(bt, now, perf);
+      else { CO.i = Math.floor((CO.last - bt.at) / tk + 0.5) + 1; CO.bt = bt; }
+    }
+    for (let n = 0; bt.at + CO.i * tk < now + CO_AHEAD && n < 64; n++) {
+      const r = bt.at + CO.i * tk;
+      if (r > CO.last) { midiAt([0xF8], perf + (r - now)); CO.ticks++; CO.last = r; }
+      CO.i++;
+    }
+    if (perf - CO.logAt > 1000) { CO.logAt = perf; note('out', 'midi', `clock out ${bt.bpm.toFixed(2)} bpm`, null); }
+  }
+  const coLoop = () => { const M = O.midi, n = p => String((p && p.name) || '').trim().toLowerCase(); return !!(opt().clock && opt().clockOut && M.out && M.inp && n(M.out) === n(M.inp)); };
 
   // --------------------------------------------------------------------- OSC --
   // OSC goes over the room socket to the relay (HOST.collab.osc: only on a relay), which sends it to its --osc-out targets;
@@ -358,7 +474,7 @@
     if (O.learn) { note('in', 'osc', txt, m); learnFrom({ osc: addr, arg: Math.max(0, args.findIndex(a => typeof a === 'number')) }); return; }
     let used = false;
     if (STUDIO_IN[addr]) { used = true; act({ do: STUDIO_IN[addr], id: args[0] == null ? '' : String(args[0]) }, 'OSC ' + addr); }
-    else if (addr === '/studio/beat') { used = true; const bpm = typeof args[0] === 'number' ? args[0] : NaN; act({ do: 'beat', bpm, at: Math.round(rnow()) }, 'OSC ' + addr); }
+    else if (addr === '/studio/beat' || addr === '/studio/bar') { used = true; oscBeat(addr === '/studio/bar', args); }
     else if (addr === '/studio/beat/stop') { used = true; act({ do: 'beat', bpm: 0 }, 'OSC ' + addr); }
     for (const r of O.map.incoming) {
       const f = r.from;
@@ -371,6 +487,16 @@
       if (v >= f.min && !(was >= f.min)) fire(r, true); else if (v < f.min && was >= f.min) fire(r, false);
     }
     note('in', 'osc', txt + (used ? '' : ' (not mapped: ignored)'), m);
+  }
+
+  // /studio/beat f bpm [i bar]: each a beat (the bar's phase kept from the room's beat as it stands); /studio/bar f bpm [i
+  // bar]: each a downbeat
+  function oscBeat(down, args) {
+    const bpm = typeof args[0] === 'number' ? args[0] : NaN, bar = typeof args[1] === 'number' && isInt(Math.round(args[1]), 1, 16) ? Math.round(args[1]) : undefined;
+    const now = rnow(), b = roomBeat(), n = bar || (b ? b.bar : 4);
+    let at = now;
+    if (!down && b && Number.isFinite(bpm) && bpm > 0) { const k = Math.round((now - b.at) * b.bpm / 60000); at = now - (((k % n) + n) % n) * 60000 / bpm; }
+    act(Object.assign({ do: 'beat', bpm, at: Math.round(at) }, bar ? { bar } : {}), 'OSC ' + (down ? '/studio/bar' : '/studio/beat'));
   }
 
   // ------------------------------------------------------------- the actions --
@@ -390,7 +516,7 @@
       if (typeof b.id === 'string') b.id = refOf(b.id);
       try { r = api.act(b) || { ok: false, why: 'no answer' }; } catch (e) { r = { ok: false, why: e.message }; }
     }
-    note('in', 'room', `${why}: ${a.do}${a.id ? ' ' + a.id : ''}${a.do === 'beat' ? ' ' + a.bpm + ' bpm' : ''}${r.ok ? '' : ' refused (' + r.why + ')'}`, null);
+    note('in', 'room', `${why}: ${a.do}${a.id ? ' ' + a.id : ''}${a.do === 'beat' ? ' ' + a.bpm + ' bpm' + (a.bar ? ', ' + a.bar + ' a bar' : '') : ''}${r.ok ? '' : ' refused (' + r.why + ')'}`, null);
     return r;
   }
   // an incoming row fired (on), or its value back below min / note off (hold: the opposite)
@@ -413,6 +539,7 @@
   const KIND = { enter: 'cube', leave: 'cube', on: 'cube', off: 'cube', press: 'item', hover: 'item', unhover: 'item', start: 'seq', stop: 'seq', at: 'seq' };
   const ONE = { enter: 1, on: 1, press: 1, hover: 1, start: 1, at: 1 };
   function onEvent(ev) {
+    if (O.on && ev && ev.ev === 'stream' && typeof ev.id === 'string') { tryStream(ev); return; }
     if (!O.on || !ev || typeof ev !== 'object' || !KIND[ev.ev] || typeof ev.id !== 'string') return;
     O.events++; O.dirty = true;
     const W = whoOf(ev.who), send = Array.isArray(ev.send) ? ev.send : [];
@@ -530,7 +657,81 @@
     return null;
   }
   const usesPerson = s => s.k === 'head' || s.k === 'hand' || (s.k === 'dist' && (usesPerson(s.a) || usesPerson(s.b)));
-  // a stream's value as measured (m, degrees, m/s), or null when its source is not there
+  // ------------------------------------------------------------- kinematics --
+  // a moving thing's samples (t ms, p, q): its velocity and turning speed over the last ~100 ms, its acceleration from the
+  // velocities ~100 ms apart (a frame that drew nothing new is no stop: a pose counts as standing still once unchanged
+  // for 60 ms)
+  const KWIN = 100, KKEEP = 500;
+  const kinNew = () => ({ h: [] });
+  const sameP = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  const sameQ = (a, b) => (!a && !b) || (!!a && !!b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]);
+  function before(H, at, need, end) { for (let i = (end === undefined ? H.length : end) - 1; i >= 0; i--) if (H[i].t <= at && (!need || H[i][need])) return H[i]; return null; }
+  function kinPush(K, t, p, q) {
+    const H = K.h, last = H[H.length - 1];
+    if (last && (t <= last.t || (sameP(p, last.p) && sameQ(q, last.q) && t - last.t < 60))) return;
+    if (last && t - last.t > KKEEP) H.length = 0;
+    const s = { t, p: p.slice(0, 3), q: q ? q.slice(0, 4) : null, v: null, w: null }, o = before(H, t - KWIN) || H[0];
+    if (o) { const dt = (t - o.t) / 1000; s.v = [0, 1, 2].map(i => (p[i] - o.p[i]) / dt); if (s.q && o.q) s.w = angle(s.q, o.q) / dt; }
+    H.push(s);
+    while (H.length > 2 && t - H[0].t > KKEEP) H.shift();
+  }
+  // { v: [vx, vy, vz], speed, acc, spin } (m/s, m/s², degrees a second; acc and spin null until known), or null
+  function kinOf(K) {
+    const H = K && K.h, s = H && H[H.length - 1];
+    if (!s || !s.v) return null;
+    const o = before(H, s.t - KWIN, 'v', H.length - 1);
+    return { v: s.v, speed: Math.hypot(s.v[0], s.v[1], s.v[2]), acc: o ? Math.hypot(s.v[0] - o.v[0], s.v[1] - o.v[1], s.v[2] - o.v[2]) / ((s.t - o.t) / 1000) : null, spin: s.w };
+  }
+  // yaw, pitch and roll (degrees) of a turn: three.js's 'YXZ' order (yaw about y, pitch, then roll about where it looks)
+  function ypr(q) {
+    const [x, y, z, w] = q, m13 = 2 * (x * z + w * y), m23 = 2 * (y * z - w * x), m33 = 1 - 2 * (x * x + y * y), m21 = 2 * (x * y + w * z), m22 = 1 - 2 * (x * x + z * z), D = 180 / Math.PI;
+    return { yaw: Math.atan2(m13, m33) * D, pitch: Math.asin(clamp(-m23, -1, 1)) * D, roll: Math.abs(m23) < 0.9999999 ? Math.atan2(m21, m22) * D : 0 };
+  }
+  // a pose's value (P a sample { p, q }, k its kinematics), or null
+  function kinVal(v, P, k) {
+    if (v === 'x' || v === 'y' || v === 'z') return P.p['xyz'.indexOf(v)];
+    if (v === 'yaw' || v === 'pitch' || v === 'roll') return P.q ? ypr(P.q)[v] : null;
+    if (!k) return null;
+    if (v === 'vx' || v === 'vy' || v === 'vz') return k.v['xyz'.indexOf(v[1])];
+    return v === 'speed' ? k.speed : v === 'acc' ? k.acc : v === 'spin' ? k.spin : null;
+  }
+
+  // ------------------------------------------------------------- a stream out --
+  const liveNew = () => ({ at: 0, y: null, s: null, x: null, vm: -1, gate: null, snd: null, spd: 0 });
+  // one sample of a stream out: o its MIDI ({ ch, cc, wide? } or { ch, note, at?, vel?, val? }; null: none), s the value
+  // scaled (0..1), y as measured, spd the thing's speed (m/s: a note's velocity), addr its OSC address ('' none). A
+  // controller only when its value changes (14-bit: cc the high 7 bits, cc + 32 the low); a note as s crosses at upward
+  // (the first sample only says where it stands), off below at - 0.05 or after 2 s held, its gate on addr + '/gate'
+  function emit(L, o, s, y, spd, addr, t, text) {
+    if (o && o.cc !== undefined && opt().midi) {
+      const c = 0xB0 | (o.ch - 1), v = Math.round(s * (o.wide ? 16383 : 127));
+      if (v !== L.vm && (o.wide ? midiSendQuiet([c, o.cc, v >> 7]) && midiSendQuiet([c, o.cc + 32, v & 127]) : midiSendQuiet([c, o.cc, v]))) L.vm = v;
+    }
+    if (o && o.note !== undefined) {
+      const at = o.at === undefined ? 0.5 : o.at;
+      if (L.gate === null) L.gate = s >= at;   // (the first sample: where it stands, no note)
+      else if (!L.gate && s >= at) {
+        L.gate = true;
+        const vel = o.vel === 'speed' ? 1 + Math.round(126 * Math.min(1, (spd || 0) / 3)) : o.val || 100, off = [0x80 | (o.ch - 1), o.note, 0];
+        if (midiSend([0x90 | (o.ch - 1), o.note, vel], `note ${o.note} on at ${vel}, channel ${o.ch} (${text})`)) { L.snd = { at: t, off, text: `note ${o.note} off, channel ${o.ch}` }; O.snotes.set(L, 1); }
+        if (addr && opt().osc) oscOut(addr + '/gate', 'i', [1], null);
+      } else if (L.gate && s < at - 0.05) {
+        L.gate = false;
+        streamOff(L, '');
+        if (addr && opt().osc) oscOut(addr + '/gate', 'i', [0], null);
+      }
+      if (L.snd && t - L.snd.at > 2000) streamOff(L, 'held 2 s');
+    }
+    if (addr && opt().osc) oscOut(addr, 'ff', [s, y], null);
+  }
+  function streamOff(L, why) {
+    O.snotes.delete(L);
+    if (!L.snd) return;
+    const S = L.snd;
+    L.snd = null;
+    midiSend(S.off, S.text + (why ? ' (' + why + ')' : ''));
+  }
+  // a stream's value as measured (m, degrees, m/s, m/s², degrees a second), or null when its source is not there
   function measure(r, L, t) {
     const s = r.src;
     if (s.k === 'dist') {
@@ -539,40 +740,164 @@
       return s.flat ? Math.hypot(a.p[0] - b.p[0], a.p[2] - b.p[2]) : Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
     }
     const P = pointOf(s);
-    if (!P) { L.lp = null; return null; }
-    if (r.v === 'x' || r.v === 'y' || r.v === 'z') return P.p['xyz'.indexOf(r.v)];
-    if (r.v === 'speed') {
-      const lp = L.lp, lt = L.lt;
-      L.lp = P.p.slice(); L.lt = t;
-      return lp && t > lt ? Math.hypot(P.p[0] - lp[0], P.p[1] - lp[1], P.p[2] - lp[2]) / ((t - lt) / 1000) : null;
-    }
-    const [x, y, z, w] = P.q, fx = -2 * (x * z + w * y), fy = -2 * (y * z - w * x), fz = -(1 - 2 * (x * x + y * y));   // (where it looks: -z turned by q)
-    return r.v === 'yaw' ? Math.atan2(-fx, -fz) * 180 / Math.PI : Math.asin(clamp(fy, -1, 1)) * 180 / Math.PI;
+    if (!P || !Array.isArray(P.p) || P.p.length < 3) { L.kin = null; return null; }
+    const q = Array.isArray(P.q) && P.q.length === 4 ? P.q : null;
+    if (!L.kin) L.kin = kinNew();
+    kinPush(L.kin, s.k === 'item' && t - O.frameT < 200 ? O.frameT : t, P.p, q);   // (an item is drawn at its frame's time)
+    const k = kinOf(L.kin);
+    L.spd = k ? k.speed : 0;
+    return kinVal(r.v, { p: P.p, q }, k);
   }
   function streamsStep(t) {
     for (const r of O.map.streams) {
       let L = O.live.get(r.id);
-      if (!L) O.live.set(r.id, (L = { at: 0, y: null, s: null, v127: -1, x: null }));
-      if (!r.on) continue;
+      if (!L) O.live.set(r.id, (L = liveNew()));
+      if (!r.on) { streamOff(L, 'off'); continue; }
       const hz = Math.min(r.hz, usesPerson(r.src) ? 15 : 60);
       if (t - L.at < 1000 / hz - 1) continue;
       L.at = t;
       const x = measure(r, L, t);
       if (x === null || !Number.isFinite(x)) { L.x = null; continue; }
-      L.x = x;
-      L.y = L.y === null ? x : L.y + (1 - r.smooth) * (x - L.y);
-      let s = clamp((L.y - r.min) / (r.max - r.min), 0, 1);
-      if (r.curve === 'inv') s = 1 - s;
-      L.s = s;
-      if (r.midi && opt().midi) {
-        const v = Math.round(s * 127);
-        if (v !== L.v127 && midiSendQuiet([0xB0 | (r.midi.ch - 1), r.midi.cc, v])) L.v127 = v;
-      }
-      if (r.osc && opt().osc) oscOut(r.osc, 'ff', [s, L.y], null);
+      scaleIn(L, r, x);
+      emit(L, r.midi, L.s, L.y, L.spd, r.osc, t, r.name || r.id);
     }
+  }
+  // smoothed (y += (1 - smooth)(x - y)) and scaled to 0..1 (r: { min, max, curve, smooth })
+  function scaleIn(L, r, x) {
+    L.x = x;
+    L.y = L.y === null ? x : L.y + (1 - r.smooth) * (x - L.y);
+    const s = clamp((L.y - r.min) / (r.max - r.min), 0, 1);
+    L.s = r.curve === 'inv' ? 1 - s : s;
   }
   // (streams: sent without a log line each, or the log would hold nothing else; counted in the row's live value)
   function midiSendQuiet(b) { const M = O.midi; if (!opt().midi || !M.out) return false; try { M.out.send(b); return true; } catch (e) { return false; } }
+
+  // ----------------------------------------------------- the scene's streams --
+  // an item's stream entries (layout.json's stream, set on the studio's cards; HOST.cur.out.list()), checked again here
+  // (tools/output/SPEC.md, v158 section 2): its value measured, its range (default below), smoothed, at its rate, as a CC,
+  // a 14-bit CC, a threshold note and OSC (its own address or /studio/item|cube/<id>/<v>)
+  const SV = { x: [-3, 3], y: [0, 2.5], z: [-3, 3], yaw: [-180, 180], pitch: [-90, 90], roll: [-180, 180], speed: [0, 3], vx: [-3, 3], vy: [-3, 3], vz: [-3, 3], acc: [0, 20], spin: [0, 720],
+    size: [0.5, 2], shown: [0, 1], clip: [0, 1], path: [0, 1], motion: [0, 1], near: [0, 4], count: [0, 4] };
+  const SV_STATE = { size: 1, shown: 1, clip: 1, path: 1, motion: 1, near: 1, count: 1 }, SV_SLOW = { near: 1, count: 1 }, SV_ITEM = 8, SV_SCENE = 64;
+  function normScene(e, k) {
+    if (!e || typeof e !== 'object' || !SV[e.v] || (e.v === 'count' && k !== 'c')) return null;
+    const D = SV[e.v];
+    if ((e.min !== undefined && !isNum(e.min, -1e6, 1e6)) || (e.max !== undefined && !isNum(e.max, -1e6, 1e6))) return null;
+    const r = { v: e.v, min: e.min === undefined ? D[0] : e.min, max: e.max === undefined ? D[1] : e.max };
+    if (r.min === r.max || (e.curve !== undefined && e.curve !== 'inv') || (e.smooth !== undefined && !isNum(e.smooth, 0, 0.95)) || (e.hz !== undefined && !isNum(e.hz, 1, 60))) return null;
+    Object.assign(r, { curve: e.curve === 'inv' ? 'inv' : 'lin', smooth: e.smooth || 0, hz: Math.min(e.hz === undefined ? 30 : Math.round(e.hz), SV_SLOW[e.v] ? 15 : 60) });
+    if (e.ch !== undefined && !isInt(e.ch, 1, 16)) return null;
+    if (e.cc !== undefined || e.note !== undefined) { r.o = normMidi(Object.assign({ ch: e.ch || 1 }, ...['cc', 'wide', 'note', 'at', 'vel', 'val'].filter(f => e[f] !== undefined).map(f => ({ [f]: e[f] })))); if (!r.o) return null; }
+    else if (e.wide !== undefined) return null;
+    else r.o = null;
+    if (e.osc !== undefined) { if (typeof e.osc !== 'string' || !ADDR_RE.test(e.osc) || e.osc.includes('//')) return null; r.osc = e.osc; }
+    return r;
+  }
+  const svAddr = (id, k, r) => r.osc || `/studio/${k === 'c' ? 'cube' : 'item'}/${id}/${r.v}`;
+  // the entries of the items as listed now (a bad one, a duplicate or one past the limits dropped and counted)
+  function sceneStreams() {
+    const keep = new Map();
+    let bad = 0, n = 0;
+    for (const x of itemList()) {
+      if (!Array.isArray(x.stream) || x.k === 'q') continue;
+      const dup = new Set();
+      x.stream.forEach((e, i) => {
+        const r = i < SV_ITEM && n < SV_SCENE ? normScene(e, x.k) : null;
+        if (!r) { bad++; return; }
+        const key = x.id + '|' + JSON.stringify(r);
+        if (dup.has(key)) return;
+        dup.add(key); n++;
+        const S = O.ss.get(key) || { key, id: x.id, r, L: liveNew(), lid: 'sc' + (++O.lidN) };
+        Object.assign(S, { k: x.k, name: x.name || x.id });
+        keep.set(key, S);
+      });
+    }
+    for (const [key, S] of O.ss) if (!keep.has(key)) streamOff(S.L, 'gone');
+    const sig = [...keep.keys()].join(',') + '|' + bad;
+    if (sig !== O.ssSig) { O.ssSig = sig; O.dirty = true; }
+    O.ss = keep; O.ssBad = bad;
+  }
+  // each item's pose sampled every frame (requestAnimationFrame's own time; a hidden tab: the step's, 5 a second)
+  function kinSample(t) {
+    O.kinAt = t;
+    if (!O.api) return;
+    const ids = new Set([...O.ss.values()].map(S => S.id));
+    for (const id of O.kin.keys()) if (!ids.has(id)) O.kin.delete(id);
+    for (const id of ids) {
+      let P = null;
+      try { P = O.api.pose(id); } catch (e) { P = null; }
+      if (!P || !Array.isArray(P.p) || P.p.length < 3 || !P.p.every(Number.isFinite)) { O.kin.delete(id); continue; }
+      let K = O.kin.get(id);
+      if (!K) O.kin.set(id, (K = kinNew()));
+      kinPush(K, t, P.p, Array.isArray(P.q) && P.q.length === 4 && P.q.every(Number.isFinite) ? P.q : null);
+    }
+  }
+  function kinFrame(ts) {
+    if (!O.on) return;
+    O.raf = requestAnimationFrame(kinFrame);
+    O.frameT = ts;
+    if (O.ss.size) kinSample(ts);
+  }
+  function sceneVal(S, K, k) {
+    const v = S.r.v;
+    if (SV_STATE[v]) {
+      if (typeof O.api.value !== 'function') return null;
+      let x = null;
+      try { x = O.api.value(S.id, v); } catch (e) { x = null; }
+      return x === true ? 1 : x === false ? 0 : typeof x === 'number' ? x : null;
+    }
+    const s = K && K.h[K.h.length - 1];
+    return s ? kinVal(v, s, k) : null;
+  }
+  function sceneStep(t) {
+    if (!O.api) return;
+    let rev;
+    try { rev = typeof O.api.rev === 'function' ? O.api.rev() : undefined; } catch (e) { rev = undefined; }
+    if (rev !== O.rev) { O.rev = rev; O.listAt = 0; }   // (the scene changed: read again at once)
+    itemList();
+    if (O.ssList !== O.list) { O.ssList = O.list; sceneStreams(); }
+    if (!O.ss.size) return;
+    if (t - O.kinAt > 200) kinSample(t);   // (no frames: a hidden tab)
+    for (const S of O.ss.values()) {
+      const r = S.r, L = S.L;
+      if (t - L.at < 1000 / r.hz - 1) continue;
+      L.at = t;
+      const K = O.kin.get(S.id), k = kinOf(K), x = sceneVal(S, K, k);
+      if (x === null || !Number.isFinite(x)) { L.x = null; continue; }
+      scaleIn(L, r, x);
+      emit(L, r.o, L.s, L.y, k ? k.speed : 0, svAddr(S.id, S.k, r), t, `${S.name} ${r.v}`);
+    }
+  }
+  // a card's Try (the effect send with ev 'stream' and try: 1): with a value (s, 0..1) that value once; without, a sweep
+  // 0 to 1 to 0 over 1 s, for the item's entries of that value
+  function tryStream(ev) {
+    const x = itemList().find(i => i.id === ev.id), k = ev.k || (x && x.k) || 'o';
+    // (the event's own entries first: the item list is cached up to 1 s, so an entry just added or changed is not in it yet)
+    const from = Array.isArray(ev.stream) && ev.stream.some(e => e && SV[e.v]) ? ev.stream
+      : Array.isArray(ev.send) && ev.send.some(e => e && SV[e.v]) ? ev.send : x && Array.isArray(x.stream) ? x.stream : [];
+    const list = from.map(e => normScene(e, k)).filter(r => r && (!ev.v || r.v === ev.v));
+    note('in', 'room', `Try: ${ev.name || ev.id} ${ev.v || ''}${list.length ? '' : ' (no such stream here)'}`, null);
+    const t = performance.now();
+    for (const r of list) {
+      const addr = svAddr(ev.id, k, r);
+      if (isNum(ev.s, 0, 1)) {
+        let L = O.tryL.get(addr);
+        if (!L) O.tryL.set(addr, (L = liveNew()));
+        emit(L, r.o, ev.s, r.min + ev.s * (r.max - r.min), 3 * ev.s, addr, t, 'Try');
+      } else O.tries.push({ r, addr, t0: t, L: Object.assign(liveNew(), { gate: false }) });
+    }
+  }
+  function triesStep(t) {
+    O.tries = O.tries.filter(T => {
+      const u = (t - T.t0) / 1000, top = u >= 0.5 && !T.top, s = u >= 1 ? 0 : top ? 1 : 1 - Math.abs(2 * u - 1);
+      if (u < 1 && !top && t - T.L.at < 1000 / T.r.hz - 1) return true;
+      if (top) T.top = true;   // (the sweep's top always sent)
+      T.L.at = t;
+      emit(T.L, T.r.o, s, T.r.min + s * (T.r.max - T.r.min), 3 * s, T.addr, t, 'Try');
+      if (u >= 1) streamOff(T.L, '');
+      return u < 1;
+    });
+  }
 
   // ----------------------------------------------------------------- the step --
   function step() {
@@ -583,7 +908,9 @@
     const api = HOST.cur && HOST.cur.out && typeof HOST.cur.out.listen === 'function' ? HOST.cur.out : null;
     if (api !== O.api) {
       if (O.unlisten) try { O.unlisten(); } catch (e) { /* gone */ }
-      O.unlisten = null; O.api = api; O.listAt = 0; O.items.clear(); O.dirty = true;
+      O.unlisten = null; O.api = api; O.listAt = 0; O.items.clear(); O.dirty = true; O.ssList = null; O.kin.clear();
+      for (const S of O.ss.values()) streamOff(S.L, 'another scene');
+      O.ss.clear();
       if (api) try { O.unlisten = api.listen(onEvent); } catch (e) { O.unlisten = null; }
       note('in', 'room', api ? 'the studio scene: listening' : 'no studio scene here: people and trackers only', null);
     }
@@ -591,6 +918,10 @@
     peopleStep(t);
     itemsStep(t);
     streamsStep(t);
+    sceneStep(t);
+    triesStep(t);
+    // (a note held 2 s goes off here too: one whose value went (hidden, no pose) or a one-shot Try emits no more)
+    for (const L of [...O.snotes.keys()]) if (L.snd && t - L.snd.at > 2000) streamOff(L, 'held 2 s');
     oscFlush();
     if (opt().osc) { oscPing(false); if (opt().oscTrk && O.osc.st && O.osc.st.trk === 'off') oscCfg(false); }
     if (O.dirty && t - O.renderAt > 250) render();
@@ -641,7 +972,7 @@ body.outp #gl { cursor: default; }
       el.id = 'out'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Output page');
       el.innerHTML = `<header><h2>Output page</h2><button type="button" data-o="stop">Stop</button></header>
         <p class="o-warn o-hidden" hidden>Keep this tab in front: a hidden tab stops the scene's frames.</p><p class="o-msg" hidden></p>
-        ${['status', 'midi', 'osc', 'events', 'people', 'items', 'streams', 'incoming', 'io'].map(k => `<section data-sec="${k}"></section>`).join('')}
+        ${['status', 'midi', 'tempo', 'osc', 'events', 'people', 'items', 'streams', 'incoming', 'io'].map(k => `<section data-sec="${k}"></section>`).join('')}
         <h3>Log</h3><div class="o-log" aria-live="off"></div>`;
       quiet(() => {
         el.addEventListener('click', onClick);
@@ -663,7 +994,7 @@ body.outp #gl { cursor: default; }
     if (hid) hid.hidden = document.visibilityState !== 'hidden';
     const msg = el.querySelector('.o-msg');
     if (msg) { msg.hidden = !O.msg; msg.textContent = O.msg; }
-    const S = { status: secStatus, midi: secMidi, osc: secOsc, events: secEvents, people: secPeople, items: secItems, streams: secStreams, incoming: secIncoming, io: secIo };
+    const S = { status: secStatus, midi: secMidi, tempo: secTempo, osc: secOsc, events: secEvents, people: secPeople, items: secItems, streams: secStreams, incoming: secIncoming, io: secIo };
     for (const [k, f] of Object.entries(S)) {
       const box = el.querySelector(`[data-sec="${k}"]`);
       if (!box) continue;
@@ -687,9 +1018,10 @@ body.outp #gl { cursor: default; }
   function liveRender(t) {
     O.liveAt = t;
     if (!O.el) return;
+    const sc = new Map([...O.ss.values()].map(S => [S.lid, S]));
     for (const sp of O.el.querySelectorAll('[data-live]')) {
-      const L = O.live.get(sp.dataset.live), r = O.map.streams.find(x => x.id === sp.dataset.live);
-      const txt = !r || !r.on ? 'off' : !L || L.x === null || L.y === null ? 'no value' : `${L.y.toFixed(r.v === 'yaw' || r.v === 'pitch' ? 1 : 3)} → ${L.s.toFixed(2)}${r.midi && opt().midi ? ' (' + Math.max(0, L.v127) + ')' : ''}`;
+      const id = sp.dataset.live, S = sc.get(id), L = S ? S.L : O.live.get(id), r = S ? S.r : O.map.streams.find(x => x.id === id), o = S ? r.o : r && r.midi;
+      const txt = !r || (!S && !r.on) ? 'off' : !L || L.x === null || L.y === null ? 'no value' : `${L.y.toFixed(ANGLES[r.v] ? 1 : 3)} → ${L.s.toFixed(2)}${o && opt().midi ? o.note !== undefined ? (L.snd ? ' (note on)' : '') : ' (' + Math.max(0, L.vm) + ')' : ''}`;
       if (sp.textContent !== txt) sp.textContent = txt;
     }
     logRender();
@@ -712,8 +1044,23 @@ body.outp #gl { cursor: default; }
     const M = O.midi, o = opt();
     const st = !o.midi ? 'Off.' : M.err ? M.err : M.busy ? 'Asking the browser for MIDI...' : !M.ok ? 'Starting...' : `${M.outs.length} output${M.outs.length === 1 ? '' : 's'}, ${M.ins.length} input${M.ins.length === 1 ? '' : 's'}.${!M.out ? ' No output port: make a virtual one (loopMIDI, the IAC Driver, ALSA).' : ''}`;
     const sel = (k, list, cur, label) => `<label>${label} <select data-oc="${k}" aria-label="MIDI ${label.toLowerCase()} port"${o.midi && M.ok ? '' : ' disabled'}>${list.length ? '' : '<option value="">(none)</option>'}${list.map(p => `<option value="${esc(p.name)}"${cur && cur.name === p.name ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>`;
-    return `<h3>MIDI</h3><div class="o-btns">${onOff(o.midi, 'MIDI', 'midi')}<button type="button" data-o="test"${o.midi && M.out ? '' : ' disabled'}>Test note</button>${onOff(o.clock, 'MIDI clock to the room\'s beat', 'clock', 'The input\'s MIDI clock sets the room\'s beat, which motions on the beat follow')}</div>
-      <div class="o-btns">${sel('midiOut', M.outs, M.out, 'Output')}${sel('midiIn', M.ins, M.inp, 'Input')}</div><p class="o-mute">${esc(st)}</p>`;
+    const K = O.clock, CO = O.co, inW = !o.clock ? '' : clockLeads() ? `Clock in: ${K.bpm ? K.bpm.toFixed(2) + ' bpm, ' : ''}leading the room's beat.` : 'Clock in: waiting for MIDI clock on the input.';
+    const outW = !o.clockOut ? '' : CO.run ? `Clock out: ${CO.bt.bpm.toFixed(2)} bpm, ${CO.bt.bar} a bar.` : roomBeat() ? 'Clock out: starting...' : 'Clock out: waiting for the room\'s beat (the Tempo part, MIDI clock in or OSC).';
+    return `<h3>MIDI</h3><div class="o-btns">${onOff(o.midi, 'MIDI', 'midi')}<button type="button" data-o="test"${o.midi && M.out ? '' : ' disabled'}>Test note</button></div>
+      <div class="o-btns">${sel('midiOut', M.outs, M.out, 'Output')}${sel('midiIn', M.ins, M.inp, 'Input')}</div><p class="o-mute">${esc(st)}</p>
+      <div class="o-btns">${onOff(o.clock, 'MIDI clock to the room\'s beat', 'clock', 'The input\'s MIDI clock sets the room\'s beat (Start: a downbeat; song position; Stop takes it away), which motions and loops on the beat follow')}${onOff(o.clockOut, 'MIDI clock out', 'clockOut', 'The room\'s beat as MIDI clock on the output: 24 a beat, Start at a downbeat, Stop when it goes')}
+      <label>Beats a bar <input type="number" min="1" max="16" step="1" data-oc="bar" value="${o.bar}" aria-label="Beats a bar"></label></div>
+      ${inW || outW ? `<p class="o-mute">${esc([inW, outW].filter(Boolean).join(' '))}</p>` : ''}${coLoop() ? '<p class="o-warn">A loop: the input and output may be the same cable (their ports have the same name).</p>' : ''}`;
+  }
+  // the room's own tempo: the room as master (not while MIDI clock in leads)
+  function secTempo() {
+    const o = opt(), lead = clockLeads(), b = roomBeat(), dis = lead ? ' disabled' : '';
+    const by = b && b.by ? (C() && b.by === C().id ? 'this page' : whoOf(b.by).name || 'someone') : '';
+    const now = b ? `The room's beat: ${b.bpm.toFixed(2)} bpm, ${b.bar} a bar${by ? ', set by ' + by : ''}.` : O.api ? 'The room has no beat now.' : 'No studio scene here: the room\'s beat needs one.';
+    return `<h3>Tempo</h3><div class="o-btns"><label>bpm <input type="number" min="20" max="300" step="0.01" data-oc="tempo" value="${o.tempo}" aria-label="Tempo (bpm)"${dis}></label>
+      <label>Beats a bar <input type="number" min="1" max="16" step="1" data-oc="bar" value="${o.bar}" aria-label="Beats a bar (tempo)"${dis}></label>
+      <button type="button" data-o="tap"${dis}>Tap</button><button type="button" class="o-go" data-o="tstart"${dis}>Start</button><button type="button" data-o="tstop"${dis}>Stop</button></div>
+      <p class="o-mute">${esc(lead ? 'MIDI clock in leads the room\'s beat: turn MIDI clock to the room\'s beat off to set it here. ' + now : now)}</p>`;
   }
   function secOsc() {
     const o = opt(), R = O.osc.relay, S = O.osc.st;
@@ -743,9 +1090,14 @@ body.outp #gl { cursor: default; }
   const whoText = w => (w === 'any' ? 'anyone' : 'person ' + w);
   const srcText = s => (s.k === 'head' ? 'Head of ' + whoText(s.who) : s.k === 'hand' ? (s.hand === 'l' ? 'Left' : 'Right') + ' hand of ' + whoText(s.who) : s.k === 'tracker' ? 'Tracker ' + s.id : s.k === 'item' ? 'Item ' + s.id
     : `Distance from ${srcText(s.a).toLowerCase()} to ${srcText(s.b).toLowerCase()}${s.flat ? ' along the floor' : ''}`);
-  const VAL_SAY = { x: 'x', y: 'height (y)', z: 'z', yaw: 'yaw (degrees)', pitch: 'pitch (degrees)', speed: 'speed (m/s)', d: 'distance (m)' };
+  const VAL_SAY = { x: 'x', y: 'height (y)', z: 'z', yaw: 'yaw (degrees)', pitch: 'pitch (degrees)', roll: 'roll (degrees)', speed: 'speed (m/s)', vx: 'velocity along x (m/s)', vy: 'velocity up (m/s)',
+    vz: 'velocity along z (m/s)', acc: 'acceleration (m/s²)', spin: 'turning speed (degrees a second)', d: 'distance (m)',
+    size: 'size (its scale)', shown: 'shown (0 or 1)', clip: 'its clip (0 to 1)', path: 'its recorded path (0 to 1)', motion: 'its motion (0 to 1)', near: 'nearest person (m)', count: 'people inside' };
+  const ANGLES = { yaw: 1, pitch: 1, roll: 1, spin: 1 };
+  const midiText2 = o => (!o ? '' : o.cc !== undefined ? ` → ${o.wide ? '14-bit CC ' + o.cc + ' and ' + (o.cc + 32) : 'CC ' + o.cc} channel ${o.ch}`
+    : ` → note ${o.note} at ${Math.round((o.at === undefined ? 0.5 : o.at) * 100)} %, velocity ${o.vel === 'speed' ? 'from its speed' : o.val || 100}, channel ${o.ch}`);
   const streamText = r => `${srcText(r.src)} · ${VAL_SAY[r.v]} · ${r.min} to ${r.max}${r.curve === 'inv' ? ' (inverted)' : ''}${r.smooth ? ', smoothed ' + r.smooth : ''}, ${r.hz}/s` +
-    (r.midi ? ` → CC ${r.midi.cc} channel ${r.midi.ch}` : '') + (r.osc ? ` → OSC ${r.osc}` : '') + (!r.midi && !r.osc ? ' (sends nothing)' : '');
+    midiText2(r.midi) + (r.osc ? ` → OSC ${r.osc}` : '') + (!r.midi && !r.osc ? ' (sends nothing)' : '');
   const fromText = f => (f.osc ? `OSC ${f.osc} (argument ${f.arg}, from ${f.min})` : f.midi === 'note' ? `note ${f.n}` : f.midi === 'cc' ? `CC ${f.n} (from ${f.min})` : f.midi === 'pc' ? `program ${f.n}` : 'MIDI ' + f.midi) +
     (f.midi && f.ch ? ', channel ' + f.ch : f.midi ? ', any channel' : '');
   const ACT_SAY = { press: 'press', start: 'start', stop: 'stop', toggle: 'start or stop', rewind: 'rewind', show: 'show', hide: 'hide', flip: 'show or hide', clear: 'clear the switch of' };
@@ -756,7 +1108,10 @@ body.outp #gl { cursor: default; }
       <ul>${O.map.streams.map(r => `<li><b>${esc(r.name || r.id)}</b> <span class="o-live" data-live="${r.id}"></span><br><span>${esc(streamText(r))}</span>
         <div class="o-btns">${onOff(r.on, 'Sending', 'son:' + r.id)}<button type="button" data-o="sedit:${r.id}">Edit</button><button type="button" data-o="sdel:${r.id}" aria-label="Remove ${esc(r.name || r.id)}">✕</button></div>
         ${E && E.id === r.id ? streamForm(E.d) : ''}</li>`).join('')}${E && E.add ? '<li>' + streamForm(E.d) + '</li>' : ''}</ul>
-      <div class="o-btns"><button type="button" data-o="sadd"${O.map.streams.length >= ROWS || E ? ' disabled' : ''}>Add a stream</button></div>`;
+      <div class="o-btns"><button type="button" data-o="sadd"${O.map.streams.length >= ROWS || E ? ' disabled' : ''}>Add a stream</button></div>
+      <h3>Streams from the scene</h3><p class="o-mute">Set on the studio's cards (an item's Streams): read only here, sent while MIDI or OSC is on.</p>
+      <ul>${[...O.ss.values()].map(S => `<li><b>${esc(S.name)}</b> <span class="o-live" data-live="${S.lid}"></span><br><span>${esc(`${VAL_SAY[S.r.v]} · ${S.r.min} to ${S.r.max}${S.r.curve === 'inv' ? ' (inverted)' : ''}${S.r.smooth ? ', smoothed ' + S.r.smooth : ''}, ${S.r.hz}/s${midiText2(S.r.o)} → OSC ${svAddr(S.id, S.k, S.r)}`)}</span></li>`).join('')
+        || `<li class="o-mute">${O.api ? 'None in this scene.' : 'No studio scene here.'}</li>`}</ul>${O.ssBad ? `<p class="o-warn">${O.ssBad} of the scene's stream entr${O.ssBad === 1 ? 'y' : 'ies'} could not be read here (dropped).</p>` : ''}`;
   }
   function secIncoming() {
     const E = O.edit && O.edit.kind === 'in' ? O.edit : null;
@@ -795,7 +1150,11 @@ body.outp #gl { cursor: default; }
       <label>Curve</label><select data-f="curve">${opts(['lin', 'inv'], d.curve, v => (v === 'lin' ? 'As measured' : 'Inverted'))}</select>
       <label>Smoothing</label><input type="number" min="0" max="0.95" step="0.05" data-f="smooth" value="${d.smooth}"><label>Rate (a second)</label><input type="number" min="1" max="60" step="1" data-f="hz" value="${d.hz}">
       <label>MIDI channel</label><select data-f="mch">${opts(['', ...Array.from({ length: 16 }, (_, i) => i + 1)], d.midi ? d.midi.ch : '', v => (v === '' ? 'No MIDI' : v))}</select>
-      <label>Controller (CC)</label><input type="number" min="0" max="127" step="1" data-f="mcc" value="${d.midi ? d.midi.cc : 7}">
+      <label>MIDI as</label><select data-f="mkind">${opts(['cc', 'wide', 'note'], !d.midi || d.midi.cc !== undefined ? (d.midi && d.midi.wide ? 'wide' : 'cc') : 'note', v => ({ cc: 'A controller (CC)', wide: 'A 14-bit controller (CC 0 to 31 and +32)', note: 'A note as it crosses a threshold' }[v]))}</select>
+      <label>Controller or note</label><input type="number" min="0" max="127" step="1" data-f="mcc" value="${d.midi ? (d.midi.cc !== undefined ? d.midi.cc : d.midi.note) : 7}">
+      <label>Threshold (%)</label><input type="number" min="1" max="99" step="1" data-f="mat" value="${Math.round(((d.midi && d.midi.at) || 0.5) * 100)}">
+      <label>Velocity</label><select data-f="mvel">${opts(['fixed', 'speed'], d.midi && d.midi.vel === 'speed' ? 'speed' : 'fixed', v => (v === 'fixed' ? 'Fixed' : 'From its speed (0 to 3 m/s)'))}</select>
+      <label>Velocity (fixed)</label><input type="number" min="1" max="127" step="1" data-f="mval" value="${(d.midi && d.midi.val) || 100}">
       <label>OSC address</label><input data-f="osc" maxlength="128" placeholder="/my/value (none: no OSC)" value="${esc(d.osc || '')}">
       <div class="o-btns"><button type="button" class="o-go" data-o="save:stream">Save</button><button type="button" data-o="cancel">Cancel</button></div></form>`;
   }
@@ -825,8 +1184,9 @@ body.outp #gl { cursor: default; }
     if (kind === 'stream') {
       const s = src('');
       if (s.k === 'dist') Object.assign(s, { a: src('a'), b: src('b'), flat: !!v('flat') });
-      const ch = n('mch');
-      return { name: v('name') || '', src: s, v: s.k === 'dist' ? 'd' : v('v'), min: n('min'), max: n('max'), curve: v('curve'), smooth: n('smooth'), hz: n('hz'), midi: ch ? { ch, cc: n('mcc') } : null, osc: (v('osc') || '').trim() };
+      const ch = n('mch'), mk = v('mkind') || 'cc', num = n('mcc');
+      const midi = !ch ? null : mk === 'note' ? Object.assign({ ch, note: num, at: n('mat') / 100 }, v('mvel') === 'speed' ? { vel: 'speed' } : { val: n('mval') }) : Object.assign({ ch, cc: num }, mk === 'wide' ? { wide: true } : {});
+      return { name: v('name') || '', src: s, v: s.k === 'dist' ? 'd' : v('v'), min: n('min'), max: n('max'), curve: v('curve'), smooth: n('smooth'), hz: n('hz'), midi, osc: (v('osc') || '').trim() };
     }
     const fk = v('fk'), from = fk === 'osc' ? { osc: (v('osc') || '').trim(), arg: n('arg'), min: n('omin') } : { midi: fk, ch: n('ch') || 0, n: n('n'), min: n('min') };
     return { name: v('name') || '', from, act: { do: v('do'), id: (v('id') || '').trim(), hold: !!v('hold') } };
@@ -841,11 +1201,14 @@ body.outp #gl { cursor: default; }
     if (a === 'stop') { stop('button'); return; }
     if (a === 'midi') { o.midi = !o.midi; save(); if (o.midi) midiOn(); else midiOff(); }
     else if (a === 'test') { midiSend([0x90, 60, 100], 'test note 60 on, channel 1'); const T = setTimeout(() => { O.offs.delete(T); midiSend([0x80, 60, 0], 'test note 60 off, channel 1'); }, o.noteLen); O.offs.set(T, [0x80, 60, 0]); }
-    else if (['clock', 'all', 'echo', 'people', 'items'].includes(a)) { o[a] = !o[a]; if (a === 'items') O.items.clear(); if (a === 'clock') clockStart(); save(); }
+    else if (['clock', 'all', 'echo', 'people', 'items', 'clockOut'].includes(a)) { o[a] = !o[a]; if (a === 'items') O.items.clear(); if (a === 'clock') { clockStart(); O.clock.run = null; } save(); if (a === 'clockOut') coStep(); }
+    else if (a === 'tap') tap();
+    else if (a === 'tstart') tempoStart();
+    else if (a === 'tstop') tempoStop();
     else if (a === 'osc') { o.osc = !o.osc; save(); if (o.osc) oscPing(true); oscCfg(true); O.items.clear(); }
     else if (a === 'oscTrk') { o.oscTrk = !o.oscTrk; save(); oscCfg(true); }
     else if (a === 'son' || a === 'ion') { const r = (a === 'son' ? O.map.streams : O.map.incoming).find(x => x.id === arg); if (r) { r.on = !r.on; save(); } }
-    else if (a === 'sdel' || a === 'idel') { const k = a === 'sdel' ? 'streams' : 'incoming'; O.map[k] = O.map[k].filter(x => x.id !== arg); O.live.delete(arg); O.inc.delete(arg); if (O.edit && O.edit.id === arg) O.edit = null; save(); }
+    else if (a === 'sdel' || a === 'idel') { const k = a === 'sdel' ? 'streams' : 'incoming'; if (O.live.has(arg)) streamOff(O.live.get(arg), 'removed'); O.map[k] = O.map[k].filter(x => x.id !== arg); O.live.delete(arg); O.inc.delete(arg); if (O.edit && O.edit.id === arg) O.edit = null; save(); }
     else if (a === 'sadd') O.edit = { kind: 'stream', add: true, id: '', d: STREAM0() };
     else if (a === 'iadd') O.edit = { kind: 'in', add: true, id: '', d: IN0() };
     else if (a === 'sedit' || a === 'iedit') { const r = (a === 'sedit' ? O.map.streams : O.map.incoming).find(x => x.id === arg); if (r) O.edit = { kind: a === 'sedit' ? 'stream' : 'in', add: false, id: arg, d: copy(r) }; }
@@ -882,6 +1245,8 @@ body.outp #gl { cursor: default; }
     if (x.tagName === 'SELECT') x.blur();   // (a picked select keeps no focus: its section is written again as it changes)
     if (k === 'follow') { if (x.value && C().follow) C().follow(x.value); }
     else if (k === 'midiOut' || k === 'midiIn') { o[k] = x.value; save(); midiPorts(); }
+    else if (k === 'bar') { const v = Math.round(Number(x.value)); if (v >= 1 && v <= 16) { o.bar = v; save(); tempoAgain(); } }
+    else if (k === 'tempo') { const v = Number(x.value); if (v >= 20 && v <= 300) { o.tempo = Math.round(v * 100) / 100; save(); tempoAgain(); } }
     else if (k === 'noteLen') { const v = Number(x.value); if (v >= 5 && v <= 10000) { o.noteLen = Math.round(v); save(); } }
     else if (k === 'peopleWhere') { o.peopleWhere = x.value === 'circle' ? 'circle' : 'room'; save(); }
     else if (k === 'importFile') { const f = x.files && x.files[0]; if (f) f.text().then(t => { importMap(t); render(true); }, () => say('That file could not be read.')); }
@@ -921,7 +1286,8 @@ body.outp #gl { cursor: default; }
     if (O.on) return true;
     if (!c || !c.code) return false;
     load();
-    Object.assign(O, { on: true, phase: 'live', why: why || 'api', api: null, unlisten: null, events: 0, learn: '', edit: null });
+    Object.assign(O, { on: true, phase: 'live', why: why || 'api', api: null, unlisten: null, events: 0, learn: '', edit: null, ssList: null, rev: undefined });
+    O.clock = { pos: 0, run: null, last: 0, iv: [], bpm: 0, at: 0, bar: 0, sentAt: -1e9, heard: -1e9, force: false };
     O.osc = { relay: null, pinged: 0, st: null, sent: 0, got: 0, dropped: 0, cfgAt: 0, q: [] };
     c.outMark(true);
     pickCircle();
@@ -929,6 +1295,8 @@ body.outp #gl { cursor: default; }
     O.vis = () => { O.dirty = true; render(); };
     quiet(() => document.addEventListener('visibilitychange', O.vis));
     O.timer = setInterval(step, 16);
+    O.co = { run: false, bt: null, bar: 4, i: 0, last: 0, logAt: 0, ticks: 0, timer: setInterval(coStep, 25) };
+    O.raf = requestAnimationFrame(kinFrame);
     if (opt().midi) midiOn();
     if (opt().osc) { oscPing(true); if (opt().oscTrk) setTimeout(() => { if (O.on) oscCfg(true); }, 500); }
     note('out', 'room', 'output page on (' + O.why + ')', null);
@@ -938,6 +1306,8 @@ body.outp #gl { cursor: default; }
     if (!O.on) return false;
     note('out', 'room', 'output page off (' + why + ')', null);
     releaseAll('stopped');
+    coStop('stopped'); clearInterval(O.co.timer);
+    if (O.raf) cancelAnimationFrame(O.raf);
     if (opt().osc && opt().oscTrk) C().oscCfg({ trk: false });
     oscFlush();
     midiOff();
@@ -945,7 +1315,7 @@ body.outp #gl { cursor: default; }
     clearInterval(O.timer); O.timer = 0;
     if (O.vis) document.removeEventListener('visibilitychange', O.vis);
     Object.assign(O, { on: false, phase: 'off', api: null, unlisten: null, vis: null, edit: null, learn: '' });
-    O.slots.clear(); O.live.clear(); O.inc.clear(); O.items.clear();
+    O.slots.clear(); O.live.clear(); O.inc.clear(); O.items.clear(); O.ss.clear(); O.kin.clear(); O.tries = []; O.tryL.clear(); O.ssList = null; O.raf = 0; O.tempoOn = false;
     if (O.el) { O.el.remove(); O.el = null; }
     if (C() && C().outMark) C().outMark(false);
     return true;
@@ -960,12 +1330,16 @@ body.outp #gl { cursor: default; }
         midi: { on: !!(O.map && opt().midi), ok: M.ok, err: M.err, outs: M.outs.map(p => p.name), ins: M.ins.map(p => p.name), out: M.out ? M.out.name : '', in: M.inp ? M.inp.name : '' },
         osc: { on: !!(O.map && opt().osc), relay: O.osc.relay, st: O.osc.st, sent: O.osc.sent, got: O.osc.got, dropped: O.osc.dropped },
         people: [...O.slots].filter(([, S2]) => !S2.gone).map(([id, S2]) => ({ slot: S2.slot, id, name: S2.name || '', color: S2.color || '', kind: S2.kind || '' })).sort((a, b) => a.slot - b.slot),
-        opt: O.map ? copy(opt()) : null, streams: O.map ? copy(O.map.streams) : [], incoming: O.map ? copy(O.map.incoming) : [], events: O.events, held: O.held.size, learn: O.learn };
+        opt: O.map ? copy(opt()) : null, streams: O.map ? copy(O.map.streams) : [], incoming: O.map ? copy(O.map.incoming) : [], events: O.events, held: O.held.size, learn: O.learn,
+        clock: { in: { bpm: O.clock.bpm, at: O.clock.at, bar: O.clock.bar, pos: O.clock.pos, run: O.clock.run, leads: clockLeads() }, out: { run: O.co.run, bpm: O.co.bt ? O.co.bt.bpm : 0, ticks: O.co.ticks, loop: O.on ? coLoop() : false }, tempo: O.on ? opt().tempo : 0, beat: roomBeat() },
+        scene: [...O.ss.values()].map(S => ({ id: S.id, k: S.k, v: S.r.v, x: S.L.x, y: S.L.y, s: S.L.s, note: !!S.L.snd, kin: kinOf(O.kin.get(S.id)) })), sceneBad: O.ssBad, live: O.map ? Object.fromEntries([...O.live].map(([id, L]) => [id, { x: L.x, y: L.y, s: L.s, note: !!L.snd }])) : {} };
     },
     log: n => (n ? O.log.slice(-n) : O.log.slice()).map(e => Object.assign({}, e, { m: e.m ? [...e.m] : null })),
     // the mapping: read (a copy), or put in its place (a mapping or its JSON; the problems found)
     map(j) { if (j === undefined) return O.map ? copy(O.map) : normMap({ out: 1 }).map; if (!O.map) load(); const bad = importMap(j); render(true); return bad; },
     midiIn: (bytes, at) => midiIn(bytes, at), oscIn: m => oscIn(m), oscFx: v => oscFx(v),
+    // the Tempo part (tests): a tap at t (performance.now()'s ms), Start, Stop; clock out's scheduler once now
+    tap: t => tap(t), tempoStart: () => tempoStart(), tempoStop: () => tempoStop(), clockOutStep: () => coStep(),
     learn: id => { O.learn = typeof id === 'string' ? id : ''; O.dirty = true; return O.learn; },
     changed: () => { O.dirty = true; },
     // for tests: one step now (the interval's), the slots ({ id: slot })

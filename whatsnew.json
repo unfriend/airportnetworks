@@ -1,21 +1,23 @@
 {
-  "version": "networks-v157",
+  "version": "networks-v158",
   "date": "2026-11-17",
   "new": [
-    "MIDI and OSC, in and out. An output page (Shared dialog: Output page, or the room's link with &output) on a laptop or the PC sends the room's events and streams as MIDI (Chrome or Edge) and OSC (through a relay started with --osc-out and --osc-in).",
-    "Studio cards have Sends: a trigger cube (off until you turn it on; says who walked in or out), pressing and pointing at items, sequences.",
-    "Streams: people's heads and hands, items, trackers (sent by the relay itself), distances and heights, mapped to MIDI controllers or OSC.",
-    "Coming in: MIDI notes, controllers and clock, and OSC, press items, start or stop sequences, show or hide items and set the room's beat; a motion can follow the beat.",
-    "A new room format (networks-51): every device needs this release."
+    "Studio cards have Streams: an object's, shape's, empty's, sound's or cube's position, turn (yaw, pitch, roll), speed, velocity per axis, acceleration, turning speed, size, shown, clip, path or motion phase, the nearest person's distance, or how many people stand in a cube, sent by the output page as a MIDI controller (also 14-bit), a note when it crosses a level (louder when it moves faster) or OSC.",
+    "Trails: an item can leave a glowing trail, and the scene's Hand trails draw people's hands; everyone at the circle sees them.",
+    "Loops on the beat: Record on the beat records an item's movement for 1, 2, 4 or 8 bars from the next downbeat and loops it locked to the room's beat; a sequence can be locked to the beat too, and Record events records presses, cube and pointing sends, show and hide into it, quantised.",
+    "The room's beat has bars. The output page takes MIDI clock with Start and Song Position, can lead with its own Tempo (Tap, Start, Stop), and sends MIDI clock out so a DAW or Cardinal follows the room.",
+    "A new room format (networks-52): every device needs this release."
   ],
   "test": [
-    "Start the relay on the PC with --lan --trackers --osc-out 127.0.0.1:9000 --osc-in 9001, open the output page in Chrome and pick a loopMIDI port; Test note should reach your software.",
-    "Opt a cube in, walk into it in a headset: the note and /studio/cube/<id>/enter with your name arrive; walking out ends the note.",
-    "Press an item with Sends, run a sequence, and send OSC /studio/press <id> or a mapped MIDI note back in.",
-    "Trackers as OSC: /room/tracker/<serial> at their own rate."
+    "Output page: Tempo 120, Start, MIDI clock out to a loopMIDI port; your DAW or Cardinal should follow and start on the bar.",
+    "The other way: your DAW sends clock into the output page with MIDI clock to the room's beat on; a motion On the beat follows.",
+    "Add a stream on a shape's card (Speed to CC 21), carry it in a headset and watch the value on the output page; try a threshold note.",
+    "Record on the beat (2 bars) while carrying something; it should loop exactly on the bar and stretch when the tempo changes.",
+    "Record events on a sequence while pressing items; turn Hand trails on and wave at someone at the same circle."
   ],
   "untested": [
-    "Real MIDI and OSC software, loopMIDI on Windows, timing and jitter, everything in a headset.",
-    "A hidden output tab stops the scene's frames: keep it in front."
+    "Real MIDI ports, DAWs and Cardinal, clock jitter over Wi-Fi.",
+    "Trails on a Quest (look over passthrough, cost with many), hand trails over a real network.",
+    "Record on the beat with the grip held across the downbeat on a real headset."
   ]
 }

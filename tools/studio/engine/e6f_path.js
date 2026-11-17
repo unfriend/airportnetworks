@@ -93,13 +93,17 @@ function normPath(x) {
   const play = !has('play') ? 'loop' : PATH_PLAYS.includes(x.play) ? x.play : null, start = !has('start') ? 'always' : ['always', 'shown'].includes(x.start) ? x.start : null;
   if (!play || !start || (has('speed') && !fin(x.speed))) return null;
   const speed = clamp(r2(has('speed') ? x.speed : 1), 0.25, 4);
+  // (on the room's beat, v158: sync 'beat' and beats, 1 to 256, both or neither; e6w_loops.js)
+  const sy = x.sync != null, bs = x.beats != null;
+  if (sy !== bs || (sy && (x.sync !== 'beat' || !Number.isInteger(x.beats) || x.beats < 1 || x.beats > 256))) return null;
+  const beat = r => (sy ? Object.assign(r, { sync: 'beat', beats: x.beats }) : r);
   if (has('src')) {
     if (has('k') || !okRecFile(x.src) || !fin(x.len) || !Number.isInteger(x.n) || x.n < 2 || x.n > PATH_MAX.fileKeys) return null;
     const len = r3(x.len);
-    return len > 0 && len <= PATH_MAX.long ? { src: x.src, len, n: x.n, play, start, speed } : null;
+    return len > 0 && len <= PATH_MAX.long ? beat({ src: x.src, len, n: x.n, play, start, speed }) : null;
   }
   const k = normKeys(x.k, PATH_MAX.keys, PATH_MAX.secs);
-  return k ? { k, play, start, speed } : null;
+  return k ? beat({ k, play, start, speed }) : null;
 }
 // its path, when it plays here (a sound's waits while it follows something)
 const pathOf = it => (it && it.rec && it.rec.path && PATH_ITEMS.includes(it.kind) && !(it.kind === 's' && it.rec.on) ? it.rec.path : null);
@@ -149,7 +153,10 @@ POSE.path = (it, now, clockS, m) => {
   if (!P || !pathK(P)) return;   // (a file's keys not in yet: it rests where it is placed)
   // (a path a cube starts: where its run has it, waiting at its start until one, e6n_plays.js; its timeline's hold wins)
   const tm = (it.tgM & 4) && !animHold(it, 'path') ? trgPathAt(it, P) : null;
-  pathAt(P, tm != null ? tm : pathTime(P, pathT(it, P, now, clockS)), _pd3, _pk3);
+  // (on the room's beat while it has one, v158: locked to its beats, stretched with the tempo; e6w_loops.js)
+  const bm = tm == null && !animHold(it, 'path') ? pathBeatS(P) : null, s = tm != null ? tm : bm != null ? bm : pathTime(P, pathT(it, P, now, clockS)), D = pathLen(P);
+  it.pph = D > 0 ? clamp(s / D, 0, 1) : 0;   // (its phase, for a stream: e6v_stream.js)
+  pathAt(P, s, _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
   if (it.kind !== 's') _pq3.multiply(_pk3);
@@ -217,10 +224,12 @@ function recSample(force) {
   const R = REC, it = R && R.it;
   if (!it) return;
   recFloor(R);   // (Stays on the floor: kept to it before it is sampled, and so before it is drawn)
-  const now = recClock();
+  const now = R.beat ? loopClock() : recClock();
   if (!force && now - R.last < 1000 / PATH_HZ - 0.5) return;
   R.last = now;
-  const t = clamp((now - R.t0) / 1000, 0, R.cap), H = it.holder, q = it.kind === 's' ? _pq3.identity() : H.quaternion, prev = R.S[R.S.length - 1];
+  // (on the beat, v158: its time by the room's beat position since its first downbeat, in seconds at the tempo it began at;
+  // turned into the tempo at its end as it ends: recBeatEnd, e6w_loops.js)
+  const t = R.beat ? clamp(((beatPos(now) == null ? R.beat.from : beatPos(now)) - R.beat.from) * R.beat.spb, 0, R.beat.beats * R.beat.spb) : clamp((now - R.t0) / 1000, 0, R.cap), H = it.holder, q = it.kind === 's' ? _pq3.identity() : H.quaternion, prev = R.S[R.S.length - 1];
   const s = [t, H.position.x, H.position.y, H.position.z, q.x, q.y, q.z, q.w];
   if (prev && t - prev[0] < 0.002) { s[0] = prev[0]; R.S[R.S.length - 1] = s; } else R.S.push(s);
 }
@@ -253,7 +262,7 @@ function recStep() {
   recSample(false);
   recGhost(R);
   const now = recClock();
-  if (now - R.t0 >= R.cap * 1000) {
+  if (!R.beat && now - R.t0 >= R.cap * 1000) {
     R.capped = true;
     if (R.by === 'xr' && R.c && R.c.grab && R.c.grab.id === R.id) xrLetGo(R.c); else recEnd(true);   // (a headset's: as if let go)
     return;
@@ -304,12 +313,13 @@ function pathJoin(R, play) {
     S[n - 1] = [last[0]].concat(first.slice(1));
     return { S, info: { cut: 0, d: ap[0], a: ap[1], snap: true, changed: true } };
   }
+  // (on the beat, v158: its length is its beats, so no stillness is cut: only its end is bent onto its start)
   let j = 1;
-  while (j < n && !beyond(sampleApart(S0[j], first, mid), JOIN.still)) j++;
+  while (!R.beat && j < n && !beyond(sampleApart(S0[j], first, mid), JOIN.still)) j++;
   if (j >= n) return { S: S0 };   // (never that far from where it began: as recorded; too little to keep, as it says)
   const i0 = j - 1;
   let k = n - 2;
-  while (k > i0 && !beyond(sampleApart(S0[k], last, mid), JOIN.still)) k--;
+  while (!R.beat && k > i0 && !beyond(sampleApart(S0[k], last, mid), JOIN.still)) k--;
   const e = Math.min(n - 1, k + 1), t0 = S0[i0][0], S = S0.slice(i0, e + 1).map(x => [x[0] - t0].concat(x.slice(1)));
   S[0][0] = 0;
   const m = S.length, D = S[m - 1][0];
@@ -345,6 +355,7 @@ function recEnd(save) {
   if (!R) return;
   const it = STU.items.get(R.id) === R.it ? R.it : null;
   if (it && save) recSample(true);
+  if (R.beat) recBeatEnd(R);   // (on the beat, v158: its times turned into the tempo at its end; e6w_loops.js)
   REC = null; RECLAST = R;
   voiceEnd(R);   // (the microphone stopped: its sound kept only with what is kept, e6j_voice.js)
   if (!it) { voiceDrop(R); recSay(R.id, '', ''); if (R.by === 'page' && SNAP) endChange(); return; }
@@ -414,7 +425,7 @@ function recPath(it, R, raw) {
   return prep.why ? prep : recFinish(it, R, prep, pathSimplify(prep.rel, R.mid));
 }
 function recPrep(it, R, raw) {
-  const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
+  const old = it.rec.path, J = raw ? { S: R.S } : pathJoin(R, R.beat ? 'loop' : old ? old.play : 'loop'), S = J.S, hand = R.by === 'xr';
   const c0 = J.info && J.info.c0 ? J.info.c0 : 0;   // (the stillness cut from its start: its voice is cut alike, e6j_voice.js)
   if (S.length < 2 || S[S.length - 1][0] < 0.1) return { why: hand ? 'Too short to keep: hold the grip a moment longer.' : 'Too short to keep: record a moment longer.' };
   // (its length is its last sample's: refused here, before simplifying, when it needs a file and nothing keeps one)
@@ -432,18 +443,21 @@ function recFinish(it, R, prep, keep) {
   const tol = new THREE.Quaternion();
   if (k.every(e => Math.hypot(e[1], e[2], e[3]) < 0.005 && tol.set(e[4], e[5], e[6], e[7]).normalize().angleTo(_pkq.identity()) < Math.PI / 180)) return { why: 'It did not move: nothing recorded.' };
   if (k.length < 2) return { why: 'Too short to keep.' };
-  const play = old ? old.play : 'loop', start = old ? old.start : 'always', speed = old ? old.speed : 1, len = k[k.length - 1][0];
+  // (on the beat it must reach its end downbeat: one ended early would play at the wrong length, out of step with the beat)
+  if (R.beat && k[k.length - 1][0] < R.beat.beats * (R.beat.spbEnd || R.beat.spb) - 0.05) return { why: 'The recording on the beat ended before its end downbeat: nothing recorded.' };
+  const play = R.beat ? 'loop' : old ? old.play : 'loop', start = old ? old.start : 'always', speed = old ? old.speed : 1, len = k[k.length - 1][0];
+  const bs = R.beat ? { sync: 'beat', beats: R.beat.beats } : old && old.sync ? { sync: old.sync, beats: old.beats } : {};   // (on the beat, v158: e6w_loops.js)
   // (longer than 120 s, or of more than 600 keys: kept as a file of the scene, which needs a relay that takes uploads)
   if (k.length > PATH_MAX.keys || len > PATH_MAX.secs) {
     if (k.length > PATH_MAX.fileKeys) return { why: `This movement needs ${fmt(k.length)} keys: a recording holds ${fmt(PATH_MAX.fileKeys)} at most. Record a shorter or a calmer movement.` };
     if (!canUpload()) return { why: len > PATH_MAX.secs ? 'A recording longer than 2 minutes needs a relay that takes uploads (it is kept as a file of the scene).' : `This movement needs ${fmt(k.length)} keys: a path holds ${PATH_MAX.keys} at most in the layout, and a longer one is kept as a file of the scene, which needs a relay that takes uploads. Record a shorter or a calmer movement.` };
-    const path = normPath({ src: 'recordings/x.json', len, n: k.length, play, start, speed });   // (its file's name once it is in: recKeep)
+    const path = normPath(Object.assign({ src: 'recordings/x.json', len, n: k.length, play, start, speed }, bs));   // (its file's name once it is in: recKeep)
     if (!path) return { why: `The recording could not be kept (longer than ${PATH_MAX.long / 60} minutes?).` };
     return { path, keys: k, join: J.info || null, c0 };
   }
   const total = pathKeys(it.id) + k.length;
   if (total > PATH_MAX.scene) return { why: `With this movement the scene's recorded paths would hold ${fmt(total)} keys: ${fmt(PATH_MAX.scene)} at most. Delete a recording, or record a shorter movement.` };
-  const path = normPath({ k, play, start, speed });
+  const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
   const st = collabState();
@@ -538,7 +552,8 @@ function pathBlocks(it, B, dis, mv) {
   if (rec) {
     const t = Math.max(0, (recClock() - REC.t0) / 1000), most = REC.cap === PATH_MAX.long ? '10 minutes' : '120 s';
     const lit = REC.lit ? ' At its ghost: let go here and its end goes exactly on its start.' : ' To loop smoothly, end at its ghost (it lights).';
-    if (REC.by === 'xr') B.push({ label: head, p: `● Recording ${secs(t)}: let go to keep it (at most ${most}).` + lit, c: 'red' });
+    if (REC.beat) B.push({ label: head, p: `● Recording on the beat: it stops by itself at the end downbeat and loops on the beat.` + (REC.by === 'beat' ? ' Let go early and it stays where you let go until then.' : ''), c: 'red' });   // (v158: e6w_loops.js)
+    else if (REC.by === 'xr') B.push({ label: head, p: `● Recording ${secs(t)}: let go to keep it (at most ${most}).` + lit, c: 'red' });
     else B.push({ label: head, p: `● Recording ${secs(t)}: move it with the arrows (Move, Turn) or its card's buttons (Turn 90°, On the floor...); Stop keeps the movement (at most ${most}).` + lit.replace('let go', 'Stop'), c: 'red' },
       { row: [{ id: 'recstop', label: 'Stop', act: 'i:recStop', primary: true }, { id: 'reccancel', label: 'Cancel', act: 'i:recCancel' }] });
     floorRows(it, B, true);
@@ -569,6 +584,7 @@ function pathBlocks(it, B, dis, mv) {
     animBlocks(it, B, 'path');   // (its timeline while it is selected and editing is on, not while it is recorded: e6m_anim.js)
     playNote(it, 'path', B);   // (a cube that starts it: e6n_plays.js)
   }
+  pathBeatBlocks(it, B, dis, mv || fol || busy || rec);   // (on the room's beat, and Record on the beat, v158: e6w_loops.js)
   if (REC_NOTE.id === it.id && REC_NOTE.text) B.push({ p: REC_NOTE.text, c: REC_NOTE.c });
   // (what the loop join did, while the recording is held here)
   const J = REC_NOTE.id === it.id && REC_NOTE.join && RECLAST && RECLAST.id === it.id ? REC_NOTE.join : null;
@@ -602,14 +618,14 @@ const pathSet = (it, fn) => { const P = it.rec.path; if (P) setRec(it.id, { path
 Object.assign(ITEM_ACT, {
   // a page: Record (Stop when one runs here); a headset: armed for the next grip (again: not), Hold it disarmed
   rec: it => {
-    if (recording(it)) { recEnd(true); return; }
+    if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(true); return; }   // (on the beat it ends only at its end downbeat: e6w_loops.js)
     if (XR.on) return;
     beginChange([it.id]);   // (Record to Stop is one change)
     if (!recBegin(it, 'page')) { endChange(); return; }
     tcAttach();
   },
-  recStop: it => { if (recording(it)) recEnd(true); },
-  recCancel: it => { if (recording(it)) recEnd(false); },
+  recStop: it => { if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(true); } },
+  recCancel: it => { if (recording(it)) { if (REC.beat) loopCancel('card'); else recEnd(false); } },
   recArm: it => {
     if (XR.rec === it.id || !XR.on) { XR.rec = ''; return; }
     const why = recWhy(it);

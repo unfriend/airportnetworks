@@ -9,7 +9,7 @@
 // t, ts, by }: shared on the room's clock, never in layout.json, the draft, Unsaved changes or Undo. Every device works the
 // whole result out from that value and the room's time (a late joiner too): firing the events at or before where the
 // sequence is now, the runs' own code placing each where it would be by now.
-const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq'];
+const SEQ_EV_MAX = 200, SEQ_EV_SCENE = 2000, SEQ_COL = '#46d9ff', SEQ_WHAT = ['clip', 'sound', 'path', 'motion', 'show', 'hide', 'tex', 'seq', 'press', 'send'];   // (press and send: v158, e6w_loops.js)
 // (what show and hide may name: a cube too, v154, switched on and off; what a cube's lists, a press's entries and a sequence's events take)
 const SEQ_RUN = ['clip', 'sound', 'path', 'motion'], SEQ_SHOW = ['o', 's', 'p', 'e', 'v', 'd', 'x', 'c'];
 const SEQ = { last: new Map(), nudge: null, opened: -1, t0: 0, log: [], fired: 0, parents: null, rev: -1, texList: [], texRev: -1, page: 0 };
@@ -23,7 +23,7 @@ const seqQs = () => [...STU.items.values()].filter(q => q.kind === 'q');
 
 // ---------------------------------------------------------------- the record --
 // what an event's target may be, by what
-const seqKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'tex' ? ['o'] : what === 'seq' ? ['q'] : PLAY_KINDS[what]);
+const seqKinds = what => (what === 'show' || what === 'hide' ? SEQ_SHOW : what === 'tex' ? ['o'] : what === 'seq' ? ['q'] : what === 'press' ? PRESS_KINDS : what === 'send' ? ['c'].concat(PRESS_KINDS) : PLAY_KINDS[what]);
 function normSeqEv(list, self) {
   const out = [];
   for (const e of list) {
@@ -42,6 +42,11 @@ function normSeqEv(list, self) {
     } else if (e.what === 'show' || e.what === 'hide') {
       if (e.fade !== undefined && e.fade !== null && e.fade !== 'cut') continue;
       if (e.fade === 'cut') r.fade = 'cut';
+    } else if (e.what === 'press') {
+      // (v158: the item's press as if pressed, its do entries for everyone, its sends; nothing else to say)
+    } else if (e.what === 'send') {
+      if (!SEQ_SENDS.includes(e.ev)) continue;   // (v158: only its send entries go out; a cube's enter or leave, an item's hover or unhover)
+      r.ev = e.ev;
     } else {
       if (!Number.isInteger(e.mat) || e.mat < 0 || e.mat > 255 || !TXS_SLOTS.includes(e.slot)) continue;
       if (!(e.file === '' || (okFile(e.file) && CONV.IM.isPicture(e.file)))) continue;
@@ -64,6 +69,8 @@ function normSeq(x, name, self) {
   if (has('col') && x.col !== null) { if (typeof x.col !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(x.col)) return null; r.col = x.col.toLowerCase(); }
   if (has('ev')) { if (!Array.isArray(x.ev)) return null; r.ev = normSeqEv(x.ev, self); } else r.ev = [];
   if (x.send != null) { const t = sendKeep(x.send, 'q'); if (t === null) return null; if (t) r.send = t; }   // (its sends to the output page, v157: e6u_send.js)
+  // (on the room's beat, v158: its length is that many beats while the room has one, its start rounded down to a downbeat; e6w_loops.js)
+  if (x.beats != null) { if (!Number.isInteger(x.beats) || x.beats < 1 || x.beats > 256) return null; r.beats = x.beats; }
   return lockOf(x, r);
 }
 // a play state as the room keeps it (null: not one)
@@ -82,6 +89,8 @@ const seqBase = q => (q.rec.sync === 'own' ? STU.qOwn : STU.qr).get(q.id) || nul
 // this run), stopAt }, or null while it is rewound or never started
 function seqU(q, P, Tr) {
   if (!P || (P.t === -1 && !P.on)) return null;
+  const L = seqLock(q, P);
+  if (L) return seqUBeat(q, P, Tr, L);   // (on the room's beat, v158: e6w_loops.js)
   const len = q.rec.len, loop = q.rec.loop === 'loop';
   let playing = !!P.on, u, cyc = 0, ended = false;
   if (playing) {
@@ -117,8 +126,8 @@ function seqEff(q, d = 0, Tr = behNow(), noPv = false) {
     const len = p.rec.len;
     for (const e of evs) {
       let cyc = U.cyc, m = null;
-      if (e.t <= U.u) m = U.at0 + (cyc * len + e.t) * 1000;
-      else if (cyc >= 1) m = U.at0 + ((cyc - 1) * len + e.t) * 1000;
+      if (e.t <= U.u) m = seqAt(U, len, cyc, e.t);
+      else if (cyc >= 1) m = seqAt(U, len, cyc - 1, e.t);
       if (m !== null) cands.push({ m, how: e.how });
     }
   }
@@ -188,13 +197,15 @@ function seqShowHide(S, H, Tr) {
         if (e.what === 'show' || e.what === 'hide') {
           if (_sqD.has(e.on)) continue;
           _sqD.add(e.on);
-          const src = { id: q.id, since: U.at0 + (cyc * len + e.t) * 1000, cut: e.fade === 'cut' }, M = e.what === 'show' ? S : H;
+          const src = { id: q.id, since: seqAt(U, len, cyc, e.t), cut: e.fade === 'cut' }, M = e.what === 'show' ? S : H;
           if (enteredLater(src, M.get(e.on))) M.set(e.on, src);
+        } else if (e.what === 'press') {
+          seqPressShowHide(q, e, seqAt(U, len, cyc, e.t), S, H, _sqD);   // (an item pressed by the sequence: its show and hide entries, v158)
         } else if (e.what === 'tex') {
           const k = e.on + '|' + e.mat + '|' + e.slot;
           if (_sqD.has(k)) continue;
           _sqD.add(k);
-          (tex || (tex = [])).push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file, since: U.at0 + (cyc * len + e.t) * 1000, id: q.id });
+          (tex || (tex = [])).push({ on: e.on, mat: e.mat, slot: e.slot, file: e.file, since: seqAt(U, len, cyc, e.t), id: q.id });
         }
       }
     }
@@ -214,11 +225,13 @@ function seqFire(Tr) {
     const fire = (cyc, lo, hi) => {
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        if (e.t <= lo || e.t > hi || !SEQ_RUN.includes(e.what)) continue;
+        if (e.t <= lo || e.t > hi) continue;
+        if (e.what === 'press') { seqPressRuns(q, e, i, cyc, roomToRun(seqAt(U, len, cyc, e.t))); continue; }   // (v158: e6w_loops.js)
+        if (!SEQ_RUN.includes(e.what)) continue;
         const t = STU.items.get(e.on);
         if (!t || !PLAY_KINDS[e.what].includes(t.kind)) continue;
         SEQ.fired++;
-        trgStart({ c: q, e, ek: q.id + '|' + i + '|' + cyc, src: 'seq' }, roomToRun(U.at0 + (cyc * len + e.t) * 1000), false);
+        trgStart({ c: q, e, ek: q.id + '|' + i + '|' + cyc, src: 'seq' }, roomToRun(seqAt(U, len, cyc, e.t)), false);
       }
     };
     if (!q.sq || q.sq.key !== key) { seqClear(q); q.sq = { key, u: U.u, cyc: U.cyc, fired: 0 }; const n0 = SEQ.fired; fire(U.cyc, -1, U.u); q.sq.fired = SEQ.fired - n0; }
@@ -332,6 +345,8 @@ function seqEvWords(e) {
   else if (e.what === 'show') w = t && t.kind === 'c' ? 'switches on' : e.fade === 'cut' ? 'shows (at once)' : 'shows';   // (a cube: switched on and off, v154)
   else if (e.what === 'hide') w = t && t.kind === 'c' ? 'switches off' : e.fade === 'cut' ? 'hides (at once)' : 'hides';
   else if (e.what === 'tex') w = `${SLOT_NAME[e.slot] || e.slot} → ${e.file ? baseName(e.file) : 'its own picture'}`;
+  else if (e.what === 'press') w = 'pressed';
+  else if (e.what === 'send') w = `sends ${SEND_EV_WORD[e.ev] || e.ev}`;
   else w = e.how === 'stop' ? 'stops' : 'starts';
   return `${T} · ${nm} · ${w}`;
 }
@@ -339,6 +354,8 @@ function seqWhy(e) {
   const t = STU.items.get(e.on);
   if (!t || !seqKinds(e.what).includes(t.kind)) return 'It names an item not in the scene (or one this cannot be done to).';
   if (SEQ_RUN.includes(e.what)) return playWhy(e);
+  if (e.what === 'press' && !t.rec.press) return 'It has no press: nothing happens.';
+  if (e.what === 'send' && !seqSendEvs(t).includes(e.ev)) return 'It has no send entries for that: nothing goes out.';
   return '';
 }
 function seqStateWords(q) {
@@ -356,6 +373,8 @@ function seqOpts(t) {
   if (t.kind === 'c') out.push({ what: 'show', label: 'Switch it on' }, { what: 'hide', label: 'Switch it off' });   // (a cube, v154: shown and hidden is switched on and off)
   else if (SEQ_SHOW.includes(t.kind)) out.push({ what: 'show', label: 'Show it' }, { what: 'hide', label: 'Hide it' });
   if (t.kind === 'o') out.push({ what: 'tex', label: 'Change a texture...' });
+  if (PRESS_KINDS.includes(t.kind) && t.rec.press) out.push({ what: 'press', label: 'Press it' });   // (v158: e6w_loops.js)
+  if (seqSendEvs(t).length) out.push({ what: 'send', label: 'Only its sends' });
   return out;
 }
 const SQ_HOWS = { clip: ['once', 'loop', 'hold', 'stop'], path: ['once', 'loop', 'hold', 'stop'], sound: ['once', 'loop', 'stop'], motion: ['once', 'loop', 'stop'], seq: ['once', 'stop'] };
@@ -365,6 +384,7 @@ function sqDraft(P) {
   if (P.what === 'clip' && P.how !== 'stop') e.clip = P.clip;
   if (SEQ_RUN.includes(P.what) || P.what === 'seq') e.how = P.how;
   if ((P.what === 'show' || P.what === 'hide') && P.fade === 'cut') e.fade = 'cut';
+  if (P.what === 'send') e.ev = P.ev;
   if (P.what === 'tex') { e.mat = P.mat; e.slot = P.slot; e.file = P.file; }
   return e;
 }
@@ -377,6 +397,8 @@ function sqSentence(P) {
   if (P.what === 'hide') return `${T}${nm} hides${P.fade === 'cut' ? ' at once' : ' (fades out)'}.`;
   if (P.what === 'tex') return `${T}${nm}'s ${(SLOT_NAME[P.slot] || P.slot).toLowerCase()} becomes ${P.file ? baseName(P.file) : 'its own picture'}.`;
   if (P.what === 'seq') return `${T}${nm} ${h === 'stop' ? 'stops' : 'starts from its beginning'}.`;
+  if (P.what === 'press') return `${T}${nm} is pressed, as if someone pressed it (what it does, for everyone; its sends go out from nobody).`;
+  if (P.what === 'send') return `${T}only ${nm}'s sends for ${SEND_EV_WORD[P.ev] || P.ev} go out (the output page hears it from nobody); nothing is shown or hidden.`;
   if (h === 'stop') return `${T}${nm} stops what a sequence or a cube started.`;
   const what = P.what === 'clip' ? P.clip : P.what === 'sound' ? 'the sound' : P.what === 'path' ? 'its recorded path' : 'its motion';
   return `${T}${nm} plays ${what} ${h === 'once' ? 'once from its start' : h === 'loop' ? 'again and again until the sequence stops' : 'to its end and holds there until the sequence stops'}.`;
@@ -434,6 +456,7 @@ function seqBlocks(q, B, dis, ed) {
     if (!opts.length) B.push({ p: 'Nothing to do to it now.', c: 'amber' });
     else if (P.what) {
       if (SQ_HOWS[P.what]) B.push({ label: 'How', row: SQ_HOWS[P.what].map(h => ({ id: 'sqhow:' + h, label: sqHowWord(P.what, h), act: 'i:sqHow', v: h, on: P.how === h, dis: ld })) });
+      if (P.what === 'send') B.push({ label: 'Which', row: seqSendEvs(t).map(v => ({ id: 'sqev:' + v, label: SEND_EV_WORD[v], act: 'i:sqEv', v, on: P.ev === v, dis: ld })) });
       if ((P.what === 'show' || P.what === 'hide') && t.kind !== 'c') B.push({ label: 'How', row: [{ id: 'sqfade:fade', label: 'Fade', act: 'i:sqFade', v: '', on: P.fade !== 'cut', dis: ld }, { id: 'sqfade:cut', label: 'At once', act: 'i:sqFade', v: 'cut', on: P.fade === 'cut', dis: ld }] });
       if (P.what === 'tex') {
         const ms = t.model ? ctMats(t) : [];
@@ -461,7 +484,7 @@ function seqBlocks(q, B, dis, ed) {
 }
 const ms0 = t => (t && t.model ? ctMats(t) : []);
 const sqNormOne = (e, id) => normSeqEv([e], id)[0] || null;
-const sqEvKey = e => [e.on, e.what, e.clip || '', e.how || '', e.fade || '', e.mat, e.slot, e.file].join('|');
+const sqEvKey = e => [e.on, e.what, e.clip || '', e.how || '', e.fade || '', e.mat, e.slot, e.file, e.ev || ''].join('|');
 const sqSet = (q, patch) => { if (q.kind === 'q' && !q.rec.locked) setRec(q.id, patch); };
 Object.assign(ITEM_ACT, {
   sqLen: (q, d) => sqSet(q, { len: r2(Math.min(600, Math.max(0.1, q.rec.len + (+d || 0)))) }),
@@ -512,8 +535,10 @@ Object.assign(ITEM_ACT, {
     const s = String(v), what = s.startsWith('clip:') ? 'clip' : s, clip = what === 'clip' ? s.slice(5) : '';
     if (!seqOpts(t).some(o => o.what === what && (what !== 'clip' || o.clip === clip))) return;
     P.what = what; P.clip = clip; P.file = null;
+    if (what === 'send') P.ev = seqSendEvs(t)[0] || '';
     if (!(SQ_HOWS[what] || []).includes(P.how)) P.how = 'once';
   },
+  sqEv: (q, v) => { const P = STU.plp, t = P && P.seq && P.id === q.id ? STU.items.get(P.on) : null; if (t && seqSendEvs(t).includes(v)) P.ev = v; },
   sqHow: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id && (SQ_HOWS[P.what] || []).includes(v)) P.how = v; },
   sqFade: (q, v) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.fade = v === 'cut' ? 'cut' : ''; },
   sqMat: (q, i) => { const P = STU.plp; if (P && P.seq && P.id === q.id) P.mat = Math.max(0, +i || 0); },
@@ -534,7 +559,7 @@ Object.assign(ITEM_ACT, {
     STU.plp = null;
   },
 });
-PANE_ONLY.push('sqSel', 'sqEvPg', 'sqPreview', 'sqPreviewEnd', 'sqPick', 'sqOn', 'sqBack', 'sqWhat', 'sqHow', 'sqFade', 'sqMat', 'sqSlot', 'sqPic', 'sqPg', 'sqCPg', 'sqPPg', 'sqAtD', 'sqAtNow', 'sqNudge');
+PANE_ONLY.push('sqEv', 'sqSel', 'sqEvPg', 'sqPreview', 'sqPreviewEnd', 'sqPick', 'sqOn', 'sqBack', 'sqWhat', 'sqHow', 'sqFade', 'sqMat', 'sqSlot', 'sqPic', 'sqPg', 'sqCPg', 'sqPPg', 'sqAtD', 'sqAtNow', 'sqNudge');
 // the page's slider for the time of an event being added (tenths of a second)
 function seqAtSet(v, done) { const P = STU.plp; if (P && P.seq) { P.at = r2(Math.min(600, v / 10)); if (done) dirty(true); } }
 // the transport, which anyone may press (a visitor too, editing or not), refused only while the circle's story is locked
@@ -589,7 +614,7 @@ function seqSig() {
   const P = seqEff(q), U = seqU(q, P, behNow());
   // nothing that moves with the clock or a scrub: the bar is patched on its own strip, and the state line gives no seconds while it moves
   const pv = !!P && P.src === 'preview';
-  return [P ? (pv ? 'pv|' + P.on : P.n + '|' + P.on + '|' + P.ts) : '', U && U.ended, U && U.playing, STU.qprev && STU.qprev.id === q.id, STU.qsel, STU.qpage, seqCan(), STU.plp && STU.plp.seq ? [STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.fade, STU.plp.at, STU.plp.mat, STU.plp.slot, STU.plp.file, STU.plp.page, STU.plp.cpage, STU.plp.ppage].join() : ''].join();
+  return [P ? (pv ? 'pv|' + P.on : P.n + '|' + P.on + '|' + P.ts) : '', U && U.ended, U && U.playing, STU.qprev && STU.qprev.id === q.id, STU.qsel, STU.qpage, seqCan(), STU.plp && STU.plp.seq ? [STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.fade, STU.plp.ev, STU.plp.at, STU.plp.mat, STU.plp.slot, STU.plp.file, STU.plp.page, STU.plp.cpage, STU.plp.ppage].join() : ''].join();
 }
 // for tests (STUDIO.seq(id), STUDIO.seqs())
 function seqState(id) {

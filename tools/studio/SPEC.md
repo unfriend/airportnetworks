@@ -3203,6 +3203,129 @@ relay for osc and trackers". The contract between the studio, the output page (`
 - Untested on a headset: walking into a cube that sends and pointing with a real ray, how in time the room's beat looks on
   real headsets, the headset card's rows with real controllers.
 
+## Streams on a card (v158, the owner, 17 November 2026)
+
+"xyz plus velocity plus what else", then the scene's streams set on an item's card. The contract is
+`tools/output/SPEC.md`, "v158", sections 1 and 2; the code `engine/e6v_stream.js`. FORMAT networks-52 (the integrator).
+
+- **The record.** An object's, a shape's, an empty's, a sound's or a cube's record may carry `stream`: 1 to 8 entries
+  (kept only when it has one), fields in this order, only those set: `{ v, min, max, curve, smooth, hz, cc, wide, note,
+  at, vel, val, ch, osc }`. `v` one of `x y z yaw pitch roll speed vx vy vz acc spin size shown clip path motion near`
+  and, for a cube only, `count`. `min`, `max` (absent: the value's own range, `STREAM_RANGE`; the two ends must differ),
+  `curve: 'inv'`, `smooth` 0 to 0.95 (0 not written), `hz` 1 to 60 (30 not written; `near` and `count` at most 15),
+  `cc` 0 to 127 with `wide: true` only for cc 0 to 31, or `note` 0 to 127 with `at` 0.01 to 0.99 (0.5 not written) and
+  `vel: 'speed'` or `val` 1 to 127 (100 not written), `ch` 1 to 16 (1 not written, only with cc or note), `osc` an address
+  of its own (the send entries' rule). `normStream` checks them (one function): an entry that is not one dropped, an exact
+  duplicate dropped, cc and note both bad; not a list makes the record bad. A layout's bad entries, and those past the
+  scene's 64 (in the layout's order), are dropped and counted (`STU.badStream`, said on the Scene pane); the room's past 64
+  are dropped likewise.
+- **HOST.cur.out** (Wire 2) gains: `list()` items carry `stream` (copies, `[]` none); `value(id, v)` for the state values
+  (`size`: its drawn scale over its placed one, a pulse's; `shown` 0 or 1, a cube switched on; `clip`, `path`, `motion`
+  its phase 0 to 1, 0 none; `near` metres from its middle to the nearest head of a person in a headset at the circle,
+  `behHeads`, null with nobody; `count` heads inside a cube), null for the kinematic ones and an unknown id; `pose(id)` of
+  a cube its middle (yaw only); `beat()` with `bar` always; `beatMs()`, `beatPos(now)`, `barPos(now)`.
+- **The room's beat with bars** (`bt.bar`, 1 to 16, `at` a downbeat): `act({ do: 'beat', bpm, at, bar })`, refused
+  outside 1 to 16 (*bar 1 to 16*), absent the room's, else 4, written always; a `bt` without `bar` (an older writer's) is
+  read as 4 beats a bar (`btBar`) and given back as it was, so nothing is written back.
+- **The card** (editing on, page and headset, never for a visitor, not refused by a lock in place): *Streams*, a row per
+  entry in words (*Speed → CC 21 ch 1 · 0.00 m/s to 3.00 m/s*: a press opens it to change), *Try* (one effect `send` with
+  `ev: 'stream'`, its `v` and `try: 1`; the output page's listeners hear `{ ev: 'stream', id, k, name, who, at, v,
+  stream: its entries for v, send: [], try: 1 }` and sweep them 0 → 1 → 0 over 1 s) and ✕; *Add a stream...*: the value
+  in four rows (Where, How it moves, Its state, People), *Sends* (OSC only, Controller, Note), its number (− / + 1 and 12),
+  channel, 14-bit, a note's threshold and velocity (from its speed or fixed), the range (*Range from its movement*: 5 s
+  watched, its least and most widened by 5 % each way, `streamStep` from `itemsStep`; *Its own range*; each end − / + a
+  tenth of the value's own range), *Curve*, *Smoothing*, the page's OSC address field (`stuStreamOsc`), *It will* in a
+  sentence, *Add* or *Replace*. One Undo step each. The Items card's faint line says *streams 2*.
+- For tests: `STUDIO.streamSet(id, list)` (one Undo step), `STUDIO.streams()` (`{ pick, watch, log, count, bad }`).
+- Untested: the output page's side of them (lane PAGE), real MIDI, how *Range from its movement* feels on a headset.
+
+## Trails (v158, the owner, 17 November 2026)
+
+The owner: trails "for both [items and people's hands] and show to everyone at the circle". The contract is
+`tools/output/SPEC.md`, "v158" section 3; the code `engine/e6x_trails.js`. FORMAT networks-52 (the integrator's bump).
+
+- **The record.** An object's, a shape's, an empty's or a sound's record may carry `trail` `{ len, w, col }`: `len` 0.5 to
+  10 s (absent 3, to 2 decimals), `w` 0.005 to 0.1 m (absent 0.02, to the mm), both held at their limits and always
+  written; `col` `'#rrggbb'` (lower-cased, written only when set; absent: a shape's own colour, else the kind's: an object
+  cyan `#46d9ff`, an empty amber `#ffb43b`, a sound green `#3ee08f`). A trail that is not an object, a length or a width
+  that is not a number, or a colour that is not `#rrggbb` makes the record bad (a layout drops it and counts it). A cube
+  takes none (ignored). In `state()` and `layout.json` as the record has it.
+- **The scene's hand trails.** `settings.hands` `{ len, w }` (the same limits; absent: off, written only when on; a colour
+  or anything else there makes the settings bad). Each person in a headset at this circle (the shell's
+  `HOST.collab.persons()` with `st` this station, their `body().hands`, smoothed presence, in room coordinates, which are the
+  scene's at a station) and this device's own controllers in its session (`XR.ctrls`, left and right, their place taken
+  into the scene's frame) leave a trail from each hand in their colour (the member's; this device's `HOST.collab.color`).
+- **Drawn.** Each device from what it draws (nothing is sent). Behind an item's middle as drawn (`itemTopInto(it, v,
+  true)` after `itemsStep`: motions, paths, behaviours, carries, trackers). A sample is taken when at least 1/60 s has
+  passed since the last (2 ms allowed for a clock's rounding) and it moved 2 cm, or a quarter of a second went by; between
+  samples the ribbon runs on to where it is now. Samples older than the trail's length go. One mesh in `GL.items` for
+  every trail (`TRL.mesh`, one draw, `renderOrder` 8, never pointed at): two vertices a sample, opened sideways in view
+  space in the vertex shader (so each eye sees it face on), half the width each way; its colour times the square of what
+  is left of its age (fading to black); blended additively as the ships' glows (colour One/One, alpha Zero/One), so it
+  only adds light and leaves the layer's alpha alone in AR; depth-tested, writing no depth; nothing see-through drawn
+  large. Its buffers are made once (16,384 vertices, a `Uint16` index) and only the part used is sent each frame. A jump
+  of more than 1 m in a frame, or a frame hidden (not shown for this device, or only in AR / only in VR), starts another
+  stretch (no line across). At most 16,384 vertices (`TRL.cap`): past it, the oldest samples of the longest trail go first
+  (counted, `dropped`). Nothing is fed away from the station (`xrAway()`), on the Stories screen or with no scene: what
+  is there fades out and goes. A trail switched off stops being fed and fades out over its length.
+- **The card** (page and headset, editing on; not refused by a lock in place: a look, as a tint): *Trail: Off / On* (On
+  takes 3 s and 2 cm), then *Length* (− / +: 0.5, 1, 2, 3, 5, 7.5, 10 s), *Width* (− / +: 5, 10, 20, 30, 50, 75, 100 mm) and
+  *Trail colour* (*Its own* and the shapes' ten swatches). One Undo step each, for everyone at the circle.
+- **The Scene pane** (editing): *Hand trails: Off / On*, while on its length and width (− / +, the same steps), through
+  `setSetting('hands:on' | 'hands:off' | 'hands:len:±1' | 'hands:w:±1')`; one Undo step each, shared as every setting.
+- **For tests**: `STUDIO.trails()` (`{ items, hands, verts, dropped, map }`: the trails drawn this frame, their vertices,
+  the samples the cap dropped, and per trail its samples), `STUDIO.trailCap(n)` (null the default), `STUDIO.trailFake([{ id,
+  hand: 'l' | 'r', color, p }])` (pretend hands in the scene's frame) and `STUDIO.trailClock` (ms). Smoke steps
+  `--only 'studio trails'`: the record and settings checked and carried through the state, `apply(state())` and
+  `layout.json`; the card's and the Scene pane's rows (page and headset); pixels read back of a shape moving 3 m across the
+  dark sky (a lit ribbon in its colour behind it, brighter where newer, none with the mesh hidden; the material additive,
+  depth-tested, no depth write); a jump and a hidden frame breaking it; its trail off fading out; the cap; a pretend
+  person's hands at this circle (`HOST.collab.live` and `persons` stubbed), none at another circle or with no station.
+- **Untested here**: how trails look and cost on a Quest (a headset's additive blend over passthrough, many long trails),
+  people's hand trails from real headsets over Wi-Fi, this device's own controllers' trails (only in a session).
+
+## Loops on the beat (v158, the owner, 17 November 2026)
+
+A loop recorder, "movement for now, both clocks should be possible", then "also do the events". The contract is
+`tools/output/SPEC.md`, "v158", section 4; the code `engine/e6w_loops.js` (with small hooks in `e6f_path.js`,
+`e6s_seq.js`, `e6u_send.js` and `e8_xr.js`).
+
+- **A path on the beat.** A recorded path may carry `sync: 'beat'` and `beats` (1 to 256, both or neither; FORMAT
+  networks-52). While the room has `bt` its moment is ((beatPos mod beats) / beats) × its length (`pathBeatS`, on the loops'
+  clock `loopClock`), so it loops exactly on the beat and stretches with the tempo, its play, speed and start ignored
+  meanwhile; without `bt` as before. A cube's start of it, a timeline's hold and Pause win. Its card: *On the beat: Off /
+  − a bar / + a bar / Fit* (the whole bars nearest its length at the tempo now), one Undo step each.
+- **Record on the beat** (*1 / 2 / 4 / 8 bars*, only while the room has `bt`, else greyed with *needs the room's beat*):
+  armed (`LOOP.on`, this device's own), it counts in to the next downbeat (the card says *Counting in: in 3*; a soft `step`
+  at the item on each beat), then records (`recBegin`, `REC.beat`) from that downbeat: on a page its card's buttons and the
+  arrows move it meanwhile; in a headset a grip may take it up before or while it records (let go early, it stays where it
+  was let go until the end). Samples are taken by beat position (seconds at the tempo it began at), and at the end downbeat
+  (`loopStep`, before `recStep`) it stops itself, turns its times into the tempo at its end (`recBeatEnd`), joins the loop
+  (its end bent onto its start; no stillness cut, so it stays its beats long) and writes its path with `play: 'loop'`,
+  `sync: 'beat'`, `beats` = bars × bar: one Undo step. *Cancel* (and Stop) drop it.
+- **A sequence on the beat.** A sequence may carry `beats`: while the room has `bt` its time is ((beatPos − its start
+  beat) mod beats) / beats × len for a loop (once: up to its length), its start rounded down to a downbeat (`seqLock`,
+  `seqUBeat`; the room moments of its events through `seqAt`, stretched by the beat). Its card: *On the beat* as a path's.
+- **Press and send events.** `{ t, on, what: 'press' }`: the item's press as if pressed, worked out alike on every device
+  from the sequence's state (no stamp written): its show and hide entries as sources (`seqPressShowHide`), its runs as the
+  sequence's own (`seqPressRuns`; never its `seq` entries: a shared sequence is written by one device), and the output
+  page hears `press` from nobody. `{ t, on, what: 'send', ev }` (`enter`, `leave` a cube's; `hover`, `unhover` an item's):
+  only its send entries go out (the output page hears that event from nobody: `seqOutEvents`, in real time); nothing is
+  shown or hidden. The card's *Add an event...* offers *Press it* and *Only its sends* (with *Which*).
+- **Record events** (*1 / 2 / 4 / 8 bars*, *Grid: 1/16 · 1/8 · 1/4 · Off*, *Overdub: Off / On*, the last two this device's
+  own, kept): counted in as a path's; from its first downbeat to its end it records what happens on the room's shared
+  sources (`loopSeen`, `loopHeard`): a new press stamp → `press`; the effect `send` (enter, leave, hover, unhover, from any
+  device, and this device's own) for an item with send entries for it → `send`; an outside switch → `show` or `hide`;
+  another shared sequence started or stopped → `seq`. Their beat positions since the first downbeat, quantised to the grid
+  (one on the end downbeat goes round to the first), are written as seconds at the tempo then; `len` the bars, `beats`,
+  `loop: 'loop'`; overdub off drops the press, send, show, hide and seq events it had (clips, sounds, paths, motions and
+  pictures stay). One Undo step; then it is started on the beat at the end downbeat (its `qr`). At most 200 events (the
+  rest dropped and said).
+- For tests: `STUDIO.loops()` (`{ armed, phase: 'count' | 'rec' | '', id, kind: 'path' | 'seq', from, to, got, grid, over,
+  note, log }`), `STUDIO.loopClock` (get and set; `loopClock` in the page, as `recClock` and `trgClock`).
+- Untested: everything with a real room beat from MIDI clock; Record on the beat in a headset (a grip carrying it across
+  the downbeat, let go early); how a stretched loop looks when the tempo changes.
+
 ## The colour picker (v146, the owner, 15 November 2026)
 
 One picker for an object's tint, a shape's colour and the paint colour (`engine/e7h_colour.js`; the page's `#stuCpk` popover and
@@ -3299,6 +3422,13 @@ long one), and `node tools/studio/convert.mjs model.fbx` (a batch on a computer 
   test scene, a pretend studio station and its trackers in the page; `--only 'studio trackers'`) and *studio puppet*
   steps (on the puppet test scene, its rig loaded a second time walking as the performer, the trackers worn on it;
   `--only 'studio puppet'`); `node tools/studio/test-ik.mjs` (the solver alone): "Testing" in `docs/agents/testing.md`.
+- Streams on a card and loops on the beat (v158): the smoke test's *studio streams* steps (`--only 'studio streams'`: the
+  record's checks, the state and `layout.json` both ways with a layout's bad entries and those past 64 counted, `out.list()`,
+  `out.value()` of each state value, `out.pose()` of a cube, `out.beat()` with its bar, the cards on both twins with Try
+  heard by a listener, Range from its movement on a bobbing shape) and *studio loops* steps (`--only 'studio loops'`, the
+  clocks held: `bt` with bars, a path's and a sequence's beats, a path drawn at known beat positions and stretched with the
+  tempo, Record on the beat from its count-in to its end downbeat with a tempo change, a sequence locked to the bar with
+  press and send events heard by the output page, Record events quantised to the grid with overdub).
 
 - `tools/studio/test/scenes/textures/` (about 20 KB, no layout): made by the same script from
   `tools/studio/test/pictures.mjs` (small writers for TIFF with LZW, PackBits and Deflate, PSD with RLE, DDS as DXT1,

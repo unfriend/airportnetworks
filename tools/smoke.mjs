@@ -19,6 +19,9 @@
 // --only 'studio sequences': timelines of events on items (kind q), shared on the room's clock, v146;
 // --only 'studio press': an object's or shape's reactions to a press and to being pointed at, shared by a stamp, v146;
 // --only 'studio sends': sends to the output page (MIDI and OSC): send entries, the cards, HOST.cur.out's events and actions, sw and bt, v157;
+// --only 'studio streams': streams on a card (values of an item to the output page as MIDI and OSC), out.value(), v158;
+// --only 'studio loops': loops on the beat: the room's beat with bars, paths and sequences on the beat, Record on the beat, press and send events, Record events, v158;
+// --only 'studio trails': trails of light behind items and people's hands, for everyone at the circle, v158;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -9500,9 +9503,9 @@ if (runs('studio sends')) {
     if (r[6][0] !== 'ok' || J(r[7]) !== J([false, 'Switched off by the output page'])) out.push('sw switches a cube off: ' + J(r.slice(6, 8)));
     if (J(r[8]) !== '["ok",false]' || r[9] !== true) out.push('clear: ' + J(r.slice(8, 10)));
     const T = T0 + 30000;
-    if (r[10][0] !== 'the bpm is outside 20 to 300' || r[10][1] !== 'ok' || r[10][2] !== J({ bpm: 120, at: T, by: 'outpg1' }) || r[10][3] !== r[10][2]) out.push('beat: ' + J(r[10]));
-    if (!/"on":1/.test(r[11][0] || '') || r[11][1] !== J({ bpm: 120, at: T, by: 'outpg1' }) || r[11][2] !== false) out.push('the state carries sw and bt: ' + J(r[11]));
-    if (r[12][0] !== 'fig001' || r[12][1] !== J({ bpm: 120, at: T, by: 'outpg1' })) out.push('apply: a good sw kept, an unknown id, a sequence and a bad value ignored: ' + J(r[12]));
+    if (r[10][0] !== 'the bpm is outside 20 to 300' || r[10][1] !== 'ok' || r[10][2] !== J({ bpm: 120, at: T, bar: 4, by: 'outpg1' }) || r[10][3] !== r[10][2]) out.push('beat (with its bar, v158): ' + J(r[10]));
+    if (!/"on":1/.test(r[11][0] || '') || r[11][1] !== J({ bpm: 120, at: T, bar: 4, by: 'outpg1' }) || r[11][2] !== false) out.push('the state carries sw and bt: ' + J(r[11]));
+    if (r[12][0] !== 'fig001' || r[12][1] !== J({ bpm: 120, at: T, bar: 4, by: 'outpg1' })) out.push('apply: a good sw kept, an unknown id, a sequence and a bad value ignored: ' + J(r[12]));
     if (r[13] !== true) out.push('apply(state()) gives the same state back');
     if (J(r[14]) !== '["ok",null]') out.push('beat 0 removes it at once: ' + J(r[14]));
     // a motion on the beat: a spin of one turn a beat at 120 bpm, half a turn at 250 ms past a beat, a whole one at 500 ms
@@ -9517,6 +9520,516 @@ if (runs('studio sends')) {
     bad(out);
   });
   await ss(`(window.__sx.clean(), window.__sxoff && window.__sxoff(), 0)`).catch(() => 0);
+  await sp.close();
+}
+// Streams on a card (v158; tools/output/SPEC.md "v158" section 2, tools/studio/SPEC.md "Streams on a card"), on a page of its
+// own at the test scene: the record's checks (normStream), the state and layout.json both ways (a layout's bad entries and
+// those past the scene's 64 counted and said), HOST.cur.out's list(), value() and pose() for a cube, the cards (page and
+// headset twins: Add a stream..., Try through the effect send with ev 'stream', ✕, the Items card's line), and Range from
+// its movement on a bobbing shape
+if (runs('studio streams')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio streams: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio streams: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio streams: ' + b)); };
+  const J = JSON.stringify;
+  let ready = false;
+  await step('studio streams: the record: entries checked (a v it does not take, count off a cube, cc and note both, 14-bit past cc 31, a bad range, smooth, hz and address dropped; defaults not written; at most 8; an exact duplicate dropped; not a list a bad record); the state and layout.json carry them; a layout\'s bad entries and those past the scene\'s 64 counted and said', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio streams: the test scene did not load'); return; }
+    ready = true;
+    const out = [];
+    const r = await ss(`(() => {
+      const B = STU.items.get('box001').rec, O = stream => norm('o', Object.assign({}, B, { stream })), C = stream => norm('c', { name: 'C', p: [0, 1, 0], stream });
+      return [JSON.stringify(O([{ v: 'speed', cc: 21, ch: 1, hz: 30, smooth: 0, min: 0, max: 3 }, { v: 'nope' }, { v: 'count', cc: 1 }, { v: 'y', cc: 1, note: 2 }, { v: 'y', cc: 40, wide: true },
+        { v: 'y', min: 1, max: 1 }, { v: 'y', smooth: 0.99 }, { v: 'near', hz: 30 }, { v: 'near', hz: 15 }, { v: 'y', osc: '/a//b' }, { v: 'y', note: 36, at: 0.5, val: 100, vel: 'speed', ch: 3 }, { v: 'x', cc: 2, wide: true, curve: 'inv', min: -1, max: 1, smooth: 0.5, hz: 60, osc: '/my/x' },
+        { v: 'speed', cc: 21 }, { v: 'shown', note: 60, at: 0.3, val: 90 }]).stream),
+        O(Array.from({ length: 10 }, (_, i) => ({ v: 'x', cc: i }))).stream.length, O('x'), 'stream' in O([]), JSON.stringify(C([{ v: 'count', hz: 15 }, { v: 'count', hz: 20 }]).stream),
+        JSON.stringify(norm('p', { name: 'P', p: [0, 1, 0], stream: [{ v: 'motion', osc: '/m' }] }).stream), JSON.stringify(norm('e', { name: 'E', p: [0, 1, 0], stream: [{ v: 'path' }] }).stream),
+        JSON.stringify(norm('s', { name: 'S', file: 'tone.wav', p: [0, 1, 0], stream: [{ v: 'near', cc: 7 }] }).stream)];
+    })()`);
+    if (r[0] !== J([{ v: 'speed', cc: 21 }, { v: 'near', hz: 15 }, { v: 'y', note: 36, vel: 'speed', ch: 3 }, { v: 'x', min: -1, max: 1, curve: 'inv', smooth: 0.5, hz: 60, cc: 2, wide: true, osc: '/my/x' }, { v: 'shown', note: 60, at: 0.3, val: 90 }])) out.push('the entries checked: ' + r[0]);
+    if (r[1] !== 8 || r[2] !== null || r[3] !== false) out.push('at most 8, not a list a bad record, none kept absent: ' + J(r.slice(1, 4)));
+    if (r[4] !== J([{ v: 'count', hz: 15 }]) || r[5] !== J([{ v: 'motion', osc: '/m' }]) || r[6] !== J([{ v: 'path' }]) || r[7] !== J([{ v: 'near', cc: 7 }])) out.push('a cube\'s count (hz at most 15), a shape\'s, an empty\'s and a sound\'s: ' + J(r.slice(4)));
+    const l = await ss(`(() => {
+      setRec('box001', { stream: [{ v: 'y', cc: 7 }] }); setRec('cube01', { stream: [{ v: 'count', note: 40 }] });
+      const st = HOST.cur.collab.state(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      const lay = JSON.parse(JSON.stringify(L)); lay.objects.find(o => o.id === 'box001').stream.push({ v: 'nope' }, { v: 'y', cc: 1, note: 1 });
+      lay.shapes = Array.from({ length: 9 }, (_, i) => ({ id: 'stp00' + i, name: 'S' + i, shape: 'cube', p: [i, 0.5, 4], stream: Array.from({ length: 8 }, (_, k) => ({ v: 'x', cc: k })) }));
+      const bl = readLayout(lay), kept = bl.items.reduce((n, x) => n + (x.rec.stream ? x.rec.stream.length : 0), 0); STU.badStream = bl.streamBad; X.tab = 'scene'; renderPanes();
+      const said = /streams to the output page in layout\\.json could not be read/.test(document.querySelector('#pane-scene').textContent); STU.badStream = 0;
+      const s2 = HOST.cur.collab.state(); collabApply(s2);
+      return [JSON.stringify(st['o.box001'].stream), JSON.stringify(st['c.cube01'].stream), JSON.stringify(back.items.find(x => x.id === 'box001').rec.stream), bl.streamBad, kept, said, JSON.stringify(HOST.cur.collab.state()) === JSON.stringify(s2)];
+    })()`);
+    if (l[0] !== J([{ v: 'y', cc: 7 }]) || l[1] !== J([{ v: 'count', note: 40 }]) || l[2] !== l[0]) out.push('the state and layout.json carry them: ' + J(l.slice(0, 3)));
+    if (l[3] !== 2 + 10 || l[4] !== 64 || !l[5]) out.push('a layout\'s bad entries (2) and those past 64 (10) counted and said: ' + J(l.slice(3, 6)));
+    if (l[6] !== true) out.push('apply(state()) gives the same state back');
+    bad(out);
+  });
+
+  await step('studio streams: HOST.cur.out: list() carries stream ([] none), value() of size, shown, clip, path, motion, near and count (null for the kinematic ones and an unknown id), pose() of a cube its middle; beat() with its bar', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      GL.renderer.setAnimationLoop(null); window.__T = 5e6; behNow = () => window.__T; trgClock = () => window.__T;
+      const O = HOST.cur.out, L = O.list(), res = [];
+      res.push(JSON.stringify(L.find(x => x.id === 'box001').stream), JSON.stringify(L.find(x => x.id === 'fig001').stream));
+      putItem('stp001', 'p', norm('p', { name: 'Pulser', shape: 'cube', p: [3, 1, -3], size: [0.3, 0.3, 0.3], motion: { kind: 'pulse', speed: 60, amount: 0.2 },
+        path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [4, 1, 0, 0, 0, 0, 0, 1]], play: 'loop' } }, 'stp001'));
+      STU.head = [3, 1.6, -1]; itemsStep(0, performance.now());
+      // (the scene's clock outside a room: since the scene opened; at 0.25 s into a pulse of one a second its size is 1.2)
+      const t = (performance.now() - STU.t0) / 1000;
+      res.push(O.value('stp001', 'size'), +((t * 1) % 1).toFixed(2), O.value('stp001', 'motion'), O.value('stp001', 'path'), +(((t % 4) / 4)).toFixed(2), O.value('stp001', 'shown'), O.value('stp001', 'near'),
+        O.value('stp001', 'x'), O.value('nope01', 'size'), O.value('cube01', 'count'), O.value('box001', 'clip'));
+      STU.head = [0, 1.6, 0]; itemsStep(0, performance.now()); res.push(O.value('cube01', 'count'), O.value('cube01', 'shown'));
+      res.push(JSON.stringify(O.pose('cube01')), JSON.stringify(O.beat()));
+      STU.bt = { bpm: 120, at: 5e6, by: '' }; res.push(JSON.stringify(O.beat()), O.beatMs(), O.beatPos(5e6 + 1500), O.barPos(5e6 + 4000)); STU.bt = null;
+      removeItem('stp001'); STU.head = null;
+      return res;
+    })()`);
+    if (r[0] !== J([{ v: 'y', cc: 7 }]) || r[1] !== '[]') out.push('list() carries stream: ' + J(r.slice(0, 2)));
+    const size = 1 + 0.2 * Math.sin(2 * Math.PI * r[3]);
+    if (!(Math.abs(r[2] - size) < 0.02) || !(Math.abs(r[4] - r[3]) < 0.02 || Math.abs(Math.abs(r[4] - r[3]) - 1) < 0.02)) out.push(`size ${r[2]} wanted ${size.toFixed(3)} and the motion's phase ${r[4]} wanted ${r[3]}`);
+    if (!(Math.abs(r[5] - r[6]) < 0.02) || r[7] !== 1 || !(Math.abs(r[8] - Math.hypot(r[5] * 1 , 0.6, 2)) < 0.3)) out.push('the path\'s phase, shown, near: ' + J(r.slice(5, 9)));
+    if (r[9] !== null || r[10] !== null || r[11] !== 0 || !(r[12] >= 0 && r[12] <= 1)) out.push('null for the kinematic ones and an unknown id, count outside, a clip\'s phase: ' + J(r.slice(9, 13)));
+    if (r[13] !== 1 || r[14] !== 1) out.push('count with the head inside the cube, shown: ' + J(r.slice(13, 15)));
+    const pc = JSON.parse(r[15] || 'null');
+    if (!pc || J(pc.p) !== '[0,1,0]') out.push('pose() of a cube: its middle: ' + r[15]);
+    if (r[16] !== 'null' || r[17] !== J({ bpm: 120, at: 5e6, by: '', bar: 4 }) || r[18] !== 500 || r[19] !== 3 || r[20] !== 2) out.push('beat() with its bar, and the beat in numbers: ' + J(r.slice(16)));
+    bad(out);
+  });
+
+  await step('studio streams: the cards (page and headset twins): Add a stream... (Speed, a controller, one Undo step) with the page\'s address field only on the page; its row\'s words; the Items card\'s line; Try sends the effect send with ev stream and its v, which a listener hears as ev stream with its entries; ✕ one step; a cube\'s People inside; nothing for a visitor or with editing off', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      setRec('box001', { stream: undefined }); setRec('cube01', { stream: undefined }); setEdit(true); select('box001'); X.tab = 'item'; renderPanes();
+      const page = () => document.querySelector('#pane-item').textContent, xr = () => paneBlocks('item').filter(b => !b.page), rows = () => xr().flatMap(b => (b.row || []).map(x => x.label)), res = [];
+      res.push(/Streams/.test(page()) && rows().includes('Add a stream...'));
+      itemAct('stPick'); itemAct('stV', 'speed'); itemAct('stOut', 'cc'); itemAct('stN', 1); renderPanes();
+      res.push(!!document.querySelector('#stuStreamOsc'), !xr().some(b => b.input), rows().includes('Speed') && rows().includes('Range from its movement'));
+      const u0 = UNDO.length; itemAct('stAdd'); renderPanes();
+      res.push(UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.stream), page().includes('Speed → CC 21 ch 1'), rows().some(l => l.startsWith('Speed → CC 21 ch 1')));
+      X.tab = 'items'; renderPanes(); res.push(/streams 1/.test(document.querySelector('#pane-items').textContent)); X.tab = 'item';
+      const spy = []; SENDS.spy = (t, d, q) => { spy.push([t, d.id, d.ev, d.v, d.try || 0]); return true; }; window.__T += 1000; itemAct('stTry', 0); SENDS.spy = null;
+      res.push(JSON.stringify(spy));
+      const got = [], off = STUDIO.out.listen(e => got.push(e)); studioEffect('send', { id: 'box001', ev: 'stream', at: window.__T, try: 1, v: 'speed' }, 'm1abc'); studioEffect('send', { id: 'box001', ev: 'stream', at: window.__T, try: 1, v: 'y' }, 'm1abc'); off();
+      res.push(JSON.stringify(got.map(e => [e.ev, e.id, e.who, e.v, e.stream, e.try])));
+      const u1 = UNDO.length; itemAct('stDel', 0); res.push(UNDO.length - u1, 'stream' in STU.items.get('box001').rec);
+      select('cube01'); renderPanes(); itemAct('stPick'); renderPanes(); res.push(rows().includes('People inside')); select('box001'); renderPanes(); itemAct('stPick'); renderPanes(); res.push(rows().includes('People inside')); STU.stp = null;
+      setEdit(false); renderPanes(); res.push(/Add a stream/.test(page())); select('');
+      return res;
+    })()`);
+    if (r[0] !== true) out.push('the card has Streams and Add a stream...');
+    if (!r[1] || !r[2] || !r[3]) out.push('the pick: the address field only on the page, the values on both: ' + J(r.slice(1, 4)));
+    if (r[4] !== 1 || r[5] !== J([{ v: 'speed', cc: 21 }]) || !r[6] || !r[7]) out.push('Add: one step, the entry, its words on both: ' + J(r.slice(4, 8)));
+    if (r[8] !== true) out.push('the Items card says streams 1');
+    if (r[9] !== J([['send', 'box001', 'stream', 'speed', 1]])) out.push('Try sends the effect: ' + r[9]);
+    if (r[10] !== J([['stream', 'box001', 'm1abc', 'speed', [{ v: 'speed', cc: 21 }], 1]])) out.push('a listener hears the stream\'s Try (one with no entry for its v ignored): ' + r[10]);
+    if (r[11] !== 1 || r[12] !== false) out.push('✕ one step: ' + J(r.slice(11, 13)));
+    if (r[13] !== true || r[14] !== false) out.push('People inside on a cube only: ' + J(r.slice(13, 15)));
+    if (r[15] !== false) out.push('nothing with editing off');
+    bad(out);
+  });
+
+  await step('studio streams: Range from its movement: a shape bobbing 0.2 m about 1 m watched for 5 s takes 0.78 to 1.22 (its least and most, widened by 5 %)', async () => {
+    if (!ready) return;
+    await ss(`(() => {
+      behNow = () => performance.now() + 4e6; trgClock = () => performance.now();
+      putItem('stb001', 'p', norm('p', { name: 'Bobber', shape: 'sphere', p: [3, 1, -3], size: [0.3, 0.3, 0.3], motion: { kind: 'bob', speed: 60, amount: 0.2 } }, 'stb001'));
+      setEdit(true); select('stb001'); itemAct('stPick'); itemAct('stV', 'y'); itemAct('stWatch'); return 0;
+    })()`);
+    // (frames as fast as the page draws them, for 5.3 s of real time: the watch takes each frame's height)
+    await ss(`(() => { const t0 = performance.now(); while (performance.now() - t0 < 5300) itemsStep(0.01, performance.now()); return 0; })()`);
+    const done = await until(`!STW.w && STU.stp && /Range from its movement/.test(STU.stp.note)`, 3000);
+    const r = await ss(`(() => { const P = STU.stp; const res = [P && P.min, P && P.max, P && P.note]; STU.stp = null; removeItem('stb001'); setEdit(false); select(''); return res; })()`);
+    if (!done || !(Math.abs(r[0] - 0.78) < 0.02 && Math.abs(r[1] - 1.22) < 0.02)) bad(['the range watched: ' + J(r)]);
+  });
+  await sp.close();
+}
+// Loops on the beat (v158; tools/output/SPEC.md "v158" section 4, tools/studio/SPEC.md "Loops on the beat"), on a page of its
+// own at the test scene with the room's clock, the clock of what cubes start and the loops' clock held by the test: the room's
+// beat with bars, a path's and a sequence's beats checked and carried, a path on the beat drawn at known beat positions (and
+// stretched with the tempo), Record on the beat (a count-in from the next downbeat, the samples by beat position, stopped at
+// the end downbeat, one Undo step), a sequence locked to the bar, press and send events (shown alike, heard by the output
+// page from nobody), and Record events (quantised to the grid, overdub, started on the beat at the end)
+if (runs('studio loops')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio loops: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio loops: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio loops: ' + b)); };
+  const J = JSON.stringify, T0 = 2e6;
+  // (in the page: the clocks held at T; beat b of the room's beat at 120 bpm from T0 is T0 + 500 b ms; a frame at beat b)
+  const HELP = `window.__lp = window.__lp || {
+    m: b => ${T0} + 500 * b,
+    at: b => { window.__T = window.__lp.m(b); itemsStep(0, performance.now()); return 0; },
+    x: id => { const d = STUDIO.pose(id).drawn; return d ? +d[12].toFixed(4) : null; },
+  }`;
+  let ready = false;
+  await step('studio loops: the room\'s beat with bars (act beat with bar, refused outside 1 to 16; absent the room\'s or 4; beat() gives it; a bt without bar read as 4 and given back as it was); a path\'s sync and beats and a sequence\'s beats and its press and send events checked and carried by the state and layout.json', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio loops: the test scene did not load'); return; }
+    ready = true;
+    await ss(`(${HELP}, GL.renderer.setAnimationLoop(null), behNow = () => window.__T, trgClock = () => window.__T, loopClock = () => window.__T, window.__T = ${T0}, 0)`);
+    const out = [];
+    const r = await ss(`(() => {
+      const A = a => { const x = STUDIO.out.act(a); return x.ok ? 'ok' : x.why; }, res = [];
+      const dI = Object.getOwnPropertyDescriptor(HOST.collab, 'id'), dJ = Object.getOwnPropertyDescriptor(HOST.collab, 'joined');
+      Object.defineProperty(HOST.collab, 'id', { configurable: true, get: () => 'outpg1' }); Object.defineProperty(HOST.collab, 'joined', { configurable: true, get: () => true });
+      BEAT.last = -1e9; res.push(A({ do: 'beat', bpm: 120, at: ${T0}, bar: 17 }), A({ do: 'beat', bpm: 120, at: ${T0} }), JSON.stringify(STU.bt));
+      BEAT.last = -1e9; res.push(A({ do: 'beat', bpm: 100, at: ${T0}, bar: 3 }), JSON.stringify(STU.bt)); BEAT.last = -1e9; res.push(A({ do: 'beat', bpm: 90, at: ${T0} }), STU.bt.bar, JSON.stringify(STUDIO.out.beat()));
+      Object.defineProperty(HOST.collab, 'id', dI); Object.defineProperty(HOST.collab, 'joined', dJ);
+      const st = HOST.cur.collab.state(); st.bt = { bpm: 120, at: ${T0}, by: 'x' }; collabApply(st); res.push(JSON.stringify(STU.bt), JSON.stringify(HOST.cur.collab.state().bt), STUDIO.out.beat().bar, btBar());
+      st.bt = { bpm: 120, at: ${T0}, bar: 0, by: 'x' }; collabApply(st); res.push(STU.bt);
+      const K = [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]];
+      res.push(JSON.stringify(normPath({ k: K, sync: 'beat', beats: 8 })), normPath({ k: K, sync: 'beat' }), normPath({ k: K, beats: 4 }), normPath({ k: K, sync: 'beat', beats: 0 }), normPath({ k: K, sync: 'beat', beats: 257 }), normPath({ k: K, sync: 'bar', beats: 4 }),
+        JSON.stringify(normPath({ src: 'recordings/a.json', len: 3, n: 40, sync: 'beat', beats: 16 })));
+      res.push(JSON.stringify(norm('q', { name: 'Q', len: 2, beats: 4, ev: [{ t: 0.5, on: 'box001', what: 'press' }, { t: 1, on: 'cube01', what: 'send', ev: 'enter' }, { t: 1, on: 'cube01', what: 'send', ev: 'press' }, { t: 1.5, on: 'cube01', what: 'send' }] }, 'lpq000')),
+        norm('q', { name: 'Q', beats: 0 }, 'lpq000'), norm('q', { name: 'Q', beats: 1.5 }, 'lpq000'));
+      putItem('lpq001', 'q', norm('q', { name: 'Q', len: 2, beats: 4, ev: [{ t: 0.5, on: 'box001', what: 'press' }] }, 'lpq001'));
+      setRec('box001', { path: { k: K, sync: 'beat', beats: 8 } });
+      const s2 = HOST.cur.collab.state(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      res.push(JSON.stringify(s2['o.box001'].path), JSON.stringify(s2['q.lpq001']), JSON.stringify(back.items.find(x => x.id === 'box001').rec.path) === JSON.stringify(s2['o.box001'].path), JSON.stringify(back.items.find(x => x.id === 'lpq001').rec) === JSON.stringify(s2['q.lpq001']));
+      removeItem('lpq001'); setRec('box001', { path: undefined }); STU.bt = null;
+      return res;
+    })()`);
+    if (r[0] !== 'bar 1 to 16' || r[1] !== 'ok' || r[2] !== J({ bpm: 120, at: T0, bar: 4, by: 'outpg1' })) out.push('act beat with bar refused outside 1 to 16, else 4: ' + J(r.slice(0, 3)));
+    if (r[3] !== 'ok' || r[4] !== J({ bpm: 100, at: T0, bar: 3, by: 'outpg1' }) || r[5] !== 'ok' || r[6] !== 3 || r[7] !== J({ bpm: 90, at: T0, bar: 3, by: 'outpg1' })) out.push('bar given, then absent: the room\'s: ' + J(r.slice(3, 8)));
+    if (r[8] !== J({ bpm: 120, at: T0, by: 'x' }) || r[9] !== r[8] || r[10] !== 4 || r[11] !== 4 || r[12] !== null) out.push('a bt without bar read as 4 and given back as it was; a bad bar ignored: ' + J(r.slice(8, 13)));
+    if (r[13] !== J({ k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]], play: 'loop', start: 'always', speed: 1, sync: 'beat', beats: 8 }) || r.slice(14, 19).some(x => x !== null) || r[19] !== J({ src: 'recordings/a.json', len: 3, n: 40, play: 'loop', start: 'always', speed: 1, sync: 'beat', beats: 16 })) out.push('a path\'s sync and beats, both or neither, 1 to 256: ' + J(r.slice(13, 20)));
+    if (r[20] !== J({ name: 'Q', len: 2, ev: [{ t: 0.5, on: 'box001', what: 'press' }, { t: 1, on: 'cube01', what: 'send', ev: 'enter' }], beats: 4 }) || r[21] !== null || r[22] !== null) out.push('a sequence\'s beats and its press and send events: ' + J(r.slice(20, 23)));
+    if (!/"sync":"beat","beats":8/.test(r[23]) || !/"beats":4/.test(r[24]) || r[25] !== true || r[26] !== true) out.push('the state and layout.json carry them: ' + J(r.slice(23)));
+    bad(out);
+  });
+
+  await step('studio loops: a path on the beat: its moment ((beatPos mod beats) / beats) × its length at known beat positions, stretched with the tempo; without the room\'s beat as before; the card\'s On the beat (+ a bar, Fit, Off: one Undo step each)', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      // (a shape whose path goes 1 m along x in 2 s, on the beat over 4 beats: at 120 bpm a loop is 2 s)
+      putItem('lps001', 'p', norm('p', { name: 'Looper', shape: 'cube', p: [0, 1, 4], size: [0.2, 0.2, 0.2], path: { k: [[0, 0, 0, 0, 0, 0, 0, 1], [2, 1, 0, 0, 0, 0, 0, 1]], sync: 'beat', beats: 4 } }, 'lps001'));
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' }; const res = [], X = () => window.__lp.x('lps001');
+      for (const b of [1, 2, 3.5, 5, 9]) { window.__lp.at(b); res.push(X()); }
+      STU.bt = { bpm: 60, at: ${T0}, bar: 4, by: '' }; window.__T = ${T0} + 1000; itemsStep(0, performance.now()); res.push(X());   // (60 bpm: beat 1 at 1 s, a quarter of the loop)
+      STU.bt = null; window.__T = ${T0} + 1000; itemsStep(0, performance.now()); res.push(STUDIO.out.value('lps001', 'path'));
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' }; window.__lp.at(1); res.push(STUDIO.out.value('lps001', 'path'));
+      setEdit(true); select('lps001'); renderPanes(); const rows = () => paneBlocks('item').filter(b => !b.page).flatMap(b => (b.row || []).map(x => x.label));
+      res.push(rows().includes('+ a bar') && rows().includes('Fit') && rows().includes('4 bars'));
+      const u0 = UNDO.length; itemAct('pbeat', '+'); res.push(UNDO.length - u0, STU.items.get('lps001').rec.path.beats);
+      itemAct('pbeat', 'fit'); res.push(STU.items.get('lps001').rec.path.beats); itemAct('pbeat', 'off'); res.push('sync' in STU.items.get('lps001').rec.path, 'beats' in STU.items.get('lps001').rec.path);
+      undo(); res.push(STU.items.get('lps001').rec.path.beats);
+      setEdit(false); select(''); removeItem('lps001'); STU.bt = null;
+      return res;
+    })()`);
+    const want = [0.25, 0.5, 0.875, 0.25, 0.25, 0.25];
+    if (r.slice(0, 6).some((x, i) => !(Math.abs(x - want[i]) < 0.002))) out.push('the path\'s place at beats 1, 2, 3.5, 5, 9 (120 bpm) and beat 1 at 60 bpm (x from 0 at 0 m): ' + J(r.slice(0, 6)) + ' wanted ' + J(want));
+    if (!(r[6] >= 0 && r[6] <= 1) || !(Math.abs(r[7] - 0.25) < 0.01)) out.push('its phase: without the beat its clock\'s, with it the beat\'s: ' + J(r.slice(6, 8)));
+    if (r[8] !== true || r[9] !== 1 || r[10] !== 8 || r[11] !== 4 || r[12] !== false || r[13] !== false || r[14] !== 4) out.push('the card\'s On the beat: ' + J(r.slice(8)));
+    bad(out);
+  });
+
+  await step('studio loops: Record on the beat (a page, 1 bar at 120 bpm): it counts in to the next downbeat (in 3, in 2...; a step at each beat), records from it exactly 4 beats by beat position, stops itself at the end downbeat and writes a path that loops on the beat (play loop, sync beat, beats 4, 2 s), one Undo step; it then plays at known beat positions; the tempo changed meanwhile turns its keys into the tempo at its end', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      putItem('lpr001', 'p', norm('p', { name: 'Taped', shape: 'cube', p: [0, 1, 4], size: [0.2, 0.2, 0.2] }, 'lpr001'));
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' }; setEdit(true); select('lpr001'); X.tab = 'item'; renderPanes();
+      const res = [], H = STU.items.get('lpr001').holder, page = () => document.querySelector('#pane-item').textContent, steps = [];
+      const sp = SFXQ.log.length;
+      window.__lp.at(1.3); const u0 = UNDO.length; itemAct('lpRec', 1); renderPanes();
+      res.push(JSON.stringify(STUDIO.loops()), /Counting in: in 3/.test(page()));
+      for (let b = 1.4; b < 4; b += 0.1) window.__lp.at(+b.toFixed(2));
+      res.push(STUDIO.loops().phase, SFXQ.log.slice(sp).filter(x => x[0] === 'step').length);
+      // (from the downbeat at beat 4 to beat 8: moved 0.25 m along x a beat, a frame each 1/30 s)
+      for (let f = 0; f <= 60; f++) { const b = 4 + f / 15; H.position.x = (b - 4) * 0.25; window.__lp.at(b); if (f === 30) { renderPanes(); res.push(STUDIO.loops().phase, /Recording on the beat: bar 1 of 1/.test(page())); } }
+      res.push(STUDIO.loops().armed, UNDO.length - u0);
+      const P = STU.items.get('lpr001').rec.path;
+      res.push(JSON.stringify({ play: P.play, sync: P.sync, beats: P.beats }), P.k[0][0], P.k[P.k.length - 1][0], JSON.stringify(STU.items.get('lpr001').rec.p));
+      select(''); renderPanes(); for (const b of [9, 10, 11]) { window.__lp.at(b); res.push(window.__lp.x('lpr001')); }
+      // (again at 120 bpm to start with, the room's beat at 60 bpm from beat 6 on: its keys turned into 60 bpm's seconds, 4 s)
+      setRec('lpr001', { path: undefined, p: [0, 1, 4] }); select('lpr001'); window.__lp.at(1.3); itemAct('lpRec', 1);
+      for (let b = 1.4; b < 4; b += 0.1) window.__lp.at(+b.toFixed(2));
+      for (let f = 0; f <= 30; f++) { const b = 4 + f / 15; H.position.x = (b - 4) * 0.25; window.__lp.at(b); }
+      STU.bt = { bpm: 60, at: ${T0} + 3000 - 6000, bar: 4, by: '' };   // (60 bpm from here, beat 6 at the same moment)
+      for (let f = 1; f <= 60; f++) { const b = 6 + f / 30; H.position.x = (b - 4) * 0.25; window.__T = ${T0} + 3000 + (b - 6) * 1000; itemsStep(0, performance.now()); }
+      const Q = STU.items.get('lpr001').rec.path; res.push(STUDIO.loops().armed, Q && Q.k[Q.k.length - 1][0], Q && Q.beats);
+      setEdit(false); select(''); removeItem('lpr001'); STU.bt = null;
+      return res;
+    })()`);
+    const L0 = JSON.parse(r[0]);
+    if (!L0.armed || L0.phase !== 'count' || L0.kind !== 'path' || L0.from !== 4 || L0.to !== 8 || r[1] !== true) out.push('armed: counting in to the next downbeat (beat 4), to beat 8, the card says in 3: ' + J(r.slice(0, 2)));
+    if (r[2] !== 'count' || r[3] !== 2) out.push('still counting in before the downbeat, a step at beats 2 and 3 of the count-in: ' + J(r.slice(2, 4)));
+    if (r[4] !== 'rec' || r[5] !== true) out.push('the card says bar 1 of 1 while it records: ' + J(r.slice(4, 6)));
+    if (r[6] !== false || r[7] !== 1) out.push('stopped at the end downbeat, one Undo step: ' + J(r.slice(6, 8)));
+    if (r[8] !== J({ play: 'loop', sync: 'beat', beats: 4 }) || r[9] !== 0 || r[10] !== 2 || r[11] !== '[0,1,4]') out.push('its path: loop, on the beat, 4 beats, keys 0 to 2 s, its place where it began: ' + J(r.slice(8, 12)));
+    const want = [0.25, 0.5, 0.75];
+    if (r.slice(12, 15).some((x, i) => !(Math.abs(x - want[i]) < 0.01))) out.push('it plays at beats 9, 10, 11 where it was at beats 5, 6, 7: ' + J(r.slice(12, 15)) + ' wanted ' + J(want));
+    if (r[15] !== false || !(Math.abs(r[16] - 4) < 0.002) || r[17] !== 4) out.push('the tempo changed meanwhile: its keys in 60 bpm\'s seconds (4 s), still 4 beats: ' + J(r.slice(15)));
+    bad(out);
+  });
+
+  await step('studio loops: a downbeat moment rounded to whole ms at 123 bpm (a little before it) still counts as that downbeat; selecting another item mid-recording cancels a page\'s recording on the beat (nothing written); a copy takes only the streams the scene\'s 64 still take', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      const res = [];
+      STU.bt = { bpm: 123, at: ${T0}, bar: 4, by: '' };
+      const m = Math.round(beatMoment(4));   // (0.00045 of a beat before the downbeat)
+      putItem('lpb001', 'q', norm('q', { name: 'Q', len: 2, beats: 4, ev: [] }, 'lpb001'));
+      const L = seqLock(STU.items.get('lpb001'), { at: m, on: true, src: 'x' });
+      res.push(L && L.sb, nextDownbeat(m));
+      removeItem('lpb001');
+      // (a page's Record on the beat, then another item selected while it records)
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' };
+      putItem('lpr002', 'p', norm('p', { name: 'Taped', shape: 'cube', p: [0, 1, 4], size: [0.2, 0.2, 0.2] }, 'lpr002'));
+      setEdit(true); select('lpr002'); window.__lp.at(1.3); const u0 = UNDO.length; itemAct('lpRec', 1);
+      for (let b = 1.4; b < 5; b += 0.1) window.__lp.at(+b.toFixed(2));
+      res.push(STUDIO.loops().phase, !!REC);
+      select('box001'); window.__lp.at(5.2);
+      res.push(STUDIO.loops().armed, !!REC, !!STU.items.get('lpr002').rec.path, UNDO.length - u0, !!SNAP);
+      select(''); removeItem('lpr002');
+      // (eight shapes of eight streams: the scene's 64; a copy of one has none of them)
+      const ids = [];
+      for (let i = 0; i < 8; i++) { const id = 'lps00' + i; ids.push(id); putItem(id, 'p', norm('p', { name: 'S' + i, shape: 'cube', p: [i, 1, 0], size: [0.2, 0.2, 0.2], stream: [0, 1, 2, 3, 4, 5, 6, 7].map(c => ({ v: 'y', cc: c + 20 })) }, id)); }
+      const n0 = streamCount(), nid = duplicateItem('lps000');
+      res.push(n0, !!nid, nid && STU.items.get(nid).rec.stream === undefined, streamCount());
+      const st = HOST.cur.collab.state(); collabApply(st); res.push(JSON.stringify(HOST.cur.collab.state()) === JSON.stringify(st));
+      for (const id of ids.concat(nid ? [nid] : [])) removeItem(id);
+      setEdit(false); STU.bt = null;
+      return res;
+    })()`);
+    if (r[0] !== 4 || r[1] !== 8) out.push('at 123 bpm a moment rounded to the downbeat at beat 4: the sequence starts at 4, the next downbeat is 8: ' + J(r.slice(0, 2)));
+    if (r[2] !== 'rec' || r[3] !== true) out.push('recording on the beat by the page: ' + J(r.slice(2, 4)));
+    if (r[4] !== false || r[5] !== false || r[6] !== false || r[7] !== 0 || r[8] !== false) out.push('another item selected: cancelled, no path, no Undo step, no change left open: ' + J(r.slice(4, 9)));
+    if (r[9] !== 64 || r[10] !== true || r[11] !== true || r[12] !== 64 || r[13] !== true) out.push('a copy past the scene\'s 64 streams has none, and apply(state()) gives the state back: ' + J(r.slice(9)));
+    bad(out);
+  });
+
+  await step('studio loops: a sequence on the beat runs locked to the bar (its start rounded down to a downbeat, stretched with the tempo); its press event shows what the press shows and starts its runs alike here, and the output page hears press and the send event from nobody', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' }; const res = [], m = window.__lp.m;
+      setRec('box001', { press: { do: [{ on: 'fig001', what: 'show' }, { on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }], send: [{ on: 'press', note: 60 }] } });
+      setRec('cube01', { send: [{ on: 'enter', note: 36 }] });
+      putItem('lpq002', 'q', norm('q', { name: 'Beats', len: 2, loop: 'loop', beats: 4, ev: [{ t: 0.5, on: 'box001', what: 'press' }, { t: 1, on: 'cube01', what: 'send', ev: 'enter' }] }, 'lpq002'));
+      const got = [], off = STUDIO.out.listen(e => got.push([e.ev, e.id, e.who, e.at, e.send.length].join(':')));
+      window.__lp.at(5); STU.qr.set('lpq002', { n: 1, on: true, at: m(5.3), t: 0, ts: m(5.3), by: '' }); window.__lp.at(5.3);
+      res.push(+STUDIO.seq('lpq002').u.toFixed(3), STU.items.get('fig001').shown);
+      window.__lp.at(6); res.push(+STUDIO.seq('lpq002').u.toFixed(3), STU.items.get('fig001').shown, !!(STUDIO.plays('box001').item.tr || {}).clip);
+      window.__lp.at(6.5); window.__lp.at(7); window.__lp.at(9.1); res.push(STUDIO.seq('lpq002').cycle, +STUDIO.seq('lpq002').u.toFixed(3));
+      STU.bt = { bpm: 60, at: ${T0}, bar: 4, by: '' }; window.__T = ${T0} + 9000 + 500; itemsStep(0, performance.now()); res.push(+STUDIO.seq('lpq002').u.toFixed(3));
+      off(); res.push(JSON.stringify(got));
+      removeItem('lpq002'); STU.qr.clear(); setRec('box001', { press: undefined }); setRec('cube01', { send: undefined }); trgReset('t'); resetSeen(); STU.bt = null;
+      return res;
+    })()`);
+    // (started at beat 5.3: its start beat 4, so at beat 5.3 it is 1.3 beats in, 0.65 s; at beat 6, 1 s; at beat 9.1 cycle 1 and 0.55 s;
+    // at 60 bpm, beat 9.5 is 0.75 s into cycle 1)
+    if (!(Math.abs(r[0] - 0.65) < 0.002) || r[1] !== true) out.push('locked to the bar from its downbeat, its press event (at 0.5 s, passed) showing the figure: ' + J(r.slice(0, 2)));
+    if (!(Math.abs(r[2] - 1) < 0.002) || r[3] !== true || r[4] !== true) out.push('at beat 6: 1 s, the figure shown, the press\'s clip running on the box: ' + J(r.slice(2, 5)));
+    if (r[5] !== 1 || !(Math.abs(r[6] - 0.55) < 0.002) || !(Math.abs(r[7] - 0.75) < 0.002)) out.push('looping on the beat, stretched with the tempo: ' + J(r.slice(5, 8)));
+    const T = n => T0 + 500 * n, want = [`enter:cube01::${T(6)}:1`, `press:box001::${T(9)}:1`];
+    if (r[8] !== J(want) && !(JSON.parse(r[8]).includes(want[0]) && JSON.parse(r[8]).includes(want[1]))) out.push('the output page hears the send event and the press, from nobody: ' + r[8] + ' wanted ' + J(want));
+    bad(out);
+  });
+
+  await step('studio loops: Record events (1 bar, grid 1/4, overdub off): counted in to the next downbeat, a press stamp, an outside switch, a person walking into a cube with sends and another sequence started recorded at their beat positions quantised to the grid, as seconds at the tempo then; a clip event kept, an old press event gone; its length the bar, 4 beats, looped, started on the beat at the end; one Undo step; overdub on keeps what it had; nothing recorded before its first downbeat', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      STU.bt = { bpm: 120, at: ${T0}, bar: 4, by: '' }; const res = [], m = window.__lp.m;
+      setRec('box001', { press: { send: [{ on: 'press' }] } }); setRec('cube01', { send: [{ on: 'enter' }] });
+      putItem('lpq003', 'q', norm('q', { name: 'Taped', len: 3, ev: [{ t: 0.2, on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }, { t: 0.4, on: 'box001', what: 'press' }] }, 'lpq003'));
+      putItem('lpq004', 'q', norm('q', { name: 'Other', len: 1 }, 'lpq004'));
+      setEdit(true); select('lpq003'); X.tab = 'item'; renderPanes(); itemAct('lpGrid', 1); itemAct('lpOver', 'off');
+      window.__lp.at(2.5); const u0 = UNDO.length; itemAct('lpEv', 1);
+      STU.pr.set('box001', { n: 1, at: m(3), by: 'Ann' }); window.__lp.at(3.2);   // (in the count-in: not recorded)
+      window.__lp.at(4.01);
+      STU.pr.set('box001', { n: 2, at: m(5.1), by: 'Ann' }); window.__lp.at(5.2);
+      STU.sw.set('fig001', { on: 0, at: m(6.2), by: 'x' }); window.__lp.at(6.3);
+      studioEffect('send', { id: 'cube01', ev: 'enter', at: m(6.9) }, 'm1abc'); window.__lp.at(7);
+      STU.qr.set('lpq004', { n: 1, on: true, at: m(7.4), t: 0, ts: m(7.4), by: '' }); window.__lp.at(7.5);
+      res.push(STUDIO.loops().got); window.__lp.at(8);
+      const q = STU.items.get('lpq003').rec;
+      res.push(STUDIO.loops().armed, UNDO.length - u0, JSON.stringify(q.ev), q.len, q.beats, q.loop, JSON.stringify(STU.qr.get('lpq003') && [STU.qr.get('lpq003').on, STU.qr.get('lpq003').at]));
+      // (overdub on, grid 1/16: a press at beat 9.3 added to what it has)
+      itemAct('lpOver', 'on'); itemAct('lpGrid', 0.25); window.__lp.at(8.5); itemAct('lpEv', 1); window.__lp.at(12.01);
+      STU.pr.set('box001', { n: 3, at: m(13.3), by: 'Ann' }); window.__lp.at(13.4); window.__lp.at(16);
+      const q2 = STU.items.get('lpq003').rec; res.push(q2.ev.length, JSON.stringify(q2.ev.filter(e => e.what === 'press')));
+      setEdit(false); select(''); removeItem('lpq003'); removeItem('lpq004'); STU.qr.clear(); STU.pr.clear(); STU.sw.clear(); setRec('box001', { press: undefined }); setRec('cube01', { send: undefined }); STU.bt = null;
+      return res;
+    })()`);
+    if (r[0] !== 4) out.push('four events got while it records (none from the count-in): ' + r[0]);
+    const ev = [{ t: 0.2, on: 'box001', what: 'clip', clip: 'Bob', how: 'once' }, { t: 0.5, on: 'box001', what: 'press' }, { t: 1, on: 'fig001', what: 'hide' }, { t: 1.5, on: 'cube01', what: 'send', ev: 'enter' }, { t: 1.5, on: 'lpq004', what: 'seq', how: 'once' }];
+    if (r[1] !== false || r[2] !== 1 || r[3] !== J(ev) || r[4] !== 2 || r[5] !== 4 || r[6] !== 'loop' || r[7] !== J([true, T0 + 4000])) out.push('the events recorded, quantised, its length, beats and loop, one step, started at the end downbeat: ' + J(r.slice(1, 8)) + ' wanted ' + J(ev));
+    if (r[8] !== 6 || r[9] !== J([{ t: 0.5, on: 'box001', what: 'press' }, { t: 0.63, on: 'box001', what: 'press' }])) out.push('overdub keeps what it had, grid 1/16: ' + J(r.slice(8)));
+    bad(out);
+  });
+  await sp.close();
+}
+// Trails (v158; tools/output/SPEC.md "v158" section 3, tools/studio/SPEC.md "Trails"), on a page of its own at the test
+// scene with the frame loop stopped and the trails' clock held by the test: a record's trail and the scene's hand trails
+// checked and carried through the state and layout.json; the card's rows and the Scene pane's (page and headset twins, one
+// Undo step each); pixels read back showing a lit ribbon behind a moving shape on the dark sky and none with the trail off;
+// a jump and a hidden item breaking it; the vertex cap; hands from a pretend person at this circle (HOST.collab stubbed)
+if (runs('studio trails')) {
+  const sp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  sp.on('pageerror', e => errors.push('studio trails: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio trails: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => sp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio trails: ' + b)); };
+  const J = JSON.stringify;
+  let ready = false;
+  await step('studio trails: the record: a trail checked (held at its limits, its colour lower-cased, defaults filled, a bad one a bad record; a cube takes none), the scene\'s hands; both carried through the state, apply(state()) and layout.json', async () => {
+    await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('box001').model`, 120000)) { errors.push('studio trails: the test scene did not load'); return; }
+    ready = true;
+    const out = [];
+    const r = await ss(`(() => {
+      const P = trail => norm('p', { name: 'P', p: [0, 1, 0], trail }), res = [];
+      res.push(JSON.stringify(P({ len: 20, w: 0.001, col: '#FF5A4B' }).trail), JSON.stringify(P({}).trail), JSON.stringify(P({ len: 1.234, w: 0.0333 }).trail), P('x'), P({ len: 'a' }), P({ col: 'red' }), P([]), 'trail' in P(null));
+      res.push(JSON.stringify(norm('o', Object.assign({}, STU.items.get('box001').rec, { trail: { len: 2 } })).trail), JSON.stringify(norm('e', { name: 'E', p: [0, 1, 0], trail: { w: 0.05 } }).trail),
+        JSON.stringify(norm('s', { name: 'S', file: 'tone.wav', p: [0, 1, 0], trail: { col: '#00ff00' } }).trail), 'trail' in norm('c', { name: 'C', p: [0, 1, 0], trail: { len: 2 } }));
+      res.push(JSON.stringify(normSettings({ hands: { len: 2, w: 0.05 } })), JSON.stringify(normSettings({ hands: { len: 99 } })), normSettings({ hands: 'x' }), normSettings({ hands: { col: '#ffffff' } }), JSON.stringify(normSettings({})));
+      return res;
+    })()`);
+    if (r[0] !== J({ len: 10, w: 0.005, col: '#ff5a4b' }) || r[1] !== J({ len: 3, w: 0.02 }) || r[2] !== J({ len: 1.23, w: 0.033 })) out.push('a trail held, lower-cased, defaults: ' + J(r.slice(0, 3)));
+    if (r[3] !== null || r[4] !== null || r[5] !== null || r[6] !== null || r[7] !== false) out.push('a bad trail a bad record, null none: ' + J(r.slice(3, 8)));
+    if (r[8] !== J({ len: 2, w: 0.02 }) || r[9] !== J({ len: 3, w: 0.05 }) || r[10] !== J({ len: 3, w: 0.02, col: '#00ff00' }) || r[11] !== false) out.push('an object\'s, an empty\'s, a sound\'s; a cube none: ' + J(r.slice(8, 12)));
+    if (r[12] !== J({ others: 'shown', real: 'device', hands: { len: 2, w: 0.05 } }) || r[13] !== J({ others: 'shown', real: 'device', hands: { len: 10, w: 0.02 } }) || r[14] !== null || r[15] !== null || r[16] !== J({ others: 'shown', real: 'device' })) out.push('the scene\'s hands: ' + J(r.slice(12)));
+    const l = await ss(`(() => {
+      setRec('box001', { trail: { len: 2, w: 0.03, col: '#ff5a4b' } }); putSettings(normSettings(Object.assign({}, STU.settings, { hands: { len: 4, w: 0.01 } })));
+      const st = HOST.cur.collab.state(), L = layoutOut(), back = readLayout(JSON.parse(JSON.stringify(L)));
+      collabApply(JSON.parse(JSON.stringify(st)));
+      const res = [JSON.stringify(st['o.box001'].trail), JSON.stringify(st.settings.hands), JSON.stringify(back.items.find(x => x.id === 'box001').rec.trail), JSON.stringify(back.settings.hands), JSON.stringify(HOST.cur.collab.state()) === JSON.stringify(st)];
+      const lay = JSON.parse(JSON.stringify(L)); lay.objects.find(o => o.id === 'box001').trail = 'nope'; const bl = readLayout(lay); res.push(bl.bad, !bl.items.some(x => x.id === 'box001'));
+      setRec('box001', { trail: undefined }); putSettings(normSettings(Object.assign({}, STU.settings, { hands: undefined })));
+      res.push('hands' in STU.settings, 'hands' in HOST.cur.collab.state().settings);
+      return res;
+    })()`);
+    if (l[0] !== J({ len: 2, w: 0.03, col: '#ff5a4b' }) || l[1] !== J({ len: 4, w: 0.01 }) || l[2] !== l[0] || l[3] !== l[1]) out.push('the state and layout.json carry them: ' + J(l.slice(0, 4)));
+    if (l[4] !== true) out.push('apply(state()) gives the same state back');
+    if (l[5] !== 1 || l[6] !== true) out.push('a layout\'s bad trail: its object dropped and counted: ' + J(l.slice(5, 7)));
+    if (l[7] !== false || l[8] !== false) out.push('hands off written as absent: ' + J(l.slice(7)));
+    bad(out);
+  });
+
+  await step('studio trails: the cards (page and headset twins): Trail On (its length and width − / +, its colour: its own or the shapes\' ten), Off, each one Undo step; the Scene pane\'s Hand trails (On, length, width, Off); nothing with editing off', async () => {
+    if (!ready) return;
+    const out = [];
+    const r = await ss(`(() => {
+      setEdit(true); select('box001'); X.tab = 'item'; renderPanes();
+      const page = () => document.querySelector('#pane-item').textContent, xr = t => paneBlocks(t || 'item').filter(b => !b.page), rows = t => xr(t).flatMap(b => (b.row || []).map(x => x.label)), res = [];
+      res.push(/Trail/.test(page()) && rows().includes('On') && !rows().includes('Its own'));
+      const u0 = UNDO.length; itemAct('trail', 'on'); itemAct('trailLen', 1); itemAct('trailW', 1); itemAct('trailCol', '#ff5a4b'); renderPanes();
+      res.push(UNDO.length - u0, JSON.stringify(STU.items.get('box001').rec.trail), /Length: 5 s/.test(page()), rows().includes('Red') && rows().includes('Its own'));
+      itemAct('trailCol', ''); itemAct('trailLen', -1); itemAct('trailLen', -1); res.push(JSON.stringify(STU.items.get('box001').rec.trail));
+      itemAct('trail', 'off'); res.push('trail' in STU.items.get('box001').rec); undo(); res.push(JSON.stringify(STU.items.get('box001').rec.trail)); itemAct('trail', 'off');
+      select(''); X.tab = 'scene'; renderPanes(); const sc = () => document.querySelector('#pane-scene').textContent;
+      res.push(/Hand trails/.test(sc()), rows('scene').includes('Off'));
+      const u1 = UNDO.length; setSetting('hands:on'); setSetting('hands:len:1'); setSetting('hands:w:-1'); renderPanes();
+      res.push(UNDO.length - u1, JSON.stringify(STU.settings.hands), /Hand trails: 5 s/.test(sc()));
+      setSetting('hands:off'); res.push('hands' in STU.settings);
+      select('box001'); setEdit(false); X.tab = 'item'; renderPanes(); res.push(/Trail/.test(page()));
+      return res;
+    })()`);
+    if (r[0] !== true) out.push('the card has Trail with Off and On (no colours while off)');
+    if (r[1] !== 4 || r[2] !== J({ len: 5, w: 0.03, col: '#ff5a4b' }) || !r[3] || !r[4]) out.push('On, length, width, colour, four steps, on both: ' + J(r.slice(1, 5)));
+    if (r[5] !== J({ len: 2, w: 0.03 })) out.push('its own colour again and shorter: ' + r[5]);
+    if (r[6] !== false || r[7] !== J({ len: 2, w: 0.03 })) out.push('Off, and Undo back: ' + J(r.slice(6, 8)));
+    if (!r[8] || !r[9]) out.push('the Scene pane\'s Hand trails, page and headset');
+    if (r[10] !== 3 || r[11] !== J({ len: 5, w: 0.01 }) || !r[12] || r[13] !== false) out.push('Hand trails On, length, width (three steps), Off: ' + J(r.slice(10, 14)));
+    if (r[14] !== false) out.push('nothing with editing off');
+    bad(out);
+  });
+
+  // (the frame loop stopped; each frame the shape moved by hand, its matrices made, the trails stepped at a held clock, and
+  // the scene drawn and read back at once with the trails shown and hidden)
+  const run = (n, x0, dx, extra) => ss(`(() => {
+    const it = STU.items.get('trl001'), T0 = window.__TT;
+    for (let i = 0; i < ${n}; i++) { window.__TT += 1000 / 60; it.holder.position.set(${x0} + ${dx} * i, 3, 0); it.holder.updateMatrixWorld(true); ${extra || ''} trailStep(); }
+    return STUDIO.trails();
+  })()`);
+  await step('studio trails: drawn: a shape moving 3 m across the dark sky leaves a lit ribbon behind it (pixels read back: brighter where the trail is, red in its colour, the same with it hidden), one draw additive and writing no depth; none with its trail off; a jump of more than 1 m and a hidden shape break it', async () => {
+    if (!ready) return;
+    const out = [];
+    await ss(`(() => {
+      GL.renderer.setAnimationLoop(null); window.__TT = 1e6; STUDIO.trailClock = () => window.__TT; setEdit(false); select('');
+      for (const it of STU.items.values()) if (it.kind !== 'q') it.holder.visible = false;
+      putItem('trl001', 'p', norm('p', { name: 'Comet', shape: 'sphere', p: [0, 3, 0], size: [0.1, 0.1, 0.1], colour: '#3ee08f', trail: { len: 3, w: 0.1, col: '#ff5a4b' } }, 'trl001'));
+      const it = STU.items.get('trl001'); it.shown = true; it.holder.visible = true;
+      GL.camera.position.set(0, 3, 4); GL.camera.lookAt(0, 3, 0); GL.camera.updateMatrixWorld(); GL.camera.updateProjectionMatrix();
+      return 0;
+    })()`);
+    const t1 = await run(91, -1.5, 3 / 90);
+    const px = await ss(`(() => {
+      const gl = GL.renderer.getContext(), W = gl.drawingBufferWidth, H = gl.drawingBufferHeight, b = new Uint8Array(4);
+      const at = x => { const v = GL.items.localToWorld(new THREE.Vector3(x, 3, 0)).project(GL.camera); return [Math.round((v.x + 1) / 2 * W), Math.round((v.y + 1) / 2 * H)]; };
+      const max = (p, k) => { let m = 0; for (let dx = -4; dx <= 4; dx++) for (let dy = -4; dy <= 4; dy++) { gl.readPixels(p[0] + dx, p[1] + dy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); m = Math.max(m, b[k]); } return m; };
+      const pts = [at(-0.5), at(0.5)], m = STUDIO.trails().map, M = TRL.mesh.material;
+      GL.renderer.render(GL.scene, GL.camera); const on = pts.map(p => [max(p, 0), max(p, 1)]);
+      TRL.mesh.visible = false; GL.renderer.render(GL.scene, GL.camera); const off = pts.map(p => [max(p, 0), max(p, 1)]); TRL.mesh.visible = true;
+      return { on, off, add: M.blending === THREE.CustomBlending && M.blendSrc === THREE.OneFactor && M.blendDst === THREE.OneFactor && M.blendSrcAlpha === THREE.ZeroFactor && M.blendDstAlpha === THREE.OneFactor, dw: M.depthWrite, dt: M.depthTest, idx: TRL.geo.drawRange.count };
+    })()`);
+    if (!(t1.items === 1 && t1.verts >= 120 && t1.verts <= 200)) out.push('one item\'s trail, its samples (2 cm a sample at 60 a second): ' + J(t1));
+    for (let i = 0; i < 2; i++) if (!(px.on[i][0] - px.off[i][0] > 60 && px.on[i][0] > px.on[i][1] + 30)) out.push(`a lit red ribbon behind it at ${i ? '0.5' : '-0.5'} m: red ${px.on[i][0]} (hidden ${px.off[i][0]}), green ${px.on[i][1]}`);
+    if (!(px.on[1][0] > px.on[0][0])) out.push(`fading with age: newer ${px.on[1][0]}, older ${px.on[0][0]}`);
+    if (!px.add || px.dw !== false || px.dt !== true || !(px.idx > 0)) out.push('additive (One/One, alpha Zero/One), depth-tested, no depth write: ' + J(px));
+    // a jump of 2 m in a frame, then hidden for a frame: three stretches, no line across
+    const j = await ss(`(() => {
+      const it = STU.items.get('trl001'), T = TRL.map.get('i:trl001'), seg0 = T.seg;
+      window.__TT += 20; it.holder.position.set(-1.5, 3, 0); it.holder.updateMatrixWorld(true); trailStep();
+      window.__TT += 20; it.holder.position.set(-1.4, 3, 0); it.holder.updateMatrixWorld(true); trailStep();
+      it.shown = false; window.__TT += 20; trailStep(); const hid = T.head;
+      it.shown = true; window.__TT += 20; it.holder.position.set(-1.3, 3, 0); it.holder.updateMatrixWorld(true); trailStep();
+      return [T.seg - seg0, hid, new Set(T.pts.map(p => p.s)).size];
+    })()`);
+    if (j[0] !== 2 || j[1] !== null || j[2] !== 3) out.push('a jump and a hidden frame break it (stretches): ' + J(j));
+    // its trail off: none drawn; it fades and goes after its length
+    const o = await ss(`(() => {
+      setRec('trl001', { trail: undefined }); window.__TT += 100; trailStep(); const a = STUDIO.trails();
+      window.__TT += 3100; trailStep(); const b = STUDIO.trails(); return [a.items, b.items, b.verts, TRL.mesh.visible, TRL.map.size];
+    })()`);
+    if (o[1] !== 0 || o[2] !== 0 || o[3] !== false || o[4] !== 0) out.push('its trail off: none drawn once its samples are older than its length: ' + J(o));
+    bad(out);
+  });
+
+  await step('studio trails: the cap: past the vertices allowed the oldest samples of the longest trail go first (counted); hands from a pretend person at this circle (HOST.collab stubbed), none from one at another circle, none with Hand trails off, none with no live station', async () => {
+    if (!ready) return;
+    const out = [];
+    await ss(`(() => {
+      setRec('trl001', { trail: { len: 10, w: 0.02 } });
+      putItem('trl002', 'e', norm('e', { name: 'Short', p: [0, 2, 0], trail: { len: 10 } }, 'trl002')); STU.items.get('trl002').shown = true;
+      STUDIO.trailCap(200); return 0;
+    })()`);
+    const c = await run(300, -1.5, 0.02, `const e = STU.items.get('trl002'); if (i < 40) { e.holder.position.set(0, 2, -0.03 * i); e.holder.updateMatrixWorld(true); }`);
+    const m = Object.fromEntries(c.map.map(([k, n, h]) => [k, n + h]));
+    if (!(c.verts <= 200 && c.dropped > 0 && m['i:trl001'] * 2 <= 200 && m['i:trl002'] >= 30)) out.push('the cap (200): the long trail cut, the short one kept: ' + J(c));
+    const h = await ss(`(() => {
+      STUDIO.trailCap(null); setRec('trl001', { trail: undefined }); setRec('trl002', { trail: undefined }); window.__TT += 11000; trailStep();
+      const C = HOST.collab, keep = { live: C.live, persons: C.persons }, res = [];
+      C.live = () => ({ id: 'stTR1', story: 'studio' });
+      let st = 'stTR1'; C.persons = () => [{ id: 'm1abc', name: 'Ann', color: '#ff00ff', kind: 'vr', st, body: { head: [0, 1.6, 0, 0, 0, 0, 1], hands: [[-0.3 + window.__TT / 1e5 % 1, 1.2, 0, 0, 0, 0, 1], [0.3, 1.2 + window.__TT / 1e5 % 1, 0, 0, 0, 0, 1]], at: 0 } }];
+      const go = n => { for (let i = 0; i < n; i++) { window.__TT += 1000 / 60; trailStep(); } return STUDIO.trails(); };
+      res.push(go(30).hands);
+      putSettings(normSettings(Object.assign({}, STU.settings, { hands: { len: 2, w: 0.02 } })));
+      const a = go(30); res.push(a.hands, a.map.filter(x => x[0].startsWith('h:m1abc')).map(x => x[0]).join());
+      st = 'other'; window.__TT += 2100; res.push(go(10).hands);
+      st = 'stTR1'; go(10); C.live = () => null; window.__TT += 2100; res.push(go(10).hands);
+      Object.assign(C, keep); putSettings(normSettings(Object.assign({}, STU.settings, { hands: undefined }))); removeItem('trl001'); removeItem('trl002');
+      return res;
+    })()`);
+    if (h[0] !== 0 || h[1] !== 2 || h[2] !== 'h:m1abc:l,h:m1abc:r' || h[3] !== 0 || h[4] !== 0) out.push('hands: off none, on two, another circle none, no station none: ' + J(h));
+    bad(out);
+  });
   await sp.close();
 }
 // Trigger cubes that work for everyone here (v137, all: true; tools/studio/SPEC.md, "Cubes for everyone"), on two pages of

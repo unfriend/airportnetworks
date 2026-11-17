@@ -1012,7 +1012,8 @@ function uploadBind() {
   });
   ex.addEventListener('input', ev => {
     if (ev.target.id === 'stuNewName') { UP.newName = ev.target.value; const b = ex.querySelector('[data-act="up:make"]'); if (b) b.disabled = UP.making || !UP.newName.trim(); }
-    if (ev.target.id === 'stuSendNum' || ev.target.id === 'stuSendOsc') sxInput(ev.target.id, ev.target.value);   // (a send's number and address: e6u_send.js)
+    if (ev.target.id === 'stuSendNum' || ev.target.id === 'stuSendOsc') sxInput(ev.target.id, ev.target.value);
+    if (ev.target.id === 'stuStreamOsc') stInput(ev.target.id, ev.target.value);   // (a stream's address: e6v_stream.js)   // (a send's number and address: e6u_send.js)
     if (ev.target.id === 'stuSceneName') { NS.name = ev.target.value; const b = ex.querySelector('[data-act="scenemake"]'); if (b) b.disabled = NS.making || !NS.name.trim(); }   // (the Scene pane's New scene)
   });
   ex.addEventListener('keydown', ev => {

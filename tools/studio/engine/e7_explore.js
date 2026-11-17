@@ -131,6 +131,7 @@ function paneBlocks(tab) {
     if (STU.badPlay) B.push({ p: `${STU.badPlay} of the trigger cubes' starts in layout.json could not be read.`, c: 'amber' });
     if (STU.badSeq) B.push({ p: `${STU.badSeq} of the sequences' events in layout.json could not be read.`, c: 'amber' });
     if (STU.badSend) B.push({ p: `${STU.badSend} of the sends to the output page in layout.json could not be read.`, c: 'amber' });
+    if (STU.badStream) B.push({ p: `${STU.badStream} of the streams to the output page in layout.json could not be read (or were past the scene's ${STREAM_SCENE}).`, c: 'amber' });
     if (STU.scene && !OPT.visit) {
       B.push({ row: [
         { id: 'edit', label: 'Edit: ' + (STU.edit && !lock ? 'on' : 'off'), act: 'edit', on: STU.edit && !lock, dis: lock },
@@ -340,6 +341,7 @@ function itemCard(it, C) {
   else if (it.kind === 's') { card.tile = { k: 'sound', col: it.look.col }; card.sub = 'Sound · ' + (r.on ? 'follows ' + followWords(it) : `${Math.round(r.vol * 100)} %`); state.unshift(baseName(r.file)); }
   else if (it.kind === 'c') { card.tile = { k: 'trigger', col: it.look.col }; card.sub = `Cube · shows ${r.show.length}, hides ${r.hide.length}` + (r.tex ? `, textures ${r.tex.length}` : '') + (r.plays ? `, starts ${r.plays.length}` : ''); state.push(r.mode === 'stay' ? 'stays once entered' : '', r.all ? 'for everyone here' : '', it.on === false ? 'switched off' : '', it.act ? (r.all ? 'active' : 'active for you') : ''); }
   else { card.tile = { k: 'cut', col: it.look.col }; card.sub = 'Cut-out · its object is not here'; state.push(r.size.map(metres).join(' × ')); }
+  if (r && r.stream) state.push(`streams ${r.stream.length}`);   // (v158: e6v_stream.js)
   card.sub2 = state.filter(Boolean).join(' · ');
   return card;
 }
@@ -348,7 +350,7 @@ function itemBlocks(it, B, ed) {
   // (recording a path here: its size steps off, rs; e6f_path.js)
   const r = it.rec, dis = !ed, mv = dis || !!lockWhy(it), dl = dis || !!lockWhy(it, true), rs = mv || recording(it);
   if (it.kind === 'g') { groupBlocks(it, B, dis, ed); return; }
-  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); sendBlocks(it, B, dis || !!r.locked); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
+  if (it.kind === 'q') { seqBlocks(it, B, dis, ed); if (ed) seqBeatBlocks(it, B, !!r.locked); sendBlocks(it, B, dis || !!r.locked); if (ed) B.push({ row: [{ id: 'dup', label: 'Duplicate', act: 'i:dup', dis: !canAdd('q') }, { id: 'del', label: 'Delete', act: 'i:del', dis: !!lockWhy(it, true), col: 'red' }] }); return; }
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file);
     B.push({ h: r.name, sub: 'Object' + hiddenSub(it, it.shown) });
@@ -515,6 +517,8 @@ function itemBlocks(it, B, ed) {
   if (SHOWS_KINDS.includes(it.kind)) showsBlocks(it, B, dis);   // (only in AR, only in VR, or both: v137)
   if (GRAB_KINDS.includes(it.kind)) grabBlocks(it, B, dis);   // (anyone may move it, without editing: v140)
   if (PRESS_KINDS.includes(it.kind)) { pressBlocks(it, B, dis); sendBlocks(it, B, dis); }   // (what pressing it and pointing at it do: e6t_press.js; and send: e6u_send.js)
+  if (ed) streamBlocks(it, B);   // (values of it streamed to the output page: e6v_stream.js)
+  if (ed) trailBlocks(it, B);   // (a trail of light behind it, for everyone at the circle: e6x_trails.js)
   // a group: Make a group... (this item, then pointing at the others), and, in one, which (at the card's top)
   if (GROUP_KINDS.includes(it.kind)) {
     const grp = groupOf(it.id);
@@ -825,7 +829,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -1015,7 +1019,7 @@ function renderPanes() {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + X.tab));
   const pane = $('#pane-' + X.tab);
   if (!pane) return;
-  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName', 'stuSendNum', 'stuSendOsc'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
+  const ae = document.activeElement, fid = ae && (['stuNewName', 'stuSceneName', 'stuSendNum', 'stuSendOsc', 'stuStreamOsc'].includes(ae.id) || /^stuRange/.test(ae.id)) ? ae.id : '', fo = fid ? [ae.selectionStart, ae.selectionEnd] : null;
   pane.innerHTML = paneBlocks(X.tab).map(blockHTML).join('');
   if (fo) { const i = $('#' + fid); if (i) { i.focus(); try { if (i.type === 'text') i.setSelectionRange(fo[0], fo[1]); } catch (e) { /* gone */ } } }   // (a slider keeps the keyboard's focus too)
   for (const [k] of TABS) if (k !== X.tab) { const p = $('#pane-' + k); if (p && p.innerHTML) p.innerHTML = ''; }

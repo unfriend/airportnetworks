@@ -73,7 +73,9 @@ function motionMiddle(it, m, out) {
 const motionTime = (it, m, now, clockS) => (m.start === 'shown' ? Math.max(0, (now - (it.shownAt != null ? it.shownAt : now)) / 1000) : clockS);   // (never shown yet: its start)
 // its motion at time t as a change in the scene's frame (into out), for its pose m before it
 function motionDelta(it, mo, t, m, out) {
-  const c = (mo.speed / 60) * t, ph = 2 * Math.PI * (c - Math.floor(c)), s = Math.sin(ph), A = _ma.fromArray(MAXIS[mo.axis]), u = _mu.fromArray(MCROSS[mo.axis]);
+  const c = (mo.speed / 60) * t, ph = 2 * Math.PI * (c - Math.floor(c));
+  it.mph = c - Math.floor(c);   // (its phase, for a stream: e6v_stream.js)
+  const s = Math.sin(ph), A = _ma.fromArray(MAXIS[mo.axis]), u = _mu.fromArray(MCROSS[mo.axis]);
   const M = motionMiddle(it, m, _mmid);
   // (a change X about the middle: T(M) X T(-M))
   const about = X => out.makeTranslation(M.x, M.y, M.z).multiply(X).multiply(_mt.makeTranslation(-M.x, -M.y, -M.z));

@@ -1066,6 +1066,17 @@ Its *studio press* steps (`--only 'studio press'`, a few minutes): the record's 
 
 ### smoke: studio sends
 
+Its *studio streams*, *studio loops* and *studio trails* steps (v158, `--only 'studio streams'`, `'studio loops'`,
+`'studio trails'`, a minute or two each; `tools/studio/SPEC.md` "Streams on a card", "Loops on the beat", "Trails"):
+stream entries checked and round-tripped through the state and `layout.json`, the cards on page and headset, `out.value`
+and cubes' poses, the scene's 64; a path and a sequence locked to the beat drawn and fired at known beat positions with
+`loopClock`, the count-in starting at the downbeat and stopping after N bars, recorded events quantised to the grid, a
+tempo whose beat is not a whole ms, a selection during a recording cancelling it; trails validated, pixels of a lit
+ribbon behind a moving shape and none with it off, the jump and hidden breaks, the vertex cap, a pretend person's hand
+trails at this circle only. `node tools/output/test-page.mjs` gains (v158) MIDI clock in with Start, Song Position and
+the bar, OSC `/studio/bar`, the Tempo part, clock out (24 a beat within 2 ms of their timestamps, Start at a downbeat,
+a restart, a tempo change, Stop) and the scene's streams (velocity, 14-bit pairs, threshold notes, velocity from speed).
+
 Its *studio sends* steps (`--only 'studio sends'`, a couple of minutes; v157, `tools/studio/SPEC.md` "Sends to the output page (MIDI and OSC)") run on a page of their own at `&scene=test&edit` with the studio's clocks held by the test: the send entries' rules (a cube's, a press's, a sequence's: a wrong `on`, note and cc both, a note of 128, a hold on leaving, a bad address and a duplicate dropped; `t` only for `at`; channel 1 never written; at most 8; a press with only sends kept; a motion's `beat`), the state and `layout.json` carrying them and a layout's bad entries counted on the Scene pane; the cards on both twins (a cube's *Sends to the output page* On and Off, *Add a send...* with the page-only fields, Try sending the effect with `try`, ✕, an object's Sends, a sequence's *At ... s*, a motion's *On the beat*, each one Undo step, `STUDIO.sendSet` and Undo); a listener on `STUDIO.out` getting a press stamp's `press` with its `by` as a member id, a sequence's `start`, an `at` and its `stop`, an everyone cube entered by a pretend head (`enter` with that head's id, `leave` 0.3 s after), the effect `send` with `who` its `by` (a bad one ignored), nothing old replayed; this device's own cube sending `enter` and `leave` (a spy in place of `HOST.collab.effect`; back within 0.3 s nothing), a cube without sends never, pointing sending `hover` and `unhover` (quiet), at most 10 a second (the rest counted); `act()` for each `do` and its refusals, `sw` hiding and showing an object (a 0.4 s fade) and switching a cube off (*Switched off by the output page*), `sw` and `bt` in the state and `apply()`, and a motion on the beat following `bt`'s phase.
 
 ### smoke: studio colour

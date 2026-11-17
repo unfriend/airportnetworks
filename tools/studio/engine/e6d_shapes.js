@@ -162,6 +162,7 @@ Object.assign(ITEM_ACT, {
 // - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
 //   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
 //   ('off'), while this scene shows here (null again otherwise, on dispose)
+// - hands: { len, w } (v158, e6x_trails.js): people's hand trails, written only when on (absent: off)
 // - grid: 'shown' | 'hidden' (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"):
 //   hidden, the stage's blue 1 m grid and its origin mark are not drawn (its dark floor and sky stay); written only when
 //   hidden, so a scene's settings and layout.json are as before otherwise (FORMAT networks-50: an older device would drop it)
@@ -172,8 +173,10 @@ function normSettings(x) {
   const one = (k, list) => (x[k] === undefined ? SETTINGS0[k] : list.includes(x[k]) ? x[k] : null);
   const r = { others: one('others', ['shown', 'hidden']), real: one('real', ['device', 'always', 'never']) };
   const g = x.grid === undefined || x.grid === 'shown' ? 'shown' : x.grid === 'hidden' ? 'hidden' : null;
-  if (g === null || Object.values(r).includes(null)) return null;
+  const h = normHands(x.hands);   // (people's hand trails, v158: e6x_trails.js; written only when on)
+  if (g === null || h === null || Object.values(r).includes(null)) return null;
   if (g === 'hidden') r.grid = 'hidden';
+  if (h) r.hands = h;
   return r;
 }
 function putSettings(S) {
@@ -183,7 +186,7 @@ function putSettings(S) {
 // a row pressed: 'others:hidden', 'real:always'... (one change: Undo takes it back; for everyone at a station)
 function setSetting(v) {
   if (!editOn()) return;
-  const i = String(v).indexOf(':'), S = i > 0 ? normSettings(Object.assign({}, STU.settings, { [String(v).slice(0, i)]: String(v).slice(i + 1) })) : null;
+  const i = String(v).indexOf(':'), S = String(v).startsWith('hands:') ? handsSetting(v) : i > 0 ? normSettings(Object.assign({}, STU.settings, { [String(v).slice(0, i)]: String(v).slice(i + 1) })) : null;
   if (!S || JSON.stringify(S) === JSON.stringify(STU.settings)) return;
   change(() => putSettings(S), [SET_ID]);
   sfxAct('click', 'world', null);
@@ -196,6 +199,7 @@ function settingsBlocks(B, st) {
     { p: 'In AR, whether real things (walls, furniture, people) hide the scene behind them. Saved with the scene.', c: 'faint' },
     { label: 'Floor grid' + who, row: [['shown', 'Shown'], ['hidden', 'Hidden']].map(([v, n]) => ({ id: 'set:grid:' + v, label: n, act: 'setting', v: 'grid:' + v, on: (S.grid || 'shown') === v })) },
     { p: 'Hidden: the blue 1 m grid on the floor and the mark at the scene\'s middle are not drawn (in VR; in AR there is no floor anyway). Saved with the scene.', c: 'faint' });
+  handsBlocks(B, who);   // (people's hand trails, v158: e6x_trails.js)
 }
 // the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
 const HOOK = { hide: false, occ: null };

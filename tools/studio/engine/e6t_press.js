@@ -277,7 +277,7 @@ const PR_HOWS = { clip: ['once', 'loop', 'stop'], path: ['once', 'loop', 'stop']
 const prHows = (list, what) => (list === 'hover' && (what === 'clip' || what === 'path') ? ['once', 'loop', 'hold', 'stop'] : PR_HOWS[what] || []);
 const prHowWord = (list, what, h) => (what === 'seq' ? (h === 'stop' ? 'Stop it' : h === 'loop' ? (list === 'hover' ? 'Loop it' : 'Toggle it') : 'Start it') : h === 'loop' && list === 'do' ? 'Loop (toggles)' : HOW_WORD[h]);
 // what can be done to an item by a reaction: its run kinds, show and hide, starting a sequence (never a picture)
-const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex');
+const prOpts = t => seqOpts(t).filter(o => o.what !== 'tex' && o.what !== 'press' && o.what !== 'send');   // (a press and its sends are a sequence's events only: v158)
 function prWords(e, list) {
   const t = STU.items.get(e.on), nm = t ? t.rec.name : 'an item not in the scene', hv = list === 'hover', cut = e.fade === 'cut' ? ' (at once)' : '';
   let w;
