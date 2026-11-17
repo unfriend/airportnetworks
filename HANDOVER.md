@@ -51,18 +51,18 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **At the handover (13 November 2026): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v139 (FORMAT networks-43, the v139, v138 and v137 entries below; v136 before them,
-    also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT networks-41, the v135 entry below): v134 was released to
-    both on 11 November 2026 at the owner's word ("push all to main and run the full tests afterwards ... in case there
-    is anything to fix also push that to dev and main"), the whole release run ran on it right after, and v135 is the
-    fix that run found, released to both the same day: what visitors get at https://stories.lbi-netmed.com/ (GitHub
-    Pages), what the main site's relay runs (https://main.lab.lbi-netmed.com/) and the test place
-    https://stories.lab.lbi-netmed.com/, which Coolify deploys on every push to `dev`. Before that `main` was
-    networks-v129 (10 November 2026, after the first whole release run since v121), and before it networks-v121
-    (`5524684`, 7 November); v122 to v139 are the entries below. The AI agents' working branch,
-    `claude/affectionate-pasteur-stzjl3`, is `dev`'s commit; `claude/trusting-hypatia-ca5qv0` stayed at v126's docs.
-    Nothing is half done on any branch.
+- **At the handover (13 November 2026, brought up to date on 17 November): where each branch is and what comes next.**
+  - *The branches.* `dev` is networks-v156 (FORMAT networks-50, the v156 to v140 entries below; v139 and v136 to v138
+    before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT
+    networks-41, the v135 entry below): v134 was released to both on 11 November 2026 at the owner's word ("push all to
+    main and run the full tests afterwards ... in case there is anything to fix also push that to dev and main"), the
+    whole release run ran on it right after, and v135 is the fix that run found, released to both the same day: what
+    visitors get at https://stories.lbi-netmed.com/ (GitHub Pages), what the main site's relay runs
+    (https://main.lab.lbi-netmed.com/) and the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on
+    every push to `dev`. Before that `main` was networks-v129 (10 November 2026, after the first whole release run since
+    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v156 are the entries below. The AI agents'
+    working branch since v140, `claude/trusting-hypatia-ca5qv0`, is `dev`'s commit (`claude/affectionate-pasteur-stzjl3`,
+    the one before it, stayed at v139). Nothing is half done on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
     recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
@@ -70,13 +70,17 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     rooms with trackers work in general, but rooms are not autojoined"), which made v131's areas. On 11 November the owner flew v132's spaceships ("good fun"),
     which made v133's stick steering, and then v133 ("looks good"), which made v134's loops and its glows' fix. On 12
     November the owner tried v137 at the test place (the Bliss XP example greyed at a studio circle, which made v138) and
-    then the ships, areas and *My menu* there (which made v139). `whatsnew.json` (developer mode's box, `#dev=on`) lists
-    what to try for v139; the others' are in their entries below.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v139 on the devices (a Quest, an
+    then the ships, areas and *My menu* there (which made v139). On 16 November the owner read v150's Debug tab on a
+    Quest 3 (Adreno 740, textures at most 8,192 px, ASTC, ETC1 and ETC2), which made v151's compressed textures; nothing
+    else of v140 to v156 is reported tried on a device yet. `whatsnew.json` (developer mode's box, `#dev=on`) lists what
+    to try for v156; the others' are in their entries below and in `whatsnew/`.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v156 on the devices (a Quest, an
     Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
     untested. Then, at the owner's word, `main` gets `dev` after the full suites (step 7 there): every suite since v135 has
     run only in parts (each entry says which), and `sw.js`'s rules changed in v137 (`examples/` passed through), so `tools/update.mjs` runs too, as do
-    `tools/collab.mjs --studio` (examples at a circle, v138) and `--menus` with `MENUS_STORY=studio` (v139). Each release
+    `tools/collab.mjs --studio` (examples at a circle, v138) and `--menus` with `MENUS_STORY=studio` (v139), and since
+    then `node tools/studio/test-ktx2.mjs` (v151), `node relay/test.mjs` (`basis/` served, v151) and the collab run with
+    its new `--preview` round (v153, v155; the room's FORMAT is networks-50 since v156). Each release
     goes to `dev` with the cheap checks first. Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
     passed when run again), peer to peer's hand-over from a headset that hosts, and a code with no room (both red once in
@@ -112,6 +116,74 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v156 (16 November 2026; FORMAT networks-50, shell 156), on `dev` only: a camera shows no editing, and a scene
+    can hide its floor grid.** The owner: "looks like edit mode is on in the desktop cam view in a studio scene". The
+    preview camera and a phone's camera mode draw a studio scene as a visitor sees it; a scene setting *Floor grid:
+    Shown / Hidden* hides the blue grid. Test: the camera on a studio circle with Edit on; a hidden grid in VR. Untested
+    on a real headset or preview camera.
+- **networks-v155 (16 November 2026; FORMAT networks-49, shell 155), on `dev` only: the preview camera moves smoothly.**
+    After trying v153 the owner asked for continuous movement. Hold W, A, S, D (floor), Q, E (height), J, L (turn), I, K
+    (tilt); Shift is slow; a click catches the mouse to look round (Esc lets go); the pointer hides; *Labels* and
+    *Cards* switches hide them on the camera only. Test: glide and stop on a TV. Untested: a real keyboard and mouse.
+- **networks-v154 (16 November 2026; FORMAT networks-49, shell 154), on `dev` only: trigger cubes switch other cubes off
+    and on.** The owner: "can triggercubes now be disabled by other trigger cubes? can they also be disabled as part of
+    a group?" Cubes, groups of cubes, sequences and presses can switch cubes off and on; a cube switched off while you
+    stand in it acts "as if you left". Test: two cubes keeping each other off; a door. Untested with real heads.
+- **networks-v153 (16 November 2026; FORMAT networks-48, shell 153), on `dev` only: the desktop preview camera.** The
+    owner: "A preview cam on desktop that shows what people are doing inside the virtual world". A computer in a shared
+    room shows the stories and everyone in a headset from one fixed real spot (TV or projector); placed from a headset
+    (menu, Circles tab) or on the room map. Test: place it both ways. Untested on a real headset, TV or GPU.
+- **networks-v152 (16 November 2026; FORMAT networks-47, shell 152), on `dev` only: automatic quality drops to 72 Hz
+    first on every headset.** The owner: "fallback first to 72 fps before reducing resolution etc" (until then only a
+    Quest 3S did, a Quest 3 last). 90 Hz comes back last. Test: the Debug tab's Frame rate line in a heavy scene on a
+    Quest 3. Untested: how often it drops and whether 72 Hz feels comfortable.
+- **networks-v151 (16 November 2026; FORMAT networks-47, shell 150), on `dev` only: compressed (KTX2) textures in the
+    studio.** The owner: "yes build it, encoding in browser since that can be done on a desktop and be fast?" A laptop
+    page encodes textures up to 8k as Basis UASTC in KTX2 while it converts, which a Quest 3 holds as ASTC (an 8k one
+    in about 85 MB, not 341 MB); *For Quest* is a Textures choice. Test: a model with 4k or 8k textures on the Quest 3.
+    Untested on a Quest.
+- **networks-v150 (16 November 2026; FORMAT networks-47, shell 150), on `dev` only: the Debug tab shows the GPU's
+    texture limits.** The owner asked "Why max 2k texture for quest?" and then "add the debug lines so i can check": a
+    *Textures* line (largest size, compressed formats) and the GPU's name. The owner read a Quest 3: Adreno 740, 8,192 px,
+    ASTC. Docs only otherwise (glTF round trips parked, Windows fixes).
+- **networks-v149 (16 November 2026; FORMAT networks-47, shell 148), on `dev` only: two studio fixes found porting a Unity
+    scene.** Stopping a sequence that is already stopped does nothing; a cube with a key keeps its state while the
+    headset is away. The build and release scripts run on Windows. Test: stop a looping sequence twice. Cheap checks
+    only; untested on a headset.
+- **networks-v148 (15 November 2026; FORMAT networks-47, shell 148), on `dev` only: the notebook's notes in the headset
+    menu.** Debug, *Notes* lists your notes (New, Done, All) with transcripts, pins and pictures; Play, Mark done, Delete.
+    Test: record a note (hold B or Y), then play and delete it. Untested: playing a note inside a Quest session.
+- **networks-v147 (15 November 2026; FORMAT networks-47, shell 147), on `dev` only: a fix.** The headset menu's Debug tab
+    drew nothing on a headset that keeps a place for a room: v146's room names broke its Places list. Test: Debug tab
+    after calibrating. v146's items are still to try.
+- **networks-v146 (15 November 2026; FORMAT networks-47, shell 146), on `dev` only: sequences, press and hover, one colour
+    picker, room names, an interactive Bliss XP room.** The owner: "A kind of timeline that can playback animations, show
+    items, hide them, play audiofiles on items, etc" and "press an item (anyone, visitors too, editing off too) ... plus
+    'only while pointed at' (hover) reactions". Test with real controllers; the new sounds are unheard.
+- **networks-v145 (15 November 2026; FORMAT networks-46, shell 145), on `dev` only: a frame-rate pass.** The owner (14
+    November): "Do a performance review of this whole webxr app focused on getting high fps at all times". Automatic
+    quality (on by default), far fewer draws and uploads, lighter stories, a studio scene unloaded after 2 minutes away.
+    Test: the frame-rate read-out (double press B or Y). Every GPU gain is untested; only script time was measured.
+- **networks-v144 (14 November 2026; FORMAT networks-46, shell 144), on `dev` only: paintings in the studio.** The owner:
+    "Paint mode in studio mode, optionally with brushes and a spraycan". Five brushes, ten colours, six widths; the right
+    trigger paints in a headset (pressure sets the width). What is new keeps its history (Older, Newer). Untested on a
+    Quest: the trigger's pressure and the frame rate with big paintings.
+- **networks-v143 (14 November 2026; FORMAT networks-45, shell 143), on `dev` only: screens in the studio.** The owner: "a
+    video/audio player with playlist and an option to show controls even outside studio mode that can playback video or
+    audio files from the relay". Shared by default; a control bar when you point at it. Test: an MP4 on two headsets.
+    Untested on a Quest (its decoder; H.264 was not tried here).
+- **networks-v142 (13 November 2026; FORMAT networks-44, shell 142), on `dev` only: the developer notebook.** The owner:
+    "a developer notebook function where i can directly record some spoken audio in ar or vr ... and i can also attach a
+    screenshot"; "holding y or b to record". Pins, two pictures and the app's state go to the relay's notes page; the
+    menu's Circles tab has *Back to the lobby*. Untested: the microphone in a Quest session.
+- **networks-v141 (13 November 2026; FORMAT networks-44, shell 140), on `dev` only: the room scan saved as a model.** The
+    owner: "Possible to use the quest for scanning? That would also be perfect for setting up a new room with a scan
+    directly inside the headset". In AR with Edit on, *Save the room as a model* makes a model of the scene where the
+    real room is. Untested on a real Quest.
+- **networks-v140 (13 November 2026; FORMAT networks-44, shell 140), on `dev` only: items anyone can move, and trigger
+    cubes with a key.** The owner: "possibility to have objects that people can move in studio non edit mode" and
+    "trigger cubes that react to a specific item like a key". *Who can move it: Anyone*; a cube can react to an item.
+    Test: carry a key into a cube in a headset. Untested: carrying without editing on a real headset.
 - **networks-v139 (12 November 2026; FORMAT networks-43, shell 139), on `dev` only: three of the owner's fixes.** The owner:
   "Planes have a limited range from when i start them it feels, should be unlimited with enemies following around", then
   "the real walls also should not block them, they are unrealiable"; "When i add new areas they dont show visible
@@ -1803,6 +1875,47 @@ Before handing over (or making anything more public), someone has to decide thes
      coming back; about the size of the preview camera. Not chosen: Cardinal's web build inside the app (about 87 MB to
      download, about 270 MB unpacked, its own AudioContext on a deprecated ScriptProcessorNode on the main thread, no
      embedding API); a free first test is opening https://cardinal.kx.studio/live in Quest Browser as a flat page.
+   - **Lining up without tape: "Line up with someone" (left as it is for now; the owner, 16 November 2026: "Can we get a
+     quick sync mode for conferences etc where we wont scan the room, for example just have two people high five each
+     other twice while pressing a button, something like that… ( or we do a tutorial where to start they have to put
+     their hands in two real world places)", then "ok lets leave it as it is for now").** The second idea is built: the
+     floor spots (two tape crosses at least 1 m apart, each headset touching spot A then B, the room setup guide). As the
+     code reads they need no room scan (only the shared space and anchors do), but without one a headset touches A and B
+     again each session (untested on a Quest with no scan at all). The high five exists only as a check (Touch the spot).
+     The design discussed: two people touch controllers at one place, step at least 1 m apart and touch again; each pair
+     of touches matched by the relay's time as Touch the spot already does; the second headset takes the first's frame
+     (two shared points and the floor's up give the turn and the shift). A 3 cm miss turns the room by about 2 degrees
+     (about 15 cm off at 5 m), and a group lines up in a chain, so errors add up: fine for walking about, worse than the
+     spots (why v109 chose fixed spots). About 1 to 1.5M tokens.
+   - **Plugins hosted elsewhere, and Cardinal inside the app (parked; the owner, 16 November 2026: "since i might want to
+     import quite complicated systems, for example maybe if possible something like https://github.com/DISTRHO/cardinal
+     i am wondering how could i make it so that everything is modular and independent of each other as possible and
+     stories or plugins could maybe even be hosted independently or be in githubsomewhere and my app could load these,
+     any ideas?", then "ok forget about all of this for now").** What the research found (about 0.3M tokens): a story is
+     fetched as text and run inside the page (`HOST.load`), so it can reach everything, the relay's password in
+     `localStorage` `relayTokens` included; about 95 to 120 KB of every story is the copied headset, panel, Stories
+     screen, narration and sound code (49 % of `flock.js`, 17 % of `airports.js`, 1.5 to 2 MB in all); stories use the
+     shell's fixed DOM ids and the shell reads into them by `peek`; one room `FORMAT` covers every story; story addresses
+     are fixed to `stories/<key>.js`. The design proposed: (1) the copied code moved into the shell as one runtime (worth
+     it even without plugins; pilot on the flock); (2) a small versioned contract (a group placed at the circle, a frame
+     callback with rays and presses, a panel API drawn once for page and headset, an input into the shell's audio graph,
+     the plugin's own versioned JSON state, dispose) with a manifest (id, version, contract version, entry, permissions,
+     licence, source); (3) loading from anywhere pinned to a commit and checked by the shell's own SHA-256 of the text
+     (works whatever Quest Browser's import-map integrity support), kept by the service worker for offline; (4) each
+     circle's version checked on its own instead of one room format; (5) two levels of trust: in-page plugins only from a
+     list the owner keeps, foreign or heavy programs walled off in a frame from another origin or a worker (a
+     cross-origin frame's picture cannot reach our 3D scene, and almost certainly cannot have its own immersive session);
+     the relay's password out of a plugin's reach first; (6) sound plugins through Web Audio Modules 2.0 (WAM: the host
+     hands its AudioContext; Faust can compile to it). Cardinal's web build (https://cardinal.kx.studio/live): about 87 MB
+     to download (brotli), about 270 MB unpacked, its own canvas and WebGL context, its own AudioContext on a deprecated
+     `ScriptProcessorNode` on the main thread (crackles likely beside a headset's frames), no embedding API (its lead
+     developer, 2024: an LV2 build for the web would be the way, not ready), GPLv3+ with some artwork under NC or ND
+     terms. Ways, cheapest first: open it in Quest Browser as a flat page (free); a laptop beside the room (the MIDI entry
+     above); served from our site in a frame shown as a panel (trusted, heavy, likely crackles); a VR-native modular synth
+     on WAM or Faust; a Cardinal fork with sound on the audio thread and an API (heavy C++, likely cross-origin isolation,
+     whose Quest Browser support is unknown). Order suggested: the free test, the shared runtime, the contract and
+     loader (proved by moving the flock to a repository of its own), WAM sound in the studio, walled-off programs last.
+     The research's reports are not kept; rough costs: the runtime a few million tokens, the others 1 to 2.5M each.
    - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
