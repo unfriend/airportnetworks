@@ -857,6 +857,7 @@
     // peer to peer). One joined by itself that turns out to be another room is left at once
     const rk = C.keys.get('rid');
     if (!rk && !C.pending.has('rid') && (C.made === C.code || C.local || hosting())) publish([['rid', rid(10)]]);
+    C.snd = m.snd === 1;   // (the relay forwards live sound, v162; peer to peer and on this device never say so)
   }
   // stored writes: one batch, one seq; the value shown here at once (optimistic), acknowledged when it comes back
   function publish(pairs, force) {
@@ -12467,6 +12468,46 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     return out;
   }
 
+  // ============================================== live sound: sending ==
+  // (v162; tools/output/SPEC.md "v162") the output page's half: it captures and encodes (output.js), and hands each Opus
+  // packet here as one binary frame on the room's own socket, 16 bytes of header (tag 1, ch, sid 0: the relay writes it,
+  // seq, at on the relay's clock), then the packet. Relay rooms only. A frame the socket cannot take at once is dropped,
+  // never queued: late audio is worth nothing. The stream's start is sent again on a new socket (a reconnect: the relay
+  // stopped it when the old socket went)
+  const SND = { cfg: null, kbps: 0, ws: null, rates: [8000, 12000, 16000, 24000, 48000] };
+  const sndCan = () => !!(OUT.on && C.code && C.via === 'relay' && C.snd && C.ws && C.ws.readyState === 1);
+  function sndWhy() {
+    if (sndCan()) return '';
+    if (!OUT.on) return 'Only the output page streams sound.';
+    if (C.code && C.via !== 'relay') return 'Live sound needs a room on a relay: not peer to peer or on this device.';
+    if (!C.code || !C.ws || C.ws.readyState !== 1 || !C.welcomed) return 'Not connected to the room.';
+    return 'This relay is too old for live sound.';
+  }
+  const sndOkCfg = c => !!(c && c.codec === 'opus' && SND.rates.includes(c.sampleRate) && (c.numberOfChannels === 1 || c.numberOfChannels === 2) &&
+    (c.description === undefined || (typeof c.description === 'string' && c.description.length <= 512 && /^[A-Za-z0-9+/]*={0,2}$/.test(c.description))));
+  function sndStart(cfg, kbps) {
+    if (!sndCan() || !sndOkCfg(cfg)) return false;
+    const c = { codec: 'opus', sampleRate: cfg.sampleRate, numberOfChannels: cfg.numberOfChannels, ...(cfg.description !== undefined ? { description: cfg.description } : {}) };
+    const k = Number.isFinite(+kbps) && +kbps >= 8 && +kbps <= 256 ? Math.round(+kbps) : undefined;
+    if (!send({ t: 'snd-start', cfg: c, ...(k ? { kbps: k } : {}) })) return false;
+    SND.cfg = c; SND.kbps = k || 0; SND.ws = C.ws;
+    return true;
+  }
+  function sndStop() {
+    SND.cfg = null; SND.ws = null;
+    return sndCan() ? send({ t: 'snd-stop' }) : false;
+  }
+  function sndSend(seq, at, ch, bytes) {
+    if (!sndCan() || !SND.cfg || C.ws.bufferedAmount > 65536) return false;
+    if (SND.ws !== C.ws && !sndStart(SND.cfg, SND.kbps)) return false;   // (a new socket: the stream starts again there)
+    const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null;
+    if (!b || !b.length || b.length > 4000) return false;
+    const buf = new ArrayBuffer(16 + b.length), dv = new DataView(buf);
+    dv.setUint8(0, 1); dv.setUint8(1, ch === 1 ? 1 : 2); dv.setUint16(2, 0); dv.setUint32(4, seq >>> 0); dv.setFloat64(8, +at || 0);
+    new Uint8Array(buf, 16).set(b);
+    try { C.ws.send(buf); return true; } catch (e) { return false; }
+  }
+
   HOST.collab = {
     get id() { return C.id; }, get code() { return C.code; }, get joined() { return !!C.code; }, get status() { return C.status; },
     get relay() { return C.relay; }, get members() { return C.members; }, get name() { return C.name; }, get color() { return C.color; },
@@ -12720,6 +12761,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // kind, st, body }]; people() stays the presence Map). For tests: presIn(id, v) a presence as if heard from member id
     outOn: () => OUT.on, outOffered: () => outOffered(), outStart: why => outStart(why || 'api'), outStop: why => outStop(why || 'api'), outMark: on => outMark(on),
     osc: msgs => osc(msgs), oscCfg: o => oscCfg(o), oscPing: () => oscPing(), persons: () => persons(),
+    sndCan: () => sndCan(), sndWhy: () => sndWhy(), sndStart: (cfg, kbps) => sndStart(cfg, kbps), sndStop: () => sndStop(), sndSend: (seq, at, ch, bytes) => sndSend(seq, at, ch, bytes),
     presIn: (id, v) => onFx({ t: 'fx', k: 'p.' + id, v, by: id }),
     // a phone's AR session (v125): its menu button and sheet ({ ar, shown, overlaid, button, open, sheet, menu, rect, rows }),
     // and the sheet opened or closed as the button does (tests)

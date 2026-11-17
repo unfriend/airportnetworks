@@ -133,12 +133,47 @@ Streams, incoming mappings and the page's switches are kept in this browser (loc
 them as `output-mapping.json`; *Import* reads one back (a file, or pasted), checks every row and says what it dropped. The
 scene's sends belong to the scene (its `layout.json`), not to the mapping.
 
+## Live sound
+
+The output page can stream **one sound input of this computer** to the room (v162; the contract is SPEC.md, "v162: live
+sound from the output page"). Everyone elsewhere hears it: headsets and pages that are not in the room (each device's
+*Room's live sound: auto / on / off* in the Shared dialog and the headset menu), and a studio item set to *Live sound*
+plays it from where it stands. Relay rooms only; Chrome or Edge (it needs WebCodecs and `MediaStreamTrackProcessor`).
+About half a second late.
+
+1. Turn on *Stream sound to the room* in the *Live sound* section. The browser asks for the microphone once: allow it
+   (input names show only after that).
+2. Pick the input in *Input*. A microphone or an audio interface works as it is. To send **what this computer plays**
+   (a DAW, Cardinal, a video), pick a loopback input:
+   - **Mac:** install [BlackHole 2ch](https://existential.audio/blackhole/). In *Audio MIDI Setup*, press + and make a
+     *Multi-Output Device* of your speakers (or headphones) and *BlackHole 2ch*, with drift correction on BlackHole.
+     Make it the system's output (or the DAW's). Then pick *BlackHole 2ch* as the input here: you hear it as ever, and
+     the room hears it too. Set BlackHole to 48,000 Hz in *Audio MIDI Setup*.
+   - **Windows:** install [VB-Audio Virtual Cable](https://vb-audio.com/Cable/). Set the program's output (or the
+     system's, in *Sound settings*) to *CABLE Input*; to hear it yourself too, open *Sound control panel*, *Recording*,
+     *CABLE Output*, *Properties*, *Listen*, *Listen to this device* through your speakers. Pick *CABLE Output* here.
+     Set both to 48,000 Hz (*Advanced*, *Default format*).
+   - Chrome can also share a tab's sound or (on Windows) the system's sound through screen sharing, but the output page
+     does not use that: it takes an input device only, so pick a loopback input as above.
+3. *kbit/s*: 128 is plenty for music in stereo; 64 or 96 for speech or a weak network.
+
+The section shows the level, the kbit/s sent, the frames, and *Listeners* (how many devices hear it now, from the
+relay). The switch is kept in this browser (`outSnd`: on, the input, kbit/s); after a reload it starts again by itself
+only if the browser already allows the microphone, else it waits for a press. Stopping the output page stops the stream.
+Only one output page a room streams: the latest one to start takes it, and the other says so and turns off.
+
+Nothing is recorded: the relay forwards each frame to the devices that listen and keeps none. The capture turns off echo
+cancellation, noise suppression and automatic gain (it is music or a mix, not a call), in stereo at 48 kHz; the output
+page makes no audio context of its own (sound is the shell's).
+
 ## Known limits
 
 - A hidden tab stops the scene's frames (keep it in front).
 - A person's own cubes switched by their own cubes or presses: the output page sees only the switches everyone shares.
 - Presses that are each person's own, and sequences each person plays alone, never reach the output page.
 - OSC goes to every target alike; no OSC in peer-to-peer rooms or a room on one device.
+- Live sound: relay rooms only, Chrome or Edge only, one input at a time, one output page a room; about half a second
+  late; an input not at 48 kHz (or another Opus rate) is refused with a sentence.
 - Only one room's trackers go as OSC per relay (the latest output page that asked).
 - A note held for a person who leaves ends when they are gone (2 s).
 - MIDI clock out and the room's beat need a studio circle followed by the output page.
@@ -150,4 +185,6 @@ scene's sends belong to the scene (its `layout.json`), not to the mapping.
 relay for the dialog's button and the presence); `node tools/collab.mjs --output` runs it end to end with the relay's UDP.
 Untested until tried on real machines: Web MIDI with real virtual ports and Cardinal, a DAW's real MIDI clock, OSC to real
 apps, UDP through Windows' firewall, the trackers' OSC rate on the PC, cubes and pointing from real headsets, and how in
-time it all feels.
+time it all feels. Live sound is checked with a stubbed input (the test's own oscillator) and a listener on the relay
+(`node relay/test.mjs --snd` for the relay alone); untested until tried: BlackHole and VB-Audio Cable, latency and
+dropouts over a real network and Wi-Fi, and how it sounds (unheard).

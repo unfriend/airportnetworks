@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -60,7 +60,8 @@ function socket(url, headers) {
   const c = { ws, q: [], closed: null };
   c.opened = new Promise(r => { ws.onopen = r; ws.onerror = e => { c.failed = true; r(e); }; });
   c.done = new Promise(r => { ws.onclose = e => { c.closed = { code: e.code, reason: e.reason }; r(c.closed); }; });
-  ws.onmessage = e => c.q.push(JSON.parse(e.data));
+  ws.binaryType = 'arraybuffer';   // (live sound's frames, v162: kept as { bin: Buffer })
+  ws.onmessage = e => c.q.push(typeof e.data === 'string' ? JSON.parse(e.data) : { bin: Buffer.from(e.data) });
   c.send = m => ws.send(typeof m === 'string' ? m : JSON.stringify(m));
   c.next = async (pred, ms = 2000) => {   // the first message so far (or within ms) that matches; it is taken
     for (const end = Date.now() + ms; ;) {
@@ -640,6 +641,142 @@ async function oscSteps() {
     } finally { F.stop(); T.kill(); }
   });
   L.s.close();
+}
+
+// ---- live sound from the output page (v162; tools/output/SPEC.md "v162"): binary frames from a member whose hello said
+// out: 1, forwarded with the stream's sid to the members that subscribed, never stored. `node relay/test.mjs --snd`
+// runs only these (seconds)
+async function sndSteps() {
+  const CFG = { codec: 'opus', sampleRate: 48000, numberOfChannels: 2 };
+  const pkt = (seq, n = 40, tag = 1) => {   // a frame as shared.js's sndSend makes it: 16 bytes of header (sid 0), then the packet
+    const b = Buffer.alloc(16 + n);
+    b[0] = tag; b[1] = 2; b.writeUInt16BE(0, 2); b.writeUInt32BE(seq >>> 0, 4); b.writeDoubleBE(1700000000000 + seq * 20, 8);
+    for (let i = 16; i < b.length; i++) b[i] = (seq * 7 + i) & 255;
+    return b;
+  };
+  const bins = c => c.q.filter(x => x.bin);
+  const takeBins = c => { const b = bins(c); c.q = c.q.filter(x => !x.bin); return b.map(x => x.bin); };
+  const snd = (more = () => true) => m => m.t === 'fx' && m.k === '@snd' && m.by === '' && more(m.v);
+  const sameBut = (got, sent, sid) => { const e = Buffer.from(sent); e.writeUInt16BE(sid, 2); return got.length === e.length && got.equals(e); };
+
+  await step('live sound: /api/ping says snd: true and welcome snd: 1', async () => {
+    ok((await req('GET', '/api/ping')).json().snd === true, '/api/ping: snd true');
+    const code = await newRoom(), a = await joined(code, 'sw1', { name: 'sw1' });
+    ok(a.welcome.snd === 1, 'welcome: snd 1');
+    a.ws.close();
+  });
+
+  await step('live sound: a plain member\'s binary frame closes it with 1003; its snd-start is refused once (bad); a bad snd-sub and a bad cfg refused', async () => {
+    const code = await newRoom();
+    const a = await joined(code, 'sp1', { name: 'sp1' });
+    a.send({ t: 'snd-start', cfg: CFG }); a.send({ t: 'snd-start', cfg: CFG });
+    ok(await a.next(is('error', m => m.code === 'bad' && /snd-start only from the output page/.test(m.text))), 'snd-start from a plain member: bad');
+    ok(await a.none(is('error'), 200), '... said once a socket');
+    a.send({ t: 'snd-sub', on: 'yes' });
+    ok(await a.next(is('error', m => m.code === 'bad' && /bad snd-sub/.test(m.text))), 'snd-sub without a boolean: bad');
+    const o = await joined(code, 'so1', { name: 'so1', out: 1 });
+    await sleep(100);
+    for (const cfg of [{ ...CFG, codec: 'vorbis' }, { ...CFG, sampleRate: 44100 }, { ...CFG, numberOfChannels: 3 }, { ...CFG, description: '!'.repeat(10) }, null]) o.send({ t: 'snd-start', cfg });
+    let n = 0;
+    for (let i = 0; i < 5; i++) if (await o.next(is('error', m => m.code === 'bad' && /bad snd-start: cfg/.test(m.text)), 1000)) n++;
+    ok(n === 5, 'a cfg not Opus, 44.1 kHz, three channels, a description not base64, none: each refused (' + n + ')');
+    a.ws.send(pkt(0));
+    ok((await a.closedIn(2000))?.code === 1003, 'a plain member\'s binary frame: 1003');
+    o.ws.close();
+  });
+
+  await step('live sound: an output page starts; a subscriber gets @snd on with the cfg, then the frames byte for byte but sid; one not subscribed gets none; one subscribing late gets the cfg at once', async () => {
+    const code = await newRoom();
+    const o = await joined(code, 'lo1', { name: 'lo1', out: 1 }), s = await joined(code, 'ls1', { name: 'ls1' }), n = await joined(code, 'ln1', { name: 'ln1' });
+    s.send({ t: 'snd-sub', on: true });
+    await sleep(100);
+    o.send({ t: 'snd-start', cfg: CFG, kbps: 128 });
+    const on = await s.next(snd(v => v.on === true));
+    ok(on && on.v.sid > 0 && JSON.stringify(on.v.cfg) === JSON.stringify(CFG) && on.v.kbps === 128 && on.v.by === 'lo1', '@snd on: sid, cfg, kbps, by: ' + JSON.stringify(on && on.v));
+    const st = await o.next(snd(v => v.st && v.st.on && v.st.mine));
+    ok(st && st.v.st.subs === 1 && st.v.st.sid === on.v.sid, 'the sender: st on, mine, one listener: ' + JSON.stringify(st && st.v.st));
+    ok(/live sound from lo1 started \(2 ch, 48000 Hz\)/.test(relay.out), 'the log line');
+    const sent = [];
+    for (let i = 0; i < 10; i++) { const b = pkt(i, 40 + i); sent.push(b); o.ws.send(b); }
+    await sleep(300);
+    const got = takeBins(s);
+    ok(got.length === 10 && got.every((g, i) => sameBut(g, sent[i], on.v.sid)), 'ten frames through, byte for byte but sid (' + got.length + ')');
+    ok(!bins(n).length && !n.q.some(snd()), 'a member not subscribed: no frame, no @snd');
+    ok(!bins(o).length, 'the sender gets none of its own');
+    const l = await joined(code, 'll1', { name: 'll1' });
+    l.send({ t: 'snd-sub', on: true });
+    const late = await l.next(snd(v => v.on === true));
+    ok(late && late.v.sid === on.v.sid && late.v.cfg.sampleRate === 48000, 'a late subscriber gets the cfg at once');
+    o.ws.send(pkt(10)); await sleep(200);
+    ok(takeBins(l).length === 1 && takeBins(s).length === 1, '... and the next frame');
+    l.send({ t: 'snd-sub', on: false });
+    await sleep(100);
+    o.ws.send(pkt(11)); await sleep(200);
+    ok(!takeBins(l).length && takeBins(s).length === 1, 'unsubscribed: no more frames');
+    for (const c of [o, s, n, l]) c.ws.close();
+  });
+
+  await step('live sound: 150 frames in one second: about 100 through, the rest dropped and counted in st; a frame of 5,000 bytes and a wrong tag: bad', async () => {
+    const code = await newRoom();
+    const o = await joined(code, 'ro1', { name: 'ro1', out: 1 }), s = await joined(code, 'rs1', { name: 'rs1' });
+    s.send({ t: 'snd-sub', on: true }); await sleep(100);
+    o.send({ t: 'snd-start', cfg: CFG }); await s.next(snd(v => v.on));
+    await sleep(1100);
+    for (let i = 0; i < 150; i++) o.ws.send(pkt(i));
+    await sleep(500);
+    const n = takeBins(s).length;
+    ok(n >= 95 && n <= 105, 'about 100 through (' + n + ')');
+    o.ws.send(Buffer.concat([pkt(200), Buffer.alloc(5000 - 56)]));
+    o.ws.send(pkt(201, 40, 7));
+    await sleep(1100);
+    o.ws.send(pkt(202));
+    await sleep(200);
+    o.q = o.q.filter(x => !snd()(x));
+    const st = await o.next(snd(v => v.st), 3000);
+    ok(st && st.v.st.dropped >= 45 && st.v.st.bad === 2 && st.v.st.frames === n + 1, 'st: dropped, bad and frames counted: ' + JSON.stringify(st && st.v.st));
+    ok(takeBins(s).length === 1, 'the good frame after them still through');
+    ok(new RegExp(`${code} live sound from ro1: \\d+ frames, \\d+ dropped, 2 bad`).test(relay.out), 'the counters in the log (counts only)');
+    o.ws.close(); s.ws.close();
+  });
+
+  await step('live sound: a second output page\'s snd-start takes the stream (the first told taken, its frames dropped); snd-stop and the sender leaving tell subscribers on false (stopped, gone)', async () => {
+    const code = await newRoom();
+    const o1 = await joined(code, 'to1', { name: 'to1', out: 1 }), o2 = await joined(code, 'to2', { name: 'to2', out: 1 }), s = await joined(code, 'ts1', { name: 'ts1' });
+    s.send({ t: 'snd-sub', on: true }); await sleep(100);
+    o1.send({ t: 'snd-start', cfg: CFG });
+    const a = await s.next(snd(v => v.on === true));
+    o2.send({ t: 'snd-start', cfg: { ...CFG, numberOfChannels: 1 } });
+    const off = await s.next(snd(v => v.on === false));
+    const b = await s.next(snd(v => v.on === true));
+    ok(off && off.v.sid === a.v.sid && off.v.why === 'taken' && b && b.v.sid !== a.v.sid && b.v.by === 'to2' && b.v.cfg.numberOfChannels === 1, 'subscribers: the old sid off (taken), then the new one on: ' + JSON.stringify([off && off.v, b && b.v]));
+    const t = await o1.next(snd(v => v.st && v.st.why === 'taken'));
+    ok(t && t.v.st.mine === false && t.v.st.on === true, 'the first page: st mine false, why taken');
+    s.q = s.q.filter(x => !x.bin);
+    o1.ws.send(pkt(5)); o2.ws.send(pkt(0));
+    await sleep(300);
+    const got = takeBins(s);
+    ok(got.length === 1 && got[0].readUInt16BE(2) === b.v.sid && got[0].readUInt32BE(4) === 0, 'only the new sender\'s frame through (' + got.length + ')');
+    o2.send({ t: 'snd-stop' });
+    const st = await s.next(snd(v => v.on === false));
+    ok(st && st.v.why === 'stopped' && st.v.sid === b.v.sid, 'snd-stop: on false, stopped');
+    const so = await o2.next(snd(v => v.st && !v.st.on && v.st.why === 'stopped'));
+    ok(!!so, 'the sender told: st on false, stopped');
+    ok(/live sound from to2 stopped \(stopped\)/.test(relay.out), 'the log line');
+    o1.send({ t: 'snd-start', cfg: CFG });
+    const c = await s.next(snd(v => v.on === true));
+    o1.ws.close();
+    const gone = await s.next(snd(v => v.on === false));
+    ok(gone && gone.v.why === 'gone' && gone.v.sid === c.v.sid, 'the sender leaving: on false, gone');
+    const o3 = await joined(code, 'to3', { name: 'to3', out: 1 });
+    o3.send({ t: 'snd-start', cfg: CFG });
+    const d = await s.next(snd(v => v.on === true));
+    o3.send({ t: 'hello', name: 'to3' });
+    const e = await s.next(snd(v => v.on === false));
+    ok(d && e && e.v.why === 'gone' && e.v.sid === d.v.sid, 'a hello without out stops its stream (gone)');
+    o3.ws.send(pkt(0)); await sleep(200);
+    ok(!takeBins(s).length && !o3.closed, 'a page that once was the output page: its frames dropped, its socket kept');
+    for (const x of [o2, o3, s]) x.ws.close();
+  });
 }
 
 // ---- rooms across updates (v136): a room moves on to a newer networks-<n> once nobody of its own is connected (or a reload
@@ -1234,6 +1371,12 @@ if (process.argv.includes('--rooms')) {   // only the rooms' steps (v136)
 
 if (process.argv.includes('--osc')) {   // only the OSC steps (the output page)
   try { await oscSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv.includes('--snd')) {   // only live sound's steps (v162)
+  try { await sndSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
@@ -3680,6 +3823,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
 
   await trackerSteps();
   await oscSteps();
+  await sndSteps();
   await notesSteps();
   await videoSteps();
 

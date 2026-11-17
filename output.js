@@ -148,6 +148,7 @@
     live: new Map(), inc: new Map(), items: new Map(), itemsAt: 0, list: [], listAt: 0, peopleAt: 0, infoAt: 0, pers: [],
     clock: { pos: 0, run: null, last: 0, iv: [], bpm: 0, at: 0, bar: 0, sentAt: -1e9, heard: -1e9, force: false },
     co: { run: false, bt: null, bar: 4, i: 0, last: 0, logAt: 0, ticks: 0, timer: 0 }, taps: [],
+    snd: null,   // (live sound, v162: sndNew())
     ss: new Map(), ssBad: 0, ssList: null, lidN: 0, frameT: -1e9, tempoOn: false, ssSig: '', kin: new Map(), kinAt: -1e9, raf: 0, snotes: new Map(), tries: [], tryL: new Map(), rev: undefined, dirty: true, renderAt: 0, liveAt: 0, logSig: '', secs: {},
   };
   function load() {
@@ -920,6 +921,7 @@
     streamsStep(t);
     sceneStep(t);
     triesStep(t);
+    sndStep(t);
     // (a note held 2 s goes off here too: one whose value went (hidden, no pose) or a one-shot Try emits no more)
     for (const L of [...O.snotes.keys()]) if (L.snd && t - L.snd.at > 2000) streamOff(L, 'held 2 s');
     oscFlush();
@@ -927,6 +929,190 @@
     if (O.dirty && t - O.renderAt > 250) render();
     else if (t - O.renderAt > 1000) render();
     if (t - O.liveAt > 250) liveRender(t);
+  }
+
+  // ----------------------------------------------------------- live sound --
+  // (v162; tools/output/SPEC.md "v162") one sound input of this computer, streamed to the room: getUserMedia (no echo
+  // cancellation, noise suppression or gain control: it is music or a mix, not a voice call), its AudioData read through
+  // MediaStreamTrackProcessor, encoded by WebCodecs' AudioEncoder as Opus in 20 ms frames, each frame handed to
+  // HOST.collab.sndSend (one binary frame on the room's socket; the relay forwards it to whoever listens). No AudioContext
+  // here (sound is the shell's): the meter reads the AudioData itself. Relay rooms only; Chrome and Edge only (no fallback)
+  const SND_KEY = 'outSnd', SND_KBPS = [64, 96, 128, 192, 256];
+  const sndApis = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaStreamTrackProcessor === 'function' && typeof window.AudioEncoder === 'function');
+  const sndNew = () => ({ on: false, phase: 'off', dev: '', kbps: 128, devs: [], named: false, err: '', note: '', gen: 0, stream: null, reader: null, enc: null,
+    cfg: null, cfgAt: 0, started: false, seq: 0, frames: 0, drops: 0, level: 0, rate: 0, win: { t0: 0, bytes: 0 }, st: null, resume: false, devsAt: 0, onDev: null });
+  function sndLoad() {
+    const S = O.snd;
+    let j = null;
+    try { j = JSON.parse(get(SND_KEY) || 'null'); } catch (e) { j = null; }
+    if (j && typeof j === 'object') { S.dev = str(j.dev, 256); S.kbps = SND_KBPS.includes(j.kbps) ? j.kbps : 128; S.resume = j.on === true; }
+  }
+  const sndSave = () => put(SND_KEY, JSON.stringify({ on: O.snd.on, dev: O.snd.dev, kbps: O.snd.kbps }));
+  // the inputs (labels only once the browser may use one: before it, the list is a single Default input)
+  function sndDevs() {
+    const S = O.snd;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return Promise.resolve();
+    S.devsAt = performance.now();
+    return navigator.mediaDevices.enumerateDevices().then(list => {
+      const a = list.filter(d => d.kind === 'audioinput' && d.deviceId);
+      S.named = a.some(d => d.label);
+      S.devs = S.named ? a.map(d => ({ id: d.deviceId, label: (d.label || 'Input').slice(0, 120) })).filter(d => d.id !== 'default' && d.id !== 'communications') : [];
+      O.dirty = true;
+    }, () => {});
+  }
+  function sndWhyNot() {
+    if (!sndApis()) return 'Live sound needs Chrome or Edge.';
+    const c = C();
+    return c && c.sndWhy ? c.sndWhy() : 'This page cannot stream sound.';
+  }
+  // the switch on: ask for the input, then read, encode and send until it goes off (gen tells an old run to stop)
+  async function sndOn() {
+    const S = O.snd;
+    if (!O.on) return;
+    sndHalt(true);
+    S.on = true; S.err = ''; S.note = ''; sndSave();
+    if (!sndApis()) { S.phase = 'error'; S.err = 'Live sound needs Chrome or Edge.'; O.dirty = true; return; }
+    const gen = ++S.gen;
+    S.phase = 'asking'; O.dirty = true;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: S.dev ? { exact: S.dev } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48000 } });
+    } catch (e) {
+      if (gen !== S.gen) return;
+      const n = e && e.name;
+      S.phase = 'error'; S.on = false; sndSave();
+      S.err = n === 'NotAllowedError' || n === 'SecurityError' ? 'The browser was not allowed to use the input: allow the microphone for this site.' :
+        n === 'NotFoundError' || n === 'OverconstrainedError' ? (S.dev ? 'That input is not there any more: pick another.' : 'This computer has no sound input.') : 'The input could not be opened (' + (n || 'error') + ').';
+      if (S.dev && (n === 'NotFoundError' || n === 'OverconstrainedError')) { S.dev = ''; sndSave(); }
+      note('out', 'room', 'live sound: ' + S.err, null);
+      O.dirty = true;
+      return;
+    }
+    if (gen !== S.gen || !O.on) { for (const t of stream.getTracks()) t.stop(); return; }
+    const track = stream.getAudioTracks()[0];
+    if (!track) { for (const t of stream.getTracks()) t.stop(); sndFail(gen, 'The input gave no sound track.'); return; }
+    S.stream = stream;
+    sndDevs();
+    quiet(() => { track.onended = () => { if (gen === S.gen) sndOff('the input ended', 'The input went away (unplugged, or another program took it).'); }; });
+    let reader;
+    try { reader = S.reader = new window.MediaStreamTrackProcessor({ track }).readable.getReader(); } catch (e) { sndFail(gen, 'This browser cannot read the input (' + ((e && e.message) || e) + ').'); return; }
+    Object.assign(S, { phase: 'live', cfg: null, cfgAt: 0, started: false, seq: 0, frames: 0, drops: 0, level: 0, rate: 0, win: { t0: performance.now(), bytes: 0 } });
+    note('out', 'room', 'live sound: capturing ' + (track.label || 'the default input'), null);
+    O.dirty = true;
+    sndPump(gen, reader);   // (not waited for: it runs until the switch goes off)
+  }
+  async function sndPump(gen, reader) {
+    const S = O.snd;
+    let enc = null;
+    try {
+      for (;;) {
+        const r = await reader.read();
+        if (gen !== S.gen || r.done) { if (r.value) r.value.close(); break; }
+        const data = r.value;
+        try {
+          if (!enc) {
+            const ch = data.numberOfChannels;
+            if (ch < 1 || ch > 2) { sndFail(gen, `The input has ${ch} channels: live sound takes 1 or 2.`); break; }
+            const cfg = { codec: 'opus', sampleRate: data.sampleRate, numberOfChannels: ch, bitrate: S.kbps * 1000, opus: { frameDuration: 20000 } };
+            const ok = await window.AudioEncoder.isConfigSupported(cfg).then(x => x && x.supported, () => false);
+            if (gen !== S.gen) break;
+            if (!ok) { sndFail(gen, `This browser cannot encode ${ch} channel${ch === 1 ? '' : 's'} at ${data.sampleRate} Hz as Opus.`); break; }
+            enc = S.enc = new window.AudioEncoder({ output: (chunk, meta) => sndChunk(gen, chunk, meta), error: e => sndFail(gen, 'The encoder stopped (' + ((e && e.message) || e) + ').') });
+            enc.configure(cfg);
+          }
+          sndMeter(data);
+          if (enc.state !== 'configured') break;
+          if (enc.encodeQueueSize > 25) S.drops++;   // (the encoder behind: this piece dropped, never queued)
+          else enc.encode(data);
+        } finally { data.close(); }
+      }
+    } catch (e) { if (gen === S.gen) sndFail(gen, 'The input stopped (' + ((e && e.message) || e) + ').'); }
+  }
+  // the meter: the RMS of the first channel, smoothed (0 to 1); the AudioData read as it is, never through a context
+  function sndMeter(data) {
+    const S = O.snd, n = data.numberOfFrames;
+    if (!n) return;
+    let f;
+    try { f = new Float32Array(n); data.copyTo(f, { planeIndex: 0, format: 'f32-planar' }); } catch (e) { return; }
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += f[i] * f[i];
+    const rms = Math.min(1, Math.sqrt(sum / n) * 2);
+    S.level = rms > S.level ? rms : S.level * 0.9 + rms * 0.1;
+  }
+  // one encoded frame: the stream started at the relay (the first frame's decoderConfig) before its first frame is sent
+  function sndChunk(gen, chunk, meta) {
+    const S = O.snd, c = C();
+    if (gen !== S.gen || !c) return;
+    if (meta && meta.decoderConfig && !S.cfg) {
+      const d = meta.decoderConfig, cfg = { codec: 'opus', sampleRate: d.sampleRate, numberOfChannels: d.numberOfChannels };
+      if (d.description) { try { const b = new Uint8Array(ArrayBuffer.isView(d.description) ? d.description.buffer.slice(d.description.byteOffset, d.description.byteOffset + d.description.byteLength) : d.description); let s = ''; for (const x of b) s += String.fromCharCode(x); cfg.description = btoa(s); } catch (e) { /* none */ } }
+      if (![8000, 12000, 16000, 24000, 48000].includes(cfg.sampleRate)) { sndFail(gen, `The input runs at ${cfg.sampleRate} Hz: set it to 48 kHz (Audio MIDI Setup on a Mac, the Sound control panel on Windows).`); return; }
+      S.cfg = cfg;
+    }
+    if (!S.cfg) { S.drops++; return; }
+    if (!S.started) {   // (not connected yet, or the relay too old: tried again with each frame)
+      if (!c.sndStart(S.cfg, S.kbps)) { S.drops++; return; }
+      S.started = true; S.cfgAt = performance.now();
+      note('out', 'room', `live sound: streaming (${S.cfg.numberOfChannels} ch, ${S.cfg.sampleRate} Hz, ${S.kbps} kbit/s)`, null);
+    }
+    const b = new Uint8Array(chunk.byteLength);
+    chunk.copyTo(b);
+    const at = rnow() - (chunk.duration || 20000) / 1000;
+    if (c.sndSend(S.seq++, at, S.cfg.numberOfChannels, b)) {
+      S.frames++;
+      S.win.bytes += b.length + 16;
+    } else S.drops++;
+    const t = performance.now();
+    if (t - S.win.t0 >= 1000) { S.rate = Math.round(S.win.bytes * 8 / (t - S.win.t0)); S.win = { t0: t, bytes: 0 }; }   // (kbit/s: bits a ms)
+  }
+  // stopped (Off, the room left, taken, the input gone, an error): the encoder closed, the tracks stopped, the relay told
+  // (not when another output page took it: the stream is that page's now)
+  function sndHalt(tell) {
+    const S = O.snd;
+    S.gen++;
+    const r = S.reader, e = S.enc, st = S.stream;
+    S.reader = S.enc = S.stream = null;
+    if (r) try { r.cancel().catch(() => {}); } catch (x) { /* gone */ }
+    if (e && e.state !== 'closed') try { e.close(); } catch (x) { /* gone */ }
+    if (st) for (const t of st.getTracks()) try { t.stop(); } catch (x) { /* gone */ }
+    if (tell && S.started && C() && C().sndStop) C().sndStop();
+    Object.assign(S, { started: false, cfg: null, level: 0, rate: 0 });
+  }
+  function sndOff(why, text) {
+    const S = O.snd, was = S.phase;
+    sndHalt(why !== 'taken');
+    S.phase = 'off'; S.on = false; S.note = text || '';
+    if (why !== 'stopped') sndSave();   // (the page's own Stop keeps the switch for the next start; everything else turns it off)
+    if (was !== 'off') note('out', 'room', 'live sound off (' + why + ')', null);
+    O.dirty = true;
+  }
+  function sndFail(gen, text) {
+    const S = O.snd;
+    if (gen !== S.gen) return;
+    sndHalt(true);
+    Object.assign(S, { phase: 'error', on: false, err: text });
+    sndSave();
+    note('out', 'room', 'live sound: ' + text, null);
+    O.dirty = true;
+  }
+  // the relay's word on the stream (shared.js hands @snd's st here): kept for the section; taken by another output page: off
+  function sndFx(st) {
+    if (!O.on || !st || typeof st !== 'object') return;
+    const n = x => (Number.isFinite(x) ? x : 0), S = O.snd;
+    S.st = { on: st.on === true, mine: st.mine === true, sid: n(st.sid), subs: n(st.subs), frames: n(st.frames), bytes: n(st.bytes), dropped: n(st.dropped), bad: n(st.bad), why: typeof st.why === 'string' ? st.why.slice(0, 16) : '' };
+    // (a word sent before this page's own start reached the relay is not about it: a second's grace)
+    if (S.st.why === 'taken' && !S.st.mine && S.started && performance.now() - S.cfgAt > 1000) sndOff('taken', 'Another output page in this room took the live sound.');
+    O.dirty = true;
+  }
+  function sndStep(t) {
+    const S = O.snd;
+    if (S.phase === 'live' && S.started && !C().sndCan()) S.started = false;   // (the socket went: the stream starts again on the next one)
+    if (S.phase === 'off' && S.resume && t - S.devsAt > 1000) {   // after a reload: on again by itself only if the input was allowed before
+      S.resume = false;
+      if (sndApis() && navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'microphone' }).then(p => { if (O.on && p && p.state === 'granted' && O.snd.phase === 'off') sndOn(); else if (O.on) { O.snd.note = 'It was on: press the switch to stream again.'; O.dirty = true; } }, () => {});
+      }
+    }
   }
 
   // --------------------------------------------------------------- the overlay --
@@ -961,6 +1147,8 @@
 #out form .o-btns { grid-column: 1 / -1; }
 #out .o-log { font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; max-height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; color: #c5d2e3; background: rgba(0, 0, 0, 0.3); border-radius: 6px; padding: 6px; }
 #out .o-log .in { color: #c3e85a; }
+#out .o-meter { height: 8px; border-radius: 4px; background: rgba(149, 166, 189, 0.18); overflow: hidden; margin: 6px 0; }
+#out .o-meter i { display: block; height: 100%; width: 0; background: #46d9ff; transition: width 0.1s linear; }
 body.outp #gl { cursor: default; }
 @media (max-width: 640px) { #out { width: 100vw; } }
 `;
@@ -972,7 +1160,7 @@ body.outp #gl { cursor: default; }
       el.id = 'out'; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Output page');
       el.innerHTML = `<header><h2>Output page</h2><button type="button" data-o="stop">Stop</button></header>
         <p class="o-warn o-hidden" hidden>Keep this tab in front: a hidden tab stops the scene's frames.</p><p class="o-msg" hidden></p>
-        ${['status', 'midi', 'tempo', 'osc', 'events', 'people', 'items', 'streams', 'incoming', 'io'].map(k => `<section data-sec="${k}"></section>`).join('')}
+        ${['status', 'midi', 'tempo', 'osc', 'live', 'events', 'people', 'items', 'streams', 'incoming', 'io'].map(k => `<section data-sec="${k}"></section>`).join('')}
         <h3>Log</h3><div class="o-log" aria-live="off"></div>`;
       quiet(() => {
         el.addEventListener('click', onClick);
@@ -994,7 +1182,7 @@ body.outp #gl { cursor: default; }
     if (hid) hid.hidden = document.visibilityState !== 'hidden';
     const msg = el.querySelector('.o-msg');
     if (msg) { msg.hidden = !O.msg; msg.textContent = O.msg; }
-    const S = { status: secStatus, midi: secMidi, tempo: secTempo, osc: secOsc, events: secEvents, people: secPeople, items: secItems, streams: secStreams, incoming: secIncoming, io: secIo };
+    const S = { status: secStatus, midi: secMidi, tempo: secTempo, osc: secOsc, live: secLive, events: secEvents, people: secPeople, items: secItems, streams: secStreams, incoming: secIncoming, io: secIo };
     for (const [k, f] of Object.entries(S)) {
       const box = el.querySelector(`[data-sec="${k}"]`);
       if (!box) continue;
@@ -1018,6 +1206,7 @@ body.outp #gl { cursor: default; }
   function liveRender(t) {
     O.liveAt = t;
     if (!O.el) return;
+    sndLiveRender();
     const sc = new Map([...O.ss.values()].map(S => [S.lid, S]));
     for (const sp of O.el.querySelectorAll('[data-live]')) {
       const id = sp.dataset.live, S = sc.get(id), L = S ? S.L : O.live.get(id), r = S ? S.r : O.map.streams.find(x => x.id === id), o = S ? r.o : r && r.midi;
@@ -1071,6 +1260,31 @@ body.outp #gl { cursor: default; }
     const trk = S ? { off: 'not sent', on: 'sent for this room', none: 'the trackers\' bridge is silent', unaligned: 'the room\'s trackers are not lined up', other: 'another room\'s output page asked last' }[S.trk] || S.trk : '';
     return `<h3>OSC</h3><div class="o-btns">${onOff(o.osc, 'OSC', 'osc')}${onOff(o.oscTrk, 'Trackers as OSC (the relay)', 'oscTrk', 'The relay sends the PC\'s trackers as OSC itself, at their own rate, in the room\'s coordinates')}</div>
       <p class="o-mute">${esc(st)}</p><p class="o-mute">Sent ${O.osc.sent}, taken ${O.osc.got}${O.osc.dropped ? ', not sent ' + O.osc.dropped : ''}${S ? ` · the relay: sent ${S.sent}, taken ${S.got}, dropped ${S.dropped}${o.oscTrk ? ', trackers ' + esc(trk) : ''}` : ''}.</p>`;
+  }
+  // live sound: the switch, the input, the bit rate; the meter and the numbers are written in place (liveRender)
+  function secLive() {
+    const S = O.snd, why = sndWhyNot(), can = sndApis() && (!why || /Not connected/.test(why)), st = S.st;
+    const devs = S.named ? S.devs : [];
+    const opts = `<option value=""${S.dev ? '' : ' selected'}>Default input</option>` + devs.map(d => `<option value="${esc(d.id)}"${d.id === S.dev ? ' selected' : ''}>${esc(d.label)}</option>`).join('');
+    const state = S.phase === 'asking' ? 'Asking the browser for the input...' : S.phase === 'error' ? S.err : S.phase === 'live' ? (S.started ? 'Streaming.' : 'Starting the stream...') : S.note || 'Off.';
+    const relay = st && st.on && !st.mine && st.why !== 'taken' && S.phase !== 'live' ? ' Another output page in this room streams now.' : '';
+    return `<h3>Live sound</h3><div class="o-btns">${onOff(S.on && S.phase !== 'error', 'Stream sound to the room', 'snd', 'One sound input of this computer, to everyone elsewhere in the room').replace('<button ', can || S.on ? '<button ' : '<button disabled ')}</div>
+      ${!can ? `<p class="o-warn">${esc(why)}</p>` : ''}
+      <div class="o-btns"><label>Input <select data-oc="sndDev" aria-label="The sound input to stream"${sndApis() ? '' : ' disabled'}>${opts}</select></label>
+      <label>kbit/s <select data-oc="sndKbps" aria-label="Bit rate (kbit/s)">${SND_KBPS.map(k => `<option value="${k}"${k === S.kbps ? ' selected' : ''}>${k}</option>`).join('')}</select></label></div>
+      ${S.named ? '' : '<p class="o-mute">Names show once the browser may use an input.</p>'}
+      <div class="o-meter" role="meter" aria-label="Input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-snd-meter><i></i></div>
+      <p class="o-mute"><span class="o-live" data-snd-live></span></p>
+      <p class="${S.phase === 'error' ? 'o-warn' : 'o-mute'}">${esc(state + relay)}${can && why && S.phase === 'live' ? ' ' + esc(why) : ''}</p>
+      <p class="o-mute">Streams one sound input of this computer to everyone elsewhere in the room (headsets and pages not in it), and to a studio item set to Live sound. To send what this computer plays, pick a loopback input: BlackHole 2ch with a Multi-Output Device on a Mac, VB-Audio Cable on Windows. About half a second late.</p>`;
+  }
+  // (in place, four times a second: the meter, kbit/s sent, the listeners)
+  function sndLiveRender() {
+    const S = O.snd, m = O.el && O.el.querySelector('[data-snd-meter]'), sp = O.el && O.el.querySelector('[data-snd-live]');
+    const pct = Math.round((S.phase === 'live' ? S.level : 0) * 100);
+    if (m && m.getAttribute('aria-valuenow') !== String(pct)) { m.setAttribute('aria-valuenow', String(pct)); m.firstChild.style.width = pct + '%'; }
+    const st = S.st, txt = S.phase !== 'live' ? '' : `${S.rate} kbit/s sent · ${S.frames} frames${S.drops ? ', ' + S.drops + ' not sent' : ''} · Listeners: ${st && st.mine ? st.subs : 0}${st && st.mine && st.dropped ? ` · the relay dropped ${st.dropped}` : ''}`;
+    if (sp && sp.textContent !== txt) sp.textContent = txt;
   }
   function secEvents() {
     const o = opt();
@@ -1207,6 +1421,7 @@ body.outp #gl { cursor: default; }
     else if (a === 'tstop') tempoStop();
     else if (a === 'osc') { o.osc = !o.osc; save(); if (o.osc) oscPing(true); oscCfg(true); O.items.clear(); }
     else if (a === 'oscTrk') { o.oscTrk = !o.oscTrk; save(); oscCfg(true); }
+    else if (a === 'snd') { O.snd.resume = false; if (O.snd.on && O.snd.phase !== 'error') sndOff('off'); else sndOn(); }
     else if (a === 'son' || a === 'ion') { const r = (a === 'son' ? O.map.streams : O.map.incoming).find(x => x.id === arg); if (r) { r.on = !r.on; save(); } }
     else if (a === 'sdel' || a === 'idel') { const k = a === 'sdel' ? 'streams' : 'incoming'; if (O.live.has(arg)) streamOff(O.live.get(arg), 'removed'); O.map[k] = O.map[k].filter(x => x.id !== arg); O.live.delete(arg); O.inc.delete(arg); if (O.edit && O.edit.id === arg) O.edit = null; save(); }
     else if (a === 'sadd') O.edit = { kind: 'stream', add: true, id: '', d: STREAM0() };
@@ -1248,6 +1463,12 @@ body.outp #gl { cursor: default; }
     else if (k === 'bar') { const v = Math.round(Number(x.value)); if (v >= 1 && v <= 16) { o.bar = v; save(); tempoAgain(); } }
     else if (k === 'tempo') { const v = Number(x.value); if (v >= 20 && v <= 300) { o.tempo = Math.round(v * 100) / 100; save(); tempoAgain(); } }
     else if (k === 'noteLen') { const v = Number(x.value); if (v >= 5 && v <= 10000) { o.noteLen = Math.round(v); save(); } }
+    else if (k === 'sndDev' || k === 'sndKbps') {   // (while streaming: captured again with the new input or rate)
+      const S = O.snd;
+      if (k === 'sndDev') S.dev = str(x.value, 256); else S.kbps = SND_KBPS.includes(+x.value) ? +x.value : 128;
+      sndSave();
+      if (S.phase === 'live' || S.phase === 'asking') sndOn();
+    }
     else if (k === 'peopleWhere') { o.peopleWhere = x.value === 'circle' ? 'circle' : 'room'; save(); }
     else if (k === 'importFile') { const f = x.files && x.files[0]; if (f) f.text().then(t => { importMap(t); render(true); }, () => say('That file could not be read.')); }
     O.dirty = true;
@@ -1289,6 +1510,7 @@ body.outp #gl { cursor: default; }
     Object.assign(O, { on: true, phase: 'live', why: why || 'api', api: null, unlisten: null, events: 0, learn: '', edit: null, ssList: null, rev: undefined });
     O.clock = { pos: 0, run: null, last: 0, iv: [], bpm: 0, at: 0, bar: 0, sentAt: -1e9, heard: -1e9, force: false };
     O.osc = { relay: null, pinged: 0, st: null, sent: 0, got: 0, dropped: 0, cfgAt: 0, q: [] };
+    O.snd = sndNew(); sndLoad();
     c.outMark(true);
     pickCircle();
     show();
@@ -1299,12 +1521,19 @@ body.outp #gl { cursor: default; }
     O.raf = requestAnimationFrame(kinFrame);
     if (opt().midi) midiOn();
     if (opt().osc) { oscPing(true); if (opt().oscTrk) setTimeout(() => { if (O.on) oscCfg(true); }, 500); }
+    sndDevs();
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) { O.snd.onDev = () => sndDevs(); quiet(() => navigator.mediaDevices.addEventListener('devicechange', O.snd.onDev)); }
     note('out', 'room', 'output page on (' + O.why + ')', null);
     return true;
   }
   function stop(why) {
     if (!O.on) return false;
     note('out', 'room', 'output page off (' + why + ')', null);
+    if (O.snd) {   // live sound first: its encoder closed, its input let go, the relay told
+      sndOff('stopped');
+      if (O.snd.onDev) try { navigator.mediaDevices.removeEventListener('devicechange', O.snd.onDev); } catch (e) { /* gone */ }
+      O.snd.onDev = null;
+    }
     releaseAll('stopped');
     coStop('stopped'); clearInterval(O.co.timer);
     if (O.raf) cancelAnimationFrame(O.raf);
@@ -1332,12 +1561,24 @@ body.outp #gl { cursor: default; }
         people: [...O.slots].filter(([, S2]) => !S2.gone).map(([id, S2]) => ({ slot: S2.slot, id, name: S2.name || '', color: S2.color || '', kind: S2.kind || '' })).sort((a, b) => a.slot - b.slot),
         opt: O.map ? copy(opt()) : null, streams: O.map ? copy(O.map.streams) : [], incoming: O.map ? copy(O.map.incoming) : [], events: O.events, held: O.held.size, learn: O.learn,
         clock: { in: { bpm: O.clock.bpm, at: O.clock.at, bar: O.clock.bar, pos: O.clock.pos, run: O.clock.run, leads: clockLeads() }, out: { run: O.co.run, bpm: O.co.bt ? O.co.bt.bpm : 0, ticks: O.co.ticks, loop: O.on ? coLoop() : false }, tempo: O.on ? opt().tempo : 0, beat: roomBeat() },
-        scene: [...O.ss.values()].map(S => ({ id: S.id, k: S.k, v: S.r.v, x: S.L.x, y: S.L.y, s: S.L.s, note: !!S.L.snd, kin: kinOf(O.kin.get(S.id)) })), sceneBad: O.ssBad, live: O.map ? Object.fromEntries([...O.live].map(([id, L]) => [id, { x: L.x, y: L.y, s: L.s, note: !!L.snd }])) : {} };
+        scene: [...O.ss.values()].map(S => ({ id: S.id, k: S.k, v: S.r.v, x: S.L.x, y: S.L.y, s: S.L.s, note: !!S.L.snd, kin: kinOf(O.kin.get(S.id)) })), sceneBad: O.ssBad, live: O.map ? Object.fromEntries([...O.live].map(([id, L]) => [id, { x: L.x, y: L.y, s: L.s, note: !!L.snd }])) : {},
+        snd: O.snd ? { on: O.snd.on, phase: O.snd.phase, dev: O.snd.dev, devs: O.snd.devs.map(d => d.label), level: O.snd.level, kbps: O.snd.rate, frames: O.snd.frames, drops: O.snd.drops, st: O.snd.st ? Object.assign({}, O.snd.st) : null, err: O.snd.err, note: O.snd.note }
+          : { on: false, phase: 'off', dev: '', devs: [], level: 0, kbps: 0, frames: 0, drops: 0, st: null, err: '', note: '' } };
     },
     log: n => (n ? O.log.slice(-n) : O.log.slice()).map(e => Object.assign({}, e, { m: e.m ? [...e.m] : null })),
     // the mapping: read (a copy), or put in its place (a mapping or its JSON; the problems found)
     map(j) { if (j === undefined) return O.map ? copy(O.map) : normMap({ out: 1 }).map; if (!O.map) load(); const bad = importMap(j); render(true); return bad; },
     midiIn: (bytes, at) => midiIn(bytes, at), oscIn: m => oscIn(m), oscFx: v => oscFx(v),
+    // live sound (v162): the relay's status of the stream (shared.js's @snd st), and the switch for tests (on, the input's
+    // deviceId: '' the default); a promise of state().snd once it has started, failed or stopped
+    sndFx: st => sndFx(st),
+    snd(on, dev) {
+      if (!O.on || !O.snd) return Promise.resolve(HOST.out.state().snd);
+      if (typeof dev === 'string') { O.snd.dev = dev.slice(0, 256); sndSave(); }
+      if (!on) { sndOff('off'); render(true); return Promise.resolve(HOST.out.state().snd); }
+      O.snd.resume = false;
+      return sndOn().then(() => HOST.out.state().snd, () => HOST.out.state().snd);
+    },
     // the Tempo part (tests): a tap at t (performance.now()'s ms), Start, Stop; clock out's scheduler once now
     tap: t => tap(t), tempoStart: () => tempoStart(), tempoStop: () => tempoStop(), clockOutStep: () => coStep(),
     learn: id => { O.learn = typeof id === 'string' ? id : ''; O.dirty = true; return O.learn; },
