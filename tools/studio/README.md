@@ -431,7 +431,7 @@ studio circle sees them where they are in the room. Editing on:
   a relay that takes uploads it goes into `models/` and every copy
   of the model switches to it; else it is downloaded). It plays as any animation once wearing is off.
 
-Shared in a room and saved in `layout.json` (`engine/e6k_trk.js`, `engine/e6l_puppet.js` and the solver `engine/ik.js`;
+Shared in a room and saved in `layout.json` (`engine/e6k_trk.js`, `engine/e6l_puppet.js` and the solver `ik.js` (at the repository's root since v164);
 "Props that follow a tracker" and "Worn with trackers" in `SPEC.md`). Not yet tried with real trackers. A first real test:
 the relay on the PC with `--trackers` and the bridge beside SteamVR (`tools/trackers/README.md`), *Use the PC's trackers in
 this room* in the Shared dialog and spots A and B taken there, then a studio circle and a shape's **Follows a tracker**
@@ -617,6 +617,6 @@ was found as and keeps it in the GLB's record.
   Idle and Walk forward, one walking a recorded path and one following it: As it moves, v164) and their listings;
   `node tools/studio/test-images.mjs` checks the picture reader in Node; `test/local/` is ignored by git (your own scenes for
   trying things).
-- `engine/ik.js` the trackers' solver (written in v125, in the build since v126, used by `engine/e6l_puppet.js`): a
+- `ik.js` (at the repository's root since v164, as people's bodies pose by it too: `bodies.js`) the trackers' solver (written in v125, in the build since v126, used by `engine/e6l_puppet.js`): a
   Mixamo character worn with trackers, a headset and controllers (`tools/trackers/SPEC.md`, "The solver (ik.js)");
   `node tools/studio/test-ik.mjs` checks it in Node.

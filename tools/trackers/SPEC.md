@@ -25,8 +25,9 @@ phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay (
 ## Open and deferred
 
 - Reference trackers left on the spots for good (`ref`, below): later. Lining up is by hand only.
-- The headset-alone body (`rig: 'head'`, its legs stepping by themselves): built in `ik.js` but not offered. Deferred;
-  first a probe of Quest Browser's WebXR body tracking.
+- The headset-alone body for the studio's puppet (`rig: 'head'`, its legs stepping by themselves): built in `ik.js` but not
+  offered there. Its `'head'` setup poses every person's body in a shared room since v164 (`bodies.js`: "People's
+  bodies" in `docs/agents/shared-rooms.md`); Quest Browser's WebXR body tracking maybe later, after a probe on a headset.
 - Phases 2 and 4: on the maybe list.
 - `TRK_FLOOR` (the tracker's pose origin over the floor, lying on its base) is 0 until measured.
 - Untested on Windows: the bridge with SteamVR and real trackers, its rate, and the lag through the relay.
@@ -259,7 +260,7 @@ What the shell does with it:
   at hip height, chest, elbows and knees by height and side; changeable on the card), the character moved along the floor
   to where the performer stands (its parts at rest, on average, where their trackers are: built in v126), scaled so its
   hips (or for `feet` its eyes) are as high as the performer's, and each part's offset taken. One Undo step.
-- The solver (`tools/studio/engine/ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
+- The solver (`ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
   their tracker (place and turn); the spine bent between the hips and the chest (or the head) tracker; neck and head
   from the head tracker (or headset); arms and legs by two-bone inverse kinematics to the hand and foot targets, the elbows
   and knees towards their trackers where worn, else a natural bend; hands and feet turned as their targets; the hips
@@ -273,9 +274,11 @@ What the shell does with it:
 
 ## The solver (`ik.js`)
 
-Built in v125 as phase 3's groundwork: `tools/studio/engine/ik.js`, a plain module like `convert.js` and `images.js`
+Built in v125 as phase 3's groundwork: `ik.js`, a plain module like `convert.js` and `images.js`
 (`makeIK(THREE)`: no DOM, nothing fetched or drawn), checked in Node by `tools/studio/test-ik.mjs`. In
-`tools/studio/build.mjs` since v126, used by `tools/studio/engine/e6l_puppet.js`. Its contract is
+`tools/studio/build.mjs` since v126, used by `tools/studio/engine/e6l_puppet.js`. At the repository's root since v164 (it
+was `tools/studio/engine/ik.js`): the build pastes it from there, and the shell loads it for people's bodies
+(`bodies.js`), whose poses its `'head'` setup makes from each person's headset and controllers. Its contract is
 the comment at its top. Everything is in three.js's world frame (the targets, the floor, up +y): the studio turns room
 or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
 
@@ -304,8 +307,13 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   nearly straight, or a pole within 3 degrees of its line, keeps the hinge carried from rest. A target not seen this
   frame: its last pose; one never seen: not solved (*Nothing tracks the left hand yet.*). `head`: each foot planted until
   its home (under the hips as at rest) is 16 % of the leg's length away or 0.6 rad turned, or the leg cannot reach it
-  (6 mm), then a 0.3 s arc to its home plus where the hips are going; one at a time, by turns, unless a planted foot
-  cannot be reached. Deterministic: the same targets, `dt` and `state` give the same pose number for number.
+  (6 mm), then a 0.3 s arc to its home plus where the hips are going; one at a time, by turns. Since v164: a foot out of
+  reach steps only when a step would bring it nearer (the hips risen over both feet, a head bob, is no reason: a rig with
+  straight legs at rest hopped, both feet forced up together) and only while the other is planted, the other landing five
+  times sooner meanwhile (a foot out of reach by a tenth of the leg steps at once); faster than 1 m/s along the floor the
+  feet glide under the hips (`state.glide`, until under 0.7 m/s); the chest takes half the head's turn about the vertical
+  but only a tenth of its nod and lean (looking down bends the neck, not the back). Nothing is made a frame on this path
+  but a step's start. Deterministic: the same targets, `dt` and `state` give the same pose number for number.
 - `restPose(rig, part)` (`'eye'`: where a headset is worn), `sample(rig, t)` and `clipOf(samples, name)`: the bones'
   local turns and the hips' place made into a `THREE.AnimationClip` (track names bind by the bones' names, or their
   uuids where a name has `. [ ] : /`).
@@ -313,14 +321,17 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
 The test rig: `tools/studio/test/scenes/puppet/rig.glb` (`tools/studio/test/make.mjs`, about 60 KB, never Mixamo's files):
 25 bones with Mixamo's names in a T-pose, each bone's frame as Mixamo's (y along the bone) under an Armature scaled 0.01,
 an eight- or twelve-sided tube per bone (1,568 triangles, two materials) and a walk in place, Walk, whose elbows and knees
-bend only about their hinges. `test-ik.mjs` (42 checks, under a second) loads it twice with three.js's GLTFLoader, one
+bend only about their hinges. `test-ik.mjs` (47 checks since v164, under a second) loads it twice with three.js's GLTFLoader, one
 walking as the performer, and fixes trackers (random offsets), a headset and controllers to its bones. As it stands:
 `full` with 6 trackers puts the hands and feet within 0.06 mm of the truth and turns the hips, head, hands and feet within
 0.01 degrees (the arms' and legs' twist is a guess there: up to 12 and 3 degrees); with 11 trackers, the performer away
 from the origin and turned, every bone within 1.2 degrees; a performer 1.1 times as big gives `s` 1.1 and the same; `feet`
 puts the feet and hands within 0.06 mm and the hips within 2.1 cm; `head` keeps the head within 0.05 mm, the hands within
-1.3 mm and the hips within 1.9 cm, takes no step standing, 12 by turns walking 2.4 m and lets no planted foot move more
-than 4.6 mm; a take replays the solved pose exactly.
+1.3 mm and the hips within 2.5 cm, takes no step standing, 12 by turns walking 2.4 m with never both feet up, and lets no
+planted foot slide more than 3.5 mm (lifting it at most 1.1 cm as this rig's straight legs are pulled while the other
+lands); standing with a head bob of 2.5 cm over its rest and a sway it takes no step and no foot slides (the solver before
+v164 stepped 19 times); looking down 1 rad the hips stay within 3.1 cm and the chest tilts 9.5 degrees (before, 15 cm and
+32); at 1.6 m/s the feet glide within 1.5 cm of under the hips; a take replays the solved pose exactly.
 
 The studio's side (the card, the record, wearing it, takes saved as GLB: lane C) is built in v126. Not done yet: a
 character lined up anywhere but where the performer stands (the studio moves it there first: a leftover offset between

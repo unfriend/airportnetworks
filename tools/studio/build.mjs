@@ -78,7 +78,8 @@ const kit = read('../lbi/kit.js')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');
 let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@VENDOR@@\n', () => vendor).replace('//@@SETS@@\n', () => sets);
-for (const f of ENGINE) out += read(`engine/${f}.js`);
+// (ik: the solver is an app file at the repository's root since v164, as people's bodies pose by it too: bodies.js)
+for (const f of ENGINE) out += f === 'ik' ? fs.readFileSync(path.join(root, 'ik.js'), 'utf8') : read(`engine/${f}.js`);
 const target = path.join(root, 'stories/studio.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;

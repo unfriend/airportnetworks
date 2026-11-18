@@ -4033,6 +4033,121 @@
   // all (this headset's own setting, kept here and never in the room: for debugging). Pages' room maps show everyone
   const PEOPLE = { all: get('collabPeople') === 'all' }, peopleAll = () => PEOPLE.all;
   function setPeopleAll(on) { PEOPLE.all = !!on; put('collabPeople', on ? 'all' : null); log('people', { all: !!on }); changed(); }
+  // People's bodies (v164; the owner, 18 November 2026: "body with feet possible for everyone even just headset and
+  // controllers"): where a head would be drawn, a whole body (bodies.js: the mannequin 'street armour', posed by ik.js's
+  // 'head' setup from the head and the grips), all of them in one draw and their glows in one more. Bodies: on / off in
+  // the menu's This headset row (this headset's own, collabBodies, on by default, never in the room): off, heads and hands
+  // as before. bodies.js and ik.js are loaded the first time a body is wanted (heads and hands meanwhile, and for good
+  // where the renderer cannot read floats in a vertex shader: WebGL1 without float textures). My body (HOST.xr.body(),
+  // index.html: this headset's own, off by default): your own, in VR, from your head and controllers as this frame gives
+  // them, the head and neck folded away; in a room or not, never sent
+  const BODIES = { on: get('collabBodies') !== 'off' }, bodiesOn = () => BODIES.on;
+  function setBodiesOn(on) { BODIES.on = !!on; put('collabBodies', on ? null : 'off'); log('bodies', { on: !!on }); changed(); }
+  const BOD = { lib: null, ready: false, err: '', retry: 0, can: null, drawing: false };
+  const myBody = () => !!(HOST.xr && HOST.xr.body && HOST.xr.body());
+  // (float textures read in a vertex shader: WebGL2, or WebGL1 with OES_texture_float and vertex texture units)
+  const bodiesCan = () => { if (BOD.can === null && HOST.renderer) { try { const c = HOST.renderer.capabilities; BOD.can = !!(c.floatVertexTextures && c.maxVertexTextures > 0); } catch (e) { BOD.can = false; } } return !!BOD.can; };
+  function bodyScript(f) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = appRoot() + f; s.async = true;
+      s.onload = () => res(); s.onerror = () => rej(new Error(f + ' did not load'));
+      document.head.appendChild(s);
+    });
+  }
+  // bodies.js ready to draw (true), or on its way: loaded once (ik.js first: it poses them), tried again a minute after
+  // a failure
+  function bodiesReady() {
+    if (BOD.ready) return true;
+    if (BOD.lib || !bodiesCan() || performance.now() < BOD.retry) return false;
+    log('bodies load', {});
+    BOD.lib = (typeof makeIK === 'function' ? Promise.resolve() : bodyScript('ik.js')).then(() => (HOST.bodies ? null : bodyScript('bodies.js'))).then(() => {
+      if (!HOST.bodies || !HOST.bodies.person) throw new Error('bodies.js gave nothing');
+      try { if (HOST.bodies.warm) HOST.bodies.warm(HOST.renderer); } catch (e) { log('bodies warm', { err: String(e && e.message || e) }); }
+      BOD.ready = true; BOD.err = ''; log('bodies ready', HOST.bodies.stats());
+    }, e => { BOD.err = String(e && e.message || e); BOD.retry = performance.now() + 60000; log('bodies failed', { err: BOD.err }); }).finally(() => { BOD.lib = null; });
+    return false;
+  }
+  // each frame of a session: the bodies drawn this frame begun (the people's, then yours), and ended once all are in
+  function bodiesBegin() {
+    BOD.drawing = (bodiesOn() || myBody()) && bodiesCan() && !!OV.root && (BOD.ready || bodiesWanted()) && bodiesReady() && HOST.bodies.attach(OV.root);
+    if (BOD.ready) HOST.bodies.begin(performance.now());   // (begun even when none is drawn: the last frame's go)
+  }
+  function bodiesEnd() { if (BOD.ready) HOST.bodies.end(); }
+  // (anyone to draw as a body: a person in a headset, or your own)
+  function bodiesWanted() {
+    if (myBodyShown()) return true;
+    if (!bodiesOn() || !C.code) return false;
+    for (const P of C.pres.values()) if (P.head && !P.cam) return true;
+    return false;
+  }
+  const myBodyShown = () => myBody() && !!HOST.session && HOST.mode !== 'immersive-ar' && !CAM.on;
+  // a person's body this frame (drawPeople): their head as drawn, their grips (smoothed as the head is: between the
+  // samples, else eased), else a hand from its ray (an app before v126 sent no grips), else hanging; on their own room
+  // floor; their feet planted again when they jump (shown again, another station)
+  const BIN = { head: [0, 0, 0, 0, 0, 0, 1], g: [null, null], ray: [null, null], floor: 0, toWorld: null, rgb: null, self: false, dt: 0, jump: false };
+  const _bv = new THREE.Vector3(), _bgq = new THREE.Quaternion();
+  function bodyOf(o, id, g, k, jump, dt) {
+    if (!o.body) o.body = HOST.bodies.person(id);
+    if (!o.body) return false;
+    const E = o.e, H = BIN.head;
+    H[0] = E.p.x; H[1] = E.p.y; H[2] = E.p.z; H[3] = E.q.x; H[4] = E.q.y; H[5] = E.q.z; H[6] = E.q.w;
+    if (!E.g) { E.g = [[0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 1]]; E.gOK = [false, false]; }
+    for (let i = 0; i < 2; i++) {
+      const G = g && g[i], A = E.g[i];
+      if (!G) { E.gOK[i] = false; BIN.g[i] = null; continue; }
+      if (!E.gOK[i] || k >= 1) for (let j = 0; j < 7; j++) A[j] = G[j];
+      else { for (let j = 0; j < 3; j++) A[j] += (G[j] - A[j]) * k; _bgq.fromArray(A, 3).slerp(_q.fromArray(G, 3), k).toArray(A, 3); }
+      E.gOK[i] = true; BIN.g[i] = A;
+    }
+    // (a ray for a hand with no grip: which hand by where it starts, right or left of the head)
+    BIN.ray[0] = BIN.ray[1] = null;
+    if (!BIN.g[0] || !BIN.g[1]) {
+      _bv.set(1, 0, 0).applyQuaternion(E.q);
+      for (const Ry of E.hands) {
+        if (!Ry) continue;
+        let i = _v.copy(Ry.o).sub(E.p).dot(_bv) > 0 ? 1 : 0;
+        if (BIN.ray[i]) i = 1 - i;
+        if (!BIN.g[i] && !BIN.ray[i]) BIN.ray[i] = Ry;
+      }
+    }
+    BIN.floor = 0; BIN.toWorld = R.m; BIN.rgb = o.rgb; BIN.self = false; BIN.dt = dt; BIN.jump = jump;
+    return HOST.bodies.add(o.body, BIN);
+  }
+  // your own body (My body): your head and your grips (or a tracked hand's grip space, else its wrist) as this frame
+  // gives them, in the world's frame (the overlay root's), on the room's floor in a room lined up, else the reference
+  // space's (local-floor's y = 0)
+  const SELF = { B: null, g: [[0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 1]], ok: [false, false], was: false,
+    I: { head: [0, 0, 0, 0, 0, 0, 1], g: [null, null], ray: null, floor: 0, toWorld: null, rgb: [1, 1, 1], self: true, dt: 0, jump: false } };
+  function selfGrips(f, local) {
+    SELF.ok[0] = SELF.ok[1] = false;
+    const s = HOST.session;
+    if (!f || !local || !s || !myBodyShown()) return;
+    const src = s.inputSources || [];
+    for (let i = 0; i < src.length; i++) {
+      const x = src[i], k = !x ? -1 : x.handedness === 'left' ? 0 : x.handedness === 'right' ? 1 : -1;
+      if (k < 0) continue;
+      let p = null;
+      try { p = x.gripSpace ? f.getPose(x.gripSpace, local) : x.hand ? f.getJointPose(x.hand.get('wrist'), local) : null; } catch (e) { /* not tracked now */ }
+      if (!p) continue;
+      const a = SELF.g[k], P = p.transform.position, Q = p.transform.orientation;
+      a[0] = P.x; a[1] = P.y; a[2] = P.z; a[3] = Q.x; a[4] = Q.y; a[5] = Q.z; a[6] = Q.w;
+      SELF.ok[k] = true;
+    }
+  }
+  const _cs = new THREE.Color();
+  function drawSelf(dt) {
+    if (!BOD.drawing || !myBodyShown() || !HD.ok) { SELF.was = false; return; }
+    if (!SELF.B) SELF.B = HOST.bodies.person(C.id || 'me');
+    if (!SELF.B) return;
+    const I = SELF.I, H = I.head;
+    H[0] = HD.p.x; H[1] = HD.p.y; H[2] = HD.p.z; H[3] = HD.q.x; H[4] = HD.q.y; H[5] = HD.q.z; H[6] = HD.q.w;
+    I.g[0] = SELF.ok[0] ? SELF.g[0] : null; I.g[1] = SELF.ok[1] ? SELF.g[1] : null;
+    I.floor = C.code && R.aligned && R.headOK ? _v.set(R.hr.x, 0, R.hr.z).applyMatrix4(R.m).y : 0;
+    _cs.set(C.color || CYAN); I.rgb[0] = _cs.r; I.rgb[1] = _cs.g; I.rgb[2] = _cs.b;
+    I.dt = dt; I.jump = !SELF.was; SELF.was = true;
+    HOST.bodies.add(SELF.B, I);
+  }
   // The people are drawn in a handful of draws, however many there are (v137, the owner's frame rate: each person was
   // about 14 draws, head, visor, two hands, two dots, two rays and a two-faced sign, both eyes): the heads (with their visors),
   // the hands and the dots are one InstancedMesh each with a colour per instance, the rays one LineSegments, the signs one
@@ -4165,14 +4280,19 @@
       }
       // where they were DELAY ago, between the samples around that moment (smoothing), exactly; else eased to the latest
       const S = bufAt(P.buf, MIX.person), k = S ? 1 : k0, h = S ? S.head : P.head, hands = S ? S.hands : P.hands;
+      // (shown again, or at another station: a body's feet planted afresh under it, not walked over from where they were)
+      const jump = !o.e || o.st !== P.st;
+      o.st = P.st;
       if (!o.e) o.e = { p: new THREE.Vector3(h[0], h[1], h[2]), q: new THREE.Quaternion(h[3], h[4], h[5], h[6]), hands: [] };
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
       o.avatar.visible = vr || !m.here;
-      if (o.avatar.visible && nH < cap) { _M.compose(o.e.p, o.e.q, _ONE).toArray(B.h.instanceMatrix.array, nH * 16); B.h.instanceColor.array.set(o.rgb, nH * 3); nH++; }
+      // a body in place of the head and hands (People's bodies, above: Bodies on and bodies.js ready), else the head
+      o.asBody = o.avatar.visible && BOD.drawing && bodiesOn();
+      if (o.avatar.visible && !o.asBody && nH < cap) { _M.compose(o.e.p, o.e.q, _ONE).toArray(B.h.instanceMatrix.array, nH * 16); B.h.instanceColor.array.set(o.rgb, nH * 3); nH++; }
       // the name, a card as the station cards are (HOST.xr.cards): on top of everything (a sprite), in 3D (a sign over the
-      // head, upright and turned to you, hidden by what stands in front of it) or hidden
-      o.tag.position.set(o.e.p.x, o.e.p.y + 0.24, o.e.p.z);
+      // head, upright and turned to you, hidden by what stands in front of it; just over a body's helmet) or hidden
+      o.tag.position.set(o.e.p.x, o.e.p.y + (o.asBody ? 0.2 : 0.24), o.e.p.z);
       o.tag.visible = cm === 'face'; o.sign.visible = cm === 'fixed';
       if (o.sign.visible) {
         o.sign.position.copy(o.tag.position);
@@ -4187,7 +4307,8 @@
       }
       for (let i = 0; i < 2; i++) {
         const H = hands[i], on = !!H;
-        o.rays[i].visible = o.dots[i].visible = on; o.hands[i].visible = on && o.avatar.visible;
+        // (a hand drawn: a ball where its ray starts, or the body's own, both of them, held or hanging)
+        o.rays[i].visible = o.dots[i].visible = on; o.hands[i].visible = o.avatar.visible && (on || o.asBody);
         if (!on) { o.e.hands[i] = null; continue; }
         let E = o.e.hands[i];
         if (!E) E = o.e.hands[i] = { o: new THREE.Vector3(H[0], H[1], H[2]), d: new THREE.Vector3(H[3], H[4], H[5]), len: H[6] };
@@ -4203,8 +4324,9 @@
           if (nD < cap * 2) { _M.compose(o.dots[i].position, _q.identity(), _ONE).toArray(B.d.instanceMatrix.array, nD * 16); B.d.instanceColor.array.set([o.rgb[0] + (1 - o.rgb[0]) * 0.5, o.rgb[1] + (1 - o.rgb[1]) * 0.5, o.rgb[2] + (1 - o.rgb[2]) * 0.5], nD * 3); nD++; }
           nR++;
         }
-        if (o.hands[i].visible && nHa < cap * 2) { _M.compose(E.o, _q.identity(), _ONE).toArray(B.ha.instanceMatrix.array, nHa * 16); B.ha.instanceColor.array.set(o.rgb, nHa * 3); nHa++; }
+        if (o.hands[i].visible && !o.asBody && nHa < cap * 2) { _M.compose(E.o, _q.identity(), _ONE).toArray(B.ha.instanceMatrix.array, nHa * 16); B.ha.instanceColor.array.set(o.rgb, nHa * 3); nHa++; }
       }
+      if (o.asBody && !bodyOf(o, id, S ? S.g : P.g, k, jump, dt)) o.asBody = false;   // (no room left: the head next frame)
     }
     if (!B) return;
     const set = (m, n, cl) => {
@@ -4436,7 +4558,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4932,6 +5054,13 @@
         note('This headset\'s own: frames a second, triangles and draw calls', y);
         y += 76;
       }
+      // your own body when you look down (My body, v164: HOST.xr.body, this headset's own, never the room's; off by default)
+      if (HOST.xr.setBody) {
+        const mb = myBody();
+        button(S, 'mybody', x, y, bw, 60, mb ? 'My body: on' : 'My body: off', () => HOST.xr.setBody(!mb), { on: mb, px: 23 });
+        note(HOST.mode === 'immersive-ar' ? 'In VR only: in AR you see your own' : 'Your own body when you look down, in VR. This headset\'s own', y);
+        y += 76;
+      }
       // developer mode (HOST.dev, this device's own): what is new in this release and what to test, as each session starts
       if (HOST.dev && HOST.dev.set) {
         const dv = devOn();
@@ -5093,11 +5222,13 @@
       }
       y += 10;
       line();
-      // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging), Sound check
+      // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging) and how (whole
+      // bodies, v164, or heads and hands), Sound check; three to the row (the tab stays as tall as it was)
       label('This headset');
-      const pa = peopleAll();
-      button(S, 'people', x, y, bw, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 21, on: !pa });
-      button(S, 'sound', x + bw + 16, y, bw, 56, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
+      const pa = peopleAll(), bo = bodiesOn(), b3h = (w - 32) / 3;
+      button(S, 'people', x, y, b3h, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 19, on: !pa });
+      button(S, 'bodies', x + b3h + 16, y, b3h, 56, bo ? (BOD.can === false ? 'Bodies: heads only' : 'Bodies: on') : 'Bodies: off', () => setBodiesOn(!bo), { px: 20, on: bo });
+      button(S, 'sound', x + 2 * (b3h + 16), y, b3h, 56, 'Sound check', () => { PNL.page = 'sound'; }, { px: 21 });
       y += 72;
       // the PC's trackers as small pucks where they are in the room (this headset's own, kept; v126)
       const ts = TRK.show;
@@ -7687,6 +7818,7 @@
     if (C.code && R.session) R.upload(t);
     if (HOST.session) placesStep(f, t, local);   // (where this headset is: the places' anchors, in a room or in none)
     if (C.code && R.session) gripStep(f, local);   // (the grips in room coordinates: presence's g, HOST.collab.body)
+    selfGrips(f, local);   // (My body: your grips in the world's frame, in a room or not)
     R.headOK = false;
     if (C.code && R.aligned && HD.ok) {
       R.hr.copy(HD.p).applyMatrix4(R.mi);
@@ -7929,12 +8061,15 @@
     OV.room.visible = !!C.code && R.aligned;
     HOV.length = 0;
     for (const i of C.hov.keys()) { const h = hovOf(i); if (h) HOV.push(h); }
+    bodiesBegin();   // (people's bodies: theirs in drawPeople, then yours, in one draw)
     if (OV.room.visible) {
       OV.room.matrix.copy(R.m);
       drawPreviews(dt);
       drawPeople(dt);
       drawMenus();   // (the others' menus shown to your circle)
     }
+    drawSelf(dt);   // (My body: in VR, in a room or not)
+    bodiesEnd();
     drawTrackers();   // (the PC's trackers as small pucks, Trackers: shown on the Debug tab)
     drawMarks();
     camDraw();   // (camera mode: where the phone's aim meets the floor, while it lines up)
@@ -12757,6 +12892,11 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
+    // how it draws them (v164): Bodies on (whole bodies, bodies.js) or off (heads and hands), this headset's own; and for
+    // tests where bodies stand ({ on, my, ready, can, drawing, err, stats: bodies.js's, self: your own body's info })
+    bodies: on => { if (on !== undefined) setBodiesOn(on); return bodiesOn(); },
+    bodyState: () => ({ on: bodiesOn(), my: myBody(), ready: BOD.ready, can: BOD.can, drawing: BOD.drawing, err: BOD.err, loading: !!BOD.lib,
+      stats: BOD.ready ? HOST.bodies.stats() : null, self: BOD.ready && SELF.B ? HOST.bodies.info(SELF.B) : null, selfFloor: SELF.I.floor }),
     allRings: on => { if (on !== undefined) setRingsAll(on); return ringsAll(); },   // Show all rings (this headset's own)
     menuShare: on => { if (on !== undefined) setMenuShare(on); return menuShareOn(); },   // My menu: my circle (this headset's own)
     // for tests: what this headset sent of its menu (got: the pictures it took from others), and the others' menus it

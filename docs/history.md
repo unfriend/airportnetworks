@@ -251,6 +251,32 @@ only (the headsets' Labels and Cards settings are the room's, so the camera's ow
 panels already had *Panels*). Its writes while it moves stay rare (at most two a second and one as it stops), as every
 move by hand in a room is written as it ends, not every frame.
 
+### People's bodies and My body (v164)
+
+The owner, 18 November 2026: "body with feet possible for everyone even just headset and controllers". After a
+discussion of the ways to do it, the owner chose: our own solver now (`ik.js`'s `'head'` setup, written for the studio's
+puppet, never used until then); Quest Browser's WebXR body tracking maybe later, after a probe on a headset, not now; a
+mannequin made in code, "make sure the mannequin looks cool and cyberpunk"; your own legs when you look down "off by
+default"; one release with the studio's walks.
+
+Two designs were made and a judge compared their pictures: 'street armour' (opaque faceted plates over an undersuit,
+both a deep shade of the person's colour, the colour itself in thick lights: a V visor, a crest, gems, a network emblem
+on the chest) and 'light frame' (a figure drawn in lines of light). The judge picked street armour, with ideas from the
+light frame folded in during its polish: a scan climbing the body every 5 s, circuit traces ending in pads, gem nodes at
+the elbows and a spine of nodes down the back. Its solid, opaque shape reads across a room and over a lit AR room; the
+light frame's thin lines flickered at a distance and vanished over passthrough.
+
+Choices made building it: every body in one draw and their glows in one more (the owner's frame rate, as the people's
+heads and hands were in five draws since v137), each person's bones in a row of a float texture; loaded on demand, as the
+output page is, so phones never fetch it; a person's size from their standing eye height (a high percentile over half a
+minute), so crouching bends the legs rather than shrinking them; Bodies: on / off this headset's own, beside People.
+The design found that `ik.js`'s stepping hopped with straight legs at rest (a planted foot out of reach as soon as the
+hips moved, so both feet were forced up together) and bent the mannequin's knees to hide it; the solver itself was fixed
+(a step forced only when it would help, one foot at a time, the other landing sooner meanwhile), and the knees stayed a
+little bent for longer steps and a stance. Looking down bent the whole back in the solver (the hips pushed 15 cm back and
+your own feet out of your view): the chest now takes a tenth of the head's nod. Faster than a walk (the sticks), the feet
+glide under the hips instead of stepping frantically.
+
 ### Two locks
 
 Two locks: the owner, 29 October 2026: "one toggle for locking the circles' movement globally and one toggle per room for locking its panels and story elements"; a "room" there is a story's circle. The circles lock was the layout lock of v96.

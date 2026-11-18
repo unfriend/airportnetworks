@@ -2759,7 +2759,7 @@ Phase 1 of the Vive trackers (`tools/trackers/SPEC.md`; the owner: "we go for 1 
 ## Worn with trackers: a Mixamo character (the owner, 8 November 2026)
 
 Phase 3 of the Vive trackers (`tools/trackers/SPEC.md`, "The studio, phase 3"). `engine/e6l_puppet.js` and the solver
-`engine/ik.js` (`makeIK`, in the build since v126, as `convert.js` is; its contract is the comment at its top and
+`ik.js` (at the repository's root since v164; `makeIK`, in the build since v126, as `convert.js` is; its contract is the comment at its top and
 "The solver (ik.js)" in `tools/trackers/SPEC.md`).
 
 - **Which models**: an object whose model is rigged (`E.info.rigged`) with Mixamo's bone names (`IK.rigOf`, found once

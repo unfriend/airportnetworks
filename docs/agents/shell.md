@@ -434,6 +434,14 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     the item card's line under *Carry it* and the foot panel's hint. AR: you walk for real; the double click says *Not in
     AR*. Untested on a headset: switching on a Quest, carrying something far while moving, how a carried item turned
     with you feels.
+  - My body (v164; the owner, 18 November 2026: your own legs when you look down, "off by default"): a ninth setting,
+    each headset's own, never the room's and never in `collab.state()` or `HOST.xr.sig()` (`HOST.xr.body()`,
+    `setBody(on)`, `xrBody` in `localStorage`, off by default, `#body=on|off` in a link). The menu's *My body: on* /
+    *off* row (Settings, under Frame rate). While on, in a VR session (not AR: there you see your own; never in camera
+    mode or on the preview camera), the shell draws your own body with the others' (`bodies.js`: "People's bodies" in
+    `docs/agents/shared-rooms.md`) from your head and your controllers' grips as each frame gives them, in a shared room
+    or not, the head and neck folded away; nothing of it is sent. Untested on a headset: how it feels to look down at it,
+    how your arms follow real controllers, whether it is in the way of the menu or a story's panels.
   - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
     In 3D, a flat sign at its sprite's place and size, upright and turned to
     you (about the vertical, in the rig's frame: `placeLabelXR` with

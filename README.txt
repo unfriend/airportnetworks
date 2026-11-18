@@ -507,7 +507,11 @@ have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D
 models (point at one to see its card), and with the circles walked into a
 circle's ring appears as you come within 2 m of it; other people are drawn only when they are
-at your circle (People: everyone in the menu shows them all). Over each station's ring a small 3D model of its story turns, in its
+at your circle (People: everyone in the menu shows them all). Since v164 they are drawn as
+whole bodies with legs and feet, in armour of their own colour, posed from their headset
+and controllers (in AR only people who are elsewhere; Bodies: off, on the Debug tab, draws
+heads and hands as before). My body (Settings tab, off by default) shows your own body when
+you look down, in VR. Over each station's ring a small 3D model of its story turns, in its
 colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring, model or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
@@ -534,10 +538,10 @@ panel and play bar of the story on show, usable there as on the story itself,
 so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
-for every story; Frame rate, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
+for every story; Frame rate, My body, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
 off; the sound switches; the design room and the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
-Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Sound check, Trackers, Refresh rate, Foveation and Resolution, What is new, the version,
+Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Bodies, Sound check, Trackers, Refresh rate, Foveation and Resolution, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over

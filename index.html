@@ -1548,6 +1548,11 @@ HOST.xr = (function () {
   // low in the view (shared.js, drawFps) with the frame rate and HOST.perf's counts of the story's frame
   let fps = false;
   try { fps = localStorage.getItem('xrFps') === 'on'; } catch (e) { /* storage blocked */ }
+  // My body (v164; the owner, 18 November 2026: your own legs when you look down, "off by default"): your own body drawn
+  // from your head and controllers in VR (shared.js's people's bodies, bodies.js), never sent. This headset's own, never a
+  // room's and not in sig(): xrBody, off by default, #body=on|off in a link
+  let body = false;
+  try { body = localStorage.getItem('xrBody') === 'on'; } catch (e) { /* storage blocked */ }
   // The refresh rate (v136; the owner, 11 November 2026: "make sure that we get a good framerate everywhere, even in the
   // lobby with only the stations visible i could not reach 90fps"): Quest Browser runs a WebXR session at 72 Hz unless the
   // page asks for more (Meta's docs; Browser 16.4 and later have session.supportedFrameRates and updateTargetFrameRate),
@@ -1914,6 +1919,8 @@ HOST.xr = (function () {
     sig: () => { const L = look(); return L.labels + '/' + L.cards + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     fps: () => fps,
     setFps(on) { fps = !!on; try { localStorage.setItem('xrFps', fps ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
+    body: () => body,
+    setBody(on) { body = !!on; try { localStorage.setItem('xrBody', body ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
     // the refresh rate this headset asks for (v136): the rate wanted, set (kept, and asked for again in a running
     // session), and what the session said ({ want, list, asked, got, err, api }: got its frameRate now; api null before a
     // session has been seen, false for a browser without the frame-rate API)
@@ -4298,6 +4305,7 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('fps')) HOST.xr.setFps(hp.get('fps') !== 'off');   // (the frame-rate read-out: this device's own)
+  if (hp.has('body')) HOST.xr.setBody(hp.get('body') !== 'off');   // (My body: this headset's own)
   if (hp.has('hz')) HOST.xr.setHz(hp.get('hz'));   // (the refresh rate a headset session asks for: this headset's own)
   if (hp.has('fov')) HOST.xr.setFov(hp.get('fov'));   // (fixed foveation and resolution, developer experiments: this headset's own)
   if (hp.has('scale')) HOST.xr.setScale(hp.get('scale'));

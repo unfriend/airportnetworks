@@ -71,6 +71,9 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `notes.js`, `notes/`, `tools/notes/` - the developer notebook (`HOST.notes`), its notes page and tools; the headset
   menu's Debug tab reads them too (*Notes*, `shared.js`).
 - `ships.js` - the spaceships (`HOST.ships`).
+- `bodies.js` - people's bodies in a room and My body (`HOST.bodies`: the mannequin, its poser, every body in one draw),
+  loaded on demand after `ik.js` (`docs/agents/shared-rooms.md`, "People's bodies").
+- `ik.js` - the trackers' solver (`makeIK`): pasted into `stories/studio.js` (the puppet) and loaded for `bodies.js`.
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, `PEERJS-LICENSE.txt`) - loaded only for a peer-to-peer room; `p2p/` - a network
   test page, not part of the app.
 - `output.js` - the output page (`HOST.out`: MIDI and OSC from a room and the studio, `&output`; v162 streams one sound
@@ -131,6 +134,8 @@ gets at most a line per feature and stays under 70 KB.
   (`st.<id>`), their clock, state, place, panel and view, and room-wide keys (`look`, `lock`, `trk`, `name` ...). A
   headset runs the station whose circle it walked into (or entered by *Go in*); pages follow one from the Shared
   dialog. The shell publishes play, pause, jumps, mode changes and `collab.state()`; stories send only effects.
+- People in a headset are drawn as whole bodies (v164, `bodies.js`: posed from their head and grips by `ik.js`, all in one
+  draw; *Bodies: off* gives heads and hands); *My body* (off by default) draws your own in VR.
 - The design room (`#design`) and the studio (`#studio`) are pages in `STORY_EXTRA`, built like stories, placed in a
   room as stations but never by Arrange all.
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
@@ -164,7 +169,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - In a headset no close view brings a `keepClear` set nearer than 0.35 m to the head; the life-size stories never move
   `GL.rig` and the grip moves only their panel (the pass story: the school's holder, `XR.lifeOff`).
 - The headset settings (labels, cards, free moving, subtitles, the two sound switches, panels, frame rate, refresh rate,
-  automatic quality, occlusion, moving with the sticks, menu sharing) are the shell's or the device's: never in a
+  automatic quality, occlusion, moving with the sticks, menu sharing, my body, bodies) are the shell's or the device's: never in a
   story's `state()` or `collab.state()`.
 - Real-world occlusion never pauses depth sensing in an AR session.
 
@@ -369,7 +374,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   narration MP3 is expected; any other console error fails it.
 - `--only <words>` runs the blocks whose names start with the words, for a builder's own steps; the release run is the
   whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'developer mode'`,
-  `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `'auto quality'`, `'focus mode'`,
+  `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
   walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp).
@@ -394,7 +399,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
 | `node tools/studio/test-images.mjs` | after changing `tools/studio/engine/images.js` or `test/pictures.mjs` |
-| `node tools/studio/test-ik.mjs` | after changing `tools/studio/engine/ik.js` or the puppet in `test/make.mjs` |
+| `node tools/studio/test-ik.mjs` | after changing `ik.js` (the studio's puppet and people's bodies) or the puppet in `test/make.mjs` |
 
 Real-headset behaviour (controllers, session hand-over between stories, placement, comfort, sound) can only be
 confirmed on a device: say so when you report results.
