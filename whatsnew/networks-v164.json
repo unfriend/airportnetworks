@@ -1,0 +1,25 @@
+{
+  "version": "networks-v164",
+  "date": "2026-11-18",
+  "new": [
+    "People in a headset are drawn as whole bodies with legs and feet: a mannequin in street armour in their own colour, posed from their headset and controllers.",
+    "Their feet stay planted and step as they walk; with the sticks (faster than walking) they glide. In AR only people elsewhere get a body.",
+    "My body (the menu's Settings tab, under Frame rate; off by default): your own body when you look down, in VR, in a room or not. Never sent.",
+    "Bodies: on / off (the Debug tab, This headset, beside People): off draws heads and hands as before. Each headset's own.",
+    "Studio: a model's Animation can be As it moves: its walk clip follows the distance it covers (on a path, a behaviour, a motion or carried), and it stands still when it stops.",
+    "As it moves has a Standing clip (or Still) and Stride: Shorter, Longer and As measured. Rooms move to format networks-53."
+  ],
+  "test": [
+    "Two headsets in a room: walk round each other; the other's body stands, steps and turns with them, its hands where their controllers are.",
+    "Look down with My body on; then off. Try it with Bodies off on one headset (heads and hands) and on the other.",
+    "Move with the sticks: the other's body glides, then plants its feet when they stop. Crouch, lean, look down.",
+    "On a phone or a laptop following a room (or the preview camera): people show as bodies; the name sign sits just over the helmet.",
+    "Studio: open the walks test scene, or give a rigged walker As it moves and a recorded path; scrub its path and watch the walk follow."
+  ],
+  "untested": [
+    "Everything on a real headset: how the bodies look and move at full frame rate, how your own arms follow real controllers, comfort looking down.",
+    "The cost with many people (48 bodies) on a Quest; one draw for all bodies was measured only here.",
+    "AR passthrough behind the bodies (the test session shows no room).",
+    "Studio walkers beside you in a headset: turning, crossfades and how far their feet slide."
+  ]
+}

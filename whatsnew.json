@@ -1,24 +1,25 @@
 {
-  "version": "networks-v163",
-  "date": "2026-11-17",
+  "version": "networks-v164",
+  "date": "2026-11-18",
   "new": [
-    "Live sound: the output page's new switch, Stream sound to the room, sends one sound input of its computer through the relay to the room.",
-    "People elsewhere (a laptop at home, a headset in another place) hear it by default; devices in the room do not.",
-    "A per-device setting, Room's live sound: auto, on or off, in the Shared dialog and the headset menu's Settings.",
-    "A studio sound item can be set to Live sound: the stream then plays from where that item stands.",
-    "Rooms on a relay only: peer to peer and rooms on this device say it is not available.",
-    "v163: v162's review fixes (a smoother catch-up after a stall, the decoder rebuilt after an error, clearer messages on the output page)."
+    "People in a headset are drawn as whole bodies with legs and feet: a mannequin in street armour in their own colour, posed from their headset and controllers.",
+    "Their feet stay planted and step as they walk; with the sticks (faster than walking) they glide. In AR only people elsewhere get a body.",
+    "My body (the menu's Settings tab, under Frame rate; off by default): your own body when you look down, in VR, in a room or not. Never sent.",
+    "Bodies: on / off (the Debug tab, This headset, beside People): off draws heads and hands as before. Each headset's own.",
+    "Studio: a model's Animation can be As it moves: its walk clip follows the distance it covers (on a path, a behaviour, a motion or carried), and it stands still when it stops.",
+    "As it moves has a Standing clip (or Still) and Stride: Shorter, Longer and As measured. Rooms move to format networks-53."
   ],
   "test": [
-    "On a Mac: BlackHole 2ch and a Multi-Output Device as the system output, Cardinal playing; the output page streams from BlackHole.",
-    "A laptop joined from elsewhere and a Quest elsewhere hear it; a headset in the room does not, until its setting is On.",
-    "The Sound button turns it on and off on each device (a page starts with Sound off, so a remote laptop presses Sound first).",
-    "In a studio scene, a Live sound item: walk round it in a headset; the sound comes from it."
+    "Two headsets in a room: walk round each other; the other's body stands, steps and turns with them, its hands where their controllers are.",
+    "Look down with My body on; then off. Try it with Bodies off on one headset (heads and hands) and on the other.",
+    "Move with the sticks: the other's body glides, then plants its feet when they stop. Crouch, lean, look down.",
+    "On a phone or a laptop following a room (or the preview camera): people show as bodies; the name sign sits just over the helmet.",
+    "Studio: open the walks test scene, or give a rigged walker As it moves and a recorded path; scrub its path and watch the walk follow."
   ],
   "untested": [
-    "How it sounds (unheard here).",
-    "Whether Quest Browser has WebCodecs' AudioDecoder.",
-    "Latency and dropouts on real networks and Wi-Fi.",
-    "The headset menu's taller Settings tab on a device."
+    "Everything on a real headset: how the bodies look and move at full frame rate, how your own arms follow real controllers, comfort looking down.",
+    "The cost with many people (48 bodies) on a Quest; one draw for all bodies was measured only here.",
+    "AR passthrough behind the bodies (the test session shows no room).",
+    "Studio walkers beside you in a headset: turning, crossfades and how far their feet slide."
   ]
 }

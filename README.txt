@@ -155,6 +155,12 @@ its circle) moves every item there again, for everyone (one Undo step).
   it only slides along the floor and turns about the vertical, the side that
   was lowest kept down, however you lift or tilt it. An empty and a sound keep
   the height they start at.
+- As it moves (v164): a model with a walk clip can play it by the distance it
+  covers (Animation on its card: As it moves, then its clip), one step cycle a
+  stride, backwards when it goes backwards, on its recorded path, a behaviour,
+  a motion or carried. Standing still it settles to its Standing clip (or Still:
+  the walk held with its feet together). Stride: Shorter or Longer when its feet
+  slide; As measured goes back to the stride read from the clip.
 - A trigger cube can change a model's picture while you are in it: on the
   cube's card Change a texture..., point at the model (or pick it), then its
   material, a slot (Colour first) and one of the scene's pictures. Walk in and
