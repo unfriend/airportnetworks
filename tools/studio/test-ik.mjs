@@ -1,5 +1,5 @@
 // node tools/studio/test-ik.mjs
-// The trackers' solver (tools/studio/engine/ik.js; tools/trackers/SPEC.md, "The solver (ik.js)") in Node, in seconds,
+// The trackers' solver (ik.js at the repository's root; tools/trackers/SPEC.md, "The solver (ik.js)") in Node, in seconds,
 // without a browser. The puppet test scene's rig (tools/studio/test/scenes/puppet/rig.glb, made by
 // tools/studio/test/make.mjs: our own humanoid with Mixamo's bone names and a walk) is loaded twice by three.js's own
 // GLTFLoader: one walks (the truth, a performer), the other is solved. Trackers, a headset and controllers are fixed to the
@@ -15,7 +15,10 @@
 //   'feet'     a tracker on each foot, a headset and controllers: the feet within 5 mm, the hands within 1 cm, the hips 8 cm
 //   'head'     a headset and controllers only, standing, walking 2.4 m along a curve and standing again: the head exact,
 //              the hands within 1 cm, the hips within 10 cm, a planted foot never moving more than 1 cm, steps by turns
-//              while the hips move on, none standing still
+//              while the hips move on, none standing still; standing with the head bobbing 2.5 cm over its height at rest
+//              and swaying (this rig's legs are straight at rest: before v164 both feet hopped): no steps, both feet
+//              planted, none sliding along the floor; moving at 1.6 m/s (the sticks): the feet glide under the hips, no
+//              steps, then step again once slow
 //   the same output twice (determinism), the calibration plain JSON, a take (sample, clipOf) replaying the solved pose
 //   within 1 mm
 import fs from 'node:fs';
@@ -28,7 +31,7 @@ const require = createRequire(import.meta.url);
 const THREE = require(path.join(ROOT, 'three.min.js'));
 globalThis.THREE = THREE;
 new Function(fs.readFileSync(path.join(HERE, 'vendor/GLTFLoader.js'), 'utf8'))();
-const makeIK = new Function(fs.readFileSync(path.join(HERE, 'engine/ik.js'), 'utf8') + '\nreturn makeIK;')();
+const makeIK = new Function(fs.readFileSync(path.join(ROOT, 'ik.js'), 'utf8') + '\nreturn makeIK;')();
 const IK = makeIK(THREE);
 let fails = 0, checks = 0;
 const ok = (c, what, more) => { checks++; if (!c) { fails++; console.log('FAIL ' + what + (more ? ': ' + more : '')); } };
@@ -58,7 +61,7 @@ const mixer = new THREE.AnimationMixer(truth.scene), walkClip = truth.animations
 function truthAt(t, o) {
   o = o || {};
   const r = truth.scene;
-  r.position.set(o.x || 0, 0, o.z || 0); r.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), o.yaw || 0); r.scale.setScalar(o.scale || 1);
+  r.position.set(o.x || 0, o.y || 0, o.z || 0); r.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), o.yaw || 0); r.scale.setScalar(o.scale || 1);
   if (o.walking) { if (!walk.isRunning()) walk.play(); mixer.setTime(t); } else { walk.stop(); TR.toRest(); }
   r.updateMatrixWorld(true);
 }
@@ -165,7 +168,7 @@ function run(setup, names, frames, o) {
       const a = world(TR.bones[p]), b = world(PR.bones[p]);
       out.err[p].push(a.p.distanceTo(b.p)); out.rot[p].push(deg(a.q, b.q));
     }
-    const f = { t, started: st.started, forced: st.forced, on: st.feet ? st.feet.map(x => x.on) : null, foot: ['lfoot', 'rfoot'].map(p => world(PR.bones[p]).p) };
+    const f = { t, started: st.started, forced: st.forced, glide: !!st.glide, on: st.feet ? st.feet.map(x => x.on) : null, foot: ['lfoot', 'rfoot'].map(p => world(PR.bones[p]).p) };
     // the knees' bend (truth and solved)
     const bend = (R, s) => { const h = world(R.bones[s + 'up']).p, k = world(R.bones[s + 'leg']).p, a = world(R.bones[s + 'foot']).p; return k.clone().sub(h).angleTo(a.clone().sub(k)) * 180 / Math.PI; };
     f.knee = ['l', 'r'].map(s => Math.abs(bend(TR, s) - bend(PR, s)));
@@ -319,6 +322,36 @@ let take = null;
   // the same again from a fresh state: the same pose, number for number
   const r2 = run('head', names, frames, { locals: true });
   ok(r2.locals.length === r.locals.length && r2.locals.every((l, i) => l.every((v, k) => v === r.locals[i][k])), '\'head\': the same targets and steps give the same pose (twice, number for number)');
+}
+
+// ---- 'head' standing with a head bob and a sway (the legs straight at rest: a planted foot is out of reach as soon as
+// the hips rise, which made both feet hop before v164), then moving faster than a walk (gliding)
+{
+  const names = ['hmd', 'lctl', 'rctl'];
+  const bob = at30(0, 4, t => ({ y: t < 0.5 ? 0 : 0.025 * Math.sin(2 * Math.PI * 1.8 * t) + 0.012, x: t < 0.5 ? 0 : 0.03 * Math.sin(2 * Math.PI * 0.5 * t) }));
+  const r = run('head', names, bob);
+  let flat = 0, up = 0, both = true;
+  const plant = r.frames[0].foot.map(p => p.clone());
+  for (const f of r.frames) {
+    if (!f.on || !f.on[0] || !f.on[1]) both = false;
+    for (const k of [0, 1]) { flat = Math.max(flat, Math.hypot(f.foot[k].x - plant[k].x, f.foot[k].z - plant[k].z)); up = Math.max(up, f.foot[k].y - plant[k].y); }
+  }
+  console.log(`'head' standing, the head bobbing up to 3.7 cm over its rest and swaying 3 cm: ${r.st.n} steps; the feet moved at most ${mm(flat)} along the floor and lifted ${mm(up)}`);
+  ok(!r.why && r.st.n === 0 && both, '\'head\': standing with a head bob and a sway, the legs straight at rest: no steps, both feet planted (no hop)', JSON.stringify({ steps: r.st.n, both, why: r.why }));
+  ok(flat <= 0.005, '\'head\': standing with a head bob and a sway: the feet do not slide along the floor (under 5 mm)', mm(flat));
+  // at 1.6 m/s forward for 2 s (the rig at rest carried along), then standing
+  const fast = at30(0, 4, t => ({ z: 1.6 * Math.min(Math.max(t - 0.5, 0), 2) }));
+  const g = run('head', names, fast);
+  let glided = 0, stepsGliding = 0, lag = 0, after = 0;
+  g.frames.forEach((f, i) => {
+    const st = f.glide;
+    if (st) { glided++; if (f.started >= 0) stepsGliding++; }
+    if (st && f.t > 1.2 && f.t < 2.4) { const hz = fast[i][1].z; lag = Math.max(lag, ...f.foot.map(p => Math.abs(p.z - hz))); }   // (once it glides steadily)
+    if (f.t > 3.2 && f.started >= 0) after++;
+  });
+  console.log(`'head' at 1.6 m/s: gliding ${glided} of ${g.frames.length} frames, ${stepsGliding} steps meanwhile, the feet at most ${mm(lag)} from under the hips once gliding steadily; ${after} steps 0.7 s after stopping`);
+  ok(!g.why && glided >= 45 && stepsGliding === 0 && lag <= 0.1, '\'head\': faster than a walk, the feet glide under the hips (no steps)', JSON.stringify({ glided, stepsGliding, lag }));
+  ok(!g.frames[g.frames.length - 1].glide && after === 0, '\'head\': slow again, it stops gliding and the feet settle', JSON.stringify({ after }));
 }
 
 // ---- a take: the solved bones sampled and made a clip, played back on the rig

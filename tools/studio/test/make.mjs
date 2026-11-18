@@ -43,7 +43,7 @@
 //               model in centimetres, whose GLB has a turn and a scale baked in)
 //   layout.json the wall with Door, a cut-out a cube (Doorway) in front of it shows (the wall opens as you walk up),
 //               two boxes of one file, the first with a Hole in a corner, the dancer and the figure
-// and the fifth, tools/studio/test/scenes/puppet/, for the trackers' solver (tools/studio/engine/ik.js, checked by
+// and the fifth, tools/studio/test/scenes/puppet/, for the trackers' solver (ik.js at the repository's root, checked by
 // tools/studio/test-ik.mjs; tools/trackers/SPEC.md, "The solver (ik.js)"):
 //   rig.glb     our own humanoid with Mixamo's bone names (mixamorig:Hips ... mixamorig:RightToe_End: 25 bones in a T-pose,
 //               facing +z, its hips 1 m up), each bone's frame as Mixamo's (y along the bone), under an Armature scaled
@@ -614,7 +614,7 @@ let ctotal = 0;
 fs.mkdirSync(cout, { recursive: true });
 for (const [f, b] of Object.entries(cfiles)) { fs.writeFileSync(path.join(cout, f), b); ctotal += b.length; }
 
-// ---- the puppet scene: a humanoid with Mixamo's bone names, for the trackers' solver (tools/studio/engine/ik.js)
+// ---- the puppet scene: a humanoid with Mixamo's bone names, for the trackers' solver (ik.js at the repository's root)
 // (quaternions as [x, y, z, w], three.js's order: qm(a, b) is a then b applied first, qv turns a vector)
 const qm = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
   a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];

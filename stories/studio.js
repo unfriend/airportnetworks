@@ -20705,8 +20705,10 @@ function makeConverter(THREE, hooks) {
 // ================================================================ IK ==
 // The puppet's solver (tools/trackers/SPEC.md, "The studio, phase 3" and "The solver (ik.js)"): a character rigged by
 // Mixamo worn with trackers, a headset and controllers. A plain module like convert.js and images.js: one function of
-// THREE, no DOM, nothing fetched or drawn, run in Node by tools/studio/test-ik.mjs (not yet in tools/studio/build.mjs: the
-// studio does not use it yet). Everything is in three.js's world frame (the targets, the floor at y = cal.floor, up +y);
+// THREE, no DOM, nothing fetched or drawn, run in Node by tools/studio/test-ik.mjs. An app file at the repository's root
+// (v164): tools/studio/build.mjs pastes it into stories/studio.js (the studio's puppet), and the shell loads it for
+// people's bodies in a shared room (bodies.js poses each person by its 'head' setup). Everything is in three.js's world
+// frame (the targets, the floor at y = cal.floor, up +y);
 // the caller turns room or scene coordinates into it. A pose is { p: [x, y, z], q: [x, y, z, w] } (or Vector3 and
 // Quaternion). makeIK(THREE) gives:
 //   rigOf(root)         the humanoid's bones under root, found by Mixamo's names (mixamorig:Hips ... as three.js names
@@ -20736,7 +20738,8 @@ function makeConverter(THREE, hooks) {
 //                       legs by two-bone inverse kinematics to the hands and feet (the elbows and knees towards their
 //                       trackers where worn, else a natural bend: elbows down and back, knees forward), the hands and feet
 //                       turned as their targets; 'head' steps its feet (each planted until the hips have left it behind,
-//                       then moved in a short arc to a new place, one foot at a time). state ({} to start) carries what
+//                       then moved in a short arc to a new place, one foot at a time; gliding under the hips when they
+//                       move faster than a walk: state.glide). state ({} to start) carries what
 //                       must last between frames (the planted feet, the hips' heading, the last poses seen). Deterministic:
 //                       the same targets, dt and state give the same pose on every device. The toes and the top of the head
 //                       go back to rest; bones it does not know (fingers) keep their pose. -> { ok, why } (for 'head',
@@ -20969,7 +20972,7 @@ function makeIK(THREE) {
   for (const p of Object.keys(NAMES)) { WP[p] = V(); WQ[p] = Q(); RWQ[p] = Q(); }
   const QI = Q(), q1 = Q(), q2 = Q(), Dh = Q(), Dc = Q(), Dhd = Q(), Dn = Q(), Dq = Q(), v1 = V(), v2 = V(), v3 = V(), hip = V();
   const FW = V(), UW = V(), LW = V(), HD = V(), E = V(), UU = V(), VV = V(), HH = V(), HC = V(), PL = V(), PC = V(), KP = V(), H1 = V(), H2 = V();
-  const OFF = newPose(), TG = newPose();
+  const OFF = newPose(), TG = newPose(), HAVE = {};
   // a goal: the target's pose times its offset (the bone's pose)
   const goal = (t, c, out) => { OFF.p.set(c[0], c[1], c[2]); OFF.q.set(c[3], c[4], c[5], c[6]).normalize(); out.q.copy(t.q).multiply(OFF.q); out.p.copy(OFF.p).applyQuaternion(t.q).add(t.p); return out; };
   // a part's place, from its parent's (its rest offset turned and scaled by the parent)
@@ -21016,11 +21019,13 @@ function makeIK(THREE) {
     dt = fin(dt) && dt > 0 ? Math.min(dt, 0.25) : 0;
     // the goals: each slot's bone pose this frame (a target not seen this frame: its last pose seen)
     st.seen = st.seen || {};
-    const have = {};
+    const have = HAVE;
+    for (const sl in have) have[sl] = false;
     for (const sl in cal.cal) {
       const id = cal.map[sl], t = poseOf(targets && targets[id], TG) || (st.seen[sl] && poseOf(st.seen[sl], TG));
       if (!t) { if (S.need.includes(sl)) return { ok: false, why: `Nothing tracks the ${SLOT_WORD[sl]} yet.` }; continue; }
-      st.seen[sl] = { p: t.p.toArray(), q: t.q.toArray() };
+      const sn = st.seen[sl] || (st.seen[sl] = { p: [0, 0, 0], q: [0, 0, 0, 1] });   // (kept, not made anew each frame)
+      t.p.toArray(sn.p); t.q.toArray(sn.q);
       goal(t, cal.cal[sl], G[sl]); have[sl] = true;
     }
     const F = frameOf(rig, F0), B = rig.bones, R = rig.rest;
@@ -21075,9 +21080,8 @@ function makeIK(THREE) {
     // the feet: their targets, or ('head') stepped
     if (setup === 'head') steps(rig, cal, st, dt);
     // the arms and legs
-    const sides = [['l', 1], ['r', -1]];
-    for (const [s, sg] of sides) {
-      const L = rig.limbs[s + 'arm'];
+    for (let j = 0; j < 2; j++) {
+      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[s + 'arm'];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
       if (have[s + 'elbow']) KP.copy(G[s + 'elbow'].p).sub(WP[L.u]);
       else KP.copy(UW).multiplyScalar(-0.55).addScaledVector(FW, -0.75).addScaledVector(LW, 0.35 * sg).applyQuaternion(Dc);
@@ -21085,8 +21089,8 @@ function makeIK(THREE) {
       twoBone(rig, L, WP[L.u], G[s + 'hand'].p, a, b, KP, v2.copy(HC));
       WQ[L.e].copy(G[s + 'hand'].q);
     }
-    for (const [s, sg] of sides) {
-      const L = rig.limbs[s + 'leg'];
+    for (let j = 0; j < 2; j++) {
+      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[s + 'leg'];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
       if (have[s + 'knee']) KP.copy(G[s + 'knee'].p).sub(WP[L.u]);
       else { Dq.copy(G[s + 'foot'].q).multiply(q1.copy(RWQ[L.e]).invert()); KP.copy(FW).applyQuaternion(Dh).add(v2.copy(FW).applyQuaternion(Dq)).addScaledVector(v3.copy(LW).applyQuaternion(Dh), 0.1 * sg); }
@@ -21113,69 +21117,96 @@ function makeIK(THREE) {
   // ---- 'head': the stepping feet. Each foot is planted (on the floor, where it was put down) until the hips have left it
   // behind (its home, under the hips as at rest, more than STEP of the legs' length away, or turned more than 0.6 rad from
   // it, or the leg cannot reach it); then it steps, in a short arc over STEP_T, to its home a little ahead of where the hips
-  // are going. One foot at a time, by turns, unless a planted one cannot be reached at all
-  const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006;
-  const HOME = [newPose(), newPose()], RF = newPose(), RH = newPose(), FL = V();
+  // are going. One foot at a time, by turns. A foot the leg cannot reach steps at once only if a step would help (v164: the
+  // hips risen over both feet, a head bob or on tiptoe, is no reason; that made a rig with straight legs at rest hop, both
+  // feet forced up together) and only while the other is planted or landing (LAND of its step done), unless it is out of
+  // reach by JUMP of the legs' length.
+  // Faster than GLIDE[0] m/s along the floor (moving with the sticks) the feet glide under the hips, planted, until the hips
+  // slow under GLIDE[1] (no frantic stepping). Nothing is allocated here a frame but a step's start
+  const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006, LAND = 0.5, JUMP = 0.1, GLIDE = [1.2, 0.9], GLIDE_T = 0.06;
+  const HOME = [newPose(), newPose()], RF = newPose(), RH = newPose(), FL = V(), PF = [newPose(), newPose()];
+  const SIDES = ['l', 'r'], LEN = [0, 0], WANT = [0, 0], OVER = [0, 0], FORCED = [false, false];
   function steps(rig, cal, st, dt) {
-    const F = F0, sides = ['l', 'r'], rootY = rig.root.getWorldPosition(v3).y;
+    const F = F0, rootY = rig.root.getWorldPosition(v3).y;
     restAt(rig, F, rig.rp.hips, rig.rq.hips, RH);
-    const legs = sides.map(s => rig.limbs[s + 'leg']);
-    const len = legs.map(L => WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b);
+    for (let i = 0; i < 2; i++) { const L = rig.limbs[SIDES[i] + 'leg']; LEN[i] = WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b; }
     // the feet's homes: as at rest, under the hips (turned with them), on the floor
-    sides.forEach((s, i) => {
+    for (let i = 0; i < 2; i++) {
+      const s = SIDES[i];
       restAt(rig, F, rig.rp[s + 'foot'], rig.rq[s + 'foot'], RF);
       FL.copy(RF.p).sub(RH.p); FL.y = 0; FL.applyQuaternion(Dh);
       HOME[i].p.set(hip.x, cal.floor + RF.p.y - rootY, hip.z).add(FL);
       HOME[i].q.copy(Dh).multiply(RF.q);
-    });
+    }
     // the hips' velocity along the floor, smoothed
     if (!st.v) st.v = [0, 0];
     if (st.prev && dt > 0) {
       const k = 1 - Math.exp(-dt / 0.12);
       st.v[0] += ((hip.x - st.prev[0]) / dt - st.v[0]) * k; st.v[1] += ((hip.z - st.prev[2]) / dt - st.v[1]) * k;
     }
-    st.prev = hip.toArray();
+    if (!st.prev) st.prev = [0, 0, 0];
+    hip.toArray(st.prev);
     if (!st.feet) { st.feet = HOME.map(h => ({ p: h.p.toArray(), q: h.q.toArray(), on: true, k: 0, f: null, fq: null })); st.last = 1; st.n = 0; }
     st.started = -1; st.forced = false;
-    const P = st.feet.map(f => ({ p: V().fromArray(f.p), q: Q().fromArray(f.q) }));
-    const need = [0, 0], over = [0, 0];
-    sides.forEach((s, i) => {
-      const f = st.feet[i];
-      if (!f.on) return;
-      v2.copy(P[i].p).sub(WP[legs[i].u]);
-      over[i] = v2.length() - len[i];
-      v2.copy(P[i].p).sub(HOME[i].p); v2.y = 0;
-      need[i] = v2.length() / (STEP * len[i]) + Math.abs(headingOf(q1.copy(P[i].q).multiply(q2.copy(HOME[i].q).invert()))) / STEP_A;
-    });
-    const stepping = st.feet.some(f => !f.on);
-    const forced = [0, 1].filter(i => st.feet[i].on && over[i] > REACH * len[i]);
-    let go = -1;
-    if (forced.length) go = forced.length === 2 ? (over[0] >= over[1] ? 0 : 1) : forced[0];
-    else if (!stepping) {
-      const want = [0, 1].filter(i => need[i] >= 1);
-      if (want.length === 2) go = Math.abs(need[0] - need[1]) < 0.25 * Math.max(need[0], need[1]) ? 1 - st.last : (need[0] > need[1] ? 0 : 1);
-      else if (want.length) go = want[0];
+    for (let i = 0; i < 2; i++) { PF[i].p.fromArray(st.feet[i].p); PF[i].q.fromArray(st.feet[i].q); }
+    const sp = Math.hypot(st.v[0], st.v[1]);
+    st.glide = sp > (st.glide ? GLIDE[1] : GLIDE[0]);
+    if (st.glide) {
+      // (gliding: each foot eased to its home, led by the hips' velocity so it keeps up; a step on its way is let go)
+      const k = dt > 0 ? 1 - Math.exp(-dt / GLIDE_T) : 1;
+      for (let i = 0; i < 2; i++) {
+        const f = st.feet[i];
+        v2.copy(HOME[i].p); v2.x += st.v[0] * GLIDE_T; v2.z += st.v[1] * GLIDE_T;
+        PF[i].p.lerp(v2, k); PF[i].p.y = HOME[i].p.y; PF[i].q.slerp(HOME[i].q, k);
+        f.on = true; f.k = 0; f.f = f.fq = null;
+        PF[i].p.toArray(f.p); PF[i].q.toArray(f.q);
+      }
+    } else {
+      let stepping = -1;
+      for (let i = 0; i < 2; i++) {
+        const f = st.feet[i];
+        WANT[i] = OVER[i] = 0;
+        if (!f.on) { stepping = i; continue; }
+        // (how much nearer reach a step home would bring it: a hip risen over both the foot and its home gains nothing)
+        const hj = WP[rig.limbs[SIDES[i] + 'leg'].u];
+        OVER[i] = v2.copy(PF[i].p).sub(hj).length() - Math.max(LEN[i], v3.copy(HOME[i].p).sub(hj).length());
+        v2.copy(PF[i].p).sub(HOME[i].p); v2.y = 0;
+        WANT[i] = v2.length() / (STEP * LEN[i]) + Math.abs(headingOf(q1.copy(PF[i].q).multiply(q2.copy(HOME[i].q).invert()))) / STEP_A;
+      }
+      let nf = 0;
+      for (let i = 0; i < 2; i++) {
+        FORCED[i] = st.feet[i].on && OVER[i] > REACH * LEN[i] && (stepping < 0 || st.feet[stepping].k >= LAND || OVER[i] > JUMP * LEN[i]);
+        if (FORCED[i]) nf++;
+      }
+      let go = -1;
+      if (nf) go = nf === 2 ? (OVER[0] >= OVER[1] ? 0 : 1) : FORCED[0] ? 0 : 1;
+      else if (stepping < 0) {
+        const w0 = WANT[0] >= 1, w1 = WANT[1] >= 1;
+        if (w0 && w1) go = Math.abs(WANT[0] - WANT[1]) < 0.25 * Math.max(WANT[0], WANT[1]) ? 1 - st.last : (WANT[0] > WANT[1] ? 0 : 1);
+        else if (w0) go = 0;
+        else if (w1) go = 1;
+      }
+      if (go >= 0) {
+        const f = st.feet[go];
+        Object.assign(f, { on: false, k: 0, f: f.p.slice(), fq: f.q.slice() });
+        st.last = go; st.n++; st.started = go; st.forced = FORCED[go];
+      }
+      // the feet on their way: towards home plus where the hips will be by the time it lands
+      for (let i = 0; i < 2; i++) {
+        const f = st.feet[i];
+        if (f.on) continue;
+        f.k = Math.min(1, f.k + dt / STEP_T);
+        const lead = Math.min(0.3 * LEN[i], sp * STEP_T * 0.6), u = sp || 1;
+        v2.copy(HOME[i].p); v2.x += st.v[0] / u * lead; v2.z += st.v[1] / u * lead;
+        const e = smooth(0, 1, f.k);
+        v3.fromArray(f.f);
+        PF[i].p.copy(v3).lerp(v2, e); PF[i].p.y += LIFT * LEN[i] * Math.sin(Math.PI * f.k);
+        PF[i].q.fromArray(f.fq).slerp(HOME[i].q, e);
+        if (f.k >= 1) { PF[i].p.copy(v2); PF[i].q.copy(HOME[i].q); f.on = true; f.f = f.fq = null; }
+        PF[i].p.toArray(f.p); PF[i].q.toArray(f.q);
+      }
     }
-    if (go >= 0) {
-      const f = st.feet[go];
-      Object.assign(f, { on: false, k: 0, f: f.p.slice(), fq: f.q.slice() });
-      st.last = go; st.n++; st.started = go; st.forced = forced.includes(go);
-    }
-    // the feet on their way: towards home plus where the hips will be by the time it lands
-    sides.forEach((s, i) => {
-      const f = st.feet[i];
-      if (f.on) return;
-      f.k = Math.min(1, f.k + dt / STEP_T);
-      const lead = Math.min(0.3 * len[i], Math.hypot(st.v[0], st.v[1]) * STEP_T * 0.6), sp = Math.hypot(st.v[0], st.v[1]) || 1;
-      v2.copy(HOME[i].p); v2.x += st.v[0] / sp * lead; v2.z += st.v[1] / sp * lead;
-      const e = smooth(0, 1, f.k);
-      v3.fromArray(f.f);
-      P[i].p.copy(v3).lerp(v2, e); P[i].p.y += LIFT * len[i] * Math.sin(Math.PI * f.k);
-      P[i].q.fromArray(f.fq).slerp(HOME[i].q, e);
-      if (f.k >= 1) { P[i].p.copy(v2); P[i].q.copy(HOME[i].q); f.on = true; f.f = f.fq = null; }
-      f.p = P[i].p.toArray(); f.q = P[i].q.toArray();
-    });
-    sides.forEach((s, i) => { G[s + 'foot'].p.copy(P[i].p); G[s + 'foot'].q.copy(P[i].q); });
+    for (let i = 0; i < 2; i++) { G[SIDES[i] + 'foot'].p.copy(PF[i].p); G[SIDES[i] + 'foot'].q.copy(PF[i].q); }
   }
 
   // ---- takes: the bones as solved, sampled, made into a clip

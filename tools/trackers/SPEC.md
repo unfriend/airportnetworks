@@ -259,7 +259,7 @@ What the shell does with it:
   at hip height, chest, elbows and knees by height and side; changeable on the card), the character moved along the floor
   to where the performer stands (its parts at rest, on average, where their trackers are: built in v126), scaled so its
   hips (or for `feet` its eyes) are as high as the performer's, and each part's offset taken. One Undo step.
-- The solver (`tools/studio/engine/ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
+- The solver (`ik.js`, a plain module like `convert.js`, also run in Node by its test): hips from
   their tracker (place and turn); the spine bent between the hips and the chest (or the head) tracker; neck and head
   from the head tracker (or headset); arms and legs by two-bone inverse kinematics to the hand and foot targets, the elbows
   and knees towards their trackers where worn, else a natural bend; hands and feet turned as their targets; the hips
@@ -273,7 +273,7 @@ What the shell does with it:
 
 ## The solver (`ik.js`)
 
-Built in v125 as phase 3's groundwork: `tools/studio/engine/ik.js`, a plain module like `convert.js` and `images.js`
+Built in v125 as phase 3's groundwork: `ik.js`, a plain module like `convert.js` and `images.js`
 (`makeIK(THREE)`: no DOM, nothing fetched or drawn), checked in Node by `tools/studio/test-ik.mjs`. In
 `tools/studio/build.mjs` since v126, used by `tools/studio/engine/e6l_puppet.js`. Its contract is
 the comment at its top. Everything is in three.js's world frame (the targets, the floor, up +y): the studio turns room

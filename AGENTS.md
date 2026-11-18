@@ -393,7 +393,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
 | `node tools/studio/test-images.mjs` | after changing `tools/studio/engine/images.js` or `test/pictures.mjs` |
-| `node tools/studio/test-ik.mjs` | after changing `tools/studio/engine/ik.js` or the puppet in `test/make.mjs` |
+| `node tools/studio/test-ik.mjs` | after changing `ik.js` or the puppet in `test/make.mjs` |
 
 Real-headset behaviour (controllers, session hand-over between stories, placement, comfort, sound) can only be
 confirmed on a device: say so when you report results.

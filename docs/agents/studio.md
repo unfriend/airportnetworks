@@ -1388,7 +1388,7 @@ and the stream plays everywhere at the shell's level. Never fetched or decoded (
   *None*, the tracker (a list by the room's names, else serials), *Snap onto it*; choosing keeps it where it stands, None
   leaves it where the tracker had it; one Undo step each, refused while locked in place. A sound may follow it. A copy
   follows no tracker; a GLB switch turns the offset by the baked turn (`switchedRec`).
-- **A character worn with trackers** (phase 3; `engine/e6l_puppet.js` with `engine/ik.js`): an object rigged with
+- **A character worn with trackers** (phase 3; `engine/e6l_puppet.js` with `ik.js`, at the repository's root): an object rigged with
   Mixamo's bone names (`IK.rigOf`; others told why on the card) may carry `puppet` `{ on, rig: 'full' | 'feet', by, map,
   cal, s, floor }` (`'head'`, a headset alone, waits). *Wear it: whole body* (6 to 11 trackers) or *feet and headset* (a
   tracker on each foot; the head and hands from the PC's Index, `by` `'index'`, its kinds `'h'`, `'l'`, `'r'` in the

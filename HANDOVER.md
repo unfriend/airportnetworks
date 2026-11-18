@@ -95,7 +95,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
       lose one name (the last writer wins).
     - A take from a model in centimetres (an FBX): whether the converter scales the hips' place keys when it bakes the
       model's scale is unchecked.
-    - The solver (`tools/studio/engine/ik.js`): with six trackers the upper arms' and forearms' twist can be up to 12
+    - The solver (`ik.js`): with six trackers the upper arms' and forearms' twist can be up to 12
       degrees off (only bends about the elbow and knee hinges are tested); `IK.calibrate` works the scale out from the
       size the character has now (the studio calibrates again at its record's scale, so it holds there); the headset
       alone with stepping legs (`'head'`) steps too often and is not offered (deferred: item 7 of "Decisions for the owner").
@@ -663,7 +663,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     closer, side by side with its lighter version); the scene at a circle on the room's frame (moving the circle moves
     nothing; *Move the scene to this circle* for older layouts); recordings up to ten minutes as files of the scene
     (`recordings/`) and a voice recorded with the movement; cut-out boxes without their see-through fill (the frame rate
-    while editing); ghosts for models their own clip moves; the trackers' solver (`engine/ik.js`, groundwork, not in the
+    while editing); ghosts for models their own clip moves; the trackers' solver (`engine/ik.js`, now `ik.js` at the root, groundwork, not in the
     build; in the build since v126).
   - By hand at the merge: the studio's sticks move nothing while a path is recorded (the review's finding: the move would
     go into the path); a story's stick travel is taken back as the studio comes on show.

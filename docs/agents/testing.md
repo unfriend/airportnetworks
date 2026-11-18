@@ -2169,7 +2169,7 @@ three shaded pieces on black: the covered texels unchanged, no black left, the t
 its edge colours, alpha kept or filled, a picture drawn down 2 and 4 times with a dark halo without `rim` and none with
 it, a strip two texels wide keeping its own, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
 `tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`). `node tools/studio/test-ik.mjs` (under a
-second, no browser) checks the trackers' solver (`tools/studio/engine/ik.js`) on the puppet test scene's rig loaded twice,
+second, no browser) checks the trackers' solver (`ik.js`) on the puppet test scene's rig loaded twice,
 one walking as the performer: the parts found (and refused in words), which tracker is which from a T-pose, and every
 frame of the whole body (6 and 11 trackers, a performer 1.1 times the size), the feet and a headset, and a headset alone
 (stepped feet) against the truth, the same output twice, and a take replayed; run it after changing `ik.js` or the
