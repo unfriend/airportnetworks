@@ -22,6 +22,7 @@
 // --only 'studio streams': streams on a card (values of an item to the output page as MIDI and OSC), out.value(), v158;
 // --only 'studio loops': loops on the beat: the room's beat with bars, paths and sequences on the beat, Record on the beat, press and send events, Record events, v158;
 // --only 'studio trails': trails of light behind items and people's hands, for everyone at the circle, v158;
+// --only 'studio walks': an object's clip played by the distance it covers (As it moves), its stride and standing, v164;
 // --only 'studio live': the room's live sound heard (Opus frames encoded in the test, decoded by the shell) and a studio item set to Live sound, v162;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
@@ -7351,6 +7352,212 @@ if (runs('studio paths')) {
     await until('STUDIO.ready()', 60000);
     await rp.close();
   });
+}
+// The studio's clip by distance, As it moves (v164; tools/studio/SPEC.md, "As it moves"), on a page of its own at the walks
+// test scene (tools/studio/test/scenes/walks, made by tools/studio/test/make.mjs: the neon walker's Walk in place, Idle and
+// Walk forward; Walker on a recorded path, Follower following it): norm's rules for anim 'move', idle and strideK, the state
+// and layout.json both ways, a copy keeping them; the stride measured from the walk in place (within 6 % of its 1.27 m by
+// design) and its feet together where it stands, Walk forward's root motion measured (within 2 %) and taken out of what plays;
+// on its recorded path the clip's time following the path's distance at the path's own moment (its timeline held and
+// scrubbed), Idle where the path stands still and at the end of a path played once, walking again, Pause holding it; moved by
+// hand (forward on, backwards back, sideways on by its size, a jump nothing), standing with its walk held at its feet
+// together; the cards' rows on the page and the headset, one Undo step each, no clip timeline (the path's kept)
+if (runs('studio walks')) {
+  const wp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  wp.on('pageerror', e => errors.push('studio walks: ' + (e.stack || e.message)));
+  wp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio walks: ' + m.text()); });
+  const ss = s => wp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => wp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio walks: ' + b)); };
+  // (in the page: frames run at a held scene clock T, n of them 1/30 s apart from the clock's now on; the walk's own numbers)
+  const HELP = `window.__wk = window.__wk || {
+    now: performance.now(),
+    run: (n, T, each) => { const sc = sceneClock; try { for (let i = 0; i < n; i++) { const t = window.__wk.now += 1000 / 30; if (each) each(i); sceneClock = () => (typeof T === 'function' ? T(i) : T); itemsStep(1 / 30, t); } } finally { sceneClock = sc; } },
+    frac: x => x - Math.floor(x),
+    // the path's distance along the floor at its moment s, from its keys (its placed turn none: as placed in the scene)
+    dist: (K, s) => { let d = 0; for (let i = 1; i < K.length; i++) { const a = K[i - 1], b = K[i], L = Math.hypot(b[1] - a[1], b[3] - a[3]); if (s >= b[0]) d += L; else { if (s > a[0]) d += L * (s - a[0]) / (b[0] - a[0]); break; } } return d; },
+  }`;
+  await step('studio walks: the scene loads; norm\'s rules for As it moves (anim move, idle, strideK), the state and layout.json both ways, a copy keeping them', async () => {
+    await wp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=walks&edit');
+    await wp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STUDIO.ready() && !!STU.items.get('wlk001') && !!STU.items.get('wlk001').model && !!STU.items.get('wlk002') && !!STU.items.get('wlk002').model && !!STUDIO.walk('wlk001')`, 120000)) { bad(['the walks scene did not load']); return; }
+    await ss(`(${HELP}, setEdit(true), 0)`);
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, n = x => norm('o', Object.assign({ file: 'walker.glb', p: [0, 0, 0], clip: 'Walk' }, x), 'abcdef');
+      const a = n({ anim: 'move', idle: 'Idle', strideK: 1.234 });
+      if (!a || a.anim !== 'move' || a.idle !== 'Idle' || a.strideK !== 1.23) o.push('kept: ' + J(a));
+      const b = n({ anim: 'move', idle: '', strideK: 1 });
+      if (!b || 'idle' in b || 'strideK' in b) o.push('none and 1 not dropped: ' + J(b));
+      if (n({ strideK: 9 }).strideK !== 2 || n({ strideK: 0.1 }).strideK !== 0.5 || n({ idle: 'x'.repeat(200) }).idle.length !== 120) o.push('not held at its limits');
+      for (const x of [{ anim: 'walk' }, { idle: 5 }, { idle: ['Idle'] }, { strideK: -1 }, { strideK: 0 }, { strideK: '1.2' }]) if (n(x) !== null) o.push('not bad: ' + J(x));
+      if (!n({ idle: null }) || 'idle' in n({ idle: null }) || 'strideK' in n({ strideK: null })) o.push('null taken as none');
+      if (n({ anim: 'move' }).anim !== 'move' || n({}).anim !== 'loop') o.push('anim: ' + J([n({ anim: 'move' }), n({})]));
+      // the state, both ways (a stride's factor from the room taken), layout.json both ways
+      const w = STU.items.get('wlk001'), st = collabState();
+      if (!st['o.wlk001'] || st['o.wlk001'].anim !== 'move' || st['o.wlk001'].idle !== 'Idle') o.push('the state: ' + J(st['o.wlk001']).slice(0, 200));
+      const st2 = JSON.parse(J(st)); st2['o.wlk001'].strideK = 1.4; st2['o.wlk001'].idle = 'Walk forward';
+      collabApply(st2);
+      if (w.rec.strideK !== 1.4 || w.rec.idle !== 'Walk forward') o.push('from the room: ' + J([w.rec.strideK, w.rec.idle]));
+      collabApply(JSON.parse(J(st)));
+      if ('strideK' in w.rec || w.rec.idle !== 'Idle') o.push('back from the room: ' + J([w.rec.strideK, w.rec.idle]));
+      const L = layoutOut(), lw = L.objects.find(x => x.id === 'wlk001'), back = readLayout(JSON.parse(J(L))), bw = back.items.find(x => x.id === 'wlk001');
+      if (!lw || lw.anim !== 'move' || lw.idle !== 'Idle' || !bw || J(bw.rec) !== J(w.rec) || back.bad) o.push('layout.json: ' + J([lw && lw.anim, lw && lw.idle, back.bad]));
+      // a copy keeps them (one Undo step), Undo takes it away
+      setRec('wlk001', { strideK: 0.9 });
+      const u0 = UNDO.length, nid = duplicateItem('wlk001'), c = STU.items.get(nid);
+      if (!c || c.rec.anim !== 'move' || c.rec.idle !== 'Idle' || c.rec.strideK !== 0.9 || UNDO.length !== u0 + 1) o.push('a copy: ' + J(c && c.rec).slice(0, 200));
+      undo(); setRec('wlk001', { strideK: undefined });
+      if (STU.items.has(nid)) o.push('Undo kept the copy');
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio walks: the stride measured from the walk in place (within 6 % of its 1.27 m by design), its feet together where it stands; Walk forward\'s root motion measured (within 2 %) and taken out of what plays', async () => {
+    await ss(`(putItem('wlk003', 'o', norm('o', { name: 'Strider', file: 'walker.glb', p: [2.5, 0, -3], clip: 'Walk forward', anim: 'move' })), 0)`);
+    if (!await until(`!!STU.items.get('wlk003').model && !!STUDIO.walk('wlk003')`, 30000)) { bad(['Strider did not walk']); return; }
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, V = () => new THREE.Vector3(), w = STUDIO.walk('wlk001'), it = STU.items.get('wlk001'), W = it.gait, mo = it.model.o;
+      if (w.how !== 'feet' || Math.abs(w.measured / 1.2667 - 1) > 0.06 || w.dir !== 1 || w.root || w.flat || Math.abs(w.stride - w.measured) > 1e-9) o.push('the walk in place: ' + J(w));
+      // (its feet where it stands, and at its start: along its facing, in its own frame)
+      const feetAt = (clip, t) => {
+        const mx = new THREE.AnimationMixer(mo), a = mx.clipAction(clip); a.play(); a.time = t; mx.update(0); mo.updateMatrixWorld(true);
+        const p = ['mixamorigLeftFoot', 'mixamorigRightFoot', 'mixamorigHips'].map(nm => it.holder.worldToLocal(mo.getObjectByName(nm).getWorldPosition(V())));
+        mx.stopAllAction(); mx.uncacheRoot(mo); return p;
+      };
+      const st = feetAt(W.clip, W.stand), apart = Math.max(...[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(f => { const p = feetAt(W.clip, f * 1.0999); return Math.abs(p[0].z - p[1].z); }));
+      if (!(Math.abs(st[0].z - st[1].z) < 0.15 * apart) || !(apart > 0.5)) o.push('its feet together: ' + J([st[0].z - st[1].z, apart]));
+      if (w.idle !== 'Idle' || STUDIO.walk('wlk003').idle !== '') o.push('its standing clips: ' + J([w.idle, STUDIO.walk('wlk003').idle]));
+      // Walk forward: its hips go 1.27 m a cycle; what plays keeps them in place (the bob and sway only)
+      const f = STUDIO.walk('wlk003'), F = STU.items.get('wlk003').gait, orig = it.E.clips.find(c => c.name === 'Walk forward');
+      if (f.how !== 'root' || Math.abs(f.root / 1.2667 - 1) > 0.02 || Math.abs(f.measured - f.root) > 1e-9 || !f.flat) o.push('Walk forward: ' + J(f));
+      const h0 = feetAt(F.clip, 0)[2], h1 = feetAt(F.clip, 1.0999)[2], g0 = feetAt(orig, 0)[2], g1 = feetAt(orig, 1.0999)[2];
+      if (Math.hypot(h1.x - h0.x, h1.z - h0.z) > 0.01 || Math.abs(Math.hypot(g1.x - g0.x, g1.z - g0.z) / 1.2667 - 1) > 0.02) o.push('its travel taken out: ' + J([h1.z - h0.z, g1.z - g0.z]));
+      removeItem('wlk003');
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio walks: on its recorded path the clip follows the path\'s distance at its moment (its timeline held and scrubbed), Idle where the path stands still and at the end of a path played once, walking again; Pause holding it', async () => {
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, H = window.__wk, it = STU.items.get('wlk001'), P = it.rec.path, K = P.k;
+      select('wlk001');
+      const tot = H.dist(K, 1e9), used = tot / Math.round(tot / STUDIO.walk('wlk001').stride);
+      // held at moments along its path: the clip where its distance has it, one cycle a stride (the stride fitted to the loop)
+      for (const t of [2.4, 3.0, 3.3, 5.5, 8.0]) {
+        animSet(it, t, false, true, 'path'); H.run(12, 99);
+        const w = STUDIO.walk('wlk001'), d = H.dist(K, t), want = H.frac(d / used), got = w.time / w.dur;
+        if (w.on !== 'path' || Math.abs(w.used - used) > 1e-6 || Math.abs(w.d - d) > 0.002 || Math.min(Math.abs(got - want), 1 - Math.abs(got - want)) > 0.002 || w.k !== 1 || Math.abs(w.w - 1) > 1e-6) o.push('held at ' + t + ': ' + J([w.on, w.d, d, got, want, w.k, w.w]));
+      }
+      // scrubbed: a tenth of a second on, the clip goes on by what it covers
+      animSet(it, 3.0, false, true, 'path'); H.run(1, 99); const a = STUDIO.walk('wlk001').time;
+      animSet(it, 3.1, false, true, 'path'); H.run(1, 99); const b = STUDIO.walk('wlk001').time;
+      const dd = H.frac((H.dist(K, 3.1) - H.dist(K, 3.0)) / used) * 1.1;
+      if (Math.abs(H.frac((b - a) / 1.1) * 1.1 - dd) > 0.003) o.push('scrubbed: ' + J([a, b, dd]));
+      // its still start: it stands with Idle (its walk's weight gone over 0.3 s), on the scene's clock
+      animSet(it, 1.0, false, true, 'path'); H.run(5, 99);
+      const half = STUDIO.walk('wlk001'); H.run(10, 7.5);
+      const s1 = STUDIO.walk('wlk001');
+      if (!(half.k > 0.3 && half.k < 0.9) || s1.k !== 0 || s1.w !== 0 || Math.abs(s1.wIdle - 1) > 1e-6 || s1.idle !== 'Idle' || Math.abs(s1.idleTime - 7.5 % 3.2) > 1e-3) o.push('standing on its still start: ' + J([half.k, s1.k, s1.w, s1.wIdle, s1.idle, s1.idleTime]));
+      animSet(it, 4.0, false, true, 'path'); H.run(12, 99);
+      if (STUDIO.walk('wlk001').k !== 1) o.push('walking again: ' + STUDIO.walk('wlk001').k);
+      // Pause: the frame it shows held (its path's hold still shows, scrubbing the walk)
+      ANIM.mineP = null; H.run(3, 4.0);
+      MPAUSE.on = true; const t0 = STUDIO.walk('wlk001').time; H.run(5, 4.6); const t1 = STUDIO.walk('wlk001').time;
+      animSet(it, 5.0, false, true, 'path'); H.run(2, 4.6); const t2 = STUDIO.walk('wlk001').time;
+      MPAUSE.on = false;
+      if (t1 !== t0 || Math.abs(t2 - H.frac(H.dist(K, 5.0) / used) * STUDIO.walk('wlk001').dur) > 0.003) o.push('Pause: ' + J([t0, t1, t2]));
+      ANIM.mineP = null;
+      // played once: walking on its way, standing with Idle at its end
+      setRec('wlk001', { path: Object.assign({}, P, { play: 'once' }) });
+      H.run(12, 3.5);
+      const on = STUDIO.walk('wlk001'), dOnce = H.dist(K, 3.5);
+      H.run(15, 60);
+      const end = STUDIO.walk('wlk001');
+      if (on.k !== 1 || Math.abs(on.d - dOnce) > 0.002 || Math.abs(on.used - on.stride) > 1e-9 || end.k !== 0 || end.wIdle !== 1 || Math.abs(end.d - tot) > 0.002) o.push('played once: ' + J([on.k, on.d, dOnce, on.used, on.stride, end.k, end.wIdle, end.d, tot]));
+      setRec('wlk001', { path: P });
+      // the follower follows by what it is drawn doing: walking while it moves
+      const fo = STUDIO.walk('wlk002');
+      if (!fo || fo.on !== 'drawn' || fo.idle !== 'Idle') o.push('the follower: ' + J(fo));
+      select('');
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio walks: moved by hand (forward plays it on, backwards back, sideways on by its size, a jump nothing), standing with its walk held where its feet are together, walking again', async () => {
+    await ss(`(putItem('wlk004', 'o', norm('o', { name: 'Carried', file: 'walker.glb', p: [2.5, 0, -2], clip: 'Walk', anim: 'move' })), 0)`);
+    if (!await until(`!!STU.items.get('wlk004').model && !!STUDIO.walk('wlk004')`, 30000)) { bad(['Carried did not walk']); return; }
+    const r = await ss(`(() => {
+      const o = [], J = JSON.stringify, H = window.__wk, it = STU.items.get('wlk004'), hp = it.holder.position, W = it.gait;
+      H.run(20, 5);
+      const s0 = STUDIO.walk('wlk004');
+      if (s0.on !== 'drawn' || s0.k !== 0 || s0.w !== 0 || s0.wIdle !== 1 || s0.idle !== '' || Math.abs(s0.idleTime - W.stand) > 1e-9) o.push('standing still: ' + J(s0));
+      const d0 = s0.d, ph = d => { const w = STUDIO.walk('wlk004'); return Math.abs(H.frac(w.time / w.dur) - H.frac(d / w.stride)); };
+      H.run(15, 5, () => { hp.z += 0.04; });
+      const f = STUDIO.walk('wlk004');
+      if (Math.abs(f.d - d0 - 0.6) > 1e-6 || f.k !== 1 || Math.abs(f.v - 1.2) > 0.1 || Math.min(ph(f.d), 1 - ph(f.d)) > 1e-6) o.push('forward: ' + J([f.d - d0, f.k, f.v]));
+      H.run(10, 5, () => { hp.z -= 0.04; });
+      const b = STUDIO.walk('wlk004');
+      if (Math.abs(b.d - d0 - 0.2) > 1e-6 || b.k !== 1) o.push('backwards: ' + J([b.d - d0, b.k]));
+      H.run(10, 5, () => { hp.x += 0.04; });
+      const s = STUDIO.walk('wlk004');
+      if (Math.abs(s.d - d0 - 0.6) > 1e-6) o.push('sideways: ' + J([s.d - d0]));
+      H.run(1, 5, () => { hp.z += 3; });
+      if (Math.abs(STUDIO.walk('wlk004').d - s.d) > 1e-9) o.push('a jump counted: ' + (STUDIO.walk('wlk004').d - s.d));
+      H.run(30, 5);
+      const st = STUDIO.walk('wlk004');
+      if (st.k !== 0 || st.wIdle !== 1 || st.w !== 0) o.push('standing again: ' + J([st.k, st.v, st.wIdle]));
+      // its stride: Longer on its card, scaled with its size
+      setRec('wlk004', { strideK: 1.2, s: 2 });
+      H.run(2, 5);
+      if (Math.abs(STUDIO.walk('wlk004').stride - W.stride * 2.4) > 1e-9) o.push('its stride with its size and factor: ' + J([STUDIO.walk('wlk004').stride, W.stride]));
+      removeItem('wlk004');
+      return o;
+    })()`);
+    bad(r);
+  });
+  await step('studio walks: the cards\' rows on the page and the headset (As it moves, Standing, Stride: Shorter, Longer, As measured), one Undo step each; no clip timeline, the path\'s kept', async () => {
+    const out = [];
+    const pg = await ss(`(() => {
+      const o = [], J = JSON.stringify, rows = () => paneBlocks('item').filter(b => b.row).flatMap(b => b.row.map(t => Object.assign({ label0: b.label || '' }, t)));
+      select('wlk001'); X.tab = 'item'; renderPanes();
+      const R = rows(), get = id => R.find(t => t.id === id), lab = paneBlocks('item').map(b => b.label || '').filter(Boolean);
+      if (!get('anim:move') || !get('anim:move').on || get('anim:loop').on) o.push('Animation: ' + J(get('anim:move')));
+      if (!get('widle') || get('widle').label !== 'Idle ▸' || !get('widle').on || get('widle:still').on) o.push('Standing: ' + J([get('widle'), get('widle:still')]));
+      if (!lab.some(l => /^Stride: 1\\.\\d+ m$/.test(l)) || !get('wstride:-') || !get('wstride:+') || get('wstride:0')) o.push('Stride: ' + J(lab));
+      if (get('an:play') || !get('ap:play')) o.push('timelines: the clip\\'s ' + !!get('an:play') + ', the path\\'s ' + !!get('ap:play'));
+      if (!paneBlocks('item').some(b => b.p && /^As it moves: its clip follows the distance it covers/.test(b.p))) o.push('no words on how it walks');
+      return o;
+    })()`);
+    out.push(...pg);
+    // the page's buttons: Longer, As measured, the next standing clip, Still, Loop (its clip timeline back, Standing gone), As it moves
+    const u0 = await ss('UNDO.length');
+    const seq = [['wstride:+', 'strideK', 1.05], ['wstride:0', 'strideK', undefined], ['widle', 'idle', 'Walk forward'], ['widle:still', 'idle', undefined], ['anim:loop', 'anim', 'loop'], ['anim:move', 'anim', 'move'], ['widle', 'idle', 'Idle']];
+    for (const [id, k, v] of seq) {
+      await ss('renderPanes()');
+      const el = await wp.$(`#pane-item [data-id="${id}"]`);
+      if (!el) { out.push('the page has no ' + id); continue; }
+      await el.click();
+      const got = await ss(`STU.items.get('wlk001').rec[${JSON.stringify(k)}]`);
+      if (got !== v) out.push(`the page's ${id}: ${k} ${JSON.stringify(got)}`);
+      if (id === 'anim:loop') { await ss('renderPanes()'); const s = await ss(`[!!document.querySelector('#pane-item [data-id="widle"]'), !!document.querySelector('#pane-item [data-id="an:play"]')]`); if (s[0] || !s[1]) out.push('Loop: ' + JSON.stringify(s)); }
+    }
+    if (await ss('UNDO.length') !== u0 + seq.length) out.push('not one Undo step each: ' + ((await ss('UNDO.length')) - u0));
+    if (await ss(`!!STUDIO.walk('wlk001') && !('strideK' in STU.items.get('wlk001').rec)`) !== true) out.push('the walk after the page\'s buttons');
+    // the headset's card: Shorter, Still, the next standing clip, As measured
+    const xr = await ss(`(() => {
+      XR.on = true;
+      const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
+      const find = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q) return q; } return null; };
+      const press = id => { const q = find(id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } X.scroll = {}; return false; };
+      select('wlk001'); X.tab = 'item'; X.scroll = {}; draw();
+      const w = STU.items.get('wlk001'), r = [!!find('anim:move'), press('wstride:-'), w.rec.strideK, press('widle:still'), w.rec.idle, press('widle'), w.rec.idle, press('wstride:0'), w.rec.strideK];
+      XR.on = false; select(''); X.tab = 'scene'; renderPanes();
+      return r;
+    })()`);
+    if (JSON.stringify(xr) !== JSON.stringify([true, true, 0.95, true, null, true, 'Idle', true, null])) out.push('the headset\'s rows: ' + JSON.stringify(xr));
+    bad(out);
+  });
+  await wp.close();
 }
 // The studio's recorder (v125, tools/studio/SPEC.md, "Recorded paths": "Ten minutes, as a file" and "A voice with the
 // movement"), on a page of its own served by a relay of its own (--static . --scenes on a temporary copy of the test scene:

@@ -408,6 +408,8 @@ const STUDIO = {
   // its rig, record, whether it is lined up and solved, why not, its lining up and take under way (e6l_puppet.js)
   trk: id => trkState(id),
   puppet: id => pupState(id),
+  // an object's walk as it moves (v164, e6y_walks.js): how its stride was measured and what it is, where it stands in it
+  walk: id => gaitState(id),
   // the pictures trigger cubes put on objects (e6i_tex.js): those read, and with an object's id what it shows now (its
   // entries on, and every material's pictures by slot, lit and as scanned)
   tex: id => texState(id),

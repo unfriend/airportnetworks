@@ -63,7 +63,8 @@ function norm(kind, x, id) {
     if (has('s') && !(fin(x.s) && x.s > 0)) return null;
     const s = has('s') ? +Math.min(1e4, Math.max(1e-4, x.s)).toPrecision(4) : 1;
     const r = { name: name(stem(x.file)), file: x.file, p: P, q, s, light: one('light', ['lit', 'scan'], 'lit'), clip: !has('clip') ? '' : typeof x.clip === 'string' ? x.clip.slice(0, 120) : null,
-      anim: one('anim', ['loop', 'once', 'off'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
+      anim: one('anim', ['loop', 'once', 'off', 'move'], 'loop'), start: one('start', ['always', 'shown'], 'always') };
+    gaitKeep(x, r);   // (As it moves, v164: its standing clip and its stride's factor, kept only when set; e6y_walks.js)
     // its faces, kept only when set: both sides, or inside out (absent, or null: as in its file)
     if (x.faces != null) r.faces = ['both', 'inside'].includes(x.faces) ? x.faces : null;
     // its tint (#rrggbb, lower case) and brightness (a factor, 0.25 to 4, to 2 decimals; 1 is none), each kept only when
@@ -366,7 +367,7 @@ function applyRec(it, was, glide) {
       if (was.faces !== r.faces) applyFaces(it);
       if (was.tint !== r.tint || was.bright !== r.bright) applyTint(it);
     }
-    if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start) it.animKey = '';
+    if (!was || was.clip !== r.clip || was.anim !== r.anim || was.start !== r.start || was.idle !== r.idle) it.animKey = '';
   } else if (it.kind === 'c') it.look.name.userData.set(tagName(r), it.look.col, 0.085);
   else if (it.kind === 'x') it.look.name.userData.set('✂ ' + tagName(r), it.look.col, 0.075);
   else if (it.kind === 'p') it.look.set(r);   // (its tag, with its triangles: shapeStep)
@@ -397,7 +398,7 @@ function dropModel(it) {
     if (m.isSkinnedMesh && m.skeleton) m.skeleton.dispose();   // (a rigged clone's own bones' texture)
   }
   it.slot.remove(it.model.o);
-  it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = '';
+  it.model = null; it.mixer = null; it.action = null; it.built = -1; it.animKey = ''; it.wIdle = null;   // (its standing action went with its mixer: e6y_walks.js)
   it.txOn = null; it.txSig = '';   // (a cube's pictures were on its materials, gone with them: e6i_tex.js)
   // (a clip a cube plays on it: its layers went with its mixer, and the run goes on by its clock on the new model: e6n_plays.js)
   it.tl = null; it.tAct = null;
@@ -547,32 +548,37 @@ function setObjAlpha(it, a) {
     if (a >= 0.999) { mat.transparent = b.t; mat.opacity = b.o; mat.depthWrite = b.d; } else { mat.transparent = true; mat.opacity = b.o * a; mat.depthWrite = false; }
   }
 }
-// its animation: the clip named in its record, looped, once (to its end, then held) or off (its rest pose), on the
-// scene's clock (the same moment for everyone at a station) or from when a cube showed it to you; and over it, the clips a
-// cube plays on it (v136, e6n_plays.js: blended in and out, its own animation getting the rest of the weight)
-function animStep(it, now, clockS) {
-  const r = it.rec, E = it.E;
+// its animation: the clip named in its record, looped, once (to its end, then held), off (its rest pose) or as it moves
+// (v164, e6y_walks.js: its time follows the distance it covers, standing still when it stops), on the scene's clock (the
+// same moment for everyone at a station) or from when a cube showed it to you; and over it, the clips a cube plays on it
+// (v136, e6n_plays.js: blended in and out, its own animation getting the rest of the weight)
+function animStep(it, now, clockS, dt) {
+  const r = it.rec, E = it.E, mv = r.anim === 'move';
   if (!it.mixer || !E) { if (it.model && it.tr && it.tr.clip) trgDone(it, 'clip', it.tr.clip, 'missing'); return; }   // (a model with no animations: a cube's clip has nothing to play)
-  const key = r.clip + '|' + r.anim;
+  const key = r.clip + '|' + r.anim + (mv ? '|' + (r.idle || '') : '');
   if (key !== it.animKey) {
     it.animKey = key;
     it.mixer.stopAllAction();
     for (const [n, p, q, s] of it.model.rest) { n.position.copy(p); n.quaternion.copy(q); n.scale.copy(s); }
     const clip = r.anim !== 'off' ? E.clips.find(c => c.name === r.clip) : null;
-    it.action = clip ? it.mixer.clipAction(clip) : null;
+    it.gait = mv && clip && clip.duration > 0 ? gaitInfo(it, clip) : null;   // (its walk: measured once a clip, its hips' travel taken out)
+    it.action = clip ? it.mixer.clipAction(it.gait ? it.gait.clip : clip) : null;
     if (it.action) it.action.play();
     it.dur = clip ? clip.duration : 0;
-  } else if (motionsPaused() && !animHold(it)) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows)
-  // (held from a card's timeline, here or by someone at this circle: e6m_anim.js)
-  const H = animHold(it), own = !!it.action && it.dur > 0;
-  if (own) {
+    if (it.gait) gaitBegin(it); else it.wIdle = null;
+  } else if (motionsPaused() && !(mv ? animHold(it, 'path') : animHold(it))) return;   // (Pause: it holds the frame it shows; e6h_ghost.js. A timeline's hold still shows: as it moves, its path's)
+  // (held from a card's timeline, here or by someone at this circle: e6m_anim.js; as it moves, never: its moves set its time)
+  const H = mv ? null : animHold(it), own = !!it.action && it.dur > 0;
+  if (own && it.gait) gaitStep(it, now, clockS, dt || 0);
+  else if (own) {
     let t = H ? animAt(it, H) : r.start === 'shown' ? (now - it.shownAt) / 1000 : clockS;
     if (!H) t = r.anim === 'loop' ? ((t % it.dur) + it.dur) % it.dur : Math.min(Math.max(0, t), it.dur - 1e-4);
     it.action.time = t;
   }
   // (a cube's clips on it: none named and none fading, nothing done; held from its timeline, its own clip alone shows)
   const w = (it.tgM & 1) || it.tl || (it.tr && it.tr.clip) ? trgClipStep(it, !!H) : 0;
-  if (it.action) it.action.setEffectiveWeight(1 - w);
+  if (it.gait && it.action) gaitWeights(it, w);
+  else if (it.action) it.action.setEffectiveWeight(1 - w);
   if (own || w > 0) it.mixer.update(0);
 }
 // the scene's clock (s): at a shared room's station the room's (the same moment everywhere), else since it opened
@@ -977,7 +983,7 @@ function itemsStep(dt, now) {
         it.model.o.visible = !it.hid; it.hidBox.visible = it.hid;
         it.holder.visible = it.hid || it.a > 0.002;
         // (hidden for you, its animation holds where it is, as when not editing)
-        if (it.holder.visible && !it.hid && !pupStep(it, now, dt)) animStep(it, now, clockS);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
+        if (it.holder.visible && !it.hid && !pupStep(it, now, dt)) animStep(it, now, clockS, dt);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
       } else it.holder.visible = it.hidBox.visible = false;   // (no model: the grey box says it; an outline from the one dropped would linger)
       greyStep(it);
       modelTag(it, editing);

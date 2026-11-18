@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-52';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-53';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
   // networks-49 (v154): the studio's cubes switch cubes (a cube's show and hide lists, a sequence's show and hide events and a
   // press's show and hide entries may name a cube; an older device would keep the ids and let a switched-off cube act)

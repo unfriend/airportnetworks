@@ -1,8 +1,8 @@
 {
   "name": "puppet",
   "files": [
-    {"path":"rig.glb","bytes":60232,"at":1794161757082,"kind":"model"}
+    {"path":"rig.glb","bytes":60232,"at":1794980972423,"kind":"model"}
   ],
-  "layoutAt": 1794161757082,
+  "layoutAt": 1794980972423,
   "save": false
 }

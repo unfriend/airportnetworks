@@ -53,6 +53,11 @@
 //               legs and arms swing, the elbows bend only about their hinge, forward, and the knees only about theirs,
 //               back). Never Mixamo's own files
 //   layout.json the rig, walking
+// and the sixth, tools/studio/test/scenes/walks/, for clip by distance (tools/studio/SPEC.md, "As it moves"):
+//   walker.glb  the puppet's rig in a dark suit with glowing neon bands, and three clips made here: Walk (in place, a stride
+//               of 1.27 m by design), Idle and Walk forward (Walk with root motion: its hips go 1.27 m a cycle)
+//   layout.json Walker on a recorded path (2 s standing, then round a circle), walking as it moves and standing with Idle,
+//               and Follower following it (an item behaviour), walking as it moves
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
 // And an example scene, as the app ships them in examples/ (v137; tools/studio/SPEC.md, "Example scenes"), in a folder of
@@ -660,7 +665,9 @@ function walkPose(t) {
     },
   };
 }
-function puppetGlb() {
+// (opt, for the walks scene's walker: name, its root node's; mats, its materials; mat(bone, m), a tube's material; bands, rings
+// bound wholly to one bone each, [bone, from, to, rx, rz, sides, material]; clips, [{ name, T, K, pose }] in place of Walk)
+function puppetGlb(opt = {}) {
   const B = PUPPET_BONES, idx = Object.fromEntries(B.map(([n], i) => [n, i])), pos = B.map(b => b[2]);
   const kids = B.map(([n]) => B.map(([, p], k) => (p === n ? k : -1)).filter(k => k >= 0));
   // each bone's frame at rest, as Mixamo's: y along the bone to its first child (the hand: on from its forearm; an end bone:
@@ -687,11 +694,13 @@ function puppetGlb() {
       [S + 'UpLeg', at('UpLeg'), at('Leg'), 0.07, 0.07, 8, 0, true], [S + 'Leg', at('Leg'), at('Foot'), 0.05, 0.05, 8, 0, true],
       [S + 'Foot', at('Foot'), at('ToeBase'), 0.04, 0.045, 8, 0, true], [S + 'ToeBase', at('ToeBase'), at('Toe_End'), 0.035, 0.045, 8, 0, false]);
   }
-  const prims = [0, 1].map(() => ({ P: [], N: [], J: [], Wt: [], I: [] }));
-  for (const [name, A, Bp, rx, rz, n, mat, endBlend] of seg) {
+  if (opt.mat) for (const sg of seg) sg[6] = opt.mat(sg[0], sg[6]);
+  if (opt.bands) for (const b of opt.bands(pos, idx)) seg.push([...b, false, true]);
+  const prims = (opt.mats || [0, 1]).map(() => ({ P: [], N: [], J: [], Wt: [], I: [] }));
+  for (const [name, A, Bp, rx, rz, n, mat, endBlend, rigid] of seg) {
     const g = prims[mat], j = idx[name], par = B[j][1] ? idx[B[j][1]] : -1, kid = endBlend ? kids[j][0] : -1;
     const d = vn(vs(Bp, A)), bx = qv(RW[j], [1, 0, 0]), X = vn(vs(bx, vk(d, vd(bx, d)))), Zc = vx(X, d);
-    const wAt = f => (f === 0 && par >= 0 && name !== 'Hips' ? [[j, par], [0.5, 0.5]] : f === 1 && kid >= 0 ? [[j, kid], [0.5, 0.5]] : [[j, 0], [1, 0]]);
+    const wAt = f => (rigid ? [[j, 0], [1, 0]] : f === 0 && par >= 0 && name !== 'Hips' ? [[j, par], [0.5, 0.5]] : f === 1 && kid >= 0 ? [[j, kid], [0.5, 0.5]] : [[j, 0], [1, 0]]);
     const vert = (p, nrm, f) => { const [jj, ww] = wAt(f); g.P.push(...p); g.N.push(...nrm); g.J.push(jj[0], jj[1], 0, 0); g.Wt.push(ww[0], ww[1], 0, 0); };
     const F = [0, 0.22, 0.78, 1], b0 = g.P.length / 3;
     for (const f of F) {
@@ -725,36 +734,39 @@ function puppetGlb() {
   const ax = q => [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(e => qv(q, e));
   const aIBM = accessor(B.flatMap((_, i) => { const A3 = ax(RW[i]); return [0, 1, 2].flatMap(c => [0, 1, 2].map(r => 100 * A3[r][c])).flatMap((v, k) => (k % 3 === 2 ? [v, 0] : [v])).concat(A3.map(a => -100 * vd(a, pos[i])), 1); }), 'MAT4', 16);
   // Walk: 12 keys and the first again, each animated bone's local turn (its turn in the rig's axes carried into its parent's
-  // frame at rest, then its own rest turn) and the hips' place (centimetres)
-  // (the times and every track's values in one buffer view: a smaller JSON chunk)
-  const K = 12, times = Array.from({ length: K + 1 }, (_, k) => +(k * WALK_T / K).toFixed(5)), anim = [...times], outs = [];
-  const animated = Object.keys(walkPose(0).D), samplers = [], channels = [];
-  const track = (node, path, vals) => { outs.push([anim.length, path === 'rotation' ? 'VEC4' : 'VEC3']); anim.push(...vals.flat()); samplers.push({ input: -1, output: -1, interpolation: 'LINEAR' }); channels.push({ sampler: samplers.length - 1, target: { node, path } }); };
-  const nodeOf = i => 2 + i;
-  track(nodeOf(0), 'translation', times.map(t => vk(pos[0].map((v, k) => v + walkPose(t).hip[k]), 100).map(v => +v.toFixed(4))));
-  for (const n of animated) {
-    const i = idx[n], par = B[i][1] ? idx[B[i][1]] : -1, pw = par >= 0 ? RW[par] : [0, 0, 0, 1];
-    let prev = null;
-    track(nodeOf(i), 'rotation', times.map(t => {
-      let q = qm(qm(qc(pw), qm(walkPose(t).D[n], pw)), RL[i]);
-      if (prev && vd(q, prev) + q[3] * prev[3] < 0) q = q.map(v => -v);
-      prev = q; return q.map(v => +v.toFixed(6));
-    }));
+  // frame at rest, then its own rest turn) and the hips' place (centimetres); the walker's clips likewise (opt.clips)
+  // (the times and every track's values of a clip in one buffer view: a smaller JSON chunk)
+  const nodeOf = i => 2 + i, animations = [];
+  for (const C of opt.clips || [{ name: 'Walk', T: WALK_T, K: 12, pose: walkPose }]) {
+    const K = C.K, times = Array.from({ length: K + 1 }, (_, k) => +(k * C.T / K).toFixed(5)), anim = [...times], outs = [];
+    const animated = Object.keys(C.pose(0).D), samplers = [], channels = [];
+    const track = (node, path, vals) => { outs.push([anim.length, path === 'rotation' ? 'VEC4' : 'VEC3']); anim.push(...vals.flat()); samplers.push({ input: -1, output: -1, interpolation: 'LINEAR' }); channels.push({ sampler: samplers.length - 1, target: { node, path } }); };
+    track(nodeOf(0), 'translation', times.map(t => vk(pos[0].map((v, k) => v + C.pose(t).hip[k]), 100).map(v => +v.toFixed(4))));
+    for (const n of animated) {
+      const i = idx[n], par = B[i][1] ? idx[B[i][1]] : -1, pw = par >= 0 ? RW[par] : [0, 0, 0, 1];
+      let prev = null;
+      track(nodeOf(i), 'rotation', times.map(t => {
+        let q = qm(qm(qc(pw), qm(C.pose(t).D[n], pw)), RL[i]);
+        if (prev && vd(q, prev) + q[3] * prev[3] < 0) q = q.map(v => -v);
+        prev = q; return q.map(v => +v.toFixed(6));
+      }));
+    }
+    const vAnim = add(f32(anim));
+    acc.push({ bufferView: vAnim, componentType: 5126, count: times.length, type: 'SCALAR', min: [0], max: [times[K]] }); const aT = acc.length - 1;
+    outs.forEach(([at, type], k) => { acc.push({ bufferView: vAnim, byteOffset: at * 4, componentType: 5126, count: times.length, type }); Object.assign(samplers[k], { input: aT, output: acc.length - 1 }); });
+    animations.push({ name: C.name, channels, samplers });
   }
-  const vAnim = add(f32(anim));
-  acc.push({ bufferView: vAnim, componentType: 5126, count: times.length, type: 'SCALAR', min: [0], max: [times[K]] }); const aT = acc.length - 1;
-  outs.forEach(([at, type], k) => { acc.push({ bufferView: vAnim, byteOffset: at * 4, componentType: 5126, count: times.length, type }); Object.assign(samplers[k], { input: aT, output: acc.length - 1 }); });
   const r6 = a => a.map(v => +v.toFixed(6));
   const bin = Buffer.concat(parts), json = {
     asset: { version: '2.0', generator: 'tools/studio/test/make.mjs' }, scene: 0, scenes: [{ nodes: [0] }],
-    nodes: [{ name: 'puppet', children: [1, 2 + B.length] }, { name: 'Armature', scale: [0.01, 0.01, 0.01], children: [2] },
+    nodes: [{ name: opt.name || 'puppet', children: [1, 2 + B.length] }, { name: 'Armature', scale: [0.01, 0.01, 0.01], children: [2] },
       ...B.map(([name], i) => Object.assign({ name: 'mixamorig:' + name, translation: r6(TL[i]), rotation: r6(RL[i]) }, kids[i].length ? { children: kids[i].map(nodeOf) } : {})),
       { name: 'body', mesh: 0, skin: 0 }],
     meshes: [{ name: 'body', primitives }],
     skins: [{ joints: B.map((_, i) => nodeOf(i)), inverseBindMatrices: aIBM, skeleton: nodeOf(0) }],
-    materials: [{ name: 'suit', pbrMetallicRoughness: { baseColorFactor: [0.32, 0.45, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.75 } }, { name: 'skin', pbrMetallicRoughness: { baseColorFactor: [0.93, 0.76, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.6 } }],
+    materials: opt.mats || [{ name: 'suit', pbrMetallicRoughness: { baseColorFactor: [0.32, 0.45, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.75 } }, { name: 'skin', pbrMetallicRoughness: { baseColorFactor: [0.93, 0.76, 0.62, 1], metallicFactor: 0, roughnessFactor: 0.6 } }],
     accessors: acc, bufferViews: views, buffers: [{ byteLength: bin.length + ((4 - (bin.length % 4)) % 4) }],
-    animations: [{ name: 'Walk', channels, samplers }],
+    animations,
   };
   let js = Buffer.from(JSON.stringify(json));
   js = Buffer.concat([js, Buffer.alloc((4 - (js.length % 4)) % 4, 0x20)]);
@@ -776,6 +788,109 @@ let ptotal = 0;
 fs.mkdirSync(pout, { recursive: true });
 for (const [f, b] of Object.entries(pfiles)) { fs.writeFileSync(path.join(pout, f), b); ptotal += b.length; }
 
+// ---- the walks scene: a walker for clip by distance (tools/studio/SPEC.md, "As it moves"; tools/studio/engine/e6y_walks.js)
+// The puppet's rig and skeleton in a dark suit with neon bands (cyan and magenta, glowing: a visor ring, a collar, a chest
+// ring, a belt, cuffs, shin and ankle rings, glowing toes) and three clips made here:
+// - Walk (1.1 s, 24 keys, in place): each foot on the ground for 60 % of a cycle, moving straight back under the hips at
+//   one speed (its knee a little bent), then swung forward (the knee bent up to 1 rad, the toes up); each leg's hip and knee
+//   turns solved for that foot (thigh 0.42 m, shin 0.43 m), the ankle keeping the sole level; the hips bob down as the legs
+//   spread, sway over the foot on the ground and turn with the legs, the spine against them; the arms swing opposite the
+//   legs, the elbows bending as they come forward. Its stride by design: 2 x 0.38 m / 0.6 = 1.27 m (WALKER.stride)
+// - Idle (3.2 s, 16 keys): standing, breathing, a slow weight shift and a look round, the arms at its sides
+// - Walk forward (1.1 s): Walk with its hips going forward 1.27 m a cycle (root motion), its feet then still on the ground
+const WALKER = { T: 1.1, beta: 0.6, A: 0.38, a: 0.42, b: 0.43 };
+WALKER.stride = 2 * WALKER.A / WALKER.beta;
+// one leg at its phase u (0 to 1: on the ground from 0, swung from beta): its foot's place forward of the hip (m), its knee's
+// bend and its hip's swing forward (rad), solved for that foot, and how much its sole tips its toes up
+function strideLeg(u) {
+  const { beta, A, a, b } = WALKER;
+  let z, k, up = 0;
+  if (u < beta) { z = A * (1 - 2 * u / beta); k = 0.1 + 0.08 * Math.sin(Math.PI * u / beta); }
+  else { const w = (u - beta) / (1 - beta); z = -A + A * (1 - Math.cos(Math.PI * w)); k = 0.1 + 0.95 * Math.sin(Math.PI * w); up = 0.25 * Math.sin(Math.PI * w); }
+  let f = Math.asin(Math.max(-1, Math.min(1, z / (a + b)))) + k * b / (a + b);
+  for (let i = 0; i < 8; i++) f -= (a * Math.sin(f) + b * Math.sin(f - k) - z) / (a * Math.cos(f) + b * Math.cos(f - k));
+  return { z, k, f, up, y: a * Math.cos(f) + b * Math.cos(f - k), ground: u < beta };
+}
+// the walk at time t (fwd: the hips' travel a cycle, root motion; 0 in place)
+function strollPose(t, fwd = 0) {
+  const { T, A } = WALKER, X = [1, 0, 0], Y = [0, 1, 0], Z = [0, 0, 1], c = t / T, u = c - Math.floor(c);
+  const L = strideLeg(u), R = strideLeg((u + 0.5) % 1), rest = WALKER.a + WALKER.b;
+  const down = Math.max(L.ground ? L.y : 0, R.ground ? R.y : 0);   // (the hips lowered with the leg on the ground)
+  const yaw = -0.07 * (L.z - R.z) / (2 * A), sway = 0.022 * Math.sin(2 * Math.PI * (u - 0.05));
+  const leg = (S, G) => ({ [S + 'UpLeg']: qa(X, -G.f), [S + 'Leg']: qa(X, G.k), [S + 'Foot']: qa(X, G.f - G.k - G.up) });
+  return {
+    hip: [sway, 0.85 * (down - rest) + 0.006, fwd * c],
+    D: Object.assign({
+      Hips: qm(qa(Y, yaw), qa(Z, -0.5 * sway)),
+      Spine: qa(Y, -0.4 * yaw), Spine1: qm(qa(Y, -0.4 * yaw), qa(X, 0.02)), Spine2: qm(qa(Y, -0.5 * yaw), qa(X, 0.02)),
+      Neck: qa(X, -0.02), Head: qm(qa(Y, 0.2 * yaw), qa(X, -0.02)),
+      LeftArm: qm(qa(X, 0.36 * L.z / A), qa(Z, -1.3)), RightArm: qm(qa(X, 0.36 * R.z / A), qa(Z, 1.3)),
+      LeftForeArm: qa([0, -1, 0], 0.3 + 0.22 * Math.max(0, -L.z / A)), RightForeArm: qa(Y, 0.3 + 0.22 * Math.max(0, -R.z / A)),
+      LeftHand: qa(X, -0.1 * L.z / A), RightHand: qa(X, -0.1 * R.z / A),
+    }, leg('Left', L), leg('Right', R)),
+  };
+}
+// standing: breathing twice a cycle, the weight shifting slowly, the head looking round
+function idlePose(t) {
+  const ph = 2 * Math.PI * t / 3.2, X = [1, 0, 0], Y = [0, 1, 0], Z = [0, 0, 1], br = Math.sin(2 * ph);
+  return {
+    hip: [0.012 * Math.sin(ph), -0.006 + 0.003 * br, 0],
+    D: {
+      Hips: qa(Z, 0.015 * Math.sin(ph)), Spine: qa(X, 0.01 + 0.006 * br), Spine1: qa(X, 0.008 * br), Spine2: qa(X, -0.01 * br),
+      Neck: qa(Y, 0.05 * Math.sin(ph - 0.6)), Head: qm(qa(Y, 0.14 * Math.sin(ph - 0.6)), qa(X, 0.03 * Math.sin(2 * ph))),
+      LeftArm: qm(qa(X, 0.03 * Math.sin(ph)), qa(Z, -1.32)), RightArm: qm(qa(X, -0.03 * Math.sin(ph)), qa(Z, 1.32)),
+      LeftForeArm: qa([0, -1, 0], 0.22 + 0.03 * br), RightForeArm: qa(Y, 0.22 + 0.03 * br),
+      LeftUpLeg: qa(Z, -0.015 * Math.sin(ph)), RightUpLeg: qa(Z, -0.015 * Math.sin(ph)), LeftLeg: qa(X, 0.05), RightLeg: qa(X, 0.05),
+      LeftFoot: qm(qa(X, -0.05), qa(Z, 0.015 * Math.sin(ph))), RightFoot: qm(qa(X, -0.05), qa(Z, 0.015 * Math.sin(ph))),
+    },
+  };
+}
+// the look: 0 the suit, 1 the shell (helmet, hands, feet), 2 neon cyan, 3 neon magenta (both glowing)
+const NEON = [
+  { name: 'suit', pbrMetallicRoughness: { baseColorFactor: [0.07, 0.08, 0.12, 1], metallicFactor: 0.5, roughnessFactor: 0.34 } },
+  { name: 'shell', pbrMetallicRoughness: { baseColorFactor: [0.2, 0.22, 0.27, 1], metallicFactor: 0.85, roughnessFactor: 0.2 } },
+  { name: 'neon cyan', pbrMetallicRoughness: { baseColorFactor: [0, 0.85, 1, 1], metallicFactor: 0, roughnessFactor: 0.4 }, emissiveFactor: [0, 0.85, 1] },
+  { name: 'neon magenta', pbrMetallicRoughness: { baseColorFactor: [1, 0.12, 0.7, 1], metallicFactor: 0, roughnessFactor: 0.4 }, emissiveFactor: [1, 0.12, 0.7] },
+];
+const walker = puppetGlb({
+  name: 'walker', mats: NEON,
+  mat: (bone, m) => (/^(Head|Neck)$|Hand$|Foot$/.test(bone) ? 1 : /ToeBase$/.test(bone) ? 3 : 0),
+  bands: (pos, idx) => {
+    const P = n => pos[idx[n]], up = (n, y) => P(n).map((v, k) => (k === 1 ? v + y : v)), along = (a, b, f) => P(a).map((v, k) => v + (P(b)[k] - v) * f);
+    const out = [['Head', up('Head', 0.055), up('Head', 0.085), 0.094, 0.104, 12, 2], ['Neck', P('Neck'), up('Neck', 0.025), 0.062, 0.062, 10, 3],
+      ['Spine2', up('Spine2', 0.05), up('Spine2', 0.066), 0.174, 0.114, 12, 2], ['Hips', up('Hips', -0.05), up('Hips', -0.025), 0.157, 0.107, 12, 3]];
+    for (const S of ['Left', 'Right']) {
+      out.push([S + 'ForeArm', along(S + 'ForeArm', S + 'Hand', 0.82), along(S + 'ForeArm', S + 'Hand', 0.94), 0.046, 0.046, 8, 2],
+        [S + 'Arm', along(S + 'Arm', S + 'ForeArm', 0.08), along(S + 'Arm', S + 'ForeArm', 0.2), 0.051, 0.051, 8, 3],
+        [S + 'Leg', along(S + 'Leg', S + 'Foot', 0.12), along(S + 'Leg', S + 'Foot', 0.2), 0.056, 0.056, 8, 2],
+        [S + 'Leg', along(S + 'Leg', S + 'Foot', 0.8), along(S + 'Leg', S + 'Foot', 0.88), 0.056, 0.056, 8, 3]);
+    }
+    return out;
+  },
+  clips: [{ name: 'Walk', T: WALKER.T, K: 24, pose: t => strollPose(t) }, { name: 'Idle', T: 3.2, K: 16, pose: idlePose },
+    { name: 'Walk forward', T: WALKER.T, K: 24, pose: t => strollPose(t, WALKER.stride) }],
+});
+// the layout: Walker on a recorded path (2 s standing, then round a circle of 1.2 m at its own speed, 1.15 m/s, facing the
+// way it goes, and again), walking as it moves and standing with Idle; Follower, 0.9 m behind it, following it (an item
+// behaviour), walking and standing as it moves too
+const circle = (() => {
+  const R = 1.2, v = WALKER.stride / WALKER.T, n = 24, k = [[0, 0, 0, 0, 0, 0, 0, 1], [2, 0, 0, 0, 0, 0, 0, 1]], f4 = x => +x.toFixed(4) || 0, f3 = x => +x.toFixed(3) || 0;
+  for (let i = 1; i <= n; i++) { const a = 2 * Math.PI * i / n; k.push([f3(2 + R * a / v), f3(R * (1 - Math.cos(a))), 0, f3(R * Math.sin(a)), 0, f4(Math.sin(a / 2)), 0, f4(Math.cos(a / 2))]); }
+  return k;
+})();
+const wout = path.join(here, 'scenes/walks');
+fs.rmSync(wout, { recursive: true, force: true });
+const walksLayout = {
+  studio: 1, scene: 'walks', saved: '2026-11-18T12:00:00.000Z',
+  objects: [{ id: 'wlk001', name: 'Walker', file: 'walker.glb', p: [-1.2, 0, -3.2], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Walk', anim: 'move', start: 'always', idle: 'Idle', path: { k: circle, play: 'loop', start: 'always', speed: 1 } },
+    { id: 'wlk002', name: 'Follower', file: 'walker.glb', p: [-1.2, 0, -4.1], q: [0, 0, 0, 1], s: 1, light: 'lit', clip: 'Walk', anim: 'move', start: 'always', idle: 'Idle', behaviour: { kind: 'item', target: 'wlk001', speed: 1.4 } }],
+  cubes: [], sounds: [],
+};
+const wfiles = { 'walker.glb': walker.glb, 'layout.json': Buffer.from(layoutText(walksLayout)) };
+let wtotal = 0;
+fs.mkdirSync(wout, { recursive: true });
+for (const [f, b] of Object.entries(wfiles)) { fs.writeFileSync(path.join(wout, f), b); wtotal += b.length; }
+
 // ---- the example (tools/studio/test/examples/tiny)
 const eout = path.join(here, 'examples/tiny');
 const exLayout = {
@@ -795,6 +910,7 @@ for (const f of ['index.json']) total += fs.statSync(path.join(here, 'scenes', f
 rtotal += fs.statSync(path.join(rout, 'files.json')).size;
 ctotal += fs.statSync(path.join(cout, 'files.json')).size;
 ptotal += fs.statSync(path.join(pout, 'files.json')).size;
+wtotal += fs.statSync(path.join(wout, 'files.json')).size;
 total += fs.statSync(path.join(out, 'files.json')).size;
 ttotal += fs.statSync(path.join(tout, 'files.json')).size;
 console.log(`wrote tools/studio/test/scenes/test/ (${Object.keys(files).join(', ')}): ${(total / 1024).toFixed(1)} KB with the listings`);
@@ -803,3 +919,4 @@ console.log(`wrote tools/studio/test/scenes/rig/ (${Object.keys(rfiles).join(', 
 console.log(`wrote tools/studio/test/scenes/cuts/ (${Object.keys(cfiles).join(', ')}): ${(ctotal / 1024).toFixed(1)} KB with its listing`);
 console.log(`wrote tools/studio/test/examples/tiny/ (${Object.keys(efiles).join(', ')}): ${(etotal / 1024).toFixed(1)} KB with the listings`);
 console.log(`wrote tools/studio/test/scenes/puppet/ (rig.glb: ${PUPPET_BONES.length} bones, ${puppet.tris} triangles, ${(puppet.glb.length / 1024).toFixed(1)} KB; layout.json): ${(ptotal / 1024).toFixed(1)} KB with its listing`);
+console.log(`wrote tools/studio/test/scenes/walks/ (walker.glb: ${walker.tris} triangles, Walk, Idle and Walk forward, a stride of ${WALKER.stride.toFixed(3)} m, ${(walker.glb.length / 1024).toFixed(1)} KB; layout.json): ${(wtotal / 1024).toFixed(1)} KB with its listing`);
