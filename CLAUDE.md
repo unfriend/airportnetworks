@@ -12,6 +12,18 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 At the start of a session on a machine that is not the owner's cloud machine, tell the person about this warning once,
 so they can decide.
 
+**No approval prompts** (the owner, 18 November 2026). In a cloud session the owner keeps *Auto* mode; even so, Auto
+still asks before deletions, force pushes and similar risky commands, whatever `.claude/settings.json` allows. So this
+session and every agent and workflow it starts avoid them, and every agent prompt says so:
+
+- No `rm`, `rm -rf`, `unlink`, `git clean`, `git reset --hard`, `git push --force`, `git branch -D`, `git worktree
+  remove --force` or `git checkout -- <file>` that throws work away. Leave clean-up for the person, or say what is left.
+- Temporary files go in the scratchpad (or another git-ignored place), never in the tree, so nothing has to be deleted
+  before a commit. `node_modules` (folder or symlink) and `.claude/worktrees/` are git-ignored for this: a worktree's
+  `ln -s /opt/node22/lib/node_modules node_modules` may stay.
+- A background server or test is stopped by letting it end (`timeout <s> ...`), not by killing it afterwards.
+- If a prompt still comes, find which command caused it and add a line here so the next session avoids it too.
+
 - Read `AGENTS.md` (imported above) first: it is the core (structure, rules, conventions, testing). The details are in
   `docs/agents/`, read on demand; `docs/history.md` says why rules are as they are.
 - New features document themselves in the matching `docs/agents/` file (and the tool's `SPEC.md` where one exists).
