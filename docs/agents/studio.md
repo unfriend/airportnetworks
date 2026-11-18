@@ -1099,6 +1099,23 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   quiet, ch)`, `animBar(ch)` and `XR.main.patched` for tests. Untested on a headset: how the bar reads and drags on a
   Quest (its strip sent alone, its mipmaps), how in step a held frame looks for several people at a circle, a held voice
   in Quest Browser.
+- **As it moves: clip by distance** (v164, FORMAT networks-53; the owner, 18 November 2026: "would also need feet solver
+  for npcs that move around?", and clip by distance first, foot locking maybe later; `tools/studio/SPEC.md` "As it
+  moves"; `engine/e6y_walks.js`). An object's Animation row gains *As it moves* (`anim: 'move'`): its clip is its walk,
+  and the clip's time follows the distance it covers along the floor, one cycle a stride. On its recorded path the
+  distance is the path's own at the path's moment (`it.pS` from `POSE.path`), so every device agrees and the path's
+  timeline scrubs the walk (the stride fitted to a looping path, no jump as it comes round); moved any other way (a
+  behaviour, a wall, a motion, a tracker, carried) it is measured from what is drawn, frame to frame. Backwards plays it
+  backwards; below 0.05 m/s it settles to standing over 0.3 s: its `idle` clip (*Standing: <clip> ▸* / *Still*), else its
+  walk held where its feet are together, never the bind pose. The stride is measured once a clip from the clip (a walk in
+  place: how fast the foot on the ground moves back under the hips; root motion: the hips' travel, taken out of what
+  plays), times its scale and `strideK` (*Stride: 1.29 m*, *Shorter*, *Longer*, *As measured*; 50 % to 200 %, absent
+  at 100 %). Its clip has no timeline (the path keeps its own); a cube's clip wins while it plays. The record's new
+  fields: `anim: 'move'`, `idle` (a clip's name) and `strideK`, each kept only when set, in `layout.json` and the shared
+  state alike. `STUDIO.walk(id)` for tests; the walks test scene (`tools/studio/test/scenes/walks`: a neon walker with
+  Walk, Idle and Walk forward, one on a path, one following it). Foot locking can come on top later (the same samples
+  know where each foot is down). Untested on a headset: how it looks walking and turning beside you, the crossfades at
+  a real frame rate, following a person or a tracker in a room, and how far its feet slide.
 - **Nothing see-through while editing** (the owner's rule, for frame rate: a
   see-through layer is drawn again over what is behind it, and a room scan drawn faint or a cube round you filled a
   headset's view several layers deep). Every look the studio draws while editing is opaque lines, small opaque meshes

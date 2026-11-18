@@ -414,7 +414,7 @@ function playSentence(d, c) {
   const t = STU.items.get(d.on);
   if (!t || !d.what) return 'Pick what to start.';
   const nm = t.rec.name, stay = c.rec.mode === 'stay', dur = stay ? 'from then on' : 'while you are inside', when = d.when === 'leave' ? 'As you walk out' : 'As you walk in';
-  const own = t.kind === 'o' && t.rec.anim !== 'off' && t.rec.clip ? 'then its own animation again' : 'then it stands still again';
+  const own = t.kind === 'o' && t.rec.anim === 'move' && t.rec.clip ? 'then it walks as it moves again' : t.kind === 'o' && t.rec.anim !== 'off' && t.rec.clip ? 'then its own animation again' : 'then it stands still again';
   // (a loop or a hold on a cube that stays never comes off: until Reset what I have seen, or the lobby)
   const after = x => (stay ? '' : ', ' + x), M = t.rec.motion && MOTION[t.rec.motion.kind];
   let s = '';

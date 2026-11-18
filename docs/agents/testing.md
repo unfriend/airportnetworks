@@ -759,6 +759,24 @@ later, at most 120 s, 8 finite numbers a key, a turn of length 0, play, start an
 ignored, a following sound's kept and not played), a layout and a state from the room past 6,000 keys, and a GLB switch
 of the figure turning its keys (drawn where it was, its turn times the baked one).
 
+### smoke: studio walks
+
+Its *studio walks* steps (`--only 'studio walks'`, about a minute; v164) run on a page of their own at `&scene=walks&edit`
+(the walks test scene: the neon walker's Walk in place, Idle and Walk forward; Walker on a recorded path, Follower
+following it), frames run by the test at a held scene clock: `norm`'s rules for `anim: 'move'`, `idle` and `strideK`
+(kept, none dropped, held at their limits, bad ones refused), the state both ways (a factor from the room taken) and
+`layout.json` both ways, a copy keeping them (one Undo step); the stride measured from Walk in place within 6 % of its
+1.27 m by design, its feet together where it stands, Walk forward's root motion measured within 2 % and its hips' travel
+taken out of what plays (under 1 cm a cycle); on the path, the clip's time where the path's distance at its moment puts
+it (its timeline held at five moments and scrubbed a tenth of a second; the stride fitted to the loop), Idle on the
+path's still start (half faded after 5 frames, gone after 15, Idle on the scene's clock), walking again, Pause holding
+the frame and a held path still scrubbing it, a path played once walking on its way and standing with Idle at its end;
+the follower walking by what it is drawn doing; an object moved by hand (forward on, backwards back, sideways on by its
+size, a 3 m jump counting nothing; standing with its walk held where its feet are together), its stride times its size
+and factor; the cards' rows on the page (*As it moves*, *Standing*, *Stride*, *Longer*, *As measured*, Loop bringing the
+clip's timeline back and taking Standing away; one Undo step each) and on the headset's card (*Shorter*, *Still*, the next
+standing clip, *As measured*).
+
 ### smoke: studio recorder
 
 Its *studio recorder* steps (`--only 'studio recorder'` runs them alone, about two minutes) run on a page served by a
@@ -2212,7 +2230,7 @@ every story in turn), `#airports&slides=on` (every story as a slideshow), `#anch
 one, else the list), `#studio&scene=atelier` (a scene), `#studio&scenes=tools/studio/test/scenes&scene=textures&edit` (the textures test
 scene: place its models to see the ladder and the cards), `&edit` (editing on), `&visit` (a visitor's kiosk: no editing
 and no uploads at all), `&upload` (the Upload pane, where the relay's `/upload` sends people; `&relay=wss://...` with
-it for a relay elsewhere), `&tab=scene|add|item|items|upload`, `&view=walk`, `&scenes=tools/studio/test/scenes&scene=test`
+it for a relay elsewhere), `&tab=scene|add|item|items|upload`, `&view=walk`, `&scenes=tools/studio/test/scenes&scene=walks` (the walkers, v164), `&scenes=tools/studio/test/scenes&scene=test`
 (a static folder of scenes instead of the relay's: a relative path only), `&maxtex=2048` (the texture limit, 512 to
 8,192; 4,096 by default). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story

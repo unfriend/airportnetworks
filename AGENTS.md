@@ -133,6 +133,7 @@ gets at most a line per feature and stays under 70 KB.
   dialog. The shell publishes play, pause, jumps, mode changes and `collab.state()`; stories send only effects.
 - The design room (`#design`) and the studio (`#studio`) are pages in `STORY_EXTRA`, built like stories, placed in a
   room as stations but never by Arrange all.
+- A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
@@ -370,7 +371,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
-  tint, viewer, shapes, behaviours, motions, paths, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
+  tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
   walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp).
 - Every test page sets `collabAutoAll` and `collabAutoWelcome` to `off` and `collabAskDefault` to `walk` unless its
   round asks otherwise: keep that when adding a round.

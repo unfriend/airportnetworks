@@ -392,8 +392,10 @@ function itemBlocks(it, B, ed) {
       { p: 'Inside out: for a model whose faces point the wrong way, or to see a room from inside. Both sides: thin walls and leaves seen from behind too.', c: 'faint' });
     if (info && info.clips.length) {
       B.push({ label: 'Animation', row: [{ id: 'clip', label: (r.clip || 'none') + (info.clips.length > 1 ? ' ▸' : ''), act: 'i:clip', dis: dis || info.clips.length < 2 },
-        { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis }] },
+        { id: 'anim:loop', label: 'Loop', act: 'i:anim', v: 'loop', on: r.anim === 'loop', dis }, { id: 'anim:once', label: 'Once', act: 'i:anim', v: 'once', on: r.anim === 'once', dis }, { id: 'anim:off', label: 'Off', act: 'i:anim', v: 'off', on: r.anim === 'off', dis },
+        { id: 'anim:move', label: 'As it moves', act: 'i:anim', v: 'move', on: r.anim === 'move', dis }] },
       { row: [{ id: 'start:always', label: 'Always', act: 'i:start', v: 'always', on: r.start === 'always', dis }, { id: 'start:shown', label: 'When shown', act: 'i:start', v: 'shown', on: r.start === 'shown', dis }] });
+      gaitBlocks(it, B, dis);   // (As it moves: what it stands with, its stride; e6y_walks.js)
       animBlocks(it, B);   // (its timeline while it is selected and editing is on: e6m_anim.js)
     }
     playNote(it, 'clip', B);   // (a cube that plays a clip on it: e6n_plays.js)

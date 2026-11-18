@@ -4,7 +4,8 @@
 // a timeline and play pause in edit mode when selected", then "play and pause for everyone in the circle", "pause and
 // scrubbing is temporary, once the item is not selected anymore or editing is switched off it goes back to its regular
 // behaviour"). Two timelines (channels), each with a hold of its own:
-// - 'clip' (v127): the card of an object whose clip plays (Loop or Once), under its Animation rows;
+// - 'clip' (v127): the card of an object whose clip plays (Loop or Once; not As it moves, whose moves set its time: v164,
+//   e6y_walks.js), under its Animation rows;
 // - 'path' (v128; the owner: "please add timeline and play pause also for recorded items"): the card of an object, a shape,
 //   an empty or a sound with a recorded path (e6f_path.js), under its Recorded path rows, not while it is recorded. What
 //   it holds is the path's own clock (the item's time the pose pipeline reads, before its speed, Loop, Once or Back and
@@ -32,7 +33,7 @@ const pathKeyOf = P => (!P ? '' : [P.src || '', P.k ? [P.k.length, P.k[Math.floo
 // each channel: whether it shows for an item, its length (s), whether it wraps round (else held at its ends), what its hold
 // is made for, its own time now (unheld), its buttons' and slider's names
 const ANIM_C = {
-  clip: { can: it => it.kind === 'o' && !!it.action && it.dur > 0 && it.rec.anim !== 'off', dur: it => it.dur, loop: it => it.rec.anim === 'loop', key: it => it.animKey,
+  clip: { can: it => it.kind === 'o' && !!it.action && it.dur > 0 && it.rec.anim !== 'off' && it.rec.anim !== 'move', dur: it => it.dur, loop: it => it.rec.anim === 'loop', key: it => it.animKey,
     clock: (it, now) => (it.rec.start === 'shown' ? (now - it.shownAt) / 1000 : sceneClock(now)), act: 'an:', range: 'stuRangeAnim', bar: 'anbar', what: 'animation' },
   path: { can: it => !!pathOf(it) && pathLen(pathOf(it)) > 0 && !recording(it), dur: it => pathCycle(pathOf(it)), loop: it => pathOf(it).play !== 'once', key: it => pathKeyOf(pathOf(it)),
     clock: (it, now) => pathClock(it, pathOf(it), now, sceneClock(now)), act: 'ap:', range: 'stuRangePath', bar: 'apbar', what: 'recorded path' },

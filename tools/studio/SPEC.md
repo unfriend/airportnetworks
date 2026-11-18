@@ -217,9 +217,10 @@ v146 adds `sequences`: `{ id, name, len, loop?, start?, sync?, col?, ev: [...], 
   `yaw` (radians, 4 decimals; cubes stay level), `vol` 0 to 2 (2 decimals), `r` the distance within which a sound is at
   full volume (0.1 to 20 m, 2 decimals).
 - `light`: `'lit'` or `'scan'`. `clip`: an animation's name (`''` none, or the file's first when it has one: set when
-  placed). `anim`: `'loop'`, `'once'` (plays to its end and holds) or `'off'` (its rest pose). `start`: `'always'` (an
-  object: its animation runs on the scene's clock; a sound: plays from the start) or `'shown'` (from its beginning each
-  time a cube shows it to you).
+  placed). `anim`: `'loop'`, `'once'` (plays to its end and holds), `'off'` (its rest pose) or `'move'` (v164: *As it
+  moves*, its clip's time following the distance it covers; with it the optional `idle` and `strideK`: "As it moves"
+  below). `start`: `'always'` (an object: its animation runs on the scene's clock; a sound: plays from the start) or
+  `'shown'` (from its beginning each time a cube shows it to you).
 - `id`: six characters `[a-z0-9]`, made when an item is placed, unique in the scene. `name`: at most 60 characters
   (the file's name without its extension, numbered when placed again: *eva_001 2*).
 - A sound's `on`, `bone` and `o` (optional, kept only when set; "Sounds that follow a model" below): `on` the id of an
@@ -1995,6 +1996,62 @@ see a timeline, was a very short animation with 1.3 seconds, please add timeline
 - **Untested on a headset**: the card's rows, how the bar reads and how it drags with a real trigger on a Quest (its strip
   sent alone and its mipmaps there); how in step a held frame or a held path looks for several people at a circle over
   real Wi-Fi; a held path's voice in Quest Browser.
+
+## As it moves: clip by distance (the owner, 18 November 2026)
+
+The owner, of characters that move about a scene: "would also need feet solver for npcs that move around?"; of the ways
+discussed, clip by distance first, foot locking maybe later. `engine/e6y_walks.js` (v164, FORMAT networks-53).
+
+- **The record**: an object's `anim` may be `'move'` (*As it moves*): the clip its record names (`clip`) is its walk.
+  Two optional fields, kept only when set, whatever its `anim` (so Loop and back keeps them): `idle`, the name of another
+  clip of its model to stand with (at most 120 characters; `''` or `null` none; not a string makes the record bad), and
+  `strideK`, a factor on the measured stride (0.5 to 2, 2 decimals; 1 is none and is not written; not a positive number
+  makes it bad). Unknown values of `anim` make the record bad, as before. Saved in `layout.json` and shared alike; an older
+  device drops the new fields and refuses `'move'` (hence the format).
+- **Its time follows its distance**: one cycle of the clip a stride, its phase = distance / stride, instead of the clock.
+  - On its recorded path (no behaviour or tracker giving its place, not held here) the distance is the path's own at the
+    path's moment (`it.pS`, set by `POSE.path` each frame): signed distances along the floor between its keys, turned by
+    its placed turn, from a table made once a path and turn (`gaitTable`). So every device agrees, a cube's run or the
+    beat moves it as they move the path, and the path's timeline (`e6m_anim.js`) scrubs the walk. On a path that loops,
+    the stride is fitted so the path is a whole number of strides (no jump as it comes round). A motion drawn over a path
+    adds nothing to the distance.
+  - Otherwise (a behaviour, a wall, a motion alone, a tracker, carried by a grip or the arrows, its group carried, a glide
+    from the room) from what is drawn here, frame to frame, along the floor: this device's own; a jump of more than 1.5 m
+    in a frame, or a gap of more than half a second, counts nothing.
+  - A step against its facing (within 60 degrees of straight back from its +z as drawn) plays it backwards; one sideways
+    adds its size.
+- **Standing**: below a smoothed speed of 0.05 m/s (its velocity smoothed over 0.1 s; on a path, the path's own speed at
+  its moment, 0 where it stands still, at the end of a path played once and while a cube's path waits) it settles to
+  standing over 0.3 s and starts walking again the same way, a smooth crossfade between two actions. Standing is its
+  `idle` clip, looped on the scene's clock (or from when shown), else its walk held at the moment its feet are closest
+  together (worked out once a clip: the passing moment, so one foot may be off the ground; an idle clip looks better),
+  never its bind pose.
+- **The stride** is measured once a clip (`gaitInfo`, cached by clip) from the clip on the model, 48 moments of a cycle
+  on a mixer of its own, in the model's units, then times the object's scale and `strideK`:
+  - a clip that walks in place: the backward travel, under its hips, of the foot on the ground (the lower one; both
+    within 1 % of its height of each other, the one moving back faster), summed over a cycle;
+  - a clip whose hips travel (root motion, more than 4 % of its height a cycle): that travel, which is taken out of what
+    plays (a copy of the clip whose hips' place loses the travel so far, keeping its bob and sway), so it does not move
+    twice;
+  - no hips or feet found (by name: Mixamo's, Unreal's, 3ds Max's), or a clip that hardly moves its feet: 0.8 of its
+    height, said on its card.
+  A clip that walks backwards by itself plays the other way.
+- **The card** (page and headset alike, under the Animation row, which gains *As it moves*): *Standing: <clip> ▸* (the
+  next of its model's other clips) and *Still*; *Stride: 1.29 m* (with *(105 % of what was measured)* when changed),
+  *Shorter*, *Longer* (a step of the factor list, 50 % to 200 %) and *As measured*; a line saying how it walks and how
+  the stride was measured. Each press is one Undo step. Its clip has no timeline (its moves set its time); a recorded
+  path keeps its own.
+- **With the rest**: a cube's or a sequence's clip on it wins while it plays, as over Loop, then it walks by its distance
+  again. Pause holds the frame it shows (its path held from its timeline still scrubs it). Held by a grip or dragged it
+  walks by what it is drawn doing. A copy, a GLB switch (its scale changes, so the stride in metres stays), Undo, locks
+  and groups treat its fields as the other Animation fields. Its ghost shows while editing, as for a clip that plays.
+  Worn with trackers, its bones are solved instead. Nothing per frame is allocated.
+- **Later, on top**: foot locking (each foot pinned while the clip has it on the ground) can use the same samples
+  (`gaitInfo` knows each foot's place and when it is down) and the two-bone solver.
+- **For tests**: `STUDIO.walk(id)` (`{ how, measured, stride, used, dir, stand, root, h, d, v, k, on, time, dur, idle,
+  idleTime, w, wIdle, flat }`, null when it has no walk here); the walks test scene (`tools/studio/test/scenes/walks`).
+- **Untested on a headset**: how it looks walking and turning beside you, the crossfades at a real frame rate, a walk
+  following a person (Follow) or a tracker in a room, and how far the feet slide (no foot locking yet).
 
 ## Recorded paths (the owner, 6 November 2026)
 

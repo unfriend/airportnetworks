@@ -156,6 +156,7 @@ POSE.path = (it, now, clockS, m) => {
   // (on the room's beat while it has one, v158: locked to its beats, stretched with the tempo; e6w_loops.js)
   const bm = tm == null && !animHold(it, 'path') ? pathBeatS(P) : null, s = tm != null ? tm : bm != null ? bm : pathTime(P, pathT(it, P, now, clockS)), D = pathLen(P);
   it.pph = D > 0 ? clamp(s / D, 0, 1) : 0;   // (its phase, for a stream: e6v_stream.js)
+  it.pS = s; it.pNow = now;   // (its moment on its path this frame: a walk as it moves takes its distance from it, e6y_walks.js)
   pathAt(P, s, _pd3, _pk3);
   m.decompose(_pp3, _pq3, _ps3);
   _pp3.add(_pd3.applyQuaternion(_pq3));
