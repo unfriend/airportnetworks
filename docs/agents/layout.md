@@ -72,6 +72,16 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `transcribe.py` (faster-whisper).
 - `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded by `index.html` after
   `occlusion.js` and before `shared.js`, which links itself in at its end (see "Spaceships" below).
+- `bodies.js` - people's bodies (`HOST.bodies`, v164; "People's bodies" in `docs/agents/shared-rooms.md`): the mannequin
+  'street armour' made in code, its poser (ik.js's `'head'` setup from a headset and two controllers, sized by a person's
+  standing eye height) and an instanced draw of every body in one draw call (their glows in one more), each person's
+  bones in a row of a float texture. Loaded by `shared.js` the first time a body is wanted, after `ik.js`, as
+  `output.js` is (in `SHELL`, `APP_FILES`, the release's shell fingerprint and `--watch`'s shell files); heads and hands
+  meanwhile, and for good where the renderer cannot read floats in a vertex shader (WebGL1 without float textures).
+- `ik.js` - the trackers' solver (`makeIK`; v125, at the repository's root since v164): a plain module of one function of
+  THREE, no DOM. `tools/studio/build.mjs` pastes it into `stories/studio.js` (the studio's puppet, a Mixamo character worn
+  with trackers: "The solver (ik.js)" in `tools/trackers/SPEC.md`) and `shared.js` loads it for `bodies.js` (people's
+  bodies pose by its `'head'` setup); `tools/studio/test-ik.mjs` checks it in Node.
 - `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
   links of a peer-to-peer room, loaded by `shared.js` only then. `p2p/` - a test
   page (not part of the app) for checking a network before an event: do two
@@ -248,9 +258,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   names and a walk, for the trackers' solver; `test/local/` is git-ignored, for your own scenes; and `test/examples/tiny/`, about 30 KB, an example scene as the app ships
   them in `examples/`, for the Scene pane's Examples), `test-images.mjs` (the picture reader checked in Node), `test-ktx2.mjs`
   (v151: the KTX2 container, the GLB, the mips and the strips in Node, with `basis/`'s own encoder and transcoder); see its `README.md` and `SPEC.md`.
-  `engine/ik.js` (v125; in the build since v126, as `convert.js` is: `e6l_puppet.js` uses it) is the trackers' solver for
-  phase 3 of `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and controllers: "The solver
-  (ik.js)" there), a plain module like `convert.js`, checked by `test-ik.mjs`.
+  The trackers' solver for phase 3 of `tools/trackers/SPEC.md` (a Mixamo character worn with trackers, a headset and
+  controllers: "The solver (ik.js)" there) is `ik.js` at the repository's root since v164 (people's bodies pose by it
+  too), pasted into the build from there (v126: `e6l_puppet.js` uses it), checked by `test-ik.mjs`.
   For a relay that keeps its scenes in R2 (v114): `engine/e7c_direct.js` (the files' signed links read again before they
   lapse, uploads straight into the bucket) and `r2sync.mjs` (scenes between the bucket and a folder: `list`, `pull`,
   `push`). `push.mjs` sends one scene folder to any relay that takes uploads, as it is (`relay/README.md`, "Uploading").

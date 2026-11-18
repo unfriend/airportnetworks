@@ -20734,7 +20734,8 @@ function makeConverter(THREE, hooks) {
 //   solve(rig, cal, targets, dt, state)   the bones for this frame: the hips placed and turned (from their tracker, else
 //                       worked out below the head so the head is where its target is, turned with the head and the feet,
 //                       and for 'feet' lowered when a foot could not be reached), the spine bent from the hips to the
-//                       chest (or half way to the head), the neck half way and the head turned as its target, the arms and
+//                       chest (or half way to the head; for 'head' half its turn about the vertical, a tenth of its nod and
+//                       lean), the neck half way and the head turned as its target, the arms and
 //                       legs by two-bone inverse kinematics to the hands and feet (the elbows and knees towards their
 //                       trackers where worn, else a natural bend: elbows down and back, knees forward), the hands and feet
 //                       turned as their targets; 'head' steps its feet (each planted until the hips have left it behind,
@@ -20876,7 +20877,7 @@ function makeIK(THREE) {
     if (!p || !q) return null;
     if (Array.isArray(p)) out.p.fromArray(p); else out.p.copy(p);
     if (Array.isArray(q)) out.q.fromArray(q); else out.q.copy(q);
-    if (![out.p.x, out.p.y, out.p.z, out.q.x, out.q.y, out.q.z, out.q.w].every(fin) || out.q.lengthSq() < 1e-8) return null;
+    if (!fin(out.p.x) || !fin(out.p.y) || !fin(out.p.z) || !fin(out.q.x) || !fin(out.q.y) || !fin(out.q.z) || !fin(out.q.w) || out.q.lengthSq() < 1e-8) return null;
     out.q.normalize();
     return out;
   }
@@ -20969,10 +20970,13 @@ function makeIK(THREE) {
   // (scratch, kept between calls: one solve at a time)
   const F0 = { p: V(), q: Q(), s: 1 }, G = {}, WP = {}, WQ = {}, WS = {}, RWQ = {};
   for (const s of Object.keys(SLOT_BONE)) G[s] = newPose();
-  for (const p of Object.keys(NAMES)) { WP[p] = V(); WQ[p] = Q(); RWQ[p] = Q(); }
+  for (const p of Object.keys(NAMES)) { WP[p] = V(); WQ[p] = Q(); RWQ[p] = Q(); WS[p] = 0.5; }   // (WS: every part, a fraction from the start, so its scales are kept in place, not boxed anew)
   const QI = Q(), q1 = Q(), q2 = Q(), Dh = Q(), Dc = Q(), Dhd = Q(), Dn = Q(), Dq = Q(), v1 = V(), v2 = V(), v3 = V(), hip = V();
   const FW = V(), UW = V(), LW = V(), HD = V(), E = V(), UU = V(), VV = V(), HH = V(), HC = V(), PL = V(), PC = V(), KP = V(), H1 = V(), H2 = V();
-  const OFF = newPose(), TG = newPose(), HAVE = {};
+  const OFF = newPose(), TG = newPose(), HAVE = {}, CHEST_TILT = 0.1, SOLVED = Object.freeze({ ok: true });
+  const LIMB_RE = /^(l|r)(fore|hand|leg|foot|toe)$/, TOE_RE = /toe$/;   // (made once: a regular expression written in a loop is a new object each time)
+  // (each side's part names, made once: names joined from strings each frame would be new strings each frame, v164)
+  const SN = Object.fromEntries(['l', 'r'].map(s => [s, Object.fromEntries(['arm', 'leg', 'hand', 'elbow', 'knee', 'foot'].map(k => [k, s + k]))]));
   // a goal: the target's pose times its offset (the bone's pose)
   const goal = (t, c, out) => { OFF.p.set(c[0], c[1], c[2]); OFF.q.set(c[3], c[4], c[5], c[6]).normalize(); out.q.copy(t.q).multiply(OFF.q); out.p.copy(OFF.p).applyQuaternion(t.q).add(t.p); return out; };
   // a part's place, from its parent's (its rest offset turned and scaled by the parent)
@@ -21053,25 +21057,33 @@ function makeIK(THREE) {
       yawQ(yaw, Dh);
     }
     if (have.chest) Dc.copy(G.chest.q).multiply(q1.copy(RWQ[rig.chest]).invert());
-    else between(Dh, Dhd, 0.5, Dc);
+    else if (setup === 'head') {
+      // ('head', v164: the chest takes half the head's turn about the vertical but only CHEST_TILT of its nod and lean, so
+      // someone looking down bends the neck, not the back: the hips stay under them and their feet in their view)
+      q2.copy(Dh).invert().multiply(Dhd);
+      Dq.set(0, q2.y, 0, q2.w);
+      if (Dq.lengthSq() < 1e-12) Dq.identity(); else Dq.normalize();
+      q1.copy(Dq).invert().premultiply(q2);   // (the swing: the turn less its twist about the vertical)
+      Dc.copy(QI).slerp(q1, CHEST_TILT).premultiply(Dh).multiply(Dq.slerp(QI, 0.5));
+    } else between(Dh, Dhd, 0.5, Dc);
     between(Dc, Dhd, 0.5, Dn);
     WQ.hips.copy(Dh).multiply(RWQ.hips);
-    rig.spines.forEach((p, i) => { between(Dh, Dc, (i + 1) / rig.spines.length, Dq); WQ[p].copy(Dq).multiply(RWQ[p]); });
+    for (let i = 0; i < rig.spines.length; i++) { const p = rig.spines[i]; between(Dh, Dc, (i + 1) / rig.spines.length, Dq); WQ[p].copy(Dq).multiply(RWQ[p]); }
     if (B.neck) WQ.neck.copy(Dn).multiply(RWQ.neck);
     WQ.head.copy(G.head.q);
     for (const s of ['lsh', 'rsh']) if (B[s]) WQ[s].copy(Dc).multiply(RWQ[s]);
     // the places down the spine from the hips at the origin; then the hips: their tracker's, else under the head so that
     // the head is where its target is
     WP.hips.set(0, 0, 0); WS.hips = F.s * R.hips.s;
-    for (const p of rig.parts) if (p !== 'hips' && !/^(l|r)(fore|hand|leg|foot|toe)$/.test(p) && p !== 'headtop') fk(rig, p);
+    for (const p of rig.parts) if (p !== 'hips' && !LIMB_RE.test(p) && p !== 'headtop') fk(rig, p);
     if (have.hips) hip.copy(G.hips.p);
     else hip.copy(G.head.p).sub(WP.head);
     // ('feet': the hips lowered as far as both feet need to be reached)
     if (setup === 'feet') {
       let drop = 0;
       for (const s of ['l', 'r']) {
-        const Lg = rig.limbs[s + 'leg'], reach = (WS[Lg.u] * Lg.a + WS[Lg.u] * R[Lg.l].s * Lg.b) * 0.9995;
-        v2.copy(G[s + 'foot'].p).sub(v3.copy(WP[Lg.u]).add(hip));
+        const Lg = rig.limbs[SN[s].leg], reach = (WS[Lg.u] * Lg.a + WS[Lg.u] * R[Lg.l].s * Lg.b) * 0.9995;
+        v2.copy(G[SN[s].foot].p).sub(v3.copy(WP[Lg.u]).add(hip));
         if (v2.length() > reach) { const h = v2.y, q = h * h - v2.lengthSq() + reach * reach; drop = Math.max(drop, q >= 0 ? -h - Math.sqrt(q) : -h); }
       }
       if (drop > 0) hip.y -= drop;
@@ -21081,22 +21093,22 @@ function makeIK(THREE) {
     if (setup === 'head') steps(rig, cal, st, dt);
     // the arms and legs
     for (let j = 0; j < 2; j++) {
-      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[s + 'arm'];
+      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[SN[s].arm];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
-      if (have[s + 'elbow']) KP.copy(G[s + 'elbow'].p).sub(WP[L.u]);
+      if (have[SN[s].elbow]) KP.copy(G[SN[s].elbow].p).sub(WP[L.u]);
       else KP.copy(UW).multiplyScalar(-0.55).addScaledVector(FW, -0.75).addScaledVector(LW, 0.35 * sg).applyQuaternion(Dc);
       HC.copy(L.hinge).applyQuaternion(F.q).applyQuaternion(Dc);   // (the hinge at rest, carried by the chest)
-      twoBone(rig, L, WP[L.u], G[s + 'hand'].p, a, b, KP, v2.copy(HC));
-      WQ[L.e].copy(G[s + 'hand'].q);
+      twoBone(rig, L, WP[L.u], G[SN[s].hand].p, a, b, KP, v2.copy(HC));
+      WQ[L.e].copy(G[SN[s].hand].q);
     }
     for (let j = 0; j < 2; j++) {
-      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[s + 'leg'];
+      const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[SN[s].leg];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
-      if (have[s + 'knee']) KP.copy(G[s + 'knee'].p).sub(WP[L.u]);
-      else { Dq.copy(G[s + 'foot'].q).multiply(q1.copy(RWQ[L.e]).invert()); KP.copy(FW).applyQuaternion(Dh).add(v2.copy(FW).applyQuaternion(Dq)).addScaledVector(v3.copy(LW).applyQuaternion(Dh), 0.1 * sg); }
+      if (have[SN[s].knee]) KP.copy(G[SN[s].knee].p).sub(WP[L.u]);
+      else { Dq.copy(G[SN[s].foot].q).multiply(q1.copy(RWQ[L.e]).invert()); KP.copy(FW).applyQuaternion(Dh).add(v2.copy(FW).applyQuaternion(Dq)).addScaledVector(v3.copy(LW).applyQuaternion(Dh), 0.1 * sg); }
       HC.copy(L.hinge).applyQuaternion(F.q).applyQuaternion(Dh);
-      twoBone(rig, L, WP[L.u], G[s + 'foot'].p, a, b, KP, v2.copy(HC));
-      WQ[L.e].copy(G[s + 'foot'].q);
+      twoBone(rig, L, WP[L.u], G[SN[s].foot].p, a, b, KP, v2.copy(HC));
+      WQ[L.e].copy(G[SN[s].foot].q);
     }
     // the bones' local turns (and the hips' place); the others at rest
     q1.copy(F.q).invert();
@@ -21107,11 +21119,11 @@ function makeIK(THREE) {
       b.scale.setScalar(r.s);
       if (p === 'hips') continue;
       b.position.copy(r.p);
-      if (p === 'headtop' || /toe$/.test(p)) { b.quaternion.copy(r.q); continue; }
+      if (p === 'headtop' || TOE_RE.test(p)) { b.quaternion.copy(r.q); continue; }
       b.quaternion.copy(WQ[rig.PAR[p]]).invert().multiply(WQ[p]);
     }
     B.hips.updateMatrixWorld(true);
-    return { ok: true };
+    return SOLVED;
   }
 
   // ---- 'head': the stepping feet. Each foot is planted (on the floor, where it was put down) until the hips have left it
@@ -21119,21 +21131,21 @@ function makeIK(THREE) {
   // it, or the leg cannot reach it); then it steps, in a short arc over STEP_T, to its home a little ahead of where the hips
   // are going. One foot at a time, by turns. A foot the leg cannot reach steps at once only if a step would help (v164: the
   // hips risen over both feet, a head bob or on tiptoe, is no reason; that made a rig with straight legs at rest hop, both
-  // feet forced up together) and only while the other is planted or landing (LAND of its step done), unless it is out of
-  // reach by JUMP of the legs' length.
+  // feet forced up together) and only while the other is planted: the other, on its way, lands HURRY times sooner
+  // meanwhile, unless the foot is out of reach by JUMP of the legs' length.
   // Faster than GLIDE[0] m/s along the floor (moving with the sticks) the feet glide under the hips, planted, until the hips
   // slow under GLIDE[1] (no frantic stepping). Nothing is allocated here a frame but a step's start
-  const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006, LAND = 0.5, JUMP = 0.1, GLIDE = [1.2, 0.9], GLIDE_T = 0.06;
+  const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006, HURRY = 5, JUMP = 0.1, GLIDE = [1.0, 0.7], GLIDE_T = 0.06;
   const HOME = [newPose(), newPose()], RF = newPose(), RH = newPose(), FL = V(), PF = [newPose(), newPose()];
   const SIDES = ['l', 'r'], LEN = [0, 0], WANT = [0, 0], OVER = [0, 0], FORCED = [false, false];
   function steps(rig, cal, st, dt) {
     const F = F0, rootY = rig.root.getWorldPosition(v3).y;
     restAt(rig, F, rig.rp.hips, rig.rq.hips, RH);
-    for (let i = 0; i < 2; i++) { const L = rig.limbs[SIDES[i] + 'leg']; LEN[i] = WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b; }
+    for (let i = 0; i < 2; i++) { const L = rig.limbs[SN[SIDES[i]].leg]; LEN[i] = WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b; }
     // the feet's homes: as at rest, under the hips (turned with them), on the floor
     for (let i = 0; i < 2; i++) {
       const s = SIDES[i];
-      restAt(rig, F, rig.rp[s + 'foot'], rig.rq[s + 'foot'], RF);
+      restAt(rig, F, rig.rp[SN[s].foot], rig.rq[SN[s].foot], RF);
       FL.copy(RF.p).sub(RH.p); FL.y = 0; FL.applyQuaternion(Dh);
       HOME[i].p.set(hip.x, cal.floor + RF.p.y - rootY, hip.z).add(FL);
       HOME[i].q.copy(Dh).multiply(RF.q);
@@ -21168,14 +21180,16 @@ function makeIK(THREE) {
         WANT[i] = OVER[i] = 0;
         if (!f.on) { stepping = i; continue; }
         // (how much nearer reach a step home would bring it: a hip risen over both the foot and its home gains nothing)
-        const hj = WP[rig.limbs[SIDES[i] + 'leg'].u];
+        const hj = WP[rig.limbs[SN[SIDES[i]].leg].u];
         OVER[i] = v2.copy(PF[i].p).sub(hj).length() - Math.max(LEN[i], v3.copy(HOME[i].p).sub(hj).length());
         v2.copy(PF[i].p).sub(HOME[i].p); v2.y = 0;
         WANT[i] = v2.length() / (STEP * LEN[i]) + Math.abs(headingOf(q1.copy(PF[i].q).multiply(q2.copy(HOME[i].q).invert()))) / STEP_A;
       }
-      let nf = 0;
+      let nf = 0, hurry = false;
       for (let i = 0; i < 2; i++) {
-        FORCED[i] = st.feet[i].on && OVER[i] > REACH * LEN[i] && (stepping < 0 || st.feet[stepping].k >= LAND || OVER[i] > JUMP * LEN[i]);
+        const out = st.feet[i].on && OVER[i] > REACH * LEN[i];
+        FORCED[i] = out && (stepping < 0 || OVER[i] > JUMP * LEN[i]);
+        if (out && !FORCED[i]) hurry = true;
         if (FORCED[i]) nf++;
       }
       let go = -1;
@@ -21195,7 +21209,7 @@ function makeIK(THREE) {
       for (let i = 0; i < 2; i++) {
         const f = st.feet[i];
         if (f.on) continue;
-        f.k = Math.min(1, f.k + dt / STEP_T);
+        f.k = Math.min(1, f.k + dt / STEP_T * (hurry ? HURRY : 1));
         const lead = Math.min(0.3 * LEN[i], sp * STEP_T * 0.6), u = sp || 1;
         v2.copy(HOME[i].p); v2.x += st.v[0] / u * lead; v2.z += st.v[1] / u * lead;
         const e = smooth(0, 1, f.k);
@@ -21206,7 +21220,7 @@ function makeIK(THREE) {
         PF[i].p.toArray(f.p); PF[i].q.toArray(f.q);
       }
     }
-    for (let i = 0; i < 2; i++) { G[SIDES[i] + 'foot'].p.copy(PF[i].p); G[SIDES[i] + 'foot'].q.copy(PF[i].q); }
+    for (let i = 0; i < 2; i++) { G[SN[SIDES[i]].foot].p.copy(PF[i].p); G[SN[SIDES[i]].foot].q.copy(PF[i].q); }
   }
 
   // ---- takes: the bones as solved, sampled, made into a clip

@@ -13777,6 +13777,171 @@ if (runs('frame rate')) {
   });
   await ctx.close();
 }
+// People's bodies (v164, --only bodies; the owner, 18 November 2026: "body with feet possible for everyone even just
+// headset and controllers"): a pretend Quest (FPS_FAKE: three.js r128's own WebXR path, its floor 1.6 m under the head)
+// in a room on this device, others fed through HOST.collab.presIn as if heard. A
+// person walking a curve with grips is one body in one draw (and its glows in one more, however many people), their
+// planted feet on the floor, stepping by turns and never both up, both planted once they stand; four people still two
+// draws; Bodies off gives heads and hands; a jump of 3 m plants the feet again under them; My body off by default, on
+// your own body drawn (the self flag, the head and neck folded away, its feet on the floor under you); in AR (the session
+// made AR as it runs: a pretend headset has no spots to line up by) a person in the room gets no body and one elsewhere
+// does, and My body none. bodies.js and ik.js are loaded on demand: the first body waits for them
+if (runs('bodies')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 200 } });
+  const bp = await ctx.newPage();
+  bp.on('pageerror', e => errors.push('bodies: ' + (e.stack || e.message)));
+  bp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('bodies: ' + m.text()); });
+  await bp.addInitScript(FPS_FAKE);
+  const open = async (mode) => {
+    await bp.goto('about:blank', { timeout: 90000 });
+    await bp.goto(base + 'index.html#airports&s=BDY&peer=off', { timeout: 90000 });
+    await bp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    await bp.waitForFunction(() => HOST.collab.code === 'BDY' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
+    await bp.evaluate(mode => HOST.cur.peek('xrStart("' + mode + '")'), mode);
+    await bp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+    await bp.evaluate(() => window.__fp.runUntil(() => HOST.room.aligned, 5000));
+  };
+  // people fed for a while of real time (the shell's frames are timed by the clock: a frame each few ms, as fast as this
+  // machine draws them; the relay's time stamped): ids and where each is at time t, the seconds since the first feed (a
+  // function's text: { x, z, yaw, h, g: false for no grips }); each frame's bodies' info for the ids in watch kept
+  const feed = (people, secs, watch) => bp.evaluate(async ([people, secs, watch]) => {
+    const C = HOST.collab, F = window.__fp, T = THREE, W = window.__bw = window.__bw || { t0: performance.now() - 1 };
+    const q = yaw => new T.Quaternion().setFromEuler(new T.Euler(-0.1, Math.PI + yaw, 0, 'YXZ')).toArray();
+    const grip = (b, s) => { const R = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), b.yaw), p = new T.Vector3(0.2 * s, 1.0, 0.25).applyQuaternion(R);
+      return [b.x + p.x, p.y, b.z + p.z, ...new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), b.yaw + Math.PI).toArray()]; };
+    const fns = people.map(P => new Function('t', 'return (' + P.at + ')(t)'));
+    const seen = [], end = performance.now() + secs * 1000;
+    for (let k = 0; performance.now() < end; k++) {
+      W.t = (performance.now() - W.t0) / 1000;
+      const ts = Math.round(C.now());
+      people.forEach((P, i) => { const b = fns[i](W.t); C.presIn(P.id, { st: '', head: [b.x, b.h || 1.62, b.z, ...q(b.yaw)], hands: [], g: b.g === false ? [null, null] : [grip(b, 1), grip(b, -1)], ts }); });
+      F.step(1);
+      if (HOST.collab.menu) HOST.collab.panelOpen(false);
+      const O = C.overlay().people;
+      seen.push(Object.fromEntries([['t', W.t]].concat((watch || []).map(id => { const o = O.get(id); return [id, o ? { body: !!o.asBody, avatar: o.avatar.visible, head: o.e && o.e.p.toArray(), info: o.body ? HOST.bodies.info(o.body) : null } : null]; }))));
+      await new Promise(r => setTimeout(r, 4));
+    }
+    return seen;
+  }, [people, secs, watch]);
+  const forget = () => bp.evaluate(() => { HOST.collab.internals().pres.clear(); window.__fp.step(2); });
+  const state = () => bp.evaluate(() => { const s = HOST.collab.bodyState(), m = HOST.bodies && HOST.bodies.meshes(), O = HOST.collab.overlay(), C = HOST.collab.internals();
+    const I = m && m.body ? m.body.geometry.attributes.aInst.array : null;
+    return Object.assign(s, { heads: O && O.people ? [...O.people.values()].filter(o => o.avatar.visible && !o.asBody).length : 0, count: m && m.body ? m.body.geometry.instanceCount : 0,
+      selfRows: I ? Array.from({ length: m.body.geometry.instanceCount }, (_, k) => I[k * 4 + 2]).filter(v => v === 1).length : 0, myBody: HOST.xr.body(), stored: localStorage.getItem('xrBody') }); });
+  // (draws a frame: each of the two meshes' renders over n frames, by the pretend headset's two eyes)
+  const draws = n => bp.evaluate(n => { const a = HOST.bodies.stats().calls; window.__fp.step(n); const b = HOST.bodies.stats().calls; return { body: (b.body - a.body) / n / 2, halo: (b.halo - a.halo) / n / 2 }; }, n);
+  // (standing until 0.6 s, then 2.75 m along an arc of 2.2 m at 0.55 m/s, turning with it, then standing from 5.6 s)
+  const WALK = 't => { const a = Math.min(Math.max(t - 0.6, 0), 5) * 0.25; return { x: -1 + 2.2 * Math.sin(a), z: -2 - 2.2 * (1 - Math.cos(a)), yaw: Math.PI / 2 + a }; }';
+
+  await step('bodies: a person walking a curve with grips is one body (loaded on demand): one draw for the bodies, one for their glows; the planted feet on the floor, steps by turns, never both feet up; standing, both planted; four people still two draws', async () => {
+    const bad = [];
+    await open('immersive-vr');
+    const s0 = await state();
+    if (s0.ready || s0.myBody || s0.stored !== null || !s0.on) bad.push('before anyone: ' + JSON.stringify({ ready: s0.ready, my: s0.myBody, stored: s0.stored, on: s0.on }) + ' (want bodies on, not loaded yet, My body off and unset)');
+    await feed([{ id: 'w1', at: WALK }], 0.2);
+    await bp.waitForFunction(() => HOST.collab.bodyState().ready || !!HOST.collab.bodyState().err, null, { timeout: 20000 });
+    await bp.evaluate(() => { window.__bw = null; });   // (the walk's clock from now)
+    const seen = await feed([{ id: 'w1', at: WALK }], 7.4, ['w1']);
+    const s1 = await state(), d1 = await draws(10);
+    if (!s1.ready || s1.err || !s1.can) bad.push('bodies.js not ready: ' + JSON.stringify({ ready: s1.ready, can: s1.can, err: s1.err }));
+    if (s1.count !== 1 || s1.heads !== 0 || !s1.stats || s1.stats.n !== 1) bad.push(`one person: ${s1.count} body instances, ${s1.heads} heads (want 1 body, no head)`);
+    if (d1.body !== 1 || d1.halo !== 1) bad.push('the draws a frame (an eye): ' + JSON.stringify(d1) + ' (want one for the bodies, one for their glows)');
+    // the walk (0.6 to 5.6 s): the planted feet on the floor, which foot lifts each time (by turns), frames with both up
+    let lifts = [], both = 0, low = 1, high = 0, last = null;
+    seen.forEach(f => {
+      const I = f.w1 && f.w1.info;
+      if (!I || !I.on.length || f.t > 6.2) return;
+      if (!f.w1.body) both += 1000;
+      if (!I.on[0] && !I.on[1]) both++;
+      I.on.forEach((o, i) => { if (o) { low = Math.min(low, I.feet[i][1]); high = Math.max(high, I.feet[i][1]); } if (last && last[i] && !o) lifts.push(i); });
+      last = I.on.slice();
+    });
+    const turns = lifts.slice(1).filter((s, i) => s !== lifts[i]).length / Math.max(1, lifts.length - 1);
+    console.log(`      (walking 2.75 m: ${lifts.length} steps, ${Math.round(turns * 100)} % by turns, ${both} frames with both feet up; the planted ankles ${low.toFixed(3)} to ${high.toFixed(3)} m up; ${seen.length} frames)`);
+    if (lifts.length < 6 || turns < 0.8 || both) bad.push('walking 2.75 m along a curve: ' + JSON.stringify({ steps: lifts.length, byTurns: turns, bothUp: both }) + ' (want 6 steps at least, 80 % by turns, never both feet up)');
+    if (!(low > 0.05 && high < 0.12)) bad.push(`the planted feet (their ankles) from ${low.toFixed(3)} to ${high.toFixed(3)} m over the floor (want on the floor: 5 to 12 cm)`);
+    // standing (5.6 s on): both planted after a second, no step in the last two
+    const stand = seen.filter(f => f.t >= 6.6), I0 = stand[0] && stand[0].w1.info, I1 = stand[stand.length - 1] && stand[stand.length - 1].w1.info;
+    if (!I0 || !I1 || !I1.on[0] || !I1.on[1] || I1.steps !== I0.steps || stand.some(f => !f.w1.info.on[0] || !f.w1.info.on[1])) bad.push('standing again: ' + JSON.stringify({ first: I0 && I0.on, last: I1 && I1.on, steps: [I0 && I0.steps, I1 && I1.steps] }) + ' (want both planted, no steps)');
+    // four people: four instances, still two draws
+    await feed(['w1', 'p2', 'p3', 'p4'].map((id, i) => ({ id, at: `t => ({ x: ${-1.5 + i}, z: -2.5, yaw: 0, g: ${i !== 3} })` })), 1);
+    const s4 = await state(), d4 = await draws(10);
+    // (what a body costs here, SwiftShader's machine: the solver and the bones' row, a person a frame; the frame's draw calls)
+    const cost = await bp.evaluate(() => { const B = HOST.bodies, add = B.add; let ms = 0, n = 0; B.add = (b, I) => { const t = performance.now(), r = add(b, I); ms += performance.now() - t; n++; return r; };
+      try { window.__fp.step(60); } finally { B.add = add; } return { perPerson: ms / Math.max(1, n), n }; });
+    console.log(`      (four bodies: ${cost.perPerson.toFixed(3)} ms a person a frame to pose and write, over ${cost.n}; draws an eye a frame: bodies ${d4.body}, glows ${d4.halo})`);
+    if (s4.count !== 4 || s4.heads !== 0) bad.push(`four people: ${s4.count} body instances, ${s4.heads} heads`);
+    if (d4.body !== 1 || d4.halo !== 1) bad.push('four people, the draws a frame (an eye): ' + JSON.stringify(d4));
+    const one = await bp.evaluate(() => { const o = HOST.collab.overlay().people.get('p4'); return o && o.body ? HOST.bodies.info(o.body).hands : null; });
+    if (!one || one[0] !== 0 || one[1] !== 0) bad.push('a person with no grips: their hands not hanging: ' + JSON.stringify(one));
+    if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
+  });
+
+  await step('bodies: Bodies off draws heads and hands (the menu\'s This headset row, kept), on again bodies; a jump of 3 m plants the feet again under the person', async () => {
+    const bad = [];
+    const press = id => bp.evaluate(id => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__fp.step(2); HOST.collab.panelOpen(false); return r ? r.label : null; }, id);
+    const l0 = await press('bodies');
+    const ppl = ['w1', 'p2', 'p3', 'p4'].map((id, i) => ({ id, at: `t => ({ x: ${-1.5 + i}, z: -2.5, yaw: 0 })` }));
+    await feed(ppl, 0.3);
+    const s1 = await state(), kept = await bp.evaluate(() => localStorage.getItem('collabBodies'));
+    if (l0 !== 'Bodies: on' || s1.on || s1.count !== 0 || s1.heads !== 4 || kept !== 'off') bad.push('Bodies off: ' + JSON.stringify({ label: l0, on: s1.on, bodies: s1.count, heads: s1.heads, kept }) + ' (want no bodies, four heads, kept as off)');
+    const l1 = await press('bodies');
+    await feed(ppl, 0.3);
+    const s2 = await state();
+    if (l1 !== 'Bodies: off' || !s2.on || s2.count !== 4 || s2.heads !== 0) bad.push('Bodies on again: ' + JSON.stringify({ label: l1, bodies: s2.count, heads: s2.heads }));
+    // a jump: standing, then 3 m away at once; the feet at the new place within a frame of it showing, no steps walked there
+    await feed([{ id: 'w1', at: 't => ({ x: -1.5, z: -2.5, yaw: 0 })' }], 1);
+    const j = await feed([{ id: 'w1', at: 't => ({ x: 1.5, z: -2.5, yaw: 0 })' }], 0.6, ['w1']);
+    const at = j.findIndex(f => f.w1 && f.w1.head && f.w1.head[0] > 1.4), J = at >= 0 && j[Math.min(j.length - 1, at + 1)].w1.info, last = j[j.length - 1].w1.info;
+    const under = J && J.feet.every(p => Math.hypot(p[0] - 1.5, p[2] + 2.5) < 0.35);
+    if (at < 0 || !under || !J.on[0] || !J.on[1] || last.steps > 1) bad.push('a jump of 3 m: ' + JSON.stringify({ shownAt: at, feet: J && J.feet.map(p => p.map(v => +v.toFixed(2))), on: J && J.on, steps: last && last.steps }) + ' (want both feet planted under the new place at once, not walked there)');
+    if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
+  });
+
+  await step('bodies: My body off by default; on (the Settings row, kept), your own body is drawn too, its head and neck folded away; off again, gone', async () => {
+    const bad = [];
+    const press = id => bp.evaluate(id => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__fp.step(2); HOST.collab.panelOpen(false); return r ? r.label : null; }, id);
+    await forget();
+    const ppl = [{ id: 'w1', at: 't => ({ x: 0, z: -2.5, yaw: 0 })' }];
+    await feed(ppl, 0.3);
+    const s0 = await state();
+    if (s0.myBody || s0.self || s0.count !== 1 || s0.selfRows) bad.push('My body off by default: ' + JSON.stringify({ my: s0.myBody, self: !!s0.self, bodies: s0.count }));
+    const l0 = await press('mybody');
+    await feed(ppl, 1);
+    const s1 = await state();
+    if (l0 !== 'My body: off' || !s1.myBody || s1.stored !== 'on' || s1.count !== 2 || s1.selfRows !== 1 || !s1.self) bad.push('My body on: ' + JSON.stringify({ label: l0, my: s1.myBody, stored: s1.stored, bodies: s1.count, selfRows: s1.selfRows }));
+    else {
+      const S = s1.self;
+      if (!(S.neck < 0.001)) bad.push('your own body\'s head and neck not folded away: the neck scaled ' + S.neck);
+      if (!S.on[0] || !S.on[1] || !S.feet.every(p => p[1] - s1.selfFloor > 0.05 && p[1] - s1.selfFloor < 0.12 && Math.hypot(p[0], p[2]) < 0.4)) bad.push('your own feet not on the floor under you: ' + JSON.stringify({ feet: S.feet, floor: s1.selfFloor }));
+      if (!(S.hands[0] > 0.9 && S.hands[1] > 0.9)) bad.push('your own hands not on your controllers: ' + JSON.stringify(S.hands));
+    }
+    const l1 = await press('mybody');
+    await feed(ppl, 0.3);
+    const s2 = await state();
+    if (l1 !== 'My body: on' || s2.myBody || s2.count !== 1 || s2.selfRows) bad.push('My body off again: ' + JSON.stringify({ label: l1, my: s2.myBody, bodies: s2.count, selfRows: s2.selfRows }));
+    if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
+  });
+
+  await step('bodies: in AR a person in the room with you gets no body (the real one is there), one elsewhere does; My body never in AR', async () => {
+    const bad = [];
+    await forget();
+    await bp.evaluate(() => { window.__fp.session.environmentBlendMode = 'alpha-blend'; HOST.mode = 'immersive-ar'; });
+    await bp.evaluate(() => { HOST.xr.setBody(true); const C = HOST.collab.internals(); C.members.push({ id: 'in1', name: 'Here', color: '#46d9ff', kind: 'ar', here: true }, { id: 'out1', name: 'Away', color: '#ff5ad9', kind: 'vr', here: false }); });
+    const seen = await feed([{ id: 'in1', at: 't => ({ x: -0.6, z: -2, yaw: 0 })' }, { id: 'out1', at: 't => ({ x: 0.6, z: -2, yaw: 0 })' }], 1.2, ['in1', 'out1']);
+    await bp.waitForFunction(() => HOST.collab.bodyState().ready, null, { timeout: 20000 });
+    const f = (await feed([{ id: 'in1', at: 't => ({ x: -0.6, z: -2, yaw: 0 })' }, { id: 'out1', at: 't => ({ x: 0.6, z: -2, yaw: 0 })' }], 0.3, ['in1', 'out1'])).pop(), s = await state();
+    if (!f.in1 || f.in1.body || f.in1.avatar) bad.push('in AR, a person in the room: ' + JSON.stringify(f.in1 && { body: f.in1.body, avatar: f.in1.avatar }) + ' (want neither a body nor a head)');
+    if (!f.out1 || !f.out1.body) bad.push('in AR, a person elsewhere: no body ' + JSON.stringify(f.out1 && { body: f.out1.body, avatar: f.out1.avatar }));
+    if (s.count !== 1 || s.selfRows) bad.push(`in AR: ${s.count} bodies, ${s.selfRows} of them your own (want one, theirs: My body is VR only)`);
+    await bp.evaluate(() => { HOST.xr.setBody(false); window.__fp.session.environmentBlendMode = 'opaque'; HOST.mode = 'immersive-vr'; });
+    if (seen.length < 10) bad.push('in AR: nothing fed');
+    if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
+  });
+  await bp.evaluate(async () => { const s = HOST.session; if (s) await s.end(); }).catch(() => 0);
+  await ctx.close();
+}
 // Automatic quality (v145, --only 'auto quality'; the owner, 14 November 2026: "auto quality by default", and 72 Hz is
 // acceptable on a Quest 3S): a pretend Quest (FPS_FAKE, whose frame times the test sets) in a page of its own. Frames 22 ms
 // apart at 90 Hz are late: the picture steps down (fixed foveation 0.75, 1; the view's scale 0.9, 0.8, 0.7 where the views

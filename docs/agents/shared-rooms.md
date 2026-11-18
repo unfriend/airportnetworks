@@ -1167,6 +1167,67 @@ The plan is `docs/shared-space-plan.md`.
   `HOST.collab.seeAll(on)`). Pages' room maps still show everyone. Heads, hands and rays are drawn where the
   presence put them `SMOOTH.DELAY` ago, between its samples (`ts` in each); presence without `ts` eases to the latest
   (a 60 ms time constant), as before.
+- People's bodies (v164; the owner, 18 November 2026: "body with feet possible for everyone even just headset and
+  controllers"; `bodies.js`, `HOST.bodies`; `shared.js`: `BODIES`, `BOD`, `bodiesBegin`, `bodyOf`, `drawSelf`). Wherever
+  a head with its visor was drawn, a whole body is drawn in its place, its hands in place of the hand balls (rays, dots
+  and name signs stay; the sign sits just over the helmet, 0.2 m over the eyes): in VR everyone at your circle (People:
+  everyone shows all), in AR only people elsewhere (never over a real person in the room: `m.here`), in camera mode and
+  on the desktop preview camera as they drew people before. *Bodies: on* / *off* (the menu's Debug tab, This headset,
+  beside *People*; this headset's own, `collabBodies` in `localStorage`, on by default, never in the room or a state;
+  `HOST.collab.bodies(on)`): off, heads and hands as before.
+  - The mannequin, 'street armour' (the judge's pick of two designs, with ideas from the other, the light frame:
+    `docs/history.md`): made in code once (2,470 triangles; its glows 840), opaque faceted plates over an undersuit, both a
+    deep shade of the person's colour (pearl for the near-white), the colour in thick lights (a V visor with a white-hot
+    core, a crest and a band round the helmet, ear pods, the collar, the chest's V, shoulder rims, gems at the elbows,
+    circuit traces ending in pads on the bracers, thighs and back, knee rings, shin and calf strips, boot cuffs and
+    soles), a network emblem on the chest and a spine of five nodes down the back; a scan climbs each body every 5 s, out
+    of step person to person (its phase a hash of the member id); a soft pool of light under each boot, dimming as the
+    foot lifts. Self-lit (a key light fixed to the viewer, the sky from world up, a sheen, a rim in the person's colour):
+    the scene's lights are not used. 23 bones with Mixamo's names in a T-pose facing +z, every vertex bound to one bone;
+    the knees a little bent at rest (2.5 cm of slack: longer steps, a stance).
+  - Posed by `ik.js`'s `'head'` setup (the hips worked out below the head, the arms reaching for the grips, the feet
+    planted and stepped by turns, gliding under the hips faster than 1 m/s: the sticks), calibrated once from the
+    mannequin's own T-pose (the headset at its eyes and 8 cm ahead of them, the grips where Quest controllers are held in
+    a T-pose: WebXR's grip axes). Hands from presence's `g` (the grips, or a tracked hand's wrist), smoothed as the head is
+    (between the samples, else eased); where `g` is missing (an app before v126), from the ray's start and direction
+    (which hand by where it starts, right or left of the head); else, and for a controller asleep, a relaxed hanging arm,
+    eased in and out over 0.2 s. Each person's size follows their standing eye height (the 90th percentile of their head's
+    height over the floor, a sample every 0.5 s over the last 30 s, 1.0 to 2.05 m, 1.6 m until 3 s are in; eased over a
+    second): sitting or crouching bends the legs instead of shrinking the body. A jump (the head more than 1 m in a frame,
+    or faster than 6 m/s over more than 15 cm, as a leap drawn between samples shows; a change of station; coming back
+    into view) plants the feet again under them. Each person's figure (`o.body`: its skeleton, never drawn, the solver's
+    state, the eye samples) lives with their overlay object and goes when they go; the facade keeps `o.avatar.visible`
+    (the figure drawn, a body or a head), `o.hands[i].visible` (a hand drawn: a ball, or a body's own, both of them) and
+    adds `o.asBody`.
+  - One draw for every body: the mannequin's geometry instanced (`InstancedBufferGeometry`, a person an instance, at most
+    49: the overlay's 48 and your own), each person's 23 bones solved on their own skeleton and written into a float
+    `DataTexture` (69 x 49 texels of four floats: a row a person, three texels a bone, the rows of its matrix with the room's
+    frame and the bind pose folded in; sent whole each frame a body shows, 54 KB), an instance's row, colour, scan phase,
+    self flag and floor height as attributes. The design's SHADING and HALO blocks are kept as they were; only the
+    TRANSFORM block is the app's (the bone's matrix read from the texture). The glows (camera-facing soft spots along the
+    lights and the floor pools, additive, no depth written) are the second draw. The two meshes hang in the overlay root
+    (the reference space): others' bones go through the room's frame (`R.m`), yours not. Nothing is made a frame (V8 still
+    boxes some numbers: about 1 to 2 KB a body a frame measured in Node); about 0.02 ms a person a frame to pose and write
+    on the test machine. The renderer cannot read floats in a vertex shader (`capabilities.floatVertexTextures`, WebGL1
+    without `OES_texture_float` or vertex texture units): never loaded, heads and hands (the Debug tab's row says *Bodies: heads only*).
+  - Loading: `bodies.js` and `ik.js` are loaded by `shared.js` the first time a body is wanted (someone with a head in a
+    room, or My body in VR), as `output.js` is; heads and hands meanwhile; its two programs compiled once as it arrives
+    (`HOST.bodies.warm`); a failure logged (`bodies failed`) and tried again a minute later. Phones never load it unless a
+    camera there draws someone.
+  - My body (`HOST.xr.body()`, `setBody(on)` in `index.html`; `xrBody` in `localStorage`, off by default, `#body=on|off`;
+    the owner: your own legs when you look down "off by default"): your own body drawn from your head and your controllers'
+    grips (or a tracked hand's grip space) as this frame gives them (`selfGrips`, in the world's frame: in a room or not,
+    `gripStep` running only in a room), the head and neck folded away (its neck scaled to nothing, its glows there
+    dropped, its rim and glow toned down: the self flag), on the room's floor in a room, else the reference space's. In VR
+    only (in AR you see your own), never in camera mode or on the preview camera, never sent. A row on the menu's Settings
+    tab under *Frame rate*; the page's Shared dialog has none (it holds only the room's settings for the headsets).
+  - For tests: `HOST.collab.bodyState()` (`{ on, my, ready, can, drawing, err, loading, stats, self, selfFloor }`),
+    `HOST.bodies.info(o.body)` (its feet, which are planted, its steps, gliding, its eye height and size, its hips, its
+    neck's scale, its hands' hold) and `stats()` (instances, renders of each mesh). The smoke test's `bodies` block.
+  - Untested on a headset: how the bodies, their lights, the scan and the glows read at 2 to 6 m on a Quest; the frame
+    cost with ten or more people (the solver on a Quest's CPU, the 54 KB texture a frame, 2,470 triangles a person);
+    real controllers' grip poses and tracked hands' wrists sent as `g` (a wrist's axes are not a grip's: hands may sit
+    turned); a real person's walking, crouching and sitting; the comfort of My body; whether the first body hitches.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times

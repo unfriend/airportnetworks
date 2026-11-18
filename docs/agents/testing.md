@@ -1112,6 +1112,26 @@ pretend walls of a 3 x 3.5 m room (`STUDIO.walls`, an AR session pretended, `STU
 what rides on it inside the room, the anchors against a wall, failing when they have not settled within 48 s. After changing `tools/studio/xp/`, run
 `node tools/studio/xp/make.mjs` and its `--check`.
 
+### smoke: bodies
+
+`--only bodies` (v164): people's bodies (`bodies.js`, "People's bodies" in `docs/agents/shared-rooms.md`) with a
+pretend Quest (`FPS_FAKE`, the frame rate block's: three.js r128's own WebXR path, two controllers, its floor 1.6 m under
+the head) in a room on this device (`#airports&s=BDY&peer=off`), others fed through `HOST.collab.presIn` as if heard,
+in real time (the shell's frames are timed by the clock). Four steps:
+- A person walking 2.75 m along an arc with grips, then standing: `bodies.js` and `ik.js` loaded on demand (not before
+  anyone shows; Bodies on and My body off and unset by default), one body instance and no head, one draw a frame (an
+  eye) for the bodies and one for their glows; while walking, six steps at least, 80 % by turns, never both feet off the
+  floor, the planted ankles 5 to 12 cm over the floor; standing, both feet planted and no steps from a second on. Four
+  people (one with no grips: their hands hanging): four instances, still one draw and one. Prints the walk's steps and
+  what a body costs (ms a person a frame to pose and write; SwiftShader's machine).
+- Bodies off (the Debug tab's *Bodies* row, pressed through `HOST.collab.menuFind`): no bodies, four heads, kept as
+  `collabBodies` off; on again, four bodies. A jump of 3 m: both feet planted under the new place within a frame of it
+  showing, not walked there.
+- My body: off by default; its Settings row turns it on (kept as `xrBody`): one more instance, the only one with the self
+  flag, its neck folded away, its feet planted on the floor under you, its hands on your controllers; off again, gone.
+- AR (the session made AR as it runs: a pretend headset has no spots to line up by): a person in the room with you (a
+  member `here`) gets neither a body nor a head, one elsewhere a body; My body draws none.
+
 ### smoke: auto quality (and other steps changed by automatic quality)
 
 The automatic quality steps (`--only 'auto quality'`, a page of their own, run on a quiet machine): on by default, a
@@ -2169,11 +2189,15 @@ three shaded pieces on black: the covered texels unchanged, no black left, the t
 its edge colours, alpha kept or filled, a picture drawn down 2 and 4 times with a dark halo without `rim` and none with
 it, a strip two texels wide keeping its own, a 4,096 px one); run it after changing `tools/studio/engine/images.js` or
 `tools/studio/test/pictures.mjs` (then `node tools/studio/test/make.mjs`). `node tools/studio/test-ik.mjs` (under a
-second, no browser) checks the trackers' solver (`ik.js`) on the puppet test scene's rig loaded twice,
-one walking as the performer: the parts found (and refused in words), which tracker is which from a T-pose, and every
-frame of the whole body (6 and 11 trackers, a performer 1.1 times the size), the feet and a headset, and a headset alone
-(stepped feet) against the truth, the same output twice, and a take replayed; run it after changing `ik.js` or the
-puppet in `tools/studio/test/make.mjs`.
+second, no browser) checks the trackers' solver (`ik.js`, at the repository's root since v164) on the puppet test scene's
+rig loaded twice, one walking as the performer: the parts found (and refused in words), which tracker is which from a
+T-pose, and every frame of the whole body (6 and 11 trackers, a performer 1.1 times the size), the feet and a headset,
+and a headset alone (stepped feet: by turns, never both up, a planted foot sliding under 1 cm and lifting under 1.5)
+against the truth, the same output twice, and a take replayed; and since v164, for people's bodies, a headset alone on
+this rig with straight legs at rest: the head bobbing 2.5 cm over its height at rest and swaying (no steps, both feet
+planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the back upright, the hips under the head:
+before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it
+after changing `ik.js` or the puppet in `tools/studio/test/make.mjs`.
 
 ## Useful URL hashes and the console
 
