@@ -3294,7 +3294,7 @@ async function performer(file, AT) {
   const require = createRequire(import.meta.url), THREE = require(path.join(root, 'three.min.js'));
   globalThis.THREE = THREE;
   if (!THREE.GLTFLoader) new Function(fs.readFileSync(path.join(root, 'tools', 'studio', 'vendor', 'GLTFLoader.js'), 'utf8'))();
-  const IK = new Function(fs.readFileSync(path.join(root, 'tools', 'studio', 'engine', 'ik.js'), 'utf8') + '\nreturn makeIK;')()(THREE);
+  const IK = new Function(fs.readFileSync(path.join(root, 'ik.js'), 'utf8') + '\nreturn makeIK;')()(THREE);
   const b = fs.readFileSync(file);
   const truth = await new Promise((res, rej) => new THREE.GLTFLoader().parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.length), '', res, rej));
   const TR = IK.rigOf(truth.scene), mixer = new THREE.AnimationMixer(truth.scene), walk = mixer.clipAction(truth.animations.find(a => a.name === 'Walk'));
