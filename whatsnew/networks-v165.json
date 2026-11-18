@@ -1,0 +1,19 @@
+{
+  "version": "networks-v165",
+  "date": "2026-11-18",
+  "new": [
+    "Notes page: a recording plays again in Chrome and Brave. It is fetched as the note opens, so the player is ready (it showed 0:00 / 0:00 and play did nothing).",
+    "Notes page: a recording that cannot be fetched or played says why under the player, and Download recording saves it.",
+    "Notes page: the player shows how long a recording is from the start.",
+    "Studio: From another scene shows that scene's models as cards with their pictures, like the Add pane. A model without a picture there shows a plain tile."
+  ],
+  "test": [
+    "Open the notes page on a laptop in Brave or Chrome, open a note and press play on the player; then press a transcript time; then Download recording.",
+    "Studio on a page: Add, From another scene, pick a scene with pictures; the cards show them; a press copies and places the model as before.",
+    "Studio in a headset: the same in the Add pane; the cards page with Up and More."
+  ],
+  "untested": [
+    "The notes page's player in a headset's browser and on a phone.",
+    "From another scene's cards in a headset (drawn by the same code as the Add pane's, not tried on a real one)."
+  ]
+}

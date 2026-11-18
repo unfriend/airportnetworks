@@ -281,7 +281,11 @@ function fromBlocks(B, full) {
   else if (F.files) {
     const L = fromLists(F.files), row = (f, orig) => ({ id: 'fromf:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes),
       act: 'fromFile', v: f.path, on: F.busy === f.path, dis: !!F.busy || full(f.kind === 'audio' ? 's' : 'o') });
-    B.push({ label: `Models in ${F.scene} (${L.models.length})`, list: L.models.map(f => row(f)) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
+    // (its models as cards, as the Add pane's: the picture that scene keeps of each (e7e_pics.js, pvFrom), else a plain tile
+    // with its kind; its name, its bytes; the owner, 14 November 2026)
+    const card = f => ({ id: 'fromf:' + f.path, label: f.path.replace(/^models\//i, ''), title: f.path, act: 'fromFile', v: f.path, from: [f.path], kind: extOf(f.path).toUpperCase(),
+      sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes), dis: !!F.busy || full('o') });
+    B.push({ label: `Models in ${F.scene} (${L.models.length})`, grid: L.models.map(card) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
     if (L.orig.length) {
       B.push({ row: [{ id: 'fromorig', label: `Its originals (${L.orig.length}) ${F.orig ? '▾' : '▸'}`, act: 'fromOrig', on: F.orig }] });
       if (F.orig) B.push({ list: L.orig.map(f => row(f, true)) });
@@ -1007,7 +1011,7 @@ function blockHTML(b) {
   if (b.grid && b.grid.some(x => x.item)) return lab + `<div class="stu-grid">${b.grid.map(itemCardHTML).join('')}</div>`;
   // (an Add card's Look: the model over the whole window, e7f_viewer.js; a button of its own over the picture's corner, so
   // a press on the card still places it)
-  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = cardPic(x); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
     `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`;
     return x.look ? `<div class="stu-cw">${card}<button type="button" class="stu-look" data-act="look" data-v="${esc(x.v)}" data-id="look:${esc(x.v)}" title="Look at ${esc(x.label)} over the whole window, spun about">Look</button></div>` : card; }).join('')}</div>`;

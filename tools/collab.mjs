@@ -6809,7 +6809,7 @@ async function studioRound(dir) {
     const listed = await sUntil(A, `!!FROM.files && !FROM.loading && fromLists(FROM.files).models.map(f => f.path).join() === 'crates/crate.obj,props/statue.fbx'`, 10000);
     await sp(A, '(renderPanes(), 0)');
     // (a copy placed selects it, which shows its card: the Add pane again before each press)
-    const u0 = await sp(A, 'UNDO.length'), copiedAs = async (want, li) => (await sp(A, `(X.tab = 'add', renderPanes(), 0)`), await click(A, `#pane-add li[data-act="fromFile"][data-v="${li}"]`)) &&
+    const u0 = await sp(A, 'UNDO.length'), copiedAs = async (want, li) => (await sp(A, `(X.tab = 'add', renderPanes(), 0)`), await click(A, `#pane-add [data-act="fromFile"][data-v="${li}"]`)) &&
       await sUntil(A, `!!STUDIO.copied && STUDIO.copied.path === ${JSON.stringify(want)} && !FROM.busy`, 30000);
     const c1 = await copiedAs('props/statue.fbx', 'props/statue.fbx'), cp1 = await sp(A, '[STUDIO.copied, UNDO.length, FROM.note]');
     const same = f => fs.existsSync(path.join(SC, 'test', f)) && fs.readFileSync(path.join(SC, 'test', f)).equals(fs.readFileSync(path.join(SH, f)));

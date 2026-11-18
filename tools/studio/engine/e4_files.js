@@ -214,7 +214,7 @@ function openScene(name, how, again) {
     bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
-  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
+  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, pv: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
   dirty(true);
@@ -495,16 +495,17 @@ async function sceneAsk() {
   if (GL.gone || typeof name !== 'string' || !name.trim()) return;
   await sceneMake(name);
 }
-const FROM = { open: false, scene: '', files: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
+const FROM = { open: false, scene: '', files: null, pv: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
 // another scene's listing, for its list of models and sounds
 async function fromScene(name) {
   if (!okScene(name) || name === STU.scene || FROM.busy) return;
   const gen = ++FROM.gen;
-  Object.assign(FROM, { scene: name, files: null, loading: true, note: '', orig: false });
+  Object.assign(FROM, { scene: name, files: null, pv: null, loading: true, note: '', orig: false });
+  pvFromDrop();
   dirty(true);
   try {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`);
-    if (gen === FROM.gen) FROM.files = filesOf(j && j.files);
+    if (gen === FROM.gen) { FROM.files = filesOf(j && j.files); FROM.pv = new Map(FROM.files.filter(f => f.kind === 'preview').map(f => [f.path, f])); }   // (its pictures, for its cards)
   } catch (e) { if (gen === FROM.gen) { FROM.note = `The files of ${name} could not be read: ` + e.message; FROM.noteC = 'red'; } }
   finally { if (gen === FROM.gen) FROM.loading = false; dirty(true); }
 }

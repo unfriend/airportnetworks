@@ -1238,7 +1238,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   scene*; *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, a grid of cards with
   their pictures and *Make pictures* on a page, its sounds,
   *Originals* folded, *Trigger cube*, *Convert every model*; *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; *From another scene...*: the relay's other scenes, then
-  one's models and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
+  one's models (cards with the pictures that scene keeps, as the Add pane's; a plain tile where it has none, v165:
+  `pvFrom`, `cardPic`) and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
   path, a new name when taken, `POST .../copy`, with the files a non-GLB model names that its scene has, found as the
   Upload pane's plan finds them, one whose path is taken here kept as this scene's, an OBJ and its MTL under
   `originals/`; then placed as Add places it, one Undo step; each scene keeps its own copy. New scene and From another

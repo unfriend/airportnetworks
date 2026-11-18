@@ -17756,7 +17756,7 @@ function openScene(name, how, again) {
     bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
     settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
-  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
+  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, pv: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
   dirty(true);
@@ -18037,16 +18037,17 @@ async function sceneAsk() {
   if (GL.gone || typeof name !== 'string' || !name.trim()) return;
   await sceneMake(name);
 }
-const FROM = { open: false, scene: '', files: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
+const FROM = { open: false, scene: '', files: null, pv: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
 // another scene's listing, for its list of models and sounds
 async function fromScene(name) {
   if (!okScene(name) || name === STU.scene || FROM.busy) return;
   const gen = ++FROM.gen;
-  Object.assign(FROM, { scene: name, files: null, loading: true, note: '', orig: false });
+  Object.assign(FROM, { scene: name, files: null, pv: null, loading: true, note: '', orig: false });
+  pvFromDrop();
   dirty(true);
   try {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`);
-    if (gen === FROM.gen) FROM.files = filesOf(j && j.files);
+    if (gen === FROM.gen) { FROM.files = filesOf(j && j.files); FROM.pv = new Map(FROM.files.filter(f => f.kind === 'preview').map(f => [f.path, f])); }   // (its pictures, for its cards)
   } catch (e) { if (gen === FROM.gen) { FROM.note = `The files of ${name} could not be read: ` + e.message; FROM.noteC = 'red'; } }
   finally { if (gen === FROM.gen) FROM.loading = false; dirty(true); }
 }
@@ -33367,7 +33368,11 @@ function fromBlocks(B, full) {
   else if (F.files) {
     const L = fromLists(F.files), row = (f, orig) => ({ id: 'fromf:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes),
       act: 'fromFile', v: f.path, on: F.busy === f.path, dis: !!F.busy || full(f.kind === 'audio' ? 's' : 'o') });
-    B.push({ label: `Models in ${F.scene} (${L.models.length})`, list: L.models.map(f => row(f)) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
+    // (its models as cards, as the Add pane's: the picture that scene keeps of each (e7e_pics.js, pvFrom), else a plain tile
+    // with its kind; its name, its bytes; the owner, 14 November 2026)
+    const card = f => ({ id: 'fromf:' + f.path, label: f.path.replace(/^models\//i, ''), title: f.path, act: 'fromFile', v: f.path, from: [f.path], kind: extOf(f.path).toUpperCase(),
+      sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes), dis: !!F.busy || full('o') });
+    B.push({ label: `Models in ${F.scene} (${L.models.length})`, grid: L.models.map(card) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
     if (L.orig.length) {
       B.push({ row: [{ id: 'fromorig', label: `Its originals (${L.orig.length}) ${F.orig ? '▾' : '▸'}`, act: 'fromOrig', on: F.orig }] });
       if (F.orig) B.push({ list: L.orig.map(f => row(f, true)) });
@@ -34093,7 +34098,7 @@ function blockHTML(b) {
   if (b.grid && b.grid.some(x => x.item)) return lab + `<div class="stu-grid">${b.grid.map(itemCardHTML).join('')}</div>`;
   // (an Add card's Look: the model over the whole window, e7f_viewer.js; a button of its own over the picture's corner, so
   // a press on the card still places it)
-  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = cardPic(x); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
     `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`;
     return x.look ? `<div class="stu-cw">${card}<button type="button" class="stu-look" data-act="look" data-v="${esc(x.v)}" data-id="look:${esc(x.v)}" title="Look at ${esc(x.label)} over the whole window, spun about">Look</button></div>` : card; }).join('')}</div>`;
@@ -36195,7 +36200,7 @@ const pvFits = rel => rel.length <= 200 && rel.split('/').length <= 5 && rel.spl
 // ---- the listing: its pictures said apart (setFiles), those whose file changed or went fetched again or forgotten
 function pvListing(list) {
   PV.files = new Map(list.map(f => [f.path, f]));
-  for (const [rel, e] of [...PV.img]) { const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }
+  for (const [rel, e] of [...PV.img]) { if (rel.startsWith(PV_FROM)) continue; const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }   // (another scene's: pvFromDrop)
   PV.rev++;
 }
 function pvDrop(map, k) { const e = map.get(k); if (e && e.url) URL.revokeObjectURL(e.url); map.delete(k); }
@@ -36225,25 +36230,45 @@ function pvAny(list, load = true) { for (const p of list) { const r = pvFor(p, l
 const pvHas = p => PV.mem.has(p) || (PV.files.has(pvPath(p)) && (PV.img.get(pvPath(p)) || {}).state !== 'failed');
 // a listed picture's address: its signed link (R2), else the scene's file (call adds the password as a header)
 const pvUrl = f => f.url || sceneUrl(STU.scene) + encPath(f.path) + (f.at ? '?v=' + f.at : '');
-function pvLoad(f) {
-  const old = PV.img.get(f.path);
+// (key: where it is kept in PV.img, its path for this scene's; url: where it is fetched from)
+function pvLoad(f, key = f.path, url = pvUrl(f)) {
+  const old = PV.img.get(key);
   if (old && old.at === f.at) return;
-  if (old) pvDrop(PV.img, f.path);
-  PV.img.set(f.path, { at: f.at, state: 'queued', url: '', img: null });
-  PV.q.push(f);
+  if (old) pvDrop(PV.img, key);
+  PV.img.set(key, { at: f.at, state: 'queued', url: '', img: null });
+  PV.q.push({ key, at: f.at, url });
   pvPump();
 }
 // (three fetches at a time: a scene of fifty models asks for its pictures without crowding out its models)
 function pvPump() {
   while (PV.busy < 3 && PV.q.length) {
-    const f = PV.q.shift(), e = PV.img.get(f.path), gen = STU.gen;
-    if (!e || e.at !== f.at || e.state !== 'queued') continue;
+    const j = PV.q.shift(), e = PV.img.get(j.key), gen = STU.gen;
+    if (!e || e.at !== j.at || e.state !== 'queued') continue;
     PV.busy++; e.state = 'loading';
-    call(pvUrl(f), { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(f.path) === e) pvImage(e, b, () => PV.img.get(f.path) === e); })
-      .catch(() => { if (PV.img.get(f.path) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
+    call(j.url, { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(j.key) === e) pvImage(e, b, () => PV.img.get(j.key) === e); })
+      .catch(() => { if (PV.img.get(j.key) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
       .finally(() => { PV.busy--; pvPump(); });
   }
 }
+// ---- From another scene's cards (the owner, 14 November 2026: "When adding from another scene, there should be previews
+// too"): the pictures that scene keeps (previews/ in its listing, FROM.pv), fetched as this scene's are (fromUrl: its
+// signed link, else the relay with the password), kept in PV.img under 'from:<scene>:' so a listing of this scene leaves
+// them; another scene picked, or this one opened again, forgets them (pvFromDrop, pvClear). Nothing is made for them here
+const PV_FROM = 'from:';
+function pvFrom(list, load = true) {
+  if (!FROM.pv || !FROM.scene) return null;
+  for (const p of list) {
+    const f = FROM.pv.get(pvPath(p));
+    if (!f) continue;
+    const key = PV_FROM + FROM.scene + ':' + f.path, e = PV.img.get(key);
+    if (e && e.at === f.at) { if (e.state === 'ready') return e; continue; }
+    if (load && !SRC.held) pvLoad(f, key, fromUrl(FROM.scene, f));
+  }
+  return null;
+}
+function pvFromDrop() { for (const k of [...PV.img.keys()]) if (k.startsWith(PV_FROM)) pvDrop(PV.img, k); PV.rev++; }
+// a card's picture: another scene's (from) or this scene's (pic)
+const cardPic = (x, load = true) => (x.from ? pvFrom(x.from, load) : pvAny(x.pic || [], load));
 // a JPEG's bytes as a picture to draw (an <img> for the page's grid and the headset's canvas alike)
 function pvImage(e, blob, still) {
   e.url = URL.createObjectURL(blob);
@@ -39740,7 +39765,7 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
       const live = inView(cy, ch) && !t.dis;
       if (t.dis) ctx.globalAlpha = 0.45;
       vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
-      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      const px = cx + 8, py = cy + 8, pic = cardPic(t);
       ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
       if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
       else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }

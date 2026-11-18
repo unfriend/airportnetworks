@@ -2628,7 +2628,9 @@ The owner: "items need a preview in the items list tab, should show the same ima
 - **New scene** from the headset (the owner: yes, with the keypad) and on the page: on the Scene pane ("Editing" above).
 - **From another scene...** (the owner chose copying: each scene stays self-contained), on the Add pane, page and
   headset alike: the relay's other scenes as buttons, then the one picked's models and sounds (`models/` and `sounds/`
-  first, its *originals* folded), each with its size. A press copies the file into this scene at the same path (when
+  first, its *originals* folded), each with its size; its models as cards, as the Add pane's, each with the picture that
+  scene keeps of it (`previews/`, fetched as this scene's are, kept apart under `from:<scene>:`; a plain tile with its kind
+  when it has none: none is made for another scene; the owner, 14 November 2026, v165). A press copies the file into this scene at the same path (when
   that is taken here, a new name as uploads number them: *statue 2.fbx*) through `POST /api/scenes/<this>/copy` (one
   file a call), then places it as Add does (1.5 m in front, selected; one Undo step for the placing). A model that is not
   a GLB (an FBX, an OBJ, a glTF) also brings the files it names that its scene has, found as the Upload pane's plan finds
