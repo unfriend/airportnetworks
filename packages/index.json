@@ -15,12 +15,12 @@
       "authors": "The app's authors",
       "life": false,
       "list": "hidden",
-      "needs": 166,
-      "fp": "1002fb7b10d0f8ad",
+      "needs": 169,
+      "fp": "235f725b5d70ecd5",
       "files": {
         "icon.png": "fb2e43f5422b9ad0",
         "main.js": "ef590ddf9ae91796",
-        "story.json": "a03e237dffbd624b"
+        "story.json": "fc493a5726f580c3"
       }
     }
   ]

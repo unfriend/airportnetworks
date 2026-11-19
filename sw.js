@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v168';
+const VERSION = 'networks-v169';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/soil.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -119,8 +119,25 @@ self.addEventListener('fetch', e => {
         return res;
       }, () => cached().then(hit => hit || Response.error())));
     } else if (req.headers.has('range')) {
-      e.respondWith(fetch(req).catch(() => cached().then(hit => (hit ? rangeResponse(req, hit, key) : Response.error()))));
-    } else e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), key, PKG));
+      e.respondWith(fetch(req).catch(() => caches.open(PKG).then(c => c.match(key, { ignoreSearch: true }))
+        .then(hit => (hit ? rangeResponse(req, hit, key) : Response.error()))));
+    } else {
+      // kept under its whole address: the version (?v=<fp>) is part of it, so a slow network never gets an older file
+      // for a newer address; storing a version drops that file's others
+      const vkey = url.origin + url.pathname + url.search, hit = () => caches.open(PKG).then(c => c.match(vkey));
+      const net = fetch(req, { cache: 'no-cache' }).then(res => {
+        if (res.ok) {
+          const copy = res.clone();
+          e.waitUntil(caches.open(PKG).then(async c => {
+            for (const k of await c.keys()) if (k.url !== vkey && k.url.split('?')[0] === key) await c.delete(k);
+            await c.put(vkey, copy);
+          }).catch(() => {}));
+        }
+        return res;
+      });
+      const safe = net.catch(() => hit().then(h => h || Response.error()));
+      e.respondWith(Promise.race([safe, new Promise(r => setTimeout(r, 4000)).then(hit).then(h => h || safe)]));
+    }
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file

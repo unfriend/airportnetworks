@@ -4,7 +4,7 @@
 // own peek, nothing fetched from another origin), and the sizes. With --load it also serves the app with this package
 // (an index of its own, so the folder may be anywhere and packages/index.json need not be current), opens it headless,
 // waits for it to load, plays a moment, opens explore mode and fails on any console error.
-// usage (from the repository root): node tools/packages/check.mjs packages/<key> [--load] [--shots <dir>] [--phone]
+// usage (from the repository root): node tools/packages/check.mjs packages/<key> [--build] [--load] [--shots <dir>] [--phone]
 // One line per finding (FAIL or warn), then a summary; exits 1 on any failure. --load needs Playwright with Chromium,
 // as the smoke test does (PLAYWRIGHT_MODULE, or `playwright` from node_modules).
 import fs from 'fs';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '..', '..');
 const ARGS = process.argv.slice(2), opt = n => { const i = ARGS.indexOf(n); return i >= 0 ? ARGS[i + 1] : null; };
 const dirArg = ARGS.find((a, i) => !a.startsWith('--') && !['--shots'].includes(ARGS[i - 1]));
-if (!dirArg) { console.log('usage: node tools/packages/check.mjs packages/<key> [--load] [--shots <dir>] [--phone]'); process.exit(1); }
+if (!dirArg) { console.log('usage: node tools/packages/check.mjs packages/<key> [--build] [--load] [--shots <dir>] [--phone]'); process.exit(1); }
 const base = path.resolve(dirArg), name = path.basename(base), rel = path.relative(process.cwd(), base), show = !rel ? '.' : rel.startsWith('..') ? base : rel;
 const MB = 1 << 20;
 let fails = 0, warns = 0;
@@ -164,8 +164,10 @@ for (const r of served.filter(r => /\.m?js$/i.test(r))) {
   }
 }
 if (!all.includes('main.js')) fail(show, 'no main.js');
-// a package built from src/ (the template's build.mjs): is main.js current?
-if (fs.existsSync(path.join(base, 'src', 'build.mjs')) && all.includes('main.js')) {
+// a package built from src/ (the template's build.mjs): is main.js current? Only with --build: that runs the author's own
+// build script, so not before someone has read it (a pull request's code is not run by a check of it); --load runs the
+// package in a page, the same caveat
+if (ARGS.includes('--build') && fs.existsSync(path.join(base, 'src', 'build.mjs')) && all.includes('main.js')) {
   try { execFileSync(process.execPath, [path.join(base, 'src', 'build.mjs'), '--check', '--root', root], { stdio: 'pipe' }); }
   catch (e) { warn(`${show}/main.js`, `not what src/build.mjs makes: build it again (${String(e.stdout || e.message).trim().split('\n').pop()})`); }
 }

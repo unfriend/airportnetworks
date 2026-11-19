@@ -808,7 +808,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 166, id: '2cb88c89971b97c1', format: 'networks-53' },
+  shell: { n: 169, id: '1727bfdbe23ca9b4', format: 'networks-53' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -4435,9 +4435,12 @@ HOST.cards = function () {
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
-  // the story packages' index first (#<key> may name one), waited for 0.8 s at most: one that comes later still gets its
-  // card (HOST.packages)
-  HOST.packages.ready(800).then(() => {
+  // the story packages' index first, but only when the address names something that is not one of the app's own (#<key>
+  // of a package): then waited for 4 s at most; an ordinary start never waits, and a package that comes later still
+  // gets its card (HOST.packages)
+  const appKeys = (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).map(s => s && s.key);
+  const named = [...hp.keys()].some(k => /^[a-z][a-z0-9-]{1,30}$/.test(k) && !hp.get(k) && !appKeys.includes(k));
+  HOST.packages.ready(named && !appKeys.some(k => hp.has(k)) ? 4000 : 0).then(() => {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)

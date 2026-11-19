@@ -84,6 +84,12 @@ file, the detail file says what is current.
   rest of the app"; our own stories stay in git as they are, with a button to copy one to the relay to edit it there.
   Step 1 (v168): every built story's engine shares one version of each family in `tools/engine/`, with nothing meant to
   change in what a story shows.
+- Step 2 (v169): story packages (`packages/<key>/`, `tools/packages/SPEC.md`, `docs/agents/packages.md`). Trusted code
+  only, from the app's own folder (not a sandbox: the owner's "lab colleagues and people i trust, others can just host
+  their own version"); their own cache, so a package changes without an app release; the example `hello` hidden. From
+  the review: a package file is cached under its whole address with its version, so a slow network never answers a new
+  address with an old file; the start waits for the packages' index only when the address names a package; the check
+  runs a package's own build only when asked (`--build`), as it is a pull request's code.
 
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 

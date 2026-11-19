@@ -2239,7 +2239,7 @@ the release run: run them when a change means to change nothing.
 ## Story packages (`tools/packages/check.mjs`, `scan.mjs`)
 
 - `node tools/packages/scan.mjs --check` (a cheap check): `packages/index.json` is current and no folder is left out.
-- `node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]`: the rules a package keeps
+- `node tools/packages/check.mjs packages/<key> [--build] [--load] [--phone] [--shots <dir>]`: the rules a package keeps
   (`tools/packages/SPEC.md`), one line per finding (`FAIL` or `warn`), then `packages/<key>: ok` or the count; exits 1 on a
   failure. Static: `story.json` field by field (as the scan), the key (its folder's name, not taken, not reserved),
   `main.js` registering its own key, and in every served `.js` (not `src/`), its code with the comments taken out: `new
@@ -2248,7 +2248,8 @@ the release run: run them when a change means to change nothing.
   `peek: src => eval(src)` excepted), and any string with an address on another origin (`http://`, `https://`, `ws://`,
   `wss://` with a host, or `//host`; XML namespaces on `www.w3.org` excepted); a file over 16 MB or the folder over 64 MB.
   Warns on `main.js` over 4 MB, no `README.md`, an `icon.png` not square or over 512 px or 200 KB, a file too deep to be
-  listed, and a `main.js` that is not what its `src/build.mjs --check` makes. `--load` (only when the static rules pass;
+  listed, and (only with `--build`, which runs the author's own build script: read it first) a `main.js` that is not
+  what its `src/build.mjs --check` makes. `--load` (it runs the package's code in a page: read it first too) (only when the static rules pass;
   Playwright with Chromium) serves the app with this package alone (an index made in memory, so the folder may be
   anywhere and `packages/index.json` need not be current), opens `#<key>` on a 960 x 600 page (and 390 x 844 with
   `--phone`), waits for `LOAD.done`, plays 3 s (the clock must move), pauses half way, opens explore mode, checks that

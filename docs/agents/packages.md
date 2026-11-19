@@ -50,8 +50,9 @@ keeps").
 ## The shell (`index.html`, `HOST.packages`)
 
 - `HOST.storyApi = 1`. `HOST.packages` reads `packages/index.json` (`cache: 'no-store'`) as soon as the shell's script
-  runs; the boot waits for it at most 0.8 s (`HOST.packages.ready(800)`) before it picks the first story, so `#<key>`
-  opens a package and a slow or missing file does not hold the start. An index that comes later is still merged (its
+  runs. The boot waits for it only when the address names something that is not one of the app's own (`#<key>` of a
+  package: at most 4 s, `HOST.packages.ready(4000)`); an ordinary start never waits, and a slow or missing file does not
+  hold the start. An index that comes later is still merged (its
   cards appear). A missing or bad file, or a bad entry, means no package (or no such package), quietly; on `file:` none.
 - Each entry becomes a list entry with the fields of `stories/list.js` (`page`, `brand`, `sub`, `aria`, `thing`,
   `loading` defaulting from `title` and `kick`), plus `pkg: true`, `base: 'packages/<key>/'`, `fp`, `api`, `list`,
@@ -84,8 +85,10 @@ keeps").
 
 ## The service worker (`sw.js`)
 
-Packages are not in `SHELL`. Anything under `packages/` is fetched network first (`fresh`, `cache: 'no-cache'`) and kept
-in a cache of its own, `networks-packages` (`PKG`), which a new `VERSION` does not clear (as `NARR`): a package changes
+Packages are not in `SHELL`. Anything under `packages/` is fetched network first (`cache: 'no-cache'`; after 4 s
+without an answer a cached copy of the same address, version included) and kept, under its whole address with its
+`?v=<fp>` (storing one version drops that file's others, so a slow network never gets an older file for a newer
+address), in a cache of its own, `networks-packages` (`PKG`), which a new `VERSION` does not clear (as `NARR`): a package changes
 without an app release, and one opened once works offline. The rule comes before the narration's, so a package's
 `audio/narration*.mp3` is never taken for (or cached as) the app's. `packages/index.json` is the server's whenever the
 network answers, however slowly (`cache: 'no-store'`; the cached copy only offline). A byte range (the audio element) is
