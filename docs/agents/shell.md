@@ -1242,6 +1242,65 @@ ships or look).
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
 
+## A story's copy (arrangements, `HOST.arrange`, v170)
+
+The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and then edit in case this is wanted";
+"rearranging and timing etc, no logic". The contract is `tools/engine/SPEC.md`; the story's side (`HOST.cur.arrange`:
+`model`, `apply`, `get`) is the shared engine's. The shell's side is `HOST.arrange` in `index.html` (before the boot):
+
+- **A copy** is a scene on the relay (the scenes API, `--scenes`, folder or R2): `<key>-copy`, `<key>-copy-2` ...; its
+  `layout.json` is `{ studio: 1, scene, story: <arrangement>, saved, by }` (Save keeps any other field it had), its
+  recordings in `sounds/`. The relay needs nothing new. Calls go to the relay the page knows
+  (`HOST.collab.relayFind`) with its password as `Authorization: Bearer`, never in an address; what it answered goes to
+  `HOST.collab.relaySaw` (a 401 brings up the shell's password prompts).
+- **API**: `read(name)` (the arrangement, or throws: status 404 when the scene is no copy), `save(name, A)` (at a station
+  running that copy it writes the station's key again, so every device there reads it again), `copy(key)` (the next free
+  name, made with `POST /api/scenes` and saved as `{ v: 1, key, made, from: HOST.fp[key] }`), `list(fresh)` (the relay's
+  copies `[{ name, key, title, made }]`: only names like `<key>-copy[-n]` are read, kept 10 s), `upload(name, file)` (a
+  recording into `sounds/<its name>.mp3`, replaced: an MP3 through `/file` as it is, anything else through `/sound`, the
+  relay's ffmpeg; gives the path), `url(name, path)` (a promise of a `blob:` address of the file: on a relay on R2 from
+  the signed link its scene's listing gives, with no header, as the studio does, since `/scenes/...` answers there with a
+  redirect to the bucket that would drop the header and send `Origin: null`; on a folder's relay from `/scenes/...` with
+  the password as a header; the last four kept), `current(key)` (`{ name, A }` the copy this page plays for the story, `A` null while it
+  is read or when it could not be; or null), `open(key, name, edit)` (play a copy: at a station of that story the
+  station's, else this page's own; `HOST.go(key)` when another story is on show; `edit` opens the editor once it is
+  read), `own()` (back to the story's own, the station's too), `isCopy(name)`, `editing()`, `state()` (for tests).
+- **Which copy plays**: a page following, or a headset running, a station whose story is on show plays the station's
+  copy (`st.<id>.arr`, `HOST.collab.arrOf(id)`; `docs/agents/shared-rooms.md`); otherwise the address's
+  (`#<key>&arr=<name>`, this page's own: dropped when another story starts, `HOST.arrange.started` from `HOST.run`).
+  Every 300 ms (`tick`) the copy wanted is read when it is not yet (again 15 s after a failure, and when the station's
+  `at` moves on unless this page is editing it with unsaved changes) and laid over the story with
+  `HOST.cur.arrange.apply(A)` (a clone: the story never changes ours) once the story is built (`HOST.loading.built()`,
+  new in v170: its frame loop given), again whenever the copy changes, and `apply(null)` when it goes. A story without
+  `arrange` (the airports, proteins, cell map, the studio) plays as its own.
+- **The address**: `#<key>&arr=<name>` while a copy plays by the address, `&edit` added while the editor is open or the
+  link had it (`tail(key)`, added by `HOST.run`, `HOST.swap` and `HOST.setUrl`); in a room the address stays `#s=XYZ`.
+  `&edit` alone shows *Copy to relay* without developer mode.
+- **The bar** (`#arrBar` after the clock; a page only, hidden on the Stories screen and in a headset session): while a
+  copy plays, *Copy: <name>*, *Edit* (when the story has `arrange` and the copy was read) and *Own story*; *Reading the
+  copy...*, *Copy not found* (a 404: the story plays as its own) or *Copy not read: <why>*. Otherwise *Copy to relay* on
+  a story with `arrange`, in developer mode or with `&edit`, once the relay answered its scenes API with this page's
+  password and saves layouts (looked for at most every 30 s, only then): it makes the copy, plays it and opens the editor.
+- **The editor** (`#arrEd`, a drawer over the timeline, made once, its listeners added with `HOST.quiet`; a page only:
+  under 700 px wide it says it needs a wider screen; `body.arr-ed` lifts the story panel above it, and under 900 px hides
+  it). Its lanes are drawn in the story's time as arranged (each chapter at its new length; `geo()`), a drag read back
+  into the story's own seconds, and the story seeks there through the narration's timing as arranged (`APP.seek` on the
+  recording's clock; the playhead from `APP.t` the same way). Lanes: the chapters (drag a chapter's right end for its
+  length; click: its length, *Skip it*, *Back to its own length*), the narration's anchors (`sync`), each set's show and
+  hide (its `show` track, with its other tracks folded under it), the tracks of no set, the camera, the captions (click:
+  the text with its numbers as `{1}`, `{2}` and a preview, *Back to the story's own*), the labels (click: the text), the
+  sound cues. Keyframes keep their order (a drag stops at a neighbour). The side: what is selected, *Places* (each set's
+  x, y, z, turn and size, typed), *The recording* (*Upload a recording*, *Back to the story's own recording*, *Back to
+  the story's own timing*). The head: *Save* (to the relay), *Undo* and *Redo* (this page's, 200 steps), *Unsaved
+  changes* / *Saved*, the arranged length; a line for the edits `apply` dropped because the story changed. A drag is laid
+  over the story at most every 120 ms and once more when let go. Leaving the page with unsaved changes asks first.
+- **The studio** lists copies apart (*Copies of stories*: *Copy of <title>*, *Open*, which calls `HOST.arrange.open`),
+  never among its scenes (a name like `<key>-copy[-n]` waits for `list()`), and its Save keeps a layout's `story`
+  (`docs/agents/studio.md`); the room's Add leaves copies out of its "Studio: <scene>" entries (`isCopy`).
+- Tests: `node tools/collab.mjs --arr` (not in the main run). Untested: everything in a headset (a copy played at a
+  station there, its narration from the copy), and the story's side until its engine has `arrange` (the round then uses
+  it instead of its stand-in).
+
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (it is also the ground for a story design room, where a draft story reloads in the

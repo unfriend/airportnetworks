@@ -17705,7 +17705,7 @@ async function listScenes(gen) {
     // (R2: uploads straight into the bucket, and how long a file's link lives, s: e7c_direct.js)
     SRC.direct = SRC.upload && !!(j && j.direct); SRC.linkTtl = SRC.kind === 'relay' ? +(j && j.linkTtl) || 0 : 0;
     SRC.state = 'ok'; SRC.note = '';
-    if (SRC.kind === 'relay') watchStart();
+    if (SRC.kind === 'relay') { watchStart(); copiesRead(); }
   } catch (e) {
     if (gen !== SRC.gen || GL.gone) return;
     SRC.scenes = [];
@@ -17720,12 +17720,39 @@ async function listScenes(gen) {
   chooseScene();
   dirty();
 }
+// Copies of stories (v170, tools/engine/SPEC.md): scenes on the relay whose layout holds a story's arrangement (its
+// timing and places, made by Copy to relay on a story's bar). The studio lists them apart (Copy of <title>, Open: the
+// story starts with the copy, HOST.arrange.open) and never opens one as a scene to place things in; a name that looks
+// like one (<key>-copy[-n]) waits for the shell's listing (HOST.arrange.list: the layouts read) before it shows as a scene
+const COPIES = { list: [], names: new Set(), read: false, busy: false, at: 0, src: '' };
+const copyLike = n => /^[a-z][a-z0-9-]{1,30}-copy(-\d+)?$/.test(n);
+const isCopy = n => COPIES.names.has(n) || (!COPIES.read && copyLike(n));
+const plainScenes = () => SRC.scenes.filter(s => !isCopy(s.name));
+async function copiesRead() {
+  const A = HOST.arrange, src = srcKey();
+  if (COPIES.src !== src) Object.assign(COPIES, { list: [], names: new Set(), read: false, at: 0, src });
+  if (!A || !A.list || SRC.kind !== 'relay' || COPIES.busy || !SRC.scenes.some(s => copyLike(s.name))) { COPIES.read = true; return; }
+  COPIES.busy = true;
+  try {
+    const l = await A.list(true);
+    if (GL.gone || COPIES.src !== srcKey()) return;
+    COPIES.list = (Array.isArray(l) ? l : []).filter(c => c && okScene(c.name) && SRC.scenes.some(s => s.name === c.name));
+    COPIES.names = new Set(COPIES.list.map(c => c.name));
+  } catch (e) { /* none listed: the names stay scenes */ } finally { COPIES.busy = false; COPIES.read = true; COPIES.at = performance.now(); }
+  chooseScene();
+  dirty(true);
+}
+// Open a copy: the story it is of starts with it (HOST.arrange.open: at a station of that story, for everyone there)
+function copyOpen(name) {
+  const c = COPIES.list.find(x => x.name === name);
+  if (c && HOST.arrange && HOST.arrange.open) HOST.arrange.open(c.key, c.name);
+}
 // the scene opened by itself: at a shared room's station only when the listing has exactly one (else Pick a scene: the
 // station's scene is for everyone there); outside a room the link's, else the last used here, else the only one
 const lastKey = () => 'studioLast.' + srcKey();
 function chooseScene() {
   if (STU.scene || SRC.state !== 'ok') return;
-  const names = SRC.scenes.map(s => s.name), last = store.get(lastKey());
+  const names = plainScenes().map(s => s.name), last = store.get(lastKey());
   let pick = '';
   if (atStation()) { if (names.length === 1) pick = names[0]; }
   else pick = (names.includes(OPT.scene) ? OPT.scene : '') || (names.includes(last) ? last : '') || (names.length === 1 ? names[0] : '');
@@ -17754,7 +17781,7 @@ function openScene(name, how, again) {
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
-    settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
+    settings: normSettings(), lockSaid: null, story: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, pv: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
@@ -17779,6 +17806,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
+    STU.story = keepStory(layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad; STU.badStream = L.streamBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
@@ -17907,8 +17935,11 @@ function placedItems() {
   return all.filter(it => it.kind !== 'g' || it.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i))).length >= 2);
 }
 // what is placed now, as layout.json
+// a layout's story (a copy's arrangement, v170): kept as it was read and written back by Save, never dropped or changed
+const keepStory = j => (j && j.story && typeof j.story === 'object' && !Array.isArray(j.story) ? j.story : null);
 function layoutOut() {
   const L = { studio: 1, scene: STU.scene, saved: new Date().toISOString() };
+  if (STU.story) L.story = STU.story;
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
@@ -18196,6 +18227,7 @@ async function onLayoutEvent(d) {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
+    STU.story = keepStory(j.layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
   dirty(true);
@@ -18205,6 +18237,7 @@ async function onLayoutEvent(d) {
 function onScenesEvent(d) {
   if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
   SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
+  if (SRC.scenes.some(s => copyLike(s.name) && !COPIES.names.has(s.name))) copiesRead();
   chooseScene();
   dirty(true);
 }
@@ -33207,9 +33240,15 @@ function paneBlocks(tab) {
     if (SRC.state === 'auth') B.push({ p: AUTH_NOTE, c: 'amber' });
     if (SRC.state === 'error') B.push({ p: 'The scenes could not be listed: ' + SRC.note, c: 'red' });
     if (SRC.state === 'ok') {
-      if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
+      const plain = plainScenes();
+      if (plain.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: plain.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
       else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
-      if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+      if (!STU.scene && plain.length) B.push({ p: 'Pick a scene.' });
+      // copies of stories (v170): each opens its story with the copy's timing and places, never as a scene here
+      if (COPIES.list.length) {
+        B.push({ label: 'Copies of stories', p: 'A story\'s copy on the relay, retimed and rearranged: Open plays the story with it' + (st ? ' (here: you leave this circle for the story)' : '') + '.', c: 'faint' });
+        for (const c of COPIES.list) B.push({ label: 'Copy of ' + c.title + (c.name !== c.key + '-copy' ? ' (' + c.name + ')' : ''), row: [{ id: 'arropen:' + c.name, label: 'Open', act: 'arropen', v: c.name, primary: true }] });
+      }
       exBlocks(B);   // (the scenes that ship with the app: Open, Copy to the relay; e7g_examples.js)
       // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
       if (canMake()) {
@@ -33916,6 +33955,7 @@ function act(a, v) {
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
     dupscene: () => sceneAsk(v),
+    arropen: () => copyOpen(v),   // (a copy of a story: the story starts with it; v170)
     exopen: () => exOpen(v),   // (an example: opened read only, or at a circle from the relay for everyone there; e7g_examples.js)
     excopy: () => exCopy(v),
     exback: () => exBack(),
@@ -33940,7 +33980,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, COPIES.list.length, COPIES.read, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }

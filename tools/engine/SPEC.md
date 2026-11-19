@@ -24,10 +24,13 @@ as a scene, and its Save never drops the `story` field.
 - `#<key>&arr=<scene name>` opens the story with that copy's arrangement (the relay the page already uses, with its
   password); `&edit` also opens the editor (a page only). Without a relay, or when the copy cannot be read, the story
   plays as its own and the bar says *Copy not found*.
-- In a shared room a station may run a copy: the station's state gains `arr` (the scene name, or absent), set by whoever
-  opens the copy at that station; every device reads the arrangement from the relay and plays it. This changes the
-  room's keys: `FORMAT` goes to `networks-54`. A device that cannot read the copy plays the story as its own and says
-  so. The arrangement itself is never in `collab.state()`.
+- In a shared room a station may run a copy: the station gains the key `st.<id>.arr` = `{ v: <the scene name>, story,
+  by, at }` (absent or `null`: none; as `st.<id>.ui`, gone with the station's other keys when it shows another story),
+  set by whoever opens the copy at that station, and written again by a save there (`at` moves on: every device reads
+  it again); every device reads the arrangement from the relay and plays it. This changes the room's keys: `FORMAT`
+  goes to `networks-54`. A device that cannot read the copy plays the story as its own and says so. The arrangement
+  itself is never in `collab.state()`. (A key of its own rather than a field of the station's record: a move by hand
+  rewrites the record, and the relay's epoch rule already drops a station's keys when its story changes.)
 
 ## The story's side: `arrange` in a story's returned object (shared engine parts)
 
@@ -134,7 +137,16 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
 - `HOST.arrange`: `read(name)`, `save(name, A)`, `copy(key)` (a new copy: the next free `<key>-copy[-n]`, its layout
   `{ studio: 1, story: { v: 1, key, made, from } }`), `list()` (the relay's copies: scenes whose layout has `story`),
   `upload(name, file)` (a recording into its `sounds/`), `url(name, path)` (a file of the copy, fetched with the password
-  as the studio fetches scene files: never a password in an address).
+  as the studio fetches scene files: never a password in an address; a promise of a `blob:` address, which
+  `HOST.audio.narration` can fetch as a story's own file), `current(key)` (`{ name, A }`: the copy the page plays for the
+  story, from the address's `&arr=` or its station's `arr`; `A` null while it is read or when it could not be; null for
+  none), `open(key, name, edit)`, `own()`.
+- The shell lays the arrangement over the story itself: `HOST.cur.arrange.apply(A)` once the story is built (its frame
+  loop given, `HOST.loading.built()`), again whenever the copy is read, edited or changed at the station, and
+  `apply(null)` when it goes; a story need not ask for it (it may call `current(key)` while it loads, and an `apply` of
+  the same arrangement again must change nothing). The editor seeks with `APP.seek` on the recording's clock (`APP.t`),
+  through the narration's timing as arranged (step 5's `sync`, then step 3's stretch), and reads the playhead the same
+  way back.
 - *Copy to relay*: on a story that has `arrange`, when a relay is known and its password held: on the page's story bar
   (in developer mode, and always when the page has `&edit`); it makes the copy and opens it with the editor.
 - The editor (a page only; a headset plays a copy but does not edit it): a drawer above the timeline.

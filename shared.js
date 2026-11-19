@@ -26,7 +26,9 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-53';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-54';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
+  // tools/engine/SPEC.md); an older device would play the story as its own
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
   // networks-49 (v154): the studio's cubes switch cubes (a cube's show and hide lists, a sequence's show and hide events and a
   // press's show and hide entries may name a cube; an older device would keep the ids and let a switched-off cube act)
@@ -2810,6 +2812,26 @@
     return true;
   }
   const setStPanels = (id, v) => PANELS.includes(v) && setUi(id, { panels: v }, 'panels');
+  // A station's copy (v170, FORMAT networks-54; tools/engine/SPEC.md "The address and the room"): st.<id>.arr = { v, story,
+  // by, at }, v the name of a copy of its story on the relay (an arrangement: its timing and places, never code), written
+  // by whoever opens a copy at that station (or saves one there: at moves on, so every device reads it again) and gone
+  // with the station's other keys when it shows another story; absent (or v ''): the story as its own. Every device at
+  // the station reads the copy from the relay and plays it (HOST.arrange, index.html); the arrangement itself is never
+  // in the room. Never refused by the circles lock (a station's own matter, as its panels are)
+  const kArr = id => 'st.' + id + '.arr';
+  const okArr = n => typeof n === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(n);
+  function arrOf(id) {
+    const s = C.stById.get(id), v = s && !s.kind && val(kArr(id));
+    return v && typeof v === 'object' && ofStory(v, s) && okArr(v.v) ? { v: v.v, at: Number.isFinite(v.at) ? v.at : 0, by: typeof v.by === 'string' ? v.by : '' } : null;
+  }
+  function setArr(id, name) {
+    const s = C.stById.get(id);
+    if (!C.code || !s || s.kind || (name && !okArr(name))) return false;
+    publish([[kArr(id), name ? { v: name, story: s.story, by: C.id, at: Math.round(now()) } : null]]);
+    log('station copy', { st: id, on: !!name });
+    changed();
+    return true;
+  }
   const setStLock = (id, on) => { const ok = setUi(id, { lock: !!on }, 'story lock'); if (ok) sfx(on ? 'lock' : 'unlock', menuAt()); return ok; };
   // Recenter at a station (the story panel's button and the menu's; the owner, 30 October 2026: "Recenter in ar room mode
   // with the circles should bring panel and 3d model to the starting position"): the station's place and panel keys go
@@ -2893,6 +2915,8 @@
         if (f && C.relay) {
           const r = await api('scenes');
           if (r.ok && r.j && Array.isArray(r.j.scenes)) list = r.j.scenes.map(x => (x && typeof x.name === 'string' ? x.name : '')).filter(n => n && n.length <= 64).slice(0, 200);
+          // (a copy of a story is no scene to place things in: v170, HOST.arrange)
+          if (HOST.arrange && HOST.arrange.isCopy) list = list.filter(n => !HOST.arrange.isCopy(n));
         }
       } catch (e) { /* none: no relay, or it did not answer */ }
       const was = SCN.list.join('/');
@@ -12890,6 +12914,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // the circles lock (no circle moved, added or removed) and a station's own lock (its scene and panels, at its circle)
     lock: on => setLock(on), get locked() { return circlesLocked(); },
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
+    // a station's copy of its story ({ v: the copy's name on the relay, at, by } or null) and setting it ('' / null: none)
+    arrOf: id => arrOf(id), setArr: (id, name) => setArr(id, name),
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
     // how it draws them (v164): Bodies on (whole bodies, bodies.js) or off (heads and hands), this headset's own; and for
