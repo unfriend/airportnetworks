@@ -42,7 +42,7 @@ async function open(ctx, base, key, errs) {
   p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errs.push(key + ': ' + m.text().slice(0, 200)); });
   // a fresh worker-less page: no service worker, no audio
   await p.goto(`${base}index.html?nosw#${key}&t=0`);
-  await p.waitForFunction(k => self.HOST && HOST.curKey === k && HOST.cur && HOST.cur.peek('LOAD.done'), key, { timeout: 180000 });
+  await p.waitForFunction(k => typeof HOST === 'object' && HOST.curKey === k && HOST.cur && HOST.cur.peek('LOAD.done'), key, { timeout: 180000 });
   await settle(WAIT);
   return p;
 }
@@ -75,7 +75,7 @@ for (const [vn, vo] of VIEWS) {
     const eA = [], eB = [];
     let pA, pB;
     try { [pA, pB] = await Promise.all([open(cA, url(sA), key, eA), open(cB, url(sB), key, eB)]); }
-    catch (e) { rows.push(`${vn.padEnd(6)} ${key.padEnd(9)} did not load: ${e.message.split('\n')[0]}`); continue; }
+    catch (e) { rows.push(`${vn.padEnd(6)} ${key.padEnd(9)} did not load: ${e.message.split('\n')[0]}`); console.log(rows[rows.length - 1]); continue; }
     const line = [];
     for (const m of MOMENTS) {
       if (LIVE.has(key) && m[1] != null) continue;
