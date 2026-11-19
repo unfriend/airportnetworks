@@ -3,8 +3,7 @@
 // the shell's (HOST.audio), unlocked by the first tap or click and kept across stories and headset sessions.
 let AUD = null;
 function audioInit() { /* nothing to narrate */ }
-function audioSync() { if (AUD) AUD.sync(...slideSound()); }
-function audioFollow() { if (AUD && !SLIDE.tail) APP.t = AUD.follow(APP.t); }
+//#use audioSync audioFollow
 //#use audioLabel audioToggle SLIDE slidesOn slideStop slideVoice slideStep slideTail slideSound slideNext slideToggle
 //#use slideSig slideDOM SFXQ sfxCue sfxHold sfxN _sfv sfxWhere sfxPlay sfxHidden sfxAct sfxStep sfxPos
 // ================================================================== APP ==

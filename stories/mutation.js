@@ -5940,22 +5940,34 @@ function panelPatch(P, cv, x, y, noMip) {
 }
 
 // ------------------------------------------------------------ main panel --
+// what the main panel shows, so it is drawn again only when that changes: the story (and what the story's own
+// sigMainS() adds: '' for most), or explore mode (the story's sigMainX())
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
-    const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
-    if (it) {
-      for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
-      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
-    }
-    return s;
+  if (APP.mode !== 'story') return sigMainX();
+  const it = ST.items.find(x => x.ch === curCh);
+  let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '') + sigMainS();
+  if (it) {
+    for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
+    // (the title's route arc as it grows, in the chapter that has it)
+    const arc = it.sec.querySelector('#titleArc'), dot = it.sec.querySelector('#titleDot');
+    if (arc && dot) s += arc.getAttribute('stroke-dashoffset').slice(0, 3) + dot.getAttribute('opacity').slice(0, 3);
+    s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+    for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
   }
+  return s;
+}
+const sigMainS = () => '';
+// explore mode in the main panel's signature (sigMain)
+function sigMainX() {
   return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.time, X.reads, X.rseed, X.branch, X.w, X.sseed, XR.on].join('|');
 }
 const XR_HERE = 'mutation';
+const XR_TITLE = 'The mutation machine';
+// the story's points (ul.steps) on the headset's panel (drawStoryEl): lines at most, and the colour of one without
+// its own
+const XR_STEP_LINES = 4, XR_STEP_COL = 'var(--amber)';
+const FLOW_BOLD = true;
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -6045,6 +6057,10 @@ function drawStoriesPane(ctx, P, x, y, W) {
   }
   if (!xrCards()) vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
 }
+// under the story: what the trigger and the grip do (in a shared room the room's own hint instead: drawMain)
+const xrHint = () => (HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.');
+// the main panel: the buttons and the story's name (XR_TITLE) on top; under them the Stories screen, the story (with
+// the story's xrHint() at its foot) or explore mode
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
   let x = P.w - 36;
@@ -6058,13 +6074,13 @@ function drawMain(ctx, P) {
   else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
-  fitTitle(ctx, 'The mutation machine', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
+  fitTitle(ctx, XR_TITLE, 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : xrHint(), 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
@@ -6088,6 +6104,9 @@ function drawStoryPane(ctx, P, x, y, W) {
   FADEB = null;
   ctx.globalAlpha = 1;
 }
+// one element of the story's HTML on the headset's panel. Each story says how its points (ul.steps) look there:
+// XR_STEP_LINES, a point's lines of text at most, and XR_STEP_COL, the colour of a point without one of its own (a CSS
+// colour; '' is ink). A paragraph's data-xr, where it has one, is its text in a headset (the robots' room).
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
   const a = pa * storyOpacity(el), tag = el.tagName.toUpperCase(), cl = el.classList;
   ctx.globalAlpha = a;
@@ -6122,7 +6141,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
       const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
         : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
       const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
-      h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
+      h = textBlock(ctx, el.dataset.xr || el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
     }
   } else if (cl.contains('big')) {
     const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
@@ -6175,8 +6194,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     for (const li of el.children) {
       ctx.globalAlpha = a * storyOpacity(li);
       const b = li.querySelector('b'), bold = b ? b.textContent : '', rest = li.textContent.slice(bold.length).trim();
-      const col = li.dataset.col || cssColor(li.style.borderLeftColor) || VC.amber;   // an organ's point in its own colour (the HTML's is mixed for a light panel)
-      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, 4);
+      const col = li.dataset.col || cssColor(li.style.borderLeftColor || XR_STEP_COL);   // a point in its own colour (the HTML's is mixed for a light panel)
+      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, XR_STEP_LINES);
       ctx.fillStyle = col; ctx.fillRect(x, yy + 4, 5, hh);
       ctx.font = vfont(30, 700); ctx.fillStyle = col; ctx.fillText(bold, x + 22, yy);
       yy += hh + 16;
@@ -6211,7 +6230,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 }
 
 
-// explore: tabs and panes mirroring the HTML ones
+// explore: tabs and panes mirroring the HTML ones (a tab picked with the story's pickTab; its pane drawn by the
+// story's drawTabPane)
 function drawExplorePane(ctx, P, x, y, W) {
   const tw = W / TABS.length;
   TABS.forEach(([k, n], j) => {
@@ -6224,20 +6244,27 @@ function drawExplorePane(ctx, P, x, y, W) {
   });
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
-  const bottom = P.h - 34;
+  drawTabPane(ctx, P, x, y, W, P.h - 34);
+}
+// explore mode's pane for each tab (drawExplorePane)
+function drawTabPane(ctx, P, x, y, W, bottom) {
   ({ letters: drawLettersPane, rule: drawRulePane, tree: drawTreePane, stem: drawStemPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, fn } (no fn: a plain chip)
+// buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, icon, fn } (no fn: a plain chip; an icon is
+// drawn by the story's flowIcon(ctx, it, x, y, h): the PET story's organs, the microanatomy story's organ models). Where
+// a story's FLOW_BOLD is false (the muscle story's), a chip is measured in the font the one before it was drawn in.
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   const px = o.px || 22, h = o.h || 44, gap = 8;
   let cx = x, cy = y;
+  ctx.font = vfont(px);
   for (const it of items) {
-    ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
-    const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
+    if (FLOW_BOLD) ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
+    const sw = it.icon ? h - 10 : it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
+    if (it.icon) flowIcon(ctx, it, cx, cy, h);
+    else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
     cx += w + gap;
@@ -6396,6 +6423,10 @@ function drawFoot(ctx, P) {
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
   }
+  drawFootX(ctx, P);   // (explore mode: the story's own footer)
+}
+// explore mode's footer: turn, zoom and the whole scene
+function drawFootX(ctx, P) {
   ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText('Turn', 28, 58);
   vButton(ctx, P, 'turn:on', 100, 40, 90, 56, 'On', () => setTurn('on'), { on: X.turn === 'on', px: 22 });
   vButton(ctx, P, 'turn:off', 198, 40, 90, 56, 'Off', () => setTurn('off'), { on: X.turn === 'off', px: 22 });
@@ -6403,37 +6434,35 @@ function drawFoot(ctx, P) {
   vButton(ctx, P, 'z-', 404, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
   vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
   vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
-}
-
-
-// ------------------------------------------------------------- narration --
-// ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-mutation.mp3.
+}// ------------------------------------------------------------- narration --
+// Optional voice-over: put an MP3 where the story's narrationFile() says (audio/narration-<key>.mp3).
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
 // (HOST.audio): one engine for the whole app, unlocked by the first tap or click
 // and kept running across stories and headset sessions.
 let AUD = null;
+const AUD_HOOKS = {
+  // a recording longer than the story stretches the timeline
+  ready(d) {
+    if (d + 1 <= T_END) return;
+    T_END = d + 1;
+    document.querySelectorAll('#track .tick, #track .name').forEach(el => {
+      const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
+    });
+    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
+  },
+  error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
+};
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-mutation.mp3', {
-    // a recording longer than the story stretches the timeline
-    ready(d) {
-      if (d + 1 <= T_END) return;
-      T_END = d + 1;
-      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
-        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
-      });
-      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    },
-    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
-  });
+  AUD = HOST.audio.narration(narrationFile(), AUD_HOOKS);
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
+const narrationFile = () => 'audio/narration-mutation.mp3';
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 function audioSync() { if (AUD) AUD.sync(...slideSound()); }
 // while it plays, the narration is the clock: the story follows it
@@ -6657,6 +6686,12 @@ function openStart() {
 
 let lastNow = 0;
 const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];   // explore's view for applyCamera: orbit.cur, then FIT's and LOW's, eased
+const frameLife = () => false, frameFloor = () => {};   // (frame: nothing life size or on a floor)
+// (frame: a view too low for a phone held upright stands higher, LOW, eased as the views change)
+const frameLow = (vn, ke) => { const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke; };
+// a frame of the story or of explore mode. The story's hooks: frameLife() (a life-size view, which stands neither further
+// back nor shifted: the PET scanner's), frameLow(vn, ke) (more of explore's view eased: LOW, where the story has it) and
+// frameFloor(S) (passthrough: the story's own floor hidden)
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -6688,14 +6723,16 @@ function frame(now, xrFrame) {
     S = exploreStep(dt, pn); tSet = pn / 1000;
     // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
     // goes back where there is none: both eased as the views change)
-    const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
-    GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
+    // (neither for a life-size view: the story's frameLife; and the story's own eased views: frameLow)
+    const vn = viewCam(X.scene) || 'default', life = frameLife(), fs = life ? [0, 0, 0] : fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
+    GL.nf += ((life ? 1 : narrowOf(X.scene, vn)) - GL.nf) * ke;
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
-    const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke;
+    frameLow(vn, ke);
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
     if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
   }
+  frameFloor(S);   // (in passthrough the room's own floor, where the story has one of its own)
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);

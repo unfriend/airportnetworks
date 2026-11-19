@@ -1,30 +1,5 @@
-// ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-soil.mp3.
-// Second 0 of the recording plays at second 0 of the story; the story clock
-// follows the audio, so seeking, pausing and chapter jumps stay in sync.
-// Without the file the story runs silently. The sound engine is the shell's
-// (HOST.audio): one engine for the whole app, unlocked by the first tap or click
-// and kept running across stories and headset sessions.
-let AUD = null;
-function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-soil.mp3', {
-    // a recording longer than the story stretches the timeline
-    ready(d) {
-      if (d + 1 <= T_END) return;
-      T_END = d + 1;
-      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
-        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
-      });
-      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    },
-    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
-  });
-  // react at once to play/pause, seeks, chapter jumps and mode changes
-  for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
-    const f = APP[name];
-    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
-  }
-}
+//#use AUD audioInit
+const narrationFile = () => 'audio/narration-soil.mp3';
 //#use audioSync audioFollow audioLabel audioToggle SLIDE slidesOn slideStop slideVoice slideStep slideTail slideSound
 //#use slideNext slideToggle slideSig slideDOM SFXQ sfxCue sfxHold sfxN _sfv sfxWhere sfxPlay sfxHidden sfxAct sfxStep
 //#use sfxPos
@@ -101,7 +76,9 @@ function openStart() {
   renderAll();
 }
 
-//#use lastNow EXV~2 frame applyTheme LOAD init loadStep warm
+//#use lastNow EXV~2
+const frameLife = () => false, frameFloor = () => {};   // (frame: nothing life size or on a floor)
+//#use frameLow frame applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
   LBL.storyAll = ST.labels.concat(LBL.sets);

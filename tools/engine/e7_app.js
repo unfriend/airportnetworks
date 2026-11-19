@@ -1,5 +1,35 @@
 // Shared parts of the built stories' engine file e7_app.js: see tools/engine/parts.mjs. Edit a part here, then
 // rebuild every story that uses it (node tools/engine/all.mjs); node tools/engine/parts.mjs lists who uses what.
+//#part AUD
+// ------------------------------------------------------------- narration --
+// Optional voice-over: put an MP3 where the story's narrationFile() says (audio/narration-<key>.mp3).
+// Second 0 of the recording plays at second 0 of the story; the story clock
+// follows the audio, so seeking, pausing and chapter jumps stay in sync.
+// Without the file the story runs silently. The sound engine is the shell's
+// (HOST.audio): one engine for the whole app, unlocked by the first tap or click
+// and kept running across stories and headset sessions.
+let AUD = null;
+const AUD_HOOKS = {
+  // a recording longer than the story stretches the timeline
+  ready(d) {
+    if (d + 1 <= T_END) return;
+    T_END = d + 1;
+    document.querySelectorAll('#track .tick, #track .name').forEach(el => {
+      const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
+    });
+    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
+  },
+  error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
+};
+//#part audioInit
+function audioInit() {
+  AUD = HOST.audio.narration(narrationFile(), AUD_HOOKS);
+  // react at once to play/pause, seeks, chapter jumps and mode changes
+  for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
+    const f = APP[name];
+    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
+  }
+}
 //#part audioSync
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 function audioSync() { if (AUD) AUD.sync(...slideSound()); }
@@ -278,22 +308,14 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    const v = storyCam(ts);
-    GL.nf = v[6];
-    if (xr) xrPlace(v); else { applyCamera(v); keepCamera(S, ts); }
+    if (xr) xrPlace(storyCam(ts), dt); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
-    // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
-    // goes back where there is none: both eased as the views change)
-    const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
-    GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
-    for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
     orbitStep(xr ? pn : now);
-    for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
-    if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
+    if (xr) xrPlace(orbit.cur, dt); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
@@ -303,6 +325,7 @@ function frame(now, xrFrame) {
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
+  if (navigator.xr) xrPrep(xr ? 2 : 1);   // the headset's sample of the scene (keep clear), in slices
   if (!xr) {
     GL.world.updateMatrixWorld(true);
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));
@@ -312,7 +335,13 @@ function frame(now, xrFrame) {
 }
 //#part EXV~2
 const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];   // explore's view for applyCamera: orbit.cur, then FIT's and LOW's, eased
+//#part frameLow
+// (frame: a view too low for a phone held upright stands higher, LOW, eased as the views change)
+const frameLow = (vn, ke) => { const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke; };
 //#part frame
+// a frame of the story or of explore mode. The story's hooks: frameLife() (a life-size view, which stands neither further
+// back nor shifted: the PET scanner's), frameLow(vn, ke) (more of explore's view eased: LOW, where the story has it) and
+// frameFloor(S) (passthrough: the story's own floor hidden)
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -344,14 +373,16 @@ function frame(now, xrFrame) {
     S = exploreStep(dt, pn); tSet = pn / 1000;
     // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
     // goes back where there is none: both eased as the views change)
-    const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
-    GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
+    // (neither for a life-size view: the story's frameLife; and the story's own eased views: frameLow)
+    const vn = viewCam(X.scene) || 'default', life = frameLife(), fs = life ? [0, 0, 0] : fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
+    GL.nf += ((life ? 1 : narrowOf(X.scene, vn)) - GL.nf) * ke;
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
-    const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke;
+    frameLow(vn, ke);
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
     if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
   }
+  frameFloor(S);   // (in passthrough the room's own floor, where the story has one of its own)
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);

@@ -1,84 +1,33 @@
 //#use head VC vfont cssColor rr wrapLines textBlock fitText fitTitle vButton swatch makePanel panelDepth panelTick
 //#use panelPaint FADE FADECV panelFade panelSend panelPatch
-// ------------------------------------------------------------ main panel --
-function sigMain() {
-  if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
-    const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
-    if (it) {
-      for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
-      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
-    }
-    return s;
-  }
+//#use sigMain
+const sigMainS = () => '';
+// explore mode in the main panel's signature (sigMain)
+function sigMainX() {
   return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl[X.scene] || {}), X.group, X.gene, JSON.stringify(X.pick), [...X.off].join(','),
     X.walk ? X.walk.from + ':' + X.walk.top.join(',') : '', X.walkFrom, X.mine.join(','), X.walkers, X.showZ, X.colour, X.grid, X.room, X.egroup, X.err,
     XR.kbd.open, XR.kbd.q].join('|');
 }
 const XR_HERE = 'nmd';
+const XR_TITLE = 'Muscle and heart';
+// the story's points (ul.steps) on the headset's panel (drawStoryEl): lines at most, and the colour of one without
+// its own
+const XR_STEP_LINES = 3, XR_STEP_COL = 'var(--amber)';
+const FLOW_BOLD = false;   // (flow: each chip measured in the font of the one before, as this story's always were)
 //#use XR_STORIES XR_LAND xrLandingSetup xrLandingCards xrLandingClose drawLandHead drawLandCard drawStoriesPane
-function drawMain(ctx, P) {
-  const story = APP.mode === 'story';
-  let x = P.w - 36;
-  const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
-  // (Exit is on the shell's Shared panel, at hand on the left controller)
-  if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
-  if (!HOST.anchor.on) hb('recenter', 'Recenter', xrRecenterAsk, 140); // anchored: nothing moves
-  // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
-  // its circle)
-  if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
-  else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
-  if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
-  // the story's name, smaller when the buttons leave it less room
-  fitTitle(ctx, 'Muscle and heart', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
-  ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
-  if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
-  else if (story) {
-    drawStoryPane(ctx, P, 44, 136, P.w - 88);
-    ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
-  } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
-}
+//#use xrHint drawMain
 
-//#use STY storyOpacity FADEB drawStoryPane drawStoryEl~2
-// explore: tabs and panes mirroring the HTML ones
-function drawExplorePane(ctx, P, x, y, W) {
-  const tw = W / TABS.length;
-  TABS.forEach(([k, n], j) => {
-    const on = X.tab === k, tx = x + j * tw, hov = P.hover === 'tab:' + k;
-    if (hov && !on) { rr(ctx, tx + 4, y, tw - 8, 62, 8); ctx.fillStyle = VC.chip; ctx.fill(); }
-    ctx.font = vfont(24, on ? 700 : 400); ctx.fillStyle = on ? VC.ink : VC.muted;
-    ctx.textAlign = 'center'; ctx.fillText(n, tx + tw / 2, y + 18); ctx.textAlign = 'left';
-    if (on) { ctx.fillStyle = VC.cyan; ctx.fillRect(tx + 10, y + 58, tw - 20, 4); }
-    P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => { XR.kbd.open = false; showTab(k); } });
-  });
-  ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
-  y += 88;
-  const bottom = P.h - 34;
+//#use STY storyOpacity FADEB drawStoryPane drawStoryEl
+//#use drawExplorePane
+// a tab picked in a headset (drawExplorePane): the keyboard closes
+function pickTab(k) { XR.kbd.open = false; showTab(k); }
+// explore mode's pane for each tab (drawExplorePane)
+function drawTabPane(ctx, P, x, y, W, bottom) {
   if (XR.kbd.open && X.tab === 'genes') return drawKeyboard(ctx, P, x, y, W);
   ({ groups: drawGroupsPane, genes: drawGenePane, walk: drawWalkPane, layers: drawLayersPane, endo: drawEndoPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 //#use searchField
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, fn }
-function flow(ctx, P, items, x, y, W, maxY, o = {}) {
-  const px = o.px || 22, h = o.h || 44, gap = 8;
-  let cx = x, cy = y;
-  ctx.font = vfont(px);
-  for (const it of items) {
-    const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
-    if (cx + w > x + W) { cx = x; cy += h + gap; }
-    if (cy + h > maxY) break;
-    vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
-    ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle';
-    ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
-    cx += w + gap;
-  }
-  return cy + h - y;
-}
+//#use flow
 // a labelled bar, for z-scores, walk visits and link counts
 function bar(ctx, x, y, W, label, v, max, col) {
   ctx.font = vfont(22); ctx.fillStyle = VC.ink;
@@ -235,4 +184,4 @@ function drawKeyboard(ctx, P, x, y, W) {
   }, { px: 24, primary: !!sug.length });
 }
 
-//#use sigFoot drawFoot
+//#use sigFoot drawFoot drawFootX

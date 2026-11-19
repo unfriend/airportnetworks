@@ -1,23 +1,16 @@
 //#use head VC vfont cssColor rr wrapLines textBlock fitText fitTitle vButton swatch makePanel panelDepth panelTick
 //#use panelPaint FADE FADECV panelFade panelSend panelPatch
-// ------------------------------------------------------------ main panel --
-function sigMain() {
-  if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
-    const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
-    if (it) {
-      for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
-      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
-    }
-    return s;
-  }
+//#use sigMain
+const sigMainS = () => '';
+// explore mode in the main panel's signature (sigMain)
+function sigMainX() {
   const T = GL.sets.table;
   return ['x', audioLabel(), xrSig(), X.tab, X.pick, X.story, X.minis, T.built(), T.moved().length].join('|');
 }
 const XR_HERE = 'design';
+// the story's points (ul.steps) on the headset's panel (drawStoryEl): lines at most, and the colour of one without
+// its own
+const XR_STEP_LINES = 3, XR_STEP_COL = 'var(--amber)';
 //#use XR_STORIES XR_LAND xrLandingSetup xrLandingCards xrLandingClose drawLandHead drawLandCard drawStoriesPane
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
@@ -42,7 +35,7 @@ function drawMain(ctx, P) {
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
-//#use STY storyOpacity FADEB drawStoryPane drawStoryEl~2
+//#use STY storyOpacity FADEB drawStoryPane drawStoryEl
 // explore: the Prop and All props tabs, mirroring the HTML ones (the card shorter: the headset's panel holds less, and
 // the stories' props are picked story by story)
 function drawExplorePane(ctx, P, x, y, W) {
@@ -113,36 +106,9 @@ function sigFoot() {
 // explore: what the hands do here (in a shared room the room's word on the grip; anchored, nothing moves)
 const footHint = () => (HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Anchored: the models stay put (Place again in the menu to move things). Trigger or pinch on a model: on the stage.'
   : 'Point at a model: its name. Trigger or pinch: on the stage. Grip: pick it up' + (XR.free ? ', turn it' : '') + '; both grips size it.');
-function drawFoot(ctx, P) {
-  if (APP.mode === 'story') {
-    const playing = APP.playing, bx = 28, by = 40;
-    vButton(ctx, P, 'play', bx, by, 96, 96, '', () => APP.togglePlay(), { r: 48 });
-    ctx.fillStyle = VC.ink;
-    if (playing) { ctx.fillRect(bx + 34, by + 30, 10, 36); ctx.fillRect(bx + 52, by + 30, 10, 36); }
-    else { ctx.beginPath(); ctx.moveTo(bx + 38, by + 26); ctx.lineTo(bx + 38, by + 70); ctx.lineTo(bx + 72, by + 48); ctx.closePath(); ctx.fill(); }
-    const t = APP.t, ci = Math.max(0, CH.findIndex(c => t >= c.na && t < c.nb));
-    const tri = (cx, cy, dir) => { ctx.beginPath(); ctx.moveTo(cx - 9 * dir, cy - 13); ctx.lineTo(cx - 9 * dir, cy + 13); ctx.lineTo(cx + 9 * dir, cy); ctx.closePath(); ctx.fill(); };
-    vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
-    ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
-    vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
-    ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
-    const x0 = 344, x1 = P.w - 40, ty = 100;
-    const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(m(t) + ' / ' + m(T_END), x1, 44); ctx.textAlign = 'left';
-    // this story's Slideshow switch, left of the clock (placed for the longest clock, so it never shifts)
-    const sx = x1 - ctx.measureText(m(T_END) + ' / ' + m(T_END)).width - 220;
-    if (HOST.slides) vButton(ctx, P, 'slides', sx, 26, 198, 42, 'Slideshow: ' + (slidesOn() ? 'on' : 'off'), slideToggle, { on: slidesOn(), px: 20 });
-    // slideshow: waiting at the end of a chapter, Next in the place of the chapter's name (the panel above has it)
-    if (SLIDE.at >= 0) vButton(ctx, P, 'slideNext', x0, 16, 180, 48, 'Next', slideNext, { primary: true, px: 28 });
-    else { ctx.font = vfont(27, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, CH[ci].name, (HOST.slides ? sx : x1 - 160) - 16 - x0), x0, 40); }
-    rr(ctx, x0, ty, x1 - x0, 6, 3); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
-    rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
-    ctx.fillStyle = 'rgba(160,178,202,0.6)';
-    for (const c of CH.slice(1)) ctx.fillRect(x0 + (x1 - x0) * c.na / T_END - 1, ty - 8, 2, 22);
-    ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * t / T_END, ty + 3, P.hover === 'track' ? 16 : 13, 0, 7); ctx.fillStyle = VC.cyan; ctx.fill();
-    P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
-    return;
-  }
+//#use drawFoot
+// explore mode's footer (drawFoot)
+function drawFootX(ctx, P) {
   textBlock(ctx, footHint(), 28, 40, P.w - 56, 23, 32, VC.muted, 400, 3);
 }
 
