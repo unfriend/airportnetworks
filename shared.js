@@ -2915,8 +2915,12 @@
         if (f && C.relay) {
           const r = await api('scenes');
           if (r.ok && r.j && Array.isArray(r.j.scenes)) list = r.j.scenes.map(x => (x && typeof x.name === 'string' ? x.name : '')).filter(n => n && n.length <= 64).slice(0, 200);
-          // (a copy of a story is no scene to place things in: v170, HOST.arrange)
-          if (HOST.arrange && HOST.arrange.isCopy) list = list.filter(n => !HOST.arrange.isCopy(n));
+          // (a copy of a story is no scene to place things in: v170, HOST.arrange; decided by its layout, as the shell's
+          // list of copies read it, never by its name alone)
+          if (HOST.arrange && HOST.arrange.isCopy) {
+            try { if (HOST.arrange.list) await HOST.arrange.list(); } catch (e) { /* none read: none hidden */ }
+            list = list.filter(n => !HOST.arrange.isCopy(n));
+          }
         }
       } catch (e) { /* none: no relay, or it did not answer */ }
       const was = SCN.list.join('/');

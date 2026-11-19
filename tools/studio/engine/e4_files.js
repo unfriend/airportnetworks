@@ -181,24 +181,46 @@ async function listScenes(gen) {
 // Copies of stories (v170, tools/engine/SPEC.md): scenes on the relay whose layout holds a story's arrangement (its
 // timing and places, made by Copy to relay on a story's bar). The studio lists them apart (Copy of <title>, Open: the
 // story starts with the copy, HOST.arrange.open) and never opens one as a scene to place things in; a name that looks
-// like one (<key>-copy[-n]) waits for the shell's listing (HOST.arrange.list: the layouts read) before it shows as a scene
-const COPIES = { list: [], names: new Set(), read: false, busy: false, at: 0, src: '' };
+// like one (<key>-copy[-n]) waits for the shell's listing (HOST.arrange.list: the layouts read) before it shows as a scene,
+// and one whose layout holds no story (atelier-copy) then shows as one. One read at a time, again only when the list of
+// such names (their files' times, whether they have a layout) changed or a layout of one was saved (onLayoutEvent)
+const COPIES = { list: [], names: new Set(), plain: new Set(), read: false, busy: false, again: false, sig: '', at: 0, src: '' };
 const copyLike = n => /^[a-z][a-z0-9-]{1,30}-copy(-\d+)?$/.test(n);
-const isCopy = n => COPIES.names.has(n) || (!COPIES.read && copyLike(n));
+const isCopy = n => COPIES.names.has(n) || (copyLike(n) && !COPIES.plain.has(n));
 const plainScenes = () => SRC.scenes.filter(s => !isCopy(s.name));
+const copiesSig = () => SRC.scenes.filter(s => copyLike(s.name)).map(s => s.name + ':' + s.at + ':' + +s.layout).join('/');
 async function copiesRead() {
   const A = HOST.arrange, src = srcKey();
-  if (COPIES.src !== src) Object.assign(COPIES, { list: [], names: new Set(), read: false, at: 0, src });
-  if (!A || !A.list || SRC.kind !== 'relay' || COPIES.busy || !SRC.scenes.some(s => copyLike(s.name))) { COPIES.read = true; return; }
-  COPIES.busy = true;
+  if (COPIES.src !== src) Object.assign(COPIES, { list: [], names: new Set(), plain: new Set(), read: false, sig: '', at: 0, src });
+  if (COPIES.busy) { COPIES.again = true; return; }
+  const sig = copiesSig(), like = SRC.scenes.filter(s => copyLike(s.name)).map(s => s.name);
+  // (none that look like copies, or no shell to read them: every name is a scene)
+  if (!A || !A.list || SRC.kind !== 'relay' || !sig) {
+    const was = COPIES.read && COPIES.sig === sig && !COPIES.list.length;
+    Object.assign(COPIES, { list: [], names: new Set(), plain: new Set(like), read: true, sig });
+    if (!was) { chooseScene(); dirty(true); }
+    return;
+  }
+  if (COPIES.read && sig === COPIES.sig) return;
+  COPIES.busy = true; COPIES.again = false; COPIES.sig = sig;
+  let ok = false;
   try {
     const l = await A.list(true);
     if (GL.gone || COPIES.src !== srcKey()) return;
     COPIES.list = (Array.isArray(l) ? l : []).filter(c => c && okScene(c.name) && SRC.scenes.some(s => s.name === c.name));
     COPIES.names = new Set(COPIES.list.map(c => c.name));
-  } catch (e) { /* none listed: the names stay scenes */ } finally { COPIES.busy = false; COPIES.read = true; COPIES.at = performance.now(); }
+    ok = true;
+  } catch (e) { /* none listed: the names stay scenes */ } finally {
+    COPIES.busy = false;
+    if (COPIES.src === srcKey()) {
+      COPIES.plain = new Set(ok ? like.filter(n => !COPIES.names.has(n)) : like);
+      COPIES.read = true; COPIES.at = performance.now();
+    }
+  }
+  if (GL.gone || COPIES.src !== srcKey()) return;
   chooseScene();
   dirty(true);
+  if (COPIES.again) { COPIES.again = false; copiesRead(); }
 }
 // Open a copy: the story it is of starts with it (HOST.arrange.open: at a station of that story, for everyone there)
 function copyOpen(name) {
@@ -677,6 +699,7 @@ async function onLayoutEvent(d) {
   // (the list of scenes a moment later, as for a file: whether a scene has a layout, which tells a whole copy of an
   // example from one under way or broken off; e7g_examples.js)
   if (d && okScene(d.name) && !scenesT) scenesT = later(() => { scenesT = 0; listScenes(SRC.gen); }, 600);
+  if (d && okScene(d.name) && copyLike(d.name)) COPIES.sig = '';   // (a copy's layout saved: read again with that listing)
   if (!d || d.name !== STU.scene || !STU.scene) return;
   if (d.gone) { STU.saved = keyOf([]); STU.savedAt = 0; STU.savedBy = ''; STU.mine = 0; dirty(true); return; }
   if (STU.mine && Math.abs((+d.at || 0) - STU.mine) < 2) return;   // (our own save)
@@ -695,7 +718,7 @@ async function onLayoutEvent(d) {
 function onScenesEvent(d) {
   if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
   SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
-  if (SRC.scenes.some(s => copyLike(s.name) && !COPIES.names.has(s.name))) copiesRead();
+  copiesRead();   // (again only when the names that look like copies, or their times, changed)
   chooseScene();
   dirty(true);
 }

@@ -1264,19 +1264,21 @@ The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and
   the password as a header; the last four kept), `current(key)` (`{ name, A }` the copy this page plays for the story, `A` null while it
   is read or when it could not be; or null), `open(key, name, edit)` (play a copy: at a station of that story the
   station's, else this page's own; `HOST.go(key)` when another story is on show; `edit` opens the editor once it is
-  read), `own()` (back to the story's own, the station's too), `isCopy(name)`, `editing()`, `state()` (for tests).
+  read), `own()` (back to the story's own, the station's too), `isCopy(name)` (a scene `list()` found to hold a story:
+  never by its name alone, so a scene named `atelier-copy` stays a scene), `editing()`, `state()` (for tests).
 - **Which copy plays**: a page following, or a headset running, a station whose story is on show plays the station's
   copy (`st.<id>.arr`, `HOST.collab.arrOf(id)`; `docs/agents/shared-rooms.md`); otherwise the address's
   (`#<key>&arr=<name>`, this page's own: dropped when another story starts, `HOST.arrange.started` from `HOST.run`).
   Every 300 ms (`tick`) the copy wanted is read when it is not yet (again 15 s after a failure, and when the station's
-  `at` moves on unless this page is editing it with unsaved changes) and laid over the story with
+  `at` moves on: a save made elsewhere; our own save moves the cache's `at` with it) and laid over the story with
   `HOST.cur.arrange.apply(A, name)` (a clone: the story never changes ours; the name: the story fetches the copy's
   recording by it) once the story is built (`HOST.loading.built()`,
   new in v170: its frame loop given), again whenever the copy changes, and `apply(null)` when it goes. A story without
   `arrange` (the airports, proteins, cell map, the studio) plays as its own.
 - **The address**: `#<key>&arr=<name>` while a copy plays by the address, `&edit` added while the editor is open or the
   link had it (`tail(key)`, added by `HOST.run`, `HOST.swap` and `HOST.setUrl`); in a room the address stays `#s=XYZ`.
-  `&edit` alone shows *Copy to relay* without developer mode.
+  `&edit` alone shows *Copy to relay* without developer mode. With `&visit` (a visitor's page) `&edit` is ignored and
+  neither *Copy to relay* nor *Edit* nor the editor is ever offered, developer mode or not; a copy still plays.
 - **The bar** (`#arrBar` after the clock; a page only, hidden on the Stories screen and in a headset session): while a
   copy plays, *Copy: <name>*, *Edit* (when the story has `arrange` and the copy was read) and *Own story*; *Reading the
   copy...*, *Copy not found* (a 404: the story plays as its own) or *Copy not read: <why>*. Otherwise *Copy to relay* on
@@ -1294,7 +1296,11 @@ The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and
   sound cues. Keyframes keep their order (a drag stops at a neighbour). The side: what is selected, *Places* (each set's
   x, y, z, turn and size, typed), *The recording* (*Upload a recording*, *Back to the story's own recording*, *Back to
   the story's own timing*). The head: *Save* (to the relay), *Undo* and *Redo* (this page's, 200 steps), *Unsaved
-  changes* / *Saved*, the arranged length; a line for the edits `apply` dropped because the story changed. A drag is laid
+  changes* / *Saved*, the arranged length; a line for the edits dropped because the story changed: the story's last
+  apply, whoever asked for it (the shell's, the load's, the pass story's change of language), read from
+  `arrange.dropped()` when the editor opens and every 300 ms. A save of the copy made elsewhere (the station's `at`
+  moved on): a clean editor takes it (its Undo starting there, *A newer save of this copy ... is shown*); one with
+  unsaved changes keeps them, laid over the story as they are, and says a newer copy was saved elsewhere. A drag is laid
   over the story at most every 120 ms and once more when let go. Leaving the page with unsaved changes asks first.
 - **The studio** lists copies apart (*Copies of stories*: *Copy of <title>*, *Open*, which calls `HOST.arrange.open`),
   never among its scenes (a name like `<key>-copy[-n]` waits for `list()`), and its Save keeps a layout's `story`

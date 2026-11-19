@@ -106,7 +106,8 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
 
 - `arrange.apply(A, name)`: `name` is the copy's (for its recording); at the load the story asks
   `HOST.arrange.current(key)` (`{ name, A }` or null) once it is written, and an `apply` before then waits for it.
-  `model()` is null until then. `get()` is the object last given to `apply`.
+  `model()` is null until then. `get()` is the object last given to `apply`; `dropped()` the `dropped` of the last
+  apply, whoever asked for it (the load's, the pass story's change of language: the shell's editor shows it).
 - `dropped` lists `'<field>:<id>'` (`'keys:p:atlas_a#3'`, `'camera:4'`, `'cues:2'`, `'captions:atlas:2'`, `'labels:l0'`,
   `'chapters:slide'`, `'place:hier'`), `'sync'`, `'narration'`, or `'key'` (an arrangement of another story: nothing is
   applied). A caption's or label's `was` is compared with its numbers left out (they come from the data). A `was` of a
@@ -130,13 +131,15 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
 - Step 6: the turn is about the set's own origin, in its parent's frame; a set the story turns only about up keeps a plain
   turn (`rotation.y`). Whatever the story writes to the group each frame is taken as the base.
 - The pass story: switching the language lays the arrangement again over the other language's panel; captions and labels
-  rewritten in the other language are dropped (their `was` no longer matches).
+  rewritten in the other language are dropped (their `was` no longer matches; `dropped()` says so). Once the editor has
+  taken a model, the snapshot of the story's own words is taken again at every switch, with or without an arrangement.
 
 ## The shell's side
 
 - `HOST.arrange`: `read(name)`, `save(name, A)`, `copy(key)` (a new copy: the next free `<key>-copy[-n]`, its layout
   `{ studio: 1, story: { v: 1, key, made, from } }`), `list()` (the relay's copies: scenes whose layout has `story`),
-  `upload(name, file)` (a recording into its `sounds/`), `url(name, path)` (a file of the copy, fetched with the password
+  `isCopy(name)` (by the layout `list()` read, never by the name alone), `upload(name, file)` (a recording into its
+  `sounds/`), `url(name, path)` (a file of the copy, fetched with the password
   as the studio fetches scene files: never a password in an address; a promise of a `blob:` address, which
   `HOST.audio.narration` can fetch as a story's own file), `current(key)` (`{ name, A }`: the copy the page plays for the
   story, from the address's `&arr=` or its station's `arr`; `A` null while it is read or when it could not be; null for
@@ -148,7 +151,8 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
   through the narration's timing as arranged (step 5's `sync`, then step 3's stretch: a chapter of a new length has its
   span of the recording scaled by the same factor, as the story does), and reads the playhead the same way back.
 - *Copy to relay*: on a story that has `arrange`, when a relay is known and its password held: on the page's story bar
-  (in developer mode, and always when the page has `&edit`); it makes the copy and opens it with the editor.
+  (in developer mode, and always when the page has `&edit`; never with `&visit`, which also ignores `&edit`); it makes
+  the copy and opens it with the editor.
 - The editor (a page only; a headset plays a copy but does not edit it): a drawer above the timeline.
   - The chapters as a strip: drag a chapter's end to change its length; a switch to skip it.
   - Lanes: the narration's timing (its anchors, dragged), each set's show and hide (from its `show` track), the other
@@ -158,6 +162,8 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
   - Places: each set's move, turn and size as small controls (and in the drawer only, never by dragging the scene).
   - The recording: *Upload a recording* (MP3) for the copy, *Back to the story's own recording*.
   - *Save* (to the copy on the relay), *Undo*/*Redo* (this page's), *Unsaved changes*, and a line for edits dropped
-    because the story changed.
+    because the story changed (`arrange.dropped()`: the story's last apply, whoever asked for it).
+  - A save made elsewhere (the station's copy read again): a clean editor follows it, its history starting there; one
+    with unsaved changes keeps them and says a newer copy was saved elsewhere (Save replaces it).
 - The studio: its scene list shows copies (*Copy of <title>*, with *Open*), which start the story with the copy
   (`HOST.go(key)` with `arr`); a copy is never opened as a scene to place things in.

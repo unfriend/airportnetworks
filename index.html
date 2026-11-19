@@ -4455,7 +4455,8 @@ HOST.arrange = (function () {
   const clone = o => (o == null ? o : JSON.parse(JSON.stringify(o)));
   const S = {
     addr: null,            // the address's copy, this page's own: { key, name }
-    edit: false,           // &edit in the link: Copy to relay shows without developer mode
+    edit: false,           // &edit in the link: Copy to relay shows without developer mode (never with &visit)
+    visit: false,          // &visit in the link: a visitor's page, never offered Copy to relay or the editor
     wantEd: false,         // the editor to open once the copy is read (Copy to relay, Edit, &arr with &edit)
     cache: new Map(),      // name -> { A, at, rev, err, status, busy, errAt }: copies read (at: the station's at it was read for)
     layouts: new Map(),    // name -> its layout.json as read (Save keeps its other fields)
@@ -4523,7 +4524,12 @@ HOST.arrange = (function () {
     S.layouts.set(name, L);
     // (at a station running it: its key written again, so every device there reads it again)
     const st = station(), a = st && HOST.collab.arrOf ? HOST.collab.arrOf(st.id) : null;
-    if (a && a.v === name) HOST.collab.setArr(st.id, name);
+    if (a && a.v === name) {
+      HOST.collab.setArr(st.id, name);
+      // (our own save: not read back as one made elsewhere)
+      const a2 = HOST.collab.arrOf(st.id), c = S.cache.get(name);
+      if (a2 && c && !c.busy) c.at = Math.max(c.at, a2.at);
+    }
     return true;
   }
   async function copy(key) {
@@ -4618,12 +4624,20 @@ HOST.arrange = (function () {
     const c = S.cache.get(w.name);
     return { name: w.name, A: c && c.A ? clone(c.A) : null };
   }
+  // (the copy open in the editor read again, a save made elsewhere: a clean editor follows it, a dirty one keeps its edits,
+  // laid over the story as they are, and says so)
   function fetchCopy(w) {
     const c = S.cache.get(w.name) || { A: null, at: 0, rev: 0, err: '', status: 0, busy: false, errAt: 0 };
     S.cache.set(w.name, c);
     if (c.busy) return;
     c.busy = true; c.at = w.at;
-    read(w.name).then(A => { c.A = A; c.saved = sigOf(A); c.rev++; c.err = ''; c.status = 0; }, e => { c.err = e.message; c.status = e.status || 0; c.errAt = performance.now(); })
+    read(w.name).then(A => {
+      const s = sigOf(A), mine = ED.on && ED.name === w.name;
+      c.err = ''; c.status = 0;
+      if (mine && edDirty()) { if (s !== ED.saved) edNewer(w.at); return; }
+      c.A = A; c.saved = s; c.rev++;
+      if (mine && s !== ED.saved) edFollow(A, s);
+    }, e => { c.err = e.message; c.status = e.status || 0; c.errAt = performance.now(); })
       .finally(() => { c.busy = false; tick(); });
   }
   const built = () => !HOST.loading || !HOST.loading.built || HOST.loading.built();
@@ -4635,7 +4649,18 @@ HOST.arrange = (function () {
       const r = cur.arrange.apply(A ? clone(A) : null, A ? name : '');   // (the name: the story fetches the copy's recording by it)
       S.dropped = A && r && Array.isArray(r.dropped) ? r.dropped.filter(x => typeof x === 'string').slice(0, 200) : [];
     } catch (e) { console.warn('The copy was not laid over the story:', e); S.dropped = []; }
-    if (ED.on) edDrop();
+    dropSync(true);
+  }
+  // the edits dropped by the story's last apply, whoever asked for it (the load's, the pass story's change of language:
+  // arrange.dropped()); the editor's line follows
+  function dropSync(show) {
+    const cur = HOST.cur, ar = cur && cur.arrange;
+    if (ar && typeof ar.dropped === 'function' && S.applied.cur === cur) {
+      let d = [];
+      try { d = S.applied.name ? (ar.dropped() || []).filter(x => typeof x === 'string').slice(0, 200) : []; } catch (e) { d = S.dropped; }
+      if (d.join('|') !== S.dropped.join('|')) { S.dropped = d; show = true; }
+    }
+    if (show && ED.on) edDrop();
   }
   // every 300 ms, and after a copy is read: the copy wanted, read when it is not yet (again 15 s after a failure, or a
   // station's newer save), laid over the story once it is built; the bar and the editor follow
@@ -4643,15 +4668,17 @@ HOST.arrange = (function () {
     const cur = HOST.cur, key = HOST.curKey, w = cur ? want(key) : null;
     let c = w ? S.cache.get(w.name) : null;
     if (w && (!c || (!c.busy && ((c.err && performance.now() - c.errAt > 15000) || (w.at > c.at && !(ED.on && ED.name === w.name && edDirty())))))) { fetchCopy(w); c = S.cache.get(w.name); }
+    else if (w && c && !c.busy && w.at > c.at && ED.on && ED.name === w.name) edNewer(w.at);   // (dirty: kept, and said)
     const ar = cur && cur.arrange;
     if (ar && typeof ar.apply === 'function' && built()) {
       const name = w && c && c.A ? w.name : '', rev = name ? c.rev : 0, P = S.applied;
-      if (P.cur !== cur || P.name !== name || P.rev !== rev) applyNow(cur, w ? w.name : '', c);
+      if (P.cur !== cur || P.name !== name || P.rev !== rev) applyNow(cur, w ? w.name : '', c); else dropSync();
     }
     // the relay looked for when Copy to relay could show (developer mode, or &edit) or a copy is wanted
     if (cur && !HOST.session && (w || (ar && (S.edit || (HOST.dev && HOST.dev.on()))))) relay();
     // (the story swapped in place, a hot reload: the editor opens again on the same copy, its unsaved changes kept)
     if (ED.on && (ED.cur !== cur || !w || ED.name !== w.name)) { const again = !!(w && ED.name === w.name && cur); edClose(true); if (again) S.wantEd = true; }
+    if (S.visit) S.wantEd = false;   // (never the editor for a visitor, &visit)
     if (!ED.on && S.wantEd && w && c && c.A && ar && built() && !HOST.session) { S.wantEd = false; edOpen(w.name); }
     if (ED.on) edFrame();
     bar();
@@ -4662,13 +4689,13 @@ HOST.arrange = (function () {
     const el = document.getElementById('arrBar');
     if (!el) return;
     const cur = HOST.cur, key = HOST.curKey, w = cur ? want(key) : null, c = w ? S.cache.get(w.name) : null, ar = cur && cur.arrange;
-    const dev = S.edit || !!(HOST.dev && HOST.dev.on()), R = S.relay;
+    const dev = !S.visit && (S.edit || !!(HOST.dev && HOST.dev.on())), R = S.relay;
     let h = '';
     if (w) {
       const bad = c && !c.A && c.err ? (c.status === 404 ? 'Copy not found' : 'Copy not read: ' + c.err) : '';
       h = `<span class="tag" title="This story plays the copy ${esc(w.name)} on the relay: its own timing and places">Copy: ${esc(w.name)}</span>` +
         (bad ? `<span class="warn">${esc(bad)}</span>` : !c || c.busy ? '<span class="warn">Reading the copy...</span>' : '') +
-        (ar && c && c.A && !ED.on && !HOST.session ? '<button class="btn" type="button" data-arr="edit" title="Retime and rearrange this copy">Edit</button>' : '') +
+        (ar && c && c.A && !ED.on && !HOST.session && !S.visit ? '<button class="btn" type="button" data-arr="edit" title="Retime and rearrange this copy">Edit</button>' : '') +
         `<button class="btn" type="button" data-arr="own" title="${w.st ? 'This station plays the story as its own again, for everyone here' : 'Play the story as its own'}">Own story</button>`;
     } else if (ar && dev && R.ok && R.save && !HOST.session) {
       h = `<button class="btn" type="button" data-arr="copy" ${S.busy ? 'disabled' : ''} title="A copy of this story on the relay, to retime and rearrange (the story itself stays as it is)">${S.busy ? 'Copying...' : 'Copy to relay'}</button>`;
@@ -4678,7 +4705,7 @@ HOST.arrange = (function () {
   }
   async function copyHere() {
     const key = HOST.curKey;
-    if (S.busy || !key) return;
+    if (S.busy || !key || S.visit) return;
     S.busy = 'copy'; S.note = ''; bar();
     try { const name = await copy(key); open(key, name, true); } catch (e) { S.note = 'Not copied: ' + e.message; } finally { S.busy = ''; S.sig = ''; bar(); }
   }
@@ -4689,7 +4716,7 @@ HOST.arrange = (function () {
     const st = station();
     if (st && !st.kind && st.story === key && HOST.collab.setArr) HOST.collab.setArr(st.id, name);
     else S.addr = { key, name };
-    if (edit) S.wantEd = true;
+    if (edit && !S.visit) S.wantEd = true;
     S.note = '';
     if (HOST.curKey !== key || !HOST.cur) HOST.go(key); else hash();
     setTimeout(tick, 0);
@@ -4704,7 +4731,7 @@ HOST.arrange = (function () {
     hash(); tick();
   }
   // the address while a copy plays here by the address: #<key>&arr=<name> (and &edit while it is edited, or the link had it)
-  const tail = key => (S.addr && S.addr.key === key ? '&arr=' + enc(S.addr.name) + (S.edit || ED.on ? '&edit' : '') : '');
+  const tail = key => (S.addr && S.addr.key === key ? '&arr=' + enc(S.addr.name) + (S.visit ? '&visit' : S.edit || ED.on ? '&edit' : '') : '');
   function hash() {
     if (!HOST.curKey || HOST.picking || (HOST.collab && HOST.collab.hash && HOST.collab.hash())) return;
     HOST.hist.replace('#' + HOST.curKey + tail(HOST.curKey));
@@ -4777,12 +4804,12 @@ HOST.arrange = (function () {
     if (!cur || !cur.arrange || !c || !c.A) return;
     const M = model(cur);
     if (!M) { S.note = 'This story gives no timeline to edit.'; return; }
-    Object.assign(ED, { on: true, cur, name, M, A: clone(c.A), sel: null, drag: null, note: '', busy: '', sig: '' });
+    Object.assign(ED, { on: true, cur, name, M, A: clone(c.A), sel: null, drag: null, note: '', busy: '', sig: '', newerAt: 0 });
     ED.saved = c.saved || sigOf(c.A); ED.hist = [sigOf(c.A)]; ED.pos = 0;
     if (!ED.el) edMake();
     ED.el.hidden = false;
     document.body.classList.add('arr-ed');
-    edDrop(); edRender(); hash();
+    dropSync(); edDrop(); edRender(); hash();
     if (!ED.raf) ED.raf = requestAnimationFrame(edLoop);
   }
   function edClose(gone) {
@@ -4846,6 +4873,17 @@ HOST.arrange = (function () {
     const s = sigOf(ED.A), name = ED.name;
     try { await save(name, ED.A); const c = S.cache.get(name); if (c) c.saved = s; if (ED.name === name) { ED.saved = s; ED.note = 'Saved on the relay.'; } } catch (e) { ED.note = 'Not saved: ' + e.message; }
     finally { ED.busy = ''; edRender(true); }
+  }
+  // a save of the copy made elsewhere (the station's copy read again): a clean editor takes it, its history starting
+  // there; a dirty one keeps its edits and says so (Save replaces it)
+  function edFollow(A, s) {
+    Object.assign(ED, { A: clone(A), saved: s, hist: [s], pos: 0, sel: null, geo: null, newerAt: 0, note: 'A newer save of this copy (made elsewhere) is shown.' });
+    ED.sig = ''; edRender(true);
+  }
+  function edNewer(at) {
+    if (!ED.on || ED.newerAt === at) return;
+    ED.newerAt = at; ED.note = 'A newer copy was saved elsewhere: your changes stay here, and Save replaces it.';
+    edRender(true);
   }
   function edDrop() {
     const el = ED.el && ED.el.querySelector('.ae-drop');
@@ -5170,13 +5208,14 @@ HOST.arrange = (function () {
 
   // ---- once, from the boot: the link's copy (#<key>&arr=<name>, &edit), the bar's buttons, the timer
   function boot(hp, key) {
-    S.edit = hp.has('edit');
+    S.visit = hp.has('visit'); S.edit = !S.visit && hp.has('edit');   // (&edit is ignored with &visit: AGENTS.md)
     const name = hp.get('arr');
     if (key && OK(name)) { S.addr = { key, name }; if (S.edit) S.wantEd = true; }
     const el = document.getElementById('arrBar');
     if (el) quietly(() => el.addEventListener('click', ev => {
       const b = ev.target.closest('[data-arr]');
       if (!b) return;
+      if (S.visit) return;
       if (b.dataset.arr === 'copy') copyHere();
       else if (b.dataset.arr === 'own') own();
       else if (b.dataset.arr === 'edit') { const w = want(HOST.curKey); if (w) { S.wantEd = true; tick(); } }
@@ -5188,7 +5227,9 @@ HOST.arrange = (function () {
 
   return {
     read, save, copy, list, upload, url, current, open, own, boot, started, tail, tick,
-    isCopy: n => copyLike(n) || !!(S.copies.list && S.copies.list.some(c => c.name === n)),
+    // (a copy is a scene whose layout holds a story, as list() read it: never decided by the name alone, so a scene
+    // named like one, atelier-copy, stays a scene)
+    isCopy: n => !!(S.copies.list && S.copies.list.some(c => c.name === n)),
     editing: () => (ED.on ? { name: ED.name, dirty: edDirty(), A: clone(ED.A) } : null),
     state: () => ({ addr: S.addr && Object.assign({}, S.addr), applied: S.applied.name, rev: S.applied.rev, dropped: S.dropped.slice(), relay: { ok: S.relay.ok, why: S.relay.why, save: S.relay.save },
       editing: ED.on ? ED.name : '', dirty: edDirty(), note: S.note }),

@@ -8181,11 +8181,12 @@ function setLang(l, keep = true) {
   if (keep) { try { localStorage.setItem('passLang', l); } catch (e) { /* private mode */ } }
   for (const k of SET_ORDER) if (GL.sets[k].setLang) GL.sets[k].setLang(l);
   // (an arrangement is laid again over the other language's panel and labels: they are made again from the chapters'
-  // own times, and its words for the language it was not made in are dropped, as their was no longer matches)
-  const A = ARR.A, o = A && ARR.o;
-  if (o) CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
+  // own times, and its words for the language it was not made in are dropped, as their was no longer matches; the
+  // snapshot of the story's own words is taken again whenever there is one, the editor's model, even with none applied)
+  const A = ARR.A, o = ARR.o;
+  if (o && A) CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
   buildStoryDOM(); relabel(); trackHTML();
-  if (o) { arrSnapItems(o); o.labels.forEach((L, i) => { L.T = Object.assign(arrText(ST.labels[i].el), { L: ST.labels[i] }); }); ARR.tx = []; arrApply(A); }
+  if (o) { arrSnapItems(o); o.labels.forEach((L, i) => { L.T = Object.assign(arrText(ST.labels[i].el), { L: ST.labels[i] }); }); ARR.tx = []; if (A) arrApply(A); }
   for (const L of LBL.sets) { L.tx = ''; labelText(L); }
   if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
   exploreHTML();
@@ -8415,7 +8416,7 @@ LOAD.t = setTimeout(init, 40);
 // arrApply(null) puts the story's own back exactly. Without an arrangement the frame's hooks (arrSkip, arrPlace) and the
 // narration's (arrSync, arrFollow, arrTl) do nothing. Three clocks: story time; the timeline's (APP.t: the recording's,
 // until an arrangement makes a chapter longer or shorter); and the recording's (ARR.R maps the timeline onto it).
-const ARR = { o: null, A: null, built: false, pend: undefined, name: '', M: null, R: null, sk: null, pl: null, tx: [], seg: -1, d: 0, url: '', want: '', vk: 0, tk: false };
+const ARR = { o: null, A: null, built: false, pend: undefined, name: '', M: null, R: null, sk: null, pl: null, tx: [], seg: -1, d: 0, url: '', want: '', vk: 0, tk: false, dropped: [] };
 const ARR_NUM = /\d+(?:[.,]\d+)*/g;
 // a piecewise linear map through the points (xs, ys), at slope 1 beyond them
 function arrPw(xs, ys, x) {
@@ -8526,7 +8527,7 @@ const arrSyncOk = W => Array.isArray(W) && W.length >= 2 && W.every((p, i) => Ar
 function arrApply(A, name) {
   if (!ARR.built) { ARR.pend = A || null; if (name) ARR.name = name; return { dropped: [] }; }
   if (name) ARR.name = name;
-  if (!A && !ARR.A) return { dropped: [] };
+  if (!A && !ARR.A) { ARR.dropped = []; return { dropped: [] }; }
   const o = arrSnap(), drop = [], s0 = arrUnM(storyT(APP.t)), t0 = APP.t;   // (where the story is, in its own time)
   // 1. the story's own
   CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
@@ -8659,6 +8660,7 @@ function arrApply(A, name) {
   }
   if (XR.main) XR.main.last = '';   // (the headset's panels drawn again: their words or chapters may have changed)
   if (XR.foot) XR.foot.last = '';
+  ARR.dropped = drop.slice();   // (kept: whoever asked for the apply, the shell's editor reads it, arrange.dropped)
   return { dropped: drop };
 }
 // the timeline's end: the narration's last point, or the recording's end if that is later (AUD_HOOKS.ready); its marks
@@ -8793,7 +8795,8 @@ function arrLoad() {
   } catch (e) { console.warn('arrangement not applied', e); }
 }
 // the story's side of an arrangement: arrange in the object the story returns
-const ARR_API = { model: arrModel, apply: arrApply, get: () => ARR.A };
+// (dropped: the edits the last apply left out, whoever asked for it: the load's, the pass story's change of language)
+const ARR_API = { model: arrModel, apply: arrApply, get: () => ARR.A, dropped: () => ARR.dropped.slice() };
 
 // what the app shell needs to change story
 return {

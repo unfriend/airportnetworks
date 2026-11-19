@@ -1239,7 +1239,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   not copied counted); *Copies of stories* (v170; `COPIES` in `e4_files.js`): the relay's scenes whose `layout.json` holds
   a story's arrangement (`HOST.arrange.list()`, read when the listing has a name like `<key>-copy[-n]`), each *Copy of
   <title>* with *Open*, which plays that story with the copy (`HOST.arrange.open`: at a studio circle you leave it for the
-  story); a copy is never among the scenes to pick (a name like one waits for the list), never opened as a scene, and
+  story); a copy is never among the scenes to pick (a name like one waits for the list; one whose layout holds no story,
+  `atelier-copy`, is then a scene like any other), never opened as a scene; one read at a time, again only when the
+  names like a copy's (their times, whether they have a layout) changed or a layout of one was saved; and
   the studio's Save keeps a layout's `story` as it was read (`STU.story`, `keepStory`; "A story's copy" in
   `docs/agents/shell.md`); while editing, the scene's settings: *Other circles* and *Real world hides the
   scene*; *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, a grid of cards with

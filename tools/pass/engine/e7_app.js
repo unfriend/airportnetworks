@@ -95,11 +95,12 @@ function setLang(l, keep = true) {
   if (keep) { try { localStorage.setItem('passLang', l); } catch (e) { /* private mode */ } }
   for (const k of SET_ORDER) if (GL.sets[k].setLang) GL.sets[k].setLang(l);
   // (an arrangement is laid again over the other language's panel and labels: they are made again from the chapters'
-  // own times, and its words for the language it was not made in are dropped, as their was no longer matches)
-  const A = ARR.A, o = A && ARR.o;
-  if (o) CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
+  // own times, and its words for the language it was not made in are dropped, as their was no longer matches; the
+  // snapshot of the story's own words is taken again whenever there is one, the editor's model, even with none applied)
+  const A = ARR.A, o = ARR.o;
+  if (o && A) CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
   buildStoryDOM(); relabel(); trackHTML();
-  if (o) { arrSnapItems(o); o.labels.forEach((L, i) => { L.T = Object.assign(arrText(ST.labels[i].el), { L: ST.labels[i] }); }); ARR.tx = []; arrApply(A); }
+  if (o) { arrSnapItems(o); o.labels.forEach((L, i) => { L.T = Object.assign(arrText(ST.labels[i].el), { L: ST.labels[i] }); }); ARR.tx = []; if (A) arrApply(A); }
   for (const L of LBL.sets) { L.tx = ''; labelText(L); }
   if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
   exploreHTML();
