@@ -6,15 +6,7 @@
 // or signs in the room. Controllers: point and pull the trigger to click, or
 // at the floor to spill crumbs; the grip moves the panel; A and X do nothing
 // (play and pause are on the panel). Hand tracking: point and pinch.
-const XR = {
-  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
-  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
-  baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
-  ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
-  kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from',
-  rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
-};
-//#use _xd _xq2 _xa _xX~2
+//#use XR _xd _xq2 _xa _xX
 const _xT = new THREE.Matrix4(), _xR = new THREE.Matrix4();
 // The gang is life size, on your floor. Your own room (kind 'real') is fixed in the reference space: the world's frame
 // is the reference space moved down to the floor, so the world hangs under the rig by the rig's inverse (the rig
@@ -215,38 +207,17 @@ function roomCapture() {
   XRR.capture = true;
   try { const p = XR.session.initiateRoomCapture(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not now */ }
 }
-//#use xrRecenterAsk xrRecenter xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk
-//#use xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings
-//#use LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR
-//#use placeLabelXR~2 xrTip xrController buzz
-function xrPress(c) {
-  const h = c.hover;
-  c.press = null;
-  if (!h) return;
-  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
-  if (h.kind === 'panel') {
-    const r = h.P.at(h.x, h.y);
-    if (!r) return;
-    c.press = { kind: 'panel', P: h.P, id: r.id, r };
-    if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
-  } else if (h.kind === 'floor' && !XR.stories) {   // the trigger on the floor spills crumbs there
-    c.press = { kind: 'floor' };
-    if (GL.sets.robots.crumbs(h.x, h.z)) { buzz(c, 0.5, 40); crumbsOut(h.x, h.z); }
-  }
+//#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway
+//#use _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace
+//#use xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR
+//#use placeLabelXR xrLabelH~2 xrTip~2 xrController xrLetGo buzz xrPress
+// the trigger on the floor spills crumbs there
+function xrPressScene(c, h) {
+  if (h.kind !== 'floor' || XR.stories) return;
+  c.press = { kind: 'floor' };
+  if (GL.sets.robots.crumbs(h.x, h.z)) { buzz(c, 0.5, 40); crumbsOut(h.x, h.z); }
 }
-//#use xrRelease~2
-function xrGrab(c, on) {
-  c.grab = null;
-  const h = c.hover;
-  if (!on || !h) return;
-  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
-  if (h.kind !== 'panel') return;   // the room stays where it is: only the panel moves
-  const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
-  c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
-    o0: c.o.clone(), p0, reach: 1, r0: XR.panelGroup.quaternion.clone() };
-  buzz(c, 0.4, 25);
-}
-//#use _gq carry xrResize
+//#use xrRelease xrReleaseScene~2 xrGrab xrGrabScene~2 _gq carry xrCarryScene xrResize
 function xrPoint(c, dt) {
   const g = c.g;
   if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; c.grab = null; return; }   // (a controller gone lets go)
@@ -293,154 +264,22 @@ function xrPoint(c, dt) {
   } else c.dot.visible = false;
 }
 
-//#use _xUp
-function xrBegin(frame, dt) {
-  xrSettings();
-  const ref = GL.renderer.xr.getReferenceSpace();
-  const pose = frame && ref ? frame.getViewerPose(ref) : null;
-  if (pose) {
-    const p = pose.transform.position, q = pose.transform.orientation;
-    XR.head.set(p.x, p.y, p.z); XR.headQ.set(q.x, q.y, q.z, q.w);
-    if (XR.needRecenter) { if (!HOST.anchor.held()) xrRecenter(); XR.needRecenter = false; } // an anchored place stays put
-    // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
-    // (asked only once the headset has a pose, so a new anchor goes where things really are)
-    const A = HOST.anchor.frame(frame, ref);
-    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
-    // in a shared room no Stories screen: a story is reached by walking into its station's circle, and at its station it
-    // is the station's (a shell without HOST.room.away: only there); leaving the room brings it back, as for a new wearer
-    const roomOnly = xrRoomOnly();
-    if (XR.inRoom && !roomOnly) xrFreshStart();
-    XR.inRoom = roomOnly;
-    // (at an All stories circle its cards are the Stories screen, opened as the panel's Stories button opens it, and they
-    // close once a story is picked there or the headset walks into another circle)
-    if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }
-    if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
-    // the room (once the head is known: a virtual room is placed round it), then the world on it
-    xrRoom(frame, ref);
-  }
+//#use _xUp xrBegin
+// the room (once the head is known: a virtual room is placed round it), then the world on it
+function xrPosed(frame, ref, pose) {
+  if (pose) xrRoom(frame, ref);
   xrPlace();
-  const bl = XR.session && XR.session.renderState.baseLayer;
-  if (bl) {
-    if (bl.framebufferHeight) XR.viewH = bl.framebufferHeight;
-    if (!XR.fov) {
-      XR.fov = true;
-      try { if ('fixedFoveation' in bl) bl.fixedFoveation = 0.5; } catch (e) { /* not supported */ }
-    }
-  }
-  GL.rig.updateMatrixWorld(true);
-  _xinv.copy(GL.world.matrixWorld).invert();
-  for (const c of XR.ctrls) xrPoint(c, dt);
-  // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
-  // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
-  if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
-  for (const P of XR.panels) {
-    let hv = null;
-    for (const c of XR.ctrls) {
-      if (c.hover && c.hover.kind === 'panel' && c.hover.P === P) { const r = P.at(c.hover.x, c.hover.y); if (r) hv = r.id; }
-    }
-    P.hover = hv;
-  }
 }
-//#use xrUpdate xrMsg
-async function xrStart(mode) {
-  if (XR.session || !navigator.xr) return;
-  let session;
-  try {
-    session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));
-  } catch (err) {
-    HOST.landingVR = false;
-    xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
-    return;
-  }
-  XR.session = session; XR.mode = mode;
-  HOST.session = session; HOST.mode = mode;
-  session.addEventListener('visibilitychange', xrVisibility);
-  xrEnterScene();
-  try {
-    GL.renderer.xr.setReferenceSpaceType('local');
-    await GL.renderer.xr.setSession(session);
-    const ref = GL.renderer.xr.getReferenceSpace();
-    if (ref && ref.addEventListener) ref.addEventListener('reset', xrOnReset);
-  } catch (err) {
-    console.error(err);
-    xrMsg('Could not start the headset view: ' + (err && err.message ? err.message : err));
-    try { await session.end(); } catch (e) { /* already ended */ }
-    if (XR.on) xrEnded();
-  }
-}
-function xrEnterScene() {
-  XR.stories = false;
-  XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
-  XR.free = xrFreeOn(); XR.lm = xrLabelMode(); XR.cm = xrCardMode();   // (as the shell has them: nothing to turn off or on at the first frame)
-  document.body.classList.add('xr');
-  GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
-  XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';
-  applyTheme();
-  // the room is read afresh in each session (the first frame with a head pose places it)
-  Object.assign(XRR, { kind: '', sig: '', t: 0, t0: 0, reset: false, capture: false, walls: 0, blocks: 0 });
-  for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
-  XR.kbd.open = false;
-  for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
-  // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
-  // (not in a shared room: there a story is reached by walking into its station's circle)
-  XR.inRoom = xrRoomOnly();
-  const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;
-  HOST.landingVR = false;
-  HOST.closePicker();
-  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; audioSync(); }
-  else { XR.inStory = true; if (APP.mode === 'story') APP.playing = true; } // already in a story: carry on where you were
-  $('#tip').style.opacity = 0;
-  for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.el.style.opacity = 0;
-  if (document.fonts && !XR.fontOK) {
-    Promise.all([document.fonts.load(vfont(30, 700)), document.fonts.load(vfont(30))]).then(() => {
-      XR.fontOK = 1;
-      [...ST.labels, ...LBL.sets, ...LBL.extra].forEach(dropSprite);
-    }).catch(() => {});
-  }
-}
-//#use XR_AWAY_MS xrVisibility xrFreshStart
-// a story picked inside the headset takes over the running session
-function xrAdopt() {
-  XR.session = HOST.session; XR.mode = HOST.mode;
-  XR.session.addEventListener('visibilitychange', xrVisibility);
-  XR.ctrls.forEach((c, i) => { const s = HOST.inputs[i]; if (s) { c.src = s; c.ray.visible = s.targetRayMode !== 'screen'; } });
-  xrEnterScene();
-  // keep the cell and the panel where they were in the story before
-  const p = HOST.xrPose;
-  if (p) {
-    XR.needRecenter = false;
-    GL.rig.position.copy(p.rp); GL.rig.quaternion.copy(p.rq);
-    XR.globeOff.copy(p.off); XR.size = p.s || 1; xrSceneRot(p.rot || p.q);
-    xrPanelPose(p.pp, p.pr, p.pq);
-  }
-  const ref = GL.renderer.xr.getReferenceSpace();
-  if (ref && ref.addEventListener) ref.addEventListener('reset', xrOnReset);
-}
-function xrEnded() {
-  if (!XR.on) return;
-  const away = xrAway();   // (asked while the session is still the shell's)
-  XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
-  HOST.session = null;
-  document.body.classList.remove('xr');
-  GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
-  GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
-  for (const P of XR.panels) P.mesh.visible = false;
-  for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; c.grab = null; c.hover = null; c.src = null; }
-  for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
-  if (XR.tip) dropSprite(XR.tip);
-  XR.tip = null; XR.tipI = -1;
-  XR.clear = true;
-  GL.world.visible = true;
-  // back on the screen: the model living room, with you standing in it
+//#use xrPointed xrUpdate xrExtraAlpha xrMsg xrStart xrEnterScene
+// the room is read afresh in each session (the first frame with a head pose places it)
+function xrOnEnter() { Object.assign(XRR, { kind: '', sig: '', t: 0, t0: 0, reset: false, capture: false, walls: 0, blocks: 0 }); }
+function xrStars() {}   // (the gang's story has no stars)
+//#use XR_AWAY_MS xrVisibility xrFreshStart xrAdopt xrEnded
+// back on the screen: the model living room, with you standing in it
+function xrOnEnd() {
   const F = GL.sets.robots;
   if (F.room().kind !== 'model') F.setRoom(F.modelRoom());
   Object.assign(XRR, { kind: '', t0: 0, ns: 0, reset: false, move: null, capture: false, clear: null }); XRR.seen.length = 0;   // a new session finds its room afresh
   F.player(0.65, -0.3, Math.atan2(-Math.cos(-2.2), -Math.sin(-2.2)), true);
-  for (const P of XR.land || []) P.mesh.visible = false;
-  // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
-  // there): back to the Stories screen on the page
-  if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }
-  applyTheme();
-  resize();
 }
 //#use xrSetup

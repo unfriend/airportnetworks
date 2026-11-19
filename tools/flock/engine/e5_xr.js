@@ -1,19 +1,4 @@
-// ================================================================= WEBXR ==
-// Headset mode (built for Meta Quest, works in any WebXR browser). Each scene
-// floats in front of you as an object: the story's camera moves become
-// rotations and scaling of the scene, the side panel is redrawn on a canvas you
-// point at, and labels become sprites on top or signs in the scene. Controllers: point and pull the trigger
-// to click, drag the scene with the trigger or grip, thumbstick spins and zooms,
-// A and X do nothing (play and pause are on the panel). Hand tracking: point and pinch.
-const XR = {
-  on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
-  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
-  baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
-  ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
-  kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from',
-  rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
-};
-//#use _xd _xq2 _xa _xX~2
+//#use WEBXR XR _xd _xq2 _xa _xX
 // The flock is life size round you: the land under your feet (the frame hangs at your head, so the land is a
 // standing eye height below it: the reference space is 'local', so the floor is not known), the sunset ahead of
 // where you faced when the place was set; views do not move it.
@@ -25,39 +10,18 @@ function xrPlace(v) {
   GL.world.position.set(0, -eye, 0);
   XR.globeBase.set(0, -eye, 0);
 }
-//#use xrRecenterAsk xrRecenter xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk
-//#use xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings
-//#use LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR
-//#use placeLabelXR~2 xrTip xrController buzz
-function xrPress(c) {
-  const h = c.hover;
-  c.press = null;
-  if (!h) return;
-  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
-  if (h.kind === 'panel') {
-    const r = h.P.at(h.x, h.y);
-    if (!r) return;
-    c.press = { kind: 'panel', P: h.P, id: r.id, r };
-    if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
-  } else if (h.kind === 'sky' && !XR.stories) {   // the trigger on the sky sends a falcon where you point
-    c.press = { kind: 'sky' };
-    _sm.copy(GL.sets.flock.group.matrixWorld).invert();
-    if (sendFalcon(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40);
-  }
+//#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels
+//#use xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose
+//#use xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign
+//#use dropSprite hideLabelXR placeLabelXR xrLabelH~2 xrTip~2 xrController xrLetGo buzz xrPress
+// the trigger on the sky sends a falcon where you point
+function xrPressScene(c, h) {
+  if (h.kind !== 'sky' || XR.stories) return;
+  c.press = { kind: 'sky' };
+  _sm.copy(GL.sets.flock.group.matrixWorld).invert();
+  if (sendFalcon(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40);
 }
-//#use xrRelease~2
-function xrGrab(c, on) {
-  c.grab = null;
-  const h = c.hover;
-  if (!on || !h) return;
-  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
-  if (h.kind !== 'panel') return;   // the field and the sky stay where they are: only the panel moves
-  const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
-  c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
-    o0: c.o.clone(), p0, reach: 1, r0: XR.panelGroup.quaternion.clone() };
-  buzz(c, 0.4, 25);
-}
-//#use _gq carry xrResize
+//#use xrRelease xrReleaseScene~2 xrGrab xrGrabScene~2 _gq carry xrCarryScene xrResize
 function xrPoint(c, dt) {
   const g = c.g;
   if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; c.grab = null; return; }   // (a controller gone lets go)
@@ -98,28 +62,5 @@ function xrPoint(c, dt) {
   } else c.dot.visible = false;
 }
 
-//#use _xUp xrBegin xrUpdate xrMsg xrStart xrEnterScene~2 XR_AWAY_MS xrVisibility xrFreshStart xrAdopt~2
-function xrEnded() {
-  if (!XR.on) return;
-  const away = xrAway();   // (asked while the session is still the shell's)
-  XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
-  HOST.session = null;
-  document.body.classList.remove('xr');
-  GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
-  GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
-  for (const P of XR.panels) P.mesh.visible = false;
-  for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; c.grab = null; c.hover = null; c.src = null; }
-  for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
-  if (XR.tip) dropSprite(XR.tip);
-  XR.tip = null; XR.tipI = -1;
-  XR.clear = true;
-  GL.stars.visible = false;   // the sky has no stars yet
-  GL.world.visible = true;
-  for (const P of XR.land || []) P.mesh.visible = false;
-  // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
-  // there): back to the Stories screen on the page
-  if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }
-  applyTheme();
-  resize();
-}
-//#use xrSetup
+//#use _xUp xrBegin xrPosed xrPointed xrUpdate xrExtraAlpha xrMsg xrStart xrOnReset xrEnterScene xrOnEnter xrStars~2
+//#use XR_AWAY_MS xrVisibility xrFreshStart xrAdopt xrEnded xrOnEnd xrSetup
