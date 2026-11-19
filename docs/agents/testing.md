@@ -2218,6 +2218,24 @@ planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the
 before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it
 after changing `ik.js` or the puppet in `tools/studio/test/make.mjs`.
 
+## Refactor checks: does a change of the shared engine change what a story does?
+
+`tools/engine/` has three comparisons of two copies of the app (before: e.g. `git worktree add <scratch>/before <commit>`;
+after: this folder), written for the shared engine parts (`docs/agents/stories.md`, "Shared engine parts"). Not tests of
+the release run: run them when a change means to change nothing.
+
+- `node tools/engine/same.mjs <before> [<after>] [--keys a,b] [--views desk,phone] [--shots dir] [--wait ms]`: pictures
+  of each built story paused at a quarter, half and three quarters of its length and in explore mode, desktop and
+  phone, compared pixel by pixel. Unchanged code gives 0.00% at the paused moments (now and then a set still building:
+  run that story again with `--wait 3000`); explore mode moves by itself (0 to 3%, the muscle story up to 19%); the
+  live simulations (flock, robots, pass) are compared only in explore mode.
+- `node tools/engine/xrsame.mjs <before> <after> [--keys a,b] [--out dir]`: drives each story's headset code by hand
+  (a pretend session: enter, recentre, place, point in nine directions, trigger, grip and carry, panel grip, end) and
+  compares about 1,000 to 1,850 recorded values; nmd, endo and pet once more life size.
+- `node tools/engine/panelsame.mjs <before> <after> [--keys a,b] [--out dir]`: draws the headset's main panel and footer
+  at about 30 moments, tabs and scenes and compares signature, regions and pixels (its 'playing' moment may differ by
+  itself).
+
 ## Useful URL hashes and the console
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),

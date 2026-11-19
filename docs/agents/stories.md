@@ -23,6 +23,33 @@ file is exactly what it was (every build's `--check` passed unchanged when the p
 - The studio (`tools/studio/engine/`) and the hand-written stories (airports, proteins, spatial) do not use the parts
   yet.
 
+**Step 1b (v168): one version of each engine family.** The versions that still differed (engine generations, and real
+story differences) were brought onto one shared version each, with the story differences as small per-story
+constants and hooks in the story's own engine file of the same name (a hook's default is a part named on the story's
+`//#use` line; a story that differs declares a function or constant of that name itself). Nothing a story shows or does
+was meant to change (`tools/engine/same.mjs` against the tree before: every paused story moment 0 to noise on desktop
+and phone). A story whose version is really different keeps its own (life size: flock, robots, pass; the design room;
+lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.mjs` shows who shares what.
+
+- Headset (`e5_xr`): `xrPlaceLife(v)` (nmd's tower, endo's gap, pet's scanner), `xrCap` (nmd and endo keep clear),
+  `xrLifeHome` (pass), `xrLabelH` (label height: pet, pass, and the life-size three), `xrLetGo`, `xrPressScene`,
+  `xrReleaseScene`, `xrGrabScene`, `xrCarryScene` (what the trigger and grip do to the scene: globe drag by default;
+  the sea, the falcon, crumbs, miniatures), `xrSceneHit` and `xrBallHit` (what a ray hits), `xrDrag`, `xrSticks`,
+  `xrPosed`, `xrPointed`, `xrExtraAlpha`, `xrOnReset`, `xrOnEnter`, `xrStars`, `xrOnEnd`. Every hook is a function
+  declaration (hoisted).
+- Panels (`e6_panels`): `XR_TITLE`, `xrHint()`, `sigMainS()` and `sigMainX()` (the main panel's change signature: the
+  story's extras and its explore part), `XR_STEP_LINES`, `XR_STEP_COL` (pet keeps ink), `FLOW_BOLD` (false only in nmd),
+  `flowIcon` (pet and micro), `drawFootX`, `drawTabPane` (the story's panes behind the shared tab strip), `pickTab`.
+- App (`e7_app`): `narrationFile()` (pass: by language; design has none), `frameLife`, `frameLow`, `frameFloor` (the
+  shared `frame` of pet, micro, ovary, qubits, mutation, topo, soil; nmd and endo share `frame~2`).
+- Story, scene, explore (`e2`–`e4`): `DEF_MORE` (the engine's own params), `LIN`, `LOG`, `FIT` (now in all fourteen:
+  never declare it again), `MORPH`, `FRAME`/`frameOf`, `STRIP_FIT` (0 keeps the older framing in lbi, nmd, endo, flock,
+  design), `trackHTML`.
+- Known traps (safe today): a story whose set lists a `log` param needs `logMix` (only topo and soil declare it); a chip
+  with `icon` needs `flowIcon` (only pet and micro declare it).
+- A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
+  page shows amber (`XR_STEP_COL = ''`), and nmd measures a chip in the font of the one before (`FLOW_BOLD = false`).
+
 ## The tour (`stories/lbi.js`) is built from sets
 
 `stories/lbi.js` is generated: edit the sources in `tools/lbi/` and run

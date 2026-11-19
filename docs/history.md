@@ -77,6 +77,14 @@ file, the detail file says what is current.
 ### Inside a story
 - Focus mode's framing came in v106. Every story has a recording since v109.
 
+### Shared engine parts (v168)
+- The owner, 18 November 2026, on turning the stories into packages the studio can host and colleagues can write:
+  collapse the code copied between the sixteen stories ("yes that makes sense"); older stories may take the newer
+  engine's ways; colleagues' stories come in through git, each "all contained within a folder and independent from the
+  rest of the app"; our own stories stay in git as they are, with a button to copy one to the relay to edit it there.
+  Step 1 (v168): every built story's engine shares one version of each family in `tools/engine/`, with nothing meant to
+  change in what a story shows.
+
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 
 Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's words that explain why rules exist.

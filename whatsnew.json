@@ -1,19 +1,16 @@
 {
-  "version": "networks-v167",
+  "version": "networks-v168",
   "date": "2026-11-19",
   "new": [
-    "Studio: Duplicate scene, beside New scene on the Scene pane. It copies the scene as last saved (every file and its layout; locked items stay locked) under a new name, then opens the copy.",
-    "Pico (v166): the picture no longer shrinks after calibrating in a shared room."
+    "Behind the scenes: the fourteen built stories (all but airports, proteins and cell map) now share one copy of their headset, panel, sound and timeline code (step 1 of making stories into packages the studio can host). Nothing they show or do is meant to have changed."
   ],
   "test": [
-    "Studio on a page: open a scene, Duplicate scene, keep or change the name, Make it; the copy opens with the same models, sounds and layout.",
-    "Studio in a headset: Duplicate scene... opens the keypad with the name filled in.",
-    "With Unsaved changes, Duplicate scene says the copy is of the scene as last saved.",
-    "On the Pico with automatic quality on: calibrate in a shared room; everything keeps its size."
+    "In a headset, open a few stories (the tour, PET, the muscle story's tower life size, endotypes' gap, the scanner in PET) and check placing, the grip, pointing, the trigger on the scene, the panels and the Stories screen behave as before.",
+    "The life-size ones: the flock, the robot gang (your own room and Recenter), the pass story's sea and shark; the design room's miniatures picked up and put on the stage.",
+    "On a phone: a newer story (soil, topo) and an older one (the tour, the muscle story) look as before, sideways too."
   ],
   "untested": [
-    "Duplicate scene in a headset (the keypad is the same as New scene's, not tried on a real one).",
-    "Duplicating a large scene on the R2 relay (each file is copied inside the bucket, one after another).",
-    "The Pico fix: only a Pico can show it."
+    "Everything in a headset: it was checked only by driving the headset code by hand in a page (placing, pointing, trigger, grip, recentre, ending a session), not on a Quest or a Pico.",
+    "The thumbsticks, two-hand resize, the robots' room capture, the pass story's fingertip and carrying a miniature were not driven at all."
   ]
 }
