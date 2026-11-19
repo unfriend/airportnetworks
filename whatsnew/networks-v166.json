@@ -1,0 +1,14 @@
+{
+  "version": "networks-v166",
+  "date": "2026-11-19",
+  "new": [
+    "Pico: the picture no longer shrinks after a while in a headset (often right after calibrating in a shared room). Automatic quality no longer makes the picture smaller on a Pico; it stops at lower edge sharpness and 72 Hz."
+  ],
+  "test": [
+    "On the Pico with automatic quality on: join a shared room, calibrate, and stay a few minutes; everything keeps its size.",
+    "On a Quest: automatic quality behaves as before (Debug tab, auto quality lines)."
+  ],
+  "untested": [
+    "The Pico fix itself: only a Pico can show it."
+  ]
+}

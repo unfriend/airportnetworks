@@ -803,7 +803,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 164, id: 'd2025f28cef151cb', format: 'networks-53' },
+  shell: { n: 166, id: '2cb88c89971b97c1', format: 'networks-53' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1776,7 +1776,9 @@ HOST.xr = (function () {
   function aqView(vp) {
     const views = vp && vp.views;
     if (!views || !views.length) return;
-    if (AQ.vsApi === null) AQ.vsApi = typeof views[0].requestViewportScale === 'function';
+    // (never on a Pico, v166: its browser has the call but shows the smaller picture small instead of filling the view, so
+    // everything shrank once the ladder reached L3; its ladder stops at L2, as without the API)
+    if (AQ.vsApi === null) AQ.vsApi = typeof views[0].requestViewportScale === 'function' && !/Pico/i.test(navigator.userAgent || '');
     if (!AQ.vsApi) return;
     const vs = AQ.vs;
     if (vs === 1 && AQ.vsSent === 1) return;

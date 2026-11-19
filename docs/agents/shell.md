@@ -278,8 +278,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     story, 0, 0.5, 1; `SCALES` auto, 1, 0.9, 0.8; `setFov` and `setScale` take `'auto'`); a value set by hand wins over auto,
     and auto off gives the story's foveation and scale 1. The ladder (`aqFrame`, called from the session's
     frame hook beside the walk): L0 to L5 are fixed foveation 0.5, 0.75, 1, 1, 1, 1 and view scale 1, 1, 1, 0.9, 0.8, 0.7
-    (the view scale through `requestViewportScale`, in the dress wrap of `getViewerPose`; without that API the ladder stops
-    at L2; the viewport that came back is logged once, `viewport`). A frame is late when its time is over 1.5 periods of the
+    (the view scale through `requestViewportScale`, in the dress wrap of `getViewerPose`; without that API, and on a Pico
+    (v166: its browser drew the smaller picture small, so everything shrank), the ladder stops at L2; the viewport that came back is logged once, `viewport`). A frame is late when its time is over 1.5 periods of the
     rate the session runs at now; the first 1.5 s, a story loading, a hidden session, a scene change and a step's settle time
     are not judged. A 1 s window steps down at 4 % late, or at 1.5 % twice running; a window where the script took over 0.6
     of the period is CPU-bound, logged as act `cpu` and never stepped (a lower picture would not help). Ten clean windows
