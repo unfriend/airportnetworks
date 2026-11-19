@@ -8,18 +8,13 @@ const SCENES = [
 ];
 const SCENE_SHORT = { pairs: 'Pairs' };
 const TABS = [['network', 'Network'], ['bricks', 'Bricks'], ['depth', 'Depth'], ['scenes', 'Scenes']];
-const ctlsOf = k => GL.sets[k].controls || [];
-// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
-// shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
+//#use ctlsOf ctlShown~2
 // (explore opens on the story's own network, at its cube)
 const X = { tab: 'network', scene: 'cube', ctl: { cube: { view: 'cube', net: String(NETI) } }, t0: 0, turn: 'on', brick: null, sum: 0, gal: 'largest' };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['cube_net', 'cube_cut', 'cube_algebra', 'cube_focus', 'chart_src', 'pairs_code']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
+//#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for
 const CAM_ALIAS = { pairs: { pairs: 'grid' }, cube: { cut: 'genes', toolbox: 'bricks' } };
 function camFor(k, v) {
@@ -27,15 +22,12 @@ function camFor(k, v) {
   for (const x of [v, al[v]]) if (x && c[x]) return x;
   return null;
 }
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the view on show in a set
-const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k, c) === v; };
+//#use viewCam viewIs~2
 // what the sets know (their api()): the cube's analysis, gallery and picking; the chart's series and gates
 const API = {};
-const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
+//#use api
 const NB = () => api('cube').NB || 10;
-// work for the next frame, once the sets have drawn what was just picked
-const NEXT = [];
+//#use NEXT
 // what the cube shows: its network, cut, bits and algebra (its own controls), and their analysis (computed here)
 const cubeNet = () => clamp(parseInt(ctlValue('cube', ctlOf('cube', 'net')), 10) || 0, 0, Q.NETS.length - 1);
 const cubeCut = () => (ctlValue('cube', ctlOf('cube', 'cut')) === '1' ? 'random' : 'found');
@@ -64,32 +56,7 @@ function exploreTargets(now = performance.now()) {
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
-function exploreStep(dt, now) {
-  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or a set asks for stillness
-  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
-  return XS;
-}
-// what the panes pick reaches the sets through their params (exploreTargets)
-function pushState() { updateExtraLabels(); }
-function openScene(k, fly = true) {
-  if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
-  const same = X.scene === k;
-  X.scene = k; X.t0 = performance.now();
-  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
-  renderAll();
-}
-function setCtl(k, key, v) {
-  const c = ctlOf(k, key);
-  if (!c || !c.options.some(o => o[0] === v)) return;
-  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
-  (X.ctl[k] = X.ctl[k] || {})[key] = v;
-  X.t0 = performance.now();
-  // a view has its own best camera
-  if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
-  renderAll();
-}
+//#use exploreStep pushState~2 openScene setCtl
 // (sound effects: a control changed: another network grows, a cut snaps, the bits step, the example's point chimes)
 function ctlSound(k, key, v) {
   const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'net' ? ['grow', k, 'genes', { dur: 1.5 }]
@@ -97,24 +64,7 @@ function ctlSound(k, key, v) {
     : key === 'ex' ? (v === 'on' ? ['ping', k, 'ex3'] : null) : ['step', k, null];
   if (o) sfxAct(...o);
 }
-// a view of a set, its scene brought up
-function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-// fly to a point of the scene on show, keeping the direction you look from
-function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
-
+//#use showView flyTo orbitStep flyNear
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene and the view that show it.
@@ -166,13 +116,7 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -197,11 +141,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
-const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+//#use chip link cap
 // a cell's color (by its code at 3 bits: a cell at fewer bits takes its first corner's), as in the sets
 const cellCol = (c, L) => Q.CELL_COLORS[c << (3 - L)];
 // the cells of an analysis, in a line: '8 of 40 genes', or '8, of 21 to 62 genes'
@@ -237,19 +177,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -335,8 +263,7 @@ function renderScenes() {
 // labels the panes add (none: the sets label their own picks, the cube its focused string)
 function updateExtraLabels() {}
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { brick } (a string of the
 // gallery) or { cell } (a corner of the big cube, by its code), or null
 function pickWith(rc) {
@@ -347,12 +274,7 @@ function pickWith(rc) {
   try { r = A.pick(rc); } catch (e) { return null; }
   return !r ? null : r.kind === 'brick' && isBrick(r.name) ? { brick: r.name } : r.kind === 'corner' ? { cell: r.code } : null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
 function pickPos(p) { return null; }
 const pickText = p => (p.brick ? [sub(p.brick), brickWhat(Q.parse(p.brick, cubeBits()), cubeBits())]
@@ -362,57 +284,4 @@ function choosePick(p) {
   if (X.tab !== 'bricks') showTab('bricks');
   selectBrick(p.brick === X.brick ? null : p.brick, null, false);
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas

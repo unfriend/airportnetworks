@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the paper's comparisons and networks, its organs; or any scene with its own controls (the liver, an
 // organ as a network of patches, only here).
@@ -12,21 +12,14 @@ const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['scenes', 'Scenes
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
-// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
-// shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
+//#use ctlShown~2
 const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, life: false, hand: null, synced: false };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
 // in the set's own time (explore(c)), so they pass unchanged
 const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
-// a control's option whose key or name matches re (the sets name their own options)
-const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
-const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
+//#use orbit ctlValue ctlOf optKey setApi
 // a view option's camera: the cam view of the same name, or the one its name stands for
 const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' } };
 function camFor(k, v) {
@@ -34,17 +27,14 @@ function camFor(k, v) {
   for (const x of [al[v], v, al[n], n]) if (x && c[x]) return x;
   return null;
 }
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
+//#use viewCam
 // the network on show: the organs set's Network control holds it (its options are the ids), so the Scenes tab and the
 // panes agree; a robustness test's network, which that control does not offer, is X.netX
 const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
 // whether a set's view on show matches re (by its key or its name)
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
 const netView = () => viewIs('organs', /net/i);
-// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
-const NEXT = [];
-const afterUpdate = f => { NEXT.push(f); };
-
+//#use NEXT~2 afterUpdate~2
 // The hand-over between the Scanner and the Body or the Organs, played as the story plays it (the owner, 31 October
 // 2026: "better hide the scanner, rotate the body, fade out the organs and then show the sugar thing like it is now";
 // back to the Scanner "play reverse"): the scanner goes, its patient's image stands up and turns where the body set
@@ -145,8 +135,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !(X.hand && !X.hand.flew) && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
-function pushState() { updateExtraLabels(); }
+//#use pushState
 function openScene(k, fly = true, hand = false) {
   if (!GL.sets[k]) return;
   const same = X.scene === k, from = X.scene;
@@ -246,13 +235,7 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -281,9 +264,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
+//#use chip
 // the organ icons (PET_ICONS) as small pictures for the HTML panes: in the organ's colour on a dark disc, as the
 // network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26.
 // Made once the story is built (iconStep, from a timer; not while a headset session runs, where the panes do not show),
@@ -371,10 +352,7 @@ function buildExplore() {
 }
 // the bottom bar's Life size: the scanner's only
 function lifeCtl() { const g = document.querySelector('#viewctl [data-ctl="life"]'); if (g && g.closest('.grp')) g.closest('.grp').style.display = X.scene === 'scan' ? '' : 'none'; }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
+//#use setTurn
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
@@ -463,8 +441,7 @@ function updateExtraLabels() {
   }
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ }, or null
 function pickWith(rc) {
   if (APP.mode !== 'explore' || X.scene !== 'organs') return null;
@@ -474,12 +451,7 @@ function pickWith(rc) {
   if (typeof r === 'string') return PD.byId[r] ? { organ: r } : null;
   return r && r.organ && PD.byId[r.organ] ? { organ: r.organ } : null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
 function pickPos(p) {
   if (!p) return null;
@@ -493,57 +465,4 @@ function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas~2

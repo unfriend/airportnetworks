@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: open any scene of the tour and play with it, or search the
 // curated proteins of the interactome and trace routes between them.
@@ -16,10 +16,7 @@ const SCENES = [
 ];
 const TABS = [['scenes', 'Scenes'], ['protein', 'Proteins']];
 const X = { tab: 'scenes', scene: 'int', ctl: {}, t0: 0, turn: 'on', sel: -1, path: null, pathErr: null, pathEnds: null };
-const XS = {};
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-
+//#use XS orbit ctlValue~2
 // what the chosen scene and its controls ask for: that set fully in, every other set out
 function exploreTargets(now = performance.now()) {
   const s = GL.sets[X.scene], tg = Object.assign({}, s.params);
@@ -72,20 +69,7 @@ function setCtl(k, key, v) {
   else if (s.cam && was && s.cam[was]) flyTo(exploreView(k, 'default'));
   if (c) renderScenes();
 }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-
+//#use flyTo orbitStep~2
 // ------------------------------------------------------- proteins (curated) --
 const INT = () => GL.sets.int;
 function matches(q, limit) {
@@ -183,13 +167,7 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabSetView
 function collabState() {
   const s = GL.sets[X.scene];
   return { tab: X.tab, scene: X.scene, ctl: Object.fromEntries((s.controls || []).map(c => [c.key, ctlValue(X.scene, c)])),
@@ -260,10 +238,7 @@ function buildExplore() {
   $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setTurn(b.dataset.v); });
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
+//#use setTurn
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
@@ -320,8 +295,7 @@ function updateExtraLabels() {
   if (X.path && X.pathEnds) { add(X.pathEnds[0], 'start', 'mag'); add(X.pathEnds[1], 'end', 'mag'); }
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _ro = new THREE.Vector3(), _rd = new THREE.Vector3(), _inv = new THREE.Matrix4();
+//#use _rc~2
 // the curated protein under the mouse, in explore mode with the interactome on show
 function pickAt(mx, my) {
   if (X.scene !== 'int' || !INT().pick) return -1;

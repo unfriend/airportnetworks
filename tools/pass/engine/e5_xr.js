@@ -16,44 +16,14 @@ const XR = {
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' },
 };
-const _xd = new THREE.Vector3(), _xp = new THREE.Vector3(), _xq = new THREE.Quaternion();
-const _xq2 = new THREE.Quaternion(), _xm = new THREE.Matrix4(), _xinv = new THREE.Matrix4();
-const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vector3(), _xz = new THREE.Vector3(0, 0, 1);
-
+//#use _xd _xq2 _xa
 // ------------------------------------------------------------ scene pose --
 // Turn a story/orbit view [az, el, dist, tx, ty, tz] into a pose for the
 // floating scene: the side the camera looks from faces you, "up" stays up, the
 // target sits in front of you, and closer views make the scene bigger.
 // (the globe and the cell; the fish are life size round you whatever the view: their holder undoes this, placeLife)
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-function xrPlace(v) {
-  const d = Math.max(v[2], 0.05);
-  _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
-  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
-  XR.hitR = 1.15 * d / 3.6;
-  XR.target.set(v[3], v[4], v[5]);
-  // a little right of centre and below eye level, leaving room for the panel on the left
-  const dc = 1.2, cx = 0.3, cy = -0.2;
-  // plus wherever you have moved it with the grip; the story's focus side keeps facing you (moving freely, it keeps
-  // the turn its home place gives it, times the turn you gave it, XR.rot)
-  const gx = cx + XR.globeOff.x, gy = cy + XR.globeOff.y, gz = -dc + XR.globeOff.z;
-  XR.globeBase.set(cx, cy, -dc);
-  xrFace(_xq2, gx, gy, gz);
-  GL.world.quaternion.copy(_xq2).multiply(_xq);
-  GL.world.scale.setScalar(XR.R);
-  // the target lands on the placement point
-  _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(XR.R);
-  GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
-}
-// Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
-// it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
-// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
-function xrRecenterAsk() {
-  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter();
-  if (HOST.anchor.on) HOST.anchor.again();
-  XR.needRecenter = true;
-  return true;
-}
+//#use xrPlace xrRecenterAsk
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0); XR.size = 1; XR.rot.identity(); XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0);   // (never the station's sea)
   if (XR.panelGroup) xrPanelPose(XR.panelHome.p, XR.panelHome.yaw);
@@ -65,200 +35,12 @@ function xrRecenter() {
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 }
 
-// ------------------------------------------------- labels and free moving --
-// The shell's headset settings, the same for everyone in a shared room (HOST.xr; read every frame, and a shell
-// without them means labels on top and nothing free): the scene's small labels 'face' (on top: sprites turned to you,
-// over everything), 'fixed' (in 3D: upright signs in the scene, turned to you) or 'hidden'; the cards (the story panels
-// here, the station cards and name tags in the shell) the same three ways, independent of the labels (a shell without
-// them: as the labels); free moving holds what the grip takes like a real object.
-const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
-const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
-const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
-const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '') + (xrAllHere() ? 'A' : '');
-// the shell moving this headset with the sticks in VR (HOST.xr.walking): the story's own stick use waits meanwhile
-const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());
-// this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
-// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: play and pause
-// on the menu's Story tab); a shell without it: shown
-const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE) : 'shown');
-// a headset in a shared room (the shell's HOST.room): no Stories screen there, a story runs only at its station (reached
-// by walking into its circle), and away from one it is hidden, not pointable, paused and silent. A shell without
-// HOST.room.away: as before (only at a station is the story the station's)
-const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
-const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
-// away a second from every station (v136): the story is hidden, paused and silent (xrUpdate hid it, its fades done), so
-// the frame works nothing of it out, no sets, labels or panels, but xrBegin (the rays at the shell's things), the quiet
-// narration and the render, and three.js leaves the hidden GL.world's matrices alone until the first frame back (a live
-// simulation goes on from where it was); called after xrBegin in frame, every frame
-const _xrNoWalk = () => {};
-function xrIdle(xr, dt) {
-  const away = xr && xrAway(), cards = xr && !away && !!XR.stories, kind = away ? 'a' : cards ? 'c' : '';
-  if (kind !== XR.idleK) { XR.idleK = kind; XR.awayT = 0; }   // (away, then behind the cards: a second of full frames between)
-  XR.awayT = kind ? (XR.awayT || 0) + dt : 0;
-  const idle = XR.awayT > 1;
-  if (idle !== (GL.world.updateMatrixWorld === _xrNoWalk)) {
-    if (idle) { GL.world.updateMatrixWorld = _xrNoWalk; if (XR.onIdle) XR.onIdle(); } else { delete GL.world.updateMatrixWorld; if (XR.onWake) XR.onWake(); }
-  }
-  if (!idle) return false;
-  // behind the Stories screen only its cards go on (they hover and draw: the part of xrUpdate that is theirs); away, nothing
-  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now); for (const P of XR.land) { P.want = true; P.mesh.visible = !P.cap || P.nd > 0; } }
-  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
-  return true;
-}
-// the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
-// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
-// material that uses it does), a handful of objects
-function xrWarm() {
-  try {
-    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
-    sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
-      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
-      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
-      new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
-      new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
-    GL.renderer.compile(sc, GL.camera);
-    XR.warmed = sc;
-  } catch (e) { /* compiled on first use instead */ }
-}
-// an All stories circle in a shared room (the shell's HOST.room: cards, its live station shows its cards; allHere, it is
-// one, its cards or a story picked there): the single-player Stories screen there, a card picking for everyone at the
-// circle, and the story panel's Stories button back to the cards for them. A shell without them: as before
-const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());
-const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());
-// the line on show, for the shell's subtitles in a headset (HOST.xr.subs, drawn by shared.js): the chapter on show's cues
-// (ST.items: els with at and out), the story time now, the chapter's end and narrT (to the clock's time); null in
-// explore mode, on the Stories screen and away from a station
-const xrCaption = () => {
-  if (APP.mode !== 'story' || XR.stories || xrAway()) return null;
-  const s = storyT(APP.t), c = CH.find(x => s >= x.a && s < x.b) || CH[CH.length - 1], it = ST.items.find(x => x.ch === c);
-  return it ? { s, end: c.b, els: it.els, narrT } : null;
-};
-const _fq = new THREE.Quaternion(), _fv = new THREE.Vector3();
-// the yaw of a turn: where its front (+z) points along the floor (def when it points straight up or down)
-function yawOf(q, def) { _fv.set(0, 0, 1).applyQuaternion(q); return Math.hypot(_fv.x, _fv.z) < 1e-4 ? +def || 0 : Math.atan2(_fv.x, _fv.z); }
-// a turn from the shell or the room ([x, y, z, w] or a quaternion) into q; false when there is none
-function xrQ(v, q) {
-  if (v && v.isQuaternion) { q.copy(v); return true; }
-  if (!Array.isArray(v) || v.length !== 4 || !v.every(Number.isFinite) || !v.some(x => x)) return false;
-  q.fromArray(v).normalize();
-  return true;
-}
-// the scene's own turn (free moving only: otherwise it faces you)
-function xrSceneRot(q) { if (!(xrFreeOn() && xrQ(q, XR.rot))) XR.rot.identity(); }
-// the story panel at p in the rig, upright at yaw, or (free moving) held at the turn q
-function xrPanelPose(p, yaw, q) {
-  const g = XR.panelGroup;
-  if (p && p.isVector3) g.position.copy(p); else if (p) g.position.fromArray(p);
-  if (!(xrFreeOn() && xrQ(q, g.quaternion))) g.rotation.set(0, +yaw || 0, 0);
-}
-// a turn of the hand (in the room) as a turn in the rig's frame, where the scene and the panel hang
-function xrRigTurn(q, out) { return out.copy(GL.rig.quaternion).invert().multiply(q).multiply(_fq.copy(GL.rig.quaternion)); }
-// the scene's facing, into q: from its placement point (gx, gy, gz) towards you; moving freely, from its home place,
-// then turned by XR.rot
-function xrFace(q, gx, gy, gz) {
-  if (XR.free) _fv.copy(XR.globeBase).negate(); else _fv.set(-gx, -gy, -gz);
-  q.setFromUnitVectors(_xz, _fv.normalize());
-  if (XR.free) q.premultiply(XR.rot);
-  return q;
-}
-// once a frame: the settings as they are now; free moving turned off gives the scene back its facing and stands the
-// panel up again (its yaw kept), and turned on it keeps the scene's facing as it is (no jump)
-function xrSettings() {
-  XR.lm = xrLabelMode(); XR.cm = xrCardMode();
-  const free = xrFreeOn();
-  if (free === XR.free) return;
-  if (!free) { XR.rot.identity(); XR.panelGroup.rotation.set(0, yawOf(XR.panelGroup.quaternion, 0), 0); }
-  else if (XR.globeOff.lengthSq() > 1e-8) {
-    _fv.copy(XR.globeBase).add(XR.globeOff).negate().normalize();
-    XR.rot.setFromUnitVectors(_xz, _fv).multiply(_fq.setFromUnitVectors(_xz, _fv.copy(XR.globeBase).negate().normalize()).invert());
-  } else XR.rot.identity();
-  XR.free = free;
-}
-
+//#use xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards
+//#use xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tl: ['#cbfff3', '#38e6c7'], tip: ['#e7eef8', '#46d9ff'] };   // (tl: the cell map's teal signals)
-// a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
-// sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
-// for it is made again, wider
-function labelWords(L) {
-  if (L.txt) return L.txt;
-  const b = L.el.querySelector('b'), bold = b ? b.textContent : '';
-  return [bold, L.el.textContent.slice(bold.length).trim(), ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || ''];
-}
-// the label drawn on cv at its left, its plate as wide as its words; fresh: cv sized for it (a function's label with room
-// to spare), else cleared and drawn again, or false when its words no longer fit
-function labelPaint(L, cv, fresh) {
-  const [bold, rest, cls] = labelWords(L), ctx = cv.getContext('2d'), px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
-  ctx.font = vfont(px, 700); const wb = bold ? ctx.measureText(bold).width : 0;
-  ctx.font = vfont(px); const wr = rest ? ctx.measureText(rest).width : 0;
-  const w = Math.ceil(pad * 2 + wb + gap + wr);
-  if (fresh) { cv.width = L.fn ? Math.ceil(w * 1.3 + 40) : w; cv.height = H; }
-  else if (w > cv.width) return false;
-  else ctx.clearRect(0, 0, cv.width, H);
-  const [col, acc] = LBL_STYLE[cls] || LBL_STYLE[''];
-  ctx.save(); rr(ctx, 0, 0, w, H, 8); ctx.clip();
-  ctx.fillStyle = cls === 'tip' ? 'rgba(10,19,34,0.97)' : 'rgba(3,8,16,0.82)'; ctx.fillRect(0, 0, w, H);
-  if (acc) { ctx.fillStyle = acc; ctx.fillRect(0, 0, 5, H); }
-  ctx.restore();
-  ctx.textBaseline = 'middle'; ctx.fillStyle = col;
-  ctx.font = vfont(px, 700); ctx.fillText(bold, pad, H / 2 + 1);
-  ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
-  return { cls };
-}
-function labelTex(L) {
-  if (L.ltex) return L.ltex;
-  const cv = document.createElement('canvas'), p = labelPaint(L, cv, true), tex = new THREE.CanvasTexture(cv);
-  tex.anisotropy = 4;
-  return (L.ltex = { tex, cv, aspect: cv.width / cv.height, tip: p.cls === 'tip' });
-}
-// a label whose words changed (labelText): its picture drawn again in place; too long for its canvas, dropped and made again
-function labelRedraw(L) {
-  const o = L.ltex;
-  if (!o) return;
-  if (labelPaint(L, o.cv, false)) o.tex.needsUpdate = true; else dropSprite(L);
-}
-// labels on top: a sprite turned to you, drawn over everything, beside its point
-function labelSprite(L) {
-  if (L.sprite) return L.sprite;
-  const t = labelTex(L);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t.tex, transparent: true, depthTest: false, depthWrite: false }));
-  sp.renderOrder = t.tip ? 11 : 10;
-  sp.userData.aspect = t.aspect;
-  sp.center.set(-0.35 / sp.userData.aspect, 0.5);
-  GL.world.add(sp);
-  return (L.sprite = sp);
-}
-// labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
-// -z with its picture flipped, so its text never reads mirrored), in the scene's depth: what stands in front of it
-// hides it, and it hides what is behind it (drawn first of the see-through things; its clear corners cut away)
-function labelSign(L) {
-  if (L.sign) return L.sign;
-  const t = labelTex(L), a = 0.35 / t.aspect, b = a + 1;   // (in its width, as the sprite's centre)
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute([a, -0.5, 0, b, -0.5, 0, b, 0.5, 0, a, 0.5, 0, a, -0.5, 0, b, -0.5, 0, b, 0.5, 0, a, 0.5, 0], 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1], 2));
-  g.setIndex([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6]);
-  const sg = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t.tex, transparent: true, alphaTest: 0.1 }));
-  sg.renderOrder = -1;
-  sg.userData.aspect = t.aspect;
-  GL.world.add(sg);
-  return (L.sign = sg);
-}
-function dropSprite(L) {
-  if (!L) return;
-  for (const k of ['sprite', 'sign']) {
-    const o = L[k];
-    if (!o) continue;
-    if (o.parent) o.parent.remove(o);
-    if (k === 'sign') o.geometry.dispose();
-    o.material.dispose();
-    L[k] = null;
-  }
-  if (L.ltex) { L.ltex.tex.dispose(); L.ltex = null; }
-}
-function hideLabelXR(L) { if (L.sprite) L.sprite.visible = false; if (L.sign) L.sign.visible = false; }
+//#use labelWords labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR
 function placeLabelXR(L, alpha, S) {
   // on top (a sprite), in 3D (a sign) or hidden, as the shell's setting says; the pointer's tip is always a sprite
   const m = L === XR.tip ? 'face' : XR.lm, fixed = m === 'fixed';
@@ -293,67 +75,7 @@ function xrTip(S) {
 // --------------------------------------------- picking a city or a protein --
 // The airport or the protein a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
-function pickRay(o, d) {
-  if (APP.mode !== 'explore') return null;
-  _prc.set(o, d);
-  return pickWith(_prc);
-}
-
-// ----------------------------------------------------------- controllers --
-function xrController(i) {
-  const g = GL.renderer.xr.getController(i);
-  const c = { i, g, src: null, hover: null, press: null, grab: null, wantPress: false, o: new THREE.Vector3(), d: new THREE.Vector3() };
-  const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]);
-  c.ray = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
-  c.ray.renderOrder = 60;
-  g.add(c.ray);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.006, 12, 8), new THREE.MeshBasicMaterial({ color: 0x9fe8ff }));
-  g.add(tip);
-  c.dot = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false }));
-  c.dot.renderOrder = 61; c.dot.visible = false;
-  GL.scene.add(c.dot);
-  g.visible = false;
-  g.addEventListener('connected', e => { c.src = e.data; c.ray.visible = e.data.targetRayMode !== 'screen'; });
-  g.addEventListener('disconnected', () => { c.src = null; c.press = null; c.grab = null; c.hover = null; c.wantPress = false; c.dot.visible = false; });
-  // presses are handled on the next frame, once the ray has its fresh pose
-  g.addEventListener('selectstart', () => { c.wantPress = true; });
-  g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); });
-  g.addEventListener('squeezestart', () => xrGrab(c, true));
-  g.addEventListener('squeezeend', () => xrGrab(c, false));
-  GL.scene.add(g);
-  XR.ctrls.push(c);
-}
-function buzz(c, s, ms) {
-  try {
-    const a = c.src && c.src.gamepad && c.src.gamepad.hapticActuators;
-    if (a && a[0] && a[0].pulse) a[0].pulse(s || 0.3, ms || 18);
-  } catch (e) { /* no haptics */ }
-}
-function rayAngles(c) {
-  _xd.copy(c.d).applyQuaternion(_xq.copy(GL.rig.quaternion).invert());
-  return [Math.atan2(_xd.x, -_xd.z), Math.asin(clamp(_xd.y, -1, 1))];
-}
-function startDrag(c) {
-  const [az, el] = rayAngles(c), centre = _xp.setFromMatrixPosition(GL.world.matrixWorld);
-  return { az, el, az0: az, el0: el, moved: false, k: Math.max(0.6, (c.o.distanceTo(centre) - XR.R) / XR.R) };
-}
-// dragging moves the globe surface along with the ray (explore mode only)
-function dragGlobe(c, st) {
-  const [az, el] = rayAngles(c);
-  if (!st.moved) {
-    if (Math.hypot(az - st.az0, el - st.el0) < 0.025) return;
-    st.moved = true;
-  }
-  let da = az - st.az;
-  da -= Math.round(da / (2 * Math.PI)) * 2 * Math.PI;
-  const de = el - st.el;
-  st.az = az; st.el = el;
-  if (APP.mode !== 'explore') return;
-  orbit.to = null;
-  const kd = st.k / D2R;
-  orbit.cur[0] -= da * kd;
-  orbit.cur[1] = clamp(orbit.cur[1] - de * kd, -80, 80);
-}
+//#use pickRay xrController buzz rayAngles startDrag dragGlobe
 function xrPress(c) {
   const h = c.hover;
   c.press = null;
@@ -413,7 +135,7 @@ function xrGrab(c, on) {
     o0: c.o.clone(), p0, reach: 1, r0: (h.kind === 'panel' ? XR.panelGroup.quaternion : XR.rot).clone() };
   buzz(c, 0.4, 25);
 }
-const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
+//#use _gq
 // the grabbed object keeps its offset from the controller, so moving or turning your hand carries it (moving freely,
 // it also turns with your hand, about it: what you hold stays in your hand)
 function carry(c, dt) {
@@ -457,21 +179,7 @@ function carrySea(c, G) {
   GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0).add(G.off0);
   (G.st ? XR.lifeSt : XR.lifeTo).copy(seaClamp(_gv));
 }
-// both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
-// story's own size) and moves with their middle; moving freely, the line between them turns it about their middle
-function xrResize(a, b) {
-  const d = a.o.distanceTo(b.o);
-  _gv.copy(a.o).add(b.o).multiplyScalar(0.5);
-  GL.rig.worldToLocal(_gv);
-  _gh.copy(b.o).sub(a.o).applyQuaternion(_gr.copy(GL.rig.quaternion).invert()).normalize();   // (in the rig's frame)
-  const T = a.grab.two || (a.grab.two = b.grab.two = { d0: Math.max(0.05, d), s0: XR.size, m0: _gv.clone(), off0: XR.globeOff.clone(), l0: _gh.clone(), r0: XR.rot.clone() });
-  XR.size = clamp(T.s0 * d / T.d0, 0.25, 4);
-  XR.globeOff.copy(T.off0).add(_gv).sub(T.m0);
-  if (!XR.free) return;
-  _gq.setFromUnitVectors(T.l0, _gh);
-  XR.rot.copy(_gq).multiply(T.r0);
-  XR.globeOff.copy(XR.globeBase).add(T.off0).sub(T.m0).applyQuaternion(_gq).add(_gv).sub(XR.globeBase);
-}
+//#use xrResize
 function xrPoint(c, dt) {
   const g = c.g;
   if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; c.grab = null; return; }   // (a controller gone lets go)
@@ -539,8 +247,7 @@ function xrPoint(c, dt) {
   } else c.dot.visible = false;
 }
 
-// ---------------------------------------------------------------- frames --
-const _xUp = new THREE.Vector3(0, 1, 0);
+//#use _xUp
 function xrBegin(frame, dt) {
   xrSettings();
   const ref = GL.renderer.xr.getReferenceSpace();
@@ -586,45 +293,7 @@ function xrBegin(frame, dt) {
     P.hover = hv;
   }
 }
-function xrUpdate(S) {
-  // the Stories screen replaces the story's panels and hides the story
-  const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
-  if (XR.land) {
-    if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the rows
-    for (const P of XR.land) { P.want = land; P.mesh.visible = land && (!P.cap || P.nd > 0); }   // (a card not drawn yet waits: panelTick)
-    // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
-    // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
-    // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
-    // neither
-    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
-    XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
-    XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
-    panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
-  }
-  GL.world.visible = !land && !away;
-  if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
-  GL.rig.updateMatrixWorld(true);
-  XR.camLocal.copy(XR.head);
-  GL.world.worldToLocal(XR.camLocal);
-  // labels in 3D: each sign turns to you (placeLabelXR) from the world's frame back to the rig's, where your head is
-  XR.signL.copy(GL.world.quaternion).invert();
-  GL.rig.worldToLocal(XR.signH.copy(XR.head));
-  const story = APP.mode === 'story';
-  for (const L of ST.labels) {
-    if (story) placeLabelXR(L, fadeVal(storyT(APP.t), L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0), S);
-    else hideLabelXR(L);
-  }
-  for (const L of LBL.sets) placeLabelXR(L, setLabelAlpha(L, S), S);
-  for (const L of LBL.extra) {
-    if (!story) placeLabelXR(L, 1, S);
-    else hideLabelXR(L);
-  }
-  xrTip(S);
-  const now = performance.now();
-  XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
-  for (const P of XR.panels) panelTick(P, now);
-}
-
+//#use xrUpdate
 // Be the shark with a tracked hand: the shark follows your index fingertip (the trigger held on the sea does the same
 // for a controller)
 function xrFingertip(frame, ref) {
@@ -642,54 +311,7 @@ function xrFingertip(frame, ref) {
   GL.sets.fish.steer(inFish(_xs.set(tip.x, tip.y, tip.z)));
 }
 
-// ---------------------------------------------------------- explore glue --
-function xrClickPick(pk) {
-  if (APP.mode !== 'explore') return;
-  XR.kbd.open = false;
-  choosePick(pk);
-}
-// how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
-const xrMinD = () => Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9));
-function xrZoom(f) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = c.slice(); orbit.to[2] = clamp(c[2] * f, xrMinD(), 40);
-  orbit.t0 = performance.now();
-}
-
-// --------------------------------------------------------------- session --
-function xrMsg(text) {
-  const el = $('#xrmsg');
-  el.textContent = text; el.style.display = 'block';
-  clearTimeout(xrMsg.t);
-  xrMsg.t = setTimeout(() => { el.style.display = 'none'; }, 6000);
-}
-async function xrStart(mode) {
-  if (XR.session || !navigator.xr) return;
-  let session;
-  try {
-    session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));
-  } catch (err) {
-    HOST.landingVR = false;
-    xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
-    return;
-  }
-  XR.session = session; XR.mode = mode;
-  HOST.session = session; HOST.mode = mode;
-  session.addEventListener('visibilitychange', xrVisibility);
-  xrEnterScene();
-  try {
-    GL.renderer.xr.setReferenceSpaceType('local');
-    await GL.renderer.xr.setSession(session);
-    const ref = GL.renderer.xr.getReferenceSpace();
-    if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
-  } catch (err) {
-    console.error(err);
-    xrMsg('Could not start the headset view: ' + (err && err.message ? err.message : err));
-    try { await session.end(); } catch (e) { /* already ended */ }
-    if (XR.on) xrEnded();
-  }
-}
+//#use xrClickPick xrMinD xrZoom xrMsg xrStart
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
@@ -721,20 +343,7 @@ function xrEnterScene() {
     }).catch(() => {});
   }
 }
-// Headset taken off (or put to sleep) for more than a few seconds: treat the next
-// wearer as a new visitor. Restart the story and place everything in front of them
-// (when anchored, everything stays at its spot in the room).
-const XR_AWAY_MS = 3000;
-function xrVisibility() {
-  const v = XR.session && XR.session.visibilityState;
-  if (v === 'hidden') { if (!XR.hiddenAt) XR.hiddenAt = performance.now(); }
-  else if (v === 'visible' && XR.hiddenAt) {
-    const away = performance.now() - XR.hiddenAt;
-    XR.hiddenAt = 0;
-    if (away > XR_AWAY_MS) xrFreshStart();
-  }
-  audioSync();
-}
+//#use XR_AWAY_MS xrVisibility
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
@@ -747,71 +356,4 @@ function xrFreshStart() {
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
 }
-// a story picked inside the headset takes over the running session
-function xrAdopt() {
-  XR.session = HOST.session; XR.mode = HOST.mode;
-  XR.session.addEventListener('visibilitychange', xrVisibility);
-  XR.ctrls.forEach((c, i) => { const s = HOST.inputs[i]; if (s) { c.src = s; c.ray.visible = s.targetRayMode !== 'screen'; } });
-  xrEnterScene();
-  // keep the scene and the panel where they were in the story before
-  const p = HOST.xrPose;
-  if (p) {
-    XR.needRecenter = false;
-    GL.rig.position.copy(p.rp); GL.rig.quaternion.copy(p.rq);
-    XR.globeOff.copy(p.off); XR.size = p.s || 1; xrSceneRot(p.rot || p.q);
-    xrPanelPose(p.pp, p.pr, p.pq);
-  }
-  const ref = GL.renderer.xr.getReferenceSpace();
-  if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
-}
-function xrEnded() {
-  if (!XR.on) return;
-  const away = xrAway();   // (asked while the session is still the shell's)
-  XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
-  HOST.session = null;
-  document.body.classList.remove('xr');
-  GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
-  GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
-  for (const P of XR.panels) P.mesh.visible = false;
-  for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; c.grab = null; c.hover = null; c.src = null; }
-  for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
-  if (XR.tip) dropSprite(XR.tip);
-  XR.tip = null; XR.tipI = -1;
-  XR.clear = true;
-  GL.stars.visible = true; GL.stars.material.size = 1.3;
-  GL.world.visible = true;
-  for (const P of XR.land || []) P.mesh.visible = false;
-  // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
-  // there): back to the Stories screen on the page
-  if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }
-  applyTheme();
-  resize();
-}
-function xrSetup() {
-  XR.raycaster = new THREE.Raycaster();
-  // panel 0.62 m wide, about 40 degrees to the left and facing you
-  const mw = 0.62, px = -0.56, py = 0.04, pz = -0.86, yaw = Math.atan2(-px, -pz);
-  XR.main = makePanel(1024, 1200, mw, drawMain, sigMain);
-  XR.foot = makePanel(1024, 176, mw, drawFoot, sigFoot);
-  XR.panelGroup = new THREE.Group();
-  XR.panelHome = { p: new THREE.Vector3(px, py, pz), yaw };
-  XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.y = yaw;
-  GL.rig.add(XR.panelGroup);
-  XR.foot.mesh.position.set(0, -(mw * 1200 / 1024) / 2 - 0.012 - (mw * 176 / 1024) / 2, 0);
-  for (const P of [XR.main, XR.foot]) { XR.panelGroup.add(P.mesh); XR.panels.push(P); }
-  XR.panelMeshes = XR.panels.map(P => P.mesh);
-  xrLandingSetup();
-  for (let i = 0; i < 2; i++) xrController(i);
-  GL.renderer.xr.addEventListener('sessionend', xrEnded);
-  $('#btnVR').addEventListener('click', () => xrStart('immersive-vr'));
-  $('#btnAR').addEventListener('click', () => xrStart('immersive-ar'));
-  if (!navigator.xr) {
-    if (/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) xrMsg('Open this page over https:// to view it in VR.');
-    return;
-  }
-  navigator.xr.isSessionSupported('immersive-vr').then(vr => {
-    if (vr) $('#btnVR').hidden = false;
-    // headsets support both; phones only AR, which this layout is not made for
-    return navigator.xr.isSessionSupported('immersive-ar').then(ar => { if (ar && vr) $('#btnAR').hidden = false; });
-  }).catch(() => {});
-}
+//#use xrAdopt xrEnded xrSetup

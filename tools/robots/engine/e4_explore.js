@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the gang stays for as long as you do. Its controls choose the view, the rule (and so the network of
 // who follows whom), how many robots, the cleaned floor and the links; buttons spill crumbs and make the floor dusty
@@ -8,9 +8,9 @@ const SCENES = [
 ];
 const TABS = [['scenes', 'The gang']];
 const X = { tab: 'scenes', scene: 'robots', ctl: {}, t0: 0, turn: 'on', g: 0 };
-const XS = {};
+//#use XS
 const orbit = { cur: [35, 52, 7.8, 0, 0.1, 0.15], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
+//#use ctlValue
 const viewNow = () => ctlValue('robots', GL.sets.robots.controls[0]);
 
 // what the controls ask for (the counters - dust, crumbs - only move when a button is pressed)
@@ -36,12 +36,7 @@ function exploreStep(dt, now) {
   updateExploreLive();
   return XS;
 }
-function openScene(k, fly = true) {
-  if (!GL.sets[k]) return;
-  X.scene = k; X.t0 = performance.now();
-  if (fly) flyTo(view(k, 'default'));
-  renderScenes();
-}
+//#use openScene~2
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : v;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
@@ -62,9 +57,7 @@ const dustNow = () => { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; };
 function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera, the walk their own)
 const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
-// shared rooms: life size in a headset, so no view places anything there (none to share)
-function collabView() { return null; }
-function collabSetView(v, now) { /* nothing to set */ }
+//#use collabView collabSetView~2
 function collabState() {
   return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
 }
@@ -93,20 +86,7 @@ function crumbsIn(d) {
   else if (room && XRR.kind === 'real' && spot) F.group.worldToLocal(p.copy(HOST.room.toLocal(p.applyAxisAngle(_kY, L.yaw).add(spot))));
   return F.crumbs(p.x, p.z);
 }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
-}
-
+//#use flyTo~2 orbitStep~3
 // the live line under the buttons, as text for the page and the headset panel
 const liveLine = () => `Cleaned: ${Math.round(GL.sets.robots.coverage() * 100)} % of the floor · ${GL.sets.robots.robots()} robots`;
 let liveShown = '';
@@ -127,11 +107,7 @@ function buildExplore() {
   $('#viewctl').innerHTML = `<div class="grp"><span>Drift</span><div class="seg" data-ctl="turn" role="group" aria-label="Drift">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setTurn(b.dataset.v); });
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) { X.tab = k; }
+//#use setTurn showTab~2
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -142,8 +118,7 @@ function renderScenes() {
     <p class="sub" id="rbLive" aria-live="off">${esc(liveLine())}</p>`;
   liveShown = '';
 }
-function updateExtraLabels() {}
-
+//#use updateExtraLabels
 // ----------------------------------------------------------- canvas input --
 // A click (no drag) on the floor walks you there; a drag turns the view (in your eyes: your head); the wheel or a
 // pinch zooms. Over the floor the pointer shows you can click.

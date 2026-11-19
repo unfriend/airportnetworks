@@ -4,17 +4,7 @@
 // Built by tools/flock/build.mjs from the tour's kit and engine (adapted) and the set in tools/flock: edit those, not this file.
 HOST.register('flock', function (HOST) {
 'use strict';
-const D2R = Math.PI / 180;
-const $ = s => document.querySelector(s);
-const fmt = n => Math.round(n).toLocaleString('en-US');
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-// =================================================================== KIT ==
-//@@KIT@@
-const K = makeKit(THREE);
-const { smooth, clamp } = K;
-
+//#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // The one set: the flock, its sky and its land, life size (1 unit is 1 m), the
 // viewer standing at the origin. The story drives it through its params.

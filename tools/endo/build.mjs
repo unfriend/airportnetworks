@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { expand } from '../engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data first, then the sets in the order the story uses them (motor: the muscle story's, for the dive in)
@@ -19,8 +20,8 @@ const nmd = new Function(read('../nmd/sets/data.js') + '\nreturn NMD_DATA;')();
 const shim = '// the muscle story\'s disease groups, for its motor set\nconst NMD_DATA = ' +
   JSON.stringify({ groups: nmd.groups.map(g => ({ name: g.name, short: g.short, col: g.col, site: g.site })) }) + ';\n\n';
 const sets = shim + SET_FILES.map(f => read(`${f}.js`).trimEnd() + '\n\n').join('');
-let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
-for (const f of ENGINE) out += read(`engine/${f}.js`);
+let out = expand(read('engine/e1_head.js'), 'e1_head').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
+for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
 const target = path.join(root, 'stories/endo.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;

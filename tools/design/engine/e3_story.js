@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================== STORY ==
 // The design room tells no story: its "story" is one short intro line (the table seen from the door, then the walk
 // up to it) for a new wearer or a Replay, and it opens straight into explore mode. The engine's clock, chapters and
@@ -21,50 +21,13 @@ function narrT(o) {
   }
   return W[W.length - 1][0] + (o - W[W.length - 1][1]);
 }
-let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
+//#use T_END
 const CH = [{ key: 'table', name: 'The props table', a: 0, b: 6 }];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); });
-const C = Object.fromEntries(CH.map(c => [c.key, c]));
-
+//#use C
 // every param of every set, at rest
 const DEF = {};
-function buildDefaults() {
-  for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
-  for (const k of SET_ORDER) DEF[k + '_a'] = 0;
-}
-const TR = {};
-const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
-const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
-function evalTrack(n, t) {
-  const ks = TR[n];
-  if (!ks) return DEF[n];
-  if (t <= ks[0][0]) return ks[0][1];
-  for (let i = 1; i < ks.length; i++) {
-    if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
-    }
-  }
-  return ks[ks.length - 1][1];
-}
-function storyState(t) {
-  const s = {};
-  for (const n in DEF) s[n] = evalTrack(n, t);
-  return s;
-}
-const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
-
-const ST = { labels: [], items: [] };
-// a set's camera view by name (falls back to its default view)
-const view = (k, name) => { const c = GL.sets[k].cam; return (c[name] || c.default).slice(); };
-// a set's anchor point, in the set's own coordinates
-function anchorOf(k, at) {
-  const s = GL.sets[k];
-  let p = typeof at === 'string' ? s.anchors[at] : at;
-  if (typeof p === 'function') p = p();
-  return p || [0, 0, 0];
-}
-
+//#use buildDefaults TR key ramp evalTrack storyState fadeVal ST view~2 anchorOf
 function buildStory() {
   const html = {
     table: `<h1 data-at="0.3">The props table</h1>
@@ -119,14 +82,7 @@ function storyCam(t) {
 // Two labels of the engine's own: the name of the miniature you point at, over it, and the name of the prop on the
 // stage, over the stage. Their text follows (labelSet); on a screen they are HTML, in a headset sprites or signs.
 const LBL = { story: ST.labels, sets: [], extra: [] };
-function labelEl(html, cls) {
-  const el = document.createElement('div');
-  el.className = 'lbl ' + (cls || '');
-  el.innerHTML = html;
-  el.style.opacity = 0;
-  $('#labels').appendChild(el);
-  return el;
-}
+//#use labelEl
 function buildSetLabels() {
   for (const at of ['hover', 'stage']) LBL.extra.push({ kind: 'extra', el: labelEl('', at === 'hover' ? 'cyn' : ''), set: 'table', at, txt: null, o: -1, show: 0 });
 }
@@ -144,15 +100,7 @@ const setLabelAlpha = (L, S) => {
   if (a < 0.5 || (L.minor && !GL.wide && !XR.on)) return 0;
   return (2 * a - 1) * clamp(L.alpha ? L.alpha(S) : 1, 0, 1);
 };
-// where a label points, in the world's own coordinates
-const _v = new THREE.Vector3();
-function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
-}
-// labels on screen: pinned next to their point, nudged down where they would overlap, and
-// kept clear of the side panel, the timeline and the edge of the screen
-const _placed = [];
+//#use _v labelPos _placed
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
@@ -190,8 +138,7 @@ function placeLabels(list, alphaOf) {
   }
 }
 
-// ------------------------------------------------------------ panel update --
-let curCh = null;
+//#use curCh
 function updateStoryDOM(t) {
   const c = CH.find(c => t >= c.a && t < c.b) || CH[CH.length - 1];
   if (c !== curCh) {
@@ -228,9 +175,7 @@ function buildTimeline() {
   if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
   if ($('#btnNextBar')) $('#btnNextBar').addEventListener('click', slideNext);   // Next beside Play (phones)
 }
-const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
-let lastTick = -1;
+//#use ICON_PLAY ICON_PAUSE lastTick
 function updateTimeline(t, playing) {
   const p = (100 * t / T_END).toFixed(2);
   if (p !== lastTick) {

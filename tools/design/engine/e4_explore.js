@@ -1,11 +1,11 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode is the room itself: the table with every miniature, a click (or the trigger, or a pinch) puts one on
 // the stage and its card on the panel. Two tabs: Prop (the card of the prop on the stage) and All props (every
 // story's props, to pick from). On a screen the camera goes round the table (drag to turn, wheel to zoom).
 const TABS = [['prop', 'Prop'], ['all', 'All props']];
 const X = { tab: 'all', pick: '', story: STORIES.length ? STORIES[0].key : '', viewName: 'default', minis: 'loading', t0: 0 };
-const XS = {};
+//#use XS
 const orbit = { cur: [0, 38, 4.3, 0, 0.66, 0.05], from: null, to: null, t0: 0, dur: 1.4 };
 
 function exploreTargets() {
@@ -20,13 +20,7 @@ function exploreStep(dt) {
   return XS;
 }
 function openScene() { /* one scene: the table */ }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
-}
+//#use flyTo~2
 function orbitStep(now) {
   if (!orbit.to) return;
   const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
@@ -77,7 +71,7 @@ function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; render
 // it was put and its turn, rounded, and its size), one top-level field each, so two people moving two miniatures at once
 // both keep theirs. Nothing per device (the camera, the hover, the tab). Life size in a headset: no view to share.
 function collabView() { return null; }
-function collabSetView(v, now) { /* nothing to set */ }
+//#use collabSetView~2
 function collabState() {
   const T = GL.sets.table, s = { pick: X.pick || '' };
   for (const k of CARD_KEYS) { const r = T.recOf(k); if (r) s[k] = r; }
@@ -171,8 +165,7 @@ function updateExtraLabels() {
   Lh.show = h ? 1 : 0; Ls.show = X.pick && T.stageModel() ? 1 : 0;
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // the miniature under the pointer (mx, my in the window), or null
 function miniAt(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);

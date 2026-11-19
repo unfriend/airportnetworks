@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the 12 endotypes, the 393 genes of the module and the five steps of the method, shown in the
 // synapse, the protein network or the tree; or any scene with its own controls.
@@ -13,25 +13,19 @@ const TABS = [['endo', 'Endotypes'], ['genes', 'Genes'], ['method', 'Method'], [
 const METHOD = [['groups', 'Seed groups', 'net'], ['walk', 'The walk', 'net'], ['hood', 'Neighbourhoods', 'net'], ['tree', 'The tree', 'tree'], ['endo', 'Endotypes', 'tree']];
 const K_DEF = Math.max(0, ED.groups.findIndex(g => g.k === 20));
 const X = { tab: 'endo', scene: 'tree', ctl: {}, t0: 0, turn: 'on', endo: -1, gene: -1, k: K_DEF, step: 0, gap: false };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['motor_site', 'syn_place', 'tree_focus', 'net_gene', 'net_focus']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
+//#use orbit ctlValue
 const ctlOf = (k, key) => (GL.sets[k].controls || []).find(c => c.key === key);
-// a control's option whose key or name matches re (the sets name their own options)
-const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
-const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
+//#use optKey setApi
 // a view option's camera: the cam view of the same name, or one the set names otherwise (the tree's Distances and
 // Endotypes are its cam views mds and meta)
 const CAM_ALIAS = { tree: { dist: 'mds', endo: 'meta' } };
 const camFor = (k, v) => { const c = GL.sets[k].cam || {}, a = (CAM_ALIAS[k] || {})[v] || v; return c[a] ? a : null; };
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
+//#use viewCam
 const STORY_IDX = () => geneIdx(STORY_GENE);
-// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
-const NEXT = [];
-const afterUpdate = f => { NEXT.push(f); };
-
+//#use NEXT~2 afterUpdate~2
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
   const s = GL.sets[X.scene], tg = Object.assign({}, s.params);
@@ -68,8 +62,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !(X.gap && X.scene === 'syn') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
-function pushState() { updateExtraLabels(); }
+//#use pushState
 function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
@@ -90,19 +83,7 @@ function setCtl(k, key, v) {
   }
   if (c) { renderScenes(); renderMethod(); }
 }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
+//#use flyTo orbitStep
 // fly to a point of the scene on show, keeping the direction you look from
 function flyNear(p, d) { if (p && !(X.gap && X.scene === 'syn')) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
 
@@ -185,13 +166,7 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries((GL.sets[k].controls || []).map(c => [c.key, ctlValue(k, c)]));
@@ -272,7 +247,7 @@ function runQuery(q) {
 const QUICK = ['COLQ', 'AGRN', 'SNAP25', 'SYT2', 'SLC25A1', 'SCN4A', 'CHRNE', 'DOK7', 'MUSK', 'RAPSN'];
 // genes for the neighbourhood step: a seed of each endotype that has one (its first)
 const HOOD_GENES = () => ED.endo.map(e => geneIdx(e.seeds[0])).filter(i => i >= 0);
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:#04131c"' : ''}>${col ? `<span class="sw" style="background:${col}"></span>` : ''}${label}</button>`;
+//#use chip~2
 // links inside an endotype, and from a gene to each endotype (the module's own links)
 const linksIn = id => ED.members[id].reduce((a, i) => a + ED.genes[i].nb.filter(j => ED.genes[j].endo === id).length, 0) / 2;
 const fmtP = p => (p >= 0.001 ? String(+p.toPrecision(2)) : p.toExponential(1).replace('e-', ' × 10^-').replace(/\^-(\d+)/, (m, d) => '⁻' + [...d].map(x => '⁰¹²³⁴⁵⁶⁷⁸⁹'[x]).join('')));
@@ -311,10 +286,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
+//#use setTurn
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
@@ -417,8 +389,7 @@ function updateExtraLabels() {
   if (i >= 0 && X.scene === 'tree' && T && T.genePos) add('tree', () => T.genePos(i));
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { gene } or { endo }, or null
 function pickWith(rc) {
   if (APP.mode !== 'explore' || !(X.scene === 'net' || X.scene === 'tree')) return null;
@@ -428,12 +399,7 @@ function pickWith(rc) {
   if (typeof r === 'number') return r >= 0 ? { gene: r } : null;
   return r && (r.gene >= 0 || r.endo >= 0) ? r : null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
 function pickPos(p) {
   const A = setApi(X.scene);
@@ -449,57 +415,4 @@ function choosePick(p) {
   if (p.gene >= 0) { $('#q').value = ED.genes[p.gene].sym; if (X.tab !== 'method') showTab('genes'); selectGene(p.gene, false); if (X.tab === 'method' && X.step === 2) renderMethod(); }
   else { if (X.tab !== 'method') showTab('endo'); selectEndo(p.endo === X.endo ? -1 : p.endo, false); }
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas~2

@@ -7,6 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { expand } from '../engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, its decoders and the look first, then the body and the organ models, then the sets in the order the story uses them
@@ -17,8 +18,8 @@ let kit = read('../lbi/kit.js')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (the decoders' Node export goes: in the story they are a plain constant inside the closure)
 const sets = SET_FILES.map(f => read(`${f}.js`).replace("if (typeof module !== 'undefined') module.exports = TDATA;\n", '').trimEnd() + '\n\n').join('');
-let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
-for (const f of ENGINE) out += read(`engine/${f}.js`);
+let out = expand(read('engine/e1_head.js'), 'e1_head').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
+for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
 const target = path.join(root, 'stories/topo.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;

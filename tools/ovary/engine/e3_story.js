@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================== STORY ==
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
@@ -25,24 +25,7 @@ const NARRATION_SYNC = [
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
 const NARRATION_ENDS = { title: 64.45, donors: 108.45, section: 188.75, methods: 289.6, trends: 402.85, network: 463.5 };
-// recording time -> original story time
-function storyT(t) {
-  const W = NARRATION_SYNC;
-  if (t <= 0) return 0;
-  for (let i = 1; i < W.length; i++) {
-    if (t <= W[i][0]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); }
-  }
-  return W[W.length - 1][1] + (t - W[W.length - 1][0]);
-}
-// original story time -> recording time
-function narrT(o) {
-  const W = NARRATION_SYNC;
-  for (let i = 1; i < W.length; i++) {
-    if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); }
-  }
-  return W[W.length - 1][0] + (o - W[W.length - 1][1]);
-}
-let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
+//#use storyT narrT T_END
 const CH = [
   { key: 'title', name: 'Reserve', a: 0, b: 45 },
   { key: 'donors', name: 'Donors', a: 45, b: 80 },
@@ -52,47 +35,7 @@ const CH = [
   { key: 'network', name: 'Next', a: 225, b: 270 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-const C = Object.fromEntries(CH.map(c => [c.key, c]));
-
-// every param of every set, at rest; the sets themselves start hidden
-const DEF = {};
-function buildDefaults() {
-  for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
-  for (const k of SET_ORDER) DEF[k + '_a'] = 0;
-}
-const TR = {};
-const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
-const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
-function evalTrack(n, t) {
-  const ks = TR[n];
-  if (!ks) return DEF[n];
-  if (t <= ks[0][0]) return ks[0][1];
-  for (let i = 1; i < ks.length; i++) {
-    if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
-    }
-  }
-  return ks[ks.length - 1][1];
-}
-function storyState(t) {
-  const s = {};
-  for (const n in DEF) s[n] = evalTrack(n, t);
-  return s;
-}
-const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
-
-const ST = { labels: [], items: [] };
-// a set's camera view by name (falls back to its default view)
-// (with the story's own framing on top: FIT)
-const view = (k, name) => {
-  const c = GL.sets[k].cam, v = (c[name] || c.default).slice(), f = c[name] && FIT[k] && FIT[k][name];
-  if (f) for (let i = 0; i < f.length; i++) v[i] += f[i];
-  return v;
-};
-// the part of a view's FIT that moves its target clear of the side panel: on a screen without one (a phone, a narrow
-// window) applyCamera takes it back, so the view stays centred there
-const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[k][name]; return f ? [f[3] || 0, f[4] || 0, f[5] || 0] : [0, 0, 0]; };
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
@@ -106,15 +49,7 @@ const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3, kinds: 1.25 },
   charts: { default: 1.25, hist: 1.25, fan: 1.25 } };
-const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
-// a set's anchor point, in the set's own coordinates
-function anchorOf(k, at) {
-  const s = GL.sets[k];
-  let p = typeof at === 'string' ? s.anchors[at] : at;
-  if (typeof p === 'function') p = p();
-  return p || [0, 0, 0];
-}
-
+//#use narrowOf anchorOf
 // ------------------------------------------------------------------- data --
 // The poster's numbers (OVARY_DATA, typed in exactly as printed) and its lines looked up (OVARY_TREND), for the story and
 // the panes. Every number the story states comes from here.
@@ -126,7 +61,7 @@ const KINDS4 = OD.kinds.filter(k => !k.segOnly).map(k => k.key), KINDS = OD.kind
 // each kind's color: the poster's, lifted for the dark scene and the headset's panel (OVARY_LOOK.GLOW)
 const toHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
 const KCOL = Object.fromEntries(OD.kinds.map((k, i) => [k.key, toHex(OVARY_LOOK.GLOW[i])]));
-const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+//#use cap
 const plural = key => KD[key].plural, Plural = key => cap(KD[key].plural);
 // scores as the poster prints them ('0.70'), r and p as printed ('−0.24', '2.1×10⁻⁴')
 const sc2 = v => (+v).toFixed(2), rT = TRD.rText, pT = TRD.pText;
@@ -136,7 +71,7 @@ const METHOD = { rf: OD.methods.rf, seg: OD.methods.seg };
 const onLine = (key, m, age) => { const c = Math.max(0, TRD.line(key, m, age)); return c < 99.5 ? Math.round(c) : Math.round(c / 10) * 10; };
 // what the sets know (their api())
 const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
-const API = {};
+//#use API
 const api = k => API[k] || (API[k] = setApi(k) || {});
 
 // ------------------------------------------------------------------ facts --
@@ -163,7 +98,7 @@ const FACTS = (() => {
     noneDecade: 20 + 10 * last, nonePct: Math.round(zs.reduce((s, a) => s + a[last], 0) / zs.length * 20) * 5,
   };
 })();
-const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+//#use listOf
 const mil = n => (n >= 1e6 ? `${n / 1e6}` : fmt(n));
 // the textbook numbers of follicles, said with "about"
 const reserveText = F => `There are about ${mil(F.birth[0])} to ${mil(F.birth[1])} million follicles at birth, about ${fmt(F.puberty[0])} to ${fmt(F.puberty[1])} at puberty and about ${fmt(F.menopause)} at menopause, which comes at around ${F.menoAge} on average.`;
@@ -172,9 +107,7 @@ const creditText = () => {
   const S = OD.source;
   return `Poster: "${S.title}" by ${listOf(S.authors.map(a => `${a.name} (${a.aff.join(', ')})`))}. ${S.affiliations.map((x, i) => `(${i + 1}) ${x}`).join('; ')}. Supported by ${listOf(S.support)}. Data: ${S.data}.`;
 };
-// colors as text on the HTML panel, which is light in the light theme: a color mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the color itself (data-col).
-const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
+//#use inkCol~3
 const swCol = c => c;   // a swatch or a bar in the same color
 
 function buildStory() {
@@ -441,38 +374,7 @@ function buildStory() {
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
     label('section', 'tag_' + k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
-// a steady pace.
-// When the story hands over from one set to another, the new set is turned about its
-// vertical axis so that its first view starts where the camera already is: a crossfade
-// never swings the camera round. The set keeps that turn while it is on show (setYaw).
-function buildCamera(wp) {
-  wp.sort((x, y) => x[0] - y[0]);
-  const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6], f = w[10], fx = f[0], fz = f[2];
-    w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
-    f[0] = fx * Math.cos(r) + fz * Math.sin(r); f[2] = -fx * Math.sin(r) + fz * Math.cos(r);   // (the shift turns with it)
-  };
-  ST.yaw = [];
-  let cur = null, prevAz = null;
-  for (const w of wp) {
-    if (!cur || w[8] !== cur.k) {
-      const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
-      ST.yaw.push(cur);
-    }
-    turn(w, cur.c);
-    prevAz = w[1];
-  }
-  // keep turning the short way round between views
-  let prev = null;
-  ST.wp = wp.map(w => {
-    let az = w[1];
-    if (prev !== null) az += 360 * Math.round((prev - az) / 360);
-    prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
-  });
-}
+//#use buildCamera
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
 // (the body and the ovary share one turn: one frame)
 function setYaw(k, t) {
@@ -481,60 +383,7 @@ function setYaw(k, t) {
   for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
-// 0..1 progress over a segment of length D: smoothstep, or for 'spin' segments a steady
-// slow turn with short eased starts and stops (trapezoidal speed profile)
-const smoothSeg = (t, D) => smooth(t / D);
-function spinEase(t, D) {
-  const r = Math.min(2.5, D / 3);
-  if (t <= 0) return 0;
-  if (t >= D) return 1;
-  const v = 1 / (D - r); // cruise speed so the ramps plus cruise cover 0..1
-  if (t < r) return v * t * t / (2 * r);
-  if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
-  return v * (t - r / 2);
-}
-// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, and FIT's target shift x, y, z]
-function storyCam(t) {
-  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9]];
-  if (t <= wp[0][0]) return end(wp[0]);
-  for (let i = 1; i < wp.length; i++) {
-    if (t <= wp[i][0]) {
-      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1, f = p[9], g = q[9];
-      return [p[1] + (q[1] - p[1]) * x, p[2] + (q[2] - p[2]) * x, Math.exp(Math.log(p[3]) + (Math.log(q[3]) - Math.log(p[3])) * x),
-        p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x, p[8] + (q[8] - p[8]) * x,
-        f[0] + (g[0] - f[0]) * x, f[1] + (g[1] - f[1]) * x, f[2] + (g[2] - f[2]) * x];
-    }
-  }
-  return end(wp[wp.length - 1]);
-}
-
-// ---------------------------------------------------------------- labels --
-// Story labels are pinned to a set's anchor for a stretch of story time; each
-// set also brings its own labels, shown whenever its params call for them.
-const LBL = { story: ST.labels, sets: [], extra: [] };
-function labelEl(html, cls) {
-  const el = document.createElement('div');
-  el.className = 'lbl ' + (cls || '');
-  el.innerHTML = html;
-  el.style.opacity = 0;
-  $('#labels').appendChild(el);
-  return el;
-}
-function label(set, at, html, tIn, tOut, cls) {
-  if (typeof at === 'string' && (GL.sets[set].labels || []).some(L => L.at === at)) return; // the set labels this point itself
-  ST.labels.push({ kind: 'story', el: labelEl(html, cls), set, at, tIn, tOut, o: -1 });
-}
-// a label's rest after its bold part; a long one (more than a mark such as ' · hub' or ' · 1.2×') gives way on narrow
-// screens (placeLabels)
-const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
-function buildSetLabels() {
-  for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows, see labelText)
-    const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
-    LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r });
-  }
-}
+//#use smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels
 // a label whose text is a function (the ovary's age and counts) is read again while it shows and redrawn when it
 // changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
@@ -548,24 +397,7 @@ function labelText(L) {
   L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
   L.w = 0; L.nar = undefined; labelRedraw(L);
 }
-// a set label shows as far as its set is in and its own rule allows
-// (labels a set marks as minor give way on narrow screens)
-const setLabelAlpha = (L, S) => {
-  const a = S[L.set + '_a'] || 0;
-  if (a < 0.5 || (L.minor && !GL.wide && !XR.on)) return 0;
-  const v = (2 * a - 1) * clamp(L.alpha ? L.alpha(S) : 1, 0, 1);
-  if (v > 0) labelText(L);
-  return L.none ? 0 : v;
-};
-// where a label points, in the world's own coordinates
-const _v = new THREE.Vector3();
-function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
-}
-// labels on screen: pinned next to their point, nudged down where they would overlap, and
-// kept clear of the side panel, the timeline and the edge of the screen
-const _placed = [];
+//#use setLabelAlpha~2 _v labelPos _placed
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
@@ -609,79 +441,4 @@ function placeLabels(list, alphaOf) {
   }
 }
 
-// ------------------------------------------------------------ panel update --
-let curCh = null;
-function updateStoryDOM(t) {
-  const c = CH.find(c => t >= c.a && t < c.b) || CH[CH.length - 1];
-  if (c !== curCh) {
-    ST.items.forEach(it => it.sec.classList.toggle('on', it.ch === c));
-    curCh = c;
-    $('#panel').scrollTop = 0;
-  }
-  const it = ST.items.find(x => x.ch === c);
-  let fresh = null;
-  for (const e of it.els) {
-    const o = Math.round(fadeVal(t, e.at, e.out, 0.6) * 100) / 100;
-    if (o !== e.o) {
-      if (e.o <= 0 && o > 0 && !e.el.classList.contains('credits')) fresh = e.el;
-      e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden';
-    }
-  }
-  // on a short (phone) panel, scroll just far enough that a line that has just appeared is not below the fold
-  if (fresh) {
-    const p = $('#panel'), pr = p.getBoundingClientRect(), over = fresh.getBoundingClientRect().bottom - (pr.bottom - parseFloat(getComputedStyle(p).paddingBottom));
-    if (over > 0) {
-      // (a chapter's heading is shown whole or scrolled out of sight, never cut in half)
-      const h = it.sec.querySelector('h1, h2'), hr = h && h.getBoundingClientRect(), edge = pr.top + p.clientTop + over;
-      p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
-    }
-  }
-  if (c.key === 'title') {
-    const arc = $('#titleArc');
-    if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
-  }
-}
-
-// ------------------------------------------------------------- timeline UI --
-function buildTimeline() {
-  const tr = $('#track');
-  tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
-    `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
-  tr.setAttribute('aria-valuemax', Math.round(T_END));
-  const seekAt = ev => {
-    const r = tr.getBoundingClientRect();
-    APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
-  };
-  let drag = false;
-  tr.addEventListener('pointerdown', ev => { drag = true; tr.setPointerCapture(ev.pointerId); seekAt(ev); });
-  tr.addEventListener('pointermove', ev => { if (drag) seekAt(ev); });
-  tr.addEventListener('pointerup', () => { drag = false; });
-  tr.addEventListener('keydown', ev => {
-    if (ev.key === 'ArrowRight') { APP.seek(APP.t + 5); ev.preventDefault(); }
-    if (ev.key === 'ArrowLeft') { APP.seek(APP.t - 5); ev.preventDefault(); }
-  });
-  $('#play').addEventListener('click', () => APP.togglePlay());
-  // slideshow: Next and this story's switch, in the shell's row at the foot of the panel (an older shell has none)
-  if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
-  if ($('#btnNextBar')) $('#btnNextBar').addEventListener('click', slideNext);   // Next beside Play (phones)
-}
-const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
-let lastTick = -1;
-function updateTimeline(t, playing) {
-  const p = (100 * t / T_END).toFixed(2);
-  if (p !== lastTick) {
-    $('#track .done').style.width = p + '%';
-    $('#track .knob').style.left = p + '%';
-    $('#track').setAttribute('aria-valuenow', Math.round(t));
-    const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-    $('#clock').textContent = m(t) + ' / ' + m(T_END);
-    const c = CH.find(c => t >= c.na && t < c.nb) || CH[CH.length - 1];
-    document.querySelectorAll('#track .name').forEach(n => n.classList.toggle('cur', n.dataset.k === c.key));
-    lastTick = p;
-  }
-  const want = playing ? 'pause' : 'play';
-  const btn = $('#play');
-  if (btn.dataset.s !== want) { btn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; btn.dataset.s = want; btn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
-  slideDOM();
-}
+//#use curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

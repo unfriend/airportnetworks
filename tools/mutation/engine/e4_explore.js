@@ -25,30 +25,19 @@ const X = { tab: 'rule', scene: 'rule', t0: 0, turn: 'on',
   ctl: { letters: { view: 'qubits', mix: 'rule' }, rule: { view: 'path', model: M.DEFAULT, start: 'A', parent: 'G' }, tree: { view: 'tree', seed: '1', speed: '1', run: 'off' },
     stem: { view: 'rebuild', src: 'test', method: 'all' } },
   time: 1, reads: 0, rseed: 1, branch: -1, w: TD.w, sseed: 1 };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['letters_code', 'letters_target', 'letters_seed', 'rule_model', 'rule_start', 'rule_parent', 'tree_seed', 'tree_speed', 'tree_pick',
   'stem_src', 'stem_w', 'stem_seed', 'stem_method']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
+//#use orbit ctlValue ctlOf
 // a view option's camera: the one it stands for, or the cam view of the same name
 const CAM_ALIAS = { letters: { copies: 'rows', qubits: 'reads' }, rule: { rule: 'rates' }, tree: { tree: 'default', machines: 'gears' },
   stem: { stem: 'default', count: 'cloud', rebuild: 'fields' } };
-function camFor(k, v) {
-  const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {};
-  for (const x of [al[v], v]) if (x && c[x]) return x;
-  return null;
-}
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the view on show in a set
-const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k, c) === v; };
+//#use camFor viewCam viewIs~2
 // what the sets know (their api()): the letters' chances, the rule's angles, the tree's branches and picking, the
 // stem's rebuilds and picking
 const API = {};
-const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
-// work for the next frame, once the sets have drawn what was just picked
-const NEXT = [];
+//#use api NEXT
 // what the panes choose, by name
 const letMix = () => ctlValue('letters', ctlOf('letters', 'mix'));
 const ruleModel = () => Math.max(0, M.MODELS.findIndex(m => m.key === ctlValue('rule', ctlOf('rule', 'model'))));
@@ -118,25 +107,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets)
-function pushState() { updateExtraLabels(); }
-function openScene(k, fly = true) {
-  if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
-  const same = X.scene === k;
-  X.scene = k; X.t0 = performance.now();
-  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
-  renderAll();
-}
-function setCtl(k, key, v) {
-  const c = ctlOf(k, key);
-  if (!c || !c.options.some(o => o[0] === v)) return;
-  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
-  (X.ctl[k] = X.ctl[k] || {})[key] = v;
-  X.t0 = performance.now();
-  // a view has its own best camera
-  if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
-  renderAll();
-}
+//#use pushState~2 openScene setCtl
 // (sound effects: a control changed: another rule or tree grows, the machines start, a field or a letter is picked)
 function ctlSound(k, key, v) {
   const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'model' ? ['grow', k, 'pyramid', { dur: 1.5 }]
@@ -144,24 +115,7 @@ function ctlSound(k, key, v) {
     : key === 'method' ? ['pick', k, v !== 'all' ? 'field_' + v : 'cloud'] : key === 'start' || key === 'parent' || key === 'mix' ? ['pick', k, null, { pitch: 1.3 }] : ['step', k, null];
   if (o) sfxAct(...o);
 }
-// a view of a set, its scene brought up
-function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-// fly to a point of the scene on show, keeping the direction you look from
-function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
-
+//#use showView flyTo orbitStep flyNear
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene and the view that show it.
@@ -232,13 +186,7 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -267,10 +215,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+//#use chip cap
 // the letters and mixes the Letters tab offers, with their colours (a mix has none)
 const MIXES = () => ctlOf('letters', 'mix').options;
 const mixCol = v => (LET.indexOf(v) >= 0 ? LCOL[LET.indexOf(v)] : null);
@@ -282,7 +227,7 @@ const NUM = { time: { label: 'Branch length', min: 0, max: 2, step: 0.01, col: G
 const slider = key => { const o = NUM[key], v = numOf(key);
   return `<p class="grp-h">${o.label} <b data-numv="${key}" style="margin-left:auto;color:var(--ink)">${esc(o.text(v))}</b></p>
     <input type="range" data-num="${key}" min="${o.min}" max="${o.max}" step="${o.step}" value="${v}" aria-label="${o.label}" style="accent-color:${o.col}">`; };
-const statsHtml = rows => `<dl class="stats">${rows.map(([k, v, more]) => `<dt>${esc(k)}</dt><dd>${esc(v)}${more ? `<small>${esc(more)}</small>` : ''}</dd>`).join('')}</dl>`;
+//#use statsHtml
 function buildExplore() {
   $('#explore').innerHTML = `
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -314,19 +259,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -466,8 +399,7 @@ function renderScenes() {
 // labels the panes add (none: the sets label their own picks, the tree its branch, the stem its fields)
 function updateExtraLabels() {}
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { branch } (of the family tree),
 // { sbranch } (of the species tree), { field } (a method's field) or { stem } (a species', the truth's or a method's
 // example), or null
@@ -482,12 +414,7 @@ function pickWith(rc) {
   if (!r) return null;
   return r.kind === 'branch' ? (r.species ? { sbranch: r.b } : { branch: r.b }) : r.kind === 'field' ? { field: r.method } : r.kind === 'stem' ? { stem: r.which } : null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
 function pickPos(p) {
   if (X.scene !== 'tree' || !api('tree').mid) return null;
@@ -513,57 +440,4 @@ function choosePick(p) {
   if (p.branch !== undefined) { if (X.tab !== 'tree') showTab('tree'); selectBranch(p.branch === X.branch ? -1 : p.branch, false); }
   else if (p.field) { if (X.tab !== 'stem') showTab('stem'); sceneCtl('stem', 'method', stemMethod() === p.field ? 'all' : p.field); }
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas

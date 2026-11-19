@@ -23,24 +23,7 @@ const NARRATION_SYNC = [
 ];
 // where each chapter's words end in the recordings (seconds by chapter key; the later of its languages): the slideshow lets the voice finish there
 const NARRATION_ENDS = { fish: 36.8, watch: 112.4, links: 156.75, sky: 259.4, cell: 353.25, med: 397.6 };
-// recording time -> original story time
-function storyT(t) {
-  const W = NARRATION_SYNC;
-  if (t <= 0) return 0;
-  for (let i = 1; i < W.length; i++) {
-    if (t <= W[i][0]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); }
-  }
-  return W[W.length - 1][1] + (t - W[W.length - 1][0]);
-}
-// original story time -> recording time
-function narrT(o) {
-  const W = NARRATION_SYNC;
-  for (let i = 1; i < W.length; i++) {
-    if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); }
-  }
-  return W[W.length - 1][0] + (o - W[W.length - 1][1]);
-}
-let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
+//#use storyT narrT T_END
 // (a chapter's name is in the language on show)
 const CH = [
   { key: 'fish', a: 0, b: 40 },
@@ -51,8 +34,7 @@ const CH = [
   { key: 'med', a: 270, b: 305 },
 ];
 CH.forEach(c => { Object.defineProperty(c, 'name', { get: () => T('ch.' + c.key), enumerable: true }); c.na = narrT(c.a); c.nb = narrT(c.b); });
-const C = Object.fromEntries(CH.map(c => [c.key, c]));
-
+//#use C
 // every param of every set, at rest; the sets themselves start hidden. lens: the camera's lens (1 among the fish, a
 // wide one; 0 for the globe and the cell, the long one of their stories)
 const DEF = {};
@@ -61,9 +43,7 @@ function buildDefaults() {
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
   DEF.lens = 0;
 }
-const TR = {};
-const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
-const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+//#use TR key ramp
 // tracks that run at an even pace (the outbreak's days; a protein travelling its way): no easing in and out
 const LIN = new Set(['globe_day', 'cell_cue', 'cell_nfkb', 'cell_cf']);
 function evalTrack(n, t) {
@@ -78,39 +58,14 @@ function evalTrack(n, t) {
   }
   return ks[ks.length - 1][1];
 }
-function storyState(t) {
-  const s = {};
-  for (const n in DEF) s[n] = evalTrack(n, t);
-  return s;
-}
-const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
-
-const ST = { labels: [], items: [] };
-// a set's camera view by name (falls back to its default view)
-// (with the story's own framing on top: FIT)
-const view = (k, name) => {
-  const c = GL.sets[k].cam, v = (c[name] || c.default).slice(), f = c[name] && FIT[k] && FIT[k][name];
-  if (f) for (let i = 0; i < f.length; i++) v[i] += f[i];
-  return v;
-};
-// the part of a view's FIT that moves its target clear of the side panel: on a screen without one (a phone, a narrow
-// window) applyCamera takes it back, so the view stays centred there
-const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[k][name]; return f ? [f[3] || 0, f[4] || 0, f[5] || 0] : [0, 0, 0]; };
+//#use storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel on a landscape screen: a little further back (added to the set's own
 // view, in story and explore mode alike; the fish are all round you and need none)
 const FIT = { globe: { default: [0, 0, 0.3], start: [0, 0, 0.2], europe: [0, 0, 0.2], atlantic: [0, 0, 0.3], asia: [0, 0, 0.3] },
   cell: { default: [0, 0, 0.3], nfkb: [0, 0, 0.2], cf: [0, 0, 0.2], als: [0, 0, 0.2], signal: [0, 0, 0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the whole globe and the whole cell
 const NARROW = { globe: { default: 1.15, world: 1.1, start: 1.1 }, cell: { default: 1.15, nfkb: 1.1, cf: 1.1 } };
-const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
-// a set's anchor point, in the set's own coordinates
-function anchorOf(k, at) {
-  const s = GL.sets[k];
-  let p = typeof at === 'string' ? s.anchors[at] : at;
-  if (typeof p === 'function') p = p();
-  return p || [0, 0, 0];
-}
-
+//#use narrowOf anchorOf
 // ------------------------------------------------------------------ facts --
 // The numbers the story quotes, from the sets: the airports and routes (the airports story's data), the story's
 // outbreak (from Vienna, as the globe's model computes it) and the cell map's proteins and places
@@ -124,10 +79,7 @@ function facts() {
   return { airports: g.n(), routes: g.routes(), start: g.find(STORY_OUT.start), week: reachedBy(7), d10: reachedBy(10), d20: reachedBy(20), d30: reachedBy(30),
     proteins: c.proteins, places: c.places };
 }
-// colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
-const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
-const swCol = c => c;   // a swatch or a bar in the same colour
+//#use inkCol~2 swCol
 const AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab', CYAN = '#46d9ff', TEAL = '#38e6c7';
 
 // the panel's words, in the language on show (made again when it changes: setLang)
@@ -314,38 +266,7 @@ function buildStory() {
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
-// a steady pace.
-// When the story hands over from one set to another, the new set is turned about its
-// vertical axis so that its first view starts where the camera already is: a crossfade
-// never swings the camera round. The set keeps that turn while it is on show (setYaw).
-function buildCamera(wp) {
-  wp.sort((x, y) => x[0] - y[0]);
-  const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6], f = w[10], fx = f[0], fz = f[2];
-    w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
-    f[0] = fx * Math.cos(r) + fz * Math.sin(r); f[2] = -fx * Math.sin(r) + fz * Math.cos(r);   // (the shift turns with it)
-  };
-  ST.yaw = [];
-  let cur = null, prevAz = null;
-  for (const w of wp) {
-    if (!cur || w[8] !== cur.k) {
-      const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
-      ST.yaw.push(cur);
-    }
-    turn(w, cur.c);
-    prevAz = w[1];
-  }
-  // keep turning the short way round between views
-  let prev = null;
-  ST.wp = wp.map(w => {
-    let az = w[1];
-    if (prev !== null) az += 360 * Math.round((prev - az) / 360);
-    prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
-  });
-}
+//#use buildCamera
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
 function setYaw(k, t) {
   let c = 0;
@@ -353,53 +274,18 @@ function setYaw(k, t) {
   for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
-// 0..1 progress over a segment of length D: smoothstep, or for 'spin' segments a steady
-// slow turn with short eased starts and stops (trapezoidal speed profile)
-const smoothSeg = (t, D) => smooth(t / D);
-function spinEase(t, D) {
-  const r = Math.min(2.5, D / 3);
-  if (t <= 0) return 0;
-  if (t >= D) return 1;
-  const v = 1 / (D - r); // cruise speed so the ramps plus cruise cover 0..1
-  if (t < r) return v * t * t / (2 * r);
-  if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
-  return v * (t - r / 2);
-}
-// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, and FIT's target shift x, y, z]
-function storyCam(t) {
-  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9]];
-  if (t <= wp[0][0]) return end(wp[0]);
-  for (let i = 1; i < wp.length; i++) {
-    if (t <= wp[i][0]) {
-      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1, f = p[9], g = q[9];
-      return [p[1] + (q[1] - p[1]) * x, p[2] + (q[2] - p[2]) * x, Math.exp(Math.log(p[3]) + (Math.log(q[3]) - Math.log(p[3])) * x),
-        p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x, p[8] + (q[8] - p[8]) * x,
-        f[0] + (g[0] - f[0]) * x, f[1] + (g[1] - f[1]) * x, f[2] + (g[2] - f[2]) * x];
-    }
-  }
-  return end(wp[wp.length - 1]);
-}
-
+//#use smoothSeg spinEase storyCam
 // ---------------------------------------------------------------- labels --
 // Story labels are pinned to a set's anchor for a stretch of story time; each
 // set also brings its own labels, shown whenever its params call for them.
 // (a story label's text is a function, read again when the language changes: relabel)
 const LBL = { story: ST.labels, sets: [], extra: [] };
-function labelEl(html, cls) {
-  const el = document.createElement('div');
-  el.className = 'lbl ' + (cls || '');
-  el.innerHTML = html;
-  el.style.opacity = 0;
-  $('#labels').appendChild(el);
-  return el;
-}
+//#use labelEl
 function label(set, at, fn, tIn, tOut, cls) {
   if (typeof at === 'string' && (GL.sets[set].labels || []).some(L => L.at === at)) return; // the set labels this point itself
   ST.labels.push({ kind: 'story', el: labelEl(fn(), cls), fn: null, html: fn, set, at, tIn, tOut, o: -1 });
 }
-// a label's rest after its bold part; a long one (more than a mark such as ' · hub' or ' · 1.2×') gives way on narrow
-// screens (placeLabels)
-const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
+//#use sfxSpan
 function buildSetLabels() {
   for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
     // (a label's text may be a function: it follows what the set shows and its language, see labelText)
@@ -442,51 +328,7 @@ function labelPos(L, out) {
   out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
   return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
-// labels on screen: pinned next to their point, nudged down where they would overlap, and
-// kept clear of the side panel, the timeline and the edge of the screen
-const _placed = [];
-function placeLabels(list, alphaOf) {
-  _placed.length = 0;
-  const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
-  for (const L of list) {
-    let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
-    if (o > 0) {
-      labelPos(L, _v).applyMatrix4(GL.world.matrixWorld).project(GL.camera);
-      if (_v.z > 1 || Math.abs(_v.x) > 1.2 || Math.abs(_v.y) > 1.2) o = 0;
-    }
-    if (o > 0) {
-      // (on a narrow screen a label's long rest is left out: the panel says it, and the scene there is small)
-      if (L.nar !== !GL.wide) { L.nar = !GL.wide; const sx = L.el.querySelector('.sx'); if (sx) sx.style.display = L.nar ? 'none' : ''; L.w = 0; }
-      if (!L.w) { L.w = L.el.offsetWidth || 120; L.h = L.el.offsetHeight || 22; }
-      const sx = (_v.x * 0.5 + 0.5) * W;
-      x = sx + 9; y = (-_v.y * 0.5 + 0.5) * H - 11;
-      if (pr.width && y + L.h > pr.top && y < pr.bottom && x < pr.right + 6) {
-        // a point just beside the panel keeps its label next to the panel; one behind it shows none
-        if (GL.wide && sx > pr.right - 40) x = pr.right + 6; else o = 0;
-      }
-      if (y + L.h > barTop - 4 || y < 50) o = 0;
-      x = Math.max(6, Math.min(x, W - L.w - 6));
-    }
-    if (o !== L.o) { L.el.style.opacity = o; L.o = o; }
-    if (o <= 0) continue;
-    vis.push([L, x, y]);
-  }
-  vis.sort((p, q) => p[2] - q[2]);
-  for (const [L, x, y0] of vis) {
-    let y = y0;
-    for (let pass = 0; pass < 6; pass++) {
-      const hit = _placed.find(r => x < r[0] + r[2] && r[0] < x + L.w && y < r[1] + r[3] && r[1] < y + L.h);
-      if (!hit) break;
-      y = hit[1] + hit[3] + 2;
-    }
-    _placed.push([x, y, L.w, L.h]);
-    L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-  }
-}
-
-// ------------------------------------------------------------ panel update --
-let curCh = null;
+//#use _placed placeLabels curCh
 function updateStoryDOM(t) {
   const c = CH.find(c => t >= c.a && t < c.b) || CH[CH.length - 1];
   if (c !== curCh) {
@@ -547,23 +389,4 @@ function buildTimeline() {
   if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
   if ($('#btnNextBar')) $('#btnNextBar').addEventListener('click', slideNext);   // Next beside Play (phones)
 }
-const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
-let lastTick = -1;
-function updateTimeline(t, playing) {
-  const p = (100 * t / T_END).toFixed(2);
-  if (p !== lastTick) {
-    $('#track .done').style.width = p + '%';
-    $('#track .knob').style.left = p + '%';
-    $('#track').setAttribute('aria-valuenow', Math.round(t));
-    const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-    $('#clock').textContent = m(t) + ' / ' + m(T_END);
-    const c = CH.find(c => t >= c.na && t < c.nb) || CH[CH.length - 1];
-    document.querySelectorAll('#track .name').forEach(n => n.classList.toggle('cur', n.dataset.k === c.key));
-    lastTick = p;
-  }
-  const want = playing ? 'pause' : 'play';
-  const btn = $('#play');
-  if (btn.dataset.s !== want) { btn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; btn.dataset.s = want; btn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
-  slideDOM();
-}
+//#use ICON_PLAY ICON_PAUSE lastTick updateTimeline

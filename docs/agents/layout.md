@@ -176,6 +176,10 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
   Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
   `audio/narration-pass-de.mp3`.
+- `tools/engine/` - the engine parts the fourteen built stories share (`e1_head.js` ... `e7_app.js`: each part a
+  declaration, named in a story's engine file by a `//#use` line), `parts.mjs` (the builds' `expand`; run alone it
+  lists who uses what) and `all.mjs` (rebuilds, or `--check`s, every story that uses them); see
+  `docs/agents/stories.md`, "Shared engine parts".
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its

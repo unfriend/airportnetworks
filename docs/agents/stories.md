@@ -2,6 +2,27 @@
 
 Read on demand; the rules every agent needs are in AGENTS.md.
 
+## Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026)
+
+The fourteen built stories each have their own engine files (`tools/<key>/engine/e1_head.js` ... `e7_app.js`), copied
+from one story to the next and drifted by generation (lbi, nmd, endo, flock older; micro, ovary, qubits, mutation, topo,
+soil newest). What was the same, byte for byte, in two or more stories now lives once in `tools/engine/<the same file
+name>.js` (340 parts: a declaration with the comment block above it; a name with more than one shared version has the
+others as `name~2`, `name~3` ...). A story's engine file keeps its own code and, where it used a part, a line
+`//#use name name ...`; its `build.mjs` expands those lines (`expand` in `tools/engine/parts.mjs`) in place, so the built
+file is exactly what it was (every build's `--check` passed unchanged when the parts were taken out).
+
+- To change shared engine code, edit the part in `tools/engine/` and rebuild every story that uses it:
+  `node tools/engine/all.mjs` (`--check` says whether all fourteen are current). `node tools/engine/parts.mjs` lists
+  which stories use each part. A story that needs its own version of a part replaces its name on the `//#use` line by
+  the code itself, in its own engine file.
+- Story-specific code (`CH`, `NARRATION_SYNC`, `NARRATION_ENDS`, `buildStory`, the panes, the collab state) stays in the
+  story's own files: `tools/voice/narrate.mjs` and `tools/pace.mjs` write the narration tables there as before.
+- The relay's `--build` sees `'../engine/` in each `build.mjs` and rebuilds every story when a part changes.
+  `tools/engine/` has no `build.mjs` on purpose (the relay would take it for a story's).
+- The studio (`tools/studio/engine/`) and the hand-written stories (airports, proteins, spatial) do not use the parts
+  yet.
+
 ## The tour (`stories/lbi.js`) is built from sets
 
 `stories/lbi.js` is generated: edit the sources in `tools/lbi/` and run

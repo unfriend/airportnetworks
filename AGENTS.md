@@ -217,7 +217,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Rebuild the dependants after a shared source changes: `tools/lbi/sets/body.js` (pet, micro, ovary, topo),
   `tools/lbi/sets/tissue.js` (micro), `tools/micro/sets/organs.js` (pet, micro, topo), `tools/nmd/sets/motor.js`
   (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/lbi/kit.js` (every built story and the
-  studio), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
+  studio), `tools/engine/*.js` (the shared engine parts: every built story but the studio, `node tools/engine/all.mjs`), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
   (design).
 - Never edit `tools/studio/vendor/` (three.js r128's own add-ons and meshoptimizer, pasted unchanged).
 - Generated data files (`tools/*/sets/data.js`) are never edited by hand; the authors' source files never go into the
