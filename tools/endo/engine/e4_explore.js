@@ -25,7 +25,7 @@ const CAM_ALIAS = { tree: { dist: 'mds', endo: 'meta' } };
 const camFor = (k, v) => { const c = GL.sets[k].cam || {}, a = (CAM_ALIAS[k] || {})[v] || v; return c[a] ? a : null; };
 //#use viewCam
 const STORY_IDX = () => geneIdx(STORY_GENE);
-//#use NEXT~2 afterUpdate~2
+//#use NEXT afterUpdate~2
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
   const s = GL.sets[X.scene], tg = Object.assign({}, s.params);
@@ -159,13 +159,7 @@ function setGap(on) {
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the
 // picked endotype and gene, the method's step and its k. Turning and standing in the gap are each person's own view.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
+//#use collabView
 //#use collabSetView
 function collabState() {
   const ctl = {};
@@ -415,4 +409,4 @@ function choosePick(p) {
   if (p.gene >= 0) { $('#q').value = ED.genes[p.gene].sym; if (X.tab !== 'method') showTab('genes'); selectGene(p.gene, false); if (X.tab === 'method' && X.step === 2) renderMethod(); }
   else { if (X.tab !== 'method') showTab('endo'); selectEndo(p.endo === X.endo ? -1 : p.endo, false); }
 }
-//#use bindCanvas~2
+//#use bindCanvas

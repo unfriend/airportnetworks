@@ -98,14 +98,7 @@ function exploreTargets(now = performance.now()) {
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
-function exploreStep(dt, now) {
-  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : LOG.has(n) ? logMix(XS[n], tg[n], k) : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or a set asks for stillness
-  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
-  return XS;
-}
-//#use pushState~2 openScene
+//#use exploreStep pushState openScene
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
@@ -202,14 +195,7 @@ function pickShow(v) {
 // block's switches, the field's view, date, measure, wheat and regime, the microbes' view, colour and split), the
 // module picked, the threshold, the shuffle, the kind picked and the group of plots picked. The camera is each
 // person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -426,9 +412,7 @@ function renderNetwork() {
     <div data-live="network">${statsHtml(netInfo().rows)}</div>
     <p class="note">${esc(NOTE.network)}</p>`;
 }
-//#use renderScenes
-// labels the panes add (none: the sets label their own picks)
-function updateExtraLabels() {}
+//#use renderScenes updateExtraLabels
 
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { kind } (a kind of the cloud or
@@ -477,4 +461,4 @@ function choosePick(p) {
     selectPlot(g === X.plot ? -1 : g, false);
   }
 }
-//#use bindCanvas~2
+//#use bindCanvas

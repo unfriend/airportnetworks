@@ -20,7 +20,7 @@ function exploreStep(dt) {
   return XS;
 }
 function openScene() { /* one scene: the table */ }
-//#use flyTo~2
+//#use flyTo
 function orbitStep(now) {
   if (!orbit.to) return;
   const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;

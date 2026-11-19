@@ -7,9 +7,7 @@ const sceneName = k => T('sc.' + k);
 const sceneDesc = k => (k === 'globe' ? T('sc.globe.d', num(FACTS.airports), num(FACTS.routes)) : T('sc.' + k + '.d'));
 const TABS = [['fish', 'tab.fish'], ['outbreak', 'tab.out'], ['cell', 'tab.cell'], ['scenes', 'tab.scenes']];
 const TAB_SCENE = { fish: 'fish', outbreak: 'globe', cell: 'cell' };
-//#use ctlsOf
-// a control the panes offer now (a set may say when one applies); the shared state keeps every control all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
+//#use ctlsOf ctlShown~2
 // what explore shows: the tab, the scene and its controls; the school's size; the outbreak's start and settings (and,
 // per device, its day and whether it plays, and what a click on the globe does); the city looked up; the protein picked
 const X = { tab: 'fish', scene: 'fish', ctl: {}, t0: 0, turn: 'on', shark: false, n: 300, city: '', prot: '',
@@ -72,7 +70,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-function pushState() { updateExtraLabels(); }
+//#use pushState
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
@@ -95,9 +93,7 @@ function setCtl(k, key, v, ui = true) {
   if (k === 'globe' && key === 'out' && ui) { if (v === 'on') { X.out.day = 0; X.out.playing = true; } else X.out.playing = false; }
   renderAll();
 }
-//#use showView
-function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
-//#use flyTo orbitStep flyNear
+//#use showView sceneCtl flyTo orbitStep flyNear
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene that shows it.
@@ -410,15 +406,7 @@ function buildViewCtl() {
   const vc = $('#viewctl');
   vc.innerHTML = `<div class="grp"><span>${esc(T('turn'))}</span><div class="seg" data-ctl="turn" role="group" aria-label="${esc(T('turn'))}">${[['on', T('on')], ['off', T('off')]].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${esc(n)}</button>`).join('')}</div></div>`;
 }
-//#use setTurn
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -573,8 +561,7 @@ function renderScenes() {
     <h3>${esc(sceneName(X.scene))}</h3><p class="sub">${esc(sceneDesc(X.scene))}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks: the city looked up, the protein picked)
-function updateExtraLabels() {}
+//#use updateExtraLabels
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Vector3();

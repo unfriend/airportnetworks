@@ -798,8 +798,10 @@ function buildScene(canvas) {
   // (the table, built on its own as a step of the load: buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// PET scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
 function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
   const s = SETS[k](K);
   GL.sets[k] = s;
   GL.world.add(s.group);
@@ -832,12 +834,17 @@ function viewDir(v, out) {
   const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
   return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
 }
+// on a screen narrower than square (a phone held upright) a wide view stands further back: GL.nf is the view's own
+// factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
+GL.nf = 1;
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.position.y = Math.max(GL.camera.position.y, 0.15);   // never under the floor
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
+// a small screen held sideways keeps the framing this story had before the strip above the panel was fitted (resize)
+const STRIP_FIT = 0;
 function resize() {
   GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
   if (GL.renderer.xr.isPresenting) return;
@@ -845,18 +852,23 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
-  GL.wide = wide;
+  GL.wide = wide; GL.aspect = w / h;
   if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
   else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
+  // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  // (STRIP_FIT: the story's own share of that, 0.9; 0 in the stories framed before it, which keep their framing there)
+  const strip = Math.max(0.12, (0.56 * h - 122) / h);
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, STRIP_FIT / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
   // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
   if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
   camera.updateProjectionMatrix();
 }
-// the sun comes from over the viewer's left shoulder, the rim light from behind the table; point sizes follow the screen
+// the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
 const LV = new THREE.Vector3(), _v2 = new THREE.Vector2();
+// (and the rim light from behind the table)
 function updateLight(xr) {
   const q = xr ? XR.headQ : GL.camera.quaternion;
   LV.set(-0.5, 0.6, 1.0).normalize().applyQuaternion(q);
@@ -872,7 +884,8 @@ function updateLight(xr) {
 // up to it) for a new wearer or a Replay, and it opens straight into explore mode. The engine's clock, chapters and
 // slideshow stay as every story has them, so the shell and the shared rooms treat it like the others.
 const NARRATION_SYNC = [[0, 0], [6, 6]];
-// recording time -> story time (no recording: the same)
+// (no recording: recording time and story time are the same)
+// recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
   if (t <= 0) return 0;
@@ -881,7 +894,7 @@ function storyT(t) {
   }
   return W[W.length - 1][1] + (t - W[W.length - 1][0]);
 }
-// story time -> recording time
+// original story time -> recording time
 function narrT(o) {
   const W = NARRATION_SYNC;
   for (let i = 1; i < W.length; i++) {
@@ -894,23 +907,32 @@ const CH = [{ key: 'table', name: 'The props table', a: 0, b: 6 }];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); });
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 
-// every param of every set, at rest
+// every param of every set, at rest; the sets themselves start hidden
 const DEF = {};
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+// no view moved or set back for the side panel (view, FIT)
+const FIT = {};
+// (DEF_MORE: params of the engine's own beside the sets'; LOG: params tweened on a log scale, the story's and the sets')
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  Object.assign(DEF, DEF_MORE);
+  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+// a param at story time t, eased between its keys; LIN's run at an even pace, LOG's on a log scale (the story's logMix)
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
   if (t <= ks[0][0]) return ks[0][1];
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
+      if (t1 <= t0) return v1;
+      return LOG.has(n) ? logMix(v0, v1, smooth(x)) : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
     }
   }
   return ks[ks.length - 1][1];
@@ -922,9 +944,14 @@ function storyState(t) {
 }
 const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
 
-const ST = { labels: [], items: [] };
+const ST = { labels: [], items: [], stand: [] };   // (stand: the headset's stand views, see standView)
 // a set's camera view by name (falls back to its default view)
-const view = (k, name) => { const c = GL.sets[k].cam; return (c[name] || c.default).slice(); };
+// (with the story's own framing on top: FIT)
+const view = (k, name) => {
+  const c = GL.sets[k].cam, v = (c[name] || c.default).slice(), f = c[name] && FIT[k] && FIT[k][name];
+  if (f) for (let i = 0; i < f.length; i++) v[i] += f[i];
+  return v;
+};
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
   const s = GL.sets[k];
@@ -984,8 +1011,8 @@ function storyCam(t) {
 }
 
 // ---------------------------------------------------------------- labels --
-// Two labels of the engine's own: the name of the miniature you point at, over it, and the name of the prop on the
-// stage, over the stage. Their text follows (labelSet); on a screen they are HTML, in a headset sprites or signs.
+// Story labels are pinned to a set's anchor for a stretch of story time; each
+// set also brings its own labels, shown whenever its params call for them.
 const LBL = { story: ST.labels, sets: [], extra: [] };
 function labelEl(html, cls) {
   const el = document.createElement('div');
@@ -995,6 +1022,9 @@ function labelEl(html, cls) {
   $('#labels').appendChild(el);
   return el;
 }
+// (the design room's two labels are the engine's own: the name of the miniature you point at, over it, and the name of
+// the prop on the stage, over the stage. Their text follows (labelSet); on a screen they are HTML, in a headset sprites
+// or signs.)
 function buildSetLabels() {
   for (const at of ['hover', 'stage']) LBL.extra.push({ kind: 'extra', el: labelEl('', at === 'hover' ? 'cyn' : ''), set: 'table', at, txt: null, o: -1, show: 0 });
 }
@@ -1007,16 +1037,19 @@ function labelSet(L, txt) {
   L.w = 0;
   dropSprite(L);
 }
+// a set label shows as far as its set is in and its own rule allows
+// (labels a set marks as minor give way on narrow screens)
 const setLabelAlpha = (L, S) => {
   const a = S[L.set + '_a'] || 0;
   if (a < 0.5 || (L.minor && !GL.wide && !XR.on)) return 0;
   return (2 * a - 1) * clamp(L.alpha ? L.alpha(S) : 1, 0, 1);
 };
-// where a label points, in the world's own coordinates
+// where a label points, in the world's own coordinates (a life-size set through its holder, GL.life: the pass story's fish)
 const _v = new THREE.Vector3();
 function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
+  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
+  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
+  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
@@ -1036,6 +1069,7 @@ function placeLabels(list, alphaOf) {
       const sx = (_v.x * 0.5 + 0.5) * W;
       x = sx + 9; y = (-_v.y * 0.5 + 0.5) * H - 11;
       if (pr.width && y + L.h > pr.top && y < pr.bottom && x < pr.right + 6) {
+        // a point just beside the panel keeps its label next to the panel; one behind it shows none
         if (GL.wide && sx > pr.right - 40) x = pr.right + 6; else o = 0;
       }
       if (y + L.h > barTop - 4 || y < 50) o = 0;
@@ -1075,10 +1109,16 @@ function updateStoryDOM(t) {
 }
 
 // ------------------------------------------------------------- timeline UI --
+function trackHTML() {
+  const tr = $('#track');
+  tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
+    `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
+  tr.setAttribute('aria-valuemax', Math.round(T_END));
+}
+// (the track's ticks and names: trackHTML, the story's own where it makes them again)
 function buildTimeline() {
   const tr = $('#track');
-  tr.innerHTML = '<div class="rail"></div><div class="done"></div><div class="knob"></div>';
-  tr.setAttribute('aria-valuemax', Math.round(T_END));
+  trackHTML();
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -1107,6 +1147,8 @@ function updateTimeline(t, playing) {
     $('#track').setAttribute('aria-valuenow', Math.round(t));
     const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
     $('#clock').textContent = m(t) + ' / ' + m(T_END);
+    const c = CH.find(c => t >= c.na && t < c.nb) || CH[CH.length - 1];
+    document.querySelectorAll('#track .name').forEach(n => n.classList.toggle('cur', n.dataset.k === c.key));
     lastTick = p;
   }
   const want = playing ? 'pause' : 'play';
@@ -1114,6 +1156,7 @@ function updateTimeline(t, playing) {
   if (btn.dataset.s !== want) { btn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; btn.dataset.s = want; btn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
   slideDOM();
 }
+
 
 // ================================================================ EXPLORE ==
 // Explore mode is the room itself: the table with every miniature, a click (or the trigger, or a pinch) puts one on
@@ -1136,12 +1179,16 @@ function exploreStep(dt) {
   return XS;
 }
 function openScene() { /* one scene: the table */ }
-function flyTo(v) {
+// fly the explore camera to view v (over dur seconds, orbit.dur unless given); any flight but the PET story's hand-over
+// (hand) takes the camera from that hand-over (X.hand)
+function flyTo(v, dur, hand) {
+  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
+  orbit.d = dur || 0;
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = v.slice();
   orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
+  orbit.t0 = performance.now(); orbit.fast = false;
 }
 function orbitStep(now) {
   if (!orbit.to) return;

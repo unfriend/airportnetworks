@@ -17,7 +17,7 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-//#use buildSet sceneJoin updateSets _vd viewDir~2
+//#use FRAME frameOf buildSet sceneJoin updateSets _vd viewDir
 // The screen camera, in the set's frame (on a screen the world is not moved or turned). g (0..1) pulls the target
 // onto the gang, followed smoothly (the low view keeps the robots in the picture); low down the camera stays inside
 // the room (the walls nearest you drop only to skirting height, which would hide the floor from there) and always

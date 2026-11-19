@@ -59,7 +59,9 @@ function updateSets(S, t, dt, story) {
   }
 }
 
-//#use _vd viewDir narrowK applyCamera _yA keepCamera resize LV updateLight
+// on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
+const STRIP_FIT = 0.9;
+//#use _vd viewDir narrowK lowK applyCamera _yA keepCamera resize LV updateLight
 // the lens: 32 degrees for the globe and the cell (their stories' own), 58 among the fish (the flock's), blended by
 // the lens track (1 among the fish)
 function setLens(w) {

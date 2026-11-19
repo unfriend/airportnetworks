@@ -113,4 +113,6 @@ function updateSets(S, t, dt, story) {
   if (da > 0.003) GL.dots.update(S, t);
 }
 
-//#use _vd viewDir narrowK applyCamera _yA keepCamera resize LV updateLight
+// on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
+const STRIP_FIT = 0.9;
+//#use _vd viewDir narrowK lowK applyCamera _yA keepCamera resize LV updateLight

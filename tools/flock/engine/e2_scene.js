@@ -27,14 +27,16 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-//#use buildSet sceneJoin updateSets _vd viewDir~2
+//#use FRAME frameOf buildSet sceneJoin updateSets _vd viewDir
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.position.y = Math.max(GL.camera.position.y, 0.4);   // never under the ground
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
-//#use resize~2 LV updateLight
+// a small screen held sideways keeps the framing this story had before the strip above the panel was fitted (resize)
+const STRIP_FIT = 0;
+//#use resize LV updateLight
 // ----------------------------------------------------------- the flock --
 // The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view as you
 // would turn your head: it lets the flock wander a little first, and eases into and out of each turn, at up to

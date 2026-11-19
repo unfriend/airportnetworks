@@ -56,7 +56,7 @@ function exploreTargets(now = performance.now()) {
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
-//#use exploreStep pushState~2 openScene setCtl
+//#use exploreStep pushState openScene setCtl
 // (sound effects: a control changed: another network grows, a cut snaps, the bits step, the example's point chimes)
 function ctlSound(k, key, v) {
   const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'net' ? ['grow', k, 'genes', { dur: 1.5 }]
@@ -102,21 +102,13 @@ function setGal(g, ui = true) {
   if (ui) { if (g === 'kinds') X.sum = 0; if (X.scene !== 'cube' || !(viewIs('cube', 'bricks') || viewIs('cube', 'toolbox'))) showView('cube', 'bricks'); }
   renderAll();
 }
-// a control of the cube or the chart picked from a tab: its scene brought up
-function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
+//#use sceneCtl
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (the cube's
 // network, cut, bits and algebra among them), the brick shown, how many strings are added up and the gallery. The
 // camera is each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -260,8 +252,7 @@ function renderScenes() {
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
     ${X.scene === 'cube' && X.brick ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(sub(X.brick))} (Bricks tab).</p>` : ''}`;
 }
-// labels the panes add (none: the sets label their own picks, the cube its focused string)
-function updateExtraLabels() {}
+//#use updateExtraLabels
 
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { brick } (a string of the

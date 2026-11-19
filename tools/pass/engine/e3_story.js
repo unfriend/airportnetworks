@@ -34,31 +34,14 @@ const CH = [
   { key: 'med', a: 270, b: 305 },
 ];
 CH.forEach(c => { Object.defineProperty(c, 'name', { get: () => T('ch.' + c.key), enumerable: true }); c.na = narrT(c.a); c.nb = narrT(c.b); });
-//#use C
-// every param of every set, at rest; the sets themselves start hidden. lens: the camera's lens (1 among the fish, a
-// wide one; 0 for the globe and the cell, the long one of their stories)
-const DEF = {};
-function buildDefaults() {
-  for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
-  for (const k of SET_ORDER) DEF[k + '_a'] = 0;
-  DEF.lens = 0;
-}
-//#use TR key ramp
-// tracks that run at an even pace (the outbreak's days; a protein travelling its way): no easing in and out
-const LIN = new Set(['globe_day', 'cell_cue', 'cell_nfkb', 'cell_cf']);
-function evalTrack(n, t) {
-  const ks = TR[n];
-  if (!ks) return DEF[n];
-  if (t <= ks[0][0]) return ks[0][1];
-  for (let i = 1; i < ks.length; i++) {
-    if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
-    }
-  }
-  return ks[ks.length - 1][1];
-}
-//#use storyState fadeVal ST view fitShift
+//#use C DEF
+// the engine's own params beside the sets' (DEF): lens, the camera's lens (1 among the fish, a wide one; 0 for the
+// globe and the cell, the long one of their stories)
+const DEF_MORE = { lens: 0 };
+// tracks that run at an even pace (the outbreak's days; a protein travelling its way): no easing in and out; none on a
+// log scale
+const LIN = new Set(['globe_day', 'cell_cue', 'cell_nfkb', 'cell_cf']), LOG = new Set();
+//#use buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel on a landscape screen: a little further back (added to the set's own
 // view, in story and explore mode alike; the fish are all round you and need none)
 const FIT = { globe: { default: [0, 0, 0.3], start: [0, 0, 0.2], europe: [0, 0, 0.2], atlantic: [0, 0, 0.3], asia: [0, 0, 0.3] },
@@ -79,7 +62,7 @@ function facts() {
   return { airports: g.n(), routes: g.routes(), start: g.find(STORY_OUT.start), week: reachedBy(7), d10: reachedBy(10), d20: reachedBy(20), d30: reachedBy(30),
     proteins: c.proteins, places: c.places };
 }
-//#use inkCol~2 swCol
+//#use inkCol swCol
 const AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab', CYAN = '#46d9ff', TEAL = '#38e6c7';
 
 // the panel's words, in the language on show (made again when it changes: setLang)
@@ -266,47 +249,16 @@ function buildStory() {
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 }
-//#use buildCamera
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
-//#use smoothSeg spinEase storyCam
-// ---------------------------------------------------------------- labels --
-// Story labels are pinned to a set's anchor for a stretch of story time; each
-// set also brings its own labels, shown whenever its params call for them.
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw smoothSeg spinEase storyCam
+//#use LBL labelEl
 // (a story label's text is a function, read again when the language changes: relabel)
-const LBL = { story: ST.labels, sets: [], extra: [] };
-//#use labelEl
 function label(set, at, fn, tIn, tOut, cls) {
   if (typeof at === 'string' && (GL.sets[set].labels || []).some(L => L.at === at)) return; // the set labels this point itself
   ST.labels.push({ kind: 'story', el: labelEl(fn(), cls), fn: null, html: fn, set, at, tIn, tOut, o: -1 });
 }
-//#use sfxSpan
-function buildSetLabels() {
-  for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows and its language, see labelText)
-    const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
-    LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r, cls: L.cls });
-  }
-}
-// a label whose text is a function (the day, the start city, the selected protein ...) is read again while it
-// shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
-function labelText(L) {
-  if (!L.fn) return;
-  const now = performance.now();
-  if (L.tx && now - (L.tt || 0) < 100) return;   // (read at most ten times a second)
-  L.tt = now;
-  const [b, r] = L.fn(), s = b + '|' + r;
-  if (s === L.tx) return;
-  L.tx = s; L.none = !b && !r;
-  L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
-  L.w = 0; L.nar = undefined; labelRedraw(L);
-}
+//#use sfxSpan buildSetLabels labelText
 // the story's own labels in the language on show (the sets' follow by themselves: labelText)
 function relabel() {
   for (const L of ST.labels) { L.el.innerHTML = L.html(); L.w = 0; L.nar = undefined; dropSprite(L); }
@@ -321,44 +273,7 @@ const setLabelAlpha = (L, S) => {
   if (v > 0) labelText(L);
   return L.none ? 0 : v;
 };
-// where a label points, in the world's own coordinates (the fish through their holder, GL.life)
-const _v = new THREE.Vector3();
-function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
-  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
-  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
-}
-//#use _placed placeLabels curCh
-function updateStoryDOM(t) {
-  const c = CH.find(c => t >= c.a && t < c.b) || CH[CH.length - 1];
-  if (c !== curCh) {
-    ST.items.forEach(it => it.sec.classList.toggle('on', it.ch === c));
-    curCh = c;
-    $('#panel').scrollTop = 0;
-  }
-  const it = ST.items.find(x => x.ch === c);
-  let fresh = null;
-  for (const e of it.els) {
-    const o = Math.round(fadeVal(t, e.at, e.out, 0.6) * 100) / 100;
-    if (o !== e.o) {
-      if (e.o <= 0 && o > 0 && !e.el.classList.contains('credits')) fresh = e.el;
-      e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden';
-    }
-  }
-  // on a short (phone) panel, scroll just far enough that a line that has just appeared is not below the fold
-  if (fresh) {
-    const p = $('#panel'), pr = p.getBoundingClientRect(), over = fresh.getBoundingClientRect().bottom - (pr.bottom - parseFloat(getComputedStyle(p).paddingBottom));
-    if (over > 0) {
-      // (a chapter's heading is shown whole or scrolled out of sight, never cut in half)
-      const h = it.sec.querySelector('h1, h2'), hr = h && h.getBoundingClientRect(), edge = pr.top + p.clientTop + over;
-      p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
-    }
-  }
-  if (c.key === 'fish') {
-    const arc = $('#titleArc');
-    if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
-  }
-}
+//#use _v labelPos _placed placeLabels curCh updateStoryDOM
 
 // ------------------------------------------------------------- timeline UI --
 // (the chapters' names in the language on show: made again when it changes)
@@ -369,24 +284,4 @@ function trackHTML() {
   tr.setAttribute('aria-valuemax', Math.round(T_END));
   lastTick = -1;
 }
-function buildTimeline() {
-  const tr = $('#track');
-  trackHTML();
-  const seekAt = ev => {
-    const r = tr.getBoundingClientRect();
-    APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
-  };
-  let drag = false;
-  tr.addEventListener('pointerdown', ev => { drag = true; tr.setPointerCapture(ev.pointerId); seekAt(ev); });
-  tr.addEventListener('pointermove', ev => { if (drag) seekAt(ev); });
-  tr.addEventListener('pointerup', () => { drag = false; });
-  tr.addEventListener('keydown', ev => {
-    if (ev.key === 'ArrowRight') { APP.seek(APP.t + 5); ev.preventDefault(); }
-    if (ev.key === 'ArrowLeft') { APP.seek(APP.t - 5); ev.preventDefault(); }
-  });
-  $('#play').addEventListener('click', () => APP.togglePlay());
-  // slideshow: Next and this story's switch, in the shell's row at the foot of the panel (an older shell has none)
-  if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
-  if ($('#btnNextBar')) $('#btnNextBar').addEventListener('click', slideNext);   // Next beside Play (phones)
-}
-//#use ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

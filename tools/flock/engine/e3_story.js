@@ -24,7 +24,11 @@ const CH = [
   { key: 'around', name: 'Around you', a: 62, b: 72 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view~2 anchorOf
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+// no view moved or set back for the side panel (view, FIT)
+const FIT = {};
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view anchorOf
 function buildStory() {
   const F = GL.sets.flock;
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
@@ -86,4 +90,4 @@ function buildStory() {
   buildCamera(wp);
 }
 //#use buildCamera~3 setYaw smoothSeg spinEase storyCam~2 LBL labelEl label buildSetLabels~2 setLabelAlpha _v labelPos
-//#use _placed placeLabels~2 curCh updateStoryDOM~2 buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use _placed placeLabels~2 curCh updateStoryDOM~2 trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

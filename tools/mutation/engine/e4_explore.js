@@ -107,7 +107,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-//#use pushState~2 openScene setCtl
+//#use pushState openScene setCtl
 // (sound effects: a control changed: another rule or tree grows, the machines start, a field or a letter is picked)
 function ctlSound(k, key, v) {
   const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'model' ? ['grow', k, 'pyramid', { dur: 1.5 }]
@@ -179,14 +179,7 @@ function sceneCtl(k, key, v) {
 // mix, the rule, its start and parent letters, the tree and how fast its letters change, the source and the method
 // among them), the branch length, the read-outs and their seed, the branch picked, the pair favour and the rebuild's
 // seed. The camera is each person's own, and so is how far the read-outs have played.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -396,8 +389,7 @@ function renderScenes() {
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
     ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks, the tree its branch, the stem its fields)
-function updateExtraLabels() {}
+//#use updateExtraLabels
 
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { branch } (of the family tree),

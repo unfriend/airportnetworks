@@ -41,7 +41,11 @@ const CH = [
   { key: 'next', name: 'What for', a: 285, b: 310 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view~2 anchorOf
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+// no view moved or set back for the side panel (view, FIT)
+const FIT = {};
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view anchorOf
 // ------------------------------------------------------------------- data --
 // The analysis data (ENDO_DATA), decoded once for the story and the panels (each set decodes its own copy for
 // drawing). Module genes are the first ED.M nodes, in tree order, so each endotype is a run of indices.
@@ -354,4 +358,4 @@ function buildStory() {
   label('syn', () => anchorOf('syn', 'scaffold'), '<b>Fatigable weakness</b>each twitch weaker', C.tired.a + 18, C.tired.b - 0.5, 'amb');
 }
 //#use buildCamera~3 setYaw smoothSeg spinEase storyCam~2 LBL labelEl label buildSetLabels~2 setLabelAlpha _v labelPos
-//#use _placed placeLabels~2 curCh updateStoryDOM~2 buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use _placed placeLabels~2 curCh updateStoryDOM~2 trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

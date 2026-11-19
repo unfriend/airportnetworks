@@ -57,7 +57,7 @@ const dustNow = () => { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; };
 function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera, the walk their own)
 const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
-//#use collabView collabSetView~2
+//#use collabView~2 collabSetView~2
 function collabState() {
   return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
 }
@@ -86,7 +86,7 @@ function crumbsIn(d) {
   else if (room && XRR.kind === 'real' && spot) F.group.worldToLocal(p.copy(HOST.room.toLocal(p.applyAxisAngle(_kY, L.yaw).add(spot))));
   return F.crumbs(p.x, p.z);
 }
-//#use flyTo~2 orbitStep~3
+//#use flyTo orbitStep
 // the live line under the buttons, as text for the page and the headset panel
 const liveLine = () => `Cleaned: ${Math.round(GL.sets.robots.coverage() * 100)} % of the floor · ${GL.sets.robots.robots()} robots`;
 let liveShown = '';

@@ -41,6 +41,8 @@ const CH = [
   { key: 'circuit', name: 'Circuit', a: 262, b: 290 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
 //#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
@@ -114,8 +116,7 @@ const gatesText = G => {
     zz.length ? `RZZ on ${listOf(zz.map(g => `(${q(g).join(', ')}) at ${f3s(g.theta)}`))}` : '',
     z.length ? `RZ on ${listOf(z.map(g => `${q(g)[0]} at ${f3s(g.theta)}`))}` : ''].filter(Boolean).join(', ');
 };
-//#use inkCol~3
-const swCol = c => c;   // a swatch or a bar in the same color
+//#use inkCol swCol
 const PURPLE = '#9a90ff', RED = '#ff5a4b', BLUE = '#4d94ff', GRAY = '#8e98ab';
 
 function buildStory() {
@@ -352,19 +353,8 @@ function buildStory() {
   a = C.coarse.a;
   label('cube', [0.12, 0.8, 0], '<b>A_c</b> · the traffic between cells', a + 6, C.coarse.b - 0.5, 'cyn');
 }
-//#use buildCamera setYaw~2 smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels
-// a label whose text is a function (the gallery's weights, the grid's count, the gate angles) is read again while it
-// shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
-function labelText(L) {
-  if (!L.fn) return;
-  const now = performance.now();
-  if (L.tx && now - (L.tt || 0) < 100) return;   // (read at most ten times a second)
-  L.tt = now;
-  const [b, r] = L.fn(), s = b + '|' + r;
-  if (s === L.tx) return;
-  L.tx = s; L.none = !b && !r;
-  L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
-  L.w = 0; L.nar = undefined; labelRedraw(L);
-}
-//#use setLabelAlpha~2 _v labelPos _placed placeLabels curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels labelText
+//#use setLabelAlpha~2 _v labelPos _placed placeLabels curCh updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE
 //#use lastTick updateTimeline

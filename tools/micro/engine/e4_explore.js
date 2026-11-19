@@ -45,7 +45,7 @@ const STEPS = [
   ['Neighbours', /neigh/i, () => 'Each tile mixes in the features of the tiles around it (message passing), so it knows its surroundings.'],
   ['Domains', /group/i, () => 'Tiles with similar mixed features are grouped, across all slides: in a map of their features, alike tiles gather. A pathologist then names each group: a domain.'],
 ];
-//#use NEXT~2 afterUpdate
+//#use NEXT afterUpdate
 // the organ picked (X.organ: an organ's name, or one of its GTEx tissues'), and the worked examples' organs
 const organOf = v => (v ? MD.organ(v) || tissueOrgan(v) : null);
 const exOrgan = i => { const x = FACTS.ex[i]; return x && atlasIdx(x.tissue) ? (api('atlas').tissues || [])[atlasIdx(x.tissue) - 1] : null; };
@@ -159,13 +159,7 @@ function showExample(i, to70 = true) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the organ (or
 // tissue), the domain, the age and the method's step. The tissue type listed in the Domains panes, the search and the
 // camera are each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
+//#use collabView
 //#use collabSetView
 function collabState() {
   const ctl = {};
