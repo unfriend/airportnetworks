@@ -10,7 +10,7 @@ const narrationFile = () => AUDIO[LANG] || AUDIO.en;
 // file at a time, so it is fetched again (the service worker's copy) and decoded; meanwhile the <audio> element plays
 // it, or the story runs on its own clock until it can (a missing file: silent, as before)
 function audioLang() {
-  const url = narrationFile();
+  const url = arrVoice();   // (an arrangement's recording stays: it has one language)
   if (!AUD || AUD.url === url) return;
   AUD = HOST.audio.narration(url, AUD_HOOKS);
   AUD.seeked(); audioSync();
@@ -94,7 +94,12 @@ function setLang(l, keep = true) {
   LANG = l;
   if (keep) { try { localStorage.setItem('passLang', l); } catch (e) { /* private mode */ } }
   for (const k of SET_ORDER) if (GL.sets[k].setLang) GL.sets[k].setLang(l);
+  // (an arrangement is laid again over the other language's panel and labels: they are made again from the chapters'
+  // own times, and its words for the language it was not made in are dropped, as their was no longer matches)
+  const A = ARR.A, o = A && ARR.o;
+  if (o) CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
   buildStoryDOM(); relabel(); trackHTML();
+  if (o) { arrSnapItems(o); o.labels.forEach((L, i) => { L.T = Object.assign(arrText(ST.labels[i].el), { L: ST.labels[i] }); }); ARR.tx = []; arrApply(A); }
   for (const L of LBL.sets) { L.tx = ''; labelText(L); }
   if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
   exploreHTML();
@@ -116,6 +121,7 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
+    arrSkip();   // (an arrangement's skipped chapters: playing jumps over them)
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
   sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
@@ -161,6 +167,7 @@ function frame(now, xrFrame) {
   GL.sets.fish.hold(sharking());   // (be the shark: a shark let go stays while it is on)
   tellFish(xr, fishSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
+  arrPlace();   // (an arrangement's places, on top of what the story does with its sets)
   fishSend();   // (shared rooms: after the school's step, so what goes out is where it is drawn now)
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
@@ -235,6 +242,8 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+//#use ARR
+
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -252,6 +261,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

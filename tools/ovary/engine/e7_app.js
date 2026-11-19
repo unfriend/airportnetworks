@@ -96,6 +96,7 @@ function init() {
       buildDefaults(); Object.assign(XS, DEF);
       for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
       buildStory(); buildSetLabels(); buildTimeline();
+      arrLoad();   // (the story's arrangement, where it has one: tools/engine/SPEC.md)
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
     ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
@@ -153,6 +154,8 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+//#use ARR
+
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -168,6 +171,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

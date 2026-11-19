@@ -68,6 +68,7 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
+    arrSkip();   // (an arrangement's skipped chapters: playing jumps over them)
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
   sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
@@ -91,6 +92,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
+  arrPlace();   // (an arrangement's places, on top of what the story does with its sets)
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
   if (!xr) {
@@ -146,6 +148,8 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+//#use ARR
+
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -161,6 +165,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

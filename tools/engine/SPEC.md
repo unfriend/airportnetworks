@@ -99,6 +99,36 @@ ignored; a bad value is dropped.
 
 Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` and `panelsame.mjs` show no difference.
 
+### As built (the story's side, `ARR` in `tools/engine/e7_app.js`)
+
+- `arrange.apply(A, name)`: `name` is the copy's (for its recording); at the load the story asks
+  `HOST.arrange.current(key)` (`{ name, A }` or null) once it is written, and an `apply` before then waits for it.
+  `model()` is null until then. `get()` is the object last given to `apply`.
+- `dropped` lists `'<field>:<id>'` (`'keys:p:atlas_a#3'`, `'camera:4'`, `'cues:2'`, `'captions:atlas:2'`, `'labels:l0'`,
+  `'chapters:slide'`, `'place:hier'`), `'sync'`, `'narration'`, or `'key'` (an arrangement of another story: nothing is
+  applied). A caption's or label's `was` is compared with its numbers left out (they come from the data). A `was` of a
+  time matches within 1 ms.
+- The model's labels are `l0`, `l1` ... (the story's labels in order); a waypoint's `label` is the set it shows (and
+  *(turning)* for a spin). A caption's or label's text is its words as plain text, a space between two elements that
+  would run together (`<b>Nuclei</b>purple-blue`: `Nuclei purple-blue`). New words are written into the text nodes where
+  they differ from the old, so the bold and colours stay where they were; a paragraph's headset text (`data-xr`) gives
+  way to them. Numbers are `\d+([.,]\d+)*`.
+- Step 3, a departure: scaling the narration's story side alone would leave a narrated chapter as long as ever (the
+  recording is the clock). So each chapter's span of the timeline (`APP.t`, `na`/`nb`, `T_END`) is scaled by the same
+  factor as its story time, and the recording is played line by line: each stretch between two points of the narration's
+  timing (with a point added at every chapter's ends) starts on its cue at its own pace; in a longer chapter it is
+  followed by a quiet pause, in a shorter one it is cut. Without a change of length the timeline is the recording's own,
+  as before.
+- Step 4: playing into a skipped chapter seeks to 0.02 s after the next chapter's start (or the end), with no sound cue;
+  a skipped chapter has no slideshow stop; the page's timeline shows it hatched and its name struck through, the headset's
+  greyed. Scrubbing into it shows it.
+- Step 5: with `narration` the slideshow does not know where the copy's lines end (`NARRATION_ENDS`): its voice pauses
+  with the clock at a stop. A package without a recording of its own plays a copy's.
+- Step 6: the turn is about the set's own origin, in its parent's frame; a set the story turns only about up keeps a plain
+  turn (`rotation.y`). Whatever the story writes to the group each frame is taken as the base.
+- The pass story: switching the language lays the arrangement again over the other language's panel; captions and labels
+  rewritten in the other language are dropped (their `was` no longer matches).
+
 ## The shell's side
 
 - `HOST.arrange`: `read(name)`, `save(name, A)`, `copy(key)` (a new copy: the next free `<key>-copy[-n]`, its layout

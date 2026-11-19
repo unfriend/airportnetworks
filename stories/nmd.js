@@ -6139,6 +6139,7 @@ function drawFoot(ctx, P) {
     rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
     ctx.fillStyle = 'rgba(160,178,202,0.6)';
     for (const c of CH.slice(1)) ctx.fillRect(x0 + (x1 - x0) * c.na / T_END - 1, ty - 8, 2, 22);
+    arrFoot(ctx, x0, x1, ty);   // (an arrangement's skipped chapters, greyed)
     ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * t / T_END, ty + 3, P.hover === 'track' ? 16 : 13, 0, 7); ctx.fillStyle = VC.cyan; ctx.fill();
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
@@ -6165,17 +6166,18 @@ let AUD = null;
 const AUD_HOOKS = {
   // a recording longer than the story stretches the timeline
   ready(d) {
+    ARR.d = d; d = arrTl(d);   // (on the timeline: an arrangement's chapters may be longer or shorter)
     if (d + 1 <= T_END) return;
     T_END = d + 1;
     document.querySelectorAll('#track .tick, #track .name').forEach(el => {
       const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
     });
-    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
+    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1; arrTrack();
   },
   error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
 };
 function audioInit() {
-  AUD = HOST.audio.narration(narrationFile(), AUD_HOOKS);
+  AUD = HOST.audio.narration(arrVoice(), AUD_HOOKS);   // (an arrangement's recording, or the story's own)
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
@@ -6184,9 +6186,10 @@ function audioInit() {
 }
 const narrationFile = () => 'audio/narration-nmd.mp3';
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
-function audioSync() { if (AUD) AUD.sync(...slideSound()); }
+// (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
+function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }
 // while it plays, the narration is the clock: the story follows it
-function audioFollow() { if (AUD && !SLIDE.tail) APP.t = AUD.follow(APP.t); }
+function audioFollow() { if (AUD && !SLIDE.tail) APP.t = ARR.R ? arrFollow(APP.t) : AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
 
@@ -6215,6 +6218,7 @@ function slideStep(t0) {
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
+      if (ARR.sk && ARR.sk.has(i)) continue;   // (a chapter an arrangement skips has no stop)
       const s = slideStop(i);
       if (APP.playing && i !== SLIDE.go && from < s && APP.t >= s) { slideTail(i, APP.t); APP.playing = false; APP.seek(s); }
       else if (!APP.playing && SLIDE.lp && APP.t >= s - 0.25 && APP.t < s) slideTail(i, APP.t);
@@ -6233,7 +6237,7 @@ function slideStep(t0) {
 // at the stop of chapter i the voice plays on from where the sound is (the story's clock, t, can lag it) to where the
 // chapter's words end; a sound already past them stops there, and keeps quiet until the story is back there
 function slideTail(i, t) {
-  const p = AUD && AUD.pos ? AUD.pos() : null, e = slideVoice(i);
+  const p = AUD && AUD.pos ? arrTl(AUD.pos()) : null, e = slideVoice(i);
   // (only a sound that is with the story: right after a jump it still says where it was before)
   const near = p !== null && Math.abs(p - t) < 1.5;
   if (near) t = p;
@@ -6395,6 +6399,7 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
+    arrSkip();   // (an arrangement's skipped chapters: playing jumps over them)
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
   sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
@@ -6417,6 +6422,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
+  arrPlace();   // (an arrangement's places, on top of what the story does with its sets)
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
@@ -6452,6 +6458,7 @@ function init() {
       buildDefaults(); Object.assign(XS, DEF);
       for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
       buildStory(); buildSetLabels(); buildTimeline();
+      arrLoad();   // (the story's arrangement, where it has one: tools/engine/SPEC.md)
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
     ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
@@ -6556,6 +6563,395 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+// ---------------------------------------------------------- arrangements --
+// An arrangement (tools/engine/SPEC.md): plain data laid over the story's own timeline, retimed and rearranged, never
+// code. arrModel() is the story's own timeline as data; arrApply(A) lays A over it by writing again, from a copy of the
+// story's own taken the first time (arrSnap), what buildStory built: TR's keys, the camera's waypoints and the sets'
+// turns (ST.wp, ST.yaw, ST.stand), the panel's points and their words (ST.items), the labels (ST.labels), the sound
+// cues (SFXQ), CH, NARRATION_SYNC, NARRATION_ENDS and T_END. The rest of the engine reads those as ever, and
+// arrApply(null) puts the story's own back exactly. Without an arrangement the frame's hooks (arrSkip, arrPlace) and the
+// narration's (arrSync, arrFollow, arrTl) do nothing. Three clocks: story time; the timeline's (APP.t: the recording's,
+// until an arrangement makes a chapter longer or shorter); and the recording's (ARR.R maps the timeline onto it).
+const ARR = { o: null, A: null, built: false, pend: undefined, name: '', M: null, R: null, sk: null, pl: null, tx: [], seg: -1, d: 0, url: '', want: '', vk: 0, tk: false };
+const ARR_NUM = /\d+(?:[.,]\d+)*/g;
+// a piecewise linear map through the points (xs, ys), at slope 1 beyond them
+function arrPw(xs, ys, x) {
+  const n = xs.length;
+  if (x <= xs[0]) return ys[0] + (x - xs[0]);
+  for (let i = 1; i < n; i++) if (x <= xs[i]) return xs[i] > xs[i - 1] ? ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]) : ys[i];
+  return ys[n - 1] + (x - xs[n - 1]);
+}
+// story time, the story's own -> arranged (the chapters' lengths), and back
+const arrM = s => (ARR.M ? arrPw(ARR.M[0], ARR.M[1], s) : s);
+const arrUnM = s => (ARR.M ? arrPw(ARR.M[1], ARR.M[0], s) : s);
+// narrT on a table W of [recording, story] pairs
+function arrNarrT(W, o) {
+  for (let i = 1; i < W.length; i++) if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); }
+  return W[W.length - 1][0] + (o - W[W.length - 1][1]);
+}
+// an element's words as plain text: its text nodes (on the panel, none inside another of its points), a space between
+// two in different elements that would otherwise run together ('<b>Nuclei</b>purple-blue': 'Nuclei purple-blue')
+function arrText(el, own) {
+  const nodes = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (n.data.trim() && (!own || n.parentElement.closest('[data-at]') === el)) nodes.push(n);
+  const parts = nodes.map(n => n.data), seps = nodes.map((n, i) => (i && n.parentNode !== nodes[i - 1].parentNode && !/\s$/.test(parts[i - 1]) && !/^\s/.test(parts[i]) ? ' ' : ''));
+  return { el, nodes, parts, seps, text: parts.map((p, i) => seps[i] + p).join(''), xr: el.dataset ? el.dataset.xr : undefined, L: null, added: null };
+}
+// new words for it (null: its own back): only what changed is written, into the text node where the change starts, so
+// the bold and the colours stay where they were
+function arrSetText(T, s) {
+  if (T.L) { T.L.w = 0; T.L.nar = undefined; if (typeof dropSprite === 'function') dropSprite(T.L); }   // (measured and drawn again)
+  if (s === null) {
+    T.nodes.forEach((n, i) => { n.data = T.parts[i]; });
+    if (T.added) T.added.data = '';
+    if (T.xr !== undefined) T.el.dataset.xr = T.xr;
+    return;
+  }
+  if (T.xr !== undefined) delete T.el.dataset.xr;   // (the headset shows the new words too, not its own version of the old)
+  if (!T.nodes.length) { if (!T.added) T.added = T.el.appendChild(document.createTextNode('')); T.added.data = s; return; }
+  const old = T.text;
+  let p = 0, q = 0;
+  while (p < old.length && p < s.length && old[p] === s[p]) p++;
+  while (q < old.length - p && q < s.length - p && old[old.length - 1 - q] === s[s.length - 1 - q]) q++;
+  const e = old.length - q, mid = s.slice(p, s.length - q);
+  let pos = 0, put = false;
+  T.nodes.forEach((n, i) => {
+    pos += T.seps[i].length;
+    const a = pos, part = T.parts[i], b = (pos += part.length);
+    let d = part.slice(0, clamp(p - a, 0, part.length));
+    if (!put && b >= p) { d += mid; put = true; }
+    n.data = d + part.slice(clamp(e - a, 0, part.length));
+  });
+}
+const arrNums = s => s.match(ARR_NUM) || [];
+// {1}, {2} ... in an arrangement's words: the story's own numbers, as it has them now
+const arrFill = (s, own) => { const nums = arrNums(own); return s.replace(/\{(\d+)\}/g, (m, k) => (nums[k - 1] !== undefined ? nums[k - 1] : m)); };
+// words compared with their numbers left out: the story's numbers come from its data and may change
+const arrShape = s => String(s).replace(ARR_NUM, '#').replace(/\s+/g, ' ').trim();
+function arrSnapItems(o) {
+  o.items = ST.items.map(it => it.els.map(e => ({ at: e.at, out: e.out, end: e.out === it.ch.b - 0.05, T: arrText(e.el, true) })));
+}
+// the story's own, as buildStory made it, taken once (before anything is moved)
+function arrSnap() {
+  if (ARR.o) return ARR.o;
+  const o = ARR.o = { sync: NARRATION_SYNC.map(p => p.slice()), ends: typeof NARRATION_ENDS === 'object' && NARRATION_ENDS ? Object.assign({}, NARRATION_ENDS) : null,
+    ch: CH.map(c => [c.a, c.b]), tr: {}, wp: ST.wp.map(w => w[0]), yaw: [], stand: (ST.stand || []).map(s => s.slice()),
+    labels: ST.labels.map(L => ({ t0: L.tIn, t1: L.tOut, T: Object.assign(arrText(L.el), { L }) })), cues: SFXQ.cues.map(c => c.t), spans: SFXQ.spans.map(s => [s.t0, s.t1]) };
+  for (const n in TR) o.tr[n] = TR[n].map(k => k[0]);
+  arrSnapItems(o);
+  // each set's turn (buildCamera) starts with a waypoint, and moves with it
+  let j = 0;
+  for (const y of ST.yaw || []) {
+    while (j < o.wp.length && o.wp[j] < y.t0) j++;
+    o.yaw.push([y.t0, j < o.wp.length && o.wp[j] === y.t0 ? j++ : -1]);
+  }
+  return o;
+}
+const arrShow = n => n.endsWith('_a') && !!GL.sets[n.slice(0, -2)];
+const arrSetOf = n => (arrShow(n) ? n.slice(0, -2) : SET_ORDER.find(k => n in (GL.sets[k].params || {})) || null);
+// the story's own timeline as data (tools/engine/SPEC.md, "The model"), or null before the story is built
+function arrModel() {
+  if (!ARR.built) return null;
+  const o = arrSnap(), yaw = ST.yaw || [];
+  const camLabel = i => { let k = ''; yaw.forEach((y, n) => { if (o.yaw[n][1] >= 0 && o.yaw[n][1] <= i) k = y.k; }); return k + (ST.wp[i].includes('spin') ? ' (turning)' : ''); };
+  return { v: 1, key: XR_HERE, len: o.ch[o.ch.length - 1][1],
+    chapters: CH.map((c, i) => ({ key: c.key, name: c.name, a: o.ch[i][0], b: o.ch[i][1] })),
+    sync: o.sync.map(p => p.slice()),
+    narration: typeof narrationFile === 'function' && !(typeof hasNarration === 'function' && !hasNarration()) ? narrationFile() : null,
+    tracks: Object.keys(o.tr).map(n => ({ id: 'p:' + n, name: n, set: arrSetOf(n), kind: arrShow(n) ? 'show' : typeof STEP !== 'undefined' && STEP.has(n) ? 'step' : 'param',
+      keys: o.tr[n].map((t, i) => ({ i, t, v: TR[n][i][1] })) })),
+    camera: o.wp.map((t, i) => ({ i, t, label: camLabel(i) })),
+    captions: ST.items.flatMap((it, ci) => it.els.map((e, i) => { const q = o.items[ci][i]; return { id: it.ch.key + ':' + i, ch: it.ch.key, i, at: q.at, text: q.T.text, tokens: arrNums(q.T.text) }; })),
+    labels: o.labels.map((L, i) => ({ id: 'l' + i, t0: L.t0, t1: L.t1, text: L.T.text })),
+    cues: o.cues.map((t, i) => ({ i, t, name: SFXQ.cues[i].name })),
+    sets: SET_ORDER.map(k => ({ key: k, name: (typeof SCENES !== 'undefined' && (SCENES.find(s => s[0] === k) || [])[1]) || k })) };
+}
+// a run of times (a track's keys, the waypoints: [t, ...] each) with some moved, in order, each clamped between its
+// neighbours
+function arrMove(list, mv) {
+  for (const i of Object.keys(mv).map(Number).sort((x, y) => x - y)) {
+    const lo = i > 0 ? list[i - 1][0] : -Infinity, hi = i < list.length - 1 ? list[i + 1][0] : Infinity;
+    list[i][0] = clamp(mv[i], lo, hi);
+  }
+}
+const arrSyncOk = W => Array.isArray(W) && W.length >= 2 && W.every((p, i) => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[0] >= 0 && p[1] >= 0
+  && (!i || (p[0] > W[i - 1][0] && p[1] > W[i - 1][1])));
+// lay arrangement A over the story (null: back to its own); returns { dropped: [ids] }: the edits not applied, as
+// '<field>:<id>' ('keys:p:atlas_a#3', 'captions:atlas:2', 'chapters:slide', 'place:hier', 'camera:4', 'cues:2', 'labels:l0'),
+// 'sync', 'narration', or 'key' (another story's arrangement: nothing applied). name: the copy's, for its recording
+// (HOST.arrange.url); at the load HOST.arrange.current gives it
+function arrApply(A, name) {
+  if (!ARR.built) { ARR.pend = A || null; if (name) ARR.name = name; return { dropped: [] }; }
+  if (name) ARR.name = name;
+  if (!A && !ARR.A) return { dropped: [] };
+  const o = arrSnap(), drop = [], s0 = arrUnM(storyT(APP.t)), t0 = APP.t;   // (where the story is, in its own time)
+  // 1. the story's own
+  CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
+  for (const n in o.tr) o.tr[n].forEach((t, i) => { TR[n][i][0] = t; });
+  ST.wp.forEach((w, i) => { w[0] = o.wp[i]; });
+  (ST.stand || []).forEach((s, i) => { for (let k = 0; k < 4; k++) s[k] = o.stand[i][k]; });
+  ST.items.forEach((it, ci) => it.els.forEach((e, i) => { const q = o.items[ci][i]; e.at = q.at; e.out = q.out; }));
+  ST.labels.forEach((L, i) => { L.tIn = o.labels[i].t0; L.tOut = o.labels[i].t1; });
+  SFXQ.cues.forEach((c, i) => { c.t = o.cues[i]; });
+  SFXQ.spans.forEach((s, i) => { s.t0 = o.spans[i][0]; s.t1 = o.spans[i][1]; });
+  for (const T of ARR.tx) arrSetText(T, null);
+  ARR.tx = []; ARR.M = ARR.R = ARR.sk = null; ARR.seg = -1;
+  let sync = o.sync, want = '', place = null;
+  if (A && (typeof A !== 'object' || (A.key && A.key !== XR_HERE))) { drop.push('key'); A = null; }
+  if (A) {
+    const num = v => typeof v === 'number' && Number.isFinite(v), same = (v, t) => num(v) && Math.abs(v - t) < 1e-3;
+    const ent = x => (x && typeof x === 'object' && !Array.isArray(x) ? Object.entries(x) : []), ok = e => !!e && typeof e === 'object';
+    // 2. keyframes, waypoints, cues, the panel's points and the labels moved or rewritten (story time); each names
+    // what it changed from (was): one that no longer matches the story's own is dropped
+    const mv = {};
+    for (const [id, e] of ent(A.keys)) {
+      const m = /^p:(.+)#(\d+)$/.exec(id), n = m && m[1], i = m ? +m[2] : -1;
+      if (!n || !o.tr[n] || i >= o.tr[n].length || !ok(e) || !num(e.t) || !same(e.was, o.tr[n][i])) { drop.push('keys:' + id); continue; }
+      (mv[n] = mv[n] || {})[i] = e.t;
+    }
+    for (const n in mv) arrMove(TR[n], mv[n]);
+    const mc = {};
+    for (const [i, e] of ent(A.camera)) {
+      if (!/^\d+$/.test(i) || +i >= o.wp.length || !ok(e) || !num(e.t) || !same(e.was, o.wp[+i])) { drop.push('camera:' + i); continue; }
+      mc[+i] = e.t;
+    }
+    arrMove(ST.wp, mc);
+    for (const [i, e] of ent(A.cues)) {
+      if (!/^\d+$/.test(i) || +i >= o.cues.length || !ok(e) || !num(e.t) || !same(e.was, o.cues[+i])) { drop.push('cues:' + i); continue; }
+      SFXQ.cues[+i].t = Math.max(0, e.t);
+    }
+    for (const [id, e] of ent(A.captions)) {
+      const m = /^(.+):(\d+)$/.exec(id), ci = m ? CH.findIndex(c => c.key === m[1]) : -1, q = ci >= 0 && o.items[ci] ? o.items[ci][+m[2]] : null;
+      let bad = !q || !ok(e) || (e.text === undefined && e.at === undefined);
+      if (!bad && e.text !== undefined) {
+        if (typeof e.text === 'string' && typeof e.was === 'string' && arrShape(e.was) === arrShape(q.T.text)) { arrSetText(q.T, arrFill(e.text, q.T.text)); ARR.tx.push(q.T); }
+        else bad = true;
+      }
+      if (!bad && e.at !== undefined) {
+        // (its time stays in its chapter, before its own end)
+        if (num(e.at) && same(e.wasAt, q.at)) ST.items[ci].els[+m[2]].at = clamp(e.at, o.ch[ci][0], Math.max(o.ch[ci][0], q.out - 0.1)); else bad = true;
+      }
+      if (bad) drop.push('captions:' + id);
+    }
+    for (const [id, e] of ent(A.labels)) {
+      const m = /^l(\d+)$/.exec(id), L = m && o.labels[+m[1]];
+      if (!L || !ok(e) || typeof e.text !== 'string' || typeof e.was !== 'string' || arrShape(e.was) !== arrShape(L.T.text)) { drop.push('labels:' + id); continue; }
+      arrSetText(L.T, arrFill(e.text, L.T.text)); ARR.tx.push(L.T);
+    }
+    // 3, 4. chapters stretched or squeezed to a new length (story time), or skipped
+    const lens = o.ch.map(([a, b]) => b - a), sk = new Set();
+    const tidy = o.ch.every(([a, b], i) => b > a && (!i || a >= o.ch[i - 1][1] - 1e-9));
+    let stretch = false;
+    for (const [k, e] of ent(A.chapters)) {
+      const i = CH.findIndex(c => c.key === k);
+      if (i < 0 || !ok(e)) { drop.push('chapters:' + k); continue; }
+      if (e.len !== undefined) {
+        if (num(e.len) && e.len >= 0.1 && e.len <= 36000 && tidy) { if (Math.abs(e.len - lens[i]) > 1e-6) { lens[i] = e.len; stretch = true; } } else drop.push('chapters:' + k);
+      }
+      if (e.skip === true) sk.add(i);
+    }
+    ARR.sk = sk.size ? sk : null;
+    // 5. the narration's timing replaced (story time, before the chapters' lengths), and its recording
+    if (A.sync !== undefined) { if (arrSyncOk(A.sync)) sync = A.sync.map(p => [p[0], p[1]]); else drop.push('sync'); }
+    if (A.narration !== undefined) {
+      if (typeof A.narration === 'string' && A.narration && !/\.\.|^\/|\\|:/.test(A.narration) && HOST.arrange && HOST.arrange.url && ARR.name) want = A.narration;
+      else drop.push('narration');
+    }
+    if (stretch) {
+      // every time inside a chapter scaled with it and everything after it moved on (M, story time); on the timeline
+      // each chapter's span of the recording scaled alike (Q), so it plays longer or shorter as the timeline shows
+      const map = (bnd, len) => {
+        const xs = [], ys = [];
+        bnd.forEach(([a, b], i) => {
+          if (!xs.length) { xs.push(a); ys.push(a); } else if (a > xs[xs.length - 1]) { ys.push(ys[ys.length - 1] + a - xs[xs.length - 1]); xs.push(a); }
+          ys.push(ys[ys.length - 1] + len(i, a, b)); xs.push(b);
+        });
+        return [xs, ys];
+      };
+      ARR.M = map(o.ch, i => lens[i]);
+      // (the narration's timing gets a point at each chapter's ends, so no line spans two chapters' scales)
+      const base = sync.slice();
+      for (const [a, b] of o.ch) for (const s of [a, b]) if (!base.some(p => Math.abs(p[1] - s) < 1e-9)) base.push([arrNarrT(sync, s), s]);
+      base.sort((p, r) => p[1] - r[1]);
+      const Q = map(o.ch.map(([a, b]) => [arrNarrT(base, a), arrNarrT(base, b)]), (i, a, b) => (b - a) * lens[i] / (o.ch[i][1] - o.ch[i][0]));
+      sync = base.map(([r, s]) => [arrPw(Q[0], Q[1], r), arrM(s)]);
+      ARR.R = { rho: sync.map(p => p[0]), rec: base.map(p => p[0]) };
+    }
+    // 6. places: each set moved, turned and scaled on top of what the story does with it (arrPlace, every frame)
+    for (const [k, p] of ent(A.place)) {
+      if (!GL.sets[k] || !Array.isArray(p) || p.length < 5 || !p.slice(0, 5).every(num) || p[4] <= 0) { drop.push('place:' + k); continue; }
+      (place = place || {})[k] = p.slice(0, 5);
+    }
+  }
+  // the times: the chapters' map over everything, then the narration's table and what follows it on the timeline
+  if (ARR.M) {
+    for (const n in TR) for (const k of TR[n]) k[0] = arrM(k[0]);
+    for (const w of ST.wp) w[0] = arrM(w[0]);
+    for (const s of ST.stand || []) for (let k = 0; k < 4; k++) s[k] = arrM(s[k]);
+    ST.items.forEach((it, ci) => it.els.forEach((e, i) => { e.at = arrM(e.at); e.out = o.items[ci][i].end ? arrM(o.ch[ci][1]) - 0.05 : arrM(e.out); }));
+    for (const L of ST.labels) { L.tIn = arrM(L.tIn); L.tOut = arrM(L.tOut); }
+    for (const c of SFXQ.cues) c.t = arrM(c.t);
+    for (const s of SFXQ.spans) { s.t0 = arrM(s.t0); s.t1 = arrM(s.t1); }
+    CH.forEach((c, i) => { c.a = arrM(o.ch[i][0]); c.b = arrM(o.ch[i][1]); });
+  }
+  (ST.yaw || []).forEach((y, i) => { const [t, j] = o.yaw[i]; y.t0 = j >= 0 ? ST.wp[j][0] : arrM(t); });
+  NARRATION_SYNC.length = 0;
+  for (const p of sync) NARRATION_SYNC.push(p.slice());
+  if (o.ends) for (const k in o.ends) NARRATION_ENDS[k] = want ? 0 : arrTl(o.ends[k]);   // (a recording of the copy's own: where its lines end is not known)
+  CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); });
+  for (const c of SFXQ.cues) c.n = Math.max(0.05, narrT(c.t));
+  for (const s of SFXQ.spans) { s.n0 = narrT(s.t0); s.n1 = narrT(s.t1); }
+  ARR.A = A || null;
+  arrPlaces(place);
+  arrEnd();
+  // the story keeps its place: the same moment of the story, on the new timeline
+  const t = clamp(narrT(arrM(s0)), 0, Math.max(0, T_END - 0.01));
+  if (Math.abs(t - t0) > 1e-6) { APP.t = t; if (AUD) AUD.seeked(); }
+  // the recording: the copy's (fetched from the relay with the password: HOST.arrange.url), or the story's own
+  if (want !== ARR.want || !want) {
+    const vk = ++ARR.vk;
+    ARR.want = want; ARR.url = '';
+    if (want) Promise.resolve(HOST.arrange.url(ARR.name, want)).then(u => { if (vk === ARR.vk && typeof u === 'string' && u) { ARR.url = u; arrVoiceSwap(); } }, () => {});
+    arrVoiceSwap();
+  }
+  if (XR.main) XR.main.last = '';   // (the headset's panels drawn again: their words or chapters may have changed)
+  if (XR.foot) XR.foot.last = '';
+  return { dropped: drop };
+}
+// the timeline's end: the narration's last point, or the recording's end if that is later (AUD_HOOKS.ready); its marks
+function arrEnd() {
+  const W = NARRATION_SYNC;
+  T_END = W[W.length - 1][0];
+  if (ARR.d && arrTl(ARR.d) + 1 > T_END) T_END = arrTl(ARR.d) + 1;
+  if (typeof trackHTML === 'function' && $('#track')) trackHTML();
+  lastTick = -1;
+  arrTrack();
+}
+// the timeline's skipped chapters, greyed (and their names struck through)
+function arrTrack() {
+  const tr = $('#track');
+  if (!tr || (!ARR.sk && !ARR.tk)) return;
+  tr.querySelectorAll('.arrskip').forEach(e => e.remove());
+  tr.querySelectorAll('.name').forEach(n => { n.style.opacity = ''; n.style.textDecoration = ''; });
+  ARR.tk = !!ARR.sk;
+  if (!ARR.sk) return;
+  const knob = tr.querySelector('.knob');
+  for (const i of ARR.sk) {
+    const c = CH[i], d = document.createElement('div'), n = tr.querySelector(`.name[data-k="${c.key}"]`);
+    d.className = 'rail arrskip';
+    d.style.cssText = `left:${(100 * c.na / T_END).toFixed(2)}%;right:auto;width:${(100 * Math.max(0, c.nb - c.na) / T_END).toFixed(2)}%;`
+      + 'background:repeating-linear-gradient(135deg,rgba(8,12,20,0.9) 0 3px,rgba(160,178,202,0.35) 3px 6px);pointer-events:none';
+    tr.insertBefore(d, knob);
+    if (n) { n.style.opacity = '0.45'; n.style.textDecoration = 'line-through'; }
+  }
+}
+// the headset's timeline (drawFoot): the skipped chapters greyed over its rail
+function arrFoot(ctx, x0, x1, ty) {
+  if (!ARR.sk) return;
+  ctx.fillStyle = 'rgba(8,15,28,0.8)';
+  for (const i of ARR.sk) { const c = CH[i]; ctx.fillRect(x0 + (x1 - x0) * c.na / T_END, ty - 3, (x1 - x0) * Math.max(0, c.nb - c.na) / T_END, 12); }
+}
+// playing on into a skipped chapter jumps to the next one not skipped (the narration with it: APP.seek), and plays none
+// of the sound cues it passes
+function arrSkip() {
+  const K = ARR.sk;
+  if (!K || APP.mode !== 'story' || !APP.playing) return;
+  const t = APP.t, i = CH.findIndex(c => t >= c.na && t < c.nb);
+  if (i < 0 || !K.has(i)) return;
+  let j = i;
+  while (j < CH.length && K.has(j)) j++;
+  APP.seek(j < CH.length ? CH[j].na + 0.02 : T_END);
+  SFXQ.hi = APP.t;
+}
+// places: [dx, dy, dz, turn (degrees about up), scale] on a set's group, on top of where the story puts it. Each number
+// of its position, turn and size the story wrote since the last frame is that number's base; one left as this wrote it
+// keeps its base (the pass story's sea writes its height alone, and a set's turn is written every frame)
+const _aq = new THREE.Quaternion(), _ay = new THREE.Vector3(0, 1, 0), _ae = new THREE.Euler();
+const arrNow = g => [g.position.x, g.position.y, g.position.z, g.rotation.x, g.rotation.y, g.rotation.z, g.scale.x, g.scale.y, g.scale.z];
+function arrPlaces(place) {
+  const P = ARR.pl || {};
+  for (const k in P) P[k].v = null;   // (back where the story puts it, at the next frame)
+  for (const k in place || {}) { P[k] = P[k] || { b: null, w: null }; P[k].v = place[k]; }
+  ARR.pl = Object.keys(P).length ? P : null;
+}
+function arrPlace() {
+  const P = ARR.pl;
+  if (!P) return;
+  for (const k in P) {
+    const p = P[k], g = GL.sets[k].group, c = arrNow(g);
+    p.b = c.map((x, i) => (p.w && x === p.w[i] ? p.b[i] : x));
+    const v = p.v, b = p.b;
+    if (!v) { g.position.set(b[0], b[1], b[2]); g.rotation.set(b[3], b[4], b[5]); g.scale.set(b[6], b[7], b[8]); delete P[k]; continue; }
+    g.position.set(b[0] + v[0], b[1] + v[1], b[2] + v[2]);
+    // (a set the story turns only about up, as most do, keeps a plain turn; else the turn is laid on its own)
+    if (!b[3] && !b[5]) g.rotation.set(0, b[4] + v[3] * D2R, 0);
+    else g.quaternion.setFromEuler(_ae.set(b[3], b[4], b[5], g.rotation.order)).premultiply(_aq.setFromAxisAngle(_ay, v[3] * D2R));
+    g.scale.set(b[6] * v[4], b[7] * v[4], b[8] * v[4]);
+    p.w = arrNow(g);
+  }
+  if (!Object.keys(P).length) ARR.pl = null;
+}
+// the narration on a timeline whose chapters are longer or shorter (ARR.R): each line of the recording (a stretch
+// between two points of the narration's timing) plays from its cue at its own pace; a longer stretch waits quietly after
+// it, a shorter one cuts it. arrRec: the line at the timeline's t and the recording's second there (-1: quiet)
+function arrRec(t) {
+  const P = ARR.R.rho, Q = ARR.R.rec, n = P.length;
+  if (t < P[0]) return { j: -1, r: Q[0] + t - P[0] };
+  for (let j = 0; j < n - 1; j++) if (t < P[j + 1]) { const d = t - P[j]; return { j, r: d < Q[j + 1] - Q[j] ? Q[j] + d : -1 }; }
+  return { j: n - 1, r: Q[n - 1] + t - P[n - 1] };
+}
+// a second of the recording on the timeline (the same second without an arrangement that changes it)
+function arrTl(r) {
+  const R = ARR.R;
+  if (!R || r === null) return r;
+  const P = R.rho, Q = R.rec, n = Q.length;
+  if (r < Q[0]) return P[0] + r - Q[0];
+  for (let j = 0; j < n - 1; j++) if (r < Q[j + 1]) return P[j] + Math.min(r - Q[j], P[j + 1] - P[j]);
+  return P[n - 1] + r - Q[n - 1];
+}
+function arrSync(want, t) {
+  const q = arrRec(t);
+  if (q.j !== ARR.seg) { ARR.seg = q.j; AUD.seeked(); }   // (a new line: the sound goes to where it starts)
+  AUD.sync(want && q.r >= 0, Math.max(0, q.r));
+}
+function arrFollow(t) {
+  const q = arrRec(t);
+  if (q.r < 0 || q.j !== ARR.seg) return t;   // (quiet, or a line the sound has not gone to yet: the story's own clock)
+  const r = AUD.follow(q.r);
+  return Math.abs(r - q.r) < 0.6 ? t + r - q.r : arrTl(r);
+}
+// the recording: the copy's (once its address is known), or the story's own (narrationFile)
+// (a package without a recording of its own has none: hasNarration)
+const arrVoice = () => ARR.url || (typeof narrationFile === 'function' && !(typeof hasNarration === 'function' && !hasNarration()) ? narrationFile() : '');
+function arrVoiceSwap() {
+  if (!LOAD.done || typeof AUD_HOOKS === 'undefined') return;   // (while loading, audioInit takes arrVoice(); the design room has no recording)
+  const url = arrVoice();
+  if (!url && AUD) { AUD.sync(false, 0); AUD = null; ARR.d = 0; arrEnd(); }   // (a copy's recording gone from a package without one: quiet again)
+  if (!url || (AUD && AUD.url === url)) return;
+  if (!AUD) for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {   // (a package without a recording of its own: audioInit's lines)
+    const f = APP[name];
+    APP[name] = function (...args) { const r = f.apply(APP, args); if (AUD) { AUD.seeked(); audioSync(); } return r; };
+  }
+  AUD = HOST.audio.narration(url, AUD_HOOKS);
+  ARR.d = 0; ARR.seg = -1;
+  arrEnd();
+  AUD.seeked(); audioSync();
+}
+// at the load, once the story is written: the arrangement given before then, or the one the shell holds for this story
+// (HOST.arrange.current); one that fails leaves the story as its own
+function arrLoad() {
+  ARR.built = true;
+  try {
+    const cur = HOST.arrange && HOST.arrange.current ? HOST.arrange.current(XR_HERE) : null;
+    if (cur && cur.name && !ARR.name) ARR.name = cur.name;
+    const A = ARR.pend !== undefined ? ARR.pend : cur && cur.A;
+    ARR.pend = undefined;
+    if (A) arrApply(A);
+  } catch (e) { console.warn('arrangement not applied', e); }
+}
+// the story's side of an arrangement: arrange in the object the story returns
+const ARR_API = { model: arrModel, apply: arrApply, get: () => ARR.A };
+
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -6572,6 +6968,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

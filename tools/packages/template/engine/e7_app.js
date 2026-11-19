@@ -7,12 +7,12 @@ const hasNarration = () => { const m = pkgMeta(); return !!(m && m.files && m.fi
 // (the shared audioInit, only when there is a recording: AUD stays null without one, and the lines that would play it
 // do nothing, as in the design room)
 function audioInit() {
-  if (!hasNarration()) return;
-  AUD = HOST.audio.narration(narrationFile(), AUD_HOOKS);
+  if (!hasNarration() && !ARR.url) return;
+  AUD = HOST.audio.narration(arrVoice(), AUD_HOOKS);   // (an arrangement's recording, or the story's own)
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
-    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
+    APP[name] = function (...args) { const r = f.apply(APP, args); if (AUD) { AUD.seeked(); audioSync(); } return r; };   // (AUD: a copy's recording may come and go)
   }
 }
 //#use audioSync audioFollow audioLabel audioToggle SLIDE slidesOn slideStop slideVoice slideStep slideTail slideSound
@@ -112,6 +112,8 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+//#use ARR
+
 // what the app shell needs to change story (the same contract as stories/<key>.js)
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -127,6 +129,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('APP.t')
   peek: src => eval(src),
   dispose() {

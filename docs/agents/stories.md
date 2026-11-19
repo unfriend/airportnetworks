@@ -45,6 +45,14 @@ lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.m
 - Story, scene, explore (`e2`–`e4`): `DEF_MORE` (the engine's own params), `LIN`, `LOG`, `FIT` (now in all fourteen:
   never declare it again), `MORPH`, `FRAME`/`frameOf`, `STRIP_FIT` (0 keeps the older framing in lbi, nmd, endo, flock,
   design), `trackHTML`.
+- Arrangements (step 3, `tools/engine/SPEC.md`): the part `ARR` (`e7_app`) gives every built story and package
+  `arrange: { model, apply, get }` (`ARR_API` in its returned object). It writes again, from a copy of the story's own,
+  what `buildStory` built (`TR`, `ST.wp`/`yaw`/`stand`, `ST.items`, `ST.labels`, `SFXQ`, `CH`, `NARRATION_SYNC`,
+  `NARRATION_ENDS`, `T_END`). Its hooks: `arrLoad()` after `buildTimeline()` (the shared `init`; ovary's own),
+  `arrSkip()` after `audioFollow()` and `arrPlace()` after `updateSets()` in every `frame`, `arrVoice()` for the
+  recording (`audioInit`, the packages', the pass story's `audioLang`), `arrTl`/`arrSync`/`arrFollow` in the narration's
+  parts, `arrFoot` in `drawFoot`; each does nothing without an arrangement. A story with its own `frame` or `init` keeps
+  those lines. Test by peek: `HOST.cur.arrange.apply({ chapters: { slide: { len: 50 } } })`, `apply(null)`.
 - Known traps (safe today): a story whose set lists a `log` param needs `logMix` (only topo and soil declare it); a chip
   with `icon` needs `flowIcon` (only pet and micro declare it).
 - A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
