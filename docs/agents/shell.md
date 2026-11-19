@@ -1258,8 +1258,10 @@ The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and
   name, made with `POST /api/scenes` and saved as `{ v: 1, key, made, from: HOST.fp[key] }`), `list(fresh)` (the relay's
   copies `[{ name, key, title, made }]`: only names like `<key>-copy[-n]` are read, kept 10 s), `upload(name, file)` (a
   recording into `sounds/<its name>.mp3`, replaced: an MP3 through `/file` as it is, anything else through `/sound`, the
-  relay's ffmpeg; gives the path), `url(name, path)` (a promise of a `blob:` address of the file, fetched with the
-  password; the last four kept), `current(key)` (`{ name, A }` the copy this page plays for the story, `A` null while it
+  relay's ffmpeg; gives the path), `url(name, path)` (a promise of a `blob:` address of the file: on a relay on R2 from
+  the signed link its scene's listing gives, with no header, as the studio does, since `/scenes/...` answers there with a
+  redirect to the bucket that would drop the header and send `Origin: null`; on a folder's relay from `/scenes/...` with
+  the password as a header; the last four kept), `current(key)` (`{ name, A }` the copy this page plays for the story, `A` null while it
   is read or when it could not be; or null), `open(key, name, edit)` (play a copy: at a station of that story the
   station's, else this page's own; `HOST.go(key)` when another story is on show; `edit` opens the editor once it is
   read), `own()` (back to the story's own, the station's too), `isCopy(name)`, `editing()`, `state()` (for tests).

@@ -4576,13 +4576,22 @@ HOST.arrange = (function () {
     if (S.blobs.has(k)) { URL.revokeObjectURL(S.blobs.get(k)); S.blobs.delete(k); }
     return p;
   }
-  // a file of the copy (its recording) as a blob: address, fetched with the password as a header; the last four kept
+  // a file of the copy (its recording) as a blob: address; the last four kept. A relay on R2 lists each file with its
+  // signed link, fetched as it is (no header: /scenes/... would answer with a redirect to the bucket, which drops the
+  // header and sends Origin: null); a folder's file comes from /scenes/... with the password as a header
   async function url(name, p) {
     if (!OK(name) || typeof p !== 'string' || !p || /(^|\/)\.\.(\/|$)/.test(p) || /^\//.test(p)) throw err('not a file of a copy', 400);
     const k = name + '/' + p;
     if (S.blobs.has(k)) return S.blobs.get(k);
     await need();
-    const b = await (await call('/scenes/' + enc(name) + '/' + encPath(p))).blob(), u = URL.createObjectURL(b);
+    const j = await (await call('/api/scenes/' + enc(name))).json();
+    const f = (j && Array.isArray(j.files) ? j.files : []).find(x => x && x.path === p), link = f && typeof f.url === 'string' && /^https?:\/\//.test(f.url) ? f.url : '';
+    let r = null;
+    if (link) {
+      try { r = await fetch(link, { credentials: 'omit' }); } catch (e) { throw err('the recording could not be fetched from the relay\'s store'); }
+      if (!r.ok) throw err('the relay\'s store answered HTTP ' + r.status, r.status);
+    } else r = await call('/scenes/' + enc(name) + '/' + encPath(p));
+    const b = await r.blob(), u = URL.createObjectURL(b);
     S.blobs.set(k, u);
     while (S.blobs.size > 4) { const [k0, u0] = S.blobs.entries().next().value; S.blobs.delete(k0); URL.revokeObjectURL(u0); }
     return u;
