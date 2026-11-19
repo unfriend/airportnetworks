@@ -1810,17 +1810,24 @@ function smallBody(req, res, max, error = 'body too big') {
   });
 }
 
-// POST /api/scenes { name }: a new scene, an empty folder (the scene name rule; 409 when there is one, or a file, by that name)
+// POST /api/scenes { name, from? }: a new scene, an empty folder (the scene name rule; 409 when there is one, or a file, by that
+// name). With from (v167, the studio's Duplicate scene): a copy of that scene, made, then every file its listing shows copied
+// in one by one as a copy from another scene is (copyFile's folderCopy or r2Copy: the same checks and limits), then its
+// layout.json as it was saved (locked items stay locked); its .history/ and files.json are not copied. Answered 201
+// { ok, name, from, files, failed: [paths] } (a file that could not be copied is named, never a half scene removed)
 async function makeScene(req, res) {
   if (!SAVE) return answerEarly(req, res, 403, { error: NO_SAVE });
   const text = await smallBody(req, res, 16384);
   if (text === null) return;
   let b = null;
   try { b = JSON.parse(text); } catch { /* said below */ }
-  const name = b && typeof b === 'object' && !Array.isArray(b) ? b.name : undefined;
-  if (typeof name !== 'string') return json(res, 400, { error: 'the body is { "name": "<the scene\'s name>" }' });
+  const name = b && typeof b === 'object' && !Array.isArray(b) ? b.name : undefined, from = b && typeof b === 'object' && !Array.isArray(b) ? b.from : undefined;
+  if (typeof name !== 'string' || (from !== undefined && typeof from !== 'string')) return json(res, 400, { error: 'the body is { "name": "<the scene\'s name>", "from": "<a scene to copy>" (optional) }' });
   if (!newSceneName(name)) return json(res, 400, { error: name === 'watch' ? 'watch is the change stream\'s name' : 'a scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a space or a dot, and not a device name (con, nul...)' });
-  let made;
+  let made, src = null;
+  if (from !== undefined) {
+    if (!validName(from) || !(src = await KEPT.one(from))) return json(res, 404, { error: 'no such scene to copy from' });
+  }
   try { made = await KEPT.make(name); } catch (err) {
     if (err instanceof R2Error) throw err;
     log(`scenes: could not make the scene ${JSON.stringify(name)} (${err.code || err.message})`);
@@ -1830,7 +1837,29 @@ async function makeScene(req, res) {
   if (made === 'exists') return json(res, 409, { error: 'there is a scene (or a file) by that name' });
   log(`scenes: made the scene ${JSON.stringify(name)}`);
   sceneTold();
-  json(res, 201, { ok: true, name });
+  if (!src) return json(res, 201, { ok: true, name });
+  const [files, failed] = await sceneCopy(name, from, src);
+  log(`scenes: ${name}: a copy of ${from} (${files} files${failed.length ? ', ' + failed.length + ' not copied' : ''})`);
+  json(res, 201, { ok: true, name, from, files, failed });
+}
+// a scene's files and saved layout copied into the scene just made (makeScene, from): [files copied, paths not copied]
+async function sceneCopy(name, from, src) {
+  const failed = [];
+  let files = 0;
+  const dir = await KEPT.where(name), fromDir = await KEPT.where(from);
+  for (const f of src.files) {
+    if (f.path === LAYOUT || f.path === LISTING) continue;
+    const want = uploadPath(f.path);
+    if (want.error || !listable(f.path)) { failed.push(f.path); continue; }
+    try {
+      const [status] = await (R2C ? r2Copy({ name, from, src: f.path, want, replace: false }) : folderCopy({ name, dir, from, fromDir, src: f.path, want, replace: false }));
+      if (status === 200) files++; else failed.push(f.path);
+    } catch (err) { log(`scenes: ${name}: could not copy ${from}/${f.path} (${err instanceof R2Error ? err.message : err.code || err.message})`); failed.push(f.path); }
+  }
+  if (src.layout && isLayout(src.layout)) {
+    try { const r = await KEPT.writeLayout(dir, layoutText(src.layout)); sceneTold(name, '', async () => r.sig); } catch (err) { log(`scenes: ${name}: could not copy the layout of ${from} (${err instanceof R2Error ? err.message : err.code || err.message})`); failed.push(LAYOUT); }
+  }
+  return [files, failed];
 }
 
 // a folder's scene made: an empty folder (the scene folders counted, not walked: a scene's files do not matter here)

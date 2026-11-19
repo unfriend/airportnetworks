@@ -1,14 +1,19 @@
 {
-  "version": "networks-v166",
+  "version": "networks-v167",
   "date": "2026-11-19",
   "new": [
-    "Pico: the picture no longer shrinks after a while in a headset (often right after calibrating in a shared room). Automatic quality no longer makes the picture smaller on a Pico; it stops at lower edge sharpness and 72 Hz."
+    "Studio: Duplicate scene, beside New scene on the Scene pane. It copies the scene as last saved (every file and its layout; locked items stay locked) under a new name, then opens the copy.",
+    "Pico (v166): the picture no longer shrinks after calibrating in a shared room."
   ],
   "test": [
-    "On the Pico with automatic quality on: join a shared room, calibrate, and stay a few minutes; everything keeps its size.",
-    "On a Quest: automatic quality behaves as before (Debug tab, auto quality lines)."
+    "Studio on a page: open a scene, Duplicate scene, keep or change the name, Make it; the copy opens with the same models, sounds and layout.",
+    "Studio in a headset: Duplicate scene... opens the keypad with the name filled in.",
+    "With Unsaved changes, Duplicate scene says the copy is of the scene as last saved.",
+    "On the Pico with automatic quality on: calibrate in a shared room; everything keeps its size."
   ],
   "untested": [
-    "The Pico fix itself: only a Pico can show it."
+    "Duplicate scene in a headset (the keypad is the same as New scene's, not tried on a real one).",
+    "Duplicating a large scene on the R2 relay (each file is copied inside the bucket, one after another).",
+    "The Pico fix: only a Pico can show it."
   ]
 }

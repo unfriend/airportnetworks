@@ -118,8 +118,11 @@ function paneBlocks(tab) {
       exBlocks(B);   // (the scenes that ship with the app: Open, Copy to the relay; e7g_examples.js)
       // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
       if (canMake()) {
-        B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
-        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? 'Making...' : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        const dup = STU.scene && SRC.scenes.some(s => s.name === STU.scene) ? STU.scene : '', nf = !NS.from, ask = NS.asking || NS.making;
+        B.push({ row: [{ id: 'newscene', label: NS.making && nf ? 'Making...' : XR.on ? (NS.asking && nf ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open && nf ? ' ▾' : ''), act: 'newscene', on: (NS.open && nf && !XR.on) || (NS.asking && nf), dis: ask },
+          dup ? { id: 'dupscene', label: NS.making && !nf ? 'Copying...' : XR.on ? (NS.asking && !nf ? 'Naming it...' : 'Duplicate scene...') : 'Duplicate scene' + (NS.open && !nf ? ' ▾' : ''), act: 'dupscene', v: dup, on: (NS.open && !nf && !XR.on) || (NS.asking && !nf), dis: ask } : null].filter(Boolean) });
+        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: NS.from ? 'The copy\'s name' : 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? (NS.from ? 'Copying...' : 'Making...') : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        if (NS.open && NS.from && unsaved()) B.push({ p: 'The copy is of the scene as last saved: Save first to take your changes with it.', c: 'amber' });
       }
       if (NS.note) B.push({ p: NS.note, c: 'red' });
     }
@@ -817,6 +820,7 @@ function act(a, v) {
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
+    dupscene: () => sceneAsk(v),
     exopen: () => exOpen(v),   // (an example: opened read only, or at a circle from the relay for everyone there; e7g_examples.js)
     excopy: () => exCopy(v),
     exback: () => exBack(),

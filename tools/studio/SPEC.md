@@ -881,7 +881,11 @@ The panes (page HTML and headset canvas twins, the same content):
   (`HOST.collab.keypad({ title, hint, value, max })`, a promise of the text or `null`; a shell without it: no button in a
   headset); made on the relay (`POST /api/scenes`, the relay's name rule, said here first: up to 64 letters, digits,
   spaces, `_ . -`, not starting with a space, `.` or `-`, not ending in a dot, no device names; *There is a scene called
-  x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. Offered
+  x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. *Duplicate
+  scene* (v167) beside it, with a scene open: the same field (a headset: *Duplicate scene...* and the keypad) filled with
+  *<scene> copy*, made by `POST /api/scenes { name, from }`: the relay copies every file and the saved layout (locks kept,
+  no `.history/`), so a copy is of the scene as last saved (*Unsaved changes* says so under the field); files it could not
+  copy are counted under the button. Offered
   only with a relay that takes uploads (not read only, not `&visit`, not while the scene is locked).
 - **Add** (editing): the scene's models as a grid of cards with their pictures (v120: "Pictures in the Add pane"), its
   sounds as a list, and *Trigger cube*. A press

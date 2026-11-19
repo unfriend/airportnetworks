@@ -1234,7 +1234,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one;
   *New scene*: on a page a field and *Make it*, in a headset *New scene...* asking the shell's keypad,
   `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
-  picked by hand, editing on; while editing, the scene's settings: *Other circles* and *Real world hides the
+  picked by hand, editing on; *Duplicate scene* beside it (v167: the same field or keypad, filled with *<scene> copy*,
+  `NS.from`; `POST /api/scenes { name, from }` copies every file and the saved layout, locks kept, no `.history/`; files
+  not copied counted); while editing, the scene's settings: *Other circles* and *Real world hides the
   scene*; *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, a grid of cards with
   their pictures and *Make pictures* on a page, its sounds,
   *Originals* folded, *Trigger cube*, *Convert every model*; *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; *From another scene...*: the relay's other scenes, then

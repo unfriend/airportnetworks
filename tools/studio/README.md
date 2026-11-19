@@ -474,6 +474,9 @@ while the relay takes no uploads, a line saying why
 - **New scene** (the Scene pane, with a relay that takes uploads): on a page type its name and press **Make it** (or
   Enter); in a headset **New scene...** opens the menu's keypad for the name. The scene is made on the relay and opened
   (at a circle, for everyone there), with Edit on. A name has up to 64 letters, digits, spaces, `_ . -`.
+- **Duplicate scene** (beside New scene): the same, with the name filled in as *<scene> copy*. The relay copies the
+  scene as last saved, every file and its layout (locked items stay locked; its saved history is not copied), and opens
+  the copy. Save first if you want your changes in it.
 - **From another scene...** (the Add pane, page and headset): pick one of the relay's other scenes, then one of its
   models or sounds. It is **copied** into this scene at the same path (a new name such as *statue 2.fbx* when that path
   is taken here) and placed in front of you, so each scene keeps its own files and a layout never points into another

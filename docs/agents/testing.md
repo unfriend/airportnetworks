@@ -1292,7 +1292,8 @@ taken and refused, the size counted as it streams and nothing left behind; the s
 (one generated script under the names ok, fail, empty, hang and broken: its failures, its time limit, two at once, none
 at all) and, when the machine has one, a real `ffmpeg` making a generated stereo 48 kHz WAV a mono 96 kbit/s 44.1 kHz
 MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the relay's own app or `--app` with its
-`wss://` address, no password asked and the query never passed on), copies from another scene (`POST .../copy`: the
+`wss://` address, no password asked and the query never passed on), duplicates (v167, `POST /api/scenes { name, from }`: every listed file and the saved layout with its lock, no
+`.history/`, 409, 404, 400 and 403 read only), copies from another scene (`POST .../copy`: the
 same bytes at the same path or `as`, told at once, 409 then `replace`, an upload's kinds by where it goes, sources no
 listing shows, bad bodies and the file onto itself 400, missing scenes and files 404, a link out 404, over
 `--max-upload` 413, `--scenes-readonly` 403, the password), the models' pictures (`previews:`: `previews/<path>.jpg`

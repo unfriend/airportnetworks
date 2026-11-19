@@ -18003,7 +18003,9 @@ function uploadLayout(text) {
 const canWrite = () => SRC.kind === 'relay' && SRC.state === 'ok' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
 const canMake = () => canWrite() && !editLocked() && (!XR.on || !!(HOST.collab && HOST.collab.keypad));
 const canCopy = () => canWrite() && editOn() && STU.listing === 'ok' && SRC.scenes.some(s => s.name !== STU.scene);
-const NS = { open: false, name: '', making: false, asking: false, note: '' };
+// (from: the scene a Duplicate scene copies, v167: made by POST /api/scenes { name, from } with its files and saved layout)
+const NS = { open: false, name: '', making: false, asking: false, note: '', from: '' };
+const dupName = from => { for (let i = 1; i < 100; i++) { const n = (from + ' copy' + (i > 1 ? ' ' + i : '')).slice(0, 64).replace(/[ .]+$/, ''); if (!SRC.scenes.some(s => s.name === n)) return n; } return from; };
 // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName) why a name cannot be one, or ''
 const sceneNameWhy = name => (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)
   ? 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).' : '');
@@ -18013,27 +18015,33 @@ async function sceneMake(name) {
   if (why) { NS.note = why; dirty(true); return false; }
   if (!canMake() || NS.making) return false;
   NS.making = true; NS.note = ''; dirty(true);
+  const from = NS.from && SRC.scenes.some(s => s.name === NS.from) ? NS.from : '';
   try {
-    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-    NS.open = false; NS.name = '';
+    const j = await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(from ? { name, from } : { name }) });
+    NS.open = false; NS.name = ''; NS.from = '';
+    const lost = from && j && Array.isArray(j.failed) ? j.failed.length : 0;
     await listScenes(SRC.gen);
     if (GL.gone || editLocked()) return true;   // (locked meanwhile: made, not opened)
     openScene(name, 'pick');
     if (!STU.edit) setEdit(true);
+    if (lost) NS.note = `${lost} file${lost === 1 ? '' : 's'} of ${from} could not be copied into ${name}.`;
     sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 });
     return true;
   } catch (e) {
-    NS.note = e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
+    NS.note = e.status === 404 && from ? `${from} is no longer on the relay.` : e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
     return false;
   } finally { NS.making = false; dirty(true); }
 }
-// New scene pressed: on a page its field opens (or closes); in a headset the shell's keypad asks for the name
-async function sceneAsk() {
+// New scene (or Duplicate scene, from the scene open now) pressed: on a page its field opens (or closes, or turns into the
+// other's), a duplicate's filled with "<scene> copy"; in a headset the shell's keypad asks for the name
+async function sceneAsk(from) {
   if (!canMake() || NS.making || NS.asking) return;
-  if (!XR.on) { NS.open = !NS.open; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
+  from = from && SRC.scenes.some(s => s.name === from) ? from : '';
+  if (!XR.on) { NS.open = !(NS.open && NS.from === from); NS.from = from; NS.name = from && NS.open ? dupName(from) : ''; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
   NS.asking = true; NS.note = ''; dirty(true);
   let name = null;
-  try { name = await HOST.collab.keypad({ title: 'New scene', hint: 'Its name: letters, digits, spaces, _ . or -', value: '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
+  NS.from = from;
+  try { name = await HOST.collab.keypad({ title: from ? 'Duplicate ' + from : 'New scene', hint: (from ? 'A copy of it as last saved. ' : '') + 'Its name: letters, digits, spaces, _ . or -', value: from ? dupName(from) : '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
   if (GL.gone || typeof name !== 'string' || !name.trim()) return;
   await sceneMake(name);
 }
@@ -33205,8 +33213,11 @@ function paneBlocks(tab) {
       exBlocks(B);   // (the scenes that ship with the app: Open, Copy to the relay; e7g_examples.js)
       // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
       if (canMake()) {
-        B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
-        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? 'Making...' : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        const dup = STU.scene && SRC.scenes.some(s => s.name === STU.scene) ? STU.scene : '', nf = !NS.from, ask = NS.asking || NS.making;
+        B.push({ row: [{ id: 'newscene', label: NS.making && nf ? 'Making...' : XR.on ? (NS.asking && nf ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open && nf ? ' ▾' : ''), act: 'newscene', on: (NS.open && nf && !XR.on) || (NS.asking && nf), dis: ask },
+          dup ? { id: 'dupscene', label: NS.making && !nf ? 'Copying...' : XR.on ? (NS.asking && !nf ? 'Naming it...' : 'Duplicate scene...') : 'Duplicate scene' + (NS.open && !nf ? ' ▾' : ''), act: 'dupscene', v: dup, on: (NS.open && !nf && !XR.on) || (NS.asking && !nf), dis: ask } : null].filter(Boolean) });
+        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: NS.from ? 'The copy\'s name' : 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? (NS.from ? 'Copying...' : 'Making...') : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        if (NS.open && NS.from && unsaved()) B.push({ p: 'The copy is of the scene as last saved: Save first to take your changes with it.', c: 'amber' });
       }
       if (NS.note) B.push({ p: NS.note, c: 'red' });
     }
@@ -33904,6 +33915,7 @@ function act(a, v) {
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
+    dupscene: () => sceneAsk(v),
     exopen: () => exOpen(v),   // (an example: opened read only, or at a circle from the relay for everyone there; e7g_examples.js)
     excopy: () => exCopy(v),
     exback: () => exBack(),
