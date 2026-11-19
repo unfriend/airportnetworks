@@ -328,6 +328,70 @@ function storyOpacity(el) {
 }
 //#part FADEB
 let FADEB = null;
+//#part sigMain
+// ------------------------------------------------------------ main panel --
+// what the main panel shows, so it is drawn again only when that changes: the story (and what the story's own
+// sigMainS() adds: '' for most), or explore mode (the story's sigMainX())
+function sigMain() {
+  if (XR.stories) return 'stories' + audioLabel();
+  if (APP.mode !== 'story') return sigMainX();
+  const it = ST.items.find(x => x.ch === curCh);
+  let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '') + sigMainS();
+  if (it) {
+    for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
+    // (the title's route arc as it grows, in the chapter that has it)
+    const arc = it.sec.querySelector('#titleArc'), dot = it.sec.querySelector('#titleDot');
+    if (arc && dot) s += arc.getAttribute('stroke-dashoffset').slice(0, 3) + dot.getAttribute('opacity').slice(0, 3);
+    s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+    for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
+  }
+  return s;
+}
+//#part xrHint
+// under the story: what the trigger and the grip do (in a shared room the room's own hint instead: drawMain)
+const xrHint = () => (HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.');
+//#part drawMain
+// the main panel: the buttons and the story's name (XR_TITLE) on top; under them the Stories screen, the story (with
+// the story's xrHint() at its foot) or explore mode
+function drawMain(ctx, P) {
+  const story = APP.mode === 'story';
+  let x = P.w - 36;
+  const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
+  // (Exit is on the shell's Shared panel, at hand on the left controller)
+  if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
+  if (!HOST.anchor.on) hb('recenter', 'Recenter', xrRecenterAsk, 140); // anchored: nothing moves
+  // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
+  // its circle)
+  if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
+  if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
+  // the story's name, smaller when the buttons leave it less room
+  fitTitle(ctx, XR_TITLE, 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
+  ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
+  if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
+  else if (story) {
+    drawStoryPane(ctx, P, 44, 136, P.w - 88);
+    ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : xrHint(), 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+  } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
+}
+//#part drawExplorePane
+// explore: tabs and panes mirroring the HTML ones (a tab picked with the story's pickTab; its pane drawn by the
+// story's drawTabPane)
+function drawExplorePane(ctx, P, x, y, W) {
+  const tw = W / TABS.length;
+  TABS.forEach(([k, n], j) => {
+    const on = X.tab === k, tx = x + j * tw, hov = P.hover === 'tab:' + k;
+    if (hov && !on) { rr(ctx, tx + 4, y, tw - 8, 62, 8); ctx.fillStyle = VC.chip; ctx.fill(); }
+    ctx.font = vfont(24, on ? 700 : 400); ctx.fillStyle = on ? VC.ink : VC.muted;
+    ctx.textAlign = 'center'; ctx.fillText(n, tx + tw / 2, y + 18); ctx.textAlign = 'left';
+    if (on) { ctx.fillStyle = VC.cyan; ctx.fillRect(tx + 10, y + 58, tw - 20, 4); }
+    P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => pickTab(k) });
+  });
+  ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
+  y += 88;
+  drawTabPane(ctx, P, x, y, W, P.h - 34);
+}
 //#part drawStoryPane
 function drawStoryPane(ctx, P, x, y, W) {
   const it = ST.items.find(i => i.ch === curCh) || ST.items[0];
@@ -337,6 +401,9 @@ function drawStoryPane(ctx, P, x, y, W) {
   ctx.globalAlpha = 1;
 }
 //#part drawStoryEl
+// one element of the story's HTML on the headset's panel. Each story says how its points (ul.steps) look there:
+// XR_STEP_LINES, a point's lines of text at most, and XR_STEP_COL, the colour of a point without one of its own (a CSS
+// colour; '' is ink). A paragraph's data-xr, where it has one, is its text in a headset (the robots' room).
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
   const a = pa * storyOpacity(el), tag = el.tagName.toUpperCase(), cl = el.classList;
   ctx.globalAlpha = a;
@@ -371,7 +438,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
       const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
         : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
       const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
-      h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
+      h = textBlock(ctx, el.dataset.xr || el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
     }
   } else if (cl.contains('big')) {
     const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
@@ -424,8 +491,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     for (const li of el.children) {
       ctx.globalAlpha = a * storyOpacity(li);
       const b = li.querySelector('b'), bold = b ? b.textContent : '', rest = li.textContent.slice(bold.length).trim();
-      const col = li.dataset.col || cssColor(li.style.borderLeftColor) || VC.amber;   // an organ's point in its own colour (the HTML's is mixed for a light panel)
-      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, 4);
+      const col = li.dataset.col || cssColor(li.style.borderLeftColor || XR_STEP_COL);   // a point in its own colour (the HTML's is mixed for a light panel)
+      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, XR_STEP_LINES);
       ctx.fillStyle = col; ctx.fillRect(x, yy + 4, 5, hh);
       ctx.font = vfont(30, 700); ctx.fillStyle = col; ctx.fillText(bold, x + 22, yy);
       yy += hh + 16;
@@ -507,6 +574,11 @@ function drawFoot(ctx, P) {
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
   }
+  drawFootX(ctx, P);   // (explore mode: the story's own footer)
+}
+//#part drawFootX
+// explore mode's footer: turn, zoom and the whole scene
+function drawFootX(ctx, P) {
   ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText('Turn', 28, 58);
   vButton(ctx, P, 'turn:on', 100, 40, 90, 56, 'On', () => setTurn('on'), { on: X.turn === 'on', px: 22 });
   vButton(ctx, P, 'turn:off', 198, 40, 90, 56, 'Off', () => setTurn('off'), { on: X.turn === 'off', px: 22 });
@@ -515,22 +587,22 @@ function drawFoot(ctx, P) {
   vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
   vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
 }
-
-
-// ------------------------------------------------------------- narration --
-
 //#part flow
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, fn } (no fn: a plain chip)
+// buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, icon, fn } (no fn: a plain chip; an icon is
+// drawn by the story's flowIcon(ctx, it, x, y, h): the PET story's organs, the microanatomy story's organ models). Where
+// a story's FLOW_BOLD is false (the muscle story's), a chip is measured in the font the one before it was drawn in.
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   const px = o.px || 22, h = o.h || 44, gap = 8;
   let cx = x, cy = y;
+  ctx.font = vfont(px);
   for (const it of items) {
-    ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
-    const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
+    if (FLOW_BOLD) ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
+    const sw = it.icon ? h - 10 : it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
+    if (it.icon) flowIcon(ctx, it, cx, cy, h);
+    else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
     cx += w + gap;
@@ -597,124 +669,22 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   for (const key of Object.keys(NUM).filter(k => numShown(X.scene, k))) if (y + 90 < bottom) y += numRow(ctx, P, key, x, y, W);
 }
 
-//#part drawStoryEl~2
-function drawStoryEl(ctx, P, el, x, y, W, pa) {
-  const a = pa * storyOpacity(el), tag = el.tagName.toUpperCase(), cl = el.classList;
-  ctx.globalAlpha = a;
-  let h = 0;
-  if (tag === 'SVG') {
-    // the title's route arc, drawn as it grows
-    const k = 1.5, arc = el.querySelector('#titleArc'), dot = el.querySelector('#titleDot');
-    const prog = arc ? clamp(1 - parseFloat(arc.getAttribute('stroke-dashoffset') || '1'), 0, 1) : 1;
-    const dA = dot ? parseFloat(dot.getAttribute('opacity') || '0') : 1;
-    const p0 = [x + 8 * k, y + 36 * k], c1 = [x + 180 * k, y - 16 * k], p1 = [x + 352 * k, y + 36 * k];
-    const bz = (s, j) => (1 - s) * (1 - s) * p0[j] + 2 * (1 - s) * s * c1[j] + s * s * p1[j];
-    ctx.strokeStyle = VC.amber; ctx.lineWidth = 3.3; ctx.lineCap = 'round';
-    if (prog > 0.002) {
-      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]);
-      for (let n = 1; n <= 48; n++) { const s = prog * n / 48; ctx.lineTo(bz(s, 0), bz(s, 1)); }
-      ctx.stroke();
-    }
-    ctx.fillStyle = VC.amber;
-    ctx.beginPath(); ctx.arc(p0[0], p0[1], 4.5 * k, 0, 7); ctx.fill();
-    ctx.globalAlpha = a * Math.round(dA * 4) / 4;
-    ctx.beginPath(); ctx.arc(p1[0], p1[1], 4.5 * k, 0, 7); ctx.fill();
-    h = 44 * k + 8;
-  } else if (tag === 'H1' || tag === 'H2') {
-    const s = STY[tag];
-    h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, VC.ink, s.w) + s.mb;
-  } else if (tag === 'P') {
-    const btn = el.querySelector('button');
-    if (btn) {
-      if (a > 0.3) vButton(ctx, P, 'goExplore', x, y, 380, 68, btn.textContent, () => APP.enterExplore(), { primary: true, px: 27 });
-      h = 68 + 22;
-    } else {
-      const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
-        : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
-      const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
-      h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
-    }
-  } else if (cl.contains('big')) {
-    const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
-    const small = el.querySelector('small'), all = el.textContent;
-    const main = (small ? all.slice(0, all.length - small.textContent.length) : all).trim();
-    ctx.font = vfont(96, 700); ctx.fillStyle = col ? VC[col] : VC.ink;
-    ctx.fillText(main, x, y + 2);
-    if (small) { const w = ctx.measureText(main).width; ctx.font = vfont(32); ctx.fillStyle = VC.muted; ctx.fillText(small.textContent, x + w + 16, y + 52); }
-    h = 112;
-  } else if (cl.contains('bars')) {
-    const bars = [...el.children], n = bars.length, gap = 8, bw = (W - gap * (n - 1)) / n, top = y + 28, bh = 150;
-    bars.forEach((b, k) => {
-      const v = b.querySelector('.v'), f = b.querySelector('.fill'), kk = b.querySelector('.k');
-      const hp = parseFloat(f.style.height) || 0, m = /scaleY\(([\d.]+)\)/.exec(f.style.transform || '');
-      const s = m ? Math.round(parseFloat(m[1]) * 6) / 6 : 1, full = bh * hp / 100, bx = x + k * (bw + gap);
-      ctx.fillStyle = cssColor(f.style.background || f.style.backgroundColor);
-      if (s > 0) ctx.fillRect(bx, top + bh - full * s, bw, full * s);
-      ctx.font = vfont(21); ctx.textAlign = 'center';
-      ctx.fillStyle = VC.ink;
-      if (v && v.textContent) ctx.fillText(v.textContent, bx + bw / 2, top + bh - full - 24);
-      ctx.fillStyle = b.classList.contains('hl') ? VC.ink : VC.muted;
-      if (kk) ctx.fillText(kk.textContent, bx + bw / 2, top + bh + 8);
-      ctx.textAlign = 'left';
-    });
-    h = 28 + bh + 44;
-  } else if (tag === 'UL' && cl.contains('legend')) {
-    let yy = y;
-    for (const li of el.children) {
-      ctx.globalAlpha = a * storyOpacity(li);
-      const sw = li.querySelector('.sw');
-      swatch(ctx, x, yy + 10, 24, sw ? cssColor(sw.style.background) : VC.ink);
-      ctx.font = vfont(30); ctx.fillStyle = VC.ink;
-      ctx.fillText(li.textContent.trim(), x + 40, yy + 5);
-      yy += 46;
-    }
-    h = yy - y + 12;
-  } else if (cl.contains('facts')) {
-    // a row of big numbers, each fading in on its own
-    const cells = [...el.children], cw = W / cells.length;
-    cells.forEach((c, k) => {
-      ctx.globalAlpha = a * storyOpacity(c);
-      const b = c.querySelector('b'), sm = c.querySelector('small');
-      ctx.font = vfont(50, 700); ctx.fillStyle = VC.amber; ctx.fillText(fitText(ctx, b ? b.textContent : '', cw - 16), x + k * cw, y);
-      if (sm) textBlock(ctx, sm.textContent, x + k * cw, y + 68, cw - 16, 25, 32, VC.muted, 400, 2);
-    });
-    h = 68 + 64 + 18;
-  } else if (tag === 'UL' && cl.contains('steps')) {
-    // points with a bold name over a line of text, each fading in on its own
-    let yy = y;
-    for (const li of el.children) {
-      ctx.globalAlpha = a * storyOpacity(li);
-      const b = li.querySelector('b'), bold = b ? b.textContent : '', rest = li.textContent.slice(bold.length).trim();
-      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, 3);
-      ctx.fillStyle = VC.amber; ctx.fillRect(x, yy + 4, 5, hh);
-      ctx.font = vfont(30, 700); ctx.fillStyle = VC.amber; ctx.fillText(bold, x + 22, yy);
-      yy += hh + 16;
-    }
-    h = yy - y + 8;
-  } else if (tag === 'UL' && cl.contains('concepts')) {
-    let cx = x, cy = y;
-    ctx.font = vfont(27);
-    for (const li of el.children) {
-      const t = li.textContent, w = ctx.measureText(t).width + 28;
-      if (cx + w > x + W) { cx = x; cy += 54; }
-      rr(ctx, cx, cy, w, 46, 6); ctx.fillStyle = VC.chip; ctx.fill();
-      ctx.fillStyle = VC.ink; ctx.fillText(t, cx + 14, cy + 9);
-      cx += w + 9;
-    }
-    h = cy - y + 46 + 26;
-  } else if (tag === 'DIV') {
-    // a grid of overlapping paragraphs (one fades out as the next fades in)
-    let mh = 0;
-    for (const c of el.children) mh = Math.max(mh, drawStoryEl(ctx, P, c, x, y, W, a) - y);
-    h = mh;
-  } else if (el.textContent.trim()) {
-    h = textBlock(ctx, el.textContent, x, y, W, 26, 38, VC.ink) + 14;
+//#part drawScenesPane~2
+// the scenes, and the chosen scene's own controls (and the age, where the scene shows it)
+function drawScenesPane(ctx, P, x, y, W, bottom) {
+  const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
+  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  y += 76;
+  const sc = SCENES.find(s => s[0] === X.scene);
+  y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
+  for (const c of ctlsOf(X.scene).filter(c => ctlShown(X.scene, c))) {
+    if (y + 110 > bottom) break;
+    ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
+    y += 36;
+    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
   }
-  ctx.globalAlpha = 1;
-  return y + h;
+  if (ageHere() && y + 70 < bottom) drawAge(ctx, P, x, y, W);
 }
-
-
 //#part sigFoot~2
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x';

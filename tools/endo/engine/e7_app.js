@@ -1,30 +1,5 @@
-// ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-endo.mp3.
-// Second 0 of the recording plays at second 0 of the story; the story clock
-// follows the audio, so seeking, pausing and chapter jumps stay in sync.
-// Without the file the story runs silently. The sound engine is the shell's
-// (HOST.audio): one engine for the whole app, unlocked by the first tap or click
-// and kept running across stories and headset sessions.
-let AUD = null;
-function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-endo.mp3', {
-    // a recording longer than the story stretches the timeline
-    ready(d) {
-      if (d + 1 <= T_END) return;
-      T_END = d + 1;
-      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
-        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
-      });
-      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    },
-    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
-  });
-  // react at once to play/pause, seeks, chapter jumps and mode changes
-  for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
-    const f = APP[name];
-    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
-  }
-}
+//#use AUD audioInit
+const narrationFile = () => 'audio/narration-endo.mp3';
 //#use audioSync audioFollow audioLabel audioToggle SLIDE slidesOn slideStop slideVoice slideStep slideTail slideSound
 //#use slideNext slideToggle slideSig slideDOM SFXQ sfxCue sfxHold sfxN _sfv sfxWhere sfxPlay sfxHidden sfxAct sfxStep
 //#use sfxPos
@@ -89,52 +64,7 @@ const APP = {
 };
 
 //#use lastNow
-function frame(now, xrFrame) {
-  const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
-  lastNow = now;
-  const xr = XR.on && GL.renderer.xr.isPresenting;
-  if (xr) xrBegin(xrFrame, dt);
-  if (xrIdle(xr, dt)) return;   // (away from every station a second: only the rays, the quiet narration and the render)
-  let S, tSet;
-  const t0 = APP.t;
-  const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
-  if (APP.mode === 'story' && APP.playing) {
-    APP.t += dt;
-    audioFollow();
-  }
-  slideStep(t0);   // slideshow: the story waits at the end of each chapter
-  sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
-  // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
-  if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
-  audioSync();
-  const ts = storyT(APP.t); // original story time for this point in the narration
-  if (APP.mode === 'story') {
-    S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts), dt); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
-    updateStoryDOM(ts);
-    updateTimeline(APP.t, APP.playing);
-  } else {
-    const pn = performance.now();
-    S = exploreStep(dt, pn); tSet = pn / 1000;
-    orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur, dt); else { applyCamera(orbit.cur); keepCamera(S, null); }
-  }
-  K.U.uTime.value = tSet;
-  GL.camera.updateMatrixWorld();
-  updateLight(xr);
-  updateSets(S, tSet, dt, APP.mode === 'story');
-  // what explore mode asked to do once the sets show its pick (a flight to a gene)
-  if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
-  if (xr) xrUpdate(S);
-  GL.renderer.render(GL.scene, GL.camera);
-  if (navigator.xr) xrPrep(xr ? 2 : 1);   // the headset's sample of the scene (keep clear), in slices
-  if (!xr) {
-    GL.world.updateMatrixWorld(true);
-    if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));
-    else placeLabels(LBL.exploreAll(), L => (L.kind === 'set' ? setLabelAlpha(L, S) : 1));
-  }
-  window.__frames = (window.__frames || 0) + 1;
-}
+//#use frame~2
 //#use applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
