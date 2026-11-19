@@ -1,17 +1,19 @@
 {
-  "version": "networks-v169",
+  "version": "networks-v170",
   "date": "2026-11-19",
   "new": [
-    "Story packages: a story can now be one folder, packages/<key>/, with its own story.json, main.js, picture, data and sounds. It joins the Stories screen without any other change to the app, and updates without an app release. Colleagues start from tools/packages/template.",
-    "The example, Six handshakes (a ring of 60 people that becomes a small world), is hidden: developer mode shows its card, or open #hello."
+    "Copies of stories on the relay: in developer mode (or with &edit), Copy to relay makes an editable copy of a story. Its editor lengthens, shortens or skips chapters, moves when things happen, retimes the narration or takes a new recording, rewrites captions (numbers stay live) and moves sets. The story itself in git never changes.",
+    "The studio lists the copies (Copy of ...) and Open plays one. A station in a shared room can run a copy, and a save on one device reaches the others.",
+    "Shared rooms: format networks-54. Every device needs this release to join a room."
   ],
   "test": [
-    "In developer mode, the Stories screen shows Six handshakes at the end with a dashed border; open it, play it to explore mode, pick two people, change the rewiring.",
-    "In a headset: open #hello, point at people and press, the panels and the Stories screen; go to another story and back.",
-    "Without developer mode nothing looks different: the Stories screen, the stories and shared rooms as before."
+    "On a laptop with the relay and its password: developer mode, open a story, Copy to relay; stretch a chapter, skip one, rewrite a caption, move a set; Save; reload and check it plays as edited.",
+    "In a headset: a story copy opened at a station plays as edited (skipped chapter jumped, captions, the set's place); the story's own still plays as before.",
+    "A copy's recording: upload an MP3 in the editor and listen to a stretched chapter (each line starts on its cue, with a pause after it)."
   ],
   "untested": [
-    "Everything with packages in a headset and in a shared room (a package at a station on two devices).",
-    "A package's own narration (none of the examples has a recording), and a package offline after an update."
+    "Everything in a headset: copies at stations, greyed chapters on the headset's timeline, captions on its panel, moved sets and keep-clear.",
+    "How a stretched or shortened chapter's narration sounds (unheard).",
+    "A copy's recording on the R2 relay was checked only against the stand-in bucket."
   ]
 }

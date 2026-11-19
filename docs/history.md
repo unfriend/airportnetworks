@@ -90,6 +90,11 @@ file, the detail file says what is current.
   the review: a package file is cached under its whole address with its version, so a slow network never answers a new
   address with an old file; the start waits for the packages' index only when the address names a package; the check
   runs a package's own build only when asked (`--build`), as it is a pull request's code.
+- Step 3 (v170): arrangements, a story's copy on the relay retimed and rearranged (`tools/engine/SPEC.md`). The owner:
+  stories stay in git, "a copy button to copy them to the relay and then edit"; "rearranging and timing etc, no logic";
+  captions with live numbers. A copy is a relay scene (`{ studio: 1, story }`), so the relay needed no change; every edit
+  names what it changed from and is dropped, never misapplied, when the story has changed. As built, a lengthened
+  chapter plays longer and its narration line by line (the recording is the clock), a shortened one cuts lines.
 
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 
