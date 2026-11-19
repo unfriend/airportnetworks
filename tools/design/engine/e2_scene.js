@@ -44,16 +44,17 @@ function updateSets(S, t, dt) {
   }
 }
 
-//#use _vd viewDir~2
+//#use _vd viewDir
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.position.y = Math.max(GL.camera.position.y, 0.15);   // never under the floor
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
-//#use resize~2
-// the sun comes from over the viewer's left shoulder, the rim light from behind the table; point sizes follow the screen
-const LV = new THREE.Vector3(), _v2 = new THREE.Vector2();
+// a small screen held sideways keeps the framing this story had before the strip above the panel was fitted (resize)
+const STRIP_FIT = 0;
+//#use resize LV
+// (and the rim light from behind the table)
 function updateLight(xr) {
   const q = xr ? XR.headQ : GL.camera.quaternion;
   LV.set(-0.5, 0.6, 1.0).normalize().applyQuaternion(q);

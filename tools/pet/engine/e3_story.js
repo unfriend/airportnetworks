@@ -32,6 +32,8 @@ const CH = [
   { key: 'health', name: 'Health', a: 146, b: 200 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
 //#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
@@ -120,7 +122,7 @@ const dis = v => (Number.isFinite(+v) ? (+v).toFixed(2) : '–');
 // is the ink itself. The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => (/^#d9dde6$/i.test(c) ? 'var(--ink)' : `color-mix(in srgb, ${c} 55%, var(--ink))`);
 const swCol = c => (/^#d9dde6$/i.test(c) ? 'var(--ink)' : c);   // a swatch or a bar in the same colour
-const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');
+//#use pct~2
 
 // the story's own networks, in the order it shows them (one that has no links yet is skipped: the network stays)
 function buildStory() {
@@ -347,14 +349,8 @@ function buildStory() {
   // densities the text quotes stand by its title)
   if (R.cancer) label('organs', at('organs', 'title'), `<b>Healthy ${gD(R.cancer, 0)} · cancer ${gD(R.cancer, 1)}</b>density; no network drawn for them`, C.health.a + 1.5, C.health.a + 7, 'amb');
 }
-//#use buildCamera
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (body and organs share the organs' turn: one frame)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
-//#use smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels~3 setLabelAlpha _v labelPos _placed
-//#use placeLabels curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw
+//#use smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels setLabelAlpha _v labelPos _placed
+//#use placeLabels curCh updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

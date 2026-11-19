@@ -35,6 +35,8 @@ const CH = [
   { key: 'network', name: 'Next', a: 225, b: 270 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
 //#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
@@ -107,8 +109,7 @@ const creditText = () => {
   const S = OD.source;
   return `Poster: "${S.title}" by ${listOf(S.authors.map(a => `${a.name} (${a.aff.join(', ')})`))}. ${S.affiliations.map((x, i) => `(${i + 1}) ${x}`).join('; ')}. Supported by ${listOf(S.support)}. Data: ${S.data}.`;
 };
-//#use inkCol~3
-const swCol = c => c;   // a swatch or a bar in the same color
+//#use inkCol swCol
 
 function buildStory() {
   const F = FACTS;
@@ -374,29 +375,9 @@ function buildStory() {
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
     label('section', 'tag_' + k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
-//#use buildCamera
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the body and the ovary share one turn: one frame)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
-//#use smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels
-// a label whose text is a function (the ovary's age and counts) is read again while it shows and redrawn when it
-// changes: the HTML label, and the headset's sprite (dropped, so it is made again)
-function labelText(L) {
-  if (!L.fn) return;
-  const now = performance.now();
-  if (L.tx && now - (L.tt || 0) < 100) return;   // (read at most ten times a second)
-  L.tt = now;
-  const [b, r] = L.fn(), s = b + '|' + r;
-  if (s === L.tx) return;
-  L.tx = s; L.none = !b && !r;
-  L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
-  L.w = 0; L.nar = undefined; labelRedraw(L);
-}
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels labelText
 //#use setLabelAlpha~2 _v labelPos _placed
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
@@ -441,4 +422,4 @@ function placeLabels(list, alphaOf) {
   }
 }
 
-//#use curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use curCh updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

@@ -47,7 +47,11 @@ const CH = [
   { key: 'mission', name: 'Mission', a: 440, b: 468 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view~2 anchorOf
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+// no view moved or set back for the side panel (view, FIT)
+const FIT = {};
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view anchorOf
 function buildStory() {
   const I = GL.sets.int, SK = GL.sets.sankey;
   // clinical categories, molecular clusters, disease genes
@@ -477,4 +481,4 @@ function storyCam(t) {
 }
 
 //#use LBL labelEl label buildSetLabels~2 setLabelAlpha _v labelPos _placed placeLabels~2 curCh updateStoryDOM~2
-//#use buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

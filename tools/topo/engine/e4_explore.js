@@ -96,15 +96,7 @@ function exploreTargets(now = performance.now()) {
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
-function exploreStep(dt, now) {
-  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  // (a radius eases on the log ruler, as in the story)
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : LOG.has(n) ? logMix(XS[n], tg[n], k) : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or a set asks for stillness
-  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
-  return XS;
-}
-//#use pushState~2 openScene
+//#use exploreStep pushState openScene
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
@@ -186,14 +178,7 @@ function selectCell(i, ui = true) {
 // and what is lit, the curves' dimension and the cohort's view, the map's show and its radius of 100 or 50 µm, the
 // tissue on the slide and its look), the patch's radius, a cell's network radius, the slide picked, the window of radii
 // and the cell picked. The camera is each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -389,9 +374,7 @@ function renderCells() {
     <div data-live="cells">${cellsLive()}</div>
     <p class="note">${esc(NOTE.cells(s))}</p>`;
 }
-//#use renderScenes
-// labels the panes add (none: the sets label their own picks, the cohort its slide, the map its cell)
-function updateExtraLabels() {}
+//#use renderScenes updateExtraLabels
 
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { slide } (of the cohort),

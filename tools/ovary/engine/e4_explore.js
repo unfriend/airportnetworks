@@ -27,7 +27,7 @@ function camFor(k, v) {
   for (const x of [al[v], v, n, al[n]]) if (x && c[x]) return x;
   return null;
 }
-//#use viewCam viewIs NEXT~2 afterUpdate
+//#use viewCam viewIs NEXT afterUpdate
 // each kind in a line (the story's own words)
 const KIND_TEXT = { vessel: 'Tubes that carry blood, here cut across: a wall round an opening.', macrophage: 'Immune cells that clear away debris.',
   albicans: 'Pale scars, each left by a corpus luteum after an egg was released. They pile up over the years.', follicle: 'An egg in a ring of cells; the large ones hold fluid. The reserve that is never refilled.',
@@ -90,7 +90,7 @@ function setCtl(k, key, v) {
 }
 // a view of a set by its option's key, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (hasOpt(k, 'view', v) && ctlValue(k, ctlOf(k, 'view')) !== v) setCtl(k, 'view', v); }
-//#use flyTo orbitStep~2
+//#use flyTo orbitStep
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also sets the scenes' controls that show it.
@@ -129,14 +129,7 @@ function setMethod(m, ui = true) {
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the kind of
 // object, the age and the method. The camera is each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -161,9 +154,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's color, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
+//#use chip
 const ageInput = () => `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b;width:100%">`;
 function buildExplore() {
   $('#explore').innerHTML = `
@@ -316,4 +307,4 @@ function choosePick(p) {
   if (X.tab !== 'objects') showTab('objects');
   selectKind(p.kind === X.kind ? null : p.kind);
 }
-//#use bindCanvas~2
+//#use bindCanvas

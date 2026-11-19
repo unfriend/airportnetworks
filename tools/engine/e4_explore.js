@@ -27,15 +27,13 @@ const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue
 //#part viewIs
 // the view on show in a set, by its key or its name
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || !!(o && re.test(o[1])); };
-//#part NEXT~2
-// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
-const NEXT = [];
 //#part afterUpdate
 const afterUpdate = f => { NEXT.push(f); };
 //#part exploreStep
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  // (LOG's params ease on their log scale, as in the story: logMix)
+  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : LOG.has(n) ? logMix(XS[n], tg[n], k) : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it or a set asks for stillness
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
@@ -44,7 +42,11 @@ function exploreStep(dt, now) {
 // what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
 function pushState() { updateExtraLabels(); }
 //#part flyTo
-function flyTo(v) {
+// fly the explore camera to view v (over dur seconds, orbit.dur unless given); any flight but the PET story's hand-over
+// (hand) takes the camera from that hand-over (X.hand)
+function flyTo(v, dur, hand) {
+  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
+  orbit.d = dur || 0;
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = v.slice();
@@ -54,7 +56,7 @@ function flyTo(v) {
 //#part orbitStep
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.d || orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
   if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
@@ -159,70 +161,6 @@ function bindCanvas() {
 
 //#part SCENE_SHORT
 const SCENE_SHORT = {};
-//#part orbitStep~2
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-
-//#part bindCanvas~2
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
-
 //#part ctlsOf
 const ctlsOf = k => GL.sets[k].controls || [];
 //#part ctlShown~2
@@ -235,11 +173,8 @@ const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k,
 //#part api
 const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
 //#part NEXT
-// work for the next frame, once the sets have drawn what was just picked
+// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
-//#part pushState~2
-// what the panes pick reaches the sets through their params (exploreTargets)
-function pushState() { updateExtraLabels(); }
 //#part openScene
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
@@ -320,30 +255,23 @@ function openScene(k, fly = true) {
   if (fly) flyTo(view(k, 'default'));
   renderScenes();
 }
-//#part collabView
+//#part collabView~2
 // shared rooms: life size in a headset, so no view places anything there (none to share)
 function collabView() { return null; }
+//#part collabView
+// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
+// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
+function collabView() {
+  if (APP.mode !== 'explore' || orbit.to) return null;
+  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
+  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
+}
 //#part collabSetView~2
 function collabSetView(v, now) { /* nothing to set */ }
-//#part flyTo~2
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
-}
-//#part orbitStep~3
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
-}
-
 //#part showTab~2
 function showTab(k) { X.tab = k; }
 //#part updateExtraLabels
+// labels the panes add (none: the sets label their own picks)
 function updateExtraLabels() {}
 
 //#part ctlValue~2

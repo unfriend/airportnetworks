@@ -35,8 +35,10 @@ function buildScene(canvas) {
   GL.sets = {};
 }
 //#part buildSet
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// PET scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
 function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
   const s = SETS[k](K);
   GL.sets[k] = s;
   GL.world.add(s.group);
@@ -112,14 +114,6 @@ function viewDir(v, out) {
 GL.nf = 1;
 //#part narrowK
 const narrowK = () => ((GL.wide && !GL.bare) || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
-//#part applyCamera
-// (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
-function applyCamera(v) {
-  const u = GL.wide && !GL.bare ? 0 : 1;
-  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
-  GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
-}
 //#part _yA
 // sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
 // position in the set's own frame (t: story time, for the set's turn; null in explore mode) and returns it, moved if
@@ -152,8 +146,9 @@ function resize() {
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
   // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  // (STRIP_FIT: the story's own share of that, 0.9; 0 in the stories framed before it, which keep their framing there)
   const strip = Math.max(0.12, (0.56 * h - 122) / h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, STRIP_FIT / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
   // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
   if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
@@ -193,7 +188,7 @@ function updateSets(S, t, dt, story) {
 // on a screen held sideways without the side panel (the panel below, the scene in a strip above it) a view may come
 // closer and aim lower: v[10] and v[11] (LOW in the story), taken in full from 1.2 : 1 on (as GL.fit's strip)
 const lowK = () => (GL.wide || GL.bare ? 0 : clamp(((GL.aspect || 1) - 0.6) / 0.6, 0, 1));
-//#part applyCamera~2
+//#part applyCamera
 // (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
   const u = GL.wide && !GL.bare ? 0 : 1, L = lowK(), lk = 1 + ((v[10] || 1) - 1) * L;
@@ -222,62 +217,6 @@ function updateSets(S, t, dt, story) {
   }
 }
 
-//#part viewDir~2
-function viewDir(v, out) {
-  const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
-  return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
-}
-//#part resize~2
-function resize() {
-  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
-  if (GL.renderer.xr.isPresenting) return;
-  const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  const wide = w >= 900;
-  GL.wide = wide;
-  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
-  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
-  else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
-  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
-  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
-  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
-  camera.updateProjectionMatrix();
-}
-//#part buildScene~2
-function buildScene(canvas) {
-  const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.xr.enabled = true;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 400);
-  Object.assign(GL, { renderer, scene, camera, canvas });
-  GL.rig = new THREE.Group(); GL.world = new THREE.Group();
-  scene.add(GL.rig); GL.rig.add(GL.world);
-  // lit sets (the computer, the complex, buildings ...) share one sky light and a light from over your shoulder
-  scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
-  GL.sun = new THREE.DirectionalLight(0xffffff, 0.85);
-  scene.add(GL.sun); scene.add(GL.sun.target);
-  // stars
-  const sr = K.rng(9), sp = new Float32Array(1800 * 3), sc = new Float32Array(1800 * 3);
-  for (let i = 0; i < 1800; i++) {
-    const z = sr() * 2 - 1, t = sr() * Math.PI * 2, r = Math.sqrt(1 - z * z), b = 0.25 + 0.75 * Math.pow(sr(), 3);
-    sp.set([150 * r * Math.cos(t), 150 * z, 150 * r * Math.sin(t)], 3 * i); sc.set([b, b, b * 1.05], 3 * i);
-  }
-  const sg = new THREE.BufferGeometry();
-  sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
-  GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
-  scene.add(GL.stars);
-  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
-  GL.sets = {};
-}
-//#part applyCamera~3
-function applyCamera(v) {
-  viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
-  GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
-}
 //#part updateSets~3
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)

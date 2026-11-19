@@ -42,7 +42,9 @@ const CH = [
   { key: 'what', name: 'What for', a: 264, b: 290 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST~2 view fitShift
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
@@ -438,16 +440,9 @@ function buildStory() {
   a = C.machine.a;
   label('tree', 'tip2', '<b>New sequences</b> · read at the tips', a + 35, C.machine.b - 2, 'cyn');
 }
-//#use buildCamera~2
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the tree and the stem share one turn: one frame)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
-//#use smoothSeg spinEase
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw smoothSeg spinEase
 // the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, FIT's target shift x, y, z, and LOW's two]
 // (in a headset the family tree stands tall while it is the scene, see standView)
 const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
@@ -471,19 +466,6 @@ function standView(v, w) {
   return v;
 }
 
-//#use LBL labelEl label sfxSpan buildSetLabels
-// a label whose text is a function (a pile's count, a branch's length, a field's share, a turn's angle) is read again
-// while it shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
-function labelText(L) {
-  if (!L.fn) return;
-  const now = performance.now();
-  if (L.tx && now - (L.tt || 0) < 100) return;   // (read at most ten times a second)
-  L.tt = now;
-  const [b, r] = L.fn(), s = b + '|' + r;
-  if (s === L.tx) return;
-  L.tx = s; L.none = !b && !r;
-  L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
-  L.w = 0; L.nar = undefined; labelRedraw(L);
-}
-//#use setLabelAlpha~2 _v labelPos _placed placeLabels curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE
+//#use LBL labelEl label sfxSpan buildSetLabels labelText
+//#use setLabelAlpha~2 _v labelPos _placed placeLabels curCh updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE
 //#use lastTick updateTimeline

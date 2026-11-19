@@ -3538,6 +3538,8 @@ const SET_ORDER = ['letters', 'tree', 'rule', 'stem'];
 // sets drawn in another set's frame: the stems stand on the species tree's tips and their fields in front of its root,
 // so the two always turn together
 const FRAME = { stem: 'tree' };
+// on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
+const STRIP_FIT = 0.9;
 const frameOf = k => FRAME[k] || k;
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -3565,8 +3567,10 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// PET scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
 function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
   const s = SETS[k](K);
   GL.sets[k] = s;
   GL.world.add(s.group);
@@ -3637,8 +3641,9 @@ function resize() {
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
   // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  // (STRIP_FIT: the story's own share of that, 0.9; 0 in the stories framed before it, which keep their framing there)
   const strip = Math.max(0.12, (0.56 * h - 122) / h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, STRIP_FIT / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
   // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
   if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
@@ -3713,25 +3718,32 @@ const CH = [
   { key: 'what', name: 'What for', a: 264, b: 290 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 
 // every param of every set, at rest; the sets themselves start hidden
 const DEF = {};
+// (DEF_MORE: params of the engine's own beside the sets'; LOG: params tweened on a log scale, the story's and the sets')
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  Object.assign(DEF, DEF_MORE);
+  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+// a param at story time t, eased between its keys; LIN's run at an even pace, LOG's on a log scale (the story's logMix)
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
   if (t <= ks[0][0]) return ks[0][1];
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
+      if (t1 <= t0) return v1;
+      return LOG.has(n) ? logMix(v0, v1, smooth(x)) : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
     }
   }
   return ks[ks.length - 1][1];
@@ -3743,7 +3755,7 @@ function storyState(t) {
 }
 const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
 
-const ST = { labels: [], items: [], stand: [] };
+const ST = { labels: [], items: [], stand: [] };   // (stand: the headset's stand views, see standView)
 // a set's camera view by name (falls back to its default view)
 // (with the story's own framing on top: FIT)
 const view = (k, name) => {
@@ -4163,8 +4175,10 @@ function buildStory() {
   a = C.machine.a;
   label('tree', 'tip2', '<b>New sequences</b> · read at the tips', a + 35, C.machine.b - 2, 'cyn');
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift, LOW]; 'spin' segments turn at
-// a steady pace.
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift (, LOW's two)]; 'spin'
+// segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
 // never swings the camera round. The set keeps that turn while it is on show (setYaw).
@@ -4180,7 +4194,8 @@ function buildCamera(wp) {
   for (const w of wp) {
     if (!cur || w[8] !== cur.k) {
       const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
+      // (a set that the one before turns into, MORPH, takes its turn: the things of the one fly to the other's places)
+      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
       ST.yaw.push(cur);
     }
     turn(w, cur.c);
@@ -4192,11 +4207,11 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10], w[11]];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, ...w.slice(10)];
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the tree and the stem share one turn: one frame)
+// (sets in one frame share one turn: FRAME)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);
@@ -4273,14 +4288,14 @@ function label(set, at, html, tIn, tOut, cls) {
 const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
 function buildSetLabels() {
   for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows, see labelText)
+    // (a label's text may be a function: it follows what the set shows, and the pass story's language, see labelText)
     const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
     LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r });
+      fn, tx: fn ? b + '|' + r : '', none: !b && !r, cls: L.cls });
   }
 }
-// a label whose text is a function (a pile's count, a branch's length, a field's share, a turn's angle) is read again
-// while it shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
+// a label whose text is a function (a count, an age, a pick, a share, an angle ...) is read again while it shows and
+// redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
   const now = performance.now();
@@ -4301,11 +4316,12 @@ const setLabelAlpha = (L, S) => {
   if (v > 0) labelText(L);
   return L.none ? 0 : v;
 };
-// where a label points, in the world's own coordinates
+// where a label points, in the world's own coordinates (a life-size set through its holder, GL.life: the pass story's fish)
 const _v = new THREE.Vector3();
 function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
+  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
+  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
+  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
@@ -4377,18 +4393,23 @@ function updateStoryDOM(t) {
       p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
     }
   }
-  if (c.key === 'title') {
+  if (c === CH[0]) {   // (the first chapter's title arc, where it has one)
     const arc = $('#titleArc');
     if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
   }
 }
 
 // ------------------------------------------------------------- timeline UI --
-function buildTimeline() {
+function trackHTML() {
   const tr = $('#track');
   tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
     `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
   tr.setAttribute('aria-valuemax', Math.round(T_END));
+}
+// (the track's ticks and names: trackHTML, the story's own where it makes them again)
+function buildTimeline() {
+  const tr = $('#track');
+  trackHTML();
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -4475,7 +4496,7 @@ const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k,
 // stem's rebuilds and picking
 const API = {};
 const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
-// work for the next frame, once the sets have drawn what was just picked
+// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
 // what the panes choose, by name
 const letMix = () => ctlValue('letters', ctlOf('letters', 'mix'));
@@ -4546,7 +4567,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets)
+// what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
 function pushState() { updateExtraLabels(); }
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
@@ -4574,7 +4595,11 @@ function ctlSound(k, key, v) {
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
-function flyTo(v) {
+// fly the explore camera to view v (over dur seconds, orbit.dur unless given); any flight but the PET story's hand-over
+// (hand) takes the camera from that hand-over (X.hand)
+function flyTo(v, dur, hand) {
+  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
+  orbit.d = dur || 0;
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = v.slice();
@@ -4583,7 +4608,7 @@ function flyTo(v) {
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.d || orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
   if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
@@ -4891,8 +4916,9 @@ function renderScenes() {
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
     ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks, the tree its branch, the stem its fields)
+// labels the panes add (none: the sets label their own picks)
 function updateExtraLabels() {}
+
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();

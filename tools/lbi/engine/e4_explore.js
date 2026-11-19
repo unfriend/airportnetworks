@@ -69,7 +69,7 @@ function setCtl(k, key, v) {
   else if (s.cam && was && s.cam[was]) flyTo(exploreView(k, 'default'));
   if (c) renderScenes();
 }
-//#use flyTo orbitStep~2
+//#use flyTo orbitStep
 // ------------------------------------------------------- proteins (curated) --
 const INT = () => GL.sets.int;
 function matches(q, limit) {
@@ -160,13 +160,7 @@ function runRoute(s, t) {
 }
 // shared rooms: what everyone at the station sees alike: the tab, the scene and its controls, the selected protein
 // and the route's two ends (the camera, its turning, the search box and the headset keyboard stay each person's own)
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
+//#use collabView
 //#use collabSetView
 function collabState() {
   const s = GL.sets[X.scene];

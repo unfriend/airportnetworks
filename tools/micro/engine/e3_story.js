@@ -43,12 +43,10 @@ const CH = [
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 //#use C DEF
-function buildDefaults() {
-  for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
-  for (const k of SET_ORDER) DEF[k + '_a'] = 0;
-  DEF.dots = 0; DEF.dots_pick = 0;   // the engine's own organ points in the body (makeDots)
-}
-//#use TR key ramp evalTrack storyState fadeVal ST view fitShift
+// the engine's own params beside the sets' (DEF): its organ points in the body (makeDots); none keyed at an even pace
+// or on a log scale (evalTrack)
+const DEF_MORE = { dots: 0, dots_pick: 0 }, LIN = new Set(), LOG = new Set();
+//#use buildDefaults TR key ramp evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
@@ -168,10 +166,9 @@ const FACTS = (() => {
     figs: Object.keys(D.figures || {}),
   });
 })();
-//#use listOf word
-const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');
+//#use listOf word pct~2
 const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
-//#use inkCol~2 swCol
+//#use inkCol swCol
 // a worked example of change with age in a line: what it is, its share at both ages and per decade
 const exText = x => `${x.note}, from ${pct(x.from)} of the section at ${FACTS.ages[0]} to ${pct(x.to)} at ${FACTS.ages[1]}, ${signed(x.perDecade)}% per decade`;
 const exName = x => `${cap(x.tissue)} · ${x.domain}`;
@@ -493,38 +490,5 @@ function buildStory() {
 }
 // sets the one before turns into at a hand-over (the network grows out of the atlas: atlas_net), so they share its turn
 const MORPH = { hier: 'atlas' };
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
-// a steady pace.
-// When the story hands over from one set to another, the new set is turned about its
-// vertical axis so that its first view starts where the camera already is: a crossfade
-// never swings the camera round. The set keeps that turn while it is on show (setYaw).
-function buildCamera(wp) {
-  wp.sort((x, y) => x[0] - y[0]);
-  const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6], f = w[10], fx = f[0], fz = f[2];
-    w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
-    f[0] = fx * Math.cos(r) + fz * Math.sin(r); f[2] = -fx * Math.sin(r) + fz * Math.cos(r);   // (the shift turns with it)
-  };
-  ST.yaw = [];
-  let cur = null, prevAz = null;
-  for (const w of wp) {
-    if (!cur || w[8] !== cur.k) {
-      const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      // (a set that the one before turns into, MORPH, takes its turn: the atlas's things fly to the network's nodes)
-      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
-      ST.yaw.push(cur);
-    }
-    turn(w, cur.c);
-    prevAz = w[1];
-  }
-  // keep turning the short way round between views
-  let prev = null;
-  ST.wp = wp.map(w => {
-    let az = w[1];
-    if (prev !== null) az += 360 * Math.round((prev - az) / 360);
-    prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
-  });
-}
-//#use setYaw~2 smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels~3 setLabelAlpha _v labelPos
-//#use _placed placeLabels curCh updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use buildCamera setYaw smoothSeg spinEase storyCam LBL labelEl label sfxSpan buildSetLabels setLabelAlpha _v labelPos
+//#use _placed placeLabels curCh updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

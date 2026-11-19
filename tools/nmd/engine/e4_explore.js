@@ -105,7 +105,7 @@ function setCtl(k, key, v) {
   else if (s.cam && was && s.cam[was]) flyTo(view(k, 'default'));
   if (c) renderScenes();
 }
-//#use flyTo orbitStep~2
+//#use flyTo orbitStep
 // --------------------------------------------------------------- actions --
 function selectGroup(g) {
   X.group = g;
@@ -187,13 +187,7 @@ function setRoom(on) {
 const ctlShared = (k, c) => { const v = ctlValue(k, c); return k === 'tower' && c.key === 'view' && v === 'room' ? 'tower' : v; };
 const walkShared = () => (X.walk ? (X.walk.from === 'mine' ? X.walk.seeds.slice() : X.walk.from) : null);
 const offShared = () => [...X.off].sort((a, b) => a - b);
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
+//#use collabView
 //#use collabSetView
 function collabState() {
   const ctl = {};

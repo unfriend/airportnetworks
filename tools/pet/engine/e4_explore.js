@@ -34,7 +34,7 @@ const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
 // whether a set's view on show matches re (by its key or its name)
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
 const netView = () => viewIs('organs', /net/i);
-//#use NEXT~2 afterUpdate~2
+//#use NEXT afterUpdate~2
 // The hand-over between the Scanner and the Body or the Organs, played as the story plays it (the owner, 31 October
 // 2026: "better hide the scanner, rotate the body, fade out the organs and then show the sugar thing like it is now";
 // back to the Scanner "play reverse"): the scanner goes, its patient's image stands up and turns where the body set
@@ -162,21 +162,7 @@ function setCtl(k, key, v) {
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
 }
-function flyTo(v, dur, hand) {
-  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
-  orbit.d = dur || 0;
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.d || orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
+//#use flyTo orbitStep
 // fly to a point of the scene on show, keeping the direction you look from
 function flyNear(p, d) { if (p && !(X.life && X.scene === 'scan')) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
 
@@ -228,14 +214,7 @@ function setLife(on) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (they hold the
 // network on show), the comparison and the organ.
 // Turning and standing by the scanner life size are each person's own view.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-//#use collabSetView
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -352,16 +331,7 @@ function buildExplore() {
 }
 // the bottom bar's Life size: the scanner's only
 function lifeCtl() { const g = document.querySelector('#viewctl [data-ctl="life"]'); if (g && g.closest('.grp')) g.closest('.grp').style.display = X.scene === 'scan' ? '' : 'none'; }
-//#use setTurn
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (should the tabs overflow a phone's panel: the row scrolls so the chosen one shows)
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -465,4 +435,4 @@ function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
 }
-//#use bindCanvas~2
+//#use bindCanvas

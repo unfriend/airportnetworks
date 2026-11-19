@@ -36,14 +36,16 @@ const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 //#part ramp
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
 //#part evalTrack
+// a param at story time t, eased between its keys; LIN's run at an even pace, LOG's on a log scale (the story's logMix)
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
   if (t <= ks[0][0]) return ks[0][1];
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
+      if (t1 <= t0) return v1;
+      return LOG.has(n) ? logMix(v0, v1, smooth(x)) : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
     }
   }
   return ks[ks.length - 1][1];
@@ -58,7 +60,7 @@ function storyState(t) {
 const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
 
 //#part ST
-const ST = { labels: [], items: [] };
+const ST = { labels: [], items: [], stand: [] };   // (stand: the headset's stand views, see standView)
 //#part view
 // a set's camera view by name (falls back to its default view)
 // (with the story's own framing on top: FIT)
@@ -90,21 +92,8 @@ const API = {};
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
 //#part word
 const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
-//#part inkCol~2
-// colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
-const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 //#part swCol
 const swCol = c => c;   // a swatch or a bar in the same colour
-//#part setYaw~2
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the tissue and the slide share one turn: one frame)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
 //#part smoothSeg
 // 0..1 progress over a segment of length D: smoothstep, or for 'spin' segments a steady
 // slow turn with short eased starts and stops (trapezoidal speed profile)
@@ -158,13 +147,6 @@ function label(set, at, html, tIn, tOut, cls) {
 // a label's rest after its bold part; a long one (more than a mark such as ' · hub' or ' · 1.2×') gives way on narrow
 // screens (placeLabels)
 const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
-//#part buildSetLabels~3
-function buildSetLabels() {
-  for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    const [b, r] = L.text;
-    LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1 });
-  }
-}
 //#part setLabelAlpha
 // a set label shows as far as its set is in and its own rule allows
 // (labels a set marks as minor give way on narrow screens)
@@ -174,12 +156,13 @@ const setLabelAlpha = (L, S) => {
   return (2 * a - 1) * clamp(L.alpha ? L.alpha(S) : 1, 0, 1);
 };
 //#part _v
-// where a label points, in the world's own coordinates
+// where a label points, in the world's own coordinates (a life-size set through its holder, GL.life: the pass story's fish)
 const _v = new THREE.Vector3();
 //#part labelPos
 function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
+  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
+  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
+  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
 //#part _placed
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
@@ -255,19 +238,25 @@ function updateStoryDOM(t) {
       p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
     }
   }
-  if (c.key === 'title') {
+  if (c === CH[0]) {   // (the first chapter's title arc, where it has one)
     const arc = $('#titleArc');
     if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
   }
 }
 
-//#part buildTimeline
+//#part trackHTML
 // ------------------------------------------------------------- timeline UI --
-function buildTimeline() {
+function trackHTML() {
   const tr = $('#track');
   tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
     `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
   tr.setAttribute('aria-valuemax', Math.round(T_END));
+}
+//#part buildTimeline
+// (the track's ticks and names: trackHTML, the story's own where it makes them again)
+function buildTimeline() {
+  const tr = $('#track');
+  trackHTML();
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -311,17 +300,16 @@ function updateTimeline(t, playing) {
 }
 
 //#part buildDefaults
+// (DEF_MORE: params of the engine's own beside the sets'; LOG: params tweened on a log scale, the story's and the sets')
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  Object.assign(DEF, DEF_MORE);
+  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
 }
-//#part inkCol~3
-// colors as text on the HTML panel, which is light in the light theme: a color mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the color itself (data-col).
-const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 //#part buildCamera
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
-// a steady pace.
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift (, LOW's two)]; 'spin'
+// segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
 // never swings the camera round. The set keeps that turn while it is on show (setYaw).
@@ -337,7 +325,8 @@ function buildCamera(wp) {
   for (const w of wp) {
     if (!cur || w[8] !== cur.k) {
       const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
+      // (a set that the one before turns into, MORPH, takes its turn: the things of the one fly to the other's places)
+      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
       ST.yaw.push(cur);
     }
     turn(w, cur.c);
@@ -349,16 +338,16 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, ...w.slice(10)];
   });
 }
 //#part buildSetLabels
 function buildSetLabels() {
   for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows, see labelText)
+    // (a label's text may be a function: it follows what the set shows, and the pass story's language, see labelText)
     const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
     LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r });
+      fn, tx: fn ? b + '|' + r : '', none: !b && !r, cls: L.cls });
   }
 }
 //#part setLabelAlpha~2
@@ -373,51 +362,18 @@ const setLabelAlpha = (L, S) => {
 };
 //#part f2
 const f2 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
-//#part ST~2
-const ST = { labels: [], items: [], stand: [] };
 //#part LOW1
 const LOW1 = [1, 0];
 //#part lowOf
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 //#part pct
 const pct = v => (Number.isFinite(+v) ? `${Math.round(100 * v)} %` : '–');
+//#part pct~2
+const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');   // (a share given in per cent)
 //#part inkCol
 // colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
 // a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
-//#part buildCamera~2
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift, LOW]; 'spin' segments turn at
-// a steady pace.
-// When the story hands over from one set to another, the new set is turned about its
-// vertical axis so that its first view starts where the camera already is: a crossfade
-// never swings the camera round. The set keeps that turn while it is on show (setYaw).
-function buildCamera(wp) {
-  wp.sort((x, y) => x[0] - y[0]);
-  const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6], f = w[10], fx = f[0], fz = f[2];
-    w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
-    f[0] = fx * Math.cos(r) + fz * Math.sin(r); f[2] = -fx * Math.sin(r) + fz * Math.cos(r);   // (the shift turns with it)
-  };
-  ST.yaw = [];
-  let cur = null, prevAz = null;
-  for (const w of wp) {
-    if (!cur || w[8] !== cur.k) {
-      const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
-      ST.yaw.push(cur);
-    }
-    turn(w, cur.c);
-    prevAz = w[1];
-  }
-  // keep turning the short way round between views
-  let prev = null;
-  ST.wp = wp.map(w => {
-    let az = w[1];
-    if (prev !== null) az += 360 * Math.round((prev - az) / 360);
-    prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10], w[11]];
-  });
-}
 //#part storyView
 function storyView(t) {
   const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9], ...w[10]];
@@ -436,23 +392,9 @@ function storyView(t) {
 //#part standW
 // ST.stand: [t0, t1, t2, t3], in over t0..t1 and out over t2..t3 (story time)
 const standW = t => ST.stand.reduce((w, [t0, t1, t2, t3]) => Math.max(w, Math.min(smooth((t - t0) / (t1 - t0)), smooth((t3 - t) / (t3 - t2)))), 0);
-//#part evalTrack~2
-function evalTrack(n, t) {
-  const ks = TR[n];
-  if (!ks) return DEF[n];
-  if (t <= ks[0][0]) return ks[0][1];
-  for (let i = 1; i < ks.length; i++) {
-    if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      if (t1 <= t0) return v1;
-      return LOG.has(n) ? logMix(v0, v1, smooth((t - t0) / (t1 - t0))) : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
-    }
-  }
-  return ks[ks.length - 1][1];
-}
 //#part labelText
-// a label whose text is a function (the radius and its counts, a slide picked, a window's share, a cell's score) is read again
-// while it shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
+// a label whose text is a function (a count, an age, a pick, a share, an angle ...) is read again while it shows and
+// redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
   const now = performance.now();
@@ -464,9 +406,6 @@ function labelText(L) {
   L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
   L.w = 0; L.nar = undefined; labelRedraw(L);
 }
-//#part view~2
-// a set's camera view by name (falls back to its default view)
-const view = (k, name) => { const c = GL.sets[k].cam; return (c[name] || c.default).slice(); };
 //#part buildCamera~3
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -500,9 +439,11 @@ function buildCamera(wp) {
 }
 //#part setYaw
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
+// (sets in one frame share one turn: FRAME)
 function setYaw(k, t) {
   let c = 0;
-  for (const y of ST.yaw) if (y.k === k && y.t0 - 6 <= t) c = y.c;
+  const f = frameOf(k);
+  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
 //#part storyCam~2
@@ -587,7 +528,7 @@ function updateStoryDOM(t) {
     const p = $('#panel'), over = fresh.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
     if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
   }
-  if (c.key === 'title') {
+  if (c === CH[0]) {   // (the first chapter's title arc, where it has one)
     const arc = $('#titleArc');
     if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
   }

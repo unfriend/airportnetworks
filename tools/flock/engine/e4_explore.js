@@ -129,7 +129,7 @@ function flockEffect(type, d, by) {
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];
-//#use collabView collabSetView~2
+//#use collabView~2 collabSetView~2
 function collabState() {
   return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
 }
@@ -139,7 +139,7 @@ function collabApply(v) {
     if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('flock', c) !== x) setCtl('flock', c.key, x);
   }
 }
-//#use flyTo~2 orbitStep~3
+//#use flyTo orbitStep
 function buildExplore() {
   $('#explore').innerHTML = `<div class="pane on" id="pane-scenes" role="region" aria-label="The flock"></div>`;
   $('#pane-scenes').addEventListener('click', ev => {

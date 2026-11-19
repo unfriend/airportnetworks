@@ -26,7 +26,11 @@ const CH = [
   { key: 'gang', name: 'Your gang', a: 74, b: 84 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view~2
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
+// no view moved or set back for the side panel (view, FIT)
+const FIT = {};
+//#use C DEF buildDefaults TR key ramp evalTrack storyState fadeVal ST view
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
   const s = GL.sets[k];
@@ -188,4 +192,4 @@ function updateLive() {
   }
   return s;
 }
-//#use updateStoryDOM~2 buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use updateStoryDOM~2 trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline

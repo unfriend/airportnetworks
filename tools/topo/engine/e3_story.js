@@ -40,22 +40,16 @@ const CH = [
   { key: 'next', name: 'What next', a: 302, b: 340 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
-//#use C
-// every param of every set, at rest; the sets themselves start hidden (and the engine's liver, see makeLiver)
-const DEF = {};
+//#use C DEF
+// the engine's own params beside the sets' (DEF): the liver's (see makeLiver)
+const DEF_MORE = { liver_a: 0, liver_lift: 0, liver_slice: 0 };
 // params eased on the poster's log ruler of the radius (TDATA.u in, TDATA.rOf out), in the story and in explore: the
-// sets' own (a set lists them as log) and the map's radius
-const LOG = new Set(['map_r']);
-function buildDefaults() {
-  for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
-  for (const k of SET_ORDER) DEF[k + '_a'] = 0;
-  DEF.liver_a = 0; DEF.liver_lift = 0; DEF.liver_slice = 0;
-  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
-}
-//#use TR key ramp
+// sets' own (a set lists them as log) and the map's radius; none run at an even pace
+const LOG = new Set(['map_r']), LIN = new Set();
+//#use buildDefaults TR key ramp
 // a radius eased on the log ruler: between u(v0) and u(v1), back to µm
 const logMix = (v0, v1, x) => (v0 > 0 && v1 > 0 ? TDATA.rOf(TDATA.u(v0) + (TDATA.u(v1) - TDATA.u(v0)) * x) : v0 + (v1 - v0) * x);
-//#use evalTrack~2 storyState fadeVal ST~2 view fitShift
+//#use evalTrack storyState fadeVal ST view fitShift
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
@@ -452,16 +446,9 @@ function buildStory() {
   label('body', () => GL.liver.at.liver, '<b>The liver</b>', a + 5, a + 10.5, '');
   label('body', () => GL.liver.at.slice, '<b>A thin slice</b> · laid on glass', a + 9.5, a + 12.6, 'amb');
 }
-//#use buildCamera~2
-// the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the slide and the map share one turn: one frame)
-function setYaw(k, t) {
-  let c = 0;
-  const f = frameOf(k);
-  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
-  return c;
-}
-//#use smoothSeg spinEase
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+//#use buildCamera setYaw smoothSeg spinEase
 // the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, FIT's target shift x, y, z, and LOW's two]
 // (in a headset the tower of scales stands tall while it is the scene, see standView)
 const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
@@ -485,4 +472,4 @@ function standView(v, w) {
 }
 
 //#use LBL labelEl label sfxSpan buildSetLabels labelText setLabelAlpha~2 _v labelPos _placed placeLabels curCh
-//#use updateStoryDOM buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
+//#use updateStoryDOM trackHTML buildTimeline ICON_PLAY ICON_PAUSE lastTick updateTimeline
