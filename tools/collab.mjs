@@ -3984,7 +3984,7 @@ const ARR_KEY = 'qubits';
 // given (_S.A) and counting the calls (_S.n)
 const ARR_STANDIN = `(() => {
   const cur = HOST.cur, P = e => cur.peek(e);
-  if (cur.arrange && !cur.arrange._S) { const ar = cur.arrange, S = { A: ar.get(), n: 0 }; cur.arrange = { model: () => ar.model(), apply(A) { S.n++; S.A = A; return ar.apply(A); }, get: () => ar.get(), _S: S }; return 'real'; }
+  if (cur.arrange && !cur.arrange._S) { const ar = cur.arrange, S = { A: ar.get(), n: 0 }; cur.arrange = { model: () => ar.model(), apply(A, n) { S.n++; S.A = A; return ar.apply(A, n); }, get: () => ar.get(), _S: S }; return 'real'; }
   const CHs = P('CH.map(c => ({ key: c.key, name: c.name, a: c.a, b: c.b }))'), sets = P('SET_ORDER.slice()');
   const M = { v: 1, key: HOST.curKey, len: CHs[CHs.length - 1].b, chapters: CHs, sync: P('NARRATION_SYNC.map(p => p.slice())'), narration: null,
     tracks: P('Object.entries(TR).map(([n, ks]) => ({ n, ks: ks.map(k => [k[0], k[1]]) }))').map(({ n, ks }) => ({ id: 'p:' + n, name: n, set: sets.find(k => n.startsWith(k)) || '',

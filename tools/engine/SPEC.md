@@ -141,12 +141,12 @@ Without an arrangement nothing changes: `tools/engine/same.mjs`, `xrsame.mjs` an
   `HOST.audio.narration` can fetch as a story's own file), `current(key)` (`{ name, A }`: the copy the page plays for the
   story, from the address's `&arr=` or its station's `arr`; `A` null while it is read or when it could not be; null for
   none), `open(key, name, edit)`, `own()`.
-- The shell lays the arrangement over the story itself: `HOST.cur.arrange.apply(A)` once the story is built (its frame
-  loop given, `HOST.loading.built()`), again whenever the copy is read, edited or changed at the station, and
+- The shell lays the arrangement over the story itself: `HOST.cur.arrange.apply(A, name)` once the story is built
+  (its frame loop given, `HOST.loading.built()`), again whenever the copy is read, edited or changed at the station, and
   `apply(null)` when it goes; a story need not ask for it (it may call `current(key)` while it loads, and an `apply` of
-  the same arrangement again must change nothing). The editor seeks with `APP.seek` on the recording's clock (`APP.t`),
-  through the narration's timing as arranged (step 5's `sync`, then step 3's stretch), and reads the playhead the same
-  way back.
+  the same arrangement again must change nothing). The editor seeks with `APP.seek` on the timeline's clock (`APP.t`),
+  through the narration's timing as arranged (step 5's `sync`, then step 3's stretch: a chapter of a new length has its
+  span of the recording scaled by the same factor, as the story does), and reads the playhead the same way back.
 - *Copy to relay*: on a story that has `arrange`, when a relay is known and its password held: on the page's story bar
   (in developer mode, and always when the page has `&edit`); it makes the copy and opens it with the editor.
 - The editor (a page only; a headset plays a copy but does not edit it): a drawer above the timeline.

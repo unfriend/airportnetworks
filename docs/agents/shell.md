@@ -1270,7 +1270,8 @@ The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and
   (`#<key>&arr=<name>`, this page's own: dropped when another story starts, `HOST.arrange.started` from `HOST.run`).
   Every 300 ms (`tick`) the copy wanted is read when it is not yet (again 15 s after a failure, and when the station's
   `at` moves on unless this page is editing it with unsaved changes) and laid over the story with
-  `HOST.cur.arrange.apply(A)` (a clone: the story never changes ours) once the story is built (`HOST.loading.built()`,
+  `HOST.cur.arrange.apply(A, name)` (a clone: the story never changes ours; the name: the story fetches the copy's
+  recording by it) once the story is built (`HOST.loading.built()`,
   new in v170: its frame loop given), again whenever the copy changes, and `apply(null)` when it goes. A story without
   `arrange` (the airports, proteins, cell map, the studio) plays as its own.
 - **The address**: `#<key>&arr=<name>` while a copy plays by the address, `&edit` added while the editor is open or the
@@ -1285,7 +1286,8 @@ The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and
   under 700 px wide it says it needs a wider screen; `body.arr-ed` lifts the story panel above it, and under 900 px hides
   it). Its lanes are drawn in the story's time as arranged (each chapter at its new length; `geo()`), a drag read back
   into the story's own seconds, and the story seeks there through the narration's timing as arranged (`APP.seek` on the
-  recording's clock; the playhead from `APP.t` the same way). Lanes: the chapters (drag a chapter's right end for its
+  timeline's clock, `APP.t`; the playhead from it the same way): the copy's `sync` (or the story's own), and in a chapter
+  of a new length its span of the recording scaled by the same factor, as the story's `ARR` lays it out. Lanes: the chapters (drag a chapter's right end for its
   length; click: its length, *Skip it*, *Back to its own length*), the narration's anchors (`sync`), each set's show and
   hide (its `show` track, with its other tracks folded under it), the tracks of no set, the camera, the captions (click:
   the text with its numbers as `{1}`, `{2}` and a preview, *Back to the story's own*), the labels (click: the text), the

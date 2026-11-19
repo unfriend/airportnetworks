@@ -4632,7 +4632,7 @@ HOST.arrange = (function () {
     const A = c && c.A ? c.A : null;
     S.applied = { cur, name: A ? name : '', rev: A ? c.rev : 0 };
     try {
-      const r = cur.arrange.apply(A ? clone(A) : null);
+      const r = cur.arrange.apply(A ? clone(A) : null, A ? name : '');   // (the name: the story fetches the copy's recording by it)
       S.dropped = A && r && Array.isArray(r.dropped) ? r.dropped.filter(x => typeof x === 'string').slice(0, 200) : [];
     } catch (e) { console.warn('The copy was not laid over the story:', e); S.dropped = []; }
     if (ED.on) edDrop();
@@ -4732,10 +4732,25 @@ HOST.arrange = (function () {
     });
     const fwd = t => { for (const c of ch) if (t >= c.a && t < c.b) return c.a2 + (t - c.a) * c.len / c.own; let s = 0; for (const c of ch) if (t >= c.b) s += c.len - c.own; return t + s; };
     const back = t => { for (const c of ch) if (t >= c.a2 && t < c.b2) return c.a + (t - c.a2) * c.own / c.len; let s = 0; for (const c of ch) if (t >= c.b2) s += c.len - c.own; return t - s; };
-    const sy = (Array.isArray(A.sync) && A.sync.length > 1 ? A.sync : M.sync).map(p => [+p[0], fwd(+p[1])]);
-    const lerp = (W, i, j, x) => { for (let k = 1; k < W.length; k++) if (x <= W[k][i]) { const p = W[k - 1], q = W[k]; return q[i] === p[i] ? p[j] : p[j] + (q[j] - p[j]) * (x - p[i]) / (q[i] - p[i]); } const L = W[W.length - 1]; return L[j] + (x - L[i]); };
-    const rec = t => (sy.length > 1 ? (t <= sy[0][1] ? sy[0][0] - (sy[0][1] - t) : lerp(sy, 1, 0, t)) : t);
-    const at = r => (sy.length > 1 ? (r <= sy[0][0] ? sy[0][1] - (sy[0][0] - r) : lerp(sy, 0, 1, r)) : r);
+    // the timeline (APP.t) as the story lays it out (ARR in tools/engine/e7_app.js): the narration's timing (the copy's
+    // or the story's own) maps own story time to the recording, and a chapter of a new length has its span of the
+    // recording scaled by the same factor (Q), so a stretched chapter plays longer on the timeline too
+    const W = (Array.isArray(A.sync) && A.sync.length > 1 ? A.sync : M.sync).map(p => [+p[0], +p[1]]), sy = W.map(p => [p[0], fwd(p[1])]);
+    const nT = o => { if (W.length < 2) return o; for (let i = 1; i < W.length; i++) if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); } const L = W[W.length - 1]; return L[0] + (o - L[1]); };
+    const sT = t => { if (W.length < 2) return t; if (t <= 0) return 0; for (let i = 1; i < W.length; i++) if (t <= W[i][0]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); } const L = W[W.length - 1]; return L[1] + (t - L[0]); };
+    const pw = (xs, ys, x) => { const n = xs.length; if (x <= xs[0]) return ys[0] + (x - xs[0]); for (let i = 1; i < n; i++) if (x <= xs[i]) return xs[i] > xs[i - 1] ? ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]) : ys[i]; return ys[n - 1] + (x - xs[n - 1]); };
+    let Q = null;
+    if (ch.some(c => Math.abs(c.len - c.own) > 1e-6)) {
+      const xs = [], ys = [];
+      ch.forEach(c => {
+        const a = nT(c.a), b = nT(c.b);
+        if (!xs.length) { xs.push(a); ys.push(a); } else if (a > xs[xs.length - 1]) { ys.push(ys[ys.length - 1] + a - xs[xs.length - 1]); xs.push(a); }
+        ys.push(ys[ys.length - 1] + (b - a) * c.len / c.own); xs.push(b);
+      });
+      Q = [xs, ys];
+    }
+    const rec = t => { const r = nT(back(t)); return Q ? pw(Q[0], Q[1], r) : r; };
+    const at = r => fwd(sT(Q ? pw(Q[1], Q[0], r) : r));
     const len = Math.max(1, fwd(M.len), ch.length ? ch[ch.length - 1].b2 : 0);
     return { ch, fwd, back, rec, at, len, sy };
   }
