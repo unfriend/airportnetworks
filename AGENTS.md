@@ -105,8 +105,9 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `tools/lowpoly/` - the miniatures' sources (`models-a.js`, `models-b.js`, each under 1,200 triangles, `tris` exact),
   harnesses and `build.mjs`.
 - `packages/` - story packages, a story in one folder each (`packages/<key>/`: `story.json`, `main.js`, `icon.png`, its
-  files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract) and `scan.mjs` (writes the
-  index; `--check`) (`docs/agents/packages.md`).
+  files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract), `scan.mjs` (writes the
+  index; `--check`), `check.mjs` (a package's rules; `--load`) and `template/` (a package's `src/`); `packages/hello/` the
+  example (hidden: `#hello`) (`docs/agents/packages.md`).
 
 ## Detail files (read the one you need, when you need it)
 
@@ -403,6 +404,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
 | `node tools/studio/test-images.mjs` | after changing `tools/studio/engine/images.js` or `test/pictures.mjs` |
+| `node tools/packages/check.mjs packages/<key> --load` | after changing a package or `tools/packages/template/` (build it first: `node packages/<key>/src/build.mjs`) |
 | `node tools/studio/test-ik.mjs` | after changing `ik.js` (the studio's puppet and people's bodies) or the puppet in `test/make.mjs` |
 
 Real-headset behaviour (controllers, session hand-over between stories, placement, comfort, sound) can only be

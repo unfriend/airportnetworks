@@ -288,7 +288,10 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   serves it deep (`APP_DIRS`, `APP_DEEP`) and never writes there.
 - `tools/packages/` - the story packages' tools: `SPEC.md` (the contract: the folder, `story.json`, the index, the shell,
   the service worker, the relay, shared rooms, the rules, the reserved keys the scan reads), `scan.mjs` (writes
-  `packages/index.json`; `--check`, `--root`).
+  `packages/index.json`; `--check`, `--root`), `check.mjs` (a package's rules, and with `--load` opened headless) and
+  `template/` (a package's `src/`: `build.mjs`, `engine/e1_head.js` ... `e7_app.js` on the shared engine parts,
+  `sets/orb.js`, `README.md`). `packages/hello/` is the example built from it (*Six handshakes*, hidden: `#hello`; its
+  `src/`, `story.json`, `main.js`, `icon.png`, `README.md`).
 - `examples/` - example scenes that ship with the app (v137): scene folders with their listings exactly as
   `tools/studio/scan.mjs` writes them (`examples/index.json`, `examples/<name>/files.json`), opened read only from the
   studio's Scene pane and copied to a relay from there ("The studio"). The first, `bliss-xp`, the Bliss XP room ("The Bliss

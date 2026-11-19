@@ -121,3 +121,71 @@ rules a package keeps", lists what `tools/packages/check.mjs` fails on.
 
 `SPEC.md`, "Writing one": `tools/packages/template/` is a package's `src/`, built into `main.js` from the app's kit and
 engine parts as the built stories are; `packages/hello/` is the example (hidden: developer mode, or `#hello`).
+
+### The template (`tools/packages/template/`)
+
+Copy it to `packages/<key>/src/`, write `packages/<key>/story.json` and `README.md`, then `node
+packages/<key>/src/build.mjs` (its `README.md` says each step). It holds:
+
+- `build.mjs`: finds the app's folder by walking up from its own (`fileURLToPath`, to the first folder holding
+  `tools/engine/parts.mjs`; `--root <dir>` for a copy outside it), takes the key from `../story.json` (it must be the
+  folder's name; the template itself, without one, says to copy it first), reads the kit (`tools/lbi/kit.js`, its Node
+  export cut as `tools/flock/build.mjs` does), pastes the sets (`SET_FILES`, each one's Node export line `if (typeof
+  module !== 'undefined') module.exports = ...` cut, so a helper can be tested with `node`), expands the engine files'
+  `//#use` lines with `tools/engine/parts.mjs`'s `expand`, puts the key where `e1_head.js` says `@@KEY@@`, and writes
+  `../main.js`; `--check` exits 1 when `main.js` is not what it makes. It is not a `tools/<dir>/build.mjs`, so neither
+  `tools/engine/all.mjs` nor the relay's `--build` runs it: a package takes the app's engine changes only when its author
+  builds it again.
+- `engine/e1_head.js` ... `e7_app.js`: the engine of the newest built stories (copied from the qubits story's choices:
+  not life size, the shared `frame`, the shared headset code whole) with a small story's own constants and hooks in the
+  template's own files (`docs/agents/stories.md`, "Shared engine parts"): `KEY`, `pkgUrl(file)` (`HOST.pkgUrl(KEY,
+  file)`) and `pkgMeta()` (the index's entry) in `e1_head.js`; `SET_ORDER`, `STRIP_FIT` and the shared `FRAME` in
+  `e2_scene.js`; `CH`, `NARRATION_SYNC` (no recording: the story's own clock, `[[0, 0], [end, end]]`), `FIT` (none),
+  `NARROW`, `MORPH` and `buildStory` in `e3_story.js`; one tab (`scenes`: each set's controls as chips), `X`, `STEP`,
+  `CAM_ALIAS`, `exploreTargets`, `ctlSound`, the shared state `{ v: 1, tab, scene, ctl }` (`COLLAB_V`, which `collabApply`
+  checks), `buildExplore`, `renderScenes` and the picking hooks (nothing to pick) in `e4_explore.js`; `XR_HERE = KEY`,
+  `XR_TITLE` (story.json's title), `sigMainS`, `sigMainX`, `drawTabPane` and `drawScenesPane` in `e6_panels.js`; `APP`
+  (entering explore mode from the story's moment, as qubits does), `frameLife` and the others off, `initEnd` (a link's
+  `&explore&scene=&<control>=&tab=&now`) and the returned contract in `e7_app.js`. `e5_xr.js` is all shared parts.
+- Narration: none by default (`AUD` stays null, as in the design room). `narrationFile()` is
+  `pkgUrl('audio/narration.mp3')`, and `audioInit` starts it only when the index lists that file for the package
+  (`pkgMeta().files`), so a package without one never asks for it (no 404).
+- `sets/orb.js`: a small set to replace (points that gather into a ball, a lit core, two controls).
+
+Built as it is (`story.json` with the key `tmpl`), the template loads, plays and explores without errors (checked with
+`check.mjs --load --phone` on a copy outside the tree).
+
+### The example (`packages/hello/`)
+
+*Six handshakes* (kick *Small worlds*, `list: "hidden"`, `needs` the shell release in `index.html`'s `HOST.shell.n`
+when it was made, 166): 60 people on a ring, each knowing their four nearest; a few links rewired at random (seeded)
+make everyone close while the ring still looks local (Watts and Strogatz, Nature 1998). About a minute and a half in
+four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then explore mode with one tab (*Network*).
+`src/` is the template with:
+
+- `sets/net.js`: `HELLO`, the network and its numbers: the links in Watts and Strogatz's order, each with its own seeded
+  draw `u` and new far end `t`, rewired when `u < p`, so raising `p` only adds shortcuts; the rewiring level (0 to 1,
+  what the story keys and eases) gives `p = (1000^level - 1) / 999`; `stats(p)` (average handshakes over linked pairs,
+  the most, pairs apart, the clustering coefficient, shortcuts), `path(p, a, b)` (breadth first, friends in order, the
+  same on every device), `pos(i)` and `arc(i, j, n)` (a ring link a chord, a shortcut an arch over the ring). Testable
+  with `node` (`require('./packages/hello/src/sets/net.js')`).
+- `sets/ring.js`: the people (instanced balls with a glow), every link's ring chord and shortcut arch drawn at once (each
+  link's alpha follows how far the level has passed its own, the chord fading as the arch grows: the network on show
+  flips at the half), and the counter (a stack of discs as high as the average handshakes, a label over it). Params
+  `ring_people`, `ring_links`, `ring_rw`, `ring_count`; controls `rw` (None, 1 %, 5 %, 10 %, 30 %, All) and `view`;
+  `api().pick(rc)` (the person nearest a ray).
+- `sets/path.js`: the chain from A to B on the network the ring shows (it reads `ring_rw`), hop by hop as `path_show`
+  grows, A and B ringed and labelled; drawn in the ring's frame (`FRAME = { path: 'ring' }`).
+- The story's numbers (`FACTS`: none, a few shortcuts at `p = 0.05`, all) and explore mode's are computed from `HELLO`
+  as the page runs ("in this example"). Explore mode: the rewiring chips, two people picked on the ring (click, or point
+  and press in a headset: the first is A, the next B, a third starts again; *Across the ring*, *Clear*), the numbers,
+  the view; its headset twin is `drawNetworkPane`. Shared state `{ v: 1, tab, scene, ctl, a, b }`. Its address:
+  `#hello&explore&rw=0.1&a=1&b=31&view=top`.
+- `icon.png`: the ring from above with two shortcuts and the chain, rendered headless (the page's canvas only, 256 px,
+  about 40 KB).
+
+### Checking one (`tools/packages/check.mjs`)
+
+`node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]` (`docs/agents/testing.md`, "Story
+packages"): the rules of `SPEC.md`, statically and with `--load` headless. A package's author runs it after building;
+`packages/hello` passes it with `--load --phone`, and a copy with the rules broken fails on each.

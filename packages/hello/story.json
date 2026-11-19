@@ -1,0 +1,16 @@
+{
+  "key": "hello",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Six handshakes",
+  "kick": "Small worlds",
+  "col": "#8fd3ff",
+  "desc": "Sixty people in a ring, and how a few shortcuts bring everyone close: the example story package.",
+  "len": "Story 1:34",
+  "aria": "Interactive 3D story: Six handshakes, small-world networks",
+  "thing": "ring",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "hidden",
+  "needs": 166
+}

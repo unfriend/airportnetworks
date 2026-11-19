@@ -2236,6 +2236,27 @@ the release run: run them when a change means to change nothing.
   at about 30 moments, tabs and scenes and compares signature, regions and pixels (its 'playing' moment may differ by
   itself).
 
+## Story packages (`tools/packages/check.mjs`, `scan.mjs`)
+
+- `node tools/packages/scan.mjs --check` (a cheap check): `packages/index.json` is current and no folder is left out.
+- `node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]`: the rules a package keeps
+  (`tools/packages/SPEC.md`), one line per finding (`FAIL` or `warn`), then `packages/<key>: ok` or the count; exits 1 on a
+  failure. Static: `story.json` field by field (as the scan), the key (its folder's name, not taken, not reserved),
+  `main.js` registering its own key, and in every served `.js` (not `src/`), its code with the comments taken out: `new
+  AudioContext` or `webkitAudioContext`, `new THREE.WebGLRenderer`, `location.href =`, `location.assign`,
+  `location.replace`, `history.pushState`, `HOST.start(`, `buttons[4]`, `eval(` or `new Function(` (the engine's own
+  `peek: src => eval(src)` excepted), and any string with an address on another origin (`http://`, `https://`, `ws://`,
+  `wss://` with a host, or `//host`; XML namespaces on `www.w3.org` excepted); a file over 16 MB or the folder over 64 MB.
+  Warns on `main.js` over 4 MB, no `README.md`, an `icon.png` not square or over 512 px or 200 KB, a file too deep to be
+  listed, and a `main.js` that is not what its `src/build.mjs --check` makes. `--load` (only when the static rules pass;
+  Playwright with Chromium) serves the app with this package alone (an index made in memory, so the folder may be
+  anywhere and `packages/index.json` need not be current), opens `#<key>` on a 960 x 600 page (and 390 x 844 with
+  `--phone`), waits for `LOAD.done`, plays 3 s (the clock must move), pauses half way, opens explore mode, checks that
+  `collab.apply(collab.state())` gives the same state back, and fails on any page error, console error, or a 4xx answer
+  for one of the package's own files (the shell's own asks a plain server cannot answer, such as a relay's `api/ping`,
+  are not counted). `--shots` keeps the story moment and explore mode. Run it on a package after building it; the
+  example, `packages/hello`, passes it with `--load --phone`.
+
 ## Useful URL hashes and the console
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
