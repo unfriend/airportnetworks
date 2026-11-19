@@ -1,4 +1,4 @@
-// Assembles stories/pet.js from the tour's kit (tools/lbi/kit.js), the tour's PET body set, the microanatomy story's
+// Assembles stories/pet.js from the tour's kit (tools/engine/kit.js), the tour's PET body set, the microanatomy story's
 // 3D organs (tools/micro/sets/organs.js) and the data, organ icons, sets and engine parts in this folder.
 // usage (from the repository root): node tools/pet/build.mjs        -> writes stories/pet.js
 //                                   node tools/pet/build.mjs --check -> exits 1 if stories/pet.js is out of date
@@ -21,7 +21,7 @@ const cutGallery = (f, t) => {
   return t.slice(0, i + 1);
 };
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = SET_FILES.map(f => cutGallery(f, read(`${f}.js`)).trimEnd() + '\n\n').join('');

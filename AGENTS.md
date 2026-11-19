@@ -223,7 +223,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
 - Rebuild the dependants after a shared source changes: `tools/lbi/sets/body.js` (pet, micro, ovary, topo),
   `tools/lbi/sets/tissue.js` (micro), `tools/micro/sets/organs.js` (pet, micro, topo), `tools/nmd/sets/motor.js`
-  (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/lbi/kit.js` (every built story and the
+  (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the
   studio), `tools/engine/*.js` (the shared engine parts: every built story but the studio, `node tools/engine/all.mjs`), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
   (design).
 - Never edit `tools/studio/vendor/` (three.js r128's own add-ons and meshoptimizer, pasted unchanged).
@@ -306,7 +306,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `docs/agents/testing.md`, "Windows".
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
-  also add it to `SHELL`, and to `APP_FILES` (or `APP_DIRS`) in
+  also add it to `SHELL` (story files and narrations excepted: `tools/release.mjs` writes those from `stories/list.js`
+  and `audio/`), and to `APP_FILES` (or `APP_DIRS`) in
   `relay/server.mjs`, or the relay serving the app answers 404 for it
   (`node relay/test.mjs` checks every file `SHELL` names).
 - When releasing (after bumping `VERSION`), run `node tools/release.mjs`: it
@@ -351,7 +352,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
   `tris` exact: the harnesses mark a wrong count in red). And `tools/studio/` and `stories/studio.js` (also after
-  changing `tools/lbi/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
+  changing `tools/engine/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
   scene's maker, `node tools/studio/test/make.mjs` (it runs `scan.mjs` too; `node tools/studio/scan.mjs
   tools/studio/test/scenes --check` says whether its listings are current). A new page in `STORY_EXTRA` needs its icon
   in `tools/lowpoly/` and its key in `ICONS` in `tools/design/build.mjs` (an icon, not a prop), as the studio has.

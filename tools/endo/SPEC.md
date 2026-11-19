@@ -9,7 +9,7 @@ story with an explore mode, on desktop, phones and in VR/AR headsets (Meta Quest
 as in the tour and the muscle story. Card title: **Endotypes**; tagline "one disease, many mechanisms".
 
 **The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
-"Palette and look", and `tools/lbi/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
+"Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
 labels, controls, camera views, performance budget, harness, palette), with these differences:
 
 - Your set files live in `tools/endo/sets/`, the harness is `tools/endo/harness.html` (same query syntax) and the

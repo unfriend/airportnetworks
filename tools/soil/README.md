@@ -5,7 +5,7 @@ Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez
 Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of
 Vienna; University of Thessaly; Université Lyon 1; JIRCAS), and their field trial's data, used with the authors'
 permission (given through the project's owner, 29 October 2026). Made for the Global Peter Drucker Forum in Vienna.
-Built like the tissue topology story (`tools/topo/`), with the tour's kit and set contract. British spelling, English
+Built like the tissue topology story (`tools/topo/`), with the shared kit (`tools/engine/kit.js`) and set contract. British spelling, English
 only. Never edit `stories/soil.js` by hand.
 
 ```sh

@@ -54,9 +54,11 @@ const smokeStep = step;
 
 await page.goto(base + 'index.html');
 await page.waitForTimeout(4000);
-// the sixteen stories, and the pages that are not stories (stories/list.js's STORY_EXTRA: the design room, the studio),
-// which keep the same hook lines as every story: each check of those lines covers both
-const STORY_KEYS = ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots'];
+// the stories (stories/list.js's STORY_LIST, as the page has it: v171, so a story added or removed there needs no change
+// here; the steps that test one story by name are that story's own), and the pages that are not stories (STORY_EXTRA:
+// the design room, the studio), which keep the same hook lines as every story: each check of those lines covers both
+const STORY_KEYS = await page.evaluate(() => (self.STORY_LIST || []).map(s => s.key));
+if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories (stories/list.js)'); process.exit(1); }
 const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');

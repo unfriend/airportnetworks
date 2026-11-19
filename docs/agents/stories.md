@@ -95,8 +95,8 @@ faded in and out by the story; the camera flies between views.
 ## The muscle story (`stories/nmd.js`) is built the same way
 
 `stories/nmd.js` is generated like the tour: edit `tools/nmd/` and run
-`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the tour's kit
-(`tools/lbi/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
+`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the shared kit (`tools/engine/kit.js`)
+(`tools/engine/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
 describes its three sets: `tower` (the multiplex network: 71 layers, the hero
 of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
 and `hpc` (the supercomputer and the stress test).
@@ -162,7 +162,7 @@ and `hpc` (the supercomputer and the stress test).
 ## The endotype story (`stories/endo.js`) is built the same way
 
 `stories/endo.js` is generated from `tools/endo/` (`node tools/endo/build.mjs`, `--check` as for the tour):
-the tour's kit, three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
+the shared kit (`tools/engine/kit.js`), three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
 walkers; `tree`, the gene x term matrix, the tree and the endotypes; each with a manifest), the muscle story's
 `motor` set (the build gives it the muscle story's disease groups, all it reads of `NMD_DATA`) and engine parts
 adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
@@ -256,7 +256,7 @@ architecture and the domain contacts; each with a manifest) and engine parts ada
 
 `stories/ovary.js` ("The aging ovary", after the poster "Mapping the histological landscape of human ovarian aging" by
 Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `tools/ovary/` (`node tools/ovary/build.mjs`,
-`--check` as for the tour): the tour's kit and body set (unchanged), the data and a shared look pasted before the sets
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`) and body set (unchanged), the data and a shared look pasted before the sets
 (`OVARY_DATA`, `sets/data.js`, and `OVARY_TREND`, the poster's lines looked up, with `OVARY_LOOK`, `sets/look.js`), three
 sets (`organ`, a cut-away ovary built by surface nets between frames, small in the body's pelvis at first, whose
 follicles, scars and vessels follow the poster's trend lines with age; `section`, a drawn H&E section in relief with the
@@ -327,7 +327,7 @@ from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
 
 `stories/mutation.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
 Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `tools/mutation/`
-(`node tools/mutation/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before the sets
+(`node tools/mutation/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before the sets
 (`MMATH`, the maths, `sets/mmath.js`, checked by `node tools/mutation/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
 typed in, `sets/data.js`; `MLOOK`, the qubits story's lit instanced tubes, rings, balls, boxes and halos plus letter
 tiles, arrowheads, qubit spheres and gears, `sets/look.js`), four sets (`letters`, the DNA helix, the ancestor's eight
@@ -375,7 +375,7 @@ with a manifest) and engine parts adapted from the qubits story's. `tools/mutati
 
 `stories/topo.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
 architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche) is generated from
-`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before
+`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before
 the sets (`TOPO_DATA`, the authors' numbers, `sets/data.js`, generated; `TDATA`, its decoders and look-ups,
 `sets/tdata.js`, checked with the data by `node tools/topo/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
 rings, balls and halos plus glass discs, glass triangles, ribbons, glass slides and cells drawn in H&E or as beads,
@@ -441,7 +441,7 @@ engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the cont
 Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
 Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper,
 and their field trial's data; made for the Global Peter Drucker Forum in Vienna, a lay, business audience) is generated
-from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted
+from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted
 before the sets (`SOIL_DATA`, the trial's numbers, `sets/data.js`, generated; `SDATA`, its decoders and look-ups,
 `sets/sdata.js`, checked with the data and the story's key numbers by `node tools/soil/test-data.mjs`; `SLOOK`, the
 story's palette and colour rules, `sets/look.js`), the tissue topology story's look (`TLOOK`) and the tour's `web` set
@@ -507,7 +507,7 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
 
 `stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
 generated from `tools/pass/` (`node tools/pass/build.mjs`, `--check` as for the tour; `node tools/pass/test-sets.mjs`
-checks the sets without a browser): the tour's kit, the airports story's globe and the cell map story's cell, three sets
+checks the sets without a browser): the shared kit (`tools/engine/kit.js`), the airports story's globe and the cell map story's cell, three sets
 and engine parts adapted from the qubits story's (the life-size parts from the flock's). `tools/pass/SPEC.md` is the
 contract.
 
@@ -592,7 +592,7 @@ contract.
 ## The flock (`stories/flock.js`) is built the same way
 
 `stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
-`--check` as for the tour): the tour's kit, one set (`sets/flock.js`, manifest
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/flock.js`, manifest
 `sets/flock.md`) and engine parts adapted from the tour's (no Proteins tab, no
 scene list).
 
@@ -675,7 +675,7 @@ scene list).
 ## The robot gang (`stories/robots.js`) is built the same way
 
 `stories/robots.js` is generated from `tools/robots/` (`node tools/robots/build.mjs`,
-`--check` as for the tour): the tour's kit, one set (`sets/robots.js`, manifest
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/robots.js`, manifest
 `sets/robots.md`) and engine parts adapted from the flock's. `tools/robots/SPEC.md`
 is the contract between them.
 
@@ -734,7 +734,7 @@ is the contract between them.
 ## The design room (`stories/design.js`) is built the same way
 
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as
-for the tour): the tour's kit, the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
+for the tour): the shared kit (`tools/engine/kit.js`), the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
 only the fields a card shows, and the miniatures' names in `tools/lowpoly/`), one set (`sets/table.js`) and engine parts
 adapted from the flock's (the shared-room, headset-setting and subtitle lines copied unchanged). `tools/design/SPEC.md`
 is the contract. Rebuild it after changing `props.json` or the miniatures' names, and `lowpoly.js`

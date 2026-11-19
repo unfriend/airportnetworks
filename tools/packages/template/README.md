@@ -2,7 +2,7 @@
 
 This folder is the `src/` of a story package (`tools/packages/SPEC.md`): a story in one folder, `packages/<key>/`, that
 the app lists and loads beside its own. Its build makes the package's `main.js` from the app's kit
-(`tools/lbi/kit.js`), the shared engine parts (`tools/engine/`) and the sets and engine files here, as the app's built
+(`tools/engine/kit.js`), the shared engine parts (`tools/engine/`) and the sets and engine files here, as the app's built
 stories are made (`docs/agents/stories.md`). `packages/hello/` is a whole example made from it.
 
 ## Starting

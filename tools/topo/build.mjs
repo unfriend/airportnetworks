@@ -1,4 +1,4 @@
-// Assembles stories/topo.js from the tour's kit (tools/lbi/kit.js), the data (sets/data.js, written by
+// Assembles stories/topo.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
 // data/gen_data.py from the authors' topocyte run), its decoders (sets/tdata.js), the shared look (sets/look.js), the
 // tour's body set, the microanatomy story's organ models, the sets and the engine parts in this folder.
 // usage (from the repository root): node tools/topo/build.mjs        -> writes stories/topo.js
@@ -13,7 +13,7 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, its decoders and the look first, then the body and the organ models, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/tdata', 'sets/look', '../lbi/sets/body', '../micro/sets/organs', 'sets/slide', 'sets/map', 'sets/tower', 'sets/cohort'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (the decoders' Node export goes: in the story they are a plain constant inside the closure)

@@ -1,4 +1,4 @@
-// Assembles stories/endo.js from the tour's kit (tools/lbi/kit.js), the muscle story's motor set and the data, sets
+// Assembles stories/endo.js from the tour's kit (tools/engine/kit.js), the muscle story's motor set and the data, sets
 // and engine parts in this folder.
 // usage (from the repository root): node tools/endo/build.mjs        -> writes stories/endo.js
 //                                   node tools/endo/build.mjs --check -> exits 1 if stories/endo.js is out of date
@@ -12,7 +12,7 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data first, then the sets in the order the story uses them (motor: the muscle story's, for the dive in)
 const SET_FILES = ['sets/data', '../nmd/sets/motor', 'sets/syn', 'sets/net', 'sets/tree'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // the motor set reads only the muscle story's disease groups (name, short name, colour, site): pass those, not its data

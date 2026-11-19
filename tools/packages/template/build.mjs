@@ -1,4 +1,4 @@
-// Builds a story package's main.js (tools/packages/SPEC.md) from the app's kit (tools/lbi/kit.js), the shared engine
+// Builds a story package's main.js (tools/packages/SPEC.md) from the app's kit (tools/engine/kit.js), the shared engine
 // parts (tools/engine/) and the sets and engine files in this folder, as the built stories are made
 // (docs/agents/stories.md). This folder is the package's src/: packages/<key>/src/build.mjs writes packages/<key>/main.js,
 // with the key of packages/<key>/story.json.
@@ -31,7 +31,7 @@ const KEY = sj && sj.key;
 if (!/^[a-z][a-z0-9-]{1,30}$/.test(KEY || '')) fail('story.json\'s key is not a key: a lower-case letter, then 1 to 30 lower-case letters, digits or -.');
 if (path.basename(pkg) !== KEY) fail(`story.json's key is ${KEY}, but its folder is ${path.basename(pkg)}.`);
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
-const kit = fs.readFileSync(path.join(root, 'tools', 'lbi', 'kit.js'), 'utf8')
+const kit = fs.readFileSync(path.join(root, 'tools', 'engine', 'kit.js'), 'utf8')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (a helper's Node export, for testing it with node, goes: in the story it is a plain constant inside the closure)

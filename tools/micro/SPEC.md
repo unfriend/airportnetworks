@@ -16,7 +16,7 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
 `#ff9ec4`. Story key `micro`.
 
 **The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
-"Palette and look", and `tools/lbi/kit.js`. Everything there holds here, with these differences:
+"Palette and look", and `tools/engine/kit.js`. Everything there holds here, with these differences:
 
 - Set files live in `tools/micro/sets/`, the harness is `tools/micro/harness.html` (same query syntax) and the
   screenshot tool `tools/micro/shot.mjs` (run it from `tools/micro`; shots go to `tools/micro/shots/`, ignored by

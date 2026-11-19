@@ -111,7 +111,7 @@ mode and fails on any console error.
 ## Writing one
 
 `tools/packages/template/` is a package's `src/`: copy it to `packages/<key>/src/`, rename, and `node
-packages/<key>/src/build.mjs` writes `packages/<key>/main.js` from the app's kit (`tools/lbi/kit.js`), the shared engine
+packages/<key>/src/build.mjs` writes `packages/<key>/main.js` from the app's kit (`tools/engine/kit.js`), the shared engine
 parts (`tools/engine/`) and its own sets and story, as the built stories are made (`docs/agents/stories.md`). The built
 `main.js` holds everything it needs: the app's later changes to the engine reach a package only when its author builds it
 again. `packages/hello/` is the example (hidden: developer mode, or `#hello`).

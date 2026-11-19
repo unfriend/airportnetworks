@@ -10,7 +10,7 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the sets in the order the story uses them (crowd and sankey share sets/clinic.js)
 const SET_FILES = ['int', 'mac', 'web', 'dna', 'atp', 'clinic', 'scale', 'body', 'tissue'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets: makeKit(THREE) returns K.\n');
 const sets = SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');

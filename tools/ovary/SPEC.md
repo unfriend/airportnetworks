@@ -26,7 +26,7 @@ four-and-a-half-minute 3D story (about seven minutes after `tools/pace.mjs`) wit
   qubits story; English only. The rest of the app stays British.
 - Everything is drawn: no GTEx image and no image from the poster is used or copied into the repository.
 
-The rules for sets are the tour's (`tools/lbi/SPEC.md` down to "Palette and look", and `tools/lbi/kit.js`), with the
+The rules for sets are the tour's (`tools/lbi/SPEC.md` down to "Palette and look", and `tools/engine/kit.js`), with the
 microanatomy story's additions (sets that build between frames export `idle()` and `finish()`; a label's `text` may be a
 function returning `[bold, rest]`, read again while it shows, as the qubits story's `labelText`).
 

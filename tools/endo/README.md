@@ -3,7 +3,7 @@
 "Endotypes: one disease, many mechanisms", after the ISMB 2026 poster "Introducing EndotypY: a Python package for
 network-based disease endotyping" by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia
 Guthrie and Jörg Menche (LBI Network Medicine), on their run of EndotypY (github.com/menchelab/EndotypY) on
-congenital myasthenic syndromes. Built like the muscle story (`tools/nmd/`), with the tour's kit and set contract,
+congenital myasthenic syndromes. Built like the muscle story (`tools/nmd/`), with the shared kit (`tools/engine/kit.js`) and set contract,
 and the muscle story's motor set. Never edit `stories/endo.js` by hand.
 
 ```sh

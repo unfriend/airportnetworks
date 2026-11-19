@@ -1,7 +1,7 @@
 // A story package (tools/packages/SPEC.md): say here in a few lines what the story shows, who made it and where its
 // numbers come from.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by src/build.mjs from the app's kit (tools/lbi/kit.js), the shared engine parts (tools/engine/) and the sets and
+// Built by src/build.mjs from the app's kit (tools/engine/kit.js), the shared engine parts (tools/engine/) and the sets and
 // engine files in src/: edit those, not this file.
 HOST.register('@@KEY@@', function (HOST) {
 'use strict';

@@ -2,7 +2,7 @@
 
 "Hidden connections in rare diseases of nerves and muscles", after the ISMB 2026 talk by Iker Núñez-Carpintero
 and Philipp Friedrich (with Julia Guthrie and Jörg Menche, LBI Network Medicine), on their data (kept out of the repository since 3 November 2026; `ikerdata/` in its history).
-Built like the tour (`tools/lbi/`), with the tour's kit and set contract. Never edit `stories/nmd.js` by hand.
+Built like the tour (`tools/lbi/`), with the shared kit (`tools/engine/kit.js`) and set contract. Never edit `stories/nmd.js` by hand.
 
 ```sh
 node tools/nmd/data/gen_data.mjs <folder>   # the authors' files -> sets/data.js (about a minute; only after the data changes)

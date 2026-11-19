@@ -1,0 +1,14 @@
+{
+  "version": "networks-v171",
+  "date": "2026-11-19",
+  "new": [
+    "Behind the scenes: the service worker's list of story files and narrations is now written from the list of stories, so adding or removing a story is its entry in stories/list.js. The shared kit moved to tools/engine/kit.js. Nothing in the app looks or behaves differently."
+  ],
+  "test": [
+    "Install or reload the app, go offline, and open a few stories: they open as before.",
+    "A story's narration plays as before (the narrations' list was rewritten in the Stories screen's order)."
+  ],
+  "untested": [
+    "Offline in a headset after this update (the service worker's lists changed order only)."
+  ]
+}

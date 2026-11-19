@@ -1,4 +1,4 @@
-// Assembles stories/robots.js from the tour's kit (tools/lbi/kit.js) and the set and engine parts in this folder.
+// Assembles stories/robots.js from the tour's kit (tools/engine/kit.js) and the set and engine parts in this folder.
 // usage (from the repository root): node tools/robots/build.mjs        -> writes stories/robots.js
 //                                   node tools/robots/build.mjs --check -> exits 1 if stories/robots.js is out of date
 import fs from 'fs';
@@ -9,7 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['robots'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');

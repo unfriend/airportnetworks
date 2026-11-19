@@ -163,7 +163,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
-  (a release step); `tools/collab.mjs` -
+  (a release step), and `sw.js`'s story files (`SHELL`) and narrations (`AUDIO`) from `stories/list.js` and `audio/`; `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
@@ -184,34 +184,34 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   comparisons for refactors, `same.mjs`, `xrsame.mjs`, `panelsame.mjs` (`docs/agents/testing.md`); see
   `docs/agents/stories.md`, "Shared engine parts".
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
-  engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
+  engine parts, build script, set harness; it uses `tools/engine/kit.js`); see its
   `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its
   history as `ikerdata/`; a local copy there is ignored by git).
 - `tools/endo/` - the sources of `stories/endo.js` (data generator, data block, sets,
   engine parts adapted from the muscle story's, build script, set harness; it uses
-  `tools/lbi/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
 - `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
-  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`,
+  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/engine/kit.js`,
   the tour's body set and the microanatomy story's 3D organs); see its `README.md` and `SPEC.md`.
 - `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
-  parts adapted from the PET story's, build script, set harness; it uses `tools/lbi/kit.js` and the tour's body and
+  parts adapted from the PET story's, build script, set harness; it uses `tools/engine/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
 - `tools/ovary/` - the sources of `stories/ovary.js` (data generator and the figures' readings, data block, shared look,
-  sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses `tools/lbi/kit.js` and the
+  sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses `tools/engine/kit.js` and the
   tour's body set); see its `README.md` and `SPEC.md`.
 - `tools/qubits/` - the sources of `stories/qubits.js` (the maths `QMATH` and its test, the real run's numbers, the
   shared look, sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses
-  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/mutation/` - the sources of `stories/mutation.js` (the maths `MMATH` and its test, the poster's numbers, the
   shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
-  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/topo/` - the sources of `stories/topo.js` (the data generator, which runs topocyte on the authors' files,
   the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
-  story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body set and the microanatomy story's organ
+  story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's body set and the microanatomy story's organ
   models); see its `README.md` and `SPEC.md`.
 - `tools/soil/` - the sources of `stories/soil.js` (the data generator, which reads the authors' files, and the slides'
   readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
-  adapted from the tissue topology story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's `web` set
+  adapted from the tissue topology story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's `web` set
   and the tissue topology story's look); see its `README.md` and `SPEC.md`.
 - `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;

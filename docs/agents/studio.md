@@ -5,7 +5,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 ## The studio is built the same way
 
 `stories/studio.js` (*Your own scenes*) is generated from `tools/studio/` (`node tools/studio/build.mjs`,
-`--check` as for the tour): the tour's kit, three.js r128's own add-ons from `tools/studio/vendor/` (pasted with their
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), three.js r128's own add-ons from `tools/studio/vendor/` (pasted with their
 licence lines, each wrapped so nothing leaks but `THREE.*`; `GLTFExporter` only inside `exporterLoad()`, defined when
 the studio first converts), two sets (`stage`, `looks`) and engine parts adapted from the design room's (the
 shared-room, headset-setting, subtitle, panels, recenter, framing and sound-effect lines as in every story: the smoke

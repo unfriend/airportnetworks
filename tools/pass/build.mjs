@@ -1,4 +1,4 @@
-// Assembles stories/pass.js from the tour's kit (tools/lbi/kit.js), the airports story's globe and the cell map story's
+// Assembles stories/pass.js from the tour's kit (tools/engine/kit.js), the airports story's globe and the cell map story's
 // cell (taken from stories/airports.js and stories/spatial.js as they are, see ORIGINALS), the sets and the engine parts
 // in this folder.
 // usage (from the repository root): node tools/pass/build.mjs        -> writes stories/pass.js (and gen/, for the harness)
@@ -100,7 +100,7 @@ ${o.glue}return { ${o.out} };
 const gen = ORIGINALS.map(original);
 
 // ---------------------------------------------------------------- the story
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = gen.join('\n') + '\n' + SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');

@@ -1,4 +1,4 @@
-// Assembles stories/soil.js from the tour's kit (tools/lbi/kit.js), the data (sets/data.js, written by
+// Assembles stories/soil.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
 // data/gen_data.py from the authors' field trial), its decoders (sets/sdata.js), the story's palette (sets/look.js), the
 // tissue topology story's look (tools/topo/sets/look.js, unchanged), the tour's web set (tools/lbi/sets/web.js,
 // unchanged: only its globe is used), the sets and the engine parts in this folder.
@@ -14,7 +14,7 @@ const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, its decoders and the looks first, then the globe, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/sdata', 'sets/look', '../topo/sets/look', '../lbi/sets/web', 'sets/soil', 'sets/field', 'sets/net'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (the decoders' Node export goes: in the story they are a plain constant inside the closure)

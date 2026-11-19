@@ -31,13 +31,11 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 
-// ---- a copy of the app (and, for --build, the flock's sources, the shared engine parts and the tour's kit)
+// ---- a copy of the app (and, for --build, the flock's sources and tools/engine/: the shared engine parts and the kit)
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
 for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'output.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
 for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/flock/engine', 'tools/flock/sets', 'tools/engine']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
 fs.copyFileSync(path.join(REPO, 'tools/flock/build.mjs'), path.join(T, 'tools/flock/build.mjs'));
-fs.mkdirSync(path.join(T, 'tools/lbi'), { recursive: true });
-fs.copyFileSync(path.join(REPO, 'tools/lbi/kit.js'), path.join(T, 'tools/lbi/kit.js'));
 const file = f => path.join(T, f);
 const read = f => fs.readFileSync(file(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(file(f), t);

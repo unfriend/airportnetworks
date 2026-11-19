@@ -95,6 +95,12 @@ file, the detail file says what is current.
   captions with live numbers. A copy is a relay scene (`{ studio: 1, story }`), so the relay needed no change; every edit
   names what it changed from and is dropped, never misapplied, when the story has changed. As built, a lengthened
   chapter plays longer and its narration line by line (the recording is the clock), a shortened one cuts lines.
+- v171 (the owner: "each story folder could be removed without influencing any other parts"): the kit moved from the
+  tour's folder to `tools/engine/kit.js`, so no story folder is a library of the others; `tools/release.mjs` writes
+  `sw.js`'s story files (`SHELL`) and narrations (`AUDIO`) from `stories/list.js` and `audio/`, so a removed story can
+  never leave a missing file in `SHELL` (one fails the whole offline install); the smoke test's stories come from the
+  list, and `tools/collab.mjs` leaves out the rounds of stories no longer listed. Removing one of our stories is now its
+  entry in `stories/list.js`, its files, the design room's props, the steps that test it by name, and a release.
 
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 

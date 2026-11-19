@@ -2,7 +2,7 @@
 // nearest; rewiring a few links at random makes everyone close while the ring still looks local (after Watts and
 // Strogatz, Nature 1998). The network is an example, made and measured here (HELLO); nothing is typed in.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by src/build.mjs from the app's kit (tools/lbi/kit.js), the shared engine parts (tools/engine/) and the sets and
+// Built by src/build.mjs from the app's kit (tools/engine/kit.js), the shared engine parts (tools/engine/) and the sets and
 // engine files in src/: edit those, not this file.
 HOST.register('hello', function (HOST) {
 'use strict';
