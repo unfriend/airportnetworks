@@ -1245,7 +1245,8 @@ ships or look).
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (it is also the ground for a story design room, where a draft story reloads in the
-headset as it changes). One path in the shell, `HOST.live` in `index.html`:
+headset as it changes). One path in the shell, `HOST.live` in `index.html`. Story packages (`packages/<key>/`) follow
+the same path through their index, read again at every check: `docs/agents/packages.md`.
 
 - **Swapping a story in place** (`HOST.swap(key)`): the story's file fetched
   fresh (past every cache), and only when its fingerprint differs from the one

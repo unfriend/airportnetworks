@@ -242,6 +242,14 @@ const SCENES = (() => {
   if (!real) { console.log(`--scenes: there is no folder ${want} (make it, with one subfolder per scene)`); process.exit(1); }
   return real;
 })();
+// the story packages (packages/, tools/packages/SPEC.md) are never written by the relay: a scenes folder at, in or above
+// the app's packages/ (this copy's, or the one --static serves) is refused, so no save or upload can reach them
+for (const app of new Set([path.join(path.dirname(fileURLToPath(import.meta.url)), '..'), OPT.static ? path.resolve(OPT.static) : ''].filter(Boolean))) {
+  let pk = '';
+  try { pk = fs.realpathSync(path.join(app, 'packages')); } catch { continue; }
+  const within = (a, b) => a === b || a.startsWith(b + path.sep);
+  if (SCENES && (within(SCENES, pk) || within(pk, SCENES))) { console.log(`--scenes: ${SCENES} holds or is inside the app's story packages (${pk}); give the scenes a folder of their own`); process.exit(1); }
+}
 const R2C = (() => {
   if (!R2MODE) return null;
   const c = r2Config(process.env);
@@ -1424,10 +1432,12 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // the room and depth test page for a Quest 3, at /room-test/. Neither is part of the app. examples/ holds the studio's
 // example scenes, v137: scene folders with their listings as tools/studio/scan.mjs writes them, so deeper, as a scene's
 // files are: examples/<scene>/<at most 4 folders>/<file>. basis/ holds Basis Universal's encoder and transcoder, v151:
-// the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js)
+// the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js.
+// packages/ holds the story packages, served deep as examples/ is: packages/<key>/<at most 4 folders>/<file>, and their
+// index; tools/packages/SPEC.md. Like every app folder it is only ever read here: no endpoint writes to it)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis']), APP_DEEP = new Set(['examples']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages']), APP_DEEP = new Set(['examples', 'packages']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
 async function serve(req, res, url) {
@@ -1456,7 +1466,8 @@ async function serve(req, res, url) {
   } catch { return plain(res, 404, 'Not found'); }
   // (the release's version file and what is new in it are never kept: live updates compare the first with what a page
   // runs, and developer mode shows the second; whatsnew/ holds one file for each earlier release)
-  return sendFile(req, res, file, st, { cache: /^(version\.json|whatsnew\.json|whatsnew\/[^/]+\.json)$/.test(segs.join('/')) ? 'no-store' : 'no-cache' });
+  // (nor the story packages' index, which changes without a release)
+  return sendFile(req, res, file, st, { cache: /^(version\.json|whatsnew\.json|whatsnew\/[^/]+\.json|packages\/index\.json)$/.test(segs.join('/')) ? 'no-store' : 'no-cache' });
 }
 // a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),

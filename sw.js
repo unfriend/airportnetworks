@@ -28,6 +28,10 @@ async function narrFetch(n, a) {
     await n.delete(a).catch(() => {});
   }
 }
+// Story packages (packages/<key>/, tools/packages/SPEC.md) keep a cache of their own that outlives the releases too: a
+// package changes without a release (its files' addresses carry their fingerprints, HOST.pkgUrl), and one opened once
+// works offline
+const PKG = 'networks-packages';
 // the audio element (the fallback sound engine) asks for byte ranges; answer them from the
 // cached file, read once per file while this worker runs
 const BYTES = new Map();
@@ -56,12 +60,12 @@ self.addEventListener('install', e => {
     .then(() => caches.open(NARR)).then(n => Promise.all(AUDIO.map(a => narrFetch(n, a))))
     .then(() => self.skipWaiting()));
 });
-// the network's answer (and a fresh copy in the cache); the cached copy when the network fails,
-// or when it has not answered within a few seconds and a copy exists
-function fresh(net, key) {
+// the network's answer (and a fresh copy in the cache: this release's, or the one named); the cached copy when the
+// network fails, or when it has not answered within a few seconds and a copy exists
+function fresh(net, key, cache) {
   const cached = () => caches.match(key, { ignoreSearch: true });
   net = net.then(res => {
-    if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(key, copy)); }
+    if (res.ok) { const copy = res.clone(); caches.open(cache || VERSION).then(c => c.put(key, copy)); }
     return res;
   });
   const safe = net.catch(() => cached().then(hit => hit || Response.error()));
@@ -70,7 +74,7 @@ function fresh(net, key) {
 }
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== NARR).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== NARR && k !== PKG).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
@@ -103,6 +107,22 @@ self.addEventListener('fetch', e => {
   if (url.origin === self.location.origin && /\/(scenes|examples)\//.test(url.pathname)) return;
   // the developer notebook (v142): its notes page (notes/) is live like the relay's /api/notes it reads, never kept
   if (url.origin === self.location.origin && /\/notes(\/|$)/.test(url.pathname)) return;
+  // story packages: network first, checked with the server, kept in their own cache (PKG); before the narration's rule,
+  // so a package's audio/narration.mp3 is never taken for the app's. Their index (packages/index.json) is the server's
+  // whenever it answers, however slowly (the cached copy only offline); a byte range (the audio element) from the
+  // network, or offline from the cached whole file
+  if (url.origin === self.location.origin && /\/packages\//.test(url.pathname)) {
+    const key = url.origin + url.pathname, cached = () => caches.open(PKG).then(c => c.match(key));
+    if (/\/packages\/index\.json$/.test(url.pathname)) {
+      e.respondWith(fetch(req, { cache: 'no-store' }).then(res => {
+        if (res.status === 200) { const copy = res.clone(); e.waitUntil(caches.open(PKG).then(c => c.put(key, copy)).catch(() => {})); }
+        return res;
+      }, () => cached().then(hit => hit || Response.error())));
+    } else if (req.headers.has('range')) {
+      e.respondWith(fetch(req).catch(() => cached().then(hit => (hit ? rangeResponse(req, hit, key) : Response.error()))));
+    } else e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), key, PKG));
+    return;
+  }
   // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
   // (a story playing it for the first time on this device) for next time and offline
   const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)

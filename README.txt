@@ -44,6 +44,12 @@ Networks, in sixteen stories - installable web app
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
+Story packages: more stories, each in a folder of its own (packages/<key>/,
+written by people the owner trusts and brought in through git), get a card on
+the Stories screen after these (or, hidden ones, only in developer mode and by
+their address, #<key>). node tools/packages/scan.mjs lists them in
+packages/index.json; tools/packages/SPEC.md says how to write one.
+
 Besides the stories, the design room (#design, stories/design.js; not on the
 Stories screen) is a table with a small model of every prop of the stories,
 a plate per story: point at one for its name, put it on the stage for its card

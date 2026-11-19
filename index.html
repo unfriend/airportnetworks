@@ -320,6 +320,11 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .card span.d { display: block; color: #a9b8cc; font-size: 14px; line-height: 1.45; }
 #picker .card em { display: block; margin-top: 12px; font-style: normal; font-size: 13px; color: #7f91a8; }
 #picker .card.here { border-color: rgba(70, 217, 255, 0.55); }
+/* a story package's picture (its icon.png, or a plain tile in its colour); a hidden one (developer mode) dashed */
+#picker .card .pk { float: right; width: 44px; height: 44px; margin: -4px -4px 8px 12px; border-radius: 8px; object-fit: cover; }
+#picker .card i.pk { display: block; opacity: 0.8; }
+#picker .card.hid { border-style: dashed; }
+#picker .card.old em { color: #ffb43b; }
 #picker .repeat { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 18px; }
 #picker .rep { font: inherit; font-size: 14px; color: #e7eef8; background: rgba(10, 19, 34, 0.88); cursor: pointer;
   border: 1px solid rgba(140, 170, 210, 0.3); border-radius: 999px; padding: 8px 16px; transition: border-color 0.15s, background 0.15s; }
@@ -2460,16 +2465,19 @@ HOST.fingerprint = function (s) {
 HOST.fp = {};
 HOST.load = function (key, fresh) {
   if (!fresh && this.loaded[key]) return this.loaded[key];
-  const url = 'stories/' + key + '.js';
+  // (a story package: its folder's main.js, the index's fingerprint of the whole folder in its address, HOST.packages)
+  const pk = this.packages.get(key), url = pk ? pk.base + 'main.js?v=' + pk.fp : 'stories/' + key + '.js';
+  if (pk && pk.refused) return Promise.reject(new Error(`The ${pk.title} story needs a newer version of the app`));
   const p = (async () => {
     let txt;
     try {
-      const r = await fetch(fresh ? url + '?fresh=' + Date.now() : url, { cache: fresh ? 'no-store' : 'default' });
+      const r = await fetch(fresh ? url + (pk ? '&' : '?') + 'fresh=' + Date.now() : url, { cache: fresh ? 'no-store' : 'default' });
       if (!r.ok) throw new Error(String(r.status));
       txt = await r.text();
     } catch (e) { throw new Error('Could not load the ' + key + ' story'); }
     const fp = this.fingerprint(txt), was = this.factories[key];
-    if (fresh && was && fp === this.fp[key]) return false;
+    // (a package whose main.js is the same but another of its files changed is run again: its data's addresses changed)
+    if (fresh && was && fp === this.fp[key] && (!pk || this.packages.ran(key) === pk.fp)) return false;
     delete this.factories[key];
     let err = '';
     const onErr = ev => { err = (ev.error && ev.error.message) || ev.message || 'an error'; };
@@ -2484,11 +2492,96 @@ HOST.load = function (key, fresh) {
       throw new Error(`The ${key} story's file did not run (${err || 'it registered no story'})`);
     }
     this.fp[key] = fp;
+    if (pk) this.packages.ran(key, pk.fp);
     return true;
   })();
   this.loaded[key] = p;
   p.catch(() => { if (this.loaded[key] === p) delete this.loaded[key]; });   // (asked again next time)
   return p;
+};
+// ---------------------------------------------------------- story packages --
+// A story in a folder of its own, packages/<key>/ (tools/packages/SPEC.md, docs/agents/packages.md): story.json, main.js
+// (the same HOST.register contract as stories/<key>.js) and its files, listed in packages/index.json by
+// tools/packages/scan.mjs. The index is read at start (the boot waits for it a moment at most: HOST.packages.ready) and
+// again with the list of stories (HOST.live); a missing or bad file means no packages, quietly. Each package becomes an
+// entry of HOST.list after the app's own (list: 'stories') or a hidden one (list: 'hidden': its address, HOST.go, and the
+// Stories screen in developer mode), with pkg, base, fp and iconUrl; HOST.meta finds both. One written for a newer Story
+// API (api above HOST.storyApi) or a newer shell (needs) is never loaded: its card says so
+HOST.storyApi = 1;
+HOST.packages = (function () {
+  const P = { all: [], reading: null, ran: {}, read: false };
+  const KEY = /^[a-z][a-z0-9-]{1,30}$/, HEX = /^[0-9a-f]{16}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+  const str = (v, d) => (typeof v === 'string' && v.trim() ? v.slice(0, 600) : d);
+  const appKey = k => (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).some(m => m && m.key === k);
+  // an index entry as a list entry (the fields of stories/list.js, defaults from title and kick), or null when it is not one
+  function entry(o) {
+    if (!o || typeof o !== 'object' || !KEY.test(o.key) || appKey(o.key) || !HEX.test(o.fp) || !Number.isInteger(o.api) || !str(o.title)) return null;
+    const files = o.files && typeof o.files === 'object' && !Array.isArray(o.files) ? o.files : {};
+    if (!HEX.test(files['main.js'] || '')) return null;
+    const title = str(o.title), kick = str(o.kick, 'Story package'), me = HOST.shell;
+    const old = o.api > HOST.storyApi || (Number.isInteger(o.needs) && !!me.id && o.needs > me.n);
+    const m = { key: o.key, kick, title, col: COL.test(o.col) ? o.col : '#8fd3ff', desc: str(o.desc, ''),
+      page: str(o.page, title + ': ' + kick), brand: str(o.brand, title), sub: str(o.sub, kick), aria: str(o.aria, 'Interactive 3D story: ' + title),
+      thing: str(o.thing, 'scene'), loading: str(o.loading, 'Loading ' + title), len: old ? 'Needs a newer version of the app' : str(o.len, ''),
+      pkg: true, base: 'packages/' + o.key + '/', fp: o.fp, api: o.api, list: o.list === 'hidden' ? 'hidden' : 'stories', files };
+    if (o.life === true) m.life = true;
+    if (Number.isInteger(o.needs)) m.needs = o.needs;
+    if (old) m.refused = true;
+    if (typeof o.version === 'string') m.version = o.version.slice(0, 60);
+    if (typeof o.authors === 'string') m.authors = o.authors.slice(0, 300);
+    if (HEX.test(files['icon.png'] || '')) m.iconUrl = m.base + 'icon.png?v=' + files['icon.png'];
+    return m;
+  }
+  // the app's own entries and the listed packages (HOST.live's take keeps them in step with stories/list.js)
+  const listed = () => P.all.filter(m => m.list === 'stories');
+  function merge() {
+    const next = HOST.list.filter(s => !s.pkg).concat(listed());
+    // (the story on show keeps its card, as HOST.live keeps a story's)
+    const cur = HOST.list.find(s => s.pkg && s.key === HOST.curKey);
+    if (cur && !next.some(s => s.key === cur.key)) next.push(cur);
+    if (JSON.stringify(next) === JSON.stringify(HOST.list)) return false;
+    HOST.list.splice(0, HOST.list.length, ...next);
+    HOST.listRev++;
+    return true;
+  }
+  // read packages/index.json (again): true when the list changed. A package already run here whose fingerprint changed
+  // is taken as a story whose file changed (HOST.live: on show, swapped at a quiet moment; else fetched fresh next time)
+  function read() {
+    if (P.reading) return P.reading;
+    if (location.protocol === 'file:') return Promise.resolve(false);
+    return (P.reading = (async () => {
+      let j = null;
+      try { const r = await fetch('packages/index.json', { cache: 'no-store' }); if (r.ok) j = await r.json(); } catch (e) { /* no packages here */ }
+      P.reading = null;
+      const was = P.all, all = [];
+      if (j && typeof j === 'object' && Array.isArray(j.packages)) for (const o of j.packages) { const m = entry(o); if (m && !all.some(x => x.key === m.key)) all.push(m); }
+      // (a package on show that left the index keeps its entry until another story starts)
+      const cur = was.find(m => m.key === HOST.curKey);
+      if (cur && !all.some(m => m.key === cur.key)) all.push(cur);
+      P.all = all; P.read = true;
+      for (const m of all) if (P.ran[m.key] && P.ran[m.key] !== m.fp && HOST.live && HOST.live.changed) HOST.live.changed(m.key);
+      const changed = merge() || JSON.stringify(was) !== JSON.stringify(all);
+      if (changed && HOST.cards) { HOST.cards(); HOST.chrome(HOST.picking); }
+      return changed;
+    })());
+  }
+  const first = read();
+  return {
+    read,
+    // the boot: the first read, or ms at most (a slow or missing file must not hold the start; it is merged when it comes)
+    ready: ms => Promise.race([first.catch(() => false), new Promise(r => setTimeout(r, ms))]),
+    get: key => P.all.find(m => m.key === key),
+    all: () => P.all.slice(), hidden: () => P.all.filter(m => m.list === 'hidden'), listed,
+    // the fingerprint of the package as last run here (set by HOST.load)
+    ran(key, fp) { if (fp !== undefined) P.ran[key] = fp; return P.ran[key]; },
+    state: () => P,   // (for tests)
+  };
+})();
+// a file of a package: packages/<key>/<path>?v=<its fingerprint> (plain, for a file the index does not list), so a
+// changed file is fetched anew and an unchanged one comes from the cache
+HOST.pkgUrl = function (key, file) {
+  const m = this.packages.get(key), f = String(file || '').replace(/^\.?\/+/, ''), fp = m && m.files[f];
+  return 'packages/' + key + '/' + f + (fp ? '?v=' + fp : '');
 };
 // The low-poly miniatures of every story's sets (lowpoly.js, built by tools/lowpoly/build.mjs): loaded once, when first
 // asked for (the design room's table, the shared rooms' station icons). Its load listener is the shell's (added with
@@ -2952,8 +3045,9 @@ HOST.teardown = function () {
 };
 // a key's entry: one of the stories (HOST.list), or a page that is not one of them (self.STORY_EXTRA in
 // stories/list.js: the design room), started, loaded, swapped and titled the same way but not one of them (the Stories
-// screens, Arrange all, the count, Repeat's next story see only HOST.list; a shared room's station picker lists it last)
-HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key); };
+// screens, Arrange all, the count, Repeat's next story see only HOST.list; a shared room's station picker lists it last),
+// or a hidden story package (HOST.packages)
+HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key) || (this.packages && this.packages.get(key)); };
 // place: a place to put back once the story is built (a swap, a reload: HOST.live)
 HOST.start = async function (key, keepHash, place) {
   // at an All stories circle in a shared room a person's story is the circle's pick, for everyone there: the room then
@@ -2968,6 +3062,8 @@ HOST.start = async function (key, keepHash, place) {
   if (!meta) { if (key) this.live.missing(key); return; }
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
   if (!this.live.allowed(meta.key)) return;   // it needs a newer shell: asked first (HOST.live)
+  // a story package written for a newer app (its Story API or the shell it needs): never loaded, said on the bar
+  if (meta.refused) { this.live.note(`The ${meta.title} story needs a newer version of the app.`); if (!this.cur && !this.session) this.openPicker(); return; }
   this.busy = true;
   this.loading.begin(meta);
   try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { this.loading.fail(e.message); this.busy = false; this.queued = ''; return; }
@@ -3025,7 +3121,7 @@ HOST.swap = async function (key) {
   this.hist.replace((this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key));
   this.run(meta, true, place);
   this.swaps = (this.swaps || 0) + 1;
-  console.info('Swapped in place: stories/' + key + '.js');
+  console.info('Swapped in place: ' + (meta.pkg ? meta.base + 'main.js' : 'stories/' + key + '.js'));
   this.next();
   return true;
 };
@@ -3713,7 +3809,7 @@ HOST.dev = (function () {
     const b = el('btnDev');
     if (b) { b.textContent = D.on ? 'Developer mode: on' : 'Developer mode: off'; b.setAttribute('aria-pressed', D.on ? 'true' : 'false'); }
   }
-  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); }
+  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); if (HOST.cards) HOST.cards(); }   // (the hidden story packages' cards)
   el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
   el('devLater').addEventListener('click', () => { D.later = true; card(false); });
   el('devOlder').addEventListener('click', () => step(1));
@@ -3802,7 +3898,8 @@ HOST.live = (function () {
   const title = key => { const m = HOST.meta(key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
   // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
   const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
-  const listFp = () => HOST.fingerprint(JSON.stringify(HOST.list));
+  // (the app's own list, as version.json's list: the story packages are HOST.packages')
+  const listFp = () => HOST.fingerprint(JSON.stringify(HOST.list.filter(s => !s.pkg)));
 
   // ---- the list of stories, read again: new and changed cards; a new story that needs a newer shell is asked about
   function reread() {
@@ -3812,7 +3909,7 @@ HOST.live = (function () {
       s.src = 'stories/list.js?t=' + Date.now();
       s.onload = () => { s.remove(); res(true); }; s.onerror = () => { s.remove(); res(false); };
       document.head.appendChild(s);
-    }).then(ok => { L.rereading = null; if (ok) take(self.STORY_LIST); }));
+    }).then(ok => { L.rereading = null; if (ok) take(self.STORY_LIST); return HOST.packages.read(); }));   // (and the story packages' index)
   }
   function take(list) {
     if (!Array.isArray(list)) return;
@@ -3823,6 +3920,8 @@ HOST.live = (function () {
       if (!known(m.key) && e && me.id && +e.needs > me.n) { ask('needs', m.key); continue; }   // not in this shell
       next.push(m);
     }
+    // (the listed story packages after the app's own: HOST.packages)
+    for (const m of HOST.packages.listed()) if (!next.some(x => x.key === m.key)) next.push(m);
     // (the story on show keeps its card, whatever the list now says)
     if (HOST.curKey && !next.some(m => m.key === HOST.curKey)) { const m = HOST.list.find(s => s.key === HOST.curKey); if (m) next.push(m); }
     if (!next.length || JSON.stringify(next) === JSON.stringify(HOST.list)) return;
@@ -3841,10 +3940,13 @@ HOST.live = (function () {
       let v = null;
       try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) v = await r.json(); } catch (e) { /* offline, or no version file */ }
       L.checking = null;
+      // the story packages' index too (a package changes without a release; packages/index.json, never cached)
+      const pk = HOST.packages.read();
       // no version file: a new service worker that took over still means a new release (asked, as before)
-      if (!v || v.app !== 'networks' || !v.stories || !v.shell) { if (HOST.updated) ask('shell'); return null; }
+      if (!v || v.app !== 'networks' || !v.stories || !v.shell) { if (HOST.updated) ask('shell'); await pk; return null; }
       L.v = v;
       await compare(v, why);
+      await pk;
       return v;
     })());
   }
@@ -3959,7 +4061,9 @@ HOST.live = (function () {
     L.missing[key] = t;
     (L.watching ? reread() : check('missing')).then(() => {
       if (known(key)) { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); if (st && st.story === key) HOST.go(key); }
-      else ask('missing', key);
+      // (a key the latest release does not have either is a story package this copy lacks: no update brings it, so
+      // nothing is asked; its station's card says Not on this device, HOST.unknown)
+      else if (!L.v || !L.v.stories || L.v.stories[key]) ask('missing', key);
     });
   }
 
@@ -4183,6 +4287,8 @@ HOST.live = (function () {
       }
     },
     check, reread, missing, note, reload, later, watch,
+    // a story package's files changed (HOST.packages): as a story file that changed
+    changed: key => story(key, false),
     ask: (kind, key) => ask(kind, key, true),
     // a shared room moved on to a newer version of the app than this device runs (shared.js: refused with 4006, v136):
     // outside a headset a reload at once, at most once in ten minutes (liveReloadAt: a host that still serves the old files,
@@ -4222,17 +4328,18 @@ HOST.live = (function () {
     state: () => L, xr: () => XQ, xrTick,   // (for tests)
   };
 })();
-// a story a shared room shows that this device's list does not have (another device runs a newer copy of the app):
-// its station's card says this device needs an update (shared.js's meta), and HOST.live offers it
+// a story a shared room shows that this device's list does not have (another device runs a newer copy of the app, or a
+// story package this copy lacks): its station's card says it is not on this device (shared.js's meta), and HOST.live
+// offers the update when the latest release has it
 HOST.unknown = (function () {
   const made = new Map();
   return key => {
     if (typeof key !== 'string' || !/^[a-z][a-z0-9-]{0,31}$/.test(key)) return undefined;
     if (!made.has(key)) {
-      made.set(key, { key, unknown: true, kick: 'Update needed', title: 'A newer story', col: '#8796ad',
-        desc: 'This device needs an update to show this story: reload the app (the bar on the page, or the panel in the headset).',
-        page: 'Update needed', brand: 'Update needed', sub: '', aria: 'A story this device needs an update for', thing: 'story',
-        loading: 'This device needs an update', len: '' });
+      made.set(key, { key, unknown: true, kick: 'Not on this device', title: 'Another story', col: '#8796ad',
+        desc: 'This device does not have this story: it may need an update (reload the app: the bar on the page, or the panel in the headset), or the story is a package this copy of the app lacks.',
+        page: 'Not on this device', brand: 'Not on this device', sub: '', aria: 'A story this device does not have', thing: 'story',
+        loading: 'Not on this device', len: '' });
     }
     return made.get(key);
   };
@@ -4245,11 +4352,17 @@ HOST.unknown = (function () {
 <script src="shared.js"></script>
 <script>
 'use strict';
-// the Stories screen's cards, one per story (again when the list changes while the app runs: HOST.live)
+// the Stories screen's cards, one per story (again when the list changes while the app runs: HOST.live). A story
+// package's card has its icon.png or a plain tile in its colour; in developer mode the hidden packages follow, dashed
 HOST.cards = function () {
   const box = document.querySelector('#picker .cards'), had = document.activeElement && document.activeElement.closest && document.activeElement.closest('#picker .card');
-  box.innerHTML = this.list.map(s => `<button class="card${s.key === this.curKey ? ' here' : ''}" type="button" data-story="${s.key}">
-    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const pic = s => (!s.pkg ? '' : s.iconUrl ? `<img class="pk" src="${esc(s.iconUrl)}" alt="" loading="lazy">` : `<i class="pk" style="background:${esc(s.col)}"></i>`);
+  const card = s => (s.pkg ? `<button class="card pkg${s.key === this.curKey ? ' here' : ''}${s.list === 'hidden' ? ' hid' : ''}${s.refused ? ' old' : ''}" type="button" data-story="${esc(s.key)}">
+    ${pic(s)}<span class="k" style="color:${esc(s.col)}">${esc(s.kick)}</span><b>${esc(s.title)}</b><span class="d">${esc(s.desc)}</span><em>${esc(s.list === 'hidden' ? (s.len ? s.len + ' · ' : '') + 'hidden package' : s.len)}</em></button>`
+    : `<button class="card${s.key === this.curKey ? ' here' : ''}" type="button" data-story="${s.key}">
+    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`);
+  box.innerHTML = this.list.concat(this.dev && this.dev.on() ? this.packages.hidden() : []).map(card).join('');
   if (had) { const c = box.querySelector(`[data-story="${had.dataset.story}"]`); if (c) c.focus(); }
 };
 (function boot() {
@@ -4322,16 +4435,20 @@ HOST.cards = function () {
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
-  // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
-  const back = HOST.live.restoring();
-  const keys = HOST.list.concat(self.STORY_EXTRA || []).map(s => s.key);   // (#design opens the design room)
-  const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
-  if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
-  // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
-  HOST.start(key, true, back).then(() => {
-    if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
-    HOST.live.restored(back);
-    HOST.dev.boot();   // (developer mode: what is new, over the Stories screen or the story the link opened)
+  // the story packages' index first (#<key> may name one), waited for 0.8 s at most: one that comes later still gets its
+  // card (HOST.packages)
+  HOST.packages.ready(800).then(() => {
+    // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
+    const back = HOST.live.restoring();
+    const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
+    const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
+    if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
+    // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
+    HOST.start(key, true, back).then(() => {
+      if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
+      HOST.live.restored(back);
+      HOST.dev.boot();   // (developer mode: what is new, over the Stories screen or the story the link opened)
+    });
   });
 })();
 

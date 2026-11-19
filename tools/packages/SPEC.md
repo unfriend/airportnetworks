@@ -22,7 +22,8 @@ packages/<key>/
 `<key>` is the folder's name: `^[a-z][a-z0-9-]{1,30}$`, never a key of `stories/list.js` (stories and `STORY_EXTRA`) and
 never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `view`, `panels`, `slides`, `repeat`,
 `anchor`, `labels`, `cards`, `free`, `subs`, `fps`, `body`, `hz`, `fov`, `scale`, `aq`, `walk`, `occl`, `sfx`, `voice`,
-`sound`, `focus`, `dev`, `soundcheck`, `output`, `visit`, `scenes`, `net`, `now`).
+`sound`, `focus`, `dev`, `soundcheck`, `output`, `visit`, `scenes`, `net`, `now`, `camera`, `debug`, `peer`, `relay`,
+`stories`, `all`, `lobby`). `node tools/packages/scan.mjs` reads this list from here.
 
 ### story.json
 
@@ -44,7 +45,7 @@ never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `vie
   by its address `#<key>` or `HOST.go`, and listed on the Stories screen in developer mode).
 - `needs` (optional): the oldest shell release it works with (`HOST.shell.n`); refused on an older shell, as a story.
 - No `icon` field: its card shows `icon.png` when the folder has one, else a plain tile in its colour; in a shared room
-  its station has no miniature (the ring and card only).
+  its station has no miniature (the ring, the card and the plain glowing shape every key without one gets, in its colour).
 
 ## Discovery: packages/index.json
 
@@ -62,13 +63,16 @@ listed in `files` only if the story loads them (never: they are left out of `fil
   bad file means no packages, quietly). Each package becomes an entry of `HOST.list` (after the app's own, `list:
   "stories"` only) or of the hidden packages (`HOST.meta(key)` finds both), with `pkg: true`, `base: 'packages/<key>/'`,
   `fp`, and `iconUrl` when it has `icon.png`. `HOST.listRev` changes when the list does. A hidden package shows on the
-  Stories screen in developer mode.
+  page's Stories screen in developer mode (the headset's Stories screen is each story's own code and lists `HOST.list`
+  only).
 - `HOST.load(key)`: a package's file is `packages/<key>/main.js?v=<fp>`; everything else as for a story (fingerprint, the
   factory kept on failure). A package whose `api` is above `HOST.storyApi` or whose `needs` is above the shell's release is
   never loaded: its card says *Needs a newer version of the app*.
 - `HOST.pkgUrl(key, path)` gives `packages/<key>/<path>?v=<the file's fp>` (plain `packages/<key>/<path>` for a file not in
   `files`): a package loads its data, models and narration through it (`HOST.audio.narration` takes that address).
-- The Stories screen (page and headset) shows a package's card like a story's, with `icon.png` or the plain tile.
+- The Stories screen (page and headset) shows a package's card like a story's: on the page with `icon.png` or the plain
+  tile; in the headset as every story's card there, which has no picture (`tools/engine/e6_panels.js`, `drawLandCard`).
+  A refused package's length line says *Needs a newer version of the app* (so the headset's card says it too).
 - `HOST.live` (a release taking over a running page) reads `packages/index.json` again with `stories/list.js`; a package
   whose `fp` changed is loaded fresh at its next start, exactly as a story whose file changed.
 

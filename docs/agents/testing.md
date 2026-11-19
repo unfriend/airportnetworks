@@ -5,7 +5,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 ## When the suites run
 
 There is no unit-test suite. When the suites run (the owner's rule: the full suites only before `main` moves): every suite below that a change touches runs before `main` moves, the smoke test always; a push to
-`dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts) and `node tools/release.mjs --check`, and a
+`dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts), `node tools/packages/scan.mjs --check` (the story packages' index is current and no folder in `packages/` is left out: `docs/agents/packages.md`) and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
 ## Windows: a tool's own folder, and line endings (fixed 16 November 2026)
@@ -2287,7 +2287,8 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   pushing to main makes sense for now"): the full suites (smoke, relay, shared
   rooms, and update, live, sound and room test where a change touches them)
   run only before `main` moves. A push to `dev` gets the cheap checks only:
-  `node --check` on the changed files, the builds' `--check`, and
+  `node --check` on the changed files, the builds' `--check`,
+  `node tools/packages/scan.mjs --check` and
   `node tools/release.mjs --check`; no smoke test or shared-room run, and a
   red result is not chased on `dev`. Every "run ... after touching" line below
   and in `AGENTS.md` names what goes into that release run. Why: running is

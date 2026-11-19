@@ -50,7 +50,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `--scenes` and a static folder of them) are passed straight through, never cached (v111), by a rule before the
   narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's, and so are the example
   scenes that ship with the app (`examples/`, v137: big models and streamed sounds, not offline); the upload page's
-  POSTs and the navigation to `<relay>/upload` are left to the browser.
+  POSTs and the navigation to `<relay>/upload` are left to the browser. Story packages (`packages/`) are fetched network
+  first into a cache of their own that outlives the releases too (`networks-packages`), by a rule before the narration's;
+  their index never from the cache while the network answers (`docs/agents/packages.md`).
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports,
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
@@ -277,6 +279,16 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   transcoded as a model loads (`tools/studio/engine/ktx2.js`, `tools/studio/vendor/KTX2Loader.js`). Fetched only when the
   studio first needs them: served by the relay (`APP_DIRS`) and GitHub Pages, kept by the service worker as any app file it
   fetched, not in its `SHELL` (the encoder is 3.4 MB).
+- `packages/` - story packages (`docs/agents/packages.md`, the contract `tools/packages/SPEC.md`): a story in a folder of
+  its own, `packages/<key>/` (`story.json`, `main.js` registering the story as `stories/<key>.js` do, an optional
+  `icon.png`, its data, models and narration loaded through `HOST.pkgUrl`, an optional `src/` that is served but never run,
+  `README.md`), and `packages/index.json`, the index the shell reads at start and with the list of stories (written by
+  `tools/packages/scan.mjs`, never by hand; committed, `{ "api": 1, "packages": [] }` with none). Not in `SHELL`: the
+  service worker keeps what a device opened in a cache of its own (`networks-packages`, kept across releases); the relay
+  serves it deep (`APP_DIRS`, `APP_DEEP`) and never writes there.
+- `tools/packages/` - the story packages' tools: `SPEC.md` (the contract: the folder, `story.json`, the index, the shell,
+  the service worker, the relay, shared rooms, the rules, the reserved keys the scan reads), `scan.mjs` (writes
+  `packages/index.json`; `--check`, `--root`).
 - `examples/` - example scenes that ship with the app (v137): scene folders with their listings exactly as
   `tools/studio/scan.mjs` writes them (`examples/index.json`, `examples/<name>/files.json`), opened read only from the
   studio's Scene pane and copied to a relay from there ("The studio"). The first, `bliss-xp`, the Bliss XP room ("The Bliss

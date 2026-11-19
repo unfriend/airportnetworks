@@ -104,6 +104,9 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   (`examples/bliss-xp` generated, never edited by hand).
 - `tools/lowpoly/` - the miniatures' sources (`models-a.js`, `models-b.js`, each under 1,200 triangles, `tris` exact),
   harnesses and `build.mjs`.
+- `packages/` - story packages, a story in one folder each (`packages/<key>/`: `story.json`, `main.js`, `icon.png`, its
+  files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract) and `scan.mjs` (writes the
+  index; `--check`) (`docs/agents/packages.md`).
 
 ## Detail files (read the one you need, when you need it)
 
@@ -113,6 +116,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 | `docs/agents/shell.md` | how the shell and stories fit together: loading, controllers after standby, the headset Stories screen, the address and history, Repeat, slideshow, placement and anchors, the headset settings (labels, cards, free moving, subtitles, frame rate, refresh rate, automatic quality, menu sharing, moving with the sticks), focus mode, phones and tablets, panels per story, developer mode, sound and sound effects, real-world occlusion, the developer notebook, spaceships, hot reload and live updates, inside a story (`LOAD`, `CH`, `NARRATION_SYNC`, framing) | touching `index.html`, `sfx.js`, `occlusion.js`, `notes.js`, `ships.js`, `sw.js`, sound, headset settings or a story's frame, load or panel code |
 | `docs/agents/shared-rooms.md` | shared rooms in full: the room's keys and `FORMAT`, All stories and lobby circles, the room's arc, relay, peer to peer and on-device rooms, room names, rooms on this network, alignment (shared space, floor spots, room setup guide, check by eye, Touch the spot, areas, places), camera mode, the desktop preview camera, the output page (MIDI and OSC), stations, cards, icons, locks, the headset menu and its tabs, others' moves smoothed, the relay (public hosting, password, scenes on disk and in R2, updating a room), the hooks every story keeps, what each story shares; the PC's Vive trackers | touching `shared.js`, `relay/`, a story's `collab` hooks or `state()`, `tools/trackers/` |
 | `docs/agents/studio.md` | the studio: scenes, models and the GLB converter, textures, uploads, Fewer triangles, the viewer, `layout.json`, trigger cubes, sounds, cut-outs, groups, shapes, behaviours, walls, motions, recorded paths, ghosts, timelines, screens, paintings, sequences, press and hover, the room scan, examples and the Bliss XP room, editing, saving, placement, performance, props and characters on trackers, and the parked glTF round trips (Blender, Unity: nice to have) | touching `tools/studio/`, `examples/` or the relay's scenes |
+| `docs/agents/packages.md` | story packages: the folder, `story.json`, the index and its scan, the shell's loading (`HOST.packages`, `HOST.pkgUrl`, refusals, the cards, developer mode, `HOST.live`), the service worker's cache, the relay, shared rooms (*Not on this device*), the rules | touching `packages/`, `tools/packages/`, or the shell's loading of a package |
 | `docs/agents/stories.md` | how the built stories are made from `tools/<key>/` (kit, sets, build budget, `keepClear`, life size) and each one's sets, data, permissions, explore tabs, headset and room behaviour, spelling | touching any story or its `tools/<key>/` sources |
 | `docs/agents/testing.md` | every suite, every smoke block (`### smoke: <block>`) and collab round (`### collab.mjs --<flag>`) and what it checks, the tools, useful URL hashes | running or changing a test, or judging what a change needs |
 | `docs/history.md` | version history and the owner's words behind the rules, by area; the `FORMAT` history | wondering why a rule is as it is |
@@ -365,7 +369,7 @@ There is no unit-test suite. What each command checks, block by block, is `docs/
 
 When the suites run (the owner's rule: only when pushing to `main`): every suite a change touches runs before `main`
 moves, the smoke test always. A push to `dev` gets only the cheap checks: `node --check` on the changed files, the
-builds' `--check` and `node tools/release.mjs --check`; a red result there is not chased. Running is free (CPU);
+builds' `--check`, `node tools/packages/scan.mjs --check` and `node tools/release.mjs --check`; a red result there is not chased. Running is free (CPU);
 chasing red results costs tokens, and most were the tests' own or the machine's.
 
 - Serve the folder, then smoke: `npx http-server -p 8123 -c-1 .` (or `python3 -m http.server 8123`), then
