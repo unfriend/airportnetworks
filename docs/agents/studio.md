@@ -1236,7 +1236,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
   picked by hand, editing on; *Duplicate scene* beside it (v167: the same field or keypad, filled with *<scene> copy*,
   `NS.from`; `POST /api/scenes { name, from }` copies every file and the saved layout, locks kept, no `.history/`; files
-  not copied counted); while editing, the scene's settings: *Other circles* and *Real world hides the
+  not copied counted); *Copies of stories* (v170; `COPIES` in `e4_files.js`): the relay's scenes whose `layout.json` holds
+  a story's arrangement (`HOST.arrange.list()`, read when the listing has a name like `<key>-copy[-n]`), each *Copy of
+  <title>* with *Open*, which plays that story with the copy (`HOST.arrange.open`: at a studio circle you leave it for the
+  story); a copy is never among the scenes to pick (a name like one waits for the list), never opened as a scene, and
+  the studio's Save keeps a layout's `story` as it was read (`STU.story`, `keepStory`; "A story's copy" in
+  `docs/agents/shell.md`); while editing, the scene's settings: *Other circles* and *Real world hides the
   scene*; *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, a grid of cards with
   their pictures and *Make pictures* on a page, its sounds,
   *Originals* folded, *Trigger cube*, *Convert every model*; *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; *From another scene...*: the relay's other scenes, then

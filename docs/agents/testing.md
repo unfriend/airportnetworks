@@ -1678,6 +1678,19 @@ the pretend addresses.
 
 `--quick` runs only the last story in the per-story part.
 
+### collab.mjs --arr
+
+`--arr` (v170, not in the main run) runs only a story's copy on the relay (`arrRound`, a relay of its own with `--scenes`
+on a temporary folder; the qubits story; "A story's copy" in `docs/agents/shell.md`): in developer mode the bar's *Copy to
+relay* makes `qubits-copy`, plays it and opens the editor, the address `#qubits&arr=qubits-copy&edit`; the first
+chapter's length typed in the editor reaches the story's `arrange.apply`, and *Save* writes `layout.json`
+`{ studio: 1, story }` with it; a page opened with `&arr=` reads it back and lays it over the story (its bar *Copy: ...*,
+no *Copy to relay* outside developer mode); `&arr=no-such-copy` says *Copy not found*; in a room two pages following a
+station: the copy opened there is `st.<id>.arr` `{ v, story, by, at }` and both play it (never in `collab.state()`), a
+save there reaches the other page, *Own story* ends it on both. A story whose engine has no `arrange` yet gets a stand-in
+made from its own `CH`, `NARRATION_SYNC` and `TR` (`ARR_STANDIN`, the test's only); one that has it is wrapped to count
+the calls.
+
 ### collab.mjs --standby
 
 `--standby` runs only the pretend

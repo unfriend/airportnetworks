@@ -439,6 +439,73 @@ body.xr #labels, body.xr #tip { display: none; }
 #livebar span { flex: 1 1 14rem; }
 #livebar .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #xrgo { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; font-size: 20px; padding: 16px 28px; }
+/* a story's copy on the relay (HOST.arrange, v170): its tag and buttons on the bar, and the editor's drawer over the
+   timeline (a page only; tools/engine/SPEC.md) */
+#arrBar { display: flex; align-items: center; gap: 8px; flex: none; font-size: 13px; }
+#arrBar[hidden] { display: none; }
+#arrBar .btn { padding: 5px 10px; font-size: 13px; white-space: nowrap; }
+#arrBar .tag { color: #ffe2b0; background: rgba(3, 8, 16, 0.55); border-radius: 6px; padding: 3px 8px; white-space: nowrap; max-width: 16em; overflow: hidden; text-overflow: ellipsis; }
+#arrBar .warn { color: #ffb43b; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); white-space: nowrap; }
+body.picking #arrBar, body.xr #arrBar { display: none; }
+#arrEd {
+  position: fixed; z-index: 5; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px)); height: min(330px, 46vh); display: flex; flex-direction: column;
+  background: var(--panel-solid); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; line-height: 1.35;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45); overflow: hidden;
+}
+#arrEd[hidden] { display: none; }
+body.arr-ed #panel { bottom: calc(70px + min(330px, 46vh) + 10px + env(safe-area-inset-bottom, 0px)); }
+#arrEd .ae-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#arrEd .ae-head b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 22em; }
+#arrEd .ae-head .st { color: var(--faint); white-space: nowrap; }
+#arrEd .ae-head .st.un { color: var(--amber); }
+#arrEd .ae-head .sp { flex: 1; }
+#arrEd .btn { padding: 4px 10px; font-size: 13px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#arrEd .btn[disabled] { opacity: 0.45; cursor: default; }
+#arrEd .ae-drop { margin: 0; padding: 4px 10px; color: var(--amber); border-bottom: 1px solid var(--line); }
+#arrEd .ae-drop[hidden] { display: none; }
+#arrEd .ae-body { flex: 1; display: flex; min-height: 0; }
+#arrEd .ae-lanes { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: thin; user-select: none; -webkit-user-select: none; }
+#arrEd .ae-side { width: 260px; flex: none; border-left: 1px solid var(--line); overflow-y: auto; padding: 8px 10px 40px; scrollbar-width: thin; }
+#arrEd .ae-row { display: flex; align-items: stretch; height: 22px; border-bottom: 1px solid var(--chip); }
+#arrEd .ae-row.tall { height: 30px; position: sticky; top: 0; z-index: 3; background: var(--panel-solid); }
+#arrEd .ae-lab { width: 132px; flex: none; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+#arrEd .ae-row.sub .ae-lab { padding-left: 18px; color: var(--faint); }
+#arrEd .ae-lab button { border: 0; background: none; padding: 0 2px; color: var(--muted); font-size: 11px; width: 14px; }
+#arrEd .ae-tr { flex: 1; position: relative; margin-right: 10px; cursor: pointer; touch-action: none; }
+#arrEd .ae-dot { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--cyan); cursor: ew-resize; touch-action: none; }
+#arrEd .ae-dot.mv { background: var(--amber); }
+#arrEd .ae-dot.sel { box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--ink); }
+#arrEd .ae-dot.cap { background: var(--violet); border-radius: 2px; }
+#arrEd .ae-dot.cap.ed { background: var(--magenta); }
+#arrEd .ae-dot.cue { background: var(--green); transform: rotate(45deg); border-radius: 1px; }
+#arrEd .ae-dot.sync { background: var(--teal); border-radius: 1px; width: 7px; margin-left: -3.5px; height: 14px; margin-top: -7px; }
+#arrEd .ae-bar { position: absolute; top: 7px; height: 8px; background: var(--cyan); opacity: 0.22; border-radius: 2px; pointer-events: none; }
+#arrEd .ae-lbl { position: absolute; top: 5px; height: 12px; background: var(--violet); opacity: 0.45; border-radius: 2px; cursor: pointer; }
+#arrEd .ae-lbl.ed { background: var(--magenta); opacity: 0.7; }
+#arrEd .ae-chs { position: relative; flex: 1; margin-right: 10px; }
+#arrEd .ae-ch { position: absolute; top: 3px; bottom: 3px; background: var(--chip); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 3px 12px 0 5px; font-size: 12px; cursor: pointer; }
+#arrEd .ae-ch.sel { border-color: var(--ink); }
+#arrEd .ae-ch.len { background: color-mix(in srgb, var(--amber) 18%, transparent); }
+#arrEd .ae-ch.skip { opacity: 0.45; background: repeating-linear-gradient(135deg, var(--chip) 0 6px, transparent 6px 12px); text-decoration: line-through; }
+#arrEd .ae-ch i { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: var(--line); }
+#arrEd .ae-now { position: absolute; top: 0; width: 1px; background: var(--red); pointer-events: none; z-index: 2; }
+#arrEd .ae-side h4 { margin: 0 0 4px; font-size: 13px; }
+#arrEd .ae-side p { margin: 0 0 6px; color: var(--muted); }
+#arrEd .ae-side .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; }
+#arrEd .ae-side textarea { width: 100%; min-height: 84px; font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 5px; padding: 5px; resize: vertical; }
+#arrEd .ae-side input[type="number"], #arrEd .ae-side input[type="text"] { font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; width: 5.2em; }
+#arrEd .ae-side input[type="text"] { width: 100%; }
+#arrEd .ae-side details { margin: 6px 0; border-top: 1px solid var(--line); padding-top: 6px; }
+#arrEd .ae-side summary { cursor: pointer; font-weight: 700; }
+#arrEd .ae-pl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px 4px; align-items: center; margin-top: 4px; }
+#arrEd .ae-pl input { width: 100% !important; padding: 1px 2px !important; }
+#arrEd .ae-pl .h { color: var(--faint); font-size: 11px; text-align: center; }
+#arrEd .ae-pl .n { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+#arrEd .ae-pl .n.mv { color: var(--amber); }
+#arrEd .ae-prev { color: var(--faint); font-size: 12px; }
+#arrEd .ae-narrow { padding: 14px; color: var(--muted); }
+@media (max-width: 899px) { body.arr-ed #panel { display: none; } #arrEd .ae-side { width: 220px; } #arrEd .ae-lab { width: 104px; } }
 
 @media (max-width: 899px) {
   body { font-size: 16px; }
@@ -656,6 +723,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
   <button class="btn primary" id="btnNextBar" type="button" hidden>Next</button>
   <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="232" aria-valuenow="0"></div>
   <div id="clock">0:00 / 3:51</div>
+  <span id="arrBar" hidden></span>
   <div id="viewctl"></div>
   <button class="fc ico" id="fcPrev" type="button" aria-label="Previous chapter" title="Previous chapter"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h2v11H3zM13.5 2.5v11L5.5 8z"/></svg></button>
   <span class="fc" id="fcName"></span>
@@ -2748,6 +2816,8 @@ HOST.loading = (() => {
       L.fade = true;
       return (t, f) => { fn(t, f); over(f); };
     },
+    // whether the story on show is built (its frame loop given): HOST.arrange lays a copy over it from then on
+    built: () => L.ran,
     // for tests and pictures: what shows now, and the scene itself
     state: () => ({ on: L.on, fade: L.fade, a: L.a, since: performance.now() - L.t0, done: L.done, total: L.total, label: L.label,
       card: !!(L.card && L.card.m.visible), cardAt: L.card ? L.card.m.position.toArray() : null }),
@@ -3080,7 +3150,8 @@ HOST.run = function (meta, keepHash, place) {
   if (at) this.xrPose = at;
   // (the address says the story at once, except over the Stories screen, which closes next: closePicker gives the story
   // a history entry of its own there, HOST.hist)
-  if (!keepHash && !this.picking) this.hist.replace((this.collab && this.collab.hash()) || '#' + meta.key);
+  if (this.arrange) this.arrange.started(meta.key);   // (another story: the address's copy goes)
+  if (!keepHash && !this.picking) this.hist.replace((this.collab && this.collab.hash()) || '#' + meta.key + (this.arrange ? this.arrange.tail(meta.key) : ''));
   document.getElementById('gl').setAttribute('aria-label', meta.aria);
   document.getElementById('btnAR').title = `Mixed reality: the ${meta.thing} floats in your room`;
   document.getElementById('nogl').textContent = `This ${meta.thing} needs WebGL, which this browser has turned off.`;
@@ -3118,7 +3189,7 @@ HOST.swap = async function (key) {
   if (!fresh || this.curKey !== key || !this.cur) { this.busy = false; this.next(); return false; }
   const place = this.place();
   // (the address as it is, without a deep link's &t= or &explore, which the story would take at its start)
-  this.hist.replace((this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key));
+  this.hist.replace((this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key + (this.arrange ? this.arrange.tail(key) : '')));
   this.run(meta, true, place);
   this.swaps = (this.swaps || 0) + 1;
   console.info('Swapped in place: ' + (meta.pkg ? meta.base + 'main.js' : 'stories/' + key + '.js'));
@@ -3161,7 +3232,7 @@ HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // 'back' (the Stories screen opened over such an entry: back to the one under it), HOST.hist
 HOST.setUrl = function (stories, how) {
   this.onStories = !!stories;   // (the Stories screen, page or headset: no story on show, for the menu's Panels row)
-  const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey);
+  const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey + (this.arrange ? this.arrange.tail(this.curKey) : ''));
   if (!(how && this.hist[how] && this.hist[how](h))) this.hist.replace(h);
   this.chrome(stories);
 };
@@ -4365,6 +4436,740 @@ HOST.cards = function () {
   box.innerHTML = this.list.concat(this.dev && this.dev.on() ? this.packages.hidden() : []).map(card).join('');
   if (had) { const c = box.querySelector(`[data-story="${had.dataset.story}"]`); if (c) c.focus(); }
 };
+// ------------------------------------------------------------------ a story's copy --
+// Arrangements (v170; tools/engine/SPEC.md; the owner, 18 and 19 November 2026: "a copy button to copy them to the relay
+// and then edit in case this is wanted", "rearranging and timing etc, no logic"). A copy of a story is a scene on the
+// relay (the scenes API: its folder, layout.json { studio: 1, story: <arrangement> }, its sounds/), named <key>-copy[-n];
+// the arrangement is plain data the story lays over its own timeline (HOST.cur.arrange: model, apply, get). This page
+// plays a copy when its address says #<key>&arr=<name> (&edit opens the editor too), or when it runs a shared room's
+// station whose key st.<id>.arr names one (shared.js: every device there reads it and plays it). The relay is the one the
+// page knows (HOST.collab.relayFind) with its password as a header, never in an address; a 401 brings up the shell's
+// prompts (relaySaw). Without a relay, or a copy that cannot be read, the story plays as its own and the bar says so.
+// The editor is a drawer over the timeline, on a page only (a headset plays a copy but never edits it).
+HOST.arrange = (function () {
+  const OK = n => typeof n === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(n);
+  const copyLike = n => typeof n === 'string' && /^[a-z][a-z0-9-]{1,30}-copy(-\d+)?$/.test(n);
+  const enc = encodeURIComponent, encPath = p => String(p).split('/').map(enc).join('/');
+  const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const clone = o => (o == null ? o : JSON.parse(JSON.stringify(o)));
+  const S = {
+    addr: null,            // the address's copy, this page's own: { key, name }
+    edit: false,           // &edit in the link: Copy to relay shows without developer mode
+    wantEd: false,         // the editor to open once the copy is read (Copy to relay, Edit, &arr with &edit)
+    cache: new Map(),      // name -> { A, at, rev, err, status, busy, errAt }: copies read (at: the station's at it was read for)
+    layouts: new Map(),    // name -> its layout.json as read (Save keeps its other fields)
+    applied: { cur: null, name: '', rev: 0 },
+    dropped: [], note: '', busy: '', sig: '',
+    relay: { base: '', token: '', ok: false, save: false, ffmpeg: false, at: -1e9, busy: null, why: '' },
+    copies: { list: null, at: -1e9, busy: null },
+    blobs: new Map(),
+  };
+  const err = (msg, status) => Object.assign(new Error(msg), { status: status || 0 });
+
+  // ---- the relay: the one this page knows, its scenes API asked once every 30 s at most (again: at once)
+  function relay(again) {
+    const R = S.relay;
+    if (R.busy) return R.busy;
+    if (!again && performance.now() - R.at < 30000) return Promise.resolve(R.ok ? R : null);
+    R.busy = (async () => {
+      let f = null;
+      try { f = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : null; } catch (e) { f = null; }
+      if (!f || !f.base) { Object.assign(R, { base: '', token: '', ok: false, why: 'none' }); return null; }
+      Object.assign(R, { base: String(f.base).replace(/\/+$/, ''), token: f.token || '' });
+      try {
+        const j = await (await call('/api/scenes')).json();
+        Object.assign(R, { ok: true, save: !!(j && j.save), ffmpeg: !!(j && j.ffmpeg), why: '' });
+      } catch (e) { Object.assign(R, { ok: false, why: e.status === 401 ? 'auth' : e.status === 404 ? 'scenes' : 'away' }); }
+      return R.ok ? R : null;
+    })().finally(() => { R.at = performance.now(); R.busy = null; });
+    return R.busy;
+  }
+  // a call to it: the password as a header (never in the address), what it answered told to the shell (a 401 brings up
+  // its password prompts, an answer with it accepted keeps it)
+  async function call(path, o) {
+    o = o || {};
+    const R = S.relay, headers = Object.assign({}, o.headers || {});
+    if (R.token) headers.Authorization = 'Bearer ' + R.token;
+    let r;
+    try { r = await fetch(R.base + path, { method: o.method || 'GET', headers, body: o.body, cache: 'no-store' }); } catch (e) { throw err('the relay could not be reached'); }
+    let j = null;
+    if (!r.ok) try { j = await r.clone().json(); } catch (e) { /* not JSON */ }
+    try { if (HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(R.base, r.status, R.token, j); } catch (e) { /* an older shared.js */ }
+    if (!r.ok) throw err(r.status === 401 ? 'the relay wants its password (under Shared)' : (j && j.error) || 'HTTP ' + r.status, r.status);
+    return r;
+  }
+  // (no relay, or one without scenes: the copy is not there, 404; one that wants its password: 401)
+  const need = async () => { if (!(await relay())) throw S.relay.why === 'auth' ? err('the relay wants its password (under Shared)', 401) : S.relay.why === 'away' ? err('the relay did not answer') : err('no relay with scenes', 404); };
+  // an arrangement as read: plain data of version 1 for a story (anything else is not one)
+  const shape = A => (A && typeof A === 'object' && !Array.isArray(A) && A.v === 1 && typeof A.key === 'string' && A.key ? clone(A) : null);
+
+  // ---- the API (tools/engine/SPEC.md, "The shell's side")
+  async function read(name) {
+    if (!OK(name)) throw err('not a copy\'s name', 400);
+    await need();
+    const j = await (await call('/api/scenes/' + enc(name))).json(), L = j && j.layout, A = shape(L && L.story);
+    if (!A) throw err('not a copy of a story', 404);
+    S.layouts.set(name, L);
+    return A;
+  }
+  async function save(name, A) {
+    if (!OK(name) || !shape(A)) throw err('nothing to save', 400);
+    await need();
+    const L = Object.assign({}, S.layouts.get(name) || {}, { studio: 1, scene: name, story: clone(A), saved: new Date().toISOString() });
+    const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
+    if (by) L.by = String(by).slice(0, 40);
+    await call('/api/scenes/' + enc(name) + '/layout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(L) });
+    S.layouts.set(name, L);
+    // (at a station running it: its key written again, so every device there reads it again)
+    const st = station(), a = st && HOST.collab.arrOf ? HOST.collab.arrOf(st.id) : null;
+    if (a && a.v === name) HOST.collab.setArr(st.id, name);
+    return true;
+  }
+  async function copy(key) {
+    const m = HOST.meta(key);
+    if (!m) throw err('no such story', 400);
+    if (!(await relay(true))) await need();
+    const j = await (await call('/api/scenes')).json(), have = new Set((j && Array.isArray(j.scenes) ? j.scenes : []).map(s => s && s.name));
+    for (let i = 1; i < 100; i++) {
+      const name = key + '-copy' + (i > 1 ? '-' + i : '');
+      if (have.has(name) || !OK(name)) continue;
+      try { await call('/api/scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) }); } catch (e) { if (e.status === 409) continue; throw e; }
+      const A = { v: 1, key, made: new Date().toISOString().slice(0, 10), from: HOST.fp[key] || '' };
+      S.layouts.set(name, { studio: 1, scene: name });
+      await save(name, A);
+      S.copies.at = -1e9;
+      return name;
+    }
+    throw err('no free name for a copy', 409);
+  }
+  // the relay's copies: scenes whose layout holds a story (only names like <key>-copy[-n] are read), 10 s kept
+  function list(fresh) {
+    const P = S.copies;
+    if (P.busy) return P.busy;
+    if (!fresh && P.list && performance.now() - P.at < 10000) return Promise.resolve(P.list);
+    P.busy = (async () => {
+      if (!(await relay())) return [];
+      const j = await (await call('/api/scenes')).json();
+      const names = (j && Array.isArray(j.scenes) ? j.scenes : []).map(s => s && s.name).filter(copyLike).slice(0, 60);
+      const got = await Promise.all(names.map(n => call('/api/scenes/' + enc(n)).then(r => r.json()).then(k => {
+        const A = shape(k && k.layout && k.layout.story);
+        if (!A) return null;
+        S.layouts.set(n, k.layout);
+        const m = HOST.meta(A.key);
+        return { name: n, key: A.key, title: m ? m.title : A.key, made: typeof A.made === 'string' ? A.made : '' };
+      }).catch(() => null)));
+      return got.filter(Boolean);
+    })().then(l => { P.list = l; return l; }, () => (P.list = P.list || [])).finally(() => { P.at = performance.now(); P.busy = null; });
+    return P.busy;
+  }
+  // a recording into the copy's sounds/: an MP3 as it is; anything else made an MP3 by the relay's ffmpeg
+  async function upload(name, file) {
+    if (!OK(name) || !file) throw err('nothing to upload', 400);
+    await need();
+    const mp3 = /\.mp3$/i.test(file.name || '') || file.type === 'audio/mpeg';
+    if (!mp3 && !S.relay.ffmpeg) throw err('this relay has no ffmpeg: upload an MP3', 400);
+    const stem = String(file.name || 'recording').replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'recording';
+    const p = 'sounds/' + stem + '.mp3';
+    await call(`/api/scenes/${enc(name)}/${mp3 ? 'file' : 'sound'}?path=${enc(p)}&replace=1`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+    const k = name + '/' + p;
+    if (S.blobs.has(k)) { URL.revokeObjectURL(S.blobs.get(k)); S.blobs.delete(k); }
+    return p;
+  }
+  // a file of the copy (its recording) as a blob: address, fetched with the password as a header; the last four kept
+  async function url(name, p) {
+    if (!OK(name) || typeof p !== 'string' || !p || /(^|\/)\.\.(\/|$)/.test(p) || /^\//.test(p)) throw err('not a file of a copy', 400);
+    const k = name + '/' + p;
+    if (S.blobs.has(k)) return S.blobs.get(k);
+    await need();
+    const b = await (await call('/scenes/' + enc(name) + '/' + encPath(p))).blob(), u = URL.createObjectURL(b);
+    S.blobs.set(k, u);
+    while (S.blobs.size > 4) { const [k0, u0] = S.blobs.entries().next().value; S.blobs.delete(k0); URL.revokeObjectURL(u0); }
+    return u;
+  }
+
+  // ---- which copy this page plays: its station's (a shared room, the station it runs or follows shows this story) or
+  // the address's; at: the station key's time (a save there moves it on: read again)
+  function station() {
+    try { const C = HOST.collab; return C && C.joined && C.live ? C.live() : null; } catch (e) { return null; }
+  }
+  function want(key) {
+    if (!key) return null;
+    const st = station();
+    if (st && !st.kind && st.story === key) {
+      const a = HOST.collab.arrOf ? HOST.collab.arrOf(st.id) : null;
+      return a ? { name: a.v, at: a.at || 0, st: st.id } : null;
+    }
+    return S.addr && S.addr.key === key ? { name: S.addr.name, at: 0, st: '' } : null;
+  }
+  // the story's arrangement now: { name, A } (A null while it is read, or when it could not be), or null (its own)
+  function current(key) {
+    const w = want(key || HOST.curKey);
+    if (!w) return null;
+    const c = S.cache.get(w.name);
+    return { name: w.name, A: c && c.A ? clone(c.A) : null };
+  }
+  function fetchCopy(w) {
+    const c = S.cache.get(w.name) || { A: null, at: 0, rev: 0, err: '', status: 0, busy: false, errAt: 0 };
+    S.cache.set(w.name, c);
+    if (c.busy) return;
+    c.busy = true; c.at = w.at;
+    read(w.name).then(A => { c.A = A; c.saved = sigOf(A); c.rev++; c.err = ''; c.status = 0; }, e => { c.err = e.message; c.status = e.status || 0; c.errAt = performance.now(); })
+      .finally(() => { c.busy = false; tick(); });
+  }
+  const built = () => !HOST.loading || !HOST.loading.built || HOST.loading.built();
+  // lay it over the story (a copy of it: the story never changes ours); dropped: the edits whose story changed since
+  function applyNow(cur, name, c) {
+    const A = c && c.A ? c.A : null;
+    S.applied = { cur, name: A ? name : '', rev: A ? c.rev : 0 };
+    try {
+      const r = cur.arrange.apply(A ? clone(A) : null);
+      S.dropped = A && r && Array.isArray(r.dropped) ? r.dropped.filter(x => typeof x === 'string').slice(0, 200) : [];
+    } catch (e) { console.warn('The copy was not laid over the story:', e); S.dropped = []; }
+    if (ED.on) edDrop();
+  }
+  // every 300 ms, and after a copy is read: the copy wanted, read when it is not yet (again 15 s after a failure, or a
+  // station's newer save), laid over the story once it is built; the bar and the editor follow
+  function tick() {
+    const cur = HOST.cur, key = HOST.curKey, w = cur ? want(key) : null;
+    let c = w ? S.cache.get(w.name) : null;
+    if (w && (!c || (!c.busy && ((c.err && performance.now() - c.errAt > 15000) || (w.at > c.at && !(ED.on && ED.name === w.name && edDirty())))))) { fetchCopy(w); c = S.cache.get(w.name); }
+    const ar = cur && cur.arrange;
+    if (ar && typeof ar.apply === 'function' && built()) {
+      const name = w && c && c.A ? w.name : '', rev = name ? c.rev : 0, P = S.applied;
+      if (P.cur !== cur || P.name !== name || P.rev !== rev) applyNow(cur, w ? w.name : '', c);
+    }
+    // the relay looked for when Copy to relay could show (developer mode, or &edit) or a copy is wanted
+    if (cur && !HOST.session && (w || (ar && (S.edit || (HOST.dev && HOST.dev.on()))))) relay();
+    // (the story swapped in place, a hot reload: the editor opens again on the same copy, its unsaved changes kept)
+    if (ED.on && (ED.cur !== cur || !w || ED.name !== w.name)) { const again = !!(w && ED.name === w.name && cur); edClose(true); if (again) S.wantEd = true; }
+    if (!ED.on && S.wantEd && w && c && c.A && ar && built() && !HOST.session) { S.wantEd = false; edOpen(w.name); }
+    if (ED.on) edFrame();
+    bar();
+  }
+
+  // ---- the bar: the copy playing (Edit, Own story) or Copy to relay
+  function bar() {
+    const el = document.getElementById('arrBar');
+    if (!el) return;
+    const cur = HOST.cur, key = HOST.curKey, w = cur ? want(key) : null, c = w ? S.cache.get(w.name) : null, ar = cur && cur.arrange;
+    const dev = S.edit || !!(HOST.dev && HOST.dev.on()), R = S.relay;
+    let h = '';
+    if (w) {
+      const bad = c && !c.A && c.err ? (c.status === 404 ? 'Copy not found' : 'Copy not read: ' + c.err) : '';
+      h = `<span class="tag" title="This story plays the copy ${esc(w.name)} on the relay: its own timing and places">Copy: ${esc(w.name)}</span>` +
+        (bad ? `<span class="warn">${esc(bad)}</span>` : !c || c.busy ? '<span class="warn">Reading the copy...</span>' : '') +
+        (ar && c && c.A && !ED.on && !HOST.session ? '<button class="btn" type="button" data-arr="edit" title="Retime and rearrange this copy">Edit</button>' : '') +
+        `<button class="btn" type="button" data-arr="own" title="${w.st ? 'This station plays the story as its own again, for everyone here' : 'Play the story as its own'}">Own story</button>`;
+    } else if (ar && dev && R.ok && R.save && !HOST.session) {
+      h = `<button class="btn" type="button" data-arr="copy" ${S.busy ? 'disabled' : ''} title="A copy of this story on the relay, to retime and rearrange (the story itself stays as it is)">${S.busy ? 'Copying...' : 'Copy to relay'}</button>`;
+    }
+    if (S.note) h += `<span class="warn">${esc(S.note)}</span>`;
+    if (h !== S.sig) { S.sig = h; el.innerHTML = h; el.hidden = !h; }
+  }
+  async function copyHere() {
+    const key = HOST.curKey;
+    if (S.busy || !key) return;
+    S.busy = 'copy'; S.note = ''; bar();
+    try { const name = await copy(key); open(key, name, true); } catch (e) { S.note = 'Not copied: ' + e.message; } finally { S.busy = ''; S.sig = ''; bar(); }
+  }
+  // play a copy (the studio's Open, Copy to relay): at a station of that story the station's, for everyone there; else
+  // this page's own (its address); edit: the editor opens once it is read (a page)
+  function open(key, name, edit) {
+    if (!OK(name) || !HOST.meta(key)) return false;
+    const st = station();
+    if (st && !st.kind && st.story === key && HOST.collab.setArr) HOST.collab.setArr(st.id, name);
+    else S.addr = { key, name };
+    if (edit) S.wantEd = true;
+    S.note = '';
+    if (HOST.curKey !== key || !HOST.cur) HOST.go(key); else hash();
+    setTimeout(tick, 0);
+    return true;
+  }
+  // back to the story's own (the station's too, for everyone there)
+  function own() {
+    const st = station(), a = st && HOST.collab.arrOf ? HOST.collab.arrOf(st.id) : null;
+    if (a && st.story === HOST.curKey) HOST.collab.setArr(st.id, null);
+    S.addr = null; S.wantEd = false;
+    if (ED.on) edClose(true);
+    hash(); tick();
+  }
+  // the address while a copy plays here by the address: #<key>&arr=<name> (and &edit while it is edited, or the link had it)
+  const tail = key => (S.addr && S.addr.key === key ? '&arr=' + enc(S.addr.name) + (S.edit || ED.on ? '&edit' : '') : '');
+  function hash() {
+    if (!HOST.curKey || HOST.picking || (HOST.collab && HOST.collab.hash && HOST.collab.hash())) return;
+    HOST.hist.replace('#' + HOST.curKey + tail(HOST.curKey));
+  }
+
+  // ================================================================ the editor ==
+  // A drawer over the timeline (a page only). Every time in the arrangement is the story's own seconds; the lanes show
+  // the story as arranged (chapters stretched or squeezed), so a dot is drawn at its arranged time and a drag is read
+  // back into the story's own (tools/engine/SPEC.md, "How it is applied"). The story seeks to what is dragged
+  const ED = { on: false, cur: null, name: '', M: null, A: null, hist: [], pos: 0, saved: '', sel: null, fold: new Set(), drag: null, applyT: 0, note: '', busy: '', sig: '', lastApply: 0, el: null, raf: 0, geo: null, openPlaces: false, openRec: false };
+  const sigOf = A => JSON.stringify(A || null);
+  const edDirty = () => ED.on && sigOf(ED.A) !== ED.saved;
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+  const r3 = v => Math.round(v * 1000) / 1000;
+  // the chapters as arranged: each chapter's own span, its length now, where it starts and ends now; fwd: own -> arranged,
+  // back: arranged -> own; sync: the narration's timing as arranged; rec(t) arranged -> the recording's (APP.t), at(r) back
+  function geo() {
+    const M = ED.M, A = ED.A || {}, AC = A.chapters || {};
+    let shift = 0;
+    const ch = M.chapters.map(c => {
+      const own = Math.max(0.001, c.b - c.a), e = AC[c.key], len = e && +e.len > 0 ? +e.len : own;
+      const g = { key: c.key, name: c.name, a: c.a, b: c.b, own, len, skip: !!(e && e.skip), a2: c.a + shift };
+      g.b2 = g.a2 + len; shift += len - own;
+      return g;
+    });
+    const fwd = t => { for (const c of ch) if (t >= c.a && t < c.b) return c.a2 + (t - c.a) * c.len / c.own; let s = 0; for (const c of ch) if (t >= c.b) s += c.len - c.own; return t + s; };
+    const back = t => { for (const c of ch) if (t >= c.a2 && t < c.b2) return c.a + (t - c.a2) * c.own / c.len; let s = 0; for (const c of ch) if (t >= c.b2) s += c.len - c.own; return t - s; };
+    const sy = (Array.isArray(A.sync) && A.sync.length > 1 ? A.sync : M.sync).map(p => [+p[0], fwd(+p[1])]);
+    const lerp = (W, i, j, x) => { for (let k = 1; k < W.length; k++) if (x <= W[k][i]) { const p = W[k - 1], q = W[k]; return q[i] === p[i] ? p[j] : p[j] + (q[j] - p[j]) * (x - p[i]) / (q[i] - p[i]); } const L = W[W.length - 1]; return L[j] + (x - L[i]); };
+    const rec = t => (sy.length > 1 ? (t <= sy[0][1] ? sy[0][0] - (sy[0][1] - t) : lerp(sy, 1, 0, t)) : t);
+    const at = r => (sy.length > 1 ? (r <= sy[0][0] ? sy[0][1] - (sy[0][0] - r) : lerp(sy, 0, 1, r)) : r);
+    const len = Math.max(1, fwd(M.len), ch.length ? ch[ch.length - 1].b2 : 0);
+    return { ch, fwd, back, rec, at, len, sy };
+  }
+  // the model, checked loosely (a story's own, from its arrange.model())
+  function model(cur) {
+    let M = null;
+    try { M = cur.arrange.model(); } catch (e) { console.warn('The story gave no model of its timeline:', e); }
+    if (!M || typeof M !== 'object') return null;
+    const arr = v => (Array.isArray(v) ? v : []);
+    return {
+      key: M.key, len: +M.len || 0, narration: M.narration || null,
+      chapters: arr(M.chapters).filter(c => c && typeof c.key === 'string' && Number.isFinite(+c.a) && Number.isFinite(+c.b)).map(c => ({ key: c.key, name: String(c.name || c.key), a: +c.a, b: +c.b })),
+      sync: arr(M.sync).filter(p => Array.isArray(p) && Number.isFinite(+p[0]) && Number.isFinite(+p[1])).map(p => [+p[0], +p[1]]),
+      tracks: arr(M.tracks).filter(t => t && typeof t.id === 'string').map(t => ({ id: t.id, name: String(t.name || t.id), set: t.set || '', kind: t.kind || 'param', keys: arr(t.keys).filter(k => k && Number.isFinite(+k.t)).map(k => ({ i: +k.i, t: +k.t, v: k.v })) })),
+      camera: arr(M.camera).filter(k => k && Number.isFinite(+k.t)).map(k => ({ i: +k.i, t: +k.t, label: String(k.label || '') })),
+      captions: arr(M.captions).filter(c => c && typeof c.id === 'string').map(c => ({ id: c.id, ch: c.ch, i: c.i, at: +c.at || 0, text: String(c.text || ''), tokens: arr(c.tokens).map(String) })),
+      labels: arr(M.labels).filter(l => l && typeof l.id === 'string').map(l => ({ id: l.id, t0: +l.t0 || 0, t1: +l.t1 || 0, text: String(l.text || '') })),
+      cues: arr(M.cues).filter(k => k && Number.isFinite(+k.t)).map(k => ({ i: +k.i, t: +k.t, name: String(k.name || '') })),
+      sets: arr(M.sets).filter(s => s && typeof s.key === 'string').map(s => ({ key: s.key, name: String(s.name || s.key) })),
+    };
+  }
+  function edOpen(name) {
+    const cur = HOST.cur, c = S.cache.get(name);
+    if (!cur || !cur.arrange || !c || !c.A) return;
+    const M = model(cur);
+    if (!M) { S.note = 'This story gives no timeline to edit.'; return; }
+    Object.assign(ED, { on: true, cur, name, M, A: clone(c.A), sel: null, drag: null, note: '', busy: '', sig: '' });
+    ED.saved = c.saved || sigOf(c.A); ED.hist = [sigOf(c.A)]; ED.pos = 0;
+    if (!ED.el) edMake();
+    ED.el.hidden = false;
+    document.body.classList.add('arr-ed');
+    edDrop(); edRender(); hash();
+    if (!ED.raf) ED.raf = requestAnimationFrame(edLoop);
+  }
+  function edClose(gone) {
+    if (!ED.on) return;
+    if (!gone && edDirty() && !confirm('Close the editor? Your unsaved changes stay in this page until it reloads, but are not on the relay.')) return;
+    ED.on = false; ED.cur = null;
+    if (ED.el) ED.el.hidden = true;
+    document.body.classList.remove('arr-ed');
+    hash();
+  }
+  function edLoop() {
+    ED.raf = 0;
+    if (!ED.on) return;
+    edNow();
+    ED.raf = requestAnimationFrame(edLoop);
+  }
+  // the drawer: made once, its listeners the shell's (HOST.quiet: a story change never removes them)
+  function edMake() {
+    const el = ED.el = document.createElement('div');
+    el.id = 'arrEd'; el.hidden = true; el.setAttribute('role', 'region'); el.setAttribute('aria-label', 'Editing the copy of this story');
+    el.innerHTML = '<div class="ae-head"></div><p class="ae-drop" hidden></p><div class="ae-body"><div class="ae-lanes"></div><div class="ae-side"></div></div>';
+    document.body.appendChild(el);
+    quietly(() => {
+      el.addEventListener('click', edClick);
+      el.addEventListener('pointerdown', edDown);
+      el.addEventListener('pointermove', edMove);
+      el.addEventListener('pointerup', edUp);
+      el.addEventListener('pointercancel', edUp);
+      el.addEventListener('input', edInput);
+      el.addEventListener('change', edChange);
+      addEventListener('resize', () => { if (ED.on) { ED.sig = ''; edRender(); } });
+      addEventListener('beforeunload', ev => { if (edDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
+    });
+  }
+  // a change to the arrangement: laid over the story (at most every 120 ms while dragging, at once otherwise) and kept
+  // for Undo once it is done (commit)
+  function edApply(now) {
+    const c = S.cache.get(ED.name);
+    ED.geo = null;
+    if (!c || !ED.cur) return;
+    c.A = clone(ED.A); c.rev++;
+    clearTimeout(ED.applyT);
+    const go = () => { ED.lastApply = performance.now(); if (HOST.cur === ED.cur) applyNow(ED.cur, ED.name, c); };
+    if (now || performance.now() - ED.lastApply > 120) go(); else ED.applyT = setTimeout(go, 120);
+  }
+  function edCommit() {
+    const s = sigOf(ED.A);
+    if (s === ED.hist[ED.pos]) return;
+    ED.hist = ED.hist.slice(0, ED.pos + 1); ED.hist.push(s);
+    if (ED.hist.length > 200) ED.hist.shift();
+    ED.pos = ED.hist.length - 1;
+  }
+  function edUndo(d) {
+    const p = ED.pos + d;
+    if (p < 0 || p >= ED.hist.length) return;
+    ED.pos = p; ED.A = JSON.parse(ED.hist[p]); ED.sel = null; edApply(true); edRender(true);
+  }
+  async function edSave() {
+    if (ED.busy) return;
+    ED.busy = 'save'; ED.note = ''; edRender(true);
+    const s = sigOf(ED.A), name = ED.name;
+    try { await save(name, ED.A); const c = S.cache.get(name); if (c) c.saved = s; if (ED.name === name) { ED.saved = s; ED.note = 'Saved on the relay.'; } } catch (e) { ED.note = 'Not saved: ' + e.message; }
+    finally { ED.busy = ''; edRender(true); }
+  }
+  function edDrop() {
+    const el = ED.el && ED.el.querySelector('.ae-drop');
+    if (!el) return;
+    const d = S.dropped;
+    el.hidden = !d.length;
+    el.textContent = d.length ? `${d.length} edit${d.length === 1 ? '' : 's'} dropped: the story changed there since the copy was made (${d.slice(0, 6).join(', ')}${d.length > 6 ? ' ...' : ''}). Save to leave them out for good.` : '';
+  }
+  const APP = () => { const c = HOST.cur && HOST.cur.collab; return c && c.APP; };
+  // the story to an arranged time (the recording's clock, APP.t, through the narration's timing as arranged)
+  function seekTo(t2) {
+    const A = APP();
+    if (!A || typeof A.seek !== 'function') return;
+    try { if (A.mode !== 'story' && A.enterStory) A.enterStory(Math.max(0, geo().rec(t2))); else A.seek(Math.max(0, geo().rec(t2))); } catch (e) { /* not now */ }
+  }
+  // ---- what each lane holds: its dots (an own time t, its time now, whether moved) and how a drag changes it
+  const val = (o, k) => (o && o[k]) || null;
+  function keyNow(tr, k) { const e = val(ED.A.keys, tr.id + '#' + k.i); return e && Number.isFinite(+e.t) && near(+e.was, k.t) ? +e.t : k.t; }
+  function camNow(k) { const e = val(ED.A.camera, String(k.i)); return e && Number.isFinite(+e.t) && near(+e.was, k.t) ? +e.t : k.t; }
+  function cueNow(k) { const e = val(ED.A.cues, String(k.i)); return e && Number.isFinite(+e.t) && near(+e.was, k.t) ? +e.t : k.t; }
+  function capNow(c) { const e = val(ED.A.captions, c.id); return e && Number.isFinite(+e.at) && near(+e.wasAt, c.at) ? +e.at : c.at; }
+  const syncNow = () => (Array.isArray(ED.A.sync) && ED.A.sync.length > 1 ? ED.A.sync : ED.M.sync);
+  // a moved time written (or taken out when it is back where it was)
+  function setMove(bag, id, t, was) {
+    const o = ED.A[bag] = Object.assign({}, ED.A[bag] || {});
+    if (near(t, was)) delete o[id]; else o[id] = { t: r3(t), was };
+    if (!Object.keys(o).length) delete ED.A[bag];
+  }
+  function setCap(c, f) {
+    const o = ED.A.captions = Object.assign({}, ED.A.captions || {}), e = Object.assign({}, o[c.id] || {});
+    Object.assign(e, f);
+    if (e.text === undefined || e.text === c.text) delete e.text;
+    if (e.at === undefined || near(e.at, c.at)) { delete e.at; delete e.wasAt; } else e.wasAt = c.at;
+    if (e.text === undefined && e.at === undefined) delete o[c.id]; else { e.was = c.text; o[c.id] = e; }
+    if (!Object.keys(o).length) delete ED.A.captions;
+  }
+  function setChapter(key, f) {
+    const g = geo().ch.find(c => c.key === key);
+    if (!g) return;
+    const o = ED.A.chapters = Object.assign({}, ED.A.chapters || {}), e = Object.assign({}, o[key] || {}, f);
+    if (e.len !== undefined && (!(e.len > 0) || Math.abs(e.len - g.own) < 0.05)) delete e.len; else if (e.len !== undefined) e.len = Math.round(e.len * 100) / 100;
+    if (!e.skip) delete e.skip;
+    if (e.len === undefined && !e.skip) delete o[key]; else o[key] = e;
+    if (!Object.keys(o).length) delete ED.A.chapters;
+  }
+  // the rows: the chapters, the narration's timing, each set (its show and hide, its other tracks folded under it),
+  // the tracks of no set, the camera, the captions, the labels and the sound cues
+  function rows() {
+    const M = ED.M, out = [{ kind: 'ch', label: 'Chapters', big: true }];
+    if (M.sync.length > 1) out.push({ kind: 'sync', label: 'Narration timing' });
+    const bySet = new Map();
+    for (const tr of M.tracks) { const k = M.sets.some(s => s.key === tr.set) ? tr.set : ''; if (!bySet.has(k)) bySet.set(k, []); bySet.get(k).push(tr); }
+    for (const s of M.sets.concat(bySet.has('') ? [{ key: '', name: 'The story' }] : [])) {
+      const trs = bySet.get(s.key) || [], show = trs.filter(t => t.kind === 'show'), other = trs.filter(t => t.kind !== 'show'), id = 'set:' + s.key;
+      if (!trs.length) continue;
+      out.push({ kind: 'set', id, label: s.name, tracks: show, fold: other.length ? (ED.fold.has(id) ? 'open' : 'shut') : '' });
+      if (ED.fold.has(id)) for (const t of other) out.push({ kind: 'set', id: t.id, label: t.name, tracks: [t], sub: true });
+    }
+    if (M.camera.length) out.push({ kind: 'cam', label: 'Camera' });
+    if (M.captions.length) out.push({ kind: 'cap', label: 'Captions' });
+    if (M.labels.length) out.push({ kind: 'lbl', label: 'Labels' });
+    if (M.cues.length) out.push({ kind: 'cue', label: 'Sound cues' });
+    return out;
+  }
+  const pc = (t, G) => (100 * Math.max(0, Math.min(1, t / G.len))).toFixed(3) + '%';
+  const isSel = (k, id) => !!(ED.sel && ED.sel.k === k && ED.sel.id === id);
+  const dot = (cls, k, id, t, G, title, moved) => `<i class="ae-dot ${cls}${moved ? ' mv' : ''}${isSel(k, id) ? ' sel' : ''}" data-k="${k}" data-id="${esc(id)}" style="left:${pc(G.fwd(t), G)}" title="${esc(title)}"></i>`;
+  const fmt = s => (s < 0 ? '-' : '') + Math.floor(Math.abs(s) / 60) + ':' + (Math.abs(s) % 60).toFixed(1).padStart(4, '0');
+  function lane(r, G) {
+    const M = ED.M;
+    if (r.kind === 'ch') return G.ch.map(c => `<div class="ae-ch${c.skip ? ' skip' : ''}${Math.abs(c.len - c.own) > 0.04 ? ' len' : ''}${isSel('ch', c.key) ? ' sel' : ''}" data-k="ch" data-id="${esc(c.key)}" style="left:${pc(c.a2, G)};width:calc(${pc(c.len, G)} - 2px)" title="${esc(c.name)}: ${c.len.toFixed(1)} s${c.skip ? ', skipped' : ''}">${esc(c.name)}<i data-k="chend" data-id="${esc(c.key)}" title="Drag: its length"></i></div>`).join('');
+    if (r.kind === 'sync') return syncNow().map((p, i) => `<i class="ae-dot sync${!near(+p[1], (M.sync[i] || [0, NaN])[1]) || Array.isArray(ED.A.sync) ? ' mv' : ''}${isSel('sync', String(i)) ? ' sel' : ''}" data-k="sync" data-id="${i}" style="left:${pc(G.fwd(+p[1]), G)}" title="The recording's ${fmt(+p[0])} at the story's ${fmt(+p[1])}"></i>`).join('');
+    if (r.kind === 'set') {
+      let h = '';
+      for (const tr of r.tracks) {
+        const ks = tr.keys.map(k => ({ k, t: keyNow(tr, k) })).sort((a, b) => a.t - b.t);
+        if (tr.kind === 'show' || tr.kind === 'step') for (let i = 0; i + 1 < ks.length; i++) { const v = Math.max(+ks[i].k.v || 0, +ks[i + 1].k.v || 0); if (v > 0 && tr.kind === 'show') h += `<b class="ae-bar" style="left:${pc(G.fwd(ks[i].t), G)};width:${pc(G.fwd(ks[i + 1].t) - G.fwd(ks[i].t), G)};opacity:${(0.12 + 0.3 * Math.min(1, v)).toFixed(2)}"></b>`; }
+        for (const x of ks) h += dot('', 'key', tr.id + '#' + x.k.i, x.t, G, `${tr.name}: ${typeof x.k.v === 'number' ? +x.k.v.toFixed(3) : x.k.v} at ${fmt(G.fwd(x.t))}`, !near(x.t, x.k.t));
+      }
+      return h;
+    }
+    if (r.kind === 'cam') return M.camera.map(k => { const t = camNow(k); return dot('', 'cam', String(k.i), t, G, `Camera: ${k.label || 'waypoint ' + (k.i + 1)} at ${fmt(G.fwd(t))}`, !near(t, k.t)); }).join('');
+    if (r.kind === 'cue') return M.cues.map(k => { const t = cueNow(k); return dot('cue', 'cue', String(k.i), t, G, `Sound: ${k.name} at ${fmt(G.fwd(t))}`, !near(t, k.t)); }).join('');
+    if (r.kind === 'cap') return M.captions.map(c => { const t = capNow(c), e = val(ED.A.captions, c.id); return dot('cap' + (e && e.text !== undefined ? ' ed' : ''), 'cap', c.id, t, G, c.text.slice(0, 120), !near(t, c.at)); }).join('');
+    if (r.kind === 'lbl') return M.labels.map(l => { const e = val(ED.A.labels, l.id); return `<b class="ae-lbl${e ? ' ed' : ''}${isSel('lbl', l.id) ? ' sel' : ''}" data-k="lbl" data-id="${esc(l.id)}" style="left:${pc(G.fwd(l.t0), G)};width:max(4px, ${pc(G.fwd(l.t1) - G.fwd(l.t0), G)})" title="${esc((e && e.text) || l.text)}"></b>`; }).join('');
+    return '';
+  }
+  // drawn again when what it shows changed (full: also the side)
+  function edRender(full) {
+    if (!ED.on || !ED.el) return;
+    ED.sig = sigOf(ED.A) + '|' + S.dropped.length;
+    const narrow = innerWidth < 700, G = ED.geo = geo(), dirty = edDirty();
+    const head = narrow ? `<b>Copy: ${esc(ED.name)}</b><span class="sp"></span><button class="btn" type="button" data-ae="close">Close</button>`
+      : `<b title="${esc(ED.name)}">Editing the copy ${esc(ED.name)}</b><span class="st${dirty ? ' un' : ''}">${ED.busy === 'save' ? 'Saving...' : dirty ? 'Unsaved changes' : 'Saved'}</span>` +
+        `<button class="btn${dirty ? ' primary' : ''}" type="button" data-ae="save" ${ED.busy || !dirty ? 'disabled' : ''}>Save</button>` +
+        `<button class="btn" type="button" data-ae="undo" ${ED.pos > 0 ? '' : 'disabled'}>Undo</button><button class="btn" type="button" data-ae="redo" ${ED.pos < ED.hist.length - 1 ? '' : 'disabled'}>Redo</button>` +
+        `<span class="st">${esc(ED.note)}</span><span class="sp"></span><span class="st">${fmt(G.len)} as arranged (its own ${fmt(ED.M.len)})</span><button class="btn" type="button" data-ae="close">Close</button>`;
+    ED.el.querySelector('.ae-head').innerHTML = head;
+    const L = ED.el.querySelector('.ae-lanes');
+    if (narrow) { L.innerHTML = '<p class="ae-narrow">Editing a copy needs a wider screen (a laptop or a desktop). It plays here as it is.</p>'; ED.el.querySelector('.ae-side').innerHTML = ''; return; }
+    const top = L.scrollTop;
+    L.innerHTML = rows().map(r => `<div class="ae-row${r.big ? ' tall' : ''}${r.sub ? ' sub' : ''}"><span class="ae-lab" title="${esc(r.label)}">${r.fold ? `<button type="button" data-ae="fold" data-id="${esc(r.id)}" aria-label="${r.fold === 'open' ? 'Fold' : 'Unfold'} its tracks">${r.fold === 'open' ? '&#9662;' : '&#9656;'}</button>` : ''}${esc(r.label)}</span><div class="${r.kind === 'ch' ? 'ae-chs' : 'ae-tr'}" data-lane="${r.kind}">${lane(r, G)}</div></div>`).join('') + '<i class="ae-now"></i>';
+    L.scrollTop = top;
+    if (full !== false) edSide(G);
+    edNow();
+  }
+  // the playhead: where the story is now, as arranged
+  function edNow() {
+    const L = ED.el && ED.el.querySelector('.ae-lanes'), n = L && L.querySelector('.ae-now'), A = APP(), tr = L && L.querySelector('.ae-tr, .ae-chs');
+    if (!n || !A || !tr) return;
+    const G = ED.geo || (ED.geo = geo());
+    const t2 = A.mode === 'story' ? G.at(+A.t || 0) : G.len, x = tr.offsetLeft + tr.offsetWidth * Math.max(0, Math.min(1, t2 / G.len));
+    n.style.left = x.toFixed(1) + 'px';
+    n.style.height = L.scrollHeight + 'px';
+  }
+  // the side: what is selected, then Places and the recording
+  function edSide(G) {
+    const M = ED.M, s = ED.sel;
+    let h = '';
+    if (!s) h += '<p>Drag a dot to move it in time (the story follows); drag a chapter\'s right end to stretch or squeeze it. Click a chapter, a caption or a label to change it.</p>';
+    else if (s.k === 'ch') {
+      const g = G.ch.find(c => c.key === s.id);
+      if (g) h += `<h4>${esc(g.name)}</h4><p>Its own length ${g.own.toFixed(1)} s; now</p><div class="row"><input type="number" min="1" step="0.5" value="${g.len.toFixed(1)}" data-ae="chlen" data-id="${esc(g.key)}" aria-label="Its length in seconds"> s
+        <button class="btn" type="button" data-ae="skip" data-id="${esc(g.key)}" aria-pressed="${g.skip}">${g.skip ? 'Skipped: on' : 'Skip it: off'}</button></div>
+        <div class="row"><button class="btn" type="button" data-ae="chown" data-id="${esc(g.key)}" ${Math.abs(g.len - g.own) > 0.04 ? '' : 'disabled'}>Back to its own length</button></div>`;
+    } else if (s.k === 'cap') {
+      const c = M.captions.find(x => x.id === s.id), e = c && val(ED.A.captions, c.id);
+      if (c) {
+        const now = e && e.text !== undefined ? e.text : braces(c.text, c.tokens);
+        h += `<h4>Caption ${esc(c.id)}</h4><p>Shows at ${fmt(G.fwd(capNow(c)))}${c.tokens.length ? `; its numbers come from the data: {1}${c.tokens.length > 1 ? ', {2}' : ''}${c.tokens.length > 2 ? ' ...' : ''}` : ''}</p>
+          <textarea data-ae="captext" data-id="${esc(c.id)}" aria-label="The caption's text">${esc(now)}</textarea>
+          <p class="ae-prev" data-prev="1">${esc(fill(now, c.tokens))}</p>
+          <div class="row"><button class="btn" type="button" data-ae="capown" data-id="${esc(c.id)}" ${e ? '' : 'disabled'}>Back to the story's own</button></div>`;
+      }
+    } else if (s.k === 'lbl') {
+      const l = M.labels.find(x => x.id === s.id), e = l && val(ED.A.labels, l.id);
+      if (l) h += `<h4>Label</h4><input type="text" data-ae="lbltext" data-id="${esc(l.id)}" value="${esc(e ? e.text : l.text)}" aria-label="The label's text"><div class="row"><button class="btn" type="button" data-ae="lblown" data-id="${esc(l.id)}" ${e ? '' : 'disabled'}>Back to the story's own</button></div>`;
+    } else if (s.k === 'key' || s.k === 'cam' || s.k === 'cue' || s.k === 'sync') {
+      h += `<h4>${esc(s.title || '')}</h4><div class="row"><button class="btn" type="button" data-ae="back">Back to its own time</button></div>`;
+    }
+    // places: each set moved (x, y, z in the story's units), turned (degrees about up) and sized, on top of the story's own
+    const P = ED.A.place || {};
+    h += `<details ${ED.openPlaces ? 'open' : ''} data-ae="places"><summary>Places</summary><div class="ae-pl"><span class="h">x</span><span class="h">y</span><span class="h">z</span><span class="h">turn</span><span class="h">size</span>` +
+      M.sets.map(st => { const p = Array.isArray(P[st.key]) ? P[st.key] : [0, 0, 0, 0, 1]; const f = (i, step, min) => `<input type="number" step="${step}" ${min !== undefined ? `min="${min}"` : ''} value="${+(+p[i] || (i === 4 ? 1 : 0)).toFixed(3)}" data-ae="place" data-id="${esc(st.key)}" data-i="${i}" aria-label="${esc(st.name)}: ${['x', 'y', 'z', 'turn', 'size'][i]}">`;
+        return `<span class="n${P[st.key] ? ' mv' : ''}" title="${esc(st.name)}">${esc(st.name)}</span>${f(0, 0.05)}${f(1, 0.05)}${f(2, 0.05)}${f(3, 5)}${f(4, 0.05, 0.05)}`; }).join('') +
+      `</div><div class="row"><button class="btn" type="button" data-ae="placeown" ${ED.A.place ? '' : 'disabled'}>Every set back to its own place</button></div></details>`;
+    // the recording
+    h += `<details ${ED.openRec ? 'open' : ''} data-ae="rec"><summary>The recording</summary><p>${ED.A.narration ? 'This copy\'s own: ' + esc(ED.A.narration) : M.narration ? 'The story\'s own.' : 'The story has no recording.'}</p>
+      <div class="row"><label class="btn" ${ED.busy ? 'aria-disabled="true"' : ''}>${ED.busy === 'up' ? 'Uploading...' : 'Upload a recording'}<input type="file" accept=".mp3,audio/mpeg,audio/*" data-ae="upfile" hidden ${ED.busy ? 'disabled' : ''}></label>
+      <button class="btn" type="button" data-ae="recown" ${ED.A.narration ? '' : 'disabled'}>Back to the story's own recording</button></div>
+      <div class="row"><button class="btn" type="button" data-ae="syncown" ${Array.isArray(ED.A.sync) ? '' : 'disabled'}>Back to the story's own timing</button></div></details>`;
+    ED.el.querySelector('.ae-side').innerHTML = h;
+  }
+  // a caption's numbers as {1}, {2} ... (in order, as they stand in its text), and filled in again
+  function braces(text, tokens) {
+    let out = '', p = 0;
+    tokens.forEach((tk, i) => { const j = tk ? text.indexOf(tk, p) : -1; if (j < 0) return; out += text.slice(p, j) + '{' + (i + 1) + '}'; p = j + tk.length; });
+    return out + text.slice(p);
+  }
+  const fill = (text, tokens) => String(text).replace(/\{(\d+)\}/g, (m, n) => (tokens[n - 1] !== undefined ? tokens[n - 1] : m));
+  // ---- pointing: a dot dragged in time, a chapter's end dragged, a lane clicked (the story seeks there)
+  function laneX(ev, r) {
+    const G = ED.geo || (ED.geo = geo());
+    return { G, t2: Math.max(0, Math.min(1, (ev.clientX - r.left) / Math.max(1, r.width))) * G.len };
+  }
+  function edDown(ev) {
+    if (!ED.on || ev.button > 0) return;
+    const d = ev.target.closest('[data-k]'), lane = ev.target.closest('[data-lane]');
+    if (!lane) return;
+    const k = d ? d.dataset.k : '', id = d ? d.dataset.id : '';
+    if (k === 'key' || k === 'cam' || k === 'cue' || k === 'cap' || k === 'sync' || k === 'chend') {
+      ED.drag = { k, id, rect: lane.getBoundingClientRect(), moved: false, x0: ev.clientX, title: d.title || '' };
+      try { ED.el.setPointerCapture(ev.pointerId); } catch (e) { /* none */ }
+      ev.preventDefault();
+    } else if (!d) { const rect = lane.getBoundingClientRect(); ED.drag = { k: 'seek', rect, moved: true }; try { ED.el.setPointerCapture(ev.pointerId); } catch (e) { /* none */ } seekTo(laneX(ev, rect).t2); }
+  }
+  // neighbours keep a track's keyframes (and the camera's waypoints, the narration's anchors) in order
+  const between = (t, lo, hi) => Math.max(lo, Math.min(hi, t));
+  function edMove(ev) {
+    const D = ED.drag;
+    if (!D || !ED.on) return;
+    if (D.k === 'seek') { seekTo(laneX(ev, D.rect).t2); return; }
+    if (!D.moved && Math.abs(ev.clientX - D.x0) < 3) return;
+    D.moved = true;
+    const { G, t2 } = laneX(ev, D.rect), M = ED.M;
+    let own = G.back(t2), show = t2;
+    if (D.k === 'key') {
+      const [tid, i] = [D.id.slice(0, D.id.lastIndexOf('#')), +D.id.slice(D.id.lastIndexOf('#') + 1)], tr = M.tracks.find(x => x.id === tid);
+      if (!tr) return;
+      const ks = tr.keys.slice().sort((a, b) => a.i - b.i), j = ks.findIndex(x => x.i === i), k = ks[j];
+      own = between(own, j > 0 ? keyNow(tr, ks[j - 1]) : 0, j < ks.length - 1 ? keyNow(tr, ks[j + 1]) : Infinity);
+      setMove('keys', D.id, own, k.t);
+      D.title = `${tr.name}: ${typeof k.v === 'number' ? +k.v.toFixed(3) : k.v}`;
+    } else if (D.k === 'cam') {
+      const ks = M.camera.slice().sort((a, b) => a.i - b.i), j = ks.findIndex(x => String(x.i) === D.id), k = ks[j];
+      if (!k) return;
+      own = between(own, j > 0 ? camNow(ks[j - 1]) : 0, j < ks.length - 1 ? camNow(ks[j + 1]) : Infinity);
+      setMove('camera', D.id, own, k.t); D.title = 'Camera: ' + (k.label || 'waypoint ' + (k.i + 1));
+    } else if (D.k === 'cue') {
+      const k = M.cues.find(x => String(x.i) === D.id);
+      if (!k) return;
+      setMove('cues', D.id, own, k.t); D.title = 'Sound: ' + k.name;
+    } else if (D.k === 'cap') {
+      const c = M.captions.find(x => x.id === D.id);
+      if (!c) return;
+      setCap(c, { at: r3(own) }); D.title = 'Caption ' + c.id;
+    } else if (D.k === 'sync') {
+      const W = syncNow().map(p => [+p[0], +p[1]]), i = +D.id;
+      if (!W[i]) return;
+      own = between(own, i > 0 ? W[i - 1][1] + 0.05 : 0, i < W.length - 1 ? W[i + 1][1] - 0.05 : Infinity);
+      W[i] = [W[i][0], r3(own)];
+      if (W.every((p, j) => M.sync[j] && near(p[0], M.sync[j][0]) && near(p[1], M.sync[j][1])) && W.length === M.sync.length) delete ED.A.sync; else ED.A.sync = W;
+      D.title = 'The narration\'s anchor ' + (i + 1);
+    } else if (D.k === 'chend') {
+      const g = G.ch.find(c => c.key === D.id);
+      if (!g) return;
+      setChapter(D.id, { len: Math.max(1, t2 - g.a2) });
+      show = Math.max(g.a2, t2 - 0.05);
+    }
+    edApply(false);
+    edRender(false);
+    if (D.k !== 'chend') seekTo(ED.geo.fwd(own)); else seekTo(show);
+  }
+  function edUp(ev) {
+    const D = ED.drag;
+    ED.drag = null;
+    if (!D || !ED.on) return;
+    try { ED.el.releasePointerCapture(ev.pointerId); } catch (e) { /* none */ }
+    if (D.k === 'seek') return;
+    if (D.moved) { edApply(true); edCommit(); ED.sel = { k: D.k === 'chend' ? 'ch' : D.k, id: D.id, title: D.title }; edRender(); return; }
+    // a click: selected (a caption, a chapter, a dot), and the story there
+    const G = geo(), M = ED.M;
+    ED.sel = { k: D.k === 'chend' ? 'ch' : D.k, id: D.id, title: D.title };
+    if (D.k === 'cap') { const c = M.captions.find(x => x.id === D.id); if (c) seekTo(G.fwd(capNow(c)) + 0.05); }
+    edRender();
+  }
+  // clicks: the head's buttons, a chapter or label selected, the side's buttons
+  function edClick(ev) {
+    if (!ED.on) return;
+    const b = ev.target.closest('[data-ae]'), a = b && b.dataset.ae, id = b && b.dataset.id;
+    const sm = ev.target.closest('summary');
+    if (sm) { const dt = sm.parentElement; if (dt.dataset.ae === 'places') ED.openPlaces = !dt.open; if (dt.dataset.ae === 'rec') ED.openRec = !dt.open; return; }
+    if (!b) {
+      const d = ev.target.closest('[data-k="ch"], [data-k="lbl"]');
+      if (d && !ev.target.closest('[data-k="chend"]')) {
+        ED.sel = { k: d.dataset.k, id: d.dataset.id };
+        const G = geo();
+        if (d.dataset.k === 'ch') { const g = G.ch.find(c => c.key === d.dataset.id); if (g) seekTo(g.a2 + 0.05); }
+        else { const l = ED.M.labels.find(x => x.id === d.dataset.id); if (l) seekTo(G.fwd(l.t0) + 0.05); }
+        edRender();
+      }
+      return;
+    }
+    if (b.tagName === 'DETAILS' || b.tagName === 'INPUT' || b.tagName === 'TEXTAREA') return;
+    if (a === 'places' || a === 'rec') return;
+    const M = ED.M;
+    const done = () => { edApply(true); edCommit(); edRender(); };
+    if (a === 'close') edClose(false);
+    else if (a === 'save') edSave();
+    else if (a === 'undo') edUndo(-1);
+    else if (a === 'redo') edUndo(1);
+    else if (a === 'fold') { if (ED.fold.has(id)) ED.fold.delete(id); else ED.fold.add(id); edRender(false); }
+    else if (a === 'skip') { const g = geo().ch.find(c => c.key === id); if (g) { setChapter(id, { skip: !g.skip }); done(); } }
+    else if (a === 'chown') { setChapter(id, { len: 0 }); done(); }
+    else if (a === 'capown') { const o = Object.assign({}, ED.A.captions || {}); delete o[id]; if (Object.keys(o).length) ED.A.captions = o; else delete ED.A.captions; done(); }
+    else if (a === 'lblown') { const o = Object.assign({}, ED.A.labels || {}); delete o[id]; if (Object.keys(o).length) ED.A.labels = o; else delete ED.A.labels; done(); }
+    else if (a === 'placeown') { delete ED.A.place; done(); }
+    else if (a === 'recown') { delete ED.A.narration; done(); }
+    else if (a === 'syncown') { delete ED.A.sync; done(); }
+    else if (a === 'back' && ED.sel) {
+      const s = ED.sel, bag = { key: 'keys', cam: 'camera', cue: 'cues' }[s.k];
+      if (bag) { const o = Object.assign({}, ED.A[bag] || {}); delete o[s.id]; if (Object.keys(o).length) ED.A[bag] = o; else delete ED.A[bag]; }
+      else if (s.k === 'cap') { const c = M.captions.find(x => x.id === s.id); if (c) setCap(c, { at: c.at }); }
+      else if (s.k === 'sync' && Array.isArray(ED.A.sync)) { const i = +s.id, W = ED.A.sync.map(p => p.slice()); if (M.sync[i] && W[i]) { W[i] = M.sync[i].slice(); ED.A.sync = W; if (W.length === M.sync.length && W.every((p, j) => near(p[0], M.sync[j][0]) && near(p[1], M.sync[j][1]))) delete ED.A.sync; } }
+      done();
+    }
+  }
+  // typing: a caption's text (laid over as typed, kept for Undo when the box is left), a label's, a chapter's length, a place
+  function edInput(ev) {
+    const t = ev.target, a = t.dataset && t.dataset.ae, id = t.dataset && t.dataset.id, M = ED.M;
+    if (a === 'captext') {
+      const c = M.captions.find(x => x.id === id);
+      if (!c) return;
+      const own = braces(c.text, c.tokens), v = t.value.slice(0, 2000);
+      setCap(c, { text: v === own ? c.text : v });
+      const p = ED.el.querySelector('[data-prev]');
+      if (p) p.textContent = fill(v, c.tokens);
+      edApply(false); edRender(false);
+    } else if (a === 'lbltext') {
+      const l = M.labels.find(x => x.id === id);
+      if (!l) return;
+      const o = ED.A.labels = Object.assign({}, ED.A.labels || {}), v = t.value.slice(0, 300);
+      if (v === l.text) delete o[id]; else o[id] = { text: v, was: l.text };
+      if (!Object.keys(o).length) delete ED.A.labels;
+      edApply(false); edRender(false);
+    }
+  }
+  function edChange(ev) {
+    const t = ev.target, a = t.dataset && t.dataset.ae, id = t.dataset && t.dataset.id;
+    if (a === 'captext' || a === 'lbltext') { edApply(true); edCommit(); edRender(); }
+    else if (a === 'chlen') { const v = +t.value; if (v >= 1) { setChapter(id, { len: v }); edApply(true); edCommit(); edRender(); } }
+    else if (a === 'place') {
+      const i = +t.dataset.i, v = +t.value;
+      if (!Number.isFinite(v) || (i === 4 && !(v > 0))) return;
+      const P = ED.A.place = Object.assign({}, ED.A.place || {}), p = (Array.isArray(P[id]) ? P[id] : [0, 0, 0, 0, 1]).slice();
+      p[i] = r3(v);
+      if (p.every((x, j) => near(x, j === 4 ? 1 : 0))) delete P[id]; else P[id] = p;
+      if (!Object.keys(P).length) delete ED.A.place;
+      ED.openPlaces = true;
+      edApply(true); edCommit(); edRender();
+    } else if (a === 'upfile' && t.files && t.files[0]) edUpload(t.files[0]);
+  }
+  async function edUpload(file) {
+    if (ED.busy) return;
+    ED.busy = 'up'; ED.note = ''; ED.openRec = true; edRender();
+    const name = ED.name;
+    try { const p = await upload(name, file); if (ED.name === name) { ED.A.narration = p; edApply(true); edCommit(); ED.note = 'Uploaded: Save keeps it with the copy.'; } }
+    catch (e) { ED.note = 'Not uploaded: ' + e.message; } finally { ED.busy = ''; edRender(); }
+  }
+  // each frame while it is open (the lanes only when the arrangement changed; the playhead always)
+  function edFrame() { const s = sigOf(ED.A) + '|' + S.dropped.length; if (s !== ED.sig) { ED.sig = s; edRender(); } }
+
+  // ---- once, from the boot: the link's copy (#<key>&arr=<name>, &edit), the bar's buttons, the timer
+  function boot(hp, key) {
+    S.edit = hp.has('edit');
+    const name = hp.get('arr');
+    if (key && OK(name)) { S.addr = { key, name }; if (S.edit) S.wantEd = true; }
+    const el = document.getElementById('arrBar');
+    if (el) quietly(() => el.addEventListener('click', ev => {
+      const b = ev.target.closest('[data-arr]');
+      if (!b) return;
+      if (b.dataset.arr === 'copy') copyHere();
+      else if (b.dataset.arr === 'own') own();
+      else if (b.dataset.arr === 'edit') { const w = want(HOST.curKey); if (w) { S.wantEd = true; tick(); } }
+    }));
+    setInterval(tick, 300);
+  }
+  // HOST.run: another story drops the address's copy
+  function started(key) { if (S.addr && S.addr.key !== key) { S.addr = null; S.wantEd = false; } S.note = ''; S.sig = ''; }
+
+  return {
+    read, save, copy, list, upload, url, current, open, own, boot, started, tail, tick,
+    isCopy: n => copyLike(n) || !!(S.copies.list && S.copies.list.some(c => c.name === n)),
+    editing: () => (ED.on ? { name: ED.name, dirty: edDirty(), A: clone(ED.A) } : null),
+    state: () => ({ addr: S.addr && Object.assign({}, S.addr), applied: S.applied.name, rev: S.applied.rev, dropped: S.dropped.slice(), relay: { ok: S.relay.ok, why: S.relay.why, save: S.relay.save },
+      editing: ED.on ? ED.name : '', dirty: edDirty(), note: S.note }),
+  };
+})();
 (function boot() {
   const pk = document.getElementById('picker');
   HOST.cards();
@@ -4446,6 +5251,7 @@ HOST.cards = function () {
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
     const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
+    HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
     // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
     HOST.start(key, true, back).then(() => {
       if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();

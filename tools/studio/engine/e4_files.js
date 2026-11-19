@@ -163,7 +163,7 @@ async function listScenes(gen) {
     // (R2: uploads straight into the bucket, and how long a file's link lives, s: e7c_direct.js)
     SRC.direct = SRC.upload && !!(j && j.direct); SRC.linkTtl = SRC.kind === 'relay' ? +(j && j.linkTtl) || 0 : 0;
     SRC.state = 'ok'; SRC.note = '';
-    if (SRC.kind === 'relay') watchStart();
+    if (SRC.kind === 'relay') { watchStart(); copiesRead(); }
   } catch (e) {
     if (gen !== SRC.gen || GL.gone) return;
     SRC.scenes = [];
@@ -178,12 +178,39 @@ async function listScenes(gen) {
   chooseScene();
   dirty();
 }
+// Copies of stories (v170, tools/engine/SPEC.md): scenes on the relay whose layout holds a story's arrangement (its
+// timing and places, made by Copy to relay on a story's bar). The studio lists them apart (Copy of <title>, Open: the
+// story starts with the copy, HOST.arrange.open) and never opens one as a scene to place things in; a name that looks
+// like one (<key>-copy[-n]) waits for the shell's listing (HOST.arrange.list: the layouts read) before it shows as a scene
+const COPIES = { list: [], names: new Set(), read: false, busy: false, at: 0, src: '' };
+const copyLike = n => /^[a-z][a-z0-9-]{1,30}-copy(-\d+)?$/.test(n);
+const isCopy = n => COPIES.names.has(n) || (!COPIES.read && copyLike(n));
+const plainScenes = () => SRC.scenes.filter(s => !isCopy(s.name));
+async function copiesRead() {
+  const A = HOST.arrange, src = srcKey();
+  if (COPIES.src !== src) Object.assign(COPIES, { list: [], names: new Set(), read: false, at: 0, src });
+  if (!A || !A.list || SRC.kind !== 'relay' || COPIES.busy || !SRC.scenes.some(s => copyLike(s.name))) { COPIES.read = true; return; }
+  COPIES.busy = true;
+  try {
+    const l = await A.list(true);
+    if (GL.gone || COPIES.src !== srcKey()) return;
+    COPIES.list = (Array.isArray(l) ? l : []).filter(c => c && okScene(c.name) && SRC.scenes.some(s => s.name === c.name));
+    COPIES.names = new Set(COPIES.list.map(c => c.name));
+  } catch (e) { /* none listed: the names stay scenes */ } finally { COPIES.busy = false; COPIES.read = true; COPIES.at = performance.now(); }
+  chooseScene();
+  dirty(true);
+}
+// Open a copy: the story it is of starts with it (HOST.arrange.open: at a station of that story, for everyone there)
+function copyOpen(name) {
+  const c = COPIES.list.find(x => x.name === name);
+  if (c && HOST.arrange && HOST.arrange.open) HOST.arrange.open(c.key, c.name);
+}
 // the scene opened by itself: at a shared room's station only when the listing has exactly one (else Pick a scene: the
 // station's scene is for everyone there); outside a room the link's, else the last used here, else the only one
 const lastKey = () => 'studioLast.' + srcKey();
 function chooseScene() {
   if (STU.scene || SRC.state !== 'ok') return;
-  const names = SRC.scenes.map(s => s.name), last = store.get(lastKey());
+  const names = plainScenes().map(s => s.name), last = store.get(lastKey());
   let pick = '';
   if (atStation()) { if (names.length === 1) pick = names[0]; }
   else pick = (names.includes(OPT.scene) ? OPT.scene : '') || (names.includes(last) ? last : '') || (names.length === 1 ? names[0] : '');
@@ -212,7 +239,7 @@ function openScene(name, how, again) {
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
-    settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
+    settings: normSettings(), lockSaid: null, story: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
   FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, pv: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
@@ -237,6 +264,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
+    STU.story = keepStory(layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad; STU.badStream = L.streamBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
@@ -365,8 +393,11 @@ function placedItems() {
   return all.filter(it => it.kind !== 'g' || it.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i))).length >= 2);
 }
 // what is placed now, as layout.json
+// a layout's story (a copy's arrangement, v170): kept as it was read and written back by Save, never dropped or changed
+const keepStory = j => (j && j.story && typeof j.story === 'object' && !Array.isArray(j.story) ? j.story : null);
 function layoutOut() {
   const L = { studio: 1, scene: STU.scene, saved: new Date().toISOString() };
+  if (STU.story) L.story = STU.story;
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
@@ -654,6 +685,7 @@ async function onLayoutEvent(d) {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
+    STU.story = keepStory(j.layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
   dirty(true);
@@ -663,6 +695,7 @@ async function onLayoutEvent(d) {
 function onScenesEvent(d) {
   if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
   SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
+  if (SRC.scenes.some(s => copyLike(s.name) && !COPIES.names.has(s.name))) copiesRead();
   chooseScene();
   dirty(true);
 }
