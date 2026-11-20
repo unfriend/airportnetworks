@@ -68,7 +68,7 @@ const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-prof-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined, args: ARGS, viewport: { width: 1100, height: 700 } });
 // the sound on, as on a device that turned it on (since v109 it starts off: the story then runs on its own clock, which in
 // software rendering crawls, and a playing chapter would not reach its end within the checks' time)
-const soundOn = () => { try { if (localStorage.getItem('narrationMuted3') === null) localStorage.setItem('narrationMuted3', '0'); } catch (e) { /* no storage */ } };
+const soundOn = () => { try { if (localStorage.getItem('narrationMuted3') === null) localStorage.setItem('narrationMuted3', '0'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* no storage */ } };   // (and the tutorial's narration hold off, as on every test page)
 await ctx.addInitScript(soundOn);
 const page = ctx.pages()[0] || await ctx.newPage();
 const errors = [];

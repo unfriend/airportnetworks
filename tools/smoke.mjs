@@ -35,14 +35,15 @@ const browser = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 // every page here starts with the headsets' welcome off (v124, Getting around: once a session, in front of a pretend
-// headset's view, which the steps that read pixels or panels back do not expect); browser.newPage makes its context
+// headset's view, which the steps that read pixels or panels back do not expect) and the tutorial's narration hold off
+// (v173: it waits for the voice only in a real session, but every test page says so); browser.newPage makes its context
 // through browser.newContext, so this covers both. And with the studio's textures JPEG/PNG at most 2,048 px (v151: a page
 // makes KTX2 by default, which a plain GLTFLoader cannot read back), as the steps written before it expect; the KTX2
 // steps' pages ask for none ({ studioTex: null }: the default, KTX2 up to 8k)
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
   const { studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
-  await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
+  await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
   return ctx;
 };
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
@@ -69,6 +70,7 @@ await step('start screen is the landing page', async () => {
 const SFX_PICK = {
   airports: ['selectAirport(A("SYD"))', 'pick'],
   flock: ['setCtl("flock", "birds", ctlValue("flock", GL.sets.flock.controls[1]) === "400" ? "100" : "400")', 'flutter'],
+  tutorial: ['sendSignal(3)', 'pulse'],
 };
 // The headset Stories screen (run inside a story, XR.on, the Stories screen open and its panels drawn): its header only
 // the title, the hint and Back to the story (the rest is the shell's menu's); one card per story in two rows on one arc,
@@ -270,6 +272,37 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
     if (!peek('GL.sets.flock.falconOn()')) throw new Error('the trigger on the sky sent no falcon');
     await sleep(400);
     if (!peek('(() => { const st = GL.sets.flock.state(); for (let i = 0; i < st.N * 3; i++) if (!isFinite(st.P[i])) return false; return true; })()')) throw new Error('a bird flew off to NaN');
+  }));
+  // the tutorial (v173): the guide drawn by bodies.js (or the plain figure where float vertex textures are missing), one
+  // figure, then the network out of its chest, its copy, practice's tasks by calls, the shared state, the narration hold
+  if (key === 'tutorial') await step('tutorial: the guide', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
+    const frames = async n => { const f0 = window.__frames; for (let k = 0; k < 600 && window.__frames < f0 + n; k++) await sleep(50); };
+    const at = async t => { peek(`(APP.mode === 'story' || APP.enterStory(0), APP.seek(narrT(${t})), APP.playing = false)`); await frames(3); return peek('GL.sets.guide.state()'); };
+    const can = peek('!!(HOST.bodies && HOST.bodies.can(GL.renderer))'), want = can ? 'bodies' : 'plain';
+    let s = await at(20);
+    if (s.figure !== want) out.push(`at 20 s the figure is ${s.figure}, not ${want} (${s.fail})`);
+    if (s.n !== 1) out.push(`at 20 s ${s.n} figures drawn, not 1`);
+    s = await at(95);
+    if (s.nodes !== 10 || !(s.hide & 2)) out.push(`at 95 s the network has ${s.nodes} nodes (10) and the badge is ${s.hide & 2 ? '' : 'not '}hidden`);
+    s = await at(155);
+    if (s.n !== 2 || !s.copy) out.push(`at 155 s ${s.n} figures (the guide and its copy: 2)`);
+    if (peek('holdCan()')) out.push('the narration hold would wait on a page');
+    peek('APP.enterExplore()'); await frames(3);
+    if (!peek('sendSignal(0)') || !peek('GL.sets.guide.signalOn()')) out.push('a signal from the hub did not spread');
+    peek('practiceReset()');
+    peek("tick('hub')"); peek('sendSignal(1)'); peek('practiceToggle()'); peek('practiceToggle()'); peek('practiceStepBy(1)');
+    const done = peek('PR.done.slice(0, 4)'), cnt = peek('taskCount()');
+    if (!done.every(Boolean) || cnt[0] !== 4 || cnt[1] !== 4) out.push(`practice's first four tasks did not tick (${done}, ${cnt})`);
+    const st = peek('JSON.stringify(HOST.cur.collab.state())');
+    peek(`HOST.cur.collab.apply(${st})`);
+    if (peek('JSON.stringify(HOST.cur.collab.state())') !== st) out.push('apply(state()) did not give the same state back');
+    peek("HOST.cur.collab.apply({ net: 'badge', mk: 3, run: 0, nope: 1 })"); await frames(3);
+    const s2 = peek('HOST.cur.collab.state()');
+    if (s2.net !== 'badge' || s2.mk !== 3 || s2.run !== 0) out.push(`a room's state was not taken (${JSON.stringify(s2)})`);
+    peek("(HOST.cur.collab.apply({ net: 'grown', mk: -1, run: 1 }), practiceReset())");
+    peek('APP.enterStory(0)'); peek('APP.playing = false');
+    if (out.length) throw new Error(out.join('; '));
   }));
   if (key === 'robots') await step('robots: every control and rule, a click to walk, crumbs, the gang stays on the floor', async () => {
     const bad = await page.evaluate(async () => {
@@ -12880,7 +12913,7 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), out = [];
-    const grip = ['flock', 'robots'].includes(HOST.curKey) ? 'panel' : 'globe';   // in the flock and the robot gang the grip moves only the panel
+    const grip = ['flock', 'robots', 'tutorial'].includes(HOST.curKey) ? 'panel' : 'globe';   // in the flock, the robot gang and the tutorial the grip moves only the panel
     const R = { shift: 0, head: { x: 0, y: 1.6, z: 0 }, live: new Set(), handles: new Map(), n: 0, slow: 0, hidden: false };
     const later = v => (R.slow ? new Promise(r => setTimeout(() => r(v), R.slow)) : Promise.resolve(v));
     const mk = room => { const a = { room, anchorSpace: {}, delete() { R.live.delete(a); },
@@ -13616,7 +13649,7 @@ if (!ONLY) {
 // line (the whole menu not sent as the frame rate changes; the row on the GPU the canvas's), the people's stations in
 // the signature only on Circles; the Foveation and Resolution rows
 function FPS_FAKE() {
-  try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ }
+  try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ }
   const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
@@ -14146,6 +14179,50 @@ if (runs('bodies')) {
     if (s.count !== 1 || s.selfRows) bad.push(`in AR: ${s.count} bodies, ${s.selfRows} of them your own (want one, theirs: My body is VR only)`);
     await bp.evaluate(() => { HOST.xr.setBody(false); window.__fp.session.environmentBlendMode = 'opaque'; HOST.mode = 'immersive-vr'; });
     if (seen.length < 10) bad.push('in AR: nothing fed');
+    if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
+  });
+  // (v173, the tutorial's guide) a story's own set, on a page: HOST.needBodies() loads bodies.js; a set of two drawn by a
+  // camera into a picture of its own, one figure with a look (the emblem hidden, lights dark, power 0.4, a flash); the
+  // people's set's stats untouched by it; a figure with no look gives the same pixels (within 2 a channel) drawn by the
+  // people's set, by a story's set, and by the people's set again with a story's set made, drawn and disposed meanwhile;
+  // hiding the emblem changes the picture, hiding every part leaves it empty
+  await step('bodies: a story\'s set: on a page, two figures in one draw with their own look; the people\'s set untouched, its pixels the same with or without another set', async () => {
+    const bad = [], sp = await ctx.newPage();
+    sp.on('pageerror', e => errors.push('bodies (a story\'s set): ' + (e.stack || e.message)));
+    await sp.goto(base + 'index.html#airports', { timeout: 90000 });
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.renderer, null, { timeout: 60000 });
+    const r = await sp.evaluate(async () => {
+      const ready = await HOST.needBodies();
+      if (!ready) return { ready };
+      const L = HOST.bodies, T = THREE, R = HOST.renderer, w = 120, h = 150, rt = new T.WebGLRenderTarget(w, h);
+      const cam = new T.PerspectiveCamera(40, w / h, 0.1, 20); cam.position.set(0.3, 1.1, 2.6); cam.lookAt(0, 0.95, 0); cam.updateMatrixWorld();
+      const I = (x, look) => Object.assign({ head: [x, 1.62, 0, 0, 1, 0, 0], g: [null, null], floor: 0, toWorld: null, rgb: [0.27, 0.85, 1], self: false, dt: 0, jump: true }, look || {});
+      const shot = sc => { const was = R.getRenderTarget(), xr = R.xr.enabled; R.xr.enabled = false; R.setRenderTarget(rt); R.setClearColor(0x000000, 1); R.clear(); R.render(sc, cam);
+        const px = new Uint8Array(w * h * 4); R.readRenderTargetPixels(rt, 0, 0, w, h, px); R.setRenderTarget(was); R.xr.enabled = xr; return px; };
+      const diff = (a, b) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i] - b[i])); return m; };
+      const lit = a => { let n = 0; for (let i = 0; i < a.length; i += 4) if (a[i] + a[i + 1] + a[i + 2] > 30) n++; return n; };
+      const people = look => { const sc = new T.Scene(), B = L.person('p1'); L.attach(sc); L.begin(5000); L.add(B, I(0, look)); L.end(); const px = shot(sc); sc.remove(L.meshes().body, L.meshes().halo); return px; };
+      const story = look => { const sc = new T.Scene(), S = L.set(2); S.attach(sc); S.begin(5000); S.add(L.person('p1'), I(0, look)); S.end(); const px = shot(sc); S.dispose(); return px; };
+      const a = people(), s0 = L.stats();
+      // (two figures in a set of two, one with a look; a third refused: the cap)
+      const sc = new T.Scene(), S = L.set(2);
+      S.attach(sc); S.begin(5000);
+      const added = [S.add(L.person('g1'), I(-0.4, { hide: 2, dark: 1 << 6, power: 0.4, flash: [5, 0.8] })), S.add(L.person('g2'), I(0.4)), S.add(L.person('g3'), I(0))];
+      S.end(); const two = lit(shot(sc)), st = S.stats(), s1 = L.stats();
+      S.dispose();
+      const c = story(), a2 = people(), hid = story({ hide: 2 }), none = story({ hide: 511 });
+      return { ready, added, n: st.n, cap: st.cap, calls: st.calls.body, two, same: JSON.stringify([s0.n, s0.cap, s0.calls, s0.parent]) === JSON.stringify([s1.n, s1.cap, s1.calls, s1.parent]),
+        bySet: diff(a, c), again: diff(a, a2), hidden: diff(a, hid), empty: lit(none), lit: lit(a), disposed: S.stats().ok };
+    });
+    await sp.close();
+    if (!r.ready) bad.push('HOST.needBodies() did not resolve true on a page');
+    else {
+      if (r.added.join() !== 'true,true,false' || r.n !== 2 || r.cap !== 2 || r.calls < 1 || r.two < 200) bad.push('a set of two: ' + JSON.stringify({ added: r.added, n: r.n, cap: r.cap, draws: r.calls, lit: r.two }) + ' (want two added, the third refused, drawn)');
+      if (!r.same) bad.push('the people\'s set\'s stats changed while a story\'s set drew');
+      if (r.lit < 200 || r.bySet > 2 || r.again > 2) bad.push('pixels: ' + JSON.stringify({ lit: r.lit, byStorySet: r.bySet, againAfterASet: r.again }) + ' (want a figure, the same within 2 a channel)');
+      if (r.hidden < 30 || r.empty) bad.push('the look: ' + JSON.stringify({ hidingTheEmblem: r.hidden, everyPartHiddenLit: r.empty }) + ' (want a change, and nothing drawn)');
+      if (r.disposed) bad.push('a disposed set still says ok');
+    }
     if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
   });
   await bp.evaluate(async () => { const s = HOST.session; if (s) await s.end(); }).catch(() => 0);

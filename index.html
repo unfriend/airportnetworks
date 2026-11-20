@@ -878,7 +878,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 172, id: '96a8725fb568b65d', format: 'networks-55' },
+  shell: { n: 173, id: 'd030c2317d6f079b', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3245,9 +3245,10 @@ HOST.chrome = function (stories) {
   document.querySelector('#top .brand').innerHTML = app ? `Networks<span>in ${n} stories</span>` : `${meta.brand}<span>${meta.sub}</span>`;
   document.getElementById('pickTitle').textContent = `Networks, in ${n} stories`;
 };
-// how many stories, in words up to twenty (the title, the Stories screen; the headsets' Stories screens say the same)
+// how many stories, in words up to twenty (the title, the Stories screen; the headsets' Stories screens say the same); an
+// entry with intro (the tutorial: an introduction, not one of the stories) is not counted
 HOST.count = function () {
-  const n = this.list.length;
+  const n = this.list.filter(s => !s.intro).length;
   return ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen',
     'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][n - 1] || String(n);
 };
@@ -3911,7 +3912,11 @@ HOST.ended = function () {
   const st = this.collab && this.collab.live();
   if (st && st.story === this.curKey) return false;
   const cur = this.cur, i = this.list.findIndex(s => s.key === this.curKey);
-  const next = this.repeat === 'all' ? this.list[(i + 1) % this.list.length].key : this.curKey;
+  // (Repeat all passes an introduction by: an event's loop runs the stories; from the tutorial itself it goes to the first)
+  const L = this.list, n = L.length;
+  let j = i;
+  if (this.repeat === 'all') { let k = 0; do j = (j + 1) % n; while (L[j].intro && ++k < n); }
+  const next = this.repeat === 'all' ? L[j].key : this.curKey;
   setTimeout(() => {
     if (this.cur !== cur || this.repeat === 'off' || this.picking) return; // changed meanwhile
     if (next === this.curKey) window.dispatchEvent(new Event('storyrestart'));
@@ -5316,7 +5321,7 @@ HOST.arrange = (function () {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
-    const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
+    const key = (back && back.key) || keys.find(k => hp.has(k)) || (HOST.list.find(s => !s.intro) || HOST.list[0]).key;   // (not an introduction: the tutorial is built only when asked for)
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
     HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
     // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story

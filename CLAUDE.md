@@ -58,7 +58,7 @@ session and every agent and workflow it starts avoid them, and every agent promp
 
 | Built file | Source | Build |
 | --- | --- | --- |
-| `stories/lbi.js`, `nmd.js`, `endo.js`, `pet.js`, `micro.js`, `ovary.js`, `qubits.js`, `mutation.js`, `topo.js`, `soil.js`, `pass.js`, `flock.js`, `robots.js`, `design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
+| `stories/lbi.js`, `nmd.js`, `endo.js`, `pet.js`, `micro.js`, `ovary.js`, `qubits.js`, `mutation.js`, `topo.js`, `soil.js`, `pass.js`, `flock.js`, `robots.js`, `tutorial.js`, `design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
 | `lowpoly.js` | `tools/lowpoly/` | `node tools/lowpoly/build.mjs` |
 | `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |
 | `tools/studio/test/scenes/` | `tools/studio/test/make.mjs` | the same, then `node tools/studio/scan.mjs tools/studio/test/scenes --check` |

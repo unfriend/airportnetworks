@@ -52,7 +52,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 async function open(hash, name, size) {
   const ctx = await browser.newContext({ viewport: size || { width: 1024, height: 640 }, acceptDownloads: true });
   await ctx.addInitScript(n => {
-    try { for (const [k, v] of [['collabAutoAll', 'off'], ['collabAutoWelcome', 'off'], ['collabAskDefault', 'walk'], ['collabName', n]]) localStorage.setItem(k, v); } catch (e) { /* storage blocked */ }
+    try { for (const [k, v] of [['collabAutoAll', 'off'], ['collabAutoWelcome', 'off'], ['collabAskDefault', 'walk'], ['tutorialHold', 'off'], ['collabName', n]]) localStorage.setItem(k, v); } catch (e) { /* storage blocked */ }
     window.__midiSent = [];
     const port = (id, name, type) => ({ id, name, type, state: 'connected', onmidimessage: null, send(b, ts) { window.__midiSent.push({ port: name, b: Array.from(b), ts: ts === undefined ? null : ts, perf: performance.now(), room: typeof HOST !== 'undefined' && HOST.collab ? HOST.collab.now() : 0 }); } });
     const outputs = new Map([['o1', port('o1', 'Virtual A', 'output')], ['o2', port('o2', 'Virtual B', 'output')]]), inputs = new Map([['i1', port('i1', 'Keys', 'input')]]);

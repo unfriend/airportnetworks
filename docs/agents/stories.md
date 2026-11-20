@@ -1,4 +1,4 @@
-# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, design room)
+# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, tutorial, design room)
 
 Read on demand; the rules every agent needs are in AGENTS.md.
 
@@ -730,6 +730,54 @@ is the contract between them.
   texSubImage2D from a small copy of its rows); a new map, the dust again, more than 32 boxes or boxes over half the map
   together send all of it, as before (also in the set's harness, which has no `GL.renderer`). How the trail's 0.4 s
   steps look on a headset is untested.
+
+## The tutorial (`stories/tutorial.js`) is built the same way
+
+`stories/tutorial.js` is generated from `tools/tutorial/` (`node tools/tutorial/build.mjs`, `--check` as for the
+tour): the shared kit, the guide's script (`sets/script.js`: `GUIDE`, `SCRIPT`, `compileScript`, `evalGuide`; plain
+maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine parts adapted from the flock's.
+`tools/tutorial/SPEC.md` is the plan (v173); its Review notes say where the build differs.
+
+- An introduction, not one of the sixteen stories: first in `stories/list.js` with `intro: true` (the shell skips it for
+  the default start, Repeat all and `HOST.count()`; `docs/agents/shell.md`), `needs: 173` (it needs `HOST.needBodies`
+  and the story sets of `bodies.js`). Seventeen cards on the Stories screen, seventeen stations in Arrange all.
+- The guide is the people's armour figure, drawn by a draw set of the story's own (`HOST.bodies.set(2)`, attached to
+  `GL.scene`, `I.toWorld` the set's frame; `docs/agents/shared-rooms.md`, "A story's own figures"), not by the overlay:
+  so it draws on a page too. The load waits up to 8 s for `bodies.js` (`sceneJoin`); without it (an older shell, no
+  float vertex textures, `?nofvt`) a plain figure of boxes and cylinders stands in. `dispose()` disposes the body set
+  first (its geometries are shared with every other set).
+- Not a live simulation: everything is `evalGuide(G, guide_clock, live)`, a pure function of the story's clock
+  (`guide_clock`, keyed linear 0 to 187 in `LIN`) in story seconds; `SCRIPT` is written per chapter in seconds from the
+  chapter's start, so `narrate.mjs`'s retiming moves it with the words. `live` (the viewer's head and ray, the panel's
+  buttons) only turns its head and aims the end's pointing. The solver's state is re-warmed after a jump (30
+  solve-only steps over the second before); its `dt` is the clock's step, so a pause freezes it mid-step.
+- Rules (`node tools/tutorial/test-script.mjs`, a cheap check run on `dev` too): its head never nearer than 1.2 m to the
+  viewer's start (x, z); walks at most 0.7 m/s at cruise and glides at least 1.6 m/s (story time) and 1.3 m/s (real
+  time, with the built `NARRATION_SYNC`); no 0.3 s between 0.85 and 1.15 m/s; the head at most 1.02 x 1.62 m; every
+  key inside its chapter; tags in order; at most 4 sound onsets in 3 s (a `seq` run aside); the network's degrees.
+  `--words` counts the spoken words (at most 415). Run it again after `narrate.mjs` or `pace.mjs`.
+- In a headset the set's frame hangs under the rig at the floor: the floor plane's height where the session reports
+  planes (labelled floor, the largest; else the lowest large upward plane over a metre below the head; read once a
+  second until found, re-placed only if it moves more than 5 cm: `xrPosed`), else 1.6 m below the head (the flock's
+  rule). The same in VR and AR; AR draws no floor and no stars, VR the stars at a tenth. It never moves `GL.rig`;
+  the grip moves only the panel.
+- The narration hold (`HOLD`, `holdCan`, `holdStep` in `e3_story.js`): once a session, at 7.8 s, the story waits for the
+  voice (the guide points at the panel's Sound button, Narration off, a sign says so) when there is a recording,
+  narration is off, this device's sound is on, in a real session, outside a shared room, `localStorage` `tutorialHold`
+  is not `off` (every test page sets it) and the story played into 7.8 s. Narration on, or Play, goes on.
+- Explore mode is practice (`e4_explore.js`): seven tasks (point at the hub, send a signal, pause then play, another
+  marker, open the menu, Recenter, move with the sticks in VR or walk round it in AR), greyed with the reason where they
+  cannot be done (a page: the last three; anchored: Recenter; the sticks where `HOST.xr.walkWhy()` refuses). The ticks
+  are this device's own (`sessionStorage` `tutorialTicks`), never in `state()`. Task 6 counts the menu's Recenter (the
+  story's `recenter` hook, wrapped) and the panel's (the edge of `XR.needRecenter`). The guide runs on practice's own
+  clock (an idle loop, reactions, a nudge after 15 s with nothing done); the foot bar is practice's (Play and Pause, the
+  marker arrows).
+- `collab.state()` is `{ net: 'badge' | 'grown', mk: -1..4, run: 0 | 1 }` (`mk` -1: at home); a signal is an effect
+  (`sig`, `{ n }`). The guide is never sent: every device draws it from the station's clock.
+- Without its recording the story is paced by `node tools/pace.mjs <url> --write tutorial` (`NARRATION_ENDS` empty);
+  the voice (`node tools/voice/narrate.mjs tutorial`, Kokoro `af_heart`) is still to be made. Sounds only through
+  `HOST.audio.fx` (`sfxCue`, 47 cues; `MANY.tutorial = 70` in `tools/sfx-cues.mjs`), no background.
+- British English. The credits say its moves and words were written by Claude.
 
 ## The design room (`stories/design.js`) is built the same way
 

@@ -1,20 +1,22 @@
 {
-  "version": "networks-v172",
+  "version": "networks-v173",
   "date": "2026-11-20",
   "new": [
-    "Each circle can be walked into or ask first on its own: the headset menu's Circles tab has This circle under the room's switch, and the page's Shared dialog a button in each circle's row.",
-    "A circle with no setting of its own follows the room's switch; one set on its own keeps its way whatever the switch says. The lobby is walked into as ever.",
-    "With some circles of each kind, the welcome and the menu say both: walk in, or point at a circle and press.",
-    "Rooms move to format networks-55."
+    "A new first story, Your guide: a robot guide stands with you in VR or AR and shows how to point, press, use the menu, the markers and a shared room, then lets you practise.",
+    "The guide is drawn by the same code as people's bodies: a story can now make its own figures, with parts that light up, go dark or flash.",
+    "People's bodies in a room look and cost the same as before.",
+    "Rooms stay on format networks-55."
   ],
   "test": [
-    "In a room that asks first, go into a circle (Go in) and set This circle to walk in; walk out and back in: it enters by walking, and shows its ring.",
-    "The other circles still ask and show no ring; press This circle until it says As the room and it asks again.",
-    "From a laptop's Shared dialog, switch a circle's button and watch the headsets follow.",
-    "Press Go in on another circle while standing in a walked-into one: you should not be pulled back until you step out of it."
+    "Play Your guide in VR and in AR on a Quest from start to practice; try every practice task.",
+    "With narration off and sound on, check that the guide holds and points at the Sound button until you turn narration on.",
+    "Go into a shared room with two headsets and check that people's bodies look as they did in v172.",
+    "On a phone and a laptop, play the tutorial through and open its explore mode."
   ],
   "untested": [
-    "Everything on a real headset: the new menu row, rings coming and going, walking into a mixed room.",
-    "The Circles tab is one row taller, so its People list shows one fewer person before the count."
+    "The guide's look, steps and glides on a real headset, and how near it feels.",
+    "The AR floor the guide stands on, read from the headset's planes.",
+    "Comfort over the whole story.",
+    "The sounds and the synthetic voice are unheard."
   ]
 }

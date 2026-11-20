@@ -489,6 +489,17 @@ narration heard from out of the circle, the locks and the People toggle in use.
 ### The robot gang
 - v136: the cleaned floor sent as boxes, every 0.4 s in a headset.
 
+### The tutorial (v173)
+- The owner's decisions, November 2026 (`tools/tutorial/SPEC.md`): only the robot (no robot vacuums); AR and VR first,
+  the page done differently later (for now it must load and run, with a notice); its moves and words are written by
+  Claude and the credits say so; the stories' synthetic voice (Kokoro `af_heart`); British English; sound only through
+  `HOST.audio.fx` with existing `SFX_LIB` sounds, no hum or background.
+- First in the list, as an introduction (`intro: true`): the Stories screen is where a newcomer lands, and its first card
+  is the one people try first; the shell skips it for the default start, Repeat all and the count, so "sixteen stories"
+  stays true.
+- `FORMAT` stayed `networks-55`: no room key and no existing story's state changed shape (the sixteenth story came
+  without a bump too; a station whose story a device does not know is shown as *Not on this device*).
+
 ### The design room
 - The owner, 29 October 2026: "the design room as a room where we have a table with the low poly versions of all props".
 - v136, few draws: the sweep found 235 draws an eye and 5.4 ms of script a frame, a mesh per material of every miniature.

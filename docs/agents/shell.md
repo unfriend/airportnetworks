@@ -11,7 +11,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   (`HOST.count()`; the headsets' `drawLandHead` the same), and the headset
   Stories screen lays its cards out in two rows from the number
   (`xrLandingCards`, built again when `HOST.listRev` moves on). A story the list does not have (a shared
-  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`.
+  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`. An entry with `intro: true` (v173, the
+  tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
+  counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
+  Stories screen, and Repeat all skips it (from the tutorial itself it goes on to the first story).
 - `HOST.start(key)` loads `stories/<key>.js` if needed (`HOST.load`: fetched as
   text, its fingerprint noted in `HOST.fp`, run as a script; a file that
   registers no story is refused), calls the old story's `dispose()`, removes

@@ -4124,6 +4124,13 @@
     }, e => { BOD.err = String(e && e.message || e); BOD.retry = performance.now() + 60000; log('bodies failed', { err: BOD.err }); }).finally(() => { BOD.lib = null; });
     return false;
   }
+  // a story's own figures (v173, the tutorial's guide; on a page too): a promise of true once HOST.bodies is ready (the
+  // same load), false at once where bodies cannot be drawn or a load failed a moment ago, or once this load fails
+  HOST.needBodies = () => {
+    if (BOD.ready || bodiesReady()) return Promise.resolve(true);
+    const p = BOD.lib;   // (kept: BOD.lib is cleared as the load settles)
+    return p ? p.then(() => BOD.ready, () => false) : Promise.resolve(false);
+  };
   // each frame of a session: the bodies drawn this frame begun (the people's, then yours), and ended once all are in
   function bodiesBegin() {
     BOD.drawing = (bodiesOn() || myBody()) && bodiesCan() && !!OV.root && (BOD.ready || bodiesWanted()) && bodiesReady() && HOST.bodies.attach(OV.root);

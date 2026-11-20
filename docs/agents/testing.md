@@ -54,7 +54,11 @@ against its data (nitrate on day 24, day 70's chlorophyll read off the slides, t
 none left shuffled, the wheat lines' own networks) and a plot and a kind picked with the pointer, for the mutation,
 tissue topology and soil stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
-with no area, and a pretend headset room from detected planes),
+with no area, and a pretend headset room from detected planes; for the tutorial (`tutorial: the guide`, v173) its
+figure drawn by `bodies.js` (or the plain one where float vertex textures are missing) at 20 s, one figure, the
+network's 10 nodes and the badge hidden at 95 s, the guide and its copy at 155 s, no narration hold on a page, a signal
+from the hub spreading, practice's first four tasks ticked by calls (a page's four of four), `apply(state())` giving the
+same state and a room's state taken),
 loads every story again watching its load (`HOST.progress` rising from 0 to its total once per step, the page's bar
 and step shown and gone, no task of the load longer than `LOAD_LIMIT`, 4 s: generous, as SwiftShader compiles one
 shader at a time in software; the shared-room hooks seeing the scene only once it is built; a story picked while
@@ -1149,6 +1153,11 @@ in real time (the shell's frames are timed by the clock). Four steps:
   flag, its neck folded away, its feet planted on the floor under you, its hands on your controllers; off again, gone.
 - AR (the session made AR as it runs: a pretend headset has no spots to line up by): a person in the room with you (a
   member `here`) gets neither a body nor a head, one elsewhere a body; My body draws none.
+- A story's set (v173, on a page of its own): `HOST.needBodies()` resolves true; `HOST.bodies.set(2)` draws two figures
+  (one with `hide: 2`, a part dark, `power: 0.4`, a flash) into a picture of its own, a third refused (the cap); the
+  people's set's stats untouched meanwhile; a figure with no look gives the same pixels (within 2 a channel) drawn by the
+  people's set, by a story's set, and by the people's set again after a story's set was made, drawn and disposed; hiding
+  the emblem changes the picture, hiding every part (511) leaves it empty.
 
 ### smoke: auto quality (and other steps changed by automatic quality)
 
@@ -1227,7 +1236,7 @@ track).
 After changing a story's sound cues, run `node tools/sfx-cues.mjs
 http://127.0.0.1:8123/ <key>` (seconds; `all` for every story and the design
 room): every name a sound the shell knows, every place finite, every time within
-the story, 6 to 60 cues (the tour up to 80; the flock, the robots and the design
+the story, 6 to 60 cues (the tour up to 80, the tutorial up to 70; the flock, the robots and the design
 room at least 1), at most 4 onsets in 3 s outside a marked sequence, no two of
 one sound closer than its gap, at most 6 cue voices and 2 continuous sounds at
 once; then render the story's track for the owner (`node tools/sfx-render.mjs
@@ -1358,7 +1367,7 @@ MIDI, OSC and MIDI clock calling `act()`, Learn, validation, Export and Import, 
 `--static .`, so no server is needed). For every story in its `STORIES` table,
 three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
-ways and the story's effect (for the robots also the pile's spot and dust, and the
+ways and the story's effect (for the tutorial a signal from the hub and its pulse on the others; for the robots also the pile's spot and dust, and the
 crumbs' patter on the others; for the flock the same falcon, one page leading, the
 same flight time and the flocks together, its dive and flutter on the others, two
 falcons sent at once from two pages flying on the third, and the birds shared bird by
@@ -2178,7 +2187,10 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `tools/robots/` and the tutorial in `tools/tutorial/` (also
+`test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
+second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
+`mode=1` practice, `nofvt` the plain figure).
 
 ## The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`, `test-ktx2.mjs`)
 
@@ -2300,7 +2312,9 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 (`&shuffle`, `&split=line|fert|random`), `#soil&explore&scene=web` (the globe and the hop; `&now=1` skips the glide),
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
-(`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
+(`&hunt` sends a falcon), `#tutorial&t=60` (the guide on its markers; `&focus` the 3D alone),
+`#tutorial&explore&net=badge&view=side` (practice; `&signal` sends a signal from the hub), `?nofvt#tutorial` (the plain
+figure), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,

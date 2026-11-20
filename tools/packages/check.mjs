@@ -218,7 +218,7 @@ async function load() {
   for (const [vn, vo] of views) {
     const c = await browser.newContext({ ...vo, serviceWorkers: 'block' });
     // (as every test page: no automatic welcome or All stories in a room)
-    await c.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* blocked */ } });
+    await c.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAskDefault', 'walk'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* blocked */ } });
     const p = await c.newPage(), errs = [];
     p.on('pageerror', e => errs.push((e.stack || e.message).split('\n').slice(0, 2).join(' ')));
     // (a missing file shows as a response: one of the package's own fails it; the shell's own asks a plain server cannot

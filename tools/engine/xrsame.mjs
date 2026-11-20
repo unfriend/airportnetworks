@@ -12,7 +12,7 @@ import path from 'path';
 const ARGS = process.argv.slice(2), opt = n => { const i = ARGS.indexOf(n); return i >= 0 ? ARGS[i + 1] : null; };
 const A = path.resolve(ARGS[0]), B = path.resolve(ARGS[1]);
 const OUT = opt('--out');
-const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,design').split(',');
+const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial,design').split(',');
 const PRE = { nmd: 'X.room = true; X.scene = "tower";', endo: 'X.gap = true; X.scene = "syn";', pet: 'X.life = true; X.scene = "scan";' };
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm' };
 const serve = dir => new Promise(res => {
@@ -96,7 +96,7 @@ async function run(ctx, base, key, errs) {
 }
 const flat = (o, pre = '', acc = {}) => { if (o && typeof o === 'object') { for (const k of Object.keys(o)) flat(o[k], pre + '.' + k, acc); } else acc[pre] = o; return acc; };
 const ctx = await browser.newContext({ viewport: { width: 960, height: 600 }, serviceWorkers: 'block' });
-await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* */ } });
+await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* */ } });
 for (const key of KEYS) {
   const eA = [], eB = [];
   const [oA, oB] = await Promise.all([run(ctx, url(sA), key, eA), run(ctx, url(sB), key, eB)]);

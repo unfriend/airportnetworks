@@ -191,7 +191,8 @@ chest plate, the fists and the boots); today only `M.at` (the bones' places) exi
 - `HOST.needBodies()` returns a promise of true once `HOST.bodies` is ready (it reuses `bodiesReady()` and `BOD.lib`,
   keeping its own reference to the load's promise since `BOD.lib` is cleared in `finally`), false at once where
   `bodiesCan()` is false or the load failed. About 6 lines; nothing else of the overlay changes.
-- `HOST.collab.menuOpen()` returns `PNL.open` (read only), for the practice task "open the menu".
+- For the practice task "open the menu": the existing read-only getter `HOST.collab.menu` (`PNL.open`) already gives
+  it, so no `menuOpen()` was added (Review notes, 18).
 
 ### `index.html`
 
@@ -756,6 +757,102 @@ Minors:
 13. Accepted: 48 cues planned, `MANY.tutorial = 70`, the chapter 3 and 4 runs `seq`.
 14. Accepted: the Repeat all loop spelled out; docs keep "sixteen stories" and call the tutorial an introduction.
 15. Accepted: every walk's distance and time restated with its average and cruise speed.
-16. Still unverified: that `FORMAT` need not change for a new story key (the flock and robots came without a bump, by
-    the spec's reading of `docs/history.md`; the builder checks `FORMAT`'s history before release).
+16. Verified (the shell builder, 20 November 2026): `FORMAT` stays `networks-55`. `docs/history.md` ("FORMAT bumps")
+    shows networks-11 to networks-23 bumped for the eighth to the fifteenth story, but no bump for a story since then:
+    the sixteenth came without one, after the shell learnt to treat a story key it does not know as data. A station's
+    `story` is an opaque string: `index.html` (~l.3132, ~l.4075, ~l.4410, `HOST.unknown`) gives a station whose story
+    this device does not know a card saying *Not on this device* and asks for an update; `shared.js`'s Arrange all
+    (~l.2898) leaves such a station where it is; `needs: 173` keeps an older shell from loading the tutorial. No room key
+    changes and no existing story's `collab.state()` changes shape (FORMAT's own rule, `shared.js` l.29), so no bump.
 
+Built (section B, the shell builder, 20 November 2026), where it differs from or adds to the plan:
+
+17. `bodies.js`: parts are set by a `part(p, fn)` block inside `mannequin()` (no `part` option on `put`/`spot`/`glow`;
+    every item made in the block, and its mirror, takes it). As the table, with these plates riding with their lights
+    (harmless: only parts 1 and 2 are ever hidden, both separate pieces): the ear pods (4), the collar plate and the
+    waist's suit bands and belt segments (5), the shoulder plates, bracers and fists (6), the thigh, knee, calf, shin
+    and boot-shaft plates (7), the soles (8); the badge plate and the buckle's plate stay 0. `HOST.bodies.PARTS` = `{ body: 0, emblem: 1, spine: 2, visor: 3,
+    helmet: 4, torso: 5, arms: 6, legs: 7, boots: 8 }`. The flash also whitens and brightens (times `1 + a`) the
+    part's halo; a dark part's gems go dark too (`gem * on`). A disposed set's two geometry wrappers and instance
+    attributes are kept in a pool and taken again by the next `set()` of the same cap (they cannot be disposed without
+    freeing the shared geometries' buffers), so a story loaded again and again leaks nothing.
+18. `HOST.collab.menuOpen()` was not added: `HOST.collab.menu` (a getter, `PNL.open`) already exists (shared.js,
+    `panelOpen(on)` beside it).
+19. `grip(side, wrist, aim, out, k)` takes an optional fifth argument, the figure's size `B.k` (the fist's offset from
+    the wrist scales with it; 1 by default; `size(B, 1.62)` gives `k` = 0.998). The grip is turned by the shortest arc
+    from the T-pose arm to `aim`. Checked: a right wrist asked at (-0.25, 1.0, 0.2) lands there exactly; a left one
+    reaching far forward lands within 2.3 cm (the solver's reach and the shoulders), so the script should not ask for
+    a fully straight arm.
+20. `point()` names: `chest` is the middle of the chest, inside it (rest (0, 1.33, 0) on Spine2); `visor` the middle of
+    the visor's glass; `emblem0` to `emblem3` the hub and three nodes' faces; `spine0` (top) to `spine4` the nodes'
+    faces; `lfist`/`rfist` the middle of the fist; `lboot`/`rboot` under the sole's middle, on the floor. Note the
+    whole figure stands about 8 cm behind its head pose's place (the head pose is the eyes, AHEAD of the head's middle),
+    so a script places the guide by its head, not by its feet.
+21. The smoke step (`bodies: a story's set ...`) checks the figure with no look drawn by the people's set, by a story's
+    set, and by the people's set again after a story's set was made, drawn and disposed: the same pixels within 2 a
+    channel. Comparing with the previous release in the same page (its `bodies.js` evaluated beside the new one) was
+    done once by hand: the people's set and a story's set both gave the previous release's pixels exactly (largest
+    difference 0), the triangle counts unchanged (2,470 and the halo's 840).
+22. Open (for the integrator, not done in section B): the headset Stories screen's title does not use `HOST.count()`.
+    `drawLandHead` (`tools/engine/e6_panels.js` ~l.275, `tools/studio/engine/e9_panels.js`, and the hand-written copies
+    in `stories/airports.js`, `proteins.js`, `spatial.js`; built into every story) says
+    `[...][HOST.list.length - 1] stories`, so with the tutorial in the list a headset would say "seventeen stories".
+    Section A's point 3 ("the fixed sixteen strings need no change") holds for the page only. The fix: the same line
+    with `(HOST.count ? HOST.count() : <today's words>)`, in the engine sources and the three hand-written stories (the
+    shared panel code must stay identical), every built story rebuilt; `airports.js` and `spatial.js` changing means the
+    pass story is rebuilt too.
+
+
+Built (sections A, C, D, E, F, the story builder, 20 November 2026), where it differs from or adds to the plan:
+
+23. The marker steps in chapter 3 take 1.1 s, not 1.0 (13.2 to 14.3, 15.6 to 16.7, 18.0 to 19.1, 20.4 to 21.5): 0.5 m
+    in 1.0 s with 0.3 s ramps is 0.71 m/s at cruise, over the 0.7 rule of section C (`test-script.mjs` refused it); now
+    0.63 m/s. Their `step` cues are at 14.1, 16.5, 18.9 and 21.3 (0.2 s before each arrival).
+24. 47 sound cues, not 48: chapter 4 has the 10 its bullets name (the table's 11 counted one more). `MANY.tutorial = 70`.
+25. `collab.state()`'s `mk` is -1 while the guide stands at home (practice starts there, on no marker); 0 to 4 after.
+26. Until the recording exists the story is paced by `node tools/pace.mjs <url> --write tutorial` (pace read 466 words
+    with the headings and the note: 3:07 of story time to 3:42); `NARRATION_ENDS` is `{}` (a story without a recording
+    has none: the slideshow pauses the narration with the clock); `len` is `Story 3:42 · then practice` from that pace,
+    to be rewritten from the MP3. `test-script.mjs` checks real time against this table (all rules hold); run it again
+    after `narrate.mjs`.
+27. The engine's `CH` is made from the script's `GUIDE.CH` (`sets/script.js`), so the chapters are written once.
+28. `yaw` 0 means facing the viewer's start from where the guide stands (the bearing to the origin, which moves as it
+    walks); `{ abs: deg }` is a heading in the set's frame (0 along +z), resolved where the turn ends. The end's turn to
+    the panel is `{ abs: -20 }` (the panel is ahead and a little left of the end place, not side on).
+29. Signals sent live (explore mode, the room's `sig` effect) run on a live clock of real seconds (the set's `LC`), not on
+    practice's clock, so they spread while practice is paused too; `signalOn()` stays true for at least 1.5 s after the
+    latest (the collab round's `seen`).
+30. The narration hold points the guide's right arm (and its ray) at the panel's Sound button; its head keeps the
+    script's look. The sign is a canvas hologram before the guide at 0.95 m.
+31. The floor read (`xrPosed`, `e5_xr.js`) reads `frame.detectedPlanes` only (no meshes, no walls) inside try/catch;
+    it does not ask the session for plane detection itself (the shell's AR request already lists it as optional).
+32. On a page the story camera's distance is multiplied by at most 1.25 of `GL.fit` (focus mode and wide screens would
+    otherwise put it metres behind where you stand).
+33. The tag "Paused" shows whenever the story is paused after chapter 3 begins (and in practice), not only in chapter 3.
+34. The copy fades by power (lights out top to bottom over 1.2 s, then power 0 over 0.8 s) and is gone at 23.8 s: the
+    bodies have no alpha. It stands inside the guide from 10.0 to 10.4 s.
+35. The plain figure is built; it is untested on a device that needs it (none here). `?nofvt` (or `#nofvt`) forces it.
+36. Task 7's greyed reasons: `walkWhy()`'s codes in words (`room`: "In a shared room you walk for real", `none`: "This
+    headset cannot move you with the sticks", `own`: "Not in this scene", `session`: "In a headset").
+37. The miniature `tutorial.guide` has 696 triangles. The design room's catalogue entry has `buildMsNode: null` (not
+    measured in Node: the set needs `HOST.bodies`).
+38. Review note 22 done (the integrator): the headset Stories screen's title counts `HOST.count()` (falling back to
+    `HOST.list.length`) in `tools/engine/e6_panels.js`, `tools/studio/engine/e9_panels.js`, `stories/airports.js`,
+    `proteins.js` and `spatial.js`; every built story, the studio and the pass story rebuilt: it says sixteen again.
+39. `node tools/smoke.mjs <url> --only tutorial` does not test the tutorial: its block's first step, `load tutorial`, is
+    filtered out by its own name (the step filter wants names starting with the words), so the story steps run on the
+    page's default story, the airports (a pre-existing limit of `--only` for any story's block; not changed here). The
+    builder ran the tutorial's block from a scratch copy of the smoke test whose filter also lets `load <words>` through.
+
+After the review (the fixer, 20 November 2026):
+
+40. `sw.js`: `VERSION` is `networks-v173`; `node tools/release.mjs` wrote `./stories/tutorial.js` into `SHELL` and
+    `./audio/narration-tutorial.mp3` into `AUDIO` (in the list's order), `version.json` (17 stories), `index.html`'s
+    stamp and `whatsnew/`; `whatsnew.json` was rewritten for v173. `relay/server.mjs` needs nothing (`stories` and
+    `audio` are in `APP_DIRS`).
+41. `tutorialHold: 'off'` is now set by every test page that opens the app, not only those section F names:
+    `tools/audio.mjs`, `tools/perf.mjs`, `tools/sfx-render.mjs`, `tools/engine/same.mjs`, `tools/engine/xrsame.mjs`
+    (a pretend session: without it the hold could stop the story at 7.8 s), `tools/output/test-page.mjs`,
+    `tools/packages/check.mjs`.
+42. Arrange all now lays out 17 stations (`shared.js` ~l.66 and ~l.2889): `node tools/collab.mjs --all` is in the run
+    before `main`. Review note 22 (a headset's Stories screen says "seventeen stories") is still open.

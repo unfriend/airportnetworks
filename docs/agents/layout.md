@@ -224,6 +224,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `tools/robots/` - the sources of `stories/robots.js` (the robots set, engine
   parts adapted from the flock's, build script, set harness); see its
   `README.md` and `SPEC.md`.
+- `tools/tutorial/` - the sources of `stories/tutorial.js` (v173: the guide's script `sets/script.js` and its Node
+  check `test-script.mjs`, the guide set drawn by `bodies.js`, engine parts adapted from the flock's, build script, set
+  harness that loads `ik.js` and `bodies.js`; shots in `shots/`, git-ignored); see its `README.md` and `SPEC.md`.
 - `tools/design/` - the sources of `stories/design.js` (the design room: the props
   catalogue `props.json`, the table set, engine parts adapted from the flock's,
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.

@@ -6,8 +6,16 @@
 // canvas, the AR button, the loading line), len (the length on its card); icon: its miniature in lowpoly.js (a key of
 // LOWPOLY_MODELS: the one that says the story best), drawn over its stations' rings in a shared room; life: life size in
 // a headset (only its panel moves); needs (optional): the oldest shell it works with, as a release number
-// (tools/release.mjs otherwise takes the shell it was released with, see version.json).
+// (tools/release.mjs otherwise takes the shell it was released with, see version.json); intro (optional, the tutorial):
+// an introduction, not one of the stories, which the shell skips in three places (index.html): the default start (with
+// no #key the first entry without intro is built behind the Stories screen), Repeat all (passes it by) and HOST.count()
+// ("sixteen stories" counts only the entries without it).
 self.STORY_LIST = [
+  { key: 'tutorial', kick: 'Start here', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',
+    desc: 'A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.',
+    page: 'Tutorial: a robot guide shows you round', brand: 'Tutorial', sub: 'a robot guide shows you round',
+    aria: 'Interactive 3D tutorial in which a robot guide shows how to use the app in a headset', thing: 'guide',
+    loading: 'Booting the guide', len: 'Story 3:35 · then practice', life: true, intro: true, needs: 173 },
   { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff', icon: 'airports.globe',
     desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
     page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",

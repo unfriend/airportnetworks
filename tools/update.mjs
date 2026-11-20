@@ -43,6 +43,7 @@ const stop = srv => { srv.closeAllConnections(); return new Promise(r => srv.clo
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-update-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+await ctx.addInitScript(() => { try { localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ } });   // (the tutorial's narration hold off, as on every test page)
 const page = ctx.pages()[0] || await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(String(e)));

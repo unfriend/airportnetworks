@@ -121,6 +121,11 @@
     }
   },
   "stories": {
+    "tutorial": {
+      "words": {
+        "Recenter": "Re-center"
+      }
+    },
     "lbi": {
       "words": {
         "RG1": "Research group 1",

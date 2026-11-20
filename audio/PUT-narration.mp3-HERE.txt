@@ -76,6 +76,11 @@ The robot gang (#robots) has narration-robots.mp3. Its chapters start at 0:00,
 explore mode); its tables are in tools/robots/engine/e3_story.js (then
 rebuild).
 
+The tutorial (#tutorial) has narration-tutorial.mp3 (Kokoro's af_heart, made by
+node tools/voice/narrate.mjs tutorial): its chapters start at 0:00, 0:27, 0:54, 1:23,
+1:52, 2:22, 2:41 and 3:11, ending at 3:35 (after that explore mode is practice); its
+tables are in tools/tutorial/engine/e3_story.js (then rebuild).
+
 The pass story (#pass) has narration-pass.mp3 (English, Kokoro's af_heart) and
 narration-pass-de.mp3 (German, Piper's Thorsten): one recording per language
 on one timeline, so either plays on the same clock (docs/narration.md lists

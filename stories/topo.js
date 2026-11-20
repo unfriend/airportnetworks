@@ -7497,7 +7497,7 @@ function xrLandingClose() {
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][(HOST.count ? HOST.count() : HOST.list.length) - 1] || (HOST.count ? HOST.count() : HOST.list.length)} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);

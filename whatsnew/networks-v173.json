@@ -1,0 +1,22 @@
+{
+  "version": "networks-v173",
+  "date": "2026-11-20",
+  "new": [
+    "A new first story, Your guide: a robot guide stands with you in VR or AR and shows how to point, press, use the menu, the markers and a shared room, then lets you practise.",
+    "The guide is drawn by the same code as people's bodies: a story can now make its own figures, with parts that light up, go dark or flash.",
+    "People's bodies in a room look and cost the same as before.",
+    "Rooms stay on format networks-55."
+  ],
+  "test": [
+    "Play Your guide in VR and in AR on a Quest from start to practice; try every practice task.",
+    "With narration off and sound on, check that the guide holds and points at the Sound button until you turn narration on.",
+    "Go into a shared room with two headsets and check that people's bodies look as they did in v172.",
+    "On a phone and a laptop, play the tutorial through and open its explore mode."
+  ],
+  "untested": [
+    "The guide's look, steps and glides on a real headset, and how near it feels.",
+    "The AR floor the guide stands on, read from the headset's planes.",
+    "Comfort over the whole story.",
+    "The sounds and the synthetic voice are unheard."
+  ]
+}

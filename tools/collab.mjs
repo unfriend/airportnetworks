@@ -292,6 +292,12 @@ const STORIES = {
         `A from ${d0} to ${await peek(A, 'XS.robots_dust')}`);
     },
   },
+  // the tutorial (v173): practice's network as the room's state; a signal is an effect (pulse on every page)
+  tutorial: {
+    change: "setCtl('tutorial', 'net', 'badge')", back: "setCtl('tutorial', 'net', 'grown')",
+    effect: { quiet: '0', idle: '!GL.sets.guide.signalOn()', send: 'sendSignal(0)', seen: 'GL.sets.guide.signalOn()' },
+    sound: ['pulse'],
+  },
   flock: {
     change: "setCtl('flock', 'birds', '400')", back: "setCtl('flock', 'birds', '100')",
     effect: { quiet: "setCtl('flock', 'falcon', 'off')", idle: '!GL.sets.flock.falconOn()', send: 'sendFalcon(null)', seen: 'GL.sets.flock.falconOn()' },
@@ -419,7 +425,7 @@ browser.newContext = async (o = {}) => {
   const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
   // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
   // default, which their plain GLTFLoader cannot read back)
-  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
+  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
   return ctx;
 };
 const fails = [], errors = [];
@@ -4032,7 +4038,7 @@ async function arrRound() {
   const b = `http://127.0.0.1:${R.port}/`, pages = [];
   const aopen = async (hash, size) => {
     const ctx = await browser.newContext({ viewport: size || { width: 1280, height: 760 } });
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* none */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAskDefault', 'walk'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* none */ } });
     const p = await ctx.newPage();
     p.on('pageerror', e => errors.push('arr round: ' + (e.stack || e.message)));
     p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('arr round: ' + m.text()); });
@@ -7395,7 +7401,7 @@ async function homeRound() {
   // to reach that was turned away (its own /api, any other address) }
   const look = async host => {
     const ctx = await b2.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' }), sent = [];
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ } });
     await ctx.route(u => u.hostname !== host || u.port !== String(port) || /^\/api\//.test(u.pathname), r => { sent.push(r.request().url()); return r.abort(); });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.stack || e.message));
