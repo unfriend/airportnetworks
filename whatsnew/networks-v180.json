@@ -1,0 +1,19 @@
+{
+  "version": "networks-v180",
+  "date": "2026-11-20",
+  "new": [
+    "The tutorial (Your guide) is now the last card on the Stories screen, on the page and in the headset, and the last circle Arrange all puts down.",
+    "Its card's kicker says Introduction instead of Start here.",
+    "Nothing else changes: a page still opens on the airports behind the Stories screen, Repeat all still skips the tutorial, and the title still says sixteen stories.",
+    "Rooms stay on format networks-55."
+  ],
+  "test": [
+    "In a headset, open the Stories screen: Your guide is the last card, at the right end of the lower row, and starts when you pick it.",
+    "On the page, the Stories screen shows it last too.",
+    "In a shared room, Arrange all: the tutorial's circle comes last."
+  ],
+  "untested": [
+    "The new place of the card in a headset (checked here on the page only).",
+    "Everything from v136 to v179 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
+  ]
+}

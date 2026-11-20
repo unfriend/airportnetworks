@@ -41,7 +41,9 @@ Shots go to `tools/tutorial/shots/` (add to `.gitignore` beside `tools/robots/sh
 
 ### Key, list entry and position
 
-Key `tutorial`. Its `stories/list.js` entry goes **first** in `STORY_LIST`:
+Key `tutorial`. Its `stories/list.js` entry goes **first** in `STORY_LIST` (v173; **moved to the end in v180**, the
+owner, 20 November 2026: "Move the tutorial to the last story card"; its kicker became *Introduction*, since *Start
+here* read oddly on the last card. The three `intro` changes below hold wherever it stands):
 
 ```js
 { key: 'tutorial', kick: 'Start here', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',

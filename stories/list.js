@@ -9,13 +9,9 @@
 // (tools/release.mjs otherwise takes the shell it was released with, see version.json); intro (optional, the tutorial):
 // an introduction, not one of the stories, which the shell skips in three places (index.html): the default start (with
 // no #key the first entry without intro is built behind the Stories screen), Repeat all (passes it by) and HOST.count()
-// ("sixteen stories" counts only the entries without it).
+// ("sixteen stories" counts only the entries without it). The tutorial is the last card since v180 (the owner, 20
+// November 2026: "Move the tutorial to the last story card"; first from v173).
 self.STORY_LIST = [
-  { key: 'tutorial', kick: 'Start here', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',
-    desc: 'A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.',
-    page: 'Tutorial: a robot guide shows you round', brand: 'Tutorial', sub: 'a robot guide shows you round',
-    aria: 'Interactive 3D tutorial in which a robot guide shows how to use the app in a headset', thing: 'guide',
-    loading: 'Booting the guide', len: 'Story 3:35 · then practice', life: true, intro: true, needs: 173 },
   { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff', icon: 'airports.globe',
     desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
     page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",
@@ -80,6 +76,11 @@ self.STORY_LIST = [
     desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
     page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
     aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:49 · then free play', life: true },
+  { key: 'tutorial', kick: 'Introduction', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',
+    desc: 'A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.',
+    page: 'Tutorial: a robot guide shows you round', brand: 'Tutorial', sub: 'a robot guide shows you round',
+    aria: 'Interactive 3D tutorial in which a robot guide shows how to use the app in a headset', thing: 'guide',
+    loading: 'Booting the guide', len: 'Story 3:35 · then practice', life: true, intro: true, needs: 173 }
 ];
 // Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
 // story, but not one of them (the Stories screens, Arrange all, the count, Repeat see only STORY_LIST; the station

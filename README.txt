@@ -1,7 +1,4 @@
 Networks, in sixteen stories - installable web app
-  Start here: Your guide, an introduction before the stories: a robot guide
-     shows you how the app works in a headset, then a few tasks to practise
-     (stories/tutorial.js; first on the Stories screen, not counted as a story)
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. A glimpse into the future of network medicine: a 3D tour of the Ludwig
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
@@ -46,6 +43,9 @@ Networks, in sixteen stories - installable web app
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
+  And an introduction, Your guide: a robot guide shows you how the app works
+     in a headset, then a few tasks to practise (stories/tutorial.js; the last
+     card on the Stories screen, not counted as a story)
 
 Story packages: more stories, each in a folder of its own (packages/<key>/,
 written by people the owner trusts and brought in through git), get a card on

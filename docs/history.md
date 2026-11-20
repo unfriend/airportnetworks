@@ -535,7 +535,8 @@ narration heard from out of the circle, the locks and the People toggle in use.
   `HOST.audio.fx` with existing `SFX_LIB` sounds, no hum or background.
 - First in the list, as an introduction (`intro: true`): the Stories screen is where a newcomer lands, and its first card
   is the one people try first; the shell skips it for the default start, Repeat all and the count, so "sixteen stories"
-  stays true.
+  stays true. v180 moved it to the last card (the owner, 20 November 2026: "Move the tutorial to the last story card"),
+  its kicker *Introduction* in place of *Start here*; the three skips hold wherever it stands.
 - `FORMAT` stayed `networks-55`: no room key and no existing story's state changed shape (the sixteenth story came
   without a bump too; a station whose story a device does not know is shown as *Not on this device*).
 

@@ -52,7 +52,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v179 (FORMAT networks-55, shell 178; the v179 to v140 entries below; v139 and v136
+  - *The branches.* `dev` is networks-v180 (FORMAT networks-55, shell 178; the v180 to v140 entries below; v139 and v136
     to v138 before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT
     networks-41, the v135 entry below): v134 was released to both on 11 November 2026 at the owner's word ("push all to
     main and run the full tests afterwards ... in case there is anything to fix also push that to dev and main"), the
@@ -60,7 +60,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     visitors get at https://stories.lbi-netmed.com/ (GitHub Pages), what the main site's relay runs
     (https://main.lab.lbi-netmed.com/) and the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on
     every push to `dev`. Before that `main` was networks-v129 (10 November 2026, after the first whole release run since
-    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v179 are the entries below. Since v175 the AI
+    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v180 are the entries below. Since v175 the AI
     agents' cloud sessions work on `dev` itself (the session-start hook brings the checkout up to date with GitHub);
     their earlier branches, `claude/trusting-hypatia-ca5qv0` (v157, all in `dev`) and `claude/affectionate-pasteur-stzjl3`
     (v139, all in `dev`; to be deleted, decision 4), hold nothing `dev` lacks. Two branches are kept apart on purpose:
@@ -78,9 +78,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     Quest 3 (Adreno 740, textures at most 8,192 px, ASTC, ETC1 and ETC2), which made v151's compressed textures; nothing
     else of v140 to v157 is reported tried on a device yet. On 20 November the owner tried Sharp text (v174 to v177, the
     story panel and the menu as WebXR layers) on a Quest: "this works and does not cost a lot"; nothing else of v158 to
-    v179 is reported tried on a device. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v179; the
+    v180 is reported tried on a device. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v180; the
     others' are in their entries below and in `whatsnew/`.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v179 on the devices (a Quest, an
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v180 on the devices (a Quest, an
     Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
     untested. Then, at the owner's word, `main` gets `dev` after the full suites (step 7 there): every suite since v135 has
     run only in parts (each entry says which), and `sw.js`'s rules changed in v137 (`examples/` passed through), so `tools/update.mjs` runs too, as do
@@ -136,6 +136,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v180 (20 November 2026; FORMAT networks-55, shell 178), on `dev` only: the tutorial is the last card.**
+    The owner: "Move the tutorial to the last story card". Its `stories/list.js` entry moved to the end (the headset's
+    Stories screen: the lower row's right end; the page's Stories screen and Arrange all: last), its kicker
+    *Introduction* in place of *Start here*. The shell's three `intro` skips (the default start, Repeat all, the count)
+    hold wherever it stands; `sw.js`'s lists and `docs/narration.md` follow the new order. Untested: the card's place in a
+    headset.
 - **networks-v179 (20 November 2026; FORMAT networks-55, shell 178), on `dev` only: scene circles no longer come up
     empty.** The owner: "fix this" (the open problem from v157's end-to-end round). A device that had opened a circle's
     scene but not read its layout yet sent the scene's name alone, which could land after another device's whole layout
@@ -166,7 +172,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     behind the scene with a hole; *for text*; *in front*; *off*), off by default then; `#sharp=`, `#sharpsize=full`.
     Built as v165 on a branch of its own and merged as v174.
 - **networks-v173 (20 November 2026; FORMAT networks-55, shell 173), on `dev` only: the tutorial, told by a robot
-    guide.** A new first story (`stories/tutorial.js` from `tools/tutorial/`, `intro: true`; `tools/tutorial/SPEC.md`):
+    guide.** A new first story, the last card since v180 (`stories/tutorial.js` from `tools/tutorial/`, `intro: true`; `tools/tutorial/SPEC.md`):
     the people's armour figure (`bodies.js`, which can now draw a story's own figures, with parts that light up, go dark
     or flash) shows how to point, press, use the menu, Recenter and a shared room in eight chapters, then seven practice
     tasks; a synthetic voice. Arrange all lays out 17 stations; every test page sets `tutorialHold` to off.

@@ -30,7 +30,7 @@ Quest Browser, WebXR).
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
-| Tutorial (an introduction, first in the list, `intro: true`; v173) | `stories/tutorial.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
+| Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `stories/tutorial.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
 
 Besides the stories, two pages that are not stories (`STORY_EXTRA`, on no Stories screen): the design room
 (`stories/design.js`, `#design`: a table with a small model of every prop) and the studio (`stories/studio.js`,
