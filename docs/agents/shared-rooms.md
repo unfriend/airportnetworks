@@ -863,7 +863,11 @@ The plan is `docs/shared-space-plan.md`.
     (`addScene`, "Studio: <scene>"), where every device writes the scene's layout itself, the room's state was seen to end
     as `{ scene, settings }` with no items, written by the pretend headset that walked in first, and every device then
     empty (five of eight runs with the pretend headset's frames stopped between steps); a plain circle whose scene is
-    picked on a page did not show it. Not yet fixed: worth a look before scene circles are used with several headsets.
+    picked on a page did not show it. Fixed in v179: a device that had opened the scene but not read its layout yet sent
+    the scene's name alone, which could reach the relay after another device's whole layout; now the studio's `state()`
+    is `undefined` (the shell's `statePoll` sends nothing) while a scene opened *fresh* has neither its layout read here
+    nor an item (`freshWait`), and a station's one scene opened by itself (`chooseScene`) is opened *fresh* too. The
+    trackers round's `addScene` circle checks the items on all four devices.
     Fixed while integrating: an item named in an incoming mapping just after it was added was refused until the output
     page's item list (read once a second) caught up; a name not found now reads the list again at once. And a cube or
     an item whose only entry for a start holds a note (`hold`) now also sends its paired end (`leave`, `unhover`,
@@ -967,7 +971,7 @@ The plan is `docs/shared-space-plan.md`.
   *Pick a scene*. A circle made for one scene (v118: the shell's *Studio: <scene>*, written as `st.<id>` = `{ story:
   'studio', x, z, yaw }` and in the same batch `st.<id>.x` = `{ scene }`): a station whose state names a scene and holds
   no item field at all is opened on every device there as `'fresh'` (`collabApply`), each writing the scene's saved layout
-  alike, so the circle shows the scene at once (a device with that scene open already, from another station or outside
+  alike (sending nothing before that, v179: `freshWait`, "Known races" below), so the circle shows the scene at once (a device with that scene open already, from another station or outside
   the room, opens it again there: `STU.stId`; items from the room that come first are the room's, `STU.fresh`). *Lock this
   story* refuses its editing for everyone at the circle ("The studio" below).
 - Moving a station by hand: in a headset the grip on a station's ring, icon or card

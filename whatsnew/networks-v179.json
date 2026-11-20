@@ -1,0 +1,21 @@
+{
+  "version": "networks-v179",
+  "date": "2026-11-20",
+  "new": [
+    "Studio: a circle made for one scene (Add here, Studio: <scene>) no longer comes up empty when several devices arrive at once.",
+    "Each device now waits until it has read the scene before it sends anything to the room; one that is slower takes the items from the room.",
+    "A plain studio circle on a relay with only one scene opens it the same way.",
+    "Rooms stay on format networks-55.",
+    "Tests: smoke.mjs --only <story> now loads that story before its steps."
+  ],
+  "test": [
+    "Make a circle for a scene from Add here (Studio: <scene>) and walk into it with two or three headsets at about the same moment: every headset shows all the scene's items.",
+    "A page following that circle shows the same items. Move one item: the others see it move.",
+    "Walk out and back in, and join late with another device: the items stay.",
+    "On a relay with only one scene, a plain studio circle opens it on every device, with its items."
+  ],
+  "untested": [
+    "Scene circles with several real headsets at once: the fix was checked here by reading the code and a smoke check only. The end-to-end round runs before main.",
+    "Everything from v136 to v178 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
+  ]
+}

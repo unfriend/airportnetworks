@@ -461,7 +461,7 @@ function recFinish(it, R, prep, keep) {
   const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
-  const st = collabState();
+  const st = roomState();
   st[it.kind + '.' + it.id] = Object.assign({}, it.rec, { path });
   const n = JSON.stringify(st).length;
   if (n > PATH_MAX.state) return { why: `With this movement the scene would be ${Math.ceil(n / 1024)} KB to share in a room, more than its ${PATH_MAX.state >> 10} KB: delete a recording, or record a shorter movement.` };
@@ -529,7 +529,7 @@ function pathCopyWhy(recs) {
   if (!n) return '';
   if (pathKeys('') + n > PATH_MAX.scene) return `No room for the copy's recorded path: a scene's paths hold ${fmt(PATH_MAX.scene)} keys at most. Delete a recording first.`;
   const more = recs.reduce((s, r) => s + JSON.stringify(r).length + 20, 0);
-  if (JSON.stringify(collabState()).length + more > PATH_MAX.state) return `No room for the copy: with its recorded path the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB). Delete a recording first.`;
+  if (JSON.stringify(roomState()).length + more > PATH_MAX.state) return `No room for the copy: with its recorded path the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB). Delete a recording first.`;
   return '';
 }
 // what a recording stops: a page's while it runs, its size (a path has no size: its size steps, the Size arrows)

@@ -413,10 +413,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       notebook takes its picture once it does (a frame or two later).
     - Tried on a Quest (v174, the owner: "the sharp text works ... all of them do it"): so Quest Browser takes the
       XRWebGLLayer beside quad layers and uses its alpha behind them (else *layer* would show a black panel); no wrong
-      size was reported, so half extents hold there. Untested: other headsets and browsers (they may refuse; the
-      Debug tab says why and the panel is drawn as ever), the cost at 90 Hz there (the write here 7 ms in software
-      drawing; the row shows it on a device), and v176's fallbacks (the ladder dropping the layers, a failing layer
-      retried, the notebook's pause), tried only with a pretend headset; the menu as a layer (v177). In AR a layer behind
+      size was reported, so half extents hold there. Tried again after v177 (the owner, 20 November 2026: "this works
+      and does not cost a lot"): the menu as a layer and the cost on a Quest. Untested: other headsets and browsers (they
+      may refuse; the Debug tab says why and the panel is drawn as ever) and v176's fallbacks (the ladder dropping the
+      layers, a failing layer retried, the notebook's pause), tried only with a pretend headset. In AR a layer behind
       the scene is not covered by the real world's occlusion (a hand before the panel shows the panel): kept on in AR
       all the same (the owner, v177: "sharp text is also important in ar, it is ok that it does not hide in that case"). The lab: `webxr-user-studies/web/lab/layers.js` (not in this
       repository). Tests: `smoke.mjs --only 'sharp text'`.

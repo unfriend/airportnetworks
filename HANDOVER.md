@@ -72,7 +72,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     November the owner tried v137 at the test place (the Bliss XP example greyed at a studio circle, which made v138) and
     then the ships, areas and *My menu* there (which made v139). On 16 November the owner read v150's Debug tab on a
     Quest 3 (Adreno 740, textures at most 8,192 px, ASTC, ETC1 and ETC2), which made v151's compressed textures; nothing
-    else of v140 to v157 is reported tried on a device yet. `whatsnew.json` (developer mode's box, `#dev=on`) lists what
+    else of v140 to v157 is reported tried on a device yet. On 20 November the owner tried Sharp text (v174 to v177, the
+    story panel and the menu as WebXR layers) on a Quest: "this works and does not cost a lot". `whatsnew.json` (developer mode's box, `#dev=on`) lists what
     to try for v157; the others' are in their entries below and in `whatsnew/`.
   - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v157 on the devices (a Quest, an
     Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
@@ -102,6 +103,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     - From v125: a two-hand carry of a group while moving with the sticks in the studio may drift; the room-frame
       block's Undo check in `collab --studio` may count a following sound; a take recorded on a page that draws in
       software gets only a few keys a second.
+    - Found on 20 November 2026 (v178, not looked into): the smoke test's *anchored placement* fails for the flock and the
+      robot gang at "no word while the saved place is being looked for" (the shell's *Finding the saved place* not
+      shown a frame or two after a slow restore), on the unchanged v178 code too, run alone; the airports pass. Whether
+      the test's or the shared engine's (v168), unknown.
     - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run (red in both of
       v129's whole runs, a different check each time, good alone; two reads of the test's own made sturdier in v135), the
       shared-room run under heavy load in general (v134's: 12 red, all good alone but the spaceships' bug, v135 entry),
@@ -133,7 +138,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     (its cube is made an everyone cube before the effect is expected); not chased on `dev`. Untested: real MIDI ports, a
     DAW, Cardinal, anything in a headset.
 - **networks-v157 (17 November 2026; FORMAT networks-51, shell 157), on `dev` only: MIDI and OSC in and out.** Built in
-    another session from the maybe-later Cardinal entry (Deferred, below). An output page (Shared dialog: *Output page*,
+    another session from the maybe-later Cardinal entry (since taken off the Deferred list: done, the owner, 20 November 2026). An output page (Shared dialog: *Output page*,
     or `&output`) on a laptop or the PC sends the room's events and streams as MIDI (Chrome or Edge) and OSC (through a
     relay started with `--osc-out` and `--osc-in`); studio cards gain *Sends* (cubes, presses, pointing, sequences);
     MIDI and OSC coming in press items, run sequences, show or hide items and set the room's beat. Test: a loopMIDI port
@@ -1793,7 +1798,9 @@ Before handing over (or making anything more public), someone has to decide thes
    repository on 3 November 2026, so the live site no longer serves them; they are still in the history, from
    `4d7aacc`, which only a rewrite would take out) and screenshots in the history (commits
    `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
-   history cannot be undone for those who already fetched them: decide first. The checklist is in
+   history cannot be undone for those who already fetched them: decide first. *Decided for the branches* (the owner, 20
+   November 2026): delete the `logs-2026-10-*` branches, and the old agents' branch `claude/affectionate-pasteur-stzjl3`
+   (nothing on it that `dev` lacks); a cloud session may push only `dev`, so they are deleted on GitHub by hand. The checklist is in
    [docs/data-and-permissions.md](docs/data-and-permissions.md).
 5. **The live site**. *As it is now (9 November 2026):* the main site is GitHub Pages from `main` at
    https://stories.lbi-netmed.com/ (`lbi-netmed.com` is at Namecheap; the `CNAME` file stays). The owner's Coolify (on
@@ -1851,12 +1858,12 @@ Before handing over (or making anything more public), someone has to decide thes
      Work goes to `dev` first, then `main` once the owner has tried it. `relay/README.md`, "The test place on Coolify".
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (and what of the earlier list was built):
-   - **Open problem: a studio circle made for one scene can come up empty (seen in v157's end-to-end round, not
-     fixed).** In a circle made with `addScene` ("Studio: <scene>"), where every device writes the scene's layout
+   - **Fixed in v179 (was an open problem): a studio circle made for one scene could come up empty (seen in v157's
+     end-to-end round).** A device sent the scene's name before it had read the layout; now it sends nothing until it
+     has (`freshWait`, `docs/agents/shared-rooms.md` "Known races"). What was seen: In a circle made with `addScene` ("Studio: <scene>"), where every device writes the scene's layout
      itself, the room's state ended as `{ scene, settings }` with no items in five of eight runs, written by the headset
      that walked in first, so every device showed an empty scene. A plain circle whose scene is picked on a page did not
-     show it. Worth fixing before scene circles are used with several headsets: `docs/agents/shared-rooms.md`, "Known
-     races".
+     show it.
    - **glTF round trips: Blender and Unity (nice to have; the owner, 16 November 2026: "note all of this down as nice to
      have for later").** Export a studio scene as one GLB (each item a node with its studio record in `extras`), edit it in
      Blender, import it back by id; Unity scenes through UnityGLTF and the same import. `layout.json` keeps its own names
@@ -1892,26 +1899,6 @@ Before handing over (or making anything more public), someone has to decide thes
      and the grip shields (A/X the other choice). AR only for people in one room (no VR in the room: they cannot see the
      others); VR headsets elsewhere join as their avatars. Score keys one per person, written by its owner; a new
      `FORMAT`. Open: opt-in or forced, the fire button, shield kind, real cover, free play, timed rounds or lives.
-   - **Cardinal on a laptop, played from the room over MIDI (maybe later; the owner, 16 November 2026: "leave that
-     cardinal midi thing in the maybe later section"). Built in v157 as the output page (MIDI and OSC, both ways;
-     `output.js`, `tools/output/README.md` for setting it up with Cardinal, `docs/agents/shared-rooms.md` "The output
-     page (MIDI and OSC)"); untested with Cardinal, real virtual cables and headsets. What was planned:** Cardinal (https://github.com/DISTRHO/Cardinal, a modular
-     synthesiser from VCV Rack, GPLv3+) runs as its own desktop app on a laptop in the room, its sound through real
-     speakers (people in AR hear the room itself). Its README: "All variants have MIDI input and output support"; it names
-     no OSC. The chain as discussed: something in a headset (walking into a trigger cube, pressing an object, a slider, hand
-     height) goes through the room as a short message, as presses and sequences do; a page of the app on that laptop, in
-     the same room (as the preview camera's page; it could be the same laptop), turns it into MIDI notes and controller
-     values with the browser's Web MIDI API (Chrome or Edge; Safari has none); a virtual MIDI cable on the laptop (macOS's
-     IAC Driver, loopMIDI on Windows, a virtual ALSA port on Linux) takes them to Cardinal, whose MIDI-to-CV modules drive
-     the patch (the cube you stand in sets the filter, a pressed drum triggers the kick, hands' heights turn knobs).
-     Backwards: Cardinal's MIDI out (its clock, notes) through the page into the room, so studio items can pulse on the
-     beat. Optional: its sound streamed peer to peer into the headsets of people elsewhere (about 0.1 to 0.3 s late, so
-     speakers for those in the room), and its window shown as a studio screen by screen sharing (to look at only: its knobs
-     are turned through the mapped MIDI, not from the headset). What it would take: a MIDI bridge mode for a laptop page in
-     a room, and a reaction "send a MIDI note or controller value" for presses, trigger cubes and sequences, plus MIDI clock
-     coming back; about the size of the preview camera. Not chosen: Cardinal's web build inside the app (about 87 MB to
-     download, about 270 MB unpacked, its own AudioContext on a deprecated ScriptProcessorNode on the main thread, no
-     embedding API); a free first test is opening https://cardinal.kx.studio/live in Quest Browser as a flat page.
    - **Lining up without tape: "Line up with someone" (left as it is for now; the owner, 16 November 2026: "Can we get a
      quick sync mode for conferences etc where we wont scan the room, for example just have two people high five each
      other twice while pressing a button, something like that… ( or we do a tutorial where to start they have to put
@@ -1924,35 +1911,6 @@ Before handing over (or making anything more public), someone has to decide thes
      (two shared points and the floor's up give the turn and the shift). A 3 cm miss turns the room by about 2 degrees
      (about 15 cm off at 5 m), and a group lines up in a chain, so errors add up: fine for walking about, worse than the
      spots (why v109 chose fixed spots). About 1 to 1.5M tokens.
-   - **Plugins hosted elsewhere, and Cardinal inside the app (parked; the owner, 16 November 2026: "since i might want to
-     import quite complicated systems, for example maybe if possible something like https://github.com/DISTRHO/cardinal
-     i am wondering how could i make it so that everything is modular and independent of each other as possible and
-     stories or plugins could maybe even be hosted independently or be in githubsomewhere and my app could load these,
-     any ideas?", then "ok forget about all of this for now").** What the research found (about 0.3M tokens): a story is
-     fetched as text and run inside the page (`HOST.load`), so it can reach everything, the relay's password in
-     `localStorage` `relayTokens` included; about 95 to 120 KB of every story is the copied headset, panel, Stories
-     screen, narration and sound code (49 % of `flock.js`, 17 % of `airports.js`, 1.5 to 2 MB in all); stories use the
-     shell's fixed DOM ids and the shell reads into them by `peek`; one room `FORMAT` covers every story; story addresses
-     are fixed to `stories/<key>.js`. The design proposed: (1) the copied code moved into the shell as one runtime (worth
-     it even without plugins; pilot on the flock); (2) a small versioned contract (a group placed at the circle, a frame
-     callback with rays and presses, a panel API drawn once for page and headset, an input into the shell's audio graph,
-     the plugin's own versioned JSON state, dispose) with a manifest (id, version, contract version, entry, permissions,
-     licence, source); (3) loading from anywhere pinned to a commit and checked by the shell's own SHA-256 of the text
-     (works whatever Quest Browser's import-map integrity support), kept by the service worker for offline; (4) each
-     circle's version checked on its own instead of one room format; (5) two levels of trust: in-page plugins only from a
-     list the owner keeps, foreign or heavy programs walled off in a frame from another origin or a worker (a
-     cross-origin frame's picture cannot reach our 3D scene, and almost certainly cannot have its own immersive session);
-     the relay's password out of a plugin's reach first; (6) sound plugins through Web Audio Modules 2.0 (WAM: the host
-     hands its AudioContext; Faust can compile to it). Cardinal's web build (https://cardinal.kx.studio/live): about 87 MB
-     to download (brotli), about 270 MB unpacked, its own canvas and WebGL context, its own AudioContext on a deprecated
-     `ScriptProcessorNode` on the main thread (crackles likely beside a headset's frames), no embedding API (its lead
-     developer, 2024: an LV2 build for the web would be the way, not ready), GPLv3+ with some artwork under NC or ND
-     terms. Ways, cheapest first: open it in Quest Browser as a flat page (free); a laptop beside the room (the MIDI entry
-     above); served from our site in a frame shown as a panel (trusted, heavy, likely crackles); a VR-native modular synth
-     on WAM or Faust; a Cardinal fork with sound on the audio thread and an API (heavy C++, likely cross-origin isolation,
-     whose Quest Browser support is unknown). Order suggested: the free test, the shared runtime, the contract and
-     loader (proved by moving the flock to a repository of its own), WAM sound in the studio, walled-off programs last.
-     The research's reports are not kept; rough costs: the runtime a few million tokens, the others 1 to 2.5M each.
    - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar

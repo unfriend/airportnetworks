@@ -673,7 +673,7 @@ function paintStore(id, mk, strokes, D, added) {
   const bytes = JSON.stringify(strokes).length;
   if (bytes > PNT.fileBytes) return fail(`This painting is too big to keep (about ${Math.round(bytes / 1e6 * 10) / 10} MB): start a new painting.`);
   // (in the record only while the points fit and the whole shared state stays under the recorded paths' limit: one relay value)
-  const inRec = pts + paintInRecord(id) <= PNT.rec && JSON.stringify(collabState()).length + bytes <= PATH_MAX.state;
+  const inRec = pts + paintInRecord(id) <= PNT.rec && JSON.stringify(roomState()).length + bytes <= PATH_MAX.state;
   if (inRec) {
     let nid = id;
     change(() => { if (mk) { nid = newId(); putItem(nid, 'd', norm('d', Object.assign({}, mk, { strokes }))); } else setRec(id, { strokes, src: undefined, n: undefined, pts: undefined }); });
@@ -964,7 +964,7 @@ function paintingState(id) {
 function paintCopyWhy(recs) {
   const add = recs.reduce((a, r) => a + (r.strokes ? ptsOf(r.strokes) : 0), 0);
   const bytes = recs.reduce((a, r) => a + (r.strokes ? JSON.stringify(r.strokes).length : 0), 0);
-  if (add && JSON.stringify(collabState()).length + bytes > PATH_MAX.state) return `No room for its copy: with its strokes the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB).`;
+  if (add && JSON.stringify(roomState()).length + bytes > PATH_MAX.state) return `No room for its copy: with its strokes the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB).`;
   return add && add + paintInRecord('') > PNT.rec ? `No room for its copy: a scene's paintings keep ${PNT.rec.toLocaleString('en')} points in all in its layout (the rest go in files of the scene).` : '';
 }
 // Duplicate (beside it): its strokes copied into the record when they fit, else into a new file of the scene

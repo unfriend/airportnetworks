@@ -228,7 +228,9 @@ function copyOpen(name) {
   if (c && HOST.arrange && HOST.arrange.open) HOST.arrange.open(c.key, c.name);
 }
 // the scene opened by itself: at a shared room's station only when the listing has exactly one (else Pick a scene: the
-// station's scene is for everyone there); outside a room the link's, else the last used here, else the only one
+// station's scene is for everyone there), as 'fresh' (v179: every device there writes the layout alike, so none sends
+// the scene before it has read it, and items from the room that come first are taken); outside a room the link's, else
+// the last used here, else the only one
 const lastKey = () => 'studioLast.' + srcKey();
 function chooseScene() {
   if (STU.scene || SRC.state !== 'ok') return;
@@ -236,7 +238,7 @@ function chooseScene() {
   let pick = '';
   if (atStation()) { if (names.length === 1) pick = names[0]; }
   else pick = (names.includes(OPT.scene) ? OPT.scene : '') || (names.includes(last) ? last : '') || (names.length === 1 ? names[0] : '');
-  if (pick) openScene(pick, 'auto');
+  if (pick) openScene(pick, atStation() ? 'fresh' : 'auto');
 }
 // at a shared room's station of the studio (a headset at its circle, a page following it): the scene and what is
 // placed are the station's, for everyone there

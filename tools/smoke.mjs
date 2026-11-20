@@ -52,7 +52,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-const step = async (name, fn) => { if (ONLY && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
+const step = async (name, fn, always) => { if (ONLY && !always && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
 const smokeStep = step;
 
 await page.goto(base + 'index.html');
@@ -97,11 +97,12 @@ const LAND_CHECK = `{
   const low = (rows[1].length ? rows[1][0] : rows[0][0]).mesh.position.y - ch(rows[0][0]) / 2;
   if (top > 0.65 || low < -0.65) throw new Error('the Stories screen reaches from ' + top.toFixed(2) + ' to ' + low.toFixed(2) + ' m of the eyes');
 }`;
+// (the load step runs whenever its story's block does: --only tutorial once ran the tutorial's steps on the airports)
 for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
-  });
+  }, true);
   await step(`${key}: scrub through the story`, () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const T = HOST.cur.peek('T_END');
@@ -1926,6 +1927,16 @@ if (runs('studio')) {
         HOST.collab.live = () => ({ id: 'stnew2', story: 'studio' });
         collabApply({ scene: STU.scene });
         if (JSON.stringify(opened) !== JSON.stringify([['other', 'fresh'], ['third', 'room'], [STU.scene, 'fresh']])) out.push('a circle made for one scene: ' + JSON.stringify(opened));
+        // (v179) opened fresh, its layout not read here and nothing placed: the shell is sent nothing (its name alone could
+        // land after another device's layout and empty the circle); once read, or with an item, the state as ever
+        const kf = { fresh: STU.fresh, write: STU.write, items: STU.items };
+        try {
+          Object.assign(STU, { fresh: true, write: true, items: new Map() });
+          const w = [HOST.cur.collab.state()];
+          STU.write = false; w.push((HOST.cur.collab.state() || {}).scene === STU.scene);
+          STU.write = true; STU.items = kf.items; w.push(!!HOST.cur.collab.state());
+          if (w[0] !== undefined || !w[1] || !w[2]) out.push('a scene opened fresh sends nothing until its layout is read or an item is placed: ' + JSON.stringify(w));
+        } finally { Object.assign(STU, kf); }
       } finally {
         window.fetch = keep.fetch; HOST.collab.keypad = keep.kp; listScenes = keep.ls; openScene = keep.os; editLocked = keep.el; HOST.collab.live = keep.live; removeItem = keep.ri; putItem = keep.pi; OPT.visit = false; XR.on = false;
         Object.assign(SRC, keep.src); Object.assign(NS, { open: false, name: '', note: '', making: false, asking: false }); STU.stId = ''; setEdit(keep.edit); X.tab = 'scene'; renderPanes();

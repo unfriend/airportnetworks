@@ -1929,7 +1929,14 @@ function select(id) {
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
-function collabState() {
+// What the shell polls (statePoll; undefined: nothing to send). A scene opened 'fresh' for a circle made for it whose
+// saved layout this device has not read yet, nothing placed here and no item from the room: nothing yet. Its name
+// alone, sent then, could reach the relay after another device's layout and empty the circle for everyone (seen in
+// v157's end-to-end round; v179); the device that reads the layout first sends it, and the others take the room's.
+const freshWait = () => STU.fresh && STU.write && !!STU.scene && !STU.items.size;
+function collabState() { exLeave(); return freshWait() ? undefined : roomState(); }
+// the station's state as this device has it (also the studio's own size checks: paths, paintings)
+function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
   const s = { scene: STU.scene, settings: STU.settings };

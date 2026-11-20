@@ -161,8 +161,9 @@ node tools/smoke.mjs http://127.0.0.1:8123/ --only studio       # only the studi
 `--only <words>` runs only the steps whose names start with the words and the blocks that hold them (each block
 of steps is guarded by its name, `runs(...)`; the headset settings, a block of mixed names, runs only without it; focus
 mode and phones and tablets run with `--only 'focus mode'`, `phones`, `tablets` or `iPhone`): `--only studio` the
-studio's pages, `--only 'studio texture swaps'` one block of them. For a builder's own steps; the release run is the
-whole test.
+studio's pages, `--only 'studio texture swaps'` one block of them, `--only tutorial` one story's steps (its `load
+<key>` step always runs with its block, v179: before, it was filtered out by its own name and the story's steps ran on
+the page's default story). For a builder's own steps; the release run is the whole test.
 
 ### smoke: away idle
 

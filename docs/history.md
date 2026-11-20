@@ -81,6 +81,7 @@ file, the detail file says what is current.
 - v177; the owner: "no sharp text is also important in ar, it is ok that it does not hide in that case, also make the
   menu use the sharp text feature". Kept on in AR; the headset menu became a third layer, behind the scene only (in
   front, the fallback, it would cover the Story tab's mirrors, the notices and the rays that point at it).
+- Tried: the owner, 20 November 2026, after v177 on a Quest: "this works and does not cost a lot".
 
 ### Spaceships
 - v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then health, a is boost but that only lasts briefly"; steering "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice targets alone "yes totally, maybe some ships that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop against them, also add some addons like additional boost and faster shooting for some times and reinforced shields pickups that spawn from time to time".
@@ -737,12 +738,23 @@ narration heard from out of the circle, the locks and the People toggle in use.
 ### Trackers
 - Props on trackers and the worn character came in v126 (FORMAT networks-38).
 
+### Scene circles wait for their layout (v179)
+- The owner, 20 November 2026, on the open problem that a studio circle made for one scene could come up empty (v157's
+  end-to-end round, five of eight runs): "fix this". A device that had opened the scene but not read its saved layout
+  yet sent the scene's name alone, which could reach the relay after another device's whole layout, so every device
+  emptied the circle. Now the studio sends nothing until it has read the layout, placed an item or taken the room's
+  (`freshWait`: `state()` is `undefined`, which the shell's `statePoll` sends as nothing); a station's one scene opened by
+  itself (`chooseScene`) is opened *fresh* too, so items from the room that come first are taken there as well.
+
 ### The Bliss XP room
 - v137; the owner, 11 November 2026: "we need it almost 1 to 1, but the elements separated and dynamic on detected walls", "the elements, but detached and mapped onto the room, with spatial audio of course", "it may need to be reactive and react to user movements, where the user goes, instead of a static variant", "so this could actually be built like a studio scene with trigger cubes etc that we can edit", "make sure its all cool and fancy 3d if possible", "Also add a little 3d version of clippy that is there and chills". v146 made it interactive (presses, hovers and sequences).
 
 
 
 ## Testing (moved out of AGENTS.md, now docs/agents/testing.md)
+
+- smoke `--only <story>`: its `load <story>` step always runs with its block since v179 (the owner, 20 November 2026:
+  "fix this"); before, it was filtered out by its own name and the story's steps ran on the page's default story.
 
 - smoke `away idle` steps: came in v136.
 - smoke `uploads` steps: came in v136.

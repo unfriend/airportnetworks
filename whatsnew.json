@@ -1,25 +1,21 @@
 {
-  "version": "networks-v178",
+  "version": "networks-v179",
   "date": "2026-11-20",
   "new": [
-    "Talk: the people in a shared room who are elsewhere talk to each other through the relay (rooms on a relay only).",
-    "Off by default, each device's own. Talk: on asks for the microphone and turns the sound on; Mic: muted only listens.",
-    "Open mic: nothing is sent while you are silent, and no controller button is taken.",
-    "The rows: the Shared dialog, the headset menu's Circles tab and the phone sheet. Their line says who is talking and who hears you.",
-    "People in the same place never hear each other through Talk. In a headset a voice comes from the talker's head."
+    "Studio: a circle made for one scene (Add here, Studio: <scene>) no longer comes up empty when several devices arrive at once.",
+    "Each device now waits until it has read the scene before it sends anything to the room; one that is slower takes the items from the room.",
+    "A plain studio circle on a relay with only one scene opens it the same way.",
+    "Rooms stay on format networks-55.",
+    "Tests: smoke.mjs --only <story> now loads that story before its steps."
   ],
   "test": [
-    "Two people in two places, in one room on the relay: Talk on for both, then speak. In AR, the remote person first presses I am elsewhere on the Debug tab.",
-    "In VR, answer the menu's question (are you in the same room as the others?) first: until then the Mic waits.",
-    "The Talk row names what a browser lacks: read it on the Quest. If it says this browser cannot use Talk, tell me what it names.",
-    "Allow the microphone when asked. In VR the question may show outside the headset view: the line says so after 8 s.",
-    "Mic: muted, then on again; Sound off; leave and join the room again. Try with headphones and on the headset's speakers."
+    "Make a circle for a scene from Add here (Studio: <scene>) and walk into it with two or three headsets at about the same moment: every headset shows all the scene's items.",
+    "A page following that circle shows the same items. Move one item: the others see it move.",
+    "Walk out and back in, and join late with another device: the items stay.",
+    "On a relay with only one scene, a plain studio circle opens it on every device, with its items."
   ],
   "untested": [
-    "Whether Quest Browser has MediaStreamTrackProcessor, AudioEncoder and AudioDecoder, and its microphone prompt inside VR.",
-    "Echo: a headset on its speakers, a screen on loudspeakers next to the headsets, two headsets in one room with a remote person.",
-    "How voices sound (unheard): Opus at 24 kbit/s, the voice gate on real microphones, the level against the narration, the voice at the head.",
-    "Delays and gaps over the relay on home Wi-Fi, venue Wi-Fi and mobile data, and the frame rate with several people talking.",
-    "Safari and Firefox: listening only at best. A busy page here sent only part of its voice: watch for voices breaking up."
+    "Scene circles with several real headsets at once: the fix was checked here by reading the code and a smoke check only. The end-to-end round runs before main.",
+    "Everything from v136 to v178 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
   ]
 }

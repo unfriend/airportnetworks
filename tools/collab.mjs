@@ -3582,7 +3582,8 @@ async function trackersRound(dir) {
     for (const p of [A, B, C]) await p.evaluate(id => HOST.collab.follow(id), sid);
     for (const p of [A, B, C]) await ready(p, 'studio', 90000);
     const sc0 = [];
-    for (const p of [A, B, C, H]) sc0.push(await sUntil(p, `STU.scene === 'test' && STUDIO.ready() && atStation() && TRK.st !== '' && TRK.at.size === 11`, 90000));
+    // (and the scene's items on every device: a circle made for a scene once came up empty, v157's race, fixed in v179)
+    for (const p of [A, B, C, H]) sc0.push(await sUntil(p, `STU.scene === 'test' && STUDIO.ready() && atStation() && TRK.st !== '' && TRK.at.size === 11 && STU.items.size > 0`, 90000));
     const stillLined = await H.evaluate(() => HOST.room.src === 'trackers');
     check('trackers: the headset walks into a studio circle for the test scene where it stands (still lined up by the trackers), three pages follow it; every device has the 11 trackers in the studio',
       !!sid && inS && sc0.every(Boolean) && stillLined, JSON.stringify({ sid, inS, sc0, stillLined, at: await Promise.all([A, B, C, H].map(p => sp(p, `[STU.scene, STUDIO.ready(), atStation(), TRK.st, TRK.at.size]`))) }));
@@ -3761,8 +3762,9 @@ async function outputRound(dir) {
     const al = await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted');
     // a plain studio circle; the headset walks in, A follows it and picks the test scene on its Scene pane (that page writes
     // the scene's records for the room). (Not a circle made for the scene, addScene: there every device writes the layout
-    // itself, and here one that had not read it yet could publish the scene with no items, every item gone everywhere:
-    // seen in five of eight runs with a pretend headset whose frames stop between steps; see the report)
+    // itself, and one that had not read it yet could publish the scene with no items, every item gone everywhere: seen in
+    // five of eight runs with a pretend headset whose frames stop between steps; fixed in v179, the studio sends nothing
+    // until it has read the layout, and the trackers round checks the items at its addScene circle)
     const sid = await A.evaluate(b => HOST.collab.add('studio', b), { x: 0.5, z: -1, yaw: 0 });
     await until(A, () => !HOST.collab.internals().pending.size, null, 5000);
     const st = await A.evaluate(id => HOST.collab.station(id), sid);

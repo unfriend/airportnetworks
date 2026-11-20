@@ -17770,7 +17770,9 @@ function copyOpen(name) {
   if (c && HOST.arrange && HOST.arrange.open) HOST.arrange.open(c.key, c.name);
 }
 // the scene opened by itself: at a shared room's station only when the listing has exactly one (else Pick a scene: the
-// station's scene is for everyone there); outside a room the link's, else the last used here, else the only one
+// station's scene is for everyone there), as 'fresh' (v179: every device there writes the layout alike, so none sends
+// the scene before it has read it, and items from the room that come first are taken); outside a room the link's, else
+// the last used here, else the only one
 const lastKey = () => 'studioLast.' + srcKey();
 function chooseScene() {
   if (STU.scene || SRC.state !== 'ok') return;
@@ -17778,7 +17780,7 @@ function chooseScene() {
   let pick = '';
   if (atStation()) { if (names.length === 1) pick = names[0]; }
   else pick = (names.includes(OPT.scene) ? OPT.scene : '') || (names.includes(last) ? last : '') || (names.length === 1 ? names[0] : '');
-  if (pick) openScene(pick, 'auto');
+  if (pick) openScene(pick, atStation() ? 'fresh' : 'auto');
 }
 // at a shared room's station of the studio (a headset at its circle, a page following it): the scene and what is
 // placed are the station's, for everyone there
@@ -23683,7 +23685,14 @@ function select(id) {
 // Life size in a headset: no view to share.
 function collabView() { return null; }
 function collabSetView(v, now) { /* nothing to set */ }
-function collabState() {
+// What the shell polls (statePoll; undefined: nothing to send). A scene opened 'fresh' for a circle made for it whose
+// saved layout this device has not read yet, nothing placed here and no item from the room: nothing yet. Its name
+// alone, sent then, could reach the relay after another device's layout and empty the circle for everyone (seen in
+// v157's end-to-end round; v179); the device that reads the layout first sends it, and the others take the room's.
+const freshWait = () => STU.fresh && STU.write && !!STU.scene && !STU.items.size;
+function collabState() { exLeave(); return freshWait() ? undefined : roomState(); }
+// the station's state as this device has it (also the studio's own size checks: paths, paintings)
+function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
   const s = { scene: STU.scene, settings: STU.settings };
@@ -25425,7 +25434,7 @@ function recFinish(it, R, prep, keep) {
   const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
-  const st = collabState();
+  const st = roomState();
   st[it.kind + '.' + it.id] = Object.assign({}, it.rec, { path });
   const n = JSON.stringify(st).length;
   if (n > PATH_MAX.state) return { why: `With this movement the scene would be ${Math.ceil(n / 1024)} KB to share in a room, more than its ${PATH_MAX.state >> 10} KB: delete a recording, or record a shorter movement.` };
@@ -25493,7 +25502,7 @@ function pathCopyWhy(recs) {
   if (!n) return '';
   if (pathKeys('') + n > PATH_MAX.scene) return `No room for the copy's recorded path: a scene's paths hold ${fmt(PATH_MAX.scene)} keys at most. Delete a recording first.`;
   const more = recs.reduce((s, r) => s + JSON.stringify(r).length + 20, 0);
-  if (JSON.stringify(collabState()).length + more > PATH_MAX.state) return `No room for the copy: with its recorded path the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB). Delete a recording first.`;
+  if (JSON.stringify(roomState()).length + more > PATH_MAX.state) return `No room for the copy: with its recorded path the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB). Delete a recording first.`;
   return '';
 }
 // what a recording stops: a page's while it runs, its size (a path has no size: its size steps, the Size arrows)
@@ -30055,7 +30064,7 @@ function paintStore(id, mk, strokes, D, added) {
   const bytes = JSON.stringify(strokes).length;
   if (bytes > PNT.fileBytes) return fail(`This painting is too big to keep (about ${Math.round(bytes / 1e6 * 10) / 10} MB): start a new painting.`);
   // (in the record only while the points fit and the whole shared state stays under the recorded paths' limit: one relay value)
-  const inRec = pts + paintInRecord(id) <= PNT.rec && JSON.stringify(collabState()).length + bytes <= PATH_MAX.state;
+  const inRec = pts + paintInRecord(id) <= PNT.rec && JSON.stringify(roomState()).length + bytes <= PATH_MAX.state;
   if (inRec) {
     let nid = id;
     change(() => { if (mk) { nid = newId(); putItem(nid, 'd', norm('d', Object.assign({}, mk, { strokes }))); } else setRec(id, { strokes, src: undefined, n: undefined, pts: undefined }); });
@@ -30346,7 +30355,7 @@ function paintingState(id) {
 function paintCopyWhy(recs) {
   const add = recs.reduce((a, r) => a + (r.strokes ? ptsOf(r.strokes) : 0), 0);
   const bytes = recs.reduce((a, r) => a + (r.strokes ? JSON.stringify(r.strokes).length : 0), 0);
-  if (add && JSON.stringify(collabState()).length + bytes > PATH_MAX.state) return `No room for its copy: with its strokes the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB).`;
+  if (add && JSON.stringify(roomState()).length + bytes > PATH_MAX.state) return `No room for its copy: with its strokes the scene would be too big to share in a room (more than ${PATH_MAX.state >> 10} KB).`;
   return add && add + paintInRecord('') > PNT.rec ? `No room for its copy: a scene's paintings keep ${PNT.rec.toLocaleString('en')} points in all in its layout (the rest go in files of the scene).` : '';
 }
 // Duplicate (beside it): its strokes copied into the record when they fit, else into a new file of the scene

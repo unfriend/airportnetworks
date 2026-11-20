@@ -924,13 +924,18 @@ The panes (page HTML and headset canvas twins, the same content):
   exactly as given, after the same checks as a read layout). Changing the scene clears the items and the device that
   changed it writes the new scene's saved layout as items.
 - A station with no `scene` yet: with exactly one scene in the listing every device picks it (and writes its saved
-  layout: every device writes the same records, so nothing doubles); else *Pick a scene*.
+  layout: every device writes the same records, so nothing doubles; opened as `'fresh'` since v179, below); else *Pick a
+  scene*.
 - A circle made for one scene (v118; the shell's *Studio: <scene>*, written as `st.<id>` = `{ story: 'studio', x, z, yaw }`
   and, in the same batch, `st.<id>.x` = `{ scene }`): a station whose state names a scene and holds no item field at all
   is opened on every device there as `'fresh'` (`collabApply`): each writes the scene's saved layout, the same records,
   so the circle shows the scene at once; a device that has that scene open already (from another station, or outside the
   room) opens it again there (the station changed: `STU.stId`). Items from the room that come before the layout is read
-  here are the room's (`STU.fresh`: no layout written over them). A scene emptied at a station by hand and left unsaved
+  here are the room's (`STU.fresh`: no layout written over them). Until one or the other, nothing is sent (v179:
+  `collabState` gives `undefined` while `freshWait()`, and the shell's `statePoll` sends nothing for it; `roomState()` is
+  the state itself, also for the size checks of paths and paintings): the scene's name alone, sent before the layout was
+  read, could reach the relay after another device's whole layout and empty the circle for everyone (v157's end-to-end
+  round, five of eight runs). A scene emptied at a station by hand and left unsaved
   comes back as saved for a device that arrives later (its state then holds no item): Save the empty scene to keep it so. A station whose scene this
   device cannot find (another relay, not listed): its items keep their places and show as grey boxes, said on the Scene
   pane.
