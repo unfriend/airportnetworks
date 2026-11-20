@@ -25,6 +25,7 @@
 // --only 'studio trails': trails of light behind items and people's hands, for everyone at the circle, v158;
 // --only 'studio walks': an object's clip played by the distance it covers (As it moves), its stride and standing, v164;
 // --only 'studio live': the room's live sound heard (Opus frames encoded in the test, decoded by the shell) and a studio item set to Live sound, v162;
+// --only 'talk': Talk between people in a room (the words, the dialog's row, talkers heard from frames encoded in the test, from their heads in a pretend headset), v178;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
@@ -5192,6 +5193,247 @@ if (runs('studio live')) {
     bad(out);
   });
   await lp.close();
+}
+// Talk (v178; docs/agents/shared-rooms.md "Talk"): voice between the people in a room on a relay who are elsewhere, the
+// shell's alone. Each step a browser context of its own (one that turns Talk on turns it off again), its pages with the
+// usual test settings, getUserMedia counted (and refused: no microphone in a test) and the AudioContexts made counted.
+// Off by default with no microphone asked, the API, the line's words for every state; the Shared dialog's row in a room
+// on this device (Talk on there, the Mic greyed); three talkers heard from Opus frames encoded in the test (a gap counted,
+// the jitter target, the Sound button's fade, a talker gone, a stray frame, no context made); in a pretend headset the
+// voices from the talkers' drawn heads (an HRTF panner, never further than 6 m), someone here not heard, flat again
+// when the session ends. The relay's side is relay/test.mjs --talk, the microphone's end to end tools/collab.mjs --talk
+if (runs('talk')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const TALK_INIT = () => {
+    try { for (const k of ['collabAutoAll', 'collabAutoWelcome', 'tutorialHold']) localStorage.setItem(k, 'off'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ }
+    const T = window.__tk = { gum: 0, ac: 0 };
+    if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { T.gum++; throw new DOMException('no microphone in a test', 'NotFoundError'); };
+    const RealAC = window.AudioContext;
+    if (RealAC) window.AudioContext = class extends RealAC { constructor(...a) { super(...a); T.ac++; } };
+  };
+  const contexts = [];
+  const open = async (hash, fake) => {
+    for (const c of contexts.splice(0)) await c.close();   // (the step before's: its drawing would slow this one's timing)
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 } });
+    contexts.push(ctx);
+    await ctx.addInitScript(TALK_INIT);
+    if (fake) await ctx.addInitScript(FPS_FAKE);
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('talk: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('talk: ' + m.text()); });
+    await p.goto(base + 'index.html' + hash, { timeout: 90000 });
+    await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && !!HOST.collab, null, { timeout: 60000 });
+    return p;
+  };
+  // (Sound on and a tap, so the shell's context may run: the Shared button, its dialog closed again (in a room it opens by
+  // itself on the page's load and covers the button); then a small page: a slow software drawing of the globe holds the
+  // page's timers up, and the frames' timing with them)
+  const tap = async p => {
+    await p.evaluate(() => { HOST.audio.mute(false); HOST.collab.dialog(false); });
+    await p.click('#btnShared');
+    await p.evaluate(() => HOST.collab.dialog(false));
+    await p.setViewportSize({ width: 480, height: 300 });
+    return p.waitForFunction(() => !!HOST.audio.fx(), null, { timeout: 15000 }).then(() => true, () => false);
+  };
+  // (n frames of 20 ms of a tone for each frequency, amplitude 0.3, encoded in the page with AudioEncoder: Opus mono 48 kHz,
+  // 24 kbit/s; test code may make what the app may not), kept there as window.__tkc[i][k]; '' or why not
+  const encode = (p, freqs, n) => p.evaluate(async ([freqs, n]) => {
+    if (typeof AudioEncoder === 'undefined') return 'no AudioEncoder in this browser';
+    window.__tkc = [];
+    for (const hz of freqs) {
+      const chunks = [], errs = [];
+      const enc = new AudioEncoder({ output: c => { const b = new Uint8Array(c.byteLength); c.copyTo(b); chunks.push(b); }, error: e => errs.push(e.message) });
+      enc.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 1, bitrate: 24000, opus: { frameDuration: 20000 } });
+      for (let k = 0; k < n; k++) {
+        const f = new Float32Array(960);
+        for (let i = 0; i < 960; i++) f[i] = 0.3 * Math.sin(2 * Math.PI * hz * (k * 960 + i) / 48000);
+        const d = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: 960, numberOfChannels: 1, timestamp: k * 20000, data: f });
+        enc.encode(d); d.close();
+      }
+      await enc.flush(); enc.close();
+      if (errs.length || chunks.length < n) return 'the frames made here: ' + JSON.stringify({ errs, chunks: chunks.length });
+      window.__tkc.push(chunks);
+    }
+    return '';
+  }, [freqs, n]);
+  // (in the page: a Talk frame as the relay sends it, tag 2, fl, sid, seq, at 20 ms ago on the relay's clock, the packet)
+  const FRAME = `(sid, seq, fl, bytes) => { const b = new ArrayBuffer(16 + bytes.length), v = new DataView(b); v.setUint8(0, 2); v.setUint8(1, fl); v.setUint16(2, sid); v.setUint32(4, seq); v.setFloat64(8, HOST.collab.now() - 20); new Uint8Array(b, 16).set(bytes); return b; }`;
+  const CFG = { codec: 'opus', sampleRate: 48000, numberOfChannels: 1 };
+
+  await step('talk: off by default, no microphone asked, the API, the words for every state', async () => {
+    const bad = [], p = await open('#airports');
+    const NAMES = ['talkMic', 'setTalk', 'setTalkMic', 'talkLacks', 'talkSend', 'talkGate', 'talkState', 'talkLine', 'talkIn', 'talkFx', 'talkTest'];
+    const r = await p.evaluate(names => {
+      const C = HOST.collab, missing = names.filter(k => typeof C[k] !== 'function');
+      return { missing, on: missing.length ? null : C.talkState().on, stored: localStorage.getItem('talkOn'), gum: window.__tk.gum, lacks: missing.length ? null : C.talkLacks() };
+    }, NAMES);
+    if (r.missing.length) bad.push('HOST.collab lacks ' + r.missing.join(', '));
+    if (r.on !== false || r.stored !== null || r.gum !== 0) bad.push('not off by default, or the microphone asked: ' + JSON.stringify(r));
+    if (!Array.isArray(r.lacks)) bad.push('talkLacks() is not an array: ' + JSON.stringify(r.lacks));
+    console.log('      (this browser lacks for Talk: ' + (Array.isArray(r.lacks) && r.lacks.length ? r.lacks.join(', ') : 'nothing') + ')');
+    // the line: a base state and each change, word for word
+    const T2 = 'Talking: Anna, Ben';
+    const CASES = [
+      [{}, '2 people hear you. ' + T2],
+      [{ subs: 1 }, '1 person hears you. ' + T2], [{ subs: 0 }, 'Nobody hears you yet. ' + T2],
+      [{ avail: false, why: 'Not available: rooms on a relay only' }, 'Not available: rooms on a relay only'],
+      [{ on: false }, '2 people are talking: turn Talk on to hear them'], [{ on: false, talkers: [{ name: 'Anna' }] }, '1 person is talking: turn Talk on to hear them'],
+      [{ on: false, talkers: [] }, 'Off: no microphone, nothing heard'],
+      [{ ask: true }, 'First answer the menu: are you in the same room as the others?'],
+      [{ lacks: ['MediaStreamTrackProcessor', 'AudioDecoder'] }, 'This browser cannot use Talk (no MediaStreamTrackProcessor, no AudioDecoder)'],
+      [{ lacks: ['AudioEncoder'] }, 'Listening only: this browser cannot talk (no AudioEncoder). ' + T2],
+      [{ phase: 'asking', open: false }, 'Waiting for the microphone. ' + T2],
+      [{ phase: 'asking', open: false, session: true, askMs: 9000 }, 'Allow the microphone for this site: the question may show outside VR. ' + T2],
+      [{ phase: 'error', err: 'The microphone was not allowed: allow it for this site', mic: false }, 'The microphone was not allowed: allow it for this site. ' + T2],
+      [{ full: true, mic: false, phase: 'off' }, 'The room is full for Talk (8 microphones): press Mic to try again. ' + T2],
+      [{ mic: false, phase: 'off', held: '' }, 'Mic muted: you only listen. ' + T2],
+      [{ mic: false, phase: 'off', held: 'reload' }, 'Mic muted after the reload: press Mic to talk. ' + T2],
+      [{ mic: false, phase: 'off', held: 'room' }, 'Mic muted in this new room: press Mic to talk. ' + T2],
+      [{ phase: 'off', open: false }, 'Opening the microphone. ' + T2],
+      [{ talkers: [] }, '2 people hear you. Nobody else is talking'],
+      [{ soundOff: true }, '2 people hear you. Sound is off: turn it on to hear Anna, Ben'],
+      [{ talkers: ['A', 'B', 'C', 'D', 'E'].map(name => ({ name })) }, '2 people hear you. Talking: A, B, C and 2 more'],
+    ];
+    if (!r.missing.includes('talkLine')) {
+      const got = await p.evaluate(cases => {
+        const base = { on: true, mic: true, avail: true, why: '', lacks: [], phase: 'live', err: '', held: '', full: false, max: 8, askMs: 0, open: true, subs: 2, soundOff: false, session: false, talkers: [{ name: 'Anna' }, { name: 'Ben' }] };
+        return cases.map(([c]) => HOST.collab.talkLine(Object.assign({}, base, c)));
+      }, CASES);
+      CASES.forEach(([c, want], i) => { if (got[i] !== want) bad.push('talkLine with ' + JSON.stringify(c) + ': "' + got[i] + '" (want "' + want + '")'); });
+    }
+    if (bad.length) errors.push(...bad.map(b => 'talk: ' + b));
+  });
+
+  await step('talk: the Shared dialog\'s row in a room on this device: greyed and why; Talk on there turns Sound on, never asks for the microphone; a click turns it off', async () => {
+    const bad = [], p = await open('#airports&s=TLK&peer=off');
+    await p.waitForFunction(() => HOST.collab.code === 'TLK' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
+    await p.evaluate(() => HOST.collab.dialog(false));   // (open by itself on the load: opened again by the button)
+    await p.click('#btnShared');
+    const row = () => p.evaluate(() => {
+      const r = document.querySelector('#shared .sh-talk');
+      if (!r) return null;
+      const b = k => { const x = r.querySelector(`[data-sh="${k}"]`); return x ? { text: x.textContent, disabled: x.disabled, pressed: x.getAttribute('aria-pressed') } : {}; };
+      return { talk: b('talk'), mic: b('talkmic'), line: (r.querySelector('span') || {}).textContent || '' };
+    });
+    const until = (text, ms) => p.waitForFunction(t => { const b = document.querySelector('#shared .sh-talk [data-sh="talk"]'); return !!b && b.textContent === t; }, text, { timeout: ms || 5000 }).then(() => true, () => false);
+    await until('Talk: off', 10000);
+    const r0 = await row();
+    if (!r0 || r0.talk.text !== 'Talk: off' || !r0.talk.disabled || r0.mic.text !== 'Mic: on' || !r0.mic.disabled || r0.line !== 'Not available: rooms on a relay only.') bad.push('the row before: ' + JSON.stringify(r0));
+    const on = await p.evaluate(() => HOST.collab.setTalk(true));
+    await until('Talk: on');
+    const r1 = await row(), s1 = await p.evaluate(() => ({ stored: localStorage.getItem('talkOn'), muted: HOST.audio.muted, gum: window.__tk.gum, s: HOST.collab.talkState() }));
+    if (on !== true || !r1 || r1.talk.text !== 'Talk: on' || r1.talk.disabled || r1.talk.pressed !== 'true' || !r1.mic.disabled) bad.push('Talk on: ' + JSON.stringify([on, r1]));
+    if (s1.stored !== '1' || s1.muted !== false || s1.gum !== 0 || s1.s.phase !== 'off') bad.push('Talk on: ' + JSON.stringify({ stored: s1.stored, muted: s1.muted, getUserMedia: s1.gum, phase: s1.s.phase }) + ' (want stored, Sound on, no microphone asked)');
+    await p.click('#shared [data-sh="talk"]');
+    await until('Talk: off');
+    const s2 = await p.evaluate(() => ({ on: HOST.collab.talkState().on, stored: localStorage.getItem('talkOn'), gum: window.__tk.gum }));
+    if (s2.on !== false || s2.stored !== '0' || s2.gum !== 0) bad.push('a click on Talk: ' + JSON.stringify(s2) + ' (want off)');
+    if (bad.length) errors.push(...bad.map(b => 'talk: ' + b));
+  });
+
+  await step('talk: three talkers heard (frames encoded here): decoded and played through the shell\'s context, a gap counted, the jitter target, the Sound button\'s fade, a talker gone, a stray frame', async () => {
+    const bad = [], p = await open('#airports');
+    if (!await tap(p)) { errors.push('talk: no sound context after a tap'); return; }
+    const why = await encode(p, [440, 550, 660], 50);
+    if (why) { console.log('      (' + why + ': the hearing not checked)'); if (!/^no AudioEncoder/.test(why)) errors.push('talk: ' + why); return; }
+    const r = await p.evaluate(async ([FRAME, cfg]) => {
+      const C = HOST.collab, frame = eval(FRAME), sleep = ms => new Promise(r => setTimeout(r, ms)), o = { ac0: window.__tk.ac }, sids = [11, 12, 13], ids = ['ta', 'tb', 'tc'];
+      o.test = C.talkTest(true);
+      C.talkFx({ list: sids.map((sid, i) => ({ sid, id: ids[i], cfg, here: false })) });
+      await sleep(500);   // (each record's decoder, configured once its config was checked)
+      for (let k = 0; k < 50; k++) {
+        sids.forEach((sid, i) => { if (sid !== 11 || k !== 10) C.talkIn(frame(sid, k, k === 0 || k === 30 ? 1 : 0, window.__tkc[i][k])); });
+        await sleep(20);
+      }
+      // (the last frames decoded: each talker playing, a frame scheduled in the last 0.5 s)
+      const t0 = performance.now();
+      do { await sleep(20); o.s = C.talkState(); } while (performance.now() - t0 < 1000 && !(o.s.talkers.length === 3 && o.s.talkers.every(t => t.playing && t.frames === (t.id === 'ta' ? 49 : 50))));
+      HOST.audio.mute(true);
+      await sleep(500);
+      o.muted = C.talkState().talkers.map(t => t.gain);
+      HOST.audio.mute(false);
+      C.talkFx({ list: [11, 13].map(sid => ({ sid, id: ids[sids.indexOf(sid)], cfg, here: false })) });
+      o.two = C.talkState().talkers.map(t => t.id + (t.rec ? '' : ' (no record)'));
+      const s0 = C.talkState().stray;
+      C.talkIn(frame(12, 50, 0, window.__tkc[1][0]));
+      o.stray = C.talkState().stray - s0;
+      o.ac = window.__tk.ac;
+      o.off = C.talkTest(false);
+      o.after = C.talkState().talkers.filter(t => t.rec).length;
+      return o;
+    }, [FRAME, CFG]);
+    const s = r.s || {}, T = s.talkers || [], want = [[49, 1], [50, 0], [50, 0]];
+    if (!r.test || s.test !== true || T.length !== 3) bad.push('three talkers: ' + JSON.stringify(s));
+    else T.forEach((t, i) => {
+      const [frames, lost] = want[i];
+      if (!t.rec || t.frames !== frames || t.lost !== lost || !t.playing || !(t.level > 0.05) || !(t.target >= 60 && t.target <= 300) || t.gain !== 1 || !(t.lagMs >= 40 && t.lagMs <= 600) || t.panned || t.why)
+        bad.push(`talker ${t.id}: ` + JSON.stringify(t) + ` (want a record, ${frames} frames, ${lost} lost, playing, level over 0.05, target 60 to 300 ms, gain 1, lag 40 to 600 ms, flat)`);
+    });
+    console.log('      (heard: ' + T.map(t => `${t.id} ${t.frames} frames, ${t.lost} lost, ${t.late} late, level ${t.level}, target ${t.target} ms, lag ${t.lagMs} ms`).join('; ') + ')');
+    if (!r.muted || r.muted.length !== 3 || r.muted.some(g => g !== 0)) bad.push('Sound off: the gains ' + JSON.stringify(r.muted) + ' (want 0)');
+    if (JSON.stringify(r.two) !== JSON.stringify(['ta', 'tc'])) bad.push('a list without tb: ' + JSON.stringify(r.two));
+    if (r.stray !== 1) bad.push('a frame for tb after it went: stray up by ' + r.stray + ' (want 1)');
+    if (r.ac !== r.ac0) bad.push(`AudioContexts made during the step: ${r.ac - r.ac0} (want none: the shell's context only)`);
+    if (r.off !== false || r.after !== 0) bad.push('talkTest(false): ' + r.after + ' records left');
+    if (bad.length) errors.push(...bad.map(b => 'talk: ' + b));
+  });
+
+  await step('talk: from their heads in a pretend headset: a talker elsewhere through an HRTF panner at their drawn head (no further than 6 m), one here not heard, one with no head flat; flat again when the session ends', async () => {
+    const bad = [], p = await open('#airports&s=TLH&peer=off', true);
+    await p.waitForFunction(() => HOST.collab.code === 'TLH' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
+    const ctxOk = await tap(p);
+    const why = await encode(p, [440, 550, 660], 30);
+    if (why) { console.log('      (' + why + ': the voices not checked)'); if (!/^no AudioEncoder/.test(why)) errors.push('talk: ' + why); return; }
+    await p.evaluate(() => HOST.cur.peek('xrStart("immersive-vr")'));
+    await p.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+    await p.evaluate(() => window.__fp.runUntil(() => HOST.room.aligned, 5000));
+    const r = await p.evaluate(async ([FRAME, cfg]) => {
+      const C = HOST.collab, F = window.__fp, frame = eval(FRAME), sleep = ms => new Promise(r => setTimeout(r, ms)), o = { fx: !!HOST.audio.fx(), here: C.talkState().here };
+      C.talkTest(true);
+      C.talkFx({ list: [{ sid: 21, id: 'hx', cfg, here: false }, { sid: 22, id: 'hy', cfg, here: true }, { sid: 23, id: 'hz', cfg, here: false }] });
+      F.step(2);
+      // (hx's head z metres in front of this head, in the reference space: in the room's coordinates by the room's matrix)
+      const inv = new THREE.Matrix4().copy(C.overlay().room.matrix).invert();
+      const put = z => { const h = new THREE.Vector3(0, 0, z).applyMatrix4(inv); C.presIn('hx', { st: '', head: [h.x, h.y, h.z, 0, 0, 0, 1], hands: [], g: [null, null], ts: Math.round(C.now()) }); };
+      const feed = async (z, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { put(z); F.step(1); await sleep(4); } };
+      const seen = () => { const s = C.talkState(), O = C.overlay(), P = O.people.get('hx');
+        return { s, hx: s.talkers.find(t => t.id === 'hx'), head: P && P.e ? P.e.p.clone().applyMatrix4(O.room.matrix).toArray() : null }; };
+      await feed(-2, 500);
+      const s0 = C.talkState().stray;
+      for (let k = 0; k < 30; k++) {
+        [21, 22, 23].forEach((sid, i) => C.talkIn(frame(sid, k, k === 0 ? 1 : 0, window.__tkc[i][k])));
+        put(-2); F.step(1);
+        await sleep(20);
+      }
+      await feed(-2, 400);
+      o.near = seen(); o.stray = o.near.s.stray - s0;
+      await feed(-20, 800);
+      o.far = seen();
+      // (the 0.5 s from the page's second frame after the end: its first ones draw the whole page again, slowly here)
+      const tEnd = performance.now();
+      await F.session.end();
+      for (let i = 0; i < 2; i++) await new Promise(r => requestAnimationFrame(r));
+      const t0 = performance.now();
+      while (performance.now() - t0 < 500 && (C.talkState().talkers.find(t => t.id === 'hx') || {}).panned) await sleep(20);
+      o.ended = { ms: Math.round(performance.now() - t0), all: Math.round(performance.now() - tEnd), hx: C.talkState().talkers.find(t => t.id === 'hx'), session: !!HOST.session };
+      C.talkTest(false);
+      return o;
+    }, [FRAME, CFG]);
+    const N = r.near, Fa = r.far, ids = N.s.talkers.map(t => t.id), hz = N.s.talkers.find(t => t.id === 'hz');
+    if (!r.here) bad.push('this headset is not here in a room on this device');
+    if (ids.includes('hy') || r.stray !== 30) bad.push(`hy (here, as this headset is): ${ids.includes('hy') ? 'among the talkers' : 'not among them'}, ${r.stray} frames counted stray (want not among them, 30)`);
+    const d = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : Infinity);
+    if (!ctxOk || !r.fx) console.log('      (no sound context in the pretend session: only hy and the stray frames checked)');
+    else {
+      if (!N.hx || !N.hx.rec || !N.hx.panned || !(d(N.hx.pos, N.head) <= 0.05)) bad.push('hx 2 m in front: ' + JSON.stringify({ hx: N.hx, head: N.head, ear: N.s.ear }) + ' (want panned at its head, within 0.05 m)');
+      if (!hz || !hz.rec || hz.panned) bad.push('hz (no head drawn): ' + JSON.stringify(hz) + ' (want a record, flat)');
+      if (!Fa.hx || !Fa.hx.panned || Math.abs(d(Fa.hx.pos, Fa.s.ear) - 6) > 0.05) bad.push('hx 20 m away: ' + JSON.stringify({ pos: Fa.hx && Fa.hx.pos, ear: Fa.s.ear, head: Fa.head, d: d(Fa.hx && Fa.hx.pos, Fa.s.ear) }) + ' (want 6 m from the ear)');
+      if (!r.ended.hx || r.ended.hx.panned || r.ended.session) bad.push('the session ended: ' + JSON.stringify(r.ended) + ' (want hx flat within 0.5 s)');
+      console.log(`      (hx at ${d(N.hx && N.hx.pos, N.s.ear).toFixed(2)} m, then ${d(Fa.hx && Fa.hx.pos, Fa.s.ear).toFixed(2)} m from the ear; flat ${r.ended.ms} ms after its second frame, ${r.ended.all} ms after the session ended)`);
+    }
+    if (bad.length) errors.push(...bad.map(b => 'talk: ' + b));
+  });
+  for (const c of contexts) await c.close();
 }
 // The studio's edit mode as fast as viewing (v136; the owner: "The edit mode still has worse framerates than not
 // editing, why?"; tools/studio/SPEC.md, "Editing without the cost"), on a page of its own at the test scene: what edit mode

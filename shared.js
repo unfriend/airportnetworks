@@ -552,7 +552,7 @@
       mine: '', live: '', follow: '', zone: '', cand: '', stood: new Set(), refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0, arcOff: '' });   // (arcOff: the arc left by hand, for this visit only)
     C.cardsOpen = false;   // (the page's Stories screen an All stories circle opened stays: in no room it is the landing page)
     C.pres.clear();
-    if (HOST.collab) liveLeave();   // (the room's live sound: unsubscribed with the socket, its decoder and node gone, any claim let go)
+    if (HOST.collab) { liveLeave(); talkLeave(); }   // (the room's live sound: unsubscribed with the socket, its decoder and node gone, any claim let go; Talk's microphone closed, its records gone)
     R.left();
     HOST.audio.zone(null);
     if (HOST.xr && HOST.xr.voiceDrop) HOST.xr.voiceDrop('leave');   // (this headset's own narration in the room goes with it)
@@ -602,7 +602,7 @@
     ws.onmessage = ev => {
       if (C.ws !== ws) return;
       C.heard = clock();
-      if (typeof ev.data !== 'string') { liveIn(ev.data); return; }   // (a frame of the room's live sound, never JSON: v162)
+      if (typeof ev.data !== 'string') { const b = ev.data; if (b instanceof ArrayBuffer && b.byteLength && new Uint8Array(b, 0, 1)[0] === 2) talkIn(b); else liveIn(b); return; }   // (a frame of live sound (tag 1) or Talk (tag 2), never JSON)
       let m = null;
       try { m = JSON.parse(ev.data); } catch (e) { /* not JSON */ }
       if (m && m.t) recv(m);
@@ -2304,6 +2304,8 @@
         if (m.v.st) { if (OUT.on && HOST.out && HOST.out.sndFx) { try { HOST.out.sndFx(m.v.st); } catch (e) { log('snd status failed', { e: e && e.message }); } } }
         else liveFx(m.v);
       }
+    } else if (m.k === '@talk') {   // (Talk, the relay's own (v178): its list of talkers, or this talker's status)
+      if (!m.by && m.v && typeof m.v === 'object') { if (m.v.st) { if (TKH.st) TKH.st(m.v.st); } else talkFx(m.v); }
     } else if (m.k === TRK.type) { if (!m.by) trkIn(m.v);   // (the PC's trackers: the relay's own message, never a member's; the shell's, never a story's)
     } else if (m.k === 'q.reload') { reloadIn(m.v, m.by);   // Update the room: this device reloads in its turn (v136)
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
@@ -3400,7 +3402,7 @@
     if (t - C.pumpAt > 1500) C.busy = clock();   // (this page was busy, or hidden: nothing heard meanwhile is no sign of silence)
     C.pumpAt = t;
     attachCheck();
-    if (HOST.collab) liveStep();   // (the room's live sound: subscribed or not, v162; not while this file is still being read)
+    if (HOST.collab) { liveStep(); talkStep(); }   // (the room's live sound and Talk: subscribed or not, v162, v178; not while this file is still being read)
     // (in no room, with the dialog or the menu open: the rooms on this network looked for again now and then)
     if (!C.code) { if ((C.listing.dialog || (C.listing.menu && HOST.session)) && C.nearAt && t - C.nearAt > 15000 && !C.nearBusy) nearFind('again'); return; }
     if (C.local) probe(t);
@@ -4621,7 +4623,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '', PNL.tab === 'settings' ? sharpSig() : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5565,6 +5567,17 @@
       button(S, 'voiceall:on', x, y, bw, 56, 'On for all', () => setVoiceAll(true), { px: 22, on: rv === true, tog: false });   // (it sounds as turning on, lit or not)
       button(S, 'voiceall:off', x + bw + 16, y, bw, 56, 'Off for all', () => setVoiceAll(false), { px: 22, on: rv === false, tog: true });
       y += 72; line();
+      // Talk (v178): this headset's own, never the room's. Not in a room on this headset (nobody to talk to, and this tab
+      // is at its tallest there); only when it fits above You (the people list takes what is left)
+      if (!C.local && S.h - y - YOU - 26 >= 150) {
+        const s = talkState(), b = talkBtns(s);
+        button(S, 'talk', x, y, bw, 56, 'Talk: ' + (s.on ? 'on' : 'off'), b.talk ? () => setTalk(!s.on, 'menu') : null, { px: 21, on: s.on });
+        button(S, 'talkmic', x + bw + 16, y, bw, 56, 'Mic: ' + (s.mic ? 'on' : 'muted'), b.mic ? () => setTalkMic(!s.mic, 'menu') : null, { px: 21, on: s.on && s.mic });
+        y += 64;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, talkLine(s), x + 4, y, w - 8, 28, 2) + 10;
+        line();
+      }
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
         y += wrapText(ctx, C.peerFail ? 'Kept on this headset. Once a relay or the peer-to-peer server answers, the room goes there and others can join.' :
@@ -7905,6 +7918,7 @@
       if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; }
     }
     if (HD.ok && HOST.sfx) HOST.sfx.listen(HD.p, HD.q);   // (the sound effects hear from your head)
+    if (HOST.collab && TH.talkers.size) talkPlace(t);   // (Talk's voices from the talkers' heads, v178)
     if (C.code && R.session) trkHere();   // (the Index on the PC: in the room, as the PC's trackers see it, before its frame is decided)
     if (C.code) R.update(f);
     if (C.code && R.session && R.lfOK && HD.ok) { if (!CAM.pc) R.originCheck(t); R.sample(t); }   // (the preview camera's jumps are moves by hand)
@@ -12075,6 +12089,11 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (HOST.xr.setVoice) { const vo = !HOST.xr.voice || HOST.xr.voice(); add('voice', vo ? 'Narration: on' : 'Narration: off', vo, () => HOST.xr.setVoice(!vo)); }
     if (HOST.sfx) { const so = HOST.sfx.on(); add('sfx', so ? 'Sound effects: on' : 'Sound effects: off', so, () => HOST.sfx.set(!so)); }
     if (C.code) { const la = liveAvail(); add('live', "Room's live sound: " + LV.mode, la && LV.mode !== 'off', la ? () => setLiveMode(liveNext()) : null, { wide: true, note: la ? LIVE_SHORT[LV.mode] : 'Rooms on a relay only' }); }   // (v162: from the output page)
+    if (C.code && !CAM.on) {   // Talk (v178): this phone's own
+      const s = talkState(), b = talkBtns(s);
+      add('talk', 'Talk: ' + (s.on ? 'on' : 'off'), s.on, b.talk ? () => setTalk(!s.on, 'phone') : null, { wide: true, note: talkLine(s) });
+      add('talkmic', 'Mic: ' + (s.mic ? 'on' : 'muted'), s.on && s.mic, b.mic ? () => setTalkMic(!s.mic, 'phone') : null);
+    }
     const su = HOST.xr.subs();
     add('subs', su ? 'Subtitles: on' : 'Subtitles: off', su, () => HOST.xr.setSubs(!su));
     if (HOST.slides) { const sl = !!HOST.slides.global(); add('slides', sl ? 'Slideshow: on' : 'Slideshow: off', sl, () => HOST.slides.setGlobal(!sl)); }
@@ -12216,6 +12235,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'pcam') { pcStart('dialog'); return; }   // (the desktop preview camera)
       else if (act === 'output') { if (OUT.on) outStop('dialog'); else outStart('dialog'); return; }   // (the output page: MIDI and OSC)
       else if (act === 'live') setLiveMode(liveNext());   // (the room's live sound here: auto, on, off)
+      else if (act === 'talk') setTalk(!TK.on, 'dialog');   // (Talk here, v178: within the click, so the press opens the microphone at once)
+      else if (act === 'talkmic') setTalkMic(!TK.mic, 'dialog');
       else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
@@ -12401,6 +12422,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         (outOffered() && !HOST.session ? `<div class="row sh-outp"><button class="btn${OUT.on ? '' : ' primary'}" type="button" data-sh="output"${OUT.busy ? ' disabled' : ''}>${OUT.on ? 'Stop the output page' : 'Output page (MIDI and OSC)'}</button><span>${OUT.on ? 'This page is the room\'s output page.' : 'Make this page the room\'s output page: it sends what happens in the studio (cubes walked into, presses, sequences, people, trackers) as MIDI and OSC to music and light software on this computer, and takes MIDI and OSC back in. Chrome or Edge, on a laptop or the room\'s PC.'}${OUT.err ? ' ' + esc(OUT.err) : ''}</span></div>` : '') +
         // the room's live sound here (v162: this device's own; each press the next of auto, on, off), never on the output page
         (C.code && !OUT.on ? `<div class="row sh-live"><button class="btn" type="button" data-sh="live"${liveAvail() ? '' : ' disabled'}>Room's live sound: ${LV.mode}</button><span>${esc(LIVE_NOTE[LV.mode])}. ${esc(liveState())}.</span></div>` : '') +
+        (C.code && !OUT.on ? (s => { const b = talkBtns(s); return `<div class="row sh-talk"><button class="btn" type="button" data-sh="talk" aria-pressed="${s.on}"${b.talk ? '' : ' disabled'} title="${esc(TALK_TITLE)}">Talk: ${s.on ? 'on' : 'off'}</button><button class="btn" type="button" data-sh="talkmic" aria-pressed="${s.on && s.mic}"${b.mic ? '' : ' disabled'}>Mic: ${s.mic ? 'on' : 'muted'}</button><span>${esc(talkLine(s))}.</span></div>`; })(talkState()) : '') +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       const nin = $('#shRoomName'), nrow = $('.sh-name');
       if (nin) {
@@ -12724,6 +12746,72 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     return out;
   }
 
+  // ============================================== talk: shared ==
+  // (v178; docs/agents/shared-rooms.md "Talk") Talk: voice between the people in a room on a relay who are not in the
+  // same physical room. This device's own (localStorage talkOn, talkMic, talkRoom; never in state() or collab.state()),
+  // off until turned on. Talk on: this device hears the others who talk, and its microphone is open unless muted (open
+  // mic, with a voice gate). The two halves meet here: the settings, what this browser lacks, and the hooks that "talk:
+  // sending" fills (TKH); "talk: hearing" and the rows read TK and call only what is here
+  const TALK_RATES = [8000, 12000, 16000, 24000, 48000], TALK_HANG = 300;
+  const TK = { on: false, mic: true, room: '', held: '', phase: 'off', err: '', full: false, max: 8, askAt: 0, started: false, st: null, loudAt: 0, level: 0, frames: 0, drops: 0 };
+  const TKH = { open: null, step: null, halt: null, st: null };   // ("talk: sending": open(why), step(), halt(why), st(st))
+  try { TK.on = localStorage.getItem('talkOn') === '1'; TK.mic = localStorage.getItem('talkMic') !== '0'; TK.room = localStorage.getItem('talkRoom') || ''; } catch (e) { /* storage blocked: off */ }
+  function talkSave() {
+    try { localStorage.setItem('talkOn', TK.on ? '1' : '0'); localStorage.setItem('talkMic', TK.mic ? '1' : '0'); localStorage.setItem('talkRoom', TK.room); } catch (e) { /* storage blocked */ }
+  }
+  // what this browser lacks for Talk, by name: the first three to talk, AudioDecoder to hear
+  function talkLacks() {
+    const out = [];
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) out.push('getUserMedia');
+    if (typeof window.MediaStreamTrackProcessor !== 'function') out.push('MediaStreamTrackProcessor');
+    if (typeof window.AudioEncoder !== 'function') out.push('AudioEncoder');
+    if (typeof window.AudioDecoder !== 'function' || typeof window.EncodedAudioChunk !== 'function') out.push('AudioDecoder');
+    return out;
+  }
+  // a room on a relay that knows Talk (never peer to peer, on this device, an old relay, the output page or a camera)
+  const talkAvail = () => !!(C.code && C.via === 'relay' && C.talk && !OUT.on && !CAM.on);
+  function talkWhy() {
+    if (OUT.on) return 'Not on the output page';
+    if (CAM.on) return 'Not in camera mode';
+    if (!C.code) return 'Not in a room';
+    if (C.via !== 'relay') return 'Not available: rooms on a relay only';
+    if (C.talk) return '';
+    return C.welcomed && C.status === 'open' ? 'This relay is too old for Talk' : 'Not connected to the room';
+  }
+  // Talk on or off (a press, or HOST.collab.setTalk): on turns this device's Sound on too (no talking without hearing)
+  // and the microphone on (open mic); a browser that cannot hear refuses it
+  function setTalk(on, why) {
+    on = !!on;
+    if (on === TK.on) return TK.on;
+    if (on && talkLacks().includes('AudioDecoder')) return false;
+    Object.assign(TK, { on, held: '', full: false, err: '' });
+    if (on) { TK.mic = true; TK.room = C.code || TK.room; if (HOST.audio.muted && HOST.audio.mute) HOST.audio.mute(false); }
+    talkSave();
+    log('talk ' + (on ? 'on' : 'off'), { why: why || '' });
+    if (on) { if (TKH.open) TKH.open('press'); } else if (TKH.halt) TKH.halt('off');
+    changed();
+    return TK.on;
+  }
+  // the microphone on or muted while Talk is on (muted: closed, nothing sent; the others are still heard)
+  function setTalkMic(on, why) {
+    on = !!on;
+    if (!TK.on) return false;
+    Object.assign(TK, { mic: on, held: '', full: false, err: '' });
+    if (on) TK.room = C.code || TK.room;
+    talkSave();
+    log('talk mic ' + (on ? 'on' : 'muted'), { why: why || '' });
+    if (on) { if (TKH.open) TKH.open('press'); } else if (TKH.halt) TKH.halt('muted');
+    changed();
+    return TK.mic;
+  }
+  // this device's side, for the rows and tests (talkState adds the others)
+  function talkMic() {
+    const st = TK.st && TK.st.on ? TK.st : null;
+    return { on: TK.on, mic: TK.mic, avail: talkAvail(), why: talkWhy(), ask: askHere(), lacks: talkLacks(), phase: TK.phase, err: TK.err, held: TK.held, full: TK.full, max: TK.max,
+      askMs: TK.phase === 'asking' ? Math.round(performance.now() - TK.askAt) : 0, open: TK.started, sid: st ? st.sid : 0, subs: st ? st.subs : 0,
+      sending: TK.phase === 'live' && TK.started && performance.now() - TK.loudAt <= TALK_HANG, level: Math.round(TK.level * 1000) / 1000, sent: TK.frames, drops: TK.drops };
+  }
+
   // ============================================== live sound: sending ==
   // (v162; tools/output/SPEC.md "v162") the output page's half: it captures and encodes (output.js), and hands each Opus
   // packet here as one binary frame on the room's own socket, 16 bytes of header (tag 1, ch, sid 0: the relay writes it,
@@ -12959,6 +13047,286 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     if (LV.cant) return LV.cant;
     const s = liveSound();
     return s.playing ? 'Playing now' : s.on ? (s.want ? 'Starting...' : 'The output page is streaming') : 'The output page is not streaming';
+  }
+
+  // ============================================== talk: hearing ==
+  // (v178; docs/agents/shared-rooms.md "Talk") The others' voices. The relay sends every member the room's list of
+  // talkers (@talk: sid, id, cfg, here) and, while this device hears (talk-sub: Talk on, Sound on, a room on a relay, a VR
+  // headset that has said where it is), their Opus frames (binary, tag 2: fl, sid, seq, at). One AudioDecoder a talker, a
+  // short jitter buffer that follows the spread of the frames' lateness (TALK_TMIN to TALK_TMAX), a GainNode each on the
+  // shell's one context (HOST.audio.fx(); never a context of its own, never live sound's LV.out), and in a headset an
+  // HRTF PannerNode at the talker's drawn head (never further than TALK_FAR). Nobody here hears someone here through
+  // Talk: they hear each other in the air
+  const TALK_T0 = 0.08, TALK_TMIN = 0.06, TALK_TMAX = 0.3, TALK_SOON = 0.01, TALK_SLACK = 0.1, TALK_LEVEL = 1, TALK_REF = 1.5, TALK_ROLL = 0.5, TALK_FAR = 6, TALK_JW = 50;
+  const TH = { sub: false, subWs: null, test: false, list: [], listWs: null, talkers: new Map(), stray: 0, sig: '' };
+  const _tk = new THREE.Vector3(), _tk2 = new THREE.Vector3(), _tk3 = new THREE.Vector3();
+  const TALK_TITLE = 'Talk: your voice goes through the relay to everyone in this room who is elsewhere, and theirs comes to you. People in the same place hear each other in person. A screen always counts as elsewhere: next to the headsets, keep Talk off. Headphones help.';
+  // (hearing follows only the Sound button: never Sound effects or Narration)
+  const talkHearWant = () => !!(TK.on && talkAvail() && !askHere() && !talkLacks().includes('AudioDecoder') && !HOST.audio.muted);
+  // (from the pump, at most 5 times a second, in a room or not): the microphone's step ("talk: sending"), the list
+  // forgotten off a Talk room or from an older socket, subscribed or not (again on each new socket: a reconnect starts
+  // unsubscribed), the records kept in step, and the rows' line
+  function talkStep() {
+    if (TKH.step) TKH.step();
+    if (!talkAvail() && !TH.test) { TH.list = []; TH.listWs = null; }
+    if (!TH.test && TH.listWs && TH.listWs !== C.ws) { TH.list = []; TH.listWs = null; }   // (the relay sends a list after a welcome only when someone talks)
+    const want = talkHearWant(), open = !!(C.ws && C.ws.readyState === 1 && C.status === 'open' && C.via === 'relay');
+    if (TH.sub && TH.subWs !== C.ws) { TH.sub = false; TH.subWs = null; }
+    if (want && open && !TH.sub) { if (send({ t: 'talk-sub', on: true })) { TH.sub = true; TH.subWs = C.ws; } }
+    else if (!want && TH.sub) { if (open) send({ t: 'talk-sub', on: false }); TH.sub = false; TH.subWs = null; }
+    talkSync();
+    const sig = J([TK.on, TK.mic, TK.phase, talkLine(talkState())]);
+    if (sig !== TH.sig) { TH.sig = sig; if (C.code) changed(); }   // (the dialog's, the menu's and the phone sheet's line)
+  }
+  const talkB64 = s => typeof s === 'string' && s.length <= 512 && /^[A-Za-z0-9+/]*={0,2}$/.test(s);
+  // the relay's list of talkers (to every member, Talk on or not): each entry checked, at most 16
+  function talkFx(v) {
+    if (!v || typeof v !== 'object' || !Array.isArray(v.list)) return;
+    const list = [], sids = new Set();
+    for (const e of v.list) {
+      if (list.length >= 16) break;
+      if (!e || typeof e !== 'object' || !Number.isInteger(e.sid) || e.sid < 1 || e.sid > 65535 || sids.has(e.sid) || typeof e.id !== 'string' || !e.id || e.id.length > 64) continue;
+      const c = e.cfg;
+      if (!c || typeof c !== 'object' || c.codec !== 'opus' || !TALK_RATES.includes(c.sampleRate) || c.numberOfChannels !== 1 || (c.description !== undefined && !talkB64(c.description))) continue;
+      sids.add(e.sid);
+      list.push({ sid: e.sid, id: e.id, here: e.here === true, cfg: { codec: 'opus', sampleRate: c.sampleRate, numberOfChannels: 1, ...(c.description ? { description: c.description } : {}) } });
+    }
+    TH.list = list; TH.listWs = C.ws;
+    talkSync();
+  }
+  // a record for every talker this device hears (not itself, not here while it is here), while it hears; each one's level
+  function talkSync() {
+    const hearing = TH.sub || TH.test, me = here(), keep = new Set();
+    if (hearing) {
+      for (const e of TH.list) {
+        if (e.id === C.id || (me && e.here)) continue;
+        let T = TH.talkers.get(e.sid);
+        if (T && (T.id !== e.id || J(T.cfg) !== J(e.cfg))) { talkDrop(T); T = null; }   // (a sid used again by another stream)
+        if (!T) T = talkNew(e);
+        T.here = e.here; keep.add(e.sid);
+      }
+    }
+    for (const T of [...TH.talkers.values()]) if (!keep.has(T.sid)) talkDrop(T);
+    for (const T of TH.talkers.values()) { talkGain(T); if (!HOST.session && T.panned) talkWire(T, null); }
+  }
+  // a talker's record and its decoder (as live sound's: the config checked first)
+  function talkNew(e) {
+    const T = { sid: e.sid, id: e.id, here: e.here, cfg: e.cfg, dec: null, gen: 0, fails: [], ctx: null, g: null, p: null,
+      panned: false, gt: -1, pt: 0, pos: null, next: 0, anchor: null, target: TALK_T0, js: [], jn: 0, seq: -1, meta: new Map(), frames: 0, lost: 0, late: 0, skipped: 0, level: 0, lagMs: 0, heardAt: 0, why: '' };
+    TH.talkers.set(T.sid, T);
+    const c = { codec: 'opus', sampleRate: e.cfg.sampleRate, numberOfChannels: 1 };
+    if (e.cfg.description) { try { c.description = Uint8Array.from(atob(e.cfg.description), ch => ch.charCodeAt(0)); } catch (err) { T.why = 'not supported'; return T; } }
+    if (typeof AudioDecoder !== 'function' || typeof EncodedAudioChunk !== 'function') { T.why = 'not supported'; return T; }
+    const gen = T.gen, go = () => {
+      if (gen !== T.gen) return;
+      try { talkDecoder(T, c); } catch (err) { T.why = 'not supported'; log('talk: decoder refused', { e: err && err.message }); }
+    };
+    if (AudioDecoder.isConfigSupported) AudioDecoder.isConfigSupported(c).then(r => { if (gen !== T.gen) return; if (r && r.supported) go(); else { T.why = 'not supported'; log('talk: cfg not supported'); } }, () => go());
+    else go();
+    return T;
+  }
+  // a decoder that fails (a bad packet closes it) is made again, at most 3 times in 10 s
+  function talkDecoder(T, c) {
+    const dec = new AudioDecoder({ output: d => talkOut(T, d, dec), error: e => {
+      log('talk: decoder failed', { e: e && e.message });
+      if (T.dec !== dec) return;
+      T.dec = null; T.anchor = null;
+      const t = performance.now();
+      T.fails = T.fails.filter(x => t - x < 10000); T.fails.push(t);
+      if (T.fails.length > 3 || TH.talkers.get(T.sid) !== T) { T.why = 'cannot decode'; return; }
+      try { talkDecoder(T, c); } catch (err) { T.why = 'cannot decode'; }
+    } });
+    dec.configure(c);
+    T.dec = dec;
+  }
+  // a record goes: its decoder closed, its nodes let go
+  function talkDrop(T) {
+    T.gen++;
+    if (T.dec) { try { if (T.dec.state !== 'closed') T.dec.close(); } catch (e) { /* closed */ } }
+    for (const n of [T.g, T.p]) if (n) { try { n.disconnect(); } catch (e) { /* gone */ } }
+    Object.assign(T, { dec: null, g: null, p: null, ctx: null, panned: false, anchor: null });
+    T.meta.clear();
+    if (TH.talkers.get(T.sid) === T) TH.talkers.delete(T.sid);
+  }
+  // a binary frame with tag 2 from the relay: checked, gaps counted, its lateness kept for the jitter target, decoded
+  function talkIn(buf) {
+    if (buf && ArrayBuffer.isView(buf)) buf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    if (!(buf instanceof ArrayBuffer) || buf.byteLength < 17 || buf.byteLength > 1016) return;
+    const dv = new DataView(buf);
+    if (dv.getUint8(0) !== 2) return;
+    const fl = dv.getUint8(1), seq = dv.getUint32(4), at = dv.getFloat64(8), T = TH.talkers.get(dv.getUint16(2));
+    if (!T) { TH.stray++; return; }
+    if (here() && T.here) { T.skipped++; return; }   // (the relay never sends it: checked again)
+    if (T.seq >= 0 && seq <= T.seq) return;   // (late or twice: the schedule has moved on)
+    if (T.seq >= 0 && seq > T.seq + 1) T.lost += seq - T.seq - 1;
+    T.seq = seq; T.frames++;
+    if (Number.isFinite(at)) {
+      T.js.push(now() - at); if (T.js.length > TALK_JW) T.js.shift();
+      if (++T.jn % 25 === 0 && T.js.length >= 25) {   // (the spread of the last frames' lateness, the 90th percentile over the earliest)
+        const v = T.js.slice().sort((a, b) => a - b);
+        T.target = Math.min(TALK_TMAX, Math.max(TALK_TMIN, 0.04 + (v[Math.floor(0.9 * (v.length - 1))] - v[0]) / 1000));
+      }
+    }
+    const dec = T.dec;
+    if (!dec || dec.state !== 'configured') return;   // (still being set up: this frame missed)
+    if (T.meta.size > 200) T.meta.clear();
+    T.meta.set(seq, { at, s: (fl & 1) === 1 });
+    try { dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: seq, data: new Uint8Array(buf, 16) })); } catch (e) { T.lost++; }
+  }
+  // a decoded frame: a mono AudioBuffer on the shell's context, scheduled the target behind (again at each new spurt), each
+  // next one at the end of the one before; one due too soon starts the schedule again, one too far ahead is dropped
+  function talkOut(T, d, dec) {
+    try {
+      const ctx = HOST.audio && HOST.audio.fx ? HOST.audio.fx() : null, m = T.meta.get(d.timestamp);
+      T.meta.delete(d.timestamp);
+      if (!ctx || dec !== T.dec || TH.talkers.get(T.sid) !== T) { T.skipped++; return; }   // (no context: dropped, nothing kept)
+      const g = talkNode(T, ctx);
+      if (!g) { T.skipped++; return; }
+      const n = d.numberOfFrames, b = ctx.createBuffer(1, n, d.sampleRate), f = new Float32Array(n);
+      try { d.copyTo(f, { planeIndex: 0, format: 'f32-planar' }); } catch (e) {
+        // (a decoder that gives interleaved samples only: the first channel taken out)
+        const all = new Float32Array(n * d.numberOfChannels);
+        d.copyTo(all, { planeIndex: 0 });
+        for (let i = 0; i < n; i++) f[i] = all[i * d.numberOfChannels];
+      }
+      b.copyToChannel(f, 0);
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += f[i] * f[i];
+      T.level = T.level * 0.8 + Math.min(1, Math.sqrt(sum / Math.max(1, n))) * 0.2;
+      const t = ctx.currentTime, s = !!(m && m.s);
+      if (T.anchor !== ctx) { T.next = t + T.target; T.anchor = ctx; }
+      else if (s) T.next = Math.max(T.next, t + T.target);                       // (a new spurt: the target's delay again)
+      else if (T.next < t + TALK_SOON) { T.next = t + T.target; T.late++; }       // (ran dry inside a spurt)
+      else if (T.next > t + T.target + TALK_SLACK) { T.late++; T.skipped++; return; }   // (too far ahead: dropped, the queue drains)
+      const src = ctx.createBufferSource();
+      src.buffer = b; src.connect(g); src.start(T.next);
+      src.onended = () => { try { src.disconnect(); } catch (e) { /* gone */ } };
+      if (m && Number.isFinite(m.at)) T.lagMs = Math.round(now() - m.at + (T.next - t) * 1000);
+      T.next += b.duration; T.heardAt = performance.now();
+    } finally { try { d.close(); } catch (e) { /* closed */ } }
+  }
+  // the record's GainNode on the shell's context (made again on a new one: the watchdog swaps contexts), to the destination
+  function talkNode(T, ctx) {
+    if (T.g && T.ctx === ctx) return T.g;
+    for (const n of [T.g, T.p]) if (n) { try { n.disconnect(); } catch (e) { /* gone */ } }
+    Object.assign(T, { g: null, p: null, ctx: null, panned: false, gt: -1, anchor: null });
+    try {
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.connect(ctx.destination);
+      Object.assign(T, { g, ctx });
+      talkGain(T);
+    } catch (e) { T.g = null; T.ctx = null; }
+    return T.g;
+  }
+  // its level: 0 while this device's Sound button is off (a 0.1 s fade; not Sound effects, not Narration), else TALK_LEVEL
+  function talkGain(T) {
+    if (!T.g) return;
+    const tg = HOST.audio.muted ? 0 : TALK_LEVEL;
+    if (tg === T.gt) return;
+    T.gt = tg;
+    try { T.g.gain.setTargetAtTime(tg, T.g.context.currentTime, 0.03); } catch (e) { /* closed */ }
+  }
+  // the person's drawn head in the reference space, in a headset only (a body drawn in its place is at the same place)
+  function talkHead(id) {
+    if (!(HOST.session && !CAM.on && OV.room && OV.room.visible)) return null;
+    const o = OV.people.get(id);
+    return o && o.e && o.g.visible && o.avatar.visible ? _tk.copy(o.e.p).applyMatrix4(OV.room.matrix) : null;
+  }
+  // through an HRTF panner (a drawn head) or flat (a page, a phone, a talker with no head drawn here)
+  function talkWire(T, pos) {
+    if (!T.g || !T.ctx) return;
+    if (pos && !T.panned) {
+      try {
+        if (!T.p || T.p.context !== T.ctx) {
+          const p = T.ctx.createPanner();
+          Object.assign(p, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: TALK_REF, rolloffFactor: TALK_ROLL, maxDistance: 10000 });
+          p.connect(T.ctx.destination);
+          T.p = p;
+        }
+        T.g.disconnect(); T.g.connect(T.p);
+        T.panned = true; T.pt = 0;
+      } catch (e) { /* closed */ }
+    } else if (!pos && T.panned) {
+      try { T.g.disconnect(); T.g.connect(T.ctx.destination); } catch (e) { /* closed */ }
+      T.panned = false; T.pos = null;
+    }
+  }
+  // (every frame from the headset's tick while there are records) each voice from its talker's head, no further than
+  // TALK_FAR (a remote voice never fades away), and the listener at this head
+  function talkPlace(t) {
+    const ctx = HOST.audio && HOST.audio.fx ? HOST.audio.fx() : null;
+    if (!ctx || !HOST.session || !HD.ok) return;
+    let any = false;
+    for (const T of TH.talkers.values()) {
+      if (!T.g || T.ctx !== ctx) continue;
+      const h = talkHead(T.id);
+      talkWire(T, h);
+      if (!T.panned || !h) continue;
+      any = true;
+      if (t - T.pt < 33) continue;
+      T.pt = t;
+      _tk2.copy(h).sub(HD.p);
+      const d = _tk2.length();
+      if (d > TALK_FAR) _tk2.multiplyScalar(TALK_FAR / d);
+      _tk2.add(HD.p);
+      const P = T.p;
+      try {
+        if (P.positionX) { P.positionX.setTargetAtTime(_tk2.x, ctx.currentTime, 0.02); P.positionY.setTargetAtTime(_tk2.y, ctx.currentTime, 0.02); P.positionZ.setTargetAtTime(_tk2.z, ctx.currentTime, 0.02); }
+        else P.setPosition(_tk2.x, _tk2.y, _tk2.z);
+      } catch (e) { /* closed */ }
+      T.pos = [_tk2.x, _tk2.y, _tk2.z].map(v => Math.round(v * 1000) / 1000);
+    }
+    if (!any) return;
+    // (as sfx.js's listener(), which sets the same values, but only while it runs)
+    const L = ctx.listener, f = _tk3.set(0, 0, -1).applyQuaternion(HD.q), u = _tk2.set(0, 1, 0).applyQuaternion(HD.q);
+    try {
+      if (L.positionX) {
+        L.positionX.value = HD.p.x; L.positionY.value = HD.p.y; L.positionZ.value = HD.p.z;
+        L.forwardX.value = f.x; L.forwardY.value = f.y; L.forwardZ.value = f.z;
+        L.upX.value = u.x; L.upY.value = u.y; L.upZ.value = u.z;
+      } else { L.setPosition(HD.p.x, HD.p.y, HD.p.z); L.setOrientation(f.x, f.y, f.z, u.x, u.y, u.z); }
+    } catch (e) { /* an old engine: the listener stays */ }
+  }
+  // leaving the room: the microphone closed ("talk: sending"), unsubscribed, the list and every record gone
+  function talkLeave() {
+    if (TKH.halt) TKH.halt('left');
+    TH.sub = false; TH.subWs = null; TH.list = []; TH.listWs = null;
+    for (const T of [...TH.talkers.values()]) talkDrop(T);
+    TH.sig = '';
+  }
+  // (tests) hearing without a room: records from talkFx, decoding in talkIn
+  function talkTest(on) { TH.test = !!on; talkSync(); return TH.test; }
+  // which of the two buttons a press may use (Talk can always be turned off)
+  const talkBtns = s => ({ talk: s.on || (s.avail && !s.lacks.includes('AudioDecoder')), mic: s.on && s.avail && !s.lacks.some(x => x !== 'AudioDecoder') });
+  // this device's side and the talkers it would hear (open microphones, not this device, not here while it is here)
+  function talkState() {
+    const me = here(), ts = performance.now(), r3 = v => Math.round(v * 1000) / 1000;
+    const talkers = TH.list.filter(e => e.id !== C.id && !(me && e.here)).map(e => {
+      const T = TH.talkers.get(e.sid);
+      return { id: e.id, name: (member(e.id) || {}).name || 'Someone', sid: e.sid, here: e.here, rec: !!T, frames: T ? T.frames : 0, lost: T ? T.lost : 0, late: T ? T.late : 0,
+        skipped: T ? T.skipped : 0, level: T ? r3(T.level) : 0, lagMs: T ? T.lagMs : 0, target: T ? Math.round(T.target * 1000) : 0, playing: !!T && T.heardAt > 0 && ts - T.heardAt < 500,
+        panned: !!T && T.panned, gain: T ? T.gt : 0, pos: T ? T.pos : null, why: T ? T.why : '' };
+    });
+    return Object.assign(talkMic(), { hear: TH.sub, test: TH.test, soundOff: !!HOST.audio.muted, session: !!HOST.session, here: me,
+      ear: HOST.session && HD.ok ? [r3(HD.p.x), r3(HD.p.y), r3(HD.p.z)] : null, stray: TH.stray, talkers });
+  }
+  // the rows' line (the Shared dialog, the headset menu's Circles tab, the phone sheet)
+  function talkLine(s) {
+    if (!s.avail) return s.why;
+    if (s.lacks.includes('AudioDecoder')) return 'This browser cannot use Talk (no ' + s.lacks.join(', no ') + ')';
+    const n = s.talkers.length, names = s.talkers.slice(0, 3).map(t => t.name).join(', ') + (n > 3 ? ' and ' + (n - 3) + ' more' : '');
+    if (!s.on) return n ? (n === 1 ? '1 person is' : n + ' people are') + ' talking: turn Talk on to hear them' : 'Off: no microphone, nothing heard';
+    if (s.ask) return 'First answer the menu: are you in the same room as the others?';
+    const lt = s.lacks.filter(x => x !== 'AudioDecoder');
+    const you = lt.length ? 'Listening only: this browser cannot talk (no ' + lt.join(', no ') + ')'
+      : s.full ? 'The room is full for Talk (' + s.max + ' microphones): press Mic to try again'
+      : s.phase === 'error' && s.err ? s.err
+      : s.phase === 'asking' ? (s.session && s.askMs > 8000 ? 'Allow the microphone for this site: the question may show outside VR' : 'Waiting for the microphone')
+      : !s.mic ? (s.held === 'room' ? 'Mic muted in this new room: press Mic to talk' : s.held === 'reload' ? 'Mic muted after the reload: press Mic to talk' : 'Mic muted: you only listen')
+      : s.phase === 'live' && s.open ? (s.subs === 1 ? '1 person hears you' : s.subs > 1 ? s.subs + ' people hear you' : 'Nobody hears you yet')
+      : 'Opening the microphone';
+    return you + '. ' + (!n ? 'Nobody else is talking' : s.soundOff ? 'Sound is off: turn it on to hear ' + names : 'Talking: ' + names);
   }
 
   const SHM = { cv: null, mesh: null, nd: 0, nv: 0, f: 1 };   // (sharpMenu's answer, kept)
@@ -13232,6 +13600,11 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     outOn: () => OUT.on, outOffered: () => outOffered(), outStart: why => outStart(why || 'api'), outStop: why => outStop(why || 'api'), outMark: on => outMark(on),
     osc: msgs => osc(msgs), oscCfg: o => oscCfg(o), oscPing: () => oscPing(), persons: () => persons(),
     sndCan: () => sndCan(), sndWhy: () => sndWhy(), sndStart: (cfg, kbps) => sndStart(cfg, kbps), sndStop: () => sndStop(), sndSend: (seq, at, ch, bytes) => sndSend(seq, at, ch, bytes),
+    // Talk (v178, docs/agents/shared-rooms.md "Talk"): this device's side ("talk: shared"; talkSend and talkGate for
+    // tests: "talk: sending") and the others ("talk: hearing"; talkIn, talkFx and talkTest for tests)
+    talkMic: () => talkMic(), setTalk: (on, why) => setTalk(on, why || 'api'), setTalkMic: (on, why) => setTalkMic(on, why || 'api'), talkLacks: () => talkLacks(),
+    talkSend: (seq, at, fl, bytes) => talkSend(seq, at, fl, bytes), talkGate: x => talkGate(x),
+    talkState: () => talkState(), talkLine: s => talkLine(s), talkIn: buf => talkIn(buf), talkFx: v => talkFx(v), talkTest: on => talkTest(on),
     presIn: (id, v) => onFx({ t: 'fx', k: 'p.' + id, v, by: id }),
     // the room's live sound, heard here (v162: "live sound: hearing"); liveIn and liveFx for tests
     liveSound: () => liveSound(), liveMode: () => LV.mode, setLiveMode: m => setLiveMode(m), liveNode: () => liveNode(),
