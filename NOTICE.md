@@ -14,12 +14,10 @@ Chiettini): the app (`index.html`, the scripts beside it, `stories/`, `packages/
 ## Words, narrations, documentation and icons: CC BY 4.0
 
 The stories' words (their narration scripts, captions and panels, in English and, for the pass story, German), the
-synthetic narrations in `audio/` (`narration-<story>.mp3`), the documentation (`docs/`, the READMEs, `HANDOVER.md`) and
+narrations in `audio/` (the airports story's recorded by Martin Chiettini, `narration.mp3`, and the others' synthetic,
+`narration-<story>.mp3`), the documentation (`docs/`, the READMEs, `HANDOVER.md`) and
 the app's icons (`icons/`) are under the Creative Commons Attribution 4.0 International licence
 (https://creativecommons.org/licenses/by/4.0/). Credit them as "Networks, by Martin Chiettini".
-
-Not covered: the airports story's recorded narration, `audio/narration.mp3`, a person's own voice: all rights stay with
-its speaker until they agree to a licence.
 
 ## Data: its sources' own terms
 

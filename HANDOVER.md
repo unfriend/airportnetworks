@@ -1879,10 +1879,9 @@ Before handing over (or making anything more public), someone has to decide thes
 **TO FILL (owner)**. For a handover the first to fill are 2 (the authors' permission) and 6 (who to ask), and 1's holder (the licence is chosen).
 
 1. **Licence: chosen, the holder still to clarify.** Since 20 November 2026 `LICENSE` is MIT for the code and
-   `NOTICE.md` puts the stories' words, the synthetic narrations, the documentation and the icons under CC BY 4.0, the
-   data under its sources' terms (the table in [docs/data-and-permissions.md](docs/data-and-permissions.md)) and the
-   parts written by others under theirs; the airports story's recorded narration is left out until its speaker
-   agrees. `LICENSE` names Martin Chiettini for now (the owner: "add martin chiettini for now, leave it in to clarify
+   `NOTICE.md` puts the stories' words, the narrations (the airports' recorded by its speaker, the owner, who agreed),
+   the documentation and the icons under CC BY 4.0, the data under its sources' terms (the table in
+   [docs/data-and-permissions.md](docs/data-and-permissions.md)) and the parts written by others under theirs. `LICENSE` names Martin Chiettini for now (the owner: "add martin chiettini for now, leave it in to clarify
    for later"): an employer may hold the rights to software written at work (§ 40b of the Austrian copyright act,
    UrhG), so the copyright line (and `NOTICE.md`'s credit) may change once the employer has answered.
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,

@@ -64,7 +64,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   (`networks-narration`); studio scenes and `examples/` passed through (`docs/agents/shell.md`).
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports, `narration-<key>.mp3` for the others).
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
-- `LICENSE` (MIT, the code) and `NOTICE.md` (CC BY 4.0 for words, synthetic narrations, docs and icons; the data's and
+- `LICENSE` (MIT, the code) and `NOTICE.md` (CC BY 4.0 for words, narrations, docs and icons; the data's and
   others' parts' own terms) - served with the app by the relay (`docs/data-and-permissions.md`, "Licence").
 - `shared.js` - the shared-room client (`HOST.collab`, `HOST.room`), loaded between `index.html`'s two scripts
   (`docs/agents/shared-rooms.md`).

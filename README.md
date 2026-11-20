@@ -441,7 +441,7 @@ The protein data is meant for teaching, not research.
 | `tools/voice/` | the synthetic narrations: `narrate.mjs <key>` speaks a story's words (Kokoro; German with Piper) and re-times the story, `check.mjs <key>` checks the result (models and Python outside the repository; see its `README.md`) |
 | `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | notes on the architecture and conventions for AI coding agents (and people): `AGENTS.md` the core, `docs/agents/*.md` the details by area, `docs/history.md` why rules are as they are |
 | `README.txt` | the same notes in plain text |
-| `LICENSE`, `NOTICE.md` | the licences: MIT for the code; CC BY 4.0 for the words, synthetic narrations, documentation and icons; the data and the parts written by others under their own terms |
+| `LICENSE`, `NOTICE.md` | the licences: MIT for the code; CC BY 4.0 for the words, narrations, documentation and icons; the data and the parts written by others under their own terms |
 
 ## Developing
 
@@ -478,8 +478,8 @@ Headset behaviour can only be checked on a device.
 
 ## Licence
 
-The code is under the MIT licence ([LICENSE](LICENSE)). The stories' words, the synthetic narrations, the documentation
-and the icons are under CC BY 4.0; the airports story's recorded narration is not licensed yet. The data in the stories
+The code is under the MIT licence ([LICENSE](LICENSE)). The stories' words, the narrations (the airports' recorded,
+the others synthetic), the documentation and the icons are under CC BY 4.0. The data in the stories
 keeps its sources' terms (OpenFlights under the ODbL, two papers under CC BY 4.0 and CC BY-NC, the authors' own data
 only with their permission), and three.js, PeerJS, meshoptimizer, fflate and Basis Universal keep their own licences:
 [NOTICE.md](NOTICE.md) has them all.

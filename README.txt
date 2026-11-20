@@ -966,7 +966,7 @@ synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), t
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt), LICENSE and NOTICE.md (the licences).
 
 Licence: the code is under the MIT licence (LICENSE). The stories' words, the
-synthetic narrations, the documentation and the icons are under CC BY 4.0; the
-airports story's recorded narration is not licensed yet. The data in the
+narrations (the airports' recorded, the others synthetic), the documentation
+and the icons are under CC BY 4.0. The data in the
 stories keeps its sources' terms, and the parts written by others keep their
 own licences: NOTICE.md lists them all.

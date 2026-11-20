@@ -77,12 +77,12 @@ After regenerating a story's data, rebuild it (`node tools/<story>/build.mjs`, t
 ### Record of permissions
 
 **TO FILL (owner):** one row per source: who agreed (name, role), when and how (meeting, message), whether public
-hosting is allowed, any embargo or condition, and the scientific contact for questions. Nothing about this is
-written down in the repository yet.
+hosting is allowed, any embargo or condition, and the scientific contact for questions. Only the airports'
+narration is recorded so far (20 November 2026).
 
 | Story | Material | Agreed by | When, how | Public hosting | Conditions, embargo | Scientific contact |
 | --- | --- | --- | --- | --- | --- | --- |
-| `airports` | the narration recording (`audio/narration.mp3`): the speaker | | | | | |
+| `airports` | the narration recording (`audio/narration.mp3`): the speaker | Martin Chiettini, the speaker (the project's owner) | 20 November 2026, in a Claude Code session: "speaker on airports is also martin chiettini, that is me and i am fine with cc" | yes, under CC BY 4.0 (`NOTICE.md`) | none | |
 | `proteins`, `spatial` | the project's own curation of published facts: is anyone's agreement needed? | | | | | |
 | `lbi` | the LBI welcome talk | | | | | |
 | `nmd` | the ISMB 2026 talk; the files in `ikerdata/` (public in the repository until 3 November 2026, still in its history) | | | | | |
@@ -148,7 +148,8 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
 - [ ] **The microanatomy story** goes onto the site when `main` is next moved forward; its sources are already public
   on the work branch. Have its authors' agreement first.
 - [ ] **The authors' permissions** recorded for `lbi`, `nmd`, `endo`, `pet` and `micro` (record above).
-- [ ] **The narration's speaker** agreed to `audio/narration.mp3` being published (record above).
+- [x] **The narration's speaker** agreed to `audio/narration.mp3` being published (record above): the owner, its speaker,
+  under CC BY 4.0 (20 November 2026).
 - [ ] **The German synthetic voice.** Piper's Thorsten voice (the pass story's German narration) is CC0 by its own data,
   but finetuned from Piper's English lessac voice, whose data is under a research licence (no commercial use; see the
   table). The app is non-commercial outreach; decide whether that is enough before `audio/narration-pass-de.mp3` goes
@@ -231,11 +232,10 @@ as elsewhere, so keep Talk off there (docs/event-runbook.md).
 ## Licence
 
 **Chosen on 20 November 2026** (the owner: "lets go with your suggestions"): `LICENSE` is MIT for the code, and
-`NOTICE.md` puts the stories' words, the synthetic narrations, the documentation and the icons under CC BY 4.0, leaves
-the data under its sources' own terms and lists the parts written by others (the tables below and above); `README.md`
-and `README.txt` say so, and the relay serves both files with the app. Not licensed: the airports story's recorded
-narration, `audio/narration.mp3`, until its speaker agrees (the checklist above), and the authors' own data, shown only
-with their permission. **To clarify (owner):** `LICENSE` names Martin Chiettini as the holder for now (the owner: "add
+`NOTICE.md` puts the stories' words, the narrations (the airports' recording too: its speaker is the owner, who
+agreed; the record above), the documentation and the icons under CC BY 4.0, leaves the data under its sources' own
+terms and lists the parts written by others (the tables below and above); `README.md` and `README.txt` say so, and the
+relay serves both files with the app. Not licensed: the authors' own data, shown only with their permission. **To clarify (owner):** `LICENSE` names Martin Chiettini as the holder for now (the owner: "add
 martin chiettini for now, leave it in to clarify for later"); an employer may hold the rights to software written at
 work (§ 40b of the Austrian copyright act, UrhG), so the holder may change once the employer has answered (`LICENSE`'s
 copyright line, `NOTICE.md`'s credit line).
