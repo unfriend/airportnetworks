@@ -17705,7 +17705,7 @@ async function listScenes(gen) {
     // (R2: uploads straight into the bucket, and how long a file's link lives, s: e7c_direct.js)
     SRC.direct = SRC.upload && !!(j && j.direct); SRC.linkTtl = SRC.kind === 'relay' ? +(j && j.linkTtl) || 0 : 0;
     SRC.state = 'ok'; SRC.note = '';
-    if (SRC.kind === 'relay') watchStart();
+    if (SRC.kind === 'relay') { watchStart(); copiesRead(); }
   } catch (e) {
     if (gen !== SRC.gen || GL.gone) return;
     SRC.scenes = [];
@@ -17720,12 +17720,61 @@ async function listScenes(gen) {
   chooseScene();
   dirty();
 }
+// Copies of stories (v170, tools/engine/SPEC.md): scenes on the relay whose layout holds a story's arrangement (its
+// timing and places, made by Copy to relay on a story's bar). The studio lists them apart (Copy of <title>, Open: the
+// story starts with the copy, HOST.arrange.open) and never opens one as a scene to place things in; a name that looks
+// like one (<key>-copy[-n]) waits for the shell's listing (HOST.arrange.list: the layouts read) before it shows as a scene,
+// and one whose layout holds no story (atelier-copy) then shows as one. One read at a time, again only when the list of
+// such names (their files' times, whether they have a layout) changed or a layout of one was saved (onLayoutEvent)
+const COPIES = { list: [], names: new Set(), plain: new Set(), read: false, busy: false, again: false, sig: '', at: 0, src: '' };
+const copyLike = n => /^[a-z][a-z0-9-]{1,30}-copy(-\d+)?$/.test(n);
+const isCopy = n => COPIES.names.has(n) || (copyLike(n) && !COPIES.plain.has(n));
+const plainScenes = () => SRC.scenes.filter(s => !isCopy(s.name));
+const copiesSig = () => SRC.scenes.filter(s => copyLike(s.name)).map(s => s.name + ':' + s.at + ':' + +s.layout).join('/');
+async function copiesRead() {
+  const A = HOST.arrange, src = srcKey();
+  if (COPIES.src !== src) Object.assign(COPIES, { list: [], names: new Set(), plain: new Set(), read: false, sig: '', at: 0, src });
+  if (COPIES.busy) { COPIES.again = true; return; }
+  const sig = copiesSig(), like = SRC.scenes.filter(s => copyLike(s.name)).map(s => s.name);
+  // (none that look like copies, or no shell to read them: every name is a scene)
+  if (!A || !A.list || SRC.kind !== 'relay' || !sig) {
+    const was = COPIES.read && COPIES.sig === sig && !COPIES.list.length;
+    Object.assign(COPIES, { list: [], names: new Set(), plain: new Set(like), read: true, sig });
+    if (!was) { chooseScene(); dirty(true); }
+    return;
+  }
+  if (COPIES.read && sig === COPIES.sig) return;
+  COPIES.busy = true; COPIES.again = false; COPIES.sig = sig;
+  let ok = false;
+  try {
+    const l = await A.list(true);
+    if (GL.gone || COPIES.src !== srcKey()) return;
+    COPIES.list = (Array.isArray(l) ? l : []).filter(c => c && okScene(c.name) && SRC.scenes.some(s => s.name === c.name));
+    COPIES.names = new Set(COPIES.list.map(c => c.name));
+    ok = true;
+  } catch (e) { /* none listed: the names stay scenes */ } finally {
+    COPIES.busy = false;
+    if (COPIES.src === srcKey()) {
+      COPIES.plain = new Set(ok ? like.filter(n => !COPIES.names.has(n)) : like);
+      COPIES.read = true; COPIES.at = performance.now();
+    }
+  }
+  if (GL.gone || COPIES.src !== srcKey()) return;
+  chooseScene();
+  dirty(true);
+  if (COPIES.again) { COPIES.again = false; copiesRead(); }
+}
+// Open a copy: the story it is of starts with it (HOST.arrange.open: at a station of that story, for everyone there)
+function copyOpen(name) {
+  const c = COPIES.list.find(x => x.name === name);
+  if (c && HOST.arrange && HOST.arrange.open) HOST.arrange.open(c.key, c.name);
+}
 // the scene opened by itself: at a shared room's station only when the listing has exactly one (else Pick a scene: the
 // station's scene is for everyone there); outside a room the link's, else the last used here, else the only one
 const lastKey = () => 'studioLast.' + srcKey();
 function chooseScene() {
   if (STU.scene || SRC.state !== 'ok') return;
-  const names = SRC.scenes.map(s => s.name), last = store.get(lastKey());
+  const names = plainScenes().map(s => s.name), last = store.get(lastKey());
   let pick = '';
   if (atStation()) { if (names.length === 1) pick = names[0]; }
   else pick = (names.includes(OPT.scene) ? OPT.scene : '') || (names.includes(last) ? last : '') || (names.length === 1 ? names[0] : '');
@@ -17754,9 +17803,9 @@ function openScene(name, how, again) {
   STU.stId = stationId();   // (the station it was opened at: a device that changed the scene there has not arrived anew)
   Object.assign(STU, { scene: name, listing: name ? 'loading' : 'none', files: [], fileMap: new Map(), saved: '', savedAt: 0, savedBy: '', layoutAt: 0,
     bad: 0, badTex: 0, badPlay: 0, badSeq: 0, badSend: 0, badStream: 0, sxp: null, stp: null, qprev: null, qsel: -1, note: '', saveNote: '', saving: false, draft: null, sel: '', hover: '', pick: null, txp: null, plp: null, write: how !== 'room', fresh: how === 'fresh', t0: performance.now(), loadAsk: 0, upNote: '',
-    settings: normSettings(), lockSaid: null });   // (a new scene's settings until its layout or the room's are read)
+    settings: normSettings(), lockSaid: null, story: null });   // (a new scene's settings until its layout or the room's are read)
   STU.seen.clear(); UNDO.length = 0; STU.qr.clear(); STU.qOwn.clear(); STU.pr.clear(); STU.prOwn.clear(); STU.sw.clear(); SENDS.hov.clear(); STU.prp = null; PRESS.try.clear(); PRESS.hv.clear(); PRESS.last.clear(); PRESS.mine.clear(); SEQ.opened = -1; SEQ.t0 = 0;
-  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
+  FROM.gen++; Object.assign(FROM, { open: false, scene: '', files: null, pv: null, loading: false, busy: '', note: '', orig: false });   // (From another scene: closed)
   if (name && how !== 'room' && !atStation()) store.set(lastKey(), name);
   if (name) loadScene();
   dirty(true);
@@ -17779,6 +17828,7 @@ async function loadScene() {
     STU.layoutAt = +(j && j.layoutAt) || 0;
     STU.listing = 'ok';
     const L = readLayout(layout);
+    STU.story = keepStory(layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = L.at || STU.layoutAt; STU.savedBy = L.by; STU.bad = L.bad; STU.badTex = L.texBad; STU.badPlay = L.playBad; STU.badSeq = L.seqBad; STU.badSend = L.sendBad; STU.badStream = L.streamBad;
     if (STU.write) { STU.write = false; for (const x of L.items) putItem(x.id, x.kind, x.rec); putSettings(L.settings); }
     if (!atStation()) offerDraft();
@@ -17907,8 +17957,11 @@ function placedItems() {
   return all.filter(it => it.kind !== 'g' || it.rec.items.filter(i => GROUP_KINDS.includes(kinds.get(i))).length >= 2);
 }
 // what is placed now, as layout.json
+// a layout's story (a copy's arrangement, v170): kept as it was read and written back by Save, never dropped or changed
+const keepStory = j => (j && j.story && typeof j.story === 'object' && !Array.isArray(j.story) ? j.story : null);
 function layoutOut() {
   const L = { studio: 1, scene: STU.scene, saved: new Date().toISOString() };
+  if (STU.story) L.story = STU.story;
   const by = HOST.collab && HOST.collab.joined && HOST.collab.name;
   if (by) L.by = String(by).slice(0, 40);
   const P = placedItems(), list = k => P.filter(it => it.kind === k).map(it => Object.assign({ id: it.id }, it.rec));
@@ -18003,7 +18056,9 @@ function uploadLayout(text) {
 const canWrite = () => SRC.kind === 'relay' && SRC.state === 'ok' && SRC.upload && SRC.save && !SRC.held && !OPT.visit;
 const canMake = () => canWrite() && !editLocked() && (!XR.on || !!(HOST.collab && HOST.collab.keypad));
 const canCopy = () => canWrite() && editOn() && STU.listing === 'ok' && SRC.scenes.some(s => s.name !== STU.scene);
-const NS = { open: false, name: '', making: false, asking: false, note: '' };
+// (from: the scene a Duplicate scene copies, v167: made by POST /api/scenes { name, from } with its files and saved layout)
+const NS = { open: false, name: '', making: false, asking: false, note: '', from: '' };
+const dupName = from => { for (let i = 1; i < 100; i++) { const n = (from + ' copy' + (i > 1 ? ' ' + i : '')).slice(0, 64).replace(/[ .]+$/, ''); if (!SRC.scenes.some(s => s.name === n)) return n; } return from; };
 // (the relay's rule for a new scene: relay/scenes.mjs, newSceneName) why a name cannot be one, or ''
 const sceneNameWhy = name => (!okScene(name) || name === 'watch' || /[ .]$/.test(name) || /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(name)
   ? 'A scene\'s name: up to 64 letters, digits, spaces, _ . or -, not starting with a space, . or -, not ending in a dot, and not a device name (con, nul...).' : '');
@@ -18013,40 +18068,47 @@ async function sceneMake(name) {
   if (why) { NS.note = why; dirty(true); return false; }
   if (!canMake() || NS.making) return false;
   NS.making = true; NS.note = ''; dirty(true);
+  const from = NS.from && SRC.scenes.some(s => s.name === NS.from) ? NS.from : '';
   try {
-    await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-    NS.open = false; NS.name = '';
+    const j = await getJSON(`${SRC.base}/api/scenes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(from ? { name, from } : { name }) });
+    NS.open = false; NS.name = ''; NS.from = '';
+    const lost = from && j && Array.isArray(j.failed) ? j.failed.length : 0;
     await listScenes(SRC.gen);
     if (GL.gone || editLocked()) return true;   // (locked meanwhile: made, not opened)
     openScene(name, 'pick');
     if (!STU.edit) setEdit(true);
+    if (lost) NS.note = `${lost} file${lost === 1 ? '' : 's'} of ${from} could not be copied into ${name}.`;
     sfxAct('whoosh', 'stage', 'centre', { dur: 0.8 });
     return true;
   } catch (e) {
-    NS.note = e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
+    NS.note = e.status === 404 && from ? `${from} is no longer on the relay.` : e.status === 409 ? `There is a scene called ${name} already: pick it above.` : e.status === 401 ? AUTH_NOTE : e.status === 403 ? 'This relay makes no scenes (it runs with --scenes-readonly).' : 'The scene could not be made: ' + e.message;
     return false;
   } finally { NS.making = false; dirty(true); }
 }
-// New scene pressed: on a page its field opens (or closes); in a headset the shell's keypad asks for the name
-async function sceneAsk() {
+// New scene (or Duplicate scene, from the scene open now) pressed: on a page its field opens (or closes, or turns into the
+// other's), a duplicate's filled with "<scene> copy"; in a headset the shell's keypad asks for the name
+async function sceneAsk(from) {
   if (!canMake() || NS.making || NS.asking) return;
-  if (!XR.on) { NS.open = !NS.open; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
+  from = from && SRC.scenes.some(s => s.name === from) ? from : '';
+  if (!XR.on) { NS.open = !(NS.open && NS.from === from); NS.from = from; NS.name = from && NS.open ? dupName(from) : ''; NS.note = ''; if (NS.open) later(() => { const i = $('#stuSceneName'); if (i) i.focus(); }, 50); dirty(true); return; }
   NS.asking = true; NS.note = ''; dirty(true);
   let name = null;
-  try { name = await HOST.collab.keypad({ title: 'New scene', hint: 'Its name: letters, digits, spaces, _ . or -', value: '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
+  NS.from = from;
+  try { name = await HOST.collab.keypad({ title: from ? 'Duplicate ' + from : 'New scene', hint: (from ? 'A copy of it as last saved. ' : '') + 'Its name: letters, digits, spaces, _ . or -', value: from ? dupName(from) : '', max: 64 }); } catch (e) { name = null; } finally { NS.asking = false; dirty(true); }
   if (GL.gone || typeof name !== 'string' || !name.trim()) return;
   await sceneMake(name);
 }
-const FROM = { open: false, scene: '', files: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
+const FROM = { open: false, scene: '', files: null, pv: null, gen: 0, loading: false, busy: '', note: '', noteC: 'muted', orig: false };
 // another scene's listing, for its list of models and sounds
 async function fromScene(name) {
   if (!okScene(name) || name === STU.scene || FROM.busy) return;
   const gen = ++FROM.gen;
-  Object.assign(FROM, { scene: name, files: null, loading: true, note: '', orig: false });
+  Object.assign(FROM, { scene: name, files: null, pv: null, loading: true, note: '', orig: false });
+  pvFromDrop();
   dirty(true);
   try {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(name)}`);
-    if (gen === FROM.gen) FROM.files = filesOf(j && j.files);
+    if (gen === FROM.gen) { FROM.files = filesOf(j && j.files); FROM.pv = new Map(FROM.files.filter(f => f.kind === 'preview').map(f => [f.path, f])); }   // (its pictures, for its cards)
   } catch (e) { if (gen === FROM.gen) { FROM.note = `The files of ${name} could not be read: ` + e.message; FROM.noteC = 'red'; } }
   finally { if (gen === FROM.gen) FROM.loading = false; dirty(true); }
 }
@@ -18179,6 +18241,7 @@ async function onLayoutEvent(d) {
   // (the list of scenes a moment later, as for a file: whether a scene has a layout, which tells a whole copy of an
   // example from one under way or broken off; e7g_examples.js)
   if (d && okScene(d.name) && !scenesT) scenesT = later(() => { scenesT = 0; listScenes(SRC.gen); }, 600);
+  if (d && okScene(d.name) && copyLike(d.name)) COPIES.sig = '';   // (a copy's layout saved: read again with that listing)
   if (!d || d.name !== STU.scene || !STU.scene) return;
   if (d.gone) { STU.saved = keyOf([]); STU.savedAt = 0; STU.savedBy = ''; STU.mine = 0; dirty(true); return; }
   if (STU.mine && Math.abs((+d.at || 0) - STU.mine) < 2) return;   // (our own save)
@@ -18187,6 +18250,7 @@ async function onLayoutEvent(d) {
     const j = await getJSON(`${SRC.base}/api/scenes/${encodeURIComponent(STU.scene)}`);
     if (gen !== STU.gen) return;
     const L = readLayout(j.layout);
+    STU.story = keepStory(j.layout);
     STU.saved = keyOf(L.items, L.settings); STU.savedAt = j.layout ? L.at || +d.at || +j.layoutAt || 0 : 0; STU.savedBy = L.by;
   } catch (e) { /* the next save says it again */ }
   dirty(true);
@@ -18196,6 +18260,7 @@ async function onLayoutEvent(d) {
 function onScenesEvent(d) {
   if (!d || !Array.isArray(d.scenes) || SRC.kind !== 'relay') return;
   SRC.scenes = d.scenes.filter(s => s && okScene(s.name)).map(s => ({ name: s.name, files: +s.files || 0, bytes: +s.bytes || 0, at: +s.at || 0, layout: !!s.layout }));
+  copiesRead();   // (again only when the names that look like copies, or their times, changed)
   chooseScene();
   dirty(true);
 }
@@ -33198,14 +33263,23 @@ function paneBlocks(tab) {
     if (SRC.state === 'auth') B.push({ p: AUTH_NOTE, c: 'amber' });
     if (SRC.state === 'error') B.push({ p: 'The scenes could not be listed: ' + SRC.note, c: 'red' });
     if (SRC.state === 'ok') {
-      if (SRC.scenes.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: SRC.scenes.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
+      const plain = plainScenes();
+      if (plain.length) B.push({ label: st ? 'Scenes (the scene here is for everyone at this circle)' : 'Scenes', row: plain.map(s => ({ id: 'scene:' + s.name, label: s.name, act: 'scene', v: s.name, on: s.name === STU.scene, dis: lock && s.name !== STU.scene })) });
       else B.push({ p: 'No scenes yet: each folder in ' + (SRC.kind === 'relay' ? 'the relay\'s scenes folder' : SRC.folder) + ' is a scene.', c: 'muted' });
-      if (!STU.scene && SRC.scenes.length) B.push({ p: 'Pick a scene.' });
+      if (!STU.scene && plain.length) B.push({ p: 'Pick a scene.' });
+      // copies of stories (v170): each opens its story with the copy's timing and places, never as a scene here
+      if (COPIES.list.length) {
+        B.push({ label: 'Copies of stories', p: 'A story\'s copy on the relay, retimed and rearranged: Open plays the story with it' + (st ? ' (here: you leave this circle for the story)' : '') + '.', c: 'faint' });
+        for (const c of COPIES.list) B.push({ label: 'Copy of ' + c.title + (c.name !== c.key + '-copy' ? ' (' + c.name + ')' : ''), row: [{ id: 'arropen:' + c.name, label: 'Open', act: 'arropen', v: c.name, primary: true }] });
+      }
       exBlocks(B);   // (the scenes that ship with the app: Open, Copy to the relay; e7g_examples.js)
       // a new scene, made on the relay and opened (a page names it in a field, a headset on the shell's keypad)
       if (canMake()) {
-        B.push({ row: [{ id: 'newscene', label: NS.making ? 'Making...' : XR.on ? (NS.asking ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open ? ' ▾' : ''), act: 'newscene', on: (NS.open && !XR.on) || NS.asking, dis: NS.making || NS.asking }] });
-        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? 'Making...' : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        const dup = STU.scene && SRC.scenes.some(s => s.name === STU.scene) ? STU.scene : '', nf = !NS.from, ask = NS.asking || NS.making;
+        B.push({ row: [{ id: 'newscene', label: NS.making && nf ? 'Making...' : XR.on ? (NS.asking && nf ? 'Naming it...' : 'New scene...') : 'New scene' + (NS.open && nf ? ' ▾' : ''), act: 'newscene', on: (NS.open && nf && !XR.on) || (NS.asking && nf), dis: ask },
+          dup ? { id: 'dupscene', label: NS.making && !nf ? 'Copying...' : XR.on ? (NS.asking && !nf ? 'Naming it...' : 'Duplicate scene...') : 'Duplicate scene' + (NS.open && !nf ? ' ▾' : ''), act: 'dupscene', v: dup, on: (NS.open && !nf && !XR.on) || (NS.asking && !nf), dis: ask } : null].filter(Boolean) });
+        if (NS.open && !XR.on) B.push({ page: true, input: { id: 'stuSceneName', value: NS.name, ph: NS.from ? 'The copy\'s name' : 'The new scene\'s name' }, row: [{ id: 'scenemake', label: NS.making ? (NS.from ? 'Copying...' : 'Making...') : 'Make it', act: 'scenemake', primary: true, dis: NS.making || !NS.name.trim() }] });
+        if (NS.open && NS.from && unsaved()) B.push({ p: 'The copy is of the scene as last saved: Save first to take your changes with it.', c: 'amber' });
       }
       if (NS.note) B.push({ p: NS.note, c: 'red' });
     }
@@ -33367,7 +33441,11 @@ function fromBlocks(B, full) {
   else if (F.files) {
     const L = fromLists(F.files), row = (f, orig) => ({ id: 'fromf:' + f.path, label: orig ? f.path.replace(/^originals\//i, '') : f.path, sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes),
       act: 'fromFile', v: f.path, on: F.busy === f.path, dis: !!F.busy || full(f.kind === 'audio' ? 's' : 'o') });
-    B.push({ label: `Models in ${F.scene} (${L.models.length})`, list: L.models.map(f => row(f)) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
+    // (its models as cards, as the Add pane's: the picture that scene keeps of each (e7e_pics.js, pvFrom), else a plain tile
+    // with its kind; its name, its bytes; the owner, 14 November 2026)
+    const card = f => ({ id: 'fromf:' + f.path, label: f.path.replace(/^models\//i, ''), title: f.path, act: 'fromFile', v: f.path, from: [f.path], kind: extOf(f.path).toUpperCase(),
+      sub: (F.busy === f.path ? 'copying · ' : '') + mb(f.bytes), dis: !!F.busy || full('o') });
+    B.push({ label: `Models in ${F.scene} (${L.models.length})`, grid: L.models.map(card) }, { label: `Sounds in ${F.scene} (${L.sounds.length})`, list: L.sounds.map(f => row(f)) });
     if (L.orig.length) {
       B.push({ row: [{ id: 'fromorig', label: `Its originals (${L.orig.length}) ${F.orig ? '▾' : '▸'}`, act: 'fromOrig', on: F.orig }] });
       if (F.orig) B.push({ list: L.orig.map(f => row(f, true)) });
@@ -33899,6 +33977,8 @@ function act(a, v) {
     pause: () => pauseSet(!MPAUSE.on),
     cutbox: () => { const ob = selModel(); if (ob) itemAct('cut', null, ob.id); },
     newscene: () => sceneAsk(),
+    dupscene: () => sceneAsk(v),
+    arropen: () => copyOpen(v),   // (a copy of a story: the story starts with it; v170)
     exopen: () => exOpen(v),   // (an example: opened read only, or at a circle from the relay for everyone there; e7g_examples.js)
     excopy: () => exCopy(v),
     exback: () => exBack(),
@@ -33923,7 +34003,7 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, COPIES.list.length, COPIES.read, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -34093,7 +34173,7 @@ function blockHTML(b) {
   if (b.grid && b.grid.some(x => x.item)) return lab + `<div class="stu-grid">${b.grid.map(itemCardHTML).join('')}</div>`;
   // (an Add card's Look: the model over the whole window, e7f_viewer.js; a button of its own over the picture's corner, so
   // a press on the card still places it)
-  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = pvAny(x.pic || []); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
+  if (b.grid) return lab + `<div class="stu-grid">${b.grid.map(x => { const P = cardPic(x); const card = `<button type="button" class="stu-card" data-act="${x.act}" data-v="${esc(x.v)}" data-id="${esc(x.id)}" title="${esc(x.title || x.label)}"${x.dis ? ' disabled' : ''}>` +
     `<span class="pic">${P ? `<img src="${P.url}" alt="">` : `<b>${esc(x.kind || '')}</b>`}</span><span class="nm">${esc(x.label)}${x.warn ? '<span class="stu-warn" title="See its card">⚠</span>' : ''}</span>` +
     `${x.sub ? `<small>${esc(x.sub)}</small>` : ''}${x.sub2 ? `<small class="f">${esc(x.sub2)}</small>` : ''}</button>`;
     return x.look ? `<div class="stu-cw">${card}<button type="button" class="stu-look" data-act="look" data-v="${esc(x.v)}" data-id="look:${esc(x.v)}" title="Look at ${esc(x.label)} over the whole window, spun about">Look</button></div>` : card; }).join('')}</div>`;
@@ -36195,7 +36275,7 @@ const pvFits = rel => rel.length <= 200 && rel.split('/').length <= 5 && rel.spl
 // ---- the listing: its pictures said apart (setFiles), those whose file changed or went fetched again or forgotten
 function pvListing(list) {
   PV.files = new Map(list.map(f => [f.path, f]));
-  for (const [rel, e] of [...PV.img]) { const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }
+  for (const [rel, e] of [...PV.img]) { if (rel.startsWith(PV_FROM)) continue; const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }   // (another scene's: pvFromDrop)
   PV.rev++;
 }
 function pvDrop(map, k) { const e = map.get(k); if (e && e.url) URL.revokeObjectURL(e.url); map.delete(k); }
@@ -36225,25 +36305,45 @@ function pvAny(list, load = true) { for (const p of list) { const r = pvFor(p, l
 const pvHas = p => PV.mem.has(p) || (PV.files.has(pvPath(p)) && (PV.img.get(pvPath(p)) || {}).state !== 'failed');
 // a listed picture's address: its signed link (R2), else the scene's file (call adds the password as a header)
 const pvUrl = f => f.url || sceneUrl(STU.scene) + encPath(f.path) + (f.at ? '?v=' + f.at : '');
-function pvLoad(f) {
-  const old = PV.img.get(f.path);
+// (key: where it is kept in PV.img, its path for this scene's; url: where it is fetched from)
+function pvLoad(f, key = f.path, url = pvUrl(f)) {
+  const old = PV.img.get(key);
   if (old && old.at === f.at) return;
-  if (old) pvDrop(PV.img, f.path);
-  PV.img.set(f.path, { at: f.at, state: 'queued', url: '', img: null });
-  PV.q.push(f);
+  if (old) pvDrop(PV.img, key);
+  PV.img.set(key, { at: f.at, state: 'queued', url: '', img: null });
+  PV.q.push({ key, at: f.at, url });
   pvPump();
 }
 // (three fetches at a time: a scene of fifty models asks for its pictures without crowding out its models)
 function pvPump() {
   while (PV.busy < 3 && PV.q.length) {
-    const f = PV.q.shift(), e = PV.img.get(f.path), gen = STU.gen;
-    if (!e || e.at !== f.at || e.state !== 'queued') continue;
+    const j = PV.q.shift(), e = PV.img.get(j.key), gen = STU.gen;
+    if (!e || e.at !== j.at || e.state !== 'queued') continue;
     PV.busy++; e.state = 'loading';
-    call(pvUrl(f), { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(f.path) === e) pvImage(e, b, () => PV.img.get(f.path) === e); })
-      .catch(() => { if (PV.img.get(f.path) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
+    call(j.url, { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(j.key) === e) pvImage(e, b, () => PV.img.get(j.key) === e); })
+      .catch(() => { if (PV.img.get(j.key) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
       .finally(() => { PV.busy--; pvPump(); });
   }
 }
+// ---- From another scene's cards (the owner, 14 November 2026: "When adding from another scene, there should be previews
+// too"): the pictures that scene keeps (previews/ in its listing, FROM.pv), fetched as this scene's are (fromUrl: its
+// signed link, else the relay with the password), kept in PV.img under 'from:<scene>:' so a listing of this scene leaves
+// them; another scene picked, or this one opened again, forgets them (pvFromDrop, pvClear). Nothing is made for them here
+const PV_FROM = 'from:';
+function pvFrom(list, load = true) {
+  if (!FROM.pv || !FROM.scene) return null;
+  for (const p of list) {
+    const f = FROM.pv.get(pvPath(p));
+    if (!f) continue;
+    const key = PV_FROM + FROM.scene + ':' + f.path, e = PV.img.get(key);
+    if (e && e.at === f.at) { if (e.state === 'ready') return e; continue; }
+    if (load && !SRC.held) pvLoad(f, key, fromUrl(FROM.scene, f));
+  }
+  return null;
+}
+function pvFromDrop() { for (const k of [...PV.img.keys()]) if (k.startsWith(PV_FROM)) pvDrop(PV.img, k); PV.rev++; }
+// a card's picture: another scene's (from) or this scene's (pic)
+const cardPic = (x, load = true) => (x.from ? pvFrom(x.from, load) : pvAny(x.pic || [], load));
 // a JPEG's bytes as a picture to draw (an <img> for the page's grid and the headset's canvas alike)
 function pvImage(e, blob, still) {
   e.url = URL.createObjectURL(blob);
@@ -39740,7 +39840,7 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
       const live = inView(cy, ch) && !t.dis;
       if (t.dis) ctx.globalAlpha = 0.45;
       vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
-      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      const px = cx + 8, py = cy + 8, pic = cardPic(t);
       ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
       if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
       else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }

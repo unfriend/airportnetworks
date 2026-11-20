@@ -5,7 +5,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 ## The studio is built the same way
 
 `stories/studio.js` (*Your own scenes*) is generated from `tools/studio/` (`node tools/studio/build.mjs`,
-`--check` as for the tour): the tour's kit, three.js r128's own add-ons from `tools/studio/vendor/` (pasted with their
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), three.js r128's own add-ons from `tools/studio/vendor/` (pasted with their
 licence lines, each wrapped so nothing leaks but `THREE.*`; `GLTFExporter` only inside `exporterLoad()`, defined when
 the studio first converts), two sets (`stage`, `looks`) and engine parts adapted from the design room's (the
 shared-room, headset-setting, subtitle, panels, recenter, framing and sound-effect lines as in every story: the smoke
@@ -1234,11 +1234,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   presses; *Undo*; *Reset what I have seen*; on a page *Download layout.json*; the relay's state, or how to run one;
   *New scene*: on a page a field and *Make it*, in a headset *New scene...* asking the shell's keypad,
   `HOST.collab.keypad({ title, hint, value, max })`, no button without it; made by `POST /api/scenes` and opened as one
-  picked by hand, editing on; while editing, the scene's settings: *Other circles* and *Real world hides the
+  picked by hand, editing on; *Duplicate scene* beside it (v167: the same field or keypad, filled with *<scene> copy*,
+  `NS.from`; `POST /api/scenes { name, from }` copies every file and the saved layout, locks kept, no `.history/`; files
+  not copied counted); *Copies of stories* (v170; `COPIES` in `e4_files.js`): the relay's scenes whose `layout.json` holds
+  a story's arrangement (`HOST.arrange.list()`, read when the listing has a name like `<key>-copy[-n]`), each *Copy of
+  <title>* with *Open*, which plays that story with the copy (`HOST.arrange.open`: at a studio circle you leave it for the
+  story); a copy is never among the scenes to pick (a name like one waits for the list; one whose layout holds no story,
+  `atelier-copy`, is then a scene like any other), never opened as a scene; one read at a time, again only when the
+  names like a copy's (their times, whether they have a layout) changed or a layout of one was saved; and
+  the studio's Save keeps a layout's `story` as it was read (`STU.story`, `keepStory`; "A story's copy" in
+  `docs/agents/shell.md`); while editing, the scene's settings: *Other circles* and *Real world hides the
   scene*; *Examples*, the scenes that ship with the app: "Example scenes" below), **Add** (editing: the scene's models with their size and a warning mark, a grid of cards with
   their pictures and *Make pictures* on a page, its sounds,
   *Originals* folded, *Trigger cube*, *Convert every model*; *Shapes* (Cube, Sphere, Cylinder, Plane) and *Empty*; *From another scene...*: the relay's other scenes, then
-  one's models and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
+  one's models (cards with the pictures that scene keeps, as the Add pane's; a plain tile where it has none, v165:
+  `pvFrom`, `cardPic`) and sounds, `models/` and `sounds/` first, its originals folded; a press copies the file in at the same
   path, a new name when taken, `POST .../copy`, with the files a non-GLB model names that its scene has, found as the
   Upload pane's plan finds them, one whose path is taken here kept as this scene's, an OBJ and its MTL under
   `originals/`; then placed as Add places it, one Undo step; each scene keeps its own copy. New scene and From another

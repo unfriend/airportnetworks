@@ -12,17 +12,7 @@
 // those, not this file.
 HOST.register('topo', function (HOST) {
 'use strict';
-const D2R = Math.PI / 180;
-const $ = s => document.querySelector(s);
-const fmt = n => Math.round(n).toLocaleString('en-US');
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-// =================================================================== KIT ==
-//@@KIT@@
-const K = makeKit(THREE);
-const { smooth, clamp } = K;
-
+//#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).

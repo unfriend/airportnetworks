@@ -8,7 +8,7 @@ Julia Guthrie and Jörg Menche, LBI Network Medicine, Vienna) into a narrated, a
 explore mode, on desktop, phones and in VR/AR headsets (Meta Quest Browser). Be bold and beautiful, as in the tour.
 
 **The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
-"Palette and look", and `tools/lbi/kit.js`. Everything there holds here (runtime, code style, pure `update`,
+"Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`,
 exports, labels, controls, camera views, performance budget, harness, palette), with these differences:
 
 - Your set files live in `tools/nmd/sets/`, the harness is `tools/nmd/harness.html` (same query syntax) and the

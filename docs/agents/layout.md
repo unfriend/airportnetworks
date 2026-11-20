@@ -50,7 +50,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `--scenes` and a static folder of them) are passed straight through, never cached (v111), by a rule before the
   narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's, and so are the example
   scenes that ship with the app (`examples/`, v137: big models and streamed sounds, not offline); the upload page's
-  POSTs and the navigation to `<relay>/upload` are left to the browser.
+  POSTs and the navigation to `<relay>/upload` are left to the browser. Story packages (`packages/`) are fetched network
+  first into a cache of their own that outlives the releases too (`networks-packages`), by a rule before the narration's;
+  their index never from the cache while the network answers (`docs/agents/packages.md`).
 - `audio/` - optional narration MP3s (`narration.mp3` for the airports,
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
@@ -161,7 +163,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
-  (a release step); `tools/collab.mjs` -
+  (a release step), and `sw.js`'s story files (`SHELL`) and narrations (`AUDIO`) from `stories/list.js` and `audio/`; `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
@@ -176,35 +178,40 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
   Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
   `audio/narration-pass-de.mp3`.
+- `tools/engine/` - the engine parts the fourteen built stories share (`e1_head.js` ... `e7_app.js`: each part a
+  declaration, named in a story's engine file by a `//#use` line), `parts.mjs` (the builds' `expand`; run alone it
+  lists who uses what), `all.mjs` (rebuilds, or `--check`s, every story that uses them) and three before/after
+  comparisons for refactors, `same.mjs`, `xrsame.mjs`, `panelsame.mjs` (`docs/agents/testing.md`); see
+  `docs/agents/stories.md`, "Shared engine parts".
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
-  engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
+  engine parts, build script, set harness; it uses `tools/engine/kit.js`); see its
   `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its
   history as `ikerdata/`; a local copy there is ignored by git).
 - `tools/endo/` - the sources of `stories/endo.js` (data generator, data block, sets,
   engine parts adapted from the muscle story's, build script, set harness; it uses
-  `tools/lbi/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
 - `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
-  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`,
+  icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/engine/kit.js`,
   the tour's body set and the microanatomy story's 3D organs); see its `README.md` and `SPEC.md`.
 - `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
-  parts adapted from the PET story's, build script, set harness; it uses `tools/lbi/kit.js` and the tour's body and
+  parts adapted from the PET story's, build script, set harness; it uses `tools/engine/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
 - `tools/ovary/` - the sources of `stories/ovary.js` (data generator and the figures' readings, data block, shared look,
-  sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses `tools/lbi/kit.js` and the
+  sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses `tools/engine/kit.js` and the
   tour's body set); see its `README.md` and `SPEC.md`.
 - `tools/qubits/` - the sources of `stories/qubits.js` (the maths `QMATH` and its test, the real run's numbers, the
   shared look, sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses
-  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/mutation/` - the sources of `stories/mutation.js` (the maths `MMATH` and its test, the poster's numbers, the
   shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
-  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+  `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/topo/` - the sources of `stories/topo.js` (the data generator, which runs topocyte on the authors' files,
   the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
-  story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body set and the microanatomy story's organ
+  story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's body set and the microanatomy story's organ
   models); see its `README.md` and `SPEC.md`.
 - `tools/soil/` - the sources of `stories/soil.js` (the data generator, which reads the authors' files, and the slides'
   readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
-  adapted from the tissue topology story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's `web` set
+  adapted from the tissue topology story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's `web` set
   and the tissue topology story's look); see its `README.md` and `SPEC.md`.
 - `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;
@@ -272,6 +279,19 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   transcoded as a model loads (`tools/studio/engine/ktx2.js`, `tools/studio/vendor/KTX2Loader.js`). Fetched only when the
   studio first needs them: served by the relay (`APP_DIRS`) and GitHub Pages, kept by the service worker as any app file it
   fetched, not in its `SHELL` (the encoder is 3.4 MB).
+- `packages/` - story packages (`docs/agents/packages.md`, the contract `tools/packages/SPEC.md`): a story in a folder of
+  its own, `packages/<key>/` (`story.json`, `main.js` registering the story as `stories/<key>.js` do, an optional
+  `icon.png`, its data, models and narration loaded through `HOST.pkgUrl`, an optional `src/` that is served but never run,
+  `README.md`), and `packages/index.json`, the index the shell reads at start and with the list of stories (written by
+  `tools/packages/scan.mjs`, never by hand; committed, `{ "api": 1, "packages": [] }` with none). Not in `SHELL`: the
+  service worker keeps what a device opened in a cache of its own (`networks-packages`, kept across releases); the relay
+  serves it deep (`APP_DIRS`, `APP_DEEP`) and never writes there.
+- `tools/packages/` - the story packages' tools: `SPEC.md` (the contract: the folder, `story.json`, the index, the shell,
+  the service worker, the relay, shared rooms, the rules, the reserved keys the scan reads), `scan.mjs` (writes
+  `packages/index.json`; `--check`, `--root`), `check.mjs` (a package's rules, and with `--load` opened headless) and
+  `template/` (a package's `src/`: `build.mjs`, `engine/e1_head.js` ... `e7_app.js` on the shared engine parts,
+  `sets/orb.js`, `README.md`). `packages/hello/` is the example built from it (*Six handshakes*, hidden: `#hello`; its
+  `src/`, `story.json`, `main.js`, `icon.png`, `README.md`).
 - `examples/` - example scenes that ship with the app (v137): scene folders with their listings exactly as
   `tools/studio/scan.mjs` writes them (`examples/index.json`, `examples/<name>/files.json`), opened read only from the
   studio's Scene pane and copied to a relay from there ("The studio"). The first, `bliss-xp`, the Bliss XP room ("The Bliss

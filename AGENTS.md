@@ -104,6 +104,10 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   (`examples/bliss-xp` generated, never edited by hand).
 - `tools/lowpoly/` - the miniatures' sources (`models-a.js`, `models-b.js`, each under 1,200 triangles, `tris` exact),
   harnesses and `build.mjs`.
+- `packages/` - story packages, a story in one folder each (`packages/<key>/`: `story.json`, `main.js`, `icon.png`, its
+  files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract), `scan.mjs` (writes the
+  index; `--check`), `check.mjs` (a package's rules; `--load`) and `template/` (a package's `src/`); `packages/hello/` the
+  example (hidden: `#hello`) (`docs/agents/packages.md`).
 
 ## Detail files (read the one you need, when you need it)
 
@@ -113,6 +117,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 | `docs/agents/shell.md` | how the shell and stories fit together: loading, controllers after standby, the headset Stories screen, the address and history, Repeat, slideshow, placement and anchors, the headset settings (labels, cards, free moving, subtitles, frame rate, refresh rate, automatic quality, menu sharing, moving with the sticks), focus mode, phones and tablets, panels per story, developer mode, sound and sound effects, real-world occlusion, the developer notebook, spaceships, hot reload and live updates, inside a story (`LOAD`, `CH`, `NARRATION_SYNC`, framing) | touching `index.html`, `sfx.js`, `occlusion.js`, `notes.js`, `ships.js`, `sw.js`, sound, headset settings or a story's frame, load or panel code |
 | `docs/agents/shared-rooms.md` | shared rooms in full: the room's keys and `FORMAT`, All stories and lobby circles, the room's arc, relay, peer to peer and on-device rooms, room names, rooms on this network, alignment (shared space, floor spots, room setup guide, check by eye, Touch the spot, areas, places), camera mode, the desktop preview camera, the output page (MIDI and OSC), stations, cards, icons, locks, the headset menu and its tabs, others' moves smoothed, the relay (public hosting, password, scenes on disk and in R2, updating a room), the hooks every story keeps, what each story shares; the PC's Vive trackers | touching `shared.js`, `relay/`, a story's `collab` hooks or `state()`, `tools/trackers/` |
 | `docs/agents/studio.md` | the studio: scenes, models and the GLB converter, textures, uploads, Fewer triangles, the viewer, `layout.json`, trigger cubes, sounds, cut-outs, groups, shapes, behaviours, walls, motions, recorded paths, ghosts, timelines, screens, paintings, sequences, press and hover, the room scan, examples and the Bliss XP room, editing, saving, placement, performance, props and characters on trackers, and the parked glTF round trips (Blender, Unity: nice to have) | touching `tools/studio/`, `examples/` or the relay's scenes |
+| `docs/agents/packages.md` | story packages: the folder, `story.json`, the index and its scan, the shell's loading (`HOST.packages`, `HOST.pkgUrl`, refusals, the cards, developer mode, `HOST.live`), the service worker's cache, the relay, shared rooms (*Not on this device*), the rules | touching `packages/`, `tools/packages/`, or the shell's loading of a package |
 | `docs/agents/stories.md` | how the built stories are made from `tools/<key>/` (kit, sets, build budget, `keepClear`, life size) and each one's sets, data, permissions, explore tabs, headset and room behaviour, spelling | touching any story or its `tools/<key>/` sources |
 | `docs/agents/testing.md` | every suite, every smoke block (`### smoke: <block>`) and collab round (`### collab.mjs --<flag>`) and what it checks, the tools, useful URL hashes | running or changing a test, or judging what a change needs |
 | `docs/history.md` | version history and the owner's words behind the rules, by area; the `FORMAT` history | wondering why a rule is as it is |
@@ -139,6 +144,8 @@ gets at most a line per feature and stays under 70 KB.
 - The design room (`#design`) and the studio (`#studio`) are pages in `STORY_EXTRA`, built like stories, placed in a
   room as stations but never by Arrange all.
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
+- A story's copy on the relay (v170, `HOST.arrange`): *Copy to relay* (developer mode), `#<key>&arr=<name>[&edit]`, the
+  editor drawer, a station's `st.<id>.arr`; the contract `tools/engine/SPEC.md`, the shell's side `docs/agents/shell.md`.
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
@@ -216,8 +223,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
 - Rebuild the dependants after a shared source changes: `tools/lbi/sets/body.js` (pet, micro, ovary, topo),
   `tools/lbi/sets/tissue.js` (micro), `tools/micro/sets/organs.js` (pet, micro, topo), `tools/nmd/sets/motor.js`
-  (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/lbi/kit.js` (every built story and the
-  studio), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
+  (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the
+  studio), `tools/engine/*.js` (the shared engine parts: every built story but the studio, `node tools/engine/all.mjs`), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
   (design).
 - Never edit `tools/studio/vendor/` (three.js r128's own add-ons and meshoptimizer, pasted unchanged).
 - Generated data files (`tools/*/sets/data.js`) are never edited by hand; the authors' source files never go into the
@@ -299,7 +306,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `docs/agents/testing.md`, "Windows".
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
-  also add it to `SHELL`, and to `APP_FILES` (or `APP_DIRS`) in
+  also add it to `SHELL` (story files and narrations excepted: `tools/release.mjs` writes those from `stories/list.js`
+  and `audio/`), and to `APP_FILES` (or `APP_DIRS`) in
   `relay/server.mjs`, or the relay serving the app answers 404 for it
   (`node relay/test.mjs` checks every file `SHELL` names).
 - When releasing (after bumping `VERSION`), run `node tools/release.mjs`: it
@@ -344,7 +352,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
   `tris` exact: the harnesses mark a wrong count in red). And `tools/studio/` and `stories/studio.js` (also after
-  changing `tools/lbi/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
+  changing `tools/engine/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
   scene's maker, `node tools/studio/test/make.mjs` (it runs `scan.mjs` too; `node tools/studio/scan.mjs
   tools/studio/test/scenes --check` says whether its listings are current). A new page in `STORY_EXTRA` needs its icon
   in `tools/lowpoly/` and its key in `ICONS` in `tools/design/build.mjs` (an icon, not a prop), as the studio has.
@@ -365,7 +373,7 @@ There is no unit-test suite. What each command checks, block by block, is `docs/
 
 When the suites run (the owner's rule: only when pushing to `main`): every suite a change touches runs before `main`
 moves, the smoke test always. A push to `dev` gets only the cheap checks: `node --check` on the changed files, the
-builds' `--check` and `node tools/release.mjs --check`; a red result there is not chased. Running is free (CPU);
+builds' `--check`, `node tools/packages/scan.mjs --check` and `node tools/release.mjs --check`; a red result there is not chased. Running is free (CPU);
 chasing red results costs tokens, and most were the tests' own or the machine's.
 
 - Serve the folder, then smoke: `npx http-server -p 8123 -c-1 .` (or `python3 -m http.server 8123`), then
@@ -388,7 +396,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/live.mjs` | after touching `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs` or the relay's `--watch` |
 | `git worktree add /tmp/old <commit> && node tools/update.mjs /tmp/old .` | after changing `sw.js` or how files load |
 | `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video`, `--osc` for parts) | after touching `shared.js`, the relay or a story's hooks |
-| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
+| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token` and `--arr` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
 | `node tools/output/test-page.mjs` | after touching `output.js` or the output page's part of `shared.js` (Web MIDI and the studio stubbed; `tools/collab.mjs --output` is the end-to-end round with the relay's OSC) |
 | `node tools/peer.mjs` | links two `p2p/` pages through `/peerjs` |
 | `node tools/room-test.mjs` | after changing `room-test/` |
@@ -399,6 +407,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
 | `node tools/studio/test-images.mjs` | after changing `tools/studio/engine/images.js` or `test/pictures.mjs` |
+| `node tools/packages/check.mjs packages/<key> --load` | after changing a package or `tools/packages/template/` (build it first: `node packages/<key>/src/build.mjs`) |
 | `node tools/studio/test-ik.mjs` | after changing `ik.js` (the studio's puppet and people's bodies) or the puppet in `test/make.mjs` |
 
 Real-headset behaviour (controllers, session hand-over between stories, placement, comfort, sound) can only be

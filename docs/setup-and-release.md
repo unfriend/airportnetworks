@@ -215,7 +215,7 @@ is GitHub Pages' custom domain for `main`.
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all thirteen built stories, the design room, the studio |
+   | `tools/engine/kit.js` | all thirteen built stories, the design room, the studio |
    | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js` (the studio's icon, `studio.stage`, too), the design room |
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |

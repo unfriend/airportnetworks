@@ -16,7 +16,7 @@ and bump `VERSION` in `sw.js`. The contract between the parts is `SPEC.md`.
 | --- | --- |
 | `sets/robots.js` | the one set: the simulation (rules, bumps, crumbs, the avatar), the robots, the model living room, rooms drawn from a description, the dusty floor, the links (manifest: `sets/robots.md`) |
 | `engine/` | the flock's engine parts, adapted: one scene, a screen camera with three views (above, low down on the gang, your eyes), click to walk, the headset's room (`xrRoom` in `e5_xr.js`), the trigger on the floor spills crumbs |
-| `build.mjs` | puts the tour's kit (`../lbi/kit.js`), the set and the engine parts together |
+| `build.mjs` | puts the shared kit (`tools/engine/kit.js`) (`../engine/kit.js`), the set and the engine parts together |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | the set on its own (`harness.html?set=robots&room=box&sim=20&anim=1`, see its header) and screenshots, as in `tools/flock` |
 
 Serve the repository root (`python3 -m http.server 8123`) and run the tools from this folder

@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the multiplex tower with the analysis data. Pick a disease group, search a gene, run
 // your own random walk, knock layers out, and pick endotypes to see how they connect layer by layer;
@@ -11,12 +11,10 @@ const SCENES = [
 const TABS = [['groups', 'Diseases'], ['genes', 'Genes'], ['walk', 'Walk'], ['layers', 'Layers'], ['endo', 'Endotypes'], ['scenes', 'Scenes']];
 const X = { tab: 'groups', scene: 'tower', ctl: {}, t0: 0, turn: 'on', group: -1, gene: -1, pick: [], off: new Set(), egroup: 5,
   walk: null, walkFrom: 5, mine: [], walkers: true, showZ: false, colour: 'group', grid: false, room: false, err: '' };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['tower_group', 'motor_site']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-
+//#use orbit ctlValue~2
 // ------------------------------------------------------------------ data --
 // the analysis data, decoded once for the panels (the tower decodes its own copy for drawing)
 const ND = (() => {
@@ -107,20 +105,7 @@ function setCtl(k, key, v) {
   else if (s.cam && was && s.cam[was]) flyTo(view(k, 'default'));
   if (c) renderScenes();
 }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-
+//#use flyTo orbitStep
 // --------------------------------------------------------------- actions --
 function selectGroup(g) {
   X.group = g;
@@ -202,20 +187,8 @@ function setRoom(on) {
 const ctlShared = (k, c) => { const v = ctlValue(k, c); return k === 'tower' && c.key === 'view' && v === 'room' ? 'tower' : v; };
 const walkShared = () => (X.walk ? (X.walk.from === 'mine' ? X.walk.seeds.slice() : X.walk.from) : null);
 const offShared = () => [...X.off].sort((a, b) => a - b);
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabView
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries((GL.sets[k].controls || []).map(c => [c.key, ctlShared(k, c)]));
@@ -311,7 +284,7 @@ function runQuery(q) {
 
 // ------------------------------------------------------------------ panes --
 const QUICK = ['TTN', 'MYH7', 'DES', 'RYR1', 'DMD', 'SCN4A', 'CHRNE', 'SOD1'];
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:#04131c"' : ''}>${col ? `<span class="sw" style="background:${col}"></span>` : ''}${label}</button>`;
+//#use chip~2
 const hbar = (label, v, max, col, attrs) => `<div ${attrs || ''} style="display:grid;grid-template-columns:minmax(0,1fr) 46%;gap:8px;align-items:center;font-size:13px;margin:3px 0;${attrs ? 'cursor:pointer' : ''}"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="display:block;height:9px;border-radius:2px;background:${col};width:${Math.max(2, Math.round(100 * Math.max(0, v) / (max || 1)))}%"></span></div>`;
 function buildExplore() {
   $('#explore').innerHTML = `
@@ -353,10 +326,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
+//#use setTurn
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
@@ -510,8 +480,7 @@ function updateExtraLabels() {
   }
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _ro = new THREE.Vector3(), _rd = new THREE.Vector3(), _inv = new THREE.Matrix4();
+//#use _rc~2
 // the gene under the mouse, in explore mode with the tower on show
 function pickAt(mx, my) {
   if (X.scene !== 'tower' || !TW().pick) return -1;

@@ -1,0 +1,16 @@
+{
+  "version": "networks-v168",
+  "date": "2026-11-19",
+  "new": [
+    "Behind the scenes: the fourteen built stories (all but airports, proteins and cell map) now share one copy of their headset, panel, sound and timeline code (step 1 of making stories into packages the studio can host). Nothing they show or do is meant to have changed."
+  ],
+  "test": [
+    "In a headset, open a few stories (the tour, PET, the muscle story's tower life size, endotypes' gap, the scanner in PET) and check placing, the grip, pointing, the trigger on the scene, the panels and the Stories screen behave as before.",
+    "The life-size ones: the flock, the robot gang (your own room and Recenter), the pass story's sea and shark; the design room's miniatures picked up and put on the stage.",
+    "On a phone: a newer story (soil, topo) and an older one (the tour, the muscle story) look as before, sideways too."
+  ],
+  "untested": [
+    "Everything in a headset: it was checked only by driving the headset code by hand in a page (placing, pointing, trigger, grip, recentre, ending a session), not on a Quest or a Pico.",
+    "The thumbsticks, two-hand resize, the robots' room capture, the pass story's fingertip and carrying a miniature were not driven at all."
+  ]
+}

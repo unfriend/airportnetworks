@@ -54,7 +54,7 @@ reading), "plots", "blocks" (the four replicates, drawn as rows), "sampling date
 correlation across the samples), "modules" (groups that rise together), "the crowd" (the community).
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/lbi/kit.js`, with these differences (as the tissue topology story's, `tools/topo/SPEC.md`):
+`tools/engine/kit.js`, with these differences (as the tissue topology story's, `tools/topo/SPEC.md`):
 - Set files live in `tools/soil/sets/`; the harness is `tools/soil/harness.html`
   (`?set=<name>&p=k:v,...&t=..&cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool
   `tools/soil/shot.mjs` (run it from `tools/soil`; `SHOTS=<dir>` and `PORT=<port>`). The harness always loads

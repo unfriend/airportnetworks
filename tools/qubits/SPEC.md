@@ -25,7 +25,7 @@ Decisions (the owner's and Joel's):
   qubit indices, q2 the most significant bit (the first bisection); signs solid +, dashed −; red +1, blue −1.
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/lbi/kit.js`, with these differences:
+`tools/engine/kit.js`, with these differences:
 - Set files live in `tools/qubits/sets/`; the harness is `tools/qubits/harness.html` (the same query syntax; `cam=` a
   view by name or six numbers) and the screenshot tool `tools/qubits/shot.mjs` (run it from `tools/qubits`; `SHOTS=<dir>`
   and `PORT=<port>`; shots go to `tools/qubits/shots/` by default, ignored by git).

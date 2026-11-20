@@ -7,21 +7,18 @@ const sceneName = k => T('sc.' + k);
 const sceneDesc = k => (k === 'globe' ? T('sc.globe.d', num(FACTS.airports), num(FACTS.routes)) : T('sc.' + k + '.d'));
 const TABS = [['fish', 'tab.fish'], ['outbreak', 'tab.out'], ['cell', 'tab.cell'], ['scenes', 'tab.scenes']];
 const TAB_SCENE = { fish: 'fish', outbreak: 'globe', cell: 'cell' };
-const ctlsOf = k => GL.sets[k].controls || [];
-// a control the panes offer now (a set may say when one applies); the shared state keeps every control all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
+//#use ctlsOf ctlShown~2
 // what explore shows: the tab, the scene and its controls; the school's size; the outbreak's start and settings (and,
 // per device, its day and whether it plays, and what a click on the globe does); the city looked up; the protein picked
 const X = { tab: 'fish', scene: 'fish', ctl: {}, t0: 0, turn: 'on', shark: false, n: 300, city: '', prot: '',
   out: { start: 'VIE', inc: 5, inf: 7, spread: 'medium', cut: 0, day: 0, playing: false, click: 'start' } };
-const XS = {};
+//#use XS
 // params that count or are driven here jump to their new value instead of easing through the ones in between; the
 // cell's moves travel at an even pace (three seconds; NF-kB's relay first, in 1.6 s, as the cell map does)
 const STEP = new Set(['fish_n', 'fish_k', 'fish_hunt', 'globe_day']);
 const MOVE_P = new Set(['cell_cue', 'cell_nfkb', 'cell_apop', 'cell_tfeb', 'cell_glut4', 'cell_nrf2', 'cell_als', 'cell_cf']);
 const orbit = { cur: [0, -6, 0.25, 0, 1.6, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
+//#use ctlValue ctlOf
 const ctlVal = (k, key) => { const c = ctlOf(k, key); return c ? ctlValue(k, c) : ''; };
 // a view option's camera: the cam view of the same name
 function camFor(k, v) { const c = GL.sets[k].cam || {}; return v && c[v] ? v : null; }
@@ -31,8 +28,7 @@ const viewIs = (k, v) => ctlVal(k, 'view') === v;
 const following = () => APP.mode === 'story' || ctlVal('fish', 'view') !== 'free';
 // what the sets know
 const api = k => GL.sets[k].api || {};
-// work for the next frame, once the sets have drawn what was just picked
-const NEXT = [];
+//#use NEXT
 // the fish: neighbours each one watches (1 to 12) and how many there are
 const fishK = () => clamp(parseInt(ctlVal('fish', 'k'), 10) || 7, 1, 12);
 const MOVE_KEYS = () => api('cell').moves().map(m => m.key);
@@ -74,7 +70,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-function pushState() { updateExtraLabels(); }
+//#use pushState
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
@@ -97,25 +93,7 @@ function setCtl(k, key, v, ui = true) {
   if (k === 'globe' && key === 'out' && ui) { if (v === 'on') { X.out.day = 0; X.out.playing = true; } else X.out.playing = false; }
   renderAll();
 }
-// a view of a set, its scene brought up
-function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
-function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-// fly to a point of the scene on show, keeping the direction you look from
-function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
-
+//#use showView sceneCtl flyTo orbitStep flyNear
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene that shows it.
@@ -292,8 +270,7 @@ function collabApply(v) {
 // in (FSY.at: this page's latest; what this page sends goes after the frame's step, fishSend). True while at a
 // station (the school then stays round its spot)
 const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, pa: 0, pt: 0, pace: 1, steered: 0, had: false, on: false, at: 0, lead: '' };
-const r2 = a => a.map(x => Math.round(x * 100) / 100);
-const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
+//#use r2 earlier
 function fishSync() {
   const s = GL.sets.fish, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
@@ -373,9 +350,7 @@ function fishEffect(type, d, by) {
   }
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
+//#use chip
 const slider = (sl, min, max, step, v, label, col) => `<input type="range" data-sl="${sl}" min="${min}" max="${max}" step="${step}" value="${v}" aria-label="${esc(label)}" style="width:100%;accent-color:${col || CYAN}">`;
 const grpH = (label, val, attr) => `<p class="grp-h">${esc(label)}${val !== undefined ? ` <b ${attr || ''} style="margin-left:auto;color:var(--ink)">${esc(val)}</b>` : ''}</p>`;
 // the airports a class is likely to start from (all of them can be picked on the globe or found by name)
@@ -431,18 +406,7 @@ function buildViewCtl() {
   const vc = $('#viewctl');
   vc.innerHTML = `<div class="grp"><span>${esc(T('turn'))}</span><div class="seg" data-ctl="turn" role="group" aria-label="${esc(T('turn'))}">${[['on', T('on')], ['off', T('off')]].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${esc(n)}</button>`).join('')}</div></div>`;
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -597,8 +561,7 @@ function renderScenes() {
     <h3>${esc(sceneName(X.scene))}</h3><p class="sub">${esc(sceneDesc(X.scene))}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks: the city looked up, the protein picked)
-function updateExtraLabels() {}
+//#use updateExtraLabels
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Vector3();
@@ -612,12 +575,7 @@ function pickWith(rc) {
   } catch (e) { return null; }
   return null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
 function pickPos(p) { return p.city !== undefined ? api('globe').pos(p.city, 0.02) : p.copy !== undefined ? api('cell').pos(p.copy) : null; }
 function pickText(p) {

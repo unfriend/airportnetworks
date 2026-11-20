@@ -1,4 +1,4 @@
-// Assembles stories/soil.js from the tour's kit (tools/lbi/kit.js), the data (sets/data.js, written by
+// Assembles stories/soil.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
 // data/gen_data.py from the authors' field trial), its decoders (sets/sdata.js), the story's palette (sets/look.js), the
 // tissue topology story's look (tools/topo/sets/look.js, unchanged), the tour's web set (tools/lbi/sets/web.js,
 // unchanged: only its globe is used), the sets and the engine parts in this folder.
@@ -8,18 +8,19 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { expand } from '../engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data, its decoders and the looks first, then the globe, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/sdata', 'sets/look', '../topo/sets/look', '../lbi/sets/web', 'sets/soil', 'sets/field', 'sets/net'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (the decoders' Node export goes: in the story they are a plain constant inside the closure)
 const sets = SET_FILES.map(f => read(`${f}.js`).replace("if (typeof module !== 'undefined') module.exports = SDATA;\n", '').trimEnd() + '\n\n').join('');
-let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
-for (const f of ENGINE) out += read(`engine/${f}.js`);
+let out = expand(read('engine/e1_head.js'), 'e1_head').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
+for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
 const target = path.join(root, 'stories/soil.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;

@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the kinds of object and their numbers, the age along the poster's trend lines, the two methods; or any
 // scene with its own controls.
@@ -6,28 +6,20 @@ const SCENES = [
   ['organ', 'Ovary', 'A drawn ovary, cut open: follicles in the cortex, blood vessels in the medulla, a corpus luteum and corpora albicantia. Its counts follow the poster\'s trend lines with age.'],
   ['section', 'Section', 'A drawn H&E section of an ovary with the four kinds of object and cysts; a younger and an older one; the two methods; and the illustrative neighbor network, also gathered by kind.'],
 ];
-const SCENE_SHORT = {};
+//#use SCENE_SHORT
 const TABS = [['objects', 'Objects'], ['age', 'Age'], ['methods', 'Methods'], ['scenes', 'Scenes']];
 // the sets' own Age controls give way to the story's age slider (X.age), which drives them all
 const isAge = c => /^age$/i.test(c.key) || /^age$/i.test(c.label || '');
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !isAge(c));
-// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
-// shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].controls || []).map(x => [x.key, isAge(x) ? ageOpt(x) : ctlValue(k, x)])));
-const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
+//#use ctlShown AGE0
 const X = { tab: 'objects', scene: 'section', ctl: {}, t0: 0, turn: 'on', kind: null, age: 30, method: 'rf' };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between (none
 // in this story's scenes now)
 const STEP = new Set();
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
-// a control's option whose key or name matches re (the sets name their own options)
-const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
+//#use orbit ctlValue ctlOf optKey
 const hasOpt = (k, key, v) => { const c = ctlOf(k, key); return !!(c && c.options.some(o => o[0] === v)); };
-// the age slider as a set's own Age option (the one nearest X.age)
-const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
+//#use ageOpt
 // a view option's camera: the one it stands for, or the cam view of the same name
 const CAM_ALIAS = { organ: { cut: 'default', closed: 'whole', body: 'pelvis' }, section: { section: 'default', masks: 'mask', network: 'net' } };
 function camFor(k, v) {
@@ -35,12 +27,7 @@ function camFor(k, v) {
   for (const x of [al[v], v, n, al[n]]) if (x && c[x]) return x;
   return null;
 }
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the view on show in a set, by its key or its name
-const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || !!(o && re.test(o[1])); };
-// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
-const NEXT = [];
-const afterUpdate = f => { NEXT.push(f); };
+//#use viewCam viewIs NEXT afterUpdate
 // each kind in a line (the story's own words)
 const KIND_TEXT = { vessel: 'Tubes that carry blood, here cut across: a wall round an opening.', macrophage: 'Immune cells that clear away debris.',
   albicans: 'Pale scars, each left by a corpus luteum after an egg was released. They pile up over the years.', follicle: 'An egg in a ring of cells; the large ones hold fluid. The reserve that is never refilled.',
@@ -82,8 +69,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
-function pushState() { updateExtraLabels(); }
+//#use pushState
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
@@ -104,20 +90,7 @@ function setCtl(k, key, v) {
 }
 // a view of a set by its option's key, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (hasOpt(k, 'view', v) && ctlValue(k, ctlOf(k, 'view')) !== v) setCtl(k, 'view', v); }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-
+//#use flyTo orbitStep
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also sets the scenes' controls that show it.
@@ -156,20 +129,7 @@ function setMethod(m, ui = true) {
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the kind of
 // object, the age and the method. The camera is each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -194,9 +154,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's color, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
+//#use chip
 const ageInput = () => `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b;width:100%">`;
 function buildExplore() {
   $('#explore').innerHTML = `
@@ -224,10 +182,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
+//#use setTurn
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
@@ -330,8 +285,7 @@ function updateExtraLabels() {
   LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(txt[0])}</b>${esc(txt[1])}`, 'cyn'), set: X.scene, at, o: -1, txt: [...txt, 'cyn'] });
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { kind } (an object on the
 // section), or null
 function pickWith(rc) {
@@ -343,12 +297,7 @@ function pickWith(rc) {
   const key = (A.kinds || KINDS)[r];
   return r >= 0 && KD[key] ? { kind: key } : null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip): where the ray met the section (pickWith
 // has just asked it), or null (then where the ray meets the scene)
 const pickPos = p => (p && X.scene === 'section' && api('section').hitAt ? api('section').hitAt() : null);
@@ -358,57 +307,4 @@ function choosePick(p) {
   if (X.tab !== 'objects') showTab('objects');
   selectKind(p.kind === X.kind ? null : p.kind);
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas

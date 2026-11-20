@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the organs and their tissues, the domains and their tissue types, what changes with age, the method in
 // four steps; or any scene with its own controls.
@@ -15,21 +15,12 @@ const TABS = [['organs', 'Organs'], ['domains', 'Domains'], ['age', 'Age'], ['me
 const HIDE_CTL = { body: ['view', 'state', 'tracer'] };
 const isAge = c => /^age$/i.test(c.key) || /^age$/i.test(c.label || '');
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key) && !isAge(c));
-// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
-// shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].controls || []).map(x => [x.key, isAge(x) ? ageOpt(x) : ctlValue(k, x)])));
-const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
+//#use ctlShown AGE0
 const X = { tab: 'organs', scene: 'atlas', ctl: {}, t0: 0, turn: 'on', organ: null, domain: null, age: AGE0, step: 1, kind: null };
-const XS = {};
+//#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick', 'atlas_net']);   // (atlas_net: the story's morph, never eased back in explore)
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
-const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
-// a control's option whose key or name matches re (the sets name their own options)
-const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
-// the age slider as a set's own Age option (the one nearest X.age)
-const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
+//#use orbit ctlValue ctlOf optKey ageOpt
 const ageF = () => clamp((X.age - AGE0) / (AGE1 - AGE0), 0, 1);
 // a view option's camera: the cam view of the same name, or the one its name stands for
 const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves', section: 'focus' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', groups: 'group', age: 'domains' },
@@ -43,9 +34,7 @@ function camFor(k, v) {
   for (const x of [v, al[v], n, al[n]]) if (x && c[x]) return x;
   return null;
 }
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the view on show in a set, by its key or its name
-const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || !!(o && re.test(o[1])); };
+//#use viewCam viewIs
 // the views the panes ask for, by what they show
 const VIEW = { lib: /lib/i, map: /^atlas$/i, umap: /tile|umap/i, volcano: /volcano|^age$/i, curves: /patho|curve/i, net: /net/i, contacts: /contact/i,
   section: /section/i, sAge: /^age$/i };
@@ -56,9 +45,7 @@ const STEPS = [
   ['Neighbours', /neigh/i, () => 'Each tile mixes in the features of the tiles around it (message passing), so it knows its surroundings.'],
   ['Domains', /group/i, () => 'Tiles with similar mixed features are grouped, across all slides: in a map of their features, alike tiles gather. A pathologist then names each group: a domain.'],
 ];
-// work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
-const NEXT = [];
-const afterUpdate = f => { NEXT.push(f); };
+//#use NEXT afterUpdate
 // the organ picked (X.organ: an organ's name, or one of its GTEx tissues'), and the worked examples' organs
 const organOf = v => (v ? MD.organ(v) || tissueOrgan(v) : null);
 const exOrgan = i => { const x = FACTS.ex[i]; return x && atlasIdx(x.tissue) ? (api('atlas').tissues || [])[atlasIdx(x.tissue) - 1] : null; };
@@ -89,15 +76,7 @@ function exploreTargets(now = performance.now()) {
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
-function exploreStep(dt, now) {
-  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or a set asks for stillness
-  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
-  return XS;
-}
-// what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
-function pushState() { updateExtraLabels(); }
+//#use exploreStep pushState
 function openScene(k, fly = true) {
   if (k === 'tissue') k = 'slide';   // (the section is shown with the slide)
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
@@ -120,22 +99,7 @@ function setCtl(k, key, v) {
 }
 // a view of a set by what it shows (VIEW), its scene brought up
 function showView(k, re) { if (X.scene !== k) openScene(k); const v = optKey(k, 'view', re); if (v && ctlValue(k, ctlOf(k, 'view')) !== v) setCtl(k, 'view', v); }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now(); orbit.fast = false;
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) { orbit.to = null; orbit.fast = false; }
-}
-// fly to a point of the scene on show, keeping the direction you look from
-function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
-
+//#use flyTo orbitStep flyNear
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene and the view that show it.
@@ -195,20 +159,8 @@ function showExample(i, to70 = true) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the organ (or
 // tissue), the domain, the age and the method's step. The tissue type listed in the Domains panes, the search and the
 // camera are each person's own.
-// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
-function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
-  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
-  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
-}
-function collabSetView(v, now) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
-  const c = orbit.cur, to = v.slice();
-  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
-  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
-  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
-}
+//#use collabView
+//#use collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
@@ -234,9 +186,7 @@ function collabApply(v) {
   renderAll();
 }
 
-// ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
-const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
+//#use chip
 // each organ's small 3D model (ORGAN3D, sets/organs.js) as a picture for the panes: drawn once at 64 px, shown at 20 to
 // 30. The models and pictures build between frames from the start (updateSets), the ones a pane asks for first; until
 // an organ's picture is drawn its chip keeps the place with a soft dot, and the picture goes in as it comes
@@ -253,7 +203,7 @@ function fillOrganPics() {
     if (u) { el.style.background = `url(${u}) center/contain no-repeat`; el.removeAttribute('data-org'); }
   }
 }
-const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
+//#use link
 let DQ = '';   // the Domains pane's search (this page's own)
 function buildExplore() {
   $('#explore').innerHTML = `
@@ -286,19 +236,7 @@ function buildExplore() {
   });
   showTab(X.tab);
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) {
-  X.tab = k;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
-  const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
-  if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
-  document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
-  updateExtraLabels();
-}
+//#use setTurn showTab
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
@@ -413,8 +351,7 @@ function updateExtraLabels() {
   if (X.scene === 'body' && O) LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(O.name)}</b>`, 'mag'), set: 'body', at: O.pos.slice(), o: -1, txt: [O.name, '', 'mag'] });
 }
 
-// ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
+//#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ } (an organ or one of its
 // tissues), { domain }, { kind } (a tissue type) or { sdom } (a domain of the section not in the network), or null
 function pickWith(rc) {
@@ -437,12 +374,7 @@ function pickWith(rc) {
   if (k === 'slide') { const d = slideDomain(r); return d ? { domain: d } : (A.domains || [])[r] ? { sdom: A.domains[r] } : null; }
   return null;
 }
-// what is under the mouse, in explore mode
-function pickAt(mx, my) {
-  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
-  _rc.setFromCamera(_m2, GL.camera);
-  return pickWith(_rc);
-}
+//#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
 function pickPos(p) {
   if (p && p.organ && X.scene === 'body') { const O = organOf(p.organ); return O ? O.pos.slice() : null; }
@@ -456,57 +388,4 @@ function choosePick(p) {
   else if (p.domain) { if (X.tab !== 'domains') showTab('domains'); selectDomain(p.domain === X.domain ? null : p.domain, false); }
   else if (p.kind) { showTab('domains'); pickKind(p.kind); }
 }
-function bindCanvas() {
-  const cv = GL.canvas, tip = $('#tip'), pts = new Map();
-  let down = null, pinch = 0;
-  cv.addEventListener('pointerdown', ev => {
-    pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cv.setPointerCapture(ev.pointerId);
-    down = { x: ev.clientX, y: ev.clientY, moved: false };
-    orbit.held = true;
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  });
-  cv.addEventListener('pointermove', ev => {
-    const explore = APP.mode === 'explore';
-    if (pts.has(ev.pointerId) && explore) {
-      const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
-      pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
-      if (pts.size === 2) {
-        const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
-        pinch = d; down.moved = true; return;
-      }
-      if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
-      if (down && down.moved) {
-        orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
-      }
-      tip.style.opacity = 0;
-      return;
-    }
-    if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
-    const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
-    if (p) {
-      const [b, r] = pickText(p);
-      tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
-      tip.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 12}px)`;
-      tip.style.opacity = 1;
-    } else tip.style.opacity = 0;
-  });
-  const end = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
-    if (!pts.size) { down = null; orbit.held = false; }
-  };
-  cv.addEventListener('pointerup', end);
-  cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
-  cv.addEventListener('wheel', ev => {
-    if (APP.mode !== 'explore') return;
-    ev.preventDefault();
-    orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
-  }, { passive: false });
-}
+//#use bindCanvas

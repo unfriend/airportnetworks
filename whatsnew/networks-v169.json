@@ -1,0 +1,17 @@
+{
+  "version": "networks-v169",
+  "date": "2026-11-19",
+  "new": [
+    "Story packages: a story can now be one folder, packages/<key>/, with its own story.json, main.js, picture, data and sounds. It joins the Stories screen without any other change to the app, and updates without an app release. Colleagues start from tools/packages/template.",
+    "The example, Six handshakes (a ring of 60 people that becomes a small world), is hidden: developer mode shows its card, or open #hello."
+  ],
+  "test": [
+    "In developer mode, the Stories screen shows Six handshakes at the end with a dashed border; open it, play it to explore mode, pick two people, change the rewiring.",
+    "In a headset: open #hello, point at people and press, the panels and the Stories screen; go to another story and back.",
+    "Without developer mode nothing looks different: the Stories screen, the stories and shared rooms as before."
+  ],
+  "untested": [
+    "Everything with packages in a headset and in a shared room (a package at a station on two devices).",
+    "A package's own narration (none of the examples has a recording), and a package offline after an update."
+  ]
+}

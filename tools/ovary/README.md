@@ -3,7 +3,7 @@
 "The aging ovary: what 255 ovaries show about aging", after the poster "Mapping the histological landscape of human
 ovarian aging" (Parijat Chakraborty, Samir Moustafa, André Rendeiro; LBI for Network Medicine, CeMM, Faculty of Computer
 Science, University of Vienna; support CeMM and the ERC; data GTEx). Built like the microanatomy story (`tools/micro/`):
-the tour's kit and body set and three sets of its own. Everything is drawn as lit
+the shared kit (`tools/engine/kit.js`) and body set and three sets of its own. Everything is drawn as lit
 3D objects; no GTEx image and no image from the poster is used. American spelling in this story only. Never edit
 `stories/ovary.js` by hand.
 

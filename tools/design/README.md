@@ -23,7 +23,7 @@ circles' miniatures, `all.stories` and `all.lobby` (story `all`, skipped too). I
 | `props.json` | the catalogue of the stories' sets (`docs/props.md` is its page); the build takes from it only what a card shows |
 | `sets/table.js` | the one set: the floor, the table, the plates and place cards, the miniatures' homes, records and glides, the stage (manifest: `sets/table.md`) |
 | `engine/` | the flock's engine parts, adapted: one short intro line instead of chapters, explore mode as the room, the Prop and All props panes (HTML and canvas), the grip on a miniature; the start in steps for the shell's loading bar (`LOAD` in `e7_app.js`, as in every engine; the plates and the first view in `sceneJoin`) |
-| `build.mjs` | the kit (`../lbi/kit.js`), the cards (`DESIGN_CARDS`), the set and the engine put together |
+| `build.mjs` | the kit (`../engine/kit.js`), the cards (`DESIGN_CARDS`), the set and the engine put together |
 | `SPEC.md` | the contract: the layout, the cards, the shared state, the headset |
 
 Useful hashes: `#design` (the table), `#design&pick=lbi.atp` (a prop on the stage, its card shown), `&tab=prop|all`,

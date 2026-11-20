@@ -1,6 +1,4 @@
-
-// ================================================================= SCENE ==
-const GL = {};
+//#use head GL
 // the sets, in the order they appear in the story
 const SET_ORDER = ['flock'];
 function buildScene(canvas) {
@@ -29,66 +27,16 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
-function buildSet(k) {
-  const s = SETS[k](K);
-  GL.sets[k] = s;
-  GL.world.add(s.group);
-  s.setAlpha(0);
-}
-// once every set is built (a step of the load): what joins them (nothing here)
-function sceneJoin() {}
-// show each set as far as S fades it in, and let the visible ones update; in the story a set
-// may be turned to meet the camera (see buildCamera)
-function updateSets(S, t, dt, story) {
-  for (const k of SET_ORDER) {
-    const s = GL.sets[k], a = S[k + '_a'] || 0;
-    s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
-    s.setAlpha(a);
-    if (a > 0.003) s.update(S, t, dt);
-  }
-}
-
-// ---------------------------------------------------------------- camera --
-// A view is [az, el, dist, tx, ty, tz]: look at the target (tx, ty, tz) from the
-// direction az (around the vertical, degrees) and el (up, degrees), dist away.
-const _vd = new THREE.Vector3(), _vt = new THREE.Vector3();
-function viewDir(v, out) {
-  const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
-  return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
-}
+//#use FRAME frameOf buildSet sceneJoin updateSets _vd viewDir
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.position.y = Math.max(GL.camera.position.y, 0.4);   // never under the ground
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
-function resize() {
-  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
-  if (GL.renderer.xr.isPresenting) return;
-  const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  const wide = w >= 900;
-  GL.wide = wide;
-  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
-  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
-  else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
-  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
-  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
-  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
-  camera.updateProjectionMatrix();
-}
-// the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
-const LV = new THREE.Vector3(), _v2 = new THREE.Vector2();
-function updateLight(xr) {
-  LV.set(-0.5, 0.6, 1.0).normalize().applyQuaternion(xr ? XR.headQ : GL.camera.quaternion);
-  GL.sun.position.copy(LV); GL.sun.target.position.set(0, 0, 0);
-  if (xr) K.U.uPx.value = XR.viewH * 0.5 * XR.R;
-  else K.U.uPx.value = GL.renderer.getDrawingBufferSize(_v2).y * 0.5;
-}
-
+// a small screen held sideways keeps the framing this story had before the strip above the panel was fitted (resize)
+const STRIP_FIT = 0;
+//#use resize LV updateLight
 // ----------------------------------------------------------- the flock --
 // The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view as you
 // would turn your head: it lets the flock wander a little first, and eases into and out of each turn, at up to
@@ -96,13 +44,7 @@ function updateLight(xr) {
 // to a far view or back it keeps the flock framed and comes round to the view's own side at up to 60 degrees a
 // second. keep: return the followed view as it is now (when you take over the camera).
 const FOL = { az: null, el: -20, wa: 0, we: 0, tx: 0, ty: 8, tz: -10, vz: null, ve: 0 };
-const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
-// turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
-function track(o, x, w, g, dz, gain, top, dt) {
-  const want = clamp(lazy(g - o[x], dz) * gain, -top, top);
-  o[w] += (want - o[w]) * (1 - Math.exp(-dt * 4));
-  o[x] += o[w] * dt;
-}
+//#use lazy track
 function followView(v, dt, keep) {
   dt = keep ? 0 : dt || 0;
   const c = GL.sets.flock.anchors.flock(), k = 1 - Math.exp(-dt * 1.2);

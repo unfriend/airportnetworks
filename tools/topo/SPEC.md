@@ -45,7 +45,7 @@ Decisions (the owner's and the author's, 28 Oct 2026):
   for the filtration drawn upwards, "a network with triangles" for a simplicial complex.
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/lbi/kit.js`, with these differences (as the mutation story's, `tools/mutation/SPEC.md`):
+`tools/engine/kit.js`, with these differences (as the mutation story's, `tools/mutation/SPEC.md`):
 - Set files live in `tools/topo/sets/`; the harness is `tools/topo/harness.html` (`?set=<name>&p=k:v,...&t=..&
   cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool `tools/topo/shot.mjs` (run it from
   `tools/topo`; `SHOTS=<dir>` and `PORT=<port>`). The harness loads `TOPO_DATA`, `TLOOK` (and the body set and
