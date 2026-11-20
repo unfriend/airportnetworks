@@ -492,6 +492,19 @@ The plan is `docs/shared-space-plan.md`.
     cards have no tips). Pages are unchanged (they follow a station from the dialog). With it off, the trigger on a station
     shows the notice as before. `HOST.collab.asking()` (`{ id, left }` or null) is for tests. How the panel reads, where
     it stands and how the fingertip presses it on a real headset is untested.
+  - Per circle (v165, FORMAT networks-54; the owner, 20 November 2026: "an option to set circles to walk in or click in
+    per circle"): a circle's record may carry `ask: 'walk'` or `ask: 'ask'`, which beats the room's switch for that circle
+    alone; without it the circle follows the room's (the switch is the default, not an override). Never the lobby's (it is
+    walked into either way). `askFor(s)` is what every check above reads (walking in in `zoneStep`, the rings'
+    `r.noRing`, the trigger's question, `drawAsk`'s closing); `circlesMode()` (`ask`, `walk` or `mixed`) words the menu's
+    Stations line and the welcome (mixed: *Walk into a circle, or point at the card or icon of one that asks and press*).
+    Set by anyone, never refused by either lock (`setStAsk(id, mode)`, `stVal` keeps it as a circle moves): the headset
+    menu's Circles tab has *This circle: ...* under the room's switch, for the circle you are at (*As the room: walk in*,
+    then the other way, then the room's again; `askNext`), and the page's Shared dialog a button in each circle's row
+    (`data-sh="stask:<id>"`). In a room that asks first, a circle walked into is walked into as ever; *Go in* while you
+    stand in such a circle does not take you back into it until you have stepped out (`C.stood`, as `C.lobbyArm` for the
+    lobby). For tests `HOST.collab.stAsk(id[, mode])`, `askFor(id)`, `circlesMode()`; `tools/collab.mjs --ask` checks a
+    circle set to walk in, in a room that asks first.
 - A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
   its middle, a triangle at the front for its facing) floating 0.5 m over the room's floor (`RING.y`; the owner: circles about 50 cm in the air: a headset that finds the floor a little wrong sank a ring
   on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,

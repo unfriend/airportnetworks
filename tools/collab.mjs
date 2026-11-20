@@ -2238,13 +2238,34 @@ async function askRound(dir) {
     await frames(H, 2500);
     const w9 = await where(), l9 = await lobbyN();
     check('ask: Go in pressed while standing in the lobby holds (not taken back there until you step out of it)', g9 === 'pressed' && w9.mine === S2.id && l9 === 2, JSON.stringify({ g9, w9, l9 }));
+    // (v165) a circle of its own: set to walk in from a page, in a room that asks first, it is walked into (the others'
+    // rings stay hidden); set back to the room's, it asks again (no ring)
+    const sw = await A.evaluate(id => HOST.collab.stAsk(id, 'walk'), S1.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === false; }, S1.id, 8000);
+    const r10 = await rings(), af10 = await H.evaluate(id => [HOST.collab.askFor(id), HOST.collab.circlesMode()], S1.id);
+    await goRoom(H, S1.x, 1.6, S1.z, 0);
+    let in10 = false;
+    for (let k = 0; k < 40 && !in10; k++) { await frames(H, 300); in10 = (await where()).mine === S1.id; }
+    const rec10 = (await roomInfo(rc)).keys['st.' + S1.id];
+    await A.evaluate(id => HOST.collab.stAsk(id, ''), S1.id);
+    const r11 = await ringsWhen(r => r.every(x => !x.ring), 8000), rec11 = (await roomInfo(rc)).keys['st.' + S1.id];
+    check('ask: a circle set to walk in on its own (st\'s ask) is walked into in a room that asks first; back to the room\'s, its ring goes',
+      sw && r10.filter(x => x.id !== S1.id).every(x => !x.ring) && af10[0] === false && af10[1] === 'mixed' && in10 &&
+      !!rec10 && rec10.v.ask === 'walk' && !!rec11 && !('ask' in rec11.v) && r11.every(x => !x.ring), JSON.stringify({ sw, r10, af10, in10, rec10: rec10 && rec10.v, rec11: rec11 && rec11.v }));
+    // (back at the other circle, as before this check, for the rounds after it: walked into, set so for the moment)
+    if (in10 && await ready(H, K1, 150000)) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
+    await A.evaluate(id => HOST.collab.stAsk(id, 'walk'), S2.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === false; }, S2.id, 8000);
+    const in12 = await walk(H, S2, K2, 0, 150000);
+    await A.evaluate(id => HOST.collab.stAsk(id, ''), S2.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === true; }, S2.id, 8000);
     // the menu's row turns the switch off for the room (out of every circle first); nothing written by the headset but look
     const sp1 = await awaySpot(H, S1);
     await goRoom(H, sp1[0], 1.6, sp1[1], 0);
     await frames(H, 300);
     const m1 = await menu('askfirst'), off = m1 && await until(A, () => !HOST.collab.askFirst(), null, 5000);
     // (besides look, at most what any headset arriving at a station writes: its story's state and view there)
-    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
+    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.(' + S1.id + '|' + S2.id + ')\\.(x|view)$').test(k)).map(([k]) => k);
     check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room (look\'s ask false written); the headset wrote nothing else to the room but look',
       m1 && off && wrote.join() === 'look' && ri.keys.look.v.ask === false, JSON.stringify({ m1, off, wrote, look: ri.keys.look && ri.keys.look.v }));
     // walking in works again

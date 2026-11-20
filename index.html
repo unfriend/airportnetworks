@@ -369,6 +369,8 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .btn.rm { margin-left: 14px; }
 #shared .btn.pn { min-width: 152px; }
 #shared .btn.lk { min-width: 104px; }
+#shared .btn.sa { min-width: 152px; }
+#shared .btn.sa[aria-pressed="true"] { border-color: #46d9ff; color: #46d9ff; }
 #shared .btn.lk[aria-pressed="true"], #shared [data-sh="lock"][aria-pressed="true"] { border-color: #46d9ff; color: #46d9ff; }
 #shared .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #shared .btn:disabled { opacity: 0.45; cursor: default; }
@@ -803,7 +805,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 164, id: 'd2025f28cef151cb', format: 'networks-53' },
+  shell: { n: 165, id: '16adbb015220ea3f', format: 'networks-54' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
