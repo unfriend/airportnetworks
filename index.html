@@ -878,7 +878,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 174, id: '45d2edbe90bcc55d', format: 'networks-55' },
+  shell: { n: 175, id: '8e3865df25f39399', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2295,35 +2295,40 @@ Object.assign(HOST.xr, (function () {
     poseSpace: () => { const r = ref(); return W.space && r && W.base === r ? W.space : r; },
   };
 })());
-// ------------------------------------------------------------------ sharp text (v174) --
-// Sharp text, a test (the owner, 20 November 2026, after the rendering lab's composition layers: "a trick to make text
-// supersharp in vr and ar on quest"): the story's two panels (its text and its play bar, HOST.cur.panels(), 1024 x 1200
-// and 1024 x 176 in every story) shown as WebXR quad layers. A layer is the headset compositor's own: it samples the
-// panel's canvas once, at the display's resolution, as it warps the picture for the lenses. A panel in the scene is drawn
-// into the eye buffer first (at its resolution, its scale and fixed foveation) and that picture is warped again.
-// This headset's own (xrSharp, #sharp=off|layer|text|front), off by default: off asks for nothing new. Any other value
-// asks for the 'layers' feature as a session starts (request), and when the session has it, four quad layers (the text
-// and the bar, once behind the scene and once in front of it) go into the one updateRenderState three.js makes, its
-// XRWebGLLayer between them (the spec allows it in renderState.layers; layers added later blacked out the lab's WebGPU
-// view). Once a session has them, all four values switch live (the Debug tab's Sharp text: compare in one session):
-//  - 'layer': behind the scene. The panel's own material erases the eye buffer where it is, by the canvas's alpha (a
-//    hole), so what stands in front of it (Cards: in 3D) or is drawn over it (on top: the menu, the rays) still covers it
-//  - 'text': the same with quality 'text-optimized' (the compositor's own filter for reading, where it has one)
-//  - 'front': in front of everything, the panel drawn into nothing in the eye buffer (no hole; it covers rays and menu)
-//  - 'off': the panels as ever; the layers moved out of sight
+// ------------------------------------------------------------- sharp text (v174, on by default v175) --
+// Sharp text (the owner, 20 November 2026, after the rendering lab's composition layers: "a trick to make text
+// supersharp in vr and ar on quest"; tried on a Quest in v174, "the sharp text works ... all of them do it so just use
+// the cheapest one per default"): the story's two panels (its text and its play bar, HOST.cur.panels(), 1024 x 1200 and
+// 1024 x 176 in every story) shown as WebXR quad layers. A layer is the headset compositor's own: it samples the panel's
+// canvas once, at the display's resolution, as it warps the picture for the lenses. A panel in the scene is drawn into
+// the eye buffer first (at its resolution, its scale and fixed foveation) and that picture is warped again.
+// This headset's own (xrSharp2, a new key in v175 so every device starts once on the new default; #sharp=...):
+//  - 'layer' (the default, the cheapest): behind the scene. The panel's own material erases the eye buffer where it is,
+//    by the canvas's alpha (a hole), so what stands in front of it (Cards: in 3D) or is drawn over it (on top: the menu,
+//    the rays and their dots) still covers it
+//  - 'text': the same with quality 'text-optimized' (the compositor's own filter for reading, where it has one: extra
+//    work for the compositor every frame)
+//  - 'front': in front of everything, the panel drawn into nothing in the eye buffer (no hole; it covers the rays, their
+//    dots and the menu: a fallback for a headset that ignored the eye buffer's alpha)
+//  - 'off': the panels as ever. Off as a session starts asks for nothing new
+// Any other value asks for the 'layers' feature as a session starts (request); when the session has it, the two quad
+// layers its value needs (the text and the bar: behind for layer and text, in front for front) go into the one
+// updateRenderState three.js makes, with its XRWebGLLayer (the spec allows it in renderState.layers; layers added later
+// blacked out the lab's WebGPU view). In that session layer, text and off switch live; to or from front, from the next.
 // three.js r128 reads renderState.baseLayer every frame, null once layers are set: this session's renderState answers
 // with its XRWebGLLayer then (shim). Each frame after the story's (HOST.loading.wrap) a layer is placed from its panel's
 // world matrix in the space three.js's poses are in (poseSpace), and written (texSubImage2D, flipped, premultiplied, the
 // GL state put back) only when the panel was drawn again (P.nd), every 100 ms at most; its material changes from the
 // next frame, and it goes out of sight a frame after its panel is drawn as ever again, so the hole and the layer never
 // part. Width and height are half the panel's (Quest Browser takes half extents, as the lab found; #sharpsize=full for
-// the spec's full ones). In AR a layer behind the scene is not covered by the real world's occlusion. Untested on a
-// headset until tried on one: only a device shows whether it is sharper (docs/agents/shell.md, "Sharp text").
+// the spec's full ones). In AR a layer behind the scene is not covered by the real world's occlusion. Tried on a Quest
+// in v174 (sharper in every value); the rest is in docs/agents/shell.md, "Sharp text".
 Object.assign(HOST.xr, (function () {
   const MODES = ['off', 'layer', 'text', 'front'], GAP = 100;
-  const SH = { v: 'off', full: false, s: null, space: null, binding: null, gl: null, L: [], mats: new Set(), rs: new WeakMap(), err: '', n: 0, ms: 0, sum: 0, cnt: 0, at: 0 };
+  const SH = { v: 'layer', full: false, s: null, space: null, binding: null, gl: null, L: [], order: '', mats: new Set(), rs: new WeakMap(), err: '', n: 0, ms: 0, sum: 0, cnt: 0, at: 0 };
+  const orderOf = v => (v === 'front' ? 'front' : 'behind');
   try {
-    const v = localStorage.getItem('xrSharp');
+    const v = localStorage.getItem('xrSharp2');
     if (MODES.includes(v)) SH.v = v;
     SH.full = localStorage.getItem('xrSharpSize') === 'full';
   } catch (e) { /* storage blocked */ }
@@ -2357,8 +2362,9 @@ Object.assign(HOST.xr, (function () {
     const q = HOST.quiet; HOST.quiet = true;   // (the shell's own listener: a story change never takes it)
     try { s.addEventListener('end', () => { if (SH.s === s) reset(); }); } finally { HOST.quiet = q; }
   }
-  // the four layers (each the size of its panel's canvas, RGBA8: the canvas's colours as they are, where SRGB8_ALPHA8
-  // showed them too dark in the lab), out of sight until a panel is shown; the session's list, three.js's layer between
+  // the two layers the value needs (each the size of its panel's canvas, RGBA8: the canvas's colours as they are, where
+  // SRGB8_ALPHA8 showed them too dark in the lab), out of sight until a panel is shown; the session's list: behind
+  // three.js's layer, or in front of it (v174 made all four, for comparing in one session; v175 the two, half the memory)
   function make(s, base) {
     try {
       const gl = HOST.renderer.getContext(), b = new XRWebGLBinding(s, gl);
@@ -2367,10 +2373,10 @@ Object.assign(HOST.xr, (function () {
         if (typeof gl.RGBA8 === 'number') init.colorFormat = gl.RGBA8;
         return { which, order, w, h, layer: b.createQuadLayer(init), P: null, on: false, out: false, has: false, nd: -1, at: 0, fail: 0 };
       };
-      const L = [one('main', 'behind', 1024, 1200), one('foot', 'behind', 1024, 176), one('main', 'front', 1024, 1200), one('foot', 'front', 1024, 176)];
+      const order = orderOf(SH.v), L = [one('main', order, 1024, 1200), one('foot', order, 1024, 176)];
       for (const x of L) away(x);
-      SH.binding = b; SH.L = L;
-      return [L[0].layer, L[1].layer, base, L[2].layer, L[3].layer];
+      SH.binding = b; SH.L = L; SH.order = order;
+      return order === 'front' ? [base, L[0].layer, L[1].layer] : [L[0].layer, L[1].layer, base];
     } catch (e) { SH.err = 'no quad layers: ' + msg(e); log('sharp text', { err: SH.err }); return null; }
   }
   // out of sight: a millimetre wide, a kilometre under the floor
@@ -2403,7 +2409,7 @@ Object.assign(HOST.xr, (function () {
   }
   function reset() {
     for (const m of [...SH.mats]) blend(m, null);
-    SH.s = SH.gl = SH.binding = SH.space = null; SH.L = []; SH.n = 0;
+    SH.s = SH.gl = SH.binding = SH.space = null; SH.L = []; SH.n = 0; SH.order = '';
   }
   function fail(L, what, e) {
     L.fail++;
@@ -2474,20 +2480,22 @@ Object.assign(HOST.xr, (function () {
   }
   return {
     // the value (sharps(): the four, in the Debug tab's order); sharpState() what this session has ({ v, can, live,
-    // layers, shown, err, ms: a write's mean time, size }); sharpAsk, sharpPrep and sharpStep for request and the frames
+    // layers, order: 'behind' or 'front' (the session's layers), next: the value needs the next session, shown, err, ms:
+    // a write's mean time, size }); sharpAsk, sharpPrep and sharpStep for request and the frames
     sharp: () => SH.v,
     sharps: () => MODES.slice(),
     setSharp(v) {
       if (!MODES.includes(v) || v === SH.v) return;
       SH.v = v;
-      try { localStorage.setItem('xrSharp', v); } catch (e) { /* storage blocked */ }
+      try { localStorage.setItem('xrSharp2', v); } catch (e) { /* storage blocked */ }
       if (HOST.session) log('sharp text', { v, live: live() });
     },
     setSharpSize(v) { SH.full = v === 'full'; try { localStorage.setItem('xrSharpSize', SH.full ? 'full' : 'half'); } catch (e) { /* storage blocked */ } },
     sharpAsk: () => SH.v !== 'off' && can(),
     sharpPrep: prep,
     sharpStep: step,
-    sharpState: () => ({ v: SH.v, can: can(), live: live(), layers: live() ? SH.L.length : 0, shown: live() ? SH.n : 0, err: SH.err, ms: Math.round(SH.ms * 10) / 10, size: SH.full ? 'full' : 'half' }),
+    sharpState: () => ({ v: SH.v, can: can(), live: live(), layers: live() ? SH.L.length : 0, order: live() ? SH.order : '',
+      next: live() && SH.v !== 'off' && orderOf(SH.v) !== SH.order, shown: live() ? SH.n : 0, err: SH.err, ms: Math.round(SH.ms * 10) / 10, size: SH.full ? 'full' : 'half' }),
   };
 })());
 // stories set HOST.session when they start or take over a headset session; the sound system, the anchor and the
@@ -5510,7 +5518,7 @@ HOST.arrange = (function () {
   if (hp.has('fov')) HOST.xr.setFov(hp.get('fov'));   // (fixed foveation and resolution, developer experiments: this headset's own)
   if (hp.has('scale')) HOST.xr.setScale(hp.get('scale'));
   if (hp.has('aq')) { const v = hp.get('aq'); if (v === 'on' || v === 'off') HOST.xr.setAuto(v === 'on'); }   // (the automatic quality, v145: this headset's own)
-  if (hp.has('sharp')) HOST.xr.setSharp(hp.get('sharp'));   // (Sharp text, v174, a test: off, layer, text or front; this headset's own)
+  if (hp.has('sharp')) HOST.xr.setSharp(hp.get('sharp'));   // (Sharp text, v174, on by default v175: layer, text, front or off; this headset's own)
   if (hp.has('sharpsize')) HOST.xr.setSharpSize(hp.get('sharpsize'));   // (its layers' sizes as half extents, or full ones: #sharpsize=full)
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)

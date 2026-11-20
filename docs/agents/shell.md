@@ -308,22 +308,35 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     log without the password is 401; the password is in no log line): `relay/test.mjs`, "--public: a log with the relay's
     password". Untested on a headset: every threshold and step (4 %, 1.5 periods, 10 clean windows, the levels' look),
     whether `requestViewportScale` is there and honoured, how a 3S behaves at 72 Hz and whether a step is seen, the gain.
-  - Sharp text (v174, a test; the owner, 20 November 2026, after the rendering lab's composition layers, "a trick to make
-    text supersharp in vr and ar on quest"): the story's two panels (its text, 1024 x 1200, and its play bar, 1024 x 176:
+  - Sharp text (v174; on by default since v175, *layer*; the owner, 20 November 2026, after the rendering lab's composition
+    layers, "a trick to make text supersharp in vr and ar on quest", and after trying v174 on a Quest: "the sharp text
+    works ... all of them do it so just use the cheapest one per default"): the story's two panels (its text, 1024 x 1200, and its play bar, 1024 x 176:
     the same in every story and page, `HOST.cur.panels()`) shown as WebXR quad layers. The headset's compositor samples a
     layer's canvas once, at the display's resolution, as it warps for the lenses; a panel in the scene is drawn into the
     eye buffer first (its resolution, the framebuffer's scale, fixed foveation) and that picture warped again. No story
     changed: the shell does it all (`index.html`, after the stick moving's module). Each headset's own, never the room's:
-    `HOST.xr.sharp()`, `setSharp(v)` (`xrSharp` in `localStorage`, `#sharp=off|layer|text|front`), `sharps()`,
-    `sharpState()` (`{ v, can, live, layers, shown, err, ms, size }`); the Debug tab's *Sharp text: off / layer / for text
-    / in front* row under Automatic quality, with a line (*From the next session*, *2 layers shown · a write 1.2 ms*, or why
-    not: *Not this session: no quad layers: ...*). **Off by default, and off changes nothing**: no feature asked, no layer.
+    `HOST.xr.sharp()`, `setSharp(v)` (`xrSharp2` in `localStorage`, a new key in v175 so every device starts once on the
+    new default, v174's `xrSharp` left alone; `#sharp=layer|text|front|off`), `sharps()`, `sharpState()` (`{ v, can, live,
+    layers, order, next, shown, err, ms, size }`: `order` the session's layers, `behind` or `front`; `next` the value
+    needs the next session); the Debug tab's *Sharp text: layer / for text / in front / off* row under Automatic quality,
+    with a line (*2 layers shown · a write 1.2 ms*, *In front: from the next session*, or why not: *Not this session: no
+    quad layers: ...*). The values:
+    - *layer* (`'layer'`, the default): behind the scene, a hole in the eye buffer (below). The cheapest that keeps the
+      rays, their dots, labels and the menu over the panel: the same eye buffer work as the panel drawn as ever (its one
+      draw, blended to a hole) and one quad a panel for the compositor.
+    - *for text* (`'text'`): the same with quality `'text-optimized'`, the compositor's own filter for reading (on a
+      Quest, supersampling and sharpening: more compositor work every frame).
+    - *in front* (`'front'`): over everything, the panel drawn into nothing in the eye buffer; no hole, so it does not
+      need the compositor to use the eye buffer's alpha (a fallback for a headset that does not), but it covers the
+      rays, their dots and the menu where they cross it.
+    - *off* (`'off'`): the panels as ever. **Off as a session starts changes nothing**: no feature asked, no layer.
     - The session: any other value asks for the optional `'layers'` feature (`request`: added to every rung's list, VR and
       AR). When the session enabled it, `sharpPrep(s)` (in `request`, before the story gives the session to three.js) takes a
       `'local'` space and wraps the session's `updateRenderState`: three.js's first call (`{ baseLayer }`, in its
-      `setSession`) goes in as `{ layers: [main behind, foot behind, three.js's XRWebGLLayer, main front, foot front] }` (the
-      spec allows an XRWebGLLayer in the list; layers added mid-session blacked out the lab's WebGPU view, so all four go in
-      at the start). Anything refused (no binding, `createQuadLayer` or the list) falls back to three.js's own call, the
+      `setSession`) goes in as `{ layers: [main, foot, three.js's XRWebGLLayer] }` for *layer* and *for text*, or `[three.js's
+      XRWebGLLayer, main, foot]` for *in front* (v174 made all four for comparing in one session; v175 only the two the
+      value needs: half the layers' memory). The spec allows an XRWebGLLayer in the list; layers added mid-session blacked
+      out the lab's WebGPU view, so they go in at the start. Anything refused (no binding, `createQuadLayer` or the list) falls back to three.js's own call, the
       reason in `err` and logged (`sharp text`). The layers: `XRWebGLBinding.createQuadLayer`, `layout: 'mono'`, `RGBA8`
       (the canvas's colours as they are; the lab found `SRGB8_ALPHA8` too dark), each the size of its canvas.
     - three.js r128 reads `renderState.baseLayer.framebuffer` every frame, and the spec makes `baseLayer` null once
@@ -346,14 +359,16 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       rays, the labels) still covers the layer; in front it draws nothing (zero, one) and the layer covers everything,
       rays and menu too. The material changes only once its layer has the panel, from the next frame, and a layer goes out
       of sight (a millimetre wide, a kilometre under the floor) a frame after its panel is drawn as ever again, so the hole
-      and the layer never part. All four values switch live in a session that has the layers (compare in one session); a
-      session started with *off* has none until the next.
-    - Untested on a headset (only a device shows it): whether Quest Browser takes the XRWebGLLayer in the list beside quad
-      layers; whether its compositor uses that layer's alpha when it is not the first (behind: if not, a black panel in VR,
-      AR unaffected; *in front* does not need it); half or full extents (a panel at double or half size: `#sharpsize`); the
-      write's cost (here 7 ms in software drawing, the row shows it there); whether it looks sharper, and with *for text*.
-      In AR a layer behind the scene is not covered by the real world's occlusion (a hand before the panel shows the panel).
-      The lab: `webxr-user-studies/web/lab/layers.js` (not in this repository). Tests: `smoke.mjs --only 'sharp text'`.
+      and the layer never part. *layer*, *for text* and *off* switch live in a session with layers behind; *in front* (or
+      from it) applies from the next session (`next`), the panels drawn as ever meanwhile. A session started with *off*
+      has no layers until the next.
+    - Tried on a Quest (v174, the owner: "the sharp text works ... all of them do it"): so Quest Browser takes the
+      XRWebGLLayer beside quad layers and uses its alpha behind them (else *layer* would show a black panel); no wrong
+      size was reported, so half extents hold there. Untested: other headsets and browsers (they may refuse; the
+      Debug tab says why and the panel is drawn as ever), the cost at 90 Hz there (the write here 7 ms in software
+      drawing; the row shows it on a device). In AR a layer behind the scene is not covered by the real world's
+      occlusion (a hand before the panel shows the panel). The lab: `webxr-user-studies/web/lab/layers.js` (not in this
+      repository). Tests: `smoke.mjs --only 'sharp text'`.
   - Real-world occlusion: a sixth setting that is each headset's own, never the room's, *Real world hides: room
     and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
     see "Real-world occlusion" below.

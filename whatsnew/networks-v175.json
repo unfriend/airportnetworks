@@ -1,0 +1,22 @@
+{
+  "version": "networks-v175",
+  "date": "2026-11-20",
+  "new": [
+    "Sharp text is now on by default: the story's text panel and play bar are WebXR layers that the headset draws itself, at the display's resolution.",
+    "The default is layer, the cheapest: behind the scene, so rays, dots, labels and the menu still show over the panel. A session makes only the two layers it needs.",
+    "The Debug tab's Sharp text still offers for text (the headset's text filter, more work every frame), in front (covers rays and menu) and off. Layer, for text and off switch at once; in front from the next session.",
+    "Every device starts once on the new default (a new setting key), even one left on off while testing.",
+    "Cloud sessions of Claude Code now bring this repository's checkout up to date with GitHub as they start."
+  ],
+  "test": [
+    "On a Quest in VR and AR, without touching the Debug tab: the story panel should be sharp from the first session.",
+    "Point at the panel's buttons: the ray and its dot show over the panel. Open the menu in front of the panel.",
+    "Swap stories, use the Stories screen, explore mode, Cards in 3D and on top, and move the panel with the grip.",
+    "Watch the frame rate with Sharp text on and off (the Debug tab's line shows how long a write takes)."
+  ],
+  "untested": [
+    "Other headsets and browsers (a Pico, the Quest's older browsers): they may refuse the layers; the Debug tab then says why and the panel is drawn as before.",
+    "The cost of the layers and their writes on a Quest at 90 Hz, measured only here.",
+    "In AR, a real hand in front of the panel does not hide it."
+  ]
+}

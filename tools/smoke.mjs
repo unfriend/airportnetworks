@@ -13,7 +13,7 @@
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'auto quality': the automatic quality's steps, the refresh rate as one, v145;
-// --only 'sharp text': the story's panels as WebXR quad layers (a test), on a pretend Quest with pretend layers, v174;
+// --only 'sharp text': the story's panels as WebXR quad layers (on by default since v175), on a pretend Quest with pretend layers, v174;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
@@ -14414,7 +14414,7 @@ if (runs('auto quality')) {
   });
   await ctx.close();
 }
-// Sharp text (v174, a test: the story's two panels as WebXR quad layers, index.html's HOST.xr.sharp). On the pretend Quest
+// Sharp text (v174, on by default v175: the story's two panels as WebXR quad layers, index.html's HOST.xr.sharp). On the pretend Quest
 // (FPS_FAKE) with SHARP_FAKE: a renderState as the spec has it (its baseLayer null once layers are set, both at once
 // refused) and an XRWebGLBinding whose quad layers are real GL textures (getSubImage throws until the layer is in the
 // session's list; window.__sh.refuse: createQuadLayer throws), so the eye buffer and each layer read back
@@ -14454,7 +14454,8 @@ function SHARP_FAKE() {
   S.state = () => {
     const s = HOST.session, raw = s ? Object.getOwnPropertyDescriptor(P, 'renderState').get.call(s) : null, sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null;
     return { st: HOST.xr.sharpState(), urs: S.urs.slice(), feats: window.__fp.inits.map(i => i.init.optionalFeatures), key: HOST.curKey, subs: S.subs,
-      raw: raw && raw.layers ? raw.layers.length : 0, rawBase: !!(raw && raw.baseLayer), shimGl: !!(s && raw && raw.layers && s.renderState.baseLayer === raw.layers[2]),
+      raw: raw && raw.layers ? raw.layers.length : 0, rawBase: !!(raw && raw.baseLayer), glAt: raw && raw.layers ? raw.layers.findIndex(x => !S.layers.includes(x)) : -1,
+      shimGl: !!(s && raw && raw.layers && s.renderState.baseLayer === raw.layers.find(x => !S.layers.includes(x))),
       layers: S.layers.map(L => ({ init: L.init, p: L.transform ? [L.transform.position.x, L.transform.position.y, L.transform.position.z] : null, w: L.width, q: L.quality })),
       mesh: sp ? sp.main.mesh.getWorldPosition(new THREE.Vector3()).toArray() : null, meshW: sp ? sp.main.mesh.geometry.parameters.width * sp.main.mesh.getWorldScale(new THREE.Vector3()).x : 0,
       blend: sp ? ['main', 'foot'].map(k => { const m = sp[k].mesh.material; return [m.blending, m.blendSrc, m.blendDst, m.blendDstAlpha]; }) : null };
@@ -14479,7 +14480,7 @@ function SHARP_FAKE() {
     return { mean: d / n, inked };
   };
   S.holes = () => {
-    const raw = Object.getOwnPropertyDescriptor(P, 'renderState').get.call(HOST.session), gl = raw.baseLayer || raw.layers[2], W = gl.framebufferWidth, h = gl.framebufferHeight;
+    const raw = Object.getOwnPropertyDescriptor(P, 'renderState').get.call(HOST.session), gl = raw.baseLayer || raw.layers.find(x => !S.layers.includes(x)), W = gl.framebufferWidth, h = gl.framebufferHeight;
     const px = read(HOST.renderer.getContext(), gl.framebuffer, null, W, h);
     let n = 0;
     for (let y = 0; y < h; y++) for (let x = 0; x < W / 2; x++) { const i = (y * W + x) * 4; if (px[i + 3] < 24 && px[i] + px[i + 1] + px[i + 2] < 24) n++; }
@@ -14513,9 +14514,12 @@ if (runs('sharp text')) {
   const state = (ms = 0) => fp.evaluate(async ms => { if (ms) await window.__fp.runUntil(null, ms); return window.__sh.state(); }, ms);
   const near = (a, b) => !!(a && b) && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 0.01;
   const out = L => !!(L.p && L.p[1] === -1000);
-  await step('sharp text: off (the default) asks for nothing new; three.js sets its own baseLayer, the panels drawn as ever', async () => {
+  await step('sharp text: layer is the default (xrSharp2, v175); #sharp=off asks for nothing new, three.js sets its own baseLayer, the panels drawn as ever', async () => {
     const bad = [];
     await open('airports');
+    if (await fp.evaluate(() => [HOST.xr.sharp(), localStorage.getItem('xrSharp2')].join()) !== 'layer,') bad.push('the default: ' + await fp.evaluate(() => [HOST.xr.sharp(), localStorage.getItem('xrSharp2')].join()));
+    await open('airports&sharp=off');
+    if (await fp.evaluate(() => localStorage.getItem('xrSharp2')) !== 'off') bad.push('#sharp=off not kept');
     await start();
     const r = await state(200);
     if (r.st.v !== 'off' || r.feats[0].includes('layers')) bad.push('asked for layers: ' + JSON.stringify([r.st.v, r.feats[0]]));
@@ -14524,46 +14528,45 @@ if (runs('sharp text')) {
     await end();
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: #sharp=layer asks for layers; four quad layers (RGBA8, the panels\' sizes) go in with three.js\'s first updateRenderState, its layer between; renderState.baseLayer still answers', async () => {
+  await step('sharp text: layer asks for layers; two quad layers (RGBA8, the panels\' sizes) go in behind three.js\'s with its first updateRenderState; renderState.baseLayer still answers', async () => {
     const bad = [];
     await open('airports&sharp=layer');
-    if (await fp.evaluate(() => localStorage.getItem('xrSharp')) !== 'layer') bad.push('#sharp=layer not kept');
     await start();
     const r = await state();
     if (!r.feats[0].includes('layers')) bad.push('no layers asked for: ' + r.feats[0]);
-    if (r.urs[0] !== 'layers' || r.raw !== 5 || r.rawBase || !r.shimGl) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.rawBase, r.shimGl]));
-    if (r.layers.length !== 4 || r.layers.some(L => L.init.fmt !== 'RGBA8' || L.init.layout !== 'mono' || L.init.w !== 1024) || r.layers.map(L => L.init.h).join() !== '1200,176,1200,176') bad.push('the layers made: ' + JSON.stringify(r.layers.map(L => L.init)));
-    if (!r.st.live || r.st.shown !== 2) bad.push('not shown: ' + JSON.stringify(r.st));
+    if (r.urs[0] !== 'layers' || r.raw !== 3 || r.glAt !== 2 || r.rawBase || !r.shimGl) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.glAt, r.rawBase, r.shimGl]));
+    if (r.layers.length !== 2 || r.layers.some(L => L.init.fmt !== 'RGBA8' || L.init.layout !== 'mono' || L.init.w !== 1024) || r.layers.map(L => L.init.h).join() !== '1200,176') bad.push('the layers made: ' + JSON.stringify(r.layers.map(L => L.init)));
+    if (!r.st.live || r.st.shown !== 2 || r.st.order !== 'behind') bad.push('not shown: ' + JSON.stringify(r.st));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: layer: the layers behind at the panels (half extents) holding their canvases, the eye buffer erased there, the front ones out of sight; written only when a panel changes', async () => {
+  await step('sharp text: layer: the layers at the panels (half extents) holding their canvases, the eye buffer erased there; written only when a panel changes', async () => {
     const bad = [];
     const r = await state();
     if (!near(r.layers[0].p, r.mesh) || Math.abs(r.layers[0].w - r.meshW / 2) > 0.002) bad.push('placed: ' + JSON.stringify([r.layers[0], r.mesh, r.meshW]));
-    if (!out(r.layers[2]) || !out(r.layers[3])) bad.push('front ones in sight');
     if (r.blend.some(b => b[0] !== 5 || b[1] !== 200 || b[2] !== 205 || b[3] !== 205)) bad.push('no hole: ' + JSON.stringify(r.blend));
     for (const i of [0, 1]) { const d = await fp.evaluate(i => window.__sh.layerDiff(i), i); if (!(d.mean <= 2) || (i === 0 && d.inked < 1000)) bad.push('layer ' + i + ' content: ' + JSON.stringify(d)); }
     const r2 = await state(1000);
     if (r2.subs - r.subs > 22) bad.push('written ' + (r2.subs - r.subs) + ' times in a second (at most 10 each)');
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: live values: text (text-optimized), front (no hole, the panels drawn into nothing), off (as ever, all out of sight); the Debug tab\'s row presses to the next', async () => {
+  await step('sharp text: live values: text (text-optimized), off (as ever, out of sight); in front waits for the next session (the panels as ever meanwhile); the Debug tab\'s row and line', async () => {
     const bad = [];
     const holeL = await fp.evaluate(() => window.__sh.holes());
     await fp.evaluate(() => HOST.xr.setSharp('text'));
     let r = await until(() => window.__sh.layers[0].quality === 'text-optimized');
     if (r.layers[0].q !== 'text-optimized' || r.st.shown !== 2) bad.push('text: ' + JSON.stringify([r.layers[0].q, r.st]));
-    await fp.evaluate(() => HOST.xr.setSharp('front'));
-    r = await until(() => { const L = window.__sh.layers, y = i => L[i].transform && L[i].transform.position.y; return y(0) === -1000 && y(1) === -1000 && y(2) !== -1000 && HOST.xr.sharpState().shown === 2; });
-    if (!out(r.layers[0]) || !out(r.layers[1]) || out(r.layers[2]) || r.st.shown !== 2 || r.blend.some(b => b[2] !== 201)) bad.push('front: ' + JSON.stringify([r.layers.map(L => L.p), r.blend, r.st]));
-    const holeF = await fp.evaluate(() => window.__sh.holes());
     await fp.evaluate(() => HOST.xr.setSharp('off'));
     r = await until(() => window.__sh.layers.every(L => L.transform && L.transform.position.y === -1000) && HOST.cur.panels().main.mesh.material.blending === 1);
     if (r.blend.some(b => b[0] !== 1) || !r.layers.every(out) || !r.st.live || r.st.shown) bad.push('off: ' + JSON.stringify([r.blend, r.st]));
     const holeO = await fp.evaluate(() => window.__sh.holes());
-    if (!(holeL > holeO + 2000) || Math.abs(holeF - holeO) > 600) bad.push('the eye buffer\'s hole (layer, front, off): ' + [holeL, holeF, holeO]);
-    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); await window.__fp.runUntil(null, 200); const r = HOST.collab.menuFind('sharp'), l = r && r.label; if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 200); HOST.collab.panelOpen(false); await window.__fp.runUntil(null, 100); return [l, HOST.xr.sharp()]; });
-    if (m.join() !== 'Sharp text: off,layer') bad.push('the Debug tab\'s row: ' + m);
+    if (!(holeL > holeO + 2000)) bad.push('the eye buffer\'s hole (layer, off): ' + [holeL, holeO]);
+    await fp.evaluate(() => HOST.xr.setSharp('front'));
+    r = await until(() => HOST.xr.sharpState().next === true);
+    if (!r.st.next || r.st.shown || !r.layers.every(out) || r.blend.some(b => b[0] !== 1)) bad.push('front in a session with layers behind: ' + JSON.stringify([r.st, r.blend]));
+    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('debug'); await window.__fp.runUntil(null, 200); const r = HOST.collab.menuFind('sharp'), l = r && r.label; if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 200); const r2 = HOST.collab.menuFind('sharp'), l2 = r2 && r2.label; if (r2 && r2.fn) r2.fn(); await window.__fp.runUntil(null, 200); HOST.collab.panelOpen(false); await window.__fp.runUntil(null, 100); return [l, l2, HOST.xr.sharp()]; });
+    if (m.join() !== 'Sharp text: in front,Sharp text: off,layer') bad.push('the Debug tab\'s row (front, off, then layer): ' + m);
+    r = await until(() => HOST.xr.sharpState().shown === 2 && HOST.cur.panels().main.mesh.material.blendDst === 205);
+    if (r.st.shown !== 2 || r.st.next) bad.push('layer again: ' + JSON.stringify(r.st));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
   await step('sharp text: a story swap in the session: out of sight while the next builds, then its panels', async () => {
@@ -14585,6 +14588,22 @@ if (runs('sharp text')) {
     if (!(d.mean <= 2)) bad.push('the new panel\'s layer: ' + JSON.stringify(d));
     await end();
     if ((await state()).st.live) bad.push('live after the session ended');
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: #sharp=front: two layers in front of three.js\'s, the panels drawn into nothing (no hole); layer then waits for the next session', async () => {
+    const bad = [];
+    await open('airports&sharp=front');
+    await start();
+    let r = await state();
+    if (r.urs[0] !== 'layers' || r.raw !== 3 || r.glAt !== 0 || !r.shimGl || r.layers.length !== 2) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.glAt, r.shimGl, r.layers.length]));
+    if (r.st.order !== 'front' || r.st.shown !== 2 || r.blend.some(b => b[0] !== 5 || b[2] !== 201)) bad.push('in front: ' + JSON.stringify([r.st, r.blend]));
+    if (!near(r.layers[0].p, r.mesh)) bad.push('placed: ' + JSON.stringify([r.layers[0].p, r.mesh]));
+    r = await until(() => true);
+    if (await fp.evaluate(() => window.__sh.holes()) > 600) bad.push('a hole in front');
+    await fp.evaluate(() => HOST.xr.setSharp('layer'));
+    r = await until(() => HOST.xr.sharpState().next === true && HOST.cur.panels().main.mesh.material.blending === 1);
+    if (!r.st.next || r.st.shown || r.blend.some(b => b[0] !== 1)) bad.push('layer in a session with layers in front: ' + JSON.stringify([r.st, r.blend]));
+    await end();
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
   await step('sharp text: AR asks for layers with depth sensing (text-optimized); a browser whose binding refuses quad layers gets three.js\'s own layer, the reason on the Debug tab', async () => {

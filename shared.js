@@ -5323,8 +5323,9 @@
           y += 72;
         }
       }
-      // Sharp text (v174, a test; index.html, HOST.xr.sharp): the story's panel as WebXR layers, this headset's own; each
-      // press the next value, live in a session that has the layers (compare in one session), else from the next one
+      // Sharp text (v174, on by default v175: layer; index.html, HOST.xr.sharp): the story's panel as WebXR layers, this
+      // headset's own; each press the next value, live in a session that has the layers (layer, for text and off; in
+      // front from the next session), else from the next one
       if (HOST.xr.setSharp) {
         const sh = HOST.xr.sharpState(), sv = HOST.xr.sharps();
         button(S, 'sharp', x, y, bw, 56, 'Sharp text: ' + (SHARP_SAY[sh.v] || sh.v), sh.can ? () => HOST.xr.setSharp(sv[(sv.indexOf(sh.v) + 1) % sv.length]) : null, { px: 21, on: sh.v !== 'off' });
@@ -5613,13 +5614,14 @@
     return 'Now ' + (H.got ? H.got + ' Hz' : 'not said') + ' · offers ' + H.list.join(', ') + (H.err ? ' · refused: ' + H.err : '');
   }
   // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
-  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(), sh = HOST.xr.sharpState ? HOST.xr.sharpState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate], sh && [sh.v, sh.live, sh.shown, sh.ms, sh.err]]); };
+  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(), sh = HOST.xr.sharpState ? HOST.xr.sharpState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate], sh && [sh.v, sh.live, sh.next, sh.shown, sh.ms, sh.err]]); };
   // Sharp text's button and the line beside it (v174): what this session has, else what the next one will
   const SHARP_SAY = { off: 'off', layer: 'layer', text: 'for text', front: 'in front' };
   function sharpLine(sh) {
     if (!sh.can) return 'No WebXR layers in this browser';
-    if (!sh.live) return sh.v === 'off' ? 'The story panel as a layer: from the next session' : sh.err ? 'Not this session: ' + sh.err : 'From the next session';
+    if (!sh.live) return sh.v === 'off' ? 'Off: the story panel drawn as ever' : sh.err ? 'Not this session: ' + sh.err : 'From the next session';
     if (sh.v === 'off') return 'As ever: press again to compare';
+    if (sh.next) return (sh.v === 'front' ? 'In front' : 'Behind') + ': from the next session';
     return (sh.shown ? sh.shown + (sh.shown === 1 ? ' layer' : ' layers') + ' shown' : 'No panel shown') + (sh.ms ? ' · a write ' + sh.ms + ' ms' : '') + (sh.err ? ' · ' + sh.err : '');
   }
   // the shell's automatic quality (HOST.xr.aq(), v137: the step it is at), or null from an older shell

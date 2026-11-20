@@ -14,5 +14,19 @@
       "Skill"
     ]
   },
-  "model": "opus"
+  "model": "opus",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
 }

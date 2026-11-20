@@ -69,6 +69,11 @@ file, the detail file says what is current.
   panel as a quad layer the compositor draws itself. Then "do it" to a switchable test in the shell for the story panel,
   off by default, all four values live in one session so the owner can compare on a Quest. Behind with a hole is the
   lab's (and three.js's webxr_vr_layers) pattern; in front is there in case the compositor ignores the eye buffer's alpha.
+- v175; the owner, after trying v174 on a Quest: "the sharp text works, what are the different settings for? all of them
+  do it so just use the cheapest one per default". *layer* became the default (under a new key, so devices left on *off*
+  while testing start on it): the cheapest that keeps rays, dots and the menu over the panel (*in front* costs the same
+  but covers them; *for text* adds the compositor's filter every frame), and a session makes only the two layers its
+  value needs (v174 made four for comparing).
 
 ### Spaceships
 - v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then health, a is boost but that only lasts briefly"; steering "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice targets alone "yes totally, maybe some ships that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop against them, also add some addons like additional boost and faster shooting for some times and reinforced shields pickups that spawn from time to time".

@@ -147,8 +147,8 @@ gets at most a line per feature and stays under 70 KB.
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
 - A story's copy on the relay (v170, `HOST.arrange`): *Copy to relay* (developer mode), `#<key>&arr=<name>[&edit]`, the
   editor drawer, a station's `st.<id>.arr`; the contract `tools/engine/SPEC.md`, the shell's side `docs/agents/shell.md`.
-- Sharp text (v174, a test, off by default): the story's two panels as WebXR quad layers, the headset's compositor drawing
-  them at the display's resolution (the Debug tab, `#sharp=`; `docs/agents/shell.md`, under the headset settings).
+- Sharp text (v174; on by default since v175, *layer*): the story's two panels as WebXR quad layers, the headset's
+  compositor drawing them at the display's resolution (the Debug tab, `#sharp=`; `docs/agents/shell.md`, headset settings).
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
