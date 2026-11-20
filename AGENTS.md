@@ -150,6 +150,10 @@ gets at most a line per feature and stays under 70 KB.
 - Sharp text (v174; on by default in Quest Browser since v175/v176, *layer*; the menu too, v177): the story's two panels
   and the headset menu as WebXR quad layers, drawn by the headset's compositor at the display's resolution (the Debug
   tab, `#sharp=`; `docs/agents/shell.md`).
+- Talk (v178, relay rooms only): voice between the people in a room who are elsewhere, through the relay (binary frames,
+  tag 2; Opus via WebCodecs); per device, off by default, open mic with a voice gate and a *Mic* row (the Shared dialog,
+  the menu's Circles tab, the phone sheet), no button taken; people both `here` never hear each other through it
+  (`docs/agents/shared-rooms.md` "Talk").
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
@@ -180,7 +184,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - In a headset no close view brings a `keepClear` set nearer than 0.35 m to the head; the life-size stories never move
   `GL.rig` and the grip moves only their panel (the pass story: the school's holder, `XR.lifeOff`).
 - The headset settings (labels, cards, free moving, subtitles, the two sound switches, panels, frame rate, refresh rate,
-  automatic quality, occlusion, moving with the sticks, menu sharing, my body, bodies) are the shell's or the device's: never in a
+  automatic quality, occlusion, moving with the sticks, menu sharing, my body, bodies, talk) are the shell's or the device's: never in a
   story's `state()` or `collab.state()`.
 - Real-world occlusion never pauses depth sensing in an AR session.
 
@@ -387,7 +391,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 - `--only <words>` runs the blocks whose names start with the words, for a builder's own steps; the release run is the
   whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
-  `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
+  `phones`, `tablets`, `iPhone`, `design`, `talk`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
   walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp).
 - Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off` and `collabAskDefault` to `walk` unless its
@@ -399,8 +403,8 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/sfx-cues.mjs <url> <key\|all>`, then `node tools/sfx-render.mjs <url> <out> [--story <key>]` | after changing a story's cues or a sound (report how it sounds as unheard) |
 | `node tools/live.mjs` | after touching `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs` or the relay's `--watch` |
 | `git worktree add /tmp/old <commit> && node tools/update.mjs /tmp/old .` | after changing `sw.js` or how files load |
-| `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video`, `--osc` for parts) | after touching `shared.js`, the relay or a story's hooks |
-| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token` and `--arr` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
+| `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video`, `--osc`, `--talk` for parts) | after touching `shared.js`, the relay or a story's hooks |
+| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token`, `--arr` and `--talk` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
 | `node tools/output/test-page.mjs` | after touching `output.js` or the output page's part of `shared.js` (Web MIDI and the studio stubbed; `tools/collab.mjs --output` is the end-to-end round with the relay's OSC) |
 | `node tools/peer.mjs` | links two `p2p/` pages through `/peerjs` |
 | `node tools/room-test.mjs` | after changing `room-test/` |

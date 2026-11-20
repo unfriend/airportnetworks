@@ -321,6 +321,25 @@ little bent for longer steps and a stance. Looking down bent the whole back in t
 your own feet out of your view): the chest now takes a tenth of the head's nod. Faster than a walk (the sticks), the feet
 glide under the hips instead of stepping frantically.
 
+### Talk (v178)
+
+The owner, 20 November 2026: "lets try open mic with mute row? yes talk only in relay rooms is ok for now", then "lets
+go". So people in one shared room who are not in the same physical room talk to each other through the relay. Why it is
+as it is:
+
+- **Relay rooms only.** The relay already carries live sound's binary frames (v162) and knows every member's `here`;
+  peer-to-peer rooms (a host page relaying every voice) and rooms on one device (nobody to talk to) were left for later.
+- **Open mic with a Mic row**, not push to talk: no controller button is taken (A and X are the spaceship's boost, the
+  sticks move you, the triggers point), and a voice gate keeps silence off the wire. *Mic: muted* closes the microphone
+  and the stream, so a muted person holds no place under the cap of 8.
+- **Off by default**, per device, never in the room's state: no microphone is opened until the person turns Talk on, and
+  after a reload it opens by itself only where the browser already allows it and in the same room.
+- **People here never hear each other through it**: they hear each other in the air, and speakers in one room would
+  double every voice and feed back. The known limit (two separate groups both `here`; AR counts as here until *I am
+  elsewhere*) was accepted for now.
+- **The row is on the menu's Circles tab**, not Settings: the Settings tab had no room left (1,858 of 1,920 px), and the
+  menu's quad layer (v177) is pinned at 720 x 1920.
+
 ### Two locks
 
 Two locks: the owner, 29 October 2026: "one toggle for locking the circles' movement globally and one toggle per room for locking its panels and story elements"; a "room" there is a story's circle. The circles lock was the layout lock of v96.

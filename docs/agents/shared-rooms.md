@@ -2201,6 +2201,138 @@ The owner (17 November 2026, "go as described"): the output page streams one sou
   latency and dropouts over real networks, how it sounds (unheard), positional live sound in a headset, and whether Quest
   Browser has `AudioDecoder`.
 
+## Talk (v178, `shared.js` "talk: shared", "talk: sending", "talk: hearing")
+
+The owner (20 November 2026): "lets try open mic with mute row? yes talk only in relay rooms is ok for now", "lets go".
+People in one shared room who are **not** in the same physical room talk to each other through the relay: open mic with
+a voice gate and a *Mic* row, never push to talk (no controller button is taken). The code points here; the relay's side
+is also in `relay/README.md` "Talk (v178)". Modelled on live sound (v162), whose paths it reuses: binary frames on the
+room's own socket, WebCodecs, the shell's one context. The name is **Talk** everywhere (`talk...`, `TALK_...`, `TK`,
+`TKH`, `TKS`, `TH`), never `voice` (that is Narration).
+
+- **This device's own.** `localStorage` `talkOn`, `talkMic`, `talkRoom`; off until turned on (no microphone before).
+  Never in `state()` or `collab.state()`; FORMAT stays `networks-55` (Talk is relay presence, as `snd`, not a room key).
+  *Talk: on*: this device hears the others who talk, and its microphone is open unless muted; turning it on turns this
+  device's **Sound** on too and the Mic on (a press). *Mic: muted* closes the microphone (listening only). A browser
+  without `AudioDecoder` cannot turn Talk on; one without `getUserMedia`, `MediaStreamTrackProcessor` or `AudioEncoder`
+  listens only. Relay rooms only (`talkAvail`: `C.code`, `C.via === 'relay'`, `C.talk` from the relay's `welcome`, not
+  the output page, not camera mode); peer to peer, on this device and an old relay say why (`talkWhy`).
+- **The wire.** A Talk frame is a binary WebSocket frame, both ways (the relay changes only `sid`): 16 bytes big-endian,
+  `tag` u8 2 (live sound's is 1), `fl` u8 (bit 0: the first frame of a spurt), `sid` u16 (the sender writes 0, the relay
+  the talker's stream id), `seq` u32 (frames handed to the socket since this `talk-start`; a frame the gate held back takes
+  no number, one the socket refused does, so a gap at a listener is a real loss), `at` f64 (its first sample's capture on
+  the relay's clock, `now()`), then one Opus packet of 1 to 1,000 bytes (`TALK_MAX_FRAME` 1,016 in all). 20 ms at
+  24 kbit/s is about 60 bytes: 50 frames a second while someone speaks, none while silent. Text messages: `{ t:
+  'talk-sub', on }` (hear the room's talkers, or not; a new socket starts unsubscribed), `{ t: 'talk-start', cfg }` (the
+  encoder's `decoderConfig`: Opus, `sampleRate` in `TALK_RATES` 8, 12, 16, 24 or 48 kHz, one channel, `description`
+  base64 of at most 512 characters or none), `{ t: 'talk-stop' }`. From the relay (`by: ''`): `@talk` `{ list: [{ sid,
+  id, cfg, here }] }` to **every** member whenever it changes, and after a `welcome` only when it is not empty (no names:
+  every member has them from `members`); `@talk` `{ st: { on, sid, subs, frames, bytes, dropped, bad, why, max } }` to a
+  talker on its start and stop and every 2 s (`why` `''`, `stopped`, `gone`, `full`). `welcome` has `talk: 1` and
+  `/api/ping` `talk: true`.
+- **Who hears whom** (the relay routes, `talkHears`): talker *s* reaches member *l* iff *l* has `talk-sub` on, *l* is not
+  *s*, and not both are `here` (the `here` of their `hello`s: the shell's `here()`, sent again whenever it changes). People
+  in one place hear each other in the air, never through speakers. **Known limit:** two separate groups that are both
+  `here` do not hear each other; a headset in AR counts as here until it says *I am elsewhere* (the Debug tab's `here`
+  button), so two people in AR in two homes press that first. A VR headset that has not yet answered the menu's *Are you
+  in the same room as the others?* (`askHere()`) neither talks nor hears until it does (its line says so). A screen
+  always counts as elsewhere: next to the headsets, keep Talk off.
+- **The relay's rules** (`relay/server.mjs` "Talk"): `TALK_MAX` 8 open microphones a room (the ninth `talk-start` gets
+  `st` `why: 'full'`, `sid: 0`; listening still works; a restart does not count itself); a frame under 17 or over 1,016
+  bytes counted `bad`; at most `TALK_RATE` 60 frames a second a talker (`quota`, the rest `dropped`); a listener whose
+  socket is gone or backed up past `TALK_BACKLOG` 16 KB misses the frame (audio never queues); a tag-2 frame from a member
+  with no stream is dropped and counted (`talkStray`), never a 1003 close (a plain member's tag-1 frame still is);
+  `talk-start` from the output page or a camera is refused once a socket. A new sid at each `talk-start` (u16, never 0,
+  never another talker's), so a late frame of a stopped stream never reaches a new decoder. A reconnect ends the old
+  stream (`gone`) and the page starts again on the new socket; a talker's `here` changing sends the list again; a hello
+  that says output page or camera ends the stream. Nothing stored; the log has started, stopped (why), refused (full) and
+  changed counts, never bytes, a cfg, a name or an address.
+- **Sending** ("talk: sending", lane A). A press (the user gesture) calls `getUserMedia` within its turn, voice settings
+  (echo cancellation, noise suppression, gain control, mono, 48 kHz asked); `MediaStreamTrackProcessor` reads its
+  `AudioData` (no `AudioContext` anywhere); WebCodecs `AudioEncoder`, Opus mono, 20 ms, 24 kbit/s, `voip` (without
+  `voip` if refused). Every piece is encoded, gate open or not; the gate (`TALK_GATE` 0.01 RMS of the first channel,
+  `TALK_HANG` 300 ms after the last loud piece) decides what is sent, the last `TALK_PRE` 2 packets (40 ms) sent first when
+  it opens with `fl` 1. The stream starts (`talk-start`) on the first packet, before anyone speaks, and again on each new
+  socket. Dropped, never queued: a packet while `bufferedAmount > TALK_SEND_MAX` 8,192, a piece while
+  `encodeQueueSize > TALK_QUEUE` 10. `talkFail` closes everything and sets `TK.phase = 'error'`, `TK.err` (the words below)
+  and `TK.mic = false` (not saved: one press tries again; no loop of prompts); `full` likewise (`TK.full`). By itself (no
+  press: a load, *Update the room*, a relay coming back) the microphone opens only in the room it was last opened in
+  (`talkRoom`) and only when `navigator.permissions` says `granted`; otherwise the Mic waits (`TK.held` `'room'` or
+  `'reload'`). Leaving the room or the room leaving the relay closes it.
+- **Hearing** ("talk: hearing", lane B). `talkHearWant`: Talk on, a Talk room, the menu's question answered, `AudioDecoder`
+  there and **the Sound button on** (hearing follows only the Sound button, never Sound effects or Narration). `talkStep`
+  (the pump, 5 times a second) runs `TKH.step()`, sends `talk-sub` on each new socket, forgets a list from an older socket,
+  keeps one record per talker heard (not this device, not here while this device is here) and the rows' signature
+  `TH.sig`. One `AudioDecoder` a talker (`isConfigSupported` first; made again at most 3 times in 10 s, then `why` *cannot
+  decode*). **The jitter buffer**: each decoded frame an `AudioBuffer` on `HOST.audio.fx()`, the first scheduled
+  `TALK_T0` 80 ms behind, each next one at the end of the one before; a new spurt (`fl` 1) the target again; one that ran
+  dry restarts the schedule (`late`); one more than the target plus `TALK_SLACK` 0.1 s ahead is dropped. The target follows
+  the spread of the frames' lateness (`now() - at`, the last `TALK_JW` 50; every 25 frames 40 ms plus the 90th percentile
+  over the earliest, `TALK_TMIN` 60 to `TALK_TMAX` 300 ms). No Opus loss concealment (WebCodecs cannot be asked for it;
+  over TCP frames are late, not lost). A `GainNode` each on the shell's context (`TALK_LEVEL` 1, faded to 0 while the
+  Sound button is off; made again on a new context; never a context of its own, never live sound's `LV.out`).
+- **Positional voices.** In a headset (`talkPlace`, from the tick) a talker whose head is drawn (`OV.people`, room to
+  reference space by `OV.room.matrix`) is heard through an HRTF `PannerNode` at that head (`inverse`, `refDistance` 1.5,
+  `rolloffFactor` 0.5), never further than `TALK_FAR` 6 m (a remote voice never fades away: about 8 dB down at most); the
+  context's listener at this head. A page, a phone, a talker with no head drawn here: flat. Back to flat when the session
+  ends.
+- **The hooks** ("talk: shared", both lanes' verbatim piece): `TK` (this device's side: `on`, `mic`, `room`, `held`,
+  `phase` `'off'`/`'asking'`/`'live'`/`'error'`, `err`, `full`, `max`, `started`, `st`, `level`, `frames`, `drops`),
+  `TKH` (`open`, `step`, `halt`, `st`: filled by "talk: sending"; "talk: hearing" calls only these), `talkLacks`,
+  `talkAvail`, `talkWhy`, `setTalk`, `setTalkMic`, `talkMic`. `TH` is the hearing's (`sub`, `list`, `talkers`, `stray`,
+  `sig`). Joined: `wire()` sends tag-2 frames to `talkIn` (others to `liveIn`), `onFx` passes `@talk` `st` to `TKH.st` and
+  a list to `talkFx`, `pump()` calls `talkStep`, `leave()` `talkLeave`, `tick()` `talkPlace`, `welcome()` sets `C.talk`.
+- **The rows and their words.** The Shared dialog (`.sh-talk`, in a room, not on the output page): *Talk: on/off*
+  (`data-sh="talk"`, its title `TALK_TITLE`), *Mic: on/muted* (`talkmic`) and the line. The headset menu's **Circles**
+  tab, after *Narration for everyone here*, not in a room on this headset, and only when it fits above You. The phone AR
+  sheet (`phRows`): `talk` (wide, the line as its note) and `talkmic`. Talk can always be turned off; the Mic only while
+  Talk is on in a Talk room with a browser that can talk (`talkBtns`). The line (`talkLine`) names what a browser lacks
+  (*This browser cannot use Talk (no ...)*, *Listening only: this browser cannot talk (no ...)*), the reason it is not
+  available, *Off: no microphone, nothing heard* or *N people are talking: turn Talk on to hear them*, *First answer the
+  menu: ...*, then this device (*N people hear you*, *Nobody hears you yet*, *Waiting for the microphone*, *Allow the
+  microphone for this site: the question may show outside VR* after 8 s in a session, *Mic muted: you only listen*, *Mic
+  muted after the reload / in this new room: press Mic to talk*, *The room is full for Talk (8 microphones): press Mic to
+  try again*, the microphone's errors: *The microphone was not allowed: allow it for this site*, *This device has no
+  microphone*, *The microphone is busy: another app may have it*, ...) and the others (*Talking: A, B, C and 2 more*,
+  *Nobody else is talking*, *Sound is off: turn it on to hear ...*). No speaking marks: the line changes only with the
+  list, the counts or the state.
+- **API** (`HOST.collab`): `talkMic()`, `setTalk(on, why)`, `setTalkMic(on, why)`, `talkLacks()`, `talkState()` (adds
+  `hear`, `test`, `soundOff`, `session`, `here`, `ear`, `stray` and `talkers`: `{ id, name, sid, here, rec, frames, lost,
+  late, skipped, level, lagMs, target, playing, panned, gain, pos, why }`), `talkLine(s)`; for tests `talkSend(seq, at, fl,
+  bytes)`, `talkGate(x)` (0: always open), `talkIn(buf)`, `talkFx(v)`, `talkTest(on)` (hearing without a room).
+- **Tests.** `node relay/test.mjs --talk` (also in the main run: the relay's rules, eight steps), `node tools/smoke.mjs
+  <url> --only talk` (off by default and the words for every state; the dialog's row; three talkers' frames encoded in
+  the test; voices from their heads in a pretend headset), `node tools/collab.mjs --talk` (not in the main run: three pages
+  on the run's relay with Chromium's fake microphone; A talks, B hears it, C reads that one person is talking, Mic muted,
+  a reconnect).
+- **Untested** (only a device shows): whether Quest Browser has `MediaStreamTrackProcessor`, `AudioEncoder` and
+  `AudioDecoder` and Opus `voip` (the row names what it lacks: read it on the Quest); the microphone prompt and
+  `getUserMedia` inside an immersive session (the 8 s note) and whether a press in the headset menu counts as a gesture;
+  echo (a headset on its speakers, two headsets in one room with a remote person, a screen on loudspeakers; whether
+  Quest's echo canceller hears what Web Audio plays); how voices sound (Opus at 24 kbit/s, the gate's 0.01 and hang-over
+  on real microphones, the level against narration and effects, the HRTF voice at the head, the 6 m clamp: unheard);
+  latency and gaps over Coolify's proxy on home Wi-Fi, venue Wi-Fi and mobile data; frame rate with several talkers and
+  the relay's load with eight; positional voices lining up with drawn heads and bodies; phones in AR; Safari and Firefox
+  (listening only at best). Nothing on the controllers (open mic).
+- **Departures from the plan.** (1) The headset menu's row is on the Circles tab, not Settings: the Settings tab is 1,858
+  of its 1,920 px in a room, and the menu's quad layer is pinned at 720 x 1920. (2) The list goes to every member, so a
+  page with Talk off can say who is talking. (3) `@talk` carries no name and no `muted`: muting closes the stream and the
+  microphone and frees a place under the cap. (4) `here` is the hello's, not a new message. (5) A new `sid` at each
+  `talk-start`. (6) No `AudioWorklet` fallback for capture this round (the next round if a Quest lacks
+  `MediaStreamTrackProcessor` but has `AudioEncoder`). (7) No speaking mark in a headset (a tag drawn again uploads the
+  whole atlas). (8) No Opus loss concealment. (9) After a load the microphone opens by itself only with the permission
+  `granted` and in the room it was last opened in. (10) The lanes meet only through `TKH` and two verbatim pieces. The
+  builders': Chrome's `AudioEncoder` gives a `description` (an OpusHead, 28 base64 characters): sent as base64, left out
+  if longer than 512; the gate reads the plain RMS of the first channel (output.js's meter doubles it); `talkPlace` keeps
+  `T.pos` only while panned; two helpers of the hearing's own (`talkDecoder`, `talkB64`). **Busy pages:** the microphone
+  is read on the page's main thread. On this machine's software-drawn pages (10 frames a second, three pages on 4 CPUs)
+  Chromium's track reader handed over only 3 to 20 of the 50 packets a second (`tools/collab.mjs --talk` waits for 25
+  frames within 15 s for that reason); blocking a light page for up to 80 ms at a time lost nothing, so a Quest drawing
+  at 72 Hz with time to spare should not. Lane A measured 41 reads in 3 s on the full page against 301 on a light one,
+  and 138 and 223 with the reader's `maxBufferSize` at 25 and 100; the code keeps the plan's `{ track }`. If voices
+  break up while a headset is busy, try `maxBufferSize: 25` first, then the reader in a worker
+  (`MediaStreamTrackProcessor` runs there too).
+
 ## Vive trackers (`tools/trackers/`, `relay/trackers.mjs`)
 
 Vive Tracker 3.0s in the shared rooms (v126; the owner's choice:

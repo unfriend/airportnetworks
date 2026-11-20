@@ -61,6 +61,14 @@ for a minute (it reports how fast). To test without the internet, run the relay 
 on https needs the relay's certificate trusted). First real devices (the owner, 29 October 2026): two laptops on a
 local network found each other this way, and then shared a peer-to-peer room; headsets and phones are still to try.
 
+**Talk** (v178, rooms on a relay only: the main site's relay or the laptop relay, never peer to peer): voice between the
+people in a room who are elsewhere. Leave it **off** unless remote people join; it is off on every device until turned
+on (the Shared dialog's **Talk** row, the menu's **Circles** tab, the phone sheet; **Mic** mutes). Tell the people
+present when remote people can hear them. Screens next to the headsets always count as elsewhere: keep Talk off on them,
+or their speakers bring the remote voices into the room. Remote people should wear headphones. A headset in AR counts as
+here until it presses **I am elsewhere** (the Debug tab), so a remote person in AR presses that first; a VR headset
+answers the menu's *Are you in the same room as the others?* before it talks or hears. Untested on a Quest so far.
+
 ## 1. The day before
 
 **Every headset**

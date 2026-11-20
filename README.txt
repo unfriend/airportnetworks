@@ -517,6 +517,17 @@ page); what it shows stays each person's own. The scene's sends are set on
 the studio's cards; streams and incoming mappings on the output page (kept on
 that machine; Export and Import). Setting it up: tools/output/README.md.
 Untested with real MIDI and OSC software, virtual cables and headsets.
+Talk (v178, rooms on a relay only): the people in a room who are not in the
+same place talk to each other through the relay. Each device's own and off by
+default: Talk: on (the Shared dialog, the headset menu's Circles tab, the phone
+sheet) asks for the microphone and turns the sound on; Mic: muted closes the
+microphone and only listens. Open mic: nothing is sent while you are silent,
+and no button is taken. People in the same place never hear each other through
+it (in AR a headset counts as being in the room until I am elsewhere on the
+Debug tab; in VR answer the menu's question first). A screen always counts as
+elsewhere: next to the headsets keep Talk off; headphones help. In a headset a
+voice comes from the talker's head. The line under the row names what a
+browser lacks. Untested on a Quest so far.
 In a headset you stay in a story once you
 have gone into its circle, wherever you walk, until you go into another
 circle; while you are in one, the other stations show only their small 3D

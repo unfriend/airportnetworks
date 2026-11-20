@@ -147,6 +147,9 @@
 // order of reloading, a pretend headset back at its station without walking in); across FORMAT from a refused page, with
 // old pages of this code and v135 pages, which ignore it; the relay restarted between press and reloads; peer to peer; two
 // presses at once, an old order, a stale shell; a few minutes; --cases 2,5 runs only those of its six cases);
+// --talk only Talk end to end (talkRound, v178, not in the main run: a room of its own, three pages elsewhere and the
+// browser's fake microphone; A talks, B hears it decoded and playing, C with Talk off reads that one person is talking,
+// A's Mic muted ends it, A's socket closed and back: heard again);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -403,6 +406,7 @@ const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration 
 const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses in one room: areasRound, a room of its own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const OUTPUT_ONLY = argv.includes('--output');   // (only the output page, MIDI and OSC, end to end: outputRound, a relay of its own with --osc-out, --osc-in, --trackers and --scenes, the fake bridge)
+const TALK_ONLY = argv.includes('--talk');   // (only Talk end to end: talkRound, a room of its own; not in the main run)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -8173,6 +8177,60 @@ async function previewRound(dir) {
   }
 }
 
+// ---- Talk end to end (v178; talkRound, --talk runs only it, not in the main run; docs/agents/shared-rooms.md "Talk"): a
+// room of its own on the run's relay, three pages elsewhere (desktops), the browser's fake microphone granted without
+// asking (LAUNCH_ARGS). A talks (its gate always open: the fake microphone beeps), B listens only (Talk on, Mic muted, so
+// C counts one talker), C has Talk off. Within 8 s B hears A (frames decoded and playing) and A's status counts B; C's line
+// says one person is talking; A's Mic muted: B's talkers gone within 2 s; A's Mic on again, then A's socket closed by the
+// test: after the reconnect B hears A again (a new stream, a new sid) within 10 s
+async function talkRound() {
+  // (small pages: three globes drawn in software hold up the page that talks, and Chromium's track reader then hands it
+  // only some of the microphone's pieces (here 3 to 20 frames a second of 50, the reader's turns starved while the page
+  // draws at 10 frames a second): so 25 frames (half a second of voice) within 15 s; a Quest draws at 72 Hz with time to spare)
+  const SM = { width: 320, height: 200 };
+  const A = await open('#stories', SM);
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  const B = await open('#s=' + rc, SM), C = await open('#s=' + rc, SM);
+  try {
+    const avail = await Promise.all([A, B, C].map(p => until(p, () => HOST.collab.status === 'open' && HOST.collab.talkMic().avail, null, 20000)));
+    // (Sound on and a tap on B, so the shell's context may run: the dialog that opens by itself in a room closed first)
+    await B.evaluate(() => { HOST.audio.mute(false); HOST.collab.dialog(false); });
+    await B.click('#btnShared', { timeout: 5000 }).catch(() => B.mouse.click(5, 5));
+    await B.evaluate(() => HOST.collab.dialog(false));
+    const ctxB = await until(B, () => !!HOST.audio.fx(), null, 15000);
+    const aId = await A.evaluate(() => HOST.collab.id);
+    await A.evaluate(() => { HOST.collab.talkGate(0); HOST.collab.setTalk(true); });
+    await B.evaluate(() => { HOST.collab.setTalk(true); HOST.collab.setTalkMic(false); });   // (listening only)
+    const heard = (p, id, n, ms) => until(p, ([id, n]) => HOST.collab.talkState().talkers.some(t => t.id === id && t.frames > n && t.playing), [id, n], ms);
+    const t0 = Date.now(), hB = await heard(B, aId, 25, 15000), tB = Date.now() - t0;
+    const mA = await until(A, () => { const s = HOST.collab.talkMic(); return s.open && s.subs === 1 && s.sent > 25; }, null, 15000);
+    const lC = await until(C, () => HOST.collab.talkLine(HOST.collab.talkState()) === '1 person is talking: turn Talk on to hear them', null, 5000);
+    const sB = await B.evaluate(id => HOST.collab.talkState().talkers.find(t => t.id === id) || null, aId);
+    const sA = await A.evaluate(() => HOST.collab.talkMic());
+    if (sB) console.log(`      (B heard 25 frames of A in ${(tB / 1000).toFixed(1)} s; then ${sB.frames} frames, ${sB.lost} lost, ${sB.late} late, ${sB.skipped} skipped, level ${sB.level}, target ${sB.target} ms, lag ${sB.lagMs} ms; A sent ${sA.sent}, dropped ${sA.drops}, sid ${sA.sid}, subs ${sA.subs})`);
+    check('talk: a room on the relay; A talks (the fake microphone), B listens: B hears A (25 frames decoded and playing within 15 s on this slow machine) and A\'s status counts B; C (Talk off) reads that one person is talking',
+      avail.every(Boolean) && ctxB && hB && mA && lC, JSON.stringify({ avail, ctxB, hB, mA, lC, sB, sA, lineC: await C.evaluate(() => HOST.collab.talkLine(HOST.collab.talkState())) }));
+    // Mic muted: the stream stops, and B has nobody to hear
+    await A.evaluate(() => HOST.collab.setTalkMic(false));
+    const gone = await until(B, () => !HOST.collab.talkState().talkers.length, null, 2000);
+    const offA = await A.evaluate(() => { const s = HOST.collab.talkMic(); return { phase: s.phase, open: s.open, mic: s.mic }; });
+    check('talk: A\'s Mic muted: its microphone closed and B\'s talkers gone within 2 s', gone && offA.phase === 'off' && !offA.open && !offA.mic, JSON.stringify({ gone, offA, B: await B.evaluate(() => HOST.collab.talkState().talkers) }));
+    // Mic on again, then A's socket closed: the relay ends the old stream, A starts a new one on its new socket
+    await A.evaluate(() => HOST.collab.setTalkMic(true));
+    const back = await heard(B, aId, 10, 10000);
+    const sid1 = await B.evaluate(id => (HOST.collab.talkState().talkers.find(t => t.id === id) || {}).sid || 0, aId);
+    await A.evaluate(() => HOST.collab.internals().ws.close());
+    const again = await until(B, ([id, sid]) => HOST.collab.talkState().talkers.some(t => t.id === id && t.sid !== sid && t.frames > 10 && t.playing), [aId, sid1], 10000);
+    const reA = await A.evaluate(() => { const s = HOST.collab.talkMic(); return { status: HOST.collab.status, phase: s.phase, open: s.open, sid: s.sid, subs: s.subs }; });
+    check('talk: A\'s Mic on again, then its socket closed: after the reconnect B hears A again (a new stream) within 10 s', back && sid1 > 0 && again,
+      JSON.stringify({ back, sid1, again, reA, B: await B.evaluate(() => HOST.collab.talkState().talkers) }));
+  } finally {
+    for (const p of [A, B, C]) await p.context().close().catch(() => {});
+  }
+}
+
 // ---- rooms across updates (v136; reloadRound, --reload): a relay that serves a copy of the app restarted serving
 // another, as a deploy on Coolify, and Update the room. Three copies made in a temporary folder by tools/release.mjs (as
 // tools/live.mjs does): old (this code, its FORMAT F), new (this code, F + 1) and v135 (the release before, git 7c32b37,
@@ -8528,6 +8586,7 @@ try {
   if (PLACES_ONLY) { await placesRound(); break main; }
   if (AREAS_ONLY) { await areasRound(); break main; }
   if (RELOAD_ONLY) { await reloadRound(); break main; }
+  if (TALK_ONLY) { await talkRound(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -10894,8 +10953,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

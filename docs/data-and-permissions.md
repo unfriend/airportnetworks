@@ -204,6 +204,30 @@ not name an address; but anyone who knows an address can work out its id, so it 
   per room) takes it off. On a big shared network (eduroam, a campus, a conference's Wi-Fi) strangers share the address,
   so they may see such a room listed; nobody joins a room by itself that it was never in.
 
+### Talking in a shared room
+
+*Talk* (v178; docs/agents/shared-rooms.md "Talk") carries people's voices between the people in a room who are not in
+the same place.
+
+- **The microphone only after Talk is turned on.** Talk is off by default and each device's own. The first press asks
+  for the microphone (each site asks the browser's own question). After that it is never opened by itself, except after
+  a reload or a reconnect, and then only when the browser already allows the microphone for the site and in the same
+  room it was last opened in; in another room the Mic waits for a press.
+- **Only while the Mic is on, and only while you speak.** *Mic: muted* closes the microphone. While it is on, a voice
+  gate sends sound only while it is loud enough (and 0.3 s after); silence sends nothing.
+- **The relay carries it, never keeps it.** Talk works only in rooms on a relay. Each 20 ms of voice goes, as Opus, over
+  the room's socket to the relay, which passes it at once to the room's members who are elsewhere and have Talk on, and
+  keeps nothing: no recording, no file, no frame's bytes in a log (the log counts frames and says when a microphone
+  starts and stops, by member id, never a name or an address). People who are both in the room (`here`) never get each
+  other's voice.
+- **Not end to end.** The voice is encrypted to the relay's proxy (TLS) and is plain in the relay's memory while it is
+  passed on, as everything else in a room is. Whoever runs the relay could listen in.
+- **Everyone in the room sees who has a microphone open** (the Talk line names the talkers, with Talk on or off).
+- **Not peer to peer and not on this device**: those rooms have no Talk.
+
+The people present at an event should know when remote people can hear them: a screen next to the headsets always counts
+as elsewhere, so keep Talk off there (docs/event-runbook.md).
+
 ## Licence
 
 **The project has no licence.** There is no `LICENSE` file, and GitHub reports none, so nobody else has a clear right

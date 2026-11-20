@@ -1098,6 +1098,23 @@ no handover for 0.3 m and one for more, the card's *Only the nearest*, the recor
 `layout.json` with `file: '@live'`, Source off and on (a file picked, the last file kept), released when the items go;
 the real shell claimed by a live item and released when another story comes; no request for `@live`.
 
+### smoke: talk
+
+`--only talk` (v178, a minute or two; `docs/agents/shared-rooms.md` "Talk"): four steps, each in a browser context of its
+own whose pages count `getUserMedia` calls (refused there: no microphone in a test) and `AudioContext`s made. (1) On
+`#airports`: every talk function of `HOST.collab` there, Talk off by default, `talkOn` not stored, the microphone never
+asked, `talkLacks()` an array (logged), and `talkLine` word for word for a base state and twenty changes (every phrase
+of the line). (2) `#airports&s=TLK&peer=off` (a room on this device): the Shared dialog's `.sh-talk` row greyed with
+*Not available: rooms on a relay only.*; `setTalk(true)` turning Talk on (stored, Sound on, no microphone asked), the Mic
+still greyed, a click turning it off. (3) A page in no room, Sound on and a tap, `talkTest(true)`: three talkers from a
+list (`talkFx`), 50 frames each of a tone encoded in the test fed through `talkIn` (one left out, two spurts): decoded and
+played through the shell's context (`rec`, `frames`, `lost`, `playing`, a level, the jitter target, `gain`, a lag, none
+panned), the Sound button fading every gain to 0, a talker gone from the list, a stray frame counted, no new
+`AudioContext`. (4) A pretend headset (`FPS_FAKE`) in a room on this device: a talker elsewhere with a head 2 m in front
+heard through the panner at that head (within 0.05 m), one here not heard (its frames stray), one with no head flat; the
+head moved 20 m away: the voice 6 m from the ear; flat again within 0.5 s of the session's end. The page is shrunk to
+480 x 300 after the tap (the globe in software holds the page's timers up).
+
 ### smoke: studio sends
 
 Its *studio streams*, *studio loops* and *studio trails* steps (v158, `--only 'studio streams'`, `'studio loops'`,
@@ -1384,6 +1401,17 @@ degrees of `@trk`, the circling one within 1 mm of the truth, kinds and names, a
 page's own test (Web MIDI and `HOST.cur.out` stubbed; a room on this device and a plain relay): `&output` and the
 dialog's button, MIDI notes and their held ends, OSC arguments, slots and a CC stream from pretend presence, incoming
 MIDI, OSC and MIDI clock calling `act()`, Learn, validation, Export and Import, a reload resuming it, a phone ignoring it.
+
+`node relay/test.mjs --talk` runs only Talk's steps (v178, also in the main run after live sound's; `relay/README.md`
+"Talk (v178)"), eight of them: `/api/ping`'s `talk: true` and `welcome`'s `talk: 1`, no `@talk` on a join into a room
+where nobody talks; the refusals (`talk-start` from the output page or a camera once a socket, bad cfgs, a bad
+`talk-sub`), a tag-2 frame from a member not talking counted and never closed, a plain member's tag-1 frame still 1003;
+two talkers and a listener (the list to every member, frames byte for byte but `sid` to those who hear, none of one's own,
+none without `talk-sub`, `st` `subs`, the list after a joiner's welcome); `here` (a listener here does not hear a talker
+here, one elsewhere does, and the talker saying it is elsewhere sends a new list); the rate (80 frames in a burst: 55 to
+61 through, the rest `dropped`) and sizes (`bad`); full at eight (the ninth refused, then in after one stops); stop,
+leave and reconnect (lists without the talker, no frames to a new socket before its `talk-sub`); the log's lines with no
+name or cfg.
 
 ### collab.mjs main run (per story, then the rounds `codeRound`, `allRound`, `guideRound`, `placesRound`, `areasRound`, `reloadRound`, the design room, settings, follow, pretend headset, peer to peer, rooms on this network)
 
@@ -2162,6 +2190,18 @@ bridge port, the room's `trk` lined up by a write from A and *Trackers as OSC* o
 tracked devices and no base station, and its `/name` (*Spot A*); and nothing on UDP that is not OSC. `--shots <dir>`:
 `output-1-page.png` (O's overlay) and `output-2-cube-card.png` (cube01's card, its Sends rows). Untested here: real MIDI
 ports and software, real OSC programs, a firewall, a real headset's cubes and pointing.
+
+### collab.mjs --talk
+
+`--talk` runs only Talk end to end (`talkRound`, v178, **not** in the main run; a minute): a room of its own on the run's
+relay, three pages elsewhere at 320 x 200, the browser's fake microphone granted without asking (`LAUNCH_ARGS`). A talks
+(`talkGate(0)`: the fake microphone beeps), B has Talk on with its Mic muted (listening only, so C counts one talker), C
+has Talk off. B hears A (25 frames decoded and playing within 15 s), A's `talkMic()` is open with `subs` 1, and C's line
+reads *1 person is talking: turn Talk on to hear them*; A's Mic muted: B's talkers gone within 2 s; A's Mic on again,
+then A's socket closed by the test: after the reconnect B hears A again (a new stream) within 10 s. Why 25 frames in 15 s
+and not 50 in 8: three globes drawn in software (10 frames a second, the main thread full) starve the talking page's
+track reader, which handed over 3 to 20 of the 50 packets a second here (a light page blocked for up to 80 ms at a time
+lost none). Its log line gives B's counts (frames, lost, late, the jitter target, the lag). No pictures.
 
 ### collab.mjs --smooth
 
