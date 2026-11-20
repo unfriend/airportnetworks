@@ -139,6 +139,8 @@ gets at most a line per feature and stays under 70 KB.
 - The design room (`#design`) and the studio (`#studio`) are pages in `STORY_EXTRA`, built like stories, placed in a
   room as stations but never by Arrange all.
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
+- Sharp text (v165, a test, off by default): the story's two panels as WebXR quad layers, the headset's compositor drawing
+  them at the display's resolution (the Debug tab, `#sharp=`; `docs/agents/shell.md`, under the headset settings).
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
@@ -373,7 +375,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `npx playwright install chromium`). WebGL runs in SwiftShader headlessly, so frame rates are low. A 404 for a missing
   narration MP3 is expected; any other console error fails it.
 - `--only <words>` runs the blocks whose names start with the words, for a builder's own steps; the release run is the
-  whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'developer mode'`,
+  whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,

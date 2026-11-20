@@ -13,6 +13,7 @@
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'auto quality': the automatic quality's steps, the refresh rate as one, v145;
+// --only 'sharp text': the story's panels as WebXR quad layers (a test), on a pretend Quest with pretend layers, v165;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
@@ -14331,6 +14332,195 @@ if (runs('auto quality')) {
     await fp.evaluate(() => { HOST.xr.setFov('auto'); HOST.xr.setScale('auto'); });
     if (await fp.evaluate(() => [HOST.xr.fov(), HOST.xr.scale()].join()) !== 'auto,auto') bad.push('setFov and setScale do not take auto');
     if (bad.length) errors.push(...bad.map(b => 'auto quality: ' + b));
+  });
+  await ctx.close();
+}
+// Sharp text (v165, a test: the story's two panels as WebXR quad layers, index.html's HOST.xr.sharp). On the pretend Quest
+// (FPS_FAKE) with SHARP_FAKE: a renderState as the spec has it (its baseLayer null once layers are set, both at once
+// refused) and an XRWebGLBinding whose quad layers are real GL textures (getSubImage throws until the layer is in the
+// session's list; window.__sh.refuse: createQuadLayer throws), so the eye buffer and each layer read back
+function SHARP_FAKE() {
+  const P = window.XRSession.prototype, S = window.__sh = { urs: [], layers: [], subs: 0, refuse: false };
+  Object.defineProperty(P, 'renderState', { configurable: true, get() { return this._rs; }, set(v) { this._rs = Object.freeze(Object.assign({ layers: null }, v)); } });
+  P.updateRenderState = function (s) {
+    S.urs.push(Object.keys(s).sort().join('+'));
+    if (s.baseLayer && s.layers) throw new DOMException('both', 'NotSupportedError');
+    if (s.layers && s.layers.length > 1 && !this.enabledFeatures.includes('layers')) throw new DOMException('layers', 'NotSupportedError');
+    const r = Object.assign({}, this._rs);
+    if (s.layers) { r.layers = Object.freeze(s.layers.slice()); r.baseLayer = null; }
+    if (s.baseLayer) { r.baseLayer = s.baseLayer; r.layers = null; }
+    for (const k of ['depthNear', 'depthFar']) if (k in s) r[k] = s[k];
+    this._rs = Object.freeze(r);
+  };
+  window.XRRigidTransform = class { constructor(p = {}, o = {}) { this.position = { x: p.x || 0, y: p.y || 0, z: p.z || 0, w: 1 }; this.orientation = { x: o.x || 0, y: o.y || 0, z: o.z || 0, w: o.w === undefined ? 1 : o.w }; } };
+  window.XRWebGLBinding = class {
+    constructor(s, gl) { this.s = s; this.gl = gl; }
+    createQuadLayer(init) {
+      if (S.refuse) throw new DOMException('no quad layers here', 'NotSupportedError');
+      const gl = this.gl, t = gl.createTexture(), prev = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      gl.bindTexture(gl.TEXTURE_2D, t); gl.texStorage2D(gl.TEXTURE_2D, 1, init.colorFormat || gl.RGBA8, init.viewPixelWidth, init.viewPixelHeight); gl.bindTexture(gl.TEXTURE_2D, prev);
+      const L = { init: { w: init.viewPixelWidth, h: init.viewPixelHeight, fmt: init.colorFormat === gl.RGBA8 ? 'RGBA8' : init.colorFormat, layout: init.layout, space: !!init.space }, space: init.space, width: 1, height: 1, transform: null, quality: 'default', needsRedraw: false, tex: t, writes: 0 };
+      S.layers.push(L);
+      return L;
+    }
+    getSubImage(L) {
+      const raw = Object.getOwnPropertyDescriptor(P, 'renderState').get.call(this.s);
+      if (!raw.layers || !raw.layers.includes(L)) throw new DOMException('not in the layers yet', 'InvalidStateError');
+      S.subs++; L.writes++;
+      return { colorTexture: L.tex, viewport: { x: 0, y: 0, width: L.init.w, height: L.init.h } };
+    }
+  };
+  // what the steps read: the session's state, a layer against its panel's canvas (premultiplied, rows flipped) and the
+  // eye buffer's left half (pixels near-black and see-through: the hole)
+  S.state = () => {
+    const s = HOST.session, raw = s ? Object.getOwnPropertyDescriptor(P, 'renderState').get.call(s) : null, sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null;
+    return { st: HOST.xr.sharpState(), urs: S.urs.slice(), feats: window.__fp.inits.map(i => i.init.optionalFeatures), key: HOST.curKey, subs: S.subs,
+      raw: raw && raw.layers ? raw.layers.length : 0, rawBase: !!(raw && raw.baseLayer), shimGl: !!(s && raw && raw.layers && s.renderState.baseLayer === raw.layers[2]),
+      layers: S.layers.map(L => ({ init: L.init, p: L.transform ? [L.transform.position.x, L.transform.position.y, L.transform.position.z] : null, w: L.width, q: L.quality })),
+      mesh: sp ? sp.main.mesh.getWorldPosition(new THREE.Vector3()).toArray() : null, meshW: sp ? sp.main.mesh.geometry.parameters.width * sp.main.mesh.getWorldScale(new THREE.Vector3()).x : 0,
+      blend: sp ? ['main', 'foot'].map(k => { const m = sp[k].mesh.material; return [m.blending, m.blendSrc, m.blendDst, m.blendDstAlpha]; }) : null };
+  };
+  const read = (gl, fb, tex, w, h) => {
+    const pf = gl.getParameter(gl.FRAMEBUFFER_BINDING); let tmp = null;
+    if (tex) { tmp = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, tmp); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); } else gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pf); if (tmp) gl.deleteFramebuffer(tmp);
+    return px;
+  };
+  S.layerDiff = i => {
+    const L = S.layers[i], sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null, P = sp && sp[L.init.h === 1200 ? 'main' : 'foot'], w = L.init.w, h = L.init.h;
+    if (!P) return { mean: NaN, why: 'no panels from ' + HOST.curKey };
+    const px = read(HOST.renderer.getContext(), null, L.tex, w, h), im = P.cv.getContext('2d').getImageData(0, 0, w, h).data;
+    let d = 0, n = 0, inked = 0;
+    for (let y = 0; y < h; y += 7) for (let x = 0; x < w; x += 5) {
+      const g = (y * w + x) * 4, c = ((h - 1 - y) * w + x) * 4, al = im[c + 3] / 255;
+      for (let k = 0; k < 3; k++) d += Math.abs(px[g + k] - Math.round(im[c + k] * al));
+      d += Math.abs(px[g + 3] - im[c + 3]); n += 4; if (px[g + 3] > 200) inked++;
+    }
+    return { mean: d / n, inked };
+  };
+  S.holes = () => {
+    const raw = Object.getOwnPropertyDescriptor(P, 'renderState').get.call(HOST.session), gl = raw.baseLayer || raw.layers[2], W = gl.framebufferWidth, h = gl.framebufferHeight;
+    const px = read(HOST.renderer.getContext(), gl.framebuffer, null, W, h);
+    let n = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < W / 2; x++) { const i = (y * W + x) * 4; if (px[i + 3] < 24 && px[i] + px[i + 1] + px[i + 2] < 24) n++; }
+    return n;
+  };
+}
+if (runs('sharp text')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const fp = await ctx.newPage();
+  fp.on('pageerror', e => errors.push('sharp text: ' + (e.stack || e.message)));
+  fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('sharp text: ' + m.text()); });
+  await fp.addInitScript(FPS_FAKE);
+  await fp.addInitScript(SHARP_FAKE);
+  await fp.addInitScript(() => { try { localStorage.setItem('xrRateStep', 'last'); } catch (e) { /* storage blocked */ } });
+  const open = async (hash, refuse) => {
+    await fp.goto('about:blank', { timeout: 90000 });
+    await fp.goto(base + 'index.html#' + hash, { timeout: 90000 });
+    await fp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    await fp.evaluate(r => { window.__sh.refuse = !!r; }, refuse);
+  };
+  const start = async (mode = 'immersive-vr') => {
+    await fp.evaluate(mode => HOST.cur.peek(`xrStart("${mode}")`), mode);
+    await fp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+    await fp.evaluate(() => window.__fp.runUntil(() => HOST.xr.sharpState().shown >= 2, 20000));
+  };
+  // frames until fn holds (a slow machine's software drawing makes a layer's write a few hundred ms: frames, not time),
+  // then two more (a panel's material changes from the next frame), and the state
+  const until = (fn, ms = 30000) => fp.evaluate(async ([fn, ms]) => { await window.__fp.runUntil(new Function('return (' + fn + ')')(), ms); window.__fp.step(2); return window.__sh.state(); }, [String(fn), ms]);
+  const end = () => fp.evaluate(async () => { const s = HOST.session; if (s) { await s.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); } });
+  const state = (ms = 0) => fp.evaluate(async ms => { if (ms) await window.__fp.runUntil(null, ms); return window.__sh.state(); }, ms);
+  const near = (a, b) => !!(a && b) && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 0.01;
+  const out = L => !!(L.p && L.p[1] === -1000);
+  await step('sharp text: off (the default) asks for nothing new; three.js sets its own baseLayer, the panels drawn as ever', async () => {
+    const bad = [];
+    await open('airports');
+    await start();
+    const r = await state(200);
+    if (r.st.v !== 'off' || r.feats[0].includes('layers')) bad.push('asked for layers: ' + JSON.stringify([r.st.v, r.feats[0]]));
+    if (r.urs[0] !== 'baseLayer' || !r.rawBase || r.layers.length || r.st.live) bad.push('the session: ' + JSON.stringify([r.urs, r.rawBase, r.layers.length]));
+    if (!r.blend || r.blend.some(b => b[0] !== 1)) bad.push('panels not as ever: ' + JSON.stringify(r.blend));
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: #sharp=layer asks for layers; four quad layers (RGBA8, the panels\' sizes) go in with three.js\'s first updateRenderState, its layer between; renderState.baseLayer still answers', async () => {
+    const bad = [];
+    await open('airports&sharp=layer');
+    if (await fp.evaluate(() => localStorage.getItem('xrSharp')) !== 'layer') bad.push('#sharp=layer not kept');
+    await start();
+    const r = await state();
+    if (!r.feats[0].includes('layers')) bad.push('no layers asked for: ' + r.feats[0]);
+    if (r.urs[0] !== 'layers' || r.raw !== 5 || r.rawBase || !r.shimGl) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.rawBase, r.shimGl]));
+    if (r.layers.length !== 4 || r.layers.some(L => L.init.fmt !== 'RGBA8' || L.init.layout !== 'mono' || L.init.w !== 1024) || r.layers.map(L => L.init.h).join() !== '1200,176,1200,176') bad.push('the layers made: ' + JSON.stringify(r.layers.map(L => L.init)));
+    if (!r.st.live || r.st.shown !== 2) bad.push('not shown: ' + JSON.stringify(r.st));
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: layer: the layers behind at the panels (half extents) holding their canvases, the eye buffer erased there, the front ones out of sight; written only when a panel changes', async () => {
+    const bad = [];
+    const r = await state();
+    if (!near(r.layers[0].p, r.mesh) || Math.abs(r.layers[0].w - r.meshW / 2) > 0.002) bad.push('placed: ' + JSON.stringify([r.layers[0], r.mesh, r.meshW]));
+    if (!out(r.layers[2]) || !out(r.layers[3])) bad.push('front ones in sight');
+    if (r.blend.some(b => b[0] !== 5 || b[1] !== 200 || b[2] !== 205 || b[3] !== 205)) bad.push('no hole: ' + JSON.stringify(r.blend));
+    for (const i of [0, 1]) { const d = await fp.evaluate(i => window.__sh.layerDiff(i), i); if (!(d.mean <= 2) || (i === 0 && d.inked < 1000)) bad.push('layer ' + i + ' content: ' + JSON.stringify(d)); }
+    const r2 = await state(1000);
+    if (r2.subs - r.subs > 22) bad.push('written ' + (r2.subs - r.subs) + ' times in a second (at most 10 each)');
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: live values: text (text-optimized), front (no hole, the panels drawn into nothing), off (as ever, all out of sight); the Debug tab\'s row presses to the next', async () => {
+    const bad = [];
+    const holeL = await fp.evaluate(() => window.__sh.holes());
+    await fp.evaluate(() => HOST.xr.setSharp('text'));
+    let r = await until(() => window.__sh.layers[0].quality === 'text-optimized');
+    if (r.layers[0].q !== 'text-optimized' || r.st.shown !== 2) bad.push('text: ' + JSON.stringify([r.layers[0].q, r.st]));
+    await fp.evaluate(() => HOST.xr.setSharp('front'));
+    r = await until(() => { const L = window.__sh.layers, y = i => L[i].transform && L[i].transform.position.y; return y(0) === -1000 && y(1) === -1000 && y(2) !== -1000 && HOST.xr.sharpState().shown === 2; });
+    if (!out(r.layers[0]) || !out(r.layers[1]) || out(r.layers[2]) || r.st.shown !== 2 || r.blend.some(b => b[2] !== 201)) bad.push('front: ' + JSON.stringify([r.layers.map(L => L.p), r.blend, r.st]));
+    const holeF = await fp.evaluate(() => window.__sh.holes());
+    await fp.evaluate(() => HOST.xr.setSharp('off'));
+    r = await until(() => window.__sh.layers.every(L => L.transform && L.transform.position.y === -1000) && HOST.cur.panels().main.mesh.material.blending === 1);
+    if (r.blend.some(b => b[0] !== 1) || !r.layers.every(out) || !r.st.live || r.st.shown) bad.push('off: ' + JSON.stringify([r.blend, r.st]));
+    const holeO = await fp.evaluate(() => window.__sh.holes());
+    if (!(holeL > holeO + 2000) || Math.abs(holeF - holeO) > 600) bad.push('the eye buffer\'s hole (layer, front, off): ' + [holeL, holeF, holeO]);
+    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); await window.__fp.runUntil(null, 200); const r = HOST.collab.menuFind('sharp'), l = r && r.label; if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 200); HOST.collab.panelOpen(false); await window.__fp.runUntil(null, 100); return [l, HOST.xr.sharp()]; });
+    if (m.join() !== 'Sharp text: off,layer') bad.push('the Debug tab\'s row: ' + m);
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: a story swap in the session: out of sight while the next builds, then its panels', async () => {
+    const bad = [];
+    await fp.evaluate(() => HOST.go('spatial'));
+    const mid = await fp.evaluate(async () => {
+      const t0 = performance.now(); let seen = 0;
+      while (performance.now() - t0 < 120000) {
+        window.__fp.step(1); await new Promise(r => setTimeout(r, 4));
+        const on = HOST.loading.state().on;
+        if (on) seen = window.__sh.layers.every(L => !L.transform || L.transform.position.y === -1000) ? 2 : Math.max(seen, 1);
+        if (seen && !on && HOST.curKey === 'spatial' && HOST.cur.panels && HOST.cur.panels() && HOST.xr.sharpState().shown >= 2) break;
+      }
+      return seen;
+    });
+    const r = await until(() => HOST.cur.panels().main.mesh.material.blendDst === 205);
+    if (mid !== 2 || r.key !== 'spatial' || r.st.shown !== 2 || r.blend.some(b => b[2] !== 205)) bad.push(JSON.stringify([mid, r.key, r.st, r.blend]));
+    const d = await fp.evaluate(() => window.__sh.layerDiff(0));
+    if (!(d.mean <= 2)) bad.push('the new panel\'s layer: ' + JSON.stringify(d));
+    await end();
+    if ((await state()).st.live) bad.push('live after the session ended');
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: AR asks for layers with depth sensing (text-optimized); a browser whose binding refuses quad layers gets three.js\'s own layer, the reason on the Debug tab', async () => {
+    const bad = [];
+    await open('airports&sharp=text');
+    await start('immersive-ar');
+    let r = await state();
+    if (!r.feats[0].includes('layers') || !r.feats[0].includes('depth-sensing') || r.st.shown !== 2 || r.layers[0].q !== 'text-optimized') bad.push('AR: ' + JSON.stringify([r.feats[0], r.st]));
+    await end();
+    await open('airports&sharp=layer', true);
+    await start();
+    r = await state(200);
+    if (r.urs[0] !== 'baseLayer' || !r.rawBase || r.st.live || !/no quad layers/.test(r.st.err) || r.blend.some(b => b[0] !== 1)) bad.push('refused: ' + JSON.stringify([r.urs, r.st, r.blend]));
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
   await ctx.close();
 }

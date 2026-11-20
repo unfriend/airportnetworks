@@ -63,6 +63,13 @@ file, the detail file says what is current.
 ### Developer notebook
 - v142; the owner, 13 November 2026: "a developer notebook function where i can directly record some spoken audio in ar or vr and then it gets transcribed ... and i can also attach a screenshot ... the more direct the better"; "holding y or b to record".
 
+### Sharp text (WebXR layers)
+- v165; the owner, 20 November 2026, sharing the WebXR user-studies site's rendering lab (`web/lab/`, its *Composition
+  layers* page): "the lab folder here includes a trick to make text supersharp in vr and ar on quest". The trick: the
+  panel as a quad layer the compositor draws itself. Then "do it" to a switchable test in the shell for the story panel,
+  off by default, all four values live in one session so the owner can compare on a Quest. Behind with a hole is the
+  lab's (and three.js's webxr_vr_layers) pattern; in front is there in case the compositor ignores the eye buffer's alpha.
+
 ### Spaceships
 - v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then health, a is boost but that only lasts briefly"; steering "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice targets alone "yes totally, maybe some ships that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop against them, also add some addons like additional boost and faster shooting for some times and reinforced shields pickups that spawn from time to time".
 - Steering: v132 flew by the controller's tilt like a joystick (its roll turned, its pitch from the angle held at launch climbed and dived: in the history at v132); v133 (the owner, 11 November 2026: "please also add joystick controls for the ships, right joystick should control left right with left right and up down with up down", "the pitch of the up down should be reversed like in flightsim", "also remove the controller motion steering from the ships for now, its not working well anyway") moved it to the right stick and removed the Steering setting `xrShipSteer`. The right stick's press counting only at its middle came in v133.

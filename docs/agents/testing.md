@@ -1150,6 +1150,21 @@ in real time (the shell's frames are timed by the clock). Four steps:
 - AR (the session made AR as it runs: a pretend headset has no spots to line up by): a person in the room with you (a
   member `here`) gets neither a body nor a head, one elsewhere a body; My body draws none.
 
+### smoke: sharp text
+
+Sharp text (v165, `--only 'sharp text'`, a page of its own): the story's two panels as WebXR quad layers, on the pretend
+Quest (`FPS_FAKE`) with `SHARP_FAKE` (a `renderState` as the spec has it: `baseLayer` null once `layers` is set, both at
+once refused; `XRRigidTransform`; an `XRWebGLBinding` whose quad layers are real GL textures, `getSubImage` throwing until a
+layer is in the session's list, `__sh.refuse` making `createQuadLayer` throw). Off (the default) asks for nothing and leaves
+three.js's `baseLayer`; `#sharp=layer` asks for `layers`, the first `updateRenderState` goes in as five layers (behind,
+behind, three.js's, front, front; RGBA8, mono, 1024 x 1200 and 1024 x 176) and `renderState.baseLayer` still answers; the
+behind layers sit at the panels with half extents and hold their canvases (read back: flipped, premultiplied), the panels'
+materials erase the eye buffer (a hole counted in the left eye), a still second writes at most 10 times a layer; live
+*for text* (`text-optimized`), *in front* (no hole, panels drawn into nothing), *off* (all out of sight, the panels as ever)
+and the Debug tab's row pressed; a story swap (out of sight while the next builds, then its panels); AR (with depth
+sensing); a binding that refuses quad layers falls back to three.js's own layer with the reason. Steps wait on frames,
+not time: in this suite's software drawing a layer's write takes a few hundred ms.
+
 ### smoke: auto quality (and other steps changed by automatic quality)
 
 The automatic quality steps (`--only 'auto quality'`, a page of their own, run on a quiet machine): on by default, a
