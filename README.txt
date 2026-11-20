@@ -963,4 +963,10 @@ writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the 
 lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a
 synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), tools/release.mjs (writes version.json), tools/live.mjs
 (headless test of live updates), tools/icons.html (the stations' icons side by side),
-icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).
+icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt), LICENSE and NOTICE.md (the licences).
+
+Licence: the code is under the MIT licence (LICENSE). The stories' words, the
+synthetic narrations, the documentation and the icons are under CC BY 4.0; the
+airports story's recorded narration is not licensed yet. The data in the
+stories keeps its sources' terms, and the parts written by others keep their
+own licences: NOTICE.md lists them all.

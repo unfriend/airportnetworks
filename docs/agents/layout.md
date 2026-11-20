@@ -67,6 +67,11 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
+- `LICENSE`, `NOTICE.md` - the licences (20 November 2026): MIT for the code (`LICENSE`, the holder named for now, still to
+  clarify with the employer); `NOTICE.md` puts the stories' words, the synthetic narrations, the documentation and the
+  icons under CC BY 4.0, leaves out the airports' recorded narration, and lists the data's and the third-party parts' own
+  terms. The relay serves both with the app (`APP_FILES`; `LICENSE` as plain text). Keep `NOTICE.md` in step with
+  `docs/data-and-permissions.md` when a story, its data or a vendored part comes or goes.
 - `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`; it plays
   the relay's part itself for a room on this device and, as a peer-to-peer room's
   host, for everyone in it; and the PC's trackers in a room, v126), loaded by `index.html` between its two scripts (see

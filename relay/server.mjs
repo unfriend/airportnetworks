@@ -1537,7 +1537,8 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // packages/ holds the story packages, served deep as examples/ is: packages/<key>/<at most 4 folders>/<file>, and their
 // index; tools/packages/SPEC.md. Like every app folder it is only ever read here: no endpoint writes to it)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js',
+  'LICENSE', 'NOTICE.md']);   // (the project's licence and notices go with every copy of the app it serves)
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages']), APP_DEEP = new Set(['examples', 'packages']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
@@ -1574,7 +1575,7 @@ async function serve(req, res, url) {
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
 // text gzipped (squeeze: the app's files; a scene's are models, pictures and sounds, already packed)
 async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true, extra = {}, type = '' } = {}) {
-  type = type || TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  type = type || (path.basename(file) === 'LICENSE' ? 'text/plain; charset=utf-8' : TYPES[path.extname(file).toLowerCase()]) || 'application/octet-stream';
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
   const base = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
   const useRange = range && (range[1] || range[2]) && (!req.headers['if-range'] || req.headers['if-range'] === base);

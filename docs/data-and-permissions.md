@@ -153,7 +153,7 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
   but finetuned from Piper's English lessac voice, whose data is under a research licence (no commercial use; see the
   table). The app is non-commercial outreach; decide whether that is enough before `audio/narration-pass-de.mp3` goes
   on the site, or ask for a Thorsten voice trained without lessac.
-- [ ] **A project licence** (below).
+- [x] **A project licence** (below): MIT and CC BY 4.0 since 20 November 2026; the holder still to clarify.
 - [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
   servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.
 
@@ -230,13 +230,15 @@ as elsewhere, so keep Talk off there (docs/event-runbook.md).
 
 ## Licence
 
-**The project has no licence.** There is no `LICENSE` file, and GitHub reports none, so nobody else has a clear right
-to reuse, copy or change the code. **TO FILL (owner):** choose a licence (with the Institute if it owns the work), add
-`LICENSE` at the root and mention it in `README.md` and `README.txt`. The data in the stories keeps its own terms
-whatever licence the code gets, so the content may need a different licence from the code. Where it stands (November
-2026): the owner is clarifying it with their employer. The proposal is MIT for the code, CC BY 4.0 for the text and
-the narrations, and each story's data under its own terms (below); an employer may hold the rights to software written
-at work (§ 40b of the Austrian copyright act, UrhG), so the holder named in `LICENSE` comes from that answer.
+**Chosen on 20 November 2026** (the owner: "lets go with your suggestions"): `LICENSE` is MIT for the code, and
+`NOTICE.md` puts the stories' words, the synthetic narrations, the documentation and the icons under CC BY 4.0, leaves
+the data under its sources' own terms and lists the parts written by others (the tables below and above); `README.md`
+and `README.txt` say so, and the relay serves both files with the app. Not licensed: the airports story's recorded
+narration, `audio/narration.mp3`, until its speaker agrees (the checklist above), and the authors' own data, shown only
+with their permission. **To clarify (owner):** `LICENSE` names Martin Chiettini as the holder for now (the owner: "add
+martin chiettini for now, leave it in to clarify for later"); an employer may hold the rights to software written at
+work (§ 40b of the Austrian copyright act, UrhG), so the holder may change once the employer has answered (`LICENSE`'s
+copyright line, `NOTICE.md`'s credit line).
 
 Third-party material:
 
@@ -245,7 +247,7 @@ Third-party material:
 | three.js r128 | `three.min.js` | MIT; the notice is `three.LICENSE.txt` and must ship with it |
 | PeerJS 1.5.5 | `peerjs.min.js` (loaded only for a peer-to-peer room) | MIT; the notice is `PEERJS-LICENSE.txt` and must ship with it |
 | B612 font | loaded from Google Fonts (`index.html`), cached by `sw.js` | Google Fonts lists it under the SIL Open Font License; the repository does not say so |
-| App icons | `icons/` | **TO FILL (owner):** who made them, and on what terms |
+| App icons | `icons/` | the project's own, CC BY 4.0 (the owner, 20 November 2026: "icons are fine under cc 4.0") |
 | OpenFlights routes, 2014 | embedded in `stories/airports.js`; positions reused in `stories/lbi.js` | ODbL: credit OpenFlights (the story does), and a database adapted from it and used in public, such as the embedded routes, has to be offered under the ODbL too. Check how this fits the project licence |
 | Natural Earth coastlines | `stories/airports.js` | public domain |
 | Geist et al., Med 2025 | `tools/pet/` | CC BY 4.0: credit the authors (the story does) |

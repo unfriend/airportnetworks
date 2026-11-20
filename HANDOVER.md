@@ -1876,20 +1876,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Decisions for the owner
 
 Before handing over (or making anything more public), someone has to decide these; the docs mark each place with
-**TO FILL (owner)**. For a handover the first to fill are 1 (licence), 2 (the authors' permission) and 6 (who to ask).
+**TO FILL (owner)**. For a handover the first to fill are 2 (the authors' permission) and 6 (who to ask), and 1's holder (the licence is chosen).
 
-1. **Licence.** The project has no `LICENSE` file, so nobody else has the right to reuse it. Choose one, with the
-   Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md). Where it stands
-   (November 2026): the owner is clarifying it with their employer. The proposal: MIT for the code, CC BY 4.0 for
-   the text and the narrations, each story's data under its own terms (the table in data-and-permissions); an employer
-   may hold the rights to software written at work (§ 40b of the Austrian copyright act, UrhG), so the holder's name
-   comes from that answer. Then add `LICENSE` and the notices.
+1. **Licence: chosen, the holder still to clarify.** Since 20 November 2026 `LICENSE` is MIT for the code and
+   `NOTICE.md` puts the stories' words, the synthetic narrations, the documentation and the icons under CC BY 4.0, the
+   data under its sources' terms (the table in [docs/data-and-permissions.md](docs/data-and-permissions.md)) and the
+   parts written by others under theirs; the airports story's recorded narration is left out until its speaker
+   agrees. `LICENSE` names Martin Chiettini for now (the owner: "add martin chiettini for now, leave it in to clarify
+   for later"): an employer may hold the rights to software written at work (§ 40b of the Austrian copyright act,
+   UrhG), so the copyright line (and `NOTICE.md`'s credit) may change once the employer has answered.
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
    microanatomy, mutation machine (a draft poster), tissue topology (the authors' cohort data and code), soil (the
    slides and the field trial's data, unpublished: given through the owner on 29 October 2026; whether it may be public
    before publication is still to say) and tour stories). Record what was agreed, and with whom, in the same
    document.
-3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), with no licence.
+3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), licensed since 20
+   November 2026 (item 1).
    Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
    organisation, who gets admin rights, and whether it stays public.
 4. **Things already public** that may not belong there: the `logs-2026-10-*` branches (headset logs whose file names
