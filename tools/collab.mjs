@@ -89,6 +89,12 @@
 // --studio-scenes only the studio's scenes as circles (scenesRound, also in the main run after the studio round: a relay of
 // its own with --scenes on the test scenes, read only; the page's Add listing "Studio: <scene>" after the studio, adding
 // one writing the station and its state with the scene, two at once, their titles, Studio here's rule);
+// --arr only a story's copy on the relay (arrRound, v170, not in the main run: a relay of its own with --scenes on a
+// temporary folder; tools/engine/SPEC.md): developer mode's Copy to relay on a story's bar makes <key>-copy and opens the
+// editor, a chapter's length changed in it reaches the story, Save writes layout.json { studio: 1, story }, a reload
+// with &arr= reads it back, a missing copy says Copy not found; two pages following a station: the copy opened there
+// (st.<id>.arr) is played on both and never in collab.state(), a save there reaches the other, Own story ends it for both.
+// A story without arrange yet gets a stand-in made from its own CH, NARRATION_SYNC and TR (the test's, never the app's);
 // --behave only the studio's behaviours shared (behaveRound, also in the main run after the studio's scenes as circles: a
 // relay of its own with --scenes on the test scene alone; two pretend headsets at a studio circle and a page following it:
 // the nearest headset drives a ball that follows, every device saying so and drawing it where it does (120 ms behind its
@@ -286,6 +292,12 @@ const STORIES = {
         `A from ${d0} to ${await peek(A, 'XS.robots_dust')}`);
     },
   },
+  // the tutorial (v173): practice's network as the room's state; a signal is an effect (pulse on every page)
+  tutorial: {
+    change: "setCtl('tutorial', 'net', 'badge')", back: "setCtl('tutorial', 'net', 'grown')",
+    effect: { quiet: '0', idle: '!GL.sets.guide.signalOn()', send: 'sendSignal(0)', seen: 'GL.sets.guide.signalOn()' },
+    sound: ['pulse'],
+  },
   flock: {
     change: "setCtl('flock', 'birds', '400')", back: "setCtl('flock', 'birds', '100')",
     effect: { quiet: "setCtl('flock', 'falcon', 'off')", idle: '!GL.sets.flock.falconOn()', send: 'sendFalcon(null)', seen: 'GL.sets.flock.falconOn()' },
@@ -349,6 +361,16 @@ const STORIES = {
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
 // stored state; the flock's sky catches every ray, so its rays have a length), another, one whose card it points at
 // (the trigger there runs nothing: stations are walk-in only) and one it moves by its card
+// the stories that are there (stories/list.js, v171): an entry here for a story no longer listed is left out, and a
+// listed story without an entry is named (it gets no per-story round until it has one)
+{
+  const ctx = { self: {} };
+  createRequire(import.meta.url)('vm').runInNewContext(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'stories', 'list.js'), 'utf8'), ctx);
+  const listed = (ctx.self.STORY_LIST || []).concat(ctx.self.STORY_EXTRA || []).map(s => s.key);
+  for (const k of Object.keys(STORIES)) if (!listed.includes(k)) { console.log(`note: ${k} is not in stories/list.js: its round is left out`); delete STORIES[k]; }
+  const none = (ctx.self.STORY_LIST || []).map(s => s.key).filter(k => !STORIES[k]);
+  if (none.length) console.log(`note: no STORIES entry (and so no per-story round) for ${none.join(', ')}`);
+}
 const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';   // (PICK_STORY: its card is pointed at)
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -366,6 +388,7 @@ const GUIDE_ONLY = argv.includes('--guide');   // (only the room setup guide and
 const TOKEN_ONLY = argv.includes('--token');   // (only the relay's password: tokenRound, a relay of its own with COLLAB_TOKEN; not in the main run)
 const STUDIO_ONLY = argv.includes('--studio');   // (only the studio in a room: studioRound, relays of its own with --scenes)
 const ASK_ONLY = argv.includes('--ask');   // (only the circles asked first: askRound, in a room of its own)
+const ARR_ONLY = argv.includes('--arr');   // (only a story's copy on the relay: arrRound, a relay of its own with --scenes; not in the main run)
 const SCENES_ONLY = argv.includes('--studio-scenes');   // (only the studio's scenes as circles: scenesRound, a relay of its own with --scenes)
 const HOME_ONLY = argv.includes('--home');   // (only the relay the main site offers: homeRound, a browser of its own that takes the site's names for this machine)
 const MENUS_ONLY = argv.includes('--menus');   // (only your menu shown to your circle: menusRound, in a room of its own)
@@ -402,7 +425,7 @@ browser.newContext = async (o = {}) => {
   const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
   // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
   // default, which their plain GLTFLoader cannot read back)
-  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
+  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
   return ctx;
 };
 const fails = [], errors = [];
@@ -2238,13 +2261,34 @@ async function askRound(dir) {
     await frames(H, 2500);
     const w9 = await where(), l9 = await lobbyN();
     check('ask: Go in pressed while standing in the lobby holds (not taken back there until you step out of it)', g9 === 'pressed' && w9.mine === S2.id && l9 === 2, JSON.stringify({ g9, w9, l9 }));
+    // (v172) a circle of its own: set to walk in from a page, in a room that asks first, it is walked into (the others'
+    // rings stay hidden); set back to the room's, it asks again (no ring)
+    const sw = await A.evaluate(id => HOST.collab.stAsk(id, 'walk'), S1.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === false; }, S1.id, 8000);
+    const r10 = await rings(), af10 = await H.evaluate(id => [HOST.collab.askFor(id), HOST.collab.circlesMode()], S1.id);
+    await goRoom(H, S1.x, 1.6, S1.z, 0);
+    let in10 = false;
+    for (let k = 0; k < 40 && !in10; k++) { await frames(H, 300); in10 = (await where()).mine === S1.id; }
+    const rec10 = (await roomInfo(rc)).keys['st.' + S1.id];
+    await A.evaluate(id => HOST.collab.stAsk(id, ''), S1.id);
+    const r11 = await ringsWhen(r => r.every(x => !x.ring), 8000), rec11 = (await roomInfo(rc)).keys['st.' + S1.id];
+    check('ask: a circle set to walk in on its own (st\'s ask) is walked into in a room that asks first; back to the room\'s, its ring goes',
+      sw && r10.filter(x => x.id !== S1.id).every(x => !x.ring) && af10[0] === false && af10[1] === 'mixed' && in10 &&
+      !!rec10 && rec10.v.ask === 'walk' && !!rec11 && !('ask' in rec11.v) && r11.every(x => !x.ring), JSON.stringify({ sw, r10, af10, in10, rec10: rec10 && rec10.v, rec11: rec11 && rec11.v }));
+    // (back at the other circle, as before this check, for the rounds after it: walked into, set so for the moment)
+    if (in10 && await ready(H, K1, 150000)) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
+    await A.evaluate(id => HOST.collab.stAsk(id, 'walk'), S2.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === false; }, S2.id, 8000);
+    const in12 = await walk(H, S2, K2, 0, 150000);
+    await A.evaluate(id => HOST.collab.stAsk(id, ''), S2.id);
+    await until(H, id => { window.__xr.step(); return HOST.collab.askFor(id) === true; }, S2.id, 8000);
     // the menu's row turns the switch off for the room (out of every circle first); nothing written by the headset but look
     const sp1 = await awaySpot(H, S1);
     await goRoom(H, sp1[0], 1.6, sp1[1], 0);
     await frames(H, 300);
     const m1 = await menu('askfirst'), off = m1 && await until(A, () => !HOST.collab.askFirst(), null, 5000);
     // (besides look, at most what any headset arriving at a station writes: its story's state and view there)
-    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.' + S2.id + '\\.(x|view)$').test(k)).map(([k]) => k);
+    const ri = await roomInfo(rc), wrote = Object.entries(ri.keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !new RegExp('^st\\.(' + S1.id + '|' + S2.id + ')\\.(x|view)$').test(k)).map(([k]) => k);
     check('ask: the headset menu\'s Circles row turns the circles back to walk in, for the room (look\'s ask false written); the headset wrote nothing else to the room but look',
       m1 && off && wrote.join() === 'look' && ri.keys.look.v.ask === false, JSON.stringify({ m1, off, wrote, look: ri.keys.look && ri.keys.look.v }));
     // walking in works again
@@ -3969,6 +4013,100 @@ async function scenesRound() {
   }
 }
 const roomInfo2 = async (b, code) => (await fetch(b + 'api/rooms/' + code)).json();
+
+// ---- a story's copy on the relay (v170, HOST.arrange in index.html, tools/engine/SPEC.md): the bar's Copy to relay, the
+// editor, Save, &arr= read back, a missing copy, and a station running a copy (st.<id>.arr) on two pages
+const ARR_KEY = 'qubits';
+// a story without arrange (before its engine has one): a stand-in from its own CH, NARRATION_SYNC and TR, keeping what it is
+// given (_S.A) and counting the calls (_S.n)
+const ARR_STANDIN = `(() => {
+  const cur = HOST.cur, P = e => cur.peek(e);
+  if (cur.arrange && !cur.arrange._S) { const ar = cur.arrange, S = { A: ar.get(), n: 0 }; cur.arrange = { model: () => ar.model(), apply(A, n) { S.n++; S.A = A; return ar.apply(A, n); }, get: () => ar.get(), _S: S }; return 'real'; }
+  const CHs = P('CH.map(c => ({ key: c.key, name: c.name, a: c.a, b: c.b }))'), sets = P('SET_ORDER.slice()');
+  const M = { v: 1, key: HOST.curKey, len: CHs[CHs.length - 1].b, chapters: CHs, sync: P('NARRATION_SYNC.map(p => p.slice())'), narration: null,
+    tracks: P('Object.entries(TR).map(([n, ks]) => ({ n, ks: ks.map(k => [k[0], k[1]]) }))').map(({ n, ks }) => ({ id: 'p:' + n, name: n, set: sets.find(k => n.startsWith(k)) || '',
+      kind: sets.some(k => n === k + '_a') ? 'show' : 'param', keys: ks.map((k, i) => ({ i, t: k[0], v: k[1] })) })),
+    camera: [], captions: CHs.map(c => ({ id: c.key + ':0', ch: c.key, i: 0, at: c.a + 2, text: 'In this map, 12 genes.', tokens: ['12'] })), labels: [], cues: [],
+    sets: sets.map(k => ({ key: k, name: k })) };
+  const S = { A: null, n: 0 };
+  cur.arrange = { model: () => JSON.parse(JSON.stringify(M)), apply(A) { S.n++; S.A = A; return { dropped: [] }; }, get: () => S.A, _S: S };
+  return 'stand-in';
+})()`;
+async function arrRound() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-arr-'));
+  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {}, 8860);
+  const b = `http://127.0.0.1:${R.port}/`, pages = [];
+  const aopen = async (hash, size) => {
+    const ctx = await browser.newContext({ viewport: size || { width: 1280, height: 760 } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAskDefault', 'walk'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* none */ } });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('arr round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('arr round: ' + m.text()); });
+    await p.goto(b + 'index.html' + hash, { timeout: 90000 });
+    pages.push(p);
+    return p;
+  };
+  const built = p => until(p, k => typeof HOST !== 'undefined' && HOST.curKey === k && !!HOST.cur && HOST.loading.built(), ARR_KEY, 90000);
+  try {
+    // developer mode: Copy to relay, the editor, a chapter's length, Save
+    const A = await aopen('#' + ARR_KEY + '&dev=on');
+    await built(A);
+    const how = await A.evaluate(ARR_STANDIN);
+    await A.evaluate(() => HOST.dev.close());
+    const shown = await until(A, () => !!document.querySelector('#arrBar [data-arr="copy"]'), null, 20000);
+    if (shown) await A.click('#arrBar [data-arr="copy"]');
+    const opened = await until(A, () => !!HOST.arrange.state().editing, null, 20000);
+    const name = await A.evaluate(() => HOST.arrange.state().editing), hash = await A.evaluate(() => location.hash);
+    check(`arr: developer mode's Copy to relay makes ${ARR_KEY}-copy and opens it in the editor, the address saying &arr= and &edit (${how})`,
+      shown && opened && name === ARR_KEY + '-copy' && hash === '#' + ARR_KEY + '&arr=' + name + '&edit', JSON.stringify({ shown, opened, name, hash }));
+    await A.locator('#arrEd [data-k="ch"]').first().click();
+    await A.locator('#arrEd input[data-ae="chlen"]').fill('41');
+    await A.locator('#arrEd input[data-ae="chlen"]').press('Enter');
+    const first = await A.evaluate(() => HOST.cur.peek('CH[0].key'));
+    const given = await until(A, k => { const S = HOST.cur.arrange._S; return !!(S.A && S.A.chapters && S.A.chapters[k] && S.A.chapters[k].len === 41); }, first, 5000);
+    await A.click('#arrEd [data-ae="save"]');
+    const saved = await until(A, () => !HOST.arrange.state().dirty, null, 10000);
+    let lay = null;
+    try { lay = JSON.parse(fs.readFileSync(path.join(tmp, name, 'layout.json'), 'utf8')); } catch (e) { lay = null; }
+    check('arr: a chapter\'s length set in the editor reaches the story, and Save writes layout.json { studio: 1, story } on the relay',
+      given && saved && !!lay && lay.studio === 1 && lay.story && lay.story.key === ARR_KEY && lay.story.chapters[first].len === 41, JSON.stringify({ given, saved, lay }));
+    // a reload with &arr= reads it back (no Copy to relay without developer mode); a missing copy says so
+    const B = await aopen('#' + ARR_KEY + '&arr=' + name);
+    await built(B);
+    await B.evaluate(ARR_STANDIN);
+    const back = await until(B, ([n, k]) => { const S = HOST.cur.arrange._S; return HOST.arrange.state().applied === n && !!(S.A && S.A.chapters && S.A.chapters[k]); }, [name, first], 20000);
+    const barB = await B.evaluate(() => document.getElementById('arrBar').textContent);
+    check('arr: a page opened with &arr=<name> reads the copy back and lays it over the story; its bar names the copy, no Copy to relay',
+      back && /Copy: /.test(barB) && !/Copy to relay/.test(barB), JSON.stringify({ back, barB }));
+    const C = await aopen('#' + ARR_KEY + '&arr=no-such-copy', { width: 900, height: 700 });
+    await built(C);
+    check('arr: a copy that is not there: the story plays as its own and the bar says Copy not found',
+      await until(C, () => /Copy not found/.test(document.getElementById('arrBar').textContent), null, 20000), await C.evaluate(() => document.getElementById('arrBar').textContent));
+    // a shared room: two pages following a station; the copy opened there is played on both
+    await C.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(C, () => HOST.collab.status === 'open', null, 20000);
+    const rc = await C.evaluate(() => HOST.collab.code), sid = await C.evaluate(k => HOST.collab.add(k, { x: 0, z: -2, yaw: 0 }), ARR_KEY);
+    const D = await aopen('#s=' + rc, { width: 900, height: 700 });
+    await until(D, i => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.status === 'open' && !!HOST.collab.station(i), sid, 30000);
+    for (const p of [C, D]) await p.evaluate(i => HOST.collab.follow(i), sid);
+    await built(C); await built(D);
+    for (const p of [C, D]) await p.evaluate(ARR_STANDIN);
+    await C.evaluate(([k, n]) => HOST.arrange.open(k, n), [ARR_KEY, name]);
+    const both = (await Promise.all([C, D].map(p => until(p, n => HOST.arrange.state().applied === n && !!HOST.cur.arrange._S.A, name, 20000)))).every(Boolean);
+    const key = (await roomInfo2(b, rc)).keys['st.' + sid + '.arr'], st = await D.evaluate(() => JSON.stringify(HOST.cur.collab.state ? HOST.cur.collab.state() : null));
+    check('arr: a copy opened at a station is the station\'s key st.<id>.arr { v, story, by, at } and both pages following it play it; it is not in collab.state()',
+      both && !!key && key.v.v === name && key.v.story === ARR_KEY && !String(st).includes(name), JSON.stringify({ both, key }));
+    const n0 = await D.evaluate(() => HOST.cur.arrange._S.n);
+    await C.evaluate(async n => { const A = HOST.arrange.current().A; A.place = { [HOST.cur.peek('SET_ORDER[0]')]: [0, 0.2, 0, 0, 1] }; await HOST.arrange.save(n, A); }, name);
+    const again = await until(D, n0 => HOST.cur.arrange._S.n > n0 && !!(HOST.cur.arrange._S.A && HOST.cur.arrange._S.A.place), n0, 20000);
+    await D.evaluate(() => HOST.arrange.own());
+    const own = (await Promise.all([C, D].map(p => until(p, () => HOST.cur.arrange._S.A === null && !HOST.arrange.state().applied, null, 20000)))).every(Boolean);
+    check('arr: a save at the station reaches the other page; Own story there ends the copy for both', again && own, JSON.stringify({ again, own }));
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await relayOff(R);
+  }
+}
 
 // ---- others' moves drawn smoothly (snapshot interpolation, shared.js's SMOOTH): a raw socket at a station (speaking as the
 // follow-a-person test's pretend person does) turns the station's scene steadily about the vertical (90 degrees a second)
@@ -6809,7 +6947,7 @@ async function studioRound(dir) {
     const listed = await sUntil(A, `!!FROM.files && !FROM.loading && fromLists(FROM.files).models.map(f => f.path).join() === 'crates/crate.obj,props/statue.fbx'`, 10000);
     await sp(A, '(renderPanes(), 0)');
     // (a copy placed selects it, which shows its card: the Add pane again before each press)
-    const u0 = await sp(A, 'UNDO.length'), copiedAs = async (want, li) => (await sp(A, `(X.tab = 'add', renderPanes(), 0)`), await click(A, `#pane-add li[data-act="fromFile"][data-v="${li}"]`)) &&
+    const u0 = await sp(A, 'UNDO.length'), copiedAs = async (want, li) => (await sp(A, `(X.tab = 'add', renderPanes(), 0)`), await click(A, `#pane-add [data-act="fromFile"][data-v="${li}"]`)) &&
       await sUntil(A, `!!STUDIO.copied && STUDIO.copied.path === ${JSON.stringify(want)} && !FROM.busy`, 30000);
     const c1 = await copiedAs('props/statue.fbx', 'props/statue.fbx'), cp1 = await sp(A, '[STUDIO.copied, UNDO.length, FROM.note]');
     const same = f => fs.existsSync(path.join(SC, 'test', f)) && fs.readFileSync(path.join(SC, 'test', f)).equals(fs.readFileSync(path.join(SH, f)));
@@ -7263,7 +7401,7 @@ async function homeRound() {
   // to reach that was turned away (its own /api, any other address) }
   const look = async host => {
     const ctx = await b2.newContext({ viewport: { width: 900, height: 700 }, serviceWorkers: 'block' }), sent = [];
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ } });
     await ctx.route(u => u.hostname !== host || u.port !== String(port) || /^\/api\//.test(u.pathname), r => { sent.push(r.request().url()); return r.abort(); });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.stack || e.message));
@@ -8375,6 +8513,7 @@ try {
   if (STUDIO_ONLY) { await studioRound(shots); break main; }
   if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
   if (SCENES_ONLY) { await scenesRound(); break main; }
+  if (ARR_ONLY) { await arrRound(); break main; }
   if (HOME_ONLY) { await homeRound(); break main; }
   if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
@@ -10755,8 +10894,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

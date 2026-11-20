@@ -31,13 +31,11 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 
-// ---- a copy of the app (and, for --build, the flock's sources and the tour's kit)
+// ---- a copy of the app (and, for --build, the flock's sources and tools/engine/: the shared engine parts and the kit)
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
-for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
-for (const d of ['stories', 'icons', 'audio', 'tools/flock/engine', 'tools/flock/sets']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
+for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'output.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
+for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/flock/engine', 'tools/flock/sets', 'tools/engine']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
 fs.copyFileSync(path.join(REPO, 'tools/flock/build.mjs'), path.join(T, 'tools/flock/build.mjs'));
-fs.mkdirSync(path.join(T, 'tools/lbi'), { recursive: true });
-fs.copyFileSync(path.join(REPO, 'tools/lbi/kit.js'), path.join(T, 'tools/lbi/kit.js'));
 const file = f => path.join(T, f);
 const read = f => fs.readFileSync(file(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(file(f), t);
@@ -70,7 +68,7 @@ const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-prof-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined, args: ARGS, viewport: { width: 1100, height: 700 } });
 // the sound on, as on a device that turned it on (since v109 it starts off: the story then runs on its own clock, which in
 // software rendering crawls, and a playing chapter would not reach its end within the checks' time)
-const soundOn = () => { try { if (localStorage.getItem('narrationMuted3') === null) localStorage.setItem('narrationMuted3', '0'); } catch (e) { /* no storage */ } };
+const soundOn = () => { try { if (localStorage.getItem('narrationMuted3') === null) localStorage.setItem('narrationMuted3', '0'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* no storage */ } };   // (and the tutorial's narration hold off, as on every test page)
 await ctx.addInitScript(soundOn);
 const page = ctx.pages()[0] || await ctx.newPage();
 const errors = [];
@@ -278,12 +276,12 @@ try {
     await dev.evaluate(() => HOST.collab.publish([['st.zz1', { story: 'newstory', x: 6, z: -3, yaw: 0 }]]));
     const asked = await until(dev, () => /newstory/.test(HOST.live.question) && HOST.collab.station('zz1') && HOST.collab.station('zz1').story === 'newstory', null, 8000);
     await dev.evaluate(() => HOST.collab.dialog(true));
-    const card = await until(dev, () => /A newer story/.test(document.querySelector('#shared .sh-stations').textContent), null, 3000);
+    const card = await until(dev, () => /Another story/.test(document.querySelector('#shared .sh-stations').textContent), null, 3000);
     await dev.evaluate(() => HOST.collab.dialog(false));
     await dev.evaluate(() => HOST.collab.arrange());
     await wait(1500);
     const kept = await dev.evaluate(() => !!HOST.collab.station('zz1') && HOST.collab.stations().length === HOST.list.length + 1);
-    report('a station of a story this device does not know: shown ("A newer story"), the update offered, kept by Arrange all', asked && card && kept, { asked, card, kept });
+    report('a station of a story this device does not know: shown ("Another story", Not on this device), the update offered, kept by Arrange all', asked && card && kept, { asked, card, kept });
     await dev.evaluate(() => { HOST.live.later(); HOST.collab.leave(); });
     await wait(500);
   }

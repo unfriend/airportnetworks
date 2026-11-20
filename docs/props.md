@@ -11,7 +11,7 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 - **Controls** are the explore mode's rows of buttons; `explore(c)` turns the chosen values into param targets (the params it drives are listed).
 - **Anchors** are named points in the set's own frame for labels and camera targets; **labels** are the set's own, each shown by a rule on params.
 - Param names are prefixed with the set key, so the five keys that occur twice (`organs` in the PET and microanatomy stories, `tree` in the endotype and mutation stories, `tower` in the muscle and topology stories, `slide` in the microanatomy and topology stories, `net` in the endotype and soil stories) need a namespace (use `<story>/<key>` ids, as here) when a player mixes sets of different stories.
-- A story reuses a set by pasting its source into its build; the engine parts (camera, labels, explore, headset code) are each story's own and are not part of a set. A set needs from the engine: the kit `K` (`tools/lbi/kit.js`), the params object every frame (`update(S, t, dt)`), the camera and label machinery for `cam`, `anchors` and `labels`, and, for sets with extra exports (`api`, `idle`, `finish`, `keepClear`, `see`, `setRoom` ...), the calls named in their notes.
+- A story reuses a set by pasting its source into its build; the engine parts (camera, labels, explore, headset code) are each story's own and are not part of a set. A set needs from the engine: the kit `K` (`tools/engine/kit.js`), the params object every frame (`update(S, t, dt)`), the camera and label machinery for `cam`, `anchors` and `labels`, and, for sets with extra exports (`api`, `idle`, `finish`, `keepClear`, `see`, `setRoom` ...), the calls named in their notes.
 
 ## Overview
 
@@ -62,6 +62,7 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 | `pass/cell` | pass | The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or… | radius 1 | 21 | 6 | illustrative |
 | `flock/flock` | flock | Starlings at dusk all around you: 200 birds (50 to 400, a live simulation), each following its seven nearest neighbours, keeping its distance and fleeing a falcon with… | life size; sky to the horizon, 2,600 reeds within 32 m | 6 | 3 | none |
 | `robots/robots` | robots | A gang of 6 to 24 robot vacuums (a live simulation) in a living room: dock, bump and turn, follow you, conga line or keep away; each robot follows rules about who it… | life size; robot radius 0.17 m | 10 | 3 | none |
+| `tutorial/guide` | tutorial | A robot guide (the people's street-armour figure, bodies.js, posed by ik.js, driven by a script) in your room, and the props it makes from its own body: a ray… | life size; the guide 1.75 m tall, its props within 2.5 m of the viewer | 4 | 4 | none |
 
 Data kinds: **real** = the authors' or a public dataset; **figures** = numbers typed from a paper or read off its figures; **mixed** = real facts with illustrative geometry; **illustrative** = drawn or computed live for an example; **none** = drawn or a live simulation.
 
@@ -74,6 +75,7 @@ Data kinds: **real** = the authors' or a public dataset; **figures** = numbers t
 - `topo/slide` and `topo/map` share the slide's frame (the window of 6,716 cells); `mutation/tree` and `mutation/stem` share the tree's frame; `micro/atlas` hands over to `micro/hier` (`atlas_net` with `hier_grow`, keyed at the same times).
 - `soil/net` is drawn in `soil/field`'s frame (the cloud and the network over the field, centred at (0, 1.3, 0)); the soil story also uses `lbi/web` unchanged, only its globe (with the engine's hop from Vienna to Japan). `soil/net` adapts the endotype story's `net` set, and `soil/field` the flock's swaying reeds (its wheat) and the ovary charts' stacking movement (its cores); the soil story pastes the topology story's look (`TLOOK`) unchanged.
 - `pass/globe` and `pass/cell` are the airports story's globe and the cell map story's cell, cut unchanged out of `stories/airports.js` and `stories/spatial.js` at build time by `tools/pass/build.mjs` (rebuild the pass story after changing either) and wrapped as sets (`tools/pass/sets/globe.js`, `cell.js`). `pass/fish` adapts the flock's simulation. The flock and the robots are life size (1 unit = 1 m); so are `pass/fish` and the PET scanner.
+- `tutorial/guide` is drawn by the people's bodies (`bodies.js`, a draw set of its own) and props of its own; its script, `tools/tutorial/sets/script.js`, is a shared part, not a prop.
 - `tools/lbi/sets/demo.js` is a tiny example set (points on a sphere) used by the harness; no story uses it, so it is not listed.
 
 ## Stories not built from sets
@@ -1995,11 +1997,44 @@ Own labels (3): "Floor" at `floor`; "Wall" at `wall`; "You" at `fn`.
 
 Other exports: `setRoom`, `modelRoom`, `room`, `player`, `walkTo`, `crumbs`, `crumbsNear`, `floorPoint`, `see`, `avatar`, `shift`, `coverage`, `robots`, `bumps`, `state`.
 
+### `tutorial/guide`
+
+A robot guide (the people's street-armour figure, bodies.js, posed by ik.js, driven by a script) in your room, and the props it makes from its own body: a ray from its fist, a target, five floor markers from its spine, a ten-node network from its chest badge, a mini menu, an amber copy of itself, boot trails, a card; a dark floor with a grid fading out from 3 m (none in AR).
+
+- **File:** `tools/tutorial/sets/guide.js`; manifest `tools/tutorial/sets/guide.md`.
+- **Belongs to:** the tutorial; reuses the people's bodies (`bodies.js`, a draw set of its own: `HOST.bodies.set(2)`).
+- **Frame:** Life size: 1 unit = 1 m, the viewer's start at the origin, floor y = 0, ahead along -z; the guide stands at (0.35, -2.0).
+- **Size:** life size; the guide 1.75 m tall, its props within 2.5 m of the viewer.
+- **Data (none):** A script (sets/script.js: SCRIPT, evalGuide); nothing is data.
+- **Cost and notes:** a pure function of `guide_clock` (the solver warmed again after a jump: 30 solve-only steps). Needs `HOST.bodies` (through `HOST.needBodies`), else a plain figure of boxes and cylinders. The engine's `see()` gives the viewer's head and ray, the panel's buttons, AR and the room. Step params `guide_clock`, `guide_mode`, `guide_net`. Two body draws and about 20 of its own.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `guide_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `guide_clock` | 0..187 (story seconds) | 0 | **no** | the script's clock: everything the guide and its props do is evalGuide at this time (keyed linear 0 to T_END) |
+| `guide_mode` | 0 or 1 | 0 | **no** | 0 the story's script, 1 practice (explore mode: its own clock and reactions) |
+| `guide_net` | 0 or 1 | 1 | **no** | in practice: the network as the 4-node badge (0) or grown to 10 nodes (1) |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [-8, 12, 2.48, 0.35, 1.1, -2] | where you stand, the guide at home ahead |
+| `side` | [44, 22, 2.87, 0.45, 0.6, -2.2] | from the right, at the markers on the floor |
+| `net` | [16, 13, 1.12, -0.05, 1.3, -1.25] | at the network from about a metre |
+| `wide` | [-15, 14, 2.83, 0.8, 1, -2.05] | wide enough for the guide and its copy |
+
+Explore controls: **Network** (`net`: `grown` Grown, `badge` Badge). `explore(c)` drives `guide_mode`, `guide_net`.
+
+Anchors (27): `head`, `tag`, `copy`, `copyTag`, `fist`, `chest`, `boots`, `net`, `target`, `menu`, `card`, `nodeTag`, `marker0` to `marker4`, `node0` to `node9`.
+
+Own labels (3): its status line at `tag`; "Guest" at `copyTag`; the node pointed at ("Hub: 6 links") at `nodeTag`.
+
+Other exports: `see`, `hit`, `signal`, `signalOn`, `chapters`, `react`, `walkTo`, `figure`, `usePlain`, `bodyStats`, `practice`, `setRun`, `practiceReset`, `frame`, `nodeAt`, `degree`, `state`, `dispose`.
+
 ## Shared parts (not props)
 
 These files in `tools/*/sets/` are pasted before the sets and are not props themselves: data blocks, maths, shared looks, icons and one harness example.
 
-- `tools/lbi/kit.js`: the shared kit K (seeded random numbers, vector helpers, fading materials); every story pastes it before its sets
+- `tools/engine/kit.js`: the shared kit K (seeded random numbers, vector helpers, fading materials); every story pastes it before its sets
 - `tools/nmd/sets/data.js`: NMD_DATA, the muscle story's data block (generated by tools/nmd/data/gen_data.mjs); also read by the endotype story's build
 - `tools/endo/sets/data.js`: ENDO_DATA, the endotype story's data block (generated)
 - `tools/pet/sets/data.js`: PET_DATA, the PET story's data block (generated)
@@ -2019,6 +2054,7 @@ These files in `tools/*/sets/` are pasted before the sets and are not props them
 - `tools/soil/sets/data.js`: SOIL_DATA, the soil story's field trial data (generated by tools/soil/data/gen_data.py)
 - `tools/soil/sets/sdata.js`: SDATA, the decoders and look-ups for SOIL_DATA
 - `tools/soil/sets/look.js`: SLOOK, the soil story's palette and colour rules
+- `tools/tutorial/sets/script.js`: GUIDE, SCRIPT and evalGuide: the tutorial guide's timeline as data and its evaluator (plain maths, tested in Node)
 - `tools/lbi/sets/demo.js`: a tiny example set (points on a sphere) for the set harness; no story uses it
 
 ## Where manifests disagree with the code
@@ -2037,4 +2073,4 @@ Wording differences only (not counted): control labels in the code against names
 
 ## Counts
 
-45 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, soil's three, pass's three, the flock and the robots), 461 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 307 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.
+46 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, soil's three, pass's three, the flock, the robots and the tutorial's guide), 465 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 311 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.

@@ -295,7 +295,7 @@ function xrLandingClose() {
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][(HOST.count ? HOST.count() : HOST.list.length) - 1] || (HOST.count ? HOST.count() : HOST.list.length)} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -623,7 +623,7 @@ function drawBlock(ctx, P, b, x, y, W, top, bottom, dry) {
       const live = inView(cy, ch) && !t.dis;
       if (t.dis) ctx.globalAlpha = 0.45;
       vButton(ctx, P, t.id, cx, cy, cw, ch, '', live ? () => act(t.act, t.v) : null, { on: t.on, r: 10 });
-      const px = cx + 8, py = cy + 8, pic = pvAny(t.pic || []);
+      const px = cx + 8, py = cy + 8, pic = cardPic(t);
       ctx.save(); rr(ctx, px, py, ph, ph, 7); ctx.fillStyle = '#0b1322'; ctx.fill(); ctx.clip();
       if (pic && pic.img) ctx.drawImage(pic.img, px, py, ph, ph);
       else { ctx.font = vfont(34, 700); ctx.fillStyle = VC.faint; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.kind || '', px + ph / 2, py + ph / 2); }

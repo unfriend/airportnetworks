@@ -24,7 +24,7 @@ const pvFits = rel => rel.length <= 200 && rel.split('/').length <= 5 && rel.spl
 // ---- the listing: its pictures said apart (setFiles), those whose file changed or went fetched again or forgotten
 function pvListing(list) {
   PV.files = new Map(list.map(f => [f.path, f]));
-  for (const [rel, e] of [...PV.img]) { const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }
+  for (const [rel, e] of [...PV.img]) { if (rel.startsWith(PV_FROM)) continue; const f = PV.files.get(rel); if (!f || f.at !== e.at) pvDrop(PV.img, rel); }   // (another scene's: pvFromDrop)
   PV.rev++;
 }
 function pvDrop(map, k) { const e = map.get(k); if (e && e.url) URL.revokeObjectURL(e.url); map.delete(k); }
@@ -54,25 +54,45 @@ function pvAny(list, load = true) { for (const p of list) { const r = pvFor(p, l
 const pvHas = p => PV.mem.has(p) || (PV.files.has(pvPath(p)) && (PV.img.get(pvPath(p)) || {}).state !== 'failed');
 // a listed picture's address: its signed link (R2), else the scene's file (call adds the password as a header)
 const pvUrl = f => f.url || sceneUrl(STU.scene) + encPath(f.path) + (f.at ? '?v=' + f.at : '');
-function pvLoad(f) {
-  const old = PV.img.get(f.path);
+// (key: where it is kept in PV.img, its path for this scene's; url: where it is fetched from)
+function pvLoad(f, key = f.path, url = pvUrl(f)) {
+  const old = PV.img.get(key);
   if (old && old.at === f.at) return;
-  if (old) pvDrop(PV.img, f.path);
-  PV.img.set(f.path, { at: f.at, state: 'queued', url: '', img: null });
-  PV.q.push(f);
+  if (old) pvDrop(PV.img, key);
+  PV.img.set(key, { at: f.at, state: 'queued', url: '', img: null });
+  PV.q.push({ key, at: f.at, url });
   pvPump();
 }
 // (three fetches at a time: a scene of fifty models asks for its pictures without crowding out its models)
 function pvPump() {
   while (PV.busy < 3 && PV.q.length) {
-    const f = PV.q.shift(), e = PV.img.get(f.path), gen = STU.gen;
-    if (!e || e.at !== f.at || e.state !== 'queued') continue;
+    const j = PV.q.shift(), e = PV.img.get(j.key), gen = STU.gen;
+    if (!e || e.at !== j.at || e.state !== 'queued') continue;
     PV.busy++; e.state = 'loading';
-    call(pvUrl(f), { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(f.path) === e) pvImage(e, b, () => PV.img.get(f.path) === e); })
-      .catch(() => { if (PV.img.get(f.path) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
+    call(j.url, { cache: 'no-cache' }).then(r => r.blob()).then(b => { if (gen === STU.gen && PV.img.get(j.key) === e) pvImage(e, b, () => PV.img.get(j.key) === e); })
+      .catch(() => { if (PV.img.get(j.key) === e) { e.state = 'failed'; PV.rev++; dirty(); } })
       .finally(() => { PV.busy--; pvPump(); });
   }
 }
+// ---- From another scene's cards (the owner, 14 November 2026: "When adding from another scene, there should be previews
+// too"): the pictures that scene keeps (previews/ in its listing, FROM.pv), fetched as this scene's are (fromUrl: its
+// signed link, else the relay with the password), kept in PV.img under 'from:<scene>:' so a listing of this scene leaves
+// them; another scene picked, or this one opened again, forgets them (pvFromDrop, pvClear). Nothing is made for them here
+const PV_FROM = 'from:';
+function pvFrom(list, load = true) {
+  if (!FROM.pv || !FROM.scene) return null;
+  for (const p of list) {
+    const f = FROM.pv.get(pvPath(p));
+    if (!f) continue;
+    const key = PV_FROM + FROM.scene + ':' + f.path, e = PV.img.get(key);
+    if (e && e.at === f.at) { if (e.state === 'ready') return e; continue; }
+    if (load && !SRC.held) pvLoad(f, key, fromUrl(FROM.scene, f));
+  }
+  return null;
+}
+function pvFromDrop() { for (const k of [...PV.img.keys()]) if (k.startsWith(PV_FROM)) pvDrop(PV.img, k); PV.rev++; }
+// a card's picture: another scene's (from) or this scene's (pic)
+const cardPic = (x, load = true) => (x.from ? pvFrom(x.from, load) : pvAny(x.pic || [], load));
 // a JPEG's bytes as a picture to draw (an <img> for the page's grid and the headset's canvas alike)
 function pvImage(e, blob, still) {
   e.url = URL.createObjectURL(blob);

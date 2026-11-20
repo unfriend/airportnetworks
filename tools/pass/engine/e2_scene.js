@@ -1,11 +1,7 @@
-
-// ================================================================= SCENE ==
-const GL = {};
+//#use head GL
 // the sets, in the order they appear in the story
 const SET_ORDER = ['fish', 'globe', 'cell'];
-// (no set is drawn in another's frame here; the engine's shared lines keep the hook)
-const FRAME = {};
-const frameOf = k => FRAME[k] || k;
+//#use FRAME frameOf
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.xr.enabled = true;
@@ -47,8 +43,7 @@ function buildSet(k) {
   s.setAlpha(0);
   if (s.setLang) s.setLang(LANG);
 }
-// once every set is built (a step of the load): what joins them (nothing here)
-function sceneJoin() {}
+//#use sceneJoin
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -64,70 +59,9 @@ function updateSets(S, t, dt, story) {
   }
 }
 
-// ---------------------------------------------------------------- camera --
-// A view is [az, el, dist, tx, ty, tz]: look at the target (tx, ty, tz) from the
-// direction az (around the vertical, degrees) and el (up, degrees), dist away.
-const _vd = new THREE.Vector3(), _vt = new THREE.Vector3();
-function viewDir(v, out) {
-  const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
-  return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
-}
-// on a screen narrower than square (a phone held upright) a wide view stands further back: GL.nf is the view's own
-// factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
-GL.nf = 1;
-const narrowK = () => ((GL.wide && !GL.bare) || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
-// (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
-function applyCamera(v) {
-  const u = GL.wide && !GL.bare ? 0 : 1;
-  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
-  GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
-}
-// sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
-// position in the set's own frame (t: story time, for the set's turn; null in explore mode) and returns it, moved if
-// need be; still(p) says explore mode should stop swaying the view (GL.still, read next frame)
-const _yA = new THREE.Vector3(0, 1, 0), _kp = new THREE.Vector3();
-function keepCamera(S, t) {
-  GL.still = false;
-  for (const k of SET_ORDER) {
-    const s = GL.sets[k];
-    if (!s.keepOut || (S[k + '_a'] || 0) < 0.05) continue;
-    const yaw = t === null ? 0 : setYaw(k, t) * D2R;
-    _kp.copy(GL.camera.position).applyAxisAngle(_yA, -yaw);
-    const p = [_kp.x, _kp.y, _kp.z], q = s.keepOut(p);
-    if (s.still && s.still(q)) GL.still = true;
-    if (q !== p) { GL.camera.position.copy(_kp.set(q[0], q[1], q[2]).applyAxisAngle(_yA, yaw)); GL.camera.lookAt(_vt); }
-  }
-}
-function resize() {
-  GL.bare = !!(HOST.focus && HOST.focus());   // focus mode (the shell's): the 3D alone on the page, no panel to clear
-  if (GL.renderer.xr.isPresenting) return;
-  const w = window.innerWidth, h = window.innerHeight, { renderer, camera } = GL;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  const wide = w >= 900;
-  GL.wide = wide; GL.aspect = w / h;
-  if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);   // (its middle a little above the page's: more bar below)
-  else if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
-  else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
-  // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
-  const strip = Math.max(0.12, (0.56 * h - 122) / h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
-  // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
-  // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
-  if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
-  camera.updateProjectionMatrix();
-}
-// the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
-const LV = new THREE.Vector3(), _v2 = new THREE.Vector2();
-function updateLight(xr) {
-  LV.set(-0.5, 0.6, 1.0).normalize().applyQuaternion(xr ? XR.headQ : GL.camera.quaternion);
-  GL.sun.position.copy(LV); GL.sun.target.position.set(0, 0, 0);
-  if (xr) K.U.uPx.value = XR.viewH * 0.5 * XR.R;
-  else K.U.uPx.value = GL.renderer.getDrawingBufferSize(_v2).y * 0.5;
-}
-
+// on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
+const STRIP_FIT = 0.9;
+//#use _vd viewDir narrowK lowK applyCamera _yA keepCamera resize LV updateLight
 // the lens: 32 degrees for the globe and the cell (their stories' own), 58 among the fish (the flock's), blended by
 // the lens track (1 among the fish)
 function setLens(w) {
@@ -163,13 +97,7 @@ function placeLife(xr, dt) {
 // back it comes round to the view's own side at up to 60 degrees a second. keep: return the followed view as it is
 // now (when you take over the camera).
 const FOL = { az: null, el: -20, wa: 0, we: 0, tx: 0, ty: 1.6, tz: -5, vz: null, ve: 0 };
-const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
-// turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
-function track(o, x, w, g, dz, gain, top, dt) {
-  const want = clamp(lazy(g - o[x], dz) * gain, -top, top);
-  o[w] += (want - o[w]) * (1 - Math.exp(-dt * 4));
-  o[x] += o[w] * dt;
-}
+//#use lazy track
 // the school's middle, in the world's frame (the set may be shrinking or turned)
 const _sc = new THREE.Vector3();
 function schoolAt() {

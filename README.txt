@@ -1,4 +1,7 @@
 Networks, in sixteen stories - installable web app
+  Start here: Your guide, an introduction before the stories: a robot guide
+     shows you how the app works in a headset, then a few tasks to practise
+     (stories/tutorial.js; first on the Stories screen, not counted as a story)
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. A glimpse into the future of network medicine: a 3D tour of the Ludwig
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
@@ -43,6 +46,12 @@ Networks, in sixteen stories - installable web app
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
+
+Story packages: more stories, each in a folder of its own (packages/<key>/,
+written by people the owner trusts and brought in through git), get a card on
+the Stories screen after these (or, hidden ones, only in developer mode and by
+their address, #<key>). node tools/packages/scan.mjs lists them in
+packages/index.json; tools/packages/SPEC.md says how to write one.
 
 Besides the stories, the design room (#design, stories/design.js; not on the
 Stories screen) is a table with a small model of every prop of the stories,
@@ -255,7 +264,7 @@ entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #pass, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 A story builds in steps while it loads: the page shows a thin bar and the step
@@ -894,6 +903,16 @@ seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
 a falcon sets off a wave of alarm that passes from neighbour to neighbour. Sky, land and birds are illustrative.
 
+Your guide (stories/tutorial.js, the tutorial): a robot guide, the armour figure
+people have in a shared room, posed by code from a script; its moves and words
+were written by Claude. It stands about two metres in front of you on your floor
+and shows how to point, play a story, explore, open the menu, Recenter and share
+a room; then explore mode is practice, seven small tasks it nods at (the ticks
+are your own). On a screen it runs as a window onto the room; it is made for a
+headset. Its narration is not recorded yet (the voice will be the stories'
+synthetic one); in a headset with narration off it waits once for you to turn
+the voice on, or to press Play.
+
 Robot gang (stories/robots.js): a live simulation, not data, and no particular
 brand of robot. On a screen the robots live in a model living room and you click
 the floor to walk. In a headset they use your own room: every story asks the
@@ -903,7 +922,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the sixteen stories, the design room and the studio, and list.js: the list of them),
+Files: index.html (the app), stories/ (the sixteen stories, the tutorial, the design room and the studio, and list.js: the list of them),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
@@ -926,7 +945,8 @@ authors' files, not in the repository),
 tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
-node tools/robots/build.mjs writes stories/robots.js), tools/design/ (sources of the design room; node
+node tools/robots/build.mjs writes stories/robots.js), tools/tutorial/ (sources of the tutorial; node
+tools/tutorial/build.mjs writes stories/tutorial.js, node tools/tutorial/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
 writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
 lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a

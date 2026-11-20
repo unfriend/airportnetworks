@@ -11,7 +11,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   (`HOST.count()`; the headsets' `drawLandHead` the same), and the headset
   Stories screen lays its cards out in two rows from the number
   (`xrLandingCards`, built again when `HOST.listRev` moves on). A story the list does not have (a shared
-  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`.
+  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`. An entry with `intro: true` (v173, the
+  tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
+  counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
+  Stories screen, and Repeat all skips it (from the tutorial itself it goes on to the first story).
 - `HOST.start(key)` loads `stories/<key>.js` if needed (`HOST.load`: fetched as
   text, its fingerprint noted in `HOST.fp`, run as a script; a file that
   registers no story is refused), calls the old story's `dispose()`, removes
@@ -278,8 +281,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     story, 0, 0.5, 1; `SCALES` auto, 1, 0.9, 0.8; `setFov` and `setScale` take `'auto'`); a value set by hand wins over auto,
     and auto off gives the story's foveation and scale 1. The ladder (`aqFrame`, called from the session's
     frame hook beside the walk): L0 to L5 are fixed foveation 0.5, 0.75, 1, 1, 1, 1 and view scale 1, 1, 1, 0.9, 0.8, 0.7
-    (the view scale through `requestViewportScale`, in the dress wrap of `getViewerPose`; without that API the ladder stops
-    at L2; the viewport that came back is logged once, `viewport`). A frame is late when its time is over 1.5 periods of the
+    (the view scale through `requestViewportScale`, in the dress wrap of `getViewerPose`; without that API, and on a Pico
+    (v166: its browser drew the smaller picture small, so everything shrank), the ladder stops at L2; the viewport that came back is logged once, `viewport`). A frame is late when its time is over 1.5 periods of the
     rate the session runs at now; the first 1.5 s, a story loading, a hidden session, a scene change and a step's settle time
     are not judged. A 1 s window steps down at 4 % late, or at 1.5 % twice running; a window where the script took over 0.6
     of the period is CPU-bound, logged as act `cpu` and never stepped (a lower picture would not help). Ten clean windows
@@ -305,7 +308,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     log without the password is 401; the password is in no log line): `relay/test.mjs`, "--public: a log with the relay's
     password". Untested on a headset: every threshold and step (4 %, 1.5 periods, 10 clean windows, the levels' look),
     whether `requestViewportScale` is there and honoured, how a 3S behaves at 72 Hz and whether a step is seen, the gain.
-  - Sharp text (v165, a test; the owner, 20 November 2026, after the rendering lab's composition layers, "a trick to make
+  - Sharp text (v174, a test; the owner, 20 November 2026, after the rendering lab's composition layers, "a trick to make
     text supersharp in vr and ar on quest"): the story's two panels (its text, 1024 x 1200, and its play bar, 1024 x 176:
     the same in every story and page, `HOST.cur.panels()`) shown as WebXR quad layers. The headset's compositor samples a
     layer's canvas once, at the display's resolution, as it warps for the lenses; a panel in the scene is drawn into the
@@ -1288,10 +1291,78 @@ ships or look).
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
 
+## A story's copy (arrangements, `HOST.arrange`, v170)
+
+The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and then edit in case this is wanted";
+"rearranging and timing etc, no logic". The contract is `tools/engine/SPEC.md`; the story's side (`HOST.cur.arrange`:
+`model`, `apply`, `get`) is the shared engine's. The shell's side is `HOST.arrange` in `index.html` (before the boot):
+
+- **A copy** is a scene on the relay (the scenes API, `--scenes`, folder or R2): `<key>-copy`, `<key>-copy-2` ...; its
+  `layout.json` is `{ studio: 1, scene, story: <arrangement>, saved, by }` (Save keeps any other field it had), its
+  recordings in `sounds/`. The relay needs nothing new. Calls go to the relay the page knows
+  (`HOST.collab.relayFind`) with its password as `Authorization: Bearer`, never in an address; what it answered goes to
+  `HOST.collab.relaySaw` (a 401 brings up the shell's password prompts).
+- **API**: `read(name)` (the arrangement, or throws: status 404 when the scene is no copy), `save(name, A)` (at a station
+  running that copy it writes the station's key again, so every device there reads it again), `copy(key)` (the next free
+  name, made with `POST /api/scenes` and saved as `{ v: 1, key, made, from: HOST.fp[key] }`), `list(fresh)` (the relay's
+  copies `[{ name, key, title, made }]`: only names like `<key>-copy[-n]` are read, kept 10 s), `upload(name, file)` (a
+  recording into `sounds/<its name>.mp3`, replaced: an MP3 through `/file` as it is, anything else through `/sound`, the
+  relay's ffmpeg; gives the path), `url(name, path)` (a promise of a `blob:` address of the file: on a relay on R2 from
+  the signed link its scene's listing gives, with no header, as the studio does, since `/scenes/...` answers there with a
+  redirect to the bucket that would drop the header and send `Origin: null`; on a folder's relay from `/scenes/...` with
+  the password as a header; the last four kept), `current(key)` (`{ name, A }` the copy this page plays for the story, `A` null while it
+  is read or when it could not be; or null), `open(key, name, edit)` (play a copy: at a station of that story the
+  station's, else this page's own; `HOST.go(key)` when another story is on show; `edit` opens the editor once it is
+  read), `own()` (back to the story's own, the station's too), `isCopy(name)` (a scene `list()` found to hold a story:
+  never by its name alone, so a scene named `atelier-copy` stays a scene), `editing()`, `state()` (for tests).
+- **Which copy plays**: a page following, or a headset running, a station whose story is on show plays the station's
+  copy (`st.<id>.arr`, `HOST.collab.arrOf(id)`; `docs/agents/shared-rooms.md`); otherwise the address's
+  (`#<key>&arr=<name>`, this page's own: dropped when another story starts, `HOST.arrange.started` from `HOST.run`).
+  Every 300 ms (`tick`) the copy wanted is read when it is not yet (again 15 s after a failure, and when the station's
+  `at` moves on: a save made elsewhere; our own save moves the cache's `at` with it) and laid over the story with
+  `HOST.cur.arrange.apply(A, name)` (a clone: the story never changes ours; the name: the story fetches the copy's
+  recording by it) once the story is built (`HOST.loading.built()`,
+  new in v170: its frame loop given), again whenever the copy changes, and `apply(null)` when it goes. A story without
+  `arrange` (the airports, proteins, cell map, the studio) plays as its own.
+- **The address**: `#<key>&arr=<name>` while a copy plays by the address, `&edit` added while the editor is open or the
+  link had it (`tail(key)`, added by `HOST.run`, `HOST.swap` and `HOST.setUrl`); in a room the address stays `#s=XYZ`.
+  `&edit` alone shows *Copy to relay* without developer mode. With `&visit` (a visitor's page) `&edit` is ignored and
+  neither *Copy to relay* nor *Edit* nor the editor is ever offered, developer mode or not; a copy still plays.
+- **The bar** (`#arrBar` after the clock; a page only, hidden on the Stories screen and in a headset session): while a
+  copy plays, *Copy: <name>*, *Edit* (when the story has `arrange` and the copy was read) and *Own story*; *Reading the
+  copy...*, *Copy not found* (a 404: the story plays as its own) or *Copy not read: <why>*. Otherwise *Copy to relay* on
+  a story with `arrange`, in developer mode or with `&edit`, once the relay answered its scenes API with this page's
+  password and saves layouts (looked for at most every 30 s, only then): it makes the copy, plays it and opens the editor.
+- **The editor** (`#arrEd`, a drawer over the timeline, made once, its listeners added with `HOST.quiet`; a page only:
+  under 700 px wide it says it needs a wider screen; `body.arr-ed` lifts the story panel above it, and under 900 px hides
+  it). Its lanes are drawn in the story's time as arranged (each chapter at its new length; `geo()`), a drag read back
+  into the story's own seconds, and the story seeks there through the narration's timing as arranged (`APP.seek` on the
+  timeline's clock, `APP.t`; the playhead from it the same way): the copy's `sync` (or the story's own), and in a chapter
+  of a new length its span of the recording scaled by the same factor, as the story's `ARR` lays it out. Lanes: the chapters (drag a chapter's right end for its
+  length; click: its length, *Skip it*, *Back to its own length*), the narration's anchors (`sync`), each set's show and
+  hide (its `show` track, with its other tracks folded under it), the tracks of no set, the camera, the captions (click:
+  the text with its numbers as `{1}`, `{2}` and a preview, *Back to the story's own*), the labels (click: the text), the
+  sound cues. Keyframes keep their order (a drag stops at a neighbour). The side: what is selected, *Places* (each set's
+  x, y, z, turn and size, typed), *The recording* (*Upload a recording*, *Back to the story's own recording*, *Back to
+  the story's own timing*). The head: *Save* (to the relay), *Undo* and *Redo* (this page's, 200 steps), *Unsaved
+  changes* / *Saved*, the arranged length; a line for the edits dropped because the story changed: the story's last
+  apply, whoever asked for it (the shell's, the load's, the pass story's change of language), read from
+  `arrange.dropped()` when the editor opens and every 300 ms. A save of the copy made elsewhere (the station's `at`
+  moved on): a clean editor takes it (its Undo starting there, *A newer save of this copy ... is shown*); one with
+  unsaved changes keeps them, laid over the story as they are, and says a newer copy was saved elsewhere. A drag is laid
+  over the story at most every 120 ms and once more when let go. Leaving the page with unsaved changes asks first.
+- **The studio** lists copies apart (*Copies of stories*: *Copy of <title>*, *Open*, which calls `HOST.arrange.open`),
+  never among its scenes (a name like `<key>-copy[-n]` waits for `list()`), and its Save keeps a layout's `story`
+  (`docs/agents/studio.md`); the room's Add leaves copies out of its "Studio: <scene>" entries (`isCopy`).
+- Tests: `node tools/collab.mjs --arr` (not in the main run). Untested: everything in a headset (a copy played at a
+  station there, its narration from the copy), and the story's side until its engine has `arrange` (the round then uses
+  it instead of its stand-in).
+
 ## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
 
 The app follows its files while it runs (it is also the ground for a story design room, where a draft story reloads in the
-headset as it changes). One path in the shell, `HOST.live` in `index.html`:
+headset as it changes). One path in the shell, `HOST.live` in `index.html`. Story packages (`packages/<key>/`) follow
+the same path through their index, read again at every check: `docs/agents/packages.md`.
 
 - **Swapping a story in place** (`HOST.swap(key)`): the story's file fetched
   fresh (past every cache), and only when its fingerprint differs from the one

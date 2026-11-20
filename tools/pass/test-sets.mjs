@@ -22,7 +22,7 @@ const sandbox = { console, atob, btoa, TextDecoder, Math, Date, performance, set
 sandbox.THREE = require(path.join(root, 'three.min.js'));
 vm.createContext(sandbox);
 const load = f => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), sandbox, { filename: f });
-load('tools/lbi/kit.js');
+load('tools/engine/kit.js');
 vm.runInContext('var SETS = {}; var K = makeKit(THREE);', sandbox);
 for (const f of ['tools/pass/gen/airports.js', 'tools/pass/gen/spatial.js']) {
   // (top-level consts of a script stay in its own scope in vm: make the originals' functions reachable)

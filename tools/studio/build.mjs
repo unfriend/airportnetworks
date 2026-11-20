@@ -1,5 +1,5 @@
 // Assembles stories/studio.js (the studio: your own scenes, a page that is not a story) from the tour's kit
-// (tools/lbi/kit.js), three.js r128's own add-ons vendored in vendor/ (pasted with their licence lines, each wrapped so
+// (tools/engine/kit.js), three.js r128's own add-ons vendored in vendor/ (pasted with their licence lines, each wrapped so
 // nothing of them shows outside the story but THREE.*: fflate's UMD sees no module, exports, define or global self), and
 // two of three.js r133's, KTX2Loader.js and WorkerPool.js (the last plain-script KTX2Loader that needs nothing r128 lacks:
 // the scene's KTX2 textures transcoded to what the GPU keeps compressed; vendor/README.md),
@@ -73,7 +73,7 @@ const vendor = [
 ].join('\n');
 
 // ---- the story
-const kit = read('../lbi/kit.js')
+const kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');

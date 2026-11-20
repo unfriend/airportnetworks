@@ -1,4 +1,4 @@
-
+//#use head
 // ================================================================ EXPLORE ==
 // Explore mode: the flock flies on for as long as you stay. Its controls choose the view, how many birds, the
 // network of who follows whom, and whether a falcon comes now and then; a click on the sky (or the trigger in a
@@ -8,9 +8,9 @@ const SCENES = [
 ];
 const TABS = [['scenes', 'Flock']];
 const X = { tab: 'scenes', scene: 'flock', ctl: {}, t0: 0, turn: 'on' };
-const XS = {};
+//#use XS
 const orbit = { cur: [0, -26, 0.25, 0, 1.6, 0], from: null, to: null, t0: 0, dur: 1.6 };
-const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
+//#use ctlValue
 // the camera follows the flock unless you look around yourself
 const following = () => APP.mode === 'story' || ctlValue('flock', GL.sets.flock.controls[0]) !== 'free';
 
@@ -35,12 +35,7 @@ function exploreStep(dt, now) {
   if (X.turn === 'on' && !following() && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 4 * Math.cos(X.sway * 0.2); }
   return XS;
 }
-function openScene(k, fly = true) {
-  if (!GL.sets[k]) return;
-  X.scene = k; X.t0 = performance.now();
-  if (fly) flyTo(view(k, 'default'));
-  renderScenes();
-}
+//#use openScene~2
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key);
   if (key === 'birds' && ctlValue(k, c) !== v) sfxAct('flutter', 'flock', 'flock', { dur: 0.9 });   // (sound effects: more birds, or fewer)
@@ -67,8 +62,7 @@ function sendFalcon(dir) {
 // relay's at the frame they were drawn in (FSY.at: this page's latest; what this page sends goes after the frame's
 // step, flockSend). True while at a station (the flock then roosts round its spot)
 const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, pa: 0, pt: 0, pace: 1, lead: '', on: false, at: 0 };
-const r2 = a => a.map(x => Math.round(x * 100) / 100);
-const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
+//#use r2 earlier
 function flockSync() {
   const s = GL.sets.flock, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
@@ -135,9 +129,7 @@ function flockEffect(type, d, by) {
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];
-// shared rooms: life size in a headset, so no view places anything there (none to share)
-function collabView() { return null; }
-function collabSetView(v, now) { /* nothing to set */ }
+//#use collabView~2 collabSetView~2
 function collabState() {
   return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
 }
@@ -147,20 +139,7 @@ function collabApply(v) {
     if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('flock', c) !== x) setCtl('flock', c.key, x);
   }
 }
-function flyTo(v) {
-  const c = orbit.cur;
-  orbit.from = c.slice();
-  orbit.to = v.slice();
-  orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
-}
-function orbitStep(now) {
-  if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
-  orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
-}
-
+//#use flyTo orbitStep
 function buildExplore() {
   $('#explore').innerHTML = `<div class="pane on" id="pane-scenes" role="region" aria-label="The flock"></div>`;
   $('#pane-scenes').addEventListener('click', ev => {
@@ -173,11 +152,7 @@ function buildExplore() {
   $('#viewctl').innerHTML = `<div class="grp"><span>Drift</span><div class="seg" data-ctl="turn" role="group" aria-label="Drift">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => { const b = ev.target.closest('[data-v]'); if (b) setTurn(b.dataset.v); });
 }
-function setTurn(v) {
-  X.turn = v;
-  document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
-}
-function showTab(k) { X.tab = k; }
+//#use setTurn showTab~2
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -186,8 +161,7 @@ function renderScenes() {
     ${(s.controls || []).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => `<button type="button" data-ctl="${c.key}" data-v="${v}" aria-pressed="${ctlValue(X.scene, c) === v}"${ctlValue(X.scene, c) === v ? ' style="background:var(--cyan);color:#04131c"' : ''}>${esc(n)}</button>`).join('')}</div>`).join('')}
     <div class="actions"><button class="btn primary" type="button" data-falcon${busy ? ' disabled' : ''}>${busy ? 'Four falcons already' : 'Send a falcon'}</button></div>`;
 }
-function updateExtraLabels() {}
-
+//#use updateExtraLabels
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _inv = new THREE.Matrix4(), _rd = new THREE.Vector3();
 // the direction a click points, in the flock's frame

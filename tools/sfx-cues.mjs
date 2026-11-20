@@ -23,7 +23,7 @@ const browser = await chromium.launch({
 });
 const LIMITS = { min: 6, max: 60, window: 3, onsets: 4, voices: 6, drones: 2 };
 const FEW = new Set(['flock', 'robots', 'design', 'studio']);   // life size or not a story: their sounds are mostly live or explore's
-const MANY = { lbi: 80 };
+const MANY = { lbi: 80, tutorial: 70 };   // (the tutorial: 47 cues planned, a re-cut's headroom)
 // the keys: every story in the list and the pages that are not stories (the design room, the studio)
 let keys;
 {

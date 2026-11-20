@@ -1,6 +1,4 @@
-
-// ================================================================= SCENE ==
-const GL = {};
+//#use head GL
 // the sets, in the order they appear in the story
 const SET_ORDER = ['robots'];
 function buildScene(canvas) {
@@ -19,34 +17,7 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
-function buildSet(k) {
-  const s = SETS[k](K);
-  GL.sets[k] = s;
-  GL.world.add(s.group);
-  s.setAlpha(0);
-}
-// once every set is built (a step of the load): what joins them (nothing here)
-function sceneJoin() {}
-// show each set as far as S fades it in, and let the visible ones update; in the story a set
-// may be turned to meet the camera (see buildCamera)
-function updateSets(S, t, dt, story) {
-  for (const k of SET_ORDER) {
-    const s = GL.sets[k], a = S[k + '_a'] || 0;
-    s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
-    s.setAlpha(a);
-    if (a > 0.003) s.update(S, t, dt);
-  }
-}
-
-// ---------------------------------------------------------------- camera --
-// A view is [az, el, dist, tx, ty, tz]: look at the target (tx, ty, tz) from the
-// direction az (around the vertical, degrees) and el (up, degrees), dist away.
-const _vd = new THREE.Vector3(), _vt = new THREE.Vector3();
-function viewDir(v, out) {
-  const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
-  return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
-}
+//#use FRAME frameOf buildSet sceneJoin updateSets _vd viewDir
 // The screen camera, in the set's frame (on a screen the world is not moved or turned). g (0..1) pulls the target
 // onto the gang, followed smoothly (the low view keeps the robots in the picture); low down the camera stays inside
 // the room (the walls nearest you drop only to skirting height, which would hide the floor from there) and always
@@ -168,15 +139,14 @@ function resize() {
   if (GL.bare) GL.fit = Math.max(1, 1.05 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), 1.2 * h / w);
   camera.updateProjectionMatrix();
 }
-// the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
-const LV = new THREE.Vector3(), _v2 = new THREE.Vector2();
+//#use LV
 function updateLight(xr) {
   LV.set(-0.5, 0.6, 1.0).normalize().applyQuaternion(xr ? XR.headQ : GL.camera.quaternion);
   GL.sun.position.copy(LV); GL.sun.target.position.set(0, 0, 0);
   if (xr) K.U.uPx.value = XR.viewH * 0.5 * XR.R;
   else K.U.uPx.value = GL.renderer.getDrawingBufferSize(_v2).y * 0.5;
 }
-const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
+//#use lazy
 // turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
 function track(o, x, w, g, dz, gain, top, dt) {
   const want = clamp(lazy(g - o[x], dz) * gain, -top, top);

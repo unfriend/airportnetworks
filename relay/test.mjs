@@ -3108,6 +3108,21 @@ if (me === 'hang') setInterval(() => {}, 1000);
     w.close();
   });
 
+  await step('duplicates: POST /api/scenes { name, from } makes a copy of a scene: every file its listing shows (each by a copy\'s rules), its saved layout as it was (locked items locked), no .history/; 404 for no such scene, 409 for a name taken, --scenes-readonly', async () => {
+    const mk = (b, o = {}) => send(o.at || UP.port, '/api/scenes', Buffer.from(JSON.stringify(b)), { headers: { 'Content-Type': 'application/json' } });
+    const lay = { studio: 1, items: [{ id: 'lk', src: 'models/b c.glb', lock: true }] };
+    ok((await send(UP.port, '/api/scenes/one/layout', Buffer.from(JSON.stringify(lay)), { headers: { 'Content-Type': 'application/json' } })).status === 200, 'the source\'s layout saved (a locked item)');
+    const src = (await req('GET', '/api/scenes/one', { at: UP.port })).json(), want = src.files.map(f => f.path).filter(p => p !== 'layout.json' && p !== 'files.json');
+    const r = await mk({ name: 'one dup', from: 'one' }), a = r.json(), d = rel => path.join(U, 'one dup', ...rel.split('/'));
+    ok(r.status === 201 && a.ok === true && a.name === 'one dup' && a.from === 'one' && a.files + a.failed.length === want.length, `201 { ok, name, from, files, failed }: every listed file copied or named (${a.files} copied, ${(a.failed || []).length} not)`);
+    const copied = want.filter(p => !a.failed.includes(p));
+    ok(copied.length > 0 && copied.every(p => fs.readFileSync(d(p)).equals(fs.readFileSync(at(p)))), 'the same bytes at the same paths');
+    ok(JSON.stringify(JSON.parse(fs.readFileSync(d('layout.json'), 'utf8'))) === JSON.stringify(lay) && !fs.existsSync(d('.history')) && !leftovers().length, 'its layout as saved, the lock kept; no .history/, no temporary file');
+    const st = [(await mk({ name: 'one dup', from: 'one' })).status, (await mk({ name: 'x dup', from: 'nope' })).status, (await mk({ name: 'x dup', from: 5 })).status, (await mk({ name: 'ro dup', from: 'one' }, { at: URO.port })).status];
+    ok(st.join(' ') === '409 404 400 403' && !fs.existsSync(path.join(U, 'x dup')) && !fs.existsSync(path.join(U, 'ro dup')), 'a name taken: 409; no such scene: 404; a bad from: 400; --scenes-readonly: 403 (' + st.join(' ') + ')');
+    ok(/scenes: one dup: a copy of one \(\d+ files/.test(UP.out), 'said in the log');
+  });
+
   // a model's picture for the studio's Add pane (tools/studio/SPEC.md, "Pictures in the Add pane"): previews/<the model's
   // path>.jpg, at most 200 KB, listed with a kind of its own
   await step('previews: previews/ takes only a model\'s picture (.jpg, at most 200 KB, also as it streams), listed and told with its kind preview, served as a JPEG; copies by the same rule', async () => {

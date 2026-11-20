@@ -5,7 +5,7 @@ phenotyping of tissue architecture across spatial modalities" by Simon Schindler
 (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center
 for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna
 BioCenter), shown at the Evaluation of the LBI for Network Medicine 2026, and the package's documentation
-(topocyte.lab.lbi-netmed.com). Built like the mutation story (`tools/mutation/`), with the tour's kit and set contract.
+(topocyte.lab.lbi-netmed.com). Built like the mutation story (`tools/mutation/`), with the shared kit (`tools/engine/kit.js`) and set contract.
 **Every number is topocyte's** (`TOPO_DATA`, written by the generator from the authors' run on the GTEx liver cohort):
 the story only looks them up (`TDATA`), counts stored bars and adds stored shares; it computes nothing scientific.
 British spelling, English only. Never edit `stories/topo.js` by hand.

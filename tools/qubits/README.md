@@ -2,7 +2,7 @@
 
 "Three qubits: how a gene network fits on a tiny quantum computer", after Joel Hancock's brief for this visualization
 (network compression onto qubits and the Pauli decomposition; 21 Oct 2026), his figures and his notes on the runs.
-Built like the microanatomy story (`tools/micro/`), with the tour's kit and set contract. The networks shown are
+Built like the microanatomy story (`tools/micro/`), with the shared kit (`tools/engine/kit.js`) and set contract. The networks shown are
 examples, computed live (`QMATH`); the real run's numbers (`QUBITS_DATA`) appear only where the story says "in the real
 network". American spelling in this story only. Never edit `stories/qubits.js` by hand.
 

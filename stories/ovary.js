@@ -2833,8 +2833,10 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
-// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// PET scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
 function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
   const s = SETS[k](K);
   GL.sets[k] = s;
   GL.world.add(s.group);
@@ -2925,6 +2927,8 @@ function updateSets(S, t, dt, story) {
   primeStep(dt);
 }
 
+// on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
+const STRIP_FIT = 0.9;
 // ---------------------------------------------------------------- camera --
 // A view is [az, el, dist, tx, ty, tz]: look at the target (tx, ty, tz) from the
 // direction az (around the vertical, degrees) and el (up, degrees), dist away.
@@ -2937,11 +2941,14 @@ function viewDir(v, out) {
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
 const narrowK = () => ((GL.wide && !GL.bare) || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+// on a screen held sideways without the side panel (the panel below, the scene in a strip above it) a view may come
+// closer and aim lower: v[10] and v[11] (LOW in the story), taken in full from 1.2 : 1 on (as GL.fit's strip)
+const lowK = () => (GL.wide || GL.bare ? 0 : clamp(((GL.aspect || 1) - 0.6) / 0.6, 0, 1));
 // (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  const u = GL.wide && !GL.bare ? 0 : 1;
-  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
+  const u = GL.wide && !GL.bare ? 0 : 1, L = lowK(), lk = 1 + ((v[10] || 1) - 1) * L;
+  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0) + L * (v[11] || 0), v[5] - u * (v[9] || 0));
+  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK() * lk);
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 // sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
@@ -2973,8 +2980,9 @@ function resize() {
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
   // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  // (STRIP_FIT: the story's own share of that, 0.9; 0 in the stories framed before it, which keep their framing there)
   const strip = Math.max(0.12, (0.56 * h - 122) / h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, STRIP_FIT / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   // (focus mode: the page between the top bar, 48 px, and the bar and subtitles below, 126 px, about the scene's
   // middle at 0.45 h; at fit 1 a scene reaches about 0.95 of the screen's half height up and down, 1 to the sides)
   if (GL.bare) GL.fit = Math.max(1, 0.95 / Math.max(0.25, Math.min(0.45 * h - 48, 0.55 * h - 126) / (0.5 * h)), h / w);
@@ -3042,25 +3050,32 @@ const CH = [
   { key: 'network', name: 'Next', a: 225, b: 270 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+// the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)
+const DEF_MORE = {}, LIN = new Set(), LOG = new Set();
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 
 // every param of every set, at rest; the sets themselves start hidden
 const DEF = {};
+// (DEF_MORE: params of the engine's own beside the sets'; LOG: params tweened on a log scale, the story's and the sets')
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  Object.assign(DEF, DEF_MORE);
+  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+// a param at story time t, eased between its keys; LIN's run at an even pace, LOG's on a log scale (the story's logMix)
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
   if (t <= ks[0][0]) return ks[0][1];
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
+      if (t1 <= t0) return v1;
+      return LOG.has(n) ? logMix(v0, v1, smooth(x)) : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
     }
   }
   return ks[ks.length - 1][1];
@@ -3072,7 +3087,7 @@ function storyState(t) {
 }
 const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
 
-const ST = { labels: [], items: [] };
+const ST = { labels: [], items: [], stand: [] };   // (stand: the headset's stand views, see standView)
 // a set's camera view by name (falls back to its default view)
 // (with the story's own framing on top: FIT)
 const view = (k, name) => {
@@ -3162,10 +3177,10 @@ const creditText = () => {
   const S = OD.source;
   return `Poster: "${S.title}" by ${listOf(S.authors.map(a => `${a.name} (${a.aff.join(', ')})`))}. ${S.affiliations.map((x, i) => `(${i + 1}) ${x}`).join('; ')}. Supported by ${listOf(S.support)}. Data: ${S.data}.`;
 };
-// colors as text on the HTML panel, which is light in the light theme: a color mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the color itself (data-col).
+// colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
+// a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
-const swCol = c => c;   // a swatch or a bar in the same color
+const swCol = c => c;   // a swatch or a bar in the same colour
 
 function buildStory() {
   const F = FACTS;
@@ -3431,8 +3446,10 @@ function buildStory() {
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
     label('section', 'tag_' + k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
-// a steady pace.
+// no set turns into another at a hand-over (buildCamera's MORPH)
+const MORPH = {};
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift (, LOW's two)]; 'spin'
+// segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
 // never swings the camera round. The set keeps that turn while it is on show (setYaw).
@@ -3448,7 +3465,8 @@ function buildCamera(wp) {
   for (const w of wp) {
     if (!cur || w[8] !== cur.k) {
       const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
+      // (a set that the one before turns into, MORPH, takes its turn: the things of the one fly to the other's places)
+      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
       ST.yaw.push(cur);
     }
     turn(w, cur.c);
@@ -3460,11 +3478,11 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, ...w.slice(10)];
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the body and the ovary share one turn: one frame)
+// (sets in one frame share one turn: FRAME)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);
@@ -3519,14 +3537,14 @@ function label(set, at, html, tIn, tOut, cls) {
 const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
 function buildSetLabels() {
   for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows, see labelText)
+    // (a label's text may be a function: it follows what the set shows, and the pass story's language, see labelText)
     const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
     LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r });
+      fn, tx: fn ? b + '|' + r : '', none: !b && !r, cls: L.cls });
   }
 }
-// a label whose text is a function (the ovary's age and counts) is read again while it shows and redrawn when it
-// changes: the HTML label, and the headset's sprite (dropped, so it is made again)
+// a label whose text is a function (a count, an age, a pick, a share, an angle ...) is read again while it shows and
+// redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
   const now = performance.now();
@@ -3547,11 +3565,12 @@ const setLabelAlpha = (L, S) => {
   if (v > 0) labelText(L);
   return L.none ? 0 : v;
 };
-// where a label points, in the world's own coordinates
+// where a label points, in the world's own coordinates (a life-size set through its holder, GL.life: the pass story's fish)
 const _v = new THREE.Vector3();
 function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
+  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
+  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
+  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
@@ -3626,18 +3645,23 @@ function updateStoryDOM(t) {
       p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
     }
   }
-  if (c.key === 'title') {
+  if (c === CH[0]) {   // (the first chapter's title arc, where it has one)
     const arc = $('#titleArc');
     if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
   }
 }
 
 // ------------------------------------------------------------- timeline UI --
-function buildTimeline() {
+function trackHTML() {
   const tr = $('#track');
   tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
     `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
   tr.setAttribute('aria-valuemax', Math.round(T_END));
+}
+// (the track's ticks and names: trackHTML, the story's own where it makes them again)
+function buildTimeline() {
+  const tr = $('#track');
+  trackHTML();
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -3781,7 +3805,11 @@ function setCtl(k, key, v) {
 }
 // a view of a set by its option's key, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (hasOpt(k, 'view', v) && ctlValue(k, ctlOf(k, 'view')) !== v) setCtl(k, 'view', v); }
-function flyTo(v) {
+// fly the explore camera to view v (over dur seconds, orbit.dur unless given); any flight but the PET story's hand-over
+// (hand) takes the camera from that hand-over (X.hand)
+function flyTo(v, dur, hand) {
+  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
+  orbit.d = dur || 0;
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = v.slice();
@@ -3790,11 +3818,10 @@ function flyTo(v) {
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.d || orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
   if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
-
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also sets the scenes' controls that show it.
@@ -3872,7 +3899,7 @@ function collabApply(v) {
 }
 
 // ------------------------------------------------------------------ panes --
-// (a lit chip as the shell's primary button: its text in the panel's color, readable in either theme)
+// (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 const ageInput = () => `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b;width:100%">`;
 function buildExplore() {
@@ -4065,7 +4092,7 @@ function bindCanvas() {
     }
     if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
     const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
+    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
     if (p) {
       const [b, r] = pickText(p);
       tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
@@ -4096,6 +4123,7 @@ function bindCanvas() {
 // point at, and labels become sprites on top or signs in the scene. Controllers: point and pull the trigger
 // to click, drag the scene with the trigger or grip, thumbstick spins and zooms,
 // A and X do nothing (play and pause are on the panel). Hand tracking: point and pinch.
+// (a story with headset state of its own adds it to XR in its own e5_xr.js, after this)
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
@@ -4113,10 +4141,11 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // floating scene: the side the camera looks from faces you, "up" stays up, the
 // target sits in front of you, and closer views make the scene bigger.
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-function xrPlace(v) {
+function xrPlace(v, dt) {
+  if (xrPlaceLife(v)) return;   // (life size round you: the story's own placing)
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
-  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
+  const R0 = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
   XR.hitR = 1.15 * d / 3.6;
   XR.target.set(v[3], v[4], v[5]);
   // a little right of centre and below eye level, leaving room for the panel on the left
@@ -4127,11 +4156,16 @@ function xrPlace(v) {
   XR.globeBase.set(cx, cy, -dc);
   xrFace(_xq2, gx, gy, gz);
   GL.world.quaternion.copy(_xq2).multiply(_xq);
+  XR.R = xrCap(R0, gx, gy, gz, dt);
   GL.world.scale.setScalar(XR.R);
   // the target lands on the placement point
   _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(XR.R);
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
 }
+// a story shown life size round you places it itself here and says true; the others float in front of you
+function xrPlaceLife() { return false; }
+// the scene's scale, R0 as the view asks (a story that keeps its scene clear of your head caps it here)
+function xrCap(R0) { return R0; }
 // Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
 // it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
 // puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
@@ -4142,7 +4176,7 @@ function xrRecenterAsk() {
   return true;
 }
 function xrRecenter() {
-  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.rot.identity();
+  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.rot.identity(); xrLifeHome();
   if (XR.panelGroup) xrPanelPose(XR.panelHome.p, XR.panelHome.yaw);
   // anchored: the scene and the panel go back where they were saved with the place
   const s = HOST.anchor.saved();
@@ -4151,6 +4185,8 @@ function xrRecenter() {
   GL.rig.position.copy(XR.head);
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 }
+// what a story keeps life size round you goes home too (Recenter, a new wearer)
+function xrLifeHome() {}
 
 // ------------------------------------------------- labels and free moving --
 // The shell's headset settings, the same for everyone in a shared room (HOST.xr; read every frame, and a shell
@@ -4265,7 +4301,7 @@ function xrSettings() {
 
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
-  grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
+  grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tl: ['#cbfff3', '#38e6c7'], tip: ['#e7eef8', '#46d9ff'] };   // (tl: teal, the pass story's cell map signals)
 // a label's picture, shared by its sprite and its sign. One whose words change (a function's) keeps its canvas, texture,
 // sprite and sign, and is drawn again in place (labelRedraw); its canvas has room for longer words, and a label too long
 // for it is made again, wider
@@ -4355,7 +4391,7 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = 0.021 / XR.R;
+  const hm = xrLabelH(sp);
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
   if (fixed) {
     // upright and turned to you, about the vertical only (the rig's frame): a sign in the scene, not a sprite on top
@@ -4363,7 +4399,9 @@ function placeLabelXR(L, alpha, S) {
     sp.quaternion.copy(XR.signL).multiply(_fq.setFromAxisAngle(_xY, Math.atan2(XR.signH.x - _fv.x, XR.signH.z - _fv.z)));
   }
 }
-// the object a controller points at on the section, labeled where the ray meets it
+// a label's height in the world's units: 2.1 cm (at arm's length)
+function xrLabelH() { return 0.021 / XR.R; }
+// what a controller points at in explore mode (its pick: pickText), labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -4376,8 +4414,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// --------------------------------------------------- picking an object --
-// The object a ray points at in explore mode (see pickWith), or null
+// ------------------------------------------------------------- picking --
+// What a ray points at in explore mode (the story's pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -4400,7 +4438,7 @@ function xrController(i) {
   GL.scene.add(c.dot);
   g.visible = false;
   g.addEventListener('connected', e => { c.src = e.data; c.ray.visible = e.data.targetRayMode !== 'screen'; });
-  g.addEventListener('disconnected', () => { c.src = null; c.press = null; c.grab = null; c.hover = null; c.wantPress = false; c.dot.visible = false; });
+  g.addEventListener('disconnected', () => { c.src = null; c.press = null; xrLetGo(c); c.hover = null; c.wantPress = false; c.dot.visible = false; });
   // presses are handled on the next frame, once the ray has its fresh pose
   g.addEventListener('selectstart', () => { c.wantPress = true; });
   g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); });
@@ -4409,6 +4447,8 @@ function xrController(i) {
   GL.scene.add(g);
   XR.ctrls.push(c);
 }
+// a hand lets go of what it holds (the grip up, the controller gone, locked meanwhile, the session over)
+function xrLetGo(c) { c.grab = null; }
 function buzz(c, s, ms) {
   try {
     const a = c.src && c.src.gamepad && c.src.gamepad.hapticActuators;
@@ -4450,13 +4490,14 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
-  } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
+  } else xrPressScene(c, h);
 }
+// the trigger on the scene: dragging it turns it (explore mode); let go unmoved, it clicks what it was on
+function xrPressScene(c, h) { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
 function xrRelease(c) {
   const p = c.press;
   c.press = null;
   if (!p) return;
-  if (p.kind === 'globe') orbit.held = false;
   if (p.kind === 'panel') {
     if (p.r.drag) return;
     const h = c.hover;
@@ -4465,26 +4506,34 @@ function xrRelease(c) {
       // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
       if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
-  } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
+  } else xrReleaseScene(c, p);
+}
+function xrReleaseScene(c, p) {
+  if (p.kind === 'globe') orbit.held = false;
+  if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
 function xrGrab(c, on) {
-  c.grab = null;
+  xrLetGo(c);
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (h.kind !== 'panel' && xrGrabScene(c, h)) return;   // (the story's own: refused, or taken)
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0, reach: 1, r0: (h.kind === 'panel' ? XR.panelGroup.quaternion : XR.rot).clone() };
   buzz(c, 0.4, 25);
 }
+// the grip on the scene: the story may refuse it or take it (true), else the scene is carried
+function xrGrabScene() { return false; }
 const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3(), _gr = new THREE.Quaternion();
 // the grabbed object keeps its offset from the controller, so moving or turning your hand carries it (moving freely,
 // it also turns with your hand, about it: what you hold stays in your hand)
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { c.grab = null; return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story)
+  if (xrCarryScene(c, G, dt)) return;   // (something of the story's own in the hand)
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
   if (o) { if (c.i > o.i) xrResize(o, c); return; }
   if (G.two) { G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.p0.copy(GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff))); G.reach = 1; G.r0.copy(XR.rot); }
@@ -4505,6 +4554,8 @@ function carry(c, dt) {
     XR.panelGroup.rotation.set(0, Math.atan2(_gh.x - _gv.x, _gh.z - _gv.z), 0); // keep it upright, facing you
   }
 }
+// a grab of the story's own (xrGrabScene) carried: true when it was one
+function xrCarryScene() { return false; }
 // both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
 // story's own size) and moves with their middle; moving freely, the line between them turns it about their middle
 function xrResize(a, b) {
@@ -4539,20 +4590,8 @@ function xrPoint(c, dt) {
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; an object on the section counts if the ray meets it
-    const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
-    _xc.copy(oL).sub(XR.target);
-    const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
-    const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
-    const pk = pickRay(c.o, c.d);
-    if (t > 0 || pk) {
-      // a pick with a point of its own is marked there; else the ball's surface
-      const q = pk ? pickPos(pk) : null;
-      if (q) _xp.set(q[0], q[1], q[2]).applyMatrix4(GL.sets[X.scene].group.matrixWorld);
-      else _xp.copy(dL).multiplyScalar(t > 0 ? t : Math.max(0, _xc.copy(XR.target).sub(oL).dot(dL))).add(oL).applyMatrix4(GL.world.matrixWorld);
-      hit = { kind: 'globe', i: -1, pk, point: _xp.clone() };
-      dist = c.o.distanceTo(_xp);
-    }
+    hit = xrSceneHit(c);   // (the story's scene, or nothing)
+    if (hit) dist = c.o.distanceTo(hit.point);
   }
   c.hover = hit;
   // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
@@ -4560,7 +4599,7 @@ function xrPoint(c, dt) {
   if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
   c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
-  if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
+  xrDrag(c);
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // thumbstick: spin and zoom the globe (not while the sticks move you: the shell's, xrWalking; nor the right stick while
@@ -4568,7 +4607,7 @@ function xrPoint(c, dt) {
   const gp = c.src.gamepad;
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
-    if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking() && !(HOST.ships && HOST.ships.claims(c.src))) {
+    if (APP.mode === 'explore' && !c.press && !c.grab && !xrWalking() && !(HOST.ships && HOST.ships.claims(c.src)) && xrSticks()) {
       if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), xrMinD(), 40); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[0] -= ax * dt * 60; }
     }
@@ -4582,6 +4621,26 @@ function xrPoint(c, dt) {
   } else c.dot.visible = false;
 }
 
+// the scene counts as a ball around the view's target; a pick counts if the ray passes close (pickRay): a pick with a
+// point of its own is marked there, else the ball's surface
+function xrBallHit(c) {
+  const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
+  _xc.copy(oL).sub(XR.target);
+  const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
+  const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
+  const pk = pickRay(c.o, c.d);
+  if (!(t > 0 || pk)) return null;
+  const q = pk ? pickPos(pk) : null;
+  if (q) _xp.set(q[0], q[1], q[2]).applyMatrix4(GL.sets[X.scene].group.matrixWorld);
+  else _xp.copy(dL).multiplyScalar(t > 0 ? t : Math.max(0, _xc.copy(XR.target).sub(oL).dot(dL))).add(oL).applyMatrix4(GL.world.matrixWorld);
+  return { kind: 'globe', i: -1, pk, point: _xp.clone() };
+}
+// what of the scene a controller points at (xrPoint, once no panel is nearer), or null
+function xrSceneHit(c) { return xrBallHit(c); }
+// a press on the scene held: dragging turns it
+function xrDrag(c) { if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press); }
+// whether the thumbstick spins and zooms the scene now (explore mode, nothing held)
+function xrSticks() { return true; }
 // ---------------------------------------------------------------- frames --
 const _xUp = new THREE.Vector3(0, 1, 0);
 function xrBegin(frame, dt) {
@@ -4606,6 +4665,7 @@ function xrBegin(frame, dt) {
     if (xrCards() && !XR.stories) { XR.stories = true; XR.inStory = false; XR.kbd.open = false; APP.playing = false; }
     if (XR.stories && !xrCards() && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
   }
+  xrPosed(frame, ref, pose);
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
     if (bl.framebufferHeight) XR.viewH = bl.framebufferHeight;
@@ -4620,6 +4680,7 @@ function xrBegin(frame, dt) {
   // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
   // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
   if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }
+  xrPointed(frame, ref);
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -4628,6 +4689,10 @@ function xrBegin(frame, dt) {
     P.hover = hv;
   }
 }
+// once the head's pose is read (pose: null without one), before the panels are drawn: a story's own room or place
+function xrPosed() {}
+// once the controllers have pointed (xrPoint): what a story's own pointing lights up
+function xrPointed() {}
 function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
@@ -4658,7 +4723,7 @@ function xrUpdate(S) {
   }
   for (const L of LBL.sets) placeLabelXR(L, setLabelAlpha(L, S), S);
   for (const L of LBL.extra) {
-    if (!story) placeLabelXR(L, 1, S);
+    if (!story) placeLabelXR(L, xrExtraAlpha(L), S);
     else hideLabelXR(L);
   }
   xrTip(S);
@@ -4666,6 +4731,8 @@ function xrUpdate(S) {
   XR.landN = 0;   // (the Stories screen's cards drawn for the first time this frame: panelTick)
   for (const P of XR.panels) panelTick(P, now);
 }
+// how much an explore label of the story's own (LBL.extra) shows in the headset
+function xrExtraAlpha() { return 1; }
 
 // ---------------------------------------------------------- explore glue --
 function xrClickPick(pk) {
@@ -4707,7 +4774,7 @@ async function xrStart(mode) {
     GL.renderer.xr.setReferenceSpaceType('local');
     await GL.renderer.xr.setSession(session);
     const ref = GL.renderer.xr.getReferenceSpace();
-    if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
+    if (ref && ref.addEventListener) ref.addEventListener('reset', xrOnReset);
   } catch (err) {
     console.error(err);
     xrMsg('Could not start the headset view: ' + (err && err.message ? err.message : err));
@@ -4715,6 +4782,8 @@ async function xrStart(mode) {
     if (XR.on) xrEnded();
   }
 }
+// the reference space was reset (the headset recentred): the scene comes in front of you again
+function xrOnReset() { XR.needRecenter = true; }
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
@@ -4723,10 +4792,10 @@ function xrEnterScene() {
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';
   applyTheme();
-  GL.stars.visible = XR.clear;
-  GL.stars.material.size = 2.2;
+  xrStars(true);
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
+  xrOnEnter();
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
   // (not in a shared room: there a story is reached by walking into its station's circle)
@@ -4745,6 +4814,13 @@ function xrEnterScene() {
     }).catch(() => {});
   }
 }
+// a headset session begins (xrEnterScene): a story's own headset state from the page's
+function xrOnEnter() {}
+// the stars in the headset (on) and back on the page: in a headset bigger, and only in VR
+function xrStars(on) {
+  if (on) { GL.stars.visible = XR.clear; GL.stars.material.size = 2.2; }
+  else { GL.stars.visible = true; GL.stars.material.size = 1.3; }
+}
 // Headset taken off (or put to sleep) for more than a few seconds: treat the next
 // wearer as a new visitor. Restart the story and place everything in front of them
 // (when anchored, everything stays at its spot in the room).
@@ -4761,7 +4837,8 @@ function xrVisibility() {
 }
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
-  for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  for (const c of XR.ctrls) { c.press = null; xrLetGo(c); c.wantPress = false; }
+  xrLifeHome();
   // in a shared room the story and its place stay (at its station the room's clock and state go on applying; away from
   // one a new wearer walks up to a station: no Stories screen in a room)
   if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }
@@ -4785,7 +4862,7 @@ function xrAdopt() {
     xrPanelPose(p.pp, p.pr, p.pq);
   }
   const ref = GL.renderer.xr.getReferenceSpace();
-  if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
+  if (ref && ref.addEventListener) ref.addEventListener('reset', xrOnReset);
 }
 function xrEnded() {
   if (!XR.on) return;
@@ -4796,13 +4873,14 @@ function xrEnded() {
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
   for (const P of XR.panels) P.mesh.visible = false;
-  for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; c.grab = null; c.hover = null; c.src = null; }
+  for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; xrLetGo(c); c.hover = null; c.src = null; }
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { hideLabelXR(L); L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
   XR.clear = true;
-  GL.stars.visible = true; GL.stars.material.size = 1.3;
+  xrStars(false);
   GL.world.visible = true;
+  xrOnEnd();
   for (const P of XR.land || []) P.mesh.visible = false;
   // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
   // there): back to the Stories screen on the page
@@ -4810,6 +4888,8 @@ function xrEnded() {
   applyTheme();
   resize();
 }
+// the headset session is over (xrEnded): a story's own headset state put back for the page
+function xrOnEnd() {}
 function xrSetup() {
   XR.raycaster = new THREE.Raycaster();
   // panel 0.62 m wide, about 40 degrees to the left and facing you
@@ -4838,6 +4918,7 @@ function xrSetup() {
     return navigator.xr.isSessionSupported('immersive-ar').then(ar => { if (ar && vr) $('#btnAR').hidden = false; });
   }).catch(() => {});
 }
+
 
 // ------------------------------------------------------------ VR panels --
 // The HTML side panel can't be shown inside a headset, so it is redrawn on a
@@ -5034,22 +5115,34 @@ function panelPatch(P, cv, x, y, noMip) {
 }
 
 // ------------------------------------------------------------ main panel --
+// what the main panel shows, so it is drawn again only when that changes: the story (and what the story's own
+// sigMainS() adds: '' for most), or explore mode (the story's sigMainX())
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
-    const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
-    if (it) {
-      for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
-      s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
-      for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
-    }
-    return s;
+  if (APP.mode !== 'story') return sigMainX();
+  const it = ST.items.find(x => x.ch === curCh);
+  let s = 's' + audioLabel() + xrSig() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '') + sigMainS();
+  if (it) {
+    for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
+    // (the title's route arc as it grows, in the chapter that has it)
+    const arc = it.sec.querySelector('#titleArc'), dot = it.sec.querySelector('#titleDot');
+    if (arc && dot) s += arc.getAttribute('stroke-dashoffset').slice(0, 3) + dot.getAttribute('opacity').slice(0, 3);
+    s += '\u0001';   // what follows is the text fades alone: panelFade draws only the bands that moved
+    for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
   }
+  return s;
+}
+const sigMainS = () => '';
+// explore mode in the main panel's signature (sigMain)
+function sigMainX() {
   return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.kind, X.age, X.method].join('|');
 }
 const XR_HERE = 'ovary';
+const XR_TITLE = 'The aging ovary';
+// the story's points (ul.steps) on the headset's panel (drawStoryEl): lines at most, and the colour of one without
+// its own
+const XR_STEP_LINES = 4, XR_STEP_COL = 'var(--amber)';
+const FLOW_BOLD = true;
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -5101,7 +5194,7 @@ function xrLandingClose() {
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][(HOST.count ? HOST.count() : HOST.list.length) - 1] || (HOST.count ? HOST.count() : HOST.list.length)} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -5139,6 +5232,10 @@ function drawStoriesPane(ctx, P, x, y, W) {
   }
   if (!xrCards()) vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
 }
+// under the story: what the trigger and the grip do (in a shared room the room's own hint instead: drawMain)
+const xrHint = () => (HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.');
+// the main panel: the buttons and the story's name (XR_TITLE) on top; under them the Stories screen, the story (with
+// the story's xrHint() at its foot) or explore mode
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
   let x = P.w - 36;
@@ -5152,13 +5249,13 @@ function drawMain(ctx, P) {
   else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);   // (an All stories circle: back to its cards, for everyone there)
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
-  fitTitle(ctx, 'The aging ovary', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
+  fitTitle(ctx, XR_TITLE, 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. Anchored: to move things, use Place again in the menu.' : XR.free ? 'Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : xrHint(), 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
@@ -5182,6 +5279,9 @@ function drawStoryPane(ctx, P, x, y, W) {
   FADEB = null;
   ctx.globalAlpha = 1;
 }
+// one element of the story's HTML on the headset's panel. Each story says how its points (ul.steps) look there:
+// XR_STEP_LINES, a point's lines of text at most, and XR_STEP_COL, the colour of a point without one of its own (a CSS
+// colour; '' is ink). A paragraph's data-xr, where it has one, is its text in a headset (the robots' room).
 function drawStoryEl(ctx, P, el, x, y, W, pa) {
   const a = pa * storyOpacity(el), tag = el.tagName.toUpperCase(), cl = el.classList;
   ctx.globalAlpha = a;
@@ -5216,7 +5316,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
       const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
         : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
       const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
-      h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
+      h = textBlock(ctx, el.dataset.xr || el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
     }
   } else if (cl.contains('big')) {
     const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
@@ -5269,8 +5369,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     for (const li of el.children) {
       ctx.globalAlpha = a * storyOpacity(li);
       const b = li.querySelector('b'), bold = b ? b.textContent : '', rest = li.textContent.slice(bold.length).trim();
-      const col = li.dataset.col || cssColor(li.style.borderLeftColor) || VC.amber;   // an organ's point in its own colour (the HTML's is mixed for a light panel)
-      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, 4);
+      const col = li.dataset.col || cssColor(li.style.borderLeftColor || XR_STEP_COL);   // a point in its own colour (the HTML's is mixed for a light panel)
+      const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, XR_STEP_LINES);
       ctx.fillStyle = col; ctx.fillRect(x, yy + 4, 5, hh);
       ctx.font = vfont(30, 700); ctx.fillStyle = col; ctx.fillText(bold, x + 22, yy);
       yy += hh + 16;
@@ -5305,7 +5405,8 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 }
 
 
-// explore: tabs and panes mirroring the HTML ones
+// explore: tabs and panes mirroring the HTML ones (a tab picked with the story's pickTab; its pane drawn by the
+// story's drawTabPane)
 function drawExplorePane(ctx, P, x, y, W) {
   const tw = W / TABS.length;
   TABS.forEach(([k, n], j) => {
@@ -5318,21 +5419,27 @@ function drawExplorePane(ctx, P, x, y, W) {
   });
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
-  const bottom = P.h - 34;
+  drawTabPane(ctx, P, x, y, W, P.h - 34);
+}
+// explore mode's pane for each tab (drawExplorePane)
+function drawTabPane(ctx, P, x, y, W, bottom) {
   ({ objects: drawObjectsPane, age: drawAgePane, methods: drawMethodsPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, fn }
+// buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, icon, fn } (no fn: a plain chip; an icon is
+// drawn by the story's flowIcon(ctx, it, x, y, h): the PET story's organs, the microanatomy story's organ models). Where
+// a story's FLOW_BOLD is false (the muscle story's), a chip is measured in the font the one before it was drawn in.
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   const px = o.px || 22, h = o.h || 44, gap = 8;
   let cx = x, cy = y;
   ctx.font = vfont(px);
   for (const it of items) {
-    ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
-    const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
+    if (FLOW_BOLD) ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
+    const sw = it.icon ? h - 10 : it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
+    if (it.icon) flowIcon(ctx, it, cx, cy, h);
+    else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
     cx += w + gap;
@@ -5453,10 +5560,15 @@ function drawFoot(ctx, P) {
     rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
     ctx.fillStyle = 'rgba(160,178,202,0.6)';
     for (const c of CH.slice(1)) ctx.fillRect(x0 + (x1 - x0) * c.na / T_END - 1, ty - 8, 2, 22);
+    arrFoot(ctx, x0, x1, ty);   // (an arrangement's skipped chapters, greyed)
     ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * t / T_END, ty + 3, P.hover === 'track' ? 16 : 13, 0, 7); ctx.fillStyle = VC.cyan; ctx.fill();
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
   }
+  drawFootX(ctx, P);   // (explore mode: the story's own footer)
+}
+// explore mode's footer: turn, zoom and the whole scene
+function drawFootX(ctx, P) {
   ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText('Turn', 28, 58);
   vButton(ctx, P, 'turn:on', 100, 40, 90, 56, 'On', () => setTurn('on'), { on: X.turn === 'on', px: 22 });
   vButton(ctx, P, 'turn:off', 198, 40, 90, 56, 'Off', () => setTurn('off'), { on: X.turn === 'off', px: 22 });
@@ -5464,41 +5576,41 @@ function drawFoot(ctx, P) {
   vButton(ctx, P, 'z-', 404, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
   vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
   vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
-}
-
-
-// ------------------------------------------------------------- narration --
-// ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-ovary.mp3.
+}// ------------------------------------------------------------- narration --
+// Optional voice-over: put an MP3 where the story's narrationFile() says (audio/narration-<key>.mp3).
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
 // (HOST.audio): one engine for the whole app, unlocked by the first tap or click
 // and kept running across stories and headset sessions.
 let AUD = null;
+const AUD_HOOKS = {
+  // a recording longer than the story stretches the timeline
+  ready(d) {
+    ARR.d = d; d = arrTl(d);   // (on the timeline: an arrangement's chapters may be longer or shorter)
+    if (d + 1 <= T_END) return;
+    T_END = d + 1;
+    document.querySelectorAll('#track .tick, #track .name').forEach(el => {
+      const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
+    });
+    $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1; arrTrack();
+  },
+  error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
+};
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-ovary.mp3', {
-    // a recording longer than the story stretches the timeline
-    ready(d) {
-      if (d + 1 <= T_END) return;
-      T_END = d + 1;
-      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
-        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
-      });
-      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    },
-    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
-  });
+  AUD = HOST.audio.narration(arrVoice(), AUD_HOOKS);   // (an arrangement's recording, or the story's own)
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
+const narrationFile = () => 'audio/narration-ovary.mp3';
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
-function audioSync() { if (AUD) AUD.sync(...slideSound()); }
+// (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
+function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }
 // while it plays, the narration is the clock: the story follows it
-function audioFollow() { if (AUD && !SLIDE.tail) APP.t = AUD.follow(APP.t); }
+function audioFollow() { if (AUD && !SLIDE.tail) APP.t = ARR.R ? arrFollow(APP.t) : AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
 
@@ -5527,6 +5639,7 @@ function slideStep(t0) {
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
+      if (ARR.sk && ARR.sk.has(i)) continue;   // (a chapter an arrangement skips has no stop)
       const s = slideStop(i);
       if (APP.playing && i !== SLIDE.go && from < s && APP.t >= s) { slideTail(i, APP.t); APP.playing = false; APP.seek(s); }
       else if (!APP.playing && SLIDE.lp && APP.t >= s - 0.25 && APP.t < s) slideTail(i, APP.t);
@@ -5545,7 +5658,7 @@ function slideStep(t0) {
 // at the stop of chapter i the voice plays on from where the sound is (the story's clock, t, can lag it) to where the
 // chapter's words end; a sound already past them stops there, and keeps quiet until the story is back there
 function slideTail(i, t) {
-  const p = AUD && AUD.pos ? AUD.pos() : null, e = slideVoice(i);
+  const p = AUD && AUD.pos ? arrTl(AUD.pos()) : null, e = slideVoice(i);
   // (only a sound that is with the story: right after a jump it still says where it was before)
   const near = p !== null && Math.abs(p - t) < 1.5;
   if (near) t = p;
@@ -5718,6 +5831,10 @@ function openStart() {
 
 let lastNow = 0;
 const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
+const frameLife = () => false, frameLow = () => {}, frameFloor = () => {};   // (frame: nothing life size, low or on a floor)
+// a frame of the story or of explore mode. The story's hooks: frameLife() (a life-size view, which stands neither further
+// back nor shifted: the PET scanner's), frameLow(vn, ke) (more of explore's view eased: LOW, where the story has it) and
+// frameFloor(S) (passthrough: the story's own floor hidden)
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -5730,6 +5847,7 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
+    arrSkip();   // (an arrangement's skipped chapters: playing jumps over them)
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
   sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
@@ -5749,17 +5867,21 @@ function frame(now, xrFrame) {
     S = exploreStep(dt, pn); tSet = pn / 1000;
     // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
     // goes back where there is none: both eased as the views change)
-    const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
-    GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
+    // (neither for a life-size view: the story's frameLife; and the story's own eased views: frameLow)
+    const vn = viewCam(X.scene) || 'default', life = frameLife(), fs = life ? [0, 0, 0] : fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
+    GL.nf += ((life ? 1 : narrowOf(X.scene, vn)) - GL.nf) * ke;
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
+    frameLow(vn, ke);
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
     if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
   }
+  frameFloor(S);   // (in passthrough the room's own floor, where the story has one of its own)
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
+  arrPlace();   // (an arrangement's places, on top of what the story does with its sets)
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
@@ -5771,6 +5893,7 @@ function frame(now, xrFrame) {
   }
   window.__frames = (window.__frames || 0) + 1;
 }
+
 function applyTheme() {
   if (!GL.renderer) return;
   if (XR.on && !XR.clear) GL.renderer.setClearColor(0x000000, 0); // passthrough AR shows the room
@@ -5796,6 +5919,7 @@ function init() {
       buildDefaults(); Object.assign(XS, DEF);
       for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
       buildStory(); buildSetLabels(); buildTimeline();
+      arrLoad();   // (the story's arrangement, where it has one: tools/engine/SPEC.md)
     }],
     ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
     ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
@@ -5900,6 +6024,397 @@ function initEnd() {
 }
 LOAD.t = setTimeout(init, 40);
 
+// ---------------------------------------------------------- arrangements --
+// An arrangement (tools/engine/SPEC.md): plain data laid over the story's own timeline, retimed and rearranged, never
+// code. arrModel() is the story's own timeline as data; arrApply(A) lays A over it by writing again, from a copy of the
+// story's own taken the first time (arrSnap), what buildStory built: TR's keys, the camera's waypoints and the sets'
+// turns (ST.wp, ST.yaw, ST.stand), the panel's points and their words (ST.items), the labels (ST.labels), the sound
+// cues (SFXQ), CH, NARRATION_SYNC, NARRATION_ENDS and T_END. The rest of the engine reads those as ever, and
+// arrApply(null) puts the story's own back exactly. Without an arrangement the frame's hooks (arrSkip, arrPlace) and the
+// narration's (arrSync, arrFollow, arrTl) do nothing. Three clocks: story time; the timeline's (APP.t: the recording's,
+// until an arrangement makes a chapter longer or shorter); and the recording's (ARR.R maps the timeline onto it).
+const ARR = { o: null, A: null, built: false, pend: undefined, name: '', M: null, R: null, sk: null, pl: null, tx: [], seg: -1, d: 0, url: '', want: '', vk: 0, tk: false, dropped: [] };
+const ARR_NUM = /\d+(?:[.,]\d+)*/g;
+// a piecewise linear map through the points (xs, ys), at slope 1 beyond them
+function arrPw(xs, ys, x) {
+  const n = xs.length;
+  if (x <= xs[0]) return ys[0] + (x - xs[0]);
+  for (let i = 1; i < n; i++) if (x <= xs[i]) return xs[i] > xs[i - 1] ? ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]) : ys[i];
+  return ys[n - 1] + (x - xs[n - 1]);
+}
+// story time, the story's own -> arranged (the chapters' lengths), and back
+const arrM = s => (ARR.M ? arrPw(ARR.M[0], ARR.M[1], s) : s);
+const arrUnM = s => (ARR.M ? arrPw(ARR.M[1], ARR.M[0], s) : s);
+// narrT on a table W of [recording, story] pairs
+function arrNarrT(W, o) {
+  for (let i = 1; i < W.length; i++) if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); }
+  return W[W.length - 1][0] + (o - W[W.length - 1][1]);
+}
+// an element's words as plain text: its text nodes (on the panel, none inside another of its points), a space between
+// two in different elements that would otherwise run together ('<b>Nuclei</b>purple-blue': 'Nuclei purple-blue')
+function arrText(el, own) {
+  const nodes = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (n.data.trim() && (!own || n.parentElement.closest('[data-at]') === el)) nodes.push(n);
+  const parts = nodes.map(n => n.data), seps = nodes.map((n, i) => (i && n.parentNode !== nodes[i - 1].parentNode && !/\s$/.test(parts[i - 1]) && !/^\s/.test(parts[i]) ? ' ' : ''));
+  return { el, nodes, parts, seps, text: parts.map((p, i) => seps[i] + p).join(''), xr: el.dataset ? el.dataset.xr : undefined, L: null, added: null };
+}
+// new words for it (null: its own back): only what changed is written, into the text node where the change starts, so
+// the bold and the colours stay where they were
+function arrSetText(T, s) {
+  if (T.L) { T.L.w = 0; T.L.nar = undefined; if (typeof dropSprite === 'function') dropSprite(T.L); }   // (measured and drawn again)
+  if (s === null) {
+    T.nodes.forEach((n, i) => { n.data = T.parts[i]; });
+    if (T.added) T.added.data = '';
+    if (T.xr !== undefined) T.el.dataset.xr = T.xr;
+    return;
+  }
+  if (T.xr !== undefined) delete T.el.dataset.xr;   // (the headset shows the new words too, not its own version of the old)
+  if (!T.nodes.length) { if (!T.added) T.added = T.el.appendChild(document.createTextNode('')); T.added.data = s; return; }
+  const old = T.text;
+  let p = 0, q = 0;
+  while (p < old.length && p < s.length && old[p] === s[p]) p++;
+  while (q < old.length - p && q < s.length - p && old[old.length - 1 - q] === s[s.length - 1 - q]) q++;
+  const e = old.length - q, mid = s.slice(p, s.length - q);
+  let pos = 0, put = false;
+  T.nodes.forEach((n, i) => {
+    pos += T.seps[i].length;
+    const a = pos, part = T.parts[i], b = (pos += part.length);
+    let d = part.slice(0, clamp(p - a, 0, part.length));
+    if (!put && b >= p) { d += mid; put = true; }
+    n.data = d + part.slice(clamp(e - a, 0, part.length));
+  });
+}
+const arrNums = s => s.match(ARR_NUM) || [];
+// {1}, {2} ... in an arrangement's words: the story's own numbers, as it has them now
+const arrFill = (s, own) => { const nums = arrNums(own); return s.replace(/\{(\d+)\}/g, (m, k) => (nums[k - 1] !== undefined ? nums[k - 1] : m)); };
+// words compared with their numbers left out: the story's numbers come from its data and may change
+const arrShape = s => String(s).replace(ARR_NUM, '#').replace(/\s+/g, ' ').trim();
+function arrSnapItems(o) {
+  o.items = ST.items.map(it => it.els.map(e => ({ at: e.at, out: e.out, end: e.out === it.ch.b - 0.05, T: arrText(e.el, true) })));
+}
+// the story's own, as buildStory made it, taken once (before anything is moved)
+function arrSnap() {
+  if (ARR.o) return ARR.o;
+  const o = ARR.o = { sync: NARRATION_SYNC.map(p => p.slice()), ends: typeof NARRATION_ENDS === 'object' && NARRATION_ENDS ? Object.assign({}, NARRATION_ENDS) : null,
+    ch: CH.map(c => [c.a, c.b]), tr: {}, wp: ST.wp.map(w => w[0]), yaw: [], stand: (ST.stand || []).map(s => s.slice()),
+    labels: ST.labels.map(L => ({ t0: L.tIn, t1: L.tOut, T: Object.assign(arrText(L.el), { L }) })), cues: SFXQ.cues.map(c => c.t), spans: SFXQ.spans.map(s => [s.t0, s.t1]) };
+  for (const n in TR) o.tr[n] = TR[n].map(k => k[0]);
+  arrSnapItems(o);
+  // each set's turn (buildCamera) starts with a waypoint, and moves with it
+  let j = 0;
+  for (const y of ST.yaw || []) {
+    while (j < o.wp.length && o.wp[j] < y.t0) j++;
+    o.yaw.push([y.t0, j < o.wp.length && o.wp[j] === y.t0 ? j++ : -1]);
+  }
+  return o;
+}
+const arrShow = n => n.endsWith('_a') && !!GL.sets[n.slice(0, -2)];
+const arrSetOf = n => (arrShow(n) ? n.slice(0, -2) : SET_ORDER.find(k => n in (GL.sets[k].params || {})) || null);
+// the story's own timeline as data (tools/engine/SPEC.md, "The model"), or null before the story is built
+function arrModel() {
+  if (!ARR.built) return null;
+  const o = arrSnap(), yaw = ST.yaw || [];
+  const camLabel = i => { let k = ''; yaw.forEach((y, n) => { if (o.yaw[n][1] >= 0 && o.yaw[n][1] <= i) k = y.k; }); return k + (ST.wp[i].includes('spin') ? ' (turning)' : ''); };
+  return { v: 1, key: XR_HERE, len: o.ch[o.ch.length - 1][1],
+    chapters: CH.map((c, i) => ({ key: c.key, name: c.name, a: o.ch[i][0], b: o.ch[i][1] })),
+    sync: o.sync.map(p => p.slice()),
+    narration: typeof narrationFile === 'function' && !(typeof hasNarration === 'function' && !hasNarration()) ? narrationFile() : null,
+    tracks: Object.keys(o.tr).map(n => ({ id: 'p:' + n, name: n, set: arrSetOf(n), kind: arrShow(n) ? 'show' : typeof STEP !== 'undefined' && STEP.has(n) ? 'step' : 'param',
+      keys: o.tr[n].map((t, i) => ({ i, t, v: TR[n][i][1] })) })),
+    camera: o.wp.map((t, i) => ({ i, t, label: camLabel(i) })),
+    captions: ST.items.flatMap((it, ci) => it.els.map((e, i) => { const q = o.items[ci][i]; return { id: it.ch.key + ':' + i, ch: it.ch.key, i, at: q.at, text: q.T.text, tokens: arrNums(q.T.text) }; })),
+    labels: o.labels.map((L, i) => ({ id: 'l' + i, t0: L.t0, t1: L.t1, text: L.T.text })),
+    cues: o.cues.map((t, i) => ({ i, t, name: SFXQ.cues[i].name })),
+    sets: SET_ORDER.map(k => ({ key: k, name: (typeof SCENES !== 'undefined' && (SCENES.find(s => s[0] === k) || [])[1]) || k })) };
+}
+// a run of times (a track's keys, the waypoints: [t, ...] each) with some moved, in order, each clamped between its
+// neighbours
+function arrMove(list, mv) {
+  for (const i of Object.keys(mv).map(Number).sort((x, y) => x - y)) {
+    const lo = i > 0 ? list[i - 1][0] : -Infinity, hi = i < list.length - 1 ? list[i + 1][0] : Infinity;
+    list[i][0] = clamp(mv[i], lo, hi);
+  }
+}
+const arrSyncOk = W => Array.isArray(W) && W.length >= 2 && W.every((p, i) => Array.isArray(p) && p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[0] >= 0 && p[1] >= 0
+  && (!i || (p[0] > W[i - 1][0] && p[1] > W[i - 1][1])));
+// lay arrangement A over the story (null: back to its own); returns { dropped: [ids] }: the edits not applied, as
+// '<field>:<id>' ('keys:p:atlas_a#3', 'captions:atlas:2', 'chapters:slide', 'place:hier', 'camera:4', 'cues:2', 'labels:l0'),
+// 'sync', 'narration', or 'key' (another story's arrangement: nothing applied). name: the copy's, for its recording
+// (HOST.arrange.url); at the load HOST.arrange.current gives it
+function arrApply(A, name) {
+  if (!ARR.built) { ARR.pend = A || null; if (name) ARR.name = name; return { dropped: [] }; }
+  if (name) ARR.name = name;
+  if (!A && !ARR.A) { ARR.dropped = []; return { dropped: [] }; }
+  const o = arrSnap(), drop = [], s0 = arrUnM(storyT(APP.t)), t0 = APP.t;   // (where the story is, in its own time)
+  // 1. the story's own
+  CH.forEach((c, i) => { c.a = o.ch[i][0]; c.b = o.ch[i][1]; });
+  for (const n in o.tr) o.tr[n].forEach((t, i) => { TR[n][i][0] = t; });
+  ST.wp.forEach((w, i) => { w[0] = o.wp[i]; });
+  (ST.stand || []).forEach((s, i) => { for (let k = 0; k < 4; k++) s[k] = o.stand[i][k]; });
+  ST.items.forEach((it, ci) => it.els.forEach((e, i) => { const q = o.items[ci][i]; e.at = q.at; e.out = q.out; }));
+  ST.labels.forEach((L, i) => { L.tIn = o.labels[i].t0; L.tOut = o.labels[i].t1; });
+  SFXQ.cues.forEach((c, i) => { c.t = o.cues[i]; });
+  SFXQ.spans.forEach((s, i) => { s.t0 = o.spans[i][0]; s.t1 = o.spans[i][1]; });
+  for (const T of ARR.tx) arrSetText(T, null);
+  ARR.tx = []; ARR.M = ARR.R = ARR.sk = null; ARR.seg = -1;
+  let sync = o.sync, want = '', place = null;
+  if (A && (typeof A !== 'object' || (A.key && A.key !== XR_HERE))) { drop.push('key'); A = null; }
+  if (A) {
+    const num = v => typeof v === 'number' && Number.isFinite(v), same = (v, t) => num(v) && Math.abs(v - t) < 1e-3;
+    const ent = x => (x && typeof x === 'object' && !Array.isArray(x) ? Object.entries(x) : []), ok = e => !!e && typeof e === 'object';
+    // 2. keyframes, waypoints, cues, the panel's points and the labels moved or rewritten (story time); each names
+    // what it changed from (was): one that no longer matches the story's own is dropped
+    const mv = {};
+    for (const [id, e] of ent(A.keys)) {
+      const m = /^p:(.+)#(\d+)$/.exec(id), n = m && m[1], i = m ? +m[2] : -1;
+      if (!n || !o.tr[n] || i >= o.tr[n].length || !ok(e) || !num(e.t) || !same(e.was, o.tr[n][i])) { drop.push('keys:' + id); continue; }
+      (mv[n] = mv[n] || {})[i] = e.t;
+    }
+    for (const n in mv) arrMove(TR[n], mv[n]);
+    const mc = {};
+    for (const [i, e] of ent(A.camera)) {
+      if (!/^\d+$/.test(i) || +i >= o.wp.length || !ok(e) || !num(e.t) || !same(e.was, o.wp[+i])) { drop.push('camera:' + i); continue; }
+      mc[+i] = e.t;
+    }
+    arrMove(ST.wp, mc);
+    for (const [i, e] of ent(A.cues)) {
+      if (!/^\d+$/.test(i) || +i >= o.cues.length || !ok(e) || !num(e.t) || !same(e.was, o.cues[+i])) { drop.push('cues:' + i); continue; }
+      SFXQ.cues[+i].t = Math.max(0, e.t);
+    }
+    for (const [id, e] of ent(A.captions)) {
+      const m = /^(.+):(\d+)$/.exec(id), ci = m ? CH.findIndex(c => c.key === m[1]) : -1, q = ci >= 0 && o.items[ci] ? o.items[ci][+m[2]] : null;
+      let bad = !q || !ok(e) || (e.text === undefined && e.at === undefined);
+      if (!bad && e.text !== undefined) {
+        if (typeof e.text === 'string' && typeof e.was === 'string' && arrShape(e.was) === arrShape(q.T.text)) { arrSetText(q.T, arrFill(e.text, q.T.text)); ARR.tx.push(q.T); }
+        else bad = true;
+      }
+      if (!bad && e.at !== undefined) {
+        // (its time stays in its chapter, before its own end)
+        if (num(e.at) && same(e.wasAt, q.at)) ST.items[ci].els[+m[2]].at = clamp(e.at, o.ch[ci][0], Math.max(o.ch[ci][0], q.out - 0.1)); else bad = true;
+      }
+      if (bad) drop.push('captions:' + id);
+    }
+    for (const [id, e] of ent(A.labels)) {
+      const m = /^l(\d+)$/.exec(id), L = m && o.labels[+m[1]];
+      if (!L || !ok(e) || typeof e.text !== 'string' || typeof e.was !== 'string' || arrShape(e.was) !== arrShape(L.T.text)) { drop.push('labels:' + id); continue; }
+      arrSetText(L.T, arrFill(e.text, L.T.text)); ARR.tx.push(L.T);
+    }
+    // 3, 4. chapters stretched or squeezed to a new length (story time), or skipped
+    const lens = o.ch.map(([a, b]) => b - a), sk = new Set();
+    const tidy = o.ch.every(([a, b], i) => b > a && (!i || a >= o.ch[i - 1][1] - 1e-9));
+    let stretch = false;
+    for (const [k, e] of ent(A.chapters)) {
+      const i = CH.findIndex(c => c.key === k);
+      if (i < 0 || !ok(e)) { drop.push('chapters:' + k); continue; }
+      if (e.len !== undefined) {
+        if (num(e.len) && e.len >= 0.1 && e.len <= 36000 && tidy) { if (Math.abs(e.len - lens[i]) > 1e-6) { lens[i] = e.len; stretch = true; } } else drop.push('chapters:' + k);
+      }
+      if (e.skip === true) sk.add(i);
+    }
+    ARR.sk = sk.size ? sk : null;
+    // 5. the narration's timing replaced (story time, before the chapters' lengths), and its recording
+    if (A.sync !== undefined) { if (arrSyncOk(A.sync)) sync = A.sync.map(p => [p[0], p[1]]); else drop.push('sync'); }
+    if (A.narration !== undefined) {
+      if (typeof A.narration === 'string' && A.narration && !/\.\.|^\/|\\|:/.test(A.narration) && HOST.arrange && HOST.arrange.url && ARR.name) want = A.narration;
+      else drop.push('narration');
+    }
+    if (stretch) {
+      // every time inside a chapter scaled with it and everything after it moved on (M, story time); on the timeline
+      // each chapter's span of the recording scaled alike (Q), so it plays longer or shorter as the timeline shows
+      const map = (bnd, len) => {
+        const xs = [], ys = [];
+        bnd.forEach(([a, b], i) => {
+          if (!xs.length) { xs.push(a); ys.push(a); } else if (a > xs[xs.length - 1]) { ys.push(ys[ys.length - 1] + a - xs[xs.length - 1]); xs.push(a); }
+          ys.push(ys[ys.length - 1] + len(i, a, b)); xs.push(b);
+        });
+        return [xs, ys];
+      };
+      ARR.M = map(o.ch, i => lens[i]);
+      // (the narration's timing gets a point at each chapter's ends, so no line spans two chapters' scales)
+      const base = sync.slice();
+      for (const [a, b] of o.ch) for (const s of [a, b]) if (!base.some(p => Math.abs(p[1] - s) < 1e-9)) base.push([arrNarrT(sync, s), s]);
+      base.sort((p, r) => p[1] - r[1]);
+      const Q = map(o.ch.map(([a, b]) => [arrNarrT(base, a), arrNarrT(base, b)]), (i, a, b) => (b - a) * lens[i] / (o.ch[i][1] - o.ch[i][0]));
+      sync = base.map(([r, s]) => [arrPw(Q[0], Q[1], r), arrM(s)]);
+      ARR.R = { rho: sync.map(p => p[0]), rec: base.map(p => p[0]) };
+    }
+    // 6. places: each set moved, turned and scaled on top of what the story does with it (arrPlace, every frame)
+    for (const [k, p] of ent(A.place)) {
+      if (!GL.sets[k] || !Array.isArray(p) || p.length < 5 || !p.slice(0, 5).every(num) || p[4] <= 0) { drop.push('place:' + k); continue; }
+      (place = place || {})[k] = p.slice(0, 5);
+    }
+  }
+  // the times: the chapters' map over everything, then the narration's table and what follows it on the timeline
+  if (ARR.M) {
+    for (const n in TR) for (const k of TR[n]) k[0] = arrM(k[0]);
+    for (const w of ST.wp) w[0] = arrM(w[0]);
+    for (const s of ST.stand || []) for (let k = 0; k < 4; k++) s[k] = arrM(s[k]);
+    ST.items.forEach((it, ci) => it.els.forEach((e, i) => { e.at = arrM(e.at); e.out = o.items[ci][i].end ? arrM(o.ch[ci][1]) - 0.05 : arrM(e.out); }));
+    for (const L of ST.labels) { L.tIn = arrM(L.tIn); L.tOut = arrM(L.tOut); }
+    for (const c of SFXQ.cues) c.t = arrM(c.t);
+    for (const s of SFXQ.spans) { s.t0 = arrM(s.t0); s.t1 = arrM(s.t1); }
+    CH.forEach((c, i) => { c.a = arrM(o.ch[i][0]); c.b = arrM(o.ch[i][1]); });
+  }
+  (ST.yaw || []).forEach((y, i) => { const [t, j] = o.yaw[i]; y.t0 = j >= 0 ? ST.wp[j][0] : arrM(t); });
+  NARRATION_SYNC.length = 0;
+  for (const p of sync) NARRATION_SYNC.push(p.slice());
+  if (o.ends) for (const k in o.ends) NARRATION_ENDS[k] = want ? 0 : arrTl(o.ends[k]);   // (a recording of the copy's own: where its lines end is not known)
+  CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); });
+  for (const c of SFXQ.cues) c.n = Math.max(0.05, narrT(c.t));
+  for (const s of SFXQ.spans) { s.n0 = narrT(s.t0); s.n1 = narrT(s.t1); }
+  ARR.A = A || null;
+  arrPlaces(place);
+  arrEnd();
+  // the story keeps its place: the same moment of the story, on the new timeline
+  const t = clamp(narrT(arrM(s0)), 0, Math.max(0, T_END - 0.01));
+  if (Math.abs(t - t0) > 1e-6) { APP.t = t; if (AUD) AUD.seeked(); }
+  // the recording: the copy's (fetched from the relay with the password: HOST.arrange.url), or the story's own
+  if (want !== ARR.want || !want) {
+    const vk = ++ARR.vk;
+    ARR.want = want; ARR.url = '';
+    if (want) Promise.resolve(HOST.arrange.url(ARR.name, want)).then(u => { if (vk === ARR.vk && typeof u === 'string' && u) { ARR.url = u; arrVoiceSwap(); } }, () => {});
+    arrVoiceSwap();
+  }
+  if (XR.main) XR.main.last = '';   // (the headset's panels drawn again: their words or chapters may have changed)
+  if (XR.foot) XR.foot.last = '';
+  ARR.dropped = drop.slice();   // (kept: whoever asked for the apply, the shell's editor reads it, arrange.dropped)
+  return { dropped: drop };
+}
+// the timeline's end: the narration's last point, or the recording's end if that is later (AUD_HOOKS.ready); its marks
+function arrEnd() {
+  const W = NARRATION_SYNC;
+  T_END = W[W.length - 1][0];
+  if (ARR.d && arrTl(ARR.d) + 1 > T_END) T_END = arrTl(ARR.d) + 1;
+  if (typeof trackHTML === 'function' && $('#track')) trackHTML();
+  lastTick = -1;
+  arrTrack();
+}
+// the timeline's skipped chapters, greyed (and their names struck through)
+function arrTrack() {
+  const tr = $('#track');
+  if (!tr || (!ARR.sk && !ARR.tk)) return;
+  tr.querySelectorAll('.arrskip').forEach(e => e.remove());
+  tr.querySelectorAll('.name').forEach(n => { n.style.opacity = ''; n.style.textDecoration = ''; });
+  ARR.tk = !!ARR.sk;
+  if (!ARR.sk) return;
+  const knob = tr.querySelector('.knob');
+  for (const i of ARR.sk) {
+    const c = CH[i], d = document.createElement('div'), n = tr.querySelector(`.name[data-k="${c.key}"]`);
+    d.className = 'rail arrskip';
+    d.style.cssText = `left:${(100 * c.na / T_END).toFixed(2)}%;right:auto;width:${(100 * Math.max(0, c.nb - c.na) / T_END).toFixed(2)}%;`
+      + 'background:repeating-linear-gradient(135deg,rgba(8,12,20,0.9) 0 3px,rgba(160,178,202,0.35) 3px 6px);pointer-events:none';
+    tr.insertBefore(d, knob);
+    if (n) { n.style.opacity = '0.45'; n.style.textDecoration = 'line-through'; }
+  }
+}
+// the headset's timeline (drawFoot): the skipped chapters greyed over its rail
+function arrFoot(ctx, x0, x1, ty) {
+  if (!ARR.sk) return;
+  ctx.fillStyle = 'rgba(8,15,28,0.8)';
+  for (const i of ARR.sk) { const c = CH[i]; ctx.fillRect(x0 + (x1 - x0) * c.na / T_END, ty - 3, (x1 - x0) * Math.max(0, c.nb - c.na) / T_END, 12); }
+}
+// playing on into a skipped chapter jumps to the next one not skipped (the narration with it: APP.seek), and plays none
+// of the sound cues it passes
+function arrSkip() {
+  const K = ARR.sk;
+  if (!K || APP.mode !== 'story' || !APP.playing) return;
+  const t = APP.t, i = CH.findIndex(c => t >= c.na && t < c.nb);
+  if (i < 0 || !K.has(i)) return;
+  let j = i;
+  while (j < CH.length && K.has(j)) j++;
+  APP.seek(j < CH.length ? CH[j].na + 0.02 : T_END);
+  SFXQ.hi = APP.t;
+}
+// places: [dx, dy, dz, turn (degrees about up), scale] on a set's group, on top of where the story puts it. Each number
+// of its position, turn and size the story wrote since the last frame is that number's base; one left as this wrote it
+// keeps its base (the pass story's sea writes its height alone, and a set's turn is written every frame)
+const _aq = new THREE.Quaternion(), _ay = new THREE.Vector3(0, 1, 0), _ae = new THREE.Euler();
+const arrNow = g => [g.position.x, g.position.y, g.position.z, g.rotation.x, g.rotation.y, g.rotation.z, g.scale.x, g.scale.y, g.scale.z];
+function arrPlaces(place) {
+  const P = ARR.pl || {};
+  for (const k in P) P[k].v = null;   // (back where the story puts it, at the next frame)
+  for (const k in place || {}) { P[k] = P[k] || { b: null, w: null }; P[k].v = place[k]; }
+  ARR.pl = Object.keys(P).length ? P : null;
+}
+function arrPlace() {
+  const P = ARR.pl;
+  if (!P) return;
+  for (const k in P) {
+    const p = P[k], g = GL.sets[k].group, c = arrNow(g);
+    p.b = c.map((x, i) => (p.w && x === p.w[i] ? p.b[i] : x));
+    const v = p.v, b = p.b;
+    if (!v) { g.position.set(b[0], b[1], b[2]); g.rotation.set(b[3], b[4], b[5]); g.scale.set(b[6], b[7], b[8]); delete P[k]; continue; }
+    g.position.set(b[0] + v[0], b[1] + v[1], b[2] + v[2]);
+    // (a set the story turns only about up, as most do, keeps a plain turn; else the turn is laid on its own)
+    if (!b[3] && !b[5]) g.rotation.set(0, b[4] + v[3] * D2R, 0);
+    else g.quaternion.setFromEuler(_ae.set(b[3], b[4], b[5], g.rotation.order)).premultiply(_aq.setFromAxisAngle(_ay, v[3] * D2R));
+    g.scale.set(b[6] * v[4], b[7] * v[4], b[8] * v[4]);
+    p.w = arrNow(g);
+  }
+  if (!Object.keys(P).length) ARR.pl = null;
+}
+// the narration on a timeline whose chapters are longer or shorter (ARR.R): each line of the recording (a stretch
+// between two points of the narration's timing) plays from its cue at its own pace; a longer stretch waits quietly after
+// it, a shorter one cuts it. arrRec: the line at the timeline's t and the recording's second there (-1: quiet)
+function arrRec(t) {
+  const P = ARR.R.rho, Q = ARR.R.rec, n = P.length;
+  if (t < P[0]) return { j: -1, r: Q[0] + t - P[0] };
+  for (let j = 0; j < n - 1; j++) if (t < P[j + 1]) { const d = t - P[j]; return { j, r: d < Q[j + 1] - Q[j] ? Q[j] + d : -1 }; }
+  return { j: n - 1, r: Q[n - 1] + t - P[n - 1] };
+}
+// a second of the recording on the timeline (the same second without an arrangement that changes it)
+function arrTl(r) {
+  const R = ARR.R;
+  if (!R || r === null) return r;
+  const P = R.rho, Q = R.rec, n = Q.length;
+  if (r < Q[0]) return P[0] + r - Q[0];
+  for (let j = 0; j < n - 1; j++) if (r < Q[j + 1]) return P[j] + Math.min(r - Q[j], P[j + 1] - P[j]);
+  return P[n - 1] + r - Q[n - 1];
+}
+function arrSync(want, t) {
+  const q = arrRec(t);
+  if (q.j !== ARR.seg) { ARR.seg = q.j; AUD.seeked(); }   // (a new line: the sound goes to where it starts)
+  AUD.sync(want && q.r >= 0, Math.max(0, q.r));
+}
+function arrFollow(t) {
+  const q = arrRec(t);
+  if (q.r < 0 || q.j !== ARR.seg) return t;   // (quiet, or a line the sound has not gone to yet: the story's own clock)
+  const r = AUD.follow(q.r);
+  return Math.abs(r - q.r) < 0.6 ? t + r - q.r : arrTl(r);
+}
+// the recording: the copy's (once its address is known), or the story's own (narrationFile)
+// (a package without a recording of its own has none: hasNarration)
+const arrVoice = () => ARR.url || (typeof narrationFile === 'function' && !(typeof hasNarration === 'function' && !hasNarration()) ? narrationFile() : '');
+function arrVoiceSwap() {
+  if (!LOAD.done || typeof AUD_HOOKS === 'undefined') return;   // (while loading, audioInit takes arrVoice(); the design room has no recording)
+  const url = arrVoice();
+  if (!url && AUD) { AUD.sync(false, 0); AUD = null; ARR.d = 0; arrEnd(); }   // (a copy's recording gone from a package without one: quiet again)
+  if (!url || (AUD && AUD.url === url)) return;
+  if (!AUD) for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {   // (a package without a recording of its own: audioInit's lines)
+    const f = APP[name];
+    APP[name] = function (...args) { const r = f.apply(APP, args); if (AUD) { AUD.seeked(); audioSync(); } return r; };
+  }
+  AUD = HOST.audio.narration(url, AUD_HOOKS);
+  ARR.d = 0; ARR.seg = -1;
+  arrEnd();
+  AUD.seeked(); audioSync();
+}
+// at the load, once the story is written: the arrangement given before then, or the one the shell holds for this story
+// (HOST.arrange.current); one that fails leaves the story as its own
+function arrLoad() {
+  ARR.built = true;
+  try {
+    const cur = HOST.arrange && HOST.arrange.current ? HOST.arrange.current(XR_HERE) : null;
+    if (cur && cur.name && !ARR.name) ARR.name = cur.name;
+    const A = ARR.pend !== undefined ? ARR.pend : cur && cur.A;
+    ARR.pend = undefined;
+    if (A) arrApply(A);
+  } catch (e) { console.warn('arrangement not applied', e); }
+}
+// the story's side of an arrangement: arrange in the object the story returns
+// (dropped: the edits the last apply left out, whoever asked for it: the load's, the pass story's change of language)
+const ARR_API = { model: arrModel, apply: arrApply, get: () => ARR.A, dropped: () => ARR.dropped.slice() };
+
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
@@ -5915,6 +6430,8 @@ return {
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
   },
+  // arrangements (tools/engine/SPEC.md): the story's own timeline as data, an arrangement laid over it, the one laid
+  arrange: ARR_API,
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

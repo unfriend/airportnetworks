@@ -51,7 +51,7 @@ const errors = [];
 // localStorage before each load (a key given null is left as it is); the sound turned on unless the seed says otherwise
 async function open(url, fault = '', seed = null) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  seed = Object.assign({ narrationMuted3: '0', xrNarration: 'on', collabAutoWelcome: 'off' }, seed || {});
+  seed = Object.assign({ narrationMuted3: '0', xrNarration: 'on', collabAutoWelcome: 'off', tutorialHold: 'off' }, seed || {});
   await page.addInitScript(([fault, seed]) => {
     for (const [k, v] of Object.entries(seed)) if (v !== null) localStorage.setItem(k, v);
     let tapAt = -1e9;

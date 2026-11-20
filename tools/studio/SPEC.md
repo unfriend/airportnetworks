@@ -881,7 +881,11 @@ The panes (page HTML and headset canvas twins, the same content):
   (`HOST.collab.keypad({ title, hint, value, max })`, a promise of the text or `null`; a shell without it: no button in a
   headset); made on the relay (`POST /api/scenes`, the relay's name rule, said here first: up to 64 letters, digits,
   spaces, `_ . -`, not starting with a space, `.` or `-`, not ending in a dot, no device names; *There is a scene called
-  x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. Offered
+  x already* for a 409), then opened as a scene picked by hand is (at a station for everyone there), editing on. *Duplicate
+  scene* (v167) beside it, with a scene open: the same field (a headset: *Duplicate scene...* and the keypad) filled with
+  *<scene> copy*, made by `POST /api/scenes { name, from }`: the relay copies every file and the saved layout (locks kept,
+  no `.history/`), so a copy is of the scene as last saved (*Unsaved changes* says so under the field); files it could not
+  copy are counted under the button. Offered
   only with a relay that takes uploads (not read only, not `&visit`, not while the scene is locked).
 - **Add** (editing): the scene's models as a grid of cards with their pictures (v120: "Pictures in the Add pane"), its
   sounds as a list, and *Trigger cube*. A press
@@ -2628,7 +2632,9 @@ The owner: "items need a preview in the items list tab, should show the same ima
 - **New scene** from the headset (the owner: yes, with the keypad) and on the page: on the Scene pane ("Editing" above).
 - **From another scene...** (the owner chose copying: each scene stays self-contained), on the Add pane, page and
   headset alike: the relay's other scenes as buttons, then the one picked's models and sounds (`models/` and `sounds/`
-  first, its *originals* folded), each with its size. A press copies the file into this scene at the same path (when
+  first, its *originals* folded), each with its size; its models as cards, as the Add pane's, each with the picture that
+  scene keeps of it (`previews/`, fetched as this scene's are, kept apart under `from:<scene>:`; a plain tile with its kind
+  when it has none: none is made for another scene; the owner, 14 November 2026, v165). A press copies the file into this scene at the same path (when
   that is taken here, a new name as uploads number them: *statue 2.fbx*) through `POST /api/scenes/<this>/copy` (one
   file a call), then places it as Add does (1.5 m in front, selected; one Undo step for the placing). A model that is not
   a GLB (an FBX, an OBJ, a glTF) also brings the files it names that its scene has, found as the Upload pane's plan finds

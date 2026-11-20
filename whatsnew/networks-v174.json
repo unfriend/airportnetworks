@@ -1,0 +1,22 @@
+{
+  "version": "networks-v174",
+  "date": "2026-11-20",
+  "new": [
+    "Sharp text, a test (the Debug tab, This headset, under Automatic quality; off by default): the story's text panel and play bar as WebXR layers, which the headset draws itself at the display's resolution.",
+    "Its values: layer (behind the scene, which keeps covering it), for text (the same, the headset's text filter), in front (over everything, rays and menu too) and off.",
+    "Turn it on, then start the headset view: the layers come with the session. In that session all four switch live, so you can compare with off.",
+    "A link can set it: #sharp=layer, text, front or off. #sharpsize=full if the panel shows at double size."
+  ],
+  "test": [
+    "On a Quest in VR: Debug tab, Sharp text: layer. Leave the headset view and start it again. Read the story panel's small text, then press through for text, in front and off.",
+    "The same in AR, with Cards: in 3D and on top. Point at the panel: the ray and its dot should show over it (not with in front).",
+    "Grip the panel and move it, walk round it, move with the sticks, swap stories: the sharp panel should stay exactly where the panel is.",
+    "The line beside the button: how many layers show and how long a write takes. Watch the frame rate with it on and off."
+  ],
+  "untested": [
+    "Everything on a real headset: whether Quest Browser accepts the layers at all, and whether the text looks sharper.",
+    "Behind the scene relies on the headset using the eye buffer's transparency: if it does not, the panel shows black in VR (in front still works).",
+    "The panel's size: the lab found Quest Browser takes half sizes. If it is double or half, try #sharpsize=full.",
+    "In AR, a real hand in front of a panel behind the scene does not hide it."
+  ]
+}

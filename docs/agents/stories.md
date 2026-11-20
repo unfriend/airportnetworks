@@ -1,6 +1,62 @@
-# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, design room)
+# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, tutorial, design room)
 
 Read on demand; the rules every agent needs are in AGENTS.md.
+
+## Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026)
+
+The fourteen built stories each have their own engine files (`tools/<key>/engine/e1_head.js` ... `e7_app.js`), copied
+from one story to the next and drifted by generation (lbi, nmd, endo, flock older; micro, ovary, qubits, mutation, topo,
+soil newest). What was the same, byte for byte, in two or more stories now lives once in `tools/engine/<the same file
+name>.js` (340 parts: a declaration with the comment block above it; a name with more than one shared version has the
+others as `name~2`, `name~3` ...). A story's engine file keeps its own code and, where it used a part, a line
+`//#use name name ...`; its `build.mjs` expands those lines (`expand` in `tools/engine/parts.mjs`) in place, so the built
+file is exactly what it was (every build's `--check` passed unchanged when the parts were taken out).
+
+- To change shared engine code, edit the part in `tools/engine/` and rebuild every story that uses it:
+  `node tools/engine/all.mjs` (`--check` says whether all fourteen are current). `node tools/engine/parts.mjs` lists
+  which stories use each part. A story that needs its own version of a part replaces its name on the `//#use` line by
+  the code itself, in its own engine file.
+- Story-specific code (`CH`, `NARRATION_SYNC`, `NARRATION_ENDS`, `buildStory`, the panes, the collab state) stays in the
+  story's own files: `tools/voice/narrate.mjs` and `tools/pace.mjs` write the narration tables there as before.
+- The relay's `--build` sees `'../engine/` in each `build.mjs` and rebuilds every story when a part changes.
+  `tools/engine/` has no `build.mjs` on purpose (the relay would take it for a story's).
+- The studio (`tools/studio/engine/`) and the hand-written stories (airports, proteins, spatial) do not use the parts
+  yet.
+
+**Step 1b (v168): one version of each engine family.** The versions that still differed (engine generations, and real
+story differences) were brought onto one shared version each, with the story differences as small per-story
+constants and hooks in the story's own engine file of the same name (a hook's default is a part named on the story's
+`//#use` line; a story that differs declares a function or constant of that name itself). Nothing a story shows or does
+was meant to change (`tools/engine/same.mjs` against the tree before: every paused story moment 0 to noise on desktop
+and phone). A story whose version is really different keeps its own (life size: flock, robots, pass; the design room;
+lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.mjs` shows who shares what.
+
+- Headset (`e5_xr`): `xrPlaceLife(v)` (nmd's tower, endo's gap, pet's scanner), `xrCap` (nmd and endo keep clear),
+  `xrLifeHome` (pass), `xrLabelH` (label height: pet, pass, and the life-size three), `xrLetGo`, `xrPressScene`,
+  `xrReleaseScene`, `xrGrabScene`, `xrCarryScene` (what the trigger and grip do to the scene: globe drag by default;
+  the sea, the falcon, crumbs, miniatures), `xrSceneHit` and `xrBallHit` (what a ray hits), `xrDrag`, `xrSticks`,
+  `xrPosed`, `xrPointed`, `xrExtraAlpha`, `xrOnReset`, `xrOnEnter`, `xrStars`, `xrOnEnd`. Every hook is a function
+  declaration (hoisted).
+- Panels (`e6_panels`): `XR_TITLE`, `xrHint()`, `sigMainS()` and `sigMainX()` (the main panel's change signature: the
+  story's extras and its explore part), `XR_STEP_LINES`, `XR_STEP_COL` (pet keeps ink), `FLOW_BOLD` (false only in nmd),
+  `flowIcon` (pet and micro), `drawFootX`, `drawTabPane` (the story's panes behind the shared tab strip), `pickTab`.
+- App (`e7_app`): `narrationFile()` (pass: by language; design has none), `frameLife`, `frameLow`, `frameFloor` (the
+  shared `frame` of pet, micro, ovary, qubits, mutation, topo, soil; nmd and endo share `frame~2`).
+- Story, scene, explore (`e2`–`e4`): `DEF_MORE` (the engine's own params), `LIN`, `LOG`, `FIT` (now in all fourteen:
+  never declare it again), `MORPH`, `FRAME`/`frameOf`, `STRIP_FIT` (0 keeps the older framing in lbi, nmd, endo, flock,
+  design), `trackHTML`.
+- Arrangements (step 3, `tools/engine/SPEC.md`): the part `ARR` (`e7_app`) gives every built story and package
+  `arrange: { model, apply, get }` (`ARR_API` in its returned object). It writes again, from a copy of the story's own,
+  what `buildStory` built (`TR`, `ST.wp`/`yaw`/`stand`, `ST.items`, `ST.labels`, `SFXQ`, `CH`, `NARRATION_SYNC`,
+  `NARRATION_ENDS`, `T_END`). Its hooks: `arrLoad()` after `buildTimeline()` (the shared `init`; ovary's own),
+  `arrSkip()` after `audioFollow()` and `arrPlace()` after `updateSets()` in every `frame`, `arrVoice()` for the
+  recording (`audioInit`, the packages', the pass story's `audioLang`), `arrTl`/`arrSync`/`arrFollow` in the narration's
+  parts, `arrFoot` in `drawFoot`; each does nothing without an arrangement. A story with its own `frame` or `init` keeps
+  those lines. Test by peek: `HOST.cur.arrange.apply({ chapters: { slide: { len: 50 } } })`, `apply(null)`.
+- Known traps (safe today): a story whose set lists a `log` param needs `logMix` (only topo and soil declare it); a chip
+  with `icon` needs `flowIcon` (only pet and micro declare it).
+- A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
+  page shows amber (`XR_STEP_COL = ''`), and nmd measures a chip in the font of the one before (`FLOW_BOLD = false`).
 
 ## The tour (`stories/lbi.js`) is built from sets
 
@@ -39,8 +95,8 @@ faded in and out by the story; the camera flies between views.
 ## The muscle story (`stories/nmd.js`) is built the same way
 
 `stories/nmd.js` is generated like the tour: edit `tools/nmd/` and run
-`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the tour's kit
-(`tools/lbi/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
+`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the shared kit (`tools/engine/kit.js`)
+(`tools/engine/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
 describes its three sets: `tower` (the multiplex network: 71 layers, the hero
 of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
 and `hpc` (the supercomputer and the stress test).
@@ -106,7 +162,7 @@ and `hpc` (the supercomputer and the stress test).
 ## The endotype story (`stories/endo.js`) is built the same way
 
 `stories/endo.js` is generated from `tools/endo/` (`node tools/endo/build.mjs`, `--check` as for the tour):
-the tour's kit, three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
+the shared kit (`tools/engine/kit.js`), three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
 walkers; `tree`, the gene x term matrix, the tree and the endotypes; each with a manifest), the muscle story's
 `motor` set (the build gives it the muscle story's disease groups, all it reads of `NMD_DATA`) and engine parts
 adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
@@ -200,7 +256,7 @@ architecture and the domain contacts; each with a manifest) and engine parts ada
 
 `stories/ovary.js` ("The aging ovary", after the poster "Mapping the histological landscape of human ovarian aging" by
 Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `tools/ovary/` (`node tools/ovary/build.mjs`,
-`--check` as for the tour): the tour's kit and body set (unchanged), the data and a shared look pasted before the sets
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`) and body set (unchanged), the data and a shared look pasted before the sets
 (`OVARY_DATA`, `sets/data.js`, and `OVARY_TREND`, the poster's lines looked up, with `OVARY_LOOK`, `sets/look.js`), three
 sets (`organ`, a cut-away ovary built by surface nets between frames, small in the body's pelvis at first, whose
 follicles, scars and vessels follow the poster's trend lines with age; `section`, a drawn H&E section in relief with the
@@ -271,7 +327,7 @@ from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
 
 `stories/mutation.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
 Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `tools/mutation/`
-(`node tools/mutation/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before the sets
+(`node tools/mutation/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before the sets
 (`MMATH`, the maths, `sets/mmath.js`, checked by `node tools/mutation/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
 typed in, `sets/data.js`; `MLOOK`, the qubits story's lit instanced tubes, rings, balls, boxes and halos plus letter
 tiles, arrowheads, qubit spheres and gears, `sets/look.js`), four sets (`letters`, the DNA helix, the ancestor's eight
@@ -319,7 +375,7 @@ with a manifest) and engine parts adapted from the qubits story's. `tools/mutati
 
 `stories/topo.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
 architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche) is generated from
-`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before
+`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before
 the sets (`TOPO_DATA`, the authors' numbers, `sets/data.js`, generated; `TDATA`, its decoders and look-ups,
 `sets/tdata.js`, checked with the data by `node tools/topo/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
 rings, balls and halos plus glass discs, glass triangles, ribbons, glass slides and cells drawn in H&E or as beads,
@@ -385,7 +441,7 @@ engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the cont
 Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
 Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper,
 and their field trial's data; made for the Global Peter Drucker Forum in Vienna, a lay, business audience) is generated
-from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted
+from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted
 before the sets (`SOIL_DATA`, the trial's numbers, `sets/data.js`, generated; `SDATA`, its decoders and look-ups,
 `sets/sdata.js`, checked with the data and the story's key numbers by `node tools/soil/test-data.mjs`; `SLOOK`, the
 story's palette and colour rules, `sets/look.js`), the tissue topology story's look (`TLOOK`) and the tour's `web` set
@@ -451,7 +507,7 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
 
 `stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
 generated from `tools/pass/` (`node tools/pass/build.mjs`, `--check` as for the tour; `node tools/pass/test-sets.mjs`
-checks the sets without a browser): the tour's kit, the airports story's globe and the cell map story's cell, three sets
+checks the sets without a browser): the shared kit (`tools/engine/kit.js`), the airports story's globe and the cell map story's cell, three sets
 and engine parts adapted from the qubits story's (the life-size parts from the flock's). `tools/pass/SPEC.md` is the
 contract.
 
@@ -536,7 +592,7 @@ contract.
 ## The flock (`stories/flock.js`) is built the same way
 
 `stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
-`--check` as for the tour): the tour's kit, one set (`sets/flock.js`, manifest
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/flock.js`, manifest
 `sets/flock.md`) and engine parts adapted from the tour's (no Proteins tab, no
 scene list).
 
@@ -619,7 +675,7 @@ scene list).
 ## The robot gang (`stories/robots.js`) is built the same way
 
 `stories/robots.js` is generated from `tools/robots/` (`node tools/robots/build.mjs`,
-`--check` as for the tour): the tour's kit, one set (`sets/robots.js`, manifest
+`--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/robots.js`, manifest
 `sets/robots.md`) and engine parts adapted from the flock's. `tools/robots/SPEC.md`
 is the contract between them.
 
@@ -675,10 +731,58 @@ is the contract between them.
   together send all of it, as before (also in the set's harness, which has no `GL.renderer`). How the trail's 0.4 s
   steps look on a headset is untested.
 
+## The tutorial (`stories/tutorial.js`) is built the same way
+
+`stories/tutorial.js` is generated from `tools/tutorial/` (`node tools/tutorial/build.mjs`, `--check` as for the
+tour): the shared kit, the guide's script (`sets/script.js`: `GUIDE`, `SCRIPT`, `compileScript`, `evalGuide`; plain
+maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine parts adapted from the flock's.
+`tools/tutorial/SPEC.md` is the plan (v173); its Review notes say where the build differs.
+
+- An introduction, not one of the sixteen stories: first in `stories/list.js` with `intro: true` (the shell skips it for
+  the default start, Repeat all and `HOST.count()`; `docs/agents/shell.md`), `needs: 173` (it needs `HOST.needBodies`
+  and the story sets of `bodies.js`). Seventeen cards on the Stories screen, seventeen stations in Arrange all.
+- The guide is the people's armour figure, drawn by a draw set of the story's own (`HOST.bodies.set(2)`, attached to
+  `GL.scene`, `I.toWorld` the set's frame; `docs/agents/shared-rooms.md`, "A story's own figures"), not by the overlay:
+  so it draws on a page too. The load waits up to 8 s for `bodies.js` (`sceneJoin`); without it (an older shell, no
+  float vertex textures, `?nofvt`) a plain figure of boxes and cylinders stands in. `dispose()` disposes the body set
+  first (its geometries are shared with every other set).
+- Not a live simulation: everything is `evalGuide(G, guide_clock, live)`, a pure function of the story's clock
+  (`guide_clock`, keyed linear 0 to 187 in `LIN`) in story seconds; `SCRIPT` is written per chapter in seconds from the
+  chapter's start, so `narrate.mjs`'s retiming moves it with the words. `live` (the viewer's head and ray, the panel's
+  buttons) only turns its head and aims the end's pointing. The solver's state is re-warmed after a jump (30
+  solve-only steps over the second before); its `dt` is the clock's step, so a pause freezes it mid-step.
+- Rules (`node tools/tutorial/test-script.mjs`, a cheap check run on `dev` too): its head never nearer than 1.2 m to the
+  viewer's start (x, z); walks at most 0.7 m/s at cruise and glides at least 1.6 m/s (story time) and 1.3 m/s (real
+  time, with the built `NARRATION_SYNC`); no 0.3 s between 0.85 and 1.15 m/s; the head at most 1.02 x 1.62 m; every
+  key inside its chapter; tags in order; at most 4 sound onsets in 3 s (a `seq` run aside); the network's degrees.
+  `--words` counts the spoken words (at most 415). Run it again after `narrate.mjs` or `pace.mjs`.
+- In a headset the set's frame hangs under the rig at the floor: the floor plane's height where the session reports
+  planes (labelled floor, the largest; else the lowest large upward plane over a metre below the head; read once a
+  second until found, re-placed only if it moves more than 5 cm: `xrPosed`), else 1.6 m below the head (the flock's
+  rule). The same in VR and AR; AR draws no floor and no stars, VR the stars at a tenth. It never moves `GL.rig`;
+  the grip moves only the panel.
+- The narration hold (`HOLD`, `holdCan`, `holdStep` in `e3_story.js`): once a session, at 7.8 s, the story waits for the
+  voice (the guide points at the panel's Sound button, Narration off, a sign says so) when there is a recording,
+  narration is off, this device's sound is on, in a real session, outside a shared room, `localStorage` `tutorialHold`
+  is not `off` (every test page sets it) and the story played into 7.8 s. Narration on, or Play, goes on.
+- Explore mode is practice (`e4_explore.js`): seven tasks (point at the hub, send a signal, pause then play, another
+  marker, open the menu, Recenter, move with the sticks in VR or walk round it in AR), greyed with the reason where they
+  cannot be done (a page: the last three; anchored: Recenter; the sticks where `HOST.xr.walkWhy()` refuses). The ticks
+  are this device's own (`sessionStorage` `tutorialTicks`), never in `state()`. Task 6 counts the menu's Recenter (the
+  story's `recenter` hook, wrapped) and the panel's (the edge of `XR.needRecenter`). The guide runs on practice's own
+  clock (an idle loop, reactions, a nudge after 15 s with nothing done); the foot bar is practice's (Play and Pause, the
+  marker arrows).
+- `collab.state()` is `{ net: 'badge' | 'grown', mk: -1..4, run: 0 | 1 }` (`mk` -1: at home); a signal is an effect
+  (`sig`, `{ n }`). The guide is never sent: every device draws it from the station's clock.
+- Without its recording the story is paced by `node tools/pace.mjs <url> --write tutorial` (`NARRATION_ENDS` empty);
+  the voice (`node tools/voice/narrate.mjs tutorial`, Kokoro `af_heart`) is still to be made. Sounds only through
+  `HOST.audio.fx` (`sfxCue`, 47 cues; `MANY.tutorial = 70` in `tools/sfx-cues.mjs`), no background.
+- British English. The credits say its moves and words were written by Claude.
+
 ## The design room (`stories/design.js`) is built the same way
 
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as
-for the tour): the tour's kit, the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
+for the tour): the shared kit (`tools/engine/kit.js`), the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
 only the fields a card shows, and the miniatures' names in `tools/lowpoly/`), one set (`sets/table.js`) and engine parts
 adapted from the flock's (the shared-room, headset-setting and subtitle lines copied unchanged). `tools/design/SPEC.md`
 is the contract. Rebuild it after changing `props.json` or the miniatures' names, and `lowpoly.js`

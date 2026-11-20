@@ -26,7 +26,9 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-53';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-55';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
+  // tools/engine/SPEC.md); an older device would play the story as its own
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
   // networks-49 (v154): the studio's cubes switch cubes (a cube's show and hide lists, a sequence's show and hide events and a
   // press's show and hide entries may name a cube; an older device would keep the ids and let a switched-off cube act)
@@ -37,6 +39,8 @@
   // (tools/output/SPEC.md, "v158")
   // networks-53 (v164): a studio object's anim may be 'move' (As it moves: its clip follows the distance it covers) with
   // an optional idle (the clip it stands with) and strideK; an older device would refuse the record (bad) or drop them
+  // networks-55 (v172): a circle's record (st.<id>) may carry ask: 'walk' or 'ask' (its own way in, beating the room's
+  // look.ask); an older device would ignore it and write the record back without it
   // A format is compared by its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never
   // back (relay/server.mjs's takeOver, v136), so a device refused by an older room waits for it, and one refused by a newer
   // room reloads
@@ -171,7 +175,7 @@
     // joined by itself (auto: its code)
     net: '', netSrc: '', netState: '', netBusy: null, netAt: 0, pretend: '', near: null, nearErr: '', nearAt: 0, nearBusy: false, auto: '', autoRid: '', made: '', rejoining: false, stranger: '',
     listing: { dialog: false, menu: false },   // (the dialog and the headset's menu, open: what pump may update)
-    st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', candAt: 0, going: new Map(), goAt: 0,
+    st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', stood: new Set(), candAt: 0, going: new Map(), goAt: 0,
     // a person followed (a page only): their member id and name, where their presence last put them, since when they are
     // gone from the members (0: there), and the name of one who left (said in the dialog while their last station stays)
     who: '', whoName: '', whoSt: '', whoGone: 0, whoLeft: '',
@@ -520,7 +524,7 @@
     const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how === true ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
     Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0, roomVer: '', olderAt: 0,
       probeAt: 0, want: true, welcomed: false, note: '', tries: 0, status: 'connecting', keys: new Map(), synced: new Map(), pending: new Map(),
-      members: [], st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', xb: null, rm: null,
+      members: [], st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', stood: new Set(), xb: null, rm: null,
       hereSet: typeof h === 'boolean' ? h : null });
     C.pres.clear();
     log('join', { code, relay: C.relay, via });
@@ -545,7 +549,7 @@
     if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
-      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0, arcOff: '' });   // (arcOff: the arc left by hand, for this visit only)
+      mine: '', live: '', follow: '', zone: '', cand: '', stood: new Set(), refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '', liveSig: '', allpAt: 0, arcOff: '' });   // (arcOff: the arc left by hand, for this visit only)
     C.cardsOpen = false;   // (the page's Stories screen an All stories circle opened stays: in no room it is the landing page)
     C.pres.clear();
     if (HOST.collab) liveLeave();   // (the room's live sound: unsubscribed with the socket, its decoder and node gone, any claim let go)
@@ -2333,7 +2337,7 @@
       if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) continue;
       // (a studio circle made for a scene by Add's scene entries is marked so in its record, sc: never the room's plain one)
       out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
-        !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}));
+        !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}, kd !== LOBBY_ST && ASKS.includes(v.ask) ? { ask: v.ask } : {}));
     }
     // (the pages that are not stories after the stories, in their list's order: the design room's, the studio's; then the
     // All stories circles and the lobby)
@@ -2680,7 +2684,7 @@
   const stVal = (s, P) => {
     const cur = s && s.id ? val('st.' + s.id) : null, b = cur && typeof cur === 'object' && typeof cur.story === 'string' ? cur : s;
     return Object.assign({ story: b.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: b.sync === true } : {}, s.kind === ALL && typeof b.arc === 'boolean' ? { arc: b.arc } : {},
-      !s.kind && b.story === STUDIO && b.sc === true ? { sc: true } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
+      !s.kind && b.story === STUDIO && b.sc === true ? { sc: true } : {}, s.kind !== LOBBY_ST && ASKS.includes(b.ask) ? { ask: b.ask } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
   };
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room, the studio: no
   // chapters) in explore mode, at its table or its scene
@@ -2777,6 +2781,32 @@
   // panel in front of you (ASK): Go in does what walking in does, the story staying at its circle. Pages are as ever
   const askFirst = () => { const L = look(); return !!(L && L.ask); };
   function setAsk(on) { if (!setLook({ ask: !!on })) return false; log('circles ask', { on: !!on }); return true; }
+  // Per circle (v172; the owner, 20 November 2026: "an option to set circles to walk in or click in per circle"): a
+  // circle's record may carry ask: 'walk' or 'ask', which beats the room's switch for that circle alone; without it the
+  // circle follows the room's (the switch is then the default, never an override). Not the lobby: walked into either way.
+  // Set by anyone from a headset's menu (the circle you are at) or a page's dialog (each circle's row), never refused by
+  // either lock, as the room's switch
+  const ASKS = ['walk', 'ask'];
+  const askFor = s => !s || s.kind === LOBBY_ST || !ASKS.includes(s.ask) ? askFirst() : s.ask === 'ask';
+  const askNext = s => !s.ask ? (askFirst() ? 'walk' : 'ask') : '';   // (each press: the other way than the room's, then the room's again)
+  const askSay = s => (s.ask ? '' : 'As the room: ') + (askFor(s) ? 'ask first' : 'walk in');
+  // the circles as a whole, for the lines that tell you how to go in: 'ask', 'walk' or 'mixed'
+  function circlesMode() {
+    const cs = C.st.filter(s => s.kind !== LOBBY_ST && !(s.arc && here()));
+    const a = cs.filter(askFor).length;
+    return !cs.length ? (askFirst() ? 'ask' : 'walk') : a === cs.length ? 'ask' : a ? 'mixed' : 'walk';
+  }
+  function setStAsk(id, mode) {
+    const s = C.stById.get(id), cur = s && val('st.' + id);
+    if (!C.code || !s || s.kind === LOBBY_ST || !cur || typeof cur !== 'object' || (mode && !ASKS.includes(mode))) return false;
+    const v = Object.assign({}, bare(cur));
+    delete v.ts; delete v.h;
+    if (mode) v.ask = mode; else delete v.ask;
+    log('circle asks', { st: id, ask: mode || 'room' });
+    publish([['st.' + id, v]], true);
+    changed();
+    return true;
+  }
   // Narration for everyone (v124): the room's narration on or off for every headset and page in it, whatever each headset
   // set for itself (vg moves on, so their own go); false outside a room (nothing is set)
   function setVoiceAll(on) {
@@ -2810,6 +2840,26 @@
     return true;
   }
   const setStPanels = (id, v) => PANELS.includes(v) && setUi(id, { panels: v }, 'panels');
+  // A station's copy (v170, FORMAT networks-54; tools/engine/SPEC.md "The address and the room"): st.<id>.arr = { v, story,
+  // by, at }, v the name of a copy of its story on the relay (an arrangement: its timing and places, never code), written
+  // by whoever opens a copy at that station (or saves one there: at moves on, so every device reads it again) and gone
+  // with the station's other keys when it shows another story; absent (or v ''): the story as its own. Every device at
+  // the station reads the copy from the relay and plays it (HOST.arrange, index.html); the arrangement itself is never
+  // in the room. Never refused by the circles lock (a station's own matter, as its panels are)
+  const kArr = id => 'st.' + id + '.arr';
+  const okArr = n => typeof n === 'string' && /^[A-Za-z0-9_][A-Za-z0-9 _.-]{0,63}$/.test(n);
+  function arrOf(id) {
+    const s = C.stById.get(id), v = s && !s.kind && val(kArr(id));
+    return v && typeof v === 'object' && ofStory(v, s) && okArr(v.v) ? { v: v.v, at: Number.isFinite(v.at) ? v.at : 0, by: typeof v.by === 'string' ? v.by : '' } : null;
+  }
+  function setArr(id, name) {
+    const s = C.stById.get(id);
+    if (!C.code || !s || s.kind || (name && !okArr(name))) return false;
+    publish([[kArr(id), name ? { v: name, story: s.story, by: C.id, at: Math.round(now()) } : null]]);
+    log('station copy', { st: id, on: !!name });
+    changed();
+    return true;
+  }
   const setStLock = (id, on) => { const ok = setUi(id, { lock: !!on }, 'story lock'); if (ok) sfx(on ? 'lock' : 'unlock', menuAt()); return ok; };
   // Recenter at a station (the story panel's button and the menu's; the owner, 30 October 2026: "Recenter in ar room mode
   // with the circles should bring panel and 3d model to the starting position"): the station's place and panel keys go
@@ -2893,6 +2943,12 @@
         if (f && C.relay) {
           const r = await api('scenes');
           if (r.ok && r.j && Array.isArray(r.j.scenes)) list = r.j.scenes.map(x => (x && typeof x.name === 'string' ? x.name : '')).filter(n => n && n.length <= 64).slice(0, 200);
+          // (a copy of a story is no scene to place things in: v170, HOST.arrange; decided by its layout, as the shell's
+          // list of copies read it, never by its name alone)
+          if (HOST.arrange && HOST.arrange.isCopy) {
+            try { if (HOST.arrange.list) await HOST.arrange.list(); } catch (e) { /* none read: none hidden */ }
+            list = list.filter(n => !HOST.arrange.isCopy(n));
+          }
         }
       } catch (e) { /* none: no relay, or it did not answer */ }
       const was = SCN.list.join('/');
@@ -4068,6 +4124,13 @@
     }, e => { BOD.err = String(e && e.message || e); BOD.retry = performance.now() + 60000; log('bodies failed', { err: BOD.err }); }).finally(() => { BOD.lib = null; });
     return false;
   }
+  // a story's own figures (v173, the tutorial's guide; on a page too): a promise of true once HOST.bodies is ready (the
+  // same load), false at once where bodies cannot be drawn or a load failed a moment ago, or once this load fails
+  HOST.needBodies = () => {
+    if (BOD.ready || bodiesReady()) return Promise.resolve(true);
+    const p = BOD.lib;   // (kept: BOD.lib is cleared as the load settles)
+    return p ? p.then(() => BOD.ready, () => false) : Promise.resolve(false);
+  };
   // each frame of a session: the bodies drawn this frame begun (the people's, then yours), and ended once all are in
   function bodiesBegin() {
     BOD.drawing = (bodiesOn() || myBody()) && bodiesCan() && !!OV.root && (BOD.ready || bodiesWanted()) && bodiesReady() && HOST.bodies.attach(OV.root);
@@ -4394,7 +4457,7 @@
     for (const [id, o] of OV.cards) if (!ids.has(id) || yours(C.stById.get(id))) {
       o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); o.edge.material.dispose(); OV.cards.delete(id);
     }
-    const noRings = askFirst() && !RINGS.all, hide = hidingOthers();
+    const hide = hidingOthers();
     for (const s of C.st) {
       const r = ringFor(s), live = yours(s), hov = hovSt.has(s.id);
       // its ring: always before any circle, with Show all rings and while carried; in a circle another station's only
@@ -4404,7 +4467,7 @@
       // (circles asked first: none, unless Show all rings; the others hidden at a studio station: none of theirs, nor their
       // cards and icons, nothing of them to point at: r.hid, r.noRing)
       const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0, own = !!L && s.id === L.id, arc = s.arc && here();
-      r.hid = hide && !own; r.noRing = r.hid || noRings;
+      r.hid = hide && !own; r.noRing = r.hid || (askFor(s) && !RINGS.all);
       const nw = arc || r.noRing ? 0 : !L || RINGS.all || MV.id === s.id || (own && C.arcd === s.id && d > NEAR) || (!own && d < (r.near > 0.5 ? RING.far : RING.near)) ? 1 : 0;
       if (r.near === undefined) r.near = nw;
       r.near += (nw - r.near) * (1 - Math.exp(-dt * (nw ? RING.in : RING.out)));
@@ -4551,7 +4614,7 @@
   // panelHover, and sends only those, not the whole menu)
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
-      C.st.map(s => s.id + s.story + (s.sync ? 's' : '')),
+      C.st.map(s => s.id + s.story + (s.sync ? 's' : '') + (s.ask || '')),
       // (v136: the members only on the tabs that name them, the people's stations only on Circles, which lists them: anyone
       // walking into a circle drew the whole menu again, 5.5 MB to the GPU, whatever tab it showed)
       PNL.tab === 'circles' || PNL.tab === 'debug' ? C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '') + (m.out ? 'o' : '')) : '', PNL.tab === 'circles' ? [...C.pres].map(([id, P]) => id + P.st + (P.pc ? 'p' : '')) : '', PCP.on, R.aligned, C.via, hosting(), C.takeover, C.peer,
@@ -5260,7 +5323,7 @@
           y += 72;
         }
       }
-      // Sharp text (v165, a test; index.html, HOST.xr.sharp): the story's panel as WebXR layers, this headset's own; each
+      // Sharp text (v174, a test; index.html, HOST.xr.sharp): the story's panel as WebXR layers, this headset's own; each
       // press the next value, live in a session that has the layers (compare in one session), else from the next one
       if (HOST.xr.setSharp) {
         const sh = HOST.xr.sharpState(), sv = HOST.xr.sharps();
@@ -5446,7 +5509,7 @@
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
-      ctx.fillText(fit(ctx, mine ? 'Yours: ' + stTitle(mine) : C.st.length ? (askFirst() ? 'Point at a circle and press to go in' : 'Walk into a circle to see its story') : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
+      ctx.fillText(fit(ctx, mine ? 'Yours: ' + stTitle(mine) : C.st.length ? ({ ask: 'Point at a circle and press to go in', walk: 'Walk into a circle to see its story', mixed: 'Walk in, or point at a circle and press' })[circlesMode()] : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
       const lk = circlesLocked();
       button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
       button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; scenesFetch(); });
@@ -5484,6 +5547,12 @@
       button(S, 'askfirst', x, y, bw, 56, af ? 'Circles: ask first' : 'Circles: walk in', () => setAsk(!af), { px: 21, on: af });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       wrapText(ctx, af ? 'For everyone here: press a card or icon to go in; no rings' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
+      y += 72;
+      // the circle you are at, on its own (v172): the other way than the room's, then the room's again
+      const AQ = A && A.kind !== LOBBY_ST ? A : null;
+      button(S, 'stask', x, y, bw, 56, AQ ? 'This circle: ' + askSay(AQ) : 'This circle: none', AQ ? () => setStAsk(AQ.id, askNext(AQ)) : null, { px: 21, on: !!(AQ && AQ.ask) });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      wrapText(ctx, AQ ? 'For everyone here, this circle only; it beats the switch above' : 'Go into a circle to set it on its own', x + bw + 16, y + 2, bw, 27, 2);
       y += 72;
       // Narration for everyone (v124; the owner: "a global setting where i can turn it off or on for every headset in the
       // room at once"): each press sets every headset and page here to it, whatever each headset chose for itself (which
@@ -5545,7 +5614,7 @@
   }
   // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
   const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(), sh = HOST.xr.sharpState ? HOST.xr.sharpState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate], sh && [sh.v, sh.live, sh.shown, sh.ms, sh.err]]); };
-  // Sharp text's button and the line beside it (v165): what this session has, else what the next one will
+  // Sharp text's button and the line beside it (v174): what this session has, else what the next one will
   const SHARP_SAY = { off: 'off', layer: 'layer', text: 'for text', front: 'in front' };
   function sharpLine(sh) {
     if (!sh.can) return 'No WebXR layers in this browser';
@@ -6247,13 +6316,14 @@
     askClose('go');
     if (!s || !C.code) return;
     C.zone = s.id; C.cand = ''; C.lobbyArm = false;   // (standing in the lobby as you go in somewhere: not taken back there until you step out of it)
+    if (R.hr) for (const o of C.st) if (o.id !== s.id && Math.hypot(o.x - R.hr.x, o.z - R.hr.z) < NEAR) C.stood.add(o.id);   // (nor into a circle walked into that you stand in)
     log('zone', { st: s.id, asked: true });
     choose(s.id, 'walk');
     sfx('enter');   // (as walking in: a gentle swell all round you)
   }
   function drawAsk() {
     const S = OV.ask, t = performance.now(), s = ASK.id ? C.stById.get(ASK.id) : null;
-    if (ASK.id && (!s || t > ASK.until || !C.code || !askFirst() || s.id === C.live)) askClose(!s ? 'gone' : t > ASK.until ? 'time' : s.id === C.live ? 'in it' : 'off');
+    if (ASK.id && (!s || t > ASK.until || !C.code || !askFor(s) || s.id === C.live)) askClose(!s ? 'gone' : t > ASK.until ? 'time' : s.id === C.live ? 'in it' : 'off');
     S.mesh.visible = !!ASK.id && (ASK.placed || HD.ok);
     if (!S.mesh.visible) return;
     const m = meta(lookKey(s)) || {}, left = Math.max(1, Math.ceil((ASK.until - t) / 1000)), title = stTitle(s);
@@ -6536,8 +6606,8 @@
     const hands = !!HAND.hand, phone = phAR(), cs = C.code && C.welcomed ? C.st.filter(s => !(s.kind === ALL && s.arc)) : [];
     let mode = '', go = '';
     if (cs.length) {
-      mode = askFirst() ? 'ask' : 'walk';
-      go = mode === 'walk' ? 'Walk into a circle to go in.' : phone ? 'Tap a circle\'s card or icon to go in.' : hands ? 'Point at a circle\'s card or icon and pinch to go in.' : 'Point at a circle\'s card or icon and press the trigger to go in.';
+      mode = circlesMode();
+      go = mode === 'walk' ? 'Walk into a circle to go in.' : mode === 'mixed' ? (phone ? 'Walk into a circle, or tap the card or icon of one that asks, to go in.' : 'Walk into a circle, or point at the card or icon of one that asks and ' + (hands ? 'pinch' : 'press') + ', to go in.') : phone ? 'Tap a circle\'s card or icon to go in.' : hands ? 'Point at a circle\'s card or icon and pinch to go in.' : 'Point at a circle\'s card or icon and press the trigger to go in.';
     } else if (C.code && C.welcomed && arcSt()) {
       mode = 'arc';
       go = phone ? 'Tap a story\'s card in front of you to start it.' : hands ? 'Point at a story\'s card in front of you and pinch to start it.' : 'Point at a story\'s card in front of you and press the trigger to start it.';
@@ -7605,7 +7675,7 @@
     // station, nor the room's arc, which everyone here is at)
     else if (h.target.kind === 'station' && !h.target.live && !MV.src) {
       const s = C.stById.get(h.target.id);
-      if (askFirst() && s && s.id !== C.live && !(s.arc && here())) askOpen(s.id);
+      if (s && askFor(s) && s.id !== C.live && !(s.arc && here())) askOpen(s.id);
       else notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
     }
   }
@@ -7883,12 +7953,15 @@
     if (ask) { const Z0 = C.stById.get(C.zone); if (!(Z0 && Z0.kind === LOBBY_ST && !C.live)) C.zone = C.live; }
     // (the other circles hidden by the studio's scene, hideOthers: none of them walked into, as none is seen, but the
     // lobby, where the headsets charge, and the station you are at)
+    // (circles asked first one by one, v172: those that ask are never walked into, the rest are as ever; a circle you stood
+    // in as Go in took you elsewhere, C.stood, waits until you have stepped out of it, as the lobby does with C.lobbyArm)
     let best = null, bd = NEAR;
     const hid = hidingOthers();
-    for (const s of C.st) { if (s.id === MV.id || (s.arc && here()) || (ask && s.kind !== LOBBY_ST) || (hid && s.id !== C.live && s.kind !== LOBBY_ST)) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
-    if (ask && !best) C.lobbyArm = true;
+    for (const id of C.stood) { const s = C.stById.get(id); if (!s || dist(s) >= NEAR) C.stood.delete(id); }
+    for (const s of C.st) { if (s.id === MV.id || (s.arc && here()) || (s.kind !== LOBBY_ST && askFor(s)) || C.stood.has(s.id) || (hid && s.id !== C.live && s.kind !== LOBBY_ST)) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }   // (the room's arc: not walked into)
+    if (ask && !C.st.some(s => s.kind === LOBBY_ST && dist(s) < NEAR)) C.lobbyArm = true;
     const Z = C.stById.get(C.zone) || C.stById.get(C.live), zd = Z ? dist(Z) : Infinity;   // (the station you are at: walked into, or live here)
-    const cand = best && best.id !== (Z && Z.id) && bd < zd && (!ask || C.lobbyArm !== false) ? best.id : '';
+    const cand = best && best.id !== (Z && Z.id) && bd < zd && (!ask || best.kind !== LOBBY_ST || C.lobbyArm !== false) ? best.id : '';
     if (cand !== C.cand) { C.cand = cand; C.candAt = t; }
     if (cand && t - C.candAt >= DWELL) {
       C.zone = cand; C.cand = '';
@@ -12147,7 +12220,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'voice') { const L = look(); if (L) setVoiceAll(!L.voice); else HOST.xr.setVoice(!HOST.xr.voice()); }   // (in a room: for everyone, every headset's own going)
       else if (act === 'panels') { const S = sessOf(C.stById.get(arg)), v = stPanels(S); if (S) setStPanels(S.id, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles; an All stories circle's: its session's)
       else if (act === 'stlock') { const S = sessOf(C.stById.get(arg)); if (S) setStLock(S.id, !stLocked(S)); }   // (a story's lock: neither is the circles')
-      else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }   // (an All stories circle's switch: never locked)
+      else if (act === 'allsync') { const s = C.stById.get(arg); if (s) setAllSync(arg, !s.sync); }
+      else if (act === 'stask') { const s = C.stById.get(arg); if (s) setStAsk(arg, askNext(s)); }   // (a circle's own way in: never locked)   // (an All stories circle's switch: never locked)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
       else if (act === 'reload') { reloadAsk('dialog'); setTimeout(renderDialog, 3050); }   // (Update the room: never refused by a lock)
       else if (act === 'trkon') setTrk({ on: !trkKey().on });   // (the PC's trackers in this room: anyone, never refused by a lock)
@@ -12342,6 +12416,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
           ${lob ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}${all}
           ${lob ? '' : `<button class="btn pn" type="button" data-sh="panels:${s.id}" aria-pressed="${pm === 'shown'}" title="What the headsets at this circle show of its story's panels: shown, controls only (the foot bar) or hidden. Press for the next" aria-label="Panels at the ${esc(m.title)} station: ${PANELS_SAY[pm]}. Press for ${PANELS_SAY[PANELS[(PANELS.indexOf(pm) + 1) % 3]]}">Panels: ${PANELS_SAY[pm]}</button>
           <button class="btn lk${sl ? ' on' : ''}" type="button" data-sh="stlock:${s.id}" aria-pressed="${sl}" title="Locked: nobody at this circle can move, turn or resize its scene or move its panel (the circle itself is the circles lock's)" aria-label="${sl ? 'The ' + esc(m.title) + ' story is locked: press to unlock it' : 'Lock the ' + esc(m.title) + ' story'}">${sl ? 'Story locked' : 'Lock story'}</button>`}
+          ${lob ? '' : `<button class="btn sa${s.ask ? ' on' : ''}" type="button" data-sh="stask:${s.id}" aria-pressed="${!!s.ask}" title="How headsets go into this circle: walked into, or asked first (point at its card and press). As the room: the room's switch decides. Press for the next">${esc(askSay(s).replace(/^./, c => c.toUpperCase()))}</button>`}
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = circlesLocked(), lb = $('[data-sh="lock"]');
@@ -12906,6 +12981,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // the circles lock (no circle moved, added or removed) and a station's own lock (its scene and panels, at its circle)
     lock: on => setLock(on), get locked() { return circlesLocked(); },
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
+    // a station's copy of its story ({ v: the copy's name on the relay, at, by } or null) and setting it ('' / null: none)
+    arrOf: id => arrOf(id), setArr: (id, name) => setArr(id, name),
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
     // how it draws them (v164): Bodies on (whole bodies, bodies.js) or off (heads and hands), this headset's own; and for
@@ -12979,7 +13056,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // for everyone in the room (false outside a room: nothing is set); the question a headset shows now ({ id, left: ms }
     // or null) and how long it shows (tests). askDefault(on): what a room that never wrote ask does here (true, asked
     // first, since v120; tests that walk into circles turn it off, also by localStorage collabAskDefault = walk)
-    askFirst: () => askFirst(), setAsk: on => setAsk(on), setVoiceAll: on => setVoiceAll(on),
+    askFirst: () => askFirst(), setAsk: on => setAsk(on), stAsk: (id, mode) => mode === undefined ? (C.stById.get(id) && C.stById.get(id).ask) || '' : setStAsk(id, mode), askFor: id => askFor(C.stById.get(id)), circlesMode: () => circlesMode(), setVoiceAll: on => setVoiceAll(on),
     // the welcome (Getting around, once a session in a headset): { shown: on show now, at: when it showed this session (0
     // not yet), text: what it says, mode: 'ask', 'walk', 'arc' or '' (no circles), hands: for tracked hands, done }; its
     // opening by itself (tests turn it off: autoWelcome(false), which also closes one on show)

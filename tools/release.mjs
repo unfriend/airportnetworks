@@ -1,7 +1,8 @@
 // The release's version file, for live updates (index.html's HOST.live asks for it about once a minute): writes
 // version.json at the app's root and stamps the shell's release into index.html (HOST.shell). Run it as the last step of
 // a release, after bumping VERSION in sw.js (docs/setup-and-release.md), and commit both files.
-// usage (from the repository root): node tools/release.mjs          -> writes version.json (and index.html's stamp)
+// usage (from the repository root): node tools/release.mjs          -> writes version.json (and index.html's stamp, and
+//                                                                      sw.js's story files and narrations)
 //                                   node tools/release.mjs --check  -> exits 1 if either is not current, or if
 //                                                                      whatsnew.json does not name this release
 //                                   --root <dir>: another copy of the app (the live test's)
@@ -76,6 +77,20 @@ for (const m of list.concat(extra)) {
   stories[m.key] = { fp, needs };
 }
 const out = JSON.stringify({ app: 'networks', version, format, shell: { n, id }, list: fingerprint(JSON.stringify(list)), stories }, null, 2) + '\n';
+
+// sw.js's lists, written from what is there (v171): SHELL's story files from stories/list.js (its stories and
+// STORY_EXTRA, in that order), AUDIO from the narrations in audio/ (the airports' narration.mp3, then each story's in the
+// list's order, its other languages after it). So adding or removing a story is its entry in stories/list.js, and a
+// file that is gone never stays in SHELL, where one missing file fails the whole offline install.
+const swText = read('sw.js');
+const storyFiles = ['./stories/list.js', ...list.concat(extra).map(m => `./stories/${m.key}.js`)].map(f => `'${f}'`).join(', ');
+const narrs = (fs.existsSync(path.join(root, 'audio')) ? fs.readdirSync(path.join(root, 'audio')) : []).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f));
+const keyOrder = list.concat(extra).map(m => m.key), narrKey = f => (/^narration-([a-z]+)/.exec(f) || [])[1];
+const rank = f => f === 'narration.mp3' ? -1 : keyOrder.includes(narrKey(f)) ? keyOrder.indexOf(narrKey(f)) : keyOrder.length;
+narrs.sort((a, b) => rank(a) - rank(b) || a.length - b.length || (a < b ? -1 : 1));
+const STORY_RUN = /'\.\/stories\/[^']+\.js'(, '\.\/stories\/[^']+\.js')*/, AUDIO_LIST = /const AUDIO = \[[^\]]*\];/;
+if (!STORY_RUN.test(swText) || !AUDIO_LIST.test(swText)) fail("sw.js has no SHELL story files or no AUDIO list for tools/release.mjs to keep");
+const swOut = swText.replace(STORY_RUN, () => storyFiles).replace(AUDIO_LIST, () => `const AUDIO = [${narrs.map(f => `'./audio/${f}'`).join(', ')}];`);
 const stamped = index.replace(STAMP, `shell: { n: ${n}, id: '${id}', format: '${format}' },`);
 
 // what is new in this release (whatsnew.json, by hand): it names this release, and its lists are sentences
@@ -106,13 +121,15 @@ const wstale = () => (wnow && wold(version + '.json') !== wnow ? [version + '.js
 
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
-  const ok = hadOut === out && stamped === index, ws = wstale();
+  const ok = hadOut === out && stamped === index, ws = wstale(), swOk = swOut === swText;
   console.log(ok ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
+  console.log(swOk ? "sw.js's story files and narrations are current" : "sw.js's SHELL story files or AUDIO list are out of date (stories/list.js, audio/): run node tools/release.mjs");
   console.log(ws.length ? `whatsnew/ is out of date (${ws.join(', ')}): run node tools/release.mjs` : `whatsnew/ is current (${wlist.length} releases)`);
   warn();
-  process.exit(ok && !news && !ws.length ? 0 : 1);
+  process.exit(ok && swOk && !news && !ws.length ? 0 : 1);
 }
+if (swOut !== swText) { fs.writeFileSync(path.join(root, 'sw.js'), swOut); console.log("wrote sw.js's story files and narrations (from stories/list.js and audio/)"); }
 if (stamped !== index) fs.writeFileSync(path.join(root, 'index.html'), stamped);
 if (hadOut !== out) fs.writeFileSync(path.join(root, 'version.json'), out);
 if (wstale().length) {

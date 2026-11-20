@@ -34,6 +34,7 @@ input[type=text], input[type=password] { background: var(--panel); border: 1px s
 .snip { color: var(--muted); margin: 6px 0 0; }
 .open { margin-top: 10px; }
 audio { width: 100%; margin: 10px 0; }
+.dl { margin: 0 0 10px; }
 .shots { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
 .shots figure { margin: 0; flex: 1 1 200px; max-width: 100%; }
 .shots img { width: 100%; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; display: block; background: #000; }
@@ -133,7 +134,9 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
   }
   function body(n, d) {
     let h = '';
-    if (d.audio && d.audio.type !== undefined || n.audio) h += '<audio controls preload="none" data-audio></audio>';
+    // (the player, a line for what went wrong and a Download link; the recording is fetched as the note opens, hydrate)
+    if (d.audio && d.audio.type !== undefined || n.audio) h += '<audio controls preload="metadata" data-audio></audio><p class="msg err" data-audio-msg hidden></p>' +
+      '<p class="dl"><a data-audio-dl hidden download="note-' + esc(n.id) + '.' + extOf(d.audio) + '">Download recording</a></p>';
     else if (d.audioErr) h += '<p class="msg">No audio: ' + esc(d.audioErr) + '.</p>';
     const shots = (d.shots || []).map((s, i) => s && !s.err ? '<figure><img data-shot="' + (i + 1) + '" alt="Picture ' + (i + 1) + '"><figcaption>' + esc(s.at === 'end' ? 'As it ended' : 'As it began') + '</figcaption></figure>' : '<figure><figcaption>' + esc((s && s.at) || 'picture') + ': ' + esc((s && s.err) || 'none') + '</figcaption></figure>').join('');
     if (shots) h += '<div class="shots">' + shots + '</div>';
@@ -197,14 +200,24 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
     const r = await api('/api/notes/' + id + '/' + kind, { raw: true });
     return (blobs[key] = URL.createObjectURL(await r.blob()));
   }
+  // a recording's file extension, by its type
+  const extOf = (au) => { const t = (au && au.type) || ''; return /ogg/.test(t) ? 'ogg' : /mp4|m4a|aac/.test(t) ? 'm4a' : /mpeg|mp3/.test(t) ? 'mp3' : 'webm'; };
   async function hydrate(card) {
     const id = card.dataset.id;
     card.querySelectorAll('img[data-shot]').forEach(async (im) => { try { im.src = await blobUrl(id, 'shot/' + im.dataset.shot); } catch (e) {} });
     const a = card.querySelector('audio[data-audio]');
-    if (a && !a.src) {
-      const load = async () => { if (a.dataset.l) return; a.dataset.l = 1; try { const t = a.currentTime; a.src = await blobUrl(id, 'audio'); a.currentTime = t; } catch (e) { a.dataset.l = ''; } };
-      a.addEventListener('play', load, { once: true }); a.addEventListener('click', load, { once: true });
-      a._load = load;
+    // (fetched as the note opens: a player with no source has its controls switched off in Chrome and Brave, so it never
+    // tells us a press on play; the note of 14 November 2026 showed 0:00 / 0:00 and did nothing. What goes wrong is said)
+    if (a && !a.src && !a._load) {
+      const msg = card.querySelector('[data-audio-msg]'), dl = card.querySelector('[data-audio-dl]');
+      const say = (t) => { if (msg) { msg.textContent = t; msg.hidden = false; } };
+      const p = blobUrl(id, 'audio').then((u) => { a.src = u; if (dl) { dl.href = u; dl.hidden = false; } },
+        (e) => { a._load = null; say('The recording did not load: ' + (e.code === 401 ? 'the relay wants its password.' : e.code === 404 ? 'the relay does not have it.' : e.message.replace(/^The /, 'the '))); });
+      a._load = () => p;
+      a.addEventListener('error', () => { const er = a.error; say('This browser cannot play the recording (' + ((er && er.message) || 'error ' + (er ? er.code : '?')) + '). Download it and play it elsewhere.'); });
+      // (a recording made in a browser does not say how long it is: seeking past its end once tells the player; back to the
+      // start unless a time button moved it meanwhile)
+      a.addEventListener('loadedmetadata', () => { if (a.duration === Infinity) { const back = () => { a.removeEventListener('durationchange', back); if (a.currentTime >= a.duration - 0.05) a.currentTime = 0; }; a.addEventListener('durationchange', back); a.currentTime = 1e7; } }, { once: true });
     }
   }
   const after = () => document.querySelectorAll('#list .card').forEach((c) => { if (c.dataset.id === openId) hydrate(c); });

@@ -1,4 +1,4 @@
-// Assembles stories/pass.js from the tour's kit (tools/lbi/kit.js), the airports story's globe and the cell map story's
+// Assembles stories/pass.js from the tour's kit (tools/engine/kit.js), the airports story's globe and the cell map story's
 // cell (taken from stories/airports.js and stories/spatial.js as they are, see ORIGINALS), the sets and the engine parts
 // in this folder.
 // usage (from the repository root): node tools/pass/build.mjs        -> writes stories/pass.js (and gen/, for the harness)
@@ -7,6 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { expand } from '../engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['fish', 'globe', 'cell'];
@@ -99,12 +100,12 @@ ${o.glue}return { ${o.out} };
 const gen = ORIGINALS.map(original);
 
 // ---------------------------------------------------------------- the story
-let kit = read('../lbi/kit.js')
+let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 const sets = gen.join('\n') + '\n' + SET_FILES.map(f => read(`sets/${f}.js`).trimEnd() + '\n\n').join('');
-let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
-for (const f of ENGINE) out += read(`engine/${f}.js`);
+let out = expand(read('engine/e1_head.js'), 'e1_head').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
+for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
 const target = path.join(root, 'stories/pass.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;

@@ -5,7 +5,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 ## When the suites run
 
 There is no unit-test suite. When the suites run (the owner's rule: the full suites only before `main` moves): every suite below that a change touches runs before `main` moves, the smoke test always; a push to
-`dev` gets only `node --check` on the changed files, the builds' `--check` and `node tools/release.mjs --check`, and a
+`dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts), `node tools/packages/scan.mjs --check` (the story packages' index is current and no folder in `packages/` is left out: `docs/agents/packages.md`) and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
 ## Windows: a tool's own folder, and line endings (fixed 16 November 2026)
@@ -54,7 +54,11 @@ against its data (nitrate on day 24, day 70's chlorophyll read off the slides, t
 none left shuffled, the wheat lines' own networks) and a plot and a kind picked with the pointer, for the mutation,
 tissue topology and soil stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
-with no area, and a pretend headset room from detected planes),
+with no area, and a pretend headset room from detected planes; for the tutorial (`tutorial: the guide`, v173) its
+figure drawn by `bodies.js` (or the plain one where float vertex textures are missing) at 20 s, one figure, the
+network's 10 nodes and the badge hidden at 95 s, the guide and its copy at 155 s, no narration hold on a page, a signal
+from the hub spreading, practice's first four tasks ticked by calls (a page's four of four), `apply(state())` giving the
+same state and a room's state taken),
 loads every story again watching its load (`HOST.progress` rising from 0 to its total once per step, the page's bar
 and step shown and gone, no task of the load longer than `LOAD_LIMIT`, 4 s: generous, as SwiftShader compiles one
 shader at a time in software; the shared-room hooks seeing the scene only once it is built; a story picked while
@@ -1149,10 +1153,15 @@ in real time (the shell's frames are timed by the clock). Four steps:
   flag, its neck folded away, its feet planted on the floor under you, its hands on your controllers; off again, gone.
 - AR (the session made AR as it runs: a pretend headset has no spots to line up by): a person in the room with you (a
   member `here`) gets neither a body nor a head, one elsewhere a body; My body draws none.
+- A story's set (v173, on a page of its own): `HOST.needBodies()` resolves true; `HOST.bodies.set(2)` draws two figures
+  (one with `hide: 2`, a part dark, `power: 0.4`, a flash) into a picture of its own, a third refused (the cap); the
+  people's set's stats untouched meanwhile; a figure with no look gives the same pixels (within 2 a channel) drawn by the
+  people's set, by a story's set, and by the people's set again after a story's set was made, drawn and disposed; hiding
+  the emblem changes the picture, hiding every part (511) leaves it empty.
 
 ### smoke: sharp text
 
-Sharp text (v165, `--only 'sharp text'`, a page of its own): the story's two panels as WebXR quad layers, on the pretend
+Sharp text (v174, `--only 'sharp text'`, a page of its own): the story's two panels as WebXR quad layers, on the pretend
 Quest (`FPS_FAKE`) with `SHARP_FAKE` (a `renderState` as the spec has it: `baseLayer` null once `layers` is set, both at
 once refused; `XRRigidTransform`; an `XRWebGLBinding` whose quad layers are real GL textures, `getSubImage` throwing until a
 layer is in the session's list, `__sh.refuse` making `createQuadLayer` throw). Off (the default) asks for nothing and leaves
@@ -1242,7 +1251,7 @@ track).
 After changing a story's sound cues, run `node tools/sfx-cues.mjs
 http://127.0.0.1:8123/ <key>` (seconds; `all` for every story and the design
 room): every name a sound the shell knows, every place finite, every time within
-the story, 6 to 60 cues (the tour up to 80; the flock, the robots and the design
+the story, 6 to 60 cues (the tour up to 80, the tutorial up to 70; the flock, the robots and the design
 room at least 1), at most 4 onsets in 3 s outside a marked sequence, no two of
 one sound closer than its gap, at most 6 cue voices and 2 continuous sounds at
 once; then render the story's track for the owner (`node tools/sfx-render.mjs
@@ -1307,7 +1316,8 @@ taken and refused, the size counted as it streams and nothing left behind; the s
 (one generated script under the names ok, fail, empty, hang and broken: its failures, its time limit, two at once, none
 at all) and, when the machine has one, a real `ffmpeg` making a generated stereo 48 kHz WAV a mono 96 kbit/s 44.1 kHz
 MP3 (its frames read), else skipped with a note; `/upload`'s redirects, to the relay's own app or `--app` with its
-`wss://` address, no password asked and the query never passed on), copies from another scene (`POST .../copy`: the
+`wss://` address, no password asked and the query never passed on), duplicates (v167, `POST /api/scenes { name, from }`: every listed file and the saved layout with its lock, no
+`.history/`, 409, 404, 400 and 403 read only), copies from another scene (`POST .../copy`: the
 same bytes at the same path or `as`, told at once, 409 then `replace`, an upload's kinds by where it goes, sources no
 listing shows, bad bodies and the file onto itself 400, missing scenes and files 404, a link out 404, over
 `--max-upload` 413, `--scenes-readonly` 403, the password), the models' pictures (`previews:`: `previews/<path>.jpg`
@@ -1372,7 +1382,7 @@ MIDI, OSC and MIDI clock calling `act()`, Learn, validation, Export and Import, 
 `--static .`, so no server is needed). For every story in its `STORIES` table,
 three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
-ways and the story's effect (for the robots also the pile's spot and dust, and the
+ways and the story's effect (for the tutorial a signal from the hub and its pulse on the others; for the robots also the pile's spot and dust, and the
 crumbs' patter on the others; for the flock the same falcon, one page leading, the
 same flight time and the flocks together, its dive and flutter on the others, two
 falcons sent at once from two pages flying on the third, and the birds shared bird by
@@ -1691,6 +1701,19 @@ the pretend addresses.
 ### collab.mjs --quick
 
 `--quick` runs only the last story in the per-story part.
+
+### collab.mjs --arr
+
+`--arr` (v170, not in the main run) runs only a story's copy on the relay (`arrRound`, a relay of its own with `--scenes`
+on a temporary folder; the qubits story; "A story's copy" in `docs/agents/shell.md`): in developer mode the bar's *Copy to
+relay* makes `qubits-copy`, plays it and opens the editor, the address `#qubits&arr=qubits-copy&edit`; the first
+chapter's length typed in the editor reaches the story's `arrange.apply`, and *Save* writes `layout.json`
+`{ studio: 1, story }` with it; a page opened with `&arr=` reads it back and lays it over the story (its bar *Copy: ...*,
+no *Copy to relay* outside developer mode); `&arr=no-such-copy` says *Copy not found*; in a room two pages following a
+station: the copy opened there is `st.<id>.arr` `{ v, story, by, at }` and both play it (never in `collab.state()`), a
+save there reaches the other page, *Own story* ends it on both. A story whose engine has no `arrange` yet gets a stand-in
+made from its own `CH`, `NARRATION_SYNC` and `TR` (`ARR_STANDIN`, the test's only); one that has it is wrapped to count
+the calls.
 
 ### collab.mjs --standby
 
@@ -2179,7 +2202,10 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `tools/robots/` and the tutorial in `tools/tutorial/` (also
+`test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
+second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
+`mode=1` practice, `nofvt` the plain figure).
 
 ## The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`, `test-ktx2.mjs`)
 
@@ -2232,6 +2258,46 @@ planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the
 before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it
 after changing `ik.js` or the puppet in `tools/studio/test/make.mjs`.
 
+## Refactor checks: does a change of the shared engine change what a story does?
+
+`tools/engine/` has three comparisons of two copies of the app (before: e.g. `git worktree add <scratch>/before <commit>`;
+after: this folder), written for the shared engine parts (`docs/agents/stories.md`, "Shared engine parts"). Not tests of
+the release run: run them when a change means to change nothing.
+
+- `node tools/engine/same.mjs <before> [<after>] [--keys a,b] [--views desk,phone] [--shots dir] [--wait ms]`: pictures
+  of each built story paused at a quarter, half and three quarters of its length and in explore mode, desktop and
+  phone, compared pixel by pixel. Unchanged code gives 0.00% at the paused moments (now and then a set still building:
+  run that story again with `--wait 3000`); explore mode moves by itself (0 to 3%, the muscle story up to 19%); the
+  live simulations (flock, robots, pass) are compared only in explore mode.
+- `node tools/engine/xrsame.mjs <before> <after> [--keys a,b] [--out dir]`: drives each story's headset code by hand
+  (a pretend session: enter, recentre, place, point in nine directions, trigger, grip and carry, panel grip, end) and
+  compares about 1,000 to 1,850 recorded values; nmd, endo and pet once more life size.
+- `node tools/engine/panelsame.mjs <before> <after> [--keys a,b] [--out dir]`: draws the headset's main panel and footer
+  at about 30 moments, tabs and scenes and compares signature, regions and pixels (its 'playing' moment may differ by
+  itself).
+
+## Story packages (`tools/packages/check.mjs`, `scan.mjs`)
+
+- `node tools/packages/scan.mjs --check` (a cheap check): `packages/index.json` is current and no folder is left out.
+- `node tools/packages/check.mjs packages/<key> [--build] [--load] [--phone] [--shots <dir>]`: the rules a package keeps
+  (`tools/packages/SPEC.md`), one line per finding (`FAIL` or `warn`), then `packages/<key>: ok` or the count; exits 1 on a
+  failure. Static: `story.json` field by field (as the scan), the key (its folder's name, not taken, not reserved),
+  `main.js` registering its own key, and in every served `.js` (not `src/`), its code with the comments taken out: `new
+  AudioContext` or `webkitAudioContext`, `new THREE.WebGLRenderer`, `location.href =`, `location.assign`,
+  `location.replace`, `history.pushState`, `HOST.start(`, `buttons[4]`, `eval(` or `new Function(` (the engine's own
+  `peek: src => eval(src)` excepted), and any string with an address on another origin (`http://`, `https://`, `ws://`,
+  `wss://` with a host, or `//host`; XML namespaces on `www.w3.org` excepted); a file over 16 MB or the folder over 64 MB.
+  Warns on `main.js` over 4 MB, no `README.md`, an `icon.png` not square or over 512 px or 200 KB, a file too deep to be
+  listed, and (only with `--build`, which runs the author's own build script: read it first) a `main.js` that is not
+  what its `src/build.mjs --check` makes. `--load` (it runs the package's code in a page: read it first too) (only when the static rules pass;
+  Playwright with Chromium) serves the app with this package alone (an index made in memory, so the folder may be
+  anywhere and `packages/index.json` need not be current), opens `#<key>` on a 960 x 600 page (and 390 x 844 with
+  `--phone`), waits for `LOAD.done`, plays 3 s (the clock must move), pauses half way, opens explore mode, checks that
+  `collab.apply(collab.state())` gives the same state back, and fails on any page error, console error, or a 4xx answer
+  for one of the package's own files (the shell's own asks a plain server cannot answer, such as a relay's `api/ping`,
+  are not counted). `--shots` keeps the story moment and explore mode. Run it on a package after building it; the
+  example, `packages/hello`, passes it with `--load --phone`.
+
 ## Useful URL hashes and the console
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
@@ -2261,7 +2327,9 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 (`&shuffle`, `&split=line|fert|random`), `#soil&explore&scene=web` (the globe and the hop; `&now=1` skips the glide),
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
-(`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
+(`&hunt` sends a falcon), `#tutorial&t=60` (the guide on its markers; `&focus` the 3D alone),
+`#tutorial&explore&net=badge&view=side` (practice; `&signal` sends a signal from the hub), `?nofvt#tutorial` (the plain
+figure), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
@@ -2283,7 +2351,8 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   pushing to main makes sense for now"): the full suites (smoke, relay, shared
   rooms, and update, live, sound and room test where a change touches them)
   run only before `main` moves. A push to `dev` gets the cheap checks only:
-  `node --check` on the changed files, the builds' `--check`, and
+  `node --check` on the changed files, the builds' `--check`,
+  `node tools/packages/scan.mjs --check` and
   `node tools/release.mjs --check`; no smoke test or shared-room run, and a
   red result is not chased on `dev`. Every "run ... after touching" line below
   and in `AGENTS.md` names what goes into that release run. Why: running is

@@ -13,6 +13,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 
 | Story | File | Narration | Length |
 | --- | --- | --- | --- |
+| Start here: Your guide | `audio/narration-tutorial.mp3` | synthetic voice | 3:35 |
 | Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
 | LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:43 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | synthetic voice | 8:56 |
@@ -29,6 +30,73 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Spatial interactome: Cell map | `audio/narration-spatial.mp3` | synthetic voice | 5:41 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | synthetic voice | 1:36 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | synthetic voice | 1:49 |
+
+## Start here: Your guide (`#tutorial`)
+
+File: `audio/narration-tutorial.mp3` (synthetic voice). Chapters: 0:00 Hello, 0:27 Pointing, 0:54 Playing a story, 1:23 Exploring, 1:52 The menu, 2:22 Recenter, 2:41 Together, 3:11 Your turn; it ends at 3:35.
+
+### 0:00 Hello
+
+- **0:01** Meet your guide
+- **0:02** a robot that shows you round
+- **0:08** Calibrating.
+- **0:12** Done.
+- **0:13** Hello. I am your guide, and I am a robot. In a few minutes, I will show you how this app works in a headset.
+- **0:22** Give me a little room: I keep about two metres in front of you.
+
+### 0:27 Pointing
+
+- **0:28** Pointing
+- **0:30** Each hand sends out a ray, like this one.
+- **0:34** Point it at a button and pull the trigger, under your index finger. With bare hands, pinch your thumb and finger instead.
+- **0:43** Missed by four centimetres. Correcting.
+- **0:46** There.
+- **0:48** Now point at the target yourself. My visor follows your ray.
+
+### 0:54 Playing a story
+
+- **0:55** Playing a story
+- **0:57** A story plays like a film, in chapters. Here are five of them, from my back.
+- **1:03** Under the panel is a bar. The round button plays and pauses. The arrows jump a chapter.
+- **1:10** Try it now: press Pause. I stop mid-step, and my scan stops too. Press Play, and I go on.
+
+### 1:23 Exploring
+
+- **1:24** Exploring
+- **1:26** After each story comes explore mode, where you try things for yourself.
+- **1:32** This is the badge from my chest: a hub, three nodes and six links. A small network.
+- **1:39** Point at the hub, in the middle. It has the most links.
+- **1:43** Pull the trigger on any node, and a signal spreads from it, one link at a time. You can try it soon.
+
+### 1:52 The menu
+
+- **1:53** The menu
+- **1:55** To open the menu, click a thumbstick: press it in. With bare hands, pinch twice with your left hand.
+- **2:02** Its Settings tab has Narration, Subtitles, Sound and Labels.
+- **2:07** Watch: I hide my own labels. And back again.
+- **2:11** In VR, Moving with the sticks, also in Settings, moves you through a scene: the left stick moves you, the right one turns you.
+
+### 2:22 Recenter
+
+- **2:22** Recenter
+- **2:25** If you turn away and lose the panel, press Recenter. Everything comes back in front of you.
+- **2:34** Facing you. Squared up. Recenter is on the panel, and in the menu's settings too.
+
+### 2:41 Together
+
+- **2:41** Together
+- **2:43** People can share one room, each in their own headset. Start one, or join with a three-letter code, in the menu's Circles tab.
+- **2:54** Copy created. In a room, other people appear as bodies like this one, with their name above.
+- **3:01** Each story stands in its own circle, and everyone in it sees the same moment.
+- **3:07** Copy removed. It did not mind.
+
+### 3:11 Your turn
+
+- **3:11** Your turn
+- **3:14** That is all. To pick a story, press Stories on the panel. The airports are a good first one.
+- **3:22** Or stay, and practise: I have a few small tasks for you.
+- **3:26** Powering down.
+- **3:29** Your guide's moves and words were written by Claude, an AI model made by Anthropic. Its body is the app's armour figure, posed by code. Narration: a synthetic voice (Kokoro).
 
 ## Network theory: Airports (`#airports`)
 

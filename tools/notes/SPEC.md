@@ -167,8 +167,10 @@ own origin when `/api/ping` there answers as a relay, else `?relay=<https://...>
 `notesRelay`). Its password: `localStorage` `relayTokens[<relay origin>]` (the app's own key, shared on the same
 origin); a 401 shows a password field, kept there once it works. Lists notes newest first (*New*, *Done*, *All*), looked
 for again every 15 s and on focus; each a card: when (local time), device and where (story or studio scene, station),
-how long, its status; an audio player (fetched with the password into a blob URL as it is first played; a pin's time a
-link that plays from there); both pictures (a press enlarges); the transcript when there is one (each segment's time a
+how long, its status; an audio player (fetched with the password into a blob URL as the card opens, v165: a player with no source has its
+controls switched off in Chrome and Brave, so fetching on the first play never ran; a failed fetch or a recording the
+browser cannot play is said under it; *Download recording* saves the same file; a recording without its length, as
+browsers write them, is sought past its end once so the player shows it; a pin's time a link that plays from there); both pictures (a press enlarges); the transcript when there is one (each segment's time a
 link); the pins in a list (*Pin 2 at 0:04: the menu, button set:fps*); the context in a `<details>`; *Mark done* /
 *Mark new*; *Copy as Markdown* (the note's whole text: when, where, transcript with pins in place by time, pins, the
 context's key lines and the log); *Delete* (two presses within 3 s). A note sent from this device's outbox is not here
