@@ -522,10 +522,13 @@ function join(ws, q, net, who, fid) {
     old.close(4008, 'replaced');
     m.ws = ws; m.net = net;
     m.sndSub = false;   // a new socket starts without the room's live sound: the page asks again on welcome
+    m.talkSub = false;
   } else {
     m = { id, ws, net, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0,
       out: false, osc: { n: 0, t0: 0 }, oscIn: { n: 0, t0: 0 }, oscDropped: 0, oscBad: 0, oscSaid: 0, oscRefused: false, oscTrk: false,
-      outEver: false, snd: { n: 0, t0: 0 }, sndSub: false, sndRefused: false, sndTaken: false };
+      outEver: false, snd: { n: 0, t0: 0 }, sndSub: false, sndRefused: false, sndTaken: false,
+      talk: { n: 0, t0: 0 }, talkSid: 0, talkCfg: null, talkSub: false, talkRefused: false, talkFrames: 0, talkBytes: 0, talkDropped: 0, talkBad: 0, talkStray: 0, talkSaid: '',
+      talkStraySaid: 0 };
     room.members.set(id, m);
   }
   if (net) { room.nets.delete(net); room.nets.add(net); if (room.nets.size > 8) room.nets.delete(room.nets.values().next().value); }
@@ -533,13 +536,14 @@ function join(ws, q, net, who, fid) {
   ws.onmessage = text => {   // a value nested too deeply for JSON.stringify must not stop the relay
     try { message(room, m, text); } catch (err) { refuse(room, m, null, [], `bad message: ${err.message}`, 'bad'); }
   };
-  ws.onbinary = buf => {   // live sound's frames (v162); as onmessage, nothing in them may stop the relay
-    try { sndBin(room, m, buf); } catch (err) { log(`${code} live sound: ${err.message}`); }
+  ws.onbinary = buf => {   // live sound's frames (v162) and Talk's (tag 2, v178); as onmessage, nothing in them may stop the relay
+    try { if (buf[0] === 2) talkBin(room, m, buf); else sndBin(room, m, buf); } catch (err) { log(`${code} ${buf[0] === 2 ? 'talk' : 'live sound'}: ${err.message}`); }
   };
   ws.onclose = () => leave(room, m);
   // (the room's own members see each other's names: its people list. --unlisted only keeps them out of what anyone else can ask)
-  send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO, snd: 1 });
+  send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO, snd: 1, talk: 1 });
   broadcast(room, { t: 'members', members: people(room) });
+  talkJoined(room, m);
   log(`${code} join ${id} (${room.members.size} in the room)`);
 }
 function leave(room, m, why = 'leave') {
@@ -548,6 +552,7 @@ function leave(room, m, why = 'leave') {
   room.members.delete(m.id);
   OSC_TRK.delete(m);
   if (room.snd && room.snd.by === m) sndStop(room, m, 'gone');
+  if (m.talkSid) talkStop(room, m, 'gone');
   if (!room.members.size) { room.empty = Date.now(); keepTouch(); }
   broadcast(room, { t: 'members', members: people(room) });
   log(`${room.code} ${why} ${m.id} (${room.members.size} in the room)`);
@@ -585,16 +590,21 @@ function message(room, m, text) {
   if (msg.t === 'snd-start') return sndStart(room, m, msg);
   if (msg.t === 'snd-stop') return m.out ? (room.snd && room.snd.by === m ? sndStop(room, m, 'stopped') : sndStatus(room, m)) : sndRefuse(room, m, 'snd-stop');
   if (msg.t === 'snd-sub') return sndSub(room, m, msg);
+  if (msg.t === 'talk-start') return talkStart(room, m, msg);
+  if (msg.t === 'talk-stop') return talkStop(room, m, 'stopped');
+  if (msg.t === 'talk-sub') return talkSub(room, m, msg);
   if (msg.t === 'hello') {
     const version = str(msg.version, 64);
     if (msg.proto !== undefined && msg.proto !== PROTO) return kick(room, m, 'proto', `this relay speaks protocol ${PROTO}`, 4005);
     if (version && room.version && version !== room.version && !takeOver(room, m, version)) return kick(room, m, 'version', `the room runs version ${room.version}`, 4006);
     if (version && !room.version) { room.version = version; keepTouch(); }   // a room made without a version takes the first one
+    const hereWas = m.here;
     Object.assign(m, { name: str(msg.name, 32), color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
       kind: KINDS.includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, obeys: msg.reload === 1, out: msg.out === 1 });
     if (!m.out) { OSC_TRK.delete(m); m.oscTrk = false; }
     if (m.out) m.outEver = true;
     if (!m.out && room.snd && room.snd.by === m) sndStop(room, m, 'gone');
+    if (m.talkSid && (m.out || m.kind === 'cam')) talkStop(room, m, 'gone'); else if (m.talkSid && m.here !== hereWas) talkList(room);
     broadcast(room, { t: 'members', members: people(room) });
     return log(`${room.code} hello ${m.id}${UNLISTED ? '' : ` "${m.name}"`} ${m.kind}${m.here ? ' here' : ''}${m.out ? ' output page' : ''} ${version}`);
   }
@@ -1059,7 +1069,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -1279,6 +1289,97 @@ setInterval(() => {   // the sender (and an output page that was told 'taken') h
       if (!m.out || !((room.snd.by === m && room.snd.cfg) || m.sndTaken)) continue;
       sndStatus(room, m);
       if (m.sndTaken && room.snd.by !== m && (m.sndTakenN = (m.sndTakenN || 0) + 1) >= 3) m.sndTaken = false;   // (told three times: enough)
+    }
+  }
+}, 2000).unref();
+// ---- Talk (v178; docs/agents/shared-rooms.md "Talk"): voice between the people in a room who are not in the same
+// physical room. A member's page or headset (never the output page or a camera) starts its microphone's stream with
+// { t: 'talk-start', cfg } (the Opus encoder's decoderConfig, mono) and sends each 20 ms packet as a binary frame (16
+// bytes of header: tag 2, fl, sid, seq, at; then the packet); { t: 'talk-stop' } ends it. Up to TALK_MAX streams a
+// room, each its own sid. The relay stamps the talker's sid into each frame and writes it once to every member that
+// asked ({ t: 'talk-sub', on: true }), is not the talker, is not here while the talker is here (people in the same
+// place hear each other in the air) and is not backed up. Every member gets the list of talkers (fx @talk, by '':
+// { list: [{ sid, id, cfg, here }] }) whenever it changes, and after its welcome when it is not empty; a talker gets
+// its status ({ st }) on its start and stop and every 2 s. A tag-2 frame from a member with no stream is dropped and
+// counted, never a close. Nothing is stored, and neither a frame's bytes, a cfg nor a name is ever logged
+const TALK_MAX = 8, TALK_MAX_FRAME = 1016, TALK_RATE = 60, TALK_BACKLOG = 16 << 10, TALK_HEAD = 16;
+const talkers = room => [...room.members.values()].filter(x => x.talkSid);
+const talkHears = (s, x) => x !== s && x.talkSub && !(s.here && x.here) && !x.ws.closing;   // (who hears talker s)
+function talkCfg(c) {   // as sndCfg, mono only
+  const k = sndCfg(c);
+  return k && k.numberOfChannels === 1 ? k : null;
+}
+function talkList(room, to = [...room.members.values()]) {   // (every member, Talk on or not: a page with Talk off says who talks)
+  const buf = Ws.frame(1, Buffer.from(JSON.stringify({ t: 'fx', k: '@talk', v: { list: talkers(room).map(x => ({ sid: x.talkSid, id: x.id, cfg: x.talkCfg, here: x.here })) }, by: '' })));
+  for (const x of to) if (!x.ws.closing) x.ws.write(buf);
+}
+function talkStatus(room, m, why = '') {
+  if (m.ws.closing) return;
+  const on = !!m.talkSid;
+  send(m, { t: 'fx', k: '@talk', v: { st: { on, sid: m.talkSid, subs: on ? [...room.members.values()].filter(x => talkHears(m, x)).length : 0, frames: m.talkFrames, bytes: m.talkBytes,
+    dropped: m.talkDropped, bad: m.talkBad, why, max: TALK_MAX } }, by: '' });
+}
+// (refused once a socket, as sndRefuse: the output page or a camera never talks)
+function talkRefuse(room, m) {
+  if (m.talkRefused) return;
+  m.talkRefused = true;
+  refuse(room, m, null, [], 'bad message: talk-start only from a person\'s page or headset (not the output page or a camera)', 'bad');
+}
+function talkStart(room, m, msg) {
+  if (m.out || m.kind === 'cam') return talkRefuse(room, m);
+  const cfg = talkCfg(msg.cfg);
+  if (!cfg) return refuse(room, m, null, [], 'bad talk-start: cfg { codec: \'opus\', sampleRate, numberOfChannels: 1 }', 'bad');
+  if (!m.talkSid && talkers(room).length >= TALK_MAX) {   // (a restart by a talker does not count itself)
+    talkStatus(room, m, 'full');
+    return log(`${room.code} talk from ${m.id} refused (full: ${TALK_MAX} open)`);
+  }
+  do { room.talkN = ((room.talkN || 0) + 1) & 0xffff; } while (!room.talkN || talkers(room).some(x => x !== m && x.talkSid === room.talkN));
+  m.talkSid = room.talkN; m.talkCfg = cfg;
+  Object.assign(m, { talkFrames: 0, talkBytes: 0, talkDropped: 0, talkBad: 0, talkSaid: '' });
+  talkList(room);
+  talkStatus(room, m);
+  log(`${room.code} talk from ${m.id} started (${talkers(room).length} open)`);
+}
+function talkStop(room, m, why) {
+  if (!m.talkSid) return;
+  m.talkSid = 0; m.talkCfg = null;
+  talkList(room);
+  if (room.members.get(m.id) === m) talkStatus(room, m, why);   // (it is told: on false, why)
+  log(`${room.code} talk from ${m.id} stopped (${why})`);
+}
+function talkSub(room, m, msg) {
+  if (typeof msg.on !== 'boolean') return refuse(room, m, null, [], 'bad talk-sub: on true or false', 'bad');
+  const was = m.talkSub;
+  m.talkSub = msg.on;
+  if (was !== msg.on) for (const x of talkers(room)) if (x !== m) talkStatus(room, x);   // (their listeners count changed)
+}
+// (a reconnect ends the old stream, and everyone, the new socket too, gets the list: the page starts again on the new
+// socket; a join into a room with no talkers gets no @talk at all)
+function talkJoined(room, m) {
+  if (m.talkSid) talkStop(room, m, 'gone'); else if (talkers(room).length) talkList(room, [m]);
+}
+function talkBin(room, m, buf) {
+  if (!m.talkSid) { m.talkStray++; return; }   // (never a close: a frame after a stop, or from a member not talking)
+  if (buf.length < TALK_HEAD + 1 || buf.length > TALK_MAX_FRAME) { m.talkBad++; return; }
+  if (!quota(m.talk, TALK_RATE, 1)) { m.talkDropped++; return; }
+  buf.writeUInt16BE(m.talkSid, 2);
+  m.talkFrames++; m.talkBytes += buf.length;
+  const f = Ws.frame(2, buf);
+  for (const x of room.members.values()) {
+    if (!talkHears(m, x)) continue;
+    if (x.ws.socket.destroyed || x.ws.socket.writableLength > TALK_BACKLOG) { m.talkDropped++; continue; }   // audio never queues up
+    x.ws.write(f);
+  }
+}
+setInterval(() => {   // each talker hears how it goes every 2 s; the counts are logged when they change (counts only)
+  for (const room of rooms.values()) {
+    for (const m of room.members.values()) {
+      if (m.talkSid) {
+        talkStatus(room, m);
+        const said = `${m.talkDropped} ${m.talkBad}`;
+        if ((m.talkDropped || m.talkBad) && said !== m.talkSaid) { log(`${room.code} talk from ${m.id}: ${m.talkFrames} frames, ${m.talkDropped} dropped, ${m.talkBad} bad so far`); m.talkSaid = said; }
+      }
+      if (m.talkStray !== m.talkStraySaid) { log(`${room.code} talk: ${m.talkStray} frames from ${m.id} without a stream`); m.talkStraySaid = m.talkStray; }
     }
   }
 }, 2000).unref();

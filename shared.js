@@ -868,6 +868,7 @@
     const rk = C.keys.get('rid');
     if (!rk && !C.pending.has('rid') && (C.made === C.code || C.local || hosting())) publish([['rid', rid(10)]]);
     C.snd = m.snd === 1;   // (the relay forwards live sound, v162; peer to peer and on this device never say so)
+    C.talk = m.talk === 1;   // (the relay forwards Talk, v178; peer to peer and on this device never say so)
   }
   // stored writes: one batch, one seq; the value shown here at once (optimistic), acknowledged when it comes back
   function publish(pairs, force) {
@@ -12724,6 +12725,72 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     return out;
   }
 
+  // ============================================== talk: shared ==
+  // (v178; docs/agents/shared-rooms.md "Talk") Talk: voice between the people in a room on a relay who are not in the
+  // same physical room. This device's own (localStorage talkOn, talkMic, talkRoom; never in state() or collab.state()),
+  // off until turned on. Talk on: this device hears the others who talk, and its microphone is open unless muted (open
+  // mic, with a voice gate). The two halves meet here: the settings, what this browser lacks, and the hooks that "talk:
+  // sending" fills (TKH); "talk: hearing" and the rows read TK and call only what is here
+  const TALK_RATES = [8000, 12000, 16000, 24000, 48000], TALK_HANG = 300;
+  const TK = { on: false, mic: true, room: '', held: '', phase: 'off', err: '', full: false, max: 8, askAt: 0, started: false, st: null, loudAt: 0, level: 0, frames: 0, drops: 0 };
+  const TKH = { open: null, step: null, halt: null, st: null };   // ("talk: sending": open(why), step(), halt(why), st(st))
+  try { TK.on = localStorage.getItem('talkOn') === '1'; TK.mic = localStorage.getItem('talkMic') !== '0'; TK.room = localStorage.getItem('talkRoom') || ''; } catch (e) { /* storage blocked: off */ }
+  function talkSave() {
+    try { localStorage.setItem('talkOn', TK.on ? '1' : '0'); localStorage.setItem('talkMic', TK.mic ? '1' : '0'); localStorage.setItem('talkRoom', TK.room); } catch (e) { /* storage blocked */ }
+  }
+  // what this browser lacks for Talk, by name: the first three to talk, AudioDecoder to hear
+  function talkLacks() {
+    const out = [];
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) out.push('getUserMedia');
+    if (typeof window.MediaStreamTrackProcessor !== 'function') out.push('MediaStreamTrackProcessor');
+    if (typeof window.AudioEncoder !== 'function') out.push('AudioEncoder');
+    if (typeof window.AudioDecoder !== 'function' || typeof window.EncodedAudioChunk !== 'function') out.push('AudioDecoder');
+    return out;
+  }
+  // a room on a relay that knows Talk (never peer to peer, on this device, an old relay, the output page or a camera)
+  const talkAvail = () => !!(C.code && C.via === 'relay' && C.talk && !OUT.on && !CAM.on);
+  function talkWhy() {
+    if (OUT.on) return 'Not on the output page';
+    if (CAM.on) return 'Not in camera mode';
+    if (!C.code) return 'Not in a room';
+    if (C.via !== 'relay') return 'Not available: rooms on a relay only';
+    if (C.talk) return '';
+    return C.welcomed && C.status === 'open' ? 'This relay is too old for Talk' : 'Not connected to the room';
+  }
+  // Talk on or off (a press, or HOST.collab.setTalk): on turns this device's Sound on too (no talking without hearing)
+  // and the microphone on (open mic); a browser that cannot hear refuses it
+  function setTalk(on, why) {
+    on = !!on;
+    if (on === TK.on) return TK.on;
+    if (on && talkLacks().includes('AudioDecoder')) return false;
+    Object.assign(TK, { on, held: '', full: false, err: '' });
+    if (on) { TK.mic = true; TK.room = C.code || TK.room; if (HOST.audio.muted && HOST.audio.mute) HOST.audio.mute(false); }
+    talkSave();
+    log('talk ' + (on ? 'on' : 'off'), { why: why || '' });
+    if (on) { if (TKH.open) TKH.open('press'); } else if (TKH.halt) TKH.halt('off');
+    changed();
+    return TK.on;
+  }
+  // the microphone on or muted while Talk is on (muted: closed, nothing sent; the others are still heard)
+  function setTalkMic(on, why) {
+    on = !!on;
+    if (!TK.on) return false;
+    Object.assign(TK, { mic: on, held: '', full: false, err: '' });
+    if (on) TK.room = C.code || TK.room;
+    talkSave();
+    log('talk mic ' + (on ? 'on' : 'muted'), { why: why || '' });
+    if (on) { if (TKH.open) TKH.open('press'); } else if (TKH.halt) TKH.halt('muted');
+    changed();
+    return TK.mic;
+  }
+  // this device's side, for the rows and tests (talkState adds the others)
+  function talkMic() {
+    const st = TK.st && TK.st.on ? TK.st : null;
+    return { on: TK.on, mic: TK.mic, avail: talkAvail(), why: talkWhy(), ask: askHere(), lacks: talkLacks(), phase: TK.phase, err: TK.err, held: TK.held, full: TK.full, max: TK.max,
+      askMs: TK.phase === 'asking' ? Math.round(performance.now() - TK.askAt) : 0, open: TK.started, sid: st ? st.sid : 0, subs: st ? st.subs : 0,
+      sending: TK.phase === 'live' && TK.started && performance.now() - TK.loudAt <= TALK_HANG, level: Math.round(TK.level * 1000) / 1000, sent: TK.frames, drops: TK.drops };
+  }
+
   // ============================================== live sound: sending ==
   // (v162; tools/output/SPEC.md "v162") the output page's half: it captures and encodes (output.js), and hands each Opus
   // packet here as one binary frame on the room's own socket, 16 bytes of header (tag 1, ch, sid 0: the relay writes it,
@@ -12763,6 +12830,206 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     new Uint8Array(buf, 16).set(b);
     try { C.ws.send(buf); return true; } catch (e) { return false; }
   }
+
+  // ============================================== talk: sending ==
+  // (v178; docs/agents/shared-rooms.md "Talk") this device's microphone for Talk: getUserMedia with a voice's settings
+  // (echo cancellation, noise suppression, gain control), its AudioData read through MediaStreamTrackProcessor, encoded
+  // by WebCodecs' AudioEncoder as Opus (mono, 20 ms, 24 kbit/s, voip), each packet one binary frame on the room's own
+  // socket, 16 bytes of header (tag 2, fl, sid 0: the relay writes it, seq, at on the relay's clock), then the packet.
+  // A voice gate: packets go only while the voice is loud (and TALK_HANG after), the TALK_PRE before it first; silence
+  // sends nothing. No AudioContext here (sound is the shell's): the gate reads the AudioData itself. A frame the socket or
+  // the encoder cannot take at once is dropped, never queued: late audio is worth nothing. The stream starts again on
+  // each new socket (the relay stopped it when the old one went). Opened by a press (the user gesture); by itself only
+  // in the room it was last opened in and only when the browser already allows the microphone
+  const TALK_GATE = 0.01, TALK_PRE = 2, TALK_KBPS = 24, TALK_SEND_MAX = 8192, TALK_QUEUE = 10;
+  const TKS = { gen: 0, stream: null, reader: null, enc: null, cfg: null, startWs: null, seq: 0, pre: [], spurt: true, gateMin: TALK_GATE, perm: '', permBusy: false };
+  const talkCapOk = () => !talkLacks().some(x => x === 'getUserMedia' || x === 'MediaStreamTrackProcessor' || x === 'AudioEncoder');
+  const talkCan = () => !!(talkAvail() && C.ws && C.ws.readyState === 1 && C.status === 'open');
+  // the microphone asked for (a press, or by itself from talkMicStep): getUserMedia within the caller's turn, so a press
+  // is the user gesture; gen tells a late answer that it is no longer wanted
+  function talkMicOpen(why) {
+    if (!(TK.on && TK.mic && talkAvail() && talkCapOk() && !askHere()) || TK.phase === 'asking' || TK.phase === 'live') return false;
+    const gen = ++TKS.gen;
+    Object.assign(TK, { phase: 'asking', err: '', askAt: performance.now() });
+    log('talk: asking for the microphone', { why: why || '' });
+    let p;
+    try {
+      p = navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1, sampleRate: 48000 } });
+    } catch (e) { p = Promise.reject(e); }
+    p.then(stream => talkGot(gen, stream), e => talkFail(gen, talkErr(e)));
+    changed();
+    return true;
+  }
+  function talkErr(e) {
+    const n = e && e.name;
+    return n === 'NotAllowedError' || n === 'SecurityError' ? 'The microphone was not allowed: allow it for this site'
+      : n === 'NotFoundError' || n === 'OverconstrainedError' ? 'This device has no microphone'
+      : n === 'NotReadableError' || n === 'AbortError' ? 'The microphone is busy: another app may have it'
+      : 'The microphone could not be opened (' + (n || 'error') + ')';
+  }
+  function talkGot(gen, stream) {
+    if (gen !== TKS.gen || !(TK.on && TK.mic && talkAvail())) { for (const t of stream.getTracks()) try { t.stop(); } catch (e) { /* gone */ } return; }   // (stale)
+    TKS.perm = 'granted';
+    TKS.stream = stream;
+    const track = stream.getAudioTracks()[0];
+    if (!track) { talkFail(gen, 'The microphone gave no sound track'); return; }
+    quiet(() => { track.onended = () => { if (gen === TKS.gen) talkFail(gen, 'The microphone went away'); }; });
+    let reader;
+    try { reader = TKS.reader = new window.MediaStreamTrackProcessor({ track }).readable.getReader(); } catch (e) { talkFail(gen, 'This browser cannot read the microphone'); return; }
+    Object.assign(TK, { phase: 'live', started: false, st: null, loudAt: 0, level: 0, frames: 0, drops: 0 });
+    Object.assign(TKS, { cfg: null, startWs: null, seq: 0, pre: [], spurt: true });
+    log('talk: microphone open');
+    talkPump(gen, reader);   // (not waited for: it runs until the microphone closes)
+    changed();
+  }
+  // as output.js's sndPump: each piece of sound measured (the gate and the level), then encoded, gate open or not (Opus
+  // keeps its state; silence costs CPU, not bandwidth), unless the encoder is behind
+  async function talkPump(gen, reader) {
+    let enc = null;
+    try {
+      for (;;) {
+        const r = await reader.read();
+        if (gen !== TKS.gen || r.done) { if (r.value) r.value.close(); break; }
+        const data = r.value;
+        let mono = null;
+        try {
+          const n = data.numberOfFrames, rate = data.sampleRate, f = new Float32Array(n);
+          data.copyTo(f, { planeIndex: 0, format: 'f32-planar' });
+          let sum = 0;
+          for (let i = 0; i < n; i++) sum += f[i] * f[i];
+          const rms = n ? Math.sqrt(sum / n) : 0;
+          TK.level = rms > TK.level ? rms : TK.level * 0.9 + rms * 0.1;
+          if (rms >= TKS.gateMin) TK.loudAt = performance.now();
+          if (!enc) {
+            if (!TALK_RATES.includes(rate)) { talkFail(gen, 'The microphone runs at ' + rate + ' Hz: Talk needs 48 kHz'); break; }
+            const cfg = { codec: 'opus', sampleRate: rate, numberOfChannels: 1, bitrate: TALK_KBPS * 1000, opus: { frameDuration: 20000, application: 'voip' } };
+            const can = c => window.AudioEncoder.isConfigSupported(c).then(x => !!(x && x.supported), () => false);
+            let ok = await can(cfg);
+            if (!ok && gen === TKS.gen) { cfg.opus = { frameDuration: 20000 }; ok = await can(cfg); }
+            if (gen !== TKS.gen) break;
+            if (!ok) { talkFail(gen, 'This browser cannot encode the microphone as Opus'); break; }
+            enc = TKS.enc = new window.AudioEncoder({ output: (c, meta) => talkChunk(gen, c, meta), error: e => talkFail(gen, 'The encoder stopped (' + ((e && e.message) || e) + ')') });
+            enc.configure(cfg);
+          }
+          if (enc.state !== 'configured') break;
+          if (enc.encodeQueueSize > TALK_QUEUE) TK.drops++;   // (the encoder behind: this piece dropped, never queued)
+          else if (data.numberOfChannels > 1) {   // (the first channel only: Talk is mono)
+            mono = new window.AudioData({ format: 'f32-planar', sampleRate: rate, numberOfFrames: n, numberOfChannels: 1, timestamp: data.timestamp, data: f });
+            enc.encode(mono);
+          } else enc.encode(data);
+        } finally { data.close(); if (mono) mono.close(); }
+      }
+    } catch (e) { talkFail(gen, 'The microphone stopped (' + ((e && e.message) || e) + ')'); }
+  }
+  // one encoded packet: the stream started at the relay (the first packet's decoderConfig) before anything is sent; held
+  // back while the gate is shut (the last TALK_PRE kept, sent first when it opens: the start of a word is not lost)
+  function talkChunk(gen, chunk, meta) {
+    if (gen !== TKS.gen) return;
+    if (meta && meta.decoderConfig && !TKS.cfg) {   // (as output.js: the description, if any, as base64)
+      const d = meta.decoderConfig;
+      if (d.numberOfChannels !== 1 || !TALK_RATES.includes(d.sampleRate)) { talkFail(gen, 'This browser cannot encode the microphone as Opus'); return; }
+      TKS.cfg = { codec: 'opus', sampleRate: d.sampleRate, numberOfChannels: 1 };
+      if (d.description) {
+        try {
+          const b = new Uint8Array(ArrayBuffer.isView(d.description) ? d.description.buffer.slice(d.description.byteOffset, d.description.byteOffset + d.description.byteLength) : d.description);
+          let s = '';
+          for (const x of b) s += String.fromCharCode(x);
+          const b64 = btoa(s);
+          if (b64.length <= 512) TKS.cfg.description = b64;   // (the relay takes at most 512 characters)
+        } catch (e) { /* none */ }
+      }
+    }
+    if (!TKS.cfg) { TK.drops++; return; }
+    if (!TK.started || TKS.startWs !== C.ws) talkStart();   // (the stream starts before anyone speaks, and again on each new socket)
+    const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b);
+    const x = { b, at: now() - (chunk.duration || 20000) / 1000 };
+    if (!TK.started || performance.now() - TK.loudAt > TALK_HANG) {   // the gate shut: kept as pre-roll (40 ms)
+      TKS.pre.push(x); if (TKS.pre.length > TALK_PRE) TKS.pre.shift(); TKS.spurt = true; return;
+    }
+    const go = TKS.spurt ? TKS.pre.concat([x]) : [x];
+    go.forEach((y, i) => { if (talkSend(TKS.seq++, y.at, TKS.spurt && i === 0 ? 1 : 0, y.b)) TK.frames++; else TK.drops++; });
+    TKS.pre = []; TKS.spurt = false;
+  }
+  // the stream started on this socket (talk-start with the encoder's cfg); the relay answers with its status (TKH.st)
+  function talkStart() {
+    if (!talkCan() || !TKS.cfg) return false;
+    if (!send({ t: 'talk-start', cfg: TKS.cfg })) return false;
+    TK.started = true; TKS.startWs = C.ws; TKS.seq = 0; TKS.spurt = true; TK.st = null;
+    log('talk: stream started', { rate: TKS.cfg.sampleRate });
+    return true;
+  }
+  // one packet as one binary frame (1 to 1,000 bytes); dropped, never queued, while the socket is backed up
+  function talkSend(seq, at, fl, bytes) {
+    if (!talkCan() || !TK.started || TKS.startWs !== C.ws || C.ws.bufferedAmount > TALK_SEND_MAX) return false;
+    const b = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : ArrayBuffer.isView(bytes) ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null;
+    if (!b || !b.length || b.length > 1000) return false;
+    const buf = new ArrayBuffer(16 + b.length), dv = new DataView(buf);
+    dv.setUint8(0, 2); dv.setUint8(1, fl & 1); dv.setUint16(2, 0); dv.setUint32(4, seq >>> 0); dv.setFloat64(8, +at || 0);
+    new Uint8Array(buf, 16).set(b);
+    try { C.ws.send(buf); return true; } catch (e) { return false; }
+  }
+  // the microphone closed (Talk off, Mic muted, the room left or not available, full, an error): the reader cancelled, the
+  // encoder closed, the tracks stopped, the relay told (on the socket the stream started on)
+  function talkHalt(why) {
+    const was = TK.phase === 'asking' || TK.phase === 'live';
+    TKS.gen++;
+    const r = TKS.reader, e = TKS.enc, st = TKS.stream;
+    TKS.reader = TKS.enc = TKS.stream = null;
+    if (r) try { r.cancel().catch(() => {}); } catch (x) { /* gone */ }
+    if (e && e.state !== 'closed') try { e.close(); } catch (x) { /* gone */ }
+    if (st) for (const t of st.getTracks()) try { t.stop(); } catch (x) { /* gone */ }
+    if (TK.started && talkCan() && TKS.startWs === C.ws) send({ t: 'talk-stop' });
+    Object.assign(TK, { phase: 'off', started: false, level: 0, loudAt: 0, st: null });
+    TKS.cfg = TKS.startWs = null; TKS.pre = [];
+    if (was) log('talk: microphone closed', { why: why || '' });
+    changed();
+  }
+  // (TK.mic false is not saved: the row says Mic: muted, and one press tries again; no loop of prompts)
+  function talkFail(gen, text) {
+    if (gen !== TKS.gen) return;
+    talkHalt('error');
+    Object.assign(TK, { phase: 'error', err: text, mic: false });
+    log('talk: failed', { err: text });
+    changed();
+  }
+  // the relay's status for this talker ({ on, sid, subs, frames, bytes, dropped, bad, why, max }); full: the microphone
+  // closed, Mic muted (not saved) until a press tries again
+  function talkSt(st) {
+    if (!st || typeof st !== 'object') return;
+    const n = x => (Number.isFinite(+x) && +x >= 0 ? Math.round(+x) : 0);
+    TK.st = { on: st.on === true, sid: n(st.sid), subs: n(st.subs), frames: n(st.frames), bytes: n(st.bytes), dropped: n(st.dropped), bad: n(st.bad),
+      why: typeof st.why === 'string' ? st.why.slice(0, 16) : '', max: n(st.max) };
+    if (TK.st.why === 'full') {
+      TK.max = TK.st.max || 8;
+      talkHalt('full');
+      Object.assign(TK, { full: true, mic: false });
+      log('talk: the room is full', { max: TK.max });
+    }
+    changed();
+  }
+  // (from "talk: hearing"'s talkStep, 5 times a second) the microphone closed when no longer wanted, and opened by itself
+  // when wanted: only in the room it was last opened in, and only when the browser already allows it (no prompt by itself)
+  function talkMicStep() {
+    const want = TK.on && TK.mic && talkAvail() && talkCapOk() && !askHere();   // (a VR headset that has not said where it is waits)
+    if (!want && (TK.phase === 'asking' || TK.phase === 'live')) talkHalt(!TK.on ? 'off' : !TK.mic ? 'muted' : 'away');
+    if (TK.phase === 'live' && TK.started && TKS.startWs !== C.ws) TK.started = false;   // (a new socket: the next frame starts it there)
+    if (!want || TK.phase !== 'off' || TKS.permBusy) return;
+    // by itself (no press): only in the room it was last opened in, and only when the browser already allows the microphone
+    if (TK.room !== C.code) { Object.assign(TK, { mic: false, held: 'room' }); changed(); return; }
+    if (TKS.perm === 'granted') { talkMicOpen('auto'); return; }
+    if (!(navigator.permissions && navigator.permissions.query)) { Object.assign(TK, { mic: false, held: 'reload' }); changed(); return; }
+    TKS.permBusy = true;
+    navigator.permissions.query({ name: 'microphone' }).then(p => p && p.state, () => '').then(s => {
+      TKS.permBusy = false; TKS.perm = s || '';
+      if (s === 'granted') talkMicOpen('auto'); else { Object.assign(TK, { mic: false, held: 'reload' }); changed(); }
+    });
+  }
+  // (tests) the gate's threshold (0: always open), back to TALK_GATE with anything else
+  function talkGate(x) {
+    TKS.gateMin = Number.isFinite(+x) && +x >= 0 ? +x : TALK_GATE;
+    return TKS.gateMin;
+  }
+  Object.assign(TKH, { open: why => talkMicOpen(why), step: () => talkMicStep(), halt: why => talkHalt(why), st: st => talkSt(st) });
 
   // ============================================== live sound: hearing ==
   // (v162, tools/output/SPEC.md "v162" 3b) The room's live sound: the output page streams one sound input of its computer
@@ -13232,6 +13499,11 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     outOn: () => OUT.on, outOffered: () => outOffered(), outStart: why => outStart(why || 'api'), outStop: why => outStop(why || 'api'), outMark: on => outMark(on),
     osc: msgs => osc(msgs), oscCfg: o => oscCfg(o), oscPing: () => oscPing(), persons: () => persons(),
     sndCan: () => sndCan(), sndWhy: () => sndWhy(), sndStart: (cfg, kbps) => sndStart(cfg, kbps), sndStop: () => sndStop(), sndSend: (seq, at, ch, bytes) => sndSend(seq, at, ch, bytes),
+    // Talk (v178, docs/agents/shared-rooms.md "Talk"): this device's side ("talk: shared"; talkSend and talkGate for
+    // tests: "talk: sending") and the others ("talk: hearing"; talkIn, talkFx and talkTest for tests)
+    talkMic: () => talkMic(), setTalk: (on, why) => setTalk(on, why || 'api'), setTalkMic: (on, why) => setTalkMic(on, why || 'api'), talkLacks: () => talkLacks(),
+    talkSend: (seq, at, fl, bytes) => talkSend(seq, at, fl, bytes), talkGate: x => talkGate(x),
+    talkState: () => talkState(), talkLine: s => talkLine(s), talkIn: buf => talkIn(buf), talkFx: v => talkFx(v), talkTest: on => talkTest(on),
     presIn: (id, v) => onFx({ t: 'fx', k: 'p.' + id, v, by: id }),
     // the room's live sound, heard here (v162: "live sound: hearing"); liveIn and liveFx for tests
     liveSound: () => liveSound(), liveMode: () => LV.mode, setLiveMode: m => setLiveMode(m), liveNode: () => liveNode(),

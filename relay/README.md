@@ -1154,13 +1154,70 @@ Relay rooms only: peer-to-peer rooms and rooms on one device have no live sound.
   closing or backed up past 64 KB (`SND_BACKLOG`) misses frames rather than queueing them: late audio is worth nothing.
 - **Who may send.** Only a member whose `hello` said `out: 1`: a binary frame from a socket that never did closes it
   with 1003 (as before v162); `snd-start` and `snd-stop` from a plain member are refused once a socket (`bad`). A sender
-  whose hello drops `out`, or who leaves, ends its stream (`gone`).
+  whose hello drops `out`, or who leaves, ends its stream (`gone`). A frame with tag 2 is Talk's ([Talk](#talk-v178)),
+  from any member: one without a Talk stream is dropped and counted, never closed.
 - **Never kept or logged**: no frame's bytes and no cfg's description. The log says `<room> live sound from <id> started
   (<ch> ch, <rate> Hz)`, `... stopped (<why>)`, and the counts of dropped and bad frames when they change.
 
 Untested until tried on real machines: real loopback inputs (BlackHole, VB-Audio Cable), latency and dropouts over a real
 network and Wi-Fi, and how it sounds. Here: `node relay/test.mjs --snd` (the relay) and `node tools/output/test-page.mjs`
 (the output page with a stubbed input).
+
+## Talk (v178)
+
+Voice between the people in a room who are **not** in the same physical room. A person's page or headset with *Talk* on
+hears the others who talk, and while its *Mic* is on it sends its microphone: open mic with a voice gate (nothing goes
+while the person is silent), never push to talk. Each 20 ms of voice is one Opus packet (mono, 24 kbit/s, about 60 bytes:
+50 frames a second while someone speaks, none while they are silent) sent as a **binary WebSocket frame** on the member's
+room socket; the relay forwards it, once, to every member of the room that should hear it, and keeps nothing. No flag:
+every relay of v178 or later does it, and says so (`talk: true` in `/api/ping`, `talk: 1` in `welcome`); a page on an
+older relay says the relay is too old for Talk. Relay rooms only: peer-to-peer rooms and rooms on one device have no Talk.
+Talk is each device's own (off until turned on), never in the room's keys. The contract is docs/agents/shared-rooms.md,
+"Talk".
+
+- **A frame** is 16 bytes of header, big-endian, then one Opus packet: `tag` u8 (2; live sound's is 1), `fl` u8 (bit 0:
+  the first frame of a spurt, the voice gate just opened; other bits 0), `sid` u16 (the talker writes 0; the relay writes
+  the talker's stream id), `seq` u32 (frames handed to the socket since this `talk-start`, from 0: a frame the gate held
+  back takes no number, so a gap at a listener is a real loss), `at` f64 (when its first sample was captured, on the
+  relay's clock, ms). At most 1,016 bytes in all (`TALK_MAX_FRAME`); one smaller than 17 bytes or larger is dropped and
+  counted as bad.
+- **Messages** (text, as ever):
+
+| from | `t` | fields | meaning |
+| --- | --- | --- | --- |
+| relay | `welcome` | `talk: 1` | this relay forwards Talk |
+| a person's page or headset | `talk-start` | `cfg { codec: 'opus', sampleRate, numberOfChannels: 1, description? }` | its microphone's stream starts (or restarts, with a new `sid`); `sampleRate` 8000, 12000, 16000, 24000 or 48000, one channel, `description` base64 (at most 512 characters). Refused (`bad`) once a socket from the output page or a camera; a bad cfg: `bad talk-start` |
+| any member | `talk-stop` | | its stream stops (Mic muted, Talk off, the microphone gone) |
+| any member | `talk-sub` | `on: true \| false` | hear the room's talkers, or not; a new socket starts without it (the page asks again after `welcome`) |
+| relay | `fx` `@talk` (`by: ''`) | `{ list: [{ sid, id, cfg, here }] }` | the talkers, to **every** member (Talk on or not, so a page with Talk off can say who is talking) whenever the list changes (a stream starts or stops, a talker's `here` changes), and to a member right after its `welcome` when the list is not empty. No names: every member has them from `members` |
+| relay | `fx` `@talk` (`by: ''`) | `{ st: { on, sid, subs, frames, bytes, dropped, bad, why, max } }` | to a talker on its start and stop and every 2 s while it talks; `subs`: the members who get its frames now; `why`: `''`, `stopped`, `gone` (its socket replaced, it left, or its hello now says output page or camera), `full` (refused: `on: false`, `sid: 0`); `max` = 8 |
+
+- **Who hears whom.** A frame from talker *s* goes to member *l* when *l* asked (`talk-sub`), *l* is not *s*, and not both
+  are `here` (the `here` of their `hello`s, which the app sends again whenever it changes). People in the same place
+  hear each other in the air, never through speakers. Known limit: two separate groups that are both `here` do not hear
+  each other; a headset in AR counts as here until it says *I am elsewhere* (the headset menu's Debug tab), so two people
+  in AR in two homes press that first. A VR headset that has not yet answered *Are you in the same room as the others?*
+  neither talks nor hears until it does.
+- **Limits.** At most 8 open microphones a room (`TALK_MAX`; the ninth `talk-start` gets `st` with `why: 'full'`, and
+  listening still works; a restart by a talker does not count itself). At most 60 frames a second a talker (`TALK_RATE`;
+  the rest dropped and counted). A listener whose socket is gone or backed up past 16 KB (`TALK_BACKLOG`) misses the frame
+  (counted in the talker's `dropped`; a closing one is simply skipped): audio never queues behind a slow device. The
+  talker's page drops a frame (never queues it) while its socket holds more than 8 KB or its encoder is behind.
+- **Who may send.** Any person's page or headset (not the output page, not a camera). A frame with tag 2 from a member
+  with no stream (never started, stopped, the output page) is dropped and counted (`<n> frames from <id> without a
+  stream` in the log), **never** a 1003 close; a frame of any other tag is live sound's, as before (a plain member's
+  tag-1 frame still closes it with 1003). A talker whose socket is replaced, who leaves, or whose hello says output page or
+  camera ends its stream (`gone`); a reconnect starts again on the new socket.
+- **Never kept or logged**: no frame's bytes, no cfg, no name, no address. The log says `<room> talk from <id> started
+  (<n> open)`, `... stopped (<why>)`, `... refused (full: 8 open)`, and the counts when they change: `<room> talk from
+  <id>: <frames> frames, <dropped> dropped, <bad> bad so far` and `<room> talk: <n> frames from <id> without a stream`.
+- **Not end to end.** Voices go over TLS to the proxy and are plain in the relay's memory while it forwards them; every
+  member sees who has a microphone open (the list).
+
+Untested until tried on real devices: Quest Browser's WebCodecs (`MediaStreamTrackProcessor`, `AudioEncoder`,
+`AudioDecoder`) and its microphone prompt in a session, echo with headsets on their speakers, latency and gaps over
+Coolify's proxy on home and venue Wi-Fi and mobile data, the relay's load with eight talkers, and how voices sound. Here:
+`node relay/test.mjs --talk` (the relay).
 
 ## The developer notebook (`--notes`, `--no-notes`)
 
@@ -1272,12 +1329,14 @@ development only: `--build` runs the build scripts of the folder it watches.
 Connect to `/api/ws?room=XYZ&id=<client id>` (`wss://` behind HTTPS; `&token=<password>` when the relay has one). The room code is case-insensitive; the
 client id is 1-64 characters `A-Z a-z 0-9 _ -`, random per page load and kept across reconnects. An optional
 `&proto=1` is checked. A second socket with the same id replaces the first (`replaced`). Every message is one
-JSON object with a `t` field, as a text frame; at most 1 MB. The one exception: live sound's audio frames from the output page,
-binary (v162, [Live sound](#live-sound-from-the-output-page-v162)); a binary frame from any other socket closes it with 1003.
+JSON object with a `t` field, as a text frame; at most 1 MB. The exceptions: live sound's audio frames from the output page,
+binary (v162, [Live sound](#live-sound-from-the-output-page-v162)), and Talk's (tag 2, v178, [Talk](#talk-v178)). A tag-2
+frame from any member is Talk's: dropped and counted when the member has no Talk stream, never closed; any other binary
+frame from a socket that never said `out: 1` closes it with 1003.
 
 | from | `t` | fields | meaning |
 | --- | --- | --- | --- |
-| relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto, snd` (`snd: 1`: live sound, v162) | first message on every socket: the whole room |
+| relay | `welcome` | `you, room, app, version, seq, keys {k: {v, seq, by}}, members [...], now, proto, snd, talk` (`snd: 1`: live sound, v162; `talk: 1`: Talk, v178) | first message on every socket: the whole room |
 | relay | `members` | `members [...]` | to everybody after any join, leave, hello or timeout (the joiner too) |
 | client | `hello` | `name, color, kind, here, version` (`proto`, `dev` and `reload` optional) | who I am; again after any change (`reload: 1`, v136: this app obeys the room's reload orders in its turn, [Rooms across updates](#rooms-across-updates-v136)) |
 | client | `set` | `batch [[k, v], ...], cid` | stored writes: one batch, one seq |
@@ -1288,6 +1347,8 @@ binary (v162, [Live sound](#live-sound-from-the-output-page-v162)); a binary fra
 | client | `osc-cfg` | `trk` | the output page only: the trackers as OSC for its room on or off |
 | client | `snd-start`, `snd-stop`, `snd-sub` | see [Live sound](#live-sound-from-the-output-page-v162) | the output page's live sound (v162), and hearing it; the audio itself goes as binary frames |
 | relay | `fx` `@snd` | `by: ''` | live sound's start, stop and status ([Live sound](#live-sound-from-the-output-page-v162)) |
+| client | `talk-start`, `talk-stop`, `talk-sub` | see [Talk](#talk-v178) | a person's microphone for Talk (v178), and hearing the others; the voice itself goes as binary frames (tag 2) |
+| relay | `fx` `@talk` | `by: ''` | Talk's list of talkers (to every member) and a talker's status ([Talk](#talk-v178)) |
 | client | `ping` | `c` (client ms) | |
 | relay | `pong` | `c, now` | `c` echoed (a number, else null); `now` relay ms |
 | relay | `error` | `code, text` (+ `cid, keys` for writes) | see below |
@@ -1539,7 +1600,7 @@ does not yet:
 node relay/test.mjs
 ```
 
-(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--snd` live sound's, `--rooms` the rooms'.)
+(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--snd` live sound's, `--talk` Talk's, `--rooms` the rooms'.)
 
 It starts the relay on a free port (timeouts of 1 s, serving the repository), and checks the API, joining and
 its refusals, welcome and members, ordering and acknowledgement, last writer wins, null refused outside the
@@ -1673,7 +1734,15 @@ sound (v162; `--snd` alone): `snd` in `/api/ping` and `welcome`, a plain member'
 `sid` (none to a member not subscribed, the cfg at once to a late one, none after unsubscribing), 150 frames in a second
 (about 100 through, the rest counted in `st`), a 5,000-byte frame and a wrong tag counted as bad, a second output page
 taking the stream (the first told `taken`, its frames dropped), and `snd-stop`, the sender leaving and its hello without
-`out` (`stopped`, `gone`). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+`out` (`stopped`, `gone`); and Talk (v178; `--talk` alone): `talk` in `/api/ping` and `welcome`, no `@talk` on a join
+into a room where nobody talks, `talk-start` from the output page or a camera refused once a socket, bad cfgs and
+`talk-sub` refused, a stray tag-2 frame dropped and counted (never a close) while a plain member's tag-1 frame still
+closes with 1003, two talkers and a listener (the list to every member, the frames byte for byte but `sid` to those who
+hear, none of one's own, none without `talk-sub`, `subs` 2, the list right after a joiner's `welcome`), a talker and a
+listener both `here` (none heard; heard once the talker says it is elsewhere, with a new list), 80 frames in a burst
+(55 to 61 through, `dropped` and `bad` in `st`), a ninth talker refused (`full`) and taken once one stops, `talk-stop`,
+a talker leaving and one connecting again (lists without it to everyone, the new socket too, no frames until its
+`talk-sub`), and the log's lines (no name, no cfg). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks

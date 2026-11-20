@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -779,6 +779,209 @@ async function sndSteps() {
   });
 }
 
+// ---- Talk (v178; docs/agents/shared-rooms.md "Talk"): voice between the people in a room who are not in the same
+// physical room. Binary frames with tag 2 from a member that started a stream (talk-start), forwarded with its sid to the
+// members that subscribed (talk-sub), are not the talker and are not here while it is here; the list of talkers to every
+// member; nothing stored. `node relay/test.mjs --talk` runs only these (seconds)
+async function talkSteps() {
+  const CFG = { codec: 'opus', sampleRate: 48000, numberOfChannels: 1 };
+  const pkt = (seq, n = 40, fl = 0, tag = 2) => {   // a frame as shared.js's talkSend makes it: 16 bytes of header (sid 0), then the packet
+    const b = Buffer.alloc(16 + n);
+    b[0] = tag; b[1] = fl; b.writeUInt16BE(0, 2); b.writeUInt32BE(seq >>> 0, 4); b.writeDoubleBE(1700000000000 + seq * 20, 8);
+    for (let i = 16; i < b.length; i++) b[i] = (seq * 11 + i) & 255;
+    return b;
+  };
+  const bins = c => c.q.filter(x => x.bin);
+  const takeBins = c => { const b = bins(c); c.q = c.q.filter(x => !x.bin); return b.map(x => x.bin); };
+  const talk = (more = () => true) => m => m.t === 'fx' && m.k === '@talk' && m.by === '' && !!m.v && more(m.v);
+  const list = (more = () => true) => talk(v => Array.isArray(v.list) && more(v.list));
+  const st = (more = () => true) => talk(v => !!v.st && more(v.st));
+  const sameBut = (got, sent, sid) => { const e = Buffer.from(sent); e.writeUInt16BE(sid, 2); return got.length === e.length && got.equals(e); };
+  const ids = l => l.map(e => e.id).sort().join(' ');
+  const last = (c, pred) => { const a = c.q.filter(pred); return a.length ? a[a.length - 1] : null; };   // (the latest so far, left in the queue)
+  const logged = async (re, ms = 3000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(50)) if (re.test(relay.out)) return true; return re.test(relay.out); };
+  const close = (...cs) => { for (const c of cs) c.ws.close(); };
+
+  await step('talk: /api/ping says talk: true and welcome talk: 1; a member joining a room where nobody talks gets no @talk', async () => {
+    ok((await req('GET', '/api/ping')).json().talk === true, '/api/ping: talk true');
+    const code = await newRoom(), a = await joined(code, 'tw1', { name: 'tw1' });
+    ok(a.welcome.talk === 1 && a.welcome.snd === 1, 'welcome: talk 1 (and snd 1)');
+    const b = await joined(code, 'tw2', { name: 'tw2' });
+    ok(await a.none(talk(), 500) && !b.q.some(talk()), 'no @talk within 500 ms of a join into a room where nobody talks');
+    close(a, b);
+  });
+
+  await step('talk: talk-start from the output page or a camera refused once a socket; a bad cfg and a bad talk-sub refused; a tag-2 frame from a member not talking dropped and counted, never a close; a plain member\'s tag-1 frame still 1003', async () => {
+    const code = await newRoom();
+    const o = await joined(code, 'tro1', { name: 'tro1', out: 1 }), k = await joined(code, 'trk1', { name: 'trk1', kind: 'cam' });
+    o.send({ t: 'talk-start', cfg: CFG }); o.send({ t: 'talk-start', cfg: CFG });
+    const re = /^bad message: talk-start only from a person's page or headset \(not the output page or a camera\)$/;
+    ok(await o.next(is('error', m => m.code === 'bad' && re.test(m.text))), 'talk-start from the output page: bad, its words');
+    ok(await o.none(is('error'), 200), '... said once a socket');
+    k.send({ t: 'talk-start', cfg: CFG }); k.send({ t: 'talk-start', cfg: CFG });
+    ok(await k.next(is('error', m => m.code === 'bad' && re.test(m.text))) && await k.none(is('error'), 200), 'from a camera: bad, once');
+    const a = await joined(code, 'tra1', { name: 'tra1' });
+    for (const cfg of [{ ...CFG, numberOfChannels: 2 }, { ...CFG, sampleRate: 44100 }, { ...CFG, codec: 'vorbis' }, { ...CFG, description: '!'.repeat(10) }, null]) a.send({ t: 'talk-start', cfg });
+    let n = 0;
+    for (let i = 0; i < 5; i++) if (await a.next(is('error', m => m.code === 'bad' && m.text === 'bad talk-start: cfg { codec: \'opus\', sampleRate, numberOfChannels: 1 }'), 1000)) n++;
+    ok(n === 5, 'a cfg of two channels, 44.1 kHz, not Opus, a description not base64, none: each bad talk-start (' + n + ')');
+    a.send({ t: 'talk-sub', on: 'yes' });
+    ok(await a.next(is('error', m => m.code === 'bad' && m.text === 'bad talk-sub: on true or false')), 'talk-sub without a boolean: bad talk-sub');
+    ok(!a.q.some(talk()) && !o.q.some(talk()), 'no @talk for refused starts');
+    a.ws.send(pkt(0)); a.ws.send(pkt(1)); o.ws.send(pkt(0));
+    ok((await a.closedIn(500)) === null && !o.closed, 'a tag-2 frame from a member not talking (and from the output page): no close within 500 ms');
+    ok(await logged(new RegExp(`${code} talk: \\d+ frames from tra1 without a stream`)) && await logged(new RegExp(`${code} talk: 1 frames from tro1 without a stream`)), 'counted: the log\'s line for frames without a stream');
+    const p = await joined(code, 'trp1', { name: 'trp1' });
+    p.ws.send(pkt(0, 40, 2, 1));
+    ok((await p.closedIn(2000))?.code === 1003, 'a plain member\'s tag-1 frame: still 1003');
+    close(o, k, a);
+  });
+
+  await step('talk: two talkers and a listener: every member gets the list with both; the frames byte for byte but sid to those who hear; none of one\'s own; none without talk-sub; st subs 2; a member joining gets the list right after its welcome', async () => {
+    const code = await newRoom();
+    const ta = await joined(code, 'ta', { name: 'Talker Anna' }), tb = await joined(code, 'tb', { name: 'Talker Ben' }), tl = await joined(code, 'tl', { name: 'Talker Lou' }), tn = await joined(code, 'tn', { name: 'Talker Nia' });
+    for (const c of [ta, tb, tl]) c.send({ t: 'talk-sub', on: true });
+    await sleep(100);
+    ta.send({ t: 'talk-start', cfg: CFG });
+    const sa = await ta.next(st(s => s.on));
+    tb.send({ t: 'talk-start', cfg: CFG });
+    const sb = await tb.next(st(s => s.on));
+    ok(sa && sb && sa.v.st.sid > 0 && sb.v.st.sid > 0 && sa.v.st.sid !== sb.v.st.sid && sa.v.st.max === 8 && sa.v.st.why === '', 'each talker: st on, its own sid, max 8: ' + JSON.stringify([sa && sa.v.st, sb && sb.v.st]));
+    ok(sa && sb && sa.v.st.subs === 2 && sb.v.st.subs === 2, 'st: subs 2 (the other talker and the listener)');
+    const A = sa ? sa.v.st.sid : -1, B = sb ? sb.v.st.sid : -1;
+    for (const c of [ta, tb, tl, tn]) {
+      const L = await c.next(list(l => l.length === 2));
+      const e = L ? L.v.list : [], ea = e.find(x => x.id === 'ta'), eb = e.find(x => x.id === 'tb');
+      ok(ea && eb && ea.sid === A && eb.sid === B && [ea, eb].every(x => JSON.stringify(x.cfg) === JSON.stringify(CFG) && x.here === false && Object.keys(x).sort().join() === 'cfg,here,id,sid'),
+        c.welcome.you + ': the list with both (sid, id, cfg, here false; no name): ' + JSON.stringify(e));
+    }
+    const sentA = [], sentB = [];
+    for (let i = 0; i < 10; i++) { const x = pkt(i, 30 + i, i === 0 ? 1 : 0), y = pkt(i, 50 + i); sentA.push(x); sentB.push(y); ta.ws.send(x); tb.ws.send(y); }
+    await sleep(300);
+    const gl = takeBins(tl), ga = takeBins(ta), gb = takeBins(tb), gn = takeBins(tn);
+    const fromA = gl.filter(g => g.readUInt16BE(2) === A), fromB = gl.filter(g => g.readUInt16BE(2) === B);
+    ok(gl.length === 20 && fromA.length === 10 && fromB.length === 10 && fromA.every((g, i) => sameBut(g, sentA[i], A)) && fromB.every((g, i) => sameBut(g, sentB[i], B)), 'the listener: all 20, byte for byte but sid (' + gl.length + ')');
+    ok(ga.length === 10 && ga.every((g, i) => sameBut(g, sentB[i], B)), 'ta: tb\'s 10 and none of its own (' + ga.length + ')');
+    ok(gb.length === 10 && gb.every((g, i) => sameBut(g, sentA[i], A)), 'tb: ta\'s 10 and none of its own (' + gb.length + ')');
+    ok(!gn.length, 'a member without talk-sub: none');
+    const tj = await joined(code, 'tj', { name: 'Talker Jo' });
+    await sleep(200);
+    const i = tj.q.findIndex(talk());
+    ok(i >= 0 && tj.q.slice(0, i).every(m => m.t === 'members') && ids(tj.q[i].v.list || []) === 'ta tb', 'a member joining while two talk: the list right after its welcome');
+    ta.ws.send(pkt(10)); await sleep(200);
+    ok(!bins(tj).length, '... and no frames until it sends talk-sub');
+    close(ta, tb, tl, tn, tj);
+  });
+
+  await step('talk: here: a listener here does not hear a talker here, one elsewhere does; the talker saying it is elsewhere: a new list, and now both hear it', async () => {
+    const code = await newRoom();
+    const ha = await joined(code, 'ha', { name: 'ha', kind: 'ar', here: true }), hb = await joined(code, 'hb', { name: 'hb', kind: 'ar', here: true }), hc = await joined(code, 'hc', { name: 'hc' });
+    hb.send({ t: 'talk-sub', on: true }); hc.send({ t: 'talk-sub', on: true });
+    await sleep(100);
+    ha.send({ t: 'talk-start', cfg: CFG });
+    const s = await ha.next(st(x => x.on));
+    ok(s && s.v.st.subs === 1, 'the talker here: st subs 1 (' + JSON.stringify(s && s.v.st) + ')');
+    const L = await hc.next(list(l => l.length === 1));
+    ok(L && L.v.list[0].id === 'ha' && L.v.list[0].here === true, 'the list says here: true');
+    for (let i = 0; i < 10; i++) ha.ws.send(pkt(i));
+    await sleep(300);
+    ok(!takeBins(hb).length, 'the listener here: none of the frames');
+    ok(takeBins(hc).length === 10, 'the listener elsewhere: all 10');
+    hb.q = hb.q.filter(m => !talk()(m)); hc.q = hc.q.filter(m => !talk()(m)); ha.q = ha.q.filter(m => !talk()(m));
+    ha.send({ t: 'hello', name: 'ha', kind: 'ar', here: false });
+    let n = 0;
+    for (const c of [ha, hb, hc]) { const x = await c.next(list(l => l.length === 1 && l[0].id === 'ha' && l[0].here === false)); if (x) n++; }
+    ok(n === 3, 'the talker elsewhere now: every member gets the list with here: false (' + n + ')');
+    for (let i = 10; i < 20; i++) ha.ws.send(pkt(i));
+    await sleep(300);
+    ok(takeBins(hb).length === 10 && takeBins(hc).length === 10, 'now both listeners get its frames');
+    close(ha, hb, hc);
+  });
+
+  await step('talk: 80 frames in one burst: 55 to 61 through, the rest dropped and counted in st; a frame of 1,100 bytes and one of 16: bad', async () => {
+    const code = await newRoom();
+    const t = await joined(code, 'rt1', { name: 'rt1' }), l = await joined(code, 'rl1', { name: 'rl1' });
+    l.send({ t: 'talk-sub', on: true }); await sleep(100);
+    t.send({ t: 'talk-start', cfg: CFG }); await t.next(st(s => s.on));
+    for (let i = 0; i < 80; i++) t.ws.send(pkt(i));
+    await sleep(500);
+    const n = takeBins(l).length;
+    ok(n >= 55 && n <= 61, '55 to 61 through (' + n + ')');
+    t.ws.send(pkt(100, 1100 - 16)); t.ws.send(pkt(101, 0));
+    let s = null;
+    for (const end = Date.now() + 3000; Date.now() < end && !s;) s = await t.next(st(x => x.on && x.dropped >= 19 && x.bad === 2), 100);
+    ok(!!s && s.v.st.frames === n, 'st within 3 s: dropped at least 19, bad 2, frames as heard: ' + JSON.stringify(s ? s.v.st : last(t, st())?.v.st));
+    ok(await logged(new RegExp(`${code} talk from rt1: \\d+ frames, \\d+ dropped, 2 bad so far`)), 'the counts in the log (counts only)');
+    close(t, l);
+  });
+
+  await step('talk: full: the ninth talker gets st full (on false, sid 0, max 8) and is not in the list; one of the eight stops: the ninth starts', async () => {
+    const code = await newRoom();
+    const w = await joined(code, 'fw', { name: 'fw' }), ts = [];
+    for (let i = 1; i <= 9; i++) ts.push(await joined(code, 'f' + i, { name: 'f' + i }));
+    for (const t of ts.slice(0, 8)) { t.send({ t: 'talk-start', cfg: CFG }); await t.next(st(s => s.on)); }
+    const t9 = ts[8];
+    t9.send({ t: 'talk-start', cfg: CFG });
+    const f = await t9.next(st(s => s.why === 'full'));
+    ok(f && f.v.st.on === false && f.v.st.sid === 0 && f.v.st.max === 8, 'the ninth: st full: ' + JSON.stringify(f && f.v.st));
+    await sleep(200);
+    const L = last(w, list());
+    ok(L && L.v.list.length === 8 && !L.v.list.some(e => e.id === 'f9'), 'the list: the eight, not the ninth');
+    ok(await logged(new RegExp(`${code} talk from f9 refused \\(full: 8 open\\)`)), 'the log line');
+    w.q = w.q.filter(m => !talk()(m));
+    ts[0].send({ t: 'talk-stop' });
+    ok(await w.next(list(l => l.length === 7 && !l.some(e => e.id === 'f1'))), 'f1 stops: a list of seven');
+    t9.send({ t: 'talk-start', cfg: CFG });
+    const s9 = await t9.next(st(s => s.on));
+    ok(s9 && s9.v.st.sid > 0 && await w.next(list(l => l.length === 8 && l.some(e => e.id === 'f9' && e.sid === s9.v.st.sid))), 'the ninth starts again: in the list');
+    close(w, ...ts);
+  });
+
+  await step('talk: talk-stop and a talker leaving: lists without it to every member (st why stopped); a talker connecting again: the list without it to everyone, the new socket too, and no frames until its talk-sub', async () => {
+    const code = await newRoom();
+    const sa = await joined(code, 'sa', { name: 'sa' }), sb = await joined(code, 'sb', { name: 'sb' }), sc = await joined(code, 'sc', { name: 'sc' }), sl = await joined(code, 'sl', { name: 'sl' }), sn = await joined(code, 'sn', { name: 'sn' });
+    for (const c of [sa, sb, sc, sl]) c.send({ t: 'talk-sub', on: true });
+    await sleep(100);
+    for (const c of [sa, sb, sc]) { c.send({ t: 'talk-start', cfg: CFG }); await c.next(st(s => s.on)); }
+    await sleep(100);
+    for (const c of [sa, sb, sc, sl, sn]) c.q = c.q.filter(m => !talk()(m));
+    sa.send({ t: 'talk-stop' });
+    const so = await sa.next(st(s => !s.on));
+    ok(so && so.v.st.why === 'stopped' && so.v.st.sid === 0, 'the stopper: st on false, why stopped: ' + JSON.stringify(so && so.v.st));
+    let n = 0;
+    for (const c of [sa, sb, sc, sl, sn]) if (await c.next(list(l => ids(l) === 'sb sc'))) n++;
+    ok(n === 5, 'talk-stop: every member gets the list without it (' + n + ')');
+    sb.ws.close();
+    n = 0;
+    for (const c of [sa, sc, sl, sn]) if (await c.next(list(l => ids(l) === 'sc'))) n++;
+    ok(n === 4, 'a talker\'s socket closing: every member gets the list without it (' + n + ')');
+    sa.send({ t: 'talk-start', cfg: CFG }); await sa.next(st(s => s.on));
+    await sleep(100);
+    for (const c of [sa, sc, sl, sn]) c.q = c.q.filter(m => !talk()(m) && !m.bin);
+    const sc2 = await joined(code, 'sc', { name: 'sc' });   // (the same id again: the new socket wins)
+    await sleep(200);
+    const i = sc2.q.findIndex(list());
+    ok(i >= 0 && sc2.q.slice(0, i).every(m => m.t === 'members') && ids(sc2.q[i].v.list) === 'sa', 'the new socket: the list without it (the other talker only), right after its welcome');
+    n = 0;
+    for (const c of [sa, sl, sn]) if (await c.next(list(l => ids(l) === 'sa'))) n++;
+    ok(n === 3, 'everyone else: the list without it (' + n + ')');
+    sa.ws.send(pkt(0)); await sleep(200);
+    ok(!bins(sc2).length && takeBins(sl).length === 1, 'the new socket gets no frames until it sends talk-sub');
+    sc2.send({ t: 'talk-sub', on: true }); await sleep(100);
+    sa.ws.send(pkt(1)); await sleep(200);
+    ok(takeBins(sc2).length === 1, '... and gets them after');
+    ok(await logged(new RegExp(`${code} talk from sb stopped \\(gone\\)`)) && await logged(new RegExp(`${code} talk from sc stopped \\(gone\\)`)), 'the log: stopped (gone) for a socket closed and one replaced');
+    close(sa, sc, sc2, sl, sn);
+  });
+
+  await step('talk: the log says started, stopped (stopped), stopped (gone), refused (full: 8 open); no talk line has a name or a cfg', async () => {
+    ok(/ talk from ta started \(1 open\)/.test(relay.out) && / talk from tb started \(2 open\)/.test(relay.out), 'started (n open)');
+    ok(/ talk from sa stopped \(stopped\)/.test(relay.out) && / talk from sb stopped \(gone\)/.test(relay.out) && / talk from f9 refused \(full: 8 open\)/.test(relay.out), 'stopped (stopped), stopped (gone), refused (full: 8 open)');
+    const lines = relay.out.split('\n').filter(x => / talk( from |: )/.test(x));
+    ok(lines.length >= 10 && !lines.some(x => /Talker|opus|48000|codec|sampleRate/.test(x)), 'no talk line has a hello\'s name or the cfg (' + lines.length + ' lines)');
+  });
+}
+
 // ---- rooms across updates (v136): a room moves on to a newer networks-<n> once nobody of its own is connected (or a reload
 // order asked for it), never back; POST /api/rooms/<code>/reload; --keep <file>. `node relay/test.mjs --rooms` runs only these
 async function roomSteps() {
@@ -1377,6 +1580,12 @@ if (process.argv.includes('--osc')) {   // only the OSC steps (the output page)
 
 if (process.argv.includes('--snd')) {   // only live sound's steps (v162)
   try { await sndSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv.includes('--talk')) {   // only Talk's steps (v178)
+  try { await talkSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
@@ -3839,6 +4048,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await trackerSteps();
   await oscSteps();
   await sndSteps();
+  await talkSteps();
   await notesSteps();
   await videoSteps();
 
