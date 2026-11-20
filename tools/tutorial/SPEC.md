@@ -855,4 +855,4 @@ After the review (the fixer, 20 November 2026):
     (a pretend session: without it the hold could stop the story at 7.8 s), `tools/output/test-page.mjs`,
     `tools/packages/check.mjs`.
 42. Arrange all now lays out 17 stations (`shared.js` ~l.66 and ~l.2889): `node tools/collab.mjs --all` is in the run
-    before `main`. Review note 22 (a headset's Stories screen says "seventeen stories") is still open.
+    before `main`. (Review note 22, a headset's Stories screen saying "seventeen stories", is done: note 38.)

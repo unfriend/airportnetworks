@@ -51,18 +51,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **At the handover (13 November 2026, brought up to date on 17 November): where each branch is and what comes next.**
-  - *The branches.* `dev` is networks-v157 (FORMAT networks-51, the v157 to v140 entries below; v139 and v136 to v138
-    before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT
+- **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
+  - *The branches.* `dev` is networks-v179 (FORMAT networks-55, shell 178; the v179 to v140 entries below; v139 and v136
+    to v138 before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT
     networks-41, the v135 entry below): v134 was released to both on 11 November 2026 at the owner's word ("push all to
     main and run the full tests afterwards ... in case there is anything to fix also push that to dev and main"), the
     whole release run ran on it right after, and v135 is the fix that run found, released to both the same day: what
     visitors get at https://stories.lbi-netmed.com/ (GitHub Pages), what the main site's relay runs
     (https://main.lab.lbi-netmed.com/) and the test place https://stories.lab.lbi-netmed.com/, which Coolify deploys on
     every push to `dev`. Before that `main` was networks-v129 (10 November 2026, after the first whole release run since
-    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v157 are the entries below. The AI agents'
-    working branch since v140, `claude/trusting-hypatia-ca5qv0`, is `dev`'s commit (`claude/affectionate-pasteur-stzjl3`,
-    the one before it, stayed at v139). Nothing is half done on any branch.
+    v121), and before it networks-v121 (`5524684`, 7 November); v122 to v179 are the entries below. Since v175 the AI
+    agents' cloud sessions work on `dev` itself (the session-start hook brings the checkout up to date with GitHub);
+    their earlier branches, `claude/trusting-hypatia-ca5qv0` (v157, all in `dev`) and `claude/affectionate-pasteur-stzjl3`
+    (v139, all in `dev`; to be deleted, decision 4), hold nothing `dev` lacks. Two branches are kept apart on purpose:
+    `unity-importer` (16 November: a part of a Unity scene made a studio scene; nice to have, "glTF round trips" under
+    Deferred) and `copilot/assess-code-quality-security` (20 October, an old review, never merged). Nothing is half done
+    on any branch.
   - *Tried on devices.* The owner tried v122 on a Quest (its floor spots led to v123), checked that Android's screen
     recorder films camera mode's AR, on 9 November tried v127's studio items (the feedback that made v128) and then v128
     on `dev` ("dev looks good"). Nothing else of v123 to v129 has been tried on a headset, a phone or the trackers' PC (the
@@ -73,16 +77,23 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     then the ships, areas and *My menu* there (which made v139). On 16 November the owner read v150's Debug tab on a
     Quest 3 (Adreno 740, textures at most 8,192 px, ASTC, ETC1 and ETC2), which made v151's compressed textures; nothing
     else of v140 to v157 is reported tried on a device yet. On 20 November the owner tried Sharp text (v174 to v177, the
-    story panel and the menu as WebXR layers) on a Quest: "this works and does not cost a lot". `whatsnew.json` (developer mode's box, `#dev=on`) lists what
-    to try for v157; the others' are in their entries below and in `whatsnew/`.
-  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v157 on the devices (a Quest, an
+    story panel and the menu as WebXR layers) on a Quest: "this works and does not cost a lot"; nothing else of v158 to
+    v179 is reported tried on a device. `whatsnew.json` (developer mode's box, `#dev=on`) lists what to try for v179; the
+    others' are in their entries below and in `whatsnew/`.
+  - *Next* (the release flow, `docs/setup-and-release.md` section 4): try v136 to v179 on the devices (a Quest, an
     Android phone, the Windows PC with SteamVR and the trackers: `tools/trackers/README.md`); each entry below says what is
     untested. Then, at the owner's word, `main` gets `dev` after the full suites (step 7 there): every suite since v135 has
     run only in parts (each entry says which), and `sw.js`'s rules changed in v137 (`examples/` passed through), so `tools/update.mjs` runs too, as do
     `tools/collab.mjs --studio` (examples at a circle, v138) and `--menus` with `MENUS_STORY=studio` (v139), and since
     then `node tools/studio/test-ktx2.mjs` (v151), `node relay/test.mjs` (`basis/` served, v151) and the collab run with
-    its new `--preview` round (v153, v155), and v157's output page tests (`tools/output/`; the room's FORMAT is
-    networks-51 since v157). Each release
+    its new `--preview` round (v153, v155), and v157's output page tests (`tools/output/`). Since v158 also: the smoke
+    test's new blocks (`studio streams`, `studio loops`, `studio trails`, `studio live`, `bodies`, `studio walks`,
+    `sharp text`, `talk` and the tutorial's steps), `node tools/studio/test-ik.mjs` (v164), `node tools/engine/same.mjs`
+    against v167 (v168's shared engine), `node tools/packages/check.mjs packages/hello --load` (v169), `tools/collab.mjs
+    --arr` and `--talk` (not in its main run, v170 and v178) and `--all` with 17 stations (v173),
+    `node tools/tutorial/test-script.mjs` (v173), `node relay/test.mjs --talk` (v178), and `tools/update.mjs` and
+    `tools/live.mjs` again (v171 writes `sw.js`'s lists from `stories/list.js`). The room's FORMAT is networks-55 since
+    v172. Each release
     goes to `dev` with the cheap checks first. Timings to keep an eye on in the suites: the studio
     round's tint step and its voice-with-the-movement check (v126 to v128: red now and then, since fixed in the test or
     passed when run again), peer to peer's hand-over from a headset that hosts, and a code with no room (both red once in
@@ -107,12 +118,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
       robot gang at "no word while the saved place is being looked for" (the shell's *Finding the saved place* not
       shown a frame or two after a slow restore), on the unchanged v178 code too, run alone; the airports pass. Whether
       the test's or the shared engine's (v168), unknown.
+    - Found on 20 November 2026 (v178): `smoke.mjs --only studio` (or `'studio: '`) stops at the main studio block's
+      ninth step with "Cannot read properties of null (reading 'target')" in `carry` (a pretend headset's grip let go
+      before the step uses it), on the unchanged v178 code too; whether the whole run shows it, unknown.
     - Known noisy tests (not app bugs as far as anyone found): peer-to-peer timing in the shared-room run (red in both of
       v129's whole runs, a different check each time, good alone; two reads of the test's own made sturdier in v135), the
       shared-room run under heavy load in general (v134's: 12 red, all good alone but the spaceships' bug, v135 entry),
       the studio behaviours round's Pause and looker checks
       (red once in v129's runs, good alone), the robots not
-      docking in the smoke test about one run in eight, "a circle made for one scene" in the studio round ("When the
+      docking in the smoke test about one run in eight, "a circle made for one scene" in the studio round (likely the race fixed in v179; "When the
       tests run" below). What is untested on devices is listed in each entry below and, for v126, in `whatsnew.json`.
   - *What the next person needs from the owner* (no passwords or keys are in the repository, and none should be):
     access to the GitHub repository (`unfriend/airportnetworks`, a personal account), to the two Coolify resources
@@ -122,12 +136,97 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
-- **networks-v162 (17 November 2026; FORMAT networks-52), on `dev` only: live sound from the output page.** The output
+- **networks-v179 (20 November 2026; FORMAT networks-55, shell 178), on `dev` only: scene circles no longer come up
+    empty.** The owner: "fix this" (the open problem from v157's end-to-end round). A device that had opened a circle's
+    scene but not read its layout yet sent the scene's name alone, which could land after another device's whole layout
+    and empty the circle for everyone; now the studio sends nothing until it has read the layout, placed an item or
+    taken the room's (`freshWait`), and a station's one scene opened by itself is opened the same way. Also
+    `smoke.mjs --only <story>` loads its story first. Checked: a direct check on the studio page and the cheap checks.
+    Untested: several real headsets at a scene circle (the trackers round of `tools/collab.mjs` now checks the items on
+    four devices).
+- **networks-v178 (20 November 2026; FORMAT networks-55, shell 178), on `dev` only: Talk.** The owner: "lets try open
+    mic with mute row? yes talk only in relay rooms is ok for now". Voices between the people in a room who are
+    elsewhere, through the relay (Opus via WebCodecs, binary frames with tag 2); per device and off by default, open mic
+    with a voice gate and a *Mic* row (the Shared dialog, the menu's Circles tab, the phone sheet), no button taken;
+    people both *here* never hear each other through it; in a headset a voice comes from the talker's head. Peer-to-peer
+    rooms left for later. `docs/agents/shared-rooms.md` "Talk"; `relay/test.mjs --talk`, `tools/collab.mjs --talk`,
+    smoke `talk`. Untested: Quest Browser's WebCodecs and track reader, the microphone prompt in VR, echo, latency over
+    real networks; unheard.
+- **networks-v175 to v177 (20 November 2026; FORMAT networks-55, shells 175 to 177), on `dev` only: Sharp text on by
+    default.** After v174's test (the owner: "the sharp text works ... just use the cheapest one per default"): *layer*
+    is the default, in Quest Browser only (v176; other browsers start with it off); the headset menu became a third
+    layer and Sharp text stays on in AR (v177: "sharp text is also important in ar"); its row is in the menu's Settings
+    tab under My body; VR closing by itself with it on starts the next session without it. v175 also made cloud
+    sessions bring the checkout up to date with GitHub as they start (`.claude/hooks/session-start.sh`, made safer in
+    v176). Tried on a Quest after v177 (the owner: "this works and does not cost a lot"). Untested: other headsets and
+    browsers, the fallbacks (a pretend headset only). `docs/agents/shell.md`, "Sharp text".
+- **networks-v174 (20 November 2026; FORMAT networks-55, shell 174), on `dev` only: Sharp text, a test.** The owner,
+    after the WebXR user-studies rendering lab: "a trick to make text supersharp in vr and ar on quest". The story's text
+    panel and play bar as WebXR quad layers that the headset's compositor draws at the display's resolution (*layer*,
+    behind the scene with a hole; *for text*; *in front*; *off*), off by default then; `#sharp=`, `#sharpsize=full`.
+    Built as v165 on a branch of its own and merged as v174.
+- **networks-v173 (20 November 2026; FORMAT networks-55, shell 173), on `dev` only: the tutorial, told by a robot
+    guide.** A new first story (`stories/tutorial.js` from `tools/tutorial/`, `intro: true`; `tools/tutorial/SPEC.md`):
+    the people's armour figure (`bodies.js`, which can now draw a story's own figures, with parts that light up, go dark
+    or flash) shows how to point, press, use the menu, Recenter and a shared room in eight chapters, then seven practice
+    tasks; a synthetic voice. Arrange all lays out 17 stations; every test page sets `tutorialHold` to off.
+    `node tools/tutorial/test-script.mjs`, smoke's tutorial steps. Untested: the guide's look, steps and comfort on a
+    headset, the AR floor read from the headset's planes; unheard.
+- **networks-v172 (20 November 2026; FORMAT networks-55, shell 172), on `dev` only: each circle walked into or asked
+    first.** The headset menu's Circles tab has *This circle* under the room's switch and the Shared dialog a button in
+    each circle's row; a circle with no setting of its own follows the room's switch. Built as v165 on a branch of its
+    own and merged as v172. Untested on a headset.
+- **networks-v171 (19 November 2026; FORMAT networks-54, shell 170), on `dev` only: a story is removable.** `sw.js`'s
+    lists of story files and narrations are written by `tools/release.mjs` from `stories/list.js`, so adding or removing
+    a story is its entry there; the shared kit moved to `tools/engine/kit.js`. Untested: offline in a headset after the
+    update.
+- **networks-v170 (19 November 2026; FORMAT networks-54, shell 170), on `dev` only: copies of stories on the relay (step
+    3 of the packages plan).** In developer mode (or `&edit`) *Copy to relay* makes an editable copy of a story whose
+    editor lengthens, shortens or skips chapters, moves when things happen, retimes the narration or takes a new
+    recording (`HOST.arrange`, `#<key>&arr=<name>`, a station's `st.<id>.arr`); the studio lists the copies and a station
+    can run one. Contract `tools/engine/SPEC.md`; `tools/collab.mjs --arr`. Untested: copies in a headset; a copy's
+    recording on R2 checked only against the stand-in bucket; unheard.
+- **networks-v169 (19 November 2026; FORMAT networks-53, shell 169), on `dev` only: story packages (step 2 of the
+    packages plan).** A story can be one folder, `packages/<key>/` (`story.json`, `main.js`, its picture, data and
+    sounds), listed in `packages/index.json`: it joins the Stories screen with no other change and updates without an app
+    release. The example, *Six handshakes* (`packages/hello/`), is hidden (`#hello`, or developer mode). Contract
+    `tools/packages/SPEC.md`, `docs/agents/packages.md`. Untested: packages in a headset and in a shared room.
+- **networks-v168 (19 November 2026; FORMAT networks-53, shell 166), on `dev` only: one copy of the engine (step 1 of
+    the packages plan).** The fourteen built stories share one version of their headset, panel, sound and timeline code
+    in `tools/engine/` (`node tools/engine/all.mjs` rebuilds them); `tools/engine/same.mjs`, `xrsame.mjs` and
+    `panelsame.mjs` compare what two copies of the app draw. Untested: everything in a headset (driven by hand in a page
+    only; the sticks, two-hand resize, the robots' room capture, the pass story's fingertip and carrying a miniature not
+    at all). Smoke's *anchored placement* fails for the flock and the robots on v178 (the open points above).
+- **networks-v167 (19 November 2026; FORMAT networks-53, shell 166), on `dev` only: Duplicate scene.** On the studio's
+    Scene pane beside New scene: a copy of the scene as last saved, under a new name, opened. Untested in a headset and
+    for a large scene on R2.
+- **networks-v166 (19 November 2026; FORMAT networks-53, shell 166), on `dev` only: a Pico fix.** Automatic quality no
+    longer shrinks the picture on a Pico (it stops at lower edge sharpness and 72 Hz). Only a Pico can show it.
+- **networks-v165 (18 November 2026; FORMAT networks-53, shell 164), on `dev` only: the notes page plays recordings
+    again; From another scene shows pictures.** (Two other branches used the name v165 too: they became v172 and v174.)
+    Untested: the notes page's player in a headset's browser and on a phone.
+- **networks-v164 (18 November 2026; FORMAT networks-53, shell 164), on `dev` only: bodies, and walks that follow the
+    distance.** People in a headset drawn as whole bodies with legs and feet (`bodies.js`, posed from their head and
+    grips by `ik.js`, every body in one draw; feet planted, gliding with the sticks; in AR only people elsewhere), *My
+    body* (off by default) and *Bodies: off*; a studio model's *As it moves* (its walk clip follows the distance it
+    covers, with a standing clip and a stride). `docs/agents/shared-rooms.md` "People's bodies", `docs/agents/studio.md`;
+    `node tools/studio/test-ik.mjs`, smoke `bodies` and `studio walks`. Untested: everything on a real headset, the cost
+    with 48 bodies on a Quest.
+- **networks-v162 and v163 (17 November 2026; FORMAT networks-52, shells 162 and 163), on `dev` only: live sound from the
+    output page.** The output
     page's *Stream sound to the room* captures one input of its computer (BlackHole 2ch with a Multi-Output Device on a
     Mac, VB-Audio Cable on Windows), encodes it as Opus and sends it through the relay (relay rooms only, never stored).
     Devices elsewhere hear it by default (*Room's live sound: auto / on / off*, per device); a studio sound item set to
-    *Live sound* plays it from where it stands. Contract: the "v162" section of `tools/output/SPEC.md`. Untested: real
-    loopback inputs, Quest Browser's WebCodecs, latency on real networks; unheard.
+    *Live sound* plays it from where it stands. Contract: the "v162" section of `tools/output/SPEC.md`. v163: the
+    review's fixes (a smoother catch-up after a stall, the decoder rebuilt after an error, clearer messages). Untested:
+    real loopback inputs, Quest Browser's WebCodecs, latency on real networks; unheard.
+- **networks-v161 (17 November 2026; FORMAT networks-52, shell 161), on `dev` only: addresses for the output page and
+    the cameras.** `&output` and `&camera` in the address while they run; a reload starts again only what the address
+    says (a plain room address never comes back in camera mode). Untested: camera mode on a real phone, Safari's
+    bookmarks.
+- **networks-v160 (17 November 2026; FORMAT networks-52, shell 160), on `dev` only: the output page's panel on the
+    right.** So the studio's panel, item list and cards stay usable; the Cardinal README says how its standalone app takes
+    MIDI (Engine, Enable/Reconnect MIDI).
 - **networks-v159 (17 November 2026; FORMAT networks-52), on `dev` only: a dub techno demo.** `examples/dub-techno`
     (`tools/studio/dub/`) and a Cardinal patch mapped to it (`tools/output/cardinal/`, its README the setup). Cardinal
     cannot follow MIDI clock ticks, so it keeps its own 120 bpm clock and the output page's Start re-aligns it. Unheard.
