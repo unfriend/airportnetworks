@@ -311,10 +311,12 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     log without the password is 401; the password is in no log line): `relay/test.mjs`, "--public: a log with the relay's
     password". Untested on a headset: every threshold and step (4 %, 1.5 periods, 10 clean windows, the levels' look),
     whether `requestViewportScale` is there and honoured, how a 3S behaves at 72 Hz and whether a step is seen, the gain.
-  - Sharp text (v174; on by default since v175, *layer*, in Quest Browser only since v176; the owner, 20 November 2026, after the rendering lab's composition
+  - Sharp text (v174; on by default since v175, *layer*, in Quest Browser only since v176; the menu too since v177; the owner, 20 November 2026, after the rendering lab's composition
     layers, "a trick to make text supersharp in vr and ar on quest", and after trying v174 on a Quest: "the sharp text
-    works ... all of them do it so just use the cheapest one per default"): the story's two panels (its text, 1024 x 1200, and its play bar, 1024 x 176:
-    the same in every story and page, `HOST.cur.panels()`) shown as WebXR quad layers. The headset's compositor samples a
+    works ... all of them do it so just use the cheapest one per default"; v177: "sharp text is also important in ar, it is
+    ok that it does not hide in that case, also make the menu use the sharp text feature"): the story's two panels (its
+    text, 1024 x 1200, and its play bar, 1024 x 176: the same in every story and page, `HOST.cur.panels()`) and the
+    shell's headset menu (720 x 1920, `HOST.collab.sharpMenu()`, v177) shown as WebXR quad layers. The headset's compositor samples a
     layer's canvas once, at the display's resolution, as it warps for the lenses; a panel in the scene is drawn into the
     eye buffer first (its resolution, the framebuffer's scale, fixed foveation) and that picture warped again. No story
     changed: the shell does it all (`index.html`, after the stick moving's module). Each headset's own, never the room's:
@@ -323,7 +325,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     layers, order, dropped, next, shown, err, ms, size }`: `order` the session's layers, `behind` or `front`; `dropped` why
     the VR ladder dropped the layers, or empty; `next` the value needs the next session). The size key `xrSharpSize`
     (`#sharpsize=half|full`) did not change with v175's new key: a stored value wins over the browser's default. The
-    Debug tab's *Sharp text* row under Automatic quality: each press the next of *off*, *layer*, *for text*, *in front*,
+    Settings tab's *Sharp text* row under My body (the Debug tab's, under Automatic quality, until v176: it took that tab
+    over the smoke test's 1,500 px): each press the next of *off*, *layer*, *for text*, *in front*,
     then *off* again (while `dropped` is set and the value is not off, the press asks for the layers again instead); its
     line: *2 layers shown · a write 1.2 ms*, *In front: from the next session* (or *Behind: ...*), *As ever: press again
     to compare* (off in a session that has layers), *Off: the story panel drawn as ever*, *From the next session*,
@@ -370,13 +373,28 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       again (`P.nd`), at most every 100 ms (or 20 times a write's mean time while writes are slow); `getSubImage` throws
       until the updateRenderState took effect, so a failing layer puts its panel back at once and is tried again (see
       "When things go wrong").
+    - The menu (v177): a third layer, 720 x 1920, behind the scene only (*layer*, *for text*): last of the three in the
+      session's list, so the compositor draws it over the panels' layers (its `renderOrder` 53 orders only its hole in the
+      eye buffer). *In front* (a fallback) leaves the menu in the eye buffer: a menu layer in front would cover the Story
+      tab's mirrors, the notices and the rays that point at it. `HOST.collab.sharpMenu()` (`shared.js`) gives its canvas, mesh, a count that moves
+      whenever the canvas changes (the texture's `version` plus `patched`: a full send or a patch, a hover light or a Debug
+      read-out) and `f`, the part of the canvas shown: the menu shows only its top `vis` rows (`showTop`: the texture's
+      repeat and offset, the mesh's `scale.y`), so its layer holds the whole canvas (`drawPanel` clears it, so the rows
+      below are clear) and its quad is the whole canvas's, its top edge where the mesh's is. Null while the menu is
+      closed: its layer out of sight at once. A write sends the whole canvas (5.5 MB; a layer's images rotate, so a patch
+      would land on an older one): at once when the menu was drawn again whole (`nv`, the texture's version: a tab, a
+      page), else at most every 50 ms for its patches (a button's light as you point, the Debug read-outs; 10 times a
+      write's mean time while writes are slow); its hole is the menu's own material, cropped as it is shown. The Story tab's mirrors of the story's panels and the notices over the menu are drawn in the eye buffer, over
+      the hole. Not layers (yet): the Stories screen's cards, the subtitles, the notices, the station cards.
     - The panel's own material (no new mesh): behind (*layer*, *for text*) it erases the eye buffer where it is, by its
       canvas's alpha (custom blending: zero, one minus source alpha, for colour and alpha; its depth settings as the Cards
-      setting has them), so what stands in front of the panel (Cards: in 3D) or is drawn after it (on top: the menu, the
-      rays, the labels) still covers the layer; in front it draws nothing (zero, one) and the layer covers everything,
+      setting has them), so what stands in front of the panel (Cards: in 3D) or is drawn after it (on top: the rays, the
+      labels, the notices) still covers the layer, and the menu, a layer itself since v177, is over it by its place in the
+      list; in front it draws nothing (zero, one) and the layer covers everything,
       rays and menu too. The material changes only once its layer has the panel, from the next frame, and a layer goes out
       of sight (a millimetre wide, a kilometre under the floor) a frame after its panel is drawn as ever again, so the hole
-      and the layer never part. *layer*, *for text* and *off* switch live in a session with layers behind; *in front* (or
+      and the layer never part; a panel or menu not drawn at all (hidden, closed, the next story building) takes its layer
+      out of sight at once (v177). *layer*, *for text* and *off* switch live in a session with layers behind; *in front* (or
       from it) applies from the next session (`next`), the panels drawn as ever meanwhile. A session started with *off*
       has no layers until the next.
     - When things go wrong (v176): a layer that cannot be placed or written puts its panel back in the eye buffer at once
@@ -385,7 +403,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       (a second `setSession`) replaces the list: the layers are dropped, the panels drawn as ever (`err` *a new base
       layer*). The VR ladder (`xrSteps`, "what a headset session asks for") drops `'layers'` first: a VR session that asked
       for them and closed by itself within 10 s (or whose page went with it) makes the next ask without them
-      (`noLayers`, `HOST.xr.layersDropped()`, the reason on the Debug tab's line, *Dropped: ... Press to try again*), before
+      (`noLayers`, `HOST.xr.layersDropped()`, the reason on the Settings tab's line, *Dropped: ... Press to try again*), before
       its list gets shorter. A session counts as one with layers when it was granted them (`enabledFeatures`, kept as
       `X.lay` as it starts). The drop holds for every later session, VR and AR, until that press or a value set by hand
       asks for them again (`layersAgain()`). `features()`
@@ -398,8 +416,9 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       size was reported, so half extents hold there. Untested: other headsets and browsers (they may refuse; the
       Debug tab says why and the panel is drawn as ever), the cost at 90 Hz there (the write here 7 ms in software
       drawing; the row shows it on a device), and v176's fallbacks (the ladder dropping the layers, a failing layer
-      retried, the notebook's pause), tried only with a pretend headset. In AR a layer behind the scene is not covered by the real world's
-      occlusion (a hand before the panel shows the panel). The lab: `webxr-user-studies/web/lab/layers.js` (not in this
+      retried, the notebook's pause), tried only with a pretend headset; the menu as a layer (v177). In AR a layer behind
+      the scene is not covered by the real world's occlusion (a hand before the panel shows the panel): kept on in AR
+      all the same (the owner, v177: "sharp text is also important in ar, it is ok that it does not hide in that case"). The lab: `webxr-user-studies/web/lab/layers.js` (not in this
       repository). Tests: `smoke.mjs --only 'sharp text'`.
   - Real-world occlusion: a sixth setting that is each headset's own, never the room's, *Real world hides: room
     and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;

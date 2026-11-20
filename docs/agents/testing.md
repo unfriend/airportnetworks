@@ -1161,22 +1161,25 @@ in real time (the shell's frames are timed by the clock). Four steps:
 
 ### smoke: sharp text
 
-Sharp text (v174, on by default since v175; `--only 'sharp text'`, a page of its own): the story's two panels as WebXR
-quad layers, on the pretend Quest (`FPS_FAKE`) with `SHARP_FAKE` (a `renderState` as the spec has it: `baseLayer` null once
+Sharp text (v174, on by default since v175; `--only 'sharp text'`, a page of its own): the story's two panels and the
+headset menu (v177) as WebXR quad layers, on the pretend Quest (`FPS_FAKE`) with `SHARP_FAKE` (a `renderState` as the spec has it: `baseLayer` null once
 `layers` is set, both at once refused; `XRRigidTransform`; an `XRWebGLBinding` whose quad layers are real GL textures,
 `getSubImage` throwing until a layer is in the session's list, `__sh.refuse` making `createQuadLayer` throw). The page has Quest Browser's user agent (the
 default *layer* is Quest Browser's only, v176: `sharpDefault` says *off* for a desktop and a Pico; v174's `xrSharp` key
 ignored). `#sharp=off` asks for nothing and leaves three.js's `baseLayer`; *layer* asks for `layers`
-and the first `updateRenderState` goes in as three layers (main, foot, then three.js's; RGBA8, mono, 1024 x 1200 and
-1024 x 176) with `renderState.baseLayer` still answering; the layers sit at the panels with half extents and hold their
+and the first `updateRenderState` goes in as four layers (main, foot, the menu, then three.js's; RGBA8, mono, 1024 x
+1200, 1024 x 176 and 720 x 1920) with `renderState.baseLayer` still answering; the layers sit at the panels with half extents and hold their
 canvases (read back: flipped, premultiplied), the panels' materials erase the eye buffer (a hole counted in the left
-eye), a still second writes at most 10 times a layer; live *for text* (`text-optimized`) and *off* (out of sight, the
-panels as ever), *in front* waiting for the next session (`next`), the Debug tab's row pressed through; a story swap (out
-of sight while the next builds, then its panels); a session started *in front* (three.js's layer first, no hole, *layer*
+eye), a still second writes at most 10 times a layer; the menu opened (v177): its layer shown, after the panels' in the list (main, foot, menu, then three.js's), its top
+edge at the menu's
+(by `localToWorld`), as wide as it, as tall as the whole canvas, holding the canvas, its material a hole, and out of
+sight once closed; live *for text* (`text-optimized`) and *off* (out of sight, the
+panels as ever), *in front* waiting for the next session (`next`), the Settings tab's row pressed through; a story swap (out
+of sight while the next builds, then its panels); a session started *in front* (three.js's layer first, then the panels' two, no menu layer, no hole, *layer*
 then waiting); a notebook picture's pause (`sharpPause`: no hole within a few frames, the layers back after), writes
 failing (`__sh.failSub`: the panel back at once, the reason after 90, tried again once they work) and a new base layer
 dropping the layers; the VR ladder dropping `layers` first after a session that went down with its page (`xrSteps`
-seeded), and the Debug row asking for them again; AR (with depth sensing); a binding that refuses quad layers falls back to three.js's own layer with the
+seeded), and the Settings tab's row asking for them again; AR (with depth sensing); a binding that refuses quad layers falls back to three.js's own layer with the
 reason. Steps wait on frames, not time: in this suite's software drawing a layer's write takes a few hundred ms. Only this block's page (and any page given Quest Browser's user agent, as the 'phone ar' block's Quest
 is) asks for `layers`: every other pretend headset has Sharp text off by default, as a desktop browser does.
 

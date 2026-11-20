@@ -1143,6 +1143,8 @@ The plan is `docs/shared-space-plan.md`.
     someone walking between circles drew the whole menu again whatever tab it showed. `HOST.collab.strip()` (`{ rows,
     patched, lines, at, x, w, lh, ver }`), `stripMs(ms)` and `fpsTest(v)` (the frame rate as a second's count would set
     it) are for tests.
+  With Sharp text (v177; `docs/agents/shell.md`, "Sharp text") the menu is also a WebXR quad layer in a headset:
+  `HOST.collab.sharpMenu()` gives the shell its canvas, mesh, change count and the part shown.
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
   guide's tallest page about 1090; Settings about 1700 with a ship flying outside a room (the smoke test's spaceship steps print it and fail past 1900), Debug about 870 (v136's three rows add about 210 px: 1384 px in a room on this device with 20 stations and no places; the smoke test's frame rate steps print it and fail past 1500); What is new as tall as its lists, up to the
   canvas; Notes about 1400 at most (its views are of a fixed height); Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5

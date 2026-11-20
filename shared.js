@@ -4621,7 +4621,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '', PNL.tab === 'settings' ? sharpSig() : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5124,6 +5124,16 @@
         note(HOST.mode === 'immersive-ar' ? 'In VR only: in AR you see your own' : 'Your own body when you look down, in VR. This headset\'s own', y);
         y += 76;
       }
+      // Sharp text (v174, on by default v175: layer, in Quest Browser v176; on this tab since v177, the Debug tab before;
+      // index.html, HOST.xr.sharp): the story's panels and the menu as WebXR layers, this headset's own; each press the
+      // next value, live in a session that has the layers (layer, for text and off; in front from the next session),
+      // else from the next one
+      if (HOST.xr.setSharp) {
+        const sh = HOST.xr.sharpState(), sv = HOST.xr.sharps();
+        button(S, 'sharp', x, y, bw, 60, 'Sharp text: ' + (SHARP_SAY[sh.v] || sh.v), !sh.can ? null : sh.dropped && sh.v !== 'off' && !sh.live && HOST.xr.layersAgain ? () => HOST.xr.layersAgain() : () => HOST.xr.setSharp(sv[(sv.indexOf(sh.v) + 1) % sv.length]), { px: 23, on: sh.can && sh.v !== 'off' });
+        note(sharpLine(sh), y);
+        y += 76;
+      }
       // developer mode (HOST.dev, this device's own): what is new in this release and what to test, as each session starts
       if (HOST.dev && HOST.dev.set) {
         const dv = devOn();
@@ -5322,15 +5332,6 @@
           note(aqLine(Q), y);
           y += 72;
         }
-      }
-      // Sharp text (v174, on by default v175: layer, in Quest Browser v176; index.html, HOST.xr.sharp): the story's panel as WebXR layers, this
-      // headset's own; each press the next value, live in a session that has the layers (layer, for text and off; in
-      // front from the next session), else from the next one
-      if (HOST.xr.setSharp) {
-        const sh = HOST.xr.sharpState(), sv = HOST.xr.sharps();
-        button(S, 'sharp', x, y, bw, 56, 'Sharp text: ' + (SHARP_SAY[sh.v] || sh.v), !sh.can ? null : sh.dropped && sh.v !== 'off' && !sh.live && HOST.xr.layersAgain ? () => HOST.xr.layersAgain() : () => HOST.xr.setSharp(sv[(sv.indexOf(sh.v) + 1) % sv.length]), { px: 21, on: sh.can && sh.v !== 'off' });
-        note(sharpLine(sh), y);
-        y += 72;
       }
       // what is new in this release and what to test (whatsnew.json), any time; developer mode shows it as a session starts
       if (HOST.dev && HOST.dev.load) {
@@ -5614,7 +5615,10 @@
     return 'Now ' + (H.got ? H.got + ' Hz' : 'not said') + ' · offers ' + H.list.join(', ') + (H.err ? ' · refused: ' + H.err : '');
   }
   // (what those rows show, for panelSig: they change rarely, so they redraw the whole tab)
-  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(), sh = HOST.xr.sharpState ? HOST.xr.sharpState() : null; return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate], sh && [sh.v, sh.live, sh.next, sh.shown, sh.ms, sh.err, sh.dropped]]); };
+  const layerSig = () => { const H = HOST.xr.hzState ? HOST.xr.hzState() : null, Q = aqNow(); return J([H, HOST.xr.fov && [HOST.xr.fov(), HOST.xr.fovNow(), HOST.xr.scale(), HOST.xr.scaleNow()], Q && [Q.level, Q.vs, Q.auto, Q.fov, Q.rate]]); };
+  // (Sharp text's row on the Settings tab, v177: what its line says; a write's time in whole ms, so the tab is not drawn
+  // again, and the menu's layer written again, every time it is measured)
+  const sharpSig = () => { const sh = HOST.xr.sharpState ? HOST.xr.sharpState() : null; return sh ? J([sh.v, sh.can, sh.live, sh.next, sh.shown, Math.round(sh.ms), sh.err, sh.dropped]) : ''; };
   // Sharp text's button and the line beside it (v174): what this session has, else what the next one will
   const SHARP_SAY = { off: 'off', layer: 'layer', text: 'for text', front: 'in front' };
   function sharpLine(sh) {
@@ -5623,7 +5627,7 @@
     if (!sh.live) return sh.v === 'off' ? 'Off: the story panel drawn as ever' : sh.err ? 'Not this session: ' + sh.err : 'From the next session';
     if (sh.v === 'off') return 'As ever: press again to compare';
     if (sh.next) return (sh.v === 'front' ? 'In front' : 'Behind') + ': from the next session';
-    return (sh.shown ? sh.shown + (sh.shown === 1 ? ' layer' : ' layers') + ' shown' : 'No panel shown') + (sh.ms ? ' · a write ' + sh.ms + ' ms' : '') + (sh.err ? ' · ' + sh.err : '');
+    return (sh.shown ? sh.shown + (sh.shown === 1 ? ' layer' : ' layers') + ' shown' : 'No panel shown') + (sh.ms ? ' · a write ' + (sh.ms < 1 ? 'under 1' : Math.round(sh.ms)) + ' ms' : '') + (sh.err ? ' · ' + sh.err : '');
   }
   // the shell's automatic quality (HOST.xr.aq(), v137: the step it is at), or null from an older shell
   const aqNow = () => { try { return HOST.xr.aq ? HOST.xr.aq() : null; } catch (e) { return null; } };
@@ -12957,6 +12961,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     return s.playing ? 'Playing now' : s.on ? (s.want ? 'Starting...' : 'The output page is streaming') : 'The output page is not streaming';
   }
 
+  const SHM = { cv: null, mesh: null, nd: 0, nv: 0, f: 1 };   // (sharpMenu's answer, kept)
   HOST.collab = {
     get id() { return C.id; }, get code() { return C.code; }, get joined() { return !!C.code; }, get status() { return C.status; },
     get relay() { return C.relay; }, get members() { return C.members; }, get name() { return C.name; }, get color() { return C.color; },
@@ -13127,6 +13132,15 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     notice: (title, text, ms) => notice(title, text, ms),   // (a notice in front of you in a headset: real-world occlusion's)
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     menuVis: () => (OV.panel ? OV.panel.vis : 0),   // (the height of the canvas the tab shown uses, px)
+    // the menu for Sharp text (index.html, v177): its canvas, mesh, a count that moves whenever the canvas was drawn or
+    // patched (nd: the texture's version and the patches; nv: the version alone, a whole new drawing, written at once),
+    // and the part of the canvas shown (f: its top rows, showTop); null while it is closed (one object, set each call)
+    sharpMenu: () => {
+      if (!OV.panel || !OV.panelG || !OV.panelG.visible || !PNL.open) return null;
+      const S = OV.panel, M = SHM;
+      M.cv = S.cv; M.mesh = S.mesh; M.nd = S.tex.version + (S.patched || 0); M.nv = S.tex.version; M.f = Math.max(1, Math.min(S.h, S.vis)) / S.h;
+      return M;
+    },
     // the room setup guide: what it shows ({ open, step, status: how this headset lines up, check: what the check says,
     // lined: [headsets lined up, headsets, checked], flow: the startup flow this session ('' not yet, 'on', 'done',
     // 'skipped'), case: what Line up says to do (lineCase), ok: this session's check that stood, red: the last one out,

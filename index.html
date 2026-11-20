@@ -878,7 +878,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 176, id: '79d4468f15eef817', format: 'networks-55' },
+  shell: { n: 177, id: 'd306eb129028a7a5', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2317,8 +2317,10 @@ Object.assign(HOST.xr, (function () {
 // ------------------------------------------------------------- sharp text (v174, on by default v175) --
 // Sharp text (the owner, 20 November 2026, after the rendering lab's composition layers: "a trick to make text
 // supersharp in vr and ar on quest"; tried on a Quest in v174, "the sharp text works ... all of them do it so just use
-// the cheapest one per default"): the story's two panels (its text and its play bar, HOST.cur.panels(), 1024 x 1200 and
-// 1024 x 176 in every story) shown as WebXR quad layers. A layer is the headset compositor's own: it samples the panel's
+// the cheapest one per default"; v177: "sharp text is also important in ar, it is ok that it does not hide in that case,
+// also make the menu use the sharp text feature"): the story's two panels (its text and its play bar, HOST.cur.panels(),
+// 1024 x 1200 and 1024 x 176 in every story) and the shell's menu (HOST.collab.sharpMenu(), 720 x 1920, only its top
+// rows shown) as WebXR quad layers. A layer is the headset compositor's own: it samples the panel's
 // canvas once, at the display's resolution, as it warps the picture for the lenses. A panel in the scene is drawn into
 // the eye buffer first (at its resolution, its scale and fixed foveation) and that picture is warped again.
 // This headset's own (xrSharp2, a new key in v175 so every device starts once on the new default; #sharp=...). On by
@@ -2332,8 +2334,8 @@ Object.assign(HOST.xr, (function () {
 //  - 'front': in front of everything, the panel drawn into nothing in the eye buffer (no hole; it covers the rays, their
 //    dots and the menu: a fallback for a headset that ignored the eye buffer's alpha)
 //  - 'off': the panels as ever. Off as a session starts asks for nothing new
-// Any other value asks for the 'layers' feature as a session starts (request); when the session has it, the two quad
-// layers its value needs (the text and the bar: behind for layer and text, in front for front) go into the one
+// Any other value asks for the 'layers' feature as a session starts (request); when the session has it, the three quad
+// layers its value needs (the text, the bar and the menu: behind for layer and text, in front for front) go into the one
 // updateRenderState three.js makes, with its XRWebGLLayer (the spec allows it in renderState.layers; layers added later
 // blacked out the lab's WebGPU view). In that session layer, text and off switch live; to or from front, from the next.
 // three.js r128 reads renderState.baseLayer every frame, null once layers are set: this session's renderState answers
@@ -2388,9 +2390,9 @@ Object.assign(HOST.xr, (function () {
     const q = HOST.quiet; HOST.quiet = true;   // (the shell's own listener: a story change never takes it)
     try { s.addEventListener('end', () => { if (SH.s === s) reset(); }); } finally { HOST.quiet = q; }
   }
-  // the two layers the value needs (each the size of its panel's canvas, RGBA8: the canvas's colours as they are, where
-  // SRGB8_ALPHA8 showed them too dark in the lab), out of sight until a panel is shown; the session's list: behind
-  // three.js's layer, or in front of it (v174 made all four, for comparing in one session; v175 the two, half the memory)
+  // the layers the value needs: the story's two panels and the menu (each the size of its canvas, RGBA8: its colours as
+  // they are, where SRGB8_ALPHA8 showed them too dark in the lab), out of sight until shown; the session's list: behind
+  // three.js's layer, or in front of it (v174 made four, for comparing in one session; v175 two; v177 three, the menu's)
   function make(s, base) {
     try {
       const gl = HOST.renderer.getContext(), b = new XRWebGLBinding(s, gl);
@@ -2399,10 +2401,14 @@ Object.assign(HOST.xr, (function () {
         if (typeof gl.RGBA8 === 'number') init.colorFormat = gl.RGBA8;
         return { which, order, w, h, layer: b.createQuadLayer(init), P: null, on: false, out: false, has: false, nd: -1, at: 0, fail: 0, retry: 0 };
       };
+      // (v177: the shell's menu too, behind the scene only, after the panels' so the compositor draws it over them; in
+      // front it would cover the Story tab's mirrors, the notices and the rays that point at it, so there it stays as ever)
       const order = orderOf(SH.v), L = [one('main', order, 1024, 1200), one('foot', order, 1024, 176)];
+      if (order === 'behind') L.push(one('menu', order, 720, 1920));
       for (const x of L) away(x);
       SH.binding = b; SH.L = L; SH.order = order;
-      return order === 'front' ? [base, L[0].layer, L[1].layer] : [L[0].layer, L[1].layer, base];
+      const ls = L.map(x => x.layer);
+      return order === 'front' ? [base].concat(ls) : ls.concat([base]);
     } catch (e) { SH.err = 'no quad layers: ' + msg(e); log('sharp text', { err: SH.err }); return null; }
   }
   // out of sight: a millimetre wide, a kilometre under the floor
@@ -2450,7 +2456,7 @@ Object.assign(HOST.xr, (function () {
     if (L.fail >= 90) L.retry = performance.now() + 2000;
     if (L.fail === 90) { SH.err = what + ': ' + msg(e); log('sharp text', { err: SH.err, which: L.which, order: L.order }); }
   }
-  const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+  const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _u = new THREE.Vector3();
   // shown: it and every parent up to a scene visible
   const shown = o => { for (let n = 0; o && n < 64; o = o.parent, n++) { if (!o.visible) return false; if (o.isScene) return true; } return false; };
   // each frame after the story's (none: nothing on show, as while the next story builds)
@@ -2458,33 +2464,47 @@ Object.assign(HOST.xr, (function () {
     if (!f || !live()) return;
     const now = performance.now();
     SH.clean = SH.mats.size === 0;   // (the frame just drawn had no hole: what a picture of the eye buffer needs, sharpPause)
-    let sp = null;
-    if (!none && SH.v !== 'off' && now >= SH.pause && HOST.cur && typeof HOST.cur.panels === 'function') { try { sp = HOST.cur.panels(); } catch (e) { sp = null; } }
+    // (the panels and the menu as they are drawn now, whatever the value: one not drawn at all goes out of sight at once,
+    // one drawn as ever again a frame later; none while the next story builds)
+    let sp = null, mn = null;
+    const want0 = SH.v !== 'off' && now >= SH.pause;
+    if (!none && HOST.cur && typeof HOST.cur.panels === 'function') { try { sp = HOST.cur.panels(); } catch (e) { sp = null; } }
+    if (!none && HOST.collab && typeof HOST.collab.sharpMenu === 'function') { try { mn = HOST.collab.sharpMenu(); } catch (e) { mn = null; } }   // (the shell's menu, v177)
     const space = HOST.xr.poseSpace ? HOST.xr.poseSpace() : null, front = SH.v === 'front', want = new Map();
     // (writes further apart while they are slow: 100 ms, or 20 times a write's mean time)
     const gap = Math.max(GAP, SH.ms * 20);
     let n = 0;
     for (const L of SH.L) {
-      const P = sp && sp[L.which], m = P && P.mesh && P.mesh.material;
-      const on = !!(space && m && P.cv && P.cv.width === L.w && P.cv.height === L.h && (L.order === 'front') === front && (L.fail < 90 || now >= L.retry) && m.visible !== false && shown(P.mesh));
+      const P = L.which === 'menu' ? mn : sp && sp[L.which], m = P && P.mesh && P.mesh.material;
+      const drawn = !!(m && P.cv && m.visible !== false && shown(P.mesh));
+      const on = drawn && want0 && !!space && P.cv.width === L.w && P.cv.height === L.h && (L.order === 'front') === front && (L.fail < 90 || now >= L.retry);
       if (!on) {
-        // (out of sight a frame after its panel went back to the eye buffer: the hole and the layer go together)
-        if (L.on) L.on = false; else if (!L.out) away(L);
+        // (not drawn at all, a panel hidden or the menu closed: out of sight at once; drawn as ever again from the next
+        // frame: out of sight a frame later, so the hole and the layer go together)
+        if (!drawn) { if (!L.out) away(L); L.on = false; } else if (L.on) L.on = false; else if (!L.out) away(L);
         continue;
       }
       if (L.P !== P) { L.P = P; L.nd = -1; L.has = false; }
       L.on = true; L.out = false;
       const ly = L.layer, g = (P.mesh.geometry && P.mesh.geometry.parameters) || {}, k = SH.full ? 1 : 0.5;
       P.mesh.matrixWorld.decompose(_p, _q, _s);
+      // (a mesh that shows only its canvas's top rows, crop of it, as the menu does: the layer holds the whole canvas, so
+      // its quad is the whole canvas's, its top edge where the mesh's is; the rows below are clear in the canvas)
+      const crop = P.f > 0 && P.f < 1 ? P.f : 1, sh = Math.abs((g.height || 1) * _s.y), gh = sh / crop;
+      if (crop < 1) _p.addScaledVector(_u.set(0, 1, 0).applyQuaternion(_q), sh / 2 - gh / 2);
       try {
         if (ly.space !== space) ly.space = space;
         ly.transform = new XRRigidTransform({ x: _p.x, y: _p.y, z: _p.z }, { x: _q.x, y: _q.y, z: _q.z, w: _q.w });
         ly.width = Math.max(0.001, Math.abs((g.width || 1) * _s.x) * k);
-        ly.height = Math.max(0.001, Math.abs((g.height || 1) * _s.y) * k);
+        ly.height = Math.max(0.001, gh * k);
         if ('quality' in ly) { const qv = SH.v === 'text' ? 'text-optimized' : 'default'; if (ly.quality !== qv) ly.quality = qv; }
       } catch (e) { fail(L, 'place', e); continue; }
-      const nd = P.nd || 0, redraw = !!ly.needsRedraw;
-      if (!L.has || redraw || (L.nd !== nd && now - L.at >= gap)) write(L, P, f, nd, now);
+      // (written when it has nothing, when the compositor asks, at once when the menu was drawn again whole (its texture's
+      // version: a tab, a page), else when its canvas changed and the gap has passed: 50 ms for the menu's patches, its
+      // buttons' light as you point, 100 ms for the panels; longer while writes are slow)
+      const nd = P.nd || 0, redraw = !!ly.needsRedraw, whole = P.nv !== undefined && P.nv !== L.nv;
+      const g2 = L.which === 'menu' ? Math.max(50, SH.ms * 10) : gap;
+      if (!L.has || redraw || whole || (L.nd !== nd && now - L.at >= g2)) write(L, P, f, nd, now);
       if (L.has) { want.set(m, L.order === 'front' ? 'none' : 'hole'); n++; }   // (the hole only once the layer has the panel)
     }
     for (const m of [...SH.mats]) if (!want.has(m)) blend(m, null);
@@ -2508,7 +2528,7 @@ Object.assign(HOST.xr, (function () {
       gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
       const vp = sub.viewport || { x: 0, y: 0 };
       gl.texSubImage2D(gl.TEXTURE_2D, 0, vp.x || 0, vp.y || 0, gl.RGBA, gl.UNSIGNED_BYTE, P.cv);
-      L.nd = nd; L.has = true; L.at = now; L.fail = 0;
+      L.nd = nd; L.nv = P.nv; L.has = true; L.at = now; L.fail = 0;
     } catch (e) { fail(L, 'write', e); } finally {
       gl.bindTexture(gl.TEXTURE_2D, was[0]); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, was[1]); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, was[2]);
       gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, was[3]); gl.pixelStorei(gl.UNPACK_ALIGNMENT, was[4]);
@@ -2518,7 +2538,7 @@ Object.assign(HOST.xr, (function () {
     if (now - SH.at > 2000) { SH.ms = SH.cnt ? SH.sum / SH.cnt : 0; SH.sum = SH.cnt = 0; SH.at = now; }
   }
   return {
-    // the value (sharps(): the four, in the Debug tab's order); sharpState() what this session has ({ v, can, live,
+    // the value (sharps(): the four, in the order of the Settings tab's row); sharpState() what this session has ({ v, can, live,
     // layers, order: 'behind' or 'front' (the session's layers), dropped: why the VR ladder dropped the layers, or '',
     // next: the value needs the next session, shown, err, ms: a write's mean time, size }); sharpAsk, sharpPrep and
     // sharpStep for request and the frames

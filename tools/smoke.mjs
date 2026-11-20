@@ -14456,6 +14456,7 @@ function SHARP_FAKE() {
     const s = HOST.session, raw = s ? Object.getOwnPropertyDescriptor(P, 'renderState').get.call(s) : null, sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null;
     return { st: HOST.xr.sharpState(), urs: S.urs.slice(), feats: window.__fp.inits.map(i => i.init.optionalFeatures), key: HOST.curKey, subs: S.subs,
       raw: raw && raw.layers ? raw.layers.length : 0, rawBase: !!(raw && raw.baseLayer), glAt: raw && raw.layers ? raw.layers.findIndex(x => !S.layers.includes(x)) : -1,
+      order: raw && raw.layers ? raw.layers.map(x => (S.layers.includes(x) ? x.init.h : 'gl')).join() : '',
       shimGl: !!(s && raw && raw.layers && s.renderState.baseLayer === raw.layers.find(x => !S.layers.includes(x))),
       layers: S.layers.map(L => ({ init: L.init, p: L.transform ? [L.transform.position.x, L.transform.position.y, L.transform.position.z] : null, w: L.width, q: L.quality })),
       mesh: sp ? sp.main.mesh.getWorldPosition(new THREE.Vector3()).toArray() : null, meshW: sp ? sp.main.mesh.geometry.parameters.width * sp.main.mesh.getWorldScale(new THREE.Vector3()).x : 0,
@@ -14469,8 +14470,9 @@ function SHARP_FAKE() {
     return px;
   };
   S.layerDiff = i => {
-    const L = S.layers[i], sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null, P = sp && sp[L.init.h === 1200 ? 'main' : 'foot'], w = L.init.w, h = L.init.h;
-    if (!P) return { mean: NaN, why: 'no panels from ' + HOST.curKey };
+    const L = S.layers[i], sp = HOST.cur && HOST.cur.panels ? HOST.cur.panels() : null, w = L.init.w, h = L.init.h;
+    const P = h === 1920 ? HOST.collab.sharpMenu && HOST.collab.sharpMenu() : sp && sp[h === 1200 ? 'main' : 'foot'];   // (1920: the menu, v177)
+    if (!P) return { mean: NaN, why: 'no panel or menu from ' + HOST.curKey };
     const px = read(HOST.renderer.getContext(), null, L.tex, w, h), im = P.cv.getContext('2d').getImageData(0, 0, w, h).data;
     let d = 0, n = 0, inked = 0;
     for (let y = 0; y < h; y += 7) for (let x = 0; x < w; x += 5) {
@@ -14536,14 +14538,14 @@ if (runs('sharp text')) {
     await end();
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: layer asks for layers; two quad layers (RGBA8, the panels\' sizes) go in behind three.js\'s with its first updateRenderState; renderState.baseLayer still answers', async () => {
+  await step('sharp text: layer asks for layers; three quad layers (RGBA8, the panels\' and the menu\'s sizes) go in behind three.js\'s with its first updateRenderState; renderState.baseLayer still answers', async () => {
     const bad = [];
     await open('airports&sharp=layer');
     await start();
     const r = await state();
     if (!r.feats[0].includes('layers')) bad.push('no layers asked for: ' + r.feats[0]);
-    if (r.urs[0] !== 'layers' || r.raw !== 3 || r.glAt !== 2 || r.rawBase || !r.shimGl) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.glAt, r.rawBase, r.shimGl]));
-    if (r.layers.length !== 2 || r.layers.some(L => L.init.fmt !== 'RGBA8' || L.init.layout !== 'mono' || L.init.w !== 1024) || r.layers.map(L => L.init.h).join() !== '1200,176') bad.push('the layers made: ' + JSON.stringify(r.layers.map(L => L.init)));
+    if (r.urs[0] !== 'layers' || r.raw !== 4 || r.order !== '1200,176,1920,gl' || r.rawBase || !r.shimGl) bad.push('the session\'s layers (main, foot, the menu, then three.js\'s): ' + JSON.stringify([r.urs, r.raw, r.order, r.rawBase, r.shimGl]));
+    if (r.layers.length !== 3 || r.layers.some(L => L.init.fmt !== 'RGBA8' || L.init.layout !== 'mono') || r.layers.map(L => L.init.w + 'x' + L.init.h).join() !== '1024x1200,1024x176,720x1920') bad.push('the layers made: ' + JSON.stringify(r.layers.map(L => L.init)));
     if (!r.st.live || r.st.shown !== 2 || r.st.order !== 'behind') bad.push('not shown: ' + JSON.stringify(r.st));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
@@ -14557,7 +14559,28 @@ if (runs('sharp text')) {
     if (r2.subs - r.subs > 22) bad.push('written ' + (r2.subs - r.subs) + ' times in a second (at most 10 each)');
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: live values: text (text-optimized), off (as ever, out of sight); in front waits for the next session (the panels as ever meanwhile); the Debug tab\'s row and line', async () => {
+  await step('sharp text: the menu as a layer (v177): after the panels\' in the list, its top edge at the menu\'s, the whole canvas (the rows below what it shows clear), the eye buffer erased there; closed, out of sight at once', async () => {
+    const bad = [];
+    await fp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); });
+    let r = await until(() => HOST.xr.sharpState().shown === 3 && HOST.collab.sharpMenu() && HOST.collab.sharpMenu().mesh.material.blendDst === 205, 30000);
+    if (r.st.shown !== 3) bad.push('the menu not shown as a layer: ' + JSON.stringify(r.st));
+    const g = await fp.evaluate(() => {
+      const M = HOST.collab.sharpMenu(), L = window.__sh.layers[2], mesh = M.mesh, par = mesh.geometry.parameters;
+      const top = mesh.localToWorld(new THREE.Vector3(0, par.height / 2, 0)), wide = mesh.localToWorld(new THREE.Vector3(par.width / 2, 0, 0)).distanceTo(mesh.localToWorld(new THREE.Vector3(-par.width / 2, 0, 0)));
+      const q = new THREE.Quaternion(L.transform.orientation.x, L.transform.orientation.y, L.transform.orientation.z, L.transform.orientation.w);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q), c = new THREE.Vector3(L.transform.position.x, L.transform.position.y, L.transform.position.z);
+      const ltop = c.clone().addScaledVector(up, L.height);   // (half extents: the quad reaches its height up from its centre)
+      return { d: ltop.distanceTo(top), w: L.width * 2, wide, h: L.height * 2, f: M.f, full: wide * 1920 / 720, dst: mesh.material.blendDst };
+    });
+    if (!(g.d < 0.01) || Math.abs(g.w - g.wide) > 0.003 || Math.abs(g.h - g.full) > 0.005 || !(g.f > 0 && g.f < 1)) bad.push('the menu\'s layer placed: ' + JSON.stringify(g));
+    const d = await fp.evaluate(() => window.__sh.layerDiff(2));
+    if (!(d.mean <= 2) || d.inked < 1000) bad.push('the menu\'s layer content: ' + JSON.stringify(d));
+    await fp.evaluate(() => HOST.collab.panelOpen(false));
+    r = await until(() => HOST.xr.sharpState().shown === 2 && window.__sh.layers[2].transform.position.y === -1000, 30000);
+    if (r.st.shown !== 2 || !out(r.layers[2])) bad.push('the menu\'s layer after closing: ' + JSON.stringify([r.st, r.layers[2]]));
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: live values: text (text-optimized), off (as ever, out of sight); in front waits for the next session (the panels as ever meanwhile); the Settings tab\'s row and line', async () => {
     const bad = [];
     const holeL = await fp.evaluate(() => window.__sh.holes());
     await fp.evaluate(() => HOST.xr.setSharp('text'));
@@ -14571,8 +14594,10 @@ if (runs('sharp text')) {
     await fp.evaluate(() => HOST.xr.setSharp('front'));
     r = await until(() => HOST.xr.sharpState().next === true);
     if (!r.st.next || r.st.shown || !r.layers.every(out) || r.blend.some(b => b[0] !== 1)) bad.push('front in a session with layers behind: ' + JSON.stringify([r.st, r.blend]));
-    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('debug'); await window.__fp.runUntil(null, 200); const r = HOST.collab.menuFind('sharp'), l = r && r.label; if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 200); const r2 = HOST.collab.menuFind('sharp'), l2 = r2 && r2.label; if (r2 && r2.fn) r2.fn(); await window.__fp.runUntil(null, 200); HOST.collab.panelOpen(false); await window.__fp.runUntil(null, 100); return [l, l2, HOST.xr.sharp()]; });
-    if (m.join() !== 'Sharp text: in front,Sharp text: off,layer') bad.push('the Debug tab\'s row (front, off, then layer): ' + m);
+    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('settings'); await window.__fp.runUntil(null, 200); const r = HOST.collab.menuFind('sharp'), l = r && r.label; if (r && r.fn) r.fn(); await window.__fp.runUntil(null, 200); const r2 = HOST.collab.menuFind('sharp'), l2 = r2 && r2.label; if (r2 && r2.fn) r2.fn(); await window.__fp.runUntil(null, 200); const vis = HOST.collab.menuVis(); HOST.collab.panelOpen(false); await window.__fp.runUntil(null, 100); return [l, l2, HOST.xr.sharp(), vis]; });
+    if (!(m[3] < 1900)) bad.push('the Settings tab with its Sharp text row is ' + m[3] + ' px tall (the canvas 1920)');
+    m.length = 3;
+    if (m.join() !== 'Sharp text: in front,Sharp text: off,layer') bad.push('the Settings tab\'s row (front, off, then layer): ' + m);
     r = await until(() => HOST.xr.sharpState().shown === 2 && HOST.cur.panels().main.mesh.material.blendDst === 205);
     if (r.st.shown !== 2 || r.st.next) bad.push('layer again: ' + JSON.stringify(r.st));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
@@ -14598,12 +14623,12 @@ if (runs('sharp text')) {
     if ((await state()).st.live) bad.push('live after the session ended');
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: #sharp=front: two layers in front of three.js\'s, the panels drawn into nothing (no hole); layer then waits for the next session', async () => {
+  await step('sharp text: #sharp=front: the panels\' two layers in front of three.js\'s (the menu stays as ever there), the panels drawn into nothing (no hole); layer then waits for the next session', async () => {
     const bad = [];
     await open('airports&sharp=front');
     await start();
     let r = await state();
-    if (r.urs[0] !== 'layers' || r.raw !== 3 || r.glAt !== 0 || !r.shimGl || r.layers.length !== 2) bad.push('the session\'s layers: ' + JSON.stringify([r.urs, r.raw, r.glAt, r.shimGl, r.layers.length]));
+    if (r.urs[0] !== 'layers' || r.raw !== 3 || r.order !== 'gl,1200,176' || !r.shimGl || r.layers.length !== 2) bad.push('the session\'s layers (three.js\'s, main, foot; no menu in front): ' + JSON.stringify([r.urs, r.raw, r.order, r.shimGl, r.layers.length]));
     if (r.st.order !== 'front' || r.st.shown !== 2 || r.blend.some(b => b[0] !== 5 || b[2] !== 201)) bad.push('in front: ' + JSON.stringify([r.st, r.blend]));
     if (!near(r.layers[0].p, r.mesh)) bad.push('placed: ' + JSON.stringify([r.layers[0].p, r.mesh]));
     r = await until(() => true);
@@ -14641,13 +14666,13 @@ if (runs('sharp text')) {
     await end();
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: a VR session that asked for layers and closed by itself makes the next ask without them first (the ladder keeps its list); the Debug row asks for them again', async () => {
+  await step('sharp text: a VR session that asked for layers and closed by itself makes the next ask without them first (the ladder keeps its list); the Settings row asks for them again', async () => {
     const bad = [];
     await fp.evaluate(() => localStorage.setItem('xrSteps', JSON.stringify({ ua: navigator.userAgent, vr: 0, open: 1, note: '', lay: 1, noLayers: 0 })));
     await open('airports');
     let d = await fp.evaluate(() => ({ f: HOST.xr.features('immersive-vr').join(), dropped: HOST.xr.sharpState().dropped, line: HOST.xr.line() }));
     if (d.f !== 'local-floor,hand-tracking,anchors' || !/went down with its page/.test(d.dropped) || !/less than at first/.test(d.line)) bad.push('dropped: ' + JSON.stringify(d));
-    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('debug'); await new Promise(r => setTimeout(r, 300)); const r = HOST.collab.menuFind('sharp'); if (r && r.fn) r.fn(); HOST.collab.panelOpen(false); return [HOST.xr.sharp(), HOST.xr.features('immersive-vr').join(), HOST.xr.sharpState().dropped]; });
+    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('settings'); await new Promise(r => setTimeout(r, 300)); const r = HOST.collab.menuFind('sharp'); if (r && r.fn) r.fn(); HOST.collab.panelOpen(false); return [HOST.xr.sharp(), HOST.xr.features('immersive-vr').join(), HOST.xr.sharpState().dropped]; });
     if (m.join('|') !== 'layer|local-floor,hand-tracking,anchors,layers|') bad.push('asked again: ' + JSON.stringify(m));
     // a session the page ends itself after its first 1.5 s is not one that closed by itself (v176): nothing dropped
     await start();
@@ -14656,7 +14681,7 @@ if (runs('sharp text')) {
     await fp.evaluate(() => localStorage.removeItem('xrSteps'));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: AR asks for layers with depth sensing (text-optimized); a browser whose binding refuses quad layers gets three.js\'s own layer, the reason on the Debug tab', async () => {
+  await step('sharp text: AR asks for layers with depth sensing (text-optimized); a browser whose binding refuses quad layers gets three.js\'s own layer, the reason on the Settings tab', async () => {
     const bad = [];
     await open('airports&sharp=text');
     await start('immersive-ar');

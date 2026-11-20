@@ -78,6 +78,9 @@ file, the detail file says what is current.
   follows the spec would show a quarter-size panel in a dark one); layers are the first thing the VR ladder drops; a
   failing layer puts its panel back and is retried; the notebook's pictures pause the layers for a moment. Left as it is:
   in AR a real hand in front of a panel behind the scene does not hide it (no fix with layers; the owner to decide).
+- v177; the owner: "no sharp text is also important in ar, it is ok that it does not hide in that case, also make the
+  menu use the sharp text feature". Kept on in AR; the headset menu became a third layer, behind the scene only (in
+  front, the fallback, it would cover the Story tab's mirrors, the notices and the rays that point at it).
 
 ### Spaceships
 - v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then health, a is boost but that only lasts briefly"; steering "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice targets alone "yes totally, maybe some ships that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop against them, also add some addons like additional boost and faster shooting for some times and reinforced shields pickups that spawn from time to time".

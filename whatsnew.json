@@ -1,24 +1,22 @@
 {
-  "version": "networks-v176",
+  "version": "networks-v177",
   "date": "2026-11-20",
   "new": [
-    "Sharp text is on by default in Quest Browser. The story's text panel and play bar are drawn by the headset itself, at the display's resolution.",
-    "The default is layer, the cheapest. It sits behind the scene, so rays, labels and the menu still show over the panel.",
-    "The Debug tab also offers for text (the headset's text filter, more work every frame), in front (covers rays and menu) and off. In front starts with the next session.",
-    "Other browsers start with it off. If VR ever closes by itself with Sharp text on, the next session starts without it; the Debug tab says so.",
-    "Notebook pictures in a headset show the story panel: Sharp text pauses for a moment while one is taken."
+    "The headset menu is sharp too: like the story panel, the headset draws it itself, at the display's resolution.",
+    "Sharp text stays on in AR. A real hand in front of the panel or the menu does not hide it.",
+    "Sharp text is on by default in Quest Browser (layer, the cheapest). Rays, labels and notices still show over the panel and the menu.",
+    "Its row moved from the Debug tab to the menu's Settings tab, under My body."
   ],
   "test": [
-    "On a Quest in VR and AR, without touching the Debug tab: the story panel should be sharp from the first session.",
-    "Point at the panel's buttons: the ray and its dot show over the panel. Open the menu in front of the panel.",
-    "Swap stories, open the Stories screen and explore mode, try Cards in 3D and on top, and move the panel with the grip.",
-    "Take a notebook note with the panel in view: the picture should show the panel.",
-    "Watch the frame rate with Sharp text on and off (the Debug tab's line shows how long a write takes)."
+    "Open the menu on a Quest in VR and AR: its text should be as sharp as the story panel's. Try every tab.",
+    "Point at the menu's buttons: the ray, its dot and the button's light show. Carry the menu with the grip and let it float.",
+    "The Story tab: the story's panels shown on the menu are drawn as before (not sharp), over the sharp menu.",
+    "Switch Sharp text to off on the menu's Settings tab and back: the menu should look as before, then sharp again.",
+    "Watch the frame rate with the menu open, with Sharp text on and off."
   ],
   "untested": [
-    "Other headsets and browsers (a Pico, Wolvic): off there; turned on, the panel's size is unchecked.",
-    "The fallbacks (VR closing by itself, a failing layer, the notebook's pause): tried only with a pretend headset.",
-    "The cost of Sharp text on a Quest at 90 Hz.",
-    "In AR, a real hand in front of the panel does not hide it."
+    "The menu as a layer on a real headset: its place, its size, and how often it is written while you point at it.",
+    "The cost on a Quest at 90 Hz of a third layer and of writing the menu (5.5 MB each time it changes, up to twenty times a second while you point at it).",
+    "Other headsets and browsers: Sharp text is off there by default."
   ]
 }
