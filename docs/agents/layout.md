@@ -160,7 +160,8 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
   syncing; `shared-spaces.md`: one room frame for several headsets), and
-  `quest-shared-space-findings.md`, a short page of what Quest did that those notes did not say.
+  `quest-shared-space-findings.md`, a short page of what Quest did that those notes did not say. `analytics-plan.md`:
+  analytics for studies, parked (its open decisions, the survey data to settle first, where the code would hook in).
 - Handover: `HANDOVER.md` (start here when taking the project over), and in
   `docs/`: `data-and-permissions.md` (where each story's data comes from and what
   may be used), `questions-for-authors.md` (open points in the sources),
