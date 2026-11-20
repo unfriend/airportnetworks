@@ -878,7 +878,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 175, id: '8e3865df25f39399', format: 'networks-55' },
+  shell: { n: 176, id: '79d4468f15eef817', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1546,16 +1546,24 @@ HOST.audio = (function () {
 // robot gang, the shared space); VR only for what VR uses: a Quest 3 left VR for its home at once with the full list
 // (October 2026; AR fine there, VR fine on a Pico). A VR session that closes by itself within 10 s, or whose page goes
 // with it, makes the next one ask for less (kept as `xrSteps` in localStorage; back to the start in another browser
-// version); Sound check shows what VR asks for.
+// version); a session the page ends itself after its first 1.5 s is not counted (v176). Sound check shows what VR asks for. Sharp text's
+// 'layers' (v175) is the first thing dropped: a VR session that
+// asked for it and closed by itself makes the next one ask without it (noLayers), before the list gets shorter; Sharp
+// text set again on the Debug tab tries it again.
 HOST.xr = (function () {
   const AR = ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'];
   const VR = [['local-floor', 'hand-tracking', 'anchors'], ['local-floor', 'hand-tracking'], ['local-floor'], []];
   const KEY = 'xrSteps', ua = navigator.userAgent, SOON = 10000;
-  const fresh = () => ({ ua, vr: 0, open: 0, note: '' });
+  const fresh = () => ({ ua, vr: 0, open: 0, note: '', lay: 0, noLayers: 0 });
   let X = fresh(), asked = '', cur = null;
   try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && v.ua === ua) X = Object.assign(fresh(), v); } catch (e) { /* none */ }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(X)); } catch (e) { /* private window */ } };
-  const down = why => { if (X.vr < VR.length - 1) X.vr++; X.note = why; X.open = 0; save(); console.warn('VR asks for less next time:', why, VR[X.vr]); };
+  const down = why => {
+    if (X.lay && !X.noLayers) { X.noLayers = 1; X.lay = 0; X.note = why + '; no layers next time'; X.open = 0; save(); console.warn('VR asks for no layers next time:', why); return; }
+    if (X.vr < VR.length - 1) X.vr++; X.note = why; X.open = 0; save(); console.warn('VR asks for less next time:', why, VR[X.vr]);
+  };
+  // what a session of this mode asks for: the ladder's (VR) or AR's list, and 'layers' while Sharp text wants them
+  const wanted = mode => { const f = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); if (!X.noLayers && HOST.xr.sharpAsk && HOST.xr.sharpAsk()) f.push('layers'); return f; };
   // a VR session still young when its page last went without a pagehide: the tab went down with it
   if (X.open) down('the last VR session went down with its page');
   addEventListener('pagehide', () => { if (X.open) { X.open = 0; save(); } });
@@ -1566,12 +1574,21 @@ HOST.xr = (function () {
     const mode = asked; asked = '';
     if (mode !== 'immersive-vr') return;
     const t0 = performance.now();
-    X.open = 1; save();
+    let lay = false;
+    try { lay = Array.from(s.enabledFeatures || []).includes('layers'); } catch (e) { /* none */ }
+    X.open = 1; X.lay = lay ? 1 : 0; save();   // (the layers this VR session was granted: the ladder drops them first)
     const ok = setTimeout(() => { if (X.open) { X.open = 0; save(); } }, SOON);
+    // (v176: a session the page ends itself after its first 1.5 s, an exit button or a story's own end, is not one that
+    // closed by itself: only the others step the ladder down, so leaving VR within 10 s on purpose drops nothing; a story
+    // that could not start the headset view ends it at once, and that still counts)
+    let mine = false;
+    const end0 = s.end;
+    if (typeof end0 === 'function') s.end = function () { if (performance.now() - t0 > 1500) mine = true; return end0.apply(s, arguments); };
     s.addEventListener('end', () => {
       clearTimeout(ok);
       const t = performance.now() - t0;
-      if (X.open && t < SOON) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
+      if (X.open && t < SOON && !mine) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
+      else if (X.open) { X.open = 0; save(); }
     });
   }
   // Four settings for every story in the headset (the menu's Labels, Cards, Moving and Subtitles rows). Labels, the small
@@ -1950,8 +1967,7 @@ HOST.xr = (function () {
     return s;
   }
   async function ask(mode, extra) {
-    const base = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice();
-    if (HOST.xr.sharpAsk && HOST.xr.sharpAsk()) base.push('layers');
+    const base = wanted(mode);
     let feats = base.concat((extra && extra.features) || []), more = (extra && extra.init) || {};
     asked = mode;
     if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
@@ -1979,9 +1995,12 @@ HOST.xr = (function () {
     return navigator.xr.requestSession(mode, Object.assign({ optionalFeatures: feats }, more || {}));
   }
   return {
-    features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
+    features(mode) { asked = mode; return wanted(mode); },
     request, watch,
-    line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
+    line: () => 'VR asks for: ' + (wanted('immersive-vr').join(', ') || 'nothing extra') + (X.vr || X.noLayers ? ' (less than at first: ' + X.note + ')' : ''),
+    // Sharp text's layers dropped after a VR session that closed by itself (the why), and tried again (setSharp)
+    layersDropped: () => (X.noLayers ? X.note : ''),
+    layersAgain() { if (X.noLayers) { X.noLayers = 0; save(); } },
     labels: () => look().labels,
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
     cards: () => look().cards,
@@ -2302,7 +2321,9 @@ Object.assign(HOST.xr, (function () {
 // 1024 x 176 in every story) shown as WebXR quad layers. A layer is the headset compositor's own: it samples the panel's
 // canvas once, at the display's resolution, as it warps the picture for the lenses. A panel in the scene is drawn into
 // the eye buffer first (at its resolution, its scale and fixed foveation) and that picture is warped again.
-// This headset's own (xrSharp2, a new key in v175 so every device starts once on the new default; #sharp=...):
+// This headset's own (xrSharp2, a new key in v175 so every device starts once on the new default; #sharp=...). On by
+// default only in Quest Browser, where it was tried (v176: its half extents are its own, so a browser that follows the
+// spec would show the text in the middle quarter of a dark panel); elsewhere off until set, then with full extents:
 //  - 'layer' (the default, the cheapest): behind the scene. The panel's own material erases the eye buffer where it is,
 //    by the canvas's alpha (a hole), so what stands in front of it (Cards: in 3D) or is drawn over it (on top: the menu,
 //    the rays and their dots) still covers it
@@ -2325,12 +2346,15 @@ Object.assign(HOST.xr, (function () {
 // in v174 (sharper in every value); the rest is in docs/agents/shell.md, "Sharp text".
 Object.assign(HOST.xr, (function () {
   const MODES = ['off', 'layer', 'text', 'front'], GAP = 100;
-  const SH = { v: 'layer', full: false, s: null, space: null, binding: null, gl: null, L: [], order: '', mats: new Set(), rs: new WeakMap(), err: '', n: 0, ms: 0, sum: 0, cnt: 0, at: 0 };
+  // (Quest Browser: on by default and half extents; any other browser: off until set, and the spec's full extents)
+  const QUEST = /OculusBrowser/, def = ua => (QUEST.test(ua || '') ? 'layer' : 'off');
+  const SH = { v: def(navigator.userAgent), full: !QUEST.test(navigator.userAgent), s: null, space: null, binding: null, gl: null, L: [], order: '', mats: new Set(), rs: new WeakMap(), err: '',
+    n: 0, ms: 0, sum: 0, cnt: 0, at: 0, pause: 0, clean: true };
   const orderOf = v => (v === 'front' ? 'front' : 'behind');
   try {
-    const v = localStorage.getItem('xrSharp2');
+    const v = localStorage.getItem('xrSharp2'), z = localStorage.getItem('xrSharpSize');
     if (MODES.includes(v)) SH.v = v;
-    SH.full = localStorage.getItem('xrSharpSize') === 'full';
+    if (z === 'full' || z === 'half') SH.full = z === 'full';
   } catch (e) { /* storage blocked */ }
   const can = () => typeof XRWebGLBinding === 'function' && typeof XRRigidTransform === 'function' && typeof XRWebGLBinding.prototype.createQuadLayer === 'function';
   const msg = e => String((e && e.message) || e).slice(0, 80);
@@ -2347,6 +2371,8 @@ Object.assign(HOST.xr, (function () {
     SH.s = s;
     const orig = s.updateRenderState;
     s.updateRenderState = function (st) {
+      // (a later { baseLayer }, as a second setSession would make, replaces the list: the layers are gone, the holes too)
+      if (SH.s === s && SH.gl && st && st.baseLayer && st.baseLayer !== SH.gl) { drop('a new base layer'); return orig.call(s, st); }
       if (SH.s === s && !SH.gl && st && st.baseLayer && !st.layers) {
         const list = make(s, st.baseLayer);
         if (list) {
@@ -2371,7 +2397,7 @@ Object.assign(HOST.xr, (function () {
       const one = (which, order, w, h) => {
         const init = { space: SH.space, viewPixelWidth: w, viewPixelHeight: h, layout: 'mono' };
         if (typeof gl.RGBA8 === 'number') init.colorFormat = gl.RGBA8;
-        return { which, order, w, h, layer: b.createQuadLayer(init), P: null, on: false, out: false, has: false, nd: -1, at: 0, fail: 0 };
+        return { which, order, w, h, layer: b.createQuadLayer(init), P: null, on: false, out: false, has: false, nd: -1, at: 0, fail: 0, retry: 0 };
       };
       const order = orderOf(SH.v), L = [one('main', order, 1024, 1200), one('foot', order, 1024, 176)];
       for (const x of L) away(x);
@@ -2411,8 +2437,17 @@ Object.assign(HOST.xr, (function () {
     for (const m of [...SH.mats]) blend(m, null);
     SH.s = SH.gl = SH.binding = SH.space = null; SH.L = []; SH.n = 0; SH.order = '';
   }
+  // the session's layers no longer usable (still its session): the panels drawn as ever, nothing more tried
+  function drop(why) {
+    for (const m of [...SH.mats]) blend(m, null);
+    SH.s = SH.gl = SH.binding = null; SH.L = []; SH.n = 0; SH.order = ''; SH.err = why; log('sharp text', { err: why });
+  }
+  // a layer that could not be placed or written: its panel back in the eye buffer at once (no hole without the layer);
+  // after 90 failures in a row (getSubImage throws until the layers took effect; a system menu may hold it longer)
+  // tried again every 2 s, not given up for the session
   function fail(L, what, e) {
-    L.fail++;
+    L.fail++; L.has = false;
+    if (L.fail >= 90) L.retry = performance.now() + 2000;
     if (L.fail === 90) { SH.err = what + ': ' + msg(e); log('sharp text', { err: SH.err, which: L.which, order: L.order }); }
   }
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
@@ -2421,13 +2456,17 @@ Object.assign(HOST.xr, (function () {
   // each frame after the story's (none: nothing on show, as while the next story builds)
   function step(f, none) {
     if (!f || !live()) return;
+    const now = performance.now();
+    SH.clean = SH.mats.size === 0;   // (the frame just drawn had no hole: what a picture of the eye buffer needs, sharpPause)
     let sp = null;
-    if (!none && SH.v !== 'off' && HOST.cur && typeof HOST.cur.panels === 'function') { try { sp = HOST.cur.panels(); } catch (e) { sp = null; } }
-    const space = HOST.xr.poseSpace ? HOST.xr.poseSpace() : null, front = SH.v === 'front', want = new Map(), now = performance.now();
+    if (!none && SH.v !== 'off' && now >= SH.pause && HOST.cur && typeof HOST.cur.panels === 'function') { try { sp = HOST.cur.panels(); } catch (e) { sp = null; } }
+    const space = HOST.xr.poseSpace ? HOST.xr.poseSpace() : null, front = SH.v === 'front', want = new Map();
+    // (writes further apart while they are slow: 100 ms, or 20 times a write's mean time)
+    const gap = Math.max(GAP, SH.ms * 20);
     let n = 0;
     for (const L of SH.L) {
       const P = sp && sp[L.which], m = P && P.mesh && P.mesh.material;
-      const on = !!(space && m && P.cv && P.cv.width === L.w && P.cv.height === L.h && (L.order === 'front') === front && L.fail < 90 && m.visible !== false && shown(P.mesh));
+      const on = !!(space && m && P.cv && P.cv.width === L.w && P.cv.height === L.h && (L.order === 'front') === front && (L.fail < 90 || now >= L.retry) && m.visible !== false && shown(P.mesh));
       if (!on) {
         // (out of sight a frame after its panel went back to the eye buffer: the hole and the layer go together)
         if (L.on) L.on = false; else if (!L.out) away(L);
@@ -2445,7 +2484,7 @@ Object.assign(HOST.xr, (function () {
         if ('quality' in ly) { const qv = SH.v === 'text' ? 'text-optimized' : 'default'; if (ly.quality !== qv) ly.quality = qv; }
       } catch (e) { fail(L, 'place', e); continue; }
       const nd = P.nd || 0, redraw = !!ly.needsRedraw;
-      if (!L.has || redraw || (L.nd !== nd && now - L.at >= GAP)) write(L, P, f, nd, now);
+      if (!L.has || redraw || (L.nd !== nd && now - L.at >= gap)) write(L, P, f, nd, now);
       if (L.has) { want.set(m, L.order === 'front' ? 'none' : 'hole'); n++; }   // (the hole only once the layer has the panel)
     }
     for (const m of [...SH.mats]) if (!want.has(m)) blend(m, null);
@@ -2480,21 +2519,28 @@ Object.assign(HOST.xr, (function () {
   }
   return {
     // the value (sharps(): the four, in the Debug tab's order); sharpState() what this session has ({ v, can, live,
-    // layers, order: 'behind' or 'front' (the session's layers), next: the value needs the next session, shown, err, ms:
-    // a write's mean time, size }); sharpAsk, sharpPrep and sharpStep for request and the frames
+    // layers, order: 'behind' or 'front' (the session's layers), dropped: why the VR ladder dropped the layers, or '',
+    // next: the value needs the next session, shown, err, ms: a write's mean time, size }); sharpAsk, sharpPrep and
+    // sharpStep for request and the frames
     sharp: () => SH.v,
     sharps: () => MODES.slice(),
     setSharp(v) {
       if (!MODES.includes(v) || v === SH.v) return;
       SH.v = v;
       try { localStorage.setItem('xrSharp2', v); } catch (e) { /* storage blocked */ }
+      if (v !== 'off' && HOST.xr.layersAgain) HOST.xr.layersAgain();   // (set by hand: the layers asked for again, after the VR ladder dropped them)
       if (HOST.session) log('sharp text', { v, live: live() });
     },
     setSharpSize(v) { SH.full = v === 'full'; try { localStorage.setItem('xrSharpSize', SH.full ? 'full' : 'half'); } catch (e) { /* storage blocked */ } },
+    // the default for a browser (its user agent): 'layer' in Quest Browser, else 'off'
+    sharpDefault: ua => def(ua),
     sharpAsk: () => SH.v !== 'off' && can(),
+    // the panels drawn as ever in the eye buffer for a moment (the developer notebook's pictures read it back): true once
+    // the frame just drawn had no hole, so the picture can be taken now; asked again each frame while it waits
+    sharpPause() { SH.pause = performance.now() + 600; return !live() || SH.clean; },
     sharpPrep: prep,
     sharpStep: step,
-    sharpState: () => ({ v: SH.v, can: can(), live: live(), layers: live() ? SH.L.length : 0, order: live() ? SH.order : '',
+    sharpState: () => ({ v: SH.v, can: can(), live: live(), layers: live() ? SH.L.length : 0, order: live() ? SH.order : '', dropped: HOST.xr.layersDropped ? HOST.xr.layersDropped() : '',
       next: live() && SH.v !== 'off' && orderOf(SH.v) !== SH.order, shown: live() ? SH.n : 0, err: SH.err, ms: Math.round(SH.ms * 10) / 10, size: SH.full ? 'full' : 'half' }),
   };
 })());

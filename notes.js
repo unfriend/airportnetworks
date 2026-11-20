@@ -243,6 +243,9 @@ HOST.notes = (function () {
     heldCheck();
     const w = N.want;
     if (!w) return;
+    // (Sharp text, v176: the story panel is a layer, and the eye buffer has a hole where it is; the panels drawn as ever
+    // for a frame or two first, so the picture shows them)
+    if (inSession() && HOST.xr && HOST.xr.sharpPause && !HOST.xr.sharpPause()) return;
     N.want = '';
     const i = w === 'start' ? 0 : 1, end = i === 1, at = w;
     let cv = null, err = '';

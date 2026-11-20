@@ -26,7 +26,8 @@ session and every agent and workflow it starts avoid them, and every agent promp
 
 - A cloud session starts with the checkout brought up to date by `.claude/hooks/session-start.sh` (its line *Checkout
   (session-start hook): ...* comes first). If it says behind, diverged or could not fetch, merge GitHub's branch before
-  working (`git fetch origin dev && git merge origin/dev`; no rebase, no force push).
+  working, as the line says (`git fetch origin <branch> && git merge origin/<branch>`, the branch it names; no rebase,
+  no force push).
 - Read `AGENTS.md` (imported above) first: it is the core (structure, rules, conventions, testing). The details are in
   `docs/agents/`, read on demand; `docs/history.md` says why rules are as they are.
 - New features document themselves in the matching `docs/agents/` file (and the tool's `SPEC.md` where one exists).

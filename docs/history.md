@@ -74,6 +74,10 @@ file, the detail file says what is current.
   while testing start on it): the cheapest that keeps rays, dots and the menu over the panel (*in front* costs the same
   but covers them; *for text* adds the compositor's filter every frame), and a session makes only the two layers its
   value needs (v174 made four for comparing).
+- v176, after a review of the default: on by default only in Quest Browser (its half extents are its own: a browser that
+  follows the spec would show a quarter-size panel in a dark one); layers are the first thing the VR ladder drops; a
+  failing layer puts its panel back and is retried; the notebook's pictures pause the layers for a moment. Left as it is:
+  in AR a real hand in front of a panel behind the scene does not hide it (no fix with layers; the owner to decide).
 
 ### Spaceships
 - v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode we get a little spaceship that we can control with the right controllers position in space, it is automatically going forward and the grip is brakes/reverse, trigger is shooting, each ship has a shield and health, shield fills up again, health does not, both get lower when hit, first shield then health, a is boost but that only lasts briefly"; steering "like a joystick is better since otherwise one could not fully turn", "new ship after 5s", ships seen by "everyone", practice targets alone "yes totally, maybe some ships that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop against them, also add some addons like additional boost and faster shooting for some times and reinforced shields pickups that spawn from time to time".

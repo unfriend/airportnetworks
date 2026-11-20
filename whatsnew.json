@@ -1,22 +1,24 @@
 {
-  "version": "networks-v175",
+  "version": "networks-v176",
   "date": "2026-11-20",
   "new": [
-    "Sharp text is now on by default: the story's text panel and play bar are WebXR layers that the headset draws itself, at the display's resolution.",
-    "The default is layer, the cheapest: behind the scene, so rays, dots, labels and the menu still show over the panel. A session makes only the two layers it needs.",
-    "The Debug tab's Sharp text still offers for text (the headset's text filter, more work every frame), in front (covers rays and menu) and off. Layer, for text and off switch at once; in front from the next session.",
-    "Every device starts once on the new default (a new setting key), even one left on off while testing.",
-    "Cloud sessions of Claude Code now bring this repository's checkout up to date with GitHub as they start."
+    "Sharp text is on by default in Quest Browser. The story's text panel and play bar are drawn by the headset itself, at the display's resolution.",
+    "The default is layer, the cheapest. It sits behind the scene, so rays, labels and the menu still show over the panel.",
+    "The Debug tab also offers for text (the headset's text filter, more work every frame), in front (covers rays and menu) and off. In front starts with the next session.",
+    "Other browsers start with it off. If VR ever closes by itself with Sharp text on, the next session starts without it; the Debug tab says so.",
+    "Notebook pictures in a headset show the story panel: Sharp text pauses for a moment while one is taken."
   ],
   "test": [
     "On a Quest in VR and AR, without touching the Debug tab: the story panel should be sharp from the first session.",
     "Point at the panel's buttons: the ray and its dot show over the panel. Open the menu in front of the panel.",
-    "Swap stories, use the Stories screen, explore mode, Cards in 3D and on top, and move the panel with the grip.",
+    "Swap stories, open the Stories screen and explore mode, try Cards in 3D and on top, and move the panel with the grip.",
+    "Take a notebook note with the panel in view: the picture should show the panel.",
     "Watch the frame rate with Sharp text on and off (the Debug tab's line shows how long a write takes)."
   ],
   "untested": [
-    "Other headsets and browsers (a Pico, the Quest's older browsers): they may refuse the layers; the Debug tab then says why and the panel is drawn as before.",
-    "The cost of the layers and their writes on a Quest at 90 Hz, measured only here.",
+    "Other headsets and browsers (a Pico, Wolvic): off there; turned on, the panel's size is unchecked.",
+    "The fallbacks (VR closing by itself, a failing layer, the notebook's pause): tried only with a pretend headset.",
+    "The cost of Sharp text on a Quest at 90 Hz.",
     "In AR, a real hand in front of the panel does not hide it."
   ]
 }

@@ -13,7 +13,7 @@
 // --only 'phone ar': a phone's AR session, its menu button and sheet; --only trackers: the PC's trackers in the shell;
 // --only 'frame rate': the refresh rate asked for, the station cards' and the menu's uploads, foveation and resolution;
 // --only 'auto quality': the automatic quality's steps, the refresh rate as one, v145;
-// --only 'sharp text': the story's panels as WebXR quad layers (on by default since v175), on a pretend Quest with pretend layers, v174;
+// --only 'sharp text': the story's panels as WebXR quad layers (on by default in Quest Browser, v176), on a pretend Quest with pretend layers, v174;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
@@ -14419,7 +14419,7 @@ if (runs('auto quality')) {
 // refused) and an XRWebGLBinding whose quad layers are real GL textures (getSubImage throws until the layer is in the
 // session's list; window.__sh.refuse: createQuadLayer throws), so the eye buffer and each layer read back
 function SHARP_FAKE() {
-  const P = window.XRSession.prototype, S = window.__sh = { urs: [], layers: [], subs: 0, refuse: false };
+  const P = window.XRSession.prototype, S = window.__sh = { urs: [], layers: [], subs: 0, refuse: false, failSub: false };
   Object.defineProperty(P, 'renderState', { configurable: true, get() { return this._rs; }, set(v) { this._rs = Object.freeze(Object.assign({ layers: null }, v)); } });
   P.updateRenderState = function (s) {
     S.urs.push(Object.keys(s).sort().join('+'));
@@ -14445,6 +14445,7 @@ function SHARP_FAKE() {
     getSubImage(L) {
       const raw = Object.getOwnPropertyDescriptor(P, 'renderState').get.call(this.s);
       if (!raw.layers || !raw.layers.includes(L)) throw new DOMException('not in the layers yet', 'InvalidStateError');
+      if (S.failSub) throw new DOMException('pretend: no image this frame', 'InvalidStateError');
       S.subs++; L.writes++;
       return { colorTexture: L.tex, viewport: { x: 0, y: 0, width: L.init.w, height: L.init.h } };
     }
@@ -14489,7 +14490,9 @@ function SHARP_FAKE() {
 }
 if (runs('sharp text')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
-  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  // (Quest Browser's user agent: Sharp text is on by default only there, v176)
+  const QUEST_UA = 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/40.2.0.4.30 SamsungBrowser/4.0 Chrome/130.0.0.0 VR Safari/537.36';
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 }, userAgent: QUEST_UA });
   const fp = await ctx.newPage();
   fp.on('pageerror', e => errors.push('sharp text: ' + (e.stack || e.message)));
   fp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('sharp text: ' + m.text()); });
@@ -14510,14 +14513,19 @@ if (runs('sharp text')) {
   // frames until fn holds (a slow machine's software drawing makes a layer's write a few hundred ms: frames, not time),
   // then two more (a panel's material changes from the next frame), and the state
   const until = (fn, ms = 30000) => fp.evaluate(async ([fn, ms]) => { await window.__fp.runUntil(new Function('return (' + fn + ')')(), ms); window.__fp.step(2); return window.__sh.state(); }, [String(fn), ms]);
-  const end = () => fp.evaluate(async () => { const s = HOST.session; if (s) { await s.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); } });
+  // (and the VR ladder's record cleared: a step's own short session is not one that closed by itself)
+  const end = () => fp.evaluate(async () => { const s = HOST.session; if (s) { await s.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); } localStorage.removeItem('xrSteps'); });
   const state = (ms = 0) => fp.evaluate(async ms => { if (ms) await window.__fp.runUntil(null, ms); return window.__sh.state(); }, ms);
   const near = (a, b) => !!(a && b) && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 0.01;
   const out = L => !!(L.p && L.p[1] === -1000);
-  await step('sharp text: layer is the default (xrSharp2, v175); #sharp=off asks for nothing new, three.js sets its own baseLayer, the panels drawn as ever', async () => {
+  await step('sharp text: layer is the default in Quest Browser (xrSharp2, v175; half extents), off elsewhere (v176), v174\'s xrSharp ignored; #sharp=off asks for nothing new, three.js sets its own baseLayer, the panels drawn as ever', async () => {
     const bad = [];
     await open('airports');
-    if (await fp.evaluate(() => [HOST.xr.sharp(), localStorage.getItem('xrSharp2')].join()) !== 'layer,') bad.push('the default: ' + await fp.evaluate(() => [HOST.xr.sharp(), localStorage.getItem('xrSharp2')].join()));
+    await fp.evaluate(() => localStorage.setItem('xrSharp', 'off'));   // (v174's key, as a device left on off while testing)
+    await open('airports');
+    const d = await fp.evaluate(() => [HOST.xr.sharp(), localStorage.getItem('xrSharp2'), HOST.xr.sharpState().size, HOST.xr.sharpDefault(navigator.userAgent),
+      HOST.xr.sharpDefault('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'), HOST.xr.sharpDefault('Mozilla/5.0 (Linux; Android 12; Pico 4) AppleWebKit/537.36 PicoBrowser/3.3 Chrome/105.0 VR Safari/537.36')].join());
+    if (d !== 'layer,,half,layer,off,off') bad.push('the defaults (value, stored, size, Quest, desktop, Pico): ' + d);
     await open('airports&sharp=off');
     if (await fp.evaluate(() => localStorage.getItem('xrSharp2')) !== 'off') bad.push('#sharp=off not kept');
     await start();
@@ -14604,6 +14612,48 @@ if (runs('sharp text')) {
     r = await until(() => HOST.xr.sharpState().next === true && HOST.cur.panels().main.mesh.material.blending === 1);
     if (!r.st.next || r.st.shown || r.blend.some(b => b[0] !== 1)) bad.push('layer in a session with layers in front: ' + JSON.stringify([r.st, r.blend]));
     await end();
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: a notebook picture pauses the layers (sharpPause: the panels as ever until a frame without a hole); failing writes put the panel back at once and are tried again after 90; a new base layer drops the layers', async () => {
+    const bad = [];
+    await open('airports');
+    await start();
+    let r = await state();
+    if (r.st.shown !== 2) bad.push('not shown: ' + JSON.stringify(r.st));
+    await until(() => window.__sh.holes() > 2000, 30000);   // (the layers steady, the eye buffer with its hole)
+    const p = await fp.evaluate(async () => {
+      const F = window.__fp; let n = 0, ok = HOST.xr.sharpPause();
+      while (!ok && n < 20) { F.step(1); await new Promise(r => setTimeout(r, 4)); n++; ok = HOST.xr.sharpPause(); }
+      return { ok, n, holes: window.__sh.holes(), blend: HOST.cur.panels().main.mesh.material.blending };
+    });
+    if (!p.ok || p.n < 1 || p.n > 4 || p.holes > 600 || p.blend !== 1) bad.push('the pause: ' + JSON.stringify(p));
+    r = await until(() => HOST.xr.sharpState().shown === 2 && HOST.cur.panels().main.mesh.material.blendDst === 205, 30000);
+    if (r.st.shown !== 2) bad.push('not back after the pause: ' + JSON.stringify(r.st));
+    await fp.evaluate(() => { window.__sh.failSub = true; });
+    r = await until(() => HOST.cur.panels().main.mesh.material.blending === 1 && window.__sh.layers.some(L => L.writes >= 0), 30000);
+    const back = await fp.evaluate(async () => { const F = window.__fp; for (let i = 0; i < 120; i++) { F.step(1); await new Promise(r => setTimeout(r, 2)); } return [HOST.cur.panels().main.mesh.material.blending, HOST.xr.sharpState().err]; });
+    if (back[0] !== 1 || !/getSubImage/.test(back[1])) bad.push('failing writes (panel as ever, the reason): ' + JSON.stringify(back));
+    await fp.evaluate(() => { window.__sh.failSub = false; });
+    r = await until(() => HOST.xr.sharpState().shown === 2 && HOST.cur.panels().main.mesh.material.blendDst === 205, 30000);
+    if (r.st.shown !== 2 || r.blend.some(b => b[2] !== 205)) bad.push('not tried again: ' + JSON.stringify([r.st, r.blend]));
+    r = await fp.evaluate(async () => { const s = HOST.session; s.updateRenderState({ baseLayer: new XRWebGLLayer(s, HOST.renderer.getContext()) }); await window.__fp.runUntil(null, 200); return window.__sh.state(); });
+    if (r.st.live || r.st.err !== 'a new base layer' || r.blend.some(b => b[0] !== 1)) bad.push('a new base layer: ' + JSON.stringify([r.st, r.blend]));
+    await end();
+    if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
+  });
+  await step('sharp text: a VR session that asked for layers and closed by itself makes the next ask without them first (the ladder keeps its list); the Debug row asks for them again', async () => {
+    const bad = [];
+    await fp.evaluate(() => localStorage.setItem('xrSteps', JSON.stringify({ ua: navigator.userAgent, vr: 0, open: 1, note: '', lay: 1, noLayers: 0 })));
+    await open('airports');
+    let d = await fp.evaluate(() => ({ f: HOST.xr.features('immersive-vr').join(), dropped: HOST.xr.sharpState().dropped, line: HOST.xr.line() }));
+    if (d.f !== 'local-floor,hand-tracking,anchors' || !/went down with its page/.test(d.dropped) || !/less than at first/.test(d.line)) bad.push('dropped: ' + JSON.stringify(d));
+    const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('debug'); await new Promise(r => setTimeout(r, 300)); const r = HOST.collab.menuFind('sharp'); if (r && r.fn) r.fn(); HOST.collab.panelOpen(false); return [HOST.xr.sharp(), HOST.xr.features('immersive-vr').join(), HOST.xr.sharpState().dropped]; });
+    if (m.join('|') !== 'layer|local-floor,hand-tracking,anchors,layers|') bad.push('asked again: ' + JSON.stringify(m));
+    // a session the page ends itself after its first 1.5 s is not one that closed by itself (v176): nothing dropped
+    await start();
+    const k = await fp.evaluate(async () => { const t0 = performance.now(); while (performance.now() - t0 < 1800) { window.__fp.step(1); await new Promise(r => setTimeout(r, 10)); } await HOST.session.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); const x = JSON.parse(localStorage.getItem('xrSteps') || '{}'); return [x.vr, x.noLayers, x.open, HOST.xr.features('immersive-vr').includes('layers')].join(); });
+    if (k !== '0,0,0,true') bad.push('a session ended on purpose (vr, noLayers, open, layers asked): ' + k);
+    await fp.evaluate(() => localStorage.removeItem('xrSteps'));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
   await step('sharp text: AR asks for layers with depth sensing (text-optimized); a browser whose binding refuses quad layers gets three.js\'s own layer, the reason on the Debug tab', async () => {

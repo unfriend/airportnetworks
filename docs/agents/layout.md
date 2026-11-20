@@ -6,10 +6,13 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `.claude/settings.json` - Claude Code's settings for this repository: what runs without asking, the model, and the
   SessionStart hook. `.claude/hooks/session-start.sh` (v175; the owner, 20 November 2026: "make sure we have up to date
   git checkouts when we start sessions") runs as a cloud session starts, resumes or is cleared: it fetches the branch's
-  own on GitHub and fast-forwards when the branch is only behind and nothing tracked is changed; ahead, diverged,
-  uncommitted changes, a merge under way, a detached HEAD or no network change nothing, and its one line (*Checkout
-  (session-start hook): ...*) says what to do. Never a rebase, reset, stash or force push; always exit 0; nothing outside
-  a cloud session. Why: a resumed container kept its old local `dev` (v164 while GitHub's was at v173).
+  own on GitHub and fast-forwards when the branch is only behind, nothing tracked is changed and no file the update adds
+  is already in the folder (an ignored file there, such as the owner's scenes in `tools/studio/test/local/`, would be
+  overwritten without a word); ahead, diverged, uncommitted changes, a file in the way, a merge under way, a detached
+  HEAD or no network change nothing, and its one line (*Checkout (session-start hook): ...*) says what to do, naming the
+  commit to merge. Never a rebase, reset, stash or force push; always exit 0; two fetch tries of at most 20 s; nothing
+  outside a cloud session. Why: a resumed container kept its old local `dev` (v164 while GitHub's was at v173). The
+  session's clone is shallow (50 commits), which the line mentions when it says diverged.
 - `index.html` - the app shell: shared CSS and DOM (top bar, side panel,
   timeline, start screen) and the `HOST` object. It owns the single WebGL
   renderer and any running XR session, and loads stories on demand (and swaps
