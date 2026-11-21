@@ -578,38 +578,67 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   const HUB = [[0.5, -0.3, -0.35], v3.add(NUC.c, [0, -0.12, 0]), CELL.nucl.c, v3.add(NUC.c, v3.mul(v3.norm([-0.5, 0.5, -0.6]), 0.455)),
     v3.add(NUC.c, v3.mul(CELL.gdir, 0.635)), CELL.mitos[0].c, CELL.lysos[0].c, CELL.endos[0].c, CELL.peroxs[0].c,
     onPm([-0.3, 0.85, 0.4]), v3.add(NUC.c, v3.mul(v3.norm([-0.6, -0.5, 0.6]), NUC.r)), CELL.centro, v3.mul(onPm([0.2, -0.85, 0.5]), 0.87)];
+  // the shape a cable starts from: true while p is inside the place's organelle (places without one, the cytosol, the
+  // cytoskeleton and the vesicles, have none: their cables start at their spot)
+  const MITO = CELL.mitos[0], LYSO = CELL.lysos[0], ENDO = CELL.endos[0], PEROX = CELL.peroxs[0];
+  const dN = p => v3.len(v3.sub(p, NUC.c));
+  const inGolgi = p => { const d = dN(p); return d > CELL.golgi.r[0] - 0.02 && d < CELL.golgi.r[4] + 0.02 && Math.acos(clamp(v3.dot(v3.norm(v3.sub(p, NUC.c)), CELL.gdir), -1, 1)) < CELL.golgi.ang[0]; };
+  const inMito = p => { const d = v3.sub(p, MITO.c), x = v3.dot(d, MITO.axis), q = v3.len(v3.sub(d, v3.mul(MITO.axis, x))); return (x / MITO.a) ** 2 + (q / MITO.b) ** 2 < 1; };
+  const SHAPE = [null, p => dN(p) < NUC.r, p => v3.len(v3.sub(p, CELL.nucl.c)) < CELL.nucl.r, p => dN(p) > CELL.er.r[0] - 0.02 && dN(p) < CELL.er.r[2] + 0.02, inGolgi, inMito,
+    p => v3.len(v3.sub(p, LYSO.c)) < LYSO.r, p => v3.len(v3.sub(p, ENDO.c)) < ENDO.r, p => v3.len(v3.sub(p, PEROX.c)) < PEROX.r,
+    p => CELL.eScale(p) > 0.97, p => Math.abs(dN(p) - NUC.r) < 0.015, null, null];
+  // a cable's span: from where its curve leaves place a's organelle to where it enters b's (an organelle holding the other
+  // end's spot, the nucleus round the nucleolus, does not count: the cable starts at its spot)
+  function span(curve, a, b) {
+    const sa = SHAPE[a] && !SHAPE[a](HUB[b]) ? SHAPE[a] : null, sb = SHAPE[b] && !SHAPE[b](HUB[a]) ? SHAPE[b] : null, at = t => curve.getPoint(t).toArray();
+    let t0 = 0, t1 = 1;
+    if (sa) while (t0 < 1 && sa(at(t0))) t0 += 0.005;
+    if (sb) while (t1 > t0 && sb(at(t1))) t1 -= 0.005;
+    return t1 - t0 > 0.02 ? [t0, t1] : null;
+  }
+  class Part extends THREE.Curve {
+    constructor(c, t0, t1) { super(); this.c = c; this.t0 = t0; this.t1 = t1; }
+    getPoint(u, target) { return this.c.getPoint(this.t0 + (this.t1 - this.t0) * u, target); }
+  }
+  // (uIso: a picked place lights its own cables and dims the rest; uK: all of them dimmed while a protein is picked)
+  const CU = { uA: set.uA, uIso: { value: -1 }, uK: { value: 1 } };
   const cableMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA }, transparent: true, depthWrite: false,
-    vertexShader: `attribute vec3 aCol; varying vec3 vC, vN, vW;
-void main() { vC = aCol; vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: `uniform float uA; varying vec3 vC, vN, vW;
-void main() { float f = abs(dot(normalize(vN), normalize(cameraPosition - vW))); gl_FragColor = vec4(vC * (0.55 + 0.6 * f), (0.3 + 0.45 * f) * uA); }`,
+    uniforms: CU, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 aCol; attribute vec2 aPair; uniform float uIso; varying vec3 vC, vN, vW; varying float vI;
+void main() { vC = aCol; vI = uIso < -0.5 ? 1.0 : (abs(aPair.x - uIso) < 0.5 || abs(aPair.y - uIso) < 0.5 ? 1.3 : 0.12); vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uA, uK; varying vec3 vC, vN, vW; varying float vI;
+void main() { float f = abs(dot(normalize(vN), normalize(cameraPosition - vW))); gl_FragColor = vec4(vC * (0.55 + 0.6 * f), min((0.3 + 0.45 * f) * uA * uK * vI, 1.0)); }`,
   });
   set.mats.push(cableMat);
   function cableMesh(count) {
-    let max = 1;
-    const pairs = [];
+    let max = 1, pairs = [];
     for (let a = 0; a < 13; a++) for (let b = a + 1; b < 13; b++) max = Math.max(max, count[a * 13 + b]);
     // (a pair with under 3 % of the busiest pair's links gets no cable: the thinnest would be hairs again)
     for (let a = 0; a < 13; a++) for (let b = a + 1; b < 13; b++) { const c = count[a * 13 + b]; if (c >= 0.03 * max) pairs.push([a, b, c]); }
     const TS = 24, RS = 8, per = (TS + 1) * (RS + 1);
-    const P = new Float32Array(pairs.length * per * 3), N = new Float32Array(pairs.length * per * 3), Cc = new Float32Array(pairs.length * per * 3), I = [];
-    pairs.forEach(([a, b, c], k) => {
+    const parts = pairs.map(([a, b]) => {
       const pa = HUB[a], pb = HUB[b], mid = v3.lerp(pa, pb, 0.5), out = v3.len(mid) > 1e-3 ? v3.norm(mid) : [0, 1, 0];
       const ctl = v3.add(mid, v3.mul(out, 0.12 * v3.len(v3.sub(pb, pa))));
-      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(...pa), new THREE.Vector3(...ctl), new THREE.Vector3(...pb));
-      const g = new THREE.TubeGeometry(curve, TS, 0.002 + 0.012 * Math.sqrt(c / max), RS, false);
+      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(...pa), new THREE.Vector3(...ctl), new THREE.Vector3(...pb)), sp = span(curve, a, b);
+      return sp ? new Part(curve, sp[0], sp[1]) : null;
+    });
+    pairs = pairs.filter((p, k) => parts[k]);
+    const kept = parts.filter(Boolean);
+    const P = new Float32Array(pairs.length * per * 3), N = new Float32Array(pairs.length * per * 3), Cc = new Float32Array(pairs.length * per * 3), PR = new Float32Array(pairs.length * per * 2), I = [];
+    pairs.forEach(([a, b, c], k) => {
+      const g = new THREE.TubeGeometry(kept[k], TS, 0.002 + 0.012 * Math.sqrt(c / max), RS, false);
       P.set(g.attributes.position.array, k * per * 3); N.set(g.attributes.normal.array, k * per * 3);
       for (let i = 0; i < per; i++) {
         const t = Math.floor(i / (RS + 1)) / TS, ca = PLACE_COL[a], cb = PLACE_COL[b];
         for (let j = 0; j < 3; j++) Cc[(k * per + i) * 3 + j] = ca[j] + (cb[j] - ca[j]) * t;
+        PR[(k * per + i) * 2] = a; PR[(k * per + i) * 2 + 1] = b;
       }
       for (const x of g.index.array) I.push(x + k * per);
       g.dispose();
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
-    g.setAttribute('aCol', new THREE.BufferAttribute(Cc, 3)); g.setIndex(I);
+    g.setAttribute('aCol', new THREE.BufferAttribute(Cc, 3)); g.setAttribute('aPair', new THREE.BufferAttribute(PR, 2)); g.setIndex(I);
     const o = new THREE.Mesh(g, cableMat); o.renderOrder = 6; o.frustumCulled = false;
     return { mesh: o, n: pairs.length };
   }
@@ -726,18 +755,114 @@ void main() { float f = abs(dot(normalize(vN), normalize(cameraPosition - vW)));
     rg.setIndex(new THREE.BufferAttribute(ri, 1));
     NET.routes = new THREE.LineSegments(rg, routeMat); NET.routes.renderOrder = 4; NET.routes.frustumCulled = false;
     set.group.add(NET.routes, NET.dots);
+    Object.assign(NET, { cProt, cPlace, pos, eu, ev, score, deg, protCopies: null, fk: '' });
     Object.assign(NET, { n, e, seg, show, budget, copies: NC, drawn: E, cross: show === 'all' ? 0 : cross, cables: show === 'all' ? 0 : NET.cables, pieces: E * seg, verts: tot, ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
+  }
+
+  // ------------------------------------------------------------ a pick: a protein or a place, and all its links
+  // A protein: every link of every copy of it, wherever it goes, and the dotted ties between its copies; its partners
+  // stay bright, the rest dims (the cell's own aFocus and uSel), and the background links and cables fade. A place: its
+  // links inside it, the most important first, up to FOCUS_MAX (a place can hold many thousands), its own cables lit
+  // and every other place dimmed (the cell's uIso).
+  const PLACE_NAME = ['Cytosol', 'Nucleoplasm', 'Nucleolus', 'ER', 'Golgi', 'Mitochondria', 'Lysosomes', 'Endosomes', 'Peroxisomes',
+    'Plasma membrane', 'Nuclear envelope', 'Cytoskeleton', 'Vesicles'];
+  const FOCUS_MAX = 2000;
+  const focusMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: 'attribute vec3 aCol; attribute float aDash, aT; varying vec3 vC; varying float vD; void main() { vC = aCol; vD = aDash * aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uA; varying vec3 vC; varying float vD; void main() { if (vD > 0.0 && fract(vD) > 0.55) discard; gl_FragColor = vec4(vC, uK * uA); }',
+  });
+  set.mats.push(focusMat);
+  const FO = { mesh: null, kind: '', id: -1, info: null };
+  const copiesOfProt = p => {
+    if (!NET.protCopies) { NET.protCopies = Array.from({ length: NET.n }, () => []); NET.cProt.forEach((q, c) => NET.protCopies[q].push(c)); }
+    return NET.protCopies[p] || [];
+  };
+  function setFocus(pp, pc) {
+    const key = `${NET.n}|${NET.e}|${pp}|${pc}`;
+    if (key === NET.fk) return;
+    NET.fk = key;
+    if (FO.mesh) { set.group.remove(FO.mesh); FO.mesh.geometry.dispose(); FO.mesh = null; }
+    const aF = NET.dots.geometry.attributes.aFocus, F = aF.array;
+    F.fill(0);
+    FO.info = null;
+    const lines = [];   // [copy a, copy b, dashed]
+    if (pp >= 0 && pp < NET.n) {
+      const mine = copiesOfProt(pp), own = new Set(mine), partners = new Set();
+      let cross = 0;
+      for (let i = 0; i < NET.e; i++) {
+        const u = NET.eu[i], v = NET.ev[i];
+        if (!own.has(u) && !own.has(v)) continue;
+        lines.push([u, v, 0]); partners.add(NET.cProt[own.has(u) ? v : u]);
+        if (NET.cPlace[u] !== NET.cPlace[v]) cross++;
+        F[u] = F[v] = 1;
+      }
+      for (let i = 0; i < mine.length; i++) { F[mine[i]] = 1; for (let j = i + 1; j < mine.length; j++) lines.push([mine[i], mine[j], 1]); }
+      FO.info = { kind: 'protein', p: pp, places: mine.map(c => PLACE_NAME[NET.cPlace[c]]), links: lines.filter(l => !l[2]).length, cross, partners: partners.size };
+    } else if (pc >= 0 && pc < 13) {
+      const inner = [];
+      let cross = 0, here = 0;
+      for (let i = 0; i < NET.e; i++) {
+        const a = NET.cPlace[NET.eu[i]], b = NET.cPlace[NET.ev[i]];
+        if (a === pc && b === pc) inner.push(i); else if (a === pc || b === pc) cross++;
+      }
+      for (let c = 0; c < NET.copies; c++) if (NET.cPlace[c] === pc) here++;
+      inner.sort((x, y) => NET.score[y] - NET.score[x]);
+      for (const i of inner.slice(0, FOCUS_MAX)) lines.push([NET.eu[i], NET.ev[i], 0]);
+      FO.info = { kind: 'place', place: pc, name: PLACE_NAME[pc], here, inner: inner.length, shown: Math.min(inner.length, FOCUS_MAX), cross };
+    }
+    aF.needsUpdate = true;
+    // the cell's own lights: partners bright (aFocus, all reached), the protein ringed (uSel), a place alone (uIso)
+    const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
+    NU.uFocus.value = prot ? 1 : 0; NU.uPathProg.value = prot ? 10 : 0; NU.uSel.value = prot ? pp : -1; NU.uIso.value = place ? pc : -1;
+    RU.uFocus.value = prot ? 1 : 0; RU.uIso.value = place ? pc : -1;
+    CU.uK.value = prot ? 0.25 : 1; CU.uIso.value = place ? pc : -1;
+    if (set.onFocus) set.onFocus();
+    if (!lines.length) return;
+    const L = lines.length, P = new Float32Array(L * 6), C = new Float32Array(L * 6), D = new Float32Array(L * 2), T = new Float32Array(L * 2), Q = j => NET.pos.slice(3 * j, 3 * j + 3);
+    lines.forEach(([u, v, dash], k) => {
+      const pu = Q(u), pv = Q(v);
+      P.set(pu, 6 * k); P.set(pv, 6 * k + 3);
+      const cu = dash ? [1, 0.88, 0.62] : PLACE_COL[NET.cPlace[u]], cv = dash ? cu : PLACE_COL[NET.cPlace[v]];
+      C.set(cu, 6 * k); C.set(cv, 6 * k + 3);
+      D[2 * k] = D[2 * k + 1] = dash ? v3.len(v3.sub(pv, pu)) * 70 : 0; T[2 * k] = 0; T[2 * k + 1] = 1;
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('aCol', new THREE.BufferAttribute(C, 3));
+    g.setAttribute('aDash', new THREE.BufferAttribute(D, 1)); g.setAttribute('aT', new THREE.BufferAttribute(T, 1));
+    // (fainter as there are more of them, so a busy place does not burn white: 0.85 up to 200 lines, about 0.27 at 2,000)
+    focusMat.uniforms.uK.value = 0.85 * Math.min(1, Math.sqrt(200 / L));
+    FO.mesh = new THREE.LineSegments(g, focusMat); FO.mesh.renderOrder = 7; FO.mesh.frustumCulled = false;
+    set.group.add(FO.mesh);
+  }
+  // the copy a ray passes closest to (in the set's own frame), or -1
+  const inv = new THREE.Matrix4(), ray = new THREE.Ray(), pq = new THREE.Vector3();
+  function pickCopy(rc) {
+    if (!NET.dots) return -1;
+    inv.copy(set.group.matrixWorld).invert();
+    ray.copy(rc.ray).applyMatrix4(inv);
+    let best = -1, bs = Infinity;
+    const P = NET.pos;
+    for (let c = 0; c < NET.copies; c++) {
+      pq.set(P[3 * c], P[3 * c + 1], P[3 * c + 2]);
+      const t = pq.clone().sub(ray.origin).dot(ray.direction);
+      if (t <= 0) continue;
+      const d = ray.distanceSqToPoint(pq), r = 0.008 + 0.012 * t;   // (reach grows with distance, as a dot's size on screen)
+      if (d < r * r) { const sc = d / (r * r) + t * 0.15; if (sc < bs) { bs = sc; best = c; } }
+    }
+    return best;
   }
 
   const N_OPT = [250, 1000, 2500, 5000, 10000, 20000], E_OPT = [375, 2000, 5000, 10000, 20000, 40000, 80000], SEG_OPT = [14, 6, 1], B_OPT = [1000, 2000, 3000];
   const near = (list, x) => list.reduce((b, v) => (Math.abs(v - x) < Math.abs(b - x) ? v : b), list[0]);
   const fmtK = v => (v >= 1000 ? (v % 1000 ? (v / 1000).toFixed(1) : v / 1000) + 'k' : String(v));
   return Object.assign(set, {
-    params: { cell_a: 1, cell_n: 10000, cell_e: 40000, cell_seg: 1, cell_shell: 1, cell_all: 0, cell_budget: 2000 },
+    params: { cell_a: 1, cell_n: 10000, cell_e: 40000, cell_seg: 1, cell_shell: 1, cell_all: 0, cell_budget: 2000, cell_pp: -1, cell_pc: -1 },
     update(S) {
       const n = near(N_OPT, S.cell_n), e = near(E_OPT, S.cell_e), seg = near(SEG_OPT, S.cell_seg), show = S.cell_all > 0.5 ? 'all' : 'top', bu = near(B_OPT, S.cell_budget);
       if (n !== NET.n || e !== NET.e || seg !== NET.seg || show !== NET.show || bu !== NET.budget) build(n, e, seg, show, bu);
+      setFocus(Math.round(S.cell_pp), Math.round(S.cell_pc));
       const sh = clamp(S.cell_shell, 0, 1);
       shells.visible = sh > 0.01;
       for (const m of shellMats) m.uniforms.uK.value = sh;
@@ -749,6 +874,11 @@ void main() { float f = abs(dot(normalize(vN), normalize(cameraPosition - vW)));
     },
     // what is drawn now, for the pane
     stats: () => NET,
+    // picking (explore mode): the copy under a ray, what a copy is, and what the pick shows
+    api: () => ({
+      pick: pickCopy, places: PLACE_NAME, focus: () => FO.info,
+      copy: c => (NET.dots && c >= 0 && c < NET.copies ? { prot: NET.cProt[c], place: NET.cPlace[c], deg: NET.deg[c], pos: NET.pos.slice(3 * c, 3 * c + 3) } : null),
+    }),
     anchors: { centre: [0, 0, 0], nucleus: CELL.nuc.c, edge: [0.95, 0.35, 0] },
     labels: [],
     cam: { default: [20, 14, 3.6, 0, 0, 0], inside: [30, 6, 0.55, 0.15, 0, 0.1] },
@@ -1305,15 +1435,16 @@ const SCENES = [
   ['cell', 'Cell', 'The cell map\'s model cell with made-up proteins and links. Pick a size, then read the frame rate (in a headset: press B or Y twice).'],
 ];
 const SCENE_SHORT = {};
-const TABS = [['scenes', 'Scene']];
+const TABS = [['scenes', 'Scene'], ['pick', 'Pick']];
 const ctlsOf = k => GL.sets[k].controls || [];
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };
+// pp: the protein picked (by number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on', pp: -1, pc: -1 };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget']);
+const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget', 'cell_pp', 'cell_pc']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -1340,6 +1471,7 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
+  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -1403,12 +1535,19 @@ function sceneCtl(k, key, v) {
   setCtl(k, key, v);
 }
 
+// a pick: a protein (pp) or a place (pc), the other let go; the same again lets go (ui: picked here, with a sound)
+function setPick(pp, pc, ui) {
+  if (ui && pp === X.pp && pc === X.pc) pp = pc = -1;
+  X.pp = pp; X.pc = pc;
+  if (ui && (pp >= 0 || pc >= 0)) sfxAct('clink', 'cell', 'centre');
+  pushState(); renderAll();
+}
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 1;
+const COLLAB_V = 2;   // (2: the pick, pp and pc)
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
 function collabView() {
@@ -1426,7 +1565,7 @@ function collabSetView(v, now) {
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl };
+  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, pp: X.pp, pc: X.pc };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
@@ -1439,6 +1578,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
+  const okP = x => Number.isInteger(x) && x >= -1 && x < 1e6, okC = x => Number.isInteger(x) && x >= -1 && x < 13;
+  if (okP(v.pp) && okC(v.pc) && (v.pp !== X.pp || v.pc !== X.pc)) { X.pp = v.pp; X.pc = v.pc; }
   renderAll();
 }
 
@@ -1459,6 +1600,8 @@ function buildExplore() {
     ({
       scene: () => openScene(v),
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+      place: () => setPick(-1, +v, true),
+      clear: () => setPick(-1, -1, false),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -1484,7 +1627,23 @@ function showTab(k) {
 }
 // a tab picked by hand (a shared room's tab arriving does not come here: its scene comes with it)
 function pickTab(k) { showTab(k); }
-function renderAll() { renderScenes(); updateExtraLabels(); }
+function renderAll() { renderScenes(); renderPick(); updateExtraLabels(); }
+// the pick's own words: what is picked and what it shows (the twin of drawPickPane)
+function pickLine() {
+  const f = api('cell').focus && api('cell').focus();
+  if (!f) return 'Nothing picked: the background shows the top links and the cables.';
+  if (f.kind === 'protein') return `Protein ${fmt(f.p + 1)}, in ${listOf(f.places)}: all its ${fmt(f.links)} links (${fmt(f.cross)} to other places), to ${fmt(f.partners)} partners${f.places.length > 1 ? '; dotted: its copies' : ''}.`;
+  return `${f.name}: ${fmt(f.here)} proteins here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} links inside` : `All ${fmt(f.inner)} links inside`}; its cables carry ${fmt(f.cross)} to other places.`;
+}
+function renderPick() {
+  const pane = $('#pane-pick');
+  if (!pane) return;
+  const names = api('cell').places || [];
+  pane.innerHTML = `<p class="sub">Click a dot (in a headset: point and press) to pick a protein and see all its links, or pick a place. The same again lets go.</p>
+    <div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
+    <p class="sub">${esc(pickLine())}</p>
+    ${X.pp >= 0 || X.pc >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}`;
+}
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -1508,7 +1667,11 @@ function updateExtraLabels() {}
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show, or null: nothing to pick here
 // (a set that has things to pick says so through its api(): see the example package, packages/hello)
-function pickWith(rc) { return null; }
+function pickWith(rc) {
+  if (APP.mode !== 'explore' || !api('cell').pick) return null;
+  const c = api('cell').pick(rc);
+  return c >= 0 ? { copy: c } : null;
+}
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
   _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
@@ -1516,11 +1679,11 @@ function pickAt(mx, my) {
   return pickWith(_rc);
 }
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
-function pickPos(p) { return null; }
+function pickPos(p) { const c = p && api('cell').copy(p.copy); return c ? c.pos : null; }
 // a pick's tip: [bold, rest]
-const pickText = p => ['', ''];
+const pickText = p => { const c = api('cell').copy(p.copy); return c ? [`Protein ${fmt(c.prot + 1)}`, `${api('cell').places[c.place]} · ${fmt(c.deg)} links here`] : ['', '']; };
 // a pick clicked or pressed
-function choosePick(p) {}
+function choosePick(p) { const c = p && api('cell').copy(p.copy); if (c) { setPick(c.prot, -1, true); if (X.tab !== 'pick') showTab('pick'); } }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
   let down = null, pinch = 0;
@@ -2597,7 +2760,7 @@ function sigMain() {
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine()].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), X.pp, X.pc, pickLine()].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -2886,7 +3049,7 @@ function drawExplorePane(ctx, P, x, y, W) {
 }
 // explore mode's pane for each tab (drawExplorePane): the headset's twin of each render* in e4_explore.js
 function drawTabPane(ctx, P, x, y, W, bottom) {
-  ({ scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ scenes: drawScenesPane, pick: drawPickPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, icon, fn } (no fn: a plain chip; an icon is
 // drawn by the story's flowIcon(ctx, it, x, y, h): the PET story's organs, the microanatomy story's organ models). Where
@@ -2947,6 +3110,14 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   }
 }
 
+// the places to pick and what the pick shows (renderPick's twin)
+function drawPickPane(ctx, P, x, y, W, bottom) {
+  y += textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x, y, W, 25, 35, VC.muted, 400, 3) + 16;
+  const names = api('cell').places || [];
+  y += flow(ctx, P, names.map((n, k) => ({ id: 'place:' + k, label: n, on: X.pc === k, fn: () => setPick(-1, k, true) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
+  y += textBlock(ctx, pickLine(), x, y, W, 25, 35, VC.ink, 400, 4) + 18;
+  if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
+}
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.floor(APP.t) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
@@ -3373,7 +3544,7 @@ function warm(root) {
 }
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
-  GL.sets.cell.onBuild = () => renderScenes();   // (the pane's count of what is drawn, once the set has built it)
+  GL.sets.cell.onBuild = GL.sets.cell.onFocus = () => renderAll();   // (the pane's count of what is drawn, once the set has built it)
   LBL.storyAll = ST.labels.concat(LBL.sets);
   LBL.exploreAll = () => LBL.sets.concat(LBL.extra);
   applyTheme();
@@ -3403,6 +3574,9 @@ function initEnd() {
       if (o) setCtl(X.scene, c.key, o[0]);
     }
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) pickTab(hp.get('tab'));
+    // &pp=<protein, from 1> or &pc=<place, 0 to 12>: a pick
+    const pp = parseInt(hp.get('pp'), 10), pc = parseInt(hp.get('pc'), 10);
+    if (pp >= 1) setPick(pp - 1, -1, false); else if (pc >= 0 && pc < 13) setPick(-1, pc, false);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

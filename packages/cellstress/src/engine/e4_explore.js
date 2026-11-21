@@ -6,12 +6,13 @@ const SCENES = [
   ['cell', 'Cell', 'The cell map\'s model cell with made-up proteins and links. Pick a size, then read the frame rate (in a headset: press B or Y twice).'],
 ];
 const SCENE_SHORT = {};
-const TABS = [['scenes', 'Scene']];
+const TABS = [['scenes', 'Scene'], ['pick', 'Pick']];
 //#use ctlsOf ctlShown~2
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };
+// pp: the protein picked (by number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on', pp: -1, pc: -1 };
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget']);
+const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget', 'cell_pp', 'cell_pc']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -27,6 +28,7 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
+  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -37,17 +39,24 @@ function ctlSound(k, key, v) {
   if (key === 'view') sfxAct('whoosh', k, null, { dur: 0.7, pitch: 1.1 }); else sfxAct('step', k, null);
 }
 //#use showView flyTo orbitStep flyNear sceneCtl
+// a pick: a protein (pp) or a place (pc), the other let go; the same again lets go (ui: picked here, with a sound)
+function setPick(pp, pc, ui) {
+  if (ui && pp === X.pp && pc === X.pc) pp = pc = -1;
+  X.pp = pp; X.pc = pc;
+  if (ui && (pp >= 0 || pc >= 0)) sfxAct('clink', 'cell', 'centre');
+  pushState(); renderAll();
+}
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 1;
+const COLLAB_V = 2;   // (2: the pick, pp and pc)
 //#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl };
+  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, pp: X.pp, pc: X.pc };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
@@ -60,6 +69,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
+  const okP = x => Number.isInteger(x) && x >= -1 && x < 1e6, okC = x => Number.isInteger(x) && x >= -1 && x < 13;
+  if (okP(v.pp) && okC(v.pc) && (v.pp !== X.pp || v.pc !== X.pc)) { X.pp = v.pp; X.pc = v.pc; }
   renderAll();
 }
 
@@ -77,6 +88,8 @@ function buildExplore() {
     ({
       scene: () => openScene(v),
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+      place: () => setPick(-1, +v, true),
+      clear: () => setPick(-1, -1, false),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -90,7 +103,23 @@ function buildExplore() {
 //#use setTurn showTab
 // a tab picked by hand (a shared room's tab arriving does not come here: its scene comes with it)
 function pickTab(k) { showTab(k); }
-function renderAll() { renderScenes(); updateExtraLabels(); }
+function renderAll() { renderScenes(); renderPick(); updateExtraLabels(); }
+// the pick's own words: what is picked and what it shows (the twin of drawPickPane)
+function pickLine() {
+  const f = api('cell').focus && api('cell').focus();
+  if (!f) return 'Nothing picked: the background shows the top links and the cables.';
+  if (f.kind === 'protein') return `Protein ${fmt(f.p + 1)}, in ${listOf(f.places)}: all its ${fmt(f.links)} links (${fmt(f.cross)} to other places), to ${fmt(f.partners)} partners${f.places.length > 1 ? '; dotted: its copies' : ''}.`;
+  return `${f.name}: ${fmt(f.here)} proteins here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} links inside` : `All ${fmt(f.inner)} links inside`}; its cables carry ${fmt(f.cross)} to other places.`;
+}
+function renderPick() {
+  const pane = $('#pane-pick');
+  if (!pane) return;
+  const names = api('cell').places || [];
+  pane.innerHTML = `<p class="sub">Click a dot (in a headset: point and press) to pick a protein and see all its links, or pick a place. The same again lets go.</p>
+    <div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
+    <p class="sub">${esc(pickLine())}</p>
+    ${X.pp >= 0 || X.pc >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}`;
+}
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -111,12 +140,16 @@ function statsLine() {
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show, or null: nothing to pick here
 // (a set that has things to pick says so through its api(): see the example package, packages/hello)
-function pickWith(rc) { return null; }
+function pickWith(rc) {
+  if (APP.mode !== 'explore' || !api('cell').pick) return null;
+  const c = api('cell').pick(rc);
+  return c >= 0 ? { copy: c } : null;
+}
 //#use pickAt
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
-function pickPos(p) { return null; }
+function pickPos(p) { const c = p && api('cell').copy(p.copy); return c ? c.pos : null; }
 // a pick's tip: [bold, rest]
-const pickText = p => ['', ''];
+const pickText = p => { const c = api('cell').copy(p.copy); return c ? [`Protein ${fmt(c.prot + 1)}`, `${api('cell').places[c.place]} · ${fmt(c.deg)} links here`] : ['', '']; };
 // a pick clicked or pressed
-function choosePick(p) {}
+function choosePick(p) { const c = p && api('cell').copy(p.copy); if (c) { setPick(c.prot, -1, true); if (X.tab !== 'pick') showTab('pick'); } }
 //#use bindCanvas

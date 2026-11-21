@@ -19,7 +19,14 @@ headset at 72 fps?" before a story is designed around a bigger cell.
   gets none), and inside each place only its most important links are drawn, *Top links at most* (1k, 2k, 3k) in all,
   shared between the places by the square root of how many links each has. "Important" is a made-up evidence score,
   higher between well-connected proteins, with noise (with real data: a database's score). Each place's cables meet at
-  one fixed spot inside it (illustrative). Links are straight by default.
+  one fixed spot inside it (illustrative; the mitochondria's, lysosomes', endosomes' and peroxisomes' at one of each),
+  and each cable is cut where it leaves its organelle's surface and where it enters the other's (the nucleus, the ER's
+  sheets, the Golgi's stack, the organelle; the cytosol, cytoskeleton and vesicles have no surface: their cables start
+  at their spot). Links are straight by default.
+- *Pick* (a tab): click a dot (in a headset: point and press) to pick a protein: all its links, wherever they go, and
+  dotted ties between its copies; its partners stay bright, the rest dims, the background links and cables fade. Or
+  pick a place: its links inside it, the most important first, 2,000 at most, its own cables lit and the other places
+  dimmed. The more lines a pick draws, the fainter each (so a busy place does not burn white).
 - *All links*: every link of the network, as in the first test.
 
 ## What it draws, and why that is the cell's cost
@@ -43,7 +50,8 @@ sheets and the mitochondria's cristae). Picking, labels and the proximity lens a
 The pane says what is drawn (dots, links, line pieces, vertices) and how long the last build took (a rebuild of the
 biggest sizes stalls a frame or two: that is the test, not the story).
 
-Links: `#cellstress&explore&np=20000&nl=80000&budget=3000`, `&show=all`, `&curve=14`, `&shells=0`, `&view=inside`.
+Links: `#cellstress&explore&tab=pick&pp=1` (protein 1), `&pc=4` (a place: 0 Cytosol to 12 Vesicles, in the Pick tab's
+order), `#cellstress&explore&np=20000&nl=80000&budget=3000`, `&show=all`, `&curve=14`, `&shells=0`, `&view=inside`.
 
 ## Building it
 

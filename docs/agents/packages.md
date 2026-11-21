@@ -200,8 +200,13 @@ much to read above about 2k; or *All links*), `budget` (top links at most: 1k, 2
 the square root of each one's links, ranked by a made-up evidence score), `curve` (pieces per link: straight by
 default, 6, 14 as the cell), `shells` and `view` (outside, inside). Links between places become one cable a pair
 (a tube, width by the square root of its links, none under 3 % of the busiest; each place's cables meet at one fixed
-spot, `HUB`). Opens at 10k proteins and 40k links. `cell_n`, `cell_e`, `cell_seg`, `cell_all` and `cell_budget` are
-`STEP` params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
+spot, `HUB`, and is cut where it leaves its organelle's surface and enters the other's: `SHAPE`, `span`, `Part`). A *Pick*
+tab: a protein (click a dot, or point and press: `api().pick`, the nearest copy to the ray) shows all its links and dotted
+ties between its copies over a dimmed cell (the cell's `aFocus`, `uSel`); a place shows its top internal links, at most
+2,000, its cables lit (`uIso`, also in the cable shader); the focus lines fade as they grow in number. The pick is
+`X.pp`/`X.pc`, the params `cell_pp`/`cell_pc`, shared as `{ v: 2, ..., pp, pc }`, and the address `&pp=<from 1>` or
+`&pc=<0 to 12>`. Opens at 10k proteins and 40k links. `cell_n`, `cell_e`, `cell_seg`, `cell_all`, `cell_budget`, `cell_pp`
+and `cell_pc` are `STEP` params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
 The pane says what is drawn (`statsLine`, in both twins; the set's `onBuild` renders it again). Not the address words
 `proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the address. Its
 `README.md` says how to measure on a Quest (automatic quality off). Address: `#cellstress&explore&np=20000&nl=80000&budget=3000` (`&show=all` for every link).

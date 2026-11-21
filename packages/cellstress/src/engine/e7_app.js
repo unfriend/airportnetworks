@@ -74,7 +74,7 @@ const frameLife = () => false, frameLow = () => {}, frameFloor = () => {};   // 
 //#use frame applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
-  GL.sets.cell.onBuild = () => renderScenes();   // (the pane's count of what is drawn, once the set has built it)
+  GL.sets.cell.onBuild = GL.sets.cell.onFocus = () => renderAll();   // (the pane's count of what is drawn, once the set has built it)
   LBL.storyAll = ST.labels.concat(LBL.sets);
   LBL.exploreAll = () => LBL.sets.concat(LBL.extra);
   applyTheme();
@@ -104,6 +104,9 @@ function initEnd() {
       if (o) setCtl(X.scene, c.key, o[0]);
     }
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) pickTab(hp.get('tab'));
+    // &pp=<protein, from 1> or &pc=<place, 0 to 12>: a pick
+    const pp = parseInt(hp.get('pp'), 10), pc = parseInt(hp.get('pc'), 10);
+    if (pp >= 1) setPick(pp - 1, -1, false); else if (pc >= 0 && pc < 13) setPick(-1, pc, false);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

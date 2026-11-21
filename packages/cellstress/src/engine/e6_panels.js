@@ -5,7 +5,7 @@
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine()].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), X.pp, X.pc, pickLine()].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -21,7 +21,7 @@ const FLOW_BOLD = true;
 //#use drawExplorePane
 // explore mode's pane for each tab (drawExplorePane): the headset's twin of each render* in e4_explore.js
 function drawTabPane(ctx, P, x, y, W, bottom) {
-  ({ scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ scenes: drawScenesPane, pick: drawPickPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 //#use flow head~2 vSlider stats
 // the scenes, and the chosen scene's own controls (renderScenes' twin)
@@ -42,4 +42,12 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   }
 }
 
+// the places to pick and what the pick shows (renderPick's twin)
+function drawPickPane(ctx, P, x, y, W, bottom) {
+  y += textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x, y, W, 25, 35, VC.muted, 400, 3) + 16;
+  const names = api('cell').places || [];
+  y += flow(ctx, P, names.map((n, k) => ({ id: 'place:' + k, label: n, on: X.pc === k, fn: () => setPick(-1, k, true) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
+  y += textBlock(ctx, pickLine(), x, y, W, 25, 35, VC.ink, 400, 4) + 18;
+  if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
+}
 //#use sigFoot drawFoot drawFootX
