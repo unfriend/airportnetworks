@@ -571,12 +571,60 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   });
   set.mats.push(routeMat);
 
+  // ------------------------------------------------------------ cables: one thick tube for each pair of places with links
+  // between them, as wide as how many links it stands for (the square root, so a few big ones do not drown the rest);
+  // each place's end is a fixed spot inside it (illustrative: a place is spread out, its cables meet at one point)
+  const NUC = CELL.nuc, onPm = d => v3.mul(v3.norm(d), 0.985 / CELL.eScale(v3.norm(d)));
+  const HUB = [[0.5, -0.3, -0.35], v3.add(NUC.c, [0, -0.12, 0]), CELL.nucl.c, v3.add(NUC.c, v3.mul(v3.norm([-0.5, 0.5, -0.6]), 0.455)),
+    v3.add(NUC.c, v3.mul(CELL.gdir, 0.635)), CELL.mitos[0].c, CELL.lysos[0].c, CELL.endos[0].c, CELL.peroxs[0].c,
+    onPm([-0.3, 0.85, 0.4]), v3.add(NUC.c, v3.mul(v3.norm([-0.6, -0.5, 0.6]), NUC.r)), CELL.centro, v3.mul(onPm([0.2, -0.85, 0.5]), 0.87)];
+  const cableMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA }, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 aCol; varying vec3 vC, vN, vW;
+void main() { vC = aCol; vN = normalize((modelMatrix * vec4(normal, 0.0)).xyz); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uA; varying vec3 vC, vN, vW;
+void main() { float f = abs(dot(normalize(vN), normalize(cameraPosition - vW))); gl_FragColor = vec4(vC * (0.55 + 0.6 * f), (0.3 + 0.45 * f) * uA); }`,
+  });
+  set.mats.push(cableMat);
+  function cableMesh(count) {
+    let max = 1;
+    const pairs = [];
+    for (let a = 0; a < 13; a++) for (let b = a + 1; b < 13; b++) max = Math.max(max, count[a * 13 + b]);
+    // (a pair with under 3 % of the busiest pair's links gets no cable: the thinnest would be hairs again)
+    for (let a = 0; a < 13; a++) for (let b = a + 1; b < 13; b++) { const c = count[a * 13 + b]; if (c >= 0.03 * max) pairs.push([a, b, c]); }
+    const TS = 24, RS = 8, per = (TS + 1) * (RS + 1);
+    const P = new Float32Array(pairs.length * per * 3), N = new Float32Array(pairs.length * per * 3), Cc = new Float32Array(pairs.length * per * 3), I = [];
+    pairs.forEach(([a, b, c], k) => {
+      const pa = HUB[a], pb = HUB[b], mid = v3.lerp(pa, pb, 0.5), out = v3.len(mid) > 1e-3 ? v3.norm(mid) : [0, 1, 0];
+      const ctl = v3.add(mid, v3.mul(out, 0.12 * v3.len(v3.sub(pb, pa))));
+      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(...pa), new THREE.Vector3(...ctl), new THREE.Vector3(...pb));
+      const g = new THREE.TubeGeometry(curve, TS, 0.002 + 0.012 * Math.sqrt(c / max), RS, false);
+      P.set(g.attributes.position.array, k * per * 3); N.set(g.attributes.normal.array, k * per * 3);
+      for (let i = 0; i < per; i++) {
+        const t = Math.floor(i / (RS + 1)) / TS, ca = PLACE_COL[a], cb = PLACE_COL[b];
+        for (let j = 0; j < 3; j++) Cc[(k * per + i) * 3 + j] = ca[j] + (cb[j] - ca[j]) * t;
+      }
+      for (const x of g.index.array) I.push(x + k * per);
+      g.dispose();
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(Cc, 3)); g.setIndex(I);
+    const o = new THREE.Mesh(g, cableMat); o.renderOrder = 6; o.frustumCulled = false;
+    return { mesh: o, n: pairs.length };
+  }
+
   // ------------------------------------------------------------ the network, built again whenever its size changes
-  const NET = { n: 0, e: 0, seg: 0, copies: 0, pieces: 0, verts: 0, ms: 0, dots: null, routes: null };
-  function build(n, e, seg) {
+  // show 'all': every link drawn. show 'top': links between places become cables, and inside each place only its most
+  // important links are drawn, budget links at most in all, shared between the places by the square root of how many
+  // links each has (so a small organelle keeps a few). "Important" is a made-up evidence score, higher for links between
+  // well-connected proteins (as well-studied proteins collect evidence), with noise: in real data, a database's score.
+  const NET = { n: 0, e: 0, seg: 0, show: '', budget: 0, copies: 0, drawn: 0, cables: 0, cross: 0, pieces: 0, verts: 0, ms: 0, dots: null, routes: null, cab: null };
+  function build(n, e, seg, show, budget) {
     const t0 = performance.now();
     if (NET.dots) { set.group.remove(NET.dots); NET.dots.geometry.dispose(); }
     if (NET.routes) { set.group.remove(NET.routes); NET.routes.geometry.dispose(); }
+    if (NET.cab) { set.group.remove(NET.cab); NET.cab.geometry.dispose(); NET.cab = null; }
     const r = mul(1000 + n);
     // proteins: each in one place, about a third in a second, a few in a third (as in the cell map); a copy per place
     const cProt = [], cPlace = [], cCtr = [], pos = [], byPlace = PLACE_COL.map(() => []), copiesOf = [];
@@ -620,13 +668,39 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     for (const [k, a] of Object.entries(at)) pg.setAttribute(k, new THREE.BufferAttribute(a, 1));
     NET.dots = new THREE.Points(pg, nodeMat); NET.dots.renderOrder = 5; NET.dots.frustumCulled = false;
+    // the links to draw, and the cables
+    const rs = mul(7 + e), lmax2 = Math.log1p(maxDeg * maxDeg), score = new Float32Array(e);
+    for (let i = 0; i < e; i++) score[i] = 0.6 * Math.log1p(deg[eu[i]] * deg[ev[i]]) / lmax2 + 0.4 * rs();
+    let pick = [], cross = 0;
+    const count = new Int32Array(169);
+    if (show === 'all') pick = [...Array(e).keys()];
+    else {
+      const groups = PLACE_COL.map(() => []);
+      for (let i = 0; i < e; i++) {
+        const a = cPlace[eu[i]], b = cPlace[ev[i]];
+        if (a === b) groups[a].push(i); else { count[Math.min(a, b) * 13 + Math.max(a, b)]++; cross++; }
+      }
+      // each place's share: by the square root of its links; a place with fewer than its share gives the rest to the others
+      const take = new Array(13).fill(0), open = new Set(groups.map((g, k) => k).filter(k => groups[k].length));
+      let left = budget;
+      for (let changed = true; changed && open.size;) {
+        changed = false;
+        const w = [...open].reduce((s2, k) => s2 + Math.sqrt(groups[k].length), 0);
+        for (const k of [...open]) if (groups[k].length <= left * Math.sqrt(groups[k].length) / w) { take[k] = groups[k].length; left -= take[k]; open.delete(k); changed = true; }
+        if (!changed) { for (const k of open) take[k] = Math.floor(left * Math.sqrt(groups[k].length) / w); }
+      }
+      groups.forEach((g, k) => { g.sort((x, y) => score[y] - score[x]); pick.push(...g.slice(0, take[k])); });
+      const cm = cableMesh(count);
+      NET.cab = cm.mesh; NET.cables = cm.n; set.group.add(NET.cab);
+    }
+    const E = pick.length;
     // the links: one LineSegments draw, each link a quadratic curve of seg pieces bending away from its place's centre
-    const m = seg + 1, tot = e * m;
+    const m = seg + 1, tot = E * m;
     const rp = new Float32Array(tot * 3), aT = new Float32Array(tot), aRv = new Float32Array(tot), aCol = new Float32Array(tot * 3);
     const ea = { aPlA: new Float32Array(tot), aPlB: new Float32Array(tot), aScA: new Float32Array(tot), aMdA: new Float32Array(tot), aScB: new Float32Array(tot), aMdB: new Float32Array(tot) };
-    const ri = new Uint32Array(e * seg * 2), P = (c, j) => pos[3 * c + j];
+    const ri = new Uint32Array(E * seg * 2), P = (c, j) => pos[3 * c + j];
     let o = 0, oi = 0;
-    for (let i = 0; i < e; i++) {
+    for (const i of pick) {
       const u = eu[i], v = ev[i], same = cPlace[u] === cPlace[v], col = same ? PLACE_COL[cPlace[u]] : [0.86, 0.9, 1.0], rv = r();
       const pa = [P(u, 0), P(u, 1), P(u, 2)], pb = [P(v, 0), P(v, 1), P(v, 2)], mid = v3.lerp(pa, pb, 0.5);
       let ctl = mid;
@@ -652,18 +726,18 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     rg.setIndex(new THREE.BufferAttribute(ri, 1));
     NET.routes = new THREE.LineSegments(rg, routeMat); NET.routes.renderOrder = 4; NET.routes.frustumCulled = false;
     set.group.add(NET.routes, NET.dots);
-    Object.assign(NET, { n, e, seg, copies: NC, pieces: e * seg, verts: tot, ms: Math.round(performance.now() - t0) });
+    Object.assign(NET, { n, e, seg, show, budget, copies: NC, drawn: E, cross: show === 'all' ? 0 : cross, cables: show === 'all' ? 0 : NET.cables, pieces: E * seg, verts: tot, ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
   }
 
-  const N_OPT = [250, 1000, 2500, 5000, 10000, 20000], E_OPT = [375, 2000, 5000, 10000, 20000, 40000, 80000], SEG_OPT = [14, 6, 1];
+  const N_OPT = [250, 1000, 2500, 5000, 10000, 20000], E_OPT = [375, 2000, 5000, 10000, 20000, 40000, 80000], SEG_OPT = [14, 6, 1], B_OPT = [1000, 2000, 3000];
   const near = (list, x) => list.reduce((b, v) => (Math.abs(v - x) < Math.abs(b - x) ? v : b), list[0]);
   const fmtK = v => (v >= 1000 ? (v % 1000 ? (v / 1000).toFixed(1) : v / 1000) + 'k' : String(v));
   return Object.assign(set, {
-    params: { cell_a: 1, cell_n: 250, cell_e: 375, cell_seg: 14, cell_shell: 1 },
+    params: { cell_a: 1, cell_n: 10000, cell_e: 40000, cell_seg: 1, cell_shell: 1, cell_all: 0, cell_budget: 2000 },
     update(S) {
-      const n = near(N_OPT, S.cell_n), e = near(E_OPT, S.cell_e), seg = near(SEG_OPT, S.cell_seg);
-      if (n !== NET.n || e !== NET.e || seg !== NET.seg) build(n, e, seg);
+      const n = near(N_OPT, S.cell_n), e = near(E_OPT, S.cell_e), seg = near(SEG_OPT, S.cell_seg), show = S.cell_all > 0.5 ? 'all' : 'top', bu = near(B_OPT, S.cell_budget);
+      if (n !== NET.n || e !== NET.e || seg !== NET.seg || show !== NET.show || bu !== NET.budget) build(n, e, seg, show, bu);
       const sh = clamp(S.cell_shell, 0, 1);
       shells.visible = sh > 0.01;
       for (const m of shellMats) m.uniforms.uK.value = sh;
@@ -680,12 +754,17 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     cam: { default: [20, 14, 3.6, 0, 0, 0], inside: [30, 6, 0.55, 0.15, 0, 0.1] },
     controls: [
       { key: 'np', label: 'Proteins', options: N_OPT.map(v => [String(v), fmtK(v)]) },
-      { key: 'nl', label: 'Links', options: E_OPT.map(v => [String(v), fmtK(v)]) },
-      { key: 'curve', label: 'Pieces per link', options: [['14', '14 (as the cell)'], ['6', '6'], ['1', 'Straight']] },
+      { key: 'nl', label: 'Links in the network', options: E_OPT.map(v => [String(v), fmtK(v)]) },
+      { key: 'show', label: 'Show', options: [['top', 'Top links + cables'], ['all', 'All links']] },
+      { key: 'budget', label: 'Top links at most', options: B_OPT.map(v => [String(v), fmtK(v)]) },
+      { key: 'curve', label: 'Pieces per link', options: [['1', 'Straight'], ['6', '6'], ['14', '14 (as the cell)']] },
       { key: 'shells', label: 'Organelles', options: [['1', 'On'], ['0', 'Off']] },
       { key: 'view', label: 'View', options: [['default', 'Outside'], ['inside', 'Inside']] },
     ],
-    explore(c) { return { cell_n: +c.np || 250, cell_e: +c.nl || 375, cell_seg: +c.curve || 14, cell_shell: c.shells === '0' ? 0 : 1 }; },
+    explore(c) {
+      return { cell_n: +c.np || 10000, cell_e: +c.nl || 40000, cell_seg: +c.curve || 1, cell_shell: c.shells === '0' ? 0 : 1,
+        cell_all: c.show === 'all' ? 1 : 0, cell_budget: +c.budget || 2000 };
+    },
   });
 };
 
@@ -932,7 +1011,7 @@ function buildStory() {
     title: `<h1 data-at="0.6">${esc(XR_TITLE)}</h1>
       <p class="lede" data-at="1.6">How many proteins and links can the cell hold?</p>
       <p data-at="3">The cell map's model cell, drawn exactly as there, with made-up proteins and links in place of the real ones.</p>
-      <ul class="steps">${step(6, 0, CYAN, 'Explore mode', 'sets how many proteins, links and curve pieces')}
+      <ul class="steps">${step(6, 0, CYAN, 'Top links + cables', 'only the most important links inside each place; one cable per pair of places')}
         ${step(8, 0, AMBER, 'Frame rate', 'in a headset: press B or Y twice')}</ul>
       <p data-at="10"><button class="btn primary" id="btnGoExplore" type="button">Explore</button></p>`,
   };
@@ -955,7 +1034,7 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ cell_n: 250, cell_e: 375, cell_seg: 14, cell_shell: 1 });
+  start({ cell_n: 10000, cell_e: 40000, cell_seg: 1, cell_shell: 1, cell_all: 0, cell_budget: 2000 });
   const a = C.title.a, b = C.title.b;
   show('cell', 0.2, 2);
   cam(a, 'cell', 'default', -20);
@@ -1234,7 +1313,7 @@ const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x 
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_n', 'cell_e', 'cell_seg']);
+const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -1418,7 +1497,8 @@ function renderScenes() {
 function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.n) return '';
-  return `Drawn: ${fmt(s.copies)} dots (${fmt(s.n)} proteins), ${fmt(s.e)} links, ${fmt(s.pieces)} line pieces, ${fmt(s.verts)} line vertices; built in ${s.ms} ms.`;
+  const what = s.show === 'all' ? `all ${fmt(s.e)} links` : `${fmt(s.drawn)} of the ${fmt(s.e - s.cross)} links inside places, and ${s.cables} cables for the ${fmt(s.cross)} between them`;
+  return `Drawn: ${fmt(s.copies)} dots (${fmt(s.n)} proteins), ${what}; ${fmt(s.pieces)} line pieces; built in ${s.ms} ms.`;
 }
 // labels the panes add (none: the sets label their own picks)
 function updateExtraLabels() {}

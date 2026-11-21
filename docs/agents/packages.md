@@ -194,12 +194,17 @@ The cell map's model cell (`stories/spatial.js`: its `CELL` numbers, organelle s
 and `routeMaterial` copied into `src/sets/cell.js`) filled with made-up proteins and links (seeded: places shared
 roughly as in the Human Protein Atlas, about a third in two or more places, about two thirds of the links inside one
 place, a few hubs), to read a headset's frame rate at each size with the shell's read-out. One 16 s chapter, then
-explore mode with the set's controls `np` (proteins, 250 to 20k), `nl` (links, 375 to 80k), `curve` (pieces per link:
-14 as the cell, 6, straight), `shells` and `view` (outside, inside); `cell_n`, `cell_e` and `cell_seg` are `STEP`
-params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
+explore mode with the set's controls `np` (proteins, 250 to 20k), `nl` (links in the network, 375 to 80k), `show`
+(*Top links + cables*, the default since the owner's first headset test: 20k dots fine, links heavy from 5k and too
+much to read above about 2k; or *All links*), `budget` (top links at most: 1k, 2k, 3k, shared between the places by
+the square root of each one's links, ranked by a made-up evidence score), `curve` (pieces per link: straight by
+default, 6, 14 as the cell), `shells` and `view` (outside, inside). Links between places become one cable a pair
+(a tube, width by the square root of its links, none under 3 % of the busiest; each place's cables meet at one fixed
+spot, `HUB`). Opens at 10k proteins and 40k links. `cell_n`, `cell_e`, `cell_seg`, `cell_all` and `cell_budget` are
+`STEP` params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
 The pane says what is drawn (`statsLine`, in both twins; the set's `onBuild` renders it again). Not the address words
 `proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the address. Its
-`README.md` says how to measure on a Quest (automatic quality off). Address: `#cellstress&explore&np=5000&nl=20000`.
+`README.md` says how to measure on a Quest (automatic quality off). Address: `#cellstress&explore&np=20000&nl=80000&budget=3000` (`&show=all` for every link).
 
 ### Checking one (`tools/packages/check.mjs`)
 

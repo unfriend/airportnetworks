@@ -11,6 +11,17 @@ headset at 72 fps?" before a story is designed around a bigger cell.
   (a copy in each), about two thirds of the links inside one place, and a few hubs. Nothing to ask permission for.
 - Narration: none.
 
+## Two ways to show the links
+
+- *Top links + cables* (the default, after the first headset test: 20,000 dots are fine, more than about 2,000 links
+  are too heavy inside the cell and too much to read anywhere): every link between two places becomes part of one
+  cable for that pair (a tube as wide as the square root of its links; a pair with under 3 % of the busiest pair's links
+  gets none), and inside each place only its most important links are drawn, *Top links at most* (1k, 2k, 3k) in all,
+  shared between the places by the square root of how many links each has. "Important" is a made-up evidence score,
+  higher between well-connected proteins, with noise (with real data: a database's score). Each place's cables meet at
+  one fixed spot inside it (illustrative). Links are straight by default.
+- *All links*: every link of the network, as in the first test.
+
 ## What it draws, and why that is the cell's cost
 
 The same way as the cell map: every copy of every protein in one `THREE.Points` draw, every link in one
@@ -32,7 +43,7 @@ sheets and the mitochondria's cristae). Picking, labels and the proximity lens a
 The pane says what is drawn (dots, links, line pieces, vertices) and how long the last build took (a rebuild of the
 biggest sizes stalls a frame or two: that is the test, not the story).
 
-Links: `#cellstress&explore&np=5000&nl=20000`, `&curve=6`, `&shells=0`, `&view=inside`.
+Links: `#cellstress&explore&np=20000&nl=80000&budget=3000`, `&show=all`, `&curve=14`, `&shells=0`, `&view=inside`.
 
 ## Building it
 

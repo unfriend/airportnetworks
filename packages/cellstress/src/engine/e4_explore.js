@@ -11,7 +11,7 @@ const TABS = [['scenes', 'Scene']];
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_n', 'cell_e', 'cell_seg']);
+const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -103,7 +103,8 @@ function renderScenes() {
 function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.n) return '';
-  return `Drawn: ${fmt(s.copies)} dots (${fmt(s.n)} proteins), ${fmt(s.e)} links, ${fmt(s.pieces)} line pieces, ${fmt(s.verts)} line vertices; built in ${s.ms} ms.`;
+  const what = s.show === 'all' ? `all ${fmt(s.e)} links` : `${fmt(s.drawn)} of the ${fmt(s.e - s.cross)} links inside places, and ${s.cables} cables for the ${fmt(s.cross)} between them`;
+  return `Drawn: ${fmt(s.copies)} dots (${fmt(s.n)} proteins), ${what}; ${fmt(s.pieces)} line pieces; built in ${s.ms} ms.`;
 }
 //#use updateExtraLabels
 
