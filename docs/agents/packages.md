@@ -197,7 +197,7 @@ curved links not needed. Then cables between places were tried and removed (the 
 hardly exist in a real cell). Now it tries out the method for putting an interactome back into the cell (`README.md`,
 "The method"): spaces (`INNER`, `OUTER`, `MEMB`, faces `FACE_OF`, `spacesOf`), true links only between copies sharing a
 space (each of the many mitochondria, lysosomes, endosomes and peroxisomes its own: `MANY`; two membranes only at a
-contact site: `CONTACT`), dots where links happen (`dotOf`, `dotIn`, `dotBeside`, `dotToward`, `siteOf`), a database with artefacts and missing locations (controls `art`, `miss`: 0, 0.1, 0.3; the dots are the listed
+contact site: `CONTACT`), modules (`pMod`; four in five true links inside one, scored higher), dots where links happen (`dotOf`, `dotIn`: a module round its own spot in a large place; `dotBeside`, `dotToward`, `siteOf`: a long link inside a place, and a contact site, get a dot beside the partner; no possible link is drawn longer than about 0.2), a database with artefacts and missing locations (controls `art`, `miss`: 0, 0.1, 0.3; the dots are the listed
 copies), and each database link judged from the lists as possible, through a gate (`GATES`) or impossible; the truth's
 answer in the pane (`truthLine`). Controls `np`, `nl`, `art`, `miss`, `show` (0 possible, 1 + gates, 2 + impossible),
 `budget` (links at most, 1k to 3k, `share()` by the square root of counts), `shells`, `view`; all but the last two are

@@ -24,10 +24,17 @@ that way (a receptor faces outside and the cytosol; the nuclear envelope's inner
   lysosome, endosome and peroxisome is a space of its own. Two membrane proteins of different places meet only at a
   contact site (ER with the plasma membrane, mitochondria, lysosomes, endosomes, peroxisomes, the Golgi and the nuclear
   envelope; mitochondria with lysosomes).
-- **Where a link is drawn**: a dot stands for a protein where it meets others. Each listed location has its own dot; a
+- **Modules**: proteins come in modules of 3 to about 40 (as complexes and pathways), most of a module's members in
+  the module's place; four in five true links stay inside a module, and those score higher (a complex's members are
+  found together again and again), so they lead the links on show.
+- **Where a link is drawn**: a dot stands for a protein where it meets others. In a large place each module gathers round
+  its own spot (on its membrane, or at its distance from the nucleus); a link inside one place that is still longer than
+  0.12 (in the cell's radius) gets a dot of the less connected partner beside the other, so hubs stay put and partners
+  gather round them. Each listed location has its own dot; a
   link inside one of the many organelles is drawn inside one of them (the partner gets a dot there too: a protein of the
   mitochondria is in all of them), a soluble protein meeting a membrane gets a dot beside it, and at a contact site one
-  membrane protein moves to the point of its membrane nearest the other. So no link joins two mitochondria, and links
+  membrane protein moves to the point of its membrane nearest the other (an ER protein, or a lysosome's beside a
+  mitochondrion's, is drawn beside its partner: this model's ER only wraps the nucleus, a real one reaches everywhere). So no link joins two mitochondria, and links
   to membranes are short. The pane counts the dots at listed places and the ones added where proteins meet.
 - **The database** sees proteins, not copies, and not cleanly: *Artefacts* (none, 10 %, 30 %: links between proteins
   that never meet, as a two-hybrid screen or a broken-open cell can give) and *Missing locations* (none, 10 %, 30 %: a

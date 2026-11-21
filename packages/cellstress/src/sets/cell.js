@@ -366,7 +366,17 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   function dotIn(loc, inst) {
     const key = loc + '|' + inst, k = D.key.get(key);
     if (k !== undefined) return k;
-    const [q, C, R] = spot(NET.lPlace[loc], NET.lFace[loc], mul(31 * loc + 7 * inst + 1), inst);
+    const pl = NET.lPlace[loc], f = NET.lFace[loc];
+    let [q, C, R] = spot(pl, f, mul(31 * loc + 7 * inst + 1), inst);
+    // in a large place a module gathers round its own spot (a twelfth of the way from it to a random one), kept on its
+    // membrane or at its distance from the nucleus (the many small organelles are small enough already)
+    if (!MANY[pl]) {
+      const c0 = spot(pl, f, mul(NET.pMod[NET.lProt[loc]] * 13 + pl + 5), inst)[0], m = v3.lerp(c0, q, 1 / 12);
+      const hub = pl === 2 ? CELL.nucl.c : CELL.nuc.c;
+      if (pl === 9) q = v3.mul(m, CELL.eScale(q) / CELL.eScale(m));
+      else if ([1, 2, 3, 4, 10].includes(pl)) q = v3.add(hub, v3.mul(v3.norm(v3.sub(m, hub)), v3.len(v3.sub(q, hub))));
+      else q = m;
+    }
     return dotAdd(key, loc, q, C, R);
   }
   const dotOf = loc => dotIn(loc, NET.lInst[loc]);
@@ -386,9 +396,14 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   function dotToward(loc, at) {
     const key = loc + '|t' + at, k = D.key.get(key);
     if (k !== undefined) return k;
-    const own = dotOf(loc), C = D.cC.slice(3 * own, 3 * own + 3), R = D.cR[own], tp = dotPos(at), pl = NET.lPlace[loc], f = NET.lFace[loc];
+    const tp = dotPos(at), pl = NET.lPlace[loc], f = NET.lFace[loc];
+    // (one of MANY's organelles: the one nearest the partner, where a contact site can be)
+    let inst = NET.lInst[loc];
+    if (MANY[pl]) inst = MANY[pl].reduce((b, o, i) => (v3.len(v3.sub(o.c, tp)) < v3.len(v3.sub(MANY[pl][b].c, tp)) ? i : b), 0);
+    const own = dotIn(loc, inst), C = D.cC.slice(3 * own, 3 * own + 3), R = D.cR[own];
     const s = f === 1 ? 0.985 : f === 2 ? 1.015 : 1, d = v3.norm(v3.sub(tp, C));
-    const q = pl === 9 ? v3.mul(d, 0.985 * s / CELL.eScale(d)) : R > 0 ? v3.add(C, v3.mul(d, R * s)) : dotPos(own);
+    const j = v3.mul(K.unit(mul(53 * loc + at)), 0.012), d2 = v3.norm(v3.add(d, j));
+    const q = pl === 9 ? v3.mul(d2, 0.985 * s / CELL.eScale(d2)) : R > 0 ? v3.add(C, v3.mul(d2, R * s)) : dotPos(own);
     return dotAdd(key, loc, q, C, R);
   }
   // where a link is drawn: its two dots
@@ -396,10 +411,25 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const L = NET.L, a = L.a[k], b = L.b[k];
     if (L.cls[k]) return [dotOf(a), dotOf(b)];
     const pa = NET.lPlace[a], pb = NET.lPlace[b];
-    if (pa === pb) return MANY[pa] ? [dotOf(a), dotIn(b, NET.lInst[a])] : [dotOf(a), dotOf(b)];
+    if (pa === pb) {
+      if (MANY[pa]) return [dotOf(a), dotIn(b, NET.lInst[a])];
+      const da = dotOf(a), db = dotOf(b);
+      if (v3.len(v3.sub(dotPos(da), dotPos(db))) < 0.12) return [da, db];
+      // (still far apart: the less connected one gets a dot beside the other, so hubs stay put and partners gather)
+      const [hub, free] = NET.degP[NET.lProt[a]] >= NET.degP[NET.lProt[b]] ? [a, b] : [b, a], dh = dotOf(hub);
+      const df = NET.lFace[free] ? dotToward(free, dh) : dotBeside(free, dh);
+      return hub === a ? [dh, df] : [df, dh];
+    }
     // across two places: the soluble one is free and goes beside the other (two in membranes, a contact site: as they are)
     const fa = NET.lFace[a] === 0, fb = NET.lFace[b] === 0;
-    if (fa === fb && !fa) return [dotOf(a), dotToward(b, dotOf(a))];
+    if (fa === fb && !fa) {
+      // a contact site: the ER reaches every other organelle and the plasma membrane (this model's ER only wraps the
+      // nucleus), so its protein is drawn beside the partner; so is a lysosome's beside a mitochondrion's
+      const mover = pa === 3 ? a : pb === 3 ? b : pa === 6 ? a : pb === 6 ? b : -1;
+      if (mover === a) return [dotBeside(a, dotOf(b)), dotOf(b)];
+      if (mover === b) return [dotOf(a), dotBeside(b, dotOf(a))];
+      return [dotOf(a), dotToward(b, dotOf(a))];
+    }
     if (fa && fb) return [dotBeside(a, dotOf(b)), dotOf(b)];   // (two soluble ones sharing a space: the nucleolus and the nucleoplasm, the cytosol and its coats)
     return fa ? [dotBeside(a, dotOf(b)), dotOf(b)] : [dotOf(a), dotBeside(b, dotOf(a))];
   }
@@ -469,17 +499,25 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     D.pos = []; D.loc = []; D.cC = []; D.cR = []; D.keys = []; D.key = new Map();
     const r = mul(1000 + n);
     // proteins and their locations: places as in the cell map, a face for each in a membrane, one organelle of MANY's
+    // modules (as complexes and pathways): 3 to about 40 proteins each, most of them sharing the module's place
+    const pMod = new Int32Array(n), modPl = [];
+    for (let p = 0, m = 0; p < n; m++) {
+      const size = Math.round(3 + 37 * Math.pow(r(), 3)), pl = drawPlace(r);
+      modPl.push(pl);
+      for (let j = 0; j < size && p < n; j++) pMod[p++] = m;
+    }
     const lProt = [], lPlace = [], lFace = [], lSp = [], lInst = [], protLocs = [];
     for (let p = 0; p < n; p++) {
       const k = r() < 0.1 ? 3 : r() < 0.3 ? 2 : 1, own = [];
       protLocs.push([]);
       for (let j = 0; j < k; j++) {
-        let pl = drawPlace(r);
+        let pl = j === 0 && r() < 0.75 ? modPl[pMod[p]] : drawPlace(r);
         for (let tries = 0; own.includes(pl) && tries < 8; tries++) pl = drawPlace(r);
         if (own.includes(pl)) continue;
         own.push(pl);
         const f = r() < MEMB[pl] ? FACE_OF(pl, r) : 0, c = lProt.length;
-        lProt.push(p); lPlace.push(pl); lFace.push(f); lSp.push(spacesOf(pl, f)); lInst.push(MANY[pl] ? Math.floor(r() * MANY[pl].length) : 0);
+        // (a module's members in one of MANY's organelles share it)
+        lProt.push(p); lPlace.push(pl); lFace.push(f); lSp.push(spacesOf(pl, f)); lInst.push(MANY[pl] ? mul(pMod[p] * 13 + pl)() * MANY[pl].length | 0 : 0);
         protLocs[p].push(c);
       }
     }
@@ -500,17 +538,22 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     for (let c = 0; c < NL; c++) for (let s = 0; s < 9; s++) if (lSp[c] & (1 << s)) bySp[s].push(c);
     const cumSp = bySp.map(cumOf), re = mul(5000 + e), ra = mul(9000 + e);
     const draw = (cum, list) => { const x = re() * cum[cum.length - 1]; let lo = 0, hi = cum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < x) lo = m + 1; else hi = m; } return list ? list[lo] : lo; };
-    const pu = new Int32Array(e), pv = new Int32Array(e), kind = new Uint8Array(e), degP = new Float32Array(n);
+    const pu = new Int32Array(e), pv = new Int32Array(e), kind = new Uint8Array(e), inMod = new Uint8Array(e), degP = new Float32Array(n);
+    const modLocs = modPl.map(() => []);
+    for (let c = 0; c < NL; c++) modLocs[pMod[lProt[c]]].push(c);
     for (let i = 0; i < e; i++) {
       const u = draw(cumAll), sps = [];
       for (let s = 0; s < 9; s++) if (lSp[u] & (1 << s)) sps.push(s);
       const s = sps[Math.floor(re() * sps.length)], from = () => (bySp[s].length > 1 ? draw(cumSp[s], bySp[s]) : draw(cumAll));
-      let v = from();
       // (two membrane proteins of different places meet only at a contact site)
       const bad = v2 => lProt[v2] === lProt[u] || (lFace[u] && lFace[v2] && lPlace[u] !== lPlace[v2] && !CONTACT.has(lPlace[u] * 13 + lPlace[v2]));
+      // most of the time a partner from the same module that touches the same space; else anyone there
+      const mates = re() < 0.8 ? modLocs[pMod[lProt[u]]].filter(c => lSp[c] & (1 << s) && !bad(c)) : [];
+      let v = mates.length ? mates[Math.floor(re() * mates.length)] : from();
       for (let tries = 0; bad(v) && tries < 12; tries++) v = from();
+      inMod[i] = pMod[lProt[v]] === pMod[lProt[u]] ? 1 : 0;
       const w = draw(cumAll);   // (an artefact's other end: anyone; whether it is one, its own stream)
-      if (ra() < art && lProt[w] !== lProt[u]) { v = w; kind[i] = 1; }
+      if (ra() < art && lProt[w] !== lProt[u]) { v = w; kind[i] = 1; inMod[i] = 0; }
       pu[i] = lProt[u]; pv[i] = lProt[v]; degP[pu[i]]++; degP[pv[i]]++;
     }
     // each database link judged from the lists: the closest pair of listed locations
@@ -527,11 +570,12 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
         if (g < best) { best = g; ba = a; bb = b; }
       }
       L.a[i] = ba; L.b[i] = bb; L.cls[i] = best;
-      L.score[i] = 0.6 * Math.log1p(degP[pu[i]] * degP[pv[i]]) / lmax2 + 0.4 * rs();
+      // (links inside a module score higher, as a complex's members are found together again and again)
+      L.score[i] = 0.4 * Math.log1p(degP[pu[i]] * degP[pv[i]]) / lmax2 + 0.3 * rs() + 0.3 * inMod[i];
     }
     const tally = [0, 0, 0], arts = [0, 0, 0];
     for (let i = 0; i < e; i++) { tally[L.cls[i]]++; if (kind[i]) arts[L.cls[i]]++; }
-    Object.assign(NET, { lProt, lPlace, lFace, lSp, lInst, protLocs, seen, listed, L, degP, maxDeg, tally, arts, fk: '' });
+    Object.assign(NET, { pMod, lProt, lPlace, lFace, lSp, lInst, protLocs, seen, listed, L, degP, maxDeg, tally, arts, fk: '' });
     // the dots: every listed location's own, then the ones the background's links add
     for (let c = 0; c < NL; c++) if (seen[c]) dotOf(c);
     const nOwn = D.loc.length;
