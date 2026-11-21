@@ -1,19 +1,19 @@
 {
-  "version": "networks-v180",
-  "date": "2026-11-20",
+  "version": "networks-v181",
+  "date": "2026-11-21",
   "new": [
-    "The tutorial (Your guide) is now the last card on the Stories screen, on the page and in the headset, and the last circle Arrange all puts down.",
-    "Its card's kicker says Introduction instead of Start here.",
-    "Nothing else changes: a page still opens on the airports behind the Stories screen, Repeat all still skips the tutorial, and the title still says sixteen stories.",
-    "Rooms stay on format networks-55."
+    "The tutorial's robot guide is never quite still: it breathes, shifts its weight from foot to foot, and its head and hands drift a little.",
+    "On a walk it sways side to side, bobs and swings its arms against its steps.",
+    "Its turns and its glances ease in and out more softly, with a smaller overshoot.",
+    "Everything still follows the story's clock, so jumping and late joiners see the same pose. Rooms stay on format networks-55."
   ],
   "test": [
-    "In a headset, open the Stories screen: Your guide is the last card, at the right end of the lower row, and starts when you pick it.",
-    "On the page, the Stories screen shows it last too.",
-    "In a shared room, Arrange all: the tutorial's circle comes last."
+    "In a headset, start Your guide: watch it while it talks to you, and while it walks to the markers in Hello.",
+    "In practice mode, use the arrows so it walks between markers: the arms should swing and stop smoothly.",
+    "Tell us if the movement is too much or too little."
   ],
   "untested": [
-    "The new place of the card in a headset (checked here on the page only).",
-    "Everything from v136 to v179 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
+    "How it looks at life size in a headset, and whether the feet stay planted during the weight shift (checked here on the page only).",
+    "Everything from v136 to v180 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
   ]
 }

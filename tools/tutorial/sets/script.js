@@ -227,19 +227,20 @@ function gPos(A, t) {
     if (m[3] === 'snap' && m[1] <= m[0]) { p = q; continue; }
     const T = Math.max(m[1] - m[0], m[3] === 'snap' ? 0.15 : 0), d = gTrap(t - m[0], T, L, RAMP[m[3]] || 0.3);
     if (m[3] === 'walk') walked += d;
-    if (t < m[0] + T) { const k = L > 0 ? d / L : 1; return { p: [gLerp(p[0], q[0], k), gLerp(p[1], q[1], k)], walked, moving: m[3] }; }
+    if (t < m[0] + T) { const k = L > 0 ? d / L : 1, x = t - m[0]; return { p: [gLerp(p[0], q[0], k), gLerp(p[1], q[1], k)], walked, moving: m[3], env: m[3] === 'walk' ? gSmooth(Math.min(x, T - x) / 0.35) : 0 }; }
     p = q;
   }
-  return { p, walked, moving: '' };
+  return { p, walked, moving: '', env: 0 };
 }
 const gBearing = (p, to) => Math.atan2(to[0] - p[0], to[2] - p[1]) / GUIDE.D;   // the heading (deg) from p (x, z) towards to (x, y, z)
-// the robot's turn: a steady rate with 60 ms eases, then a 2 degree overshoot settling in 0.15 s
+// the turn: eased in and out over most of its length (the owner, 21 November 2026: less robotic), then a small
+// overshoot of 1.5 degrees settling in 0.3 s
 function gTurn(t, k0, v0, v1, dur) {
   const x = t - k0, d = v1 - v0;
   if (x <= 0) return v0;
-  if (x < dur) return v0 + d * (dur > 0 ? gTrap(x, dur, 1, 0.06) : 1);
+  if (x < dur) return v0 + d * (dur > 0 ? gTrap(x, dur, 1, dur * 0.4) : 1);
   const y = x - dur;
-  return y < 0.15 && Math.abs(d) > 5 ? v1 + Math.sign(d) * 2 * Math.sin(Math.PI * y / 0.15) * (1 - y / 0.15) : v1;
+  return y < 0.3 && Math.abs(d) > 5 ? v1 + Math.sign(d) * 1.5 * Math.sin(Math.PI * y / 0.3) * (1 - y / 0.3) : v1;
 }
 // a target's place in the set's frame (live: the viewer's head and ray, the panel's buttons)
 function gTarget(tg, t, live, G) {
@@ -293,7 +294,30 @@ function gGesture(g, side, args, t, t0, P, h, live, G) {
     default: return { w: [sg * 0.21, 0.87, 0.02], a: [0, -1, 0] };   // hang (where bodies.js puts a hand given none)
   }
 }
-const HANG = side => ({ w: [(side ? -1 : 1) * 0.21, 0.87, 0.02], a: [0, -1, 0] });
+// the hanging hands carry this frame's life (gLifeHands, set by evalActor: the arms' swing on a walk and their drift)
+let gLifeHands = [[0, 0, 0], [0, 0, 0]];
+const HANG = side => { const o = gLifeHands[side]; return { w: [(side ? -1 : 1) * 0.21 + o[0], 0.87 + o[1], 0.02 + o[2]], a: [0, -1, 0] }; };
+// life: never quite still (the owner, 21 November 2026: "not stand totally still"): breathing, a slow weight shift,
+// small drifts of the head and the hands, a side-to-side sway and the arms swinging on a walk. Sums of slow sines, a
+// pure function of t (a seek, a pause or a late joiner gives the same pose), damped while the robot is powered down.
+const gWave = (t, f, ph) => Math.sin(2 * Math.PI * f * t + ph);
+function gLife(t, ph, pos, power) {
+  const k = gSmooth((power - 0.15) / 0.6), still = 1 - pos.env, step = Math.PI * pos.walked / 0.35;
+  const breath = gWave(t, 0.22, ph);
+  const shift = (0.7 * gWave(t, 0.11, ph + 1) + 0.3 * gWave(t, 0.27, ph + 2)) * still;   // -1 .. 1, the weight from foot to foot
+  return {
+    // the head's offset in its own frame (x its left, z its forward), its yaw, pitch and roll (degrees)
+    dx: (0.012 * shift + 0.014 * Math.sin(step) * pos.env) * k, dz: 0.005 * gWave(t, 0.07, ph + 3) * still * k,
+    dy: (0.004 * breath - 0.006 * shift * shift - 0.014 * Math.abs(Math.sin(step)) * pos.env) * k,
+    yaw: (2.2 * gWave(t, 0.13, ph + 4) + 1.2 * gWave(t, 0.31, ph + 5)) * k,
+    pitch: (1.4 * gWave(t, 0.17, ph + 6) + 0.6 * breath) * k,
+    roll: (1.2 * gWave(t, 0.09, ph + 7) - 1.6 * shift + 1.5 * Math.sin(step) * pos.env) * k,
+    breath: 0.003 * breath * k,
+    hands: [0, 1].map(s => { const sw = (s ? -1 : 1) * Math.sin(step) * pos.env, sg = s ? -1 : 1;
+      return [(sg * 0.012 + 0.008 * gWave(t, 0.12, ph + 8 + s * 2)) * k, 0.02 * Math.abs(sw) * k,
+        (0.10 * sw + 0.012 * gWave(t, 0.15, ph + 9 + s * 3) * still) * k]; }),
+  };
+}
 const gMix = (A, B, x) => ({ w: gV(A.w, B.w, x), a: gNorm(gV(A.a, B.a, x)), at: x > 0.5 ? B.at : A.at });
 // a hand at t: the latest span begun, eased in from where the hand was as it began, and out to hanging after it
 function gHand(spans, i, side, t, P, h, live, G) {
@@ -332,15 +356,16 @@ function gEase(list, t, d, v) {
 
 // ------------------------------------------------------------------ one actor at t
 function evalActor(A, t, live, G) {
-  const pos = gPos(A, t), P = pos.p, base = gBearing(P, [0, 0, 0]);
+  const pos = gPos(A, t), P = pos.p, base = gBearing(P, [0, 0, 0]), parts = gParts(A.parts, t);
+  const life = gLife(t, G && A === G.c ? 2.3 : 0, pos, parts.power);
   // its heading: the scripted turns (from facing the viewer's start), then blended towards the viewer's live head
   const rel = gTurnValue(A.yaw, t);
   const face = gEase(A.face, t, 0.4, 1);
   const toYou = gBearing(P, live.head);
   let heading = base + rel;
   heading += gWrap(toYou - heading) * face;
-  // eye height and the bob of a walk (8 mm at each half-stride)
-  const eye = gEase(A.eye, t, 0.3, GUIDE.EYE) - (pos.moving === 'walk' ? 0.008 * Math.abs(Math.sin(Math.PI * pos.walked / 0.35)) : 0);
+  // eye height, with the life's breathing, weight shift and the bob of a walk
+  const eye = gEase(A.eye, t, 0.3, GUIDE.EYE) + life.dy;
   // the look: towards its target (at most 80 degrees off the heading), eased between targets over 0.25 s
   const headP = [P[0], eye, P[1]];
   const lookOf = tg => {
@@ -357,7 +382,7 @@ function evalActor(A, t, live, G) {
     let i = -1;
     for (let k = 0; k < A.look.length && A.look[k][0] <= t; k++) i = k;
     if (i >= 0) {
-      const cur = lookOf(A.look[i][1]), prev = i > 0 ? lookOf(A.look[i - 1][1]) : [0, 0], x = gSmooth((t - A.look[i][0]) / 0.25);
+      const cur = lookOf(A.look[i][1]), prev = i > 0 ? lookOf(A.look[i - 1][1]) : [0, 0], x = gSmooth((t - A.look[i][0]) / 0.4);
       ly = gLerp(prev[0], cur[0], x); lp = gLerp(prev[1], cur[1], x);
     }
   }
@@ -366,12 +391,18 @@ function evalActor(A, t, live, G) {
   for (const e of A.nod) { const x = t - e[0]; if (x >= 0 && x < e[1] * 0.28) { const y = x % 0.28; nod = -14 * (y < 0.14 ? gSmooth(y / 0.14) : 1 - gSmooth((y - 0.14) / 0.14)); } }
   for (const s of A.sweep) { const x = t - s; if (x >= 0 && x < 0.6) sweep = x < 0.15 ? -15 * gSmooth(x / 0.15) : x < 0.45 ? -15 + 30 * gSmooth((x - 0.15) / 0.3) : 15 - 15 * gSmooth((x - 0.45) / 0.15); }
   for (const e of A.tilt) { const x = t - e[0]; if (x >= 0 && t <= e[1] + 0.3) roll = e[2] * Math.min(gSmooth(x / 0.3), gSmooth((e[1] + 0.3 - t) / 0.3)); }
-  const hy = heading + ly + sweep, hp = lp + nod;
+  const hy = heading + ly + sweep + life.yaw, hp = lp + nod + life.pitch;
+  roll += life.roll;
   // the head pose: [x, y, z, qx, qy, qz, qw], looking along its -z: a turn (hy + 180) about y, then pitch, then roll
   const q = qMul(qMul(qAxis(0, 1, 0, (hy + 180) * GUIDE.D), qAxis(1, 0, 0, hp * GUIDE.D)), qAxis(0, 0, 1, roll * GUIDE.D));
+  gLifeHands = life.hands;
   const hands = [0, 1].map(s => gHand(s ? A.r : A.l, (s ? A.r : A.l).length - 1, s, t, P, heading, live, G));
-  const parts = gParts(A.parts, t);
-  return { p: P, heading, eye, head: [P[0], eye, P[1], q[0], q[1], q[2], q[3]], hands, hide: parts.hide, dark: parts.dark, power: parts.power, flash: parts.flash,
+  gLifeHands = [[0, 0, 0], [0, 0, 0]];
+  for (const h of hands) h.w[1] += life.breath;
+  // (the head's sway in the set's frame; the floor point P stays where the script puts it)
+  const hs = Math.sin(heading * GUIDE.D), hc = Math.cos(heading * GUIDE.D);
+  const hx = P[0] + life.dx * hc + life.dz * hs, hz = P[1] - life.dx * hs + life.dz * hc;
+  return { p: P, heading, eye, head: [hx, eye, hz, q[0], q[1], q[2], q[3]], hands, hide: parts.hide, dark: parts.dark, power: parts.power, flash: parts.flash,
     moving: pos.moving, look: [hy, hp] };
 }
 // a yaw track's relative heading at t (each key turns from where the last left it)

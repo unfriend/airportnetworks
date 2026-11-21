@@ -770,7 +770,7 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   cannot be done (a page: the last three; anchored: Recenter; the sticks where `HOST.xr.walkWhy()` refuses). The ticks
   are this device's own (`sessionStorage` `tutorialTicks`), never in `state()`. Task 6 counts the menu's Recenter (the
   story's `recenter` hook, wrapped) and the panel's (the edge of `XR.needRecenter`). The guide runs on practice's own
-  clock (an idle loop, reactions, a nudge after 15 s with nothing done); the foot bar is practice's (Play and Pause, the
+  clock (an idle loop, reactions, a nudge after 15 s with nothing done; from v181 the guide is never quite still in story or practice: breathing, a weight shift, small head and hand drifts, arms swinging on a walk, softer turns: `gLife` in `tools/tutorial/sets/script.js`); the foot bar is practice's (Play and Pause, the
   marker arrows).
 - `collab.state()` is `{ net: 'badge' | 'grown', mk: -1..4, run: 0 | 1 }` (`mk` -1: at home); a signal is an effect
   (`sig`, `{ n }`). The guide is never sent: every device draws it from the station's clock.

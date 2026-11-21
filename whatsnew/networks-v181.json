@@ -1,0 +1,19 @@
+{
+  "version": "networks-v181",
+  "date": "2026-11-21",
+  "new": [
+    "The tutorial's robot guide is never quite still: it breathes, shifts its weight from foot to foot, and its head and hands drift a little.",
+    "On a walk it sways side to side, bobs and swings its arms against its steps.",
+    "Its turns and its glances ease in and out more softly, with a smaller overshoot.",
+    "Everything still follows the story's clock, so jumping and late joiners see the same pose. Rooms stay on format networks-55."
+  ],
+  "test": [
+    "In a headset, start Your guide: watch it while it talks to you, and while it walks to the markers in Hello.",
+    "In practice mode, use the arrows so it walks between markers: the arms should swing and stop smoothly.",
+    "Tell us if the movement is too much or too little."
+  ],
+  "untested": [
+    "How it looks at life size in a headset, and whether the feet stay planted during the weight shift (checked here on the page only).",
+    "Everything from v136 to v180 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
+  ]
+}
