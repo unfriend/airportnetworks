@@ -2,6 +2,27 @@
   "api": 1,
   "packages": [
     {
+      "key": "cellstress",
+      "api": 1,
+      "version": "0.1.0",
+      "title": "Cell stress test",
+      "kick": "Measuring",
+      "col": "#8cc8ff",
+      "desc": "The cell map's model cell filled with up to 20,000 made-up proteins and 80,000 links, to read a headset's frame rate at each size.",
+      "len": "Story 0:16",
+      "aria": "Interactive 3D test: the cell map's model cell with many made-up proteins and links",
+      "thing": "cell",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "hidden",
+      "needs": 178,
+      "fp": "5fe9714bb607b4c5",
+      "files": {
+        "main.js": "454c22bc6c737532",
+        "story.json": "3866482e779c36b3"
+      }
+    },
+    {
       "key": "hello",
       "api": 1,
       "version": "1.0.0",

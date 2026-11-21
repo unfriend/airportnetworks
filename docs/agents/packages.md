@@ -187,6 +187,20 @@ four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then e
 - `icon.png`: the ring from above with two shortcuts and the chain, rendered headless (the page's canvas only, 256 px,
   about 40 KB).
 
+### The cell stress test (`packages/cellstress/`)
+
+*Cell stress test* (kick *Measuring*, `list: "hidden"`, `needs` 178; 21 November 2026): a measuring tool, not a story.
+The cell map's model cell (`stories/spatial.js`: its `CELL` numbers, organelle skins and `shellMaterial`, `nodeMaterial`
+and `routeMaterial` copied into `src/sets/cell.js`) filled with made-up proteins and links (seeded: places shared
+roughly as in the Human Protein Atlas, about a third in two or more places, about two thirds of the links inside one
+place, a few hubs), to read a headset's frame rate at each size with the shell's read-out. One 16 s chapter, then
+explore mode with the set's controls `np` (proteins, 250 to 20k), `nl` (links, 375 to 80k), `curve` (pieces per link:
+14 as the cell, 6, straight), `shells` and `view` (outside, inside); `cell_n`, `cell_e` and `cell_seg` are `STEP`
+params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
+The pane says what is drawn (`statsLine`, in both twins; the set's `onBuild` renders it again). Not the address words
+`proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the address. Its
+`README.md` says how to measure on a Quest (automatic quality off). Address: `#cellstress&explore&np=5000&nl=20000`.
+
 ### Checking one (`tools/packages/check.mjs`)
 
 `node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]` (`docs/agents/testing.md`, "Story
