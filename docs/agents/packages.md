@@ -196,7 +196,8 @@ headset test (the owner): 20k dots fine, links heavy from 5k (inside the cell) a
 curved links not needed. Then cables between places were tried and removed (the owner: links between compartments
 hardly exist in a real cell). Now it tries out the method for putting an interactome back into the cell (`README.md`,
 "The method"): spaces (`INNER`, `OUTER`, `MEMB`, faces `FACE_OF`, `spacesOf`), true links only between copies sharing a
-space, a database with artefacts and missing locations (controls `art`, `miss`: 0, 0.1, 0.3; the dots are the listed
+space (each of the many mitochondria, lysosomes, endosomes and peroxisomes its own: `MANY`; two membranes only at a
+contact site: `CONTACT`), dots where links happen (`dotOf`, `dotIn`, `dotBeside`, `dotToward`, `siteOf`), a database with artefacts and missing locations (controls `art`, `miss`: 0, 0.1, 0.3; the dots are the listed
 copies), and each database link judged from the lists as possible, through a gate (`GATES`) or impossible; the truth's
 answer in the pane (`truthLine`). Controls `np`, `nl`, `art`, `miss`, `show` (0 possible, 1 + gates, 2 + impossible),
 `budget` (links at most, 1k to 3k, `share()` by the square root of counts), `shells`, `view`; all but the last two are

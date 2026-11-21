@@ -20,14 +20,22 @@ the cell). A soluble protein is in its place's space; a membrane protein (all of
 envelope's, part of each organelle's) sits in the membrane and faces its inner side, its outer side or both, nudged
 that way (a receptor faces outside and the cytosol; the nuclear envelope's inner membrane faces the nucleoplasm).
 
-- **The truth** (made up, so known): every real link joins two copies that share a space. Contact sites come out of
-  the same rule (two organelles' membrane proteins both facing the cytosol).
+- **The truth** (made up, so known): every real link joins two locations that share a space. Each mitochondrion,
+  lysosome, endosome and peroxisome is a space of its own. Two membrane proteins of different places meet only at a
+  contact site (ER with the plasma membrane, mitochondria, lysosomes, endosomes, peroxisomes, the Golgi and the nuclear
+  envelope; mitochondria with lysosomes).
+- **Where a link is drawn**: a dot stands for a protein where it meets others. Each listed location has its own dot; a
+  link inside one of the many organelles is drawn inside one of them (the partner gets a dot there too: a protein of the
+  mitochondria is in all of them), a soluble protein meeting a membrane gets a dot beside it, and at a contact site one
+  membrane protein moves to the point of its membrane nearest the other. So no link joins two mitochondria, and links
+  to membranes are short. The pane counts the dots at listed places and the ones added where proteins meet.
 - **The database** sees proteins, not copies, and not cleanly: *Artefacts* (none, 10 %, 30 %: links between proteins
   that never meet, as a two-hybrid screen or a broken-open cell can give) and *Missing locations* (none, 10 %, 30 %: a
   place left out of a protein's list; one is always kept; the dots are the listed copies only). *None* and *None* hide
   both: the database is then the truth.
 - **The judgement**, from the lists alone, by the membranes between the two proteins' closest listed copies:
-  *possible* (a shared space: drawn there, in its places' colours), *through a gate* (amber: one known crossing apart:
+  *possible* (a shared space, and for two membrane proteins of different places a contact site: drawn there, in its
+  places' colours), *through a gate* (amber: one known crossing apart:
   nuclear pores; import into the ER, mitochondria and peroxisomes; vesicles between the ER, Golgi, lysosomes, endosomes
   and outside; drawn bending over the inner organelle's surface), *impossible* (red, straight: more crossings, or no
   gate).

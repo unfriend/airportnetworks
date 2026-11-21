@@ -110,7 +110,7 @@ function pickLine() {
   if (!f) return 'Nothing picked: the background shows the most important links of the kinds on show.';
   if (f.kind === 'protein') {
     const [g, a, r] = f.t, arts = f.ar[0] + f.ar[1] + f.ar[2];
-    return `Protein ${fmt(f.p + 1)}: ${f.copies.join('; ')}.${f.hidden.length ? ` Also truly in ${listOf(f.hidden)}, missing from its list.` : ''} ${fmt(f.links)} links to ${fmt(f.partners)} partners: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${arts ? `; ${fmt(arts)} of them artefacts` : ''}.`;
+    return `Protein ${fmt(f.p + 1)}: ${f.copies.join('; ')}.${f.hidden.length ? ` Also truly in ${listOf(f.hidden)}, missing from its list.` : ''} ${fmt(f.links)} links to ${fmt(f.partners)} partners: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${arts ? `; ${arts === 1 ? '1 of them an artefact' : `${fmt(arts)} of them artefacts`}` : ''}.`;
   }
   return `${f.name}: ${fmt(f.here)} proteins listed here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links inside it` : `All ${fmt(f.inner)} possible links inside it`}.`;
 }
@@ -136,7 +136,7 @@ function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.n) return '';
   const [g, a, r] = s.tally;
-  return `${fmt(s.nseen)} dots (${fmt(s.n)} proteins). Of ${fmt(s.e)} links in the database, ${fmt(g)} are possible, ${fmt(a)} through a gate and ${fmt(r)} impossible; ${fmt(s.drawn)} drawn. Built in ${s.ms} ms.`;
+  return `${fmt(s.nMain)} dots for ${fmt(s.n)} proteins (${fmt(s.nOwn)} at their listed places, the rest where they meet others). Of ${fmt(s.e)} links in the database, ${fmt(g)} are possible, ${fmt(a)} through a gate and ${fmt(r)} impossible; ${fmt(s.drawn)} drawn. Built in ${s.ms} ms.`;
 }
 // what the truth (known, as it is made up) says about the judgements: the twin of statsLine, in both panes
 function truthLine() {
