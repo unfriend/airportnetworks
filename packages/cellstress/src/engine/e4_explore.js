@@ -3,7 +3,7 @@
 // tabs of its own: an entry in TABS, a pane (render<Tab> here and draw<Tab>Pane in e6_panels.js, kept in step), and
 // what it picks in X and in the shared state (collabState, collabApply).
 const SCENES = [
-  ['cell', 'Cell', 'The cell map\'s model cell with made-up proteins and links. Pick a size, then read the frame rate (in a headset: press B or Y twice).'],
+  ['cell', 'Cell', 'The cell map\'s model cell with made-up proteins and a made-up database of links. A link can happen only where its two proteins share a space. Frame rate in a headset: press B or Y twice.'],
 ];
 const SCENE_SHORT = {};
 const TABS = [['scenes', 'Scene'], ['pick', 'Pick']];
@@ -12,7 +12,7 @@ const TABS = [['scenes', 'Scene'], ['pick', 'Pick']];
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on', pp: -1, pc: -1 };
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_n', 'cell_e', 'cell_seg', 'cell_all', 'cell_budget', 'cell_pp', 'cell_pc']);
+const STEP = new Set(['cell_n', 'cell_e', 'cell_art', 'cell_miss', 'cell_show', 'cell_budget', 'cell_pp', 'cell_pc']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -107,9 +107,12 @@ function renderAll() { renderScenes(); renderPick(); updateExtraLabels(); }
 // the pick's own words: what is picked and what it shows (the twin of drawPickPane)
 function pickLine() {
   const f = api('cell').focus && api('cell').focus();
-  if (!f) return 'Nothing picked: the background shows the top links and the cables.';
-  if (f.kind === 'protein') return `Protein ${fmt(f.p + 1)}, in ${listOf(f.places)}: all its ${fmt(f.links)} links (${fmt(f.cross)} to other places), to ${fmt(f.partners)} partners${f.places.length > 1 ? '; dotted: its copies' : ''}.`;
-  return `${f.name}: ${fmt(f.here)} proteins here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} links inside` : `All ${fmt(f.inner)} links inside`}; its cables carry ${fmt(f.cross)} to other places.`;
+  if (!f) return 'Nothing picked: the background shows the most important links of the kinds on show.';
+  if (f.kind === 'protein') {
+    const [g, a, r] = f.t, arts = f.ar[0] + f.ar[1] + f.ar[2];
+    return `Protein ${fmt(f.p + 1)}: ${f.copies.join('; ')}.${f.hidden.length ? ` Also truly in ${listOf(f.hidden)}, missing from its list.` : ''} ${fmt(f.links)} links to ${fmt(f.partners)} partners: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${arts ? `; ${fmt(arts)} of them artefacts` : ''}.`;
+  }
+  return `${f.name}: ${fmt(f.here)} proteins listed here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links inside it` : `All ${fmt(f.inner)} possible links inside it`}.`;
 }
 function renderPick() {
   const pane = $('#pane-pick');
@@ -125,15 +128,23 @@ function renderScenes() {
   if (!pane) return;
   const sc = SCENES.find(s => s[0] === X.scene);
   pane.innerHTML = `${SCENES.length > 1 ? `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>` : ''}
-    <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p><p class="sub">${esc(statsLine())}</p>
+    <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p><p class="sub">${esc(statsLine())}</p><p class="sub">${esc(truthLine())}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}`;
 }
 // what is drawn now: copies, links, line pieces and vertices (the set builds its network again when a size changes)
 function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.n) return '';
-  const what = s.show === 'all' ? `all ${fmt(s.e)} links` : `${fmt(s.drawn)} of the ${fmt(s.e - s.cross)} links inside places, and ${s.cables} cables for the ${fmt(s.cross)} between them`;
-  return `Drawn: ${fmt(s.copies)} dots (${fmt(s.n)} proteins), ${what}; ${fmt(s.pieces)} line pieces; built in ${s.ms} ms.`;
+  const [g, a, r] = s.tally;
+  return `${fmt(s.nseen)} dots (${fmt(s.n)} proteins). Of ${fmt(s.e)} links in the database, ${fmt(g)} are possible, ${fmt(a)} through a gate and ${fmt(r)} impossible; ${fmt(s.drawn)} drawn. Built in ${s.ms} ms.`;
+}
+// what the truth (known, as it is made up) says about the judgements: the twin of statsLine, in both panes
+function truthLine() {
+  const s = GL.sets.cell && GL.sets.cell.stats();
+  if (!s || !s.n) return '';
+  const [g, a, r] = s.tally, [ag, aa, ar] = s.arts, bad = (n, k) => `${fmt(k)} artefacts and ${fmt(n - k)} real links whose location is missing`;
+  if (!s.art && !s.miss) return 'No artefacts or missing locations: every link is real and every place listed.';
+  return `The truth: of the impossible, ${bad(r, ar)}; through a gate, ${bad(a, aa)}; ${fmt(ag)} artefacts look possible.`;
 }
 //#use updateExtraLabels
 
@@ -149,7 +160,7 @@ function pickWith(rc) {
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
 function pickPos(p) { const c = p && api('cell').copy(p.copy); return c ? c.pos : null; }
 // a pick's tip: [bold, rest]
-const pickText = p => { const c = api('cell').copy(p.copy); return c ? [`Protein ${fmt(c.prot + 1)}`, `${api('cell').places[c.place]} · ${fmt(c.deg)} links here`] : ['', '']; };
+const pickText = p => { const c = api('cell').copy(p.copy); return c ? [`Protein ${fmt(c.prot + 1)}`, `${api('cell').places[c.place]}, ${c.face} · ${fmt(c.deg)} links`] : ['', '']; };
 // a pick clicked or pressed
 function choosePick(p) { const c = p && api('cell').copy(p.copy); if (c) { setPick(c.prot, -1, true); if (X.tab !== 'pick') showTab('pick'); } }
 //#use bindCanvas

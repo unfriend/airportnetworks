@@ -37,10 +37,11 @@ function buildStory() {
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
   const html = {
     title: `<h1 data-at="0.6">${esc(XR_TITLE)}</h1>
-      <p class="lede" data-at="1.6">How many proteins and links can the cell hold?</p>
-      <p data-at="3">The cell map's model cell, drawn exactly as there, with made-up proteins and links in place of the real ones.</p>
-      <ul class="steps">${step(6, 0, CYAN, 'Top links + cables', 'only the most important links inside each place; one cable per pair of places')}
-        ${step(8, 0, AMBER, 'Frame rate', 'in a headset: press B or Y twice')}</ul>
+      <p class="lede" data-at="1.6">Putting a database of links back into the cell</p>
+      <p data-at="3">Two proteins can bind only where they share a space: the cytosol, the nucleoplasm, an organelle's inside, or a membrane's face.</p>
+      <ul class="steps">${step(5, 0, CYAN, 'Possible', 'the two share a space: drawn there')}
+        ${step(6.5, 0, AMBER, 'Through a gate', 'one known crossing apart, such as the nuclear pores')}
+        ${step(8, 0, MAGENTA, 'Impossible', 'an artefact, or a location missing from a list')}</ul>
       <p data-at="10"><button class="btn primary" id="btnGoExplore" type="button">Explore</button></p>`,
   };
 
@@ -62,7 +63,7 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ cell_n: 10000, cell_e: 40000, cell_seg: 1, cell_shell: 1, cell_all: 0, cell_budget: 2000 });
+  start({ cell_n: 10000, cell_e: 40000, cell_shell: 1, cell_art: 0.1, cell_miss: 0.1, cell_show: 0, cell_budget: 2000 });
   const a = C.title.a, b = C.title.b;
   show('cell', 0.2, 2);
   cam(a, 'cell', 'default', -20);

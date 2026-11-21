@@ -189,27 +189,25 @@ four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then e
 
 ### The cell stress test (`packages/cellstress/`)
 
-*Cell stress test* (kick *Measuring*, `list: "hidden"`, `needs` 178; 21 November 2026): a measuring tool, not a story.
+*Cell stress test* (kick *Measuring*, `list: "hidden"`, `needs` 178; from 21 November 2026): a test bed, not a story.
 The cell map's model cell (`stories/spatial.js`: its `CELL` numbers, organelle skins and `shellMaterial`, `nodeMaterial`
-and `routeMaterial` copied into `src/sets/cell.js`) filled with made-up proteins and links (seeded: places shared
-roughly as in the Human Protein Atlas, about a third in two or more places, about two thirds of the links inside one
-place, a few hubs), to read a headset's frame rate at each size with the shell's read-out. One 16 s chapter, then
-explore mode with the set's controls `np` (proteins, 250 to 20k), `nl` (links in the network, 375 to 80k), `show`
-(*Top links + cables*, the default since the owner's first headset test: 20k dots fine, links heavy from 5k and too
-much to read above about 2k; or *All links*), `budget` (top links at most: 1k, 2k, 3k, shared between the places by
-the square root of each one's links, ranked by a made-up evidence score), `curve` (pieces per link: straight by
-default, 6, 14 as the cell), `shells` and `view` (outside, inside). Links between places become one cable a pair
-(a tube, width by the square root of its links, none under 3 % of the busiest; each place's cables meet at one fixed
-spot, `HUB`, and is cut where it leaves its organelle's surface and enters the other's: `SHAPE`, `span`, `Part`). A *Pick*
-tab: a protein (click a dot, or point and press: `api().pick`, the nearest copy to the ray) shows all its links and dotted
-ties between its copies over a dimmed cell (the cell's `aFocus`, `uSel`); a place shows its top internal links, at most
-2,000, its cables lit (`uIso`, also in the cable shader); the focus lines fade as they grow in number. The pick is
-`X.pp`/`X.pc`, the params `cell_pp`/`cell_pc`, shared as `{ v: 2, ..., pp, pc }`, and the address `&pp=<from 1>` or
-`&pc=<0 to 12>`. Opens at 10k proteins and 40k links. `cell_n`, `cell_e`, `cell_seg`, `cell_all`, `cell_budget`, `cell_pp`
-and `cell_pc` are `STEP` params, and the set builds its network again when one changes (80k links and about 29k dots in about 150 ms headless).
-The pane says what is drawn (`statsLine`, in both twins; the set's `onBuild` renders it again). Not the address words
-`proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the address. Its
-`README.md` says how to measure on a Quest (automatic quality off). Address: `#cellstress&explore&np=20000&nl=80000&budget=3000` (`&show=all` for every link).
+and `routeMaterial` copied into `src/sets/cell.js`) with made-up proteins and a made-up database of links. Its first
+headset test (the owner): 20k dots fine, links heavy from 5k (inside the cell) and too much to read above about 2k;
+curved links not needed. Then cables between places were tried and removed (the owner: links between compartments
+hardly exist in a real cell). Now it tries out the method for putting an interactome back into the cell (`README.md`,
+"The method"): spaces (`INNER`, `OUTER`, `MEMB`, faces `FACE_OF`, `spacesOf`), true links only between copies sharing a
+space, a database with artefacts and missing locations (controls `art`, `miss`: 0, 0.1, 0.3; the dots are the listed
+copies), and each database link judged from the lists as possible, through a gate (`GATES`) or impossible; the truth's
+answer in the pane (`truthLine`). Controls `np`, `nl`, `art`, `miss`, `show` (0 possible, 1 + gates, 2 + impossible),
+`budget` (links at most, 1k to 3k, `share()` by the square root of counts), `shells`, `view`; all but the last two are
+`STEP` params (`cell_*`), and the set builds again when one changes (about 100 ms at 10k proteins and 40k links,
+headless). Amber and red links are their own draw (`flagMat`). A *Pick* tab: a protein (click a dot, or point and press:
+`api().pick`, the nearest listed copy to the ray) shows its places and faces, its truly missing places and all its
+database links in their colours, with dotted ties between its copies, over a dimmed cell (the cell's `aFocus`, `uSel`);
+a place shows its possible links inside, at most 2,000 (`uIso`). The pick is `X.pp`/`X.pc`, the params
+`cell_pp`/`cell_pc`, shared as `{ v: 2, ..., pp, pc }`, and the address `&pp=<from 1>` or `&pc=<0 to 12>`. Not the
+address words `proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the
+address. Address: `#cellstress&explore&show=2&art=0.3&miss=0.3`.
 
 ### Checking one (`tools/packages/check.mjs`)
 

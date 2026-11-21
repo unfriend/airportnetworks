@@ -1,39 +1,52 @@
 # Cell stress test (a story package)
 
-A measuring tool, not a story: the cell map story's model cell (`stories/spatial.js`), with its membrane, nucleus, ER,
-Golgi, mitochondria, small organelles and cytoskeleton drawn with the same shaders, filled with as many made-up
-proteins and links as explore mode asks. It answers "how many proteins and links could a spatial interactome hold in a
-headset at 72 fps?" before a story is designed around a bigger cell.
+A test bed, not a story: the cell map story's model cell (`stories/spatial.js`), with its membrane, nucleus, ER,
+Golgi, mitochondria, small organelles and cytoskeleton drawn with the same shaders, filled with made-up proteins and a
+made-up database of links. It first answered "how many proteins and links can a headset show at 72 fps?" (about 20,000
+dots, about 2,000 links); now it tries out a method for putting an interactome back into the cell, on made-up data
+whose truth is known, before trying it on a real interactome.
 
 - Made by: the app's authors (hidden: open it with `#cellstress`, or from the Stories screen in developer mode).
 - Data: none. Places, copies and links come from a seeded random draw (`src/sets/cell.js`), shaped like the cell map's:
   proteins shared between the thirteen places roughly as in the Human Protein Atlas, about a third in two or more places
-  (a copy in each), about two thirds of the links inside one place, and a few hubs. Nothing to ask permission for.
+  (a copy in each), a few hubs. Nothing to ask permission for.
 - Narration: none.
 
-## Two ways to show the links
+## The method
 
-- *Top links + cables* (the default, after the first headset test: 20,000 dots are fine, more than about 2,000 links
-  are too heavy inside the cell and too much to read anywhere): every link between two places becomes part of one
-  cable for that pair (a tube as wide as the square root of its links; a pair with under 3 % of the busiest pair's links
-  gets none), and inside each place only its most important links are drawn, *Top links at most* (1k, 2k, 3k) in all,
-  shared between the places by the square root of how many links each has. "Important" is a made-up evidence score,
-  higher between well-connected proteins, with noise (with real data: a database's score). Each place's cables meet at
-  one fixed spot inside it (illustrative; the mitochondria's, lysosomes', endosomes' and peroxisomes' at one of each),
-  and each cable is cut where it leaves its organelle's surface and where it enters the other's (the nucleus, the ER's
-  sheets, the Golgi's stack, the organelle; the cytosol, cytoskeleton and vesicles have no surface: their cables start
-  at their spot). Links are straight by default.
-- *Pick* (a tab): click a dot (in a headset: point and press) to pick a protein: all its links, wherever they go, and
-  dotted ties between its copies; its partners stay bright, the rest dims, the background links and cables fade. Or
-  pick a place: its links inside it, the most important first, 2,000 at most, its own cables lit and the other places
-  dimmed. The more lines a pick draws, the fainter each (so a busy place does not burn white).
-- *All links*: every link of the network, as in the first test.
+Two proteins can bind only where they share a **space**: a body of water bounded by membranes (the cytosol, the
+nucleoplasm, the ER's, the Golgi's, a mitochondrion's, a lysosome's, an endosome's or a peroxisome's inside, or outside
+the cell). A soluble protein is in its place's space; a membrane protein (all of the plasma membrane's and the nuclear
+envelope's, part of each organelle's) sits in the membrane and faces its inner side, its outer side or both, nudged
+that way (a receptor faces outside and the cytosol; the nuclear envelope's inner membrane faces the nucleoplasm).
+
+- **The truth** (made up, so known): every real link joins two copies that share a space. Contact sites come out of
+  the same rule (two organelles' membrane proteins both facing the cytosol).
+- **The database** sees proteins, not copies, and not cleanly: *Artefacts* (none, 10 %, 30 %: links between proteins
+  that never meet, as a two-hybrid screen or a broken-open cell can give) and *Missing locations* (none, 10 %, 30 %: a
+  place left out of a protein's list; one is always kept; the dots are the listed copies only). *None* and *None* hide
+  both: the database is then the truth.
+- **The judgement**, from the lists alone, by the membranes between the two proteins' closest listed copies:
+  *possible* (a shared space: drawn there, in its places' colours), *through a gate* (amber: one known crossing apart:
+  nuclear pores; import into the ER, mitochondria and peroxisomes; vesicles between the ER, Golgi, lysosomes, endosomes
+  and outside; drawn bending over the inner organelle's surface), *impossible* (red, straight: more crossings, or no
+  gate).
+- **The truth's answer**: the pane says how many of the amber and red links are artefacts and how many real links with a
+  missing location, and how many artefacts look possible (two random proteins often both touch the cytosol).
+- *Show*: possible only (the default), + through gates, + impossible; *Links at most* (1k, 2k, 3k): the most important
+  of the kinds on show, shared between the kinds and the possible ones between the places by the square root of their
+  counts. "Important" is a made-up evidence score, higher between well-connected proteins, with noise. Amber and red are
+  a draw of their own at full strength, or the pale cytosol's links hide them.
+- *Pick* (a tab): click a dot (in a headset: point and press) to pick a protein: its places and faces, the places truly
+  missing from its list, every database link of it in its colour, dotted ties between its copies; its partners stay
+  bright, the rest dims. Or pick a place: its possible links inside it, the most important first, 2,000 at most, the
+  other places dimmed. The more lines a pick draws, the fainter each.
 
 ## What it draws, and why that is the cell's cost
 
-The same way as the cell map: every copy of every protein in one `THREE.Points` draw, every link in one
-`THREE.LineSegments` draw (each a curve of 14 pieces bending away from its place's centre, every vertex carrying the
-cell's attributes, blended additively), and the see-through organelle skins (double-sided, a rim shader, the ER's
+As the cell map: every listed copy in one `THREE.Points` draw, the possible links in one `THREE.LineSegments` draw
+(straight, every vertex carrying the cell's attributes, blended additively), the amber and red ones in another (a link
+through a gate in 8 pieces), and the see-through organelle skins (double-sided, a rim shader, the ER's
 sheets and the mitochondria's cristae). Picking, labels and the proximity lens are left out: they run on hover only.
 
 ## Measuring on a Quest
@@ -43,21 +56,22 @@ sheets and the mitochondria's cristae). Picking, labels and the proximity lens a
    second against the refresh rate, frame times, triangles, draw calls and the story's own script time.
 3. Turn *automatic quality* off for a fair reading (the menu's Settings), or it lowers the resolution and the refresh
    rate to keep up, and the read-out then shows 72 fps at a smaller picture.
-4. Step up *Proteins* and *Links* until it drops below 72; try *Pieces per link* and *Organelles: off* to see which
-   part costs. Look from outside, then make the cell big with both grips and put your head inside: the inside is the
+4. Step up *Proteins*, *Links in the database* and *Links at most* until it drops below 72; try *Organelles: off* to
+   see which part costs. Look from outside, then make the cell big with both grips and put your head inside: the inside is the
    hard case (every see-through line and skin covers the whole view).
 
 The pane says what is drawn (dots, links, line pieces, vertices) and how long the last build took (a rebuild of the
 biggest sizes stalls a frame or two: that is the test, not the story).
 
-Links: `#cellstress&explore&tab=pick&pp=1` (protein 1), `&pc=4` (a place: 0 Cytosol to 12 Vesicles, in the Pick tab's
-order), `#cellstress&explore&np=20000&nl=80000&budget=3000`, `&show=all`, `&curve=14`, `&shells=0`, `&view=inside`.
+Links: `#cellstress&explore&show=2` (all three kinds), `&art=0&miss=0` (the truth), `&art=0.3&miss=0.3`,
+`&tab=pick&pp=1` (protein 1), `&pc=4` (a place: 0 Cytosol to 12 Vesicles, in the Pick tab's order), `&np=20000&nl=80000&budget=3000`,
+`&shells=0`, `&view=inside`.
 
 ## Building it
 
 `src/` is a copy of `tools/packages/template` with its own set (`src/sets/cell.js`), a one-chapter story
-(`src/engine/e3_story.js`) and the pane's count of what is drawn (`statsLine` in `e4_explore.js`, its twin in
-`e6_panels.js`).
+(`src/engine/e3_story.js`), the panes' tally and the truth's answer (`statsLine`, `truthLine` in `e4_explore.js`) and the
+Pick tab (`renderPick`, `pickLine`; the headset twins in `e6_panels.js`).
 
 ```
 node packages/cellstress/src/build.mjs
