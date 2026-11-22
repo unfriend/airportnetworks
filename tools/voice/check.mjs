@@ -38,8 +38,11 @@ async function until(what, test, ms = 30000) {
   throw new Error(`${what}: ${JSON.stringify(p)}`);
 }
 
+// (a story package listed as hidden has its card on the Stories screen in developer mode only)
+const { existsSync } = await import('node:fs');
+if (existsSync(new URL(`../../packages/${key}/story.json`, import.meta.url))) await page.addInitScript(() => { try { localStorage.setItem('devMode', 'on'); } catch (e) { /* storage blocked */ } });
 await page.goto(base + 'index.html');
-await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && document.querySelector('#picker .card'), null, { timeout: 30000 });
+await page.waitForFunction(k => typeof HOST !== 'undefined' && HOST.list && document.querySelector(`#picker .card[data-story="${k}"]`), key, { timeout: 30000 });
 await page.click(`#picker .card[data-story="${key}"]`); // a real tap: it unlocks the sound and starts the story
 await page.waitForFunction(k => HOST.curKey === k && HOST.cur && !HOST.busy && HOST.cur.peek('AUD && AUD.buf'), key, { timeout: 120000 });
 await until('the narration playing', p => p.label === 'Sound on' && p.pos !== null, 30000);
