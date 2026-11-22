@@ -14,7 +14,9 @@ What is written: derived numbers only. Every gene's symbol, its places in the ce
 locations, which 49 of them map to which place is LOC below; the sperm cell's own are left out), its main places and
 the Atlas's reliability; every link as two gene numbers and its kinds of evidence (the paper's seven). And, for the
 test (test-data.mjs), the split of the links into possible, through a gate and impossible as computed here, under the
-strict and the generous reading of which way a membrane protein faces. No sequence, image, antibody or donor data.
+strict and the generous reading of which way a membrane protein faces. And communities within each place, for the
+layout (communities() below): no data of their own, only a grouping of the links above. No sequence, image, antibody or
+donor data.
 --check exits 1 if data.js is not what this would write.
 """
 import base64, gzip, json, os, struct, sys
@@ -77,6 +79,72 @@ def judge(ma, mb, generous):
     if sa & sb:
         return 0
     return 1 if any((x, y) in GATES for x in sa for y in sb) else 2
+
+
+GAMMA = 2   # (above 1, a finer split than modularity's own: the nucleoplasm's largest is 189 proteins, not 678)
+
+
+def communities(pl, links, noncontact):
+    """Label propagation over the contact links within each place: a protein's location in place k joins only links
+    whose other end is in place k too. Plain and deterministic: proteins visited in an order shuffled by a fixed
+    linear congruential generator (the same on every Python), each taking the label that gains most: its links to the
+    label's members (a link weighted by its kinds of evidence) less what a random network of the same degrees would
+    give it (GAMMA times its degree times the label's total degree over twice the place's links; Barber and Clark's
+    modularity-seeking propagation, Phys. Rev. E 80, 026129, 2009), ties kept if its own label is among them, else the
+    smallest; at most 60 rounds. Plain propagation swallows most of the cytosol and the nucleoplasm into one community.
+    Returns, per place, each member's community, numbered by size (0 the largest; ties by first member)."""
+    n = len(pl)
+    out = []
+    for k in range(13):
+        members = [i for i in range(n) if pl[i] >> k & 1]
+        nb = {i: {} for i in members}
+        for a, b, kinds in links:
+            if a == b or not kinds & ~noncontact or not (pl[a] >> k & 1 and pl[b] >> k & 1):
+                continue
+            w = bin(kinds & ~noncontact).count('1')
+            nb[a][b] = nb[a].get(b, 0) + w
+            nb[b][a] = nb[b].get(a, 0) + w
+        deg = {i: sum(nb[i].values()) for i in members}
+        m2 = sum(deg.values()) or 1
+        label = {i: i for i in members}
+        vol = dict(deg)   # (each label's total degree)
+        order = members[:]
+        seed = 12345 + k
+        for _ in range(60):
+            for j in range(len(order) - 1, 0, -1):   # (Fisher-Yates with a fixed LCG)
+                seed = (seed * 1103515245 + 12345) & 0x7fffffff
+                r = seed % (j + 1)
+                order[j], order[r] = order[r], order[j]
+            changed = 0
+            for i in order:
+                if not nb[i]:
+                    continue
+                own, ki = label[i], deg[i]
+                score = {own: 0}
+                for j, w in nb[i].items():
+                    score[label[j]] = score.get(label[j], 0) + w
+                # (exact in integers: score * m2 - GAMMA * ki * vol, vol without i itself)
+                gain = {l: v * m2 - GAMMA * ki * (vol[l] - (ki if l == own else 0)) for l, v in score.items()}
+                best = max(gain.values())
+                top = [l for l, v in gain.items() if v == best]
+                new = own if own in top else min(top)
+                if new != own:
+                    vol[own] -= ki
+                    vol[new] += ki
+                    label[i] = new
+                    changed += 1
+            if not changed:
+                break
+        groups = {}
+        for i in members:
+            groups.setdefault(label[i], []).append(i)
+        ranked = sorted(groups.values(), key=lambda g: (-len(g), g[0]))
+        com = {}
+        for c, g in enumerate(ranked):
+            for i in g:
+                com[i] = c
+        out.append(com)
+    return out
 
 
 def main():
@@ -146,6 +214,16 @@ def main():
         split['generous' if generous else 'strict'] = c
     not_contact = sum(1 for _, _, k in links if not k & ~NONCONTACT)
     unplaced = sum(1 for a, b, k in links if k & ~NONCONTACT and not (pl[idx[a]] and pl[idx[b]]))
+    # communities, for the layout: per protein, one number per place it is in (in place order)
+    ilinks = [(idx[a], idx[b], k) for a, b, k in links]
+    coms = communities(pl, ilinks, NONCONTACT)
+    com = [coms[k][i] for i in range(len(genes)) for k in range(13) if pl[i] >> k & 1]
+    sizes = []
+    for k in range(13):
+        c = {}
+        for v in coms[k].values():
+            c[v] = c.get(v, 0) + 1
+        sizes.append(sorted(c.values(), reverse=True))
     data = {
         'source': 'Menche et al., Science 347, 1257601 (2015), Data S1; Human Protein Atlas subcellular locations; NCBI Gene',
         'places': PLACES, 'kinds': KINDS,
@@ -154,7 +232,10 @@ def main():
         'pl': b64('H', pl), 'main': b64('H', mn), 'rel': ''.join(str(x) for x in rel),
         # each link: gene a, gene b (16 bits each), its kinds (8 bits: bit i is KINDS[i])
         'links': base64.b64encode(b''.join(struct.pack('<HHB', idx[a], idx[b], k) for a, b, k in links)).decode(),
-        'check': {'split': split, 'notContact': not_contact, 'unplaced': unplaced},
+        # each protein's community in each of its places (16 bits each: in protein order, then place order)
+        'com': b64('H', com),
+        'check': {'split': split, 'notContact': not_contact, 'unplaced': unplaced,
+                  'coms': [len(z) for z in sizes], 'comTop': [z[0] if z else 0 for z in sizes]},
     }
     out = ('// Generated by src/data/gen_data.py from the interactome of Menche et al. (2015), the Human Protein Atlas\'s\n'
            '// subcellular locations and NCBI Gene: never edit by hand. Derived numbers only (see the package\'s README.md).\n'
@@ -167,6 +248,10 @@ def main():
     open(OUT, 'w').write(out)
     print(f'wrote sets/data.js ({len(out) // 1024} KB): {len(genes)} genes ({data["placed"]} with a place), {len(links)} links;'
           f' split strict {split["strict"]}, generous {split["generous"]}; not contacts {not_contact}, unplaced {unplaced}')
+    for k in range(13):
+        z = sizes[k]
+        print(f'  {PLACES[k]}: {sum(z)} proteins in {len(z)} communities; largest {z[:6]}; of 2 to 9: {sum(1 for x in z if 2 <= x < 10)},'
+              f' 10 to 99: {sum(1 for x in z if 10 <= x < 100)}, 100 or more: {sum(1 for x in z if x >= 100)}, alone: {sum(1 for x in z if x == 1)}')
 
 
 main()

@@ -8,6 +8,10 @@ const PDATA = (() => {
   const sym = D.sym.split('|'), pl = u16(D.pl), main = u16(D.main), rel = Uint8Array.from(D.rel, c => +c);
   const lb = bytes(D.links), E = lb.length / 5, la = new Uint16Array(E), lbb = new Uint16Array(E), kind = new Uint8Array(E);
   for (let i = 0; i < E; i++) { la[i] = lb[5 * i] | lb[5 * i + 1] << 8; lbb[i] = lb[5 * i + 2] | lb[5 * i + 3] << 8; kind[i] = lb[5 * i + 4]; }
+  // locations: one per protein and place it is in (17,935), in protein order then place order, as gen_data.py writes
+  // the communities; lOf[p] is protein p's first, lOf[p + 1] the one after its last
+  const com = u16(D.com), L = com.length, lProt = new Uint16Array(L), lPlace = new Uint8Array(L), lOf = new Uint32Array(sym.length + 1);
+  for (let p = 0, l = 0; p < sym.length; p++) { lOf[p] = l; for (let k = 0; k < 13; k++) if (pl[p] >> k & 1) { lProt[l] = p; lPlace[l++] = k; } lOf[p + 1] = l; }
   // spaces: 0 cytosol, 1 nucleoplasm, 2 ER lumen, 3 Golgi lumen, 4 mitochondrial matrix, 5 lysosome, 6 endosome,
   // 7 peroxisome, 8 outside the cell; each place's inner space and its membrane's other side (-1: no membrane)
   const INNER = [0, 1, 1, 2, 3, 4, 5, 6, 7, 0, 1, 0, 0], OUTER = [-1, -1, -1, 0, 0, 0, 0, 0, 0, 8, 0, -1, -1];
@@ -32,6 +36,6 @@ const PDATA = (() => {
   // kinds: bit i is D.kinds[i]; regulatory (0) and metabolic (3) alone are not contacts
   const NONCONTACT = 1 << 0 | 1 << 3;
   const contact = i => (kind[i] & ~NONCONTACT) !== 0;
-  return { D, sym, pl, main, rel, E, la, lb: lbb, kind, N: sym.length, places: D.places, kinds: D.kinds, INNER, OUTER, GATES, spaces, judge, contact };
+  return { D, sym, pl, main, rel, E, la, lb: lbb, kind, L, com, lProt, lPlace, lOf, N: sym.length, places: D.places, kinds: D.kinds, INNER, OUTER, GATES, spaces, judge, contact };
 })();
 if (typeof module !== 'undefined') module.exports = PDATA;

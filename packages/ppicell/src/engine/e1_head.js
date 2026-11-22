@@ -1,5 +1,6 @@
-// A story package (tools/packages/SPEC.md): say here in a few lines what the story shows, who made it and where its
-// numbers come from.
+// Back into the cell, a story package (tools/packages/SPEC.md): the interactome of Menche et al. (2015) put back into the
+// cell map's model cell with the Human Protein Atlas's locations, each link judged by whether its two proteins can meet
+// there. Every number shown is computed from the data (src/sets/data.js, decoded by src/sets/pdata.js) as the page runs.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
 // Built by src/build.mjs from the app's kit (tools/engine/kit.js), the shared engine parts (tools/engine/) and the sets and
 // engine files in src/: edit those, not this file.

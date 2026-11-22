@@ -14,7 +14,7 @@ Atlas's locations on the cell map's 13 places (9,905 proteins have one; 17,935 l
 the Atlas's reliability. Every number shown is computed from `PDATA` at load time, never typed in. Facts worth knowing
 (computed now, to be computed again in the page):
 
-- mean 21 links a protein; the biggest hubs GRB2 (872), YWHAZ (502), TP53 (450), SRC (441);
+- mean 21 links a protein; the biggest hubs GRB2 (871), YWHAZ (501), TP53 (449), SRC (440) (a link of a protein with itself, 2,869 of them, counted once);
 - 3,555 proteins have no place in the Atlas; 4,189 one place, 3,808 two, 1,908 three or more;
 - 6,546 links are not contacts (regulatory or metabolic only); 35,271 have an end without a place;
 - of the 99,479 judged: strict reading 81,131 possible, 15,390 through a gate, 2,958 impossible (3.0 %); generous
@@ -22,7 +22,7 @@ the Atlas's reliability. Every number shown is computed from `PDATA` at load tim
   3.3 %, binary 5.0 %, metabolic 5.5 %, regulatory 8.7 %;
 - examples: RELA (NF-κB) is listed only in the cytosol (the Atlas photographs resting cells), so its nuclear partners
   are amber; STAT3 cytosol and nucleoplasm; KPNB1 (importin) cytosol, nucleoplasm and nuclear envelope; EGFR Golgi,
-  plasma membrane and cytoskeleton; TRAF6 nucleolus and mitochondria (a surprise worth a label); TP53 (450 links)
+  plasma membrane and cytoskeleton; TRAF6 nucleolus and mitochondria (a surprise worth a label); TP53 (449 links)
   cytosol, nucleoplasm and vesicles, the best-known protein of all: the owner wants it among the examples.
 
 `src/data/test-data.mjs` checks that `PDATA` agrees with the generator; run it after any change to either.
@@ -71,7 +71,7 @@ the Atlas's reliability. Every number shown is computed from `PDATA` at load tim
 | 4 | Back into the cell | 75 | `ball` → `cell` | the morph: dots go to their places and split into copies; communities gather; each mitochondrion keeps its own links; the 3,555 without a place stay outside, greyed |
 | 5 | Green, amber, red | 70 | `cell` | the three kinds shown in turn with their counts on the cell (tags, not charts); amber bending through the pores; RELA's amber links as the example |
 | 6 | Why red? | 80 | `lens`, `cell` | the methods as lenses; the impossible share by kind of evidence as tags on the lenses; the faces: strict and generous side by side (0 % to 3 % impossible from that alone); a quarter of the map without a place |
-| 7 | Not all at once | 70 | `sites` | GRB2's 872 links against its few sites; TP53 (450 links, in the cytosol and the nucleus) as the second hub and a shuttle; STAT3 through a pore; links as moments |
+| 7 | Not all at once | 70 | `sites` | GRB2's 871 links against its few sites; TP53 (449 links, in the cytosol and the nucleus) as the second hub and a shuttle; STAT3 through a pore; links as moments |
 | 8 | What it would take | 65 | `next` | the way forward; the honest cell; the button to explore |
 
 Each chapter's text is short (the headset's panel cannot scroll: parts take turns). No chart as a chapter (the owner's

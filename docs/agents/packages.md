@@ -217,8 +217,20 @@ address. Address: `#cellstress&explore&show=2&art=0.3&miss=0.3`.
 Atlas's locations, each link judged by the method `packages/cellstress` tried out. Its plan is `src/SPEC.md`; its data
 `src/sets/data.js` (`PPI_DATA`, derived numbers only) from `src/data/gen_data.py <folder>` (the three source files stay
 out of the repository: `docs/data-and-permissions.md`), decoded by `src/sets/pdata.js` (`PDATA`: the places, the links,
-the rules `spaces`, `judge`, `contact`), checked by `node packages/ppicell/src/data/test-data.mjs`. Until it is built
-its `main.js` is the template's.
+the rules `spaces`, `judge`, `contact`; the locations `lProt`, `lPlace`, `lOf` and their communities `com`), checked by
+`node packages/ppicell/src/data/test-data.mjs`. Communities: label propagation within each place over the contact links,
+modularity-seeking (Barber and Clark; `GAMMA` 2, plain propagation swallows most of the cytosol into one), a fixed LCG
+order, so `--check` is stable. The set `cell` (`src/sets/cell.js`, from cellstress's) reads `PDATA`: every location a dot
+(17,935, plus the copies drawn links need: about 18.6k to 19k; 21.9k with the 3,555 unplaced proteins outside the cell at
+`show=3`), a link drawn between the best pair of its proteins' places (`PAIR`), MANY's instance and a large place's spot
+from the community, faces for drawing from the reading (`faceOf`: plasma membrane and nuclear envelope in the membrane,
+facing their inner side (strict) or both (generous); organelle proteins inside (strict) or on the membrane facing both
+(generous)), importance = number of evidence kinds then the paper's order (`ORDER`), 2,000 links shared as cellstress.
+Controls `show` (0 to 3: + not judged, grey), `faces` (strict, generous), `kind` (-1 all, 0 to 6), `shells`, `view`;
+the *Pick* tab adds a symbol box on the page. Shared `{ v: 1, tab, scene, ctl, p, place }`; address
+`#ppicell&explore&show=2&faces=0&kind=1&p=TP53&place=4` (`p` by symbol, any case, wins over `place`; either opens the Pick
+tab). A link of a protein with itself counts once (GRB2 871 links, TP53 449). The story (`e3_story.js`) is a one-chapter
+placeholder until builder B's.
 
 ### Checking one (`tools/packages/check.mjs`)
 
