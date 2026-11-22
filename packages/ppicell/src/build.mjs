@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url)), pkg = path.join(here,
 const args = process.argv.slice(2), check = args.includes('--check'), ri = args.indexOf('--root');
 const fail = m => { console.log(m); process.exit(1); };
 // the sets, in the order the story uses them (sets/<name>.js; a file of helpers the sets share goes first)
-const SET_FILES = ['data', 'pdata', 'structs', 'models', 'cell', 'ball', 'crowd', 'walls', 'lens', 'sites', 'next'];
+const SET_FILES = ['data', 'pdata', 'structs', 'models', 'cell', 'ball', 'crowd', 'balls', 'walls', 'lens', 'sites', 'next'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 // the app's folder: --root, or the first folder up from here that holds tools/engine/parts.mjs
 let root = ri >= 0 ? path.resolve(args[ri + 1] || '.') : here;

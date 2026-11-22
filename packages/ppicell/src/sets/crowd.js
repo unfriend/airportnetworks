@@ -82,44 +82,8 @@ SETS.crowd = function (K) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aRad', new THREE.BufferAttribute(rad, 1));
   g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); g.setAttribute('aMark', new THREE.BufferAttribute(mk, 1));
-  const U = { uA: set.uA, uT: { value: 0 }, uJig: { value: JIG }, uHalf: { value: 400 }, uMark: { value: 0 } };
-  // (each ball a lit sphere: a point as big as the ball on screen, its round face shaded and its depth written where the
-  // sphere's surface is, so neighbouring balls meet as spheres do)
-  const mat = new THREE.ShaderMaterial({
-    uniforms: U, depthWrite: true, extensions: { fragDepth: true },
-    vertexShader: `
-attribute float aRad, aPh, aMark; attribute vec3 aCol;
-uniform float uT, uJig, uHalf, uMark;
-varying vec3 vC, vP; varying float vR;
-void main() {
-  vec3 p = position + uJig * vec3(sin(uT * 1.7 + aPh), sin(uT * 1.3 + aPh * 2.1), sin(uT * 1.9 + aPh * 0.7));
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  float r = aRad * length(modelViewMatrix[0].xyz);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = clamp(2.0 * r * projectionMatrix[1][1] * uHalf / max(-mv.z, 0.001), 1.0, 256.0);
-  vec3 lit = mix(aCol, vec3(0.27, 0.85, 1.0), aMark * uMark);
-  vC = lit * (aMark > 0.5 ? 1.0 : 1.0 - 0.6 * uMark); vP = mv.xyz; vR = r;
-}`,
-    fragmentShader: `
-uniform float uA; uniform mat4 projectionMatrix;   // (three.js declares it only in the vertex shader)
-varying vec3 vC, vP; varying float vR;
-void main() {
-  vec2 c = gl_PointCoord * 2.0 - 1.0; c.y = -c.y;
-  float d2 = dot(c, c);
-  if (d2 > 1.0) discard;
-  vec3 n = vec3(c, sqrt(1.0 - d2));
-  vec3 L = normalize(vec3(-0.45, 0.6, 0.66));
-  float diff = max(dot(n, L), 0.0), spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0);
-  float rim = pow(1.0 - n.z, 2.0);
-  vec3 col = vC * (0.42 + 0.62 * diff) * (0.78 + 0.22 * n.z) + 0.22 * spec + 0.18 * rim * vC;
-  vec4 clip = projectionMatrix * vec4(vP + n * vR, 1.0);
-  gl_FragDepthEXT = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
-  gl_FragColor = vec4(col, uA);
-}`,
-  });
-  // (see-through only while the set fades, as the kit's materials are)
-  Object.defineProperty(mat, 'transparent', { configurable: true, get: () => set.uA.value < 0.999, set() {} });
-  set.mats.push(mat);
+  // (each ball a lit sphere with its true depth: BALLS.mat, shared with the lenses and chapter 8)
+  const U = { uT: { value: 0 }, uJig: { value: JIG }, uHalf: { value: 400 }, uMark: { value: 0 } }, mat = BALLS.mat(set, U);
   const balls = new THREE.Points(g, mat); balls.frustumCulled = false;
   holder.add(balls);
   // the cube's edges and a faint skin
@@ -132,7 +96,6 @@ void main() {
   dg.attributes.aCol.array.set(MARK); dg.attributes.aSize.array[0] = 0.03;
   const dot = new THREE.Points(dg, K.points(set));
   holder.add(dot);
-  const v2 = new THREE.Vector2();
   return Object.assign(set, {
     // crowd_open: 0 a single dot, 1 the cube full size; crowd_mark: the marked kind lit (the rest dimmed)
     params: { crowd_a: 1, crowd_open: 0, crowd_mark: 0 },
@@ -143,9 +106,7 @@ void main() {
       dot.scale.setScalar(1 / sc);
       balls.visible = edges.visible = skin.visible = o > 0.02;
       U.uT.value = t; U.uMark.value = clamp(S.crowd_mark, 0, 1);
-      // (the points' size in pixels: half the drawn height, a headset's eye or the page's drawing buffer)
-      const r = GL.renderer;
-      U.uHalf.value = r.xr.isPresenting && typeof XR !== 'undefined' && XR.viewH ? XR.viewH / 2 : r.getDrawingBufferSize(v2).y / 2;
+      U.uHalf.value = BALLS.half();   // (the points' size in pixels: half the drawn height)
     },
     anchors: { dot: AT, cube: [AT[0], AT[1] + SIDE * 0.62, AT[2]], corner: [AT[0] + HALF, AT[1] - HALF, AT[2] + HALF],
       mark: () => { const m = P.mols.find(o => o.mark && o.c[1] > 0.04) || P.mols[0]; return [AT[0] + m.c[0], AT[1] + m.c[1], AT[2] + m.c[2]]; } },

@@ -7,7 +7,8 @@
 // The bait and prey of the two-hybrid are H-Ras and the Raf kinase's Ras-binding domain (PDB 4G0N), each a surface (two
 // models cut from the entry in its own coordinates), meeting at their crystal contact; the hook of the purification is
 // an antibody (PDB 1IGT); the proximity labelling's bait carries the biotin ligase BirA (PDB 1BIA); the proteins in the
-// tube and round the bait are the crowd's real proteins at their lowest level of detail (molInstanced).
+// tube and round the bait are the crowd's real proteins as balls, as the crowd draws them (BALLS), and so is the broken
+// cell's membrane (torn pieces of a lipid bilayer).
 SETS.lens = function (K) {
   const { THREE, clamp, v3 } = K;
   const set = K.newSet('lens');
@@ -45,47 +46,56 @@ SETS.lens = function (K) {
   bait.position.set(...BAIT);
   const glowG = pts(1, (i, a) => { a.aCol.array.set([1.0, 0.95, 0.5]); a.aSize.array[0] = 0.12; });
   const glow = new THREE.Points(glowG, K.points(set)); glow.position.set(PREY[0] + 0.04, -0.12, 0.01); Y.add(glow);
-  // 2. purification: pieces of a broken cell drifting apart; proteins from several places falling into a tube
-  const A2 = lenses[1].inner, shards = [];
-  for (let i = 0; i < 7; i++) {
-    const th = i / 7 * Math.PI * 2, m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 6, th, Math.PI * 2 / 7 * 0.8, 0.3, 1.9), K.rim(set, { color: [0.55, 0.78, 1.0], a0: 0.05, a1: 0.45 }));
-    m.position.y = 0.12; m.userData.d = [Math.cos(th + 0.4), 0.3 * (r() - 0.5), -Math.sin(th + 0.4)]; A2.add(m); shards.push(m);
-  }
+  // 2. purification: a cell broken open, torn pieces of its membrane drifting apart, its proteins spilling out and falling
+  // into a tube. The membrane is a lipid bilayer drawn as balls (a lipid's head on each face, the tails between them), torn
+  // into ragged pieces; the proteins are the crowd's real ones (balls, BALLS), each in the colour of the place it came from
+  // (the cell's place colours), sized to scale against each other (one factor: the largest, tubulin, 0.05 long). One draw.
+  const A2 = lenses[1].inner, CC = [0, 0.12, 0], RC = 0.17;
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.22, 20, 1, true), K.rim(set, { color: [0.8, 0.9, 1.0], a0: 0.05, a1: 0.6 })); tube.position.y = -0.2; A2.add(tube);
   // the hook: an antibody (light chains pale, heavy chains deeper amber) in the tube, holding the bait
   const AB = molMesh(set, 'igg', { width: 0.1 });
   AB.group.position.set(0, -0.2, 0); AB.group.rotation.z = Math.PI / 2; A2.add(AB.group);
-  // the proteins: the crowd's real ones, simplified, each in the colour of the place it came from (the cell's place
-  // colours), sized to scale against each other (one factor: the largest, tubulin, 0.05 long)
-  const CROWD = ['ubq', 'cam', 'gapdh', 'tub', 'actin'], PER_A2 = 0.05 / Math.max(...CROWD.map(k => (molHead(k) ? molHead(k).size[0] : 100)));
-  const NM = 36, mixK = Array.from({ length: NM }, (_, i) => i % CROWD.length);
-  const crowdOf = (A, kinds, scale, colOf) => CROWD.map((key, j) => {
-    const list = kinds.map((m, i) => (m === j ? i : -1)).filter(i => i >= 0), mi = molInstanced(set, key, { lod: 2, count: list.length, scale });
-    if (mi.mesh.isInstancedMesh) list.forEach((i, n) => mi.mesh.setColorAt(n, new THREE.Color(...colOf(i))));
-    A.add(mi.mesh);
-    return { mi, list, r: molHead(key) ? molHead(key).radius * scale : 0.005 };
+  // (the pieces: the sphere's lipids shared out to the nearest of NF seeds; a ragged strip along each seam torn away, and a
+  // few holes, so no two pieces meet; each piece's balls kept about its own middle, which drifts out and turns)
+  const NF = 11, seeds = Array.from({ length: NF }, (_, i) => { const y = 1 - 2 * (i + 0.5) / NF, q = Math.sqrt(1 - y * y), a = i * 2.39996 + r() * 0.5; return v3.norm([q * Math.cos(a), y + 0.15 * (r() - 0.5), q * Math.sin(a)]); });
+  const SP = 0.0105, NL = Math.round(4 * Math.PI * RC * RC / (SP * SP * 0.87)), HR = 0.0053, TR = 0.0046, TH = 0.0068;
+  const wob = u => Math.sin(23 * u[0] + 3 * u[1]) * Math.sin(19 * u[1] - 5 * u[2]) + 0.6 * Math.sin(31 * u[2] + 11 * u[0]);
+  const frag = seeds.map(() => []), LIP = [[RC + TH, HR], [RC - TH, HR], [RC, TR]];   // (two heads, the tails)
+  for (let i = 0; i < NL; i++) {
+    const y = 1 - 2 * (i + 0.5) / NL, q = Math.sqrt(1 - y * y), a = i * 2.39996, u = [q * Math.cos(a), y, q * Math.sin(a)];
+    const d = seeds.map(s => 1 - v3.dot(s, u)), o = d.map((x, j) => j).sort((x, z) => d[x] - d[z]);
+    if (o[0] === NF - 1 || d[o[1]] - d[o[0]] < 0.045 + 0.035 * wob(u) + 0.06 * r() * r() || wob(v3.mul(u, 1.7)) > 1.35) continue;   // (the tears, the holes; the bottom torn away, where the proteins pour out)
+    const j = 0.0018 * (r() - 0.5);   // (each lipid a little in or out: a membrane is not a lattice)
+    for (const [rr, br] of LIP) frag[o[0]].push([u[0] * (rr + j), u[1] * (rr + j), u[2] * (rr + j), br * (0.9 + 0.2 * r())]);
+  }
+  const HEAD = [0.7, 0.77, 0.9], TAIL = [0.92, 0.86, 0.64];
+  const fragM = frag.map((F, j) => {
+    const m = v3.mul(seeds[j], RC);
+    return { balls: F.map(b => [b[0] - m[0], b[1] - m[1], b[2] - m[2], b[3]]), cols: F.map((b, i) => (i % 3 > 1 ? TAIL : HEAD)), m, out: v3.norm([seeds[j][0], seeds[j][1] > 0 ? seeds[j][1] : 0.2 * seeds[j][1], seeds[j][2]]), ax: new THREE.Vector3(...v3.norm(v3.cross(seeds[j], [0, 1, 0.01]))), q: new THREE.Quaternion() };
   });
-  const mixM = crowdOf(A2, mixK, PER_A2, i => PLC[i % PLC.length]);
+  const CROWD = ['ubq', 'cam', 'gapdh', 'tub', 'actin'], PER_A2 = 0.05 / Math.max(...CROWD.map(k => 2 * BALLS.reach(BALLS.of(k, 1))));
+  const NM = 36, mixK = Array.from({ length: NM }, (_, i) => i % CROWD.length), mixB = mixK.map(j => BALLS.of(CROWD[j], PER_A2)), mixR = mixB.map(BALLS.reach);
+  const mix = BALLS.cloud(set, [...fragM, ...mixB.map((balls, i) => ({ balls, c: PLC[i % PLC.length] }))]); A2.add(mix.points);
   const mixQ = Array.from({ length: NM }, () => new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
-  const mixS = Array.from({ length: NM }, () => [0.16 * (r() - 0.5) * 2, 0.12 + 0.14 * (r() - 0.5), 0.1 * (r() - 0.5)]), mixE = Array.from({ length: NM }, () => [0.09 * (r() - 0.5), -0.27 + 0.14 * r(), 0.08 * (r() - 0.5)]);
+  // (where each starts, inside the cell, and ends, in the tube above and round the antibody: none overlapping)
+  const mixS = BALLS.scatter(mixR, () => v3.add(CC, v3.mul(K.unit(r), (RC - 0.05) * Math.cbrt(r()))), 0.9);
+  const mixE = BALLS.scatter(mixR, () => [0.1 * (r() - 0.5), -0.27 + 0.17 * r(), 0.08 * (r() - 0.5)], 0.85, 80, [{ p: [0, -0.2, 0], r: 0.03 }]);
+  const mixD = mixS.map(p => v3.norm(v3.sub(p, CC).map((x, j) => x + (j === 1 ? 0 : 0.001))));
   // 3. proximity labelling: a bait, its halo, the neighbours it tags as they come near
   const A3 = lenses[2].inner;
   const bait3 = blob(0.032, [0.3, 0.75, 1.0]); bait3.position.set(-0.03, 0, 0); A3.add(bait3);
   const BI = molMesh(set, 'bira', { width: 0.065 });   // (the biotin ligase, fused to the bait)
   BI.group.position.set(0.035, 0.005, 0.01); A3.add(BI.group);
   const halo = new THREE.Mesh(new THREE.SphereGeometry(0.17, 28, 18), K.rim(set, { color: [0.4, 1.0, 0.7], a0: 0.06, a1: 0.5 })); A3.add(halo);
-  // the neighbours: real proteins, simplified, grey; those inside the halo collect a tag
-  const NN = 30, nbS = [], nbK = [], nbQ = [], nbR = [];
-  for (let i = 0; i < NN; i++) {
-    const u = K.unit(r), d = 0.09 + 0.2 * Math.sqrt(r()); nbS.push([u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]); nbK.push(i % CROWD.length);
-    nbQ.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
-  }
-  const nbM = crowdOf(A3, nbK, PER_A2 * 0.8, () => [0.65, 0.7, 0.8]);
-  nbM.forEach(({ list, r: rr }) => list.forEach(i => { nbR[i] = rr * 0.7; }));
+  // the neighbours: real proteins as balls, grey; those inside the halo collect a tag (placed so that none overlaps another
+  // as they drift)
+  const NN = 30, nbK = Array.from({ length: NN }, (_, i) => i % CROWD.length), nbB = nbK.map(j => BALLS.of(CROWD[j], PER_A2 * 0.8));
+  const nbQ = nbK.map(() => new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3))), nbR = nbB.map(b => BALLS.reach(b) * 0.7);
+  const nbS = BALLS.scatter(nbB.map(b => BALLS.reach(b) + 0.015), () => { const u = K.unit(r), d = 0.09 + 0.2 * Math.sqrt(r()); return [u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]; }, 1, 80, [{ p: [0, 0, 0], r: 0.06 }]);
+  const nbM = BALLS.cloud(set, nbB.map(balls => ({ balls, c: [0.65, 0.7, 0.8] }))); A3.add(nbM.points);
   const nb = { attributes: { position: { array: new Float32Array(3 * NN) } } };   // (the neighbours' places this frame)
   const tags = pts(NN, (i, a) => { a.aCol.array.set([0.4, 1.0, 0.7], 3 * i); a.aSize.array[i] = 0.022; a.aA.array[i] = 0; });
   const tagP = new THREE.Points(tags, K.points(set)); A3.add(tagP);
-  const V = new THREE.Vector3();
   const anchorOf = (i, y) => () => { const p = AT[i]; return [p[0], p[1] + y, p[2]]; };
   return Object.assign(set, {
     // lens_open: the rings come in (each a little after the one before); lens_focus: one lit (1 two-hybrid, 2
@@ -106,8 +116,16 @@ SETS.lens = function (K) {
       glowG.attributes.aA.array[0] = clamp((near - 0.9) * 10, 0, 1) * (0.7 + 0.3 * Math.sin(t * 6)); glowG.attributes.aA.needsUpdate = true;
       // purification: the cell breaks open, its proteins fall into the tube (a loop of 8 s)
       const b = (t / 8) % 1, br = K.smooth(clamp(b / 0.3, 0, 1)), fall = K.smooth(clamp((b - 0.25) / 0.45, 0, 1)), back = clamp((b - 0.92) / 0.08, 0, 1);
-      shards.forEach(m => { const d = m.userData.d; m.position.set(d[0] * 0.12 * br, 0.12 + d[1] * 0.1 * br, d[2] * 0.12 * br); m.visible = back < 0.5; });
-      for (const { mi, list } of mixM) list.forEach((i, n) => mi.setAt(n, V.set(...v3.lerp(mixS[i], mixE[i], fall)), mixQ[i], back < 0.5 ? 1 : 0.0001));
+      const gone = back < 0.5 ? 1 : 0;
+      fragM.forEach((F, j) => {   // (the pieces drift out and turn a little, none down over the tube)
+        F.q.setFromAxisAngle(F.ax, 0.9 * br);
+        mix.place(j, v3.add(CC, v3.add(F.m, v3.mul(F.out, 0.13 * br))), F.q, gone);
+      });
+      for (let i = 0; i < NM; i++) {   // (the proteins spill out between the pieces and fall into the tube, one after another)
+        const f = K.smooth(clamp((b - 0.24 - 0.22 * i / NM) / 0.42, 0, 1)), w = Math.sin(Math.PI * f) * 0.07;
+        mix.place(NF + i, v3.add(v3.lerp(mixS[i], mixE[i], f), [mixD[i][0] * w, 0, mixD[i][2] * w]), mixQ[i], gone);
+      }
+      mix.tick(t);
       // proximity labelling: neighbours drift; those inside the halo collect a tag (a loop of 7 s)
       const c = (t / 7) % 1, P3 = nb.attributes.position.array, T3 = tags.attributes.position.array, TA = tags.attributes.aA.array;
       for (let i = 0; i < NN; i++) {
@@ -117,7 +135,8 @@ SETS.lens = function (K) {
         TA[i] = inside ? clamp((c - i / NN * 0.6) * 5, 0, 1) * (c < 0.95 ? 1 : 0) : 0;
         T3[3 * i] = P3[3 * i] + nbR[i]; T3[3 * i + 1] = P3[3 * i + 1] + nbR[i]; T3[3 * i + 2] = P3[3 * i + 2] + nbR[i] * 0.6;
       }
-      for (const { mi, list } of nbM) list.forEach((i, n) => mi.setAt(n, V.set(P3[3 * i], P3[3 * i + 1], P3[3 * i + 2]), nbQ[i]));
+      for (let i = 0; i < NN; i++) nbM.place(i, [P3[3 * i], P3[3 * i + 1], P3[3 * i + 2]], nbQ[i]);
+      nbM.tick(t);
       tags.attributes.position.needsUpdate = true; tags.attributes.aA.needsUpdate = true;
     },
     anchors: { yeast: anchorOf(0, R + 0.08), apms: anchorOf(1, R + 0.08), prox: anchorOf(2, R + 0.08),
@@ -126,4 +145,4 @@ SETS.lens = function (K) {
     cam: { default: [20, 10, 5.4, 0, 0.5, 0], yeast: [14, 6, 2.7, AT[0][0], AT[0][1] - 0.1, AT[0][2]], apms: [20, 6, 2.7, AT[1][0], AT[1][1] - 0.1, AT[1][2]], prox: [26, 6, 2.7, AT[2][0], AT[2][1] - 0.1, AT[2][2]] },
   });
 };
-SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira', 'ubq', 'cam', 'gapdh', 'tub', 'actin']);
+SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira']);
