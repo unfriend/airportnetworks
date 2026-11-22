@@ -1,7 +1,8 @@
 // Spaces and walls (chapter 3), over the cell (its frame and its shapes: SETS.cell's api().CELL). The spaces light up one
 // after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
 // small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
-// across the plasma membrane with a part on each side (a signal outside, a partner inside), a nuclear pore with cargo
+// across the plasma membrane (the beta-2 adrenergic receptor's real shape: molStructure) with a part on each side (a
+// signal outside, a partner inside), and, schematic, a nuclear pore with cargo
 // going through, and an import site on a mitochondrion with a chain threading in (walls_parts). Motion depends only on
 // the time.
 SETS.walls = function (K) {
@@ -47,22 +48,39 @@ SETS.walls = function (K) {
     { name: 'Small organelles', m: space(sph, col[6], [...CELL.lysos, ...CELL.endos, ...CELL.peroxs].map(o => ({ c: o.c, s: [o.r, o.r, o.r] }))), at: CELL.lysos[0].c, fill: 0.3 },
     { name: 'Outside', m: space(sph, [0.5, 0.75, 0.9], [{ c: [0, 0, 0], s: CELL.pm.map(x => x * 1.12) }]), at: [0, CELL.pm[1] * 1.16, 0], fill: 0.035 },
   ];
-  // ------------------------------------------------------------ the close-ups (illustrative shapes, much enlarged)
+  // ------------------------------------------------------------ the close-ups (much enlarged; the pore and the import site schematic)
   const solid = (c, e) => K.fade(set, new THREE.MeshStandardMaterial({ color: new THREE.Color(...c), roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(e || 0.15) }));
   const patch = (R, hole) => new THREE.Mesh(new THREE.RingGeometry(hole || 0.0005, R, 40, 1), K.fade(set, new THREE.MeshBasicMaterial({ color: 0x9fd0ff, side: THREE.DoubleSide, depthWrite: false }), 0.18));
   const orient = (g, p, n) => { g.position.set(...p); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(n))); set.group.add(g); return g; };
   const flat = g => { g.rotation.x = -Math.PI / 2; return g; };   // (a ring lies across the y axis: the membrane's plane)
-  // a receptor across the plasma membrane: one part outside, a helix through, one part inside; a signal comes from
-  // outside, a partner binds inside
+  // a receptor across the plasma membrane: the beta-2 adrenergic receptor (PDB 2RH1, one ball per amino acid), its seven
+  // helices through the membrane, its loops outside and inside; a signal comes from outside, a partner binds inside
   const rd = v3.norm([0.62, 0.42, 0.66]), RP = v3.mul(rd, 1 / CELL.eScale(rd)), RN = v3.norm([rd[0] / CELL.pm[0] ** 2, rd[1] / CELL.pm[1] ** 2, rd[2] / CELL.pm[2] ** 2]);
   const rec = new THREE.Group();
+  const B2 = molStructure(K, set, 'b2ar', 0.07, () => [1, 1, 1]), b2 = B2.parts['ADRB2/A'];
+  // (the bundle's axis: from the helices' inner ends to their outer ends, UniProt P07550's membrane spans; the membrane's
+  // middle halfway between)
+  const near = n => b2.pts[b2.res.reduce((b, r, i) => (Math.abs(r - n) < Math.abs(b2.res[b] - n) ? i : b), 0)];
+  const meanOf = l => v3.mul(l.map(near).reduce((c, p) => v3.add(c, p), [0, 0, 0]), 1 / l.length);
+  const OUTER = meanOf([35, 95, 107, 173, 197, 298, 306]), INNER = meanOf([58, 72, 129, 151, 220, 275, 329]);
+  const rcp = new THREE.Group(); rcp.add(b2.g); b2.g.position.set(...v3.mul(v3.add(OUTER, INNER), -0.5));
+  rcp.quaternion.setFromUnitVectors(new THREE.Vector3(...v3.norm(v3.sub(OUTER, INNER))), new THREE.Vector3(0, 1, 0));
+  const half = v3.len(v3.sub(OUTER, INNER)) / 2, MEM = -0.004;   // (the membrane's middle, between its two faces)
+  rcp.position.y = MEM; rec.add(rcp);
+  // each ball coloured by where it is: outside cyan, in the membrane yellow, inside pale blue; and how far it reaches
+  let top = -Infinity, bot = Infinity;
+  { const im = b2.g.children[0], V = new THREE.Vector3(), C = new THREE.Color();
+    b2.pts.forEach((p, i) => {
+      V.set(...v3.add(p, b2.g.position.toArray())).applyQuaternion(rcp.quaternion);
+      top = Math.max(top, V.y); bot = Math.min(bot, V.y);
+      im.setColorAt(i, C.setRGB(...(V.y > half * 0.8 ? [0.45, 0.85, 1.0] : V.y < -half * 0.8 ? [0.6, 0.7, 1.0] : [0.9, 0.85, 0.5])));
+    }); }
+  top += MEM; bot += MEM;
+  // the membrane's two faces, as far apart as the helices' ends
   rec.add(flat(patch(0.07)));
-  { const b = flat(patch(0.07)); b.position.y = -0.008; rec.add(b); }
-  const helix = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.03, 10), solid([0.9, 0.85, 0.5])); helix.position.y = -0.004; rec.add(helix);
-  const outer = new THREE.Mesh(new THREE.IcosahedronGeometry(0.014, 2), solid([0.45, 0.85, 1.0])); outer.position.y = 0.024; rec.add(outer);
-  const inner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.011, 2), solid([0.55, 0.78, 1.0])); inner.position.y = -0.03; rec.add(inner);
+  { const a = rec.children[rec.children.length - 1]; a.position.y = MEM + half * 0.8; const b = flat(patch(0.07)); b.position.y = MEM - half * 0.8; rec.add(b); }
   const signal = new THREE.Mesh(new THREE.IcosahedronGeometry(0.006, 1), solid([1.0, 0.75, 0.3], 0.5)); rec.add(signal);
-  const partner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.009, 1), solid([0.4, 1.0, 0.6], 0.3)); rec.add(partner);
+  const partner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.011, 1), solid([0.4, 1.0, 0.6], 0.3)); rec.add(partner);
   orient(rec, RP, RN);
   // a nuclear pore in the nuclear envelope (two membranes), cargo going through
   const nd = v3.norm([-0.3, 0.6, 0.75]), NPp = v3.add(CELL.nuc.c, v3.mul(nd, CELL.nuc.r));
@@ -98,13 +116,13 @@ SETS.walls = function (K) {
       // (each motion a loop of a few seconds: the signal docks and leaves, the partner binds, the cargo crosses, the chain threads in)
       const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15) % 1;
       const dock = x => (x < 0.4 ? x / 0.4 : x < 0.7 ? 1 : 1 - (x - 0.7) / 0.3);
-      signal.position.set(0.03 * (1 - dock(a)), 0.045 + 0.03 * (1 - dock(a)), 0);
-      partner.position.set(-0.035 * (1 - dock(b)), -0.048 - 0.02 * (1 - dock(b)), 0.01);
+      signal.position.set(0.035 * (1 - dock(a)), top - 0.006 + 0.035 * (1 - dock(a)), 0);   // (into the pocket among the helices' outer ends)
+      partner.position.set(-0.035 * (1 - dock(b)), bot - 0.006 - 0.025 * (1 - dock(b)), 0.004);
       cargo.position.set(0, 0.05 - 0.11 * K.smooth(b), 0);
       chain.forEach((o, i) => o.position.set(0, 0.03 - 0.006 * i - 0.05 * c, 0));
     },
     anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
-      receptor: v3.add(RP, v3.mul(RN, 0.04)), recIn: v3.add(RP, v3.mul(RN, -0.045)), recOut: v3.add(RP, v3.mul(RN, 0.07)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
+      receptor: v3.add(RP, v3.mul(RN, top + 0.015)), recIn: v3.add(RP, v3.mul(RN, bot - 0.02)), recOut: v3.add(RP, v3.mul(RN, top + 0.035)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
     cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(md, [0.2, 0.5, 0.3]), 0.26) },
   });

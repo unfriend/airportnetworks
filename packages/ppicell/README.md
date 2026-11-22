@@ -16,6 +16,9 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
     licence (as far as we know CC BY-SA: the places in `src/sets/data.js` then carry it; to confirm), with credit to
     the Human Protein Atlas.
   - the gene numbers to symbols and Ensembl ids: NCBI Gene (public domain).
+- Shapes: the proteins drawn (GRB2, TP53, STAT3, the crowd's, the lenses', the receptor, JAK2, p300) are entries of the
+  Protein Data Bank (public domain, CC0), credited in the story's small print; `src/sets/structs.js` is written by
+  `python3 -I packages/ppicell/src/data/gen_structs.py <folder>` (it downloads any entry missing from the folder; `--check`).
 - Simplifications: vesicles count with the cytosol, the cytoskeleton (with the primary cilium) is in the cytosol, and the
   mitochondria are taken as their matrix. The Atlas's *Uncertain* locations are kept: only 182 of the 2,958 impossible
   links (strict reading) have an uncertain end.
@@ -26,6 +29,7 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
 
 ```
 python3 -I packages/ppicell/src/data/gen_data.py <folder with the three files>   # writes src/sets/data.js (--check)
+python3 -I packages/ppicell/src/data/gen_structs.py <folder for the PDB files>   # writes src/sets/structs.js (--check)
 node packages/ppicell/src/data/test-data.mjs                                     # the decoder agrees with the generator
 node packages/ppicell/src/build.mjs                                              # writes main.js
 node tools/packages/scan.mjs

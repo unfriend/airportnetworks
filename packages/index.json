@@ -59,10 +59,10 @@
       "life": false,
       "list": "hidden",
       "needs": 178,
-      "fp": "93c6fd01c2d14169",
+      "fp": "af66b453466012b7",
       "files": {
         "audio/narration.mp3": "979fcb9a8b1453a5",
-        "main.js": "f60bf8980f334c58",
+        "main.js": "9023d6ed173803a8",
         "story.json": "28062fdc959e8827"
       }
     }

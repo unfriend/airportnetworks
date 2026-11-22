@@ -84,6 +84,8 @@ def atoms(path):
     for r in rows:
         if r[ix['pdbx_PDB_model_num']] != '1' or r[ix['label_alt_id']] not in ('.', 'A'):
             continue
+        if r[ix['label_seq_id']] == '.':   # (not part of a chain: an ion or a ligand, whose atom may also be named CA)
+            continue
         yield (r[ix['auth_asym_id']], int(r[ix['auth_seq_id']]), r[ix['label_atom_id']].strip('"'),
                float(r[ix['Cartn_x']]), float(r[ix['Cartn_y']]), float(r[ix['Cartn_z']]))
 

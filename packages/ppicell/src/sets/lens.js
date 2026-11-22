@@ -1,9 +1,13 @@
 // The methods as lenses over the cell (chapter 6): three rings, each with a small scene of how a method finds a link
-// (illustrative shapes). Two-hybrid: in a yeast nucleus, two proteins each carry half of a switch; if they bind, the halves
+// (real shapes from the Protein Data Bank: mol.js; not to scale against the yeast, the tube or the halo). Two-hybrid: in a yeast nucleus, two proteins each carry half of a switch; if they bind, the halves
 // meet on the DNA and a reporter lights, wherever the two live in our own cells. Purification with mass spectrometry: the
 // cell is broken open and a bait pulled out of the mix with what clings to it, proteins from different places meeting in
 // the tube. Proximity labelling: a bait in a living cell marks what comes near it with tags, near, not necessarily bound.
 // lens_open brings the rings in, lens_focus lights one (1, 2, 3; 0 all alike). Drawn in the cell's frame, above it.
+// The bait and prey of the two-hybrid are H-Ras and the Raf kinase's Ras-binding domain (PDB 4G0N), one ball per amino
+// acid, meeting at their crystal contact; the hook of the purification is an antibody (PDB 1IGT); the proximity
+// labelling's bait carries the biotin ligase BirA (PDB 1BIA); the proteins in the tube and round the bait are the crowd's
+// real proteins, simplified (molCoarse).
 SETS.lens = function (K) {
   const { THREE, clamp, v3 } = K;
   const set = K.newSet('lens');
@@ -27,10 +31,17 @@ SETS.lens = function (K) {
   const Y = lenses[0].inner;
   Y.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 20), K.rim(set, { color: [0.75, 0.6, 1.0], a0: 0.04, a1: 0.5 })));
   const dna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.44, 8), solid([0.6, 0.65, 0.8])); dna.rotation.z = Math.PI / 2; dna.position.y = -0.12; Y.add(dna);
-  const bait = blob(0.05, [0.3, 0.75, 1.0]); bait.position.set(-0.03, -0.04, 0); Y.add(bait);
-  const prey = blob(0.045, [1.0, 0.6, 0.3]); Y.add(prey);
+  // (H-Ras the bait, on the DNA; Raf's RBD the prey: each part turned as in the crystal, so that when the prey arrives
+  // their contact faces each other; the pair's line from the bait to the prey lies along JOIN)
+  const RR = molStructure(K, set, 'rasraf', 0.17, p => (p.name === 'HRAS' ? [0.3, 0.75, 1.0] : [1.0, 0.6, 0.3]));
+  const ras = RR.parts['HRAS/A'], raf = RR.parts['RAF1/B'], JOIN = v3.norm([1, 0.25, 0]);
+  const rrQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(...v3.norm(v3.sub(raf.home, ras.home))), new THREE.Vector3(...JOIN));
+  const BAIT = [-0.05, -0.04, 0], GAP = v3.len(v3.sub(raf.home, ras.home)), PREY = v3.add(BAIT, v3.mul(JOIN, GAP));
+  const bait = ras.g, prey = raf.g;
+  for (const pg of [bait, prey]) { pg.quaternion.copy(rrQ); Y.add(pg); }
+  bait.position.set(...BAIT);
   const glowG = pts(1, (i, a) => { a.aCol.array.set([1.0, 0.95, 0.5]); a.aSize.array[0] = 0.12; });
-  const glow = new THREE.Points(glowG, K.points(set)); glow.position.set(0.1, -0.12, 0.01); Y.add(glow);
+  const glow = new THREE.Points(glowG, K.points(set)); glow.position.set(PREY[0] + 0.04, -0.12, 0.01); Y.add(glow);
   // 2. purification: pieces of a broken cell drifting apart; proteins from several places falling into a tube
   const A2 = lenses[1].inner, shards = [];
   for (let i = 0; i < 7; i++) {
@@ -38,20 +49,45 @@ SETS.lens = function (K) {
     m.position.y = 0.12; m.userData.d = [Math.cos(th + 0.4), 0.3 * (r() - 0.5), -Math.sin(th + 0.4)]; A2.add(m); shards.push(m);
   }
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.22, 20, 1, true), K.rim(set, { color: [0.8, 0.9, 1.0], a0: 0.05, a1: 0.6 })); tube.position.y = -0.2; A2.add(tube);
-  const NM = 36, mix = pts(NM, (i, a) => { a.aCol.array.set(PLC[i % PLC.length], 3 * i); a.aSize.array[i] = 0.035; });
-  const mixP = new THREE.Points(mix, K.points(set)); A2.add(mixP);
+  // the hook: an antibody (light chains pale, heavy chains deeper amber) in the tube, holding the bait
+  const AB = molStructure(K, set, 'igg', 0.1, p => (/light/.test(p.name) ? [1.0, 0.86, 0.6] : [0.92, 0.62, 0.28]), null, null, 0);
+  AB.g.position.set(0, -0.2, 0); AB.g.rotation.z = Math.PI / 2; A2.add(AB.g);
+  // the proteins: the crowd's real ones, simplified, each in the colour of the place it came from (the cell's place
+  // colours), sized to scale against each other (one factor: the largest, tubulin, 0.05 long)
+  const MOLS = ['ubq', 'cam', 'gapdh', 'tub', 'actin'], PER_A2 = 0.05 / Math.max(...MOLS.map(k => molSpan(K, k)));
+  const NM = 36, mixK = Array.from({ length: NM }, (_, i) => i % MOLS.length);
+  const mixM = MOLS.map((k, j) => {
+    const list = mixK.map((m, i) => (m === j ? i : -1)).filter(i => i >= 0);
+    const im = new THREE.InstancedMesh(molCoarse(K, k, molSpan(K, k) * PER_A2, 0), K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 })), list.length);
+    list.forEach((i, n) => im.setColorAt(n, new THREE.Color(...PLC[i % PLC.length])));
+    im.frustumCulled = false; A2.add(im);
+    return { im, list };
+  });
+  const mixQ = Array.from({ length: NM }, () => new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
   const mixS = Array.from({ length: NM }, () => [0.16 * (r() - 0.5) * 2, 0.12 + 0.14 * (r() - 0.5), 0.1 * (r() - 0.5)]), mixE = Array.from({ length: NM }, () => [0.09 * (r() - 0.5), -0.27 + 0.14 * r(), 0.08 * (r() - 0.5)]);
   // 3. proximity labelling: a bait, its halo, the neighbours it tags as they come near
   const A3 = lenses[2].inner;
-  const bait3 = blob(0.045, [0.3, 0.75, 1.0]); A3.add(bait3);
+  const bait3 = blob(0.032, [0.3, 0.75, 1.0]); bait3.position.set(-0.03, 0, 0); A3.add(bait3);
+  const BI = molStructure(K, set, 'bira', 0.065, () => [0.4, 1.0, 0.7], null, null, 0);   // (the biotin ligase, fused to the bait)
+  BI.g.position.set(0.035, 0.005, 0.01); A3.add(BI.g);
   const halo = new THREE.Mesh(new THREE.SphereGeometry(0.17, 28, 18), K.rim(set, { color: [0.4, 1.0, 0.7], a0: 0.06, a1: 0.5 })); A3.add(halo);
-  const NN = 30, nbS = [], nb = pts(NN, (i, a) => {
-    const u = K.unit(r), d = 0.07 + 0.22 * Math.sqrt(r()); nbS.push([u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]);
-    a.aCol.array.set([0.65, 0.7, 0.8], 3 * i); a.aSize.array[i] = 0.04;
+  // the neighbours: real proteins, simplified, grey; those inside the halo collect a tag
+  const NN = 30, nbS = [], nbK = [], nbQ = [], nbR = [];
+  for (let i = 0; i < NN; i++) {
+    const u = K.unit(r), d = 0.09 + 0.2 * Math.sqrt(r()); nbS.push([u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]); nbK.push(i % MOLS.length);
+    nbQ.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
+  }
+  const nbM = MOLS.map((k, j) => {
+    const list = nbK.map((m, i) => (m === j ? i : -1)).filter(i => i >= 0);
+    const im = new THREE.InstancedMesh(molCoarse(K, k, molSpan(K, k) * PER_A2 * 0.8, 0), K.fade(set, new THREE.MeshStandardMaterial({ color: 0xa6b3cc, roughness: 0.6, metalness: 0.05 })), list.length);
+    im.frustumCulled = false; A3.add(im);
+    list.forEach(i => { nbR[i] = im.geometry.userData.r * 0.7; });
+    return { im, list };
   });
-  const nbP = new THREE.Points(nb, K.points(set)); A3.add(nbP);
+  const nb = { attributes: { position: { array: new Float32Array(3 * NN) } } };   // (the neighbours' places this frame)
   const tags = pts(NN, (i, a) => { a.aCol.array.set([0.4, 1.0, 0.7], 3 * i); a.aSize.array[i] = 0.022; a.aA.array[i] = 0; });
   const tagP = new THREE.Points(tags, K.points(set)); A3.add(tagP);
+  const M4 = new THREE.Matrix4(), V = new THREE.Vector3(), Sc = new THREE.Vector3();
   const anchorOf = (i, y) => () => { const p = AT[i]; return [p[0], p[1] + y, p[2]]; };
   return Object.assign(set, {
     // lens_open: the rings come in (each a little after the one before); lens_focus: one lit (1 two-hybrid, 2
@@ -68,14 +104,15 @@ SETS.lens = function (K) {
       });
       // two-hybrid: the prey comes, binds, the reporter lights, it leaves (a loop of 6 s)
       const a = (t / 6) % 1, near = a < 0.35 ? K.smooth(a / 0.35) : a < 0.8 ? 1 : 1 - K.smooth((a - 0.8) / 0.2);
-      prey.position.set(0.25 - 0.17 * near, 0.12 - 0.15 * near, 0);
+      prey.position.set(...v3.add(PREY, [0.17 * (1 - near), 0.15 * (1 - near), 0]));
       glowG.attributes.aA.array[0] = clamp((near - 0.9) * 10, 0, 1) * (0.7 + 0.3 * Math.sin(t * 6)); glowG.attributes.aA.needsUpdate = true;
       // purification: the cell breaks open, its proteins fall into the tube (a loop of 8 s)
       const b = (t / 8) % 1, br = K.smooth(clamp(b / 0.3, 0, 1)), fall = K.smooth(clamp((b - 0.25) / 0.45, 0, 1)), back = clamp((b - 0.92) / 0.08, 0, 1);
       shards.forEach(m => { const d = m.userData.d; m.position.set(d[0] * 0.12 * br, 0.12 + d[1] * 0.1 * br, d[2] * 0.12 * br); m.visible = back < 0.5; });
-      const P2 = mix.attributes.position.array;
-      for (let i = 0; i < NM; i++) for (let k = 0; k < 3; k++) P2[3 * i + k] = mixS[i][k] + (mixE[i][k] - mixS[i][k]) * fall;
-      mix.attributes.aA.array.fill(1 - back); mix.attributes.position.needsUpdate = true; mix.attributes.aA.needsUpdate = true;
+      for (const { im, list } of mixM) {
+        list.forEach((i, n) => { M4.compose(V.set(...v3.lerp(mixS[i], mixE[i], fall)), mixQ[i], Sc.setScalar(back < 0.5 ? 1 : 0.0001)); im.setMatrixAt(n, M4); });
+        im.instanceMatrix.needsUpdate = true;
+      }
       // proximity labelling: neighbours drift; those inside the halo collect a tag (a loop of 7 s)
       const c = (t / 7) % 1, P3 = nb.attributes.position.array, T3 = tags.attributes.position.array, TA = tags.attributes.aA.array;
       for (let i = 0; i < NN; i++) {
@@ -83,9 +120,13 @@ SETS.lens = function (K) {
         P3[3 * i] = s[0] + w; P3[3 * i + 1] = s[1] - w; P3[3 * i + 2] = s[2];
         const inside = Math.hypot(s[0], s[1], s[2]) < 0.17;
         TA[i] = inside ? clamp((c - i / NN * 0.6) * 5, 0, 1) * (c < 0.95 ? 1 : 0) : 0;
-        T3[3 * i] = P3[3 * i] + 0.018; T3[3 * i + 1] = P3[3 * i + 1] + 0.018; T3[3 * i + 2] = P3[3 * i + 2] + 0.01;
+        T3[3 * i] = P3[3 * i] + nbR[i]; T3[3 * i + 1] = P3[3 * i + 1] + nbR[i]; T3[3 * i + 2] = P3[3 * i + 2] + nbR[i] * 0.6;
       }
-      nb.attributes.position.needsUpdate = true; tags.attributes.position.needsUpdate = true; tags.attributes.aA.needsUpdate = true;
+      for (const { im, list } of nbM) {
+        list.forEach((i, n) => { M4.compose(V.set(P3[3 * i], P3[3 * i + 1], P3[3 * i + 2]), nbQ[i], Sc.setScalar(1)); im.setMatrixAt(n, M4); });
+        im.instanceMatrix.needsUpdate = true;
+      }
+      tags.attributes.position.needsUpdate = true; tags.attributes.aA.needsUpdate = true;
     },
     anchors: { yeast: anchorOf(0, R + 0.08), apms: anchorOf(1, R + 0.08), prox: anchorOf(2, R + 0.08),
       yeastTag: anchorOf(0, -R - 0.06), apmsTag: anchorOf(1, -R - 0.06), proxTag: anchorOf(2, -R - 0.06) },

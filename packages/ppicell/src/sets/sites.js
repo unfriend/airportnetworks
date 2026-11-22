@@ -1,57 +1,20 @@
 // Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its real shape (PDB 1GRI, one ball per
 // amino acid, PPI_STRUCTS), its three binding domains coloured, an SH3, an SH2 and another SH3, its partners on a shell around it, one dot each (as many as it has
-// links, from the data), and partners taking turns at the domains: the SH2 holds a receptor's phosphorylated tyrosine,
+// links, from the data), and partners taking turns at the domains, each drawn as its docking stretch (a short chain of
+// amino acids): the SH2 holds a receptor's phosphorylated tyrosine,
 // the SH3s a partner's proline-rich stretch (well-known partners from its links: EGFR, ERBB2, MET, KIT and SHC1 at the
 // SH2; SOS1, CBL, GAB1 and DNM1 at the SH3s). Then a shuttle (sites_act 1): a patch of the nuclear envelope with its
 // pores, the cytosol below and the nucleus above; TP53 goes to and fro (sites_tp: it moves on the time), then STAT3 is
-// switched on in the cytosol by a kinase at a receptor (JAK2), pairs up, goes through a pore and binds DNA and a partner
-// (EP300) in the nucleus (sites_move: 0 the cytosol, 1 the nucleus). sites_cyc counts turns at the domains (keyed at an
+// switched on in the cytosol by a kinase at a receptor (JAK2's kinase, PDB 2B7A), pairs up, goes through a pore and binds
+// DNA and a partner (EP300's acetyltransferase domain, PDB 3BIY) in the nucleus (sites_move: 0 the cytosol, 1 the nucleus). sites_cyc counts turns at the domains (keyed at an
 // even pace by the story).
 SETS.sites = function (K) {
   const { THREE, clamp, v3 } = K;
   const set = K.newSet('sites');
   const cellApi = GL.sets.cell.api(), find = s => cellApi.find(s), symOK = s => find(s) >= 0;
   const solid = (c, e) => K.fade(set, new THREE.MeshStandardMaterial({ color: new THREE.Color(...c), roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(e || 0.18) }));
-  const blob = (r, c, e) => new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), solid(c, e));
-  // ------------------------------------------------------------ real structures (PPI_STRUCTS: the Protein Data Bank)
-  // a structure's points (angstroms) turned so its longest axis (or that of the part named) lies along x, then scaled so
-  // it spans width; one ball per amino acid or nucleotide, all of a structure in one instanced draw (each its colour)
-  const ballGeo = new THREE.IcosahedronGeometry(1, 1);
-  function axisOf(P) {   // (the principal axis, by power iteration on the covariance)
-    const n = P.length / 3, m = [0, 0, 0];
-    for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) m[j] += P[3 * i + j] / n;
-    const C = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-    for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[3 * a + b] += (P[3 * i + a] - m[a]) * (P[3 * i + b] - m[b]);
-    let v = [1, 0.3, 0.2];
-    for (let k = 0; k < 40; k++) v = v3.norm([0, 1, 2].map(a => C[3 * a] * v[0] + C[3 * a + 1] * v[1] + C[3 * a + 2] * v[2]));
-    return v;
-  }
-  function structure(key, width, colOf, only, along) {
-    const S = PPI_STRUCTS[key], parts = S.parts.filter(p => !only || only.includes(p.name + '/' + p.chain));
-    const ax = axisOf(Float32Array.from(parts.filter(p => !along || p.name === along).flatMap(p => p.xyz)));
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(...ax), new THREE.Vector3(1, 0, 0)), V = new THREE.Vector3();
-    let lo = Infinity, hi = -Infinity;
-    const all = [];
-    for (const p of parts) for (let i = 0; i < p.res.length; i++) {
-      V.set(p.xyz[3 * i] / 10, p.xyz[3 * i + 1] / 10, p.xyz[3 * i + 2] / 10).applyQuaternion(q);
-      lo = Math.min(lo, V.x); hi = Math.max(hi, V.x); all.push({ p, i, v: V.toArray() });
-    }
-    const s = width / (hi - lo), g = new THREE.Group();
-    // (each part its own instanced draw, so a part can be placed or shown apart: the two STAT3s, the DNA)
-    const out = {}, M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color();
-    for (const p of parts) {
-      const mine = all.filter(o => o.p === p), r = (p.kind === 'dna' ? 3.0 : 2.4) * s;
-      const cen = mine.reduce((c, o) => v3.add(c, v3.mul(o.v, s / mine.length)), [0, 0, 0]);
-      const im = new THREE.InstancedMesh(ballGeo, K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 })), mine.length);
-      mine.forEach((o, k) => {
-        M.compose(new THREE.Vector3(...v3.sub(v3.mul(o.v, s), cen)), Q, new THREE.Vector3(r, r, r)); im.setMatrixAt(k, M);
-        im.setColorAt(k, col.setRGB(...colOf(p, p.dom[o.i])));
-      });
-      const pg = new THREE.Group(); pg.add(im); pg.position.set(...cen); g.add(pg);
-      out[p.name + '/' + p.chain] = { g: pg, home: cen, n: mine.length, pts: mine.map(o => v3.sub(v3.mul(o.v, s), cen)), dom: mine.map(o => p.dom[o.i]) };
-    }
-    return { g, parts: out, cite: S.cite, s };
-  }
+  // real structures (PPI_STRUCTS, the Protein Data Bank: molStructure in mol.js), one ball per amino acid or nucleotide
+  const structure = (key, width, colOf, only, along) => molStructure(K, set, key, width, colOf, only, along);
   // ------------------------------------------------------------ GRB2 and its partners
   const gA = new THREE.Group(); set.group.add(gA);
   // (its domains: SH3 cyan, SH2 amber, the linkers grey; the first SH3 on the left)
@@ -77,7 +40,22 @@ SETS.sites = function (K) {
   // the slots: where a partner docks at each domain; who comes to each, in turn (only partners in GRB2's links)
   const SLOT = DOM.map((d, k) => v3.add(d.p, [0, (k === 1 ? -1 : 1) * (d.r * 0.8 + 0.05), 0.03]));
   const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['GAB1', 'SOS1', 'CBL']].map(l => l.filter(symOK));
-  const visitors = SLOT.map((p, k) => { const m = blob(k === 1 ? 0.04 : 0.034, k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], 0.3); gA.add(m); return m; });
+  // a partner is drawn as its docking stretch only: a short chain of amino acids (as big as GRB2's own balls, 3.8
+  // angstroms apart) in a gentle curve across the domain; at the SH2 a stretch round a phosphotyrosine (that one bright),
+  // at an SH3 a proline-rich stretch (its prolines darker)
+  const CH_N = 9, aa = G2.s, chainGeo = new THREE.IcosahedronGeometry(1, 1);
+  const visitors = SLOT.map((p, k) => {
+    const c = k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], dir = v3.norm(k === 1 ? [1, 0, 0.35] : [k === 0 ? 0.55 : -0.55, 0.1, 0.8]);
+    const im = new THREE.InstancedMesh(chainGeo, K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(0.25) })), CH_N);
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color(), rr = 2.4 * aa;
+    for (let i = 0; i < CH_N; i++) {
+      const u = i - (CH_N - 1) / 2, bow = (k === 1 ? 1 : -1) * 0.06 * u * u * 3.8 * aa;   // (bowed toward the domain at its ends)
+      M.compose(new THREE.Vector3(...v3.add(v3.mul(dir, u * 3.8 * aa), [0, bow, 0])), Q, new THREE.Vector3(rr, rr, rr)); im.setMatrixAt(i, M);
+      const hi = k === 1 ? i === 3 : i % 3 !== 1;   // (the phosphotyrosine; the prolines, P-x-x-P)
+      im.setColorAt(i, col.setRGB(...(k === 1 ? (hi ? [1.0, 1.0, 0.7] : c) : hi ? c.map(x => x * 0.7) : c)));
+    }
+    const g = new THREE.Group(); g.add(im); gA.add(g); return g;
+  });
   const FROM = SLOT.map(p => v3.mul(v3.norm(p), 0.85));
   const now = ['', '', ''], nowA = [0, 0, 0];
   // ------------------------------------------------------------ the shuttle: a patch of the nuclear envelope
@@ -103,9 +81,11 @@ SETS.sites = function (K) {
   const st1 = sA.g, st2 = sB.g, pairMid = v3.mul(v3.add(sA.home, sB.home), 0.5);
   S3.g.position.set(...v3.mul(pairMid, -1));
   const st = new THREE.Group(); st.add(S3.g); gB.add(st);
-  const jak = blob(0.04, [1.0, 0.8, 0.35]); jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
+  // JAK2's kinase domain (PDB 2B7A) and p300's acetyltransferase domain (PDB 3BIY), one ball per amino acid, small and not
+  // to scale against the pores
+  const jak = molStructure(K, set, 'jak2', 0.09, () => [1.0, 0.8, 0.35], null, null, 0).g; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
   const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(-0.52, -0.52, 0.02); gB.add(recB);
-  const ep = blob(0.05, [0.66, 0.54, 1.0]); ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
+  const ep = molStructure(K, set, 'p300', 0.1, () => [0.66, 0.54, 1.0], null, null, 0).g; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
   const P_CYT = [-0.38, -0.4, 0.08], P_IN = [0.35, 0.48, 0.05];
   const path = (u, pore) => {   // (from the cytosol through a pore into the nucleus)
     const a = P_CYT, b = PORES[pore], c = P_IN;
