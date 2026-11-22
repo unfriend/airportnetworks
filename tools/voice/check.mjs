@@ -39,8 +39,12 @@ async function until(what, test, ms = 30000) {
 }
 
 // (a story package listed as hidden has its card on the Stories screen in developer mode only)
-const { existsSync } = await import('node:fs');
-if (existsSync(new URL(`../../packages/${key}/story.json`, import.meta.url))) await page.addInitScript(() => { try { localStorage.setItem('devMode', 'on'); } catch (e) { /* storage blocked */ } });
+// (and What is new marked seen for the release, or its card covers the Stories screen)
+const { existsSync, readFileSync } = await import('node:fs');
+if (existsSync(new URL(`../../packages/${key}/story.json`, import.meta.url))) {
+  const rel = JSON.parse(readFileSync(new URL('../../whatsnew.json', import.meta.url), 'utf8')).version;
+  await page.addInitScript(rel => { try { localStorage.setItem('devMode', 'on'); localStorage.setItem('devSeen', rel); } catch (e) { /* storage blocked */ } }, rel);
+}
 await page.goto(base + 'index.html');
 await page.waitForFunction(k => typeof HOST !== 'undefined' && HOST.list && document.querySelector(`#picker .card[data-story="${k}"]`), key, { timeout: 30000 });
 await page.click(`#picker .card[data-story="${key}"]`); // a real tap: it unlocks the sound and starts the story
