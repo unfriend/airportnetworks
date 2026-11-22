@@ -210,6 +210,16 @@ a place shows its possible links inside, at most 2,000 (`uIso`). The pick is `X.
 address words `proteins` or `links`: `proteins` is a story's key, and the shell takes the first story key in the
 address. Address: `#cellstress&explore&show=2&art=0.3&miss=0.3`.
 
+### Back into the cell (`packages/ppicell/`, in development)
+
+*Back into the cell* (`list: "hidden"`, `needs` 178; from 22 November 2026): the interactome of Menche et al. (2015)
+(13,460 proteins, 141,296 links, seven kinds of evidence) put back into the cell map's model cell with the Human Protein
+Atlas's locations, each link judged by the method `packages/cellstress` tried out. Its plan is `src/SPEC.md`; its data
+`src/sets/data.js` (`PPI_DATA`, derived numbers only) from `src/data/gen_data.py <folder>` (the three source files stay
+out of the repository: `docs/data-and-permissions.md`), decoded by `src/sets/pdata.js` (`PDATA`: the places, the links,
+the rules `spaces`, `judge`, `contact`), checked by `node packages/ppicell/src/data/test-data.mjs`. Until it is built
+its `main.js` is the template's.
+
 ### Checking one (`tools/packages/check.mjs`)
 
 `node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]` (`docs/agents/testing.md`, "Story

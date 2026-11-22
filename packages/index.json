@@ -43,6 +43,27 @@
         "main.js": "4f2b614bdf744edc",
         "story.json": "fc493a5726f580c3"
       }
+    },
+    {
+      "key": "ppicell",
+      "api": 1,
+      "version": "0.1.0",
+      "title": "Back into the cell",
+      "kick": "Spatial interactome",
+      "col": "#7fe0c4",
+      "desc": "An interactome of 13,460 proteins put back into a cell: which of its links can happen where, and why it is so hard to tell.",
+      "len": "Story 9:00",
+      "aria": "Interactive 3D story: an interactome put back into a model cell",
+      "thing": "cell",
+      "authors": "Jörg Menche and colleagues (the interactome); the Human Protein Atlas (the locations); the app's authors",
+      "life": false,
+      "list": "hidden",
+      "needs": 178,
+      "fp": "ff939e7743df63af",
+      "files": {
+        "main.js": "118f8da53e2e87b1",
+        "story.json": "103b03bc95af464d"
+      }
     }
   ]
 }
