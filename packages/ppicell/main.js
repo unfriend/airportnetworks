@@ -752,6 +752,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // where a link is drawn: its two dots
   function siteOf(k) {
     const L = NET.L, a = L.a[k], b = L.b[k];
+    if (L.cls[k] === 1) return gateSite(k, a, b);
     if (L.cls[k]) return [dotOf(a), dotOf(b)];
     const pa = lPlace[a], pb = lPlace[b];
     if (pa === pb) {
@@ -776,15 +777,26 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     if (fa && fb) return [dotBeside(a, dotOf(b)), dotOf(b)];   // (two soluble ones sharing a space: the nucleolus and the nucleoplasm, the cytosol and its coats)
     return fa ? [dotBeside(a, dotOf(b)), dotOf(b)] : [dotOf(a), dotBeside(b, dotOf(a))];
   }
-  // a link's points: two dots; a link through a gate passes over the inner dot's container, as near as it gets
+  // a link through a gate, drawn at the gate (the owner, 22 November 2026: the long amber arcs too long): where the inner
+  // one's organelle (the one not in the cytosol) faces the other, each protein gets a dot of its own, one just inside the
+  // membrane and one just outside, joined by a short stitch through it
+  function gateSite(k, a, b) {
+    const ki = D.key.get(a + '|g' + k), ko = D.key.get(b + '|g' + k);
+    if (ki !== undefined && ko !== undefined) return [ki, ko];   // (made already: each link's two once)
+    const da = dotOf(a), db = dotOf(b), pa = dotPos(da), pb = dotPos(db);
+    const inA = (D.cR[da] > 0 && !(NET.lSp[a] & 1)) || D.cR[db] === 0, inner = inA ? da : db, other = inA ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
+    const r = mul(131 * k + 7), jit = v3.mul(K.unit(r), 0.008);
+    let gp, n;
+    if (D.cR[inner] > 0) { n = v3.norm(v3.add(v3.norm(v3.sub(other, C)), jit)); gp = v3.add(C, v3.mul(n, D.cR[inner])); }
+    else { gp = v3.add(v3.lerp(pa, pb, 0.5), jit); n = v3.norm(v3.sub(other, pa)); }   // (no organelle to cross: halfway, along the link)
+    const qi = v3.sub(gp, v3.mul(n, 0.03)), qo = v3.add(gp, v3.mul(n, 0.03));   // (a stitch about 0.06 long: short, yet seen)
+    const di = dotAdd((inA ? a : b) + '|g' + k, inA ? a : b, qi, C, D.cR[inner]), dout = dotAdd((inA ? b : a) + '|g' + k, inA ? b : a, qo, [0, 0, 0], 0);
+    return inA ? [di, dout] : [dout, di];
+  }
+  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite)
   function linkPts(k, out) {
-    const [da, db] = siteOf(k), pa = dotPos(da), pb = dotPos(db);
-    if (NET.L.cls[k] !== 1) { out.push(pa, pb); return; }
-    const inner = (D.cR[da] > 0 && !(NET.lSp[D.loc[da]] & 1)) || D.cR[db] === 0 ? da : db, other = inner === da ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
-    const gp = D.cR[inner] > 0 ? v3.add(C, v3.mul(v3.norm(v3.sub(other, C)), D.cR[inner])) : v3.lerp(pa, pb, 0.5);
-    const ctl = v3.sub(v3.mul(gp, 2), v3.lerp(pa, pb, 0.5)), S = 8;
-    const q = t => { const u = 1 - t; return [0, 1, 2].map(j => u * u * pa[j] + 2 * u * t * ctl[j] + t * t * pb[j]); };
-    for (let s = 0; s < S; s++) out.push(q(s / S), q((s + 1) / S));
+    const [da, db] = siteOf(k);
+    out.push(dotPos(da), dotPos(db));
   }
   const linkCol = k => (NET.L.cls[k] ? CLS_COL[NET.L.cls[k]] : v3.lerp(PLACE_COL[lPlace[NET.L.a[k]]], PLACE_COL[lPlace[NET.L.b[k]]], 0.5));
   // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol)
@@ -1819,9 +1831,9 @@ const CH = [
   { key: 'walls', name: 'Walls', a: 115, b: 180 },
   { key: 'back', name: 'Into the cell', a: 180, b: 255 },
   { key: 'judge', name: 'Can they meet?', a: 255, b: 325 },
-  { key: 'red', name: 'Why red?', a: 325, b: 405 },
-  { key: 'moments', name: 'Moments', a: 405, b: 475 },
-  { key: 'next', name: 'What next', a: 475, b: 540 },
+  { key: 'red', name: 'Why red?', a: 325, b: 440 },
+  { key: 'moments', name: 'Moments', a: 440, b: 510 },
+  { key: 'next', name: 'What next', a: 510, b: 575 },
 ];
 // Narration timing: [time in the recording, story time] pairs; the story is stretched or squeezed between them so
 // each cue lands on its sentence. Without a recording (the default: captions only) the story keeps its own clock.
@@ -2020,7 +2032,7 @@ function buildStory() {
       `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
         <p data-at="28" data-out="42.5">Within each place, proteins that link to each other gather together. Each mitochondrion keeps its own links.</p>`,
       `<p data-at="43">The links take the colour of their verdict.</p>
-        <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas: it has no reliable picture of them yet. They stay outside the cell, grey.</p>`)}`,
+        <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas: it has no reliable picture of them yet. They wait outside the cell for now, grey.</p>`)}`,
     judge: `<h2 data-at="0.6">Can they meet?</h2>
       ${turns(`<p data-at="1.5" data-out="42.5">Judged strictly (an organelle's proteins inside it), the ${fmt(J)} links that suggest contact, between proteins that both have a place:</p>
         <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space`)}
@@ -2030,16 +2042,20 @@ function buildStory() {
         <p data-at="50" class="amber">So ${fmt(RELA.t[1])} of its links pass a gate.</p>
         <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, the red ones raised to ${fmt(redDrawn)} so they show.</p>`)}`,
     red: `<h2 data-at="0.6">Why red?</h2>
-      ${turns(`<p data-at="1.5" data-out="25.5">Partly the kind of evidence, each mostly from one sort of method.</p>
-        <ul class="steps">${step(9, 25.5, CYAN, 'Two-hybrid', ` tests a pair inside a yeast cell. Each protein carries half of a switch; only if the two bind does the yeast turn on a reporter gene. It shows that a pair can touch, not that they meet in our cells. Binary links come largely from it: ${bin.pct} % impossible (both places known)`)}</ul>`,
-      `<ul class="steps">${step(26, 38.5, AMBER, 'Purification', ` breaks cells open, so proteins from different places can mix. Yet complexes, mostly curated, agree best: ${cx.pct} % impossible`)}</ul>`,
-      `<ul class="steps">${step(39, 49.5, GREEN, 'Proximity labelling', ' tags what comes near a bait in a living cell (since 2012; large maps came later)')}</ul>`,
-      `<p data-at="50" data-out="57.5">By kind of evidence, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
-      `<p data-at="58" data-out="66.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
-      `<p data-at="67" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
+      ${turns(`<p data-at="1.5" data-out="13.5">Red links are the puzzle. In the Atlas, their two proteins never share a space, and no known gate joins their spaces. As drawn, they could not meet.</p>
+        <p data-at="7" data-out="13.5" class="amber">So either the link is wrong, or a place is missing from the Atlas. Where do links come from?</p>`,
+      `<ul class="steps">${step(19, 42.5, CYAN, 'Two-hybrid', ` tests in yeast, a single-celled fungus that is easy to grow. Both proteins are made inside one yeast cell, each carrying half of a switch. If they stick together, the halves meet and the yeast turns on a gene that shows. It tells you a pair can stick, not whether they meet in our cells.`)}</ul>
+        <p data-at="31" data-out="42.5" class="amber">Binary links come mostly from such tests: ${bin.pct} % of them are impossible (those with both places known).</p>`,
+      `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' fishes. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
+        <p data-at="55" data-out="65.5" class="amber">Yet complexes, mostly collected by hand from many such studies, agree best: ${cx.pct} % impossible.</p>`,
+      `<ul class="steps">${step(66, 83.5, GREEN, 'Proximity labelling', ' works in living cells. The bait, a protein you pick, carries an enzyme that puts a small tag on every protein within about 10 nanometres. The tagged proteins are then fished out. It tells you who was near, not who held on.')}</ul>
+        <p data-at="76" data-out="83.5">Large maps made this way came after this interactome.</p>`,
+      `<p data-at="84" data-out="93.5">Across the ${word(F.byKind.length)} kinds of evidence that suggest contact, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
+      `<p data-at="94" data-out="104.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
+      `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
     moments: `<h2 data-at="0.6">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
-        <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a wire.</p>`,
+        <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a permanent wire.</p>`,
       `<p data-at="36" data-out="44.5">TP53, one of the best-known proteins, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
         <p data-at="40" data-out="44.5">${fmt(TP53.nuc)} of its partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>`,
       `<p data-at="45" data-out="53.5" class="amber">Part of that is fame. TP53 is among the most studied proteins, and ${fmt(TP53.lit)} of its links come from papers. In systematic two-hybrid screens, which test pairs whatever their fame, it ranks ${ordinal(TP53.binRank)}.</p>`,
@@ -2181,33 +2197,39 @@ function buildStory() {
   sfxCue(a + 16, 'link', 'cell', 'nucleus', { gain: 0.35, pitch: 0.9 });
   sfxCue(a + 30, 'knock', 'cell', 'centre', { gain: 0.35 });
   sfxCue(a + 43, 'clink', 'cell', 'centre', { gain: 0.4 });
-  // 6. Why red? The lenses and their shares; the faces, strict then generous; the proteins without a place
+  // 6. Why red? What red means, on the cell (the others dimmed); the lenses one by one, each explained; the shares; the
+  // faces, strict then generous; the proteins without a place
   a = C.red.a; b = C.red.b;
-  show('lens', a + 1, a + 3, a + 49, a + 51);
-  ramp('lens_open', a + 2, a + 8, 0, 1);
-  ramp('lens_focus', a + 9, a + 11, 0, 1); ramp('lens_focus', a + 25, a + 27, 1, 2); ramp('lens_focus', a + 38, a + 40, 2, 3); ramp('lens_focus', a + 46, a + 48, 3, 0);
-  jump('cell_faces', a + 60, 0, 1);
-  jump('cell_faces', a + 67, 1, 0);
-  jump('cell_show', a + 67, 2, 3);
+  ramp('cell_amb', a + 1, a + 3, 1, 0.15); ramp('cell_amb', a + 12, a + 14, 0.15, 1);
+  show('lens', a + 13, a + 15, a + 84, a + 86);
+  ramp('lens_open', a + 14, a + 19, 0, 1);
+  ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3); ramp('lens_focus', a + 83, a + 85, 3, 0);
+  jump('cell_faces', a + 97, 0, 1);
+  jump('cell_faces', a + 104, 1, 0);
+  jump('cell_show', a + 104, 2, 3);
   jump('cell_show', C.moments.a + 2.5, 3, 2);   // (as the cell fades out, nearly unseen: a hidden set is not updated, so later it would build as it comes back)
-  cam(a + 1, 'lens', 'default', 0);
-  cam(a + 11, 'lens', 'yeast', 0);
-  cam(a + 24, 'lens', 'yeast', 6, 'spin');
-  cam(a + 27, 'lens', 'apms', 0);
-  cam(a + 37, 'lens', 'apms', 6, 'spin');
-  cam(a + 40, 'lens', 'prox', 0);
-  cam(a + 47, 'lens', 'prox', 6, 'spin');
-  cam(a + 52, 'cell', 'default', 20);
-  cam(a + 66, 'cell', 'default', 50, 'spin');
-  cam(b, 'cell', 'default', 80, 'spin', [0, 4, 1.4]);
-  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 10, a + 49, 'cyn');
-  L('lens', 'apmsTag', `<b>Complexes</b> · mostly curated · ${cx.pct} % impossible`, a + 26, a + 49, 'amb');
-  L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 39, a + 49, 'grn');
-  L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 57, a + 60, 'mag');
-  L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 61, a + 67, 'cyn');
-  L('cell', [-0.3, -1.25, 0.3], `<b>${fmt(F.unplaced)} without a place</b> · ${fmt(F.unpl)} links unjudged`, a + 68, b - 1, '');
-  [9, 26, 39].forEach(d => sfxCue(a + d, 'pick', 'lens', d === 9 ? 'yeast' : d === 26 ? 'apms' : 'prox', { gain: 0.35 }));
-  sfxCue(a + 60, 'snap', 'cell', 'centre', { gain: 0.35 });
+  cam(a + 1, 'cell', 'default', 190, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 12, 'cell', 'default', 215, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 14, 'lens', 'default', 0);
+  cam(a + 21, 'lens', 'yeast', 0);
+  cam(a + 42, 'lens', 'yeast', 8, 'spin');
+  cam(a + 45, 'lens', 'apms', 0);
+  cam(a + 65, 'lens', 'apms', 8, 'spin');
+  cam(a + 68, 'lens', 'prox', 0);
+  cam(a + 83, 'lens', 'prox', 6, 'spin');
+  cam(a + 86, 'cell', 'default', 20);
+  cam(a + 104, 'cell', 'default', 60, 'spin');
+  cam(b, 'cell', 'default', 85, 'spin', [0, 4, 1.4]);
+  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 2, a + 13, 'mag');
+  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 86, 'cyn');
+  L('lens', 'apmsTag', `<b>Complexes</b> · mostly curated · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
+  L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 76, a + 86, 'grn');
+  L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 94, a + 97, 'mag');
+  L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 98, a + 104, 'cyn');
+  L('cell', [-0.3, -1.25, 0.3], `<b>${fmt(F.unplaced)} without a place</b> · ${fmt(F.unpl)} links unjudged`, a + 105, b - 1, '');
+  sfxCue(a + 2, 'knock', 'cell', 'centre', { gain: 0.3 });
+  [19, 43, 66].forEach(d => sfxCue(a + d, 'pick', 'lens', d === 19 ? 'yeast' : d === 43 ? 'apms' : 'prox', { gain: 0.35 }));
+  sfxCue(a + 97, 'snap', 'cell', 'centre', { gain: 0.35 });
   // 7. Not all at once: GRB2's domains and partners in turn; TP53 to and fro; STAT3 through a pore
   a = C.moments.a; b = C.moments.b;
   ramp('cell_a', a, a + 3, 1, 0);

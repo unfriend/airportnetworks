@@ -121,6 +121,14 @@ gets so much attention): at TP53 in chapter 7 (its links from papers, its rank i
 (the literature-only share of the 100 biggest hubs against the whole map: a map of attention); the cytoskeleton runs
 everywhere in a real cell, drawn along a few fibres here (the Pick tab says so); Turn off by default in explore mode.
 
+## The owner's second headset notes (22 November 2026), done
+
+113 to 119 fps throughout. "They wait outside the cell for now"; links through a gate drawn at the gate (each protein a dot
+just inside and just outside the membrane, a short stitch through it, `gateSite` in `sets/cell.js`) instead of long arcs;
+chapter 6 rewritten for lay people and 35 s longer (325 to 440 s; the story 575 s): what a red link means first, then
+each method explained in its own part (two-hybrid in yeast, purification and the mass spectrometer, proximity labelling
+in living cells), the kinds compared, the two readings, the proteins without a place; "not a permanent wire".
+
 ## Open questions
 
 - The Atlas's current licence terms (to confirm; credit in the panel and README either way).

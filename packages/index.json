@@ -52,17 +52,17 @@
       "kick": "Spatial interactome",
       "col": "#7fe0c4",
       "desc": "An interactome of 13,460 proteins put back into a cell: which of its links can happen where, and why it is so hard to tell.",
-      "len": "Story 9:00",
+      "len": "Story 9:35",
       "aria": "Interactive 3D story: an interactome put back into a model cell",
       "thing": "cell",
       "authors": "Jörg Menche and colleagues (the interactome); the Human Protein Atlas (the locations); the app's authors",
       "life": false,
       "list": "hidden",
       "needs": 178,
-      "fp": "9bedcdf81910ff86",
+      "fp": "a103403ba8f33be0",
       "files": {
-        "main.js": "9cdf5a6ef32bc498",
-        "story.json": "103b03bc95af464d"
+        "main.js": "d1729a0f7e718cf9",
+        "story.json": "152aed61afeb7fc6"
       }
     }
   ]

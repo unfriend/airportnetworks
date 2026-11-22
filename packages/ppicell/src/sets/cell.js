@@ -435,6 +435,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // where a link is drawn: its two dots
   function siteOf(k) {
     const L = NET.L, a = L.a[k], b = L.b[k];
+    if (L.cls[k] === 1) return gateSite(k, a, b);
     if (L.cls[k]) return [dotOf(a), dotOf(b)];
     const pa = lPlace[a], pb = lPlace[b];
     if (pa === pb) {
@@ -459,15 +460,26 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     if (fa && fb) return [dotBeside(a, dotOf(b)), dotOf(b)];   // (two soluble ones sharing a space: the nucleolus and the nucleoplasm, the cytosol and its coats)
     return fa ? [dotBeside(a, dotOf(b)), dotOf(b)] : [dotOf(a), dotBeside(b, dotOf(a))];
   }
-  // a link's points: two dots; a link through a gate passes over the inner dot's container, as near as it gets
+  // a link through a gate, drawn at the gate (the owner, 22 November 2026: the long amber arcs too long): where the inner
+  // one's organelle (the one not in the cytosol) faces the other, each protein gets a dot of its own, one just inside the
+  // membrane and one just outside, joined by a short stitch through it
+  function gateSite(k, a, b) {
+    const ki = D.key.get(a + '|g' + k), ko = D.key.get(b + '|g' + k);
+    if (ki !== undefined && ko !== undefined) return [ki, ko];   // (made already: each link's two once)
+    const da = dotOf(a), db = dotOf(b), pa = dotPos(da), pb = dotPos(db);
+    const inA = (D.cR[da] > 0 && !(NET.lSp[a] & 1)) || D.cR[db] === 0, inner = inA ? da : db, other = inA ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
+    const r = mul(131 * k + 7), jit = v3.mul(K.unit(r), 0.008);
+    let gp, n;
+    if (D.cR[inner] > 0) { n = v3.norm(v3.add(v3.norm(v3.sub(other, C)), jit)); gp = v3.add(C, v3.mul(n, D.cR[inner])); }
+    else { gp = v3.add(v3.lerp(pa, pb, 0.5), jit); n = v3.norm(v3.sub(other, pa)); }   // (no organelle to cross: halfway, along the link)
+    const qi = v3.sub(gp, v3.mul(n, 0.03)), qo = v3.add(gp, v3.mul(n, 0.03));   // (a stitch about 0.06 long: short, yet seen)
+    const di = dotAdd((inA ? a : b) + '|g' + k, inA ? a : b, qi, C, D.cR[inner]), dout = dotAdd((inA ? b : a) + '|g' + k, inA ? b : a, qo, [0, 0, 0], 0);
+    return inA ? [di, dout] : [dout, di];
+  }
+  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite)
   function linkPts(k, out) {
-    const [da, db] = siteOf(k), pa = dotPos(da), pb = dotPos(db);
-    if (NET.L.cls[k] !== 1) { out.push(pa, pb); return; }
-    const inner = (D.cR[da] > 0 && !(NET.lSp[D.loc[da]] & 1)) || D.cR[db] === 0 ? da : db, other = inner === da ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
-    const gp = D.cR[inner] > 0 ? v3.add(C, v3.mul(v3.norm(v3.sub(other, C)), D.cR[inner])) : v3.lerp(pa, pb, 0.5);
-    const ctl = v3.sub(v3.mul(gp, 2), v3.lerp(pa, pb, 0.5)), S = 8;
-    const q = t => { const u = 1 - t; return [0, 1, 2].map(j => u * u * pa[j] + 2 * u * t * ctl[j] + t * t * pb[j]); };
-    for (let s = 0; s < S; s++) out.push(q(s / S), q((s + 1) / S));
+    const [da, db] = siteOf(k);
+    out.push(dotPos(da), dotPos(db));
   }
   const linkCol = k => (NET.L.cls[k] ? CLS_COL[NET.L.cls[k]] : v3.lerp(PLACE_COL[lPlace[NET.L.a[k]]], PLACE_COL[lPlace[NET.L.b[k]]], 0.5));
   // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol)
