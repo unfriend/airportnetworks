@@ -41,6 +41,9 @@ SETS.sites = function (K) {
     const m = new THREE.Mesh(g, K.fade(set, new THREE.MeshBasicMaterial({ color: 0xa48cff, side: THREE.DoubleSide, depthWrite: false }), 0.16));
     gB.add(m);
   }
+  // (a faint dome of the nucleoplasm's colour over the envelope: the nucleus side at a glance)
+  { const d = new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), K.rim(set, { color: cellApi.placeCol[1], a0: 0.035, a1: 0.2 }));
+    d.scale.set(1, 0.75, 0.4); d.position.set(0.05, -0.02, -0.12); d.renderOrder = 2; gB.add(d); }
   const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
   PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 24), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
@@ -88,7 +91,7 @@ SETS.sites = function (K) {
     anchors: { grb2: [0, 0.22, 0], sh2: [0, 0.14, 0.05], sh3a: [-0.27, 0.08, 0], sh3b: [0.27, 0.08, 0], shell: [0.95, 0.7, 0.3],
       slot0: () => v3.add(visitors[0].position.toArray(), [0, 0.07, 0]), slot1: () => v3.add(visitors[1].position.toArray(), [0, -0.08, 0]), slot2: () => v3.add(visitors[2].position.toArray(), [0, 0.07, 0]),
       tp53: () => v3.add(tp.position.toArray(), [0, 0.08, 0]), stat3: () => v3.add(st1.position.toArray(), [0, 0.08, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
-      pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.45, 0], nucleus: [0.0, 0.6, -0.1] },
+      pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
     labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'at the SH2' : 'at an SH3'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
     cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
     stats: () => ({ grb2: nGrb, who: WHO }),

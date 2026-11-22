@@ -100,7 +100,7 @@ void main() {
   float x = vO.x / vP;
   float crista = 1.0 - smoothstep(0.0, 0.16, abs(fract(x * 4.5 + 0.5) - 0.5) * 2.0);
   a += 0.16 * crista * (1.0 - abs(x));
-  col += vec3(0.4, 0.15, 0.1) * crista;
+  col += vec3(0.3, 0.12, 0.4) * crista;
 #endif
   gl_FragColor = vec4(col, a * uA * uK);
 }`,
@@ -145,14 +145,14 @@ void main() {
     addMesh(mergeCopies(CELL.er.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 80, 56), pos: CELL.nuc.c, k }))), shellMaterial('0.35, 0.95, 0.6', 0.06, 0.3, 'er'), 3);
     const gq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...CELL.gdir));
     addMesh(mergeCopies(CELL.golgi.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 64, 10, 0, Math.PI * 2, 0, CELL.golgi.ang[k]), pos: CELL.nuc.c, quat: gq }))),
-      shellMaterial('1.0, 0.78, 0.3', 0.14, 0.45), 4);
+      shellMaterial('0.42, 0.44, 1.0', 0.14, 0.45), 4);
     addMesh(mergeCopies(CELL.mitos.map(o => {
       const g = new THREE.SphereGeometry(1, 40, 20); g.scale(o.a, o.b, o.b); g.computeVertexNormals();
       return { geo: g, pos: o.c, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(...o.axis)), k: o.a };
-    })), shellMaterial('1.0, 0.45, 0.35', 0.08, 0.45, 'mito'), 5);
+    })), shellMaterial('0.8, 0.32, 1.0', 0.08, 0.45, 'mito'), 5);
     const ball = new THREE.SphereGeometry(1, 28, 18);
     const balls = (list, rgb, a0, a1, order) => addMesh(mergeCopies(list.map(o => ({ geo: ball, pos: o.c, scale: new THREE.Vector3(o.r, o.r, o.r) }))), shellMaterial(rgb, a0, a1), order);
-    balls(CELL.lysos, '1.0, 0.4, 0.78', 0.14, 0.5, 6);
+    balls(CELL.lysos, '1.0, 0.45, 0.9', 0.14, 0.5, 6);
     balls(CELL.endos, '0.2, 0.88, 0.82', 0.08, 0.5, 7);
     balls(CELL.peroxs, '0.78, 0.95, 0.3', 0.16, 0.5, 8);
     // the cytoskeleton: microtubules from the centrosome and an actin web under the membrane
@@ -178,8 +178,9 @@ void main() {
   // The cell map's thirteen places and their colours (a fourteenth, grey, for proteins without a place). Two proteins
   // can bind only where they share a space: a body of water bounded by membranes (PDATA: INNER, OUTER, spaces, judge).
   const P = PDATA;
-  const PLACE_COL = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.95, 0.6, 1.0], [0.35, 0.95, 0.6], [1.0, 0.78, 0.3], [1.0, 0.45, 0.35],
-    [1.0, 0.4, 0.78], [0.2, 0.88, 0.82], [0.78, 0.95, 0.3], [0.6, 0.9, 1.0], [0.75, 0.6, 1.0], [0.9, 0.9, 0.95], [0.45, 0.7, 1.0], [0.5, 0.53, 0.58]];
+  // (no orange or red among them: those are the verdicts' alone, amber through a gate and red impossible)
+  const PLACE_COL = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.95, 0.6, 1.0], [0.35, 0.95, 0.6], [0.42, 0.44, 1.0], [0.8, 0.32, 1.0],
+    [1.0, 0.45, 0.9], [0.2, 0.88, 0.82], [0.78, 0.95, 0.3], [0.6, 0.9, 1.0], [0.75, 0.6, 1.0], [0.9, 0.9, 0.95], [0.45, 0.7, 1.0], [0.5, 0.53, 0.58]];
   const PLACE_NAME = P.places.slice();
   const SPACE_NAME = ['the cytosol', 'the nucleoplasm', 'the ER lumen', 'the Golgi lumen', 'the mitochondrial matrix', 'the lysosome lumen',
     'the endosome lumen', 'the peroxisome lumen', 'outside the cell'];
@@ -364,7 +365,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
   // impossible, 3 grey) and why grey (1 not a contact, 2 an end without a place)
   const NET = { g: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
-    flagK: 0.9, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
+    flagK: 0.6, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
   function judgeAll(g) {
     const T = PAIR[g], a = new Int32Array(E), b = new Int32Array(E), cls = new Uint8Array(E), why = new Uint8Array(E);
     for (let l = 0; l < NALL; l++) { NET.lFace[l] = faceOf(lPlace[l], g); NET.lSp[l] = lPlace[l] < 13 ? P.spaces(1 << lPlace[l], g) : 0; }
@@ -652,7 +653,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
     NU.uFocus.value = prot ? 1 : 0; NU.uPathProg.value = prot ? 10 : 0; NU.uSel.value = prot ? pp : -1; NU.uIso.value = place ? pc : -1;
     RU.uFocus.value = prot ? 1 : 0; RU.uIso.value = place ? pc : -1;
-    NET.flagK = prot || place ? 0.15 : 0.9;
+    NET.flagK = prot || place ? 0.15 : 0.6;   // (0.6: dense amber through the nucleus reads without burning)
     if (geo) {
       // (fainter as there are more of them, so a busy place does not burn white: 0.85 up to 200 lines, about 0.27 at 2,000)
       focusMat.uniforms.uK.value = 0.85 * Math.min(1, Math.sqrt(200 / Math.max(1, links.length)));

@@ -119,7 +119,9 @@ attribute vec3 aCol; varying vec3 vC; varying float vA;
 void main() {
   float u = flyU();
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
-  vC = mix(vec3(0.75, 0.88, 1.0), aCol, uTint); vA = mix(0.45, 0.35, u) * uIn;
+  // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
+  float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
+  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn;
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });

@@ -163,7 +163,7 @@ function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.L) return '';
   const [g, a, r] = s.tally, j = g + a + r, pct = j ? (100 * r / j).toFixed(1) : '0';
-  return `${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${fmt(s.notC)} not contacts (regulatory or metabolic only) and ${fmt(s.unpl)} with an end without a place. ${fmt(s.drawn)} drawn, the most kinds of evidence first. Built in ${s.ms} ms.`;
+  return `${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${fmt(s.notC)} not contacts (regulatory or metabolic only) and ${fmt(s.unpl)} with an end without a place. These are counts; ${fmt(s.drawn)} links are drawn: a share of each verdict, the most kinds of evidence first, the rarer verdicts raised so they show. Built in ${s.ms} ms.`;
 }
 // the reading on show, in words: the twin of statsLine, in both panes
 function readingLine() {

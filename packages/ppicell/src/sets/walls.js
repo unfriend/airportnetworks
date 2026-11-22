@@ -1,6 +1,6 @@
 // Spaces and walls (chapter 3), over the cell (its frame and its shapes: SETS.cell's api().CELL). The spaces light up one
-// after another (walls_lit: the cytosol, the nucleoplasm, the mitochondria's insides, the small organelles' insides, each
-// its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
+// after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
+// small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
 // across the plasma membrane with a part on each side (a signal outside, a partner inside), a nuclear pore with cargo
 // going through, and an import site on a mitochondrion with a chain threading in (walls_parts). Motion depends only on
 // the time.
@@ -20,11 +20,31 @@ SETS.walls = function (K) {
   };
   const sph = new THREE.SphereGeometry(1, 48, 32);
   const X1 = new THREE.Vector3(1, 0, 0);
+  // the ER's and the Golgi's lumens: the ER's sheets (its spheres where the cell's mask has them, as its skin) and the
+  // Golgi's stacked caps, in one draw
+  const lumens = (() => {
+    const out = [], q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...CELL.gdir)), M = new THREE.Matrix4();
+    CELL.er.r.forEach((r, k) => {
+      const g = new THREE.SphereGeometry(r, 72, 48).toNonIndexed(), P = g.attributes.position.array, N = g.attributes.normal.array, keep = [], keepN = [];
+      for (let i = 0; i < P.length; i += 9) {
+        const d = v3.norm([P[i] + P[i + 3] + P[i + 6], P[i + 1] + P[i + 4] + P[i + 7], P[i + 2] + P[i + 5] + P[i + 8]]);
+        if (CELL.erMask(d, k) > 0.06) for (let j = 0; j < 9; j++) { keep.push(P[i + j] + CELL.nuc.c[j % 3]); keepN.push(N[i + j]); }
+      }
+      const h = new THREE.BufferGeometry(); h.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3)); h.setAttribute('normal', new THREE.Float32BufferAttribute(keepN, 3));
+      out.push(h);
+    });
+    CELL.golgi.r.forEach((r, k) => out.push(new THREE.SphereGeometry(r, 48, 8, 0, Math.PI * 2, 0, CELL.golgi.ang[k]).toNonIndexed().applyMatrix4(M.compose(new THREE.Vector3(...CELL.nuc.c), q, new THREE.Vector3(1, 1, 1)))));
+    out.forEach(g => { if (g.attributes.uv) g.deleteAttribute('uv'); });
+    const mesh = new THREE.Mesh(K.merge(out), K.rim(set, { color: col[3], a0: 0, a1: 0 }));
+    mesh.renderOrder = 9; set.group.add(mesh);
+    return mesh.material;
+  })();
   const SP = [
     { name: 'Cytosol', m: space(sph, col[0], [{ c: [0, 0, 0], s: CELL.pm.map(x => x * 0.985) }]), at: [0.62, -0.35, 0.3], fill: 0.05 },
     { name: 'Nucleoplasm', m: space(sph, col[1], [{ c: CELL.nuc.c, s: [CELL.nuc.r, CELL.nuc.r, CELL.nuc.r] }]), at: v3.add(CELL.nuc.c, [0, CELL.nuc.r * 0.6, 0]), fill: 0.16 },
+    { name: 'ER and Golgi', m: lumens, at: v3.add(CELL.nuc.c, v3.mul(CELL.gdir, CELL.golgi.r[2])), fill: 0.1 },
     { name: 'Mitochondria', m: space(sph, col[5], CELL.mitos.map(o => ({ c: o.c, s: [o.a, o.b, o.b], q: new THREE.Quaternion().setFromUnitVectors(X1, new THREE.Vector3(...o.axis)) }))), at: CELL.mitos[0].c, fill: 0.3 },
-    { name: 'Small organelles', m: space(sph, [1.0, 0.55, 0.8], [...CELL.lysos, ...CELL.endos, ...CELL.peroxs].map(o => ({ c: o.c, s: [o.r, o.r, o.r] }))), at: CELL.lysos[0].c, fill: 0.3 },
+    { name: 'Small organelles', m: space(sph, col[6], [...CELL.lysos, ...CELL.endos, ...CELL.peroxs].map(o => ({ c: o.c, s: [o.r, o.r, o.r] }))), at: CELL.lysos[0].c, fill: 0.3 },
     { name: 'Outside', m: space(sph, [0.5, 0.75, 0.9], [{ c: [0, 0, 0], s: CELL.pm.map(x => x * 1.12) }]), at: [0, CELL.pm[1] * 1.16, 0], fill: 0.035 },
   ];
   // ------------------------------------------------------------ the close-ups (illustrative shapes, much enlarged)
@@ -61,15 +81,16 @@ SETS.walls = function (K) {
   orient(imp, MP, md);
   const parts = [rec, pore, imp];
   return Object.assign(set, {
-    // walls_lit: which space glows (1 the cytosol ... 5 outside; between two, both a little; 0 none, 6 all faintly);
+    // walls_lit: which space glows (1 the cytosol, 2 the nucleoplasm, 3 the ER and Golgi ... 6 outside; between two, both
+    // a little; 0 none, 7 all faintly);
     // walls_wall: the membranes glow as walls; walls_parts: the three close-ups (receptor, pore, import site)
     params: { walls_a: 1, walls_lit: 0, walls_wall: 0, walls_parts: 0 },
     update(S, t) {
-      const lit = clamp(S.walls_lit, 0, 6), w = clamp(S.walls_wall, 0, 1);
+      const lit = clamp(S.walls_lit, 0, 7), w = clamp(S.walls_wall, 0, 1);
       SP.forEach((s, i) => {
-        const on = lit >= 5.5 ? 0.4 * (lit - 5.5) * 2 : Math.max(0, 1 - Math.abs(lit - (i + 1)));
+        const on = lit >= 6.5 ? 0.4 * (lit - 6.5) * 2 : Math.max(0, 1 - Math.abs(lit - (i + 1)));
         s.m.uniforms.uA0.value = s.fill * on;
-        s.m.uniforms.uA1.value = 0.25 * on + (i < 4 ? 0.55 * w : 0);
+        s.m.uniforms.uA1.value = 0.25 * on + (i < 5 ? 0.55 * w : 0);
       });
       const pv = clamp(S.walls_parts, 0, 1);
       for (const g of parts) { g.visible = pv > 0.01; g.scale.setScalar(Math.max(0.01, pv) * (g === imp ? 2.4 : 1)); }   // (the import site drawn larger still: a mitochondrion is small)
@@ -82,7 +103,7 @@ SETS.walls = function (K) {
       cargo.position.set(0, 0.05 - 0.11 * K.smooth(b), 0);
       chain.forEach((o, i) => o.position.set(0, 0.03 - 0.006 * i - 0.05 * c, 0));
     },
-    anchors: { cytosol: SP[0].at, nucleus: SP[1].at, mito: SP[2].at, small: SP[3].at, outside: SP[4].at,
+    anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
       receptor: v3.add(RP, v3.mul(RN, 0.04)), recIn: v3.add(RP, v3.mul(RN, -0.045)), recOut: v3.add(RP, v3.mul(RN, 0.07)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
     cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(md, [0.2, 0.5, 0.3]), 0.26) },

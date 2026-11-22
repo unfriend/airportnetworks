@@ -16,6 +16,9 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
     licence (as far as we know CC BY-SA: the places in `src/sets/data.js` then carry it; to confirm), with credit to
     the Human Protein Atlas.
   - the gene numbers to symbols and Ensembl ids: NCBI Gene (public domain).
+- Simplifications: vesicles count with the cytosol, the cytoskeleton (with the primary cilium) is in the cytosol, and the
+  mitochondria are taken as their matrix. The Atlas's *Uncertain* locations are kept: only 182 of the 2,958 impossible
+  links (strict reading) have an uncertain end.
 - Every number the story shows is computed from these as the page runs (`src/sets/pdata.js`, `PDATA`); the judgement
   (possible, through a gate, impossible) is the story's own method, tried out first in `packages/cellstress`.
 

@@ -21,7 +21,7 @@ SETS.lens = function (K) {
     return { g, inner, ringMat, disc };
   });
   const pts = (n, f) => { const geo = K.pointsGeo(n); for (let i = 0; i < n; i++) f(i, geo.attributes); return geo; };
-  const PLC = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [1.0, 0.45, 0.35], [0.35, 0.95, 0.6], [1.0, 0.78, 0.3]];
+  const PLC = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.8, 0.32, 1.0], [0.35, 0.95, 0.6], [0.42, 0.44, 1.0]];   // (the cell's place colours: no orange or red)
   const r = K.rng(5);
   // 1. two-hybrid: a yeast nucleus, its DNA, the bait on it (with its half of the switch), the prey coming in
   const Y = lenses[0].inner;

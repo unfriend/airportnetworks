@@ -417,7 +417,7 @@ void main() {
   float x = vO.x / vP;
   float crista = 1.0 - smoothstep(0.0, 0.16, abs(fract(x * 4.5 + 0.5) - 0.5) * 2.0);
   a += 0.16 * crista * (1.0 - abs(x));
-  col += vec3(0.4, 0.15, 0.1) * crista;
+  col += vec3(0.3, 0.12, 0.4) * crista;
 #endif
   gl_FragColor = vec4(col, a * uA * uK);
 }`,
@@ -462,14 +462,14 @@ void main() {
     addMesh(mergeCopies(CELL.er.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 80, 56), pos: CELL.nuc.c, k }))), shellMaterial('0.35, 0.95, 0.6', 0.06, 0.3, 'er'), 3);
     const gq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...CELL.gdir));
     addMesh(mergeCopies(CELL.golgi.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 64, 10, 0, Math.PI * 2, 0, CELL.golgi.ang[k]), pos: CELL.nuc.c, quat: gq }))),
-      shellMaterial('1.0, 0.78, 0.3', 0.14, 0.45), 4);
+      shellMaterial('0.42, 0.44, 1.0', 0.14, 0.45), 4);
     addMesh(mergeCopies(CELL.mitos.map(o => {
       const g = new THREE.SphereGeometry(1, 40, 20); g.scale(o.a, o.b, o.b); g.computeVertexNormals();
       return { geo: g, pos: o.c, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(...o.axis)), k: o.a };
-    })), shellMaterial('1.0, 0.45, 0.35', 0.08, 0.45, 'mito'), 5);
+    })), shellMaterial('0.8, 0.32, 1.0', 0.08, 0.45, 'mito'), 5);
     const ball = new THREE.SphereGeometry(1, 28, 18);
     const balls = (list, rgb, a0, a1, order) => addMesh(mergeCopies(list.map(o => ({ geo: ball, pos: o.c, scale: new THREE.Vector3(o.r, o.r, o.r) }))), shellMaterial(rgb, a0, a1), order);
-    balls(CELL.lysos, '1.0, 0.4, 0.78', 0.14, 0.5, 6);
+    balls(CELL.lysos, '1.0, 0.45, 0.9', 0.14, 0.5, 6);
     balls(CELL.endos, '0.2, 0.88, 0.82', 0.08, 0.5, 7);
     balls(CELL.peroxs, '0.78, 0.95, 0.3', 0.16, 0.5, 8);
     // the cytoskeleton: microtubules from the centrosome and an actin web under the membrane
@@ -495,8 +495,9 @@ void main() {
   // The cell map's thirteen places and their colours (a fourteenth, grey, for proteins without a place). Two proteins
   // can bind only where they share a space: a body of water bounded by membranes (PDATA: INNER, OUTER, spaces, judge).
   const P = PDATA;
-  const PLACE_COL = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.95, 0.6, 1.0], [0.35, 0.95, 0.6], [1.0, 0.78, 0.3], [1.0, 0.45, 0.35],
-    [1.0, 0.4, 0.78], [0.2, 0.88, 0.82], [0.78, 0.95, 0.3], [0.6, 0.9, 1.0], [0.75, 0.6, 1.0], [0.9, 0.9, 0.95], [0.45, 0.7, 1.0], [0.5, 0.53, 0.58]];
+  // (no orange or red among them: those are the verdicts' alone, amber through a gate and red impossible)
+  const PLACE_COL = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.95, 0.6, 1.0], [0.35, 0.95, 0.6], [0.42, 0.44, 1.0], [0.8, 0.32, 1.0],
+    [1.0, 0.45, 0.9], [0.2, 0.88, 0.82], [0.78, 0.95, 0.3], [0.6, 0.9, 1.0], [0.75, 0.6, 1.0], [0.9, 0.9, 0.95], [0.45, 0.7, 1.0], [0.5, 0.53, 0.58]];
   const PLACE_NAME = P.places.slice();
   const SPACE_NAME = ['the cytosol', 'the nucleoplasm', 'the ER lumen', 'the Golgi lumen', 'the mitochondrial matrix', 'the lysosome lumen',
     'the endosome lumen', 'the peroxisome lumen', 'outside the cell'];
@@ -681,7 +682,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
   // impossible, 3 grey) and why grey (1 not a contact, 2 an end without a place)
   const NET = { g: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
-    flagK: 0.9, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
+    flagK: 0.6, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
   function judgeAll(g) {
     const T = PAIR[g], a = new Int32Array(E), b = new Int32Array(E), cls = new Uint8Array(E), why = new Uint8Array(E);
     for (let l = 0; l < NALL; l++) { NET.lFace[l] = faceOf(lPlace[l], g); NET.lSp[l] = lPlace[l] < 13 ? P.spaces(1 << lPlace[l], g) : 0; }
@@ -969,7 +970,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
     NU.uFocus.value = prot ? 1 : 0; NU.uPathProg.value = prot ? 10 : 0; NU.uSel.value = prot ? pp : -1; NU.uIso.value = place ? pc : -1;
     RU.uFocus.value = prot ? 1 : 0; RU.uIso.value = place ? pc : -1;
-    NET.flagK = prot || place ? 0.15 : 0.9;
+    NET.flagK = prot || place ? 0.15 : 0.6;   // (0.6: dense amber through the nucleus reads without burning)
     if (geo) {
       // (fainter as there are more of them, so a busy place does not burn white: 0.85 up to 200 lines, about 0.27 at 2,000)
       focusMat.uniforms.uK.value = 0.85 * Math.min(1, Math.sqrt(200 / Math.max(1, links.length)));
@@ -1175,7 +1176,9 @@ attribute vec3 aCol; varying vec3 vC; varying float vA;
 void main() {
   float u = flyU();
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
-  vC = mix(vec3(0.75, 0.88, 1.0), aCol, uTint); vA = mix(0.45, 0.35, u) * uIn;
+  // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
+  float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
+  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn;
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
@@ -1298,8 +1301,8 @@ SETS.crowd = function (K) {
 };
 
 // Spaces and walls (chapter 3), over the cell (its frame and its shapes: SETS.cell's api().CELL). The spaces light up one
-// after another (walls_lit: the cytosol, the nucleoplasm, the mitochondria's insides, the small organelles' insides, each
-// its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
+// after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
+// small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
 // across the plasma membrane with a part on each side (a signal outside, a partner inside), a nuclear pore with cargo
 // going through, and an import site on a mitochondrion with a chain threading in (walls_parts). Motion depends only on
 // the time.
@@ -1319,11 +1322,31 @@ SETS.walls = function (K) {
   };
   const sph = new THREE.SphereGeometry(1, 48, 32);
   const X1 = new THREE.Vector3(1, 0, 0);
+  // the ER's and the Golgi's lumens: the ER's sheets (its spheres where the cell's mask has them, as its skin) and the
+  // Golgi's stacked caps, in one draw
+  const lumens = (() => {
+    const out = [], q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...CELL.gdir)), M = new THREE.Matrix4();
+    CELL.er.r.forEach((r, k) => {
+      const g = new THREE.SphereGeometry(r, 72, 48).toNonIndexed(), P = g.attributes.position.array, N = g.attributes.normal.array, keep = [], keepN = [];
+      for (let i = 0; i < P.length; i += 9) {
+        const d = v3.norm([P[i] + P[i + 3] + P[i + 6], P[i + 1] + P[i + 4] + P[i + 7], P[i + 2] + P[i + 5] + P[i + 8]]);
+        if (CELL.erMask(d, k) > 0.06) for (let j = 0; j < 9; j++) { keep.push(P[i + j] + CELL.nuc.c[j % 3]); keepN.push(N[i + j]); }
+      }
+      const h = new THREE.BufferGeometry(); h.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3)); h.setAttribute('normal', new THREE.Float32BufferAttribute(keepN, 3));
+      out.push(h);
+    });
+    CELL.golgi.r.forEach((r, k) => out.push(new THREE.SphereGeometry(r, 48, 8, 0, Math.PI * 2, 0, CELL.golgi.ang[k]).toNonIndexed().applyMatrix4(M.compose(new THREE.Vector3(...CELL.nuc.c), q, new THREE.Vector3(1, 1, 1)))));
+    out.forEach(g => { if (g.attributes.uv) g.deleteAttribute('uv'); });
+    const mesh = new THREE.Mesh(K.merge(out), K.rim(set, { color: col[3], a0: 0, a1: 0 }));
+    mesh.renderOrder = 9; set.group.add(mesh);
+    return mesh.material;
+  })();
   const SP = [
     { name: 'Cytosol', m: space(sph, col[0], [{ c: [0, 0, 0], s: CELL.pm.map(x => x * 0.985) }]), at: [0.62, -0.35, 0.3], fill: 0.05 },
     { name: 'Nucleoplasm', m: space(sph, col[1], [{ c: CELL.nuc.c, s: [CELL.nuc.r, CELL.nuc.r, CELL.nuc.r] }]), at: v3.add(CELL.nuc.c, [0, CELL.nuc.r * 0.6, 0]), fill: 0.16 },
+    { name: 'ER and Golgi', m: lumens, at: v3.add(CELL.nuc.c, v3.mul(CELL.gdir, CELL.golgi.r[2])), fill: 0.1 },
     { name: 'Mitochondria', m: space(sph, col[5], CELL.mitos.map(o => ({ c: o.c, s: [o.a, o.b, o.b], q: new THREE.Quaternion().setFromUnitVectors(X1, new THREE.Vector3(...o.axis)) }))), at: CELL.mitos[0].c, fill: 0.3 },
-    { name: 'Small organelles', m: space(sph, [1.0, 0.55, 0.8], [...CELL.lysos, ...CELL.endos, ...CELL.peroxs].map(o => ({ c: o.c, s: [o.r, o.r, o.r] }))), at: CELL.lysos[0].c, fill: 0.3 },
+    { name: 'Small organelles', m: space(sph, col[6], [...CELL.lysos, ...CELL.endos, ...CELL.peroxs].map(o => ({ c: o.c, s: [o.r, o.r, o.r] }))), at: CELL.lysos[0].c, fill: 0.3 },
     { name: 'Outside', m: space(sph, [0.5, 0.75, 0.9], [{ c: [0, 0, 0], s: CELL.pm.map(x => x * 1.12) }]), at: [0, CELL.pm[1] * 1.16, 0], fill: 0.035 },
   ];
   // ------------------------------------------------------------ the close-ups (illustrative shapes, much enlarged)
@@ -1360,15 +1383,16 @@ SETS.walls = function (K) {
   orient(imp, MP, md);
   const parts = [rec, pore, imp];
   return Object.assign(set, {
-    // walls_lit: which space glows (1 the cytosol ... 5 outside; between two, both a little; 0 none, 6 all faintly);
+    // walls_lit: which space glows (1 the cytosol, 2 the nucleoplasm, 3 the ER and Golgi ... 6 outside; between two, both
+    // a little; 0 none, 7 all faintly);
     // walls_wall: the membranes glow as walls; walls_parts: the three close-ups (receptor, pore, import site)
     params: { walls_a: 1, walls_lit: 0, walls_wall: 0, walls_parts: 0 },
     update(S, t) {
-      const lit = clamp(S.walls_lit, 0, 6), w = clamp(S.walls_wall, 0, 1);
+      const lit = clamp(S.walls_lit, 0, 7), w = clamp(S.walls_wall, 0, 1);
       SP.forEach((s, i) => {
-        const on = lit >= 5.5 ? 0.4 * (lit - 5.5) * 2 : Math.max(0, 1 - Math.abs(lit - (i + 1)));
+        const on = lit >= 6.5 ? 0.4 * (lit - 6.5) * 2 : Math.max(0, 1 - Math.abs(lit - (i + 1)));
         s.m.uniforms.uA0.value = s.fill * on;
-        s.m.uniforms.uA1.value = 0.25 * on + (i < 4 ? 0.55 * w : 0);
+        s.m.uniforms.uA1.value = 0.25 * on + (i < 5 ? 0.55 * w : 0);
       });
       const pv = clamp(S.walls_parts, 0, 1);
       for (const g of parts) { g.visible = pv > 0.01; g.scale.setScalar(Math.max(0.01, pv) * (g === imp ? 2.4 : 1)); }   // (the import site drawn larger still: a mitochondrion is small)
@@ -1381,7 +1405,7 @@ SETS.walls = function (K) {
       cargo.position.set(0, 0.05 - 0.11 * K.smooth(b), 0);
       chain.forEach((o, i) => o.position.set(0, 0.03 - 0.006 * i - 0.05 * c, 0));
     },
-    anchors: { cytosol: SP[0].at, nucleus: SP[1].at, mito: SP[2].at, small: SP[3].at, outside: SP[4].at,
+    anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
       receptor: v3.add(RP, v3.mul(RN, 0.04)), recIn: v3.add(RP, v3.mul(RN, -0.045)), recOut: v3.add(RP, v3.mul(RN, 0.07)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
     cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(md, [0.2, 0.5, 0.3]), 0.26) },
@@ -1411,7 +1435,7 @@ SETS.lens = function (K) {
     return { g, inner, ringMat, disc };
   });
   const pts = (n, f) => { const geo = K.pointsGeo(n); for (let i = 0; i < n; i++) f(i, geo.attributes); return geo; };
-  const PLC = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [1.0, 0.45, 0.35], [0.35, 0.95, 0.6], [1.0, 0.78, 0.3]];
+  const PLC = [[0.55, 0.78, 1.0], [0.66, 0.54, 1.0], [0.8, 0.32, 1.0], [0.35, 0.95, 0.6], [0.42, 0.44, 1.0]];   // (the cell's place colours: no orange or red)
   const r = K.rng(5);
   // 1. two-hybrid: a yeast nucleus, its DNA, the bait on it (with its half of the switch), the prey coming in
   const Y = lenses[0].inner;
@@ -1527,6 +1551,9 @@ SETS.sites = function (K) {
     const m = new THREE.Mesh(g, K.fade(set, new THREE.MeshBasicMaterial({ color: 0xa48cff, side: THREE.DoubleSide, depthWrite: false }), 0.16));
     gB.add(m);
   }
+  // (a faint dome of the nucleoplasm's colour over the envelope: the nucleus side at a glance)
+  { const d = new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), K.rim(set, { color: cellApi.placeCol[1], a0: 0.035, a1: 0.2 }));
+    d.scale.set(1, 0.75, 0.4); d.position.set(0.05, -0.02, -0.12); d.renderOrder = 2; gB.add(d); }
   const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
   PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 24), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
@@ -1574,7 +1601,7 @@ SETS.sites = function (K) {
     anchors: { grb2: [0, 0.22, 0], sh2: [0, 0.14, 0.05], sh3a: [-0.27, 0.08, 0], sh3b: [0.27, 0.08, 0], shell: [0.95, 0.7, 0.3],
       slot0: () => v3.add(visitors[0].position.toArray(), [0, 0.07, 0]), slot1: () => v3.add(visitors[1].position.toArray(), [0, -0.08, 0]), slot2: () => v3.add(visitors[2].position.toArray(), [0, 0.07, 0]),
       tp53: () => v3.add(tp.position.toArray(), [0, 0.08, 0]), stat3: () => v3.add(st1.position.toArray(), [0, 0.08, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
-      pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.45, 0], nucleus: [0.0, 0.6, -0.1] },
+      pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
     labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'at the SH2' : 'at an SH3'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
     cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
     stats: () => ({ grb2: nGrb, who: WHO }),
@@ -1942,6 +1969,8 @@ function buildStory() {
   const F = storyFacts(), cell = GL.sets.cell.api(), net = cell.net(2), drawn = net.ab.length / 2;
   const [s0, s1, s2] = F.s, g2 = F.g[2], J = F.judged, bin = F.kind('binary'), cx = F.kind('complexes'), lo = F.byKind[0], hi = F.byKind[F.byKind.length - 1];
   const { GRB2, TP53, STAT3, RELA } = F, quarter = Math.round(100 * F.unplaced / F.N);
+  // what is drawn, in round numbers (about 2,000 links; the red ones raised so they show), and the crowd's molecules
+  const about = fmt(Math.round(drawn / 100) * 100), redDrawn = Array.from(net.cls).filter(c => c === 2).length, crowdN = GL.sets.crowd.stats().n;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
@@ -1957,55 +1986,55 @@ function buildStory() {
   const html = {
     map: `<h1 data-at="0.6">${esc(XR_TITLE)}</h1>
       <p class="lede" data-at="1.6">An interactome put back into a cell</p>
-      ${turns(`<p data-at="3" data-out="20.5">An interactome is a map of which proteins bind which. This one gathers ${fmt(F.N)} human proteins and ${fmt(F.E)} links between them, from many kinds of experiment (Menche and colleagues, 2015).</p>
-        <p data-at="10" data-out="20.5">Here each protein is one dot. The ${fmt(drawn)} strongest links are drawn: those with the most kinds of evidence.</p>`,
+      ${turns(`<p data-at="3" data-out="20.5">An interactome is a map of which proteins bind which. This one has ${fmt(F.N)} human proteins and ${fmt(F.E)} links, with ${word(PDATA.kinds.length)} kinds of evidence (Menche and colleagues, 2015). Most suggest physical contact; ${fmt(F.notC)} do not.</p>
+        <p data-at="10" data-out="20.5">Each protein is one dot. About ${about} links are drawn, the best supported of each kind.</p>`,
       `<p data-at="21" data-out="40.5">A hub is a protein with many links. The biggest sit in the middle: GRB2 alone has ${fmt(GRB2.deg)}. On average a protein has ${Math.round(F.mean)}.</p>`,
       `<p data-at="41">But a map like this says who binds whom, not where. Beside it stands an empty cell, the model cell of the cell map story.</p>
         <p data-at="48" class="amber">In a real cell two proteins can bind only if they meet.</p>`)}`,
     crowd: `<h2 data-at="0.6">Billions and thousands</h2>
       ${turns(`<p data-at="1.5" data-out="20.5">Take one spot of the cytosol, the watery inside of the cell, and look closer.</p>
-        <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space.</p>`,
+        <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, not to scale.</p>`,
       `<p data-at="21" data-out="33.5">A whole human cell holds roughly 1 to 10 billion protein molecules, of about ten thousand kinds.</p>`,
       `<p data-at="34">So one dot of the map stands for all the copies of one kind of protein in one place: the bright ones here.</p>
         <p data-at="41" class="amber">One dot per kind and place: ${fmt(F.L)} dots for the ${fmt(F.placed)} proteins with a place.</p>`)}`,
     walls: `<h2 data-at="0.6">Spaces and walls</h2>
-      ${turns(`<p data-at="1.5" data-out="26.5">A cell is not one bag of water. Membranes divide it into spaces: the cytosol, the nucleoplasm inside the nucleus, the inside of each organelle, and outside the cell.</p>
+      ${turns(`<p data-at="1.5" data-out="26.5">A cell is not one bag of water. Membranes divide it into spaces: the cytosol, the nucleoplasm inside the nucleus, the inside of the ER, the Golgi and every other organelle, and outside the cell.</p>
         <p data-at="14" data-out="26.5" class="amber">Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is a space of its own.</p>`,
       `<p data-at="27" data-out="44.5">A protein in a membrane can face one side or both. A receptor reaches across the plasma membrane: a part outside meets a signal, a part inside meets a partner.</p>`,
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the ER, the mitochondria and the peroxisomes. Vesicles carry others between the ER, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="56" class="caption">Close-ups not to scale.</p>`)}`,
     back: `<h2 data-at="0.6">Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5">Now each protein goes where the Human Protein Atlas finds it, in ${word(F.places)} places of the model cell.</p>`,
-      `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} places in all.</p>
+      `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
         <p data-at="28" data-out="42.5">Within each place, proteins that link to each other gather together. Each mitochondrion keeps its own links.</p>`,
       `<p data-at="43">The links take the colour of their verdict.</p>
         <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas. They stay outside the cell, grey.</p>`)}`,
     judge: `<h2 data-at="0.6">Can they meet?</h2>
-      ${turns(`<p data-at="1.5" data-out="42.5">Each link is judged by its proteins' places. Of the ${fmt(J)} links between proteins that touch and have a place:</p>
-        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): they share a space`)}
+      ${turns(`<p data-at="1.5" data-out="42.5">Judged strictly (an organelle's proteins inside it), the ${fmt(J)} links that suggest contact, between proteins that both have a place:</p>
+        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space`)}
           ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): one known crossing apart`)}
           ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space, no crossing`)}</ul>`,
       `<p data-at="43">RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
         <p data-at="50" class="amber">So ${fmt(RELA.t[1])} of its links pass a gate.</p>
-        <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place.</p>`)}`,
+        <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, the red ones raised to ${fmt(redDrawn)} so they show.</p>`)}`,
     red: `<h2 data-at="0.6">Why red?</h2>
-      ${turns(`<p data-at="1.5" data-out="49.5">Partly the methods, each a different lens.</p>
-        <ul class="steps">${step(9, 49.5, CYAN, 'Two-hybrid', ` pairs meet in a yeast nucleus, wherever they live in ours: ${bin.pct} % of binary links impossible`)}
-          ${step(26, 49.5, AMBER, 'Purification', ` cells broken open, proteins from different places meet in the tube; stable complexes ${cx.pct} %`)}
-          ${step(39, 49.5, GREEN, 'Proximity labelling', ' tags what comes near a bait in a living cell (newer than this map)')}</ul>`,
-      `<p data-at="50" data-out="66.5">By kind of evidence, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}).</p>
-        <p data-at="54" data-out="66.5">Partly the Atlas: it does not say on which side of a membrane a protein sits. Inside only, ${fmt(s2)} links are impossible. Facing either side, ${fmt(g2)}.</p>`,
+      ${turns(`<p data-at="1.5" data-out="38.5">Partly the kind of evidence, each mostly from one sort of method.</p>
+        <ul class="steps">${step(9, 38.5, CYAN, 'Two-hybrid', ` forces two proteins together in yeast. Binary links come largely from it: ${bin.pct} % impossible (both places known)`)}
+          ${step(26, 38.5, AMBER, 'Purification', ` breaks cells open, so proteins from different places can mix. Yet complexes, mostly curated, agree best: ${cx.pct} % impossible`)}</ul>`,
+      `<ul class="steps">${step(39, 49.5, GREEN, 'Proximity labelling', ' tags what comes near a bait in a living cell (since 2012; large maps came later)')}</ul>`,
+      `<p data-at="50" data-out="57.5">By kind of evidence, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
+      `<p data-at="58" data-out="66.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
       `<p data-at="67" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
     moments: `<h2 data-at="0.6">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
         <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment, not a wire.</p>`,
-      `<p data-at="36" data-out="53.5">TP53, the best-known protein of all, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
+      `<p data-at="36" data-out="53.5">TP53, one of the best-known proteins, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
         <p data-at="43" data-out="53.5">${fmt(TP53.nuc)} of its partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>`,
-      `<p data-at="54">STAT3 waits in the cytosol. A kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
-        <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links happen in two places, at different times.</p>`)}`,
+      `<p data-at="54">The Atlas lists STAT3 in the ${listOf(STAT3.places)}. It sits mostly in the cytosol until a kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
+        <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links are in ${word(STAT3.places.length)} places; when each happens is not in this map.</p>`)}`,
     next: `<h2 data-at="0.6">What it would take</h2>
       ${turns(`<p data-at="1.5" data-out="50.5">A map true to a real cell needs where and when each pair meets.</p>
-        <ul class="steps">${step(5, 50.5, GREEN, 'Proximity maps', 'thousands of baits, each tagging its neighbours, place by place')}
+        <ul class="steps">${step(5, 50.5, GREEN, 'Proximity maps', 'hundreds to thousands of baits, each tagging its neighbours, place by place')}
           ${step(22, 50.5, CYAN, 'Cryo-electron tomography', 'frozen cells cut thin, single molecules seen where they are')}
           ${step(37, 50.5, MAGENTA, 'Whole-cell volumes', 'every organelle of a whole cell, mapped in 3D')}</ul>`,
       `<p data-at="51">Until then, the honest cell: dense networks inside each space, thin traffic through the gates, and a red remainder still to explain.</p>
@@ -2045,7 +2074,7 @@ function buildStory() {
   cam(a + 18, 'ball', 'ball', 5);
   cam(a + 40, 'ball', 'default', 0);
   cam(b, 'ball', 'default', 14, 'spin');
-  L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · ${fmt(drawn)} links drawn`, a + 6, a + 20, 'cyn');
+  L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · about ${about} links drawn`, a + 6, a + 20, 'cyn');
   L('ball', 'hub', `<b>GRB2</b> · ${fmt(GRB2.deg)} links`, a + 22, a + 39, 'amb');
   L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 42, b - 1, '');
   sfxCue(a + 0.5, 'grow', 'ball', 'ball', { dur: 3, gain: 0.35 });
@@ -2063,7 +2092,7 @@ function buildStory() {
   cam(b - 9, 'crowd', 'default', 25, 'spin');
   cam(b, 'cell', 'default', 30);
   L('crowd', 'dot', '<b>One dot</b> · in the cytosol', a + 2, a + 6, 'cyn');
-  L('crowd', 'cube', '<b>About 100 nm</b> · a few thousand molecules', a + 14, a + 33, '');
+  L('crowd', 'cube', `<b>About 100 nm</b> · ${fmt(crowdN)} molecules, not to scale`, a + 14, a + 33, '');
   L('crowd', 'mark', '<b>One kind, one place</b> · one dot', a + 37, b - 9, 'cyn');
   sfxCue(a + 5, 'whoosh', 'crowd', 'dot', { dur: 2, pitch: 0.9 });
   sfxCue(a + 9, 'patter', 'crowd', 'cube', { dur: 4, gain: 0.3 });
@@ -2071,9 +2100,12 @@ function buildStory() {
   // 3. Spaces and walls: the spaces light one by one, the walls glow, then a receptor, a pore and an import site
   a = C.walls.a; b = C.walls.b;
   show('walls', a, a + 2, b - 2, b);
-  ramp('walls_lit', a + 2, a + 5, 0, 1);
-  ramp('walls_lit', a + 7, a + 9, 1, 2); ramp('walls_lit', a + 11, a + 13, 2, 3); ramp('walls_lit', a + 15, a + 17, 3, 4); ramp('walls_lit', a + 19, a + 21, 4, 5);
-  ramp('walls_lit', a + 23, a + 26, 5, 0);
+  // (six spaces, one every 3.2 s: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria, the
+  // small organelles, outside)
+  const SPACES = ['cytosol', 'nucleus', 'lumen', 'mito', 'small', 'outside'], litAt = i => a + 4 + 3.2 * i;
+  ramp('walls_lit', a + 2, litAt(0), 0, 1);
+  for (let i = 1; i < SPACES.length; i++) ramp('walls_lit', litAt(i) - 1.4, litAt(i), i, i + 1);
+  ramp('walls_lit', a + 23, a + 26, SPACES.length, 0);
   ramp('walls_wall', a + 14, a + 18, 0, 1);
   ramp('walls_parts', a + 26, a + 29, 0, 1);
   ramp('walls_wall', b - 5, b - 2, 1, 0);
@@ -2086,12 +2118,12 @@ function buildStory() {
   cam(a + 54, 'walls', 'pore', 20, 'spin');
   cam(a + 58, 'walls', 'import', 0);
   cam(b, 'walls', 'default', 60);
-  ['cytosol', 'nucleus', 'mito', 'small', 'outside'].forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 2 || i === 3 ? ' · each its own space' : ''}`, a + 3 + 4 * i, a + 7 + 4 * i, 'cyn'));
+  SPACES.forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'The ER and Golgi lumens', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 3 || i === 4 ? ' · each its own space' : ''}`, litAt(i) - 1, litAt(i) + 2.2, 'cyn'));
   L('walls', 'recOut', '<b>Outside</b> · meets a signal', a + 32, a + 44, 'amb');
   L('walls', 'recIn', '<b>Inside</b> · meets a partner', a + 34, a + 44, 'grn');
   L('walls', 'pore', '<b>A nuclear pore</b> · a gate', a + 49, a + 56, 'amb');
   L('walls', 'import', '<b>An import site</b> · into a mitochondrion', a + 59, b - 1, 'amb');
-  for (let i = 0; i < 5; i++) sfxCue(a + 3 + 4 * i, 'ping', 'walls', ['cytosol', 'nucleus', 'mito', 'small', 'outside'][i], { gain: 0.3, pitch: Math.pow(2, i / 12) });
+  SPACES.forEach((k, i) => sfxCue(litAt(i) - 1, 'ping', 'walls', k, { gain: 0.3, pitch: Math.pow(2, i / 12) }));
   sfxCue(a + 31, 'whoosh', 'walls', 'receptor', { dur: 2 });
   sfxCue(a + 48, 'whoosh', 'walls', 'pore', { dur: 2 });
   // 4. Back into the cell: the hairball moves over the cell, every dot flies to its place, the cell's own take over
@@ -2127,9 +2159,9 @@ function buildStory() {
   cam(a + 42, 'cell', 'default', 130, 'spin');
   cam(a + 47, 'cell', 'default', 150, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
   cam(b, 'cell', 'default', 185, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
-  L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}`, a + 4, a + 16, 'cyn');
-  L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}`, a + 17, a + 30, 'amb');
-  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}`, a + 31, a + 42, 'mag');
+  L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}, read strictly`, a + 4, a + 16, 'cyn');
+  L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}, read strictly`, a + 17, a + 30, 'amb');
+  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 31, a + 42, 'mag');
   if (relaAt) L('cell', relaAt, `<b>RELA</b> · cytosol only, ${fmt(RELA.t[1])} links through a gate`, a + 45, b - 1, 'amb');
   sfxCue(a + 3, 'link', 'cell', 'edge', { gain: 0.35 });
   sfxCue(a + 16, 'link', 'cell', 'nucleus', { gain: 0.35, pitch: 0.9 });
@@ -2143,7 +2175,7 @@ function buildStory() {
   jump('cell_faces', a + 60, 0, 1);
   jump('cell_faces', a + 67, 1, 0);
   jump('cell_show', a + 67, 2, 3);
-  jump('cell_show', C.moments.a + 4, 3, 2);   // (once the cell is hidden: it builds again as it comes back)
+  jump('cell_show', C.moments.a + 2.5, 3, 2);   // (as the cell fades out, nearly unseen: a hidden set is not updated, so later it would build as it comes back)
   cam(a + 1, 'lens', 'default', 0);
   cam(a + 11, 'lens', 'yeast', 0);
   cam(a + 24, 'lens', 'yeast', 6, 'spin');
@@ -2154,11 +2186,11 @@ function buildStory() {
   cam(a + 52, 'cell', 'default', 20);
   cam(a + 66, 'cell', 'default', 50, 'spin');
   cam(b, 'cell', 'default', 80, 'spin', [0, 4, 1.4]);
-  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible`, a + 10, a + 49, 'cyn');
-  L('lens', 'apmsTag', `<b>Complexes</b> · ${cx.pct} % impossible`, a + 26, a + 49, 'amb');
-  L('lens', 'proxTag', '<b>Proximity</b> · newer than this map', a + 39, a + 49, 'grn');
-  L('cell', [0.1, -0.6, 0.45], `<b>Inside only</b> · ${fmt(s2)} impossible`, a + 54, a + 60, 'mag');
-  L('cell', [0.1, -0.6, 0.45], `<b>Facing either side</b> · ${fmt(g2)} impossible`, a + 61, a + 67, 'cyn');
+  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 10, a + 49, 'cyn');
+  L('lens', 'apmsTag', `<b>Complexes</b> · mostly curated · ${cx.pct} % impossible`, a + 26, a + 49, 'amb');
+  L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 39, a + 49, 'grn');
+  L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 57, a + 60, 'mag');
+  L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 61, a + 67, 'cyn');
   L('cell', [-0.3, -1.25, 0.3], `<b>${fmt(F.unplaced)} without a place</b> · ${fmt(F.unpl)} links unjudged`, a + 68, b - 1, '');
   [9, 26, 39].forEach(d => sfxCue(a + d, 'pick', 'lens', d === 9 ? 'yeast' : d === 26 ? 'apms' : 'prox', { gain: 0.35 }));
   sfxCue(a + 60, 'snap', 'cell', 'centre', { gain: 0.35 });
@@ -2733,7 +2765,7 @@ function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.L) return '';
   const [g, a, r] = s.tally, j = g + a + r, pct = j ? (100 * r / j).toFixed(1) : '0';
-  return `${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${fmt(s.notC)} not contacts (regulatory or metabolic only) and ${fmt(s.unpl)} with an end without a place. ${fmt(s.drawn)} drawn, the most kinds of evidence first. Built in ${s.ms} ms.`;
+  return `${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${fmt(s.notC)} not contacts (regulatory or metabolic only) and ${fmt(s.unpl)} with an end without a place. These are counts; ${fmt(s.drawn)} links are drawn: a share of each verdict, the most kinds of evidence first, the rarer verdicts raised so they show. Built in ${s.ms} ms.`;
 }
 // the reading on show, in words: the twin of statsLine, in both panes
 function readingLine() {
