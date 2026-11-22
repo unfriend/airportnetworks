@@ -1839,7 +1839,23 @@ const CH = [
 // each cue lands on its sentence. Without a recording (the default: captions only) the story keeps its own clock.
 // With one (audio/narration.mp3 in the package: e7_app.js, narrationFile) put the pairs here, and where each chapter's
 // words end in it as NARRATION_ENDS = { title: 19.5, ... } (the slideshow lets the voice finish there).
-const NARRATION_SYNC = [[0, 0], [CH[CH.length - 1].b, CH[CH.length - 1].b]];
+const NARRATION_SYNC = [
+  [0, 0], [1.32, 1.2], [3.07, 1.6], [5.96, 3], [6.62, 3.6], [27.62, 10],  // No place
+  [82.62, 60], [83.94, 61.2], [86.01, 61.5],          // Crowds
+  [144.86, 115], [146.18, 116.2], [148.1, 116.5], [163.67, 129], [197.77, 160], [214.61, 171],  // Walls
+  [224.51, 180], [225.83, 181.2], [227.58, 181.5], [234.24, 185], [246.34, 196], [263.32, 208],  // Into the cell
+  [315.02, 255], [316.34, 256.2], [317.94, 256.5], [318.6, 257.1], [329.23, 258], [373.23, 298],
+  [383.18, 305], [391.98, 313], [410.54, 324.3],      // Can they meet?
+  [411.31, 325], [412.63, 326.2], [414.14, 326.5], [424.18, 332], [437.38, 344], [456.19, 356],
+  [469.39, 368], [487.15, 380], [499.25, 391], [515.47, 401], [524.27, 409], [541.48, 419],
+  [557.1, 430],                                       // Why red?
+  [568.1, 440], [569.42, 441.2], [571.15, 441.5], [609.76, 476.6], [622.4, 480], [630.77, 485],
+  [645.74, 494], [662.77, 502],                       // Moments
+  [671.57, 510], [672.89, 511.2], [674.52, 511.5], [678.96, 515], [726.92, 558.6], [743.06, 565],
+  [754.06, 575],                                      // What next
+];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { map: 73.05, crowd: 138.25, walls: 216.4, back: 304.5, judge: 410.3, red: 566.5, moments: 668.1, next: 751.3 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
