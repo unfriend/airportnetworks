@@ -1,15 +1,16 @@
 {
-  "version": "networks-v182",
+  "version": "networks-v183",
   "date": "2026-11-22",
   "new": [
-    "Getting around, the card that shows once a session in a headset, now closes at once when you point at it and press the trigger. Its last line says so: Closes by itself in n s, or press it.",
-    "Nothing else in the app changed. A new story is being built as a hidden package: Back into the cell (#ppicell, or developer mode's Stories screen)."
+    "The headset's notes list (developer mode: Debug, Notes) has Mark done and Delete on each note, so a note can be handled without opening it. Delete asks for a second press.",
+    "Mark all done, under the New, Done and All buttons, marks every new note in the list done, after a second press.",
+    "The notes page on a laptop got the same buttons (Open, Mark done, Delete, Mark all done) without a release; it is never cached."
   ],
   "test": [
-    "In a headset, enter a session: point at Getting around and press the trigger. It should close with a click, and the press should do nothing else.",
-    "Leave it alone once: it should still close by itself after its countdown."
+    "In a headset with developer mode on, open Debug, Notes: press Mark done on one note, Delete twice on another, then Mark all done twice. The list should follow each press.",
+    "Press a note's row away from its buttons: it should still open the note."
   ],
   "untested": [
-    "Pressing the card was only checked in the code and the cheap checks; nothing here can try a controller's ray on it."
+    "The buttons were checked with a pretend headset and a pretend relay; how they read and press with a real controller is untested."
   ]
 }

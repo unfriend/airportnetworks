@@ -6044,22 +6044,21 @@
     if (a && NB.auSt === 'play') NB.auSt = 'paused';
     nbBump();
   }
-  async function notesMark() {
-    const id = NB.id, n = NB.list.find(x => x.id === id), cur = (NB.d && NB.d.status) || (n && n.status), st = cur === 'done' ? 'new' : 'done', g = NB.gen;
+  async function notesMark(id = NB.id) {
+    const n = NB.list.find(x => x.id === id), cur = (id === NB.id && NB.d && NB.d.status) || (n && n.status), st = cur === 'done' ? 'new' : 'done', g = NB.gen;
     if (!id || NB.busy) return;
     NB.busy = 'mark'; nbBump();
     try {
       const j = await nbFetch('/api/notes/' + encodeURIComponent(id), { status: st });
       if (n) n.status = st;
-      if (g === NB.gen && NB.d) NB.d.status = j && j.status ? j.status : st;
+      if (g === NB.gen && NB.d && id === NB.id) NB.d.status = j && j.status ? j.status : st;
       NB.msg = st === 'done' ? 'Marked done.' : 'Marked new.';
       log('notes page', { mark: st });
     } catch (e) { NB.msg = e.code === 'pass' ? 'The relay wants its password.' : 'Not changed: ' + e.message + '.'; }
     if (g === NB.gen) NB.busy = '';
     nbBump();
   }
-  async function notesDelete() {
-    const id = NB.id;
+  async function notesDelete(id = NB.id) {
     if (!id || NB.busy) return;
     if (!nbArmed() || NB.arm !== id) { NB.arm = id; NB.armUntil = performance.now() + 3000; nbBump(); return; }
     NB.arm = ''; NB.busy = 'del'; nbBump();
@@ -6067,9 +6066,26 @@
       await nbFetch('/api/notes/' + encodeURIComponent(id) + '/delete', {});
       NB.list = NB.list.filter(x => x.id !== id);
       if (NB.id === id) notesClose();
+      NB.busy = '';   // (a row's note is not the open one: nothing else lets the page go again)
       NB.msg = 'Note deleted.';
       log('notes page', { deleted: id });
     } catch (e) { NB.msg = e.code === 'pass' ? 'The relay wants its password.' : 'Not deleted: ' + e.message + '.'; NB.busy = ''; }
+    nbBump();
+  }
+  // Mark all done: every new note the list shows, after a second press within 3 s (as the notes page's)
+  async function notesMarkAll() {
+    if (NB.busy) return;
+    if (!nbArmed() || NB.arm !== '*all') { NB.arm = '*all'; NB.armUntil = performance.now() + 3000; nbBump(); return; }
+    NB.arm = ''; NB.busy = 'all'; nbBump();
+    const todo = nbShown().filter(n => n.status !== 'done');
+    let ok = 0, bad = '';
+    for (const n of todo) {
+      try { await nbFetch('/api/notes/' + encodeURIComponent(n.id), { status: 'done' }); n.status = 'done'; ok++; if (NB.d && n.id === NB.id) NB.d.status = 'done'; }
+      catch (e) { bad = e.code === 'pass' ? 'The relay wants its password.' : e.message; if (e.code === 'pass') break; }
+    }
+    NB.busy = '';
+    NB.msg = bad ? `${ok} marked done; the rest not: ${bad}` : `${ok} marked done.`;
+    log('notes page', { markAll: ok });
     nbBump();
   }
   function notesScroll(px) {
@@ -6118,6 +6134,13 @@
     [['new', 'New'], ['done', 'Done'], ['all', 'All']].forEach(([k, l], i) => button(S, 'notes:f:' + k, x + i * (f4 + 16), y, f4, 56, l, () => notesFilter(k), { on: NB.fl === k, tog: null, px: 23 }));
     button(S, 'notes:refresh', x + 3 * (f4 + 16), y, f4, 56, NB.st === 'busy' ? 'Fetching' : 'Refresh', NB.st === 'busy' ? null : () => notesLoad(), { px: 22 });
     y += 72;
+    // (every new note shown, done at once: a second press within 3 s)
+    const nAll = list.filter(n => n.status !== 'done').length;
+    if (NB.st === 'ok' && (nAll || NB.busy === 'all')) {
+      const armedAll = nbArmed() && NB.arm === '*all';
+      button(S, 'notes:all', x, y, w, 54, NB.busy === 'all' ? 'Marking...' : armedAll ? 'Press again to mark ' + nAll + ' done' : 'Mark all done (' + nAll + ')', NB.busy ? null : () => notesMarkAll(), { px: 22, color: armedAll ? AMBER : undefined });
+      y += 68;
+    }
     const L = nbLine(NB.st, NB.err) || (NB.msg ? [NB.msg, MUTED] : null);
     if (L) { ctx.font = FONT(21); ctx.fillStyle = L[1]; y += wrapText(ctx, L[0], x, y, w, 28, 2) + 12; }
     NB.max = 0;
@@ -6131,9 +6154,18 @@
         const ry = top + k * (RH + gap) - Math.round(NB.sc);
         if (ry + RH <= top || ry >= bot) return;
         const cy = Math.max(top, ry), ch = Math.min(bot, ry + RH) - cy;
-        const paint = () => { ctx.save(); ctx.beginPath(); ctx.rect(x - 4, cy, w + 8, ch); ctx.clip(); nbRow(S, 'notes:n:' + n.id, n, x, ry, w - (max > 0 ? 14 : 0), RH); ctx.restore(); };
+        const rw = w - (max > 0 ? 14 : 0), whole = ry >= top && ry + RH <= bot;
+        // (Done and Delete on the row itself, as the notes page has them beside Open: only on a row in full view)
+        const bh = 44, bw2 = 150, by = ry + RH - bh - 10, armedRow = nbArmed() && NB.arm === n.id;
+        const acts = whole ? [
+          ['notes:d:' + n.id, x + rw - 14 - 2 * bw2 - 12, n.status === 'done' ? 'Mark new' : 'Mark done', () => notesMark(n.id), {}],
+          ['notes:x:' + n.id, x + rw - 14 - bw2, armedRow ? 'Press again' : 'Delete', () => notesDelete(n.id), { color: armedRow ? AMBER : undefined }],
+        ] : [];
+        const paintActs = () => { for (const [id, bx, l, fn, o] of acts) paintButton(S, id, bx, by, bw2, bh, l, NB.busy ? null : fn, Object.assign({ px: 20 }, o)); };
+        const paint = () => { ctx.save(); ctx.beginPath(); ctx.rect(x - 4, cy, w + 8, ch); ctx.clip(); nbRow(S, 'notes:n:' + n.id, n, x, ry, rw, RH, acts.length ? 2 * bw2 + 26 : 0); ctx.restore(); paintActs(); };
         paint();
-        S.regions.push({ id: 'notes:n:' + n.id, x, y: cy, w: w - (max > 0 ? 14 : 0), h: ch, fn: () => notesShow(n.id), label: nbWhen(n), tog: null, paint });
+        S.regions.push({ id: 'notes:n:' + n.id, x, y: cy, w: rw, h: ch, fn: () => notesShow(n.id), label: nbWhen(n), tog: null, paint });
+        if (!NB.busy) for (const [id, bx, l, fn, o] of acts) S.regions.push({ id, x: bx, y: by, w: bw2, h: bh, fn, label: l, tog: null, paint: () => paintButton(S, id, bx, by, bw2, bh, l, fn, Object.assign({ px: 20 }, o)) });
       });
       if (max > 0) nbBar(ctx, x + w - 6, top, vh, H, NB.sc, max);
       y = bot + 12;
@@ -6149,7 +6181,7 @@
     return y + 62 + 34;
   }
   // a note's row: when, its length and pins, new or done, the first line of its transcript
-  function nbRow(S, id, n, x, y, w, h) {
+  function nbRow(S, id, n, x, y, w, h, room = 0) {
     const ctx = S.ctx, hov = S.hover === id, done = n.status === 'done';
     rr(ctx, x, y, w, h, 10); ctx.fillStyle = hov ? 'rgba(149,166,189,0.30)' : 'rgba(149,166,189,0.13)'; ctx.fill();
     if (hov) { ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(149,166,189,0.55)'; ctx.stroke(); }
@@ -6163,10 +6195,10 @@
     ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, ' · ' + nbMmss(n.dur) + ' · ' + nbPins(n.pins) + (n.audio ? '' : ' · no sound'), w - 46 - tw - ww), x + 16 + ww, y + 16);
     const tr = typeof n.transcript === 'string' ? n.transcript.replace(/\s+/g, ' ').trim() : null;
     ctx.font = FONT(NOTESV.px); ctx.fillStyle = tr ? INK : FAINT;
-    ctx.fillText(fit(ctx, tr ? tr : tr === '' ? 'Nothing was heard.' : 'Not transcribed yet.', w - 32), x + 16, y + 50);
+    ctx.fillText(fit(ctx, tr ? tr : tr === '' ? 'Nothing was heard.' : 'Not transcribed yet.', w - 32 - room), x + 16, y + 50);
     ctx.font = FONT(19); ctx.fillStyle = FAINT;
     const st = n.station, where = [n.story, st && (st.title || st.story) && (st.title || st.story) !== n.story ? st.title || st.story : '', n.device, n.release].filter(Boolean).join(' · ');
-    ctx.fillText(fit(ctx, where || ' ', w - 32), x + 16, y + 82);
+    ctx.fillText(fit(ctx, where || ' ', w - 32 - room), x + 16, y + 82);
   }
   // a thin bar at the right edge: where in the view (as What is new's)
   function nbBar(ctx, bx, top, vh, H, sc, max) {

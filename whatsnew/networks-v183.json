@@ -1,0 +1,16 @@
+{
+  "version": "networks-v183",
+  "date": "2026-11-22",
+  "new": [
+    "The headset's notes list (developer mode: Debug, Notes) has Mark done and Delete on each note, so a note can be handled without opening it. Delete asks for a second press.",
+    "Mark all done, under the New, Done and All buttons, marks every new note in the list done, after a second press.",
+    "The notes page on a laptop got the same buttons (Open, Mark done, Delete, Mark all done) without a release; it is never cached."
+  ],
+  "test": [
+    "In a headset with developer mode on, open Debug, Notes: press Mark done on one note, Delete twice on another, then Mark all done twice. The list should follow each press.",
+    "Press a note's row away from its buttons: it should still open the note."
+  ],
+  "untested": [
+    "The buttons were checked with a pretend headset and a pretend relay; how they read and press with a real controller is untested."
+  ]
+}

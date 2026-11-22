@@ -1195,7 +1195,11 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
   `panelSig`). *Back* returns to the Debug tab.
 - The list: *New* / *Done* / *All* (this headset's own, `localStorage` `xrNotesFilter`) and *Refresh*; each note a row
   (when, length, pins, new or done, the transcript's first line or *Not transcribed yet*, story and release) in a view of a
-  fixed height that scrolls by *Up* and *More* or the stick (`newsStick` serves both pages, `notesScroll`).
+  fixed height that scrolls by *Up* and *More* or the stick (`newsStick` serves both pages, `notesScroll`). Since v183
+  (the owner, 22 November 2026, as on the notes page) a row in full view has *Mark done* / *Mark new* and *Delete*
+  (*Press again* within 3 s) at its bottom right, over the row (drawn after it, so a press there is theirs; the rest of
+  the row still opens the note): `notesMark(id)`, `notesDelete(id)`; and under the filters *Mark all done (n)* marks
+  every new note the list shows done after a second press within 3 s (`notesMarkAll`, `NB.arm = '*all'`).
 - A note pressed: its two pictures drawn into the menu's canvas (fetched as blobs, `createImageBitmap`, `drawImage`),
   *Play* / *Stop*, *Mark done* / *Mark new*, *Delete* (*Press again* within 3 s), its transcript by segment and its pins
   in a view that scrolls, *Back to the list*.
