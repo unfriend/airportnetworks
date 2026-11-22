@@ -173,8 +173,10 @@ browser cannot play is said under it; *Download recording* saves the same file; 
 browsers write them, is sought past its end once so the player shows it; a pin's time a link that plays from there); both pictures (a press enlarges); the transcript when there is one (each segment's time a
 link); the pins in a list (*Pin 2 at 0:04: the menu, button set:fps*); the context in a `<details>`; *Mark done* /
 *Mark new*; *Copy as Markdown* (the note's whole text: when, where, transcript with pins in place by time, pins, the
-context's key lines and the log); *Delete* (two presses within 3 s). A note sent from this device's outbox is not here
-until it is sent.
+context's key lines and the log); *Delete* (two presses within 3 s). A closed card has *Open*, *Mark done* / *Mark new*
+and *Delete* (two presses) side by side (the owner, 22 November 2026); the header's *Mark all done (n)* marks every new
+note the list shows done (`POST /api/notes/<id>` with `status: done`, one by one), after a second press within 3 s, and
+hides when there is none. A note sent from this device's outbox is not here until it is sent.
 
 ## Reading notes in a headset (the menu's Debug tab, *Notes*)
 

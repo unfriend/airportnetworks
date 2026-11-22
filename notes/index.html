@@ -58,6 +58,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
   <h1>Developer notes</h1>
   <button data-f="new" class="on">New</button><button data-f="done">Done</button><button data-f="all">All</button>
   <button id="refresh" title="Look again">Refresh</button>
+  <button id="markall" class="danger" hidden title="Mark every new note shown here done">Mark all done</button>
 </header>
 <div id="gate" hidden>
   <p class="msg" id="gmsg"></p>
@@ -79,7 +80,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
   const tokens = () => { try { const o = JSON.parse(store.get('relayTokens') || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
   const token = () => tokens()[origin()] || '';
   const keepToken = (t) => { const a = tokens(); a[origin()] = t; store.set('relayTokens', JSON.stringify(a)); };
-  let filter = 'new', notes = [], openId = '', detail = {}, blobs = {}, timer = 0, armed = '', armT = 0, loading = false, lastSig = '';
+  let filter = 'new', notes = [], openId = '', detail = {}, blobs = {}, timer = 0, armed = '', armT = 0, loading = false, lastSig = '', allArmed = false, allT = 0, allBusy = false;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const mmss = (s) => { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const whenOf = (n) => { const d = new Date(n.at || n.got || 0); return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
@@ -116,7 +117,16 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
     } finally { loading = false; }
   }
 
+  // the new notes the list shows now: what Mark all done marks
+  const newShown = () => notes.filter((n) => n.status !== 'done' && filter !== 'done');
+  function markAllButton() {
+    const b = $('#markall'), n = newShown().length;
+    b.hidden = !n && !allBusy;
+    b.classList.toggle('armed', allArmed);
+    b.textContent = allBusy ? 'Marking...' : allArmed ? 'Press again to mark ' + n + ' done' : 'Mark all done (' + n + ')';
+  }
   function render() {
+    markAllButton();
     const list = notes.filter((n) => filter === 'all' || (filter === 'done' ? n.status === 'done' : n.status !== 'done'));
     const shown = new Set(list.map((n) => n.id));
     Object.keys(blobs).forEach((k) => { if (!shown.has(k.replace(/(audio|shot\/\d)$/, ''))) { URL.revokeObjectURL(blobs[k]); delete blobs[k]; } });   // (pictures and sound of notes no longer shown)
@@ -128,7 +138,9 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
     const open = n.id === openId, d = detail[n.id];
     let h = '<article class="card ' + (n.status === 'done' ? 'done' : '') + '" data-id="' + esc(n.id) + '"><div class="top"><span class="when">' + esc(whenOf(n)) + '</span><span class="meta">' +
       esc([n.device, where(n), mmss(n.dur), (n.pins || 0) + ' pin' + (n.pins === 1 ? '' : 's'), n.release].filter(Boolean).join(' · ')) + '</span><span class="tag ' + (n.status === 'done' ? 'done' : 'new') + '">' + (n.status === 'done' ? 'done' : 'new') + '</span></div>';
-    if (!open) h += (n.transcript ? '<p class="snip">' + esc(n.transcript) + '</p>' : '') + '<div class="open"><button data-a="open">Open</button></div>';
+    // (closed: Open, and Mark done and Delete without opening it; Delete asks for a second press, as an open note's does)
+    if (!open) h += (n.transcript ? '<p class="snip">' + esc(n.transcript) + '</p>' : '') + '<div class="acts open"><button data-a="open">Open</button>' +
+      '<button data-a="done">' + (n.status === 'done' ? 'Mark new' : 'Mark done') + '</button><button data-a="del" class="danger' + (armed === n.id ? ' armed' : '') + '">' + (armed === n.id ? 'Press again to delete' : 'Delete') + '</button></div>';
     else h += d ? body(n, d) : '<p class="msg">Loading...</p>';
     return h + '</article>';
   }
@@ -149,7 +161,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
     const pins = d.pins || [];
     if (pins.length) h += '<h3>Pins</h3><ul>' + pins.map((p) => '<li><button class="t" data-seek="' + atOf(p, offOf(d)) + '">' + mmss(atOf(p, offOf(d))) + '</button> ' + esc(pinText(p, offOf(d))) + '</li>').join('') + '</ul>';
     h += '<details><summary>Context</summary><pre>' + esc(ctxText(d.context)) + '</pre></details>';
-    h += '<div class="acts"><button data-a="done">' + (n.status === 'done' ? 'Mark new' : 'Mark done') + '</button><button data-a="md">Copy as Markdown</button><button data-a="del" class="danger">' + (armed === n.id ? 'Press again to delete' : 'Delete') + '</button><button data-a="close">Close</button></div>';
+    h += '<div class="acts"><button data-a="done">' + (n.status === 'done' ? 'Mark new' : 'Mark done') + '</button><button data-a="md">Copy as Markdown</button><button data-a="del" class="danger' + (armed === n.id ? ' armed' : '') + '">' + (armed === n.id ? 'Press again to delete' : 'Delete') + '</button><button data-a="close">Close</button></div>';
     return h;
   }
   // a pin's t is seconds from the recording's start; the audio began off seconds later (a slow microphone): its place in the audio
@@ -247,6 +259,19 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#zoom').classList.remove('show'); });
   document.querySelectorAll('header [data-f]').forEach((b) => b.addEventListener('click', () => { filter = b.dataset.f; document.querySelectorAll('header [data-f]').forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
   $('#refresh').addEventListener('click', () => load().then(after));
+  // Mark all done: every new note the list shows, after a second press within 3 s
+  $('#markall').addEventListener('click', async () => {
+    if (allBusy) return;
+    if (!allArmed) { allArmed = true; clearTimeout(allT); allT = setTimeout(() => { allArmed = false; markAllButton(); }, 3000); markAllButton(); return; }
+    clearTimeout(allT); allArmed = false; allBusy = true; markAllButton();
+    let bad = 0;
+    for (const n of newShown()) {
+      try { await api('/api/notes/' + n.id, { body: { status: 'done' } }); n.status = 'done'; if (detail[n.id]) detail[n.id].status = 'done'; } catch (e) { bad++; if (e.code === 401) break; }
+    }
+    allBusy = false;
+    if (bad) $('#status').innerHTML = '<span class="err">' + bad + ' could not be marked done.</span>';
+    draw();
+  });
   $('#pw').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#pwi').value.trim(); if (!v) return; keepToken(v); $('#pwi').value = ''; load().then(after); });
   $('#rl').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#rli').value.trim().replace(/\/+$/, ''); if (!/^https?:\/\//.test(v)) return; relay = v; store.set('notesRelay', v); load().then(after); });
   const tick = () => load().then(() => { if (!armed) after(); });

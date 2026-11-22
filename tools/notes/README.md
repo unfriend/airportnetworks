@@ -7,7 +7,9 @@ A note is a voice recording with pictures, pins and context, kept on the relay (
 Open `<relay>/notes/` (for example `https://stories.lab.lbi-netmed.com/notes/`). It asks once for the relay's password
 and keeps it on that device. Notes are listed newest first (New, Done, All) and refresh every 15 s. Open a note to
 listen, see its two pictures (press one to enlarge), follow the transcript's and the pins' times, then Mark done,
-Copy as Markdown (paste it to Claude Code) or Delete (press twice within 3 s). `?relay=https://...` picks another relay.
+Copy as Markdown (paste it to Claude Code) or Delete (press twice within 3 s). A closed note has Open, Mark done (or Mark new) and Delete beside each
+other, so it can be handled without opening it; *Mark all done (n)* in the header marks every new note the list shows
+done, after a second press within 3 s. `?relay=https://...` picks another relay.
 
 ## The tool
 
