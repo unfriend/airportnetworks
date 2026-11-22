@@ -117,7 +117,7 @@ function buildStory() {
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
   // a param that picks something (a step: never eased) jumps from one value to the next at time t
   const jump = (n, t, v0, v1) => { key(n, t, v0); key(n, t, v1); };
-  const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
+  const step = (at, out, col, b, text, say) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''}${say ? ` data-say="${esc(say)}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
   // ------------------------------------------------------------ panel copy
   // Each chapter's text: data-at is when a line appears (seconds into the chapter), data-out when it goes. The headset's
   // panel cannot scroll, so no chapter shows more than fits at once: parts that take turns in one place (turns), each
@@ -145,23 +145,24 @@ function buildStory() {
       `<p data-at="27" data-out="44.5">A protein in a membrane can face one side or both. A receptor reaches across the plasma membrane: a part outside meets a signal, a part inside meets a partner.</p>
         <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
-        <p data-at="56" class="caption">Close-ups not to scale.</p>
+        <p data-at="56" class="caption" data-say="">Close-ups not to scale.</p>
         <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
     back: `<h2 data-at="0.6" data-say="">Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5">Now each protein goes where the Human Protein Atlas finds it, in ${word(F.places)} places of the model cell.</p>
         <p data-at="5" data-out="15.5">The Atlas is a public map of where human proteins sit. For each protein, cultured human cells are stained with an antibody that sticks to it, and photographed under a microscope.</p>`,
-      `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
+      `<p data-at="16" data-out="42.5">In this picture, a protein in several places splits into copies on the way, one for each place: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
         <p data-at="28" data-out="42.5">Within each place, proteins that link to each other gather together. Each mitochondrion keeps its own links.</p>`,
       `<p data-at="43">The links take the colour of their verdict.</p>
         <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas: it has no reliable picture of them yet. They wait outside the cell for now, grey.</p>`)}`,
     judge: `<h2 data-at="0.6" data-say="">Can they meet?</h2>
       ${turns(`<p data-at="1.5" data-out="42.5">Judged strictly (an organelle's proteins inside it), the ${fmt(J)} links that suggest contact, between proteins that both have a place:</p>
-        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %), because they share a space`)}
-          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): their spaces are one known crossing apart`)}
-          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space and no known crossing`)}</ul>`,
+        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %), because they share a space`, `${fmt(s0)} are possible, that's ${pc1(s0, J)} %, because they share a space.`)}
+          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): their spaces are one known crossing apart`, `${fmt(s1)} connect through a gate, that's ${pc1(s1, J)} %, and their spaces are one known crossing apart.`)}
+          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space and no known crossing`, `And ${fmt(s2)} are impossible, that's ${pc1(s2, J)} %: they share no space, and no known crossing joins them.`)}</ul>
+        <p data-at="36" data-out="42.5">In the cell, possible links take their place's colour, links through a gate are amber, impossible ones red.</p>`,
       `<p data-at="43">RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
         <p data-at="50" class="amber">So ${fmt(RELA.t[1])} of its links pass a gate.</p>
-        <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, the red ones raised to ${fmt(redDrawn)} so they show.</p>`)}`,
+        <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, and the red ones are raised to ${fmt(redDrawn)} so that they show in this picture.</p>`)}`,
     red: `<h2 data-at="0.6" data-say="">Why red?</h2>
       ${turns(`<p data-at="1.5" data-out="13.5">Red links are the puzzle. In the Atlas, their two proteins never share a space, and no known gate joins their spaces. As drawn, they could not meet.</p>
         <p data-at="7" data-out="13.5" class="amber">So either the link is wrong, or a place is missing from the Atlas. Where do links come from?</p>`,
@@ -184,7 +185,7 @@ function buildStory() {
       `<p data-at="36" data-out="44.5">TP53, one of the best-known proteins, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
         <p data-at="40" data-out="44.5">${fmt(TP53.nuc)} of its partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>
         <p data-at="37" data-out="44.5" class="credits">TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.</p>`,
-      `<p data-at="45" data-out="53.5" class="amber">Part of that is fame. TP53 is among the most studied proteins, and ${fmt(TP53.lit)} of its links come from papers. In systematic two-hybrid screens, which test pairs whatever their fame, it ranks ${ordinal(TP53.binRank)}.</p>`,
+      `<p data-at="45" data-out="53.5" class="amber">Part of that is fame. TP53 is among the most studied proteins, and ${fmt(TP53.lit)} of its links in this interactome come from papers. In systematic two-hybrid screens, which test pairs whatever their fame, it ranks ${ordinal(TP53.binRank)}.</p>`,
       `<p data-at="54">The Atlas lists STAT3 in the ${listOf(STAT3.places)}. It sits mostly in the cytosol until a kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
         <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links are in ${word(STAT3.places.length)} places; when each happens is not in this map.</p>
         <p data-at="56" class="credits">STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: ${pdbId('jak2')}; p300: ${pdbId('p300')}; their surfaces. Not to scale.</p>`)}`,
@@ -193,7 +194,7 @@ function buildStory() {
         <ul class="steps">${step(5, 47.5, GREEN, 'Proximity maps', ' start from a bait: a chosen protein fitted with an enzyme that tags every protein near it in a living cell. Hundreds to thousands of baits show who is near whom, place by place')}
           ${step(22, 47.5, CYAN, 'Cryo-electron tomography', ' cuts frozen cells thin and shows single molecules where they are')}
           ${step(37, 47.5, MAGENTA, 'Whole-cell volumes', ' map every organelle of a whole cell in 3D')}</ul>`,
-      `<p data-at="48" data-out="54.5">And fairer maps: well-studied proteins collect links, unstudied ones look lonely. Among the 100 biggest hubs, ${F.litTop} % of links come from papers alone, against ${F.litAll} % across the map. A map of binding is also a map of attention.</p>`,
+      `<p data-at="48" data-out="54.5">It would also take fairer maps: well-studied proteins collect links, unstudied ones look lonely. Among the 100 biggest hubs, ${F.litTop} % of links come from papers alone, against ${F.litAll} % across the map. A map of binding is also a map of attention.</p>`,
       `<p data-at="55">Until then, the honest cell: dense networks inside each space, thin traffic through the gates, and a red remainder still to explain.</p>
         <p data-at="59"><button class="btn primary" id="btnGoExplore" type="button">Explore the cell</button></p>
         <p class="credits" data-at="60">The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). The judgement is this story's own.</p>`)}`,
