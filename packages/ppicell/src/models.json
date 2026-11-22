@@ -67,5 +67,9 @@
   { "name": "tub", "title": "tubulin (an alpha-beta pair)", "pdb": "1JFF", "chains": ["A", "B"], "looks": ["surface"],
     "lods": [3200, 1200, 500], "soft": [0, 1, 2.5],
     "colour": { "by": "uniform", "default": "#ffffff" },
-    "credit": "PDB 1JFF (Lowe et al., 2001)" }
+    "credit": "PDB 1JFF (Lowe et al., 2001)" },
+  { "name": "fxn", "title": "frataxin (a protein made for the mitochondria)", "pdb": "1EKG", "chains": ["A"], "looks": ["surface"],
+    "lods": [6000, 2400, 900],
+    "colour": { "by": "uniform", "default": "#ffb366" },
+    "credit": "PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000)" }
 ]

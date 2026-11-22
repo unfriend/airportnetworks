@@ -17,21 +17,19 @@ const CH = [
 // words end in it as NARRATION_ENDS = { title: 19.5, ... } (the slideshow lets the voice finish there).
 const NARRATION_SYNC = [
   [0, 0], [1.32, 1.2], [3.07, 1.6], [5.96, 3], [6.62, 3.6], [27.62, 10],  // No place
-  [82.62, 60], [83.94, 61.2], [86.01, 61.5],          // Crowds
-  [144.86, 115], [146.18, 116.2], [148.1, 116.5], [163.67, 129], [197.77, 160], [214.61, 171],  // Walls
-  [224.51, 180], [225.83, 181.2], [227.58, 181.5], [234.24, 185], [246.34, 196], [263.32, 208],  // Into the cell
-  [315.02, 255], [316.34, 256.2], [317.94, 256.5], [318.6, 257.1], [329.23, 258], [373.23, 298],
-  [383.18, 305], [391.98, 313], [410.54, 324.3],      // Can they meet?
-  [411.31, 325], [412.63, 326.2], [414.14, 326.5], [424.18, 332], [437.38, 344], [456.19, 356],
-  [469.39, 368], [487.15, 380], [499.25, 391], [515.47, 401], [524.27, 409], [541.48, 419],
-  [557.1, 430],                                       // Why red?
-  [568.1, 440], [569.42, 441.2], [571.15, 441.5], [609.76, 476.6], [622.4, 480], [630.77, 485],
-  [645.74, 494], [662.77, 502],                       // Moments
-  [671.57, 510], [672.89, 511.2], [674.52, 511.5], [678.96, 515], [726.92, 558.6], [743.06, 565],
-  [754.06, 575],                                      // What next
+  [82.62, 60],                                        // Crowds
+  [143.12, 115], [144.77, 116.5], [160.34, 129], [194.44, 160], [211.28, 171],  // Walls
+  [221.18, 180], [222.83, 181.5], [229.5, 185], [241.6, 196], [258.57, 208],  // Into the cell
+  [310.27, 255], [312.58, 257.1], [323.21, 258], [367.21, 298], [377.16, 305], [385.96, 313],
+  [404.52, 324.3],                                    // Can they meet?
+  [405.29, 325], [406.94, 326.5], [416.98, 332], [430.18, 344], [448.98, 356], [462.18, 368],
+  [480.48, 380], [492.92, 391], [509.15, 401], [517.95, 409], [532.89, 419], [553.38, 430],
+  [563.64, 439.3],                                    // Why red?
+  [564.41, 440], [604.67, 476.6], [617.31, 480], [625.68, 485], [640.65, 494], [657.68, 502],  // Moments
+  [666.48, 510], [668.13, 511.5], [672.58, 515], [720.54, 558.6], [736.68, 565], [747.68, 575],  // What next
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
-const NARRATION_ENDS = { map: 73.05, crowd: 138.25, walls: 216.4, back: 304.5, judge: 410.3, red: 566.5, moments: 668.1, next: 751.3 };
+const NARRATION_ENDS = { map: 73.05, crowd: 136.5, walls: 213.05, back: 299.75, judge: 404.3, red: 563.4, moments: 663, next: 744.95 };
 //#use storyT narrT T_END
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 // the engine's own params beside the sets' (DEF): none here; GRB2's turns at its domains run at an even pace (evalTrack)
@@ -148,7 +146,7 @@ function buildStory() {
         <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="56" class="caption">Close-ups not to scale.</p>
-        <p data-at="48" class="credits">The nuclear pore and the import site are simple shapes.</p>`)}`,
+        <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
     back: `<h2 data-at="0.6" data-say="">Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5">Now each protein goes where the Human Protein Atlas finds it, in ${word(F.places)} places of the model cell.</p>
         <p data-at="5" data-out="15.5">The Atlas is a public map of where human proteins sit. For each protein, cultured human cells are stained with an antibody that sticks to it, and photographed under a microscope.</p>`,
@@ -279,6 +277,7 @@ function buildStory() {
   cam(a + 48, 'walls', 'pore', 0);
   cam(a + 54, 'walls', 'pore', 20, 'spin');
   cam(a + 58, 'walls', 'import', 0);
+  cam(a + 62, 'walls', 'import', 12, 'spin');   // (held while the protein threads in)
   cam(b, 'walls', 'default', 60);
   SPACES.forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'The endoplasmic reticulum and Golgi lumens', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 3 || i === 4 ? ' · each its own space' : ''}`, litAt(i) - 1, litAt(i) + 2.2, 'cyn'));
   L('walls', 'recOut', '<b>Outside</b> · meets a signal', a + 32, a + 44, 'amb');

@@ -16,7 +16,7 @@ SETS.sites = function (K) {
   // ------------------------------------------------------------ GRB2 and its partners
   const gA = new THREE.Group(); set.group.add(gA);
   // (its domains coloured in models.json: SH3 cyan, SH2 amber, the linkers grey; the first SH3 on the left)
-  const G2 = molMesh(set, 'grb2', { width: 0.42 }), RANGES = [[1, 58], [60, 152], [156, 217]];
+  const G2 = molMesh(set, 'grb2', { width: 0.42, lod: 0 }), RANGES = [[1, 58], [60, 152], [156, 217]];
   // (each domain's centre and reach from its residues' anchors, in the model's frame; turned half round about y if the
   // first SH3 is on the right)
   const domPts = RANGES.map(([a, b]) => { const R = G2.res, out = []; if (R) for (let i = 0; i < R.n; i++) if (R.num[i] >= a && R.num[i] <= b) out.push(G2.anchor('A', R.num[i]).toArray()); return out; });
@@ -66,21 +66,24 @@ SETS.sites = function (K) {
   // (a faint dome of the nucleoplasm's colour over the envelope: the nucleus side at a glance)
   { const d = new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), K.rim(set, { color: cellApi.placeCol[1], a0: 0.035, a1: 0.2 }));
     d.scale.set(1, 0.75, 0.4); d.position.set(0.05, -0.02, -0.12); d.renderOrder = 2; gB.add(d); }
+  // (the pores wide enough for the STAT3 pair and TP53 to pass clear of the ring: an opening 0.39 across, the pair at
+  // most about 0.28 across its way; a real pore's channel is about 40 nm, a protein 5 to 15)
   const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
-  PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 24), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
+  PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 10, 48), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
   // TP53's core domain (PDB 1TSR, the protein: its DNA does not travel) and the STAT3 pair with its DNA (PDB 1BG1: three
-  // models cut from the entry's assembly in its own coordinates, so they line up), as surfaces, not to scale against the pores
-  const T5 = molMesh(set, 'tp53', { width: 0.12 });
+  // models cut from the entry's assembly in its own coordinates, so they line up), as surfaces at their finest level
+  // (only a few models on show), not to scale against the pores
+  const T5 = molMesh(set, 'tp53', { width: 0.12, lod: 0 });
   const tp = new THREE.Group(); tp.add(T5.group); gB.add(tp);
-  // (one scale for the three: the whole 0.19 long along the DNA's axis; turned so that axis lies along x; the pair's
+  // (one scale for the three: the whole 0.15 long along the DNA's axis (the pair then about 0.37 tall, 0.14 by 0.28 across); turned so that axis lies along x; the pair's
   // middle at st's origin)
   const dAx = molAxis(molPts('stat3dna')), all3 = [...molPts('stat3a'), ...molPts('stat3b'), ...molPts('stat3dna')];
   const along = p => p[0] * dAx.dir[0] + p[1] * dAx.dir[1] + p[2] * dAx.dir[2];
-  const span3 = all3.length ? Math.max(...all3.map(along)) - Math.min(...all3.map(along)) : 160, SS = 0.19 / span3;
+  const span3 = all3.length ? Math.max(...all3.map(along)) - Math.min(...all3.map(along)) : 160, SS = 0.15 / span3;
   const cen = n => (molHead(n) ? molHead(n).centre.map(x => x * SS) : [0, 0, 0]);
-  const sA = molMesh(set, 'stat3a', { scale: SS, centred: false }), sB = molMesh(set, 'stat3b', { scale: SS, centred: false });
-  const sD = molMesh(set, 'stat3dna', { scale: SS }), dnaW = new THREE.Group();   // (the DNA centred, so it grows from its middle)
+  const sA = molMesh(set, 'stat3a', { scale: SS, centred: false, lod: 0 }), sB = molMesh(set, 'stat3b', { scale: SS, centred: false, lod: 0 });
+  const sD = molMesh(set, 'stat3dna', { scale: SS, lod: 0 }), dnaW = new THREE.Group();   // (the DNA centred, so it grows from its middle)
   dnaW.position.set(...cen('stat3dna')); dnaW.add(sD.group);
   const st1 = sA.group, st2 = sB.group, pairMid = v3.mul(v3.add(cen('stat3a'), cen('stat3b')), 0.5);
   const S3 = new THREE.Group(), S3i = new THREE.Group();
@@ -90,14 +93,14 @@ SETS.sites = function (K) {
   const st = new THREE.Group(); st.add(S3); gB.add(st);
   // JAK2's kinase domain (PDB 2B7A) and p300's acetyltransferase domain (PDB 3BIY), surfaces, small and not to scale
   // against the pores
-  const jak = molMesh(set, 'jak2', { width: 0.09 }).group; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
+  const jak = molMesh(set, 'jak2', { width: 0.09, lod: 0 }).group; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
   const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(-0.52, -0.52, 0.02); gB.add(recB);
-  const ep = molMesh(set, 'p300', { width: 0.1 }).group; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
+  const ep = molMesh(set, 'p300', { width: 0.1, lod: 0 }).group; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
   const P_CYT = [-0.38, -0.4, 0.08], P_IN = [0.35, 0.48, 0.05];
-  const path = (u, pore) => {   // (from the cytosol through a pore into the nucleus)
-    const a = P_CYT, b = PORES[pore], c = P_IN;
-    return u < 0.5 ? v3.lerp(a, [b[0], b[1] - 0.1, b[2]], K.smooth(u * 2)) : v3.lerp([b[0], b[1] + 0.1, b[2]], c, K.smooth(u * 2 - 1));
-  };
+  // the way from the cytosol through a pore into the nucleus: one smooth curve, straight up through the pore for the
+  // pair's height either side (so nothing clips the ring), walked at an even pace (u 0 to 1: along it by length)
+  const WAY = PORES.map(b => new THREE.CatmullRomCurve3([P_CYT, [b[0], b[1] - 0.22, b[2]], [b[0], b[1] - 0.1, b[2]], b, [b[0], b[1] + 0.1, b[2]], [b[0], b[1] + 0.22, b[2]], P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'));
+  const _w = new THREE.Vector3(), path = (u, pore) => WAY[pore].getPointAt(clamp(u, 0, 1), _w).toArray();
   let act = 0, mv = 0;
   return Object.assign(set, {
     // sites_act: 0 GRB2, 1 the shuttle (TP53, then STAT3); sites_cyc: turns at GRB2's domains; sites_tp: TP53 on show
@@ -121,13 +124,14 @@ SETS.sites = function (K) {
       const hk = nowA.indexOf(Math.max(...nowA));
       if (nowA[hk] > 0.01) G2.setHighlight('A:' + RANGES[hk][0], 'A:' + RANGES[hk][1], HIC[hk], 0.85 * nowA[hk]); else G2.setHighlight(null);
       // TP53: to and fro through the middle pore, a loop of 8 s
-      const ta = clamp(S.sites_tp, 0, 1), x = (t / 8) % 1, u = x < 0.5 ? x * 2 : 2 - x * 2;
+      // (eased only at the two ends, in the cytosol and in the nucleus: through the pore it keeps going)
+      const ta = clamp(S.sites_tp, 0, 1), x = (t / 8) % 1, u = K.smooth(x < 0.5 ? x * 2 : 2 - x * 2);
       tp.visible = ta > 0.01; tp.scale.setScalar(Math.max(0.01, ta)); tp.position.set(...path(u, 1));
       // STAT3: switched on beside the kinase, the two copies pair up, through the left pore, onto the DNA
       mv = clamp(S.sites_move, 0, 1);
-      const show3 = mv > 0.001, w = clamp((mv - 0.3) / 0.6, 0, 1), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
+      const show3 = mv > 0.001, w = K.smooth(clamp((mv - 0.3) / 0.6, 0, 1)), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
       st.visible = jak.visible = recB.visible = ep.visible = show3;
-      const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], [-0.4, -0.42, 0.08], K.smooth(mv / 0.15)) : path(w, 0);
+      const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], P_CYT, K.smooth(mv / 0.15)) : path(w, 0);
       st.position.set(...base);
       // (the two apart until they pair: the second comes in from the side; the DNA shows once they are in the nucleus)
       st2.position.copy(slide).multiplyScalar(1 - pair);

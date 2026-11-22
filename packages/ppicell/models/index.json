@@ -450,6 +450,32 @@
     ]
    },
    "src": "120af390087dadd2"
+  },
+  {
+   "name": "fxn",
+   "title": "frataxin (a protein made for the mitochondria)",
+   "credit": "PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000)",
+   "file": "fxn.mol",
+   "fp": "43062f0bb5cac54e",
+   "bytes": 124784,
+   "radius": 27.657,
+   "size": [
+    49.4311,
+    35.6639,
+    31.8943
+   ],
+   "residues": 119,
+   "chains": [
+    "A"
+   ],
+   "looks": {
+    "surface": [
+     6000,
+     2400,
+     898
+    ]
+   },
+   "src": "fcae85c5250954ec"
   }
  ]
 }

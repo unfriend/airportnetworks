@@ -2,8 +2,9 @@
 // after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
 // small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
 // across the plasma membrane (the beta-2 adrenergic receptor's real fold as a cartoon: molMesh) with a part on each side (a
-// signal outside, a partner inside), and, schematic, a nuclear pore with cargo
-// going through, and an import site on a mitochondrion with a chain threading in (walls_parts). Motion depends only on
+// signal outside, a partner inside), a nuclear pore (schematic) with a protein going through (TP53's core, its surface),
+// and an import site on a mitochondrion (two schematic gates) where a folded protein (frataxin's surface) threads in
+// unfolded, a chain of amino acids (walls_parts). Motion depends only on
 // the time.
 SETS.walls = function (K) {
   const { THREE, clamp, v3 } = K;
@@ -85,21 +86,32 @@ SETS.walls = function (K) {
   const signal = new THREE.Mesh(new THREE.IcosahedronGeometry(0.006, 1), solid([1.0, 0.75, 0.3], 0.5)); rec.add(signal);
   const partner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.011, 1), solid([0.4, 1.0, 0.6], 0.3)); rec.add(partner);
   orient(rec, RP, RN);
-  // a nuclear pore in the nuclear envelope (two membranes), cargo going through
+  // a nuclear pore in the nuclear envelope (two membranes), cargo going through: TP53's core domain (PDB 1TSR, a protein
+  // the nucleus imports), its surface, small enough to pass the pore's opening with room to spare (a real pore's channel
+  // is about 40 nm across, the protein about 5)
   const nd = v3.norm([-0.3, 0.6, 0.75]), NPp = v3.add(CELL.nuc.c, v3.mul(nd, CELL.nuc.r));
-  const pore = new THREE.Group();
-  pore.add(flat(patch(0.065, 0.016)));
-  { const b = flat(patch(0.065, 0.016)); b.position.y = -0.009; pore.add(b); }
-  const ring = flat(new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.006, 8, 24), solid([0.8, 0.65, 1.0]))); ring.position.y = -0.0045; pore.add(ring);
-  const cargo = new THREE.Mesh(new THREE.IcosahedronGeometry(0.007, 1), solid([1.0, 0.75, 0.3], 0.5)); pore.add(cargo);
+  const pore = new THREE.Group(), PR = 0.022, PT = 0.006;   // (the ring's radius and thickness: the same shape as chapter 7's pores)
+  pore.add(flat(patch(0.065, PR)));
+  { const b = flat(patch(0.065, PR)); b.position.y = -0.009; pore.add(b); }
+  const ring = flat(new THREE.Mesh(new THREE.TorusGeometry(PR, PT, 8, 32), solid([0.8, 0.65, 1.0]))); ring.position.y = -0.0045; pore.add(ring);
+  const cargoM = molMesh(set, 'tp53', { width: 0.017 }), cargo = new THREE.Group(); cargo.add(cargoM.group); pore.add(cargo);
   orient(pore, NPp, nd);
-  // an import site on a mitochondrion: a small gate, a chain threading in
+  // an import site on a mitochondrion: two gates (the outer membrane's TOM and the inner one's TIM), a protein made in the
+  // cytosol (frataxin, PDB 1EKG, its surface) comes folded, then threads in unfolded, a chain of amino acids, its
+  // targeting stretch (pale) first; inside, the chain would fold again
   const mi = CELL.mitos[0], md = v3.norm(v3.cross(mi.axis, [0, 1, 0])), MP = v3.add(mi.c, v3.mul(md, mi.b));
-  const imp = new THREE.Group();
-  const gate = flat(new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.003, 6, 16), solid([1.0, 0.55, 0.45]))); imp.add(gate);
-  const chain = [];
-  for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.0035, 0), solid([1.0, 0.8, 0.4], 0.4)); imp.add(b); chain.push(b); }
+  const imp = new THREE.Group(), IG = [0, -0.008];   // (the two gates' heights)
+  IG.forEach(y => { const g = flat(new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0025, 6, 20), solid([1.0, 0.55, 0.45]))); g.position.y = y; imp.add(g); });
+  const fx = molMesh(set, 'fxn', { width: 0.017 }), fold = new THREE.Group(); fold.add(fx.group); imp.add(fold);
+  const CN = 24, CS = 0.0034, CB = 0.0016, F0 = 0.016;   // (beads in the chain, their spacing and size; the folded protein's middle)
+  const chain = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(1.0, 0.7, 0.4).multiplyScalar(0.25) })), CN);
+  { const c = new THREE.Color(); for (let i = 0; i < CN; i++) chain.setColorAt(i, i < 5 ? c.setRGB(0.75, 0.9, 1.0) : c.setRGB(1.0, 0.7, 0.4)); }
+  chain.frustumCulled = false; imp.add(chain);
   orient(imp, MP, md);
+  // a point on the chain's way, s along it from the folded protein's middle: straight down through both gates, then
+  // wandering a little in the matrix
+  const way = s => { const y = F0 - s, d = Math.max(0, -0.014 - y); return [0.004 * Math.sin(d * 260) * Math.min(1, d / 0.01), y, 0.003 * Math.sin(d * 170 + 1) * Math.min(1, d / 0.01)]; };
+  const _M = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _P = new THREE.Vector3(), _S = new THREE.Vector3();
   const parts = [rec, pore, imp];
   return Object.assign(set, {
     // walls_lit: which space glows (1 the cytosol, 2 the nucleoplasm, 3 the ER and Golgi ... 6 outside; between two, both
@@ -117,17 +129,29 @@ SETS.walls = function (K) {
       for (const g of parts) { g.visible = pv > 0.01; g.scale.setScalar(Math.max(0.01, pv) * (g === imp ? 2.4 : 1)); }   // (the import site drawn larger still: a mitochondrion is small)
       if (pv <= 0.01) return;
       // (each motion a loop of a few seconds: the signal docks and leaves, the partner binds, the cargo crosses, the chain threads in)
-      const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15) % 1;
+      const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15 + 0.15) % 1;   // (c: at about 0.1 as the story comes to the import site, 173 s)
       const dock = x => (x < 0.4 ? x / 0.4 : x < 0.7 ? 1 : 1 - (x - 0.7) / 0.3);
       signal.position.set(0.035 * (1 - dock(a)), top - 0.006 + 0.035 * (1 - dock(a)), 0);   // (into the pocket among the helices' outer ends)
       partner.position.set(-0.035 * (1 - dock(b)), bot - 0.006 - 0.025 * (1 - dock(b)), 0.004);
-      cargo.position.set(0, 0.05 - 0.11 * K.smooth(b), 0);
-      chain.forEach((o, i) => o.position.set(0, 0.03 - 0.006 * i - 0.05 * c, 0));
+      // (the cargo: in from the cytosol side, through the ring, out into the nucleus at an even pace, growing in and
+      // shrinking away at the loop's ends)
+      const cs = K.smooth(b / 0.12) * K.smooth((1 - b) / 0.12);
+      cargo.position.set(0, 0.05 - 0.11 * b, 0); cargo.scale.setScalar(Math.max(0.01, cs)); cargo.rotation.set(t * 0.4, t * 0.25, 0);
+      // (the import: the folded protein comes to the outer gate (c 0 to 0.2), its chain is pulled through both gates
+      // (0.2 to 0.85, the protein shrinking as it unfolds), then the chain fades)
+      const n = CN * K.smooth(clamp((c - 0.2) / 0.65, 0, 1)), left = 1 - n / CN, fin = 1 - K.smooth(clamp((c - 0.88) / 0.1, 0, 1));
+      fold.position.set(0, F0 + 0.03 * (1 - K.smooth(c / 0.2)), 0); fold.rotation.set(0, t * 0.3 * (1 - K.smooth(c / 0.2)), 0);
+      fold.scale.setScalar(Math.max(0.01, Math.cbrt(left) * K.smooth(c / 0.06))); fold.visible = left > 0.02;
+      for (let i = 0; i < CN; i++) {   // (bead i, the targeting stretch's first, is n - i beads' worth out of the folded part)
+        const s = (n - i) * CS, r = s > 0.005 ? CB * fin : 0;
+        chain.setMatrixAt(i, _M.compose(_P.set(...way(Math.max(0, s))), _Q, _S.setScalar(Math.max(r, 1e-5))));
+      }
+      chain.instanceMatrix.needsUpdate = true;
     },
     anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
       receptor: v3.add(RP, v3.mul(RN, top + 0.015)), recIn: v3.add(RP, v3.mul(RN, bot - 0.02)), recOut: v3.add(RP, v3.mul(RN, top + 0.035)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
-    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(md, [0.2, 0.5, 0.3]), 0.26) },
+    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(v3.mul(md, 0.6), v3.mul(v3.norm(mi.axis), 0.8)), 0.26) },
   });
 };
-SETS.walls.prep = molPrep(['b2ar']);
+SETS.walls.prep = molPrep(['b2ar', 'tp53', 'fxn']);

@@ -325,7 +325,7 @@ const PPI_STRUCTS = {"grb2":{"title":"GRB2, full length","cite":"PDB 1GRI (Maign
 // a model's credit ('PDB 1GRI (Maignan et al., Science 1995)'). molPts: its residues' anchors (angstroms, the model's
 // frame); molAxis: the longest axis of such points (models built with orient: false, cut from one entry, line up).
 const MOL_URL = f => pkgUrl('models/' + f);
-const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh', 'tub'];
+const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh', 'tub', 'fxn'];
 const molPrep = names => () => { molLoad(MOL_URL, MOL_ALL); return molReady(MOL_URL, names); };
 const molHead = n => (MOLS.m[n] && MOLS.m[n].head) || null;
 const molCredit = n => (molHead(n) ? molHead(n).credit : '');
@@ -549,7 +549,8 @@ void main() {
       case 4: { for (;;) { const k = Math.floor(r() * 5), d = K.unit(r); if (Math.acos(clamp(v3.dot(d, CELL.gdir), -1, 1)) < CELL.golgi.ang[k]) return [v3.add(N.c, v3.mul(d, CELL.golgi.r[k] + sheet)), N.c, CELL.golgi.r[k]]; } }
       case 5: {
         const m = CELL.mitos[inst], p1 = perp(m.axis), p2 = v3.cross(m.axis, p1);
-        if (f === 0) { const x = (r() * 2 - 1) * m.a * 0.85, o = v3.mul(p1, m.b * 0.6 * r()); return [v3.add(v3.add(m.c, v3.mul(m.axis, x)), o), m.c, m.b * 1.4]; }
+        // (a soluble one anywhere in the matrix, evenly through the whole organelle as in the nucleus: the owner)
+        if (f === 0) { const u = inBall(r, [0, 0, 0], 1); return [v3.add(m.c, v3.add(v3.mul(m.axis, m.a * 0.85 * u[0]), v3.add(v3.mul(p1, m.b * 0.8 * u[1]), v3.mul(p2, m.b * 0.8 * u[2])))), m.c, m.b * 1.4]; }
         const u = K.unit(r), q = v3.add(m.c, v3.add(v3.mul(m.axis, m.a * u[0]), v3.add(v3.mul(p1, m.b * u[1]), v3.mul(p2, m.b * u[2]))));
         const nrm = v3.norm(v3.add(v3.mul(m.axis, u[0] / m.a), v3.add(v3.mul(p1, u[1] / m.b), v3.mul(p2, u[2] / m.b))));
         return [v3.add(q, v3.mul(nrm, off)), m.c, m.b * 1.4];
@@ -608,16 +609,17 @@ void main() {
   col = mix(col, vec3(1.0, 0.25, 0.18), clamp(gone * 4.0, 0.0, 1.0));
   float onPath = step(0.5, aFocus);
   float reached = onPath * clamp((uPathProg - aFocus + 1.35) / 0.35, 0.0, 1.0);
-  float bright = mix(1.0, 0.24 + reached * 1.4, uFocus);
+  // (a pick: its dots in their own colours, a little brighter, the rest dim; not white: the owner, 22 November 2026)
+  float bright = mix(1.0, 0.24 + reached * 0.91, uFocus);
   float inProx = 1.0 - smoothstep(uProx.w * 0.94, uProx.w, distance(position, uProx.xyz));
   bright *= mix(1.0, 0.22 + 1.3 * inProx, uProxOn);
   float iso = uIso < -0.5 ? 1.0 : (abs(aPlace - uIso) < 0.5 ? 1.0 : 0.12);
-  float sel = 1.0 - step(0.5, abs(aProt - uSel));
+  float sel = (1.0 - step(0.5, abs(aProt - uSel))) * step(1.5, aFocus);   // (the picked protein's own dots, not its copies by partners)
   float reveal = clamp((uReveal * 1.12 - aRand) / 0.12, 0.0, 1.0);
   vCol = col * bright; vRing = sel;
   vA = reveal * iso * uAlpha * clamp(pres + gone, 0.0, 1.0) * smoothstep(0.0, 0.15, pres);
   float att = uPx > 0.0 ? uPx * projectionMatrix[1][1] / max(-mv.z, 0.05) : 1.0;
-  gl_PointSize = max(aSize * uScale * att * (1.0 + sel * 1.2) * (1.0 + 0.6 * uFocus * reached) * (1.0 + 0.5 * uProxOn * inProx), uPx > 0.0 ? 1.6 : 0.0);
+  gl_PointSize = max(aSize * uScale * att * (1.0 + sel * 0.8) * (1.0 + 0.3 * uFocus * reached) * (1.0 + 0.5 * uProxOn * inProx), uPx > 0.0 ? 1.6 : 0.0);
 }`,
     fragmentShader: `
 uniform float uA;
@@ -627,7 +629,7 @@ void main() {
   if (d > 0.5) discard;
   float core = smoothstep(0.5, 0.30, d);
   float ring = vRing * smoothstep(0.5, 0.44, d) * (1.0 - smoothstep(0.38, 0.30, d));
-  gl_FragColor = vec4(vCol + vec3(0.5, 0.9, 1.0) * ring * 1.5, vA * max(core, ring) * uA);
+  gl_FragColor = vec4(mix(vCol, vCol * 1.25 + 0.2, ring), vA * max(core, ring) * uA);
 }`,
   });
   nodeMat.uniforms.uA = set.uA;
@@ -813,24 +815,36 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const inA = (D.cR[da] > 0 && !(NET.lSp[a] & 1)) || D.cR[db] === 0, inner = inA ? da : db, other = inA ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
     const r = mul(131 * k + 7), jit = v3.mul(K.unit(r), 0.008);
     let gp, n;
-    if (D.cR[inner] > 0) { n = v3.norm(v3.add(v3.norm(v3.sub(other, C)), jit)); gp = v3.add(C, v3.mul(n, D.cR[inner])); }
+    // (halfway between the point facing the other and the one over the inner one's own dot, so a hub's many gates
+    // spread over the membrane as many hops, not one knot)
+    if (D.cR[inner] > 0) {
+      const ti = v3.sub(dotPos(inner), C), li = v3.len(ti);
+      n = v3.norm(v3.add(v3.add(v3.norm(v3.sub(other, C)), li > 1e-6 ? v3.mul(ti, 1 / li) : [0, 0, 0]), v3.mul(jit, 4)));
+      gp = v3.add(C, v3.mul(n, D.cR[inner]));
+    }
     else { gp = v3.add(v3.lerp(pa, pb, 0.5), jit); n = v3.norm(v3.sub(other, pa)); }   // (no organelle to cross: halfway, along the link)
     const qi = v3.sub(gp, v3.mul(n, 0.03)), qo = v3.add(gp, v3.mul(n, 0.03));   // (a stitch about 0.06 long: short, yet seen)
     const di = dotAdd((inA ? a : b) + '|g' + k, inA ? a : b, qi, C, D.cR[inner]), dout = dotAdd((inA ? b : a) + '|g' + k, inA ? b : a, qo, [0, 0, 0], 0);
     return inA ? [di, dout] : [dout, di];
   }
-  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite)
-  function linkPts(k, out) {
-    const [da, db] = siteOf(k);
-    out.push(dotPos(da), dotPos(db));
+  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite); with arc, a
+  // pick's link through a gate hops through the membrane in a short arc (the owner, 22 November 2026: "keep em short but
+  // arcs where they make sense"), bowed sideways about a third as far as it is long
+  function linkPts(k, out, arc) {
+    const [da, db] = siteOf(k), pa = dotPos(da), pb = dotPos(db);
+    if (!arc || NET.L.cls[k] !== 1) { out.push(pa, pb); return; }
+    const d = v3.sub(pb, pa), n = v3.norm(d), t0 = perp(n), t1 = v3.cross(n, t0), w = mul(131 * k + 11)() * Math.PI * 2;
+    const ctl = v3.add(v3.lerp(pa, pb, 0.5), v3.mul(v3.add(v3.mul(t0, Math.cos(w)), v3.mul(t1, Math.sin(w))), v3.len(d) * 0.7)), S = 6;
+    const q = u => { const o = 1 - u; return [0, 1, 2].map(j => o * o * pa[j] + 2 * o * u * ctl[j] + u * u * pb[j]); };
+    for (let i = 0; i < S; i++) out.push(q(i / S), q((i + 1) / S));
   }
   const linkCol = k => (NET.L.cls[k] ? CLS_COL[NET.L.cls[k]] : v3.lerp(PLACE_COL[lPlace[NET.L.a[k]]], PLACE_COL[lPlace[NET.L.b[k]]], 0.5));
   // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol)
-  function linesGeo(list, dashes) {
+  function linesGeo(list, dashes, arc) {
     const segs = [], col = [], plA = [], plB = [], dash = [];
     for (const k of list) {
       const n0 = segs.length, c = linkCol(k);
-      linkPts(k, segs);
+      linkPts(k, segs, arc);
       for (let j = n0; j < segs.length; j++) { col.push(c); plA.push(lPlace[NET.L.a[k]]); plB.push(lPlace[NET.L.b[k]]); dash.push(0); }
     }
     for (const [da, db] of dashes || []) {
@@ -936,7 +950,8 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // place dimmed (the cell's uIso). Dots the pick needs beyond the background's: NET.extra.
   const FOCUS_MAX = 2000;
   const focusMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    // (normal blending: where many meet, at a hub, they keep their colours instead of adding up to white)
+    uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false,
     vertexShader: 'attribute vec3 aCol; attribute float aDash, aT; varying vec3 vC; varying float vD; void main() { vC = aCol; vD = aDash * aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vD; void main() { if (vD > 0.0 && fract(vD) > 0.55) discard; gl_FragColor = vec4(vC, uK * uA); }',
   });
@@ -990,7 +1005,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       }
       FO.info = { kind: 'place', place: pc, name: PLACE_NAME[pc], here, inner, shown: links.length };
     }
-    const geo = links.length || ties.length ? linesGeo(links, ties) : null;   // (adds the dots it needs)
+    const geo = links.length || ties.length ? linesGeo(links, ties, true) : null;   // (adds the dots it needs)
     // the cell's own lights: the pick's dots bright (aFocus, all reached), the protein ringed (uSel), a place alone (uIso)
     const lit = new Set();
     for (const k of links) siteOf(k).forEach(d => lit.add(d));
@@ -999,10 +1014,15 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const aF = NET.dots.geometry.attributes.aFocus;
     aF.array.fill(0);
     for (const d of lit) if (d < NET.nMain) aF.array[d] = 1;
+    // (the picked protein's own dots, at its places: 2, ringed; its copies beside partners stay plain dots)
+    const own = new Set();
+    if (pp >= 0 && pp < NP) for (let l = l0(pp); l < l1(pp); l++) own.add(dotOf(l));
+    for (const d of own) if (d < NET.nMain) aF.array[d] = 2;
     aF.needsUpdate = true;
     if (D.loc.length > NET.nMain) {
       const g = dotsGeo(NET.nMain, D.loc.length);
       g.attributes.aFocus.array.fill(1);
+      for (const d of own) if (d >= NET.nMain) g.attributes.aFocus.array[d - NET.nMain] = 2;
       NET.extra = new THREE.Points(g, nodeMat); NET.extra.renderOrder = 5; NET.extra.frustumCulled = false; set.group.add(NET.extra);
     }
     const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
@@ -1144,7 +1164,7 @@ SETS.ball = function (K) {
   for (let p = 0; p < NP; p++) if (!P.pl[p]) unpl.push(p);
   const ND = net.n + unpl.length, PLACE_T = [3, 1, 2, 5, 6, 7, 9, 10, 11, 4, 0, 8, 12, 13];   // (a place's turn: its order of leaving)
   const g = new THREE.BufferGeometry(), pos = new Float32Array(3 * ND), st = new Float32Array(3 * ND), when = new Float32Array(ND),
-    first = new Float32Array(ND), cA = new Float32Array(3 * ND), size = new Float32Array(ND), out = new Float32Array(ND);
+    first = new Float32Array(ND), cA = new Float32Array(3 * ND), size = new Float32Array(ND), out = new Float32Array(ND), dProt = new Uint32Array(ND);
   const seen = new Uint8Array(NP);
   for (let i = 0; i < ND; i++) {
     const own = i < net.n, p = own ? net.prot[i] : unpl[i - net.n], pl = own ? net.place[i] : 13, r = mul(i * 13 + 5);
@@ -1154,18 +1174,18 @@ SETS.ball = function (K) {
     first[i] = seen[p] ? 0 : 1; seen[p] = 1;
     cA.set(col[pl], 3 * i);
     size[i] = 0.007 + 0.024 * Math.sqrt(cell.deg(p) / maxDeg);
-    out[i] = own ? 0 : 1;
+    out[i] = own ? 0 : 1; dProt[i] = p;
   }
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aStart', new THREE.BufferAttribute(st, 3));
   g.setAttribute('aWhen', new THREE.BufferAttribute(when, 1)); g.setAttribute('aFirst', new THREE.BufferAttribute(first, 1));
   g.setAttribute('aCol', new THREE.BufferAttribute(cA, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
-  g.setAttribute('aOut', new THREE.BufferAttribute(out, 1));
+  g.setAttribute('aOut', new THREE.BufferAttribute(out, 1)); g.setAttribute('aHi', new THREE.BufferAttribute(new Float32Array(ND), 1));
   // the way from the ball to the cell, shared by dots and links: the ball turns (uRot) and stands at uOff; a dot leaves at
   // aWhen and takes FLY of the morph to land, bowing outwards on the way
   const U = { uA: set.uA, uPx: K.U.uPx, uM: { value: 0 }, uRot: { value: 0 }, uOff: { value: new THREE.Vector3() }, uTint: { value: 0 },
-    uIn: { value: 1 }, uOutA: { value: 1 } };
+    uIn: { value: 1 }, uOutA: { value: 1 }, uHl: { value: 0 } };
   const WAY = `
-uniform float uM, uRot, uTint, uIn, uOutA; uniform vec3 uOff;
+uniform float uM, uRot, uTint, uIn, uOutA, uHl; uniform vec3 uOff;
 attribute vec3 aStart; attribute float aWhen;
 float flyU() { return smoothstep(0.0, 1.0, clamp((uM - aWhen) / 0.42, 0.0, 1.0)); }
 vec3 way(float u) {
@@ -1177,16 +1197,19 @@ vec3 way(float u) {
   const dotMat = new THREE.ShaderMaterial({
     uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: K.GLSL + WAY + `
-attribute vec3 aCol; attribute float aFirst, aSize, aOut;
+attribute vec3 aCol; attribute float aFirst, aSize, aOut, aHi;
 varying vec3 vC; varying float vA;
 void main() {
   float u = flyU();
   vec4 mv = modelViewMatrix * vec4(way(u), 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = pointPx(aSize, mv);
+  // (a highlight, ball_hi: the protein (aHi 2) and its partners (1) stand out, the rest dims)
+  float hi = uHl * (1.0 - u), on = step(0.5, aHi);
+  gl_PointSize = pointPx(aSize, mv) * (1.0 + hi * (0.5 * on + 0.8 * step(1.5, aHi)));
   vec3 pale = vec3(0.5, 0.68, 1.0);
   vC = mix(pale, aOut > 0.5 ? vec3(0.5, 0.53, 0.58) : aCol, u) * mix(1.0, 0.75, aOut * u);
-  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u);
+  vC = mix(vC, step(1.5, aHi) > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), hi * on);
+  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * mix(1.0, mix(0.3, 4.0, on), hi);
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `uniform float uA; varying vec3 vC; varying float vA;
@@ -1216,13 +1239,48 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
   // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
   float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
-  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn;
+  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.7 * uHl * (1.0 - u));
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
   set.mats.push(linkMat);
   const links = new THREE.LineSegments(lg, linkMat); links.frustumCulled = false; links.renderOrder = 4;
   set.group.add(links);
+
+  // ------------------------------------------------------------ a highlight: one protein's links, every one of them
+  // ball_hi (a protein's number, or -1; a step param) and ball_hl (its fade): the protein's links from its spot on the
+  // ball to each partner's (all of them, not only the drawn background's), amber as its label, the rest dimmed; only in
+  // the hairball (it fades as the dots fly)
+  const hg = new THREE.BufferGeometry(), aHi = g.attributes.aHi;
+  const hiMat = new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false,
+    vertexShader: WAY + `
+varying float vA;
+void main() {
+  float u = flyU();
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
+  vA = uHl * (1.0 - u);
+}`,
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.4 * vA * uA); }',
+  });
+  set.mats.push(hiMat);
+  const hiLines = new THREE.LineSegments(hg, hiMat); hiLines.frustumCulled = false; hiLines.renderOrder = 6; hiLines.visible = false;
+  set.group.add(hiLines);
+  let HI = -1;
+  function highlight(p) {
+    HI = p;
+    const part = new Set();
+    if (p >= 0) for (let i = 0; i < P.E; i++) { const a = P.la[i], b = P.lb[i]; if (a !== b && (a === p || b === p)) part.add(a === p ? b : a); }
+    for (let i = 0; i < ND; i++) aHi.array[i] = dProt[i] === p ? 2 : part.has(dProt[i]) ? 1 : 0;
+    aHi.needsUpdate = true;
+    // (both ends at their spots on the ball; position the same, so the shared way() leaves them on the ball)
+    const L = new Float32Array(6 * part.size);
+    let j = 0;
+    for (const q of part) { L.set(home.subarray(3 * p, 3 * p + 3), 6 * j); L.set(home.subarray(3 * q, 3 * q + 3), 6 * j + 3); j++; }
+    hg.setAttribute('position', new THREE.BufferAttribute(L, 3)); hg.setAttribute('aStart', new THREE.BufferAttribute(L.slice(), 3));
+    hg.setAttribute('aWhen', new THREE.BufferAttribute(new Float32Array(2 * part.size), 1));
+    hiLines.visible = part.size > 0;
+  }
 
   // where the ball stands before it moves into the cell: to the cell's left, so the two show side by side
   const SIDE = [-2.0, 0, 0];
@@ -1233,14 +1291,17 @@ void main() {
   return Object.assign(set, {
     // ball_move: 0 beside the cell, 1 over it; ball_morph: 0 the hairball, 1 every dot in its place; ball_tint: the links
     // in their judgement's colours; ball_in: the dots and links in the cell (0 once the cell's own take over); ball_out:
-    // the proteins without a place
-    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1 },
+    // the proteins without a place; ball_hi: a protein whose links stand out (-1 none; a step param) and ball_hl its fade
+    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0 },
     update(S, t) {
       M = clamp(S.ball_move, 0, 1);
       U.uM.value = clamp(S.ball_morph, 0, 1) * 1.0;
       U.uRot.value = t * 0.08;
       U.uOff.value.set(SIDE[0] * (1 - M), SIDE[1] * (1 - M), SIDE[2] * (1 - M));
       U.uTint.value = clamp(S.ball_tint, 0, 1); U.uIn.value = clamp(S.ball_in, 0, 1); U.uOutA.value = clamp(S.ball_out, 0, 1);
+      const h = Math.round(S.ball_hi);
+      if (h !== HI) highlight(h >= 0 && h < NP ? h : -1);
+      U.uHl.value = HI >= 0 ? clamp(S.ball_hl, 0, 1) : 0;
     },
     anchors: { ball: () => at([0, 0, 0], M), top: () => at([0, R0 * 1.05, 0], M), hub: () => at([0, 0, 0], M), side: () => at([0, -R0 * 1.05, 0], M),
       outside: [-0.2, -1.2, 0.2] },
@@ -1335,16 +1396,69 @@ SETS.crowd = function (K) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aRad', new THREE.BufferAttribute(rad, 1));
   g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); g.setAttribute('aMark', new THREE.BufferAttribute(mk, 1));
-  const U = { uA: set.uA, uT: { value: 0 }, uJig: { value: JIG }, uHalf: { value: 400 }, uMark: { value: 0 } };
+  // (each ball a lit sphere with its true depth: BALLS.mat, shared with the lenses and chapter 8)
+  const U = { uT: { value: 0 }, uJig: { value: JIG }, uHalf: { value: 400 }, uMark: { value: 0 } }, mat = BALLS.mat(set, U);
+  const balls = new THREE.Points(g, mat); balls.frustumCulled = false;
+  holder.add(balls);
+  // the cube's edges and a faint skin
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(SIDE, SIDE, SIDE)), K.fade(set, new THREE.LineBasicMaterial({ color: 0x9fd8ff, transparent: true }), 0.7));
+  holder.add(edges);
+  const skin = new THREE.Mesh(new THREE.BoxGeometry(SIDE, SIDE, SIDE), K.rim(set, { color: [0.4, 0.7, 1.0], a0: 0.02, a1: 0.12 }));
+  holder.add(skin);
+  // the dot it opens from
+  const MARK = [0.27, 0.85, 1.0], dg = K.pointsGeo(1);
+  dg.attributes.aCol.array.set(MARK); dg.attributes.aSize.array[0] = 0.03;
+  const dot = new THREE.Points(dg, K.points(set));
+  holder.add(dot);
+  return Object.assign(set, {
+    // crowd_open: 0 a single dot, 1 the cube full size; crowd_mark: the marked kind lit (the rest dimmed)
+    params: { crowd_a: 1, crowd_open: 0, crowd_mark: 0 },
+    update(S, t) {
+      const o = clamp(S.crowd_open, 0, 1), sc = lerp(0.02, 1, o * o);
+      holder.scale.setScalar(sc);
+      dg.attributes.aA.array[0] = 1 - clamp(o * 3, 0, 1); dg.attributes.aA.needsUpdate = true;
+      dot.scale.setScalar(1 / sc);
+      balls.visible = edges.visible = skin.visible = o > 0.02;
+      U.uT.value = t; U.uMark.value = clamp(S.crowd_mark, 0, 1);
+      U.uHalf.value = BALLS.half();   // (the points' size in pixels: half the drawn height)
+    },
+    anchors: { dot: AT, cube: [AT[0], AT[1] + SIDE * 0.62, AT[2]], corner: [AT[0] + HALF, AT[1] - HALF, AT[2] + HALF],
+      mark: () => { const m = P.mols.find(o => o.mark && o.c[1] > 0.04) || P.mols[0]; return [AT[0] + m.c[0], AT[1] + m.c[1], AT[2] + m.c[2]]; } },
+    labels: [],
+    cam: { default: [30, 16, 0.75, AT[0], AT[1], AT[2]], close: [55, 12, 0.5, AT[0], AT[1], AT[2]] },
+    stats: () => ({ n: P.mols.length, balls: NB, marked: P.mols.filter(o => o.mark).length, kinds: KINDS.map((k, i) => [k.key, P.mols.filter(o => o.k === i).length]) }),
+  });
+};
+SETS.crowd.prep = ms => CROWD.pack(ms || 25);
+
+// Real proteins as balls, the crowd's way (chapter 2) shared with the lenses (chapter 6) and what it would take
+// (chapter 8): each molecule its few coarse balls from the Protein Data Bank (PPI_STRUCTS' `coarse`: its residues
+// grouped), every ball one point drawn as a lit sphere with its true depth (a sphere impostor), a whole crowd in one draw.
+// BALLS.of(key, per): a molecule's balls in scene units (per: scene units per angstrom); BALLS.reach(balls): how far its
+// balls reach from its middle; BALLS.mat(set, U): the material (U: uT, uJig, uHalf, uMark and, if the crowd fades on its
+// own, its own uA); BALLS.half(): the points' scale, half the drawn height in pixels (a headset's eye or the page's);
+// BALLS.cloud(set, mols, opts): a crowd whose molecules each move as one ({ balls, c } each), placed with place(i, ...).
+const BALLS = (() => {
+  const v2 = new THREE.Vector2();
+  const of = (key, per) => PPI_STRUCTS[key].coarse.map(b => [b[0] / 10 * per, b[1] / 10 * per, b[2] / 10 * per, b[3] / 10 * per]);
+  const reach = balls => Math.max(...balls.map(b => Math.hypot(b[0], b[1], b[2]) + b[3]));
+  const half = () => {
+    const r = GL.renderer;
+    return r.xr.isPresenting && typeof XR !== 'undefined' && XR.viewH ? XR.viewH / 2 : r.getDrawingBufferSize(v2).y / 2;
+  };
   // (each ball a lit sphere: a point as big as the ball on screen, its round face shaded and its depth written where the
-  // sphere's surface is, so neighbouring balls meet as spheres do)
-  const mat = new THREE.ShaderMaterial({
-    uniforms: U, depthWrite: true, extensions: { fragDepth: true },
-    vertexShader: `
+  // sphere's surface is, so neighbouring balls meet as spheres do; a ball of radius 0 is not drawn)
+  function mat(set, U) {
+    const D = { uA: set.uA, uT: { value: 0 }, uJig: { value: 0 }, uHalf: { value: 400 }, uMark: { value: 0 } };
+    for (const k in D) if (!U[k]) U[k] = D[k];   // (filled in place: the caller keeps its uniforms)
+    const m = new THREE.ShaderMaterial({
+      uniforms: U, depthWrite: true, extensions: { fragDepth: true },
+      vertexShader: `
 attribute float aRad, aPh, aMark; attribute vec3 aCol;
 uniform float uT, uJig, uHalf, uMark;
 varying vec3 vC, vP; varying float vR;
 void main() {
+  if (aRad <= 0.0) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   vec3 p = position + uJig * vec3(sin(uT * 1.7 + aPh), sin(uT * 1.3 + aPh * 2.1), sin(uT * 1.9 + aPh * 0.7));
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float r = aRad * length(modelViewMatrix[0].xyz);
@@ -1353,7 +1467,7 @@ void main() {
   vec3 lit = mix(aCol, vec3(0.27, 0.85, 1.0), aMark * uMark);
   vC = lit * (aMark > 0.5 ? 1.0 : 1.0 - 0.6 * uMark); vP = mv.xyz; vR = r;
 }`,
-    fragmentShader: `
+      fragmentShader: `
 uniform float uA; uniform mat4 projectionMatrix;   // (three.js declares it only in the vertex shader)
 varying vec3 vC, vP; varying float vR;
 void main() {
@@ -1369,52 +1483,68 @@ void main() {
   gl_FragDepthEXT = clamp(clip.z / clip.w * 0.5 + 0.5, 0.0, 1.0);
   gl_FragColor = vec4(col, uA);
 }`,
-  });
-  // (see-through only while the set fades, as the kit's materials are)
-  Object.defineProperty(mat, 'transparent', { configurable: true, get: () => set.uA.value < 0.999, set() {} });
-  set.mats.push(mat);
-  const balls = new THREE.Points(g, mat); balls.frustumCulled = false;
-  holder.add(balls);
-  // the cube's edges and a faint skin
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(SIDE, SIDE, SIDE)), K.fade(set, new THREE.LineBasicMaterial({ color: 0x9fd8ff, transparent: true }), 0.7));
-  holder.add(edges);
-  const skin = new THREE.Mesh(new THREE.BoxGeometry(SIDE, SIDE, SIDE), K.rim(set, { color: [0.4, 0.7, 1.0], a0: 0.02, a1: 0.12 }));
-  holder.add(skin);
-  // the dot it opens from
-  const MARK = [0.27, 0.85, 1.0], dg = K.pointsGeo(1);
-  dg.attributes.aCol.array.set(MARK); dg.attributes.aSize.array[0] = 0.03;
-  const dot = new THREE.Points(dg, K.points(set));
-  holder.add(dot);
-  const v2 = new THREE.Vector2();
-  return Object.assign(set, {
-    // crowd_open: 0 a single dot, 1 the cube full size; crowd_mark: the marked kind lit (the rest dimmed)
-    params: { crowd_a: 1, crowd_open: 0, crowd_mark: 0 },
-    update(S, t) {
-      const o = clamp(S.crowd_open, 0, 1), sc = lerp(0.02, 1, o * o);
-      holder.scale.setScalar(sc);
-      dg.attributes.aA.array[0] = 1 - clamp(o * 3, 0, 1); dg.attributes.aA.needsUpdate = true;
-      dot.scale.setScalar(1 / sc);
-      balls.visible = edges.visible = skin.visible = o > 0.02;
-      U.uT.value = t; U.uMark.value = clamp(S.crowd_mark, 0, 1);
-      // (the points' size in pixels: half the drawn height, a headset's eye or the page's drawing buffer)
-      const r = GL.renderer;
-      U.uHalf.value = r.xr.isPresenting && typeof XR !== 'undefined' && XR.viewH ? XR.viewH / 2 : r.getDrawingBufferSize(v2).y / 2;
-    },
-    anchors: { dot: AT, cube: [AT[0], AT[1] + SIDE * 0.62, AT[2]], corner: [AT[0] + HALF, AT[1] - HALF, AT[2] + HALF],
-      mark: () => { const m = P.mols.find(o => o.mark && o.c[1] > 0.04) || P.mols[0]; return [AT[0] + m.c[0], AT[1] + m.c[1], AT[2] + m.c[2]]; } },
-    labels: [],
-    cam: { default: [30, 16, 0.75, AT[0], AT[1], AT[2]], close: [55, 12, 0.5, AT[0], AT[1], AT[2]] },
-    stats: () => ({ n: P.mols.length, balls: NB, marked: P.mols.filter(o => o.mark).length, kinds: KINDS.map((k, i) => [k.key, P.mols.filter(o => o.k === i).length]) }),
-  });
-};
-SETS.crowd.prep = ms => CROWD.pack(ms || 25);
+    });
+    // (see-through only while it fades, as the kit's materials are)
+    Object.defineProperty(m, 'transparent', { configurable: true, get: () => U.uA.value < 0.999, set() {} });
+    set.mats.push(m);
+    return m;
+  }
+  // a crowd of molecules that move: mols [{ balls, c: [r, g, b] } (or cols, a colour a ball)]; place(i, pos, quat, k) puts molecule i at pos, turned by
+  // quat (a THREE.Quaternion or null), k times its size (0 hides it); tint(i, c); tick(t) once a frame, after the places
+  function cloud(set, mols, opts = {}) {
+    const NB = mols.reduce((s, m) => s + m.balls.length, 0), first = [];
+    const pos = new Float32Array(3 * NB), rad = new Float32Array(NB), col = new Float32Array(3 * NB), ph = new Float32Array(NB), mk = new Float32Array(NB), loc = new Float32Array(4 * NB);
+    let n = 0;
+    mols.forEach((m, i) => {
+      first.push(n);
+      const p = m.ph === undefined ? i * 2.39996 : m.ph;
+      m.balls.forEach((b, k) => { loc.set(b, 4 * n); rad[n] = b[3]; col.set(m.cols ? m.cols[k] : m.c, 3 * n); ph[n] = p; pos.set(b.slice(0, 3), 3 * n); n++; });
+    });
+    first.push(n);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aRad', new THREE.BufferAttribute(rad, 1));
+    g.setAttribute('aCol', new THREE.BufferAttribute(col, 3)); g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1)); g.setAttribute('aMark', new THREE.BufferAttribute(mk, 1));
+    const U = { uT: { value: 0 }, uJig: { value: opts.jig || 0 }, uHalf: { value: 400 }, uMark: { value: 0 } };
+    if (opts.own) U.uA = { value: 1 };
+    const points = new THREE.Points(g, mat(set, U)); points.frustumCulled = false;
+    const V = new THREE.Vector3();
+    let moved = false, tinted = false;
+    return { points, U, n: mols.length, balls: NB,
+      place(i, p, q, k = 1) {
+        for (let j = first[i]; j < first[i + 1]; j++) {
+          V.set(loc[4 * j] * k, loc[4 * j + 1] * k, loc[4 * j + 2] * k); if (q) V.applyQuaternion(q);
+          pos[3 * j] = p[0] + V.x; pos[3 * j + 1] = p[1] + V.y; pos[3 * j + 2] = p[2] + V.z; rad[j] = loc[4 * j + 3] * k;
+        }
+        moved = true;
+      },
+      tint(i, c) { for (let j = first[i]; j < first[i + 1]; j++) col.set(c, 3 * j); tinted = true; },
+      tick(t) {
+        U.uT.value = t; U.uHalf.value = half();
+        if (moved) { g.attributes.position.needsUpdate = true; g.attributes.aRad.needsUpdate = true; moved = false; }
+        if (tinted) { g.attributes.aCol.needsUpdate = true; tinted = false; }
+      } };
+  }
+  // drop each molecule (its reach) where it overlaps none placed before, nor the obstacles ([{ p, r }]): spot() a candidate
+  // middle, tries of them, then it takes the last
+  function scatter(reaches, spot, tol = 0.95, tries = 60, obst = []) {
+    const out = obst.slice();
+    reaches.forEach(rr => {
+      let p;
+      for (let k = 0; k < tries; k++) { p = spot(); if (out.every(o => Math.hypot(o.p[0] - p[0], o.p[1] - p[1], o.p[2] - p[2]) > tol * (o.r + rr))) break; }
+      out.push({ p, r: rr });
+    });
+    return out.slice(obst.length).map(o => o.p);
+  }
+  return { of, reach, half, mat, cloud, scatter };
+})();
 
 // Spaces and walls (chapter 3), over the cell (its frame and its shapes: SETS.cell's api().CELL). The spaces light up one
 // after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
 // small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
 // across the plasma membrane (the beta-2 adrenergic receptor's real fold as a cartoon: molMesh) with a part on each side (a
-// signal outside, a partner inside), and, schematic, a nuclear pore with cargo
-// going through, and an import site on a mitochondrion with a chain threading in (walls_parts). Motion depends only on
+// signal outside, a partner inside), a nuclear pore (schematic) with a protein going through (TP53's core, its surface),
+// and an import site on a mitochondrion (two schematic gates) where a folded protein (frataxin's surface) threads in
+// unfolded, a chain of amino acids (walls_parts). Motion depends only on
 // the time.
 SETS.walls = function (K) {
   const { THREE, clamp, v3 } = K;
@@ -1496,21 +1626,32 @@ SETS.walls = function (K) {
   const signal = new THREE.Mesh(new THREE.IcosahedronGeometry(0.006, 1), solid([1.0, 0.75, 0.3], 0.5)); rec.add(signal);
   const partner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.011, 1), solid([0.4, 1.0, 0.6], 0.3)); rec.add(partner);
   orient(rec, RP, RN);
-  // a nuclear pore in the nuclear envelope (two membranes), cargo going through
+  // a nuclear pore in the nuclear envelope (two membranes), cargo going through: TP53's core domain (PDB 1TSR, a protein
+  // the nucleus imports), its surface, small enough to pass the pore's opening with room to spare (a real pore's channel
+  // is about 40 nm across, the protein about 5)
   const nd = v3.norm([-0.3, 0.6, 0.75]), NPp = v3.add(CELL.nuc.c, v3.mul(nd, CELL.nuc.r));
-  const pore = new THREE.Group();
-  pore.add(flat(patch(0.065, 0.016)));
-  { const b = flat(patch(0.065, 0.016)); b.position.y = -0.009; pore.add(b); }
-  const ring = flat(new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.006, 8, 24), solid([0.8, 0.65, 1.0]))); ring.position.y = -0.0045; pore.add(ring);
-  const cargo = new THREE.Mesh(new THREE.IcosahedronGeometry(0.007, 1), solid([1.0, 0.75, 0.3], 0.5)); pore.add(cargo);
+  const pore = new THREE.Group(), PR = 0.022, PT = 0.006;   // (the ring's radius and thickness: the same shape as chapter 7's pores)
+  pore.add(flat(patch(0.065, PR)));
+  { const b = flat(patch(0.065, PR)); b.position.y = -0.009; pore.add(b); }
+  const ring = flat(new THREE.Mesh(new THREE.TorusGeometry(PR, PT, 8, 32), solid([0.8, 0.65, 1.0]))); ring.position.y = -0.0045; pore.add(ring);
+  const cargoM = molMesh(set, 'tp53', { width: 0.017 }), cargo = new THREE.Group(); cargo.add(cargoM.group); pore.add(cargo);
   orient(pore, NPp, nd);
-  // an import site on a mitochondrion: a small gate, a chain threading in
+  // an import site on a mitochondrion: two gates (the outer membrane's TOM and the inner one's TIM), a protein made in the
+  // cytosol (frataxin, PDB 1EKG, its surface) comes folded, then threads in unfolded, a chain of amino acids, its
+  // targeting stretch (pale) first; inside, the chain would fold again
   const mi = CELL.mitos[0], md = v3.norm(v3.cross(mi.axis, [0, 1, 0])), MP = v3.add(mi.c, v3.mul(md, mi.b));
-  const imp = new THREE.Group();
-  const gate = flat(new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.003, 6, 16), solid([1.0, 0.55, 0.45]))); imp.add(gate);
-  const chain = [];
-  for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.0035, 0), solid([1.0, 0.8, 0.4], 0.4)); imp.add(b); chain.push(b); }
+  const imp = new THREE.Group(), IG = [0, -0.008];   // (the two gates' heights)
+  IG.forEach(y => { const g = flat(new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0025, 6, 20), solid([1.0, 0.55, 0.45]))); g.position.y = y; imp.add(g); });
+  const fx = molMesh(set, 'fxn', { width: 0.017 }), fold = new THREE.Group(); fold.add(fx.group); imp.add(fold);
+  const CN = 24, CS = 0.0034, CB = 0.0016, F0 = 0.016;   // (beads in the chain, their spacing and size; the folded protein's middle)
+  const chain = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(1.0, 0.7, 0.4).multiplyScalar(0.25) })), CN);
+  { const c = new THREE.Color(); for (let i = 0; i < CN; i++) chain.setColorAt(i, i < 5 ? c.setRGB(0.75, 0.9, 1.0) : c.setRGB(1.0, 0.7, 0.4)); }
+  chain.frustumCulled = false; imp.add(chain);
   orient(imp, MP, md);
+  // a point on the chain's way, s along it from the folded protein's middle: straight down through both gates, then
+  // wandering a little in the matrix
+  const way = s => { const y = F0 - s, d = Math.max(0, -0.014 - y); return [0.004 * Math.sin(d * 260) * Math.min(1, d / 0.01), y, 0.003 * Math.sin(d * 170 + 1) * Math.min(1, d / 0.01)]; };
+  const _M = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _P = new THREE.Vector3(), _S = new THREE.Vector3();
   const parts = [rec, pore, imp];
   return Object.assign(set, {
     // walls_lit: which space glows (1 the cytosol, 2 the nucleoplasm, 3 the ER and Golgi ... 6 outside; between two, both
@@ -1528,20 +1669,32 @@ SETS.walls = function (K) {
       for (const g of parts) { g.visible = pv > 0.01; g.scale.setScalar(Math.max(0.01, pv) * (g === imp ? 2.4 : 1)); }   // (the import site drawn larger still: a mitochondrion is small)
       if (pv <= 0.01) return;
       // (each motion a loop of a few seconds: the signal docks and leaves, the partner binds, the cargo crosses, the chain threads in)
-      const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15) % 1;
+      const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15 + 0.15) % 1;   // (c: at about 0.1 as the story comes to the import site, 173 s)
       const dock = x => (x < 0.4 ? x / 0.4 : x < 0.7 ? 1 : 1 - (x - 0.7) / 0.3);
       signal.position.set(0.035 * (1 - dock(a)), top - 0.006 + 0.035 * (1 - dock(a)), 0);   // (into the pocket among the helices' outer ends)
       partner.position.set(-0.035 * (1 - dock(b)), bot - 0.006 - 0.025 * (1 - dock(b)), 0.004);
-      cargo.position.set(0, 0.05 - 0.11 * K.smooth(b), 0);
-      chain.forEach((o, i) => o.position.set(0, 0.03 - 0.006 * i - 0.05 * c, 0));
+      // (the cargo: in from the cytosol side, through the ring, out into the nucleus at an even pace, growing in and
+      // shrinking away at the loop's ends)
+      const cs = K.smooth(b / 0.12) * K.smooth((1 - b) / 0.12);
+      cargo.position.set(0, 0.05 - 0.11 * b, 0); cargo.scale.setScalar(Math.max(0.01, cs)); cargo.rotation.set(t * 0.4, t * 0.25, 0);
+      // (the import: the folded protein comes to the outer gate (c 0 to 0.2), its chain is pulled through both gates
+      // (0.2 to 0.85, the protein shrinking as it unfolds), then the chain fades)
+      const n = CN * K.smooth(clamp((c - 0.2) / 0.65, 0, 1)), left = 1 - n / CN, fin = 1 - K.smooth(clamp((c - 0.88) / 0.1, 0, 1));
+      fold.position.set(0, F0 + 0.03 * (1 - K.smooth(c / 0.2)), 0); fold.rotation.set(0, t * 0.3 * (1 - K.smooth(c / 0.2)), 0);
+      fold.scale.setScalar(Math.max(0.01, Math.cbrt(left) * K.smooth(c / 0.06))); fold.visible = left > 0.02;
+      for (let i = 0; i < CN; i++) {   // (bead i, the targeting stretch's first, is n - i beads' worth out of the folded part)
+        const s = (n - i) * CS, r = s > 0.005 ? CB * fin : 0;
+        chain.setMatrixAt(i, _M.compose(_P.set(...way(Math.max(0, s))), _Q, _S.setScalar(Math.max(r, 1e-5))));
+      }
+      chain.instanceMatrix.needsUpdate = true;
     },
     anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
       receptor: v3.add(RP, v3.mul(RN, top + 0.015)), recIn: v3.add(RP, v3.mul(RN, bot - 0.02)), recOut: v3.add(RP, v3.mul(RN, top + 0.035)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
-    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(md, [0.2, 0.5, 0.3]), 0.26) },
+    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(v3.mul(md, 0.6), v3.mul(v3.norm(mi.axis), 0.8)), 0.26) },
   });
 };
-SETS.walls.prep = molPrep(['b2ar']);
+SETS.walls.prep = molPrep(['b2ar', 'tp53', 'fxn']);
 
 // The methods as lenses over the cell (chapter 6): three rings, each with a small scene of how a method finds a link
 // (real shapes from the Protein Data Bank as molecular surfaces: models.js; not to scale against the yeast, the tube or the halo). Two-hybrid: in a yeast nucleus, two proteins each carry half of a switch; if they bind, the halves
@@ -1552,7 +1705,8 @@ SETS.walls.prep = molPrep(['b2ar']);
 // The bait and prey of the two-hybrid are H-Ras and the Raf kinase's Ras-binding domain (PDB 4G0N), each a surface (two
 // models cut from the entry in its own coordinates), meeting at their crystal contact; the hook of the purification is
 // an antibody (PDB 1IGT); the proximity labelling's bait carries the biotin ligase BirA (PDB 1BIA); the proteins in the
-// tube and round the bait are the crowd's real proteins at their lowest level of detail (molInstanced).
+// tube and round the bait are the crowd's real proteins as balls, as the crowd draws them (BALLS), and so is the broken
+// cell's membrane (torn pieces of a lipid bilayer).
 SETS.lens = function (K) {
   const { THREE, clamp, v3 } = K;
   const set = K.newSet('lens');
@@ -1590,47 +1744,56 @@ SETS.lens = function (K) {
   bait.position.set(...BAIT);
   const glowG = pts(1, (i, a) => { a.aCol.array.set([1.0, 0.95, 0.5]); a.aSize.array[0] = 0.12; });
   const glow = new THREE.Points(glowG, K.points(set)); glow.position.set(PREY[0] + 0.04, -0.12, 0.01); Y.add(glow);
-  // 2. purification: pieces of a broken cell drifting apart; proteins from several places falling into a tube
-  const A2 = lenses[1].inner, shards = [];
-  for (let i = 0; i < 7; i++) {
-    const th = i / 7 * Math.PI * 2, m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 6, th, Math.PI * 2 / 7 * 0.8, 0.3, 1.9), K.rim(set, { color: [0.55, 0.78, 1.0], a0: 0.05, a1: 0.45 }));
-    m.position.y = 0.12; m.userData.d = [Math.cos(th + 0.4), 0.3 * (r() - 0.5), -Math.sin(th + 0.4)]; A2.add(m); shards.push(m);
-  }
+  // 2. purification: a cell broken open, torn pieces of its membrane drifting apart, its proteins spilling out and falling
+  // into a tube. The membrane is a lipid bilayer drawn as balls (a lipid's head on each face, the tails between them), torn
+  // into ragged pieces; the proteins are the crowd's real ones (balls, BALLS), each in the colour of the place it came from
+  // (the cell's place colours), sized to scale against each other (one factor: the largest, tubulin, 0.05 long). One draw.
+  const A2 = lenses[1].inner, CC = [0, 0.12, 0], RC = 0.17;
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.22, 20, 1, true), K.rim(set, { color: [0.8, 0.9, 1.0], a0: 0.05, a1: 0.6 })); tube.position.y = -0.2; A2.add(tube);
   // the hook: an antibody (light chains pale, heavy chains deeper amber) in the tube, holding the bait
   const AB = molMesh(set, 'igg', { width: 0.1 });
   AB.group.position.set(0, -0.2, 0); AB.group.rotation.z = Math.PI / 2; A2.add(AB.group);
-  // the proteins: the crowd's real ones, simplified, each in the colour of the place it came from (the cell's place
-  // colours), sized to scale against each other (one factor: the largest, tubulin, 0.05 long)
-  const CROWD = ['ubq', 'cam', 'gapdh', 'tub', 'actin'], PER_A2 = 0.05 / Math.max(...CROWD.map(k => (molHead(k) ? molHead(k).size[0] : 100)));
-  const NM = 36, mixK = Array.from({ length: NM }, (_, i) => i % CROWD.length);
-  const crowdOf = (A, kinds, scale, colOf) => CROWD.map((key, j) => {
-    const list = kinds.map((m, i) => (m === j ? i : -1)).filter(i => i >= 0), mi = molInstanced(set, key, { lod: 2, count: list.length, scale });
-    if (mi.mesh.isInstancedMesh) list.forEach((i, n) => mi.mesh.setColorAt(n, new THREE.Color(...colOf(i))));
-    A.add(mi.mesh);
-    return { mi, list, r: molHead(key) ? molHead(key).radius * scale : 0.005 };
+  // (the pieces: the sphere's lipids shared out to the nearest of NF seeds; a ragged strip along each seam torn away, and a
+  // few holes, so no two pieces meet; each piece's balls kept about its own middle, which drifts out and turns)
+  const NF = 11, seeds = Array.from({ length: NF }, (_, i) => { const y = 1 - 2 * (i + 0.5) / NF, q = Math.sqrt(1 - y * y), a = i * 2.39996 + r() * 0.5; return v3.norm([q * Math.cos(a), y + 0.15 * (r() - 0.5), q * Math.sin(a)]); });
+  const SP = 0.0105, NL = Math.round(4 * Math.PI * RC * RC / (SP * SP * 0.87)), HR = 0.0053, TR = 0.0046, TH = 0.0068;
+  const wob = u => Math.sin(23 * u[0] + 3 * u[1]) * Math.sin(19 * u[1] - 5 * u[2]) + 0.6 * Math.sin(31 * u[2] + 11 * u[0]);
+  const frag = seeds.map(() => []), LIP = [[RC + TH, HR], [RC - TH, HR], [RC, TR]];   // (two heads, the tails)
+  for (let i = 0; i < NL; i++) {
+    const y = 1 - 2 * (i + 0.5) / NL, q = Math.sqrt(1 - y * y), a = i * 2.39996, u = [q * Math.cos(a), y, q * Math.sin(a)];
+    const d = seeds.map(s => 1 - v3.dot(s, u)), o = d.map((x, j) => j).sort((x, z) => d[x] - d[z]);
+    if (o[0] === NF - 1 || d[o[1]] - d[o[0]] < 0.045 + 0.035 * wob(u) + 0.06 * r() * r() || wob(v3.mul(u, 1.7)) > 1.35) continue;   // (the tears, the holes; the bottom torn away, where the proteins pour out)
+    const j = 0.0018 * (r() - 0.5);   // (each lipid a little in or out: a membrane is not a lattice)
+    for (const [rr, br] of LIP) frag[o[0]].push([u[0] * (rr + j), u[1] * (rr + j), u[2] * (rr + j), br * (0.9 + 0.2 * r())]);
+  }
+  const HEAD = [0.7, 0.77, 0.9], TAIL = [0.92, 0.86, 0.64];
+  const fragM = frag.map((F, j) => {
+    const m = v3.mul(seeds[j], RC);
+    return { balls: F.map(b => [b[0] - m[0], b[1] - m[1], b[2] - m[2], b[3]]), cols: F.map((b, i) => (i % 3 > 1 ? TAIL : HEAD)), m, out: v3.norm([seeds[j][0], seeds[j][1] > 0 ? seeds[j][1] : 0.2 * seeds[j][1], seeds[j][2]]), ax: new THREE.Vector3(...v3.norm(v3.cross(seeds[j], [0, 1, 0.01]))), q: new THREE.Quaternion() };
   });
-  const mixM = crowdOf(A2, mixK, PER_A2, i => PLC[i % PLC.length]);
+  const CROWD = ['ubq', 'cam', 'gapdh', 'tub', 'actin'], PER_A2 = 0.05 / Math.max(...CROWD.map(k => 2 * BALLS.reach(BALLS.of(k, 1))));
+  const NM = 36, mixK = Array.from({ length: NM }, (_, i) => i % CROWD.length), mixB = mixK.map(j => BALLS.of(CROWD[j], PER_A2)), mixR = mixB.map(BALLS.reach);
+  const mix = BALLS.cloud(set, [...fragM, ...mixB.map((balls, i) => ({ balls, c: PLC[i % PLC.length] }))]); A2.add(mix.points);
   const mixQ = Array.from({ length: NM }, () => new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
-  const mixS = Array.from({ length: NM }, () => [0.16 * (r() - 0.5) * 2, 0.12 + 0.14 * (r() - 0.5), 0.1 * (r() - 0.5)]), mixE = Array.from({ length: NM }, () => [0.09 * (r() - 0.5), -0.27 + 0.14 * r(), 0.08 * (r() - 0.5)]);
+  // (where each starts, inside the cell, and ends, in the tube above and round the antibody: none overlapping)
+  const mixS = BALLS.scatter(mixR, () => v3.add(CC, v3.mul(K.unit(r), (RC - 0.05) * Math.cbrt(r()))), 0.9);
+  const mixE = BALLS.scatter(mixR, () => [0.1 * (r() - 0.5), -0.27 + 0.17 * r(), 0.08 * (r() - 0.5)], 0.85, 80, [{ p: [0, -0.2, 0], r: 0.03 }]);
+  const mixD = mixS.map(p => v3.norm(v3.sub(p, CC).map((x, j) => x + (j === 1 ? 0 : 0.001))));
   // 3. proximity labelling: a bait, its halo, the neighbours it tags as they come near
   const A3 = lenses[2].inner;
   const bait3 = blob(0.032, [0.3, 0.75, 1.0]); bait3.position.set(-0.03, 0, 0); A3.add(bait3);
   const BI = molMesh(set, 'bira', { width: 0.065 });   // (the biotin ligase, fused to the bait)
   BI.group.position.set(0.035, 0.005, 0.01); A3.add(BI.group);
   const halo = new THREE.Mesh(new THREE.SphereGeometry(0.17, 28, 18), K.rim(set, { color: [0.4, 1.0, 0.7], a0: 0.06, a1: 0.5 })); A3.add(halo);
-  // the neighbours: real proteins, simplified, grey; those inside the halo collect a tag
-  const NN = 30, nbS = [], nbK = [], nbQ = [], nbR = [];
-  for (let i = 0; i < NN; i++) {
-    const u = K.unit(r), d = 0.09 + 0.2 * Math.sqrt(r()); nbS.push([u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]); nbK.push(i % CROWD.length);
-    nbQ.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3)));
-  }
-  const nbM = crowdOf(A3, nbK, PER_A2 * 0.8, () => [0.65, 0.7, 0.8]);
-  nbM.forEach(({ list, r: rr }) => list.forEach(i => { nbR[i] = rr * 0.7; }));
+  // the neighbours: real proteins as balls, grey; those inside the halo collect a tag (placed so that none overlaps another
+  // as they drift)
+  const NN = 30, nbK = Array.from({ length: NN }, (_, i) => i % CROWD.length), nbB = nbK.map(j => BALLS.of(CROWD[j], PER_A2 * 0.8));
+  const nbQ = nbK.map(() => new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3))), nbR = nbB.map(b => BALLS.reach(b) * 0.7);
+  const nbS = BALLS.scatter(nbB.map(b => BALLS.reach(b) + 0.015), () => { const u = K.unit(r), d = 0.09 + 0.2 * Math.sqrt(r()); return [u[0] * d, u[1] * d * 0.8, u[2] * d * 0.5]; }, 1, 80, [{ p: [0, 0, 0], r: 0.06 }]);
+  const nbM = BALLS.cloud(set, nbB.map(balls => ({ balls, c: [0.65, 0.7, 0.8] }))); A3.add(nbM.points);
   const nb = { attributes: { position: { array: new Float32Array(3 * NN) } } };   // (the neighbours' places this frame)
   const tags = pts(NN, (i, a) => { a.aCol.array.set([0.4, 1.0, 0.7], 3 * i); a.aSize.array[i] = 0.022; a.aA.array[i] = 0; });
   const tagP = new THREE.Points(tags, K.points(set)); A3.add(tagP);
-  const V = new THREE.Vector3();
   const anchorOf = (i, y) => () => { const p = AT[i]; return [p[0], p[1] + y, p[2]]; };
   return Object.assign(set, {
     // lens_open: the rings come in (each a little after the one before); lens_focus: one lit (1 two-hybrid, 2
@@ -1651,8 +1814,16 @@ SETS.lens = function (K) {
       glowG.attributes.aA.array[0] = clamp((near - 0.9) * 10, 0, 1) * (0.7 + 0.3 * Math.sin(t * 6)); glowG.attributes.aA.needsUpdate = true;
       // purification: the cell breaks open, its proteins fall into the tube (a loop of 8 s)
       const b = (t / 8) % 1, br = K.smooth(clamp(b / 0.3, 0, 1)), fall = K.smooth(clamp((b - 0.25) / 0.45, 0, 1)), back = clamp((b - 0.92) / 0.08, 0, 1);
-      shards.forEach(m => { const d = m.userData.d; m.position.set(d[0] * 0.12 * br, 0.12 + d[1] * 0.1 * br, d[2] * 0.12 * br); m.visible = back < 0.5; });
-      for (const { mi, list } of mixM) list.forEach((i, n) => mi.setAt(n, V.set(...v3.lerp(mixS[i], mixE[i], fall)), mixQ[i], back < 0.5 ? 1 : 0.0001));
+      const gone = back < 0.5 ? 1 : 0;
+      fragM.forEach((F, j) => {   // (the pieces drift out and turn a little, none down over the tube)
+        F.q.setFromAxisAngle(F.ax, 0.9 * br);
+        mix.place(j, v3.add(CC, v3.add(F.m, v3.mul(F.out, 0.13 * br))), F.q, gone);
+      });
+      for (let i = 0; i < NM; i++) {   // (the proteins spill out between the pieces and fall into the tube, one after another)
+        const f = K.smooth(clamp((b - 0.24 - 0.22 * i / NM) / 0.42, 0, 1)), w = Math.sin(Math.PI * f) * 0.07;
+        mix.place(NF + i, v3.add(v3.lerp(mixS[i], mixE[i], f), [mixD[i][0] * w, 0, mixD[i][2] * w]), mixQ[i], gone);
+      }
+      mix.tick(t);
       // proximity labelling: neighbours drift; those inside the halo collect a tag (a loop of 7 s)
       const c = (t / 7) % 1, P3 = nb.attributes.position.array, T3 = tags.attributes.position.array, TA = tags.attributes.aA.array;
       for (let i = 0; i < NN; i++) {
@@ -1662,7 +1833,8 @@ SETS.lens = function (K) {
         TA[i] = inside ? clamp((c - i / NN * 0.6) * 5, 0, 1) * (c < 0.95 ? 1 : 0) : 0;
         T3[3 * i] = P3[3 * i] + nbR[i]; T3[3 * i + 1] = P3[3 * i + 1] + nbR[i]; T3[3 * i + 2] = P3[3 * i + 2] + nbR[i] * 0.6;
       }
-      for (const { mi, list } of nbM) list.forEach((i, n) => mi.setAt(n, V.set(P3[3 * i], P3[3 * i + 1], P3[3 * i + 2]), nbQ[i]));
+      for (let i = 0; i < NN; i++) nbM.place(i, [P3[3 * i], P3[3 * i + 1], P3[3 * i + 2]], nbQ[i]);
+      nbM.tick(t);
       tags.attributes.position.needsUpdate = true; tags.attributes.aA.needsUpdate = true;
     },
     anchors: { yeast: anchorOf(0, R + 0.08), apms: anchorOf(1, R + 0.08), prox: anchorOf(2, R + 0.08),
@@ -1671,7 +1843,7 @@ SETS.lens = function (K) {
     cam: { default: [20, 10, 5.4, 0, 0.5, 0], yeast: [14, 6, 2.7, AT[0][0], AT[0][1] - 0.1, AT[0][2]], apms: [20, 6, 2.7, AT[1][0], AT[1][1] - 0.1, AT[1][2]], prox: [26, 6, 2.7, AT[2][0], AT[2][1] - 0.1, AT[2][2]] },
   });
 };
-SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira', 'ubq', 'cam', 'gapdh', 'tub', 'actin']);
+SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira']);
 
 // Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its real shape (PDB 1GRI, its molecular
 // surface: models.js), its three binding domains coloured (the one a partner docks at lit while it is there), an SH3, an SH2 and another SH3, its partners on a shell around it, one dot each (as many as it has
@@ -1691,7 +1863,7 @@ SETS.sites = function (K) {
   // ------------------------------------------------------------ GRB2 and its partners
   const gA = new THREE.Group(); set.group.add(gA);
   // (its domains coloured in models.json: SH3 cyan, SH2 amber, the linkers grey; the first SH3 on the left)
-  const G2 = molMesh(set, 'grb2', { width: 0.42 }), RANGES = [[1, 58], [60, 152], [156, 217]];
+  const G2 = molMesh(set, 'grb2', { width: 0.42, lod: 0 }), RANGES = [[1, 58], [60, 152], [156, 217]];
   // (each domain's centre and reach from its residues' anchors, in the model's frame; turned half round about y if the
   // first SH3 is on the right)
   const domPts = RANGES.map(([a, b]) => { const R = G2.res, out = []; if (R) for (let i = 0; i < R.n; i++) if (R.num[i] >= a && R.num[i] <= b) out.push(G2.anchor('A', R.num[i]).toArray()); return out; });
@@ -1741,21 +1913,24 @@ SETS.sites = function (K) {
   // (a faint dome of the nucleoplasm's colour over the envelope: the nucleus side at a glance)
   { const d = new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), K.rim(set, { color: cellApi.placeCol[1], a0: 0.035, a1: 0.2 }));
     d.scale.set(1, 0.75, 0.4); d.position.set(0.05, -0.02, -0.12); d.renderOrder = 2; gB.add(d); }
+  // (the pores wide enough for the STAT3 pair and TP53 to pass clear of the ring: an opening 0.39 across, the pair at
+  // most about 0.28 across its way; a real pore's channel is about 40 nm, a protein 5 to 15)
   const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
-  PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 24), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
+  PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 10, 48), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
   // TP53's core domain (PDB 1TSR, the protein: its DNA does not travel) and the STAT3 pair with its DNA (PDB 1BG1: three
-  // models cut from the entry's assembly in its own coordinates, so they line up), as surfaces, not to scale against the pores
-  const T5 = molMesh(set, 'tp53', { width: 0.12 });
+  // models cut from the entry's assembly in its own coordinates, so they line up), as surfaces at their finest level
+  // (only a few models on show), not to scale against the pores
+  const T5 = molMesh(set, 'tp53', { width: 0.12, lod: 0 });
   const tp = new THREE.Group(); tp.add(T5.group); gB.add(tp);
-  // (one scale for the three: the whole 0.19 long along the DNA's axis; turned so that axis lies along x; the pair's
+  // (one scale for the three: the whole 0.15 long along the DNA's axis (the pair then about 0.37 tall, 0.14 by 0.28 across); turned so that axis lies along x; the pair's
   // middle at st's origin)
   const dAx = molAxis(molPts('stat3dna')), all3 = [...molPts('stat3a'), ...molPts('stat3b'), ...molPts('stat3dna')];
   const along = p => p[0] * dAx.dir[0] + p[1] * dAx.dir[1] + p[2] * dAx.dir[2];
-  const span3 = all3.length ? Math.max(...all3.map(along)) - Math.min(...all3.map(along)) : 160, SS = 0.19 / span3;
+  const span3 = all3.length ? Math.max(...all3.map(along)) - Math.min(...all3.map(along)) : 160, SS = 0.15 / span3;
   const cen = n => (molHead(n) ? molHead(n).centre.map(x => x * SS) : [0, 0, 0]);
-  const sA = molMesh(set, 'stat3a', { scale: SS, centred: false }), sB = molMesh(set, 'stat3b', { scale: SS, centred: false });
-  const sD = molMesh(set, 'stat3dna', { scale: SS }), dnaW = new THREE.Group();   // (the DNA centred, so it grows from its middle)
+  const sA = molMesh(set, 'stat3a', { scale: SS, centred: false, lod: 0 }), sB = molMesh(set, 'stat3b', { scale: SS, centred: false, lod: 0 });
+  const sD = molMesh(set, 'stat3dna', { scale: SS, lod: 0 }), dnaW = new THREE.Group();   // (the DNA centred, so it grows from its middle)
   dnaW.position.set(...cen('stat3dna')); dnaW.add(sD.group);
   const st1 = sA.group, st2 = sB.group, pairMid = v3.mul(v3.add(cen('stat3a'), cen('stat3b')), 0.5);
   const S3 = new THREE.Group(), S3i = new THREE.Group();
@@ -1765,14 +1940,14 @@ SETS.sites = function (K) {
   const st = new THREE.Group(); st.add(S3); gB.add(st);
   // JAK2's kinase domain (PDB 2B7A) and p300's acetyltransferase domain (PDB 3BIY), surfaces, small and not to scale
   // against the pores
-  const jak = molMesh(set, 'jak2', { width: 0.09 }).group; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
+  const jak = molMesh(set, 'jak2', { width: 0.09, lod: 0 }).group; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
   const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(-0.52, -0.52, 0.02); gB.add(recB);
-  const ep = molMesh(set, 'p300', { width: 0.1 }).group; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
+  const ep = molMesh(set, 'p300', { width: 0.1, lod: 0 }).group; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
   const P_CYT = [-0.38, -0.4, 0.08], P_IN = [0.35, 0.48, 0.05];
-  const path = (u, pore) => {   // (from the cytosol through a pore into the nucleus)
-    const a = P_CYT, b = PORES[pore], c = P_IN;
-    return u < 0.5 ? v3.lerp(a, [b[0], b[1] - 0.1, b[2]], K.smooth(u * 2)) : v3.lerp([b[0], b[1] + 0.1, b[2]], c, K.smooth(u * 2 - 1));
-  };
+  // the way from the cytosol through a pore into the nucleus: one smooth curve, straight up through the pore for the
+  // pair's height either side (so nothing clips the ring), walked at an even pace (u 0 to 1: along it by length)
+  const WAY = PORES.map(b => new THREE.CatmullRomCurve3([P_CYT, [b[0], b[1] - 0.22, b[2]], [b[0], b[1] - 0.1, b[2]], b, [b[0], b[1] + 0.1, b[2]], [b[0], b[1] + 0.22, b[2]], P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'));
+  const _w = new THREE.Vector3(), path = (u, pore) => WAY[pore].getPointAt(clamp(u, 0, 1), _w).toArray();
   let act = 0, mv = 0;
   return Object.assign(set, {
     // sites_act: 0 GRB2, 1 the shuttle (TP53, then STAT3); sites_cyc: turns at GRB2's domains; sites_tp: TP53 on show
@@ -1796,13 +1971,14 @@ SETS.sites = function (K) {
       const hk = nowA.indexOf(Math.max(...nowA));
       if (nowA[hk] > 0.01) G2.setHighlight('A:' + RANGES[hk][0], 'A:' + RANGES[hk][1], HIC[hk], 0.85 * nowA[hk]); else G2.setHighlight(null);
       // TP53: to and fro through the middle pore, a loop of 8 s
-      const ta = clamp(S.sites_tp, 0, 1), x = (t / 8) % 1, u = x < 0.5 ? x * 2 : 2 - x * 2;
+      // (eased only at the two ends, in the cytosol and in the nucleus: through the pore it keeps going)
+      const ta = clamp(S.sites_tp, 0, 1), x = (t / 8) % 1, u = K.smooth(x < 0.5 ? x * 2 : 2 - x * 2);
       tp.visible = ta > 0.01; tp.scale.setScalar(Math.max(0.01, ta)); tp.position.set(...path(u, 1));
       // STAT3: switched on beside the kinase, the two copies pair up, through the left pore, onto the DNA
       mv = clamp(S.sites_move, 0, 1);
-      const show3 = mv > 0.001, w = clamp((mv - 0.3) / 0.6, 0, 1), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
+      const show3 = mv > 0.001, w = K.smooth(clamp((mv - 0.3) / 0.6, 0, 1)), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
       st.visible = jak.visible = recB.visible = ep.visible = show3;
-      const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], [-0.4, -0.42, 0.08], K.smooth(mv / 0.15)) : path(w, 0);
+      const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], P_CYT, K.smooth(mv / 0.15)) : path(w, 0);
       st.position.set(...base);
       // (the two apart until they pair: the second comes in from the side; the DNA shows once they are in the nucleus)
       st2.position.copy(slide).multiplyScalar(1 - pair);
@@ -1836,35 +2012,33 @@ SETS.next = function (K) {
   for (let i = 0; i < NH; i++) baits.push(i < 3 ? v3.add(CELL.nuc.c, v3.mul(K.unit(r), CELL.nuc.r * 0.6 * Math.cbrt(r()))) : randIn(inCyto));
   const haloMat = K.rim(set, { color: [0.4, 1.0, 0.7], a0: 0.05, a1: 0.55 });
   const halos = baits.map(p => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 14), haloMat); m.position.set(...p); set.group.add(m); return m; });
-  const tg = K.pointsGeo(NH * (NT + 1));
-  baits.forEach((p, i) => {
-    for (let j = 0; j <= NT; j++) {
-      const q = j ? v3.add(p, v3.mul(K.unit(r), 0.07 * Math.cbrt(r()))) : p, k = i * (NT + 1) + j;
-      tg.attributes.position.array.set(q, 3 * k); tg.attributes.aCol.array.set(j ? [0.4, 1.0, 0.7] : [1, 1, 1], 3 * k); tg.attributes.aSize.array[k] = j ? 0.012 : 0.022;
-    }
+  // (each bait a real protein, white, and round it its neighbours, real proteins tagged green: the crowd's kinds as balls,
+  // BALLS, none overlapping; they grow out of the bait with its halo)
+  const KS = CROWD.KINDS, pick = () => { let x = r(); for (const k of KS) { x -= k.share; if (x < 0) return k.key; } return KS[KS.length - 1].key; };
+  const PH = 0.032 / Math.max(...KS.map(k => 2 * BALLS.reach(BALLS.of(k.key, 1))));   // (the largest 0.032 across)
+  const hMols = [], hOff = [], hQ = [];
+  baits.forEach(() => {
+    const kinds = ['gapdh', ...Array.from({ length: NT }, pick)], B = kinds.map(k => BALLS.of(k, PH)), R = B.map(BALLS.reach);
+    const off = BALLS.scatter(R.slice(1), () => v3.mul(K.unit(r), 0.028 + 0.034 * Math.cbrt(r())), 0.95, 80, [{ p: [0, 0, 0], r: R[0] }]);
+    B.forEach((balls, j) => { hMols.push({ balls, c: j ? [0.4, 1.0, 0.7] : [0.95, 0.95, 0.95] }); hOff.push(j ? off[j - 1] : [0, 0, 0]); hQ.push(new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6.3, r() * 6.3, r() * 6.3))); });
   });
-  const tagP = new THREE.Points(tg, K.points(set)); set.group.add(tagP);
+  const hc = BALLS.cloud(set, hMols); set.group.add(hc.points);
   // ------------------------------------------------------------ a slab: a tomogram's thin slice, its molecules sharp
   const SW = [1.5, 1.1, 0.05], SZ = 0.18;
   const slabMat = K.fade(set, new THREE.MeshBasicMaterial({ color: 0x8fb8e8, depthWrite: false }), 0.12);
   const slab = new THREE.Mesh(new THREE.BoxGeometry(...SW), slabMat); slab.position.set(0.1, 0, SZ); set.group.add(slab);
   const slabEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...SW)), K.fade(set, new THREE.LineBasicMaterial({ color: 0xbfe0ff, transparent: true }), 0.6));
   slabEdge.position.copy(slab.position); set.group.add(slabEdge);
-  const mols = [];
-  for (let i = 0; i < 400 && mols.length < 220; i++) {
+  // (its molecules: real proteins as balls, the crowd's kinds in the crowd's shares, the largest 0.05 across, none
+  // overlapping; in the nucleus violet, else blue or amber)
+  const PS = 0.05 / Math.max(...KS.map(k => 2 * BALLS.reach(BALLS.of(k.key, 1)))), sMols = [];
+  for (let i = 0; i < 400 && sMols.length < 220; i++) {
     const p = [0.1 + (r() - 0.5) * SW[0], (r() - 0.5) * SW[1], SZ + (r() - 0.5) * SW[2] * 0.6];
-    if (CELL.eScale(p) < 0.92) mols.push({ p, k: 0.6 + 0.8 * r(), q: new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6, r() * 6, r() * 6)), c: r() });
+    const balls = BALLS.of(pick(), PS * (0.85 + 0.3 * r())), rr = BALLS.reach(balls), c = r();
+    if (CELL.eScale(p) < 0.92 && sMols.every(o => v3.dist(o.p, p) > o.rr + rr)) { sMols.push({ p, balls, rr, c: v3.dist(p, CELL.nuc.c) < CELL.nuc.r ? [0.75, 0.62, 1.0] : c < 0.3 ? [1.0, 0.8, 0.4] : [0.6, 0.85, 1.0] }); }
   }
-  const molMat = K.fade(set, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 }));
-  const molMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.011, 0), molMat, mols.length);
-  molMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(3 * mols.length), 3);
-  const M4 = new THREE.Matrix4(), C = new THREE.Color();
-  mols.forEach((o, i) => {
-    M4.compose(new THREE.Vector3(...o.p), o.q, new THREE.Vector3(o.k, o.k, o.k)); molMesh.setMatrixAt(i, M4);
-    const inN = v3.dist(o.p, CELL.nuc.c) < CELL.nuc.r;
-    C.setRGB(...(inN ? [0.75, 0.62, 1.0] : o.c < 0.3 ? [1.0, 0.8, 0.4] : [0.6, 0.85, 1.0])); molMesh.setColorAt(i, C);
-  });
-  molMesh.frustumCulled = false; set.group.add(molMesh);
+  const sc = BALLS.cloud(set, sMols, { own: true }); set.group.add(sc.points);
+  sMols.forEach((o, i) => sc.place(i, o.p, new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 6, r() * 6, r() * 6))));
   // ------------------------------------------------------------ a volume: the whole cell in small cubes
   const VS = 0.07, cells = [];
   for (let x = -1; x <= 1; x += VS) for (let y = -1; y <= 1; y += VS) for (let z = -1; z <= 1; z += VS) {
@@ -1878,13 +2052,17 @@ SETS.next = function (K) {
   const VA = vg.attributes.aA.array, vr = cells.map(() => r());
   return Object.assign(set, {
     params: { next_a: 1, next_halo: 0, next_slab: 0, next_vol: 0 },
-    update(S) {
+    update(S, t) {
       const h = clamp(S.next_halo, 0, 1), s = clamp(S.next_slab, 0, 1), v = clamp(S.next_vol, 0, 1);
       halos.forEach((m, i) => { const g = K.smooth(clamp(h * 1.5 - i / NH * 0.5, 0, 1)); m.scale.setScalar(Math.max(0.01, g)); m.visible = g > 0.01; });
-      tagP.visible = h > 0.01; tg.attributes.aA.array.fill(h); tg.attributes.aA.needsUpdate = true;
-      slab.visible = slabEdge.visible = molMesh.visible = s > 0.01;
+      hc.points.visible = h > 0.01;
+      if (hc.points.visible) {
+        baits.forEach((p, i) => { const g = K.smooth(clamp(h * 1.5 - i / NH * 0.5, 0, 1)); for (let j = 0; j <= NT; j++) { const k = i * (NT + 1) + j; hc.place(k, v3.add(p, v3.mul(hOff[k], g)), hQ[k], g); } });
+        hc.tick(t);
+      }
+      slab.visible = slabEdge.visible = sc.points.visible = s > 0.01;
       slab.scale.set(1, Math.max(0.01, s), 1); slabEdge.scale.copy(slab.scale);
-      molMat.opacity *= clamp(s * 1.5 - 0.3, 0, 1);
+      sc.U.uA.value = set.uA.value * clamp(s * 1.5 - 0.3, 0, 1); sc.tick(t);
       slabMat.opacity *= s;
       vol.visible = v > 0.01;
       if (vol.visible) { for (let i = 0; i < VA.length; i++) VA[i] = 0.12 * clamp(v * 1.4 - vr[i] * 0.4, 0, 1); vg.attributes.aA.needsUpdate = true; }
@@ -2256,21 +2434,19 @@ const CH = [
 // words end in it as NARRATION_ENDS = { title: 19.5, ... } (the slideshow lets the voice finish there).
 const NARRATION_SYNC = [
   [0, 0], [1.32, 1.2], [3.07, 1.6], [5.96, 3], [6.62, 3.6], [27.62, 10],  // No place
-  [82.62, 60], [83.94, 61.2], [86.01, 61.5],          // Crowds
-  [144.86, 115], [146.18, 116.2], [148.1, 116.5], [163.67, 129], [197.77, 160], [214.61, 171],  // Walls
-  [224.51, 180], [225.83, 181.2], [227.58, 181.5], [234.24, 185], [246.34, 196], [263.32, 208],  // Into the cell
-  [315.02, 255], [316.34, 256.2], [317.94, 256.5], [318.6, 257.1], [329.23, 258], [373.23, 298],
-  [383.18, 305], [391.98, 313], [410.54, 324.3],      // Can they meet?
-  [411.31, 325], [412.63, 326.2], [414.14, 326.5], [424.18, 332], [437.38, 344], [456.19, 356],
-  [469.39, 368], [487.15, 380], [499.25, 391], [515.47, 401], [524.27, 409], [541.48, 419],
-  [557.1, 430],                                       // Why red?
-  [568.1, 440], [569.42, 441.2], [571.15, 441.5], [609.76, 476.6], [622.4, 480], [630.77, 485],
-  [645.74, 494], [662.77, 502],                       // Moments
-  [671.57, 510], [672.89, 511.2], [674.52, 511.5], [678.96, 515], [726.92, 558.6], [743.06, 565],
-  [754.06, 575],                                      // What next
+  [82.62, 60],                                        // Crowds
+  [143.12, 115], [144.77, 116.5], [160.34, 129], [194.44, 160], [211.28, 171],  // Walls
+  [221.18, 180], [222.83, 181.5], [229.5, 185], [241.6, 196], [258.57, 208],  // Into the cell
+  [310.27, 255], [312.58, 257.1], [323.21, 258], [367.21, 298], [377.16, 305], [385.96, 313],
+  [404.52, 324.3],                                    // Can they meet?
+  [405.29, 325], [406.94, 326.5], [416.98, 332], [430.18, 344], [448.98, 356], [462.18, 368],
+  [480.48, 380], [492.92, 391], [509.15, 401], [517.95, 409], [532.89, 419], [553.38, 430],
+  [563.64, 439.3],                                    // Why red?
+  [564.41, 440], [604.67, 476.6], [617.31, 480], [625.68, 485], [640.65, 494], [657.68, 502],  // Moments
+  [666.48, 510], [668.13, 511.5], [672.58, 515], [720.54, 558.6], [736.68, 565], [747.68, 575],  // What next
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
-const NARRATION_ENDS = { map: 73.05, crowd: 138.25, walls: 216.4, back: 304.5, judge: 410.3, red: 566.5, moments: 668.1, next: 751.3 };
+const NARRATION_ENDS = { map: 73.05, crowd: 136.5, walls: 213.05, back: 299.75, judge: 404.3, red: 563.4, moments: 663, next: 744.95 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -2447,7 +2623,7 @@ function buildStory() {
       `<p data-at="21" data-out="40.5">A hub is a protein with many links. The biggest sit in the middle: GRB2 alone has ${fmt(GRB2.deg)}. On average a protein has ${Math.round(F.mean)}.</p>`,
       `<p data-at="41">But a map like this says who binds whom, not where. Beside it stands an empty model cell.</p>
         <p data-at="48" class="amber">In a real cell two proteins can bind only if they meet.</p>`)}`,
-    crowd: `<h2 data-at="0.6">Billions and thousands</h2>
+    crowd: `<h2 data-at="0.6" data-say="">Billions and thousands</h2>
       ${turns(`<p data-at="1.5" data-out="20.5">Take one spot of the cytosol, the watery inside of the cell, and look closer.</p>
         <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, each simplified to a few balls.</p>`,
       `<p data-at="21" data-out="33.5">A whole human cell holds roughly 1 to 10 billion protein molecules, of about ten thousand kinds.</p>
@@ -2455,44 +2631,45 @@ function buildStory() {
       `<p data-at="34">So one dot of the map stands for all the copies of one kind of protein in one place: the bright ones here.</p>
         <p data-at="41" class="amber">One dot per kind and place: ${fmt(F.L)} dots for the ${fmt(F.placed)} proteins with a place.</p>
         <p data-at="37" class="credits">The bright ones: the ${fmt(crowdK.find(k => k[0] === 'cam')[1])} calmodulins drawn.</p>`)}`,
-    walls: `<h2 data-at="0.6">Spaces and walls</h2>
+    walls: `<h2 data-at="0.6" data-say="">Spaces and walls</h2>
       ${turns(`<p data-at="1.5" data-out="26.5">A cell is not one bag of water. Membranes divide it into spaces: the cytosol, the nucleoplasm inside the nucleus, the inside of the endoplasmic reticulum, the Golgi and every other organelle, and outside the cell.</p>
         <p data-at="14" data-out="26.5" class="amber">Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is a space of its own.</p>`,
       `<p data-at="27" data-out="44.5">A protein in a membrane can face one side or both. A receptor reaches across the plasma membrane: a part outside meets a signal, a part inside meets a partner.</p>
         <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="56" class="caption">Close-ups not to scale.</p>
-        <p data-at="48" class="credits">The nuclear pore and the import site are simple shapes.</p>`)}`,
-    back: `<h2 data-at="0.6">Back into the cell</h2>
+        <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
+    back: `<h2 data-at="0.6" data-say="">Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5">Now each protein goes where the Human Protein Atlas finds it, in ${word(F.places)} places of the model cell.</p>
         <p data-at="5" data-out="15.5">The Atlas is a public map of where human proteins sit. For each protein, cultured human cells are stained with an antibody that sticks to it, and photographed under a microscope.</p>`,
       `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
         <p data-at="28" data-out="42.5">Within each place, proteins that link to each other gather together. Each mitochondrion keeps its own links.</p>`,
       `<p data-at="43">The links take the colour of their verdict.</p>
         <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas: it has no reliable picture of them yet. They wait outside the cell for now, grey.</p>`)}`,
-    judge: `<h2 data-at="0.6">Can they meet?</h2>
+    judge: `<h2 data-at="0.6" data-say="">Can they meet?</h2>
       ${turns(`<p data-at="1.5" data-out="42.5">Judged strictly (an organelle's proteins inside it), the ${fmt(J)} links that suggest contact, between proteins that both have a place:</p>
-        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space`)}
-          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): one known crossing apart`)}
-          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space, no crossing`)}</ul>`,
+        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %), because they share a space`)}
+          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): their spaces are one known crossing apart`)}
+          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space and no known crossing`)}</ul>`,
       `<p data-at="43">RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
         <p data-at="50" class="amber">So ${fmt(RELA.t[1])} of its links pass a gate.</p>
         <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, the red ones raised to ${fmt(redDrawn)} so they show.</p>`)}`,
-    red: `<h2 data-at="0.6">Why red?</h2>
+    red: `<h2 data-at="0.6" data-say="">Why red?</h2>
       ${turns(`<p data-at="1.5" data-out="13.5">Red links are the puzzle. In the Atlas, their two proteins never share a space, and no known gate joins their spaces. As drawn, they could not meet.</p>
         <p data-at="7" data-out="13.5" class="amber">So either the link is wrong, or a place is missing from the Atlas. Where do links come from?</p>`,
       `<ul class="steps">${step(19, 42.5, CYAN, 'Two-hybrid', ` tests in yeast, a single-celled fungus that is easy to grow. Both proteins are made inside one yeast cell, each carrying half of a switch. If they stick together, the halves meet and the yeast turns on a gene that shows. It tells you a pair can stick, not whether they meet in our cells.`)}</ul>
         <p data-at="31" data-out="42.5" class="amber">Binary links come mostly from such tests: ${bin.pct} % of them are impossible (those with both places known).</p>
         <p data-at="21" data-out="42.5" class="credits">H-Ras and Raf: PDB ${pdbId('ras')}, their surfaces. Not to scale.</p>`,
-      `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' fishes. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
-        <p data-at="55" data-out="65.5" class="amber">Yet complexes, mostly collected by hand from many such studies, agree best: ${cx.pct} % impossible.</p>`,
+      `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' works like fishing. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
+        <p data-at="55" data-out="65.5" class="amber">Complexes did best. They are proteins known to work together as stable machines, mostly gathered by hand from many such studies. Only ${cx.pct} % of their links are impossible.</p>`,
       `<ul class="steps">${step(66, 83.5, GREEN, 'Proximity labelling', ' works in living cells. The bait, a protein you pick, carries an enzyme that puts a small tag on every protein within about 10 nanometres. The tagged proteins are then fished out. It tells you who was near, not who held on.')}</ul>
         <p data-at="76" data-out="83.5">Large maps made this way came after this interactome.</p>
         <p data-at="68" data-out="83.5" class="credits">The antibody: PDB ${pdbId('igg')}. BirA: PDB ${pdbId('bira')}. Their surfaces; the other proteins simplified. Not to scale.</p>`,
-      `<p data-at="84" data-out="93.5">Across the ${word(F.byKind.length)} kinds of evidence that suggest contact, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
-      `<p data-at="94" data-out="104.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
-      `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
-    moments: `<h2 data-at="0.6">Not all at once</h2>
+      `<p data-at="84" data-out="93.5">So the share of impossible links depends on the evidence: ${lo.pct} % for ${F.kindName(lo.n)} links, up to ${hi.pct} % for ${F.kindName(hi.n)} links. That goes along with the method, but it does not prove the method is to blame.</p>
+        <p data-at="85" data-out="93.5" class="credits">Of the ${word(F.byKind.length)} kinds of evidence that suggest contact; a link found in several ways counts under each.</p>`,
+      `<p data-at="94" data-out="104.5">Part of the problem is the Atlas itself: it does not say on which side of a membrane a protein sits. If every organelle protein sits inside its organelle, ${fmt(s2)} links are impossible. If it may face out as well, ${g2 ? `only ${fmt(g2)} are` : 'none are'}. The first reading is too strict, the second too generous to rule anything out.</p>`,
+      `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place in the Atlas at all, so their ${fmt(F.unpl)} links cannot be judged.</p>`)}`,
+    moments: `<h2 data-at="0.6" data-say="">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
         <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a permanent wire.</p>
         <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners as chains of amino acids.</p>`,
@@ -2503,8 +2680,8 @@ function buildStory() {
       `<p data-at="54">The Atlas lists STAT3 in the ${listOf(STAT3.places)}. It sits mostly in the cytosol until a kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
         <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links are in ${word(STAT3.places.length)} places; when each happens is not in this map.</p>
         <p data-at="56" class="credits">STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: ${pdbId('jak2')}; p300: ${pdbId('p300')}; their surfaces. Not to scale.</p>`)}`,
-    next: `<h2 data-at="0.6">What it would take</h2>
-      ${turns(`<p data-at="1.5" data-out="50.5">A map true to a real cell needs where and when each pair meets.</p>
+    next: `<h2 data-at="0.6" data-say="">What it would take</h2>
+      ${turns(`<p data-at="1.5" data-out="47.5">A map true to a real cell needs where and when each pair meets.</p>
         <ul class="steps">${step(5, 47.5, GREEN, 'Proximity maps', ' start from a bait: a chosen protein fitted with an enzyme that tags every protein near it in a living cell. Hundreds to thousands of baits show who is near whom, place by place')}
           ${step(22, 47.5, CYAN, 'Cryo-electron tomography', ' cuts frozen cells thin and shows single molecules where they are')}
           ${step(37, 47.5, MAGENTA, 'Whole-cell volumes', ' map every organelle of a whole cell in 3D')}</ul>`,
@@ -2535,7 +2712,7 @@ function buildStory() {
   const lbl = [];   // story labels, placed once the camera is built: [set, at, html, tIn, tOut, cls]
   const L = (...a) => lbl.push(a);
   start({ cell_shell: 1, cell_net: 0, cell_amb: 1, cell_red: 1, cell_show: 2, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1,
-    ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
+    ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
     lens_open: 0, lens_focus: 0, sites_act: 0, sites_cyc: 0, sites_tp: 0, sites_move: 0, next_halo: 0, next_slab: 0, next_vol: 0 });
   let a, b;
   // 1. A map without a place: the hairball turns beside the empty cell
@@ -2548,6 +2725,9 @@ function buildStory() {
   cam(b, 'ball', 'default', 14, 'spin');
   L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · about ${about} links drawn`, a + 6, a + 20, 'cyn');
   L('ball', 'hub', `<b>GRB2</b> · ${fmt(GRB2.deg)} links`, a + 22, a + 39, 'amb');
+  // (as the text names GRB2: its links stand out in the hairball, the rest dims; the owner, 22 November 2026)
+  jump('ball_hi', a + 21, -1, GRB2.p); ramp('ball_hl', a + 21, a + 23.5, 0, 1);
+  ramp('ball_hl', a + 38.5, a + 40.5, 1, 0); jump('ball_hi', a + 41, GRB2.p, -1);
   L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 42, b - 1, '');
   sfxCue(a + 0.5, 'grow', 'ball', 'ball', { dur: 3, gain: 0.35 });
   // 2. Billions and thousands: one dot opens into its crowd
@@ -2589,6 +2769,7 @@ function buildStory() {
   cam(a + 48, 'walls', 'pore', 0);
   cam(a + 54, 'walls', 'pore', 20, 'spin');
   cam(a + 58, 'walls', 'import', 0);
+  cam(a + 62, 'walls', 'import', 12, 'spin');   // (held while the protein threads in)
   cam(b, 'walls', 'default', 60);
   SPACES.forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'The endoplasmic reticulum and Golgi lumens', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 3 || i === 4 ? ' · each its own space' : ''}`, litAt(i) - 1, litAt(i) + 2.2, 'cyn'));
   L('walls', 'recOut', '<b>Outside</b> · meets a signal', a + 32, a + 44, 'amb');
@@ -2664,7 +2845,7 @@ function buildStory() {
   cam(b, 'cell', 'default', 85, 'spin', [0, 4, 1.4]);
   L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 2, a + 13, 'mag');
   L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 86, 'cyn');
-  L('lens', 'apmsTag', `<b>Complexes</b> · mostly curated · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
+  L('lens', 'apmsTag', `<b>Complexes</b> · stable machines, gathered by hand · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
   L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 76, a + 86, 'grn');
   L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 94, a + 97, 'mag');
   L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 98, a + 104, 'cyn');
@@ -2997,7 +3178,10 @@ const ctlsOf = k => GL.sets[k].controls || [];
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
 // pp: the protein picked (PDATA's number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
+// (the cell opens on the possible links and those through a gate, without the impossible ones: the owner, 22 November
+// 2026; EXPLORE_START, as entering explore mode from the story does too)
+const EXPLORE_START = { cell: { show: '1' } };
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc']);
@@ -4982,6 +5166,7 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
+    Object.assign(X.ctl[best], EXPLORE_START[best] || {});   // (the scene's own start, whatever the story showed)
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
