@@ -25,7 +25,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, '..', 'sets', 'data.js')
 
 # the cell map's 13 places, in its order (packages/cellstress, stories/spatial.js)
-PLACES = ['Cytosol', 'Nucleoplasm', 'Nucleolus', 'ER', 'Golgi', 'Mitochondria', 'Lysosomes', 'Endosomes', 'Peroxisomes',
+PLACES = ['Cytosol', 'Nucleoplasm', 'Nucleolus', 'Endoplasmic reticulum', 'Golgi', 'Mitochondria', 'Lysosomes', 'Endosomes', 'Peroxisomes',
           'Plasma membrane', 'Nuclear envelope', 'Cytoskeleton', 'Vesicles']
 # the Atlas's locations onto them
 LOC = {

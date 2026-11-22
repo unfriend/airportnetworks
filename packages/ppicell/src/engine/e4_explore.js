@@ -9,7 +9,7 @@ const SCENE_SHORT = {};
 const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
 //#use ctlsOf ctlShown~2
 // pp: the protein picked (PDATA's number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on', pp: -1, pc: -1 };
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc']);
@@ -113,7 +113,9 @@ function pickLine() {
     const [g, a, r, n] = f.t, pl = f.places.map(x => `${x.name}${x.main ? ' (main)' : ''}, ${x.face}`);
     return `${f.sym}: ${pl.join('; ')}. ${many(f.links, 'link')}${kindWords()} to ${many(f.partners, 'partner')}: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${n ? `; ${fmt(n)} not judged (grey: ${fmt(f.why[0])} not contacts, ${fmt(f.why[1])} to a protein without a place)${GL.sets.cell.stats().show >= 3 ? '' : ', not drawn'}` : ''}.${f.drawn < f.links && f.drawn >= 2000 ? ` The first ${fmt(f.drawn)} drawn.` : ''}`;
   }
-  return `${f.name}: ${fmt(f.here)} proteins listed here. ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links${kindWords()} inside it, the most kinds of evidence first` : `All ${fmt(f.inner)} possible links${kindWords()} inside it`}.`;
+  // (the cytoskeleton runs through the whole cell; drawn along a few fibres here, so the cell stays readable)
+  const cyto = f.place === 11 ? ' In a real cell the cytoskeleton runs everywhere; here its proteins sit along a few fibres, so the cell stays readable.' : '';
+  return `${f.name}: ${fmt(f.here)} proteins listed here.${cyto} ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links${kindWords()} inside it, the most kinds of evidence first` : `All ${fmt(f.inner)} possible links${kindWords()} inside it`}.`;
 }
 // '1 link', '3 links'
 const many = (n, w) => `${fmt(n)} ${w}${n === 1 ? '' : 's'}`;

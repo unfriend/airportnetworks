@@ -111,6 +111,16 @@ the morph, the crowd's density) as untested until tried there.
 4. One review (Sonnet), one fix round; then narration (`tools/voice/narrate.mjs` taught to read a package), the
    checks (`check.mjs --load`), screenshots shown as they are taken.
 
+## The owner's first headset notes (22 November 2026), done
+
+114 to 119 fps of 120 Hz in most of the story, 97 at the lenses, 90 in explore mode. The text: no mention of the cell map
+story (people may only see this one); the endoplasmic reticulum in full (also the place's name in the data); what the
+Human Protein Atlas is, where it first appears (chapter 4); two-hybrid explained (half a switch each, a reporter gene in
+yeast); "a moment in time"; baits and proximity maps explained (chapter 8); the publication bias (the owner: why TP53
+gets so much attention): at TP53 in chapter 7 (its links from papers, its rank in systematic screens) and in chapter 8
+(the literature-only share of the 100 biggest hubs against the whole map: a map of attention); the cytoskeleton runs
+everywhere in a real cell, drawn along a few fibres here (the Pick tab says so); Turn off by default in explore mode.
+
 ## Open questions
 
 - The Atlas's current licence terms (to confirm; credit in the panel and README either way).
