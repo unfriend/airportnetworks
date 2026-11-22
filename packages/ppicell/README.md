@@ -16,7 +16,9 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
     licence (as far as we know CC BY-SA: the places in `src/sets/data.js` then carry it; to confirm), with credit to
     the Human Protein Atlas.
   - the gene numbers to symbols and Ensembl ids: NCBI Gene (public domain).
-- Shapes: the proteins drawn (GRB2, TP53, STAT3, the crowd's, the lenses', the receptor, JAK2, p300) are entries of the
+- The crowd (chapter 2): real proteins each simplified to a few balls, from `src/data/gen_structs.py <folder>` (writes
+  `src/sets/structs.js`; the PDB, public domain), drawn as sphere impostors.
+- Shapes: the proteins drawn (GRB2, TP53, STAT3, the lenses', the receptor, JAK2, p300) are entries of the
   Protein Data Bank (public domain, CC0), each cited in the story's small print (`credit` in `src/models.json`). They are
   made into models (molecular surfaces with baked shading; the receptor a cartoon of its chain) by the app's
   `tools/mol/build.py` from the entries listed in `src/models.json`, into `models/` (one `.mol` file each and

@@ -135,9 +135,9 @@ function buildStory() {
         <p data-at="48" class="amber">In a real cell two proteins can bind only if they meet.</p>`)}`,
     crowd: `<h2 data-at="0.6">Billions and thousands</h2>
       ${turns(`<p data-at="1.5" data-out="20.5">Take one spot of the cytosol, the watery inside of the cell, and look closer.</p>
-        <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, not to scale.</p>`,
+        <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, each simplified to a few balls.</p>`,
       `<p data-at="21" data-out="33.5">A whole human cell holds roughly 1 to 10 billion protein molecules, of about ten thousand kinds.</p>
-        <p data-at="22" data-out="33.5" class="credits">Molecules: ubiquitin, calmodulin, actin, GAPDH and tubulin from the Protein Data Bank (${['ubq', 'cam', 'actin', 'gapdh', 'tub'].map(pdbId).join(', ')}), as simplified surfaces. Their sizes are to scale; only the layers under the cube's faces are drawn.</p>`,
+        <p data-at="22" data-out="33.5" class="credits">Molecules: ubiquitin, calmodulin, actin, GAPDH and tubulin from the Protein Data Bank (${['ubq', 'cam', 'actin', 'gapdh', 'tub'].map(pdbId).join(', ')}), each simplified to a few balls (its residues grouped). Sizes to scale, packed about as densely as a real cytoplasm.</p>`,
       `<p data-at="34">So one dot of the map stands for all the copies of one kind of protein in one place: the bright ones here.</p>
         <p data-at="41" class="amber">One dot per kind and place: ${fmt(F.L)} dots for the ${fmt(F.placed)} proteins with a place.</p>
         <p data-at="37" class="credits">The bright ones: the ${fmt(crowdK.find(k => k[0] === 'cam')[1])} calmodulins drawn.</p>`)}`,
@@ -250,7 +250,7 @@ function buildStory() {
   cam(b - 9, 'crowd', 'default', 25, 'spin');
   cam(b, 'cell', 'default', 30);
   L('crowd', 'dot', '<b>One dot</b> · in the cytosol', a + 2, a + 6, 'cyn');
-  L('crowd', 'cube', `<b>About 100 nm</b> · ${fmt(crowdN)} molecules, not to scale`, a + 14, a + 33, '');
+  L('crowd', 'cube', `<b>About 100 nm</b> · ${fmt(crowdN)} molecules, simplified`, a + 14, a + 33, '');
   L('crowd', 'mark', '<b>One kind, one place</b> · one dot', a + 37, b - 9, 'cyn');
   sfxCue(a + 5, 'whoosh', 'crowd', 'dot', { dur: 2, pitch: 0.9 });
   sfxCue(a + 9, 'patter', 'crowd', 'cube', { dur: 4, gain: 0.3 });
