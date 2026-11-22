@@ -355,15 +355,16 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // ------------------------------------------------------------ where a link is drawn (cellstress's method)
   const CLS_COL = [null, [1.0, 0.7, 0.2], [1.0, 0.25, 0.2], PLACE_COL[13]];
   const flagMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uK: { value: 0.9 } }, transparent: true, depthWrite: false,
-    vertexShader: 'attribute vec3 aCol; varying vec3 vC; void main() { vC = aCol; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform float uA, uK; varying vec3 vC; void main() { gl_FragColor = vec4(vC, uK * uA); }',
+    uniforms: { uA: set.uA, uK: { value: 0.9 }, uAmb: { value: 1 }, uRed: { value: 1 } }, transparent: true, depthWrite: false,
+    // (the amber ones and the red ones each faded on their own, without a new build: cell_amb, cell_red)
+    vertexShader: 'uniform float uAmb, uRed; attribute vec3 aCol; varying vec3 vC; varying float vK; void main() { vC = aCol; vK = aCol.g > 0.5 ? uAmb : uRed; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vK; void main() { gl_FragColor = vec4(vC, uK * uA * vK); }',
   });
   set.mats.push(flagMat);
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
   // impossible, 3 grey) and why grey (1 not a contact, 2 an end without a place)
   const NET = { g: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
-    nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
+    flagK: 0.9, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
   function judgeAll(g) {
     const T = PAIR[g], a = new Int32Array(E), b = new Int32Array(E), cls = new Uint8Array(E), why = new Uint8Array(E);
     for (let l = 0; l < NALL; l++) { NET.lFace[l] = faceOf(lPlace[l], g); NET.lSp[l] = lPlace[l] < 13 ? P.spaces(1 << lPlace[l], g) : 0; }
@@ -515,6 +516,17 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     }
     return take;
   }
+  // share n between the kinds of judgement in proportion to their counts, each kind that has any taking at least
+  // KIND_MIN (so the rare red ones still show), the rest to the possible ones (0); what a kind cannot use goes to the others
+  const KIND_MIN = 100;
+  function shareKinds(sizes, n) {
+    const tot = sizes.reduce((s, x) => s + x, 0), take = sizes.map(() => 0);
+    if (!tot) return take;
+    for (let k = 1; k < sizes.length; k++) take[k] = Math.min(sizes[k], Math.max(KIND_MIN, Math.floor(n * sizes[k] / tot)));
+    take[0] = Math.min(sizes[0], Math.max(0, n - take.reduce((s, x) => s + x, 0)));
+    for (let left = n - take.reduce((s, x) => s + x, 0), k = 1; left > 0 && k < sizes.length; k++) { const d = Math.min(left, sizes[k] - take[k]); take[k] += d; left -= d; }
+    return take;
+  }
   const drop = o => { if (o) { set.group.remove(o); o.geometry.dispose(); } return null; };
   // with kind k of evidence (-1: any)
   const hasKind = (i, k) => k < 0 || (P.kind[i] >> k & 1) === 1;
@@ -539,9 +551,9 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const nOwn = D.loc.length;
     if (show >= 3) for (let l = NLOC; l < NALL; l++) dotOf(l);
     const nOut = D.loc.length - nOwn;
-    // the background: the most important links of the kinds on show, BUDGET at most, shared between the kinds and the
-    // possible ones between the places (both by the square root of their counts)
-    const tk = share(groups.map(x => x.length), BUDGET), byPl = PLACE_COL.map(() => []);
+    // the background: the most important links of the kinds on show, BUDGET at most, shared between the kinds in
+    // proportion to their counts (shareKinds) and the possible ones between the places (by the square root of theirs)
+    const tk = shareKinds(groups.map(x => x.length), BUDGET), byPl = PLACE_COL.map(() => []);
     for (const i of groups[0]) byPl[lPlace[L.a[i]]].push(i);
     const tp = share(byPl.map(x => x.length), tk[0]), list = [];
     byPl.forEach((x, k) => list.push(...x.slice(0, tp[k])));
@@ -555,7 +567,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     // (links through a gate and impossible ones in a draw of their own, at full strength: under the pale cytosol's they
     // would not show)
     if (fg) { NET.flags = new THREE.LineSegments(fg.g, flagMat); NET.flags.renderOrder = 6; NET.flags.frustumCulled = false; set.group.add(NET.flags); }
-    Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
+    Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', bg: list.concat(flagged), drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
       pieces: rg.pieces + (fg ? fg.pieces : 0), ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
   }
@@ -640,7 +652,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
     NU.uFocus.value = prot ? 1 : 0; NU.uPathProg.value = prot ? 10 : 0; NU.uSel.value = prot ? pp : -1; NU.uIso.value = place ? pc : -1;
     RU.uFocus.value = prot ? 1 : 0; RU.uIso.value = place ? pc : -1;
-    flagMat.uniforms.uK.value = prot || place ? 0.15 : 0.9;
+    NET.flagK = prot || place ? 0.15 : 0.9;
     if (geo) {
       // (fainter as there are more of them, so a busy place does not burn white: 0.85 up to 200 lines, about 0.27 at 2,000)
       focusMat.uniforms.uK.value = 0.85 * Math.min(1, Math.sqrt(200 / Math.max(1, links.length)));
@@ -670,7 +682,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // the kinds of evidence, as the panes name them (PDATA.kinds, in its order)
   const KIND_NAME = ['Regulatory', 'Binary', 'Literature', 'Metabolic', 'Complexes', 'Kinase', 'Signalling'];
   return Object.assign(set, {
-    params: { cell_a: 1, cell_shell: 1, cell_show: 0, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1 },
+    params: { cell_a: 1, cell_shell: 1, cell_net: 1, cell_amb: 1, cell_red: 1, cell_show: 0, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1 },
     update(S) {
       const show = clamp(Math.round(S.cell_show), 0, 3), g = S.cell_faces > 0.5 ? 1 : 0, kind = clamp(Math.round(S.cell_kind), -1, 6);
       if (show !== NET.show || g !== NET.g || kind !== NET.kind) build(show, g, kind);
@@ -678,6 +690,11 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       const sh = clamp(S.cell_shell, 0, 1);
       shells.visible = sh > 0.01;
       for (const m of shellMats) m.uniforms.uK.value = sh;
+      // (cell_net: the dots and links, all or none; the story keeps the cell empty until the interactome comes in)
+      const net = clamp(S.cell_net, 0, 1);
+      NU.uAlpha.value = net; RU.uAlpha.value = 0.55 * net; flagMat.uniforms.uK.value = NET.flagK * net;
+      flagMat.uniforms.uAmb.value = clamp(S.cell_amb, 0, 1); flagMat.uniforms.uRed.value = clamp(S.cell_red, 0, 1);
+      for (const o of [NET.dots, NET.routes, NET.flags, NET.extra, FO.mesh]) if (o) o.visible = net > 0.003;
       // points sized as the cell's: in a headset by distance (XR.pointK 0.0028 of the drawn height, in the set's own units),
       // on a screen a fixed size in pixels that grows a little as the camera comes closer
       const xr = GL.renderer && GL.renderer.xr.isPresenting;
@@ -691,6 +708,17 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       pick: pickCopy, places: PLACE_NAME, kinds: KIND_NAME, focus: () => FO.info,
       find: s => { const p = BYSYM.get(String(s || '').trim().toUpperCase()); return p === undefined ? -1 : p; },
       sym: p => P.sym[p] || '',
+      // the story's: the cell's shapes and the places' colours (the other sets draw over it), a protein's number of links,
+      // where a protein without a place would stand outside, and the background as drawn for show (strict, every kind):
+      // its dots (positions, protein, place) and its links (two dots each, a class and a colour)
+      CELL, placeCol: PLACE_COL, deg: p => degP[p] || 0, outPos: p => spot(13, 0, mul(31 * uLoc[p] + 1), 0)[0],
+      net(show) {
+        if (NET.show !== show || NET.g !== 0 || NET.kind !== -1) build(show, 0, -1);
+        const n = NET.nMain, prot = new Uint16Array(n), place = new Uint8Array(n), bg = NET.bg, ab = new Int32Array(2 * bg.length), cls = new Uint8Array(bg.length), col = new Float32Array(3 * bg.length);
+        for (let i = 0; i < n; i++) { prot[i] = lProt[D.loc[i]]; place[i] = lPlace[D.loc[i]]; }
+        bg.forEach((k, j) => { const [a, b] = siteOf(k); ab[2 * j] = a; ab[2 * j + 1] = b; cls[j] = NET.L.cls[k]; col.set(linkCol(k), 3 * j); });
+        return { n, pos: Float32Array.from(D.pos.slice(0, 3 * n)), prot, place, ab, cls, col, tally: NET.tally.slice(), drawnBy: NET.drawnBy.slice() };
+      },
       copy: c => { if (!NET.dots || !(c >= 0 && c < NET.nMain)) return null; const l = D.loc[c]; return { prot: lProt[l], sym: P.sym[lProt[l]], place: lPlace[l], deg: degP[lProt[l]], face: faceText(l), pos: dotPos(c) }; },
     }),
     anchors: { centre: [0, 0, 0], nucleus: CELL.nuc.c, edge: [0.95, 0.35, 0] },
