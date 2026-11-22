@@ -111,8 +111,8 @@ function buildStory() {
   const { GRB2, TP53, STAT3, RELA } = F, quarter = Math.round(100 * F.unplaced / F.N);
   // what is drawn, in round numbers (about 2,000 links; the red ones raised so they show), and the crowd's molecules
   const about = fmt(Math.round(drawn / 100) * 100), redDrawn = Array.from(net.cls).filter(c => c === 2).length, crowdN = GL.sets.crowd.stats().n;
-  // the Protein Data Bank's entries, credited in small print (PPI_STRUCTS's cite strings: 'PDB 1ABC (Someone et al., 2000)')
-  const cite = k => PPI_STRUCTS[k].cite, pdbId = k => cite(k).split(' ')[1], crowdK = GL.sets.crowd.stats().kinds;
+  // the Protein Data Bank's entries, credited in small print (the models' credits, models.json: 'PDB 1ABC (Someone et al., 2000)')
+  const cite = k => molCredit(k), pdbId = k => cite(k).split(' ')[1] || '', crowdK = GL.sets.crowd.stats().kinds;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
@@ -137,7 +137,7 @@ function buildStory() {
       ${turns(`<p data-at="1.5" data-out="20.5">Take one spot of the cytosol, the watery inside of the cell, and look closer.</p>
         <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, not to scale.</p>`,
       `<p data-at="21" data-out="33.5">A whole human cell holds roughly 1 to 10 billion protein molecules, of about ten thousand kinds.</p>
-        <p data-at="22" data-out="33.5" class="credits">Molecules: ubiquitin, calmodulin, actin, GAPDH and tubulin from the Protein Data Bank (${['ubq', 'cam', 'actin', 'gapdh', 'tub'].map(pdbId).join(', ')}), simplified. Their sizes are to scale; only the layers under the cube's faces are drawn.</p>`,
+        <p data-at="22" data-out="33.5" class="credits">Molecules: ubiquitin, calmodulin, actin, GAPDH and tubulin from the Protein Data Bank (${['ubq', 'cam', 'actin', 'gapdh', 'tub'].map(pdbId).join(', ')}), as simplified surfaces. Their sizes are to scale; only the layers under the cube's faces are drawn.</p>`,
       `<p data-at="34">So one dot of the map stands for all the copies of one kind of protein in one place: the bright ones here.</p>
         <p data-at="41" class="amber">One dot per kind and place: ${fmt(F.L)} dots for the ${fmt(F.placed)} proteins with a place.</p>
         <p data-at="37" class="credits">The bright ones: the ${fmt(crowdK.find(k => k[0] === 'cam')[1])} calmodulins drawn.</p>`)}`,
@@ -145,7 +145,7 @@ function buildStory() {
       ${turns(`<p data-at="1.5" data-out="26.5">A cell is not one bag of water. Membranes divide it into spaces: the cytosol, the nucleoplasm inside the nucleus, the inside of the endoplasmic reticulum, the Golgi and every other organelle, and outside the cell.</p>
         <p data-at="14" data-out="26.5" class="amber">Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is a space of its own.</p>`,
       `<p data-at="27" data-out="44.5">A protein in a membrane can face one side or both. A receptor reaches across the plasma membrane: a part outside meets a signal, a part inside meets a partner.</p>
-        <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, one ball per amino acid, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
+        <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="56" class="caption">Close-ups not to scale.</p>
         <p data-at="48" class="credits">The nuclear pore and the import site are simple shapes.</p>`)}`,
@@ -169,26 +169,26 @@ function buildStory() {
         <p data-at="7" data-out="13.5" class="amber">So either the link is wrong, or a place is missing from the Atlas. Where do links come from?</p>`,
       `<ul class="steps">${step(19, 42.5, CYAN, 'Two-hybrid', ` tests in yeast, a single-celled fungus that is easy to grow. Both proteins are made inside one yeast cell, each carrying half of a switch. If they stick together, the halves meet and the yeast turns on a gene that shows. It tells you a pair can stick, not whether they meet in our cells.`)}</ul>
         <p data-at="31" data-out="42.5" class="amber">Binary links come mostly from such tests: ${bin.pct} % of them are impossible (those with both places known).</p>
-        <p data-at="21" data-out="42.5" class="credits">H-Ras and Raf: PDB ${pdbId('rasraf')}. Not to scale.</p>`,
+        <p data-at="21" data-out="42.5" class="credits">H-Ras and Raf: PDB ${pdbId('ras')}, their surfaces. Not to scale.</p>`,
       `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' fishes. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
         <p data-at="55" data-out="65.5" class="amber">Yet complexes, mostly collected by hand from many such studies, agree best: ${cx.pct} % impossible.</p>`,
       `<ul class="steps">${step(66, 83.5, GREEN, 'Proximity labelling', ' works in living cells. The bait, a protein you pick, carries an enzyme that puts a small tag on every protein within about 10 nanometres. The tagged proteins are then fished out. It tells you who was near, not who held on.')}</ul>
         <p data-at="76" data-out="83.5">Large maps made this way came after this interactome.</p>
-        <p data-at="68" data-out="83.5" class="credits">The antibody: PDB ${pdbId('igg')}. BirA: PDB ${pdbId('bira')}. Proteins simplified. Not to scale.</p>`,
+        <p data-at="68" data-out="83.5" class="credits">The antibody: PDB ${pdbId('igg')}. BirA: PDB ${pdbId('bira')}. Their surfaces; the other proteins simplified. Not to scale.</p>`,
       `<p data-at="84" data-out="93.5">Across the ${word(F.byKind.length)} kinds of evidence that suggest contact, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
       `<p data-at="94" data-out="104.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
       `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
     moments: `<h2 data-at="0.6">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
         <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a permanent wire.</p>
-        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995). Partners as chains.</p>`,
+        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners as chains of amino acids.</p>`,
       `<p data-at="36" data-out="44.5">TP53, one of the best-known proteins, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
         <p data-at="40" data-out="44.5">${fmt(TP53.nuc)} of its partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>
-        <p data-at="37" data-out="44.5" class="credits">TP53's core domain: PDB 1TSR (Cho et al., 1994). Not to scale against the pores.</p>`,
+        <p data-at="37" data-out="44.5" class="credits">TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.</p>`,
       `<p data-at="45" data-out="53.5" class="amber">Part of that is fame. TP53 is among the most studied proteins, and ${fmt(TP53.lit)} of its links come from papers. In systematic two-hybrid screens, which test pairs whatever their fame, it ranks ${ordinal(TP53.binRank)}.</p>`,
       `<p data-at="54">The Atlas lists STAT3 in the ${listOf(STAT3.places)}. It sits mostly in the cytosol until a kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
         <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links are in ${word(STAT3.places.length)} places; when each happens is not in this map.</p>
-        <p data-at="56" class="credits">STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: ${pdbId('jak2')}; p300: ${pdbId('p300')}. Not to scale.</p>`)}`,
+        <p data-at="56" class="credits">STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: ${pdbId('jak2')}; p300: ${pdbId('p300')}; their surfaces. Not to scale.</p>`)}`,
     next: `<h2 data-at="0.6">What it would take</h2>
       ${turns(`<p data-at="1.5" data-out="50.5">A map true to a real cell needs where and when each pair meets.</p>
         <ul class="steps">${step(5, 47.5, GREEN, 'Proximity maps', ' start from a bait: a chosen protein fitted with an enzyme that tags every protein near it in a living cell. Hundreds to thousands of baits show who is near whom, place by place')}

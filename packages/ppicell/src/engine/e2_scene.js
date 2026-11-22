@@ -8,3 +8,5 @@ const FRAME = { ball: 'cell', crowd: 'cell', walls: 'cell', lens: 'cell', next: 
 const STRIP_FIT = 0.9;
 //#use frameOf buildScene buildSet sceneJoin updateSets~2 _vd viewDir narrowK lowK applyCamera _yA keepCamera resize
 //#use LV updateLight
+// the protein models (src/models.json, built by tools/mol/build.py into models/; sets/models.js)
+//#use MOLS molLoad molParse molMaterial molMesh molInstanced
