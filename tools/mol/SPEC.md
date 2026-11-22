@@ -19,6 +19,7 @@ A list of models (or `{ "models": [...] }`). Each:
 | `looks` | | which to build, of `["surface", "cartoon", "balls"]` (default: all three) |
 | `lods` | | the surface's triangle targets `[lod0, lod1, lod2]` (default 40,000 / 12,000 / 3,000 for 2,400 heavy atoms, scaled by atoms^0.75, LOD 0 at most 120,000, LOD 2 at least 800) |
 | `sharpness` | | the surface's Gaussian sharpness B (0.8; higher shows more single atoms) |
+| `soft` | | per level of detail, how much to smooth it, in angstroms (default `[0, 0, 0]`): 0 cuts the level down from the detailed surface; more (about 1.5 to 3) builds it from its own blurred density (atoms 0.5 x soft bigger, sharpness / (1 + soft), a grid of 0.8 + 0.6 x soft), a smooth outline that stays the protein's shape with few triangles and shades evenly. Use it for crowds and far views (`lods` small, `soft: [0, 1, 2.5]`) |
 | `step` | | the surface's finest grid step in Å (0.8; made coarser for a big model, at most 5 million grid points) |
 | `orient` | | `true` (default): centred and turned to its own axes (longest along x, then y); `false`: the entry's own coordinates (models cut from one entry then line up: draw them with `centred: false`) |
 | `title`, `credit` | | shown by the story; credit cites the entry and its paper: `"PDB 1GRI (Maignan et al., Science 1995)"` |

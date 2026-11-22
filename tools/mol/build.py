@@ -309,7 +309,7 @@ def surface_ao(grid, lo, h, V, N):
 
 
 def mc_surface(X, rad, B, h):
-    pad = 4.5 + 2 * h
+    pad = max(4.5, float(rad.max()) * math.sqrt(1 + 6.9 / B)) + 2 * h   # (an atom's reach: wider when soft)
     lo = X.min(0) - pad
     shape = tuple(int(s) for s in np.ceil((X.max(0) + pad - lo) / h).astype(int) + 1)
     grid = density(X, rad, h, B, lo, shape)
@@ -611,17 +611,28 @@ def build_model(spec, path):
         targets = spec.get('lods') or [min(LOD0_CAP, int(LODS[0] * k)), int(LODS[1] * k), max(800, int(LODS[2] * k))]
         tree = cKDTree(X)
         out['surface'] = []
-        for tg in targets:
-            if tg < len(F0):
-                V, F = fast_simplification.simplify(V0.astype(np.float32), F0.astype(np.int64), target_reduction=1 - tg / len(F0))
+        # soft: per level, how much to smooth it (angstroms): 0 cuts that level down from the detailed surface; more builds
+        # it from its own blurred density (atoms a little bigger, merging more, on a coarser grid), a smooth outline that
+        # needs few triangles and shades evenly: what a crowd seen from afar wants (cut down from the detailed surface, a
+        # few hundred triangles look crumpled)
+        soft = spec.get('soft', [0, 0, 0])
+        made = {0: (V0, F0, grid, glo, G, h)}
+        for li, tg in enumerate(targets):
+            s = float(soft[li]) if li < len(soft) else 0.0
+            if s not in made:
+                hs = max(h, 0.8 + 0.6 * s)
+                made[s] = (*mc_surface(X, rad + 0.5 * s, spec.get('sharpness', SHARP) / (1 + s), hs), hs)
+            Vs, Fs, gs, gl, Gs, hs = made[s]
+            if tg < len(Fs):
+                V, F = fast_simplification.simplify(Vs.astype(np.float32), Fs.astype(np.int64), target_reduction=1 - tg / len(Fs))
                 V = V.astype(float)
             else:
-                V, F = V0, F0
-            N = -np.stack([sample(g, V, glo, h) for g in G], 1)
+                V, F = Vs, Fs
+            N = -np.stack([sample(g, V, gl, hs) for g in Gs], 1)
             N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-9)
             _, near = tree.query(V)
             ri = owner[near]
-            ao = surface_ao(grid, glo, h, V, N)
+            ao = surface_ao(gs, gl, hs, V, N)
             out['surface'].append(geometry(blob, V, N, rgb[ri], ao, ri, F, q))
         info['surface'] = f'{len(F0)} triangles at {h:.2f} A'
     if 'cartoon' in looks and any(r['kind'] < 2 for r in res):

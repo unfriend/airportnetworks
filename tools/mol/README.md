@@ -86,7 +86,9 @@ The entries' files are downloaded from <https://files.rcsb.org/download/> the fi
    SETS.close.prep = () => molReady(f => pkgUrl('models/' + f), ['grb2', 'stat3']);
    ```
 
-   A crowd of one model in one draw:
+   A crowd of one model in one draw (give a crowd model a small `lods` and `soft: [0, 1, 2.5]`: its far level is then
+   built from a blurred density, a smooth outline of the protein that reads well at a few hundred triangles, where a
+   level cut down from the detailed surface looks crumpled; see SPEC.md, `soft`):
 
    ```js
    const crowd = molInstanced(set, 'ubq', { look: 'surface', lod: 2, count: 400, width: 0.04 });

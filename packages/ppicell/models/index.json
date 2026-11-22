@@ -6,8 +6,8 @@
    "title": "GRB2, full length",
    "credit": "PDB 1GRI (Maignan et al., Science 1995)",
    "file": "grb2.mol",
-   "fp": "6802d9b651309f1e",
-   "bytes": 544228,
+   "fp": "dd70770d4831eb56",
+   "bytes": 544248,
    "radius": 36.415,
    "size": [
     66.1415,
@@ -21,18 +21,18 @@
    "looks": {
     "surface": [
      30000,
-     8998,
+     9000,
      2400
     ]
    },
-   "src": "f2e0e153fa31401e"
+   "src": "f591d99613fe9f92"
   },
   {
    "name": "tp53",
    "title": "TP53's core domain",
    "credit": "PDB 1TSR (Cho et al., Science 1994)",
    "file": "tp53.mol",
-   "fp": "359242aa40a21d0a",
+   "fp": "5424ff73d4f8d7f5",
    "bytes": 406140,
    "radius": 31.218,
    "size": [
@@ -51,15 +51,15 @@
      1798
     ]
    },
-   "src": "b6c094ba6a6615dd"
+   "src": "32411d1bb1ef3b2c"
   },
   {
    "name": "stat3a",
    "title": "STAT3 (the pair's first)",
    "credit": "PDB 1BG1 (Becker et al., Nature 1998)",
    "file": "stat3a.mol",
-   "fp": "a455971c32ce0f04",
-   "bytes": 482136,
+   "fp": "07142710cd8a428c",
+   "bytes": 482128,
    "radius": 79.798,
    "size": [
     101.549,
@@ -72,20 +72,20 @@
    ],
    "looks": {
     "surface": [
-     26000,
-     7998,
+     25998,
+     8000,
      2000
     ]
    },
-   "src": "d1404413d2e02258"
+   "src": "88ea0cd3247a891e"
   },
   {
    "name": "stat3b",
    "title": "STAT3 (the pair's second)",
    "credit": "PDB 1BG1 (Becker et al., Nature 1998)",
    "file": "stat3b.mol",
-   "fp": "aad3a7a30c57ed99",
-   "bytes": 482172,
+   "fp": "9744ece295798a23",
+   "bytes": 482144,
    "radius": 79.798,
    "size": [
     101.549,
@@ -103,15 +103,15 @@
      2000
     ]
    },
-   "src": "74b043e668766e4e"
+   "src": "aa39d6d2de328be7"
   },
   {
    "name": "stat3dna",
    "title": "the DNA STAT3 binds",
    "credit": "PDB 1BG1 (Becker et al., Nature 1998)",
    "file": "stat3dna.mol",
-   "fp": "a0de137baf5adfe0",
-   "bytes": 157732,
+   "fp": "dd195a270398f4cb",
+   "bytes": 157772,
    "radius": 32.986,
    "size": [
     26.958,
@@ -125,12 +125,12 @@
    ],
    "looks": {
     "surface": [
-     7998,
-     2998,
+     8000,
+     3000,
      1000
     ]
    },
-   "src": "f40130623cec9232"
+   "src": "72334ff92fa30588"
   },
   {
    "name": "b2ar",
@@ -156,15 +156,15 @@
      5620
     ]
    },
-   "src": "27efaf65a947619f"
+   "src": "fac6770b4f355e2e"
   },
   {
    "name": "ras",
    "title": "H-Ras",
    "credit": "PDB 4G0N",
    "file": "ras.mol",
-   "fp": "d76056983fa74a05",
-   "bytes": 336168,
+   "fp": "df8965c7368064b1",
+   "bytes": 336140,
    "radius": 27.035,
    "size": [
     45.262,
@@ -178,19 +178,19 @@
    "looks": {
     "surface": [
      18000,
-     6000,
+     5998,
      1498
     ]
    },
-   "src": "3f2805aedc480ac5"
+   "src": "dfc7fe61f6d63df9"
   },
   {
    "name": "raf",
    "title": "Raf's Ras-binding domain",
    "credit": "PDB 4G0N",
    "file": "raf.mol",
-   "fp": "73f1e66f152f5db7",
-   "bytes": 191268,
+   "fp": "bc3e8fb04f8b2d6d",
+   "bytes": 191288,
    "radius": 22.684,
    "size": [
     30.541,
@@ -204,19 +204,19 @@
    "looks": {
     "surface": [
      10000,
-     3498,
+     3500,
      998
     ]
    },
-   "src": "909b254a4540c4cf"
+   "src": "7a0028bf3afd691a"
   },
   {
    "name": "igg",
    "title": "an antibody (IgG)",
    "credit": "PDB 1IGT (Harris et al., 1997)",
    "file": "igg.mol",
-   "fp": "c5bbed55dea63389",
-   "bytes": 682064,
+   "fp": "ea3e43fe521c9b23",
+   "bytes": 682252,
    "radius": 98.654,
    "size": [
     166.6797,
@@ -237,15 +237,15 @@
      3000
     ]
    },
-   "src": "4b4ee11334ad2c59"
+   "src": "8ab20c4ca156045f"
   },
   {
    "name": "bira",
    "title": "biotin ligase (BirA, E. coli)",
    "credit": "PDB 1BIA (Wilson et al., 1992)",
    "file": "bira.mol",
-   "fp": "1c2751ebbb96867d",
-   "bytes": 339488,
+   "fp": "7a045c67c52511c6",
+   "bytes": 339456,
    "radius": 42.061,
    "size": [
     79.8804,
@@ -259,19 +259,19 @@
    "looks": {
     "surface": [
      18000,
-     6000,
+     5998,
      1500
     ]
    },
-   "src": "4941f5d9f66513d5"
+   "src": "376851a5ed69f8e7"
   },
   {
    "name": "jak2",
    "title": "JAK2's kinase domain",
    "credit": "PDB 2B7A",
    "file": "jak2.mol",
-   "fp": "ad3513df0dd981b5",
-   "bytes": 339120,
+   "fp": "3d3f0140fd2e3f35",
+   "bytes": 339112,
    "radius": 36.699,
    "size": [
     67.0462,
@@ -289,15 +289,15 @@
      1500
     ]
    },
-   "src": "6f7e74e55bbf73f7"
+   "src": "98f2b6c07f2ab40c"
   },
   {
    "name": "p300",
    "title": "p300's acetyltransferase domain",
    "credit": "PDB 3BIY (Liu et al., 2008)",
    "file": "p300.mol",
-   "fp": "0050cf8726a19eed",
-   "bytes": 340008,
+   "fp": "14721cbadb160b17",
+   "bytes": 340112,
    "radius": 37.747,
    "size": [
     66.5724,
@@ -311,19 +311,19 @@
    "looks": {
     "surface": [
      18000,
-     5998,
+     6000,
      1500
     ]
    },
-   "src": "fb2fdfd858392103"
+   "src": "9614e6b91b7c8846"
   },
   {
    "name": "ubq",
    "title": "ubiquitin",
    "credit": "PDB 1UBQ (Vijay-Kumar et al., 1987)",
    "file": "ubq.mol",
-   "fp": "672a3286ed21ed64",
-   "bytes": 26864,
+   "fp": "c4c0191f44f3d1c8",
+   "bytes": 27672,
    "radius": 24.373,
    "size": [
     46.089,
@@ -338,18 +338,18 @@
     "surface": [
      1200,
      498,
-     160
+     220
     ]
    },
-   "src": "a2120c7f67ecc1f3"
+   "src": "f78c0b5d71246546"
   },
   {
    "name": "cam",
    "title": "calmodulin",
    "credit": "PDB 1CLL (Chattopadhyaya et al., 1992)",
    "file": "cam.mol",
-   "fp": "6b4bf43c64fa29b9",
-   "bytes": 35900,
+   "fp": "1373b0197d02165d",
+   "bytes": 36620,
    "radius": 36.354,
    "size": [
     70.4633,
@@ -362,20 +362,20 @@
    ],
    "looks": {
     "surface": [
-     1600,
-     600,
-     218
+     1598,
+     598,
+     278
     ]
    },
-   "src": "4ed44dfb70a1c671"
+   "src": "1aabb48fc602b045"
   },
   {
    "name": "actin",
    "title": "actin",
    "credit": "PDB 1ATN (Kabsch et al., 1990)",
    "file": "actin.mol",
-   "fp": "5555256d8b645205",
-   "bytes": 56664,
+   "fp": "7f4fb89c1d23aa2f",
+   "bytes": 57876,
    "radius": 39.693,
    "size": [
     75.7059,
@@ -388,20 +388,20 @@
    ],
    "looks": {
     "surface": [
-     2398,
+     2400,
      898,
-     298
+     378
     ]
    },
-   "src": "61452d01e170500b"
+   "src": "6005ddf885a3651b"
   },
   {
    "name": "gapdh",
    "title": "GAPDH (four chains)",
    "credit": "PDB 1U8F (Jenkins and Tanner, 2006)",
    "file": "gapdh.mol",
-   "fp": "3f77f41b299c9950",
-   "bytes": 112056,
+   "fp": "7dadc2b5e3c10b0f",
+   "bytes": 113676,
    "radius": 52.006,
    "size": [
     90.5415,
@@ -417,20 +417,20 @@
    ],
    "looks": {
     "surface": [
-     4000,
-     1498,
-     498
+     3998,
+     1500,
+     620
     ]
    },
-   "src": "7796e0eb04ad5bbb"
+   "src": "1f191cabfb077892"
   },
   {
    "name": "tub",
    "title": "tubulin (an alpha-beta pair)",
    "credit": "PDB 1JFF (Lowe et al., 2001)",
    "file": "tub.mol",
-   "fp": "a7f1971b516a767a",
-   "bytes": 84052,
+   "fp": "dff6fb70bcf9e712",
+   "bytes": 85464,
    "radius": 55.251,
    "size": [
     105.0704,
@@ -445,11 +445,11 @@
    "looks": {
     "surface": [
      3200,
-     1198,
-     398
+     1200,
+     498
     ]
    },
-   "src": "d4ffd90a9b1d72b6"
+   "src": "120af390087dadd2"
   }
  ]
 }
