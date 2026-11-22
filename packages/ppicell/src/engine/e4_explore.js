@@ -12,10 +12,11 @@ const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
 // (the cell opens on the possible links and those through a gate, without the impossible ones: the owner, 22 November
 // 2026; EXPLORE_START, as entering explore mode from the story does too)
 const EXPLORE_START = { cell: { show: '1' } };
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
+// ties: a picked protein's copies joined by fine dots (1, the Pick tab's Copies switch) or not (0)
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, ties: 1 };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc']);
+const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -31,7 +32,7 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc });
+  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_ties: X.ties });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -49,17 +50,24 @@ function setPick(pp, pc, ui) {
   if (ui && (pp >= 0 || pc >= 0)) sfxAct('clink', 'cell', 'centre');
   pushState(); renderAll();
 }
+// the Copies switch: a picked protein's copies joined by fine dots, or not
+function setTies(on, ui) {
+  if (X.ties === on) return;
+  X.ties = on;
+  if (ui) sfxAct('step', 'cell', null);
+  pushState(); renderAll();
+}
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 1;
+const COLLAB_V = 2;   // (2: copies, the Copies switch)
 //#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc };
+  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, copies: X.ties };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
@@ -74,6 +82,7 @@ function collabApply(v) {
   }
   const okP = x => Number.isInteger(x) && x >= -1 && x < PDATA.N, okC = x => Number.isInteger(x) && x >= -1 && x < 13;
   if (okP(v.p) && okC(v.place) && (v.p !== X.pp || v.place !== X.pc)) { X.pp = v.p; X.pc = v.place; }
+  if ((v.copies === 0 || v.copies === 1) && v.copies !== X.ties) X.ties = v.copies;
   renderAll();
 }
 
@@ -93,6 +102,7 @@ function buildExplore() {
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
       place: () => setPick(-1, +v, true),
       clear: () => setPick(-1, -1, false),
+      copies: () => setTies(+v, true),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -114,12 +124,14 @@ function pickLine() {
   if (f.kind === 'protein') {
     if (f.none) return `${f.sym} has no place in the Atlas: its ${many(f.links, 'link')}${kindWords()} ${f.links === 1 ? 'is' : 'are'} drawn grey, from its dot outside the cell.`;
     const [g, a, r, n] = f.t, pl = f.places.map(x => `${x.name}${x.main ? ' (main)' : ''}, ${x.face}`);
-    return `${f.sym}: ${pl.join('; ')}. ${many(f.links, 'link')}${kindWords()} to ${many(f.partners, 'partner')}: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${n ? `; ${fmt(n)} not judged (grey: ${fmt(f.why[0])} not contacts, ${fmt(f.why[1])} to a protein without a place)${GL.sets.cell.stats().show >= 3 ? '' : ', not drawn'}` : ''}.${f.drawn < f.links && f.drawn >= 2000 ? ` The first ${fmt(f.drawn)} drawn.` : ''}`;
+    return `${f.sym}: ${pl.join('; ')}. ${many(f.links, 'link')}${kindWords()} to ${many(f.partners, 'partner')}: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${n ? `; ${fmt(n)} not judged (grey: ${fmt(f.why[0])} not contacts, ${fmt(f.why[1])} to a protein without a place)${GL.sets.cell.stats().show >= 3 ? '' : ', not drawn'}` : ''}.${f.drawn < f.links && f.drawn >= 2000 ? ` The first ${fmt(f.drawn)} drawn.` : ''}${f.copies > 1 ? ` Drawn as ${fmt(f.copies)} dots${f.ties ? ', joined by fine dots' : ''}.` : ''}`;
   }
   // (the cytoskeleton runs through the whole cell; drawn along a few fibres here, so the cell stays readable)
   const cyto = f.place === 11 ? ' In a real cell the cytoskeleton runs everywhere; here its proteins sit along a few fibres, so the cell stays readable.' : '';
   return `${f.name}: ${fmt(f.here)} proteins listed here.${cyto} ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links${kindWords()} inside it, the most kinds of evidence first` : `All ${fmt(f.inner)} possible links${kindWords()} inside it`}.`;
 }
+// the Copies switch, in words (both panes)
+const COPIES_TEXT = 'A protein in several places, or drawn again beside its partners and at gates, has several dots: fine grey dots join them.';
 // '1 link', '3 links'
 const many = (n, w) => `${fmt(n)} ${w}${n === 1 ? '' : 's'}`;
 // a protein's links by kind of evidence (a link can have several kinds): the second line of the pick
@@ -153,7 +165,9 @@ function renderPick() {
   const names = api('cell').places || [];
   $('#pickBody').innerHTML = `<div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
     <p class="sub">${esc(pickLine())}</p>${kindsLine() ? `<p class="sub">${esc(kindsLine())}</p>` : ''}
-    ${X.pp >= 0 || X.pc >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}`;
+    ${X.pp >= 0 || X.pc >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}
+    <p class="grp-h">Copies</p><div class="chips">${[[1, 'On'], [0, 'Off']].map(([v, n]) => chip(`data-act="copies" data-v="${v}"`, n, X.ties === v)).join('')}</div>
+    <p class="sub">${esc(COPIES_TEXT)}</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');

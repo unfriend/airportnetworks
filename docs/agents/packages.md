@@ -233,7 +233,7 @@ from the community, faces for drawing from the reading (`faceOf`: plasma membran
 facing their inner side (strict) or both (generous); organelle proteins inside (strict) or on the membrane facing both
 (generous)), importance = number of evidence kinds then the paper's order (`ORDER`), 2,000 links shared as cellstress.
 Controls `show` (0 to 3: + not judged, grey), `faces` (strict, generous), `kind` (-1 all, 0 to 6), `shells`, `view`;
-the *Pick* tab adds a symbol box on the page. Shared `{ v: 1, tab, scene, ctl, p, place }`; address
+the *Pick* tab adds a symbol box on the page. Shared `{ v: 2, tab, scene, ctl, p, place, copies }` (`&copies=off` in the address); address
 `#ppicell&explore&show=2&faces=0&kind=1&p=TP53&place=4` (`p` by symbol, any case, wins over `place`; either opens the Pick
 tab). A link of a protein with itself counts once (GRB2 871 links, TP53 449). The story (`e3_story.js`) is a one-chapter
 placeholder until builder B's.

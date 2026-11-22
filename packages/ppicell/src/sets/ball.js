@@ -68,10 +68,13 @@ SETS.ball = function (K) {
   // the way from the ball to the cell, shared by dots and links: the ball turns (uRot) and stands at uOff; a dot leaves at
   // aWhen and takes FLY of the morph to land, bowing outwards on the way
   const U = { uA: set.uA, uPx: K.U.uPx, uM: { value: 0 }, uRot: { value: 0 }, uOff: { value: new THREE.Vector3() }, uTint: { value: 0 },
-    uIn: { value: 1 }, uOutA: { value: 1 }, uHl: { value: 0 } };
+    uIn: { value: 1 }, uOutA: { value: 1 }, uHl: { value: 0 }, uSwOn: { value: 0 }, uSw0: { value: 0 }, uSwW: { value: 1 } };
   const WAY = `
-uniform float uM, uRot, uTint, uIn, uOutA, uHl; uniform vec3 uOff;
+uniform float uM, uRot, uTint, uIn, uOutA, uHl, uSwOn; uniform vec3 uOff;
 attribute vec3 aStart; attribute float aWhen;
+// (a highlight, ball_hi: the protein lights first (hP), then its links and partners (hL); only in the hairball)
+float hiP(float u) { return smoothstep(0.0, 0.35, uHl) * (1.0 - u); }
+float hiL(float u) { return smoothstep(0.4, 1.0, uHl) * (1.0 - u); }
 float flyU() { return smoothstep(0.0, 1.0, clamp((uM - aWhen) / 0.42, 0.0, 1.0)); }
 vec3 way(float u) {
   float c = cos(uRot), s = sin(uRot);
@@ -88,13 +91,14 @@ void main() {
   float u = flyU();
   vec4 mv = modelViewMatrix * vec4(way(u), 1.0);
   gl_Position = projectionMatrix * mv;
-  // (a highlight, ball_hi: the protein (aHi 2) and its partners (1) stand out, the rest dims)
-  float hi = uHl * (1.0 - u), on = step(0.5, aHi);
-  gl_PointSize = pointPx(aSize, mv) * (1.0 + hi * (0.5 * on + 0.8 * step(1.5, aHi)));
+  // (a highlight, ball_hi: the protein (aHi 2) lights first, then its partners (1) with its links; the rest dims a
+  // little, still seen)
+  float on = step(0.5, aHi), me = step(1.5, aHi), hP = hiP(u), lit = me * hP + (1.0 - me) * on * hiL(u);
+  gl_PointSize = pointPx(aSize, mv) * (1.0 + lit * (0.5 + 2.0 * me));
   vec3 pale = vec3(0.5, 0.68, 1.0);
   vC = mix(pale, aOut > 0.5 ? vec3(0.5, 0.53, 0.58) : aCol, u) * mix(1.0, 0.75, aOut * u);
-  vC = mix(vC, step(1.5, aHi) > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), hi * on);
-  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * mix(1.0, mix(0.3, 4.0, on), hi);
+  vC = mix(vC, me > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), lit);
+  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * (on > 0.5 ? mix(1.0, 4.0, lit) : mix(1.0, 0.6, hP));
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `uniform float uA; varying vec3 vC; varying float vA;
@@ -124,7 +128,12 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
   // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
   float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
-  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.7 * uHl * (1.0 - u));
+  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint);
+  // (while a protein's links are lit the others turn a cooler violet, a little fainter, still seen: the owner, 22
+  // November 2026; while the sweep runs they step back)
+  float hP = hiP(u);
+  vC = mix(vC, vec3(0.55, 0.5, 1.0) * 0.5, hP);
+  vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.3 * hP) * (1.0 - 0.7 * uSwOn * (1.0 - u));
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
@@ -144,13 +153,41 @@ varying float vA;
 void main() {
   float u = flyU();
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
-  vA = uHl * (1.0 - u);
+  vA = hiL(u);
 }`,
-    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.4 * vA * uA); }',
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.3 * vA * uA); }',
   });
   set.mats.push(hiMat);
   const hiLines = new THREE.LineSegments(hg, hiMat); hiLines.frustumCulled = false; hiLines.renderOrder = 6; hiLines.visible = false;
   set.group.add(hiLines);
+  // ------------------------------------------------------------ the sweep: every link of the map lit once
+  // ball_sweep (0 to 1, ramped): all P.E links, round the ball like a lighthouse's beam, lit in a moving window of SW at
+  // a time (a draw range: never more than SW drawn; the owner, 22 November 2026: "show all of them in sequence so that
+  // it never exceeds 2000"); only in the hairball, which stands still then (morph 0)
+  const SW = 2000, order = [];
+  for (let i = 0; i < P.E; i++) if (P.la[i] !== P.lb[i]) order.push(i);
+  const NS = order.length, sKey = new Float32Array(P.E);
+  // (the bearing of its outer end: the beam turns round the rim, each link lit from there in to its other end)
+  for (const i of order) { const a = rad[P.la[i]] > rad[P.lb[i]] ? 3 * P.la[i] : 3 * P.lb[i]; sKey[i] = Math.atan2(home[a + 2], home[a]); }
+  order.sort((x, y) => sKey[x] - sKey[y]);
+  const sg = new THREE.BufferGeometry(), sp = new Float32Array(6 * NS), sk = new Uint16Array(2 * NS);
+  order.forEach((i, r) => { sp.set(home.subarray(3 * P.la[i], 3 * P.la[i] + 3), 6 * r); sp.set(home.subarray(3 * P.lb[i], 3 * P.lb[i] + 3), 6 * r + 3); sk[2 * r] = sk[2 * r + 1] = Math.round(65535 * r / NS); });
+  sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('aK', new THREE.BufferAttribute(sk, 1, true));
+  const swMat = new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `uniform float uRot, uSw0, uSwW; uniform vec3 uOff; attribute float aK; varying float vA;
+void main() {
+  float c = cos(uRot), s = sin(uRot);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(vec3(c * position.x + s * position.z, position.y, -s * position.x + c * position.z) + uOff, 1.0);
+  float x = (aK - uSw0) / uSwW;
+  vA = clamp(1.0 - abs(2.0 * x - 1.0), 0.0, 1.0);   // (soft at both ends of the window)
+}`,
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(0.8, 0.94, 1.0, 0.08 * vA * uA); }',
+  });
+  set.mats.push(swMat);
+  const sweep = new THREE.LineSegments(sg, swMat); sweep.frustumCulled = false; sweep.renderOrder = 6; sweep.visible = false;
+  set.group.add(sweep);
+
   let HI = -1;
   function highlight(p) {
     HI = p;
@@ -176,8 +213,9 @@ void main() {
   return Object.assign(set, {
     // ball_move: 0 beside the cell, 1 over it; ball_morph: 0 the hairball, 1 every dot in its place; ball_tint: the links
     // in their judgement's colours; ball_in: the dots and links in the cell (0 once the cell's own take over); ball_out:
-    // the proteins without a place; ball_hi: a protein whose links stand out (-1 none; a step param) and ball_hl its fade
-    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0 },
+    // the proteins without a place; ball_hi: a protein whose links stand out (-1 none; a step param) and ball_hl its fade (the protein in its first third, its
+    // links in the rest); ball_sweep: every link of the map lit in turn (0 to 1)
+    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, ball_sweep: 0 },
     update(S, t) {
       M = clamp(S.ball_move, 0, 1);
       U.uM.value = clamp(S.ball_morph, 0, 1) * 1.0;
@@ -187,12 +225,21 @@ void main() {
       const h = Math.round(S.ball_hi);
       if (h !== HI) highlight(h >= 0 && h < NP ? h : -1);
       U.uHl.value = HI >= 0 ? clamp(S.ball_hl, 0, 1) : 0;
+      // (the sweep's window: from before the first link to past the last, so it starts and ends with none lit)
+      const sw = clamp(S.ball_sweep || 0, 0, 1), wF = SW / NS, s0 = sw * (1 + wF) - wF;
+      sweep.visible = sw > 0 && sw < 1 && U.uM.value < 0.01;
+      U.uSwOn.value = sweep.visible ? Math.min(1, sw / 0.04, (1 - sw) / 0.04) : 0;
+      U.uSw0.value = s0; U.uSwW.value = wF;
+      const r0 = clamp(Math.floor(s0 * NS) - 2, 0, NS);
+      sg.setDrawRange(2 * r0, 2 * Math.min(SW + 4, NS - r0));
     },
-    anchors: { ball: () => at([0, 0, 0], M), top: () => at([0, R0 * 1.05, 0], M), hub: () => at([0, 0, 0], M), side: () => at([0, -R0 * 1.05, 0], M),
+    anchors: { ball: () => at([0, 0, 0], M), top: () => at([0, R0 * 1.05, 0], M),
+      // (the biggest hub's own dot, GRB2's, as the ball turns: the shader's turn, uRot)
+      hub: () => { const c = Math.cos(U.uRot.value), s = Math.sin(U.uRot.value), x = home[3 * hub], z = home[3 * hub + 2]; return at([c * x + s * z, home[3 * hub + 1], -s * x + c * z], M); }, side: () => at([0, -R0 * 1.05, 0], M),
       outside: [-0.2, -1.2, 0.2] },
     labels: [],
     // (the hairball and the empty cell side by side; the cell's own views once it has moved in)
     cam: { default: [12, 10, 6.0, -1.0, 0, 0], ball: [12, 8, 3.4, -2.0, 0, 0], cell: [20, 14, 3.6, 0, 0, 0] },
-    stats: () => ({ dots: ND, links: NL, unplaced: unpl.length, hub }),
+    stats: () => ({ dots: ND, links: NL, unplaced: unpl.length, hub, sweep: NS }),
   });
 };

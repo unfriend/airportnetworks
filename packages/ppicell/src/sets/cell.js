@@ -291,6 +291,16 @@ void main() {
   });
   nodeMat.uniforms.uA = set.uA;
   set.mats.push(nodeMat);
+  // the dots' depth alone, drawn first: each dot's core (not its soft rim) hides what is behind it, so a link passing
+  // behind a dot is hidden there, and the links drawn after the dots no longer cover dots in front of them (the owner,
+  // 22 November 2026: the red links drew over everything)
+  const nodeZMat = new THREE.ShaderMaterial({
+    uniforms: NU, transparent: true, depthWrite: true, colorWrite: false,
+    vertexShader: nodeMat.vertexShader,
+    fragmentShader: `uniform float uA; varying vec3 vCol; varying float vA, vRing;
+void main() { if (length(gl_PointCoord - 0.5) > 0.26 || vA * uA < 0.3) discard; gl_FragColor = vec4(0.0); }`,
+  });
+  set.mats.push(nodeZMat);
   const RU = { uReveal: { value: 1 }, uAlpha: { value: 0.55 },   // (0.55: the cell's links at full strength)
     uWPlace: { value: 1 }, uIso: { value: -1 }, uFocus: { value: 0 }, uProxOn: { value: 0 },
     uBase: { value: new THREE.Vector3(0.45, 0.7, 1.0) }, uScen: { value: scen }, uA: set.uA };
@@ -364,6 +374,11 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vK; void main() { gl_FragColor = vec4(vC, uK * uA * vK); }',
   });
   set.mats.push(flagMat);
+  // (and a faint copy of them not hidden by the dots, a little under half as strong, so the flagged links still read through a
+  // dense place without drawing over the dots in front at full strength)
+  const flagGhost = new THREE.ShaderMaterial({ uniforms: flagMat.uniforms, transparent: true, depthWrite: false, depthTest: false,
+    vertexShader: flagMat.vertexShader, fragmentShader: flagMat.fragmentShader.replace('uK * uA * vK', '0.45 * uK * uA * vK') });
+  set.mats.push(flagGhost);
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
   // impossible, 3 grey) and why grey (1 not a contact, 2 an end without a place)
   const NET = { g: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
@@ -496,17 +511,26 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     for (let i = 0; i < S; i++) out.push(q(i / S), q((i + 1) / S));
   }
   const linkCol = k => (NET.L.cls[k] ? CLS_COL[NET.L.cls[k]] : v3.lerp(PLACE_COL[lPlace[NET.L.a[k]]], PLACE_COL[lPlace[NET.L.b[k]]], 0.5));
-  // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol)
-  function linesGeo(list, dashes, arc) {
+  // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol);
+  // dashed (a pick's links: dashes DASH_L to a unit, in their colours) and the ties between a protein's copies (fine
+  // dots, DASH_T to a unit, a neutral light grey): the two styles told apart at a glance
+  const DASH_L = 34, DASH_T = 120, TIE_COL = [0.86, 0.89, 0.93];
+  function linesGeo(list, dashes, arc, dashed) {
     const segs = [], col = [], plA = [], plB = [], dash = [];
     for (const k of list) {
       const n0 = segs.length, c = linkCol(k);
       linkPts(k, segs, arc);
-      for (let j = n0; j < segs.length; j++) { col.push(c); plA.push(lPlace[NET.L.a[k]]); plB.push(lPlace[NET.L.b[k]]); dash.push(0); }
+      // (aDash: the distance along the link, in dashes, so an arc's pieces carry the dashes on)
+      let run = 0;
+      for (let j = n0; j < segs.length; j++) {
+        col.push(c); plA.push(lPlace[NET.L.a[k]]); plB.push(lPlace[NET.L.b[k]]);
+        if (dashed && (j & 1)) run += v3.len(v3.sub(segs[j], segs[j - 1])) * DASH_L;
+        dash.push(dashed ? run : 0);
+      }
     }
     for (const [da, db] of dashes || []) {
-      const pa = dotPos(da), pb = dotPos(db), d = v3.len(v3.sub(pb, pa)) * 70;
-      segs.push(pa, pb); col.push([1, 0.88, 0.62], [1, 0.88, 0.62]); plA.push(0, 0); plB.push(0, 0); dash.push(d, d);
+      const pa = dotPos(da), pb = dotPos(db), d = -v3.len(v3.sub(pb, pa)) * DASH_T;   // (negative: fine dots)
+      segs.push(pa, pb); col.push(TIE_COL, TIE_COL); plA.push(0, 0); plB.push(0, 0); dash.push(0, d);
     }
     const V = segs.length, g = new THREE.BufferGeometry(), Pp = new Float32Array(V * 3), C = new Float32Array(V * 3), T = new Float32Array(V);
     segs.forEach((p, i) => { Pp.set(p, 3 * i); C.set(col[i], 3 * i); T[i] = i % 2; });
@@ -560,7 +584,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   const BUDGET = 2000;
   function build(show, g, kind) {
     const t0 = performance.now();
-    NET.dots = drop(NET.dots); NET.routes = drop(NET.routes); NET.flags = drop(NET.flags); NET.extra = drop(NET.extra);
+    NET.dots = drop(NET.dots); NET.dotsZ = drop(NET.dotsZ); NET.flagsG = drop(NET.flagsG); NET.routes = drop(NET.routes); NET.flags = drop(NET.flags); NET.extra = drop(NET.extra);
     if (FO.mesh) FO.mesh = drop(FO.mesh);
     D.pos = []; D.loc = []; D.cC = []; D.cR = []; D.keys = []; D.key = new Map();
     if (g !== NET.g) judgeAll(g);
@@ -589,11 +613,13 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const rg = linesGeo(list), fg = flagged.length ? linesGeo(flagged) : null;   // (their dots are added here)
     NET.nMain = D.loc.length;
     NET.dots = new THREE.Points(dotsGeo(0, NET.nMain), nodeMat); NET.dots.renderOrder = 5; NET.dots.frustumCulled = false;
-    NET.routes = new THREE.LineSegments(rg.g, routeMat); NET.routes.renderOrder = 4; NET.routes.frustumCulled = false;
-    set.group.add(NET.dots, NET.routes);
+    NET.routes = new THREE.LineSegments(rg.g, routeMat); NET.routes.renderOrder = 5.5; NET.routes.frustumCulled = false;
+    NET.dotsZ = new THREE.Points(NET.dots.geometry, nodeZMat); NET.dotsZ.renderOrder = 4.9; NET.dotsZ.frustumCulled = false;
+    set.group.add(NET.dotsZ, NET.dots, NET.routes);
     // (links through a gate and impossible ones in a draw of their own, at full strength: under the pale cytosol's they
     // would not show)
-    if (fg) { NET.flags = new THREE.LineSegments(fg.g, flagMat); NET.flags.renderOrder = 6; NET.flags.frustumCulled = false; set.group.add(NET.flags); }
+    if (fg) { NET.flags = new THREE.LineSegments(fg.g, flagMat); NET.flags.renderOrder = 6; NET.flags.frustumCulled = false; set.group.add(NET.flags);
+      NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 5.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
     Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', bg: list.concat(flagged), drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
       pieces: rg.pieces + (fg ? fg.pieces : 0), ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
@@ -609,8 +635,9 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   const focusMat = new THREE.ShaderMaterial({
     // (normal blending: where many meet, at a hub, they keep their colours instead of adding up to white)
     uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false,
-    vertexShader: 'attribute vec3 aCol; attribute float aDash, aT; varying vec3 vC; varying float vD; void main() { vC = aCol; vD = aDash * aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vD; void main() { if (vD > 0.0 && fract(vD) > 0.55) discard; gl_FragColor = vec4(vC, uK * uA); }',
+    vertexShader: 'attribute vec3 aCol; attribute float aDash; varying vec3 vC; varying float vD; void main() { vC = aCol; vD = aDash; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    // (vD above 0: a link's dashes, long; below 0: a copy tie's fine dots)
+    fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vD; void main() { if (vD > 0.0 && fract(vD) > 0.6) discard; if (vD < 0.0 && fract(-vD) > 0.3) discard; gl_FragColor = vec4(vC, uK * uA); }',
   });
   set.mats.push(focusMat);
   const FO = { mesh: null, info: null };
@@ -620,8 +647,8 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     if (!f) return `in ${SPACE_NAME[INNER[pl]]}`;
     return `in the membrane, facing ${f === 3 ? `${SPACE_NAME[INNER[pl]]} and ${SPACE_NAME[OUTER[pl]]}` : SPACE_NAME[f === 1 ? INNER[pl] : OUTER[pl]]}`;
   };
-  function setFocus(pp, pc) {
-    const key = `${NET.g}|${NET.show}|${NET.kind}|${pp}|${pc}`;
+  function setFocus(pp, pc, tie) {
+    const key = `${NET.g}|${NET.show}|${NET.kind}|${pp}|${pc}|${tie}`;
     if (key === NET.fk) return;
     NET.fk = key;
     FO.mesh = drop(FO.mesh); NET.extra = drop(NET.extra);
@@ -642,13 +669,27 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
         if (P.la[i] !== P.lb[i]) partners.add(P.la[i] === pp ? P.lb[i] : P.la[i]);
         if (L.cls[i] < 3 || NET.show >= 3 || none) links.push(i);
       }
-      const own = [];
-      for (let l = l0(pp); l < l1(pp); l++) own.push(dotOf(l));
-      for (let i = 0; i < own.length; i++) for (let j = i + 1; j < own.length; j++) ties.push([own[i], own[j]]);
+      links.splice(FOCUS_MAX);
+      // its copies (cell_ties): every dot of the protein drawn, its own at its places, in each of MANY's organelles a
+      // link needs, beside partners and at gates, joined by the shortest tree (Prim's), so each copy is tied to a near
+      // one and none to all (the owner, 22 November 2026: "do we also show all of its copies with dotted lines?")
+      for (let l = l0(pp); l < l1(pp); l++) dotOf(l);
+      for (const k of links) siteOf(k);
+      const cp = [];
+      for (let d = 0; d < D.loc.length; d++) if (lProt[D.loc[d]] === pp) cp.push(d);
+      if (tie && cp.length > 1) {
+        const n = cp.length, best = new Float64Array(n).fill(Infinity), from = new Int32Array(n), done = new Uint8Array(n), X0 = cp.map(dotPos);
+        const d2 = (a, b) => (X0[a][0] - X0[b][0]) ** 2 + (X0[a][1] - X0[b][1]) ** 2 + (X0[a][2] - X0[b][2]) ** 2;
+        for (let it = 0, cur = 0; it < n - 1; it++) {
+          done[cur] = 1;
+          let nx = -1;
+          for (let j = 0; j < n; j++) if (!done[j]) { const q = d2(cur, j); if (q < best[j]) { best[j] = q; from[j] = cur; } if (nx < 0 || best[j] < best[nx]) nx = j; }
+          ties.push([cp[from[nx]], cp[nx]]); cur = nx;
+        }
+      }
       const places = [];
       for (let l = l0(pp); l < l1(pp); l++) places.push({ name: lPlace[l] < 13 ? PLACE_NAME[lPlace[l]] : '', face: faceText(l), main: !!(P.main[pp] >> lPlace[l] & 1) });
-      links.splice(FOCUS_MAX);
-      FO.info = { kind: 'protein', p: pp, sym: P.sym[pp], none, places, rel: P.rel[pp], all, links: t[0] + t[1] + t[2] + t[3], drawn: links.length, t, ev, partners: partners.size, why: [0, 0] };
+      FO.info = { kind: 'protein', p: pp, sym: P.sym[pp], none, places, copies: cp.length, ties: !!tie, rel: P.rel[pp], all, links: t[0] + t[1] + t[2] + t[3], drawn: links.length, t, ev, partners: partners.size, why: [0, 0] };
       for (let j = aOff[pp]; j < aOff[pp + 1]; j++) { const i = adj[j]; if (hasKind(i, NET.kind) && L.why[i]) FO.info.why[L.why[i] - 1]++; }
     } else if (pc >= 0 && pc < 13) {
       let here = 0;
@@ -662,7 +703,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       }
       FO.info = { kind: 'place', place: pc, name: PLACE_NAME[pc], here, inner, shown: links.length };
     }
-    const geo = links.length || ties.length ? linesGeo(links, ties, true) : null;   // (adds the dots it needs)
+    const geo = links.length || ties.length ? linesGeo(links, ties, true, !!(FO.info && FO.info.kind === 'protein')) : null;   // (adds the dots it needs)
     // the cell's own lights: the pick's dots bright (aFocus, all reached), the protein ringed (uSel), a place alone (uIso)
     const lit = new Set();
     for (const k of links) siteOf(k).forEach(d => lit.add(d));
@@ -715,11 +756,12 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // the kinds of evidence, as the panes name them (PDATA.kinds, in its order)
   const KIND_NAME = ['Regulatory', 'Binary', 'Literature', 'Metabolic', 'Complexes', 'Kinase', 'Signalling'];
   return Object.assign(set, {
-    params: { cell_a: 1, cell_shell: 1, cell_net: 1, cell_amb: 1, cell_red: 1, cell_show: 0, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1 },
+    // cell_ties: a picked protein's copies joined by fine dots (1) or not (0)
+    params: { cell_a: 1, cell_shell: 1, cell_net: 1, cell_amb: 1, cell_red: 1, cell_show: 0, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1, cell_ties: 1 },
     update(S) {
       const show = clamp(Math.round(S.cell_show), 0, 3), g = S.cell_faces > 0.5 ? 1 : 0, kind = clamp(Math.round(S.cell_kind), -1, 6);
       if (show !== NET.show || g !== NET.g || kind !== NET.kind) build(show, g, kind);
-      setFocus(Math.round(S.cell_pp), Math.round(S.cell_pc));
+      setFocus(Math.round(S.cell_pp), Math.round(S.cell_pc), S.cell_ties > 0.5 ? 1 : 0);
       const sh = clamp(S.cell_shell, 0, 1);
       shells.visible = sh > 0.01;
       for (const m of shellMats) m.uniforms.uK.value = sh;
@@ -727,7 +769,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       const net = clamp(S.cell_net, 0, 1);
       NU.uAlpha.value = net; RU.uAlpha.value = 0.55 * net; flagMat.uniforms.uK.value = NET.flagK * net;
       flagMat.uniforms.uAmb.value = clamp(S.cell_amb, 0, 1); flagMat.uniforms.uRed.value = clamp(S.cell_red, 0, 1);
-      for (const o of [NET.dots, NET.routes, NET.flags, NET.extra, FO.mesh]) if (o) o.visible = net > 0.003;
+      for (const o of [NET.dots, NET.dotsZ, NET.routes, NET.flags, NET.flagsG, NET.extra, FO.mesh]) if (o) o.visible = net > 0.003;
       // points sized as the cell's: in a headset by distance (XR.pointK 0.0028 of the drawn height, in the set's own units),
       // on a screen a fixed size in pixels that grows a little as the camera comes closer
       const xr = GL.renderer && GL.renderer.xr.isPresenting;
