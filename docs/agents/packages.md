@@ -125,6 +125,12 @@ rules a package keeps", lists what `tools/packages/check.mjs` fails on.
 `SPEC.md`, "Writing one": `tools/packages/template/` is a package's `src/`, built into `main.js` from the app's kit and
 engine parts as the built stories are; `packages/hello/` is the example (hidden: developer mode, or `#hello`).
 
+Protein models (`tools/mol/`, `README.md` there): a package's `src/models.json`, built by
+`~/molenv/bin/python tools/mol/build.py packages/<key>/src/models.json packages/<key>/models` into `models/` (`.mol`
+files and `index.json`, fingerprinted by the scan like any file), loaded with `molReady(f => pkgUrl('models/' + f),
+[...])` in a set's `prep` and drawn by `molMesh` / `molInstanced` (the parts `MOLS molLoad molParse molMaterial molMesh
+molInstanced` on the package's `e2_scene.js` `//#use` line). Credit each entry and its paper where it is shown.
+
 ### The template (`tools/packages/template/`)
 
 Copy it to `packages/<key>/src/`, write `packages/<key>/story.json` and `README.md`, then `node

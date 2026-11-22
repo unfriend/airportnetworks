@@ -1,0 +1,14 @@
+[
+  { "name": "grb2", "title": "GRB2, full length", "pdb": "1GRI", "chains": ["A"],
+    "colour": { "by": "domain", "domains": [["A", 1, 58, "#73ccff", "SH3"], ["A", 60, 152, "#ffbf59", "SH2"], ["A", 156, 217, "#73ccff", "SH3"]], "default": "#c8c8c8" },
+    "credit": "PDB 1GRI (Maignan et al., Science 1995)" },
+  { "name": "stat3", "title": "STAT3 as a pair on DNA", "pdb": "1BG1", "assembly": 1,
+    "colour": { "by": "chain", "chains": { "A": "#73ccff", "A-2": "#8fd98f" } },
+    "credit": "PDB 1BG1 (Becker et al., Nature 1998)" },
+  { "name": "b2ar", "title": "the beta-2 adrenergic receptor", "pdb": "2RH1", "chains": ["A"], "residues": 999,
+    "colour": { "by": "uniform", "default": "#ff9f80" },
+    "credit": "PDB 2RH1 (Cherezov et al., Science 2007)" },
+  { "name": "ubq", "title": "ubiquitin", "pdb": "1UBQ",
+    "colour": { "by": "uniform", "default": "#c9a6ff" },
+    "credit": "PDB 1UBQ (Vijay-Kumar et al., J Mol Biol 1987)" }
+]

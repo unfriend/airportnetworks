@@ -233,3 +233,222 @@ function updateSets(S, t, dt, story) {
   primeStep(dt);
 }
 
+//#part MOLS
+// ================================================================ MODELS ==
+// Protein models built by tools/mol/build.py (tools/mol/SPEC.md): one <name>.mol per model, its residue table and its
+// looks (surface and cartoon, three levels of detail each; balls drawn from the table). MOLS.m[name] is the parsed
+// file ({ head, res, geo }), or { pend: true } while it loads, or { err } if it could not be had.
+const MOLS = { m: {}, px: 600, frame: -1 };
+//#part molLoad
+// starts fetching models; urlOf gives a file's address (in a package f => pkgUrl('models/' + f)). Calling it again for
+// a model asked for before does nothing, so a set's prep may call it every time: molReady(urlOf, names) is true once
+// all of them have come (or failed), for SETS.x.prep, which buildSet runs again until it is
+function molLoad(urlOf, names) {
+  for (const n of names) {
+    if (MOLS.m[n]) continue;
+    const m = MOLS.m[n] = { pend: true };
+    fetch(urlOf(n + '.mol')).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then(b => Object.assign(m, molParse(b), { pend: false }))
+      .catch(e => { m.pend = false; m.err = String(e); console.warn(`model ${n} not loaded: ${e}`); });
+  }
+}
+const molWait = () => Object.values(MOLS.m).some(m => m.pend);
+const molReady = (urlOf, names) => { molLoad(urlOf, names); return !names.some(n => MOLS.m[n].pend); };
+//#part molParse
+// a .mol file: 'MOL1', the format's version and the header's length (uint32 each), the header (JSON: each array's
+// offset into the data after it), the data. Views on the file's own buffer: nothing is copied
+function molParse(buf) {
+  const dv = new DataView(buf);
+  if (dv.getUint32(0, true) !== 0x314c4f4d) throw new Error('not a .mol file');
+  if (dv.getUint32(4, true) > 1) throw new Error('a newer .mol format: update the app');
+  const n = dv.getUint32(8, true), head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 12, n))), o = 12 + n;
+  const at = (T, off, len) => new T(buf, o + off, len), R = head.res, N = R.n;
+  const res = { n: N, chain: at(Uint8Array, R.chain, N), num: at(Int32Array, R.num, N), one: at(Uint8Array, R.one, N),
+    kind: at(Uint8Array, R.kind, N), ss: at(Uint8Array, R.ss, N), dom: at(Uint8Array, R.dom, N), pos: at(Float32Array, R.pos, 3 * N),
+    col: at(Uint8Array, R.col, 4 * N), chains: head.chains, domains: head.domains };
+  return { head, res, at, geo: {} };
+}
+// one look's level of detail as a BufferGeometry (made once, shared): positions int16 (the mesh's own scale and
+// position turn them back into angstroms), normals oct-encoded int8, colour and ambient occlusion uint8, residue uint16
+function molGeo(m, look, lod) {
+  const k = look + lod;
+  if (m.geo[k]) return m.geo[k];
+  const L = m.head.looks[look][lod], g = new THREE.BufferGeometry(), at = m.at;
+  g.setAttribute('position', new THREE.BufferAttribute(at(Int16Array, L.pos, 3 * L.v), 3));
+  g.setAttribute('aN', new THREE.BufferAttribute(at(Int8Array, L.nrm, 2 * L.v), 2, true));
+  g.setAttribute('aCol', new THREE.BufferAttribute(at(Uint8Array, L.col, 4 * L.v), 4, true));
+  g.setAttribute('aRes', new THREE.BufferAttribute(at(Uint16Array, L.res, L.v), 1));
+  g.setIndex(new THREE.BufferAttribute(at(L.i32 ? Uint32Array : Uint16Array, L.idx, 3 * L.t), 1));
+  g.computeBoundingSphere();
+  return (m.geo[k] = g);
+}
+//#part molMaterial
+// The models' one material (every look): sky light times the baked ambient occlusion, a key light from the scene's
+// sun (LV, where the story has it), a little specular and a soft rim; a highlighted residue range glows (uHi: first and
+// last residue index, uHiC its colour, uHiK its strength). The set's fade (uA) as the kit's: see-through and no depth
+// written only while it fades. opts.balls: the instanced balls (a unit sphere, each instance a residue)
+function molMaterial(set, opts = {}) {
+  const lv = typeof LV !== 'undefined' ? LV : new THREE.Vector3(-0.5, 0.6, 1).normalize();
+  const m = new THREE.ShaderMaterial({
+    defines: opts.balls ? { MOL_BALLS: 1 } : {},
+    uniforms: { uA: set ? set.uA : { value: 1 }, uL: { value: lv }, uTime: K.U.uTime, uHi: { value: new THREE.Vector2(-1, -1) },
+      uHiC: { value: new THREE.Color(1, 0.85, 0.35) }, uHiK: { value: 0 } },
+    vertexShader: `
+attribute vec2 aN; attribute vec4 aCol; attribute float aRes;
+uniform vec2 uHi;
+varying vec3 vC, vN, vW; varying float vAO, vHi;
+vec3 octN(vec2 e) {
+  vec3 v = vec3(e, 1.0 - abs(e.x) - abs(e.y));
+  if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * vec2(v.x >= 0.0 ? 1.0 : -1.0, v.y >= 0.0 ? 1.0 : -1.0);
+  return normalize(v);
+}
+void main() {
+#ifdef MOL_BALLS
+  vec3 n = position;
+#else
+  vec3 n = octN(aN);
+#endif
+  vec4 p = vec4(position, 1.0);
+#ifdef USE_INSTANCING
+  p = instanceMatrix * p; n = mat3(instanceMatrix) * n;
+#endif
+  vec4 w = modelMatrix * p;
+  vW = w.xyz; vN = normalize(mat3(modelMatrix) * n);
+  vC = aCol.rgb; vAO = aCol.a;
+#ifdef USE_INSTANCING_COLOR
+  vC *= instanceColor;
+#endif
+  vHi = step(uHi.x - 0.5, aRes) * step(aRes, uHi.y + 0.5);
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`,
+    fragmentShader: `
+uniform float uA, uTime, uHiK; uniform vec3 uL, uHiC;
+varying vec3 vC, vN, vW; varying float vAO, vHi;
+void main() {
+  vec3 n = normalize(vN), v = normalize(cameraPosition - vW), h = normalize(uL + v);
+  float ao = vAO, nv = max(dot(n, v), 0.0);
+  vec3 amb = mix(vec3(0.36, 0.33, 0.38), vec3(0.95, 0.97, 1.0), 0.5 + 0.5 * n.y) * (0.15 + 0.85 * ao) * 0.52;
+  float dif = max(dot(n, uL), 0.0) * (0.45 + 0.55 * ao) * 0.62;
+  float sp = pow(max(dot(n, h), 0.0), 40.0) * 0.16 * ao, rim = pow(1.0 - nv, 3.0) * 0.16 * ao;
+  vec3 col = vC * (amb + dif + rim) + sp;
+  float k = vHi * uHiK;
+  col = mix(col, uHiC * (0.55 + 0.6 * ao), k * 0.55) + uHiC * k * (0.22 + 0.1 * sin(uTime * 4.0));
+  gl_FragColor = vec4(col, uA);
+}`,
+  });
+  const U = m.uniforms;
+  Object.defineProperty(m, 'transparent', { configurable: true, get: () => U.uA.value < 0.999, set() {} });
+  Object.defineProperty(m, 'depthWrite', { configurable: true, get: () => U.uA.value > 0.97, set() {} });
+  if (set) set.mats.push(m);
+  return m;
+}
+//#part molMesh
+// A model as a set shows it. opts: look ('surface', 'cartoon' or 'balls'), its size (width: scene units along its own
+// x, its longest axis as built; or radius: of its bounding sphere; or scale: scene units per angstrom), lod ('auto',
+// the default: by its size on screen, page or headset; or 0, 1, 2), lodPx (the auto choice's radii in pixels, [260, 70]),
+// centred (true: its middle at the group's origin; false: where the entry's coordinates put it, for models built with
+// orient: false). Returns { group, ok, s (scene units per angstrom), res (the residue table), find(chain, num),
+// anchor(chain, num, v), setHighlight(from, to, colour, strength), lod() }; a model that did not load gives an empty group
+function molMesh(set, name, opts = {}) {
+  const m = MOLS.m[name], look = opts.look || 'surface', group = new THREE.Group();
+  const out = { group, ok: false, s: 1, res: null, find: () => -1, anchor: (c, n, v) => v || new THREE.Vector3(), setHighlight() {}, lod: () => 0 };
+  if (!m || !m.head || (look !== 'balls' && !m.head.looks[look])) return out;
+  const H = m.head, R = m.res, s = opts.scale || (opts.radius ? opts.radius / H.radius : (opts.width || 1) / H.size[0]);
+  const mat = molMaterial(set, { balls: look === 'balls' }), inner = new THREE.Group(), C = H.centre;
+  inner.scale.setScalar(s);
+  if (opts.centred !== false) inner.position.set(-C[0] * s, -C[1] * s, -C[2] * s);
+  group.add(inner);
+  const levels = [0, 1, 2].map(i => {
+    if (look === 'balls') return molBalls(m, mat, i);
+    const o = new THREE.Mesh(molGeo(m, look, i), mat);
+    o.position.fromArray(H.q.off); o.scale.setScalar(H.q.scale);
+    return o;
+  });
+  let cur = opts.lod === undefined || opts.lod === 'auto' ? -1 : K.clamp(opts.lod | 0, 0, 2);
+  if (cur >= 0) inner.add(levels[cur]);
+  else {
+    const L = new THREE.LOD(), px = opts.lodPx || [260, 70], c = new THREE.Vector3(), e = new THREE.Vector3();
+    levels.forEach((o, i) => L.addLevel(o, i));
+    cur = 1;
+    // (THREE.LOD's own distances know nothing of scale: the level comes from the model's radius on screen, with a
+    // margin so it does not flicker between two)
+    L.update = cam => {
+      molPx();
+      c.fromArray(C).applyMatrix4(L.matrixWorld); e.setFromMatrixPosition(cam.matrixWorld);
+      const r = H.radius * L.matrixWorld.getMaxScaleOnAxis(), d = Math.max(c.distanceTo(e) - r * 0.5, r * 0.2, 1e-4);
+      const p = r / d * cam.projectionMatrix.elements[5] * MOLS.px;
+      cur = p > px[0] * (cur === 0 ? 0.88 : 1) ? 0 : p > px[1] * (cur <= 1 ? 0.88 : 1) ? 1 : 2;
+      levels.forEach((o, i) => { o.visible = i === cur; });
+    };
+    inner.add(L);
+  }
+  // a residue's index in the table (chain null: the first); a number not in the model: the one before it (after: after)
+  const _f = (chain, num, after) => {
+    const ci = H.chains.indexOf(chain == null ? H.chains[0] : String(chain));
+    let best = -1;
+    for (let i = 0; i < R.n; i++) if (R.chain[i] === ci) {
+      if (R.num[i] === num) return i;
+      if (after ? R.num[i] > num && best < 0 : R.num[i] < num) best = i;
+    }
+    return best;
+  };
+  // a residue named 'B:60', or 60 (in the first chain)
+  const idx = (x, after) => (typeof x === 'string' && x.includes(':') ? _f(x.split(':')[0], parseInt(x.split(':')[1], 10), after) : _f(null, +x, after));
+  Object.assign(out, {
+    ok: true, s, res: R, mat, levels, find: _f, lod: () => cur,
+    // a residue's place (its alpha carbon, or phosphate) in the group's frame, scene units
+    anchor(chain, num, v = new THREE.Vector3()) {
+      const i = _f(chain, num);
+      if (i < 0) return v.set(0, 0, 0);
+      return v.set(R.pos[3 * i], R.pos[3 * i + 1], R.pos[3 * i + 2]).multiplyScalar(s).add(inner.position);
+    },
+    // light up residues from..to ('A:60', 'A:152'; or numbers in the first chain); from null: none
+    setHighlight(from, to, colour, strength = 1) {
+      const U = mat.uniforms;
+      if (from == null) { U.uHiK.value = 0; return; }
+      U.uHi.value.set(idx(from, true), idx(to == null ? from : to));
+      if (colour) U.uHiC.value.set(colour);
+      U.uHiK.value = strength;
+    },
+  });
+  return out;
+}
+// half the view's height in pixels (a headset's eye, or the page's drawing buffer), once a frame
+function molPx() {
+  const r = typeof GL !== 'undefined' && GL.renderer;
+  if (!r || MOLS.frame === r.info.render.frame) return;
+  MOLS.frame = r.info.render.frame;
+  MOLS.px = r.xr.isPresenting && typeof XR !== 'undefined' && XR.viewH ? XR.viewH / 2 : r.getDrawingBufferSize(new THREE.Vector2()).y / 2;
+}
+// the balls: one instanced sphere per residue (alpha carbon or phosphate; nucleotides bigger), detail by level
+function molBalls(m, mat, lod) {
+  const R = m.res, n = R.n, geo = new THREE.IcosahedronGeometry(1, 2 - lod);
+  const o = new THREE.InstancedMesh(geo, mat, n), M = new THREE.Matrix4(), id = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const r = R.kind[i] === 1 ? 3.0 : R.kind[i] === 2 ? 1.8 : 2.3;
+    M.makeScale(r, r, r).setPosition(R.pos[3 * i], R.pos[3 * i + 1], R.pos[3 * i + 2]);
+    o.setMatrixAt(i, M); id[i] = i;
+  }
+  geo.setAttribute('aCol', new THREE.InstancedBufferAttribute(R.col, 4, true));
+  geo.setAttribute('aRes', new THREE.InstancedBufferAttribute(id, 1));
+  o.frustumCulled = false;
+  return o;
+}
+//#part molInstanced
+// many copies of one model in one draw (a crowd): opts look ('surface'), lod (2), count, and its size as for molMesh
+// (width, radius or scale). Returns { mesh, s, setAt(i, pos, quat, k) } (k: that copy's size, 1 by default); each copy
+// may be tinted with mesh.setColorAt (multiplies the model's own colours)
+function molInstanced(set, name, opts = {}) {
+  const m = MOLS.m[name], look = opts.look || 'surface', n = opts.count || 1;
+  if (!m || !m.head || !m.head.looks[look]) return { mesh: new THREE.Group(), s: 1, setAt() {} };
+  const H = m.head, s = opts.scale || (opts.radius ? opts.radius / H.radius : (opts.width || 1) / H.size[0]);
+  const mesh = new THREE.InstancedMesh(molGeo(m, look, opts.lod === undefined ? 2 : opts.lod), molMaterial(set), n);
+  mesh.frustumCulled = false;   // (three.js r128 culls an instanced mesh by its geometry alone)
+  const B = new THREE.Matrix4().makeScale(H.q.scale, H.q.scale, H.q.scale)
+    .setPosition(H.q.off[0] - H.centre[0], H.q.off[1] - H.centre[1], H.q.off[2] - H.centre[2]);
+  const M = new THREE.Matrix4(), S = new THREE.Vector3();
+  return { mesh, s, setAt(i, pos, quat, k = 1) {
+    mesh.setMatrixAt(i, M.compose(pos, quat, S.setScalar(s * k)).multiply(B));
+    mesh.instanceMatrix.needsUpdate = true;
+  } };
+}

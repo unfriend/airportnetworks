@@ -183,6 +183,12 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
+- `tools/mol/` - protein models for the stories (`README.md`, `SPEC.md`): `build.py` (Python with numpy, scikit-image
+  and fast-simplification in a venv outside the repository; mmCIF files cached in `~/molcache`) reads a story's
+  `models.json` and writes `<name>.mol` (a Gaussian surface with baked ambient occlusion, a cartoon, the balls' residue
+  table; three levels of detail each) and `index.json`; `--check` says whether they are current. The engine's parts
+  in `tools/engine/e2_scene.js` (`MOLS molLoad molParse molMaterial molMesh molInstanced`) load and draw them;
+  `view.html` (not part of the app) shows a model's looks and levels; `test/models.json` four test entries.
 - `tools/voice/` - a synthetic narration (Kokoro-82M through kokoro-onnx, `kokoro.py`; German with Piper, `piper.py`;
   the models, their Python and the spoken lines stay outside the repository, see its `README.md`):
   `node tools/voice/narrate.mjs <key>` speaks a story's lines (how each word is said: `say.json`, its German rules in

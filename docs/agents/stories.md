@@ -22,6 +22,10 @@ file is exactly what it was (every build's `--check` passed unchanged when the p
   `tools/engine/` has no `build.mjs` on purpose (the relay would take it for a story's).
 - The studio (`tools/studio/engine/`) and the hand-written stories (airports, proteins, spatial) do not use the parts
   yet.
+- Protein models (`tools/mol/`): the parts `MOLS molLoad molParse molMaterial molMesh molInstanced` draw the `.mol`
+  files `tools/mol/build.py` makes from a story's `models.json` (`tools/mol/README.md`). A built story that uses them
+  keeps its models in a folder of its own, which goes into `sw.js` `SHELL` (each file) and `relay/server.mjs`
+  `APP_DIRS`, with each address fingerprinted by hand (`?v=` the `fp` in its `index.json`); packages need none of that.
 
 **Step 1b (v168): one version of each engine family.** The versions that still differed (engine generations, and real
 story differences) were brought onto one shared version each, with the story differences as small per-story

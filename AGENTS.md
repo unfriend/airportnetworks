@@ -97,6 +97,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   without a recording.
 - `tools/voice/` - synthetic narration (Kokoro-82M `af_heart`; German with Piper's Thorsten voice); models and Python
   outside the repository, see its `README.md`.
+- `tools/mol/` - protein models from the PDB (`build.py`, Python outside the repository: a surface with baked occlusion,
+  a cartoon and balls at three levels each, `<name>.mol`); the engine's parts `MOLS molLoad ... molMesh` draw them.
 - `tools/<key>/` - the sources of each built story (`lbi`, `nmd`, `endo`, `pet`, `micro`, `ovary`, `qubits`,
   `mutation`, `topo`, `soil`, `pass`, `flock`, `robots`, `tutorial`, `design`), each with a `README.md` and most with a
   `SPEC.md` (`docs/agents/stories.md`); the tutorial's script is checked by `node tools/tutorial/test-script.mjs`.
