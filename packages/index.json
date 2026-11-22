@@ -59,9 +59,9 @@
       "life": false,
       "list": "hidden",
       "needs": 178,
-      "fp": "af66b453466012b7",
+      "fp": "e7a600b5db34d834",
       "files": {
-        "audio/narration.mp3": "979fcb9a8b1453a5",
+        "audio/narration.mp3": "e85a4da86c44c894",
         "main.js": "9023d6ed173803a8",
         "story.json": "28062fdc959e8827"
       }
