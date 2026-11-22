@@ -198,6 +198,71 @@ goes to the shell's password prompts (`relaySaw`) and the page says where to ent
 - One line says how it goes: no relay, the relay's password wanted, fetching, or the error (never the password).
 - Nothing of it is in a room's keys or `collab.state()`.
 
+## Run logs (*Record a run*)
+
+The owner, 22 November 2026: "push logs right into the relay when needed, grab them from there same as the developer
+notes, then I could do a run and you get all the frame times etc." A run log is one device's frame times, a row a second,
+recorded while *Record a run* is on and sent to the relay beside the notes. Developer mode only; this device's own, never
+in a room's keys, `collab.state()` or the headset settings that rooms share (no `FORMAT` change). Nothing of a story's
+state, a room's names or the relay's password is in it.
+
+**Starting and stopping.** In a headset: the menu's Debug tab, *Record a run: on/off* (under *What is new* and *Notes*,
+with a line beside it: the run's id and parts sent, or what went wrong). On a page: a small round button over the note
+button (`#runBtn`, a pulse line; red with the run's time while it records). `HOST.notes.run(on)` from the console. A run
+stops by itself when developer mode goes off and after two hours. A notice says *Recording a run* and *Run recorded
+(3:12)*.
+
+**What is measured** (`notes.js`, `HOST.notes.frame(t)`, the outermost frame hook): each frame's interval from the frame
+callback's time (the XR frame's in a session; an interval over 1 s is not a frame but a `gap` event), and the story's own
+frame from `HOST.perf` (its script ms, triangles, draw calls, points: `HOST.perf.last()`, measured while a run is on, on a
+page too). Each second becomes a row, a list in the order of `cols`:
+
+```
+cols: ['w', 'story', 'mode', 't', 'ch', 'sets', 'n', 'avg', 'p95', 'max', 'over', 'tri', 'calls', 'pts', 'js', 'hz', 'q', 'xr']
+```
+
+`w` the wall clock (ms) as the second began; `story` `HOST.curKey`; `mode` the story's `APP.mode`; `t` the story's
+clock (s) and `ch` its chapter's index in `CH` (null without them); `sets` the built stories' sets on show (`GL.sets` whose
+group is visible, joined by `+`; '' elsewhere); `n` frames; `avg`, `p95`, `max` their intervals (ms); `over` frames longer
+than 1.5 periods of the display's rate (as automatic quality counts a late frame); `tri`, `calls`, `pts`, `js` the
+story's frame's means (null when `HOST.perf` measured nothing); `hz` the session's refresh rate, or on a page the rate
+found from the frames (the fastest tenth of a second's intervals, the highest seen); `q` automatic quality's level in a
+session (`'2'`, `'1r'`: `r` the refresh rate stepped down; '' on a page); `xr` `'vr'`, `'ar'` or ''. About 100 bytes a
+row: 15 minutes is about 100 KB. A second without frames has no row.
+
+Events are objects among the rows, `{ w, ev, ... }`: `start` `{ story, mode, xr }`, `story` `{ story, from }`, `mode` `{ mode,
+story }`, `chapter` `{ story, ch, key, t }` (also the first chapter of each story), `quality` `{ from, to, why }`, `xr`
+`{ xr, hz }` (a session began or ended), `hidden` / `shown` (`visibilitychange`; `pagehide` as `hidden` `{ pagehide: true }`),
+`gap` `{ ms }`, `stop` `{ why }`.
+
+**Sending.** `POST /api/logs` as the run begins, then the rows so far as a part every 30 s, as the page is hidden (best
+effort: `fetch` `keepalive` when under 60 KB) and on stop (`end: true`). The relay and its password as the notes' (`relayFind`,
+`Authorization: Bearer`, `relaySaw` for a 401). A part that fails waits in memory and goes with the next (at most two hours
+of rows wait; the oldest go first); nothing is kept across a reload. A crash loses at most 30 s. A note recorded while a
+run is on has `context.run` `{ id, nonce }`.
+
+**The relay** (`relay/notes.mjs` `logFolderStore`, `logR2Store`; `logsApi` in `server.mjs`): on and off with the notes, kept in
+their `.logs/` (`<notes>/.logs/<id>/`, or `R2_PREFIX + '.notes/.logs/'`; the notes' listing steps over them, so do the
+scenes'). Files: `log.json` (`{ v, id, kind: 'log', at, got, upd, cols, context, nonce, parts: [[seq, rows, events,
+bytes]], rows, events, size, first, last, stories, storyAt, ended }`) and `part-<seq, 5 digits>.json` (the part's rows).
+Ids as the notes' (`NOTE_ID`, the relay's clock). Every endpoint wants the password as the notes' do; `no-store`.
+
+- `POST /api/logs` `{ v: 1, at, cols, context, nonce? }` (at most 128 KB): 201 `{ id }`; the same `nonce` again: 200
+  `{ id, again: true }`; 400 bad fields; 507 past 500 runs; 429 as notes under `--public`.
+- `POST /api/logs/<id>` `{ seq (0 to 999), rows (at most 5,000), end? }` (at most 512 KB): 200 `{ ok, parts, rows, events,
+  size, ended }`. A part sent again under its `seq` replaces itself. 413 once the run's parts pass 8 MB; 404 no such run.
+  A row is a list of at most 40 numbers, strings (200 characters), booleans or nulls, the wall time first; an event an
+  object with `w`, `ev` and at most 22 more such fields.
+- `GET /api/logs`: `{ logs: [ { id, kind: 'log', at, got, upd, dur, rows, events, parts, size, ended, stories, story,
+  device, release, xr, nonce } ] }`, newest first.
+- `GET /api/logs/<id>`: `log.json` with `rows`, every part's rows in `seq` order (`missing` names a part that could not be
+  read).
+- `POST /api/logs/<id>/delete`: 200 `{ ok: true }`.
+
+`--logs` lines say `log <id> begun` and `log <id> ended <bytes>`, nothing more. The notes page lists the runs under the
+notes (when, device, stories, length, *Download JSON*, *Delete* with a second press). Tests: `node relay/test.mjs --logs`
+(also in `--notes`).
+
 ## The tool (`tools/notes/notes.mjs`, Node, no packages)
 
 `node tools/notes/notes.mjs <command>` with `NOTES_RELAY` (default `https://stories.lab.lbi-netmed.com`) and
@@ -210,6 +275,11 @@ goes to the shell's password prompts (`relaySaw`) and the page says where to ent
   the language found by itself, so English or German), its result posted as the note's transcript (`by: 'whisper-<model>'`),
   and `note.md` written again with it; prints `note.md`.
 - `done <id>`: status `done`.
+- Run logs: `list` shows them too (`<id>  log  3:12  190 s  headset  airports,proteins`); `pull <id>` writes a run's
+  `log.json` and `perf.txt` into `<dir>/<id>/`; `perf <id>` prints a run's table: per story and chapter (and explore
+  mode, and VR or AR) the seconds, the mean, the 95th percentile of the seconds' p95, the worst frame, the % of frames over
+  budget, the script ms, the most triangles and draw calls, the rates and quality levels; then the 10 worst seconds (by
+  p95) with their time in the run, story time, chapter, counts and sets; then the events.
 
 `tools/notes/transcribe.py <audio> [--model small]` prints `{ text, lang, segments: [{ start, end, text }] }`; PEP 723
 block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it installed; ffmpeg reads the audio.
@@ -219,4 +289,5 @@ block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it i
 The microphone inside a Quest session (whether Quest Browser asks there, or only on the 2D page), reading the layer's
 framebuffer on a Quest (its cost, whether it gives the picture), holding B or Y, the read-out, pins with real
 controllers, the outbox through a real sleep, an iPhone's `audio/mp4`, the page on a phone, and reading notes in a
-headset (playing a recording inside a session, the pictures in the menu, scrolling with the stick).
+headset (playing a recording inside a session, the pictures in the menu, scrolling with the stick), and a run log from a
+headset (the XR frame's times, the Debug tab's row, a part sent as the headset sleeps).

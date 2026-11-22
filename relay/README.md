@@ -1228,6 +1228,10 @@ notes, transcribes them (`tools/notes/notes.mjs`) and writes the transcript back
 lists them, plays them and deletes them. The contract is [tools/notes/SPEC.md](../tools/notes/SPEC.md); the code is
 `relay/notes.mjs` and `notesApi` in `server.mjs`.
 
+Run logs (*Record a run*, developer mode: a device's frame times, a row a second, sent in parts every 30 s) are kept beside
+the notes, in their `.logs/` (`/api/logs`, `logsApi` in `server.mjs`), on and off with them, with the same password; the
+format and endpoints are in the same SPEC ("Run logs").
+
 - **Where they are kept.** Whenever the relay keeps scenes: with `--scenes <dir>` in `<dir>/.notes/`, with `--scenes r2`
   under `<R2_PREFIX>.notes/` in the bucket. `--notes <dir>` keeps them in `<dir>` instead (also without scenes); `--no-notes`
   turns the notebook off (with `--notes`: refused). The scenes' listing, their watch, `GET /scenes/...` and

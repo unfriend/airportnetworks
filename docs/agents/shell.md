@@ -1188,6 +1188,18 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
 - Tests: `node relay/test.mjs --notes`. Untested on a headset: all of it (the microphone in a session, the framebuffer
   read, holding B or Y, pins, the read-out), an iPhone's recording, the page on a phone.
 
+### Run logs (*Record a run*)
+
+- Developer mode only: the Debug tab's *Record a run: on/off* (under *What is new* and *Notes*; `runlog`, its line from
+  `HOST.notes.runState()`, redrawn through `HOST.notes.runSig()` in `panelSig`) and on a page `#runBtn` over the note
+  button. `HOST.notes.run(on)`, `running()`, `runState()`, `runRows()`, `runTest({ part, tick })`.
+- While on, `HOST.notes.frame(t)` takes every frame's interval and `HOST.perf.last()` (the story's script ms, triangles,
+  draw calls, points; `HOST.perf` measures while a run is on, on a page too, and calls `aqStory` only in a session); a
+  row a second (`RUN_COLS`), events for the story, mode, chapter, quality, session, visibility; parts to the relay's
+  `/api/logs` every 30 s, on hidden and on stop. Its listeners are the shell's (`quiet`); nothing in `collab.state()`.
+- The contract, the format and the endpoints: `tools/notes/SPEC.md`, "Run logs"; `node tools/notes/notes.mjs perf <id>`
+  reads one. Tests: `node relay/test.mjs --logs`. Untested on a headset: all of it.
+
 ### Reading notes in a headset (v148)
 
 - The Debug tab's *Notes* (developer mode only, beside *What is new*) opens `PNL.page = 'notes'`, a page in place of the

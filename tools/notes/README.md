@@ -20,7 +20,11 @@ node tools/notes/notes.mjs list [--all]
 node tools/notes/notes.mjs pull <id|new> [--out dir]          # note.json, audio, pictures, note.md
 node tools/notes/notes.mjs transcribe <id|new> [--model small] # then prints note.md
 node tools/notes/notes.mjs done <id>
+node tools/notes/notes.mjs perf <run id>                       # a run log's table: per chapter, the 10 worst seconds
 ```
+
+Run logs (developer mode, *Record a run* on the headset menu's Debug tab or the small button over the note button) are
+listed by `list` and on the page under the notes; `pull <run id>` writes `log.json` and `perf.txt`.
 
 `transcribe` runs `tools/notes/transcribe.py` (faster-whisper, CPU, English or German found by itself). It uses
 `uv run` when `uv` is there, else `python3 -I` with `pip install faster-whisper`; ffmpeg support comes with the package.

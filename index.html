@@ -878,7 +878,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 183, id: '8622a7878611a543', format: 'networks-55' },
+  shell: { n: 184, id: '67dba13739eadc94', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3345,12 +3345,13 @@ HOST.inputsGuard = (function () {
 })();
 
 HOST.perf = (function () {
-  const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null };
+  const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null, lf: { n: 0, js: 0, tri: 0, calls: 0, pts: 0 } };
   // the frame-rate read-out wants the counts (fps); since v145 so does the automatic quality, which judges whether a late
   // frame was the script's (CPU-bound: less picture would not help) and sends the frame times home (HOST.xr.frameTimes)
   const reads = () => !!(HOST.xr.fps && HOST.xr.fps());
   const on = () => !!(HOST.session && reads());
-  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto())));
+  // (and a run being recorded, on a page too: the developer notebook's run log, notes.js, reads each frame's counts, last())
+  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto()))) || !!(HOST.notes && HOST.notes.running && HOST.notes.running());
   function wrap(fn) {
     return function (t, f) {
       const r = HOST.renderer;
@@ -3361,13 +3362,14 @@ HOST.perf = (function () {
         I.autoReset = ar;
         const t2 = performance.now();
         P.n++; P.js += t2 - t1; P.tri += I.render.triangles; P.calls += I.render.calls;
-        if (HOST.xr.aqStory) try { HOST.xr.aqStory(t2 - t1, I.render.triangles, I.render.calls); } catch (e) { /* never in the way */ }
+        const lf = P.lf; lf.n++; lf.js = t2 - t1; lf.tri = I.render.triangles; lf.calls = I.render.calls; lf.pts = I.render.points;
+        if (HOST.session && HOST.xr.aqStory) try { HOST.xr.aqStory(t2 - t1, I.render.triangles, I.render.calls); } catch (e) { /* never in the way */ }
         if (!P.t0) P.t0 = t2;
         else if (t2 - P.t0 >= 1000) { P.out = { tri: P.tri / P.n, calls: P.calls / P.n, js: P.js / P.n, n: P.n, at: t2 }; P.n = P.js = P.tri = P.calls = 0; P.t0 = t2; }
       }
     };
   }
-  return { wrap, on, stats: () => P.out };
+  return { wrap, on, stats: () => P.out, last: () => P.lf };
 })();
 HOST.teardown = function () {
   const r = this.renderer;

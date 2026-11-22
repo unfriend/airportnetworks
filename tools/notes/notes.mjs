@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// The developer notebook's tool: list, pull, transcribe and finish notes on the relay (tools/notes/SPEC.md).
+// The developer notebook's tool: list, pull, transcribe and finish notes on the relay, and read run logs (perf)
+// (tools/notes/SPEC.md).
 // NOTES_RELAY (default the test place) and NOTES_TOKEN (the relay's password; never printed or written).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,14 +13,14 @@ const TOKEN = process.env.NOTES_TOKEN || '';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const die = (m) => { console.error(m); process.exit(1); };
 
-async function call(path, body, raw) {
+async function call(path, body, raw, soft) {
   let r;
   const go = () => fetch(RELAY + path, { method: body ? 'POST' : 'GET', headers: { ...(TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
   // a connection kept idle through a long transcription may have been closed: try once more
   try { try { r = await go(); } catch (e) { r = await go(); } }
   catch (e) { die('Could not reach ' + RELAY + ': ' + e.message); }
   if (r.status === 401) die('The relay wants its password: set NOTES_TOKEN.');
-  if (r.status === 404) die('Not found (or this relay keeps no notes): ' + path);
+  if (r.status === 404) { if (soft) return null; die('Not found (or this relay keeps no notes): ' + path); }
   if (!r.ok) die('The relay answered ' + r.status + ' for ' + path);
   return raw ? Buffer.from(await r.arrayBuffer()) : r.json();
 }
@@ -65,7 +66,8 @@ async function ids(which, all) {
 const NOTE_ID = /^\d{8}-\d{6}-[a-z0-9]{4}$/;
 async function pull(id, out) {
   if (!NOTE_ID.test(String(id))) die('Not a note id: ' + JSON.stringify(String(id).slice(0, 60)));
-  const d = await call('/api/notes/' + encodeURIComponent(id));
+  const d = await call('/api/notes/' + encodeURIComponent(id), null, false, true);
+  if (!d) return pullLog(id, out);   // (not a note: a run log, perhaps)
   const dir = join(out, id); mkdirSync(dir, { recursive: true });
   let audio = '';
   if (d.audio !== null && d.audio !== undefined && (d.audio.type || d.audio === true)) {
@@ -79,6 +81,66 @@ async function pull(id, out) {
   return { dir, audio, d };
 }
 
+
+// ---- run logs (tools/notes/SPEC.md, "Run logs"): a row a second as a list in the log's cols order, events as { w, ev, ... }
+async function getLog(id) {
+  if (!NOTE_ID.test(String(id))) die('Not a run id: ' + JSON.stringify(String(id).slice(0, 60)));
+  const g = await call('/api/logs/' + encodeURIComponent(id), null, false, true);
+  if (!g) die('No such note or run log: ' + id);
+  return g;
+}
+async function pullLog(id, out) {
+  const g = await getLog(id), dir = join(out, id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'log.json'), JSON.stringify(g));
+  writeFileSync(join(dir, 'perf.txt'), perf(g));
+  return { dir, audio: '', d: g, log: true };
+}
+const pad = (v, n, left) => { v = String(v == null ? '' : v); return left ? v.padEnd(n) : v.padStart(n); };
+function perf(g) {
+  const c = g.cols || [], ix = Object.fromEntries(c.map((k, i) => [k, i])), rows = (g.rows || []).filter(Array.isArray), evs = (g.rows || []).filter(r => !Array.isArray(r));
+  const v = (r, k) => (ix[k] === undefined ? null : r[ix[k]]);
+  const ctx = g.context || {}, t0 = g.first || (rows[0] ? v(rows[0], 'w') : g.at), L = [];
+  const rel = w => mmss(((w || t0) - t0) / 1000);
+  L.push('Run ' + g.id + ': ' + new Date(g.at || g.got || 0).toLocaleString() + ', ' + [ctx.device, ctx.browser && 'Quest Browser ' + ctx.browser, ctx.release].filter(Boolean).join(', '),
+    mmss(g.first && g.last ? (g.last - g.first) / 1000 : 0) + ', ' + rows.length + ' seconds, ' + evs.length + ' events' + (g.ended ? '' : ' (not ended: still running, or the end was lost)') + (g.missing ? ', parts missing: ' + g.missing.join(' ') : ''), '');
+  // per story and chapter, in the order they came
+  const groups = new Map();
+  for (const r of rows) {
+    const k = (v(r, 'story') || '-') + ' ' + (v(r, 'mode') === 'explore' ? 'explore' : v(r, 'ch') == null ? '-' : 'ch ' + v(r, 'ch')) + (v(r, 'xr') ? ' ' + v(r, 'xr') : '');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  const chName = (story, ch) => { const e = evs.find(x => x.ev === 'chapter' && x.ch === ch && (!x.story || x.story === story)); return e && e.key ? e.key : ''; };
+  L.push(pad('story / chapter', 34, true) + pad('secs', 6) + pad('mean', 7) + pad('p95', 7) + pad('worst', 8) + pad('over%', 7) + pad('js', 6) + pad('maxTri', 10) + pad('maxCalls', 9) + pad('hz', 5) + '  q');
+  for (const [k, rs] of groups) {
+    let n = 0, sum = 0, over = 0, worst = 0, js = 0, jn = 0, tri = 0, calls = 0;
+    const p95s = [], hz = new Set(), q = new Set();
+    for (const r of rs) {
+      const fn = +v(r, 'n') || 0; n += fn; sum += (+v(r, 'avg') || 0) * fn; over += +v(r, 'over') || 0; worst = Math.max(worst, +v(r, 'max') || 0); p95s.push(+v(r, 'p95') || 0);
+      if (v(r, 'js') != null) { js += +v(r, 'js'); jn++; }
+      tri = Math.max(tri, +v(r, 'tri') || 0); calls = Math.max(calls, +v(r, 'calls') || 0);
+      if (v(r, 'hz')) hz.add(v(r, 'hz')); if (v(r, 'q') !== '' && v(r, 'q') != null) q.add(v(r, 'q'));
+    }
+    p95s.sort((a, b) => a - b);
+    const p95 = p95s[Math.min(p95s.length - 1, Math.ceil(p95s.length * 0.95) - 1)];
+    const ch = / ch (\d+)/.exec(k), label = k + (ch ? ' ' + chName(k.split(' ')[0], +ch[1]) : '');
+    L.push(pad(label.slice(0, 33), 34, true) + pad(rs.length, 6) + pad(n ? (sum / n).toFixed(1) : '-', 7) + pad(p95.toFixed(1), 7) + pad(worst.toFixed(1), 8) + pad(n ? (100 * over / n).toFixed(1) : '-', 7) +
+      pad(jn ? (js / jn).toFixed(1) : '-', 6) + pad(tri, 10) + pad(calls, 9) + pad([...hz].join('/'), 5) + '  ' + [...q].join(','));
+  }
+  L.push('', 'The 10 worst seconds (by p95; ms):', pad('at', 6) + '  ' + pad('story', 14, true) + pad('t', 8) + pad('ch', 4) + pad('mean', 7) + pad('p95', 7) + pad('worst', 8) + pad('over', 9) + pad('js', 6) + pad('tri', 9) + pad('calls', 6) + '  q  sets');
+  for (const r of rows.slice().sort((a, b) => (+v(b, 'p95') || 0) - (+v(a, 'p95') || 0) || (+v(b, 'max') || 0) - (+v(a, 'max') || 0)).slice(0, 10))
+    L.push(pad(rel(v(r, 'w')), 6) + '  ' + pad(String(v(r, 'story') || '-').slice(0, 13) + (v(r, 'mode') === 'explore' ? '*' : ''), 14, true) + pad(v(r, 't') == null ? '-' : (+v(r, 't')).toFixed(1), 8) + pad(v(r, 'ch') == null ? '-' : v(r, 'ch'), 4) +
+      pad(v(r, 'avg'), 7) + pad(v(r, 'p95'), 7) + pad(v(r, 'max'), 8) + pad(v(r, 'over') + '/' + v(r, 'n'), 9) + pad(v(r, 'js') == null ? '-' : v(r, 'js'), 6) + pad(v(r, 'tri') == null ? '-' : v(r, 'tri'), 9) + pad(v(r, 'calls') == null ? '-' : v(r, 'calls'), 6) + '  ' + (v(r, 'q') || '-') + '  ' + (v(r, 'sets') || ''));
+  const shown = evs.filter(e => e.ev !== 'gap' || e.ms > 2000);
+  if (shown.length) {
+    L.push('', 'Events' + (shown.length > 40 ? ' (the first 40 of ' + shown.length + ')' : '') + ':');
+    for (const e of shown.slice(0, 40)) { const o = Object.assign({}, e); delete o.w; delete o.ev; L.push(pad(rel(e.w), 6) + '  ' + e.ev + (Object.keys(o).length ? ' ' + JSON.stringify(o) : '')); }
+  }
+  L.push('', '(* explore mode. over: frames longer than 1.5 periods of the display\'s rate (hz) of the frames that second. q: automatic quality\'s level, r = the refresh rate stepped down.)');
+  return L.join('\n') + '\n';
+}
+
 const argv = process.argv.slice(2), cmd = argv[0];
 const opt = (n, def) => { const i = argv.indexOf(n); return i > 0 && argv[i + 1] ? argv[i + 1] : def; };
 const target = argv[1] && !argv[1].startsWith('--') ? argv[1] : '';
@@ -89,12 +151,18 @@ if (cmd === 'list') {
   const rows = j.notes.filter((n) => all || n.status !== 'done');
   if (!rows.length) console.log(all ? 'No notes.' : 'No new notes.');
   for (const n of rows) console.log([n.id, n.status, mmss(n.dur), (n.pins || 0) + ' pins', n.device || n.kind, n.story || '', n.transcript ? '"' + n.transcript.replace(/\s+/g, ' ').slice(0, 80) + '"' : '(not transcribed)'].join('  '));
+  // the run logs (a relay older than them answers 404: none)
+  const lg = await call('/api/logs', null, false, true);
+  for (const g of (lg && lg.logs) || []) console.log([g.id, 'log', mmss(g.dur), g.rows + ' s', g.device || '', (g.stories || []).join(',') || '-', g.ended ? '' : '(not ended)'].join('  '));
+} else if (cmd === 'perf' && target) {
+  process.stdout.write(perf(await getLog(target)));
 } else if (cmd === 'pull' && target) {
-  for (const id of await ids(target)) { const r = await pull(id, out); console.log(join(r.dir, 'note.md')); }
+  for (const id of await ids(target)) { const r = await pull(id, out); console.log(join(r.dir, r.log ? 'perf.txt' : 'note.md')); }
 } else if (cmd === 'transcribe' && target) {
   const model = opt('--model', 'small');
   for (const id of await ids(target)) {
     const r = await pull(id, out);
+    if (r.log) { console.error(id + ': a run log, nothing to transcribe'); continue; }
     if (!r.audio) { console.error(id + ': no audio, nothing to transcribe'); console.log(join(r.dir, 'note.md')); continue; }
     const py = join(HERE, 'transcribe.py');
     const uv = spawnSync('uv', ['--version'], { stdio: 'ignore' }).status === 0;
@@ -111,5 +179,5 @@ if (cmd === 'list') {
   await call('/api/notes/' + encodeURIComponent(target), { status: 'done' });
   console.log(target + ' marked done');
 } else {
-  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id>\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
+  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id> | perf <run id>\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
 }

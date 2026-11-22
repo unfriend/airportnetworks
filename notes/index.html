@@ -51,6 +51,8 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
 #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.88); display: none; align-items: center; justify-content: center; z-index: 9; padding: 12px; cursor: zoom-out; }
 #zoom.show { display: flex; } #zoom img { max-width: 100%; max-height: 100%; }
 .ta { position: fixed; left: -9999px; }
+h2.sub { font-size: 17px; margin: 26px 0 4px; }
+#logsBox > .meta { margin: 0 0 10px; }
 </style>
 </head>
 <body>
@@ -67,6 +69,7 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
 </div>
 <div id="status" class="msg"></div>
 <main id="list"></main>
+<section id="logsBox" hidden><h2 class="sub">Run logs</h2><p class="meta">Frame times a second, recorded with <em>Record a run</em> (developer mode). <code>node tools/notes/notes.mjs perf &lt;id&gt;</code> sums one up.</p><div id="logs"></div></section>
 <div id="zoom"><img alt=""></div>
 <script>
 (function () {
@@ -109,6 +112,10 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
       // (not while something plays: drawing the list again would end it; the next look does)
       const playing = [...document.querySelectorAll('#list audio')].some((a) => !a.paused && !a.ended);
       if (sig !== lastSig && !playing) { lastSig = sig; render(); }
+      // the run logs (a relay older than them answers 404: none shown)
+      try { const g = await api('/api/logs'); logs = (g.logs || []).slice().sort((a, b) => (a.id < b.id ? 1 : -1)); } catch (e) { logs = []; }
+      const ls = JSON.stringify([logs, larmed]);
+      if (ls !== logSig) { logSig = ls; renderLogs(); }
     } catch (e) {
       if (e.code === 401) { gate(token() ? 'That password was not taken. Try again.' : 'This relay needs its password.', true); $('#status').textContent = ''; }
       else if (e.code === 404 && relay === location.origin) gate('This address keeps no notes. Where is the relay?', false);
@@ -234,6 +241,33 @@ pre { white-space: pre-wrap; word-break: break-word; background: #060d1a; border
   }
   const after = () => document.querySelectorAll('#list .card').forEach((c) => { if (c.dataset.id === openId) hydrate(c); });
   function draw() { lastSig = ''; render(); after(); }
+  // ---- run logs: when, device, stories, length, a download of the JSON (fetched with the password), Delete (two presses)
+  let logs = [], logSig = '', larmed = '', larmT = 0;
+  function renderLogs() {
+    $('#logsBox').hidden = !logs.length;
+    $('#logs').innerHTML = logs.map((g) => '<article class="card" data-log="' + esc(g.id) + '"><div class="top"><span class="when">' + esc(whenOf(g)) + '</span><span class="meta">' +
+      esc([g.device, g.xr, (g.stories || []).join(', '), mmss(g.dur), g.rows + ' s', g.release, g.ended ? '' : 'not ended'].filter(Boolean).join(' · ')) + '</span></div><p class="meta">' + esc(g.id) + '</p>' +
+      '<div class="acts"><button data-l="json">Download JSON</button><button data-l="del" class="danger' + (larmed === g.id ? ' armed' : '') + '">' + (larmed === g.id ? 'Press again to delete' : 'Delete') + '</button></div></article>').join('');
+  }
+  $('#logs').addEventListener('click', async (e) => {
+    const c = e.target.closest('[data-log]'), b = e.target.closest('[data-l]');
+    if (!c || !b) return;
+    const id = c.dataset.log;
+    if (b.dataset.l === 'json') {
+      try {
+        const r = await api('/api/logs/' + id, { raw: true });
+        if (!r.ok) throw new Error('The relay answered ' + r.status + '.');
+        const u = URL.createObjectURL(await r.blob()), a = document.createElement('a');
+        a.href = u; a.download = 'run-' + id + '.json'; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(u), 60000);
+      } catch (x) { $('#status').innerHTML = '<span class="err">' + esc(x.message) + '</span>'; }
+      return;
+    }
+    if (larmed !== id) { larmed = id; clearTimeout(larmT); larmT = setTimeout(() => { larmed = ''; renderLogs(); }, 3000); renderLogs(); return; }
+    clearTimeout(larmT); larmed = '';
+    try { await api('/api/logs/' + id + '/delete', { body: {} }); logs = logs.filter((x) => x.id !== id); } catch (x) { $('#status').innerHTML = '<span class="err">' + esc(x.message) + '</span>'; }
+    renderLogs();
+  });
 
   async function act(card, a) {
     const id = card.dataset.id, n = notes.find((x) => x.id === id), d = detail[id];

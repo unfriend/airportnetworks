@@ -40,7 +40,8 @@ import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout
 import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT, frameOf, toRoom, quatToRoom } from './trackers.mjs';
 import { makeOsc, encode as oscEncode, parseTarget, parseIn, OSC_RATE, OSC_IN_RATE, OSC_MAX_FRAME, OSC_MAX_MSGS, OSC_MAX_TARGETS } from './osc.mjs';
-import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2 } from './notes.mjs';
+import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2,
+  LOGS_DIR, MAX_LOGS, MAX_LOG_START, MAX_PART, parseLogStart, parseLogPart, logFolderStore, logR2Store } from './notes.mjs';
 
 const PROTO = 1;
 const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0,
@@ -117,7 +118,8 @@ const HELP = `usage: node relay/server.mjs [options]
                    message to the output pages of every room
   --notes <dir>    the developer notebook's notes (voice recordings with pictures, pins and context, POST /api/notes, listed at
                    GET /api/notes, read by tools/notes/notes.mjs and notes/): kept in <dir>. Without it they are kept in .notes/
-                   inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes
+                   inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes; run
+                   logs (frame times a second, POST /api/logs) beside them, in .notes/.logs/
   --no-notes       no notes at all (every notes endpoint answers 404)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
@@ -1079,6 +1081,7 @@ function api(req, res, url) {
   if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res, url);
   if (p === '/api/notes' || p.startsWith('/api/notes/')) return notesApi(req, res, url);
+  if (p === '/api/logs' || p.startsWith('/api/logs/')) return logsApi(req, res, url);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
@@ -2692,6 +2695,71 @@ async function notesApi(req, res, url) {
     if (!f) return no(404, 'the file is gone');
     return sendBytes(req, res, f.buf, shot ? 'image/jpeg' : meta.type);
   } catch (err) { fail(err); }
+}
+// ---- run logs (tools/notes/SPEC.md, "Run logs"; relay/notes.mjs): kept beside the notes (their .logs/), on and off with them.
+// POST /api/logs begins a run (201 { id }; a nonce sent again: 200 { id, again }), POST /api/logs/<id> { seq, rows, end? }
+// adds a part (sent again under the same seq, it replaces itself), GET /api/logs lists the runs (newest first), GET
+// /api/logs/<id> is one with all its rows, POST /api/logs/<id>/delete removes it. Never a row in a log line: `log <id>
+// <part> <bytes>` at most (and only for the start and the end)
+const LOGS = !NOTES ? null : NOTES_DIR ? logFolderStore(path.join(NOTES_DIR, LOGS_DIR)) : R2C ? logR2Store(RX, R2C.prefix + '.notes/' + LOGS_DIR + '/') : logFolderStore(path.join(SCENES, '.notes', LOGS_DIR));
+let LOG_NONCES = null;
+const logNonces = () => (LOG_NONCES ||= LOGS.list().then(rows => { const m = new Map(); for (const s of rows) if (s.nonce) m.set(s.nonce, s.id); return m; }).catch(err => { LOG_NONCES = null; throw err; }));
+async function logsApi(req, res, url) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!LOGS) return no(404, 'this relay keeps no notes');
+  const m = /^\/api\/logs(?:\/([^/]+)(?:\/(delete))?)?$/.exec(url.pathname);
+  if (!m) return no(404, 'no such endpoint');
+  const [, id, sub] = m;
+  try {
+    if (!id) {
+      if (req.method === 'GET') return json(res, 200, { logs: await LOGS.list() }, noStore);
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      const who = LIM.notes ? clientOf(req) : null;
+      if (who && fill(who, 'n', LIM.notes) < 1) { tally('requests refused: too many notes from one address'); return answerEarly(req, res, 429, { error: 'too many notes from your network: wait a minute' }, { 'Retry-After': String(wait(who, 'n', LIM.notes)) }); }
+      const text = await smallBody(req, res, MAX_LOG_START, `a run's start is at most ${MAX_LOG_START >> 10} KB`);
+      if (text === null) return;
+      let b = null;
+      try { b = JSON.parse(text); } catch { /* said below */ }
+      const got = Date.now(), r = parseLogStart(b, got);
+      if (r.error) return json(res, 400, { error: r.error });
+      const nx = r.log.nonce ? await logNonces() : null, was = nx && nx.get(r.log.nonce);
+      if (was && await LOGS.exists(was)) return json(res, 200, { id: was, again: true }, noStore);
+      if (await LOGS.count() >= MAX_LOGS) return json(res, 507, { error: `at most ${MAX_LOGS} run logs are kept: delete some` });
+      let nid = newId(got);
+      for (let i = 0; i < 5 && await LOGS.exists(nid); i++) nid = newId(got);
+      r.log.id = nid;
+      await LOGS.put(nid, r.log);
+      if (nx) nx.set(r.log.nonce, nid);
+      if (who) who.n = Math.max(0, fill(who, 'n', LIM.notes) - 1);
+      log(`log ${nid} begun`);
+      return json(res, 201, { id: nid }, noStore);
+    }
+    if (!NOTE_ID.test(id)) return no(404, 'no such run');
+    if (sub === 'delete') {
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
+      if (!await LOGS.del(id)) return no(404, 'no such run');
+      return json(res, 200, { ok: true }, noStore);
+    }
+    if (req.method === 'GET') {
+      const g = await LOGS.full(id);
+      return g ? json(res, 200, g, noStore) : no(404, 'no such run');
+    }
+    if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+    const text = await smallBody(req, res, MAX_PART, `a part is at most ${MAX_PART >> 10} KB`);
+    if (text === null) return;
+    let b = null;
+    try { b = JSON.parse(text); } catch { /* said below */ }
+    const u = parseLogPart(b);
+    if (u.error) return json(res, 400, { error: u.error });
+    const r = await LOGS.append(id, u.seq, u.rows, u.end);
+    if (!r) return no(404, 'no such run');
+    if (r.error) return json(res, r.status, { error: r.error });
+    if (u.end) log(`log ${id} ended ${r.log.size}`);
+    return json(res, 200, { ok: true, parts: r.log.parts.length, rows: r.log.rows, events: r.log.events, size: r.log.size, ended: r.log.ended }, noStore);
+  } catch (err) {
+    log('logs: storage error (' + (err instanceof R2Error ? storeSays(err) : err.code || err.message) + ')');
+    if (!res.headersSent) json(res, err instanceof R2Error ? 502 : 500, { error: err instanceof R2Error ? storeSays(err) : 'cannot read or write the run logs' });
+  }
 }
 // bytes as a note's file: its type, one byte range (the audio element asks for them), no-store, nosniff
 function sendBytes(req, res, buf, type) {

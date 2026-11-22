@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps (and the run logs'); --logs: only the run logs' steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -1342,6 +1342,106 @@ async function notesSteps() {
   } finally { fs.rmSync(T, { recursive: true, force: true }); }
 }
 
+// ---- run logs (--logs, also in --notes; relay/notes.mjs, tools/notes/SPEC.md "Run logs"): a run begun, parts sent (again,
+// out of order), read whole, listed beside the notes but never among them, the limits, the password, R2, delete
+async function logsSteps() {
+  const PASS = 'logspass' + crypto.randomBytes(4).toString('hex');
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-logs-')), SC = path.join(T, 'scenes'), ND = path.join(T, 'own');
+  fs.mkdirSync(path.join(SC, 'one'), { recursive: true }); fs.writeFileSync(path.join(SC, 'one', 'a.glb'), 'x');
+  const COLS = ['w', 'story', 'mode', 't', 'ch', 'sets', 'n', 'avg', 'p95', 'max', 'over', 'tri', 'calls', 'pts', 'js', 'hz', 'q', 'xr'];
+  const W0 = 1763800000000;
+  const row = (i, story = 'airports') => [W0 + i * 1000, story, 'story', i, Math.floor(i / 10), 'globe', 72, 13.9, 16.4, 24 + (i % 7), i % 3, 120000, 85, 0, 4.2, 72, '0', 'vr'];
+  const start0 = (o = {}) => ({ v: 1, at: W0, cols: COLS, nonce: 'abcdefgh12345678', context: { device: 'headset', release: 'networks-v183', xr: 'vr', secretword: 'QSECRETQ' }, ...o });
+  const rq = (at, method, p, body, headers = {}) => new Promise(resolve => {
+    const buf = body === undefined ? null : Buffer.isBuffer(body) ? body : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers: { ...(buf ? { 'Content-Length': buf.length, 'Content-Type': 'application/json' } : {}), ...headers } }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const b = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, text: b.toString(), json: () => JSON.parse(b.toString()) }); });
+    });
+    r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+    if (buf) for (let i = 0; i < buf.length; i += 65536) r.write(buf.subarray(i, i + 65536));
+    r.end();
+  });
+  async function run(label, A, H) {
+    const r1 = await rq(A, 'POST', '/api/logs', start0(), H), id = r1.json().id;
+    ok(r1.status === 201 && /^\d{8}-\d{6}-[a-z0-9]{4}$/.test(id || ''), label + ': POST /api/logs begins a run: 201 { id } (' + r1.status + ')');
+    const again = await rq(A, 'POST', '/api/logs', start0(), H);
+    ok(again.status === 200 && again.json().id === id && again.json().again === true, label + ': the same nonce again: 200, the same run');
+    const rows0 = Array.from({ length: 30 }, (_, i) => row(i)), rows1 = [{ w: W0 + 30500, ev: 'story', story: 'proteins', from: 'airports' }, ...Array.from({ length: 30 }, (_, i) => row(30 + i, 'proteins'))];
+    const p1 = await rq(A, 'POST', '/api/logs/' + id, { seq: 1, rows: rows1 }, H), p0 = await rq(A, 'POST', '/api/logs/' + id, { seq: 0, rows: rows0 }, H);
+    const p0b = await rq(A, 'POST', '/api/logs/' + id, { seq: 0, rows: rows0 }, H);
+    ok(p1.status === 200 && p0.status === 200 && p0b.json().parts === 2 && p0b.json().rows === 60 && p0b.json().events === 1, label + ': parts out of order and one sent twice: 2 parts, 60 rows, 1 event (' + JSON.stringify(p0b.json()) + ')');
+    const end = await rq(A, 'POST', '/api/logs/' + id, { seq: 2, rows: [{ w: W0 + 61000, ev: 'stop', why: '' }], end: true }, H);
+    ok(end.json().ended === true, label + ': the last part ends it');
+    const g = (await rq(A, 'GET', '/api/logs/' + id, undefined, H)).json();
+    ok(g.id === id && g.cols.join() === COLS.join() && g.rows.length === 62 && g.rows[0][0] === W0 && !Array.isArray(g.rows[30]) && g.rows[30].ev === 'story' && g.stories.join() === 'airports,proteins' && g.ended && g.first === W0 && g.last === W0 + 61000,
+      label + ': GET /api/logs/<id>: log.json with every row in order (' + g.rows.length + ' rows, stories ' + g.stories + ')');
+    const L = (await rq(A, 'GET', '/api/logs', undefined, H)).json().logs, s = L && L[0];
+    ok(L.length === 1 && s.id === id && s.kind === 'log' && s.dur === 61 && s.rows === 60 && s.parts === 3 && s.device === 'headset' && s.story === 'airports' && s.ended === true, label + ': GET /api/logs lists it (' + JSON.stringify(s) + ')');
+    ok((await rq(A, 'GET', '/api/notes', undefined, H)).json().notes.length === 0, label + ': the notes\' listing never shows a run');
+    ok((await rq(A, 'POST', '/api/logs/' + id, { seq: 3, rows: [[1, 2], 'x'] }, H)).status === 400 && (await rq(A, 'POST', '/api/logs/' + id, { seq: -1, rows: [] }, H)).status === 400 &&
+      (await rq(A, 'POST', '/api/logs/' + id, { seq: 3, rows: [['notatime']] }, H)).status === 400 && (await rq(A, 'POST', '/api/logs', start0({ cols: [] }), H)).status === 400 &&
+      (await rq(A, 'POST', '/api/logs/20200101-000000-zzzz', { seq: 0, rows: [] }, H)).status === 404 && (await rq(A, 'GET', '/api/logs/..%2Fx', undefined, H)).status === 404 &&
+      (await rq(A, 'PUT', '/api/logs', '{}', H)).status === 405, label + ': bad rows, seq or cols: 400; no such run: 404; other methods: 405');
+    const big = await rq(A, 'POST', '/api/logs/' + id, Buffer.alloc((512 << 10) + 100, 97), H);
+    ok(big.status === 413 || big.status === 'cut', label + ': a part over 512 KB: ' + big.status);
+    const del = await rq(A, 'POST', `/api/logs/${id}/delete`, undefined, H);
+    ok(del.status === 200 && (await rq(A, 'GET', '/api/logs/' + id, undefined, H)).status === 404 && (await rq(A, 'GET', '/api/logs', undefined, H)).json().logs.length === 0 && (await rq(A, 'POST', `/api/logs/${id}/delete`, undefined, H)).status === 404, label + ': delete removes it; again: 404');
+    return id;
+  }
+  try {
+    await step('logs: off without notes (404); with --scenes kept in .notes/.logs/, begun, parts, read whole, listed, refused, deleted; the scenes and notes never see them', async () => {
+      const O = await start(['--quiet']);
+      ok((await rq(O.port, 'GET', '/api/logs')).status === 404 && (await rq(O.port, 'POST', '/api/logs', start0())).status === 404, 'a relay that keeps no notes keeps no run logs');
+      O.kill();
+      const S = await start(['--scenes', SC]);
+      await run('--scenes', S.port, {});
+      const id = (await rq(S.port, 'POST', '/api/logs', start0({ nonce: undefined }))).json().id;
+      await rq(S.port, 'POST', '/api/logs/' + id, { seq: 0, rows: [row(0)] });
+      ok(fs.existsSync(path.join(SC, '.notes', '.logs', id, 'log.json')) && fs.existsSync(path.join(SC, '.notes', '.logs', id, 'part-00000.json')), 'files: <scenes>/.notes/.logs/<id>/log.json and part-00000.json');
+      ok((await rq(S.port, 'GET', '/api/scenes')).json().scenes.map(x => x.name).join() === 'one' && (await rq(S.port, 'GET', '/api/notes')).json().notes.length === 0, 'the scenes\' and the notes\' listings leave the logs out');
+      ok(!S.out.includes('QSECRETQ') && !S.out.includes('airports') && /log \S+ begun/.test(S.out), 'the log says `log <id> begun` and nothing of a run\'s rows or context');
+      S.kill();
+    });
+    await step('logs: the password (401, Bearer); a run at 8 MB is refused (413); 507 past 500 runs', async () => {
+      const N = await start(['--notes', ND, '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS };
+      ok((await rq(N.port, 'GET', '/api/logs')).status === 401 && (await rq(N.port, 'POST', '/api/logs', start0())).status === 401 && (await rq(N.port, 'GET', '/api/logs?token=' + PASS)).status === 200, 'no password: 401; ?token= works');
+      await run('--notes', N.port, H);
+      const id = (await rq(N.port, 'POST', '/api/logs', start0({ nonce: undefined }), H)).json().id;
+      const fat = Array.from({ length: 2000 }, (_, i) => row(i, 'x'.repeat(150)));   // (about 400 KB a part)
+      let st = 0, k = 0;
+      for (; k < 30 && st !== 413; k++) st = (await rq(N.port, 'POST', '/api/logs/' + id, { seq: k, rows: fat }, H)).status;
+      ok(st === 413 && k > 15 && fs.existsSync(path.join(ND, '.logs', id)), 'parts past 8 MB: 413 (after ' + (k - 1) + ' parts)');
+      N.kill();
+      const F = path.join(T, 'full'), FL = path.join(F, '.logs');
+      fs.mkdirSync(FL, { recursive: true });
+      for (let i = 0; i < 500; i++) { const lid = `20260101-${String(Math.floor(i / 60)).padStart(2, '0')}${String(i % 60).padStart(2, '0')}00-${i.toString(36).padStart(4, '0')}`; fs.mkdirSync(path.join(FL, lid)); fs.writeFileSync(path.join(FL, lid, 'log.json'), JSON.stringify({ v: 1, id: lid, kind: 'log', at: 1, got: 1, cols: COLS, parts: [], rows: 0, stories: [] })); }
+      const FF = await start(['--notes', F, '--quiet']);
+      const r = await rq(FF.port, 'POST', '/api/logs', start0({ nonce: undefined }));
+      ok(r.status === 507 && (await rq(FF.port, 'GET', '/api/logs')).json().logs.length === 500, '500 runs kept: the next is refused 507');
+      FF.kill();
+    });
+    await step('logs: in R2 (under <prefix>.notes/.logs/, against the stand-in S3); the notes\' listing steps over them', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      try {
+        S3.put('studio/alpha/a.glb', 'x', { type: 'model/gltf-binary' });
+        const RR = await start(['--scenes', 'r2', '--quiet'], { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' });
+        await run('R2', RR.port, {});
+        const id = (await rq(RR.port, 'POST', '/api/logs', start0({ nonce: undefined }))).json().id;
+        await rq(RR.port, 'POST', '/api/logs/' + id, { seq: 0, rows: [row(0)] });
+        const keys = S3.keys().filter(k => k.startsWith('studio/.notes/.logs/'));
+        ok(keys.join() === [`studio/.notes/.logs/${id}/log.json`, `studio/.notes/.logs/${id}/part-00000.json`].join(), 'objects: studio/.notes/.logs/<id>/log.json and part-00000.json (' + keys.join() + ')');
+        ok((await rq(RR.port, 'GET', '/api/notes')).json().notes.length === 0 && (await rq(RR.port, 'GET', '/api/scenes')).json().scenes.map(x => x.name).join() === 'alpha' && (await rq(RR.port, 'GET', '/api/logs')).json().logs.length === 1, 'the notes and scenes leave it out; the logs list it');
+        RR.kill();
+      } finally { await S3.close(); }
+    });
+  } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
 // ---- converting a video (--video; POST /api/scenes/<name>/video, tools/studio/SPEC.md "Screens", Files, v143): kinds and
 // types, an upload under videos/, a job making an H.264 MP4 (at most 720 high) of a generated WebM or MOV, its states, a
 // broken file, the time limit (a stand-in ffmpeg), R2 (the stand-in S3) and the password. `node relay/test.mjs --video` runs
@@ -1554,8 +1654,14 @@ else process.exit(0);
   } finally { fs.rmSync(T, { recursive: true, force: true }); }
 }
 
-if (process.argv.includes('--notes')) {   // only the developer notebook's steps (v142)
-  try { await notesSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+if (process.argv.includes('--logs')) {   // only the run logs' steps
+  try { await logsSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+}
+
+if (process.argv.includes('--notes')) {   // only the developer notebook's steps (v142), and the run logs'
+  try { await notesSteps(); await logsSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
   console.log(`\n${passed} checks passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
 }
@@ -4050,6 +4156,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await sndSteps();
   await talkSteps();
   await notesSteps();
+  await logsSteps();
   await videoSteps();
 
   await step('the log has a line per write and per refusal', async () => {

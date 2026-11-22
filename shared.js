@@ -4625,7 +4625,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig()] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5346,6 +5346,14 @@
           y += 66;
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           y += wrapText(ctx, 'What is new: this release, what to test. Notes: the notebook\'s notes on the relay.', x, y, w, 28, 2) + 16;
+          // Record a run (run logs, notes.js; tools/notes/SPEC.md "Run logs"): frame times a second, sent to the relay
+          if (HOST.notes.run) {
+            const rs = HOST.notes.runState(), ron = !!rs.on;
+            button(S, 'runlog', x, y, bw, 56, 'Record a run: ' + (ron ? 'on' : 'off'), () => HOST.notes.run(!ron), { px: 21, on: ron });
+            note(ron ? (rs.err ? 'Not sent yet: ' + rs.err : rs.id ? 'Run ' + rs.id + ', ' + rs.sent + (rs.sent === 1 ? ' part' : ' parts') + ' sent' : 'Starting the run on the relay...')
+              : rs.ended ? (rs.queued ? 'Last run: ' + rs.queued + ' parts still to send' + (rs.err ? ' (' + rs.err + ')' : '') : 'Last run ' + (rs.id || '') + ' sent') : 'Frame times every second, to the relay', y);
+            y += 72;
+          }
         } else {
           note('This release: what changed and what to test', y);
           y += 72;

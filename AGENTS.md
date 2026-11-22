@@ -154,6 +154,8 @@ gets at most a line per feature and stays under 70 KB.
 - Sharp text (v174; on by default in Quest Browser since v175/v176, *layer*; the menu too, v177): the story's two panels
   and the headset menu as WebXR quad layers, drawn by the headset's compositor at the display's resolution (the Debug
   tab, `#sharp=`; `docs/agents/shell.md`).
+- Run logs (developer mode, *Record a run* on the Debug tab or `#runBtn`): frame times a row a second to the relay's
+  `/api/logs`, read with `node tools/notes/notes.mjs perf <id>` (`tools/notes/SPEC.md`, "Run logs").
 - Talk (v178, relay rooms only): voice between the people in a room who are elsewhere, through the relay (binary frames,
   tag 2; Opus via WebCodecs); per device, off by default, open mic with a voice gate and a *Mic* row (the Shared dialog,
   the menu's Circles tab, the phone sheet), no button taken; people both `here` never hear each other through it

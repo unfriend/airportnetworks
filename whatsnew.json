@@ -1,16 +1,18 @@
 {
-  "version": "networks-v183",
+  "version": "networks-v184",
   "date": "2026-11-22",
   "new": [
-    "The headset's notes list (developer mode: Debug, Notes) has Mark done and Delete on each note, so a note can be handled without opening it. Delete asks for a second press.",
-    "Mark all done, under the New, Done and All buttons, marks every new note in the list done, after a second press.",
-    "The notes page on a laptop got the same buttons (Open, Mark done, Delete, Mark all done) without a release; it is never cached."
+    "Record a run (developer mode): the headset menu's Debug tab, or the pulse button above the note button on a page, records one row a second of frame times, triangles, draw calls and where the story is, and sends it to the relay every 30 seconds.",
+    "Runs are listed on the notes page (download or delete) beside the notes; a note made during a run names the run.",
+    "Back into the cell (hidden, #ppicell): a sweep through every link and GRB2 lit in the hairball, one lens at a time, GRB2's partners as proteins, a dense tomogram slab, dashed links and a Copies switch on a pick, and the narration spoken again."
   ],
   "test": [
-    "In a headset with developer mode on, open Debug, Notes: press Mark done on one note, Delete twice on another, then Mark all done twice. The list should follow each press.",
-    "Press a note's row away from its buttons: it should still open the note."
+    "In a headset with developer mode on: Debug, Record a run, play Back into the cell through, then stop the run. Its line should count the parts sent.",
+    "Make a note during the run, then stop it: both should show on the notes page.",
+    "In Back into the cell, grab and resize the hairball in chapter 1, and pick a protein in explore mode with Copies on and off."
   ],
   "untested": [
-    "The buttons were checked with a pretend headset and a pretend relay; how they read and press with a real controller is untested."
+    "Frame times in a real headset session, sending as the headset sleeps, and the quality and session events: tried only on a laptop page.",
+    "The dense slab (42,000 balls) and the hairball's grab, on a Quest 3."
   ]
 }

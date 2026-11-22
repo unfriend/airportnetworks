@@ -239,7 +239,8 @@ HOST.notes = (function () {
     return out;
   }
   // the wrap's hook (index.html, outermost after the controllers' guard): only when a picture is wanted. Never throws
-  function frame() {
+  function frame(t) {
+    if (R.on) runFrame(t);
     heldCheck();
     const w = N.want;
     if (!w) return;
@@ -322,6 +323,7 @@ HOST.notes = (function () {
       try { if (HOST.panels) o.panels = HOST.panels.get(HOST.curKey); } catch (e) { /* left out */ }
       return o;
     });
+    set('run', () => (R.on ? { id: R.id, nonce: R.nonce } : undefined));   // (a note recorded during a run names it)
     set('perf', () => { const p = HOST.perf && HOST.perf.stats && HOST.perf.stats(); const f = L.fps ? L.fps() : 0; return Object.assign({}, p ? { tri: Math.round(p.tri), calls: Math.round(p.calls), js: +p.js.toFixed(2) } : {}, f ? { fps: f } : {}); });
     set('log', () => (window.__collabLog || []).slice(-60).map(e => clean('+' + e.t + ' ' + e.ev + ' ' + JSON.stringify(Object.assign({}, e, { t: undefined, n: undefined, ev: undefined })))).join('\n'));
     return c;
@@ -410,8 +412,195 @@ HOST.notes = (function () {
     } catch (x) { /* never in the way */ }
   }
 
+
+  // ------------------------------------------------------------------ run logs --
+  // Record a run (the owner, 22 November 2026: "push logs right into the relay when needed, grab them from there same as the
+  // developer notes, then I could do a run and you get all the frame times etc."; tools/notes/SPEC.md, "Run logs").
+  // Developer mode only, this device's own, never in a room's keys or collab.state(). While on: every frame's interval
+  // (the frame hook's time: the XR frame's in a session) and HOST.perf's counts of the story's frame, a row a second
+  // (RUN_COLS), and events as they happen; sent to the relay in parts every 30 s, on stop and as the page is hidden.
+  const RUN_COLS = ['w', 'story', 'mode', 't', 'ch', 'sets', 'n', 'avg', 'p95', 'max', 'over', 'tri', 'calls', 'pts', 'js', 'hz', 'q', 'xr'];
+  const RUNT = { part: 30000, max: 2 * 3600 * 1000, keep: 7200, hzs: [30, 45, 48, 50, 60, 72, 75, 80, 90, 100, 120, 144, 165, 240] };
+  const R = { on: false, id: '', nonce: '', at: 0, p0: 0, seq: 0, rows: [], queue: [], sending: false, err: '', sent: 0, rowsN: 0, lastPart: 0,
+    sec: null, lastT: 0, lastFrame: 0, lfN: -1, key: undefined, mode: undefined, xr: undefined, ch: undefined, q: undefined, chFor: null, CH: null, hzEst: 0, ended: null };
+  const r1 = v => Math.round(v * 10) / 10;
+  const runSec = () => ({ w0: Date.now(), p0: performance.now(), dts: [], js: 0, jsN: 0, tri: 0, calls: 0, pts: 0 });
+  const runApp = () => G(() => HOST.cur.collab.APP, null);
+  const runXr = () => (HOST.session ? (/ar/i.test(HOST.mode || '') && !/vr/i.test(HOST.mode || '') ? 'ar' : 'vr') : '');
+  const runQ = () => (HOST.session && HOST.xr && HOST.xr.aq ? G(() => { const q = HOST.xr.aq(); return q.level + (q.low ? 'r' : ''); }, '') : '');
+  function runEv(ev, o) {
+    if (!R.on) return;
+    R.rows.push(Object.assign({ w: Date.now(), ev }, o || {}));
+  }
+  // the chapter the story's clock is in (as context() finds it), its CH looked up once a story
+  function runChapter(A) {
+    if (!A) return null;
+    if (R.chFor !== HOST.cur) { R.chFor = HOST.cur; R.CH = G(() => { const c = HOST.cur.peek('CH'); return Array.isArray(c) && c.length ? c : null; }, null); }
+    const ch = R.CH, t = +A.t || 0;
+    if (!ch) return null;
+    let i = 0; for (let k = 1; k < ch.length; k++) if (t >= (ch[k].na !== undefined ? ch[k].na : ch[k].a)) i = k;
+    return i;
+  }
+  // the story, its mode and the session, looked at every frame and every second (cheap)
+  function runWatch() {
+    const key = HOST.curKey || '', A = runApp(), mode = A ? String(A.mode || '') : '', xr = runXr();
+    if (key !== R.key) { if (R.key !== undefined) runEv('story', { story: key, from: R.key }); R.key = key; R.ch = undefined; }
+    if (mode !== R.mode) { if (R.mode !== undefined) runEv('mode', { mode, story: key }); R.mode = mode; }
+    if (xr !== R.xr) { if (R.xr !== undefined) runEv('xr', { xr, hz: G(() => HOST.xr.aq().rate, 0) || undefined }); R.xr = xr; R.lastT = 0; }
+  }
+  function runFrame(t) {
+    const now = performance.now(), tt = Number.isFinite(t) && t > 0 ? t : now;
+    runWatch();
+    const S = R.sec || (R.sec = runSec());
+    if (R.lastT && tt > R.lastT) { const dt = tt - R.lastT; if (dt < 1000) S.dts.push(dt); else runEv('gap', { ms: Math.round(dt) }); }
+    R.lastT = tt; R.lastFrame = now;
+    const lf = HOST.perf && HOST.perf.last ? HOST.perf.last() : null;
+    if (lf && lf.n !== R.lfN) { R.lfN = lf.n; S.js += lf.js; S.jsN++; S.tri += lf.tri; S.calls += lf.calls; S.pts += lf.pts; }
+    if (now - S.p0 >= 1000) runRow(now);
+  }
+  // the second's row (none for a second without frames), and the chapter's and quality's events
+  function runRow() {
+    const S = R.sec; R.sec = runSec();
+    const A = runApp(), ch = runChapter(A), q = runQ();
+    if (ch !== R.ch) { if (ch !== null) runEv('chapter', { story: R.key, ch, key: G(() => R.CH[ch].key, ''), t: A ? +(+A.t || 0).toFixed(2) : null }); R.ch = ch; }
+    if (q !== R.q) { if (R.q !== undefined && q) runEv('quality', { from: R.q, to: q, why: G(() => String(HOST.xr.aq().why || '').slice(0, 120), '') }); R.q = q; }
+    const d = S.dts, n = d.length;
+    if (!n) return;
+    d.sort((a, b) => a - b);
+    let sum = 0; for (const x of d) sum += x;
+    // the display's rate: the session's own; on a page found from the frames (the fastest steady tenth, the highest seen)
+    let hz = HOST.session ? G(() => HOST.xr.aq().rate, 0) : 0;
+    if (!hz) {
+      const fast = 1000 / d[Math.floor(n * 0.1)], snap = RUNT.hzs.reduce((b, h) => (Math.abs(h - fast) < Math.abs(b - fast) ? h : b), 60);
+      if (n >= 10 && snap > R.hzEst) R.hzEst = snap;
+      hz = R.hzEst || 60;
+    }
+    const lim = 1500 / hz;
+    let over = 0; for (const x of d) if (x > lim) over++;
+    const sets = G(() => HOST.cur.peek("typeof GL !== 'undefined' && GL.sets ? Object.keys(GL.sets).filter(k => GL.sets[k].group && GL.sets[k].group.visible).join('+') : ''"), '') || '';
+    const jn = S.jsN;
+    R.rows.push([S.w0, R.key || '', R.mode || '', A ? +(+A.t || 0).toFixed(2) : null, ch, String(sets).slice(0, 120), n, r1(sum / n), r1(d[Math.min(n - 1, Math.ceil(n * 0.95) - 1)]), r1(d[n - 1]), over,
+      jn ? Math.round(S.tri / jn) : null, jn ? Math.round(S.calls / jn) : null, jn ? Math.round(S.pts / jn) : null, jn ? +(S.js / jn).toFixed(2) : null, hz, q, R.xr || '']);
+    R.rowsN++;
+  }
+  // the run's context as it begins: never a room's names or a story's state (a run is frame times)
+  function runContext() {
+    const c = context(), o = {};
+    for (const k of ['release', 'format', 'shell', 'url', 'device', 'ua', 'browser', 'screen', 'xr', 'story', 'settings']) if (c[k] !== undefined) o[k] = c[k];
+    try { if (HOST.xr && HOST.xr.aq) { const q = HOST.xr.aq(); o.aq = { auto: q.auto, level: q.level, rate: q.rate, rateStep: q.rateStep }; } } catch (e) { /* left out */ }
+    return o;
+  }
+  // a call to the relay's logs API: { ok, j } or { ok: false, err, drop } (drop: refused for good)
+  async function runPost(path, body, keep) {
+    const r = L.relayFind ? await L.relayFind() : null;
+    if (!r || !r.base) return { ok: false, err: 'no relay' };
+    const ab = new AbortController(), to = setTimeout(() => ab.abort(), 30000);
+    try {
+      const res = await fetch(r.base + path, { method: 'POST', cache: 'no-store', signal: ab.signal, keepalive: !!keep && body.length < 60000,
+        headers: Object.assign({ 'Content-Type': 'application/json' }, r.token ? { Authorization: 'Bearer ' + r.token } : {}), body });
+      let j = null;
+      try { j = await res.json(); } catch (e) { /* not JSON */ }
+      try { if (L.relaySaw) L.relaySaw(r.base, res.status, r.token || '', j); } catch (e) { /* no prompt */ }
+      if ((res.status === 201 || res.status === 200) && j) return { ok: true, j };
+      return { ok: false, err: 'the relay answered ' + res.status + (j && j.error ? ': ' + j.error : ''), drop: res.status === 400 || res.status === 404 || res.status === 413 || res.status === 507, full: res.status === 413 || res.status === 507 };
+    } catch (e) { return { ok: false, err: navigator.onLine === false ? 'offline' : 'the relay could not be reached' }; }
+    finally { clearTimeout(to); }
+  }
+  async function runSend(keep) {
+    if (R.sending) return;
+    R.sending = true;
+    try {
+      if (!R.id) {
+        const x = await runPost('/api/logs', JSON.stringify({ v: 1, nonce: R.nonce, at: R.at, cols: RUN_COLS, context: runContext() }), keep);
+        if (!x.ok || !x.j.id) { R.err = x.err || 'no id'; if (x.full) runStop('the relay is full'); return; }
+        R.id = String(x.j.id); R.err = '';
+        log('run log', { id: R.id });
+      }
+      while (R.queue.length) {
+        const p = R.queue[0], x = await runPost('/api/logs/' + encodeURIComponent(R.id), JSON.stringify(p), keep);
+        if (x.ok) { R.queue.shift(); R.sent++; R.err = ''; continue; }
+        R.err = x.err;
+        if (x.drop) { R.queue.shift(); log('run log part refused', { err: x.err }); if (x.full) runStop('the run is at its limit'); }
+        break;
+      }
+    } finally { R.sending = false; bump(); }
+  }
+  // the rows so far as a part (end: the last), sent at once
+  function runCut(end, keep) {
+    if (R.rows.length || end) R.queue.push(Object.assign({ seq: R.seq++, rows: R.rows.splice(0) }, end ? { end: true } : {}));
+    // (a relay that never answers: at most two hours of parts wait, the oldest go first)
+    let n = R.queue.reduce((s, p) => s + p.rows.length, 0);
+    while (n > RUNT.keep && R.queue.length > 1) n -= R.queue.shift().rows.length;
+    R.lastPart = Date.now();
+    runSend(keep);
+  }
+  function runStart() {
+    if (R.on || !devOn()) return false;
+    Object.assign(R, { on: true, id: '', nonce: nonce(), at: Date.now(), p0: performance.now(), seq: 0, rows: [], queue: [], err: '', sent: 0, rowsN: 0, lastPart: Date.now(),
+      sec: null, lastT: 0, lastFrame: 0, lfN: -1, key: undefined, mode: undefined, xr: undefined, ch: undefined, q: undefined, chFor: null, CH: null, hzEst: 0, ended: null });
+    runWatch();
+    runEv('start', { story: R.key, mode: R.mode, xr: R.xr });
+    log('run started', {});
+    notice('Recording a run', 'Frame times, a row a second, sent to the relay every 30 s.', 3500);
+    runCut(false);
+    bump();
+    return true;
+  }
+  function runStop(why) {
+    if (!R.on) return false;
+    if (R.sec && R.sec.dts.length) runRow();
+    runEv('stop', { why: why || '' });
+    const secs = (performance.now() - R.p0) / 1000;
+    R.on = false; R.ended = { at: Date.now(), dur: secs };
+    // (the last part: R.on is off now, so runEv adds nothing more)
+    R.queue.push({ seq: R.seq++, rows: R.rows.splice(0), end: true });
+    R.lastPart = Date.now();
+    runSend();
+    log('run stopped', { why: why || '', rows: R.rowsN });
+    notice('Run recorded (' + mmss(secs) + ')', why ? 'Stopped: ' + why + '.' : 'Its log goes to the relay.', 3500);
+    bump();
+    return true;
+  }
+  // a second's timer: a row when frames stop coming, the part every 30 s, developer mode, the two-hour limit
+  function runTick() {
+    if (!R.on) { if (R.queue.length && Date.now() - R.lastPart >= RUNT.part) { R.lastPart = Date.now(); runSend(); } return; }
+    if (!devOn()) { runStop('developer mode is off'); return; }
+    if (performance.now() - R.p0 > RUNT.max) { runStop('two hours is the most a run lasts'); return; }
+    runWatch();
+    if (R.sec && performance.now() - R.sec.p0 >= 1500) runRow();
+    if (Date.now() - R.lastPart >= RUNT.part) runCut(false);
+  }
+  let runSig = 0;
+  const bump = () => { runSig++; paintRun(); };
+  setInterval(runTick, 1000);
+  quiet(() => {
+    document.addEventListener('visibilitychange', () => {
+      if (!R.on) return;
+      runEv(document.hidden ? 'hidden' : 'shown');
+      R.lastT = 0;
+      if (document.hidden) runCut(false, true);   // (best effort: the page may not come back)
+    });
+    window.addEventListener('pagehide', () => { if (R.on) { runEv('hidden', { pagehide: true }); runCut(false, true); } });
+  });
+  function runState() {
+    return { on: R.on, id: R.id, nonce: R.nonce, since: R.on ? +((performance.now() - R.p0) / 1000).toFixed(1) : 0, rows: R.rowsN, waiting: R.rows.length, queued: R.queue.length, sent: R.sent, err: R.err, ended: R.ended ? Object.assign({}, R.ended) : null };
+  }
   // ------------------------------------------------------------------ a page's button, strip and markers --
-  const UI = { btn: null, strip: null, marks: null, css: false, stripT: 0 };
+  const UI = { btn: null, strip: null, marks: null, run: null, runTxt: '', css: false, stripT: 0 };
+  const RUN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>';
+  // the page's Record a run button (over the note button): a pulse line, or the run's time while it records
+  function paintRun() {
+    const rb = UI.run;
+    if (!rb) return;
+    const on = devOn() && !inSession() && !(HOST.renderer && HOST.renderer.xr && HOST.renderer.xr.isPresenting);
+    rb.hidden = !on;
+    if (!on) return;
+    rb.classList.toggle('on', R.on);
+    const txt = R.on ? mmss((performance.now() - R.p0) / 1000) : '';
+    if (txt !== UI.runTxt || !rb.firstChild) { UI.runTxt = txt; if (txt) rb.textContent = txt; else rb.innerHTML = RUN_ICON; }
+    const tip = R.on ? 'Stop recording the run (developer mode)' + (R.err ? ': ' + R.err : '') : 'Record a run: frame times to the relay (developer mode)';
+    if (rb.title !== tip) { rb.title = tip; rb.setAttribute('aria-label', R.on ? 'Stop recording the run' : 'Record a run'); }
+  }
   function build() {
     if (UI.btn) return;
     const st = document.createElement('style');
@@ -420,6 +609,10 @@ HOST.notes = (function () {
 #noteBtn.rec { background: #d93a3a; border-color: #fff; }
 #noteBtn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #noteStrip { position: fixed; right: calc(max(16px, env(safe-area-inset-right, 0px)) + 62px); bottom: calc(var(--fc-bot, 0px) + 20px + env(safe-area-inset-bottom, 0px)); z-index: 9; max-width: min(320px, calc(100vw - 100px)); padding: 8px 12px; border-radius: 10px; background: #0b1424ee; color: #e6edf7; font: 14px/1.35 system-ui, sans-serif; border: 1px solid #ffffff22; pointer-events: none; }
+#runBtn { position: fixed; right: calc(max(16px, env(safe-area-inset-right, 0px)) + 4px); bottom: calc(var(--fc-bot, 0px) + 80px + env(safe-area-inset-bottom, 0px)); z-index: 9; min-width: 44px; height: 44px; border-radius: 22px; border: 1px solid #ffffff44; background: #1b2a42; color: #fff; display: grid; place-items: center; cursor: pointer; font: 600 12px/1 system-ui, sans-serif; box-shadow: 0 2px 10px #0008; padding: 0 8px; }
+#runBtn[hidden] { display: none; }
+#runBtn.on { background: #b8452a; border-color: #fff; }
+#runBtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #noteMarks { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 #noteMarks i { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #ff3c3cee; border: 2px solid #fff; color: #fff; font: 700 14px/22px system-ui, sans-serif; text-align: center; font-style: normal; }`;
     document.head.appendChild(st);
@@ -429,8 +622,11 @@ HOST.notes = (function () {
     b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
     const s = UI.strip = document.createElement('div'); s.id = 'noteStrip'; s.hidden = true; s.setAttribute('role', 'status');
     const m = UI.marks = document.createElement('div'); m.id = 'noteMarks'; m.hidden = true;
-    document.body.append(b, s, m);
+    const rb = UI.run = document.createElement('button');
+    rb.id = 'runBtn'; rb.type = 'button'; rb.hidden = true; rb.setAttribute('data-sfx', 'none');
+    document.body.append(b, s, m, rb);
     quiet(() => {
+      rb.addEventListener('click', () => { if (R.on) runStop(); else runStart(); });
       b.addEventListener('click', () => { if (N.rec) stop(true); else start('button'); });
       document.addEventListener('pointerdown', pagePin, true);
       document.addEventListener('keydown', e => { if (e.key === 'Escape' && N.rec && N.kind === 'page') { N.cancel = true; stop(false); } }, true);
@@ -460,6 +656,7 @@ HOST.notes = (function () {
     const recording = on && N.rec && N.kind === 'page';
     UI.btn.classList.toggle('rec', recording);
     if (recording) UI.btn.textContent = mmss(rel()); else if (!UI.btn.querySelector('svg')) UI.btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+    paintRun();
     if (!on) { UI.strip.hidden = true; UI.marks.hidden = true; }
     else if (N.strip) UI.strip.hidden = false;
     marks();
@@ -516,6 +713,9 @@ HOST.notes = (function () {
       return false;
     },
     pin, start, stop: send => stop(send !== false), frame, context, outbox: () => outAll(), flush,
+    // Record a run (run logs): running() for HOST.perf, run(on) to start or stop, runState(), runSig() for the menu
+    running: () => R.on, run: on => (on === undefined ? (R.on ? runStop() : runStart()) : on ? runStart() : runStop()), runState, runSig: () => runSig + (R.err ? ':' + R.err : ''),
+    runRows: () => R.rows.slice(), runCols: () => RUN_COLS.slice(), runTest(o) { if (o && o.part) RUNT.part = +o.part; if (o && 'tick' in o) runTick(); return Object.assign({}, RUNT); },
     // what shared.js draws while a note is recorded (the read-out, the pins): null when nothing shows
     view() {
       const t = clock(), pinsOn = N.kind === 'headset' && N.pins.length && (N.rec || t < N.pinsUntil);
