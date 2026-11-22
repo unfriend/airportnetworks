@@ -1,19 +1,15 @@
 {
-  "version": "networks-v181",
-  "date": "2026-11-21",
+  "version": "networks-v182",
+  "date": "2026-11-22",
   "new": [
-    "The tutorial's robot guide is never quite still: it breathes, shifts its weight from foot to foot, and its head and hands drift a little.",
-    "On a walk it sways side to side, bobs and swings its arms against its steps.",
-    "Its turns and its glances ease in and out more softly, with a smaller overshoot.",
-    "Everything still follows the story's clock, so jumping and late joiners see the same pose. Rooms stay on format networks-55."
+    "Getting around, the card that shows once a session in a headset, now closes at once when you point at it and press the trigger. Its last line says so: Closes by itself in n s, or press it.",
+    "Nothing else in the app changed. A new story is being built as a hidden package: Back into the cell (#ppicell, or developer mode's Stories screen)."
   ],
   "test": [
-    "In a headset, start Your guide: watch it while it talks to you, and while it walks to the markers in Hello.",
-    "In practice mode, use the arrows so it walks between markers: the arms should swing and stop smoothly.",
-    "Tell us if the movement is too much or too little."
+    "In a headset, enter a session: point at Getting around and press the trigger. It should close with a click, and the press should do nothing else.",
+    "Leave it alone once: it should still close by itself after its countdown."
   ],
   "untested": [
-    "How it looks at life size in a headset, and whether the feet stay planted during the weight shift (checked here on the page only).",
-    "Everything from v136 to v180 that the earlier entries list, except Sharp text, which was tried on a Quest and works."
+    "Pressing the card was only checked in the code and the cheap checks; nothing here can try a controller's ray on it."
   ]
 }

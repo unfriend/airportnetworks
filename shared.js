@@ -3533,8 +3533,9 @@
     OV.eye = sheet(720, 290, 0.42, 55, true);
     OV.eye.mesh.userData.shell = { kind: 'eye' };
     OV.root.add(OV.eye.mesh); OV.eye.mesh.visible = false;
-    // the welcome (WEL: Getting around), as the notices are drawn, a little larger; never pointed at
+    // the welcome (WEL: Getting around), as the notices are drawn, a little larger; pressed, it closes (the owner, v182)
     OV.wel = sheet(760, 360, 0.56, 54, true);
+    OV.wel.mesh.userData.shell = { kind: 'wel' };
     OV.root.add(OV.wel.mesh); OV.wel.mesh.visible = false;
     OV.fps = sheet(800, 120, 0.36, 52, true);
     OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
@@ -6698,7 +6699,7 @@
         ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, rest, Math.max(40, tw - kw)), 30 + kw, y);
         y += 36;
       }
-      ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText('Closes by itself in ' + left + ' s', 30, S.h - 42);
+      ctx.font = FONT(19); ctx.fillStyle = FAINT; ctx.fillText('Closes by itself in ' + left + ' s, or press it', 30, S.h - 42);
       if (!W.hands && !W.phone) welController(ctx, w - 105, 190);
       S.tex.needsUpdate = true;
     }
@@ -7655,11 +7656,11 @@
     const tip = tipMode();
     const hits = RC.intersectObjects(tip ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
     // (the question whether to go into a circle is drawn over everything: on the ray, it is what the ray points at)
-    for (const top of [OV.ask.mesh, OV.eye.mesh]) { const ah = hits.findIndex(x => x.object === top); if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]); }
+    for (const top of [OV.ask.mesh, OV.eye.mesh, OV.wel.mesh]) { const ah = hits.findIndex(x => x.object === top); if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]); }
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
-      if (!tip && near != null && x.distance > near && t.kind !== 'ask' && t.kind !== 'eye') break;   // the story's own panel is in front
+      if (!tip && near != null && x.distance > near && t.kind !== 'ask' && t.kind !== 'eye' && t.kind !== 'wel') break;   // the story's own panel is in front
       // the Story tab: the story's own panel there (the story takes it as its panel, at u, v of its canvas: its buttons,
       // sliders and hover tick as on the panel itself)
       if (t.kind === 'storypanel') { C.hov.set(i, { target: t, at: h.at, p: x.point }); h.hk = ''; return { kind: 'shell', panel: t.which, u: x.uv.x, v: x.uv.y, point: x.point, dist: x.distance }; }
@@ -7691,6 +7692,7 @@
     if (h.target.kind === 'pcam') { pcamTake(i); return; }   // the preview camera's place (the menu's button again stops it)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
     else if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
+    else if (h.target.kind === 'wel') { if (!twice('wel', 'ray')) { welClose('pressed'); sfx('click', h.p); } }   // (Getting around: pressed, it closes)
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
     // circles asked first (the room's setting) it asks, in a small panel in front of you, whether to go in (not your own
     // station, nor the room's arc, which everyone here is at)
@@ -8218,6 +8220,7 @@
     OV.hit.length = 0;
     if (OV.ask.mesh.visible) OV.hit.push(OV.ask.mesh);
     if (OV.eye.mesh.visible) OV.hit.push(OV.eye.mesh);
+    if (OV.wel.mesh.visible) OV.hit.push(OV.wel.mesh);   // (Getting around: pressed, it closes)
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {

@@ -1,0 +1,15 @@
+{
+  "version": "networks-v182",
+  "date": "2026-11-22",
+  "new": [
+    "Getting around, the card that shows once a session in a headset, now closes at once when you point at it and press the trigger. Its last line says so: Closes by itself in n s, or press it.",
+    "Nothing else in the app changed. A new story is being built as a hidden package: Back into the cell (#ppicell, or developer mode's Stories screen)."
+  ],
+  "test": [
+    "In a headset, enter a session: point at Getting around and press the trigger. It should close with a click, and the press should do nothing else.",
+    "Leave it alone once: it should still close by itself after its countdown."
+  ],
+  "untested": [
+    "Pressing the card was only checked in the code and the cheap checks; nothing here can try a controller's ray on it."
+  ]
+}

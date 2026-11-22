@@ -1021,8 +1021,8 @@ The plan is `docs/shared-space-plan.md`.
 - Getting around (v124; the owner: a toast after alignment saying how to enter circles and what the trigger and grip do; `WEL`, `welStep`, `drawWelcome`,
   `OV.wel`): once a session in a headset, a small panel in front of you (its own sheet, not a notice, so `notes()` is
   unchanged: 760 x 360 px, 0.56 m wide, 1.05 m ahead and 2 cm under the eyes, eased with the head as the notices are
-  and above where they show, over everything, `renderOrder` 54, never pointable) for 14 s (`WEL.ms`, *Closes by itself
-  in n s*), with a soft chime. Its words: *Getting around*; in a room with circles (the room's arc aside), by the room's
+  and above where they show, over everything, `renderOrder` 54; since v182 pointable: the trigger on it closes it at once,
+  `welClose('pressed')`, the owner's note) for 14 s (`WEL.ms`, *Closes by itself in n s, or press it*), with a soft chime. Its words: *Getting around*; in a room with circles (the room's arc aside), by the room's
   setting, *Point at a circle's card or icon and press the trigger to go in.* (asked first) or *Walk into a circle to go
   in.* (walked into); in a room with only the room's arc, *Point at a story's card in front of you and press the trigger
   to start it.*; then *Trigger (index finger): click.*, *Grip (middle finger): grab and move things.* and *Click a
