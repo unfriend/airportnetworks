@@ -133,7 +133,7 @@ function buildStory() {
       `<p data-at="21" data-out="40.5">A hub is a protein with many links. The biggest sit in the middle: GRB2 alone has ${fmt(GRB2.deg)}. On average a protein has ${Math.round(F.mean)}.</p>`,
       `<p data-at="41">But a map like this says who binds whom, not where. Beside it stands an empty model cell.</p>
         <p data-at="48" class="amber">In a real cell two proteins can bind only if they meet.</p>`)}`,
-    crowd: `<h2 data-at="0.6">Billions and thousands</h2>
+    crowd: `<h2 data-at="0.6" data-say="">Billions and thousands</h2>
       ${turns(`<p data-at="1.5" data-out="20.5">Take one spot of the cytosol, the watery inside of the cell, and look closer.</p>
         <p data-at="9" data-out="20.5">A cube about 100 nanometres across holds a few thousand protein molecules. They fill a quarter to a third of the space. Here ${fmt(crowdN)} are drawn, each simplified to a few balls.</p>`,
       `<p data-at="21" data-out="33.5">A whole human cell holds roughly 1 to 10 billion protein molecules, of about ten thousand kinds.</p>
@@ -141,7 +141,7 @@ function buildStory() {
       `<p data-at="34">So one dot of the map stands for all the copies of one kind of protein in one place: the bright ones here.</p>
         <p data-at="41" class="amber">One dot per kind and place: ${fmt(F.L)} dots for the ${fmt(F.placed)} proteins with a place.</p>
         <p data-at="37" class="credits">The bright ones: the ${fmt(crowdK.find(k => k[0] === 'cam')[1])} calmodulins drawn.</p>`)}`,
-    walls: `<h2 data-at="0.6">Spaces and walls</h2>
+    walls: `<h2 data-at="0.6" data-say="">Spaces and walls</h2>
       ${turns(`<p data-at="1.5" data-out="26.5">A cell is not one bag of water. Membranes divide it into spaces: the cytosol, the nucleoplasm inside the nucleus, the inside of the endoplasmic reticulum, the Golgi and every other organelle, and outside the cell.</p>
         <p data-at="14" data-out="26.5" class="amber">Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is a space of its own.</p>`,
       `<p data-at="27" data-out="44.5">A protein in a membrane can face one side or both. A receptor reaches across the plasma membrane: a part outside meets a signal, a part inside meets a partner.</p>
@@ -149,36 +149,37 @@ function buildStory() {
       `<p data-at="45">A few gates let proteins cross: the nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="56" class="caption">Close-ups not to scale.</p>
         <p data-at="48" class="credits">The nuclear pore and the import site are simple shapes.</p>`)}`,
-    back: `<h2 data-at="0.6">Back into the cell</h2>
+    back: `<h2 data-at="0.6" data-say="">Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5">Now each protein goes where the Human Protein Atlas finds it, in ${word(F.places)} places of the model cell.</p>
         <p data-at="5" data-out="15.5">The Atlas is a public map of where human proteins sit. For each protein, cultured human cells are stained with an antibody that sticks to it, and photographed under a microscope.</p>`,
       `<p data-at="16" data-out="42.5">A protein in several places splits into copies on the way: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more. ${fmt(F.L)} protein locations in all.</p>
         <p data-at="28" data-out="42.5">Within each place, proteins that link to each other gather together. Each mitochondrion keeps its own links.</p>`,
       `<p data-at="43">The links take the colour of their verdict.</p>
         <p data-at="55" class="amber">${fmt(F.unplaced)} proteins, a ${quarter > 22 && quarter < 28 ? 'quarter' : `${quarter} %`} of the map, have no place in the Atlas: it has no reliable picture of them yet. They wait outside the cell for now, grey.</p>`)}`,
-    judge: `<h2 data-at="0.6">Can they meet?</h2>
+    judge: `<h2 data-at="0.6" data-say="">Can they meet?</h2>
       ${turns(`<p data-at="1.5" data-out="42.5">Judged strictly (an organelle's proteins inside it), the ${fmt(J)} links that suggest contact, between proteins that both have a place:</p>
-        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space`)}
-          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): one known crossing apart`)}
-          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space, no crossing`)}</ul>`,
+        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %), because they share a space`)}
+          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): their spaces are one known crossing apart`)}
+          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space and no known crossing`)}</ul>`,
       `<p data-at="43">RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
         <p data-at="50" class="amber">So ${fmt(RELA.t[1])} of its links pass a gate.</p>
         <p data-at="58" class="caption">Counted apart: ${fmt(F.notC)} links that are not contacts (regulatory or metabolic only) and ${fmt(F.unpl)} with an end without a place. These are counts: about ${about} links are drawn, the red ones raised to ${fmt(redDrawn)} so they show.</p>`)}`,
-    red: `<h2 data-at="0.6">Why red?</h2>
+    red: `<h2 data-at="0.6" data-say="">Why red?</h2>
       ${turns(`<p data-at="1.5" data-out="13.5">Red links are the puzzle. In the Atlas, their two proteins never share a space, and no known gate joins their spaces. As drawn, they could not meet.</p>
         <p data-at="7" data-out="13.5" class="amber">So either the link is wrong, or a place is missing from the Atlas. Where do links come from?</p>`,
       `<ul class="steps">${step(19, 42.5, CYAN, 'Two-hybrid', ` tests in yeast, a single-celled fungus that is easy to grow. Both proteins are made inside one yeast cell, each carrying half of a switch. If they stick together, the halves meet and the yeast turns on a gene that shows. It tells you a pair can stick, not whether they meet in our cells.`)}</ul>
         <p data-at="31" data-out="42.5" class="amber">Binary links come mostly from such tests: ${bin.pct} % of them are impossible (those with both places known).</p>
         <p data-at="21" data-out="42.5" class="credits">H-Ras and Raf: PDB ${pdbId('ras')}, their surfaces. Not to scale.</p>`,
-      `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' fishes. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
-        <p data-at="55" data-out="65.5" class="amber">Yet complexes, mostly collected by hand from many such studies, agree best: ${cx.pct} % impossible.</p>`,
+      `<ul class="steps">${step(43, 65.5, AMBER, 'Purification', ' works like fishing. Cells are broken open, one protein is caught with a molecular hook, and whatever comes up with it is weighed in a mass spectrometer, a machine that tells proteins apart by weight. Once the cells are broken, proteins from different spaces can meet in the tube.')}</ul>
+        <p data-at="55" data-out="65.5" class="amber">Complexes did best. They are proteins known to work together as stable machines, mostly gathered by hand from many such studies. Only ${cx.pct} % of their links are impossible.</p>`,
       `<ul class="steps">${step(66, 83.5, GREEN, 'Proximity labelling', ' works in living cells. The bait, a protein you pick, carries an enzyme that puts a small tag on every protein within about 10 nanometres. The tagged proteins are then fished out. It tells you who was near, not who held on.')}</ul>
         <p data-at="76" data-out="83.5">Large maps made this way came after this interactome.</p>
         <p data-at="68" data-out="83.5" class="credits">The antibody: PDB ${pdbId('igg')}. BirA: PDB ${pdbId('bira')}. Their surfaces; the other proteins simplified. Not to scale.</p>`,
-      `<p data-at="84" data-out="93.5">Across the ${word(F.byKind.length)} kinds of evidence that suggest contact, from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}); a link counts under each of its kinds. This goes with the kind of evidence; it does not prove a method caused it.</p>`,
-      `<p data-at="94" data-out="104.5">Partly the Atlas: it does not say which side of a membrane a protein is on. Inside only, ${fmt(s2)} links are impossible; either side, ${fmt(g2)}. One is too strict, the other too generous to rule anything out.</p>`,
-      `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place at all: ${fmt(F.unpl)} of their links cannot be judged.</p>`)}`,
-    moments: `<h2 data-at="0.6">Not all at once</h2>
+      `<p data-at="84" data-out="93.5">So the share of impossible links depends on the evidence: ${lo.pct} % for ${F.kindName(lo.n)} links, up to ${hi.pct} % for ${F.kindName(hi.n)} links. That goes along with the method, but it does not prove the method is to blame.</p>
+        <p data-at="85" data-out="93.5" class="credits">Of the ${word(F.byKind.length)} kinds of evidence that suggest contact; a link found in several ways counts under each.</p>`,
+      `<p data-at="94" data-out="104.5">Part of the problem is the Atlas itself: it does not say on which side of a membrane a protein sits. If every organelle protein sits inside its organelle, ${fmt(s2)} links are impossible. If it may face out as well, ${g2 ? `only ${fmt(g2)} are` : 'none are'}. The first reading is too strict, the second too generous to rule anything out.</p>`,
+      `<p data-at="105" class="amber">And ${fmt(F.unplaced)} proteins have no place in the Atlas at all, so their ${fmt(F.unpl)} links cannot be judged.</p>`)}`,
+    moments: `<h2 data-at="0.6" data-say="">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
         <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a permanent wire.</p>
         <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners as chains of amino acids.</p>`,
@@ -189,8 +190,8 @@ function buildStory() {
       `<p data-at="54">The Atlas lists STAT3 in the ${listOf(STAT3.places)}. It sits mostly in the cytosol until a kinase at a receptor, JAK2, switches it on; it pairs up, passes a pore and binds DNA and partners such as EP300 in the nucleus.</p>
         <p data-at="62" class="amber">Its ${fmt(STAT3.deg)} links are in ${word(STAT3.places.length)} places; when each happens is not in this map.</p>
         <p data-at="56" class="credits">STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: ${pdbId('jak2')}; p300: ${pdbId('p300')}; their surfaces. Not to scale.</p>`)}`,
-    next: `<h2 data-at="0.6">What it would take</h2>
-      ${turns(`<p data-at="1.5" data-out="50.5">A map true to a real cell needs where and when each pair meets.</p>
+    next: `<h2 data-at="0.6" data-say="">What it would take</h2>
+      ${turns(`<p data-at="1.5" data-out="47.5">A map true to a real cell needs where and when each pair meets.</p>
         <ul class="steps">${step(5, 47.5, GREEN, 'Proximity maps', ' start from a bait: a chosen protein fitted with an enzyme that tags every protein near it in a living cell. Hundreds to thousands of baits show who is near whom, place by place')}
           ${step(22, 47.5, CYAN, 'Cryo-electron tomography', ' cuts frozen cells thin and shows single molecules where they are')}
           ${step(37, 47.5, MAGENTA, 'Whole-cell volumes', ' map every organelle of a whole cell in 3D')}</ul>`,
@@ -350,7 +351,7 @@ function buildStory() {
   cam(b, 'cell', 'default', 85, 'spin', [0, 4, 1.4]);
   L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 2, a + 13, 'mag');
   L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 86, 'cyn');
-  L('lens', 'apmsTag', `<b>Complexes</b> · mostly curated · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
+  L('lens', 'apmsTag', `<b>Complexes</b> · stable machines, gathered by hand · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
   L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 76, a + 86, 'grn');
   L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 94, a + 97, 'mag');
   L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 98, a + 104, 'cyn');
