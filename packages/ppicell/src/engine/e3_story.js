@@ -181,7 +181,7 @@ function buildStory() {
     moments: `<h2 data-at="0.6" data-say="">Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5">A hub does not hold all its partners at once. GRB2 has ${fmt(GRB2.deg)} links but three binding domains: an SH2, which holds a receptor's phosphorylated tyrosine, and two SH3s, which hold proline-rich stretches.</p>
         <p data-at="18" data-out="35.5" class="amber">Its partners take turns. A link is a moment in time, not a permanent wire.</p>
-        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners as chains of amino acids.</p>`,
+        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: parts of them as surfaces (PDB 1M17, 3PP0, 1R0P, 1T46, 1MIL, 2II0, 2CBL, 2X2E), smaller than to scale, each with its docking stretch as a chain of amino acids.</p>`,
       `<p data-at="36" data-out="44.5">TP53, one of the best-known proteins, has ${fmt(TP53.deg)} links. The Atlas lists it in the ${listOf(TP53.places)}, and it goes to and fro through the nuclear pores.</p>
         <p data-at="40" data-out="44.5">${fmt(TP53.nuc)} of its partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>
         <p data-at="37" data-out="44.5" class="credits">TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.</p>`,
@@ -338,7 +338,7 @@ function buildStory() {
   ramp('cell_amb', a + 1, a + 3, 1, 0.15); ramp('cell_amb', a + 12, a + 14, 0.15, 1);
   show('lens', a + 13, a + 15, a + 84, a + 86);
   ramp('lens_open', a + 14, a + 19, 0, 1);
-  ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3); ramp('lens_focus', a + 83, a + 85, 3, 0);
+  ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3);
   jump('cell_faces', a + 97, 0, 1);
   jump('cell_faces', a + 104, 1, 0);
   jump('cell_show', a + 104, 2, 3);
@@ -356,8 +356,8 @@ function buildStory() {
   cam(a + 104, 'cell', 'default', 60, 'spin');
   cam(b, 'cell', 'default', 85, 'spin', [0, 4, 1.4]);
   L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 2, a + 13, 'mag');
-  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 86, 'cyn');
-  L('lens', 'apmsTag', `<b>Complexes</b> · stable machines, gathered by hand · ${cx.pct} % impossible`, a + 55, a + 86, 'amb');
+  L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 44, 'cyn');
+  L('lens', 'apmsTag', `<b>Complexes</b> · stable machines, gathered by hand · ${cx.pct} % impossible`, a + 55, a + 67, 'amb');
   L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 76, a + 86, 'grn');
   L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 94, a + 97, 'mag');
   L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 98, a + 104, 'cyn');

@@ -3,7 +3,7 @@
 // meet on the DNA and a reporter lights, wherever the two live in our own cells. Purification with mass spectrometry: the
 // cell is broken open and a bait pulled out of the mix with what clings to it, proteins from different places meeting in
 // the tube. Proximity labelling: a bait in a living cell marks what comes near it with tags, near, not necessarily bound.
-// lens_open brings the rings in, lens_focus lights one (1, 2, 3; 0 all alike). Drawn in the cell's frame, above it.
+// lens_open brings the rings in, lens_focus shows one (1, 2, 3, the others gone; 0 all three). Drawn in the cell's frame, above it.
 // The bait and prey of the two-hybrid are H-Ras and the Raf kinase's Ras-binding domain (PDB 4G0N), each a surface (two
 // models cut from the entry in its own coordinates), meeting at their crystal contact; the hook of the purification is
 // an antibody (PDB 1IGT); the proximity labelling's bait carries the biotin ligase BirA (PDB 1BIA); the proteins in the
@@ -98,17 +98,19 @@ SETS.lens = function (K) {
   const tagP = new THREE.Points(tags, K.points(set)); A3.add(tagP);
   const anchorOf = (i, y) => () => { const p = AT[i]; return [p[0], p[1] + y, p[2]]; };
   return Object.assign(set, {
-    // lens_open: the rings come in (each a little after the one before); lens_focus: one lit (1 two-hybrid, 2
-    // purification, 3 proximity labelling), the others dimmed; 0 all alike
+    // lens_open: the rings come in (each a little after the one before); lens_focus: the one shown (1 two-hybrid, 2
+    // purification, 3 proximity labelling; between two, one shrinks as the next grows), the others gone; 0 all three
     params: { lens_a: 1, lens_open: 0, lens_focus: 0 },
     update(S, t) {
       const o = clamp(S.lens_open, 0, 1), f = clamp(S.lens_focus, 0, 3);
+      // (only the lens being told shows: as the first lights, the other two go; each then gives way to the next. With
+      // the focus back at 0 after the third all three would come back, so the story leaves it at 3)
       lenses.forEach((L, i) => {
-        const s = K.smooth(clamp(o * 1.6 - i * 0.3, 0, 1)), lit = f < 0.5 ? 1 : Math.max(0.3, 1 - Math.abs(f - (i + 1)));
-        L.g.scale.setScalar(Math.max(0.01, s) * (0.85 + 0.15 * lit));
-        L.g.visible = s > 0.01;
-        L.ringMat.emissive.setRGB(0.16 * lit + 0.05, 0.22 * lit + 0.06, 0.32 * lit + 0.08);
-        L.inner.visible = lit > 0.35;
+        const s = K.smooth(clamp(o * 1.6 - i * 0.3, 0, 1)), lit = f < 1 ? (i === 0 ? 1 : 1 - f) : clamp(1 - Math.abs(f - (i + 1)), 0, 1), k = s * K.smooth(lit);
+        L.g.scale.setScalar(Math.max(0.01, k));
+        L.g.visible = k > 0.01;
+        L.ringMat.emissive.setRGB(0.21, 0.28, 0.4);
+        L.inner.visible = k > 0.2;
       });
       // two-hybrid: the prey comes, binds, the reporter lights, it leaves (a loop of 6 s)
       const a = (t / 6) % 1, near = a < 0.35 ? K.smooth(a / 0.35) : a < 0.8 ? 1 : 1 - K.smooth((a - 0.8) / 0.2);
