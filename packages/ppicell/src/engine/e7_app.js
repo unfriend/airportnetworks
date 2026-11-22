@@ -55,6 +55,7 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
+    Object.assign(X.ctl[best], EXPLORE_START[best] || {});   // (the scene's own start, whatever the story showed)
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;

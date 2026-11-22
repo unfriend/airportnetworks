@@ -206,7 +206,8 @@ void main() {
       case 4: { for (;;) { const k = Math.floor(r() * 5), d = K.unit(r); if (Math.acos(clamp(v3.dot(d, CELL.gdir), -1, 1)) < CELL.golgi.ang[k]) return [v3.add(N.c, v3.mul(d, CELL.golgi.r[k] + sheet)), N.c, CELL.golgi.r[k]]; } }
       case 5: {
         const m = CELL.mitos[inst], p1 = perp(m.axis), p2 = v3.cross(m.axis, p1);
-        if (f === 0) { const x = (r() * 2 - 1) * m.a * 0.85, o = v3.mul(p1, m.b * 0.6 * r()); return [v3.add(v3.add(m.c, v3.mul(m.axis, x)), o), m.c, m.b * 1.4]; }
+        // (a soluble one anywhere in the matrix, evenly through the whole organelle as in the nucleus: the owner)
+        if (f === 0) { const u = inBall(r, [0, 0, 0], 1); return [v3.add(m.c, v3.add(v3.mul(m.axis, m.a * 0.85 * u[0]), v3.add(v3.mul(p1, m.b * 0.8 * u[1]), v3.mul(p2, m.b * 0.8 * u[2])))), m.c, m.b * 1.4]; }
         const u = K.unit(r), q = v3.add(m.c, v3.add(v3.mul(m.axis, m.a * u[0]), v3.add(v3.mul(p1, m.b * u[1]), v3.mul(p2, m.b * u[2]))));
         const nrm = v3.norm(v3.add(v3.mul(m.axis, u[0] / m.a), v3.add(v3.mul(p1, u[1] / m.b), v3.mul(p2, u[2] / m.b))));
         return [v3.add(q, v3.mul(nrm, off)), m.c, m.b * 1.4];
@@ -265,16 +266,17 @@ void main() {
   col = mix(col, vec3(1.0, 0.25, 0.18), clamp(gone * 4.0, 0.0, 1.0));
   float onPath = step(0.5, aFocus);
   float reached = onPath * clamp((uPathProg - aFocus + 1.35) / 0.35, 0.0, 1.0);
-  float bright = mix(1.0, 0.24 + reached * 1.4, uFocus);
+  // (a pick: its dots in their own colours, a little brighter, the rest dim; not white: the owner, 22 November 2026)
+  float bright = mix(1.0, 0.24 + reached * 0.91, uFocus);
   float inProx = 1.0 - smoothstep(uProx.w * 0.94, uProx.w, distance(position, uProx.xyz));
   bright *= mix(1.0, 0.22 + 1.3 * inProx, uProxOn);
   float iso = uIso < -0.5 ? 1.0 : (abs(aPlace - uIso) < 0.5 ? 1.0 : 0.12);
-  float sel = 1.0 - step(0.5, abs(aProt - uSel));
+  float sel = (1.0 - step(0.5, abs(aProt - uSel))) * step(1.5, aFocus);   // (the picked protein's own dots, not its copies by partners)
   float reveal = clamp((uReveal * 1.12 - aRand) / 0.12, 0.0, 1.0);
   vCol = col * bright; vRing = sel;
   vA = reveal * iso * uAlpha * clamp(pres + gone, 0.0, 1.0) * smoothstep(0.0, 0.15, pres);
   float att = uPx > 0.0 ? uPx * projectionMatrix[1][1] / max(-mv.z, 0.05) : 1.0;
-  gl_PointSize = max(aSize * uScale * att * (1.0 + sel * 1.2) * (1.0 + 0.6 * uFocus * reached) * (1.0 + 0.5 * uProxOn * inProx), uPx > 0.0 ? 1.6 : 0.0);
+  gl_PointSize = max(aSize * uScale * att * (1.0 + sel * 0.8) * (1.0 + 0.3 * uFocus * reached) * (1.0 + 0.5 * uProxOn * inProx), uPx > 0.0 ? 1.6 : 0.0);
 }`,
     fragmentShader: `
 uniform float uA;
@@ -284,7 +286,7 @@ void main() {
   if (d > 0.5) discard;
   float core = smoothstep(0.5, 0.30, d);
   float ring = vRing * smoothstep(0.5, 0.44, d) * (1.0 - smoothstep(0.38, 0.30, d));
-  gl_FragColor = vec4(vCol + vec3(0.5, 0.9, 1.0) * ring * 1.5, vA * max(core, ring) * uA);
+  gl_FragColor = vec4(mix(vCol, vCol * 1.25 + 0.2, ring), vA * max(core, ring) * uA);
 }`,
   });
   nodeMat.uniforms.uA = set.uA;
@@ -470,24 +472,36 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const inA = (D.cR[da] > 0 && !(NET.lSp[a] & 1)) || D.cR[db] === 0, inner = inA ? da : db, other = inA ? pb : pa, C = D.cC.slice(3 * inner, 3 * inner + 3);
     const r = mul(131 * k + 7), jit = v3.mul(K.unit(r), 0.008);
     let gp, n;
-    if (D.cR[inner] > 0) { n = v3.norm(v3.add(v3.norm(v3.sub(other, C)), jit)); gp = v3.add(C, v3.mul(n, D.cR[inner])); }
+    // (halfway between the point facing the other and the one over the inner one's own dot, so a hub's many gates
+    // spread over the membrane as many hops, not one knot)
+    if (D.cR[inner] > 0) {
+      const ti = v3.sub(dotPos(inner), C), li = v3.len(ti);
+      n = v3.norm(v3.add(v3.add(v3.norm(v3.sub(other, C)), li > 1e-6 ? v3.mul(ti, 1 / li) : [0, 0, 0]), v3.mul(jit, 4)));
+      gp = v3.add(C, v3.mul(n, D.cR[inner]));
+    }
     else { gp = v3.add(v3.lerp(pa, pb, 0.5), jit); n = v3.norm(v3.sub(other, pa)); }   // (no organelle to cross: halfway, along the link)
     const qi = v3.sub(gp, v3.mul(n, 0.03)), qo = v3.add(gp, v3.mul(n, 0.03));   // (a stitch about 0.06 long: short, yet seen)
     const di = dotAdd((inA ? a : b) + '|g' + k, inA ? a : b, qi, C, D.cR[inner]), dout = dotAdd((inA ? b : a) + '|g' + k, inA ? b : a, qo, [0, 0, 0], 0);
     return inA ? [di, dout] : [dout, di];
   }
-  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite)
-  function linkPts(k, out) {
-    const [da, db] = siteOf(k);
-    out.push(dotPos(da), dotPos(db));
+  // a link's points: its two dots (a link through a gate: a short stitch through the membrane, gateSite); with arc, a
+  // pick's link through a gate hops through the membrane in a short arc (the owner, 22 November 2026: "keep em short but
+  // arcs where they make sense"), bowed sideways about a third as far as it is long
+  function linkPts(k, out, arc) {
+    const [da, db] = siteOf(k), pa = dotPos(da), pb = dotPos(db);
+    if (!arc || NET.L.cls[k] !== 1) { out.push(pa, pb); return; }
+    const d = v3.sub(pb, pa), n = v3.norm(d), t0 = perp(n), t1 = v3.cross(n, t0), w = mul(131 * k + 11)() * Math.PI * 2;
+    const ctl = v3.add(v3.lerp(pa, pb, 0.5), v3.mul(v3.add(v3.mul(t0, Math.cos(w)), v3.mul(t1, Math.sin(w))), v3.len(d) * 0.7)), S = 6;
+    const q = u => { const o = 1 - u; return [0, 1, 2].map(j => o * o * pa[j] + 2 * o * u * ctl[j] + u * u * pb[j]); };
+    for (let i = 0; i < S; i++) out.push(q(i / S), q((i + 1) / S));
   }
   const linkCol = k => (NET.L.cls[k] ? CLS_COL[NET.L.cls[k]] : v3.lerp(PLACE_COL[lPlace[NET.L.a[k]]], PLACE_COL[lPlace[NET.L.b[k]]], 0.5));
   // links as line segments with the cell's route attributes (the focus and flag materials read only position and aCol)
-  function linesGeo(list, dashes) {
+  function linesGeo(list, dashes, arc) {
     const segs = [], col = [], plA = [], plB = [], dash = [];
     for (const k of list) {
       const n0 = segs.length, c = linkCol(k);
-      linkPts(k, segs);
+      linkPts(k, segs, arc);
       for (let j = n0; j < segs.length; j++) { col.push(c); plA.push(lPlace[NET.L.a[k]]); plB.push(lPlace[NET.L.b[k]]); dash.push(0); }
     }
     for (const [da, db] of dashes || []) {
@@ -593,7 +607,8 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // place dimmed (the cell's uIso). Dots the pick needs beyond the background's: NET.extra.
   const FOCUS_MAX = 2000;
   const focusMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    // (normal blending: where many meet, at a hub, they keep their colours instead of adding up to white)
+    uniforms: { uA: set.uA, uK: { value: 0.85 } }, transparent: true, depthWrite: false,
     vertexShader: 'attribute vec3 aCol; attribute float aDash, aT; varying vec3 vC; varying float vD; void main() { vC = aCol; vD = aDash * aT; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uA, uK; varying vec3 vC; varying float vD; void main() { if (vD > 0.0 && fract(vD) > 0.55) discard; gl_FragColor = vec4(vC, uK * uA); }',
   });
@@ -647,7 +662,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       }
       FO.info = { kind: 'place', place: pc, name: PLACE_NAME[pc], here, inner, shown: links.length };
     }
-    const geo = links.length || ties.length ? linesGeo(links, ties) : null;   // (adds the dots it needs)
+    const geo = links.length || ties.length ? linesGeo(links, ties, true) : null;   // (adds the dots it needs)
     // the cell's own lights: the pick's dots bright (aFocus, all reached), the protein ringed (uSel), a place alone (uIso)
     const lit = new Set();
     for (const k of links) siteOf(k).forEach(d => lit.add(d));
@@ -656,10 +671,15 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     const aF = NET.dots.geometry.attributes.aFocus;
     aF.array.fill(0);
     for (const d of lit) if (d < NET.nMain) aF.array[d] = 1;
+    // (the picked protein's own dots, at its places: 2, ringed; its copies beside partners stay plain dots)
+    const own = new Set();
+    if (pp >= 0 && pp < NP) for (let l = l0(pp); l < l1(pp); l++) own.add(dotOf(l));
+    for (const d of own) if (d < NET.nMain) aF.array[d] = 2;
     aF.needsUpdate = true;
     if (D.loc.length > NET.nMain) {
       const g = dotsGeo(NET.nMain, D.loc.length);
       g.attributes.aFocus.array.fill(1);
+      for (const d of own) if (d >= NET.nMain) g.attributes.aFocus.array[d - NET.nMain] = 2;
       NET.extra = new THREE.Points(g, nodeMat); NET.extra.renderOrder = 5; NET.extra.frustumCulled = false; set.group.add(NET.extra);
     }
     const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');

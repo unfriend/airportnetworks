@@ -9,7 +9,10 @@ const SCENE_SHORT = {};
 const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
 //#use ctlsOf ctlShown~2
 // pp: the protein picked (PDATA's number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
+// (the cell opens on the possible links and those through a gate, without the impossible ones: the owner, 22 November
+// 2026; EXPLORE_START, as entering explore mode from the story does too)
+const EXPLORE_START = { cell: { show: '1' } };
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1 };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc']);

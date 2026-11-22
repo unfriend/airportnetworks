@@ -222,7 +222,7 @@ function buildStory() {
   const lbl = [];   // story labels, placed once the camera is built: [set, at, html, tIn, tOut, cls]
   const L = (...a) => lbl.push(a);
   start({ cell_shell: 1, cell_net: 0, cell_amb: 1, cell_red: 1, cell_show: 2, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1,
-    ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
+    ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
     lens_open: 0, lens_focus: 0, sites_act: 0, sites_cyc: 0, sites_tp: 0, sites_move: 0, next_halo: 0, next_slab: 0, next_vol: 0 });
   let a, b;
   // 1. A map without a place: the hairball turns beside the empty cell
@@ -235,6 +235,9 @@ function buildStory() {
   cam(b, 'ball', 'default', 14, 'spin');
   L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · about ${about} links drawn`, a + 6, a + 20, 'cyn');
   L('ball', 'hub', `<b>GRB2</b> · ${fmt(GRB2.deg)} links`, a + 22, a + 39, 'amb');
+  // (as the text names GRB2: its links stand out in the hairball, the rest dims; the owner, 22 November 2026)
+  jump('ball_hi', a + 21, -1, GRB2.p); ramp('ball_hl', a + 21, a + 23.5, 0, 1);
+  ramp('ball_hl', a + 38.5, a + 40.5, 1, 0); jump('ball_hi', a + 41, GRB2.p, -1);
   L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 42, b - 1, '');
   sfxCue(a + 0.5, 'grow', 'ball', 'ball', { dur: 3, gain: 0.35 });
   // 2. Billions and thousands: one dot opens into its crowd

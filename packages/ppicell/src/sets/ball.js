@@ -49,7 +49,7 @@ SETS.ball = function (K) {
   for (let p = 0; p < NP; p++) if (!P.pl[p]) unpl.push(p);
   const ND = net.n + unpl.length, PLACE_T = [3, 1, 2, 5, 6, 7, 9, 10, 11, 4, 0, 8, 12, 13];   // (a place's turn: its order of leaving)
   const g = new THREE.BufferGeometry(), pos = new Float32Array(3 * ND), st = new Float32Array(3 * ND), when = new Float32Array(ND),
-    first = new Float32Array(ND), cA = new Float32Array(3 * ND), size = new Float32Array(ND), out = new Float32Array(ND);
+    first = new Float32Array(ND), cA = new Float32Array(3 * ND), size = new Float32Array(ND), out = new Float32Array(ND), dProt = new Uint32Array(ND);
   const seen = new Uint8Array(NP);
   for (let i = 0; i < ND; i++) {
     const own = i < net.n, p = own ? net.prot[i] : unpl[i - net.n], pl = own ? net.place[i] : 13, r = mul(i * 13 + 5);
@@ -59,18 +59,18 @@ SETS.ball = function (K) {
     first[i] = seen[p] ? 0 : 1; seen[p] = 1;
     cA.set(col[pl], 3 * i);
     size[i] = 0.007 + 0.024 * Math.sqrt(cell.deg(p) / maxDeg);
-    out[i] = own ? 0 : 1;
+    out[i] = own ? 0 : 1; dProt[i] = p;
   }
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aStart', new THREE.BufferAttribute(st, 3));
   g.setAttribute('aWhen', new THREE.BufferAttribute(when, 1)); g.setAttribute('aFirst', new THREE.BufferAttribute(first, 1));
   g.setAttribute('aCol', new THREE.BufferAttribute(cA, 3)); g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
-  g.setAttribute('aOut', new THREE.BufferAttribute(out, 1));
+  g.setAttribute('aOut', new THREE.BufferAttribute(out, 1)); g.setAttribute('aHi', new THREE.BufferAttribute(new Float32Array(ND), 1));
   // the way from the ball to the cell, shared by dots and links: the ball turns (uRot) and stands at uOff; a dot leaves at
   // aWhen and takes FLY of the morph to land, bowing outwards on the way
   const U = { uA: set.uA, uPx: K.U.uPx, uM: { value: 0 }, uRot: { value: 0 }, uOff: { value: new THREE.Vector3() }, uTint: { value: 0 },
-    uIn: { value: 1 }, uOutA: { value: 1 } };
+    uIn: { value: 1 }, uOutA: { value: 1 }, uHl: { value: 0 } };
   const WAY = `
-uniform float uM, uRot, uTint, uIn, uOutA; uniform vec3 uOff;
+uniform float uM, uRot, uTint, uIn, uOutA, uHl; uniform vec3 uOff;
 attribute vec3 aStart; attribute float aWhen;
 float flyU() { return smoothstep(0.0, 1.0, clamp((uM - aWhen) / 0.42, 0.0, 1.0)); }
 vec3 way(float u) {
@@ -82,16 +82,19 @@ vec3 way(float u) {
   const dotMat = new THREE.ShaderMaterial({
     uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: K.GLSL + WAY + `
-attribute vec3 aCol; attribute float aFirst, aSize, aOut;
+attribute vec3 aCol; attribute float aFirst, aSize, aOut, aHi;
 varying vec3 vC; varying float vA;
 void main() {
   float u = flyU();
   vec4 mv = modelViewMatrix * vec4(way(u), 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = pointPx(aSize, mv);
+  // (a highlight, ball_hi: the protein (aHi 2) and its partners (1) stand out, the rest dims)
+  float hi = uHl * (1.0 - u), on = step(0.5, aHi);
+  gl_PointSize = pointPx(aSize, mv) * (1.0 + hi * (0.5 * on + 0.8 * step(1.5, aHi)));
   vec3 pale = vec3(0.5, 0.68, 1.0);
   vC = mix(pale, aOut > 0.5 ? vec3(0.5, 0.53, 0.58) : aCol, u) * mix(1.0, 0.75, aOut * u);
-  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u);
+  vC = mix(vC, step(1.5, aHi) > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), hi * on);
+  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * mix(1.0, mix(0.3, 4.0, on), hi);
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `uniform float uA; varying vec3 vC; varying float vA;
@@ -121,13 +124,48 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
   // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
   float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
-  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn;
+  vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint); vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.7 * uHl * (1.0 - u));
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
   set.mats.push(linkMat);
   const links = new THREE.LineSegments(lg, linkMat); links.frustumCulled = false; links.renderOrder = 4;
   set.group.add(links);
+
+  // ------------------------------------------------------------ a highlight: one protein's links, every one of them
+  // ball_hi (a protein's number, or -1; a step param) and ball_hl (its fade): the protein's links from its spot on the
+  // ball to each partner's (all of them, not only the drawn background's), amber as its label, the rest dimmed; only in
+  // the hairball (it fades as the dots fly)
+  const hg = new THREE.BufferGeometry(), aHi = g.attributes.aHi;
+  const hiMat = new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false,
+    vertexShader: WAY + `
+varying float vA;
+void main() {
+  float u = flyU();
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
+  vA = uHl * (1.0 - u);
+}`,
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.4 * vA * uA); }',
+  });
+  set.mats.push(hiMat);
+  const hiLines = new THREE.LineSegments(hg, hiMat); hiLines.frustumCulled = false; hiLines.renderOrder = 6; hiLines.visible = false;
+  set.group.add(hiLines);
+  let HI = -1;
+  function highlight(p) {
+    HI = p;
+    const part = new Set();
+    if (p >= 0) for (let i = 0; i < P.E; i++) { const a = P.la[i], b = P.lb[i]; if (a !== b && (a === p || b === p)) part.add(a === p ? b : a); }
+    for (let i = 0; i < ND; i++) aHi.array[i] = dProt[i] === p ? 2 : part.has(dProt[i]) ? 1 : 0;
+    aHi.needsUpdate = true;
+    // (both ends at their spots on the ball; position the same, so the shared way() leaves them on the ball)
+    const L = new Float32Array(6 * part.size);
+    let j = 0;
+    for (const q of part) { L.set(home.subarray(3 * p, 3 * p + 3), 6 * j); L.set(home.subarray(3 * q, 3 * q + 3), 6 * j + 3); j++; }
+    hg.setAttribute('position', new THREE.BufferAttribute(L, 3)); hg.setAttribute('aStart', new THREE.BufferAttribute(L.slice(), 3));
+    hg.setAttribute('aWhen', new THREE.BufferAttribute(new Float32Array(2 * part.size), 1));
+    hiLines.visible = part.size > 0;
+  }
 
   // where the ball stands before it moves into the cell: to the cell's left, so the two show side by side
   const SIDE = [-2.0, 0, 0];
@@ -138,14 +176,17 @@ void main() {
   return Object.assign(set, {
     // ball_move: 0 beside the cell, 1 over it; ball_morph: 0 the hairball, 1 every dot in its place; ball_tint: the links
     // in their judgement's colours; ball_in: the dots and links in the cell (0 once the cell's own take over); ball_out:
-    // the proteins without a place
-    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1 },
+    // the proteins without a place; ball_hi: a protein whose links stand out (-1 none; a step param) and ball_hl its fade
+    params: { ball_a: 1, ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0 },
     update(S, t) {
       M = clamp(S.ball_move, 0, 1);
       U.uM.value = clamp(S.ball_morph, 0, 1) * 1.0;
       U.uRot.value = t * 0.08;
       U.uOff.value.set(SIDE[0] * (1 - M), SIDE[1] * (1 - M), SIDE[2] * (1 - M));
       U.uTint.value = clamp(S.ball_tint, 0, 1); U.uIn.value = clamp(S.ball_in, 0, 1); U.uOutA.value = clamp(S.ball_out, 0, 1);
+      const h = Math.round(S.ball_hi);
+      if (h !== HI) highlight(h >= 0 && h < NP ? h : -1);
+      U.uHl.value = HI >= 0 ? clamp(S.ball_hl, 0, 1) : 0;
     },
     anchors: { ball: () => at([0, 0, 0], M), top: () => at([0, R0 * 1.05, 0], M), hub: () => at([0, 0, 0], M), side: () => at([0, -R0 * 1.05, 0], M),
       outside: [-0.2, -1.2, 0.2] },
