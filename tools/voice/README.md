@@ -89,6 +89,15 @@ tables and the MP3s are replaced. `tools/pace.mjs` leaves a story with an MP3 al
 re-timed. The airports story keeps its human recording: the script refuses to replace it (`--dry --out` still tries a
 voice on it).
 
+## A story package
+
+A story package (`packages/<key>/`, `tools/packages/SPEC.md`) is narrated the same way, by its key (`node
+tools/voice/narrate.mjs ppicell`): its table is in `packages/<key>/src/engine/e3_story.js` (the template's one-line
+`NARRATION_SYNC` is taken too), its recording goes to `packages/<key>/audio/narration.mp3`, and the script builds the
+package and runs `node tools/packages/scan.mjs` afterwards, so the index lists the recording (the package plays it only
+then). Its own pronunciations go in `say.json`'s `stories.<key>` as a story's. No `len` in `stories/list.js`: the
+package's `story.json` has its own; no `VERSION` bump (a package changes without a release).
+
 ## A story in two languages
 
 A story that lists its languages (`LANGS`) and switches with `setLang(l, false)` (the pass story) is read in each, as

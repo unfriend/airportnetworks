@@ -190,6 +190,12 @@
       "symbols": {
         "H&E-UTAG": "H and E, U-tag"
       }
+    },
+    "ppicell": {
+      "words": {
+        "RELA": "Rel A",
+        "SH3s": "S H threes"
+      }
     }
   },
   "de": {

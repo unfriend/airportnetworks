@@ -52,7 +52,9 @@ const VOICES = { en: { engine: 'kokoro', voice: 'af_heart', lang: 'en-us' }, de:
 // seconds: the least a stretch slows down (pace.mjs's), a line's fade-in in story time, the voice after its cue, the
 // pause after a line and after a heading, the voice's end before a slideshow stop, and the stop before a chapter's end
 const SLOW = 1.1, FADE = 0.6, LEAD = 0.3, PAUSE = 0.5, TITLE_PAUSE = 1.0, STOP_GAP = 0.25, STOP = 0.7;
-const srcOf = k => fs.existsSync(path.join(ROOT, `tools/${k}/engine/e3_story.js`)) ? `tools/${k}/engine/e3_story.js` : `stories/${k}.js`;
+// (a story package, packages/<key>/ with its sources in src/: its table there, its recording in its own audio/)
+const PKG = k => fs.existsSync(path.join(ROOT, `packages/${k}/src/engine/e3_story.js`));
+const srcOf = k => PKG(k) ? `packages/${k}/src/engine/e3_story.js` : fs.existsSync(path.join(ROOT, `tools/${k}/engine/e3_story.js`)) ? `tools/${k}/engine/e3_story.js` : `stories/${k}.js`;
 const r2 = x => Math.round(x * 100) / 100;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 if (key === 'airports' && !flag('dry') && !flag('lines') && !flag('phonemes')) { console.error('The airports story has a human recording (audio/narration.mp3): use --dry --out FILE to try a voice on it.'); process.exit(1); }
@@ -140,7 +142,7 @@ const V = Object.fromEntries(langs.map((l, i) => {
   return [l, v];
 }));
 // the recordings: the first language's is the story's narration file, another language's has its code after the key
-const fileOf = (k, l) => k === 'airports' ? 'audio/narration.mp3' : `audio/narration-${k}${l && l !== langs[0] ? '-' + l : ''}.mp3`;
+const fileOf = (k, l) => k === 'airports' ? 'audio/narration.mp3' : PKG(k) ? `packages/${k}/audio/narration${l && l !== langs[0] ? '-' + l : ''}.mp3` : `audio/narration-${k}${l && l !== langs[0] ? '-' + l : ''}.mp3`;
 const outOf = (f, l) => (l === langs[0] ? f : f.replace(/(\.mp3)?$/i, `-${l}$1`));
 
 // ------------------------------------------------------------------ what is read, and how it is said
@@ -342,10 +344,10 @@ for (const lg of langs) {
 if (flag('dry')) { fs.rmSync(tmp, { recursive: true, force: true }); process.exit(0); }
 
 // ------------------------------------------------------------------ into the app
-for (const lg of langs) { fs.copyFileSync(made[lg], path.join(ROOT, fileOf(key, lg))); console.log('wrote', fileOf(key, lg)); }
+for (const lg of langs) { fs.mkdirSync(path.dirname(path.join(ROOT, fileOf(key, lg))), { recursive: true }); fs.copyFileSync(made[lg], path.join(ROOT, fileOf(key, lg))); console.log('wrote', fileOf(key, lg)); }
 const f = path.join(ROOT, srcOf(key));
 let src = fs.readFileSync(f, 'utf8');
-const re = /const NARRATION_SYNC = \[\n[\s\S]*?\n\];/;
+const re = /const NARRATION_SYNC = \[(\n[\s\S]*?\n|[^\n]*)\];/;   // (the table, or a package template's one line)
 if (!re.test(src)) throw new Error(`${srcOf(key)}: no NARRATION_SYNC table found`);
 src = src.replace(re, table);
 if (/const NARRATION_ENDS = \{[^\n]*\};/.test(src)) src = src.replace(/const NARRATION_ENDS = \{[^\n]*\};/, endsLine);
@@ -353,6 +355,8 @@ else src = src.replace(table, `${table}\n// where each chapter's words end in th
 fs.writeFileSync(f, src);
 console.log('wrote', srcOf(key));
 if (srcOf(key).startsWith('tools/')) execFileSync(process.execPath, [path.join(ROOT, `tools/${key}/build.mjs`)], { stdio: 'inherit', cwd: ROOT });
+// (a package: its own build, then the index, which must list the recording before the page plays it)
+if (PKG(key)) for (const s of [`packages/${key}/src/build.mjs`, 'tools/packages/scan.mjs']) execFileSync(process.execPath, [path.join(ROOT, s)], { stdio: 'inherit', cwd: ROOT });
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\nNow: len in stories/list.js (Story ${mmss(T_END)}), the chapter times in audio/PUT-narration.mp3-HERE.txt, VERSION in sw.js,
 then node tools/smoke.mjs and node tools/audio.mjs, node tools/voice/check.mjs ${key}${multi ? langs.slice(1).map(l => ` (and --lang ${l})`).join('') : ''}, and node tools/narration.mjs (docs/narration.md).`);
