@@ -1,5 +1,5 @@
-// Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its three binding domains in a row, an
-// SH3, an SH2 and another SH3 (illustrative shapes), its partners on a shell around it, one dot each (as many as it has
+// Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its real shape (PDB 1GRI, one ball per
+// amino acid, PPI_STRUCTS), its three binding domains coloured, an SH3, an SH2 and another SH3, its partners on a shell around it, one dot each (as many as it has
 // links, from the data), and partners taking turns at the domains: the SH2 holds a receptor's phosphorylated tyrosine,
 // the SH3s a partner's proline-rich stretch (well-known partners from its links: EGFR, ERBB2, MET, KIT and SHC1 at the
 // SH2; SOS1, CBL, GAB1 and DNM1 at the SH3s). Then a shuttle (sites_act 1): a patch of the nuclear envelope with its
@@ -13,12 +13,59 @@ SETS.sites = function (K) {
   const cellApi = GL.sets.cell.api(), find = s => cellApi.find(s), symOK = s => find(s) >= 0;
   const solid = (c, e) => K.fade(set, new THREE.MeshStandardMaterial({ color: new THREE.Color(...c), roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(e || 0.18) }));
   const blob = (r, c, e) => new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), solid(c, e));
+  // ------------------------------------------------------------ real structures (PPI_STRUCTS: the Protein Data Bank)
+  // a structure's points (angstroms) turned so its longest axis (or that of the part named) lies along x, then scaled so
+  // it spans width; one ball per amino acid or nucleotide, all of a structure in one instanced draw (each its colour)
+  const ballGeo = new THREE.IcosahedronGeometry(1, 1);
+  function axisOf(P) {   // (the principal axis, by power iteration on the covariance)
+    const n = P.length / 3, m = [0, 0, 0];
+    for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) m[j] += P[3 * i + j] / n;
+    const C = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[3 * a + b] += (P[3 * i + a] - m[a]) * (P[3 * i + b] - m[b]);
+    let v = [1, 0.3, 0.2];
+    for (let k = 0; k < 40; k++) v = v3.norm([0, 1, 2].map(a => C[3 * a] * v[0] + C[3 * a + 1] * v[1] + C[3 * a + 2] * v[2]));
+    return v;
+  }
+  function structure(key, width, colOf, only, along) {
+    const S = PPI_STRUCTS[key], parts = S.parts.filter(p => !only || only.includes(p.name + '/' + p.chain));
+    const ax = axisOf(Float32Array.from(parts.filter(p => !along || p.name === along).flatMap(p => p.xyz)));
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(...ax), new THREE.Vector3(1, 0, 0)), V = new THREE.Vector3();
+    let lo = Infinity, hi = -Infinity;
+    const all = [];
+    for (const p of parts) for (let i = 0; i < p.res.length; i++) {
+      V.set(p.xyz[3 * i] / 10, p.xyz[3 * i + 1] / 10, p.xyz[3 * i + 2] / 10).applyQuaternion(q);
+      lo = Math.min(lo, V.x); hi = Math.max(hi, V.x); all.push({ p, i, v: V.toArray() });
+    }
+    const s = width / (hi - lo), g = new THREE.Group();
+    // (each part its own instanced draw, so a part can be placed or shown apart: the two STAT3s, the DNA)
+    const out = {}, M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color();
+    for (const p of parts) {
+      const mine = all.filter(o => o.p === p), r = (p.kind === 'dna' ? 3.0 : 2.4) * s;
+      const cen = mine.reduce((c, o) => v3.add(c, v3.mul(o.v, s / mine.length)), [0, 0, 0]);
+      const im = new THREE.InstancedMesh(ballGeo, K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05 })), mine.length);
+      mine.forEach((o, k) => {
+        M.compose(new THREE.Vector3(...v3.sub(v3.mul(o.v, s), cen)), Q, new THREE.Vector3(r, r, r)); im.setMatrixAt(k, M);
+        im.setColorAt(k, col.setRGB(...colOf(p, p.dom[o.i])));
+      });
+      const pg = new THREE.Group(); pg.add(im); pg.position.set(...cen); g.add(pg);
+      out[p.name + '/' + p.chain] = { g: pg, home: cen, n: mine.length, pts: mine.map(o => v3.sub(v3.mul(o.v, s), cen)), dom: mine.map(o => p.dom[o.i]) };
+    }
+    return { g, parts: out, cite: S.cite, s };
+  }
   // ------------------------------------------------------------ GRB2 and its partners
   const gA = new THREE.Group(); set.group.add(gA);
-  const DOM = [{ name: 'SH3', p: [-0.2, 0, 0], r: 0.065 }, { name: 'SH2', p: [0, 0.02, 0], r: 0.085 }, { name: 'SH3', p: [0.2, 0, 0], r: 0.065 }];
-  const domMat = [solid([0.45, 0.8, 1.0]), solid([1.0, 0.75, 0.35]), solid([0.45, 0.8, 1.0])];
-  DOM.forEach((d, i) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(d.r, 2), domMat[i]); m.position.set(...d.p); gA.add(m); });
-  gA.add(new THREE.Mesh(K.tube([DOM[0].p, [-0.1, -0.03, 0.02], DOM[1].p, [0.1, -0.03, 0.02], DOM[2].p], 0.012, 24, 6), solid([0.7, 0.75, 0.85])));
+  // (its domains: SH3 cyan, SH2 amber, the linkers grey; the first SH3 on the left)
+  const DCOL = [[0.45, 0.8, 1.0], [1.0, 0.75, 0.35], [0.45, 0.8, 1.0]];
+  const G2 = structure('grb2', 0.42, (p, d) => (d >= 0 ? DCOL[d] : [0.7, 0.75, 0.85]));
+  const g2 = G2.parts['GRB2/A'];
+  // (each domain's centre and reach, in the structure's frame; turned half round about y if the first SH3 is on the right)
+  const domPts = [0, 1, 2].map(d => g2.pts.filter((p, i) => g2.dom[i] === d));
+  const domC = domPts.map(ps => v3.add(g2.home, ps.reduce((c, p) => v3.add(c, v3.mul(p, 1 / ps.length)), [0, 0, 0])));
+  const domR = domPts.map((ps, d) => Math.max(...ps.map(p => v3.len(v3.sub(v3.add(g2.home, p), domC[d])))));
+  const flip = domC[0][0] > domC[2][0], turn = p => (flip ? [-p[0], p[1], -p[2]] : p);
+  if (flip) G2.g.rotation.y = Math.PI;
+  gA.add(G2.g);
+  const DOM = [0, 1, 2].map(d => ({ name: d === 1 ? 'SH2' : 'SH3', p: turn(domC[d]), r: domR[d] }));
   const grb = find('GRB2'), nGrb = cellApi.deg(grb);
   const shell = K.pointsGeo(nGrb), rs = K.rng(3);
   for (let i = 0; i < nGrb; i++) {
@@ -28,9 +75,9 @@ SETS.sites = function (K) {
   }
   gA.add(new THREE.Points(shell, K.points(set)));
   // the slots: where a partner docks at each domain; who comes to each, in turn (only partners in GRB2's links)
-  const SLOT = [[-0.2, 0.13, 0.03], [0, -0.15, 0.04], [0.2, 0.13, 0.03]];
+  const SLOT = DOM.map((d, k) => v3.add(d.p, [0, (k === 1 ? -1 : 1) * (d.r * 0.8 + 0.05), 0.03]));
   const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['GAB1', 'SOS1', 'CBL']].map(l => l.filter(symOK));
-  const visitors = SLOT.map((p, k) => { const m = blob(k === 1 ? 0.06 : 0.05, k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], 0.3); gA.add(m); return m; });
+  const visitors = SLOT.map((p, k) => { const m = blob(k === 1 ? 0.04 : 0.034, k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], 0.3); gA.add(m); return m; });
   const FROM = SLOT.map(p => v3.mul(v3.norm(p), 0.85));
   const now = ['', '', ''], nowA = [0, 0, 0];
   // ------------------------------------------------------------ the shuttle: a patch of the nuclear envelope
@@ -47,8 +94,15 @@ SETS.sites = function (K) {
   const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
   PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 24), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
-  const tp = blob(0.05, [1.0, 0.45, 0.85], 0.3); gB.add(tp);
-  const st1 = blob(0.045, [0.3, 0.9, 1.0], 0.3), st2 = blob(0.045, [0.3, 0.9, 1.0], 0.3); gB.add(st1, st2);
+  // TP53's core domain (PDB 1TSR, the protein: its DNA does not travel) and the STAT3 pair with its DNA (PDB 1BG1), as
+  // balls per amino acid, not to scale against the pores
+  const T5 = structure('tp53', 0.12, () => [1.0, 0.45, 0.85], ['TP53/B']);
+  const tp = new THREE.Group(); tp.add(T5.g); T5.g.position.set(...v3.mul(T5.parts['TP53/B'].home, -1)); gB.add(tp);
+  const S3 = structure('stat3', 0.19, (p, d) => (p.kind === 'dna' ? [0.75, 0.78, 0.88] : d === 0 ? [1.0, 0.85, 0.4] : p.chain === 'A' ? [0.3, 0.9, 1.0] : [0.5, 0.75, 1.0]), null, 'DNA');
+  const sA = S3.parts['STAT3/A'], sB = S3.parts['STAT3/A-2'], sD = [S3.parts['DNA/B'], S3.parts['DNA/B-2']];
+  const st1 = sA.g, st2 = sB.g, pairMid = v3.mul(v3.add(sA.home, sB.home), 0.5);
+  S3.g.position.set(...v3.mul(pairMid, -1));
+  const st = new THREE.Group(); st.add(S3.g); gB.add(st);
   const jak = blob(0.04, [1.0, 0.8, 0.35]); jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
   const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(-0.52, -0.52, 0.02); gB.add(recB);
   const ep = blob(0.05, [0.66, 0.54, 1.0]); ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
@@ -82,18 +136,22 @@ SETS.sites = function (K) {
       // STAT3: switched on beside the kinase, the two copies pair up, through the left pore, onto the DNA
       mv = clamp(S.sites_move, 0, 1);
       const show3 = mv > 0.001, w = clamp((mv - 0.3) / 0.6, 0, 1), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
-      st1.visible = st2.visible = jak.visible = recB.visible = ep.visible = show3;
+      st.visible = jak.visible = recB.visible = ep.visible = show3;
       const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], [-0.4, -0.42, 0.08], K.smooth(mv / 0.15)) : path(w, 0);
-      st1.position.set(base[0] - 0.045 * pair, base[1], base[2]);
-      st2.position.set(base[0] + 0.045 * pair + 0.12 * (1 - pair), base[1] + 0.05 * (1 - pair), base[2]);
+      st.position.set(...base);
+      // (the two apart until they pair: the second comes in from the side; the DNA shows once they are in the nucleus)
+      st1.position.set(...v3.add(sA.home, [0, 0, 0]));
+      st2.position.set(...v3.add(sB.home, [0.16 * (1 - pair), 0.07 * (1 - pair), 0]));
       st2.visible = show3 && pair > 0.02;
+      const dn = K.smooth(clamp((mv - 0.88) / 0.1, 0, 1));
+      for (const d of sD) { d.g.visible = dn > 0.01; d.g.scale.setScalar(Math.max(0.01, dn)); }
     },
-    anchors: { grb2: [0, 0.22, 0], sh2: [0, 0.14, 0.05], sh3a: [-0.27, 0.08, 0], sh3b: [0.27, 0.08, 0], shell: [0.95, 0.7, 0.3],
+    anchors: { grb2: [0, 0.26, 0], sh2: v3.add(DOM[1].p, [0, DOM[1].r + 0.03, 0.05]), sh3a: v3.add(DOM[0].p, [-0.05, DOM[0].r + 0.02, 0]), sh3b: v3.add(DOM[2].p, [0.05, DOM[2].r + 0.02, 0]), shell: [0.95, 0.7, 0.3],
       slot0: () => v3.add(visitors[0].position.toArray(), [0, 0.07, 0]), slot1: () => v3.add(visitors[1].position.toArray(), [0, -0.08, 0]), slot2: () => v3.add(visitors[2].position.toArray(), [0, 0.07, 0]),
-      tp53: () => v3.add(tp.position.toArray(), [0, 0.08, 0]), stat3: () => v3.add(st1.position.toArray(), [0, 0.08, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
+      tp53: () => v3.add(tp.position.toArray(), [0, 0.1, 0]), stat3: () => v3.add(st.position.toArray(), [0, 0.12, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
       pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
     labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'at the SH2' : 'at an SH3'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
     cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
-    stats: () => ({ grb2: nGrb, who: WHO }),
+    stats: () => ({ grb2: nGrb, who: WHO, balls: [G2, T5, S3].map(o => Object.values(o.parts).reduce((t, p) => t + p.n, 0)) }),
   });
 };
