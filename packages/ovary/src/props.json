@@ -1,0 +1,1174 @@
+{
+ "about": "packages/ovary/src/props.json: the ovary story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "ovary/organ",
+   "key": "organ",
+   "story": "ovary",
+   "reusedBy": [],
+   "reuses": [
+    "lbi/body (small in its pelvis)"
+   ],
+   "file": "packages/ovary/src/sets/organ.js",
+   "manifest": "packages/ovary/src/sets/organ.md",
+   "shows": "A large cut-away ovary (almond-shaped, tunica albuginea, cortex and medulla) with antral follicles, scars (corpora albicantia), vessels and a corpus luteum, whose contents follow the poster's trend lines as it ages from 20 to 70. It is small in the body's pelvis at first and grows out of it. Say \"drawn\", never \"to scale\".",
+   "frame": "Centred on the origin; in the body, the same frame as the body set (the ovary sits in its pelvis before growing).",
+   "size": "~1.9 long, 1.1 tall, 0.9 deep",
+   "sharesFrameWith": [
+    "lbi/body"
+   ],
+   "params": [
+    {
+     "name": "organ_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "organ_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "0 small in the body, 1 large at the centre (position, scale and turn ease between)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organ_body",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the pelvis while small: the other ovary, the uterus, the tubes (fades as organ_grow passes 0.3)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organ_open",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "0 closed (the wedge in place), 1 cut open (the wedge lifts up and right, fading from 0.45)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organ_age",
+     "range": "20..70 (years)",
+     "default": 30,
+     "eased": true,
+     "meaning": "the donor age shown, 20 to 70 years; follicles, scars and vessels follow the poster's trend lines",
+     "usedInStory": [
+      20,
+      70
+     ]
+    },
+    {
+     "name": "organ_follicle",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picked out in the poster's colors (lifted for the dark scene; the luteum golden), glowing a little; the rest dims"
+    },
+    {
+     "name": "organ_albicans",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picked out in the poster's colors (lifted for the dark scene; the luteum golden), glowing a little; the rest dims"
+    },
+    {
+     "name": "organ_vessel",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picked out in the poster's colors (lifted for the dark scene; the luteum golden), glowing a little; the rest dims"
+    },
+    {
+     "name": "organ_luteum",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picked out in the poster's colors (lifted for the dark scene; the luteum golden), glowing a little; the rest dims"
+    },
+    {
+     "name": "organ_parts",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the part labels",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organ_agelab",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the age readout label (\"Age · 35 years\", a function label)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organ_counts",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "three live tags with each method's count on the poster's lines at organ_age",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      24,
+      14,
+      3.5,
+      0.08,
+      0,
+      0
+     ],
+     "frames": "the cut-away ovary in three-quarter view"
+    },
+    {
+     "name": "face",
+     "view": [
+      4,
+      4,
+      2.6,
+      0.3,
+      0.02,
+      0
+     ],
+     "frames": "the cut face square on"
+    },
+    {
+     "name": "cortex",
+     "view": [
+      10,
+      10,
+      1.15,
+      0.313,
+      0.362,
+      0
+     ],
+     "frames": "right-hand end of the band), medulla, follicle (the"
+    },
+    {
+     "name": "medulla",
+     "view": [
+      6,
+      6,
+      1.25,
+      0.06,
+      0.03,
+      0
+     ],
+     "frames": "close on the pink medulla"
+    },
+    {
+     "name": "whole",
+     "view": [
+      -58,
+      16,
+      3.3,
+      -0.1,
+      0.02,
+      0
+     ],
+     "frames": "the intact end"
+    },
+    {
+     "name": "open",
+     "view": [
+      38,
+      22,
+      3.6,
+      0.15,
+      0.05,
+      0.2
+     ],
+     "frames": "for the wedge lifting"
+    },
+    {
+     "name": "pelvis",
+     "view": [
+      0,
+      6,
+      0.62,
+      0,
+      -0.07,
+      0.02
+     ],
+     "frames": "the body's pelvis, close"
+    },
+    {
+     "name": "body",
+     "view": [
+      0,
+      4,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole body"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "cut",
+       "label": "Cut open"
+      },
+      {
+       "value": "closed",
+       "label": "Closed"
+      },
+      {
+       "value": "body",
+       "label": "In the body"
+      }
+     ]
+    },
+    {
+     "key": "age",
+     "label": "Age",
+     "options": [
+      {
+       "value": "20",
+       "label": "20"
+      },
+      {
+       "value": "30",
+       "label": "30"
+      },
+      {
+       "value": "40",
+       "label": "40"
+      },
+      {
+       "value": "50",
+       "label": "50"
+      },
+      {
+       "value": "60",
+       "label": "60"
+      },
+      {
+       "value": "70",
+       "label": "70"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "none",
+       "label": "All"
+      },
+      {
+       "value": "follicle",
+       "label": "Follicles"
+      },
+      {
+       "value": "albicans",
+       "label": "Scars"
+      },
+      {
+       "value": "vessel",
+       "label": "Vessels"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "organ_grow",
+    "organ_body",
+    "organ_open",
+    "organ_age",
+    "organ_follicle",
+    "organ_albicans",
+    "organ_vessel",
+    "organ_luteum",
+    "organ_parts",
+    "organ_agelab"
+   ],
+   "anchors": [
+    "cortex",
+    "medulla",
+    "follicle",
+    "oocyte",
+    "primordial",
+    "secondary",
+    "luteum",
+    "albicans",
+    "vessel",
+    "hilum",
+    "surface",
+    "blister",
+    "top",
+    "age",
+    "small",
+    "pelvis"
+   ],
+   "anchorCount": 16,
+   "labels": [
+    {
+     "text": "Cortexwhere the follicles are",
+     "at": "cortex",
+     "cls": "mag",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open"
+     ]
+    },
+    {
+     "text": "Medullavessels, loose tissue",
+     "at": "medulla",
+     "cls": "cyn",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open"
+     ]
+    },
+    {
+     "text": "Folliclefluid-filled",
+     "at": "follicle",
+     "cls": "",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open"
+     ]
+    },
+    {
+     "text": "Primordial folliclesthe reserve",
+     "at": "primordial",
+     "cls": "amb",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open",
+      "organ_age"
+     ]
+    },
+    {
+     "text": "Corpus albicansa pale scar",
+     "at": "albicans",
+     "cls": "grn",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open"
+     ]
+    },
+    {
+     "text": "Corpus luteum",
+     "at": "luteum",
+     "cls": "amb",
+     "shows": [
+      "organ_parts",
+      "organ_grow",
+      "organ_open"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "age",
+     "cls": "cyn",
+     "shows": [
+      "organ_agelab",
+      "organ_grow"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "follicle",
+     "cls": "amb",
+     "shows": [
+      "organ_counts",
+      "organ_grow"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "albicans",
+     "cls": "mag",
+     "shows": [
+      "organ_counts",
+      "organ_grow"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "vessel",
+     "cls": "cyn",
+     "shows": [
+      "organ_counts",
+      "organ_grow"
+     ]
+    }
+   ],
+   "labelCount": 10,
+   "data": {
+    "kind": "figures",
+    "reads": [
+     "OVARY_TREND",
+     "OVARY_LOOK",
+     "OVARY_DATA"
+    ],
+    "text": "Trend lines read off the poster's figures by two readers (approximate; said so on screen) with the poster's numbers typed in; the organ is drawn."
+   },
+   "api": [],
+   "otherExports": [
+    "idle",
+    "finish",
+    "built",
+    "shown"
+   ],
+   "buildMsNode": 282,
+   "notes": "American spelling. Built from signed distance fields by surface nets between frames (idle, finish, built, shown; ~0.3 s). Function labels (organ_counts) are read again while shown. Controls: View (cut, closed, body), Age, Show."
+  },
+  {
+   "id": "ovary/section",
+   "key": "section",
+   "story": "ovary",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/ovary/src/sets/section.js",
+   "manifest": "packages/ovary/src/sets/section.md",
+   "shows": "A drawn H&E section of an ovary with blood vessels, macrophages, corpora albicantia, follicles and cysts in relief; tiles, UNI2 features and a forest of decision trees that votes; SegFormer's masks with scores as tags; and an illustrative neighbor network that tips off the section and gathers into five hubs by kind joined by bands.",
+   "frame": "Section A in the xy plane facing +z, centred on the origin; a second section for the pair view; the grove and hubs beside it.",
+   "size": "section ~1.9 x 1.5, 0.03 thick",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "section_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "section_age",
+     "range": "20..70 (years)",
+     "default": 30,
+     "eased": true,
+     "meaning": "section A's age",
+     "usedInStory": [
+      25,
+      65
+     ]
+    },
+    {
+     "name": "section_pair",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "A shrinks to the left, B comes in on the right (both at 0.58), scale bars and labels",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_vessel",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picks out the vessel objects on section A and dims the rest"
+    },
+    {
+     "name": "section_macrophage",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picks out the macrophage objects on section A and dims the rest"
+    },
+    {
+     "name": "section_albicans",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picks out the albicans objects on section A and dims the rest"
+    },
+    {
+     "name": "section_follicle",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picks out the follicle objects on section A and dims the rest",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_cyst",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "picks out the cyst objects on section A and dims the rest"
+    },
+    {
+     "name": "section_tiles",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tile outlines draw on",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_feat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the feature blocks (the section darkens)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_forest",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the vote: grove in by 0.12, features flow 0.1-0.45, trees answer 0.35-0.85, verdict 0.8-0.95, tile lit at 1",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_pred",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "predictions sweep across (the blocks go)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_mask",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "SegFormer's masks sweep across (0 none, 1 all)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the network draws outwards (the section dims a little); the network by kind needs it too",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_lift",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slab tips back about 70 degrees (and sinks 0.5) and the nodes rise off it",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_kinds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the nodes gather into the hubs (setting off 0 to 0.375, arriving 0.625 to 1; hubs grow 0.35 to 0.8), stems go by 0.3, links bundle and fade 0.55 to 0.92, bands grow",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "section_names",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the hubs' names as set labels (explore's By kind view; the story may key it instead of its own labels)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      8,
+      3.5,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole section A"
+    },
+    {
+     "name": "close",
+     "view": [
+      10,
+      16,
+      0.85,
+      0.521,
+      0.299,
+      0
+     ],
+     "frames": "the largest follicle"
+    },
+    {
+     "name": "pair",
+     "view": [
+      0,
+      6,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "section A beside the second section"
+    },
+    {
+     "name": "tiles",
+     "view": [
+      0,
+      22,
+      3,
+      0,
+      0,
+      0
+     ],
+     "frames": "from above, the tiles"
+    },
+    {
+     "name": "feat",
+     "view": [
+      16,
+      38,
+      1,
+      -0.637,
+      0.337,
+      0
+     ],
+     "frames": "a slant close-up of the blocks"
+    },
+    {
+     "name": "forest",
+     "view": [
+      -16,
+      10,
+      4.6,
+      0.5,
+      0,
+      0
+     ],
+     "frames": "above the grove"
+    },
+    {
+     "name": "mask",
+     "view": [
+      0,
+      10,
+      3.3,
+      0,
+      0,
+      0
+     ],
+     "frames": "the sweep line"
+    },
+    {
+     "name": "net",
+     "view": [
+      8,
+      32,
+      3.1,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the neighbor network lifted off the section"
+    },
+    {
+     "name": "kinds",
+     "view": [
+      0,
+      12,
+      4.4,
+      0,
+      0.24,
+      0
+     ],
+     "frames": "the middle of the hubs"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "section",
+       "label": "Section"
+      },
+      {
+       "value": "pair",
+       "label": "Young and old"
+      },
+      {
+       "value": "tiles",
+       "label": "Tiles"
+      },
+      {
+       "value": "forest",
+       "label": "Forest"
+      },
+      {
+       "value": "masks",
+       "label": "Masks"
+      },
+      {
+       "value": "network",
+       "label": "Network"
+      },
+      {
+       "value": "kinds",
+       "label": "By kind"
+      }
+     ]
+    },
+    {
+     "key": "age",
+     "label": "Age",
+     "options": [
+      {
+       "value": "20",
+       "label": "20"
+      },
+      {
+       "value": "30",
+       "label": "30"
+      },
+      {
+       "value": "40",
+       "label": "40"
+      },
+      {
+       "value": "50",
+       "label": "50"
+      },
+      {
+       "value": "60",
+       "label": "60"
+      },
+      {
+       "value": "70",
+       "label": "70"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Pick out",
+     "options": [
+      {
+       "value": "none",
+       "label": "None"
+      },
+      {
+       "value": "vessel",
+       "label": "Vessels"
+      },
+      {
+       "value": "macrophage",
+       "label": "Macrophages"
+      },
+      {
+       "value": "albicans",
+       "label": "Scars"
+      },
+      {
+       "value": "follicle",
+       "label": "Follicles"
+      },
+      {
+       "value": "cyst",
+       "label": "Cysts"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "section_age",
+    "section_pair",
+    "section_tiles",
+    "section_feat",
+    "section_forest",
+    "section_pred",
+    "section_mask",
+    "section_net",
+    "section_lift",
+    "section_kinds",
+    "section_names"
+   ],
+   "anchors": [
+    "vessel",
+    "macrophage",
+    "albicans",
+    "follicle",
+    "cyst",
+    "center",
+    "young",
+    "old",
+    "barYoung",
+    "barOld",
+    "tiles",
+    "tile",
+    "feat",
+    "forest",
+    "uni",
+    "pred",
+    "mask",
+    "net",
+    "kinds",
+    "kindsLabel",
+    "hub_vessel",
+    "hub_macrophage",
+    "hub_albicans",
+    "hub_follicle",
+    "hub_cyst",
+    "tag_follicle",
+    "tag_vessel",
+    "tag_cyst",
+    "tag_macrophage",
+    "tag_albicans"
+   ],
+   "anchorCount": 30,
+   "labels": [
+    {
+     "text": "Younger ovary",
+     "at": "young",
+     "cls": "cyn",
+     "shows": [
+      "section_pair"
+     ]
+    },
+    {
+     "text": "Older ovary",
+     "at": "old",
+     "cls": "mag",
+     "shows": [
+      "section_pair"
+     ]
+    },
+    {
+     "text": "1.58 mm",
+     "at": "barYoung",
+     "cls": "",
+     "shows": [
+      "section_pair"
+     ]
+    },
+    {
+     "text": "791 µm",
+     "at": "barOld",
+     "cls": "",
+     "shows": [
+      "section_pair"
+     ]
+    },
+    {
+     "text": "Tiles",
+     "at": "tiles",
+     "cls": "cyn",
+     "shows": [
+      "section_tiles",
+      "section_feat"
+     ]
+    },
+    {
+     "text": "FeaturesUNI2: numbers per tile",
+     "at": "feat",
+     "cls": "cyn",
+     "shows": [
+      "section_feat",
+      "section_forest"
+     ]
+    },
+    {
+     "text": "Random foresttrees vote on each tile",
+     "at": "forest",
+     "cls": "amb",
+     "shows": [
+      "section_forest",
+      "section_pred"
+     ]
+    },
+    {
+     "text": "SegFormerpaints a mask",
+     "at": "mask",
+     "cls": "grn",
+     "shows": [
+      "section_mask"
+     ]
+    },
+    {
+     "text": "Spatial neighbor networkillustrative",
+     "at": "net",
+     "cls": "mag",
+     "shows": [
+      "section_net",
+      "section_kinds"
+     ]
+    },
+    {
+     "text": "Neighbor network by kindillustrative",
+     "at": "kindsLabel",
+     "cls": "mag",
+     "shows": [
+      "section_net",
+      "section_kinds"
+     ]
+    },
+    {
+     "text": "Blood vessels",
+     "at": "hub_vessel",
+     "cls": "cyn",
+     "shows": [
+      "section_names",
+      "section_kinds",
+      "section_net",
+      "section_age"
+     ]
+    },
+    {
+     "text": "Macrophages",
+     "at": "hub_macrophage",
+     "cls": "grn",
+     "shows": [
+      "section_names",
+      "section_kinds",
+      "section_net",
+      "section_age"
+     ]
+    },
+    {
+     "text": "Corpora albicantia",
+     "at": "hub_albicans",
+     "cls": "mag",
+     "shows": [
+      "section_names",
+      "section_kinds",
+      "section_net",
+      "section_age"
+     ]
+    },
+    {
+     "text": "Follicles",
+     "at": "hub_follicle",
+     "cls": "amb",
+     "shows": [
+      "section_names",
+      "section_kinds",
+      "section_net",
+      "section_age"
+     ]
+    },
+    {
+     "text": "Cysts",
+     "at": "hub_cyst",
+     "cls": "",
+     "shows": [
+      "section_names",
+      "section_kinds",
+      "section_net",
+      "section_age"
+     ]
+    }
+   ],
+   "labelCount": 15,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "OVARY_DATA",
+     "OVARY_TREND",
+     "OVARY_LOOK"
+    ],
+    "text": "The poster's numbers typed in (14,941 hand-marked objects, scores, counts); the section and the neighbor network are drawn and illustrative (labelled so). No GTEx image."
+   },
+   "api": [
+    "kinds",
+    "pick",
+    "hitAt",
+    "views",
+    "count",
+    "objects",
+    "tiles",
+    "links",
+    "byKind",
+    "hubs"
+   ],
+   "otherExports": [
+    "idle",
+    "finish",
+    "built"
+   ],
+   "buildMsNode": 195,
+   "notes": "American spelling. Stain made between frames (flat eosin until made). Exports idle, finish, built, api (kinds, pick, hitAt, views, count, objects, tiles, links, byKind, hubs). Pointing at an object on the section picks it in explore."
+  },
+  {
+   "id": "ovary/charts",
+   "key": "charts",
+   "story": "ovary",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/ovary/src/sets/charts.js",
+   "manifest": "packages/ovary/src/sets/charts.md",
+   "shows": "Only the donors in 3D: 255 glass slides fly in, fan out in three arcs and stack into the poster's age histogram, one slide per donor. The story's one graph, shown in passing.",
+   "frame": "Centred near the origin facing +z in front of a backdrop of ages and counts.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "charts_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "charts_slides",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slides fly in (fan); the histogram's slides need it at 1",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "charts_hist",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slides stack into the histogram (younger bars first), backdrop from 0.4",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      6,
+      3.2,
+      -0.05,
+      -0.1,
+      0
+     ],
+     "frames": "the slides and the histogram (same as hist)"
+    },
+    {
+     "name": "hist",
+     "view": [
+      0,
+      6,
+      3.2,
+      -0.05,
+      -0.1,
+      0
+     ],
+     "frames": "the age histogram of 255 donors"
+    },
+    {
+     "name": "fan",
+     "view": [
+      0,
+      14,
+      3,
+      0,
+      -0.15,
+      0
+     ],
+     "frames": "the slides fanned out in three arcs"
+    }
+   ],
+   "controls": [],
+   "exploreDrives": [],
+   "anchors": [
+    "hist",
+    "histTop",
+    "fan",
+    "slides"
+   ],
+   "anchorCount": 4,
+   "labels": [
+    {
+     "text": "255 donorsGTEx, aged 20 to 70",
+     "at": "histTop",
+     "cls": "cyn",
+     "shows": [
+      "charts_hist",
+      "charts_slides"
+     ]
+    }
+   ],
+   "labelCount": 1,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "OVARY_DATA.cohort.age"
+    ],
+    "text": "The poster's histogram heights; each slide's age is a whole year in its bar. Donor ages only."
+   },
+   "api": [],
+   "otherExports": [],
+   "buildMsNode": 2,
+   "notes": "Cheap (2 ms). Not a scene in explore. Other charts went with the owner's rule against 2D graphs (October 2026)."
+  }
+ ]
+}

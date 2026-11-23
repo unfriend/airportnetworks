@@ -1,0 +1,2052 @@
+{
+ "about": "packages/topo/src/props.json: the topo story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "topo/slide",
+   "key": "slide",
+   "story": "topo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/topo/src/sets/slide.js",
+   "manifest": "packages/topo/src/sets/slide.md",
+   "shows": "Real tissue on its glass slide drawn in H&E from cells alone: the healthy tile of 640 um round the poster's patch (945 cells) and the new slide's window of 1.5 mm (6,716 cells), plus sketches of other modalities (spots, multiplex), the fixed scales other tools read and an overview of the whole section.",
+   "frame": "Lies flat (x-z, y up), centred on the origin on a glass slide whose +x end shows past it.",
+   "size": "1.6 across",
+   "sharesFrameWith": [
+    "topo/map"
+   ],
+   "params": [
+    {
+     "name": "slide_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "slide_show",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "what lies on the glass: 0 the healthy tile, 1 the new slide's window, 2 both side by side at one scale",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_mode",
+     "range": "0..2 (H&E, spots, multiplex)",
+     "default": 0,
+     "eased": true,
+     "meaning": "the modality: 0 H&E, 1 spatial transcriptomics (sketch: the spots), 2 spatial proteomics (sketch: cells glowing by type on black); in between, the sweep's front running",
+     "usedInStory": [
+      0,
+      2
+     ]
+    },
+    {
+     "name": "slide_points",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "every cell becomes a glowing white-gold bead (TLOOK cells' bead morph), the ground dark glass with the tissue's ghost, the spots gone",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_scale",
+     "range": "0..3",
+     "default": 0,
+     "eased": true,
+     "meaning": "chapter 2's fixed scales on the tile: 1 the grid of 100 µm squares with one lit (\"one patch size\"), 2 a cell and its six nearest joined (\"a neighbour count\"), 3 a 30 µm",
+     "usedInStory": [
+      0,
+      3
+     ]
+    },
+    {
+     "name": "slide_patch",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the poster's patch marked on the tile: its square in amber with glowing corners",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_over",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the new slide's overview: 1 the whole section on its glass slide, the window marked (a cyan square); towards 0 it zooms into the window",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      56,
+      3.4,
+      0,
+      0,
+      0.06
+     ],
+     "frames": "the whole tile or window from above and in front"
+    },
+    {
+     "name": "tile",
+     "view": [
+      8,
+      58,
+      3.3,
+      0,
+      0,
+      0.06
+     ],
+     "frames": "the tile's far left corner, for its tag"
+    },
+    {
+     "name": "low",
+     "view": [
+      14,
+      26,
+      3,
+      0,
+      0,
+      0.12
+     ],
+     "frames": "low across the tissue to show its relief"
+    },
+    {
+     "name": "close",
+     "view": [
+      16,
+      50,
+      1.1,
+      0.05,
+      0,
+      0.1
+     ],
+     "frames": "the cells close up"
+    },
+    {
+     "name": "cells",
+     "view": [
+      22,
+      46,
+      0.45,
+      0.12,
+      0,
+      0.18
+     ],
+     "frames": "very close on the tile's cells"
+    },
+    {
+     "name": "square",
+     "view": [
+      10,
+      56,
+      1.4,
+      -0.375,
+      0,
+      0.395
+     ],
+     "frames": "chapter 2's three scales: the 100 µm square (computed from the cells chosen at build)"
+    },
+    {
+     "name": "hub",
+     "view": [
+      14,
+      50,
+      0.9,
+      0.499,
+      0,
+      -0.381
+     ],
+     "frames": "the cell with its six neighbours (the hub scale)"
+    },
+    {
+     "name": "circle",
+     "view": [
+      -10,
+      52,
+      0.9,
+      -0.472,
+      0,
+      0.478
+     ],
+     "frames": "the circle's rim"
+    },
+    {
+     "name": "patch",
+     "view": [
+      0,
+      62,
+      2.1,
+      0,
+      0,
+      0.02
+     ],
+     "frames": "the poster's patch from above"
+    },
+    {
+     "name": "over",
+     "view": [
+      0,
+      58,
+      3.4,
+      0,
+      0,
+      0.05
+     ],
+     "frames": "the overview on its glass"
+    },
+    {
+     "name": "window",
+     "view": [
+      0,
+      56,
+      3.4,
+      0,
+      0,
+      0.06
+     ],
+     "frames": "the new slide's window alone"
+    },
+    {
+     "name": "both",
+     "view": [
+      0,
+      54,
+      4,
+      -0.13,
+      0,
+      0.08
+     ],
+     "frames": "the two side by side"
+    }
+   ],
+   "controls": [
+    {
+     "key": "piece",
+     "label": "Tissue",
+     "options": [
+      {
+       "value": "tile",
+       "label": "Healthy tile"
+      },
+      {
+       "value": "window",
+       "label": "New slide"
+      },
+      {
+       "value": "both",
+       "label": "Both"
+      },
+      {
+       "value": "whole",
+       "label": "Whole slide"
+      }
+     ]
+    },
+    {
+     "key": "look",
+     "label": "Look",
+     "options": [
+      {
+       "value": "he",
+       "label": "H&E"
+      },
+      {
+       "value": "spots",
+       "label": "Spots (sketch)"
+      },
+      {
+       "value": "fluo",
+       "label": "Proteins (sketch)"
+      },
+      {
+       "value": "points",
+       "label": "Points"
+      }
+     ]
+    },
+    {
+     "key": "scale",
+     "label": "One scale",
+     "options": [
+      {
+       "value": "none",
+       "label": "None"
+      },
+      {
+       "value": "patch",
+       "label": "Patch"
+      },
+      {
+       "value": "six",
+       "label": "Neighbours"
+      },
+      {
+       "value": "radius",
+       "label": "Radius"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "slide_show",
+    "slide_over",
+    "slide_mode",
+    "slide_points",
+    "slide_scale",
+    "slide_patch"
+   ],
+   "anchors": [
+    "tile",
+    "window",
+    "centre",
+    "patch",
+    "square",
+    "hub",
+    "circle",
+    "spots",
+    "fluo",
+    "points",
+    "section",
+    "mark",
+    "label"
+   ],
+   "anchorCount": 13,
+   "labels": [
+    {
+     "text": "Healthy liver · 640 µm across, 945 cells",
+     "at": "tile",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Spatial transcriptomics · sketch: spots read the genes",
+     "at": "spots",
+     "cls": "cyn",
+     "shows": [
+      "slide_points"
+     ]
+    },
+    {
+     "text": "Spatial proteomics · sketch: proteins in colour",
+     "at": "fluo",
+     "cls": "mag",
+     "shows": [
+      "slide_points"
+     ]
+    },
+    {
+     "text": "Only positions · every cell a point",
+     "at": "points",
+     "cls": "amb",
+     "shows": [
+      "slide_points",
+      "slide_scale",
+      "slide_patch"
+     ]
+    },
+    {
+     "text": "One patch size",
+     "at": "square",
+     "cls": "cyn",
+     "shows": [
+      "slide_scale"
+     ]
+    },
+    {
+     "text": "A neighbour count",
+     "at": "hub",
+     "cls": "cyn",
+     "shows": [
+      "slide_scale"
+     ]
+    },
+    {
+     "text": "One radius",
+     "at": "circle",
+     "cls": "cyn",
+     "shows": [
+      "slide_scale"
+     ]
+    },
+    {
+     "text": "The patch · 110 cells",
+     "at": "patch",
+     "cls": "amb",
+     "shows": [
+      "slide_patch"
+     ]
+    },
+    {
+     "text": "A new slide · 398,611 cells",
+     "at": "section",
+     "cls": "",
+     "shows": [
+      "slide_over"
+     ]
+    },
+    {
+     "text": "A window · 1.5 mm, 6,716 cells",
+     "at": "mark",
+     "cls": "cyn",
+     "shows": [
+      "slide_over"
+     ]
+    },
+    {
+     "text": "The new slide · a window of 6,716 cells",
+     "at": "window",
+     "cls": "",
+     "shows": [
+      "slide_over"
+     ]
+    }
+   ],
+   "labelCount": 11,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "TOPO_DATA",
+     "TDATA",
+     "TLOOK"
+    ],
+    "text": "Cell positions and types from the authors' GTEx liver cohort run by topocyte (HistoPLUS cell classes); drawn in H&E, never an image; slide ids never shown."
+   },
+   "api": [
+    "TW",
+    "layout",
+    "tile",
+    "win",
+    "overview",
+    "pos",
+    "hub",
+    "six",
+    "circle"
+   ],
+   "otherExports": [],
+   "buildMsNode": 302,
+   "notes": "slide_mode and slide_points are plain params; slide_scale and slide_over are story-only. British spelling. Exports api (TW, layout, tile, win, overview, pos, hub, six, circle), textures, dispose."
+  },
+  {
+   "id": "topo/map",
+   "key": "map",
+   "story": "topo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/topo/src/sets/map.js",
+   "manifest": "packages/topo/src/sets/map.md",
+   "shows": "The signal back on the tissue: one cell's 50 um neighbourhood and its own network, bars and score; every cell scored as a relief; the two groups (healthy-like, cirrhosis-like) as piles with shares; and sketches of the next steps (genes, proteins).",
+   "frame": "In the slide set's frame over the window (centred on the origin; side by side with slide_show 2 it moves to x 0.42).",
+   "size": "1.6 across",
+   "sharesFrameWith": [
+    "topo/slide"
+   ],
+   "params": [
+    {
+     "name": "map_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "map_cell",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the dome on the cell, its cells lit, its complex, its bars and score (all of them fade with it, and with the split and the sketches)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_r",
+     "range": "um (default 50)",
+     "default": 50,
+     "eased": true,
+     "meaning": "the radius (µm) of its part of the complex: stored edges and triangles whose radius is at most it; also the balls' radius and the level on its tower",
+     "usedInStory": [
+      1.5,
+      30
+     ]
+    },
+    {
+     "name": "map_balls",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the growing balls round its cells (glass discs, the union look of the tower's balls)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_bars",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the picked cell's own persistence bars rise behind it",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_score",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "its score's needle and tag",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_all",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the sweeping dome and the relief behind it (0 none, 1 every cell risen; the dome goes from 0.92 on)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_split",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the cells fly to their piles (from the bottom up, a layer at a time; the relief folds away by 0.35)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "map_omics",
+     "range": "0..2",
+     "default": 0,
+     "eased": true,
+     "meaning": "the sketches: 1 spots and the volcano, 2 the multiplex slide and protein columns; in between a crossfade (the cells settle back on the slide on the way to 1)",
+     "usedInStory": [
+      0,
+      2
+     ]
+    },
+    {
+     "name": "map_pick",
+     "range": "-1.. (cell index)",
+     "default": -1,
+     "eased": false,
+     "meaning": "the cell with the dome (an index into the window's cells; -1 the poster's cell v)"
+    },
+    {
+     "name": "map_delta",
+     "range": "0..1 (50 or 100 um)",
+     "default": 0,
+     "eased": false,
+     "meaning": "the map at 50 µm (0) or 100 µm as in the poster's figure (1): the relief's and beads' colours (lo100, its own limit 13.51), the groups and piles"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      22,
+      34,
+      3.6,
+      0,
+      0.02,
+      0.06
+     ],
+     "frames": "the window and whatever stands on it"
+    },
+    {
+     "name": "cell",
+     "view": [
+      18,
+      40,
+      0.62,
+      -0.002,
+      0.03,
+      0.332
+     ],
+     "frames": "close on the picked cell and its 50 µm dome"
+    },
+    {
+     "name": "net",
+     "view": [
+      10,
+      58,
+      0.36,
+      -0.002,
+      0.005,
+      0.342
+     ],
+     "frames": "close from above: its complex growing"
+    },
+    {
+     "name": "bars",
+     "view": [
+      12,
+      16,
+      0.95,
+      -0.002,
+      0.13,
+      0.292
+     ],
+     "frames": "amber, at bars; the counts of its stored bars alive at map_r: pieces are"
+    },
+    {
+     "name": "score",
+     "view": [
+      24,
+      22,
+      0.75,
+      0.028,
+      0.06,
+      0.312
+     ],
+     "frames": "close on a cell with its score tag"
+    },
+    {
+     "name": "sweep",
+     "view": [
+      6,
+      44,
+      3.4,
+      0,
+      0,
+      0.08
+     ],
+     "frames": "the dome sweeping the window"
+    },
+    {
+     "name": "relief",
+     "view": [
+      24,
+      30,
+      3.5,
+      0,
+      0.02,
+      0.06
+     ],
+     "frames": "the relief of scored cells"
+    },
+    {
+     "name": "low",
+     "view": [
+      32,
+      12,
+      3.1,
+      0,
+      0.04,
+      0.12
+     ],
+     "frames": "the relief from low, the sunk blue under the glass"
+    },
+    {
+     "name": "split",
+     "view": [
+      0,
+      14,
+      3.9,
+      0,
+      0.32,
+      0.05
+     ],
+     "frames": "the two groups' piles"
+    },
+    {
+     "name": "omics",
+     "view": [
+      0,
+      20,
+      3.8,
+      0,
+      0.3,
+      0.02
+     ],
+     "frames": "the sketches of genes and proteins (illustrative)"
+    }
+   ],
+   "controls": [
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "cell",
+       "label": "One cell"
+      },
+      {
+       "value": "map",
+       "label": "Every cell"
+      },
+      {
+       "value": "split",
+       "label": "Two groups"
+      },
+      {
+       "value": "genes",
+       "label": "Genes (sketch)"
+      },
+      {
+       "value": "proteins",
+       "label": "Proteins (sketch)"
+      }
+     ]
+    },
+    {
+     "key": "r",
+     "label": "Radius",
+     "options": [
+      {
+       "value": "2",
+       "label": "2 µm"
+      },
+      {
+       "value": "5",
+       "label": "5 µm"
+      },
+      {
+       "value": "10",
+       "label": "10 µm"
+      },
+      {
+       "value": "20",
+       "label": "20 µm"
+      },
+      {
+       "value": "50",
+       "label": "50 µm"
+      }
+     ]
+    },
+    {
+     "key": "delta",
+     "label": "Map at",
+     "options": [
+      {
+       "value": "50",
+       "label": "50 µm"
+      },
+      {
+       "value": "100",
+       "label": "100 µm"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "map_cell",
+    "map_r",
+    "map_balls",
+    "map_bars",
+    "map_score",
+    "map_all",
+    "map_split",
+    "map_omics",
+    "map_delta"
+   ],
+   "anchors": [
+    "cell",
+    "dome",
+    "net",
+    "bars",
+    "score",
+    "sweep",
+    "red",
+    "blue",
+    "healthy",
+    "cirrhosis",
+    "genes",
+    "proteins",
+    "window",
+    "h_0",
+    "c_0",
+    "h_1",
+    "c_1",
+    "h_2",
+    "c_2",
+    "h_3",
+    "c_3",
+    "h_4",
+    "c_4",
+    "h_5",
+    "c_5"
+   ],
+   "anchorCount": 25,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "dome",
+     "cls": "cyn",
+     "shows": [
+      "map_bars",
+      "map_all"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "net",
+     "cls": "cyn",
+     "shows": [
+      "map_cell",
+      "map_bars",
+      "map_all"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "bars",
+     "cls": "amb",
+     "shows": [
+      "map_bars",
+      "map_all"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "score",
+     "cls": "",
+     "shows": [
+      "map_score",
+      "map_all"
+     ]
+    },
+    {
+     "text": "Every cell a centre",
+     "at": "sweep",
+     "cls": "cyn",
+     "shows": [
+      "map_all"
+     ]
+    },
+    {
+     "text": "Red, raised · cirrhosis-like",
+     "at": "red",
+     "cls": "mag",
+     "shows": [
+      "map_all",
+      "map_split"
+     ]
+    },
+    {
+     "text": "Blue, sunk · healthy-like",
+     "at": "blue",
+     "cls": "cyn",
+     "shows": [
+      "map_all",
+      "map_split"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "healthy",
+     "cls": "cyn",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "cirrhosis",
+     "cls": "mag",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "c_0",
+     "cls": "grn",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "c_3",
+     "cls": "",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "h_0",
+     "cls": "grn",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "h_3",
+     "cls": "",
+     "shows": [
+      "map_split",
+      "map_omics"
+     ]
+    },
+    {
+     "text": "Genes · sketch: the workflow, not data",
+     "at": "genes",
+     "cls": "amb",
+     "shows": [
+      "map_omics"
+     ]
+    },
+    {
+     "text": "Proteins · sketch: the workflow, not data",
+     "at": "proteins",
+     "cls": "amb",
+     "shows": [
+      "map_omics"
+     ]
+    }
+   ],
+   "labelCount": 15,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "TOPO_DATA",
+     "TDATA",
+     "TLOOK"
+    ],
+    "text": "Every cell's stored score at 50 and 100 um, the window's stored complex and bars, the groups from the scores' signs; relief heights are smoothed for drawing only. Cell v's score 6.97 is the data's (the poster prints 26.57: open question T5)."
+   },
+   "api": [
+    "n",
+    "e",
+    "drawR",
+    "eLogOdds",
+    "limit50",
+    "limit100",
+    "delta",
+    "comp50",
+    "comp100",
+    "types",
+    "cell",
+    "counts",
+    "pos",
+    "pick"
+   ],
+   "otherExports": [],
+   "buildMsNode": 275,
+   "notes": "map_pick, map_delta are steps; map_omics may be stepped. Nothing scientific is computed here. Exports api (n, e, drawR, eLogOdds, limit50, limit100, delta, comp50, comp100, types, cell, counts, pos, pick)."
+  },
+  {
+   "id": "topo/tower",
+   "key": "tower",
+   "story": "topo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/topo/src/sets/tower.js",
+   "manifest": "packages/topo/src/sets/tower.md",
+   "shows": "The poster's patch of 110 real cells with glass balls growing round them, edges and triangles appearing, pieces joining and loops opening and closing, then the tower of scales and its barcode.",
+   "frame": "The patch lies on a glass plate with its frosted label towards you, the poster's y running away (-z); the tower rises from it.",
+   "size": "plate 1.5 wide; tower 1.68 units with the trunk",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "tower_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "tower_r",
+     "range": "um, 1.5..60 (drawn to 120)",
+     "default": 1.5,
+     "eased": true,
+     "meaning": "the radius in µm (1.5 to 60; up to 120 is drawn)",
+     "usedInStory": [
+      1.5,
+      60
+     ]
+    },
+    {
+     "name": "tower_rise",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 everything on the plate; 1 the tower of scales (heights times this)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_bars",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the rods fly out to the board (0.04 to 0.58), the glass board (0.3 to 0.6), the two curves drawing upwards (0.5 to 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_he",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "1: the 110 cells in H&E by their types (looked up in the healthy tile by position), on a pale eosin stain; to 0 they shrink into beads",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_lit",
+     "range": "0..2 (both, pieces, loops)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 both, 1 pieces lit (loops dimmed), 2 loops lit (pieces dimmed)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      18,
+      20,
+      4.9,
+      0,
+      0.78,
+      0
+     ],
+     "frames": "the tower whole, the plate at its foot, from a little above"
+    },
+    {
+     "name": "plate",
+     "view": [
+      8,
+      52,
+      3.4,
+      0,
+      0,
+      0.05
+     ],
+     "frames": "close on the plate while the balls grow"
+    },
+    {
+     "name": "snap",
+     "view": [
+      0,
+      64,
+      3,
+      0,
+      0,
+      0.02
+     ],
+     "frames": "straight down, as the poster's snapshots"
+    },
+    {
+     "name": "tower",
+     "view": [
+      26,
+      17,
+      5,
+      0,
+      0.85,
+      0
+     ],
+     "frames": "the tower rising"
+    },
+    {
+     "name": "up",
+     "view": [
+      205,
+      -58,
+      2.6,
+      0.05,
+      0.95,
+      0
+     ],
+     "frames": "from under the glass plate up through the threads (screens only)"
+    },
+    {
+     "name": "bars",
+     "view": [
+      6,
+      16,
+      6,
+      1,
+      0.82,
+      -0.15
+     ],
+     "frames": "the tower and the board of rods and curves"
+    },
+    {
+     "name": "stand",
+     "view": [
+      16,
+      0,
+      1.17,
+      0,
+      1.06,
+      0
+     ],
+     "frames": "the headset view: xrPlace scales it to 0.94 m a unit, so the tower (1.68 units with the trunk's top) stands about 1.55 m tall,…"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "balls",
+       "label": "Balls"
+      },
+      {
+       "value": "tower",
+       "label": "Tower"
+      },
+      {
+       "value": "bars",
+       "label": "Barcode"
+      }
+     ]
+    },
+    {
+     "key": "r",
+     "label": "Radius",
+     "options": [
+      {
+       "value": "4.081",
+       "label": "4.08 µm"
+      },
+      {
+       "value": "13.49",
+       "label": "13.5 µm"
+      },
+      {
+       "value": "24.592",
+       "label": "24.6 µm"
+      },
+      {
+       "value": "48.864",
+       "label": "48.9 µm"
+      },
+      {
+       "value": "60",
+       "label": "60 µm"
+      }
+     ]
+    },
+    {
+     "key": "lit",
+     "label": "Lit",
+     "options": [
+      {
+       "value": "both",
+       "label": "Both"
+      },
+      {
+       "value": "pieces",
+       "label": "Pieces"
+      },
+      {
+       "value": "loops",
+       "label": "Loops"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "tower_he",
+    "tower_rise",
+    "tower_bars",
+    "tower_r",
+    "tower_lit"
+   ],
+   "anchors": [
+    "plate",
+    "label",
+    "top",
+    "tag",
+    "cell",
+    "hole",
+    "plane",
+    "trunk",
+    "chimney",
+    "bars",
+    "bars1",
+    "board",
+    "tick0",
+    "tick1",
+    "tick2",
+    "tick3",
+    "tick4"
+   ],
+   "anchorCount": 17,
+   "labels": [
+    {
+     "text": "82 pieces · no loops yet",
+     "at": "tag",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "3 pieces · 7 loops: the big one just born",
+     "at": "tag",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "One piece · 2 loops: the big one still open",
+     "at": "tag",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "One piece · no loops: the big one has filled",
+     "at": "tag",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "hole",
+     "cls": "amb",
+     "shows": [
+      "tower_r",
+      "tower_lit"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "plane",
+     "cls": "cyn",
+     "shows": [
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "2 µm",
+     "at": "tick0",
+     "cls": "",
+     "shows": [
+      "tower_rise",
+      "tower_r"
+     ]
+    },
+    {
+     "text": "5 µm",
+     "at": "tick1",
+     "cls": "",
+     "shows": [
+      "tower_rise",
+      "tower_r"
+     ]
+    },
+    {
+     "text": "10 µm",
+     "at": "tick2",
+     "cls": "",
+     "shows": [
+      "tower_rise",
+      "tower_r"
+     ]
+    },
+    {
+     "text": "20 µm",
+     "at": "tick3",
+     "cls": "",
+     "shows": [
+      "tower_rise",
+      "tower_r"
+     ]
+    },
+    {
+     "text": "50 µm",
+     "at": "tick4",
+     "cls": "",
+     "shows": [
+      "tower_rise",
+      "tower_r"
+     ]
+    },
+    {
+     "text": "The trunk · one piece left",
+     "at": "trunk",
+     "cls": "amb",
+     "shows": [
+      "tower_rise",
+      "tower_r",
+      "tower_lit"
+     ]
+    },
+    {
+     "text": "The big loop · a chimney from birth to filling",
+     "at": "chimney",
+     "cls": "amb",
+     "shows": [
+      "tower_rise",
+      "tower_r",
+      "tower_lit"
+     ]
+    },
+    {
+     "text": "Pieces · 110",
+     "at": "bars",
+     "cls": "amb",
+     "shows": [
+      "tower_lit"
+     ]
+    },
+    {
+     "text": "Loops · 85",
+     "at": "bars1",
+     "cls": "amb",
+     "shows": [
+      "tower_lit"
+     ]
+    }
+   ],
+   "labelCount": 15,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "TOPO_DATA",
+     "TDATA",
+     "TLOOK"
+    ],
+    "text": "The poster's patch: 110 cells in a 214 um window, 313 edges, 204 triangles, 109 joinings, 85 loops, all topocyte's and gudhi's."
+   },
+   "api": [
+    "range",
+    "ticks",
+    "snaps",
+    "counts",
+    "most",
+    "lanes",
+    "cells",
+    "loops",
+    "main",
+    "piece",
+    "loop",
+    "bar",
+    "pick"
+   ],
+   "otherExports": [
+    "log"
+   ],
+   "buildMsNode": 38,
+   "notes": "The radius eases on the poster's log ruler (tower.log, topo's LOG set). In a headset it stands about 1.55 m tall (stand view; the up view is screens only). tower_lit is a step. Exports api (range, ticks, snaps, counts, lanes, cells, loops, main, piece, loop, bar, pick), log."
+  },
+  {
+   "id": "topo/cohort",
+   "key": "cohort",
+   "story": "topo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/topo/src/sets/cohort.js",
+   "manifest": "packages/topo/src/sets/cohort.md",
+   "shows": "The 123 slides as a rack of glass slides with their curves (66 healthy, 57 cirrhotic), the classes' means, the main shapes, the cube of scores, the classifier's wall with its held-out stacks, and the weight for every radius on a column of radii with windows and a gap.",
+   "frame": "Rack of slides in two rows stepping up towards the back; weights column at x 2.05; cube of scores 1.6 across.",
+   "size": "rack plus a weights column out to x ~2.05; cube of scores 1.6 across",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "cohort_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "cohort_dim",
+     "range": "0..1 (pieces, loops)",
+     "default": 1,
+     "eased": false,
+     "meaning": "1 loops (h1, the poster's), 0 pieces (h0): curves, means, shapes, scores, wall, log-odds, stacks, γ, windows and gap all switch"
+    },
+    {
+     "name": "cohort_rack",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the slides drop into their slots (0 to 0.14, front to back), then their curves light one after another by slide number (0.14 to 0.94, each with a flash)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_means",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the classes' mean curves in front of their rows; the slides' curves dim a little",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_shapes",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the two main shapes hovering over the rack, their shares as tags",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_space",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slides fly into the cube of their scores (staggered over 0.03 to 0.98 by slide number); the shapes move onto its edges, the rack fades",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_wall",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the classifier's wall sweeps in to its place (in by 0.8)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_odds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slides glide to their log-odds along the axis through the wall",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_stacks",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slides drop into the four stacks (from wherever they are; the tallest stack's last slide lands at 0.94)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_gamma",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the column rises (0 to 0.3), γ draws upwards (0.2 to 0.55), the means (0.4 to 0.7), the windows' bands (0.65 to 0.95)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_gap",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the bands drop into the gap's stack (0 to 0.74, one after another), its ring and tag (0.6 to 0.9)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cohort_win",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "a window of radii chosen in explore: a cyan band round the column from cohort_from to cohort_to, with its share and odds factor as a tag; the poster's bands dim"
+    },
+    {
+     "name": "cohort_from",
+     "range": "um, 0..100 (0.5 grid)",
+     "default": 5,
+     "eased": true,
+     "meaning": "the window in µm, rounded to the 0.5 µm grid of the stored shares (0 to 100; cohort_to 100.5 or more means \"and above\")"
+    },
+    {
+     "name": "cohort_to",
+     "range": "um, 0..100.5 (100.5 = and above)",
+     "default": 15,
+     "eased": true,
+     "meaning": "the window in µm, rounded to the 0.5 µm grid of the stored shares (0 to 100; cohort_to 100.5 or more means \"and above\")"
+    },
+    {
+     "name": "cohort_pick",
+     "range": "-1..122 (slide)",
+     "default": -1,
+     "eased": false,
+     "meaning": "a picked slide (0..122, -1 none): its curve lit cyan in the rack, a glow in the cloud, pulled out of its stack towards you; the others dim and the set's other tags hide"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      18,
+      26,
+      4,
+      0,
+      0.4,
+      0.05
+     ],
+     "frames": "the rack whole, from the front and above"
+    },
+    {
+     "name": "rack",
+     "view": [
+      10,
+      16,
+      2.9,
+      0,
+      0.42,
+      0.55
+     ],
+     "frames": "close on the rack's front: the curves standing on their slides"
+    },
+    {
+     "name": "means",
+     "view": [
+      0,
+      10,
+      2.3,
+      0,
+      0.42,
+      0.85
+     ],
+     "frames": "the classes' mean curves"
+    },
+    {
+     "name": "shapes",
+     "view": [
+      14,
+      18,
+      4.4,
+      0,
+      0.82,
+      0.05
+     ],
+     "frames": "the shapes hovering over the rack"
+    },
+    {
+     "name": "space",
+     "view": [
+      28,
+      16,
+      4.7,
+      0,
+      0.95,
+      0
+     ],
+     "frames": "the cube of the scores"
+    },
+    {
+     "name": "wall",
+     "view": [
+      80,
+      8,
+      4.6,
+      -0.03,
+      0.71,
+      0.15
+     ],
+     "frames": "the classifier's wall nearly edge-on between the two clouds (computed)"
+    },
+    {
+     "name": "odds",
+     "view": [
+      55,
+      10,
+      4.6,
+      0,
+      0.95,
+      0
+     ],
+     "frames": "the log-odds scale from healthy to cirrhosis"
+    },
+    {
+     "name": "stacks",
+     "view": [
+      22,
+      26,
+      3.7,
+      0,
+      0.36,
+      0.1
+     ],
+     "frames": "the four stacks"
+    },
+    {
+     "name": "gamma",
+     "view": [
+      10,
+      8,
+      4.3,
+      2.4,
+      0.8,
+      0
+     ],
+     "frames": "the column, γ and the means"
+    },
+    {
+     "name": "gap",
+     "view": [
+      -14,
+      10,
+      4.2,
+      1.85,
+      0.7,
+      0.1
+     ],
+     "frames": "the gap's stack of radius bands, right of everything"
+    },
+    {
+     "name": "all",
+     "view": [
+      16,
+      18,
+      6.6,
+      0.75,
+      0.75,
+      0
+     ],
+     "frames": "everything at once"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "rack",
+       "label": "Rack"
+      },
+      {
+       "value": "space",
+       "label": "Scores"
+      },
+      {
+       "value": "held",
+       "label": "Held out"
+      },
+      {
+       "value": "scales",
+       "label": "Scales"
+      }
+     ]
+    },
+    {
+     "key": "dim",
+     "label": "Curves of",
+     "options": [
+      {
+       "value": "1",
+       "label": "Loops"
+      },
+      {
+       "value": "0",
+       "label": "Pieces"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "cohort_dim",
+    "cohort_rack",
+    "cohort_means",
+    "cohort_shapes",
+    "cohort_space",
+    "cohort_wall",
+    "cohort_odds",
+    "cohort_stacks",
+    "cohort_gamma",
+    "cohort_gap",
+    "cohort_win",
+    "cohort_pick"
+   ],
+   "anchors": [
+    "rack",
+    "rowH",
+    "rowC",
+    "ruler",
+    "meanH",
+    "meanC",
+    "phi1",
+    "phi2",
+    "axis3",
+    "cube",
+    "healthy",
+    "cirrhosis",
+    "wall",
+    "zero",
+    "oddsHi",
+    "oddsLo",
+    "stack0",
+    "stack1",
+    "stack2",
+    "stack3",
+    "stacks",
+    "column",
+    "colTop",
+    "gPeak",
+    "means",
+    "gap",
+    "win",
+    "pick",
+    "drum0",
+    "drum1",
+    "drum2",
+    "drum3"
+   ],
+   "anchorCount": 32,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "rowH",
+     "cls": "cyn",
+     "shows": [
+      "cohort_rack",
+      "cohort_means"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "rowC",
+     "cls": "mag",
+     "shows": [
+      "cohort_rack",
+      "cohort_means"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "ruler",
+     "cls": "",
+     "shows": [
+      "cohort_rack",
+      "cohort_shapes"
+     ]
+    },
+    {
+     "text": "Healthy · their mean curve",
+     "at": "meanH",
+     "cls": "cyn",
+     "shows": [
+      "cohort_means",
+      "cohort_shapes"
+     ]
+    },
+    {
+     "text": "Cirrhosis · their mean curve",
+     "at": "meanC",
+     "cls": "mag",
+     "shows": [
+      "cohort_means",
+      "cohort_shapes"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "phi1",
+     "cls": "cyn",
+     "shows": [
+      "cohort_shapes",
+      "cohort_odds",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "phi2",
+     "cls": "grn",
+     "shows": [
+      "cohort_shapes",
+      "cohort_odds",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "axis3",
+     "cls": "",
+     "shows": [
+      "cohort_space",
+      "cohort_odds",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "Healthy",
+     "at": "healthy",
+     "cls": "cyn",
+     "shows": [
+      "cohort_space",
+      "cohort_wall",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "Cirrhosis",
+     "at": "cirrhosis",
+     "cls": "mag",
+     "shows": [
+      "cohort_space",
+      "cohort_wall",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "The wall · where the classifier cannot tell",
+     "at": "wall",
+     "cls": "",
+     "shows": [
+      "cohort_wall",
+      "cohort_odds",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "Log-odds 0 · on the wall",
+     "at": "zero",
+     "cls": "",
+     "shows": [
+      "cohort_odds",
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "oddsHi",
+     "cls": "mag",
+     "shows": [
+      "cohort_odds",
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "Below 0 · healthy more likely",
+     "at": "oddsLo",
+     "cls": "cyn",
+     "shows": [
+      "cohort_odds",
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "stack0",
+     "cls": "cyn",
+     "shows": [
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "stack1",
+     "cls": "cyn",
+     "shows": [
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "stack2",
+     "cls": "mag",
+     "shows": [
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "stack3",
+     "cls": "mag",
+     "shows": [
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "stacks",
+     "cls": "",
+     "shows": [
+      "cohort_stacks",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "colTop",
+     "cls": "",
+     "shows": [
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "Weight per radius · red speaks for cirrhosis",
+     "at": "gPeak",
+     "cls": "mag",
+     "shows": [
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "The means · cirrhosis red, healthy blue",
+     "at": "means",
+     "cls": "",
+     "shows": [
+      "cohort_gamma",
+      "cohort_gap",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "drum0",
+     "cls": "",
+     "shows": [
+      "cohort_dim",
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "drum1",
+     "cls": "",
+     "shows": [
+      "cohort_dim",
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "drum2",
+     "cls": "",
+     "shows": [
+      "cohort_dim",
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "drum3",
+     "cls": "",
+     "shows": [
+      "cohort_dim",
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "gap",
+     "cls": "amb",
+     "shows": [
+      "cohort_gap",
+      "cohort_gamma",
+      "cohort_win"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "win",
+     "cls": "cyn",
+     "shows": [
+      "cohort_win",
+      "cohort_gamma"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pick",
+     "cls": "cyn",
+     "shows": [
+      "cohort_pick"
+     ]
+    }
+   ],
+   "labelCount": 29,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "TOPO_DATA",
+     "TDATA",
+     "TLOOK"
+    ],
+    "text": "Everything is topocyte's, from TOPO_DATA.h1 (loops) or h0 (pieces): curves, scores, coefficients, held-out predictions; the set only places stored numbers and sums stored shares."
+   },
+   "api": [
+    "n",
+    "healthy",
+    "cirrhosis",
+    "slide",
+    "fve",
+    "accuracy",
+    "confusion",
+    "window",
+    "windows",
+    "gap",
+    "grid",
+    "pick",
+    "mid"
+   ],
+   "otherExports": [],
+   "buildMsNode": 9,
+   "notes": "cohort_dim and cohort_pick are steps; cohort_from and cohort_to are plain numbers on the 0.5 um grid. Cheap (8 ms). Exports api (n, healthy, cirrhosis, slide, fve, accuracy, confusion, window, windows, gap, grid, pick, mid)."
+  }
+ ]
+}

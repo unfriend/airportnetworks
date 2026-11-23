@@ -1,0 +1,20 @@
+{
+ "about": "packages/hello/src/props.json: the example package's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows (a miniature with no entry gets a short card of its own name and shows); code is authoritative",
+ "sets": [
+  {
+   "id": "hello/ring",
+   "key": "ring",
+   "story": "hello",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/hello/src/sets/ring.js",
+   "manifest": "",
+   "shows": "Sixty people in a ring, each linked to the two beside them; rewired links arch across it as shortcuts, and a counter shows the average number of handshakes between two people.",
+   "frame": "Centred on the origin, the ring flat in x-z.",
+   "size": "radius ~1",
+   "sharesFrameWith": [],
+   "params": [],
+   "views": []
+  }
+ ]
+}

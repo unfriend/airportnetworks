@@ -1,0 +1,8 @@
+{
+ "about": "packages/proteins/src/props.json: the proteins story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "handwritten": {
+  "story": "proteins",
+  "file": "packages/proteins/main.js",
+  "scenes": "One scene: 254 curated proteins and 375 interactions as a network in a cell. Chapters: Intro, Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness, Recap. Explore tabs: Protein, Paths, Hubs, Modules, Knockouts."
+ }
+}

@@ -1,0 +1,2234 @@
+{
+ "about": "packages/mutation/src/props.json: the mutation story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "mutation/letters",
+   "key": "letters",
+   "story": "mutation",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/mutation/src/sets/letters.js",
+   "manifest": "packages/mutation/src/sets/letters.md",
+   "shows": "A text in four letters copied with swaps: a 24-pair DNA helix, eight letters peeling into tiles (ACGTTAGC), two copies with swaps flashing, then one letter opened into its two qubits, a mix of letters and read-outs spinning like a coin and piling into four heaps as tall as the chances.",
+   "frame": "Centred on the origin; helix vertical; tiles in a row.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "letters_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "letters_helix",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the helix (both strands, rungs, backbones); it turns by t",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_peel",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the ancestor's eight letters grow out of their rungs as tiles, peel away one after another (a zipper) and line up as a row with its strand behind",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_copy1",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "copy 1 slides out of the ancestor's row (down, left and forward), a dashed green trace behind it",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_mut1",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "copy 1's two swaps: the first over 0-0.5, the second over 0.5-1 (flip, flash, ring, white frame)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_copy2",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "copy 2 slides out (further down, right and forward)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_mut2",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "copy 2's two swaps, as copy 1's",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_open",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the ancestor's first tile (A) comes forward and grows (0-0.45), the rows fade (0.05-0.5), the two qubits open out of it (0.35-1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_code",
+     "range": "0..3 (letter code)",
+     "default": 0,
+     "eased": false,
+     "meaning": "which two-qubit code is shown, 0..3 (00, 01, 10, 11): the tile turns over and each arrow flips on its own",
+     "usedInStory": [
+      0,
+      3
+     ]
+    },
+    {
+     "name": "letters_mix",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 the pure code, 1 the mix: the arrows tilt (amplitudes blended), the tile turns into ? with its ring of four shares",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "letters_target",
+     "range": "0..1",
+     "default": 0,
+     "eased": false,
+     "meaning": "the mix: 0 the rule's mix after letters_time from the code's letter (the story's model, uneven), 1 the even mix (a quarter each)"
+    },
+    {
+     "name": "letters_time",
+     "range": "0..3 (swaps per letter)",
+     "default": 0.45,
+     "eased": true,
+     "meaning": "the branch length for the rule's mix (swaps per letter, 0..3)"
+    },
+    {
+     "name": "letters_reads",
+     "range": "0..400 (read-outs, continuous)",
+     "default": 0,
+     "eased": true,
+     "meaning": "how many read-outs",
+     "usedInStory": [
+      0,
+      4
+     ]
+    },
+    {
+     "name": "letters_seed",
+     "range": "integer >= 1",
+     "default": 1,
+     "eased": false,
+     "meaning": "which read-outs come out (MMATH.sample(p, seed, k))"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      9,
+      3.5,
+      0,
+      0.05,
+      0
+     ],
+     "frames": "the helix, face on"
+    },
+    {
+     "name": "helix",
+     "view": [
+      -26,
+      14,
+      3,
+      0,
+      0,
+      0
+     ],
+     "frames": "the helix from the left, showing its grooves"
+    },
+    {
+     "name": "peel",
+     "view": [
+      8,
+      12,
+      3.4,
+      0,
+      0.18,
+      0.05
+     ],
+     "frames": "the strand peeling into letter tiles"
+    },
+    {
+     "name": "rows",
+     "view": [
+      12,
+      10,
+      3.7,
+      0,
+      0.04,
+      0.12
+     ],
+     "frames": "the ancestor and its two copies with their swaps"
+    },
+    {
+     "name": "qubits",
+     "view": [
+      0,
+      6,
+      2.9,
+      0,
+      0.2,
+      0.3
+     ],
+     "frames": "the tile and its two qubits, the codes and the mix"
+    },
+    {
+     "name": "reads",
+     "view": [
+      0,
+      12,
+      3.95,
+      0,
+      -0.14,
+      0.35
+     ],
+     "frames": "the qubits and the four piles of read-outs below"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "helix",
+       "label": "Helix"
+      },
+      {
+       "value": "copies",
+       "label": "Copies"
+      },
+      {
+       "value": "qubits",
+       "label": "Qubits"
+      }
+     ]
+    },
+    {
+     "key": "mix",
+     "label": "Letter or mix",
+     "options": [
+      {
+       "value": "A",
+       "label": "A"
+      },
+      {
+       "value": "C",
+       "label": "C"
+      },
+      {
+       "value": "G",
+       "label": "G"
+      },
+      {
+       "value": "T",
+       "label": "T"
+      },
+      {
+       "value": "even",
+       "label": "Even"
+      },
+      {
+       "value": "rule",
+       "label": "The rule's mix"
+      }
+     ]
+    },
+    {
+     "key": "time",
+     "label": "Branch length",
+     "options": [
+      {
+       "value": "0.15",
+       "label": "0.15"
+      },
+      {
+       "value": "0.45",
+       "label": "0.45"
+      },
+      {
+       "value": "1",
+       "label": "1"
+      },
+      {
+       "value": "1.6",
+       "label": "1.6"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "letters_helix",
+    "letters_peel",
+    "letters_copy1",
+    "letters_mut1",
+    "letters_copy2",
+    "letters_mut2",
+    "letters_open",
+    "letters_code",
+    "letters_mix",
+    "letters_target",
+    "letters_time",
+    "letters_reads",
+    "letters_seed"
+   ],
+   "anchors": [
+    "helix",
+    "centre",
+    "ancestor",
+    "copy1",
+    "copy2",
+    "ancMid",
+    "copy1Mid",
+    "copy2Mid",
+    "swap1",
+    "swap2",
+    "tile",
+    "qubit1",
+    "qubit2",
+    "piles",
+    "pileA",
+    "pileC",
+    "pileG",
+    "pileT"
+   ],
+   "anchorCount": 18,
+   "labels": [
+    {
+     "text": "DNA · two strands of letter pairs",
+     "at": "helix",
+     "cls": "cyn",
+     "shows": [
+      "letters_helix",
+      "letters_peel"
+     ]
+    },
+    {
+     "text": "Ancestor",
+     "at": "ancestor",
+     "cls": "",
+     "shows": [
+      "letters_peel"
+     ]
+    },
+    {
+     "text": "Copy 1 · T→C, A→G",
+     "at": "copy1",
+     "cls": "grn",
+     "shows": [
+      "letters_copy1",
+      "letters_mut1"
+     ]
+    },
+    {
+     "text": "Copy 2 · G→A, C→T",
+     "at": "copy2",
+     "cls": "grn",
+     "shows": [
+      "letters_copy2",
+      "letters_mut2"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "tile",
+     "cls": "cyn",
+     "shows": [
+      "letters_open"
+     ]
+    },
+    {
+     "text": "First qubit",
+     "at": "qubit1",
+     "cls": "",
+     "shows": [
+      "letters_open",
+      "letters_reads"
+     ]
+    },
+    {
+     "text": "Second qubit",
+     "at": "qubit2",
+     "cls": "",
+     "shows": [
+      "letters_open",
+      "letters_reads"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pileA",
+     "cls": "",
+     "shows": [
+      "letters_reads",
+      "letters_open"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pileC",
+     "cls": "",
+     "shows": [
+      "letters_reads",
+      "letters_open"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pileG",
+     "cls": "",
+     "shows": [
+      "letters_reads",
+      "letters_open"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pileT",
+     "cls": "",
+     "shows": [
+      "letters_reads",
+      "letters_open"
+     ]
+    }
+   ],
+   "labelCount": 11,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "MUT_DATA",
+     "MMATH",
+     "MLOOK"
+    ],
+    "text": "Figure 1's sequences and swaps typed in from the poster; mixes and read-outs computed live by MMATH (example numbers)."
+   },
+   "api": [
+    "READ_MAX",
+    "mix",
+    "counts",
+    "reads",
+    "chances",
+    "bloch"
+   ],
+   "otherExports": [],
+   "buildMsNode": 7,
+   "notes": "Cheap (6 ms). British spelling. letters_code, letters_target, letters_seed are steps. Exports api (READ_MAX, mix, counts, reads, chances, bloch)."
+  },
+  {
+   "id": "mutation/tree",
+   "key": "tree",
+   "story": "mutation",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/mutation/src/sets/tree.js",
+   "manifest": "packages/mutation/src/sets/tree.md",
+   "shows": "A family tree in 3D (8 tips, 14 branches) that grows up from its root as a level of change rises (a branch rises by its length), every swap simulated, letters riding up each branch; a gear (machine) on every branch; and the poster's species tree. You walk round it and look up into it.",
+   "frame": "Root at (0, -1, 0); tips on a ring round the vertical; the species tree in the same frame (stem set draws in it).",
+   "size": "tree ~2.06 units tall with letters, widest radius 1.18",
+   "sharesFrameWith": [
+    "mutation/stem"
+   ],
+   "params": [
+    {
+     "name": "tree_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "tree_species",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 the family tree, 1 the species tree; in between a crossfade (a plain param: the engine eases it)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the level of change rising from the root past the highest tip (0 nothing, 1 all grown); a thin green ring marks it while it rises",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_seq",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the letters: the ancestor's arc at the root, the rows riding up, the tips' rows"
+    },
+    {
+     "name": "tree_hi",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "lights the long and the short branch (tree.highlight: for seed 1, branch 10, 0.47 swaps per letter, 4 swaps, and branch 7, 0.15, 1 swap) in green, dims the rest, and",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_gears",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "a gear on every branch (at a third of its way up, the branch its axle), winding up to its turn (2.4 x turnAngle(len)); coupling gears (the double band) on the species",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_flow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the machines run: packets rise through the grown branches (a bead every 1.1 of height, rising 0.55 a second, by t), the gears turn on (faster on longer branches), and",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_q",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the glass \"?\" at the species tree's root (the unknown ancestor; it pulses)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_seed",
+     "range": "integer >= 1",
+     "default": 1,
+     "eased": false,
+     "meaning": "which family tree (any integer from 1). Step param"
+    },
+    {
+     "name": "tree_speed",
+     "range": "0..3 (index into 0.5, 1, 2, 4)",
+     "default": 1,
+     "eased": false,
+     "meaning": "how fast letters change: index into [0.5, 1, 2, 4] (a factor on every branch length; it changes the mutations, not the drawing)"
+    },
+    {
+     "name": "tree_pick",
+     "range": "-1..13 (branch)",
+     "default": -1,
+     "eased": false,
+     "meaning": "a picked branch (0..13, -1 none): lit cyan with its rise measured, its gear lit; the others dim"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      24,
+      12,
+      5,
+      0,
+      -0.02,
+      0
+     ],
+     "frames": "the whole family tree"
+    },
+    {
+     "name": "grow",
+     "view": [
+      18,
+      5,
+      4.6,
+      0,
+      -0.32,
+      0
+     ],
+     "frames": "from low, while the tree grows"
+    },
+    {
+     "name": "crown",
+     "view": [
+      30,
+      30,
+      4.5,
+      0,
+      0.42,
+      0
+     ],
+     "frames": "the crown and the tips' sequences from above"
+    },
+    {
+     "name": "pair",
+     "view": [
+      47,
+      14,
+      4.6,
+      0.39,
+      0.3,
+      -0.26
+     ],
+     "frames": "the long and the short branch side by side (computed for the tree's seed)"
+    },
+    {
+     "name": "long",
+     "view": [
+      -24,
+      12,
+      2.4,
+      -0.53,
+      0.38,
+      0.74
+     ],
+     "frames": "close on the long highlighted branch (computed)"
+    },
+    {
+     "name": "short",
+     "view": [
+      142,
+      12,
+      2.4,
+      0.7,
+      0.23,
+      -0.59
+     ],
+     "frames": "the middles of the two highlighted branches"
+    },
+    {
+     "name": "gears",
+     "view": [
+      28,
+      14,
+      3.9,
+      0,
+      -0.28,
+      0
+     ],
+     "frames": "the machines: a gear on every branch"
+    },
+    {
+     "name": "stand",
+     "view": [
+      20,
+      0,
+      1.5,
+      0,
+      0.15,
+      0
+     ],
+     "frames": "the headset view: xrPlace scales it to 0.76 m a unit, so the tree (2.06 units with its letters) stands about 1.6 m tall, its…"
+    },
+    {
+     "name": "up",
+     "view": [
+      200,
+      -62,
+      2.2,
+      0,
+      0.3,
+      0.05
+     ],
+     "frames": "from below the root looking up into the crown (screens only)"
+    },
+    {
+     "name": "species",
+     "view": [
+      18,
+      16,
+      3.9,
+      0,
+      -0.42,
+      0.1
+     ],
+     "frames": "the species tree with its stems"
+    },
+    {
+     "name": "what",
+     "view": [
+      8,
+      14,
+      4.3,
+      0.16,
+      -0.36,
+      0
+     ],
+     "frames": "the species tree with machines running and the stems"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "tree",
+       "label": "Family tree"
+      },
+      {
+       "value": "machines",
+       "label": "Machines"
+      },
+      {
+       "value": "species",
+       "label": "Species tree"
+      }
+     ]
+    },
+    {
+     "key": "seed",
+     "label": "Tree",
+     "options": [
+      {
+       "value": "1",
+       "label": "1"
+      },
+      {
+       "value": "2",
+       "label": "2"
+      },
+      {
+       "value": "3",
+       "label": "3"
+      },
+      {
+       "value": "4",
+       "label": "4"
+      },
+      {
+       "value": "5",
+       "label": "5"
+      }
+     ]
+    },
+    {
+     "key": "speed",
+     "label": "Letters change",
+     "options": [
+      {
+       "value": "0",
+       "label": "Slowly"
+      },
+      {
+       "value": "1",
+       "label": "As in the story"
+      },
+      {
+       "value": "2",
+       "label": "Twice as fast"
+      },
+      {
+       "value": "3",
+       "label": "Four times"
+      }
+     ]
+    },
+    {
+     "key": "run",
+     "label": "Machines",
+     "options": [
+      {
+       "value": "off",
+       "label": "Still"
+      },
+      {
+       "value": "on",
+       "label": "Running"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "tree_species",
+    "tree_grow",
+    "tree_seq",
+    "tree_hi",
+    "tree_gears",
+    "tree_flow",
+    "tree_q",
+    "tree_seed",
+    "tree_speed",
+    "tree_pick"
+   ],
+   "anchors": [
+    "root",
+    "below",
+    "crown",
+    "level",
+    "long",
+    "short",
+    "pick",
+    "gear",
+    "tips",
+    "q",
+    "n1",
+    "sgear",
+    "tip0",
+    "tip1",
+    "tip2",
+    "tip3",
+    "tip4",
+    "tip5",
+    "tip6",
+    "tip7",
+    "s1",
+    "s2",
+    "s3"
+   ],
+   "anchorCount": 23,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "below",
+     "cls": "cyn",
+     "shows": [
+      "tree_species",
+      "tree_seq",
+      "tree_grow",
+      "tree_hi",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "Descendants · their sequences today",
+     "at": "tips",
+     "cls": "",
+     "shows": [
+      "tree_species",
+      "tree_seq",
+      "tree_grow",
+      "tree_hi",
+      "tree_gears",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "long",
+     "cls": "grn",
+     "shows": [
+      "tree_species",
+      "tree_hi",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "short",
+     "cls": "grn",
+     "shows": [
+      "tree_species",
+      "tree_hi",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pick",
+     "cls": "cyn",
+     "shows": [
+      "tree_species",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "One machine per branch",
+     "at": "gear",
+     "cls": "cyn",
+     "shows": [
+      "tree_species",
+      "tree_gears",
+      "tree_pick"
+     ]
+    },
+    {
+     "text": "Coupling gears · one per branch",
+     "at": "sgear",
+     "cls": "cyn",
+     "shows": [
+      "tree_species",
+      "tree_gears",
+      "tree_flow"
+     ]
+    },
+    {
+     "text": "? · their shared ancestor",
+     "at": "q",
+     "cls": "amb",
+     "shows": [
+      "tree_species",
+      "tree_q"
+     ]
+    }
+   ],
+   "labelCount": 8,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "MMATH",
+     "MLOOK"
+    ],
+    "text": "Example trees computed live (every mutation simulated under the story's example model)."
+   },
+   "api": [
+    "speeds",
+    "model",
+    "tree",
+    "species",
+    "highlight",
+    "branch",
+    "pick",
+    "mid",
+    "tips"
+   ],
+   "otherExports": [],
+   "buildMsNode": 32,
+   "notes": "In a headset it eases into the stand view (about 1.6 m tall, nothing within 0.35 m of the eyes); the up view is screens only. tree_seed, tree_speed, tree_pick are steps. 11 views. Exports api (speeds, model, tree, species, highlight, branch, pick, mid, tips)."
+  },
+  {
+   "id": "mutation/rule",
+   "key": "rule",
+   "story": "mutation",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/mutation/src/sets/rule.js",
+   "manifest": "packages/mutation/src/sets/rule.md",
+   "shows": "The rule of change: four letter balls at the corners of a pyramid joined by rate arrows, the pyramid of mixes and a point gliding along its path, the compiler (a drum with a gear), the machine for one branch (copy the parent's letter, then turn it), its circuit and the turn blocks opening into their simple steps.",
+   "frame": "Centred on the origin; A at the top, C front left, G back, T front right.",
+   "size": "pyramid x +-0.93, y -0.5 to 1.2; machine x -1.15 to 1.05",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "rule_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "rule_balls",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the balls grow (0-0.5) and the arrows draw from tail to head (0.2-1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_flow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "light running along the arrows"
+    },
+    {
+     "name": "rule_pyr",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the pyramid forms: edges from the corners (0-0.6), faces (0.3-1), corner tiles (0.5-1); the balls shrink into the corners (0.1-0.8), the arrows fade (0-0.5)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_path",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the mix point, its trail and the path ahead, points 1-3, the long-run ring, the threads",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_time",
+     "range": "0..3 (swaps per letter)",
+     "default": 1,
+     "eased": true,
+     "meaning": "the branch length / time (swaps per letter, 0..3): where the point is on the path; in the machine the dial, the gears, the child's arrows and mix, the circuit's angles",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "rule_model",
+     "range": "0..2 (even, transitions, uneven)",
+     "default": 2,
+     "eased": false,
+     "meaning": "0 even (JC69), 1 transitions (K80, κ 4), 2 uneven (the story's GTR example)"
+    },
+    {
+     "name": "rule_start",
+     "range": "0..3 (A C G T)",
+     "default": 0,
+     "eased": false,
+     "meaning": "the path's start letter (A C G T). Step param"
+    },
+    {
+     "name": "rule_compile",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the drum appears (0-0.3); the pyramid shrinks above it (0-0.4) and drops in (0.4-0.8); its gear spins up",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_machine",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the machine comes out of the drum part by part (staggered, 0-0.8), the drum shrinks and goes (0.45-0.9)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_parent",
+     "range": "0..3 (A C G T)",
+     "default": 0,
+     "eased": false,
+     "meaning": "the parent's letter. Step param (its tile turns over, its arrows flip)"
+    },
+    {
+     "name": "rule_copy",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the copy: the head moves over the parent (0-0.12), lifts its letter (0.12-0.28), carries it (0.28-0.5), stamps it on the child (0.5-0.66), returns (0.66-0.85); the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_circuit",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the circuit under the machine: wires grow left to right (0-0.6), inputs, copy gates, turn blocks",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "rule_simple",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the turn blocks open into their simple steps"
+    },
+    {
+     "name": "rule_run",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "pulses run along the wires (by t)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -26,
+      20,
+      4,
+      0,
+      0.3,
+      0
+     ],
+     "frames": "the pyramid and its path, from the front left"
+    },
+    {
+     "name": "rates",
+     "view": [
+      16,
+      12,
+      4,
+      0,
+      0.32,
+      0
+     ],
+     "frames": "the letter balls and rate arrows"
+    },
+    {
+     "name": "pyramid",
+     "view": [
+      -22,
+      16,
+      3.9,
+      0,
+      0.3,
+      0
+     ],
+     "frames": "the pyramid of mixes forming"
+    },
+    {
+     "name": "path",
+     "view": [
+      -32,
+      22,
+      4.3,
+      0,
+      0.28,
+      0
+     ],
+     "frames": "the turn has begun, without the circuit"
+    },
+    {
+     "name": "compiler",
+     "view": [
+      0,
+      20,
+      3.9,
+      0,
+      -0.12,
+      0
+     ],
+     "frames": "the drum (the compiler)"
+    },
+    {
+     "name": "machine",
+     "view": [
+      0,
+      8,
+      3.3,
+      -0.1,
+      0.52,
+      0
+     ],
+     "frames": "the whole machine for one branch"
+    },
+    {
+     "name": "copy",
+     "view": [
+      0,
+      8,
+      2.5,
+      -0.6,
+      0.68,
+      0
+     ],
+     "frames": "the copy step: parent and child"
+    },
+    {
+     "name": "turn",
+     "view": [
+      12,
+      6,
+      2.9,
+      0.05,
+      0.42,
+      0
+     ],
+     "frames": "the turn: gears, dial and small pyramid"
+    },
+    {
+     "name": "circuit",
+     "view": [
+      0,
+      6,
+      4.4,
+      -0.15,
+      0.12,
+      0
+     ],
+     "frames": "the compiler runs, until the machine is half out"
+    },
+    {
+     "name": "steps",
+     "view": [
+      0,
+      4,
+      3.5,
+      -0.05,
+      -0.5,
+      0
+     ],
+     "frames": "the simple steps"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "rule",
+       "label": "Rule"
+      },
+      {
+       "value": "path",
+       "label": "Path"
+      },
+      {
+       "value": "machine",
+       "label": "Machine"
+      },
+      {
+       "value": "circuit",
+       "label": "Circuit"
+      },
+      {
+       "value": "steps",
+       "label": "Simple steps"
+      }
+     ]
+    },
+    {
+     "key": "model",
+     "label": "Rule",
+     "options": [
+      {
+       "value": "even",
+       "label": "All swaps alike"
+      },
+      {
+       "value": "transitions",
+       "label": "A↔G and C↔T faster"
+      },
+      {
+       "value": "uneven",
+       "label": "The story's example"
+      }
+     ]
+    },
+    {
+     "key": "start",
+     "label": "Start",
+     "options": [
+      {
+       "value": "A",
+       "label": "A"
+      },
+      {
+       "value": "C",
+       "label": "C"
+      },
+      {
+       "value": "G",
+       "label": "G"
+      },
+      {
+       "value": "T",
+       "label": "T"
+      }
+     ]
+    },
+    {
+     "key": "parent",
+     "label": "Parent",
+     "options": [
+      {
+       "value": "A",
+       "label": "A"
+      },
+      {
+       "value": "C",
+       "label": "C"
+      },
+      {
+       "value": "G",
+       "label": "G"
+      },
+      {
+       "value": "T",
+       "label": "T"
+      }
+     ]
+    },
+    {
+     "key": "time",
+     "label": "Branch length",
+     "options": [
+      {
+       "value": "0.15",
+       "label": "0.15"
+      },
+      {
+       "value": "0.45",
+       "label": "0.45"
+      },
+      {
+       "value": "1",
+       "label": "1"
+      },
+      {
+       "value": "1.6",
+       "label": "1.6"
+      },
+      {
+       "value": "2",
+       "label": "2"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "rule_balls",
+    "rule_flow",
+    "rule_pyr",
+    "rule_path",
+    "rule_time",
+    "rule_model",
+    "rule_start",
+    "rule_parent",
+    "rule_compile",
+    "rule_machine",
+    "rule_copy",
+    "rule_circuit",
+    "rule_simple",
+    "rule_run"
+   ],
+   "anchors": [
+    "pyramid",
+    "ballA",
+    "fast",
+    "cA",
+    "cC",
+    "cG",
+    "cT",
+    "mix",
+    "longrun",
+    "p1",
+    "p2",
+    "p3",
+    "compiler",
+    "parent",
+    "child",
+    "press",
+    "gears",
+    "dial",
+    "mini",
+    "machine",
+    "circuit",
+    "wireParent",
+    "wireChild",
+    "copyGates",
+    "turn1",
+    "turn2",
+    "steps"
+   ],
+   "anchorCount": 27,
+   "labels": [
+    {
+     "text": "Thicker arrow · swaps more readily",
+     "at": "fast",
+     "cls": "",
+     "shows": [
+      "rule_balls",
+      "rule_pyr"
+     ]
+    },
+    {
+     "text": "Bigger ball · more common in the long run",
+     "at": "ballA",
+     "cls": "",
+     "shows": [
+      "rule_balls",
+      "rule_pyr"
+     ]
+    },
+    {
+     "text": "|00⟩",
+     "at": "cA",
+     "cls": "",
+     "shows": [
+      "rule_pyr",
+      "rule_path"
+     ]
+    },
+    {
+     "text": "|01⟩",
+     "at": "cC",
+     "cls": "",
+     "shows": [
+      "rule_pyr",
+      "rule_path"
+     ]
+    },
+    {
+     "text": "|10⟩",
+     "at": "cG",
+     "cls": "",
+     "shows": [
+      "rule_pyr",
+      "rule_path"
+     ]
+    },
+    {
+     "text": "|11⟩",
+     "at": "cT",
+     "cls": "",
+     "shows": [
+      "rule_pyr",
+      "rule_path"
+     ]
+    },
+    {
+     "text": "1",
+     "at": "p1",
+     "cls": "grn",
+     "shows": [
+      "rule_path",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "2",
+     "at": "p2",
+     "cls": "grn",
+     "shows": [
+      "rule_path",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "3",
+     "at": "p3",
+     "cls": "grn",
+     "shows": [
+      "rule_path",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "mix",
+     "cls": "cyn",
+     "shows": [
+      "rule_path"
+     ]
+    },
+    {
+     "text": "Long-run mix",
+     "at": "longrun",
+     "cls": "cyn",
+     "shows": [
+      "rule_path",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "Compiler · a rule in, a circuit out",
+     "at": "compiler",
+     "cls": "",
+     "shows": [
+      "rule_compile",
+      "rule_machine"
+     ]
+    },
+    {
+     "text": "Parent",
+     "at": "parent",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Child",
+     "at": "child",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Copy · the parent’s letter onto the child",
+     "at": "press",
+     "cls": "cyn",
+     "shows": [
+      "rule_copy"
+     ]
+    },
+    {
+     "text": "Turn · as far as the branch is long",
+     "at": "gears",
+     "cls": "cyn",
+     "shows": [
+      "rule_copy",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "dial",
+     "cls": "grn",
+     "shows": [
+      "rule_copy"
+     ]
+    },
+    {
+     "text": "The child’s mix · the same path",
+     "at": "mini",
+     "cls": "",
+     "shows": [
+      "rule_copy",
+      "rule_time"
+     ]
+    },
+    {
+     "text": "Parent p1, p0",
+     "at": "wireParent",
+     "cls": "",
+     "shows": [
+      "rule_circuit"
+     ]
+    },
+    {
+     "text": "Child c1, c0",
+     "at": "wireChild",
+     "cls": "",
+     "shows": [
+      "rule_circuit"
+     ]
+    },
+    {
+     "text": "Copy · two CNOT gates",
+     "at": "copyGates",
+     "cls": "cyn",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "turn1",
+     "cls": "cyn",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "turn2",
+     "cls": "cyn",
+     "shows": []
+    },
+    {
+     "text": "Simple steps · 12 turns of one qubit, 12 links",
+     "at": "steps",
+     "cls": "cyn",
+     "shows": []
+    }
+   ],
+   "labelCount": 24,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "MMATH",
+     "MLOOK"
+    ],
+    "text": "Three example substitution models (JC69, K80 and the story's GTR example) computed live; the circuit's angles and simple steps checked by a state-vector run."
+   },
+   "api": [
+    "models",
+    "mix",
+    "longRun",
+    "rates",
+    "angles",
+    "turn",
+    "steps",
+    "shown"
+   ],
+   "otherExports": [],
+   "buildMsNode": 15,
+   "notes": "rule_model, rule_start, rule_parent are steps. Exports api (models, mix, longRun, rates, angles, turn, steps, shown)."
+  },
+  {
+   "id": "mutation/stem",
+   "key": "stem",
+   "story": "mutation",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/mutation/src/sets/stem.js",
+   "manifest": "packages/mutation/src/sets/stem.md",
+   "shows": "Letters that work together: an RNA strand folds into a stem of six pairs, one letter changes alone and its rung snaps, a coupling makes the pair change together, the count of combinations (16, 64, about a million) against qubits, then three fields of 2,000 rebuilt ancestors on the species tree.",
+   "frame": "In the tree set's frame; chapter 6 at the origin with the tree hidden, chapter 7 at the species tree.",
+   "size": "stem ~radius 1; fields in front of the root",
+   "sharesFrameWith": [
+    "mutation/tree"
+   ],
+   "params": [
+    {
+     "name": "stem_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "stem_strand",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the close-up's strand: its 16 tiles pop in left to right with the backbone",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_fold",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "0 a straight row, to 0.55 a hairpin folding round its loop, to 1 the twisted stem (pair 5 square to the story's view); rungs from 0.75",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_break",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "pair 5's top letter flips C -> A at 0.5 (a flash, framed white), its rung pulls back into two stubs (0.5-0.75), a red cross (0.55-0.85), the stem bulges there; back to",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_couple",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the coupling gear over pair 5 (the double band along the rung), winding in",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_both",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "pair 5 changes both letters at once at 0.5 (C -> T, G -> A, framed white, a flash), the gear turns half round, the rung lights cyan: it holds",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_count",
+     "range": "0..3",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..3: to 1 the 4 x 4 square of tile pairs beside the stem (the six matching pairs lit, the rest dim)",
+     "usedInStory": [
+      0,
+      3
+     ]
+    },
+    {
+     "name": "stem_qubits",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "a row of 20 qubits under it all (two per letter, each pair holding a letter's mix: MMATH.path at the story's points, MMATH.bloch), appearing left to right",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_species",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the three species' stems on the species tree's tips, small, upright, facing the viewer, broken pairs as red crosses; letters that differ from the true ancestor framed",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_fields",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "three fields of 2,000 tiny stems sprout in front of the root (left to right: letter by letter, exact pair model, coupled circuit), each at its own moment: lit in the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_named",
+     "range": "0..3",
+     "default": 3,
+     "eased": true,
+     "meaning": "how many fields' tags show, left to right (0.5: the first tag half in): they come as the narrator names each field"
+    },
+    {
+     "name": "stem_sort",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the stems whose six pairs all hold walk to the front rows of their field (in their random order): a lit block whose depth is the share",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_truth",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the true ancestor's stem, big at the root (in front of the species tree's \"?\", which the story fades with tree_q), its one broken pair",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_examples",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "one rebuilt ancestor per method stands before its field (Figure 5's in the story; the most likely one, best, live), letters that differ from the truth framed white; the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "stem_src",
+     "range": "0..1",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 the authors' test (their shares, Figure 5's examples), 1 this example computed live (MMATH.rebuild with stem_w and stem_seed)"
+    },
+    {
+     "name": "stem_w",
+     "range": "1..30",
+     "default": 8,
+     "eased": false,
+     "meaning": "the pair favour w, 1 to 30 (live only: the authors' test is w = 8)"
+    },
+    {
+     "name": "stem_seed",
+     "range": "integer >= 1",
+     "default": 1,
+     "eased": false,
+     "meaning": "the rebuild's seed (which 2,000 ancestors; also the crowd's shuffle)"
+    },
+    {
+     "name": "stem_method",
+     "range": "-1..2",
+     "default": -1,
+     "eased": false,
+     "meaning": "a method lit, the other fields dimmed: index into MMATH.METHODS (0 indep, 1 coupled, 2 exact), -1 all",
+     "usedInStory": [
+      -1,
+      -1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      16,
+      6,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the folded RNA stem"
+    },
+    {
+     "name": "strand",
+     "view": [
+      0,
+      4,
+      4.4,
+      0,
+      0.1,
+      0
+     ],
+     "frames": "the straight strand and its fold"
+    },
+    {
+     "name": "fold",
+     "view": [
+      14,
+      8,
+      3.2,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the stem a little closer"
+    },
+    {
+     "name": "break",
+     "view": [
+      24,
+      6,
+      2.3,
+      0.12,
+      0.12,
+      0
+     ],
+     "frames": "close on pair 5: the break, the coupling, both letters changing"
+    },
+    {
+     "name": "count",
+     "view": [
+      -12,
+      10,
+      5.4,
+      0.85,
+      -0.1,
+      -0.15
+     ],
+     "frames": "the stem, the 4 x 4 square, the cube and the qubits"
+    },
+    {
+     "name": "cloud",
+     "view": [
+      -10,
+      12,
+      8.4,
+      1,
+      0,
+      -1.4
+     ],
+     "frames": "the cloud of a million combinations against 20 qubits"
+    },
+    {
+     "name": "species",
+     "view": [
+      18,
+      16,
+      3.9,
+      0,
+      -0.38,
+      0.1
+     ],
+     "frames": "the species tree and its stems"
+    },
+    {
+     "name": "fields",
+     "view": [
+      0,
+      30,
+      4.6,
+      0,
+      -0.95,
+      1.15
+     ],
+     "frames": "the three fields of 2,000 rebuilt ancestors, from in front"
+    },
+    {
+     "name": "compare",
+     "view": [
+      0,
+      27,
+      4.7,
+      0.14,
+      -0.5,
+      0.9
+     ],
+     "frames": "the true ancestor and the three examples before their fields (249-264): high enough that the middle example stands below the…"
+    },
+    {
+     "name": "what",
+     "view": [
+      8,
+      14,
+      4.3,
+      0.16,
+      -0.36,
+      0
+     ],
+     "frames": "the species tree, its machines and the stems"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "stem",
+       "label": "Stem"
+      },
+      {
+       "value": "count",
+       "label": "Count"
+      },
+      {
+       "value": "rebuild",
+       "label": "Rebuild"
+      },
+      {
+       "value": "compare",
+       "label": "Compare"
+      }
+     ]
+    },
+    {
+     "key": "src",
+     "label": "Numbers",
+     "options": [
+      {
+       "value": "test",
+       "label": "The authors' test"
+      },
+      {
+       "value": "live",
+       "label": "This example"
+      }
+     ]
+    },
+    {
+     "key": "w",
+     "label": "Pair favour",
+     "options": [
+      {
+       "value": "1",
+       "label": "1"
+      },
+      {
+       "value": "4",
+       "label": "4"
+      },
+      {
+       "value": "8",
+       "label": "8"
+      },
+      {
+       "value": "16",
+       "label": "16"
+      },
+      {
+       "value": "30",
+       "label": "30"
+      }
+     ]
+    },
+    {
+     "key": "method",
+     "label": "Method",
+     "options": [
+      {
+       "value": "all",
+       "label": "All three"
+      },
+      {
+       "value": "indep",
+       "label": "Letter by letter"
+      },
+      {
+       "value": "exact",
+       "label": "Exact"
+      },
+      {
+       "value": "coupled",
+       "label": "Coupling"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "stem_strand",
+    "stem_fold",
+    "stem_break",
+    "stem_couple",
+    "stem_both",
+    "stem_count",
+    "stem_qubits",
+    "stem_species",
+    "stem_fields",
+    "stem_named",
+    "stem_sort",
+    "stem_truth",
+    "stem_examples",
+    "stem_src",
+    "stem_w",
+    "stem_seed",
+    "stem_method"
+   ],
+   "anchors": [
+    "stem",
+    "loop",
+    "top",
+    "brk",
+    "gear",
+    "square",
+    "cube",
+    "cloud",
+    "qubits",
+    "truth",
+    "root",
+    "sp1",
+    "sp2",
+    "sp3",
+    "field_indep",
+    "ex_indep",
+    "field_exact",
+    "ex_exact",
+    "field_coupled",
+    "ex_coupled"
+   ],
+   "anchorCount": 20,
+   "labels": [
+    {
+     "text": "A stem · six pairs and a loop",
+     "at": "top",
+     "cls": "",
+     "shows": [
+      "stem_strand",
+      "stem_fold",
+      "stem_break",
+      "stem_couple",
+      "stem_count"
+     ]
+    },
+    {
+     "text": "Pair broken · C became A alone",
+     "at": "brk",
+     "cls": "amb",
+     "shows": [
+      "stem_strand",
+      "stem_break",
+      "stem_both",
+      "stem_count"
+     ]
+    },
+    {
+     "text": "Coupled · both letters change together",
+     "at": "gear",
+     "cls": "cyn",
+     "shows": [
+      "stem_strand",
+      "stem_couple",
+      "stem_both",
+      "stem_break",
+      "stem_count"
+     ]
+    },
+    {
+     "text": "C–G became T–A · the pair holds",
+     "at": "gear",
+     "cls": "cyn",
+     "shows": [
+      "stem_strand",
+      "stem_both",
+      "stem_count"
+     ]
+    },
+    {
+     "text": "16 combinations · a pair of letters",
+     "at": "square",
+     "cls": "cyn",
+     "shows": [
+      "stem_count"
+     ]
+    },
+    {
+     "text": "64 combinations · three letters",
+     "at": "cube",
+     "cls": "cyn",
+     "shows": [
+      "stem_count"
+     ]
+    },
+    {
+     "text": "About a million · ten letters: 1,048,576",
+     "at": "cloud",
+     "cls": "amb",
+     "shows": [
+      "stem_count"
+     ]
+    },
+    {
+     "text": "20 qubits · two per letter, for all ten",
+     "at": "qubits",
+     "cls": "grn",
+     "shows": [
+      "stem_qubits"
+     ]
+    },
+    {
+     "text": "Species 1 · 2 broken pairs",
+     "at": "sp1",
+     "cls": "",
+     "shows": [
+      "stem_species",
+      "stem_fields"
+     ]
+    },
+    {
+     "text": "Species 2 · 3 broken pairs",
+     "at": "sp2",
+     "cls": "",
+     "shows": [
+      "stem_species",
+      "stem_fields"
+     ]
+    },
+    {
+     "text": "Species 3 · 2 broken pairs",
+     "at": "sp3",
+     "cls": "",
+     "shows": [
+      "stem_species",
+      "stem_fields"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "field_indep",
+     "cls": "",
+     "shows": [
+      "stem_fields",
+      "stem_named",
+      "stem_examples",
+      "stem_method"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "field_exact",
+     "cls": "grn",
+     "shows": [
+      "stem_fields",
+      "stem_named",
+      "stem_examples",
+      "stem_method"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "field_coupled",
+     "cls": "cyn",
+     "shows": [
+      "stem_fields",
+      "stem_named",
+      "stem_examples",
+      "stem_method"
+     ]
+    },
+    {
+     "text": "True ancestor · 1 broken pair",
+     "at": "truth",
+     "cls": "amb",
+     "shows": [
+      "stem_truth"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "ex_indep",
+     "cls": "",
+     "shows": [
+      "stem_examples"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "ex_exact",
+     "cls": "grn",
+     "shows": [
+      "stem_examples"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "ex_coupled",
+     "cls": "cyn",
+     "shows": [
+      "stem_examples"
+     ]
+    }
+   ],
+   "labelCount": 18,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "MMATH",
+     "MUT_DATA"
+    ],
+    "text": "The poster's Figure 5 stems and shares (10 %, 43 %, 20 %, quarter with all pairs matched) typed in, shown only \"in the authors' test\"; the live example uses our stand-in coupling (MMATH.Pcoupled), labelled so. Never say the coupled circuit is \"better\"."
+   },
+   "api": [
+    "methods",
+    "names",
+    "namesLive",
+    "strand",
+    "loop",
+    "pair",
+    "truth",
+    "species",
+    "count",
+    "results",
+    "pick"
+   ],
+   "otherExports": [],
+   "buildMsNode": 158,
+   "notes": "stem_src, stem_w, stem_seed, stem_method are steps. Exports api (methods, names, namesLive, strand, loop, pair, truth, species, count, results, pick)."
+  }
+ ]
+}

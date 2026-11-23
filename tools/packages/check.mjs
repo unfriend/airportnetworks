@@ -34,13 +34,13 @@ const words = (/never a word the address already uses \(([^)]*)\)/.exec(fs.readF
 const reserved = new Set([...words.matchAll(/`([a-z0-9-]+)`/g)].map(m => m[1]));
 const KEY = /^[a-z][a-z0-9-]{1,30}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const str = v => typeof v === 'string', may = f => v => v === undefined || f(v), full = v => str(v) && v.trim().length > 0 && v.length <= 600;
-const MINIS = (() => { try { return fs.readFileSync(path.join(root, 'lowpoly.js'), 'utf8'); } catch (e) { return ''; } })();
-const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.includes(`'${v}'`);   // (a miniature of lowpoly.js)
+const MINIFILE = /^[a-z0-9][a-z0-9_-]*\.js$/;
+const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v);   // (a miniature's name: checked below, "Miniatures")
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: may(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: may(str), page: may(full), brand: may(full), sub: may(str), aria: may(full), thing: may(full), loading: may(full),
   authors: may(str), life: may(v => typeof v === 'boolean'), list: may(v => ['stories', 'experiments', 'hidden'].includes(v)), needs: may(v => Number.isInteger(v) && v >= 1),
-  icon: may(mini), intro: may(v => v === true),
+  minis: may(v => str(v) && MINIFILE.test(v)), icon: may(mini), intro: may(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];
 const sjf = `${show}/story.json`;
@@ -55,7 +55,7 @@ if (sj) {
   for (const k of NEED) if (sj[k] === undefined) fail(sjf, `lacks ${k}`);
   for (const k of Object.keys(sj)) {
     if (!FIELDS[k]) fail(sjf, `${k} is not a field`);
-    else if (k === 'icon' && !FIELDS.icon(sj.icon)) fail(sjf, `icon ${JSON.stringify(sj.icon).slice(0, 60)} names no miniature of lowpoly.js (a <key>.<set>; icon.png is its card's picture)`);
+    else if (k === 'icon' && !FIELDS.icon(sj.icon)) fail(sjf, `icon ${JSON.stringify(sj.icon).slice(0, 60)} is not a miniature's name (<key>.<set>; icon.png is its card's picture)`);
     else if (sj[k] !== undefined && !FIELDS[k](sj[k])) fail(sjf, `${k} is wrong (${JSON.stringify(sj[k]).slice(0, 60)})`);
   }
   if (sj.key !== undefined && sj.key !== name) fail(sjf, `its key is ${JSON.stringify(sj.key)}, not the folder's name`);
@@ -174,6 +174,39 @@ if (!all.includes('main.js')) fail(show, 'no main.js');
 if (ARGS.includes('--build') && fs.existsSync(path.join(base, 'src', 'build.mjs')) && all.includes('main.js')) {
   try { execFileSync(process.execPath, [path.join(base, 'src', 'build.mjs'), '--check', '--root', root], { stdio: 'pipe' }); }
   catch (e) { warn(`${show}/main.js`, `not what src/build.mjs makes: build it again (${String(e.stdout || e.message).trim().split('\n').pop()})`); }
+}
+
+// -------------------------------------------------------------- miniatures --
+// (SPEC.md, "Miniatures") story.json's minis names a file of the package, each miniature in it named <key>.<set>; icon
+// one of them, or another's (warned: it shows only where that package or the shell has it). Building them (each under
+// 1,200 triangles, its tris exact, three.js in a sandbox) runs the package's code: only with --build or --load
+const minisText = sj && typeof sj.minis === 'string' && MINIFILE.test(sj.minis) && all.includes(sj.minis) ? fs.readFileSync(path.join(base, sj.minis), 'utf8') : '';
+if (sj && sj.minis !== undefined && !minisText) fail(sjf, `minis names ${JSON.stringify(sj.minis)}, which is not a .js file of the package (node tools/lowpoly/build.mjs builds it from src/minis.js)`);
+if (all.includes('src/minis.js') && sj && sj.minis === undefined) fail(sjf, 'it has src/minis.js but names no minis file (minis: "minis.js")');
+const named = [...minisText.matchAll(/(?:^|[^.\w])(?:add|def)\('([^'.]+\.[^']+)'/gm)].map(m => m[1]);   // (add: kit a, def: kit b)
+for (const k of named) if (!k.startsWith(name + '.')) fail(`${show}/${sj.minis}`, `the miniature ${k} is not named ${name}.<set>`);
+if (sj && typeof sj.icon === 'string' && mini(sj.icon)) {
+  const other = sj.icon.split('.')[0];
+  if (other === name && minisText && !named.includes(sj.icon) && !minisText.includes(`LOWPOLY_MODELS[${JSON.stringify(sj.icon)}]`)) fail(sjf, `icon ${sj.icon} is not one of its miniatures (${named.join(', ') || 'none'})`);
+  else if (other === name && !minisText) fail(sjf, `icon ${sj.icon} is its own, but it names no minis file`);
+  else if (other !== name) warn(sjf, `icon ${sj.icon} is ${other}'s: its stations show it where ${other === 'design' || other === 'studio' || other === 'all' ? 'the shell has it' : `${other} is listed (else the plain shape)`}`);
+}
+if (minisText && (ARGS.includes('--build') || ARGS.includes('--load'))) {
+  const L = await import('../lowpoly/minis.mjs');
+  let M = null, got = {};
+  try { M = L.list(minisText, sj.minis); got = L.measure(minisText, sj.minis); } catch (e) { fail(`${show}/${sj.minis}`, `does not run: ${e.message}`); }
+  if (M) {
+    for (const p of L.problems(M, name + '.')) fail(`${show}/${sj.minis}`, p);
+    for (const k of Object.keys(M)) {
+      if (typeof got[k] === 'string') fail(`${show}/${sj.minis}`, `${k} does not build: ${got[k]}`);
+      else if (got[k] !== M[k].tris) fail(`${show}/${sj.minis}`, `${k} lists ${M[k].tris} triangles but has ${got[k]}`);
+    }
+    if (typeof sj.icon === 'string' && sj.icon.startsWith(name + '.') && !M[sj.icon]) fail(sjf, `icon ${sj.icon} is not registered by ${sj.minis}`);
+  }
+  if (all.includes('src/minis.js') && path.resolve(base, '..') === path.join(root, 'packages')) {
+    try { execFileSync(process.execPath, [path.join(root, 'tools/lowpoly/build.mjs'), '--check', '--only', name], { stdio: 'pipe' }); }
+    catch (e) { fail(`${show}/${sj.minis}`, `not what src/minis.js makes: node tools/lowpoly/build.mjs (${String(e.stdout || e.message).trim().split('\n').pop()})`); }
+  }
 }
 
 // -------------------------------------------------------------------- load --

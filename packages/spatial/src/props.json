@@ -1,0 +1,8 @@
+{
+ "about": "packages/spatial/src/props.json: the spatial story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "handwritten": {
+  "story": "spatial",
+  "file": "packages/spatial/main.js",
+  "scenes": "One scene: a model cell with 13 compartments, 249 proteins and 252 links. Chapters: Intro, Compartments, Addresses, Meeting, Many places, Signals, Moving, Proximity, Wrong place, Recap. Explore tabs: Protein, Paths, Places, Moves, Proximity."
+ }
+}

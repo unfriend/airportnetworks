@@ -1,0 +1,3841 @@
+{
+ "about": "packages/lbi/src/props.json: the lbi story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "lbi/int",
+   "key": "int",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/int.js",
+   "manifest": "packages/lbi/src/sets/int.md",
+   "shows": "A big glowing human protein interaction network (about 9,100 proteins, 22,100 interactions) with a dense centre and filaments towards the rim. The story lights curated pathways, the ATP synthase complex, flattens it into a city map with pins and a route, shows disease modules, a rare disease and its drug target, 173 immunity genes in 19 clusters, drug capsules and heat spreading from three seeds.",
+   "frame": "Centred on the origin, y up, about radius 1 (city mode flattens it onto a disc of radius 1.12). Views are [az, el, dist, tx, ty, tz].",
+   "size": "radius ~1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "int_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_reveal",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the network grows from the centre out, with a bright growth front",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_edges",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "interaction brightness"
+    },
+    {
+     "name": "int_dim",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "dims everything that is not highlighted. Highlight looks already dim the rest on their own"
+    },
+    {
+     "name": "int_path0",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path1",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path2",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path3",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path4",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path5",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path6",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path7",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path8",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_path9",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "curated module k lights up in its own colour (no white wash-out): nodes flare, internal edges become ribbons with soft travelling pulses that keep the hue, and the rest"
+    },
+    {
+     "name": "int_atp",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 13 ATP synthase nodes glow blue with their 21 contacts inside a faint blue bubble",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_flat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "city morph: the network flattens onto a disc (radius 1.12) and stays together by neighbourhood",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_build",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "lit buildings with windows rise on the 254 curated proteins",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_hub",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "centrality: hubs and essential curated proteins glow hot (amber to red) and grow, the rest cools to blue",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_hood",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "neighbourhoods: every node takes its district's colour (the 10 module colours plus a muted palette for the background), and buildings take their module colour",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_pins",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "two map pins (with a dark dot on each face of the head) drop and bounce: red on TP53, blue on MCL1, a non-essential protein with 2 curated partners at the map's rim",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_route",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the shortest path between the pins lights up hop by hop as an orange route with stops",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_dis",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 3 disease modules glow in their colours inside rim bubbles (domes on the map)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_rare",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the rare disease: the red gene (big ring), its red 2-hop bubble, the drug target (teal ring) and its teal bubble overlapping the red one",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_iei",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 19 immunity clusters light up in their colours with rim bubbles",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_drugs",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "drug capsules fly in. 9 green-white \"targeted\" capsules dock one after another into the clusters",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_heat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "network propagation: heat spreads out from the 3 white-hot seeds (crisp white discs) hop by hop, to its steady state",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_cand",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 12 candidates show as rings (warmer rings get more heat)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "int_spin",
+     "range": "turns (unbounded)",
+     "default": 0,
+     "eased": true,
+     "meaning": "turns the network about y, in turns. Optional: the story turns the camera instead"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      25,
+      12,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole network"
+    },
+    {
+     "name": "city",
+     "view": [
+      20,
+      35,
+      3.1,
+      0,
+      -0.08,
+      0
+     ],
+     "frames": "low oblique over the map"
+    },
+    {
+     "name": "atp",
+     "view": [
+      25,
+      12,
+      1.3,
+      0.093,
+      0.029,
+      0.162
+     ],
+     "frames": "the ATP synthase centroid"
+    },
+    {
+     "name": "dis",
+     "view": [
+      125,
+      16,
+      3.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "MS and RA on the left, peroxisomal disorders on the right"
+    },
+    {
+     "name": "rare",
+     "view": [
+      110,
+      30,
+      1.45,
+      0.389,
+      0.335,
+      -0.195
+     ],
+     "frames": "the disease gene. treat: the drug target"
+    },
+    {
+     "name": "iei",
+     "view": [
+      -40,
+      6,
+      2.3,
+      -0.33,
+      0.059,
+      0.38
+     ],
+     "frames": "all 19 clusters face on"
+    },
+    {
+     "name": "heat",
+     "view": [
+      -40,
+      14,
+      2.9,
+      -0.21,
+      0.185,
+      0.195
+     ],
+     "frames": "seeds, causal gene and candidates"
+    },
+    {
+     "name": "paths",
+     "view": [
+      195,
+      15,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "the pathways chapter"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "net",
+       "label": "Network"
+      },
+      {
+       "value": "city",
+       "label": "City"
+      }
+     ]
+    },
+    {
+     "key": "colour",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "paths",
+       "label": "Pathways"
+      },
+      {
+       "value": "hubs",
+       "label": "Hubs"
+      },
+      {
+       "value": "hoods",
+       "label": "Neighbourhoods"
+      },
+      {
+       "value": "dis",
+       "label": "Diseases"
+      },
+      {
+       "value": "iei",
+       "label": "Immunity"
+      },
+      {
+       "value": "heat",
+       "label": "Spread"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "none",
+       "label": "Nothing"
+      },
+      {
+       "value": "atp",
+       "label": "ATP synthase"
+      },
+      {
+       "value": "route",
+       "label": "Route"
+      },
+      {
+       "value": "rare",
+       "label": "Rare disease"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "int_a",
+    "int_spin",
+    "int_flat",
+    "int_build",
+    "int_path",
+    "int_hub",
+    "int_hood",
+    "int_dis",
+    "int_iei",
+    "int_drugs",
+    "int_heat",
+    "int_cand",
+    "int_atp",
+    "int_pins",
+    "int_route",
+    "int_rare"
+   ],
+   "anchors": [
+    "core",
+    "atp",
+    "pinRed",
+    "pinBlue",
+    "ms",
+    "ra",
+    "perox",
+    "rare",
+    "treat",
+    "seed",
+    "causal",
+    "protein",
+    "mod0",
+    "mod1",
+    "mod2",
+    "mod3",
+    "mod4",
+    "mod5",
+    "mod6",
+    "mod7",
+    "mod8",
+    "mod9",
+    "iei0",
+    "iei1",
+    "iei2",
+    "iei3",
+    "iei4",
+    "iei5",
+    "iei6",
+    "iei7",
+    "iei8",
+    "iei9",
+    "iei10",
+    "iei11",
+    "iei12",
+    "iei13",
+    "iei14",
+    "iei15",
+    "iei16",
+    "iei17",
+    "iei18",
+    "p:PSMA1",
+    "p:PSMA2",
+    "p:PSMA3",
+    "p:PSMA4",
+    "p:PSMA5",
+    "p:PSMA6",
+    "p:PSMA7",
+    "p:PSMB1",
+    "p:PSMB2",
+    "p:PSMB3",
+    "p:PSMB4",
+    "p:PSMB5",
+    "p:PSMB6",
+    "p:PSMB7",
+    "p:PSMC1",
+    "p:PSMC2",
+    "p:PSMC3",
+    "p:PSMC4",
+    "p:PSMC5",
+    "p:PSMC6",
+    "p:PSMD1",
+    "p:PSMD2",
+    "p:POLR2A",
+    "p:POLR2B",
+    "p:POLR2C",
+    "p:POLR2D",
+    "p:POLR2E",
+    "p:POLR2F",
+    "p:POLR2G",
+    "p:POLR2H",
+    "p:POLR2I",
+    "p:POLR2J",
+    "p:POLR2K",
+    "p:POLR2L",
+    "p:TBP",
+    "p:GTF2B",
+    "p:TAF1",
+    "p:MED1",
+    "p:MED12"
+   ],
+   "anchorCount": 308,
+   "labels": [
+    {
+     "text": "Cell cycle& DNA copying",
+     "at": "mod0",
+     "cls": "amb",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "DNA break repair",
+     "at": "mod1",
+     "cls": "cyn",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "p53& gene control",
+     "at": "mod2",
+     "cls": "amb",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "Growth-factorsignalling",
+     "at": "mod3",
+     "cls": "grn",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "Wnt& amyloid",
+     "at": "mod4",
+     "cls": "mag",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "Proteasome",
+     "at": "mod5",
+     "cls": "cyn",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "DNA replicationstart",
+     "at": "mod6",
+     "cls": "mag",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "AKT-mTOR& survival",
+     "at": "mod7",
+     "cls": "grn",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "TNF& cell death",
+     "at": "mod8",
+     "cls": "amb",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "RNA polymerase II",
+     "at": "mod9",
+     "cls": "",
+     "shows": [
+      "int_path"
+     ]
+    },
+    {
+     "text": "Multiple sclerosis",
+     "at": "ms",
+     "cls": "",
+     "shows": [
+      "int_dis"
+     ]
+    },
+    {
+     "text": "Rheumatoid arthritis",
+     "at": "ra",
+     "cls": "amb",
+     "shows": [
+      "int_dis"
+     ]
+    },
+    {
+     "text": "Peroxisomal disorders",
+     "at": "perox",
+     "cls": "cyn",
+     "shows": [
+      "int_dis"
+     ]
+    },
+    {
+     "text": "RNAremodelling",
+     "at": "iei1",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Proteasomecomplex",
+     "at": "iei2",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "NF-κBand chromatin",
+     "at": "iei4",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Cell deathand survival",
+     "at": "iei5",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Vesiculartraffic",
+     "at": "iei8",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Transcriptionfactors",
+     "at": "iei10",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "TCR and BCR",
+     "at": "iei11",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Interleukinand cytokine",
+     "at": "iei13",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Steroidresistant inflammation",
+     "at": "iei14",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    },
+    {
+     "text": "Complement",
+     "at": "iei17",
+     "cls": "",
+     "shows": [
+      "int_iei",
+      "int_flat"
+     ]
+    }
+   ],
+   "labelCount": 23,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "embedded, no data block"
+    ],
+    "text": "Curated core = the 254 proteins and 375 interactions of the network-medicine story (curated). ATP synthase (13 subunits, 21 contacts) and the 19 immunity clusters come from shared facts. Background network, disease modules (after Menche et al. 2015), the rare disease and the patient seeds and heat are synthetic and illustrative."
+   },
+   "api": [],
+   "otherExports": [
+    "modules",
+    "iei",
+    "nodeCount",
+    "edgeCount",
+    "coreCount",
+    "core",
+    "select",
+    "route",
+    "pick",
+    "partners",
+    "info"
+   ],
+   "buildMsNode": 538,
+   "notes": "Built at load from embedded data (about 0.2 to 0.6 s). 9.7k points, 22.1k line segments, 5 to 14 draw calls. int_path0..9 are ten curated-module highlights. Several views are getters that change when int_flat > 0.5. Extra exports select(), route(), pick(), partners(), info feed the tour's Proteins tab."
+  },
+  {
+   "id": "lbi/mac",
+   "key": "mac",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/mac.js",
+   "manifest": "packages/lbi/src/sets/mac.md",
+   "shows": "A beige 1990s all-in-one computer (no brand marks) on a table. It switches off like a CRT, comes apart in the order of a real teardown, every part lands in neat rows, glowing wires connect the chips, then the parts shrink into a network of 106 nodes and 209 links that lifts off the table.",
+   "frame": "y up; table top at y = -0.30; computer faces +z, keyboard in front, mouse right; network floats at (0, -0.14, 0).",
+   "size": "table 1.76 x 1.48 (corners reach radius ~1.15); network radius ~0.6",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "mac_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "mac_explode",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0: the assembled computer. 1: everything laid out on the table",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "mac_wire",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The schematic wiring grows wire by wire. It only draws over the laid-out parts, so it is multiplied by prog(mac_explode, 0.75, 1) (unless the network has already lifted)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "mac_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "parts shrink into glowing nodes (chips amber, resistors cyan, capacitors magenta, crystals green), wires straighten and the graph (106 nodes, 209 links) lifts off the table",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      32,
+      13,
+      2.25,
+      0.06,
+      -0.09,
+      0.06
+     ],
+     "frames": "Three-quarter view of the computer, keyboard and mouse"
+    },
+    {
+     "name": "computer",
+     "view": [
+      32,
+      13,
+      2.25,
+      0.06,
+      -0.09,
+      0.06
+     ],
+     "frames": "three-quarter view of the assembled computer, keyboard and mouse (same as default)"
+    },
+    {
+     "name": "table",
+     "view": [
+      8,
+      55,
+      3.45,
+      0,
+      -0.32,
+      0.02
+     ],
+     "frames": "above the teardown: the whole table of laid-out parts"
+    },
+    {
+     "name": "apart",
+     "view": [
+      8,
+      55,
+      3.45,
+      0,
+      -0.32,
+      0.02
+     ],
+     "frames": "the same view as table"
+    },
+    {
+     "name": "wiring",
+     "view": [
+      2,
+      60,
+      2.6,
+      0.17,
+      -0.3,
+      -0.06
+     ],
+     "frames": "Closer over the wired middle rows"
+    },
+    {
+     "name": "network",
+     "view": [
+      18,
+      20,
+      2.4,
+      0,
+      -0.14,
+      0
+     ],
+     "frames": "the lifted network (106 nodes, 209 links) floating over the table"
+    },
+    {
+     "name": "screen",
+     "view": [
+      12,
+      6,
+      1,
+      0,
+      0.036,
+      0.12
+     ],
+     "frames": "close on the screen glass and its desktop"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "computer",
+       "label": "Computer"
+      },
+      {
+       "value": "apart",
+       "label": "Taken apart"
+      },
+      {
+       "value": "wiring",
+       "label": "Wiring"
+      },
+      {
+       "value": "network",
+       "label": "Network"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "mac_explode",
+    "mac_wire",
+    "mac_net"
+   ],
+   "anchors": [
+    "screen",
+    "board",
+    "chips",
+    "resistors",
+    "screws",
+    "keys",
+    "wires",
+    "computer",
+    "crt",
+    "keyboard",
+    "mouse",
+    "table",
+    "network"
+   ],
+   "anchorCount": 13,
+   "labels": [
+    {
+     "text": "Screws53 of them",
+     "at": "screws",
+     "cls": "",
+     "shows": [
+      "mac_explode",
+      "mac_wire"
+     ]
+    },
+    {
+     "text": "Resistors40, by value",
+     "at": "resistors",
+     "cls": "cyn",
+     "shows": [
+      "mac_explode",
+      "mac_wire"
+     ]
+    },
+    {
+     "text": "Chipstransistors inside",
+     "at": "chips",
+     "cls": "amb",
+     "shows": [
+      "mac_explode",
+      "mac_net"
+     ]
+    },
+    {
+     "text": "Keys81 caps",
+     "at": "keys",
+     "cls": "grn",
+     "shows": [
+      "mac_explode",
+      "mac_wire"
+     ]
+    }
+   ],
+   "labelCount": 4,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "Drawn; nothing is data."
+   },
+   "api": [],
+   "otherExports": [
+    "counts"
+   ],
+   "buildMsNode": 158,
+   "notes": "The screen is canvas-drawn. Wires widen up to 1.6 times when seen from further than the wiring view. Extra export counts."
+  },
+  {
+   "id": "lbi/web",
+   "key": "web",
+   "story": "lbi",
+   "reusedBy": [
+    "soil (its globe only, with the engine's hop)"
+   ],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/web.js",
+   "manifest": "packages/lbi/src/sets/web.md",
+   "shows": "Networks are everywhere: first the internet as a tree-like network of 15,938 nodes and 16,359 links in the style of the Opte maps, then a dark globe with the 3,214 airport cities as lights and about 11,800 friendship ties as arcs (mostly local, about 650 long ones with travelling glints).",
+   "frame": "Centred on the origin; the globe has radius 1 and turns about the polar axis (web_spin).",
+   "size": "globe radius 1; internet about radius 1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "web_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "Fade of the whole set (applied by the engine)"
+    },
+    {
+     "name": "web_net",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "Internet growth. 0 shows nothing. Rising, the hubs pop in one after another (the giant first)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "web_globe",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The globe. A dark sphere grows out of the internet's core, reaching full size at about 0.6",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "web_ties",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Friendship ties. Local ties draw first (from 0.04; 99% are in by 0.23, the odd long tie of a lonely city by 0.37)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "web_spin",
+     "range": "turns (unbounded; 0.12 = 43 degrees)",
+     "default": 0,
+     "eased": true,
+     "meaning": "Globe rotation in turns about the polar axis",
+     "usedInStory": [
+      0,
+      0.12
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -18,
+      12,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "net : the whole internet, filling most of the frame"
+    },
+    {
+     "name": "net",
+     "view": [
+      -18,
+      12,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole internet, both giant hubs side by side (default)"
+    },
+    {
+     "name": "hub",
+     "view": [
+      -30,
+      14,
+      1.5,
+      0.36,
+      -0.02,
+      0.1
+     ],
+     "frames": "close on the giant hub with spokes all round (good in a headset)"
+    },
+    {
+     "name": "globe",
+     "view": [
+      0,
+      24,
+      4.1,
+      0,
+      0,
+      0
+     ],
+     "frames": "the globe facing Europe and the Atlantic at web_spin 0"
+    },
+    {
+     "name": "europe",
+     "view": [
+      26,
+      38,
+      1.9,
+      0.182,
+      0.504,
+      0.451
+     ],
+     "frames": "close over Europe (right only at web_spin 0)"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "net",
+       "label": "Internet"
+      },
+      {
+       "value": "globe",
+       "label": "Friendships"
+      }
+     ]
+    },
+    {
+     "key": "ties",
+     "label": "Ties",
+     "options": [
+      {
+       "value": "all",
+       "label": "All"
+      },
+      {
+       "value": "local",
+       "label": "Local only"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "web_net",
+    "web_globe",
+    "web_ties",
+    "web_spin"
+   ],
+   "anchors": [
+    "hub",
+    "hub2",
+    "tuft",
+    "globe",
+    "europe",
+    "americas",
+    "asia",
+    "atlantic"
+   ],
+   "anchorCount": 8,
+   "labels": [
+    {
+     "text": "Europe",
+     "at": "europe",
+     "cls": "cyn",
+     "shows": [
+      "web_globe",
+      "web_ties"
+     ]
+    },
+    {
+     "text": "Americas",
+     "at": "americas",
+     "cls": "cyn",
+     "shows": [
+      "web_globe",
+      "web_ties"
+     ]
+    },
+    {
+     "text": "Asia",
+     "at": "asia",
+     "cls": "cyn",
+     "shows": [
+      "web_globe",
+      "web_ties"
+     ]
+    }
+   ],
+   "labelCount": 3,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "embedded"
+    ],
+    "text": "Airport city positions are real (the airports story's 3,214 airports). The internet network, the 18,800 fainter lights and all friendship ties are illustrative."
+   },
+   "api": [],
+   "otherExports": [
+    "netNodes",
+    "netLinks",
+    "cities",
+    "tieCount",
+    "localShare"
+   ],
+   "buildMsNode": 301,
+   "notes": "Build 110 to 300 ms. Internet alone 2 draw calls, 15.9k points; globe alone 4 draw calls, 25k points, 32k segments. The hidden look is switched off. web_net and web_globe are meant to cross-fade; web_ties then web_spin run on the globe."
+  },
+  {
+   "id": "lbi/dna",
+   "key": "dna",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/dna.js",
+   "manifest": "packages/lbi/src/sets/dna.md",
+   "shows": "A long DNA double helix is written from the middle outwards, coils into the 23 chromosomes, threads grow from genes and fold into 25 AlphaFold-style protein chains in a 5 x 5 grid, which then becomes a tiny framed patch in a field of 20,000 proteins.",
+   "frame": "Centred on the origin; the helix runs along x, the grid in the z = 0 plane; the field fills a ball of radius ~15 around you.",
+   "size": "helix, karyotype and grid ~radius 1; field radius ~15 (default view dist 3.9, field view dist 17)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "dna_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "Fade (applied by the engine)"
+    },
+    {
+     "name": "dna_helix",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the helix is written from the middle outwards, with a bright seam at the growing ends that fades out as it completes",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "dna_chrom",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the helix squeezes onto a coloured cord inside it (23 colours, one per chromosome, each chromatid a segment) and fades into it as a light sheath",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "dna_fold",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "thin white threads grow out of the chromosomes, each at its gene",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "dna_field",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the field appears from the inside out",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "dna_rainbow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "protein colours morph from AlphaFold confidence to chain order (N-terminus blue, through green and yellow, to the C-terminus red), on the grid, the small"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      35,
+      12,
+      3.9,
+      0,
+      0,
+      0
+     ],
+     "frames": "the helix in three-quarter view"
+    },
+    {
+     "name": "helix",
+     "view": [
+      40,
+      8,
+      2.6,
+      0.3,
+      0,
+      0
+     ],
+     "frames": "along the helix in perspective"
+    },
+    {
+     "name": "chrom",
+     "view": [
+      0,
+      4,
+      4.4,
+      0,
+      -0.02,
+      0
+     ],
+     "frames": "the karyotype of 23 chromosomes, pulled back to leave room for the bars"
+    },
+    {
+     "name": "fold",
+     "view": [
+      0,
+      3,
+      4.6,
+      0,
+      0.03,
+      0
+     ],
+     "frames": "the 5 x 5 grid of folded proteins"
+    },
+    {
+     "name": "field",
+     "view": [
+      12,
+      8,
+      17,
+      0,
+      0,
+      0
+     ],
+     "frames": "upper right of the patch, for the field label"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "Show",
+     "options": [
+      {
+       "value": "helix",
+       "label": "DNA"
+      },
+      {
+       "value": "chrom",
+       "label": "Chromosomes"
+      },
+      {
+       "value": "fold",
+       "label": "Proteins"
+      },
+      {
+       "value": "field",
+       "label": "All proteins"
+      }
+     ]
+    },
+    {
+     "key": "colour",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "conf",
+       "label": "Confidence"
+      },
+      {
+       "value": "chain",
+       "label": "Chain order"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "dna_helix",
+    "dna_chrom",
+    "dna_fold",
+    "dna_field",
+    "dna_rainbow"
+   ],
+   "anchors": [
+    "helix",
+    "bp",
+    "chrom1",
+    "chrom21",
+    "chromX",
+    "fold0",
+    "fold1",
+    "fold2",
+    "karyotype",
+    "grid",
+    "field",
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chr20",
+    "chr21",
+    "chr22",
+    "chrX",
+    "p0",
+    "p1",
+    "p2",
+    "p3",
+    "p4",
+    "p5",
+    "p6",
+    "p7",
+    "p8",
+    "p9",
+    "p10",
+    "p11",
+    "p12",
+    "p13",
+    "p14",
+    "p15",
+    "p16",
+    "p17",
+    "p18",
+    "p19",
+    "p20",
+    "p21",
+    "p22",
+    "p23",
+    "p24"
+   ],
+   "anchorCount": 59,
+   "labels": [
+    {
+     "text": "Base pairA–T or G–C",
+     "at": "bp",
+     "cls": "amb",
+     "shows": [
+      "dna_helix",
+      "dna_chrom"
+     ]
+    },
+    {
+     "text": "Chromosome 1248 million base pairs",
+     "at": "chrom1",
+     "cls": "cyn",
+     "shows": [
+      "dna_chrom",
+      "dna_fold",
+      "dna_field"
+     ]
+    },
+    {
+     "text": "Chromosome 21smallest, 47 million",
+     "at": "chrom21",
+     "cls": "cyn",
+     "shows": [
+      "dna_chrom",
+      "dna_fold",
+      "dna_field"
+     ]
+    },
+    {
+     "text": "SRP9",
+     "at": "fold0",
+     "cls": "cyn",
+     "shows": [
+      "dna_fold",
+      "dna_field"
+     ]
+    },
+    {
+     "text": "LENEP",
+     "at": "fold1",
+     "cls": "cyn",
+     "shows": [
+      "dna_fold",
+      "dna_field"
+     ]
+    },
+    {
+     "text": "GNG5",
+     "at": "fold2",
+     "cls": "cyn",
+     "shows": [
+      "dna_fold",
+      "dna_field"
+     ]
+    },
+    {
+     "text": "About 20,000kinds of human protein",
+     "at": "field",
+     "cls": "amb",
+     "shows": [
+      "dna_field"
+     ]
+    }
+   ],
+   "labelCount": 7,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "embedded"
+    ],
+    "text": "B-DNA geometry and GRCh38 chromosome lengths are real; the base sequence is random; the protein folds are stylised AlphaFold-like cartoons (colours from pLDDT bins) and the field is illustrative."
+   },
+   "api": [],
+   "otherExports": [
+    "proteins",
+    "counts"
+   ],
+   "buildMsNode": 247,
+   "notes": "Params build on each other (keep earlier ones at 1 while a later one rises). A tunnel in the field is kept clear so the grid stays visible. Points fade within ~4 units of the eye (comfortable in a headset). Extra exports proteins, counts."
+  },
+  {
+   "id": "lbi/atp",
+   "key": "atp",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/atp.js",
+   "manifest": "packages/lbi/src/sets/atp.md",
+   "shows": "ATP synthase in three looks: a grid of its 13 AlphaFold-like chains, the assembled complex in a lipid membrane (protons turn the rotor, ATP pops out of the head), and the 13 parts and their 21 contacts as a network over a faint ghost of the complex.",
+   "frame": "Rotor axis on y; head at the top (matrix side), membrane at y ~ -0.38; subunit a and the peripheral stalk on +x. The parts grid lies in the z = 0 plane (x +-1.0, y +-0.9).",
+   "size": "1.2 units tall",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "atp_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "atp_parts",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "The 13 chains draw themselves along their length, one after another, then float gently in the grid",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atp_colour",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Grey-teal (slide 13) changes to the group colours of slide 14: α, β, γ, δ, ε teal",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atp_build",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "assembly: the 13 chains fly from the grid to their slots, copies split (alpha x3, beta x3, c x8), each grows into its sphere surface, helpers drift away, the membrane fades in",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atp_turns",
+     "range": "turns (unbounded)",
+     "default": 0,
+     "eased": true,
+     "meaning": "Rotor angle in turns, unbounded. The c-ring and the central stalk turn; the head and the peripheral stalk stay still",
+     "usedInStory": [
+      0,
+      4.5
+     ]
+    },
+    {
+     "name": "atp_flow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "protons flow in through subunit a and ATP pops out of the head (meaningful once built)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atp_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Network view (slide 15). The surface fades to a faint ghost (with a depth pre-pass, so only the outer skin shows) and the membrane dims",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atp_shrink",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The ghost fades out first (0 to 0.12), then the network shrinks into one bright point at the set's origin and fades; the membrane goes by 0.45",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      4,
+      3.5,
+      0,
+      0,
+      0
+     ],
+     "frames": "the grid of 13 parts (same as parts)"
+    },
+    {
+     "name": "parts",
+     "view": [
+      0,
+      4,
+      3.5,
+      0,
+      0,
+      0
+     ],
+     "frames": "one entry { sym, hgnc, name, copies } per part, for panel or explore text"
+    },
+    {
+     "name": "complex",
+     "view": [
+      -10,
+      -8,
+      2.9,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "side view of the assembled complex, slightly from below"
+    },
+    {
+     "name": "top",
+     "view": [
+      -25,
+      40,
+      2.8,
+      0,
+      -0.05,
+      0
+     ],
+     "frames": "the c-ring and subunit a show under the head, so Rotor points at the ring"
+    },
+    {
+     "name": "running",
+     "view": [
+      -28,
+      -4,
+      2.4,
+      0,
+      -0.12,
+      0
+     ],
+     "frames": "close on ring, a and stalk"
+    },
+    {
+     "name": "network",
+     "view": [
+      15,
+      8,
+      2.9,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the 21-contact network over a faint ghost of the complex"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "parts",
+       "label": "Parts"
+      },
+      {
+       "value": "complex",
+       "label": "Complex"
+      },
+      {
+       "value": "running",
+       "label": "Running"
+      },
+      {
+       "value": "network",
+       "label": "Network"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "atp_parts",
+    "atp_colour",
+    "atp_build",
+    "atp_flow",
+    "atp_turns",
+    "atp_net",
+    "atp_shrink"
+   ],
+   "anchors": [
+    "head",
+    "rotor",
+    "membrane",
+    "stalk",
+    "shaft",
+    "ring",
+    "matrix",
+    "ims",
+    "atpOut",
+    "protonsIn",
+    "centre",
+    "ATP5A1",
+    "ATP5B",
+    "ATPAF1",
+    "ATPAF2",
+    "ATP5C1",
+    "ATP5D",
+    "ATP5E",
+    "ATP5F1",
+    "ATP5O",
+    "MT-ATP6",
+    "ATP5G1",
+    "ATP5G2",
+    "ATP5G3"
+   ],
+   "anchorCount": 24,
+   "labels": [
+    {
+     "text": "ATP5A1α",
+     "at": "ATP5A1",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5Bβ",
+     "at": "ATP5B",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATPAF1helper",
+     "at": "ATPAF1",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATPAF2helper",
+     "at": "ATPAF2",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5C1γ",
+     "at": "ATP5C1",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5Dδ",
+     "at": "ATP5D",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5Eε",
+     "at": "ATP5E",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5F1b",
+     "at": "ATP5F1",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5OOSCP",
+     "at": "ATP5O",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "MT-ATP6a",
+     "at": "MT-ATP6",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5G1c",
+     "at": "ATP5G1",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5G2c",
+     "at": "ATP5G2",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "ATP5G3c",
+     "at": "ATP5G3",
+     "cls": "",
+     "shows": [
+      "atp_parts",
+      "atp_build"
+     ]
+    },
+    {
+     "text": "Head(makes ATP)",
+     "at": "head",
+     "cls": "cyn",
+     "shows": [
+      "atp_build",
+      "atp_net"
+     ]
+    },
+    {
+     "text": "Rotor",
+     "at": "rotor",
+     "cls": "mag",
+     "shows": [
+      "atp_build",
+      "atp_net"
+     ]
+    },
+    {
+     "text": "Membrane",
+     "at": "membrane",
+     "cls": "",
+     "shows": [
+      "atp_build",
+      "atp_net"
+     ]
+    },
+    {
+     "text": "Protonsflow in",
+     "at": "protonsIn",
+     "cls": "cyn",
+     "shows": [
+      "atp_flow"
+     ]
+    },
+    {
+     "text": "ATPout",
+     "at": "atpOut",
+     "cls": "amb",
+     "shows": [
+      "atp_flow"
+     ]
+    }
+   ],
+   "labelCount": 18,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "embedded"
+    ],
+    "text": "Subunit list and the 21 contacts are shared facts; geometry is illustrative."
+   },
+   "api": [],
+   "otherExports": [
+    "parts",
+    "contacts"
+   ],
+   "buildMsNode": 150,
+   "notes": "Up to 214k triangles during the build (peak), 168k built, up to 14 draw calls; uses a depth pre-pass for the in-set ghost. The rotor angle atp_turns is unbounded. Extra exports parts (sym, hgnc, name, copies) and contacts."
+  },
+  {
+   "id": "lbi/crowd",
+   "key": "crowd",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/clinic.js",
+   "manifest": "packages/lbi/src/sets/clinic.md",
+   "shows": "6,000 instanced lit people. The first crowd of 422 stands in curved rows; one turns red and glows under a beam of light; the other 5,578 then rise out of the floor outwards until a sea of people reaches the horizon (one figure per rare disease).",
+   "frame": "Feet at y = 0; rows on arcs bending towards the viewer; people ~0.13 tall.",
+   "size": "first crowd ~2.3 x 2.0 (radius 1.45, exported as radius); grown sea ~12 x 7",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "crowd_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "crowd_red",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "one person (red) turns red and glows; a soft beam of light with drifting dust comes down on them, a red pool lights the floor, and their glow puts a thin red rim on the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "crowd_grow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the other 5,578 people rise out of the floor, outwards from the first crowd at an even rate, until a sea of 6,000 reaches the horizon (about 12 units wide, 7 deep)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      20,
+      3.6,
+      0,
+      0.04,
+      0
+     ],
+     "frames": "front view of the whole first crowd"
+    },
+    {
+     "name": "close",
+     "view": [
+      12,
+      22,
+      0.95,
+      -0.202,
+      0.085,
+      0.639
+     ],
+     "frames": "close on the red patient"
+    },
+    {
+     "name": "wide",
+     "view": [
+      0,
+      24,
+      5.6,
+      0,
+      0,
+      -1.4
+     ],
+     "frames": "the grown sea of 6,000 people, pulled back"
+    }
+   ],
+   "controls": [],
+   "exploreDrives": [],
+   "anchors": [
+    "red",
+    "crowd",
+    "front",
+    "back",
+    "far",
+    "horizon"
+   ],
+   "anchorCount": 6,
+   "labels": [],
+   "labelCount": 0,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "Drawn; the count 6,000 is the number of rare diseases with a known genetic cause (said in the story)."
+   },
+   "api": [],
+   "otherExports": [
+    "radius",
+    "count",
+    "baseCount"
+   ],
+   "buildMsNode": 68,
+   "notes": "Fully grown 249k triangles, 9 draw calls; resting 79k triangles. Four level-of-detail tiers by distance from the first crowd. Exports radius, count, baseCount. No controls in explore."
+  },
+  {
+   "id": "lbi/sankey",
+   "key": "sankey",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/clinic.js",
+   "manifest": "packages/lbi/src/sets/clinic.md",
+   "shows": "A 3D Sankey diagram, 9 clinical categories on the left against 19 molecular clusters on the right, joined by 58 ribbons whose height is the gene count; each category's ribbons lie in their own depth layer so the diagram has parallax. A gene dot travels along each ribbon.",
+   "frame": "Centred on the origin, facing +z.",
+   "size": "~1.45 wide, 1.47 tall",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "sankey_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "sankey_left",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the 9 clinical blocks grow in, top to bottom; their labels follow",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "sankey_right",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the 19 cluster blocks grow in, top to bottom; labels and leader lines follow",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "sankey_flow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the ribbons sweep from left to right (category by category, a glowing front); the gene dots appear in the last half",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "sankey_hi",
+     "range": "0..9 (category, step)",
+     "default": 0,
+     "eased": false,
+     "meaning": "for the story (keyed in jumps): 0 none; k = 1..9 highlights clinical category k: its ribbons come forward in front of every layer and glow, its block and the clusters",
+     "usedInStory": [
+      0,
+      9
+     ]
+    },
+    {
+     "name": "sankey_h1",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 1 (safe to ease)"
+    },
+    {
+     "name": "sankey_h2",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 2 (safe to ease)"
+    },
+    {
+     "name": "sankey_h3",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 3 (safe to ease)"
+    },
+    {
+     "name": "sankey_h4",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 4 (safe to ease)"
+    },
+    {
+     "name": "sankey_h5",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 5 (safe to ease)"
+    },
+    {
+     "name": "sankey_h6",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 6 (safe to ease)"
+    },
+    {
+     "name": "sankey_h7",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 7 (safe to ease)"
+    },
+    {
+     "name": "sankey_h8",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 8 (safe to ease)"
+    },
+    {
+     "name": "sankey_h9",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "explore: highlight weight for clinical category 9 (safe to ease)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -8,
+      7,
+      3.75,
+      0.18,
+      0,
+      0
+     ],
+     "frames": "front view of the whole diagram"
+    },
+    {
+     "name": "oblique",
+     "view": [
+      -42,
+      14,
+      3.5,
+      0.1,
+      0,
+      0
+     ],
+     "frames": "turned so the depth layers of the ribbons show"
+    },
+    {
+     "name": "molecular",
+     "view": [
+      -16,
+      4,
+      2.4,
+      0.6,
+      0,
+      0
+     ],
+     "frames": "above the two columns"
+    },
+    {
+     "name": "portrait",
+     "view": [
+      -26,
+      9,
+      3.4,
+      -0.12,
+      0,
+      0
+     ],
+     "frames": "narrower, turned view for portrait screens (w/h < 1)"
+    }
+   ],
+   "controls": [
+    {
+     "key": "hi",
+     "label": "Highlight",
+     "options": [
+      {
+       "value": "0",
+       "label": "None"
+      },
+      {
+       "value": "1",
+       "label": "Autoinflammatory"
+      },
+      {
+       "value": "2",
+       "label": "Syndromic"
+      },
+      {
+       "value": "3",
+       "label": "Cellular"
+      },
+      {
+       "value": "4",
+       "label": "Phenocopies"
+      },
+      {
+       "value": "5",
+       "label": "Dysregulation"
+      },
+      {
+       "value": "6",
+       "label": "Antibody"
+      },
+      {
+       "value": "7",
+       "label": "Phagocyte"
+      },
+      {
+       "value": "8",
+       "label": "Innate"
+      },
+      {
+       "value": "9",
+       "label": "Complement"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "sankey_left",
+    "sankey_right",
+    "sankey_flow",
+    "sankey_hi",
+    "sankey_h"
+   ],
+   "anchors": [
+    "mid",
+    "clinical",
+    "molecular",
+    "top",
+    "bottom",
+    "left0",
+    "leftLabel0",
+    "left1",
+    "leftLabel1",
+    "left2",
+    "leftLabel2",
+    "left3",
+    "leftLabel3",
+    "left4",
+    "leftLabel4",
+    "left5",
+    "leftLabel5",
+    "left6",
+    "leftLabel6",
+    "left7",
+    "leftLabel7",
+    "left8",
+    "leftLabel8",
+    "right0",
+    "rightLabel0",
+    "right1",
+    "rightLabel1",
+    "right2",
+    "rightLabel2",
+    "right3",
+    "rightLabel3",
+    "right4",
+    "rightLabel4",
+    "right5",
+    "rightLabel5",
+    "right6",
+    "rightLabel6",
+    "right7",
+    "rightLabel7",
+    "right8",
+    "rightLabel8",
+    "right9",
+    "rightLabel9",
+    "right10",
+    "rightLabel10",
+    "right11",
+    "rightLabel11",
+    "right12",
+    "rightLabel12",
+    "right13",
+    "rightLabel13",
+    "right14",
+    "rightLabel14",
+    "right15",
+    "rightLabel15",
+    "right16",
+    "rightLabel16",
+    "right17",
+    "rightLabel17",
+    "right18",
+    "rightLabel18"
+   ],
+   "anchorCount": 61,
+   "labels": [
+    {
+     "text": "Clinical9 categories",
+     "at": "clinical",
+     "cls": "amb",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Molecular19 clusters",
+     "at": "molecular",
+     "cls": "cyn",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Autoinflammatory40",
+     "at": "leftLabel0",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Combined, syndromic19",
+     "at": "leftLabel1",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Cellular and humoral27",
+     "at": "leftLabel2",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Phenocopies4",
+     "at": "leftLabel3",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Immune dysregulation33",
+     "at": "leftLabel4",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Antibody deficiencies10",
+     "at": "leftLabel5",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Phagocyte defects9",
+     "at": "leftLabel6",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Intrinsic and innate3",
+     "at": "leftLabel7",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "Complement deficiencies28",
+     "at": "leftLabel8",
+     "cls": "",
+     "shows": [
+      "sankey_left"
+     ]
+    },
+    {
+     "text": "c231",
+     "at": "rightLabel0",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "RNA and nucleotide19",
+     "at": "rightLabel1",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Proteasome8",
+     "at": "rightLabel2",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Calcium2",
+     "at": "rightLabel3",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "NF-κB and chromatin22",
+     "at": "rightLabel4",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Cell death21",
+     "at": "rightLabel5",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "c43",
+     "at": "rightLabel6",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Meiosis, antigen presentation3",
+     "at": "rightLabel7",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Vesicular traffic9",
+     "at": "rightLabel8",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Actin regulation5",
+     "at": "rightLabel9",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Transcription factors19",
+     "at": "rightLabel10",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "TCR and BCR9",
+     "at": "rightLabel11",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "CD28 costimulation4",
+     "at": "rightLabel12",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Interleukin, cytokine7",
+     "at": "rightLabel13",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Steroid resistant15",
+     "at": "rightLabel14",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "c191",
+     "at": "rightLabel15",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "c91",
+     "at": "rightLabel16",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "Complement23",
+     "at": "rightLabel17",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    },
+    {
+     "text": "c31",
+     "at": "rightLabel18",
+     "cls": "",
+     "shows": [
+      "sankey_right"
+     ]
+    }
+   ],
+   "labelCount": 30,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "embedded"
+    ],
+    "text": "Gene counts per clinical category and molecular cluster as on the institute's slide 27 (shared facts)."
+   },
+   "api": [],
+   "otherExports": [
+    "left",
+    "right",
+    "total",
+    "leftShort",
+    "rightShort",
+    "leftColours",
+    "rightColours",
+    "matrix"
+   ],
+   "buildMsNode": 26,
+   "notes": "sankey_hi (story, jumps) and sankey_h1..h9 (explore, easeable) highlight one category. Exports left, right, total, matrix and the colours. Some labels are marked minor for phones."
+  },
+  {
+   "id": "lbi/scale",
+   "key": "scale",
+   "story": "lbi",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/scale.js",
+   "manifest": "packages/lbi/src/sets/scale.md",
+   "shows": "A glowing tower of eight length scales (DNA bases, proteins, ATP synthase, a mitochondrion, a cell, a tissue, a brain, a body), with an amber time spiral, small networks at four floors, a medicine column, four research-group bands with 22 synergy arcs, and finally the tower dissolving into a team of 42 people.",
+   "frame": "Centred on the origin, y up; floors one above another.",
+   "size": "~2.45 tall, discs radius ~1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "scale_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_len",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the floors appear from the bottom up. Each disc spreads out from its centre with a bright wavefront, its rim draws round, its emblem pops up and the shell rises with them",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_time",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "an amber spiral time axis (1.75 turns, log10 seconds from 1 µs at the bottom to 80 years at the top) grows up around the tower with a bright head",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "small glowing networks grow out from a hub at four floors, one after another: protein-protein interactions (cyan, proteins floor), signalling",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_med",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "a medicine column beside the tower: three glassy green bubbles holding 3D icons",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_rg",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the four research groups light up one after another",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_syn",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "synergy arcs: 22 nested arcs between the group bands, drawn one after another",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scale_team",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the tower dissolves into dust and fades by team 0.55",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      15,
+      18,
+      5.4,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the whole tower, from a little above so that every floor reads as a disc"
+    },
+    {
+     "name": "tower",
+     "view": [
+      15,
+      18,
+      5.4,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the whole tower of eight scales from a little above (default)"
+    },
+    {
+     "name": "low",
+     "view": [
+      -8,
+      3,
+      2.7,
+      0,
+      -0.6,
+      0
+     ],
+     "frames": "the lowest floors, nearly level"
+    },
+    {
+     "name": "high",
+     "view": [
+      12,
+      24,
+      3,
+      0,
+      0.42,
+      0
+     ],
+     "frames": "the upper floors from above"
+    },
+    {
+     "name": "groups",
+     "view": [
+      100,
+      18,
+      5.4,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the explore Groups view: labels on the right, synergy fan on the left"
+    },
+    {
+     "name": "time",
+     "view": [
+      20,
+      16,
+      5.3,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole time spiral, from its start at the bottom to the top"
+    },
+    {
+     "name": "team",
+     "view": [
+      0,
+      12,
+      3.1,
+      0,
+      0,
+      0
+     ],
+     "frames": "the constellation"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "tower",
+       "label": "Scales"
+      },
+      {
+       "value": "groups",
+       "label": "Groups"
+      },
+      {
+       "value": "team",
+       "label": "Team"
+      }
+     ]
+    },
+    {
+     "key": "time",
+     "label": "Time",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    },
+    {
+     "key": "nets",
+     "label": "Networks",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    },
+    {
+     "key": "med",
+     "label": "Medicine",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "scale_len",
+    "scale_time",
+    "scale_net",
+    "scale_med",
+    "scale_rg",
+    "scale_syn",
+    "scale_team"
+   ],
+   "anchors": [
+    "top",
+    "bottom",
+    "team",
+    "floor0",
+    "floor1",
+    "floor2",
+    "floor3",
+    "floor4",
+    "floor5",
+    "floor6",
+    "floor7",
+    "time0",
+    "time1",
+    "time2",
+    "time3",
+    "time4",
+    "time5",
+    "time6",
+    "time7",
+    "time8",
+    "net0",
+    "net1",
+    "net2",
+    "net3",
+    "med0",
+    "med1",
+    "med2",
+    "rg1",
+    "rg2",
+    "rg3",
+    "rg4",
+    "team1",
+    "team2",
+    "team3",
+    "team4"
+   ],
+   "anchorCount": 35,
+   "labels": [
+    {
+     "text": "DNA bases1 nm",
+     "at": "floor0",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Proteins10 nm",
+     "at": "floor1",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Complexes100 nm",
+     "at": "floor2",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Organelles1 µm",
+     "at": "floor3",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Cells10 µm",
+     "at": "floor4",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Tissues1 mm",
+     "at": "floor5",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Organs10 cm",
+     "at": "floor6",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Body1 m",
+     "at": "floor7",
+     "cls": "cyn",
+     "shows": [
+      "scale_len",
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Electron transfer1 µs, in cytochromes",
+     "at": "time0",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Neurons fire1 ms",
+     "at": "time1",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Enzyme turnover~10 ms",
+     "at": "time2",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Protein folding~1 s",
+     "at": "time3",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Protein translation~1 min",
+     "at": "time4",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Protein half-lifehours to days",
+     "at": "time5",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Circadian clock1 day",
+     "at": "time6",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Red blood celllife span 4 months",
+     "at": "time7",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Human life span80 years",
+     "at": "time8",
+     "cls": "amb",
+     "shows": [
+      "scale_time",
+      "scale_net",
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Protein-proteininteractions",
+     "at": "net0",
+     "cls": "cyn",
+     "shows": [
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Signallingbetween cells",
+     "at": "net1",
+     "cls": "grn",
+     "shows": [
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Inter-organcommunication",
+     "at": "net2",
+     "cls": "mag",
+     "shows": [
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Contagionfrom person to person",
+     "at": "net3",
+     "cls": "amb",
+     "shows": [
+      "scale_med",
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Diagnosis",
+     "at": "med0",
+     "cls": "grn",
+     "shows": [
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Treatment",
+     "at": "med1",
+     "cls": "grn",
+     "shows": [
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "Preventionnutrition and lifestyle",
+     "at": "med2",
+     "cls": "grn",
+     "shows": [
+      "scale_rg",
+      "scale_team"
+     ]
+    },
+    {
+     "text": "RG1Molecular networks",
+     "at": "rg1",
+     "cls": "cyn",
+     "shows": [
+      "scale_team"
+     ]
+    },
+    {
+     "text": "RG2Cellular networks",
+     "at": "rg2",
+     "cls": "grn",
+     "shows": [
+      "scale_team"
+     ]
+    },
+    {
+     "text": "RG3Population health",
+     "at": "rg3",
+     "cls": "amb",
+     "shows": [
+      "scale_team"
+     ]
+    },
+    {
+     "text": "RG4DataDiVR",
+     "at": "rg4",
+     "cls": "mag",
+     "shows": [
+      "scale_team"
+     ]
+    }
+   ],
+   "labelCount": 28,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "Drawn and illustrative; the institute's groups and synergies are structure, not data."
+   },
+   "api": [],
+   "otherExports": [],
+   "buildMsNode": 133,
+   "notes": "Up to 18 draw calls and ~98k triangles when everything shows. scale_team works with scale_len 0 (the mission chapter). Label sides assume the story's spins."
+  },
+  {
+   "id": "lbi/body",
+   "key": "body",
+   "story": "lbi",
+   "reusedBy": [
+    "pet",
+    "micro",
+    "ovary",
+    "topo"
+   ],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/body.js",
+   "manifest": "packages/lbi/src/sets/body.md",
+   "shows": "A standing figure, arms raised and hands crossed over the head, as a total-body PET maximum-intensity projection (about 52k glowing points, max blending, hot-iron colours). Twelve organ nodes rise onto a cage around the body, joined by bands that rewire between a healthy and a disease network, and a tracer injection can run.",
+   "frame": "Feet at y = -0.95, hands at +0.95; faces +z; the person's left is +x. The figure is slimmed across by XS = 0.9. Other sets that draw on the body use this frame.",
+   "size": "1.9 tall; the network cage spans y -0.42 to 0.8 and ~1.3 wide with labels",
+   "sharesFrameWith": [
+    "pet/organs",
+    "ovary/organ"
+   ],
+   "params": [
+    {
+     "name": "body_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "body_pet",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "Tracer time: 0 is the injection, 1 the steady scan",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "body_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The organ network. 0-0.45: nodes pop out of the organs one by one and fly to the cage; thin tethers stay",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "body_state",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 is the healthy network and scan, 1 the disease network and scan",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "body_blank",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Only for the explore loop: it blacks out the scan while the tracer clock rewinds"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      4,
+      3.75,
+      0,
+      0,
+      0
+     ],
+     "frames": "front : the whole figure, from the front"
+    },
+    {
+     "name": "front",
+     "view": [
+      0,
+      4,
+      3.75,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole figure from the front (default)"
+    },
+    {
+     "name": "side",
+     "view": [
+      90,
+      4,
+      3.75,
+      0,
+      0,
+      0
+     ],
+     "frames": "profile"
+    },
+    {
+     "name": "net",
+     "view": [
+      14,
+      6,
+      3,
+      0,
+      0.17,
+      0
+     ],
+     "frames": "the whole organ network with all 12 labels, landscape screen"
+    },
+    {
+     "name": "netTall",
+     "view": [
+      14,
+      6,
+      5.8,
+      0.1,
+      0.17,
+      0
+     ],
+     "frames": "the same network framing for a portrait phone"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "scan",
+       "label": "Scan"
+      },
+      {
+       "value": "net",
+       "label": "Network"
+      }
+     ]
+    },
+    {
+     "key": "state",
+     "label": "State",
+     "options": [
+      {
+       "value": "healthy",
+       "label": "Healthy"
+      },
+      {
+       "value": "disease",
+       "label": "Disease"
+      }
+     ]
+    },
+    {
+     "key": "tracer",
+     "label": "Tracer",
+     "options": [
+      {
+       "value": "up",
+       "label": "Taken up"
+      },
+      {
+       "value": "live",
+       "label": "Arriving"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "body_pet",
+    "body_blank",
+    "body_net",
+    "body_state"
+   ],
+   "anchors": [
+    "head",
+    "feet",
+    "injection",
+    "aorta",
+    "brain",
+    "thyroid",
+    "lungs",
+    "heart",
+    "liver",
+    "stomach",
+    "spleen",
+    "pancreas",
+    "kidneys",
+    "intestine",
+    "marrow",
+    "bladder"
+   ],
+   "anchorCount": 16,
+   "labels": [
+    {
+     "text": "Brain",
+     "at": "brain",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Thyroid",
+     "at": "thyroid",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Lungs",
+     "at": "lungs",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Heart",
+     "at": "heart",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Liver",
+     "at": "liver",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Stomach",
+     "at": "stomach",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Spleen",
+     "at": "spleen",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Pancreas",
+     "at": "pancreas",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Kidneys",
+     "at": "kidneys",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Intestine",
+     "at": "intestine",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Bone marrow",
+     "at": "marrow",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    },
+    {
+     "text": "Bladder",
+     "at": "bladder",
+     "cls": "",
+     "shows": [
+      "body_net"
+     ]
+    }
+   ],
+   "labelCount": 12,
+   "data": {
+    "kind": "illustrative",
+    "reads": [],
+    "text": "A stylised figure; no patient scan or patient data."
+   },
+   "api": [],
+   "otherExports": [
+    "organs"
+   ],
+   "buildMsNode": 596,
+   "notes": "Built in 0.6 to 0.8 s. Used unchanged by the PET, microanatomy, ovary and topology stories (the PET scanner embeds an instance in its patient). body_pet is the tracer time (0 injection, 1 steady scan). Export organs."
+  },
+  {
+   "id": "lbi/tissue",
+   "key": "tissue",
+   "story": "lbi",
+   "reusedBy": [
+    "micro (slide overlay)"
+   ],
+   "reuses": [],
+   "file": "packages/lbi/src/sets/tissue.js",
+   "manifest": "packages/lbi/src/sets/tissue.md",
+   "shows": "An H&E-stained section of stomach wall built from about 18,600 cells: zoom in and every cell is there, join cells to neighbours for a network, switch to multiplexed imaging so cells take their type colours, then 300 tissue regions lift off into a 3D embedding with loading arrows.",
+   "frame": "A thin slab (0.008 thick) standing upright, facing +z, centred on the origin; mucosa on top, muscle below. Overlay sets draw in this frame.",
+   "size": "~2.1 long, up to 0.6 deep",
+   "sharesFrameWith": [
+    "micro/slide"
+   ],
+   "params": [
+    {
+     "name": "tissue_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "tissue_graph",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "network of neighbouring cells: thin dark lines join the nuclei and draw outwards from the zoom patch (radius 0.16 around it, 4,615 edges)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tissue_mark",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "multiplexed imaging: dark-field look, cells coloured by type",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tissue_embed",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "300 regions lift off and fly to a 3D embedding in front of the slab (centre [0, 0.03, 0.6])",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      6,
+      3.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole slab"
+    },
+    {
+     "name": "section",
+     "view": [
+      0,
+      6,
+      3.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole slab (same as default)"
+    },
+    {
+     "name": "zoom",
+     "view": [
+      -2.407,
+      3,
+      0.25,
+      0.21,
+      0.075,
+      -0.038
+     ],
+     "frames": "face-on, dist 0.25: deep glands above, muscularis mucosae across the middle, submucosa with an artery and a vein below"
+    },
+    {
+     "name": "graph",
+     "view": [
+      5.593,
+      5,
+      0.28,
+      0.21,
+      0.075,
+      -0.038
+     ],
+     "frames": "deep in the zoom patch, for the cell-network look"
+    },
+    {
+     "name": "mark",
+     "view": [
+      -10.407,
+      5,
+      0.42,
+      0.21,
+      0.075,
+      -0.038
+     ],
+     "frames": "deep in the zoom patch, for the multiplexed-imaging look"
+    },
+    {
+     "name": "embed",
+     "view": [
+      -18,
+      14,
+      2.4,
+      0,
+      0.03,
+      0.6
+     ],
+     "frames": "the 3D embedding of 300 regions in front of the slab"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "section",
+       "label": "Tissue"
+      },
+      {
+       "value": "graph",
+       "label": "Cell network"
+      },
+      {
+       "value": "mark",
+       "label": "Markers"
+      },
+      {
+       "value": "embed",
+       "label": "Embedding"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "tissue_graph",
+    "tissue_mark",
+    "tissue_embed"
+   ],
+   "anchors": [
+    "mucosa",
+    "submucosa",
+    "muscle",
+    "vessel",
+    "zoom",
+    "embed",
+    "epi",
+    "imm",
+    "str",
+    "endo",
+    "smc",
+    "load0",
+    "load1",
+    "load2",
+    "load3",
+    "load4"
+   ],
+   "anchorCount": 16,
+   "labels": [
+    {
+     "text": "Epithelialgland cells",
+     "at": "epi",
+     "cls": "amb",
+     "shows": [
+      "tissue_mark",
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Immunecells",
+     "at": "imm",
+     "cls": "",
+     "shows": [
+      "tissue_mark",
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Stromalfibroblasts",
+     "at": "str",
+     "cls": "grn",
+     "shows": [
+      "tissue_mark",
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Endothelialvessel lining",
+     "at": "endo",
+     "cls": "mag",
+     "shows": [
+      "tissue_mark",
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Smooth muscle",
+     "at": "smc",
+     "cls": "cyn",
+     "shows": [
+      "tissue_mark",
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Epithelial",
+     "at": "load0",
+     "cls": "amb",
+     "shows": [
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Immune",
+     "at": "load1",
+     "cls": "",
+     "shows": [
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Stromal",
+     "at": "load2",
+     "cls": "grn",
+     "shows": [
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Endothelial",
+     "at": "load3",
+     "cls": "mag",
+     "shows": [
+      "tissue_embed"
+     ]
+    },
+    {
+     "text": "Smooth muscle",
+     "at": "load4",
+     "cls": "cyn",
+     "shows": [
+      "tissue_embed"
+     ]
+    }
+   ],
+   "labelCount": 10,
+   "data": {
+    "kind": "illustrative",
+    "reads": [],
+    "text": "Drawn from a built-in model of the layers (about 18,600 cells; kinds epithelial, immune, stromal, endothelial, smooth muscle); stain colours by Beer-Lambert; after Rendeiro et al. 2021 and Abila et al. 2026, not their images."
+   },
+   "api": [],
+   "otherExports": [
+    "textures",
+    "dispose",
+    "cellCount",
+    "regionCount",
+    "types"
+   ],
+   "buildMsNode": 988,
+   "notes": "Build about 1 s. Cells are splats that fade by on-screen size, so close and far views agree. Exports textures, dispose, cellCount, regionCount, types. The manifest says no tissue_near param was added (the story reads anchors instead)."
+  }
+ ]
+}

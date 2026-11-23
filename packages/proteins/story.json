@@ -16,6 +16,7 @@
   "authors": "The app's authors",
   "life": false,
   "list": "experiments",
+  "minis": "minis.js",
   "icon": "proteins.cell",
   "needs": 185
 }

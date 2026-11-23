@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Miniatures, batch b</title>
+<title>Miniatures, kit b</title>
 <!--
-  The low-poly miniatures of models-b.js in a grid, lit as the app's props are, turning slowly.
+  The low-poly miniatures of kit b (the shell's tools/lowpoly/shell.js and the packages' src/minis.js that say
+  "// kit: b", load.js) in a grid, lit as the app's props are, turning slowly.
   Serve the repository root on port 8123, then open tools/lowpoly/harness-b.html. Query:
     still          no turning (for screenshots); az=0.6 and el=0.42 set the view (radians)
     page=0, per=12 which miniatures (in the registry's order), cols=4 the grid's columns
     keys=a.b,c.d   only these; big shows one large
+    pkg=soil,cdk5  only those packages; built the built files (lowpoly.js and the packages' minis.js)
   window.__ready is true after the first frame; window.__stats holds { key: { tris, ms, meshes } }.
   Screenshots (Playwright, from the repository root):
     const { chromium } = await import('playwright');
@@ -32,7 +34,8 @@
 <canvas id="c"></canvas>
 <div id="grid"></div>
 <script src="../../three.min.js"></script>
-<script src="models-b.js"></script>
+<script>var LOWPOLY_KIT = 'b';</script>
+<script src="load.js"></script>
 <script>
 (function () {
   const Q = new URLSearchParams(location.search), num = (k, d) => Q.has(k) ? +Q.get(k) : d;
@@ -53,7 +56,7 @@
   for (const k of keys) {
     const m = LOWPOLY_MODELS[k], t0 = performance.now(), grp = m.build(THREE), ms = performance.now() - t0;
     let tris = 0; grp.traverse(o => { if (o.isMesh) tris += o.geometry.attributes.position.count / 3; });
-    stats[k] = { tris, ms: +ms.toFixed(1), meshes: grp.children.length };
+    stats[k] = { tris, listed: m.tris, ms: +ms.toFixed(1), meshes: grp.children.length };
     const scene = new THREE.Scene();
     // the app's light: a hemisphere light and a directional one from over the viewer's left shoulder
     scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
@@ -63,7 +66,7 @@
     scene.add(grp);
     const div = document.createElement('div');
     div.className = 'cell';
-    div.innerHTML = `<i>${k}</i><b>${m.name}</b><small>${tris} tris · ${stats[k].ms} ms</small>`;
+    div.innerHTML = `<i>${k}</i><b>${m.name}</b><small>${tris} tris${m.tris !== tris ? ` <span style="color:#ff5a4b">(listed ${m.tris})</span>` : ''} · ${stats[k].ms} ms</small>`;   // (a wrong count in red)
     grid.appendChild(div);
     items.push({ scene, grp, div });
   }

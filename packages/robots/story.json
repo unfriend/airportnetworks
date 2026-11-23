@@ -16,6 +16,7 @@
   "authors": "The app's authors",
   "life": true,
   "list": "experiments",
+  "minis": "minis.js",
   "icon": "robots.robots",
   "needs": 185
 }

@@ -3667,8 +3667,10 @@
   function hang(sc) { build(); if (OV.root.parent !== sc) sc.add(OV.root); }
 
   // ------------------------------------------------------------ station icons --
-  // Over each station's ring its story's main miniature (the icon of its entry in stories/list.js: a key of
-  // LOWPOLY_MODELS, lowpoly.js, loaded once through HOST.lowpoly()), small, in the story's colour and slowly turning, so
+  // Over each station's ring its story's main miniature (its entry's icon, story.json's: a key of LOWPOLY_MODELS, from
+  // the file that holds it, its package's minis.js or the shell's lowpoly.js, loaded through HOST.lowpoly(name) the first
+  // time an icon wants it; a story not on this device: the icon its package's file marks, if this server has the file),
+  // small, in the story's colour and slowly turning, so
   // people can tell from across the room which circle is which story (in a room a story is reached only by walking into
   // its circle). Each story's is built once, the first time a station of it shows (one a frame), and kept: the
   // miniature's parts merged into one mesh (one draw call; its see-through parts, glass and haze, in a second), with a
@@ -3676,24 +3678,38 @@
   // looks the same in every story's scene whatever lights that has. Its colours are the miniature's own drawn towards the
   // story's (ICON.tint: by lightness, from a dark tone of it through the colour to a lighter one). It follows the rings,
   // not the cards: it is part of the station, not a card, and with cards hidden it is all that tells the circles
-  // apart. While lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands
-  // there, so a new story needs only its icon in the list.
+  // apart. While its file loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands
+  // there (swapped for the miniature when it comes: iconStep), so a new story needs only its icon in story.json.
   // y: its middle over the floor (above the heads of people in the circle and the card's top edge, 1.6 m, so it
   // covers neither from across the room); size: 1 model unit in metres (miniDef fits each miniature); turn: s; tint:
   // how far the miniature's colours go to the story's
-  const ICON = { y: 2.1, size: 0.3, ball: 0.2, turn: 12, tint: 0.55, defs: new Map(), mat: null, see: null, tex: null, halos: new Map(), models: null, askAt: 0, built: -1 };
-  // the miniatures, once lowpoly.js is here (asked for the first time an icon wants one; a failed load again 30 s later)
-  function iconModels() {
-    if (ICON.models) return ICON.models;
+  const ICON = { y: 2.1, size: 0.3, ball: 0.2, turn: 12, tint: 0.55, defs: new Map(), mat: null, see: null, tex: null, halos: new Map(), ask: new Map(), built: -1 };
+  // its file asked for (the first time an icon wants a miniature in it; a failed load again 30 s later): name a
+  // miniature's name, or a key not on this device
+  function iconAsk(name) {
+    const now = performance.now();
+    if (!HOST.lowpoly || now < (ICON.ask.get(name) || 0)) return;
+    ICON.ask.set(name, now + 30000);
+    HOST.lowpoly(name).catch(e => log('icons', { name, err: String(e && e.message || e) }));
+  }
+  // the miniature mk once its file is here (else asked for: null until then)
+  function iconModel(mk) {
     const M = self.LOWPOLY_MODELS;
-    if (M && Object.keys(M).length) return (ICON.models = M);
-    if (HOST.lowpoly && performance.now() >= ICON.askAt) {
-      ICON.askAt = performance.now() + 30000;
-      HOST.lowpoly().then(L => { ICON.models = L; }, e => log('icons', { err: String(e && e.message || e) }));
-    }
+    if (M && M[mk] && typeof M[mk].build === 'function') return M[mk];
+    iconAsk(mk);
     return null;
   }
-  const iconOf = key => { const m = meta(key); return (m && typeof m.icon === 'string' && m.icon) || ''; };
+  // a station's miniature: its entry's icon; a story not on this device (HOST.unknown), the one its package's file marks
+  // as its icon, once that file is here (every device that has the file shows the same)
+  const iconOf = key => {
+    const m = meta(key);
+    if (m && typeof m.icon === 'string' && m.icon) return m.icon;
+    if (!m || !m.unknown) return '';
+    const M = self.LOWPOLY_MODELS || {};
+    for (const k in M) if (M[k] && M[k].story === key && M[k].icon === true) return k;
+    iconAsk(key);
+    return '';
+  };
   // the story's tones: its colour, a dark one and a nearly white one
   function tones(key) {
     const m = meta(key), b = new THREE.Color((m && m.col) || CYAN), white = new THREE.Color(1, 1, 1);
@@ -3765,7 +3781,7 @@
     const flat = Math.max(0, Math.min(0.95, 1.6 * (0.6 - size.y / Math.max(size.x, size.z, 1e-6))));
     return { model: mk, geo: geo || new THREE.BufferGeometry(), see: seeGeo, flat, halo: haloFor(T.b) };
   }
-  // any key without its miniature (or before lowpoly.js is here): a glowing polyhedron with a ring round it
+  // any key without its miniature (or before its file is here): a glowing polyhedron with a ring round it
   function fallbackDef(key) {
     const T = tones(key), parts = [];
     const add = (g, col, e, mx) => { const n = g.toNonIndexed(); n.computeVertexNormals(); parts.push({ g: n, c: col, e, a: 1, m: mx || new THREE.Matrix4() }); g.dispose(); };
@@ -3775,10 +3791,10 @@
     for (const p of parts) p.g.dispose();
     return { model: '', geo, see: null, flat: 0, halo: haloFor(T.b) };
   }
-  // a story's icon, built the first time asked and kept: its miniature once lowpoly.js is here, else the fallback. soon:
+  // a story's icon, built the first time asked and kept: its miniature once its file is here, else the fallback. soon:
   // a miniature only if none was built this frame (a room's first view would build every one at once)
   function iconDef(key, soon) {
-    const mk = iconOf(key), M = mk ? iconModels() : null, want = M && M[mk] ? mk : '', f = C.frameN || 0;
+    const mk = iconOf(key), model = mk ? iconModel(mk) : null, want = model ? mk : '', f = C.frameN || 0;
     let D = ICON.defs.get(key + '|' + want);
     if (D) return D;
     // (in a session a miniature is built only on a frame that was not late and only one a frame: about 1.5 ms desktop, 5 on a
@@ -3788,7 +3804,7 @@
       return ICON.defs.get(key + '|');
     }
     try {
-      D = miniDef(key, mk, M[mk]);
+      D = miniDef(key, mk, model);
       log('icon built', { key, model: mk, tris: D.geo.attributes.position.count / 3 + (D.see ? D.see.attributes.position.count / 3 : 0) });
     } catch (e) { log('icon failed', { key, model: mk, err: String(e && e.message || e) }); D = fallbackDef(key); }   // (kept: not tried every frame)
     ICON.built = f;
@@ -3856,12 +3872,10 @@
     if (!C.code || !(IS_HEADSET || HOST.session)) return;
     peopleWarm();
     if (!C.st.length) return;
-    const M = iconModels();
-    if (!M) return;
     const t0 = performance.now();
     for (const s of C.st) {
       const key = lookKey(s), mk = iconOf(key);
-      if (!mk || !M[mk] || ICON.defs.has(key + '|' + mk)) continue;
+      if (!mk || !iconModel(mk) || ICON.defs.has(key + '|' + mk)) continue;
       iconDef(key, false);
       if (performance.now() - t0 >= 2) break;
     }
@@ -13785,7 +13799,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // the caption on show now ({ text, id }: '' none), the headsets' subtitles' words: the page's subtitles in focus mode
     // (HOST.focus in index.html) show these
     caption: () => { const r = captionNow(performance.now()); return { text: r[0], id: r[1] }; },
-    // a station's icon on its own (tools/icons.html, after HOST.lowpoly()): { g, lean, spin, mesh, see, halo, model: its
+    // a station's icon on its own (tools/icons.html, after HOST.lowpoly('*')): { g, lean, spin, mesh, see, halo, model: its
     // miniature's key ('' the fallback) }, posed with pose(yaw, lean, t in s)
     icon: key => { const I = makeIcon(key); I.pose = (yaw, lean, t) => poseIcon(I, yaw, lean, t); return I; },
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel

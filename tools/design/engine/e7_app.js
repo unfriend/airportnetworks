@@ -119,8 +119,9 @@ function initEnd() {
   if (hp.get('view') && APP.mode === 'explore') showView(hp.get('view'));
   if (hp.has('now')) { orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   renderPanes();
-  // the miniatures: lowpoly.js, loaded once by the shell; the table fills in from it a few at a time
-  (HOST.lowpoly ? HOST.lowpoly() : Promise.reject(new Error('this shell cannot load the miniatures'))).then(M => {
+  // the miniatures (their files loaded once by the shell, before the load: takeCards); the table fills in from them a
+  // few at a time
+  (HOST.lowpoly ? HOST.lowpoly('*') : Promise.reject(new Error('this shell cannot load the miniatures'))).then(M => {
     if (GL.gone) return;
     X.minis = 'ready'; GL.sets.table.feed(M);
     if (X.pick) GL.sets.table.setPick(X.pick);
@@ -130,7 +131,15 @@ function initEnd() {
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
   LOAD.t = setTimeout(() => $('#loading').classList.add('gone'), 120);   // (dispose clears it: a story picked meanwhile keeps its loading screen)
 }
-LOAD.t = setTimeout(init, 40);
+// before the load, the miniatures' files (lowpoly.js and every listed package's minis.js, HOST.lowpoly('*')): their
+// cards make the table's plates. At most 8 s: offline or slow, the table is laid out with the cards that came (the
+// panes say when none did)
+LOAD.t = setTimeout(() => {
+  let done = false;
+  const go = M => { if (done || LOAD.gone) return; done = true; clearTimeout(LOAD.wait); if (M) takeCards(M); if (!X.story && STORIES.length) X.story = STORIES[0].key; init(); };
+  LOAD.wait = setTimeout(() => go(self.LOWPOLY_MODELS), 8000);   // (dispose clears it)
+  (HOST.lowpoly ? HOST.lowpoly('*') : Promise.reject(new Error('this shell cannot load the miniatures'))).then(go, () => go(null));
+}, 40);
 
 //#use ARR
 
@@ -158,7 +167,7 @@ return {
   dispose() {
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
     GL.gone = true;
-    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
+    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(LOAD.wait); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

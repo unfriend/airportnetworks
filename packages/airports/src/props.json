@@ -1,0 +1,8 @@
+{
+ "about": "packages/airports/src/props.json: the airports story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "handwritten": {
+  "story": "airports",
+  "file": "packages/airports/main.js",
+  "scenes": "One scene: the globe of 3,214 airports and 18,858 routes (pillars, arcs, communities, closures, a shortest path). Chapters: Intro, Nodes, Edges, Degree, Hubs, Shortest paths, Betweenness, Communities, Robustness, Recap. Explore tabs: Airport, Paths, Hubs, Communities, Closures."
+ }
+}

@@ -1,0 +1,1259 @@
+{
+ "about": "packages/pass/src/props.json: the pass story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "pass/fish",
+   "key": "fish",
+   "story": "pass",
+   "reusedBy": [],
+   "reuses": [
+    "flock/flock (simulation adapted, not reused)"
+   ],
+   "file": "packages/pass/src/sets/fish.js",
+   "manifest": "packages/pass/src/sets/fish.md",
+   "shows": "A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light shafts; a shark you steer or that comes now and then; the school can be pulled apart by watching fewer neighbours.",
+   "frame": "Life size: 1 unit = 1 m, eyes at the origin (1.6 m), seabed 6.5 m below, surface 15 m above.",
+   "size": "life size; fish 0.27 m long",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "fish_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)",
+     "usedInStory": [
+      1,
+      1
+     ]
+    },
+    {
+     "name": "fish_n",
+     "range": "30..600",
+     "default": 300,
+     "eased": false,
+     "meaning": "how many fish (30-600; new ones join beside a fish already swimming)"
+    },
+    {
+     "name": "fish_k",
+     "range": "1..12",
+     "default": 7,
+     "eased": false,
+     "meaning": "neighbours each fish watches (rounded, 1-12)",
+     "usedInStory": [
+      1,
+      7
+     ]
+    },
+    {
+     "name": "fish_links",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the network: 0 hidden, 1 shown (fades)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "fish_water",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the water and everything in it; below 0.5 (passthrough AR) hidden, the school at a third of life size"
+    },
+    {
+     "name": "fish_shark",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "above 0.5 a shark comes now and then (explore)"
+    },
+    {
+     "name": "fish_hunt",
+     "range": "counter (shark at each whole number)",
+     "default": 0,
+     "eased": false,
+     "meaning": "a shark each time this passes a whole number (for the story)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "fish_scale",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the whole set's size on top of life size (for the rise to the globe: towards 0 the sea, dome and all, shrinks to a dot at the origin)",
+     "usedInStory": [
+      0.002,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      -6,
+      0.25,
+      0,
+      1.6,
+      0
+     ],
+     "frames": "among the fish, life size, looking up a little (eyes at 1.6 m)"
+    },
+    {
+     "name": "up",
+     "view": [
+      20,
+      -55,
+      0.25,
+      0,
+      1.6,
+      0
+     ],
+     "frames": "looking up to the light"
+    },
+    {
+     "name": "near",
+     "view": [
+      25,
+      10,
+      8,
+      0,
+      1.6,
+      -4
+     ],
+     "frames": "from just outside the school: each fish and its links apart"
+    },
+    {
+     "name": "afar",
+     "view": [
+      25,
+      10,
+      13,
+      0,
+      1.6,
+      -4
+     ],
+     "frames": "the whole school from outside"
+    },
+    {
+     "name": "above",
+     "view": [
+      0,
+      80,
+      40,
+      0,
+      1.6,
+      -4
+     ],
+     "frames": "high above, looking down on the school"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Follow the school"
+      },
+      {
+       "value": "free",
+       "label": "Look around"
+      },
+      {
+       "value": "afar",
+       "label": "From afar"
+      }
+     ]
+    },
+    {
+     "key": "k",
+     "label": "Neighbours watched",
+     "options": [
+      {
+       "value": "7",
+       "label": "7"
+      },
+      {
+       "value": "1",
+       "label": "1"
+      },
+      {
+       "value": "3",
+       "label": "3"
+      },
+      {
+       "value": "12",
+       "label": "12"
+      }
+     ]
+    },
+    {
+     "key": "links",
+     "label": "Network",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Who watches whom"
+      }
+     ]
+    },
+    {
+     "key": "shark",
+     "label": "Shark",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "some",
+       "label": "Now and then"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "fish_k",
+    "fish_links",
+    "fish_shark"
+   ],
+   "anchors": [
+    "school",
+    "shark"
+   ],
+   "anchorCount": 2,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "shark",
+     "cls": "amb",
+     "shows": []
+    }
+   ],
+   "labelCount": 1,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "A live simulation adapted from the flock's; nothing is data."
+   },
+   "api": [],
+   "otherExports": [
+    "see",
+    "steer",
+    "hold",
+    "scatter",
+    "shark",
+    "flight",
+    "follow",
+    "hush",
+    "hunted",
+    "sharkOn",
+    "following",
+    "fish",
+    "neighbours",
+    "falcon",
+    "falconOn",
+    "kept",
+    "setLang",
+    "state",
+    "watch"
+   ],
+   "buildMsNode": 469,
+   "notes": "update depends on what came before, so seeking changes only the params. Step params fish_n, fish_k, fish_hunt. In passthrough the school shrinks to a third of life size. Exports see, steer, hold, scatter, shark, falcon, kept, setLang, state, watch ..."
+  },
+  {
+   "id": "pass/globe",
+   "key": "globe",
+   "story": "pass",
+   "reusedBy": [],
+   "reuses": [
+    "packages/airports/main.js (globe cut out unchanged)"
+   ],
+   "file": "packages/pass/src/sets/globe.js",
+   "manifest": "packages/pass/src/sets/globe.md",
+   "shows": "The airports story's globe exactly as it is (3,214 airports, 18,858 routes), driven from params, with a seeded S/E/I/R outbreak on its real routes: pick a start airport, set incubation, infectious days, spread and flights cut, and play the days.",
+   "frame": "Radius 1, centred on the origin, y up, longitude 0 towards +x, 90 E towards -z.",
+   "size": "radius 1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "globe_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "globe_reveal",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the airports and routes appear (the original's node_reveal and route_reveal)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "globe_routes",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "brightness of the routes (the original's route_alpha)"
+    },
+    {
+     "name": "globe_hubs",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "airports coloured by their number of routes (the original's w_deg)"
+    },
+    {
+     "name": "globe_pillars",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "pillars by number of routes (the original's deg_h)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "globe_dim",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "dims the plain airports and routes, so the outbreak's colours stand out",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "globe_out",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the outbreak shown (its cities, arcs, chain and labels)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "globe_day",
+     "range": "days, 0..end of outbreak",
+     "default": 0,
+     "eased": false,
+     "meaning": "the outbreak's day (continuous; ease it)",
+     "usedInStory": [
+      0,
+      40
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      102,
+      28,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "Europe, Africa and Asia"
+    },
+    {
+     "name": "europe",
+     "view": [
+      104,
+      46,
+      2.3,
+      0,
+      0,
+      0
+     ],
+     "frames": "close over Europe"
+    },
+    {
+     "name": "world",
+     "view": [
+      60,
+      18,
+      4.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole globe from afar"
+    },
+    {
+     "name": "atlantic",
+     "view": [
+      55,
+      32,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the Atlantic with Europe and the Americas"
+    },
+    {
+     "name": "asia",
+     "view": [
+      190,
+      28,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "Asia"
+    },
+    {
+     "name": "start",
+     "view": [
+      106.57,
+      40.894,
+      2.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "turned to the start city by setup"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Europe and Asia"
+      },
+      {
+       "value": "atlantic",
+       "label": "The Atlantic"
+      },
+      {
+       "value": "asia",
+       "label": "Asia"
+      },
+      {
+       "value": "world",
+       "label": "From afar"
+      }
+     ]
+    },
+    {
+     "key": "color",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "plain",
+       "label": "Plain"
+      },
+      {
+       "value": "hubs",
+       "label": "Hubs"
+      }
+     ]
+    },
+    {
+     "key": "pillars",
+     "label": "Pillars",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Routes per airport"
+      }
+     ]
+    },
+    {
+     "key": "out",
+     "label": "Outbreak",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Play"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "globe_hubs",
+    "globe_pillars",
+    "globe_out",
+    "globe_dim",
+    "globe_day"
+   ],
+   "anchors": [
+    "top",
+    "start",
+    "sel",
+    "VIE",
+    "LHR",
+    "FRA",
+    "CDG",
+    "IST",
+    "DXB",
+    "JFK",
+    "ATL",
+    "PEK",
+    "SIN",
+    "JNB",
+    "GRU",
+    "SYD"
+   ],
+   "anchorCount": 16,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "top",
+     "cls": "amb",
+     "shows": [
+      "globe_out"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "start",
+     "cls": "amb",
+     "shows": [
+      "globe_out",
+      "globe_day"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "sel",
+     "cls": "cyn",
+     "shows": [
+      "globe_out"
+     ]
+    }
+   ],
+   "labelCount": 3,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "PASS_AIRPORTS (cut out of packages/airports/main.js at build)"
+    ],
+    "text": "OpenFlights airports and routes; the outbreak is a simple model, not a forecast."
+   },
+   "api": [
+    "setup",
+    "start",
+    "settings",
+    "end",
+    "series",
+    "count",
+    "summary",
+    "arrivalDay",
+    "chain",
+    "select",
+    "selected",
+    "pick",
+    "find",
+    "info",
+    "pos",
+    "viewOf",
+    "search",
+    "deg",
+    "n",
+    "routes",
+    "original"
+   ],
+   "otherExports": [
+    "setLang"
+   ],
+   "buildMsNode": 315,
+   "notes": "Cut unchanged out of packages/airports/main.js by packages/pass/src/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...)."
+  },
+  {
+   "id": "pass/cell",
+   "key": "cell",
+   "story": "pass",
+   "reusedBy": [],
+   "reuses": [
+    "packages/spatial/main.js (cell cut out unchanged)"
+   ],
+   "file": "packages/pass/src/sets/cell.js",
+   "manifest": "packages/pass/src/sets/cell.md",
+   "shows": "The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or colour, the growth signal from EGF to SRF, the TNF to NF-kB relay, and the moves that go wrong (CFTR in the ER, TDP-43 leaving the nucleus).",
+   "frame": "Radius 1, centred on the origin; a cell about 20 micrometres across, the membrane a slightly flattened ellipsoid.",
+   "size": "radius 1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "cell_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "cell_org",
+     "range": "0..10",
+     "default": 10,
+     "eased": true,
+     "meaning": "organelles shown: they appear one by one (membrane, nucleus, nucleolus, ER, Golgi, mitochondria, lysosomes, vesicles, peroxisomes, cytoskeleton)",
+     "usedInStory": [
+      0,
+      10
+     ]
+    },
+    {
+     "name": "cell_shell",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the organelles' skins (1 on, 0.35 faint, 0 off)",
+     "usedInStory": [
+      0.35,
+      1
+     ]
+    },
+    {
+     "name": "cell_reveal",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "proteins and links appear"
+    },
+    {
+     "name": "cell_links",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "brightness of the links"
+    },
+    {
+     "name": "cell_ids",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the dotted links between the copies of one protein"
+    },
+    {
+     "name": "cell_multi",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "colour by number of places instead of by place"
+    },
+    {
+     "name": "cell_focus",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the rest dims, the growth signal's proteins glow as the signal reaches them"
+    },
+    {
+     "name": "cell_ex",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "two proteins meet: EGF, its receptor and GRB2 (0-1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cell_cue",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the relay from TNF to NF-kB's brake (0-1) and its alpha",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cell_cue_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the relay from TNF to NF-kB's brake (0-1) and its alpha",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cell_path",
+     "range": "0..10 (hops)",
+     "default": 0,
+     "eased": true,
+     "meaning": "the growth signal, in hops (0-10), and its alpha"
+    },
+    {
+     "name": "cell_path_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the growth signal, in hops (0-10), and its alpha"
+    },
+    {
+     "name": "cell_names",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the organelles' names as labels (each as it appears)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cell_nfkb",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cell_apop",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)"
+    },
+    {
+     "name": "cell_tfeb",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)"
+    },
+    {
+     "name": "cell_glut4",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)"
+    },
+    {
+     "name": "cell_nrf2",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)"
+    },
+    {
+     "name": "cell_als",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)"
+    },
+    {
+     "name": "cell_cf",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how far each of the cell map's moves has gone (0-1; its s0 ... s6)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      108,
+      18,
+      3.9,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole cell"
+    },
+    {
+     "name": "nucleus",
+     "view": [
+      70,
+      20,
+      1.9,
+      -0.12,
+      0,
+      -0.05
+     ],
+     "frames": "close on the nucleus"
+    },
+    {
+     "name": "signal",
+     "view": [
+      -95.956,
+      16.699,
+      2.7,
+      -0.01,
+      0.114,
+      -0.632
+     ],
+     "frames": "the growth signal from EGF outside to SRF in the nucleus"
+    },
+    {
+     "name": "nfkb",
+     "view": [
+      50.717,
+      16.699,
+      2.6,
+      -0.289,
+      -0.22,
+      0.579
+     ],
+     "frames": "the NF-kB relay"
+    },
+    {
+     "name": "cf",
+     "view": [
+      -169.42,
+      16.699,
+      2.2,
+      -0.197,
+      0.388,
+      -0.425
+     ],
+     "frames": "CFTR caught in the wrong place"
+    },
+    {
+     "name": "als",
+     "view": [
+      82.381,
+      16.699,
+      2,
+      0.011,
+      -0.029,
+      0.231
+     ],
+     "frames": "TDP-43 leaving the nucleus"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Whole cell"
+      },
+      {
+       "value": "nucleus",
+       "label": "Nucleus"
+      },
+      {
+       "value": "signal",
+       "label": "From the surface"
+      }
+     ]
+    },
+    {
+     "key": "shell",
+     "label": "Organelles",
+     "options": [
+      {
+       "value": "on",
+       "label": "On"
+      },
+      {
+       "value": "faint",
+       "label": "Faint"
+      },
+      {
+       "value": "off",
+       "label": "Off"
+      }
+     ]
+    },
+    {
+     "key": "color",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "place",
+       "label": "By place"
+      },
+      {
+       "value": "multi",
+       "label": "Number of places"
+      }
+     ]
+    },
+    {
+     "key": "move",
+     "label": "Move",
+     "options": [
+      {
+       "value": "none",
+       "label": "None"
+      },
+      {
+       "value": "nfkb",
+       "label": "Inflammation"
+      },
+      {
+       "value": "cf",
+       "label": "Cystic fibrosis"
+      },
+      {
+       "value": "als",
+       "label": "ALS"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "cell_shell",
+    "cell_multi",
+    "cell_cue"
+   ],
+   "anchors": [
+    "org_pm",
+    "org_nuc",
+    "org_nucl",
+    "org_er",
+    "org_golgi",
+    "org_mito",
+    "org_lyso",
+    "org_endo",
+    "org_perox",
+    "org_cytosk",
+    "EGF@ext",
+    "EGF",
+    "TNF@ext",
+    "TNF",
+    "INS@ext",
+    "INS",
+    "TF@ext",
+    "TF",
+    "TF@endo",
+    "APOB@ext",
+    "APOB",
+    "PCSK9@ext",
+    "PCSK9",
+    "PCSK9@endo",
+    "FN1@ext",
+    "FN1",
+    "EGFR@pm",
+    "EGFR",
+    "EGFR@endo",
+    "ERBB2@pm",
+    "ERBB2",
+    "INSR@pm",
+    "INSR",
+    "TNFRSF1A@pm",
+    "TNFRSF1A",
+    "CDH1@pm",
+    "CDH1",
+    "CTNNB1@pm",
+    "CTNNB1",
+    "CTNNB1@cyto",
+    "CTNNB1@nuc",
+    "CTNNA1@pm",
+    "CTNNA1",
+    "CTNND1@pm",
+    "CTNND1",
+    "ITGA5@pm",
+    "ITGA5",
+    "ITGB1@pm",
+    "ITGB1",
+    "TLN1@pm",
+    "TLN1",
+    "VCL@pm",
+    "VCL",
+    "PTK2@pm",
+    "PTK2",
+    "PXN@pm",
+    "PXN",
+    "ATP1A1@pm",
+    "ATP1A1",
+    "ATP1B1@pm",
+    "ATP1B1",
+    "CFTR@pm",
+    "CFTR",
+    "CFTR@er",
+    "NHERF1@pm",
+    "NHERF1",
+    "EZR@pm",
+    "EZR",
+    "KRAS@pm",
+    "KRAS",
+    "CAV1@pm",
+    "CAV1",
+    "CAVIN1@pm",
+    "CAVIN1",
+    "STX4@pm",
+    "STX4",
+    "SNAP23@pm",
+    "SNAP23",
+    "TFRC@pm",
+    "TFRC"
+   ],
+   "anchorCount": 541,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "org_pm",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_nuc",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_nucl",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_er",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_golgi",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_mito",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_lyso",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_endo",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_perox",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "org_cytosk",
+     "cls": "",
+     "shows": [
+      "cell_org",
+      "cell_names"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "EGF",
+     "cls": "tl",
+     "shows": [
+      "cell_ex",
+      "cell_path"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "EGFR@pm",
+     "cls": "tl",
+     "shows": [
+      "cell_ex",
+      "cell_path"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "MAPK1@nuc",
+     "cls": "tl",
+     "shows": [
+      "cell_path"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "SRF",
+     "cls": "tl",
+     "shows": [
+      "cell_path"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "TNF",
+     "cls": "tl",
+     "shows": [
+      "cell_cue"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "RELA@cyto",
+     "cls": "amb",
+     "shows": [
+      "cell_cue"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "NFKBIA",
+     "cls": "amb",
+     "shows": [
+      "cell_cue"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "RELA@nuc",
+     "cls": "amb",
+     "shows": [
+      "cell_cue"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "CFTR@er",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "CFTR@pm",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "TARDBP@nuc",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "TARDBP@cyto",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": []
+    }
+   ],
+   "labelCount": 23,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "PASS_SPATIAL (cut out of packages/spatial/main.js at build)"
+    ],
+    "text": "Curated protein locations and links (complexes, textbook pathways, Human Protein Atlas / UniProt); the layout is illustrative."
+   },
+   "api": [
+    "pick",
+    "info",
+    "select",
+    "selected",
+    "moveDelta",
+    "protein",
+    "copyOf",
+    "proteinOf",
+    "pos",
+    "search",
+    "moves",
+    "move",
+    "path",
+    "highlight",
+    "setFocus",
+    "isolate",
+    "placeName",
+    "placeShort",
+    "orgName",
+    "places",
+    "growthPath",
+    "relay",
+    "counts",
+    "original"
+   ],
+   "otherExports": [
+    "setLang"
+   ],
+   "buildMsNode": 306,
+   "notes": "Cut unchanged out of packages/spatial/main.js by packages/pass/src/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts)."
+  }
+ ]
+}

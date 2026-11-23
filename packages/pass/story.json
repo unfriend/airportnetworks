@@ -16,6 +16,7 @@
   "authors": "The app's authors",
   "life": false,
   "list": "stories",
+  "minis": "minis.js",
   "icon": "pass.fish",
   "needs": 185
 }

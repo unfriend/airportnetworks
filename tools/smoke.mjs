@@ -1214,16 +1214,21 @@ if (runs('headset')) {
   await hp.close();
   await page.evaluate(() => { HOST.cur.peek('GL.renderer.setAnimationLoop(frame)'); HOST.closePicker(); });
 }
-// The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
-// click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
-// by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
-await step('design: not on the Stories screen; #design opens the table and all 51 miniatures are built', async () => {
+// The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table (each
+// listed package's, from its minis.js, v190), a click putting one on the stage with its card as the catalogue has it
+// (tools/design/props.json and each package's src/props.json), the shared state (a miniature moved by a pretend
+// headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
+const DESIGN_MINIS = await (async () => {   // (every miniature of the packages not hidden: 52 in v190, 51 of the stories and the example's)
+  const fs = await import('fs'), ix = JSON.parse(fs.readFileSync(new URL('../packages/index.json', import.meta.url), 'utf8'));
+  return ix.packages.filter(m => m.minis && m.list !== 'hidden').reduce((n, m) => n + (fs.readFileSync(new URL(`../packages/${m.key}/${m.minis}`, import.meta.url), 'utf8').match(/^    "[a-z0-9-]+\.[a-z0-9-]+": \{"story"/gm) || []).length, 0);
+})();
+await step(`design: not on the Stories screen; #design opens the table and all ${DESIGN_MINIS} miniatures are built`, async () => {
   if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
   if (await page.evaluate(() => HOST.stories().some(s => s.key === 'design') || /\d|sixteen/.test(document.getElementById('pickTitle').textContent))) errors.push('design: the design room is in the list of stories');
   await page.evaluate(() => HOST.start('design'));
   await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
-  if (n[0] !== 51 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 51 miniatures in explore mode at #design)');
+  if (n[0] !== DESIGN_MINIS || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ` (not ${DESIGN_MINIS} miniatures in explore mode at #design)`);
 });
 // few draws (v136: 235 an eye before, a mesh per material of every miniature): each miniature in at most two meshes of
 // the two materials every miniature shares, the plates, edges, cards and homes one mesh each, what never moves its
@@ -1245,9 +1250,16 @@ await step('design: every miniature in at most two meshes of two shared material
   })()`));
   if (r.out.length || r.mats !== 2 || r.shown > 110 || r.calls > 110) errors.push('design: few draws: ' + JSON.stringify(r));
 });
-await step('design: a click on a miniature puts it on the stage, its card matching props.json', async () => {
+await step('design: a click on a miniature puts it on the stage, its card matching the catalogue (props.json)', async () => {
   const fs = await import('fs');
+  // (the shell's catalogue and each package's src/props.json, as tools/lowpoly/minis.mjs reads them)
   const props = JSON.parse(fs.readFileSync(new URL('./design/props.json', import.meta.url), 'utf8'));
+  for (const k of fs.readdirSync(new URL('../packages/', import.meta.url))) {
+    const f = new URL(`../packages/${k}/src/props.json`, import.meta.url);
+    if (!fs.existsSync(f)) continue;
+    const o = JSON.parse(fs.readFileSync(f, 'utf8'));
+    props.sets.push(...(o.sets || [])); if (o.handwritten) props.handwrittenStories.push(o.handwritten);
+  }
   await page.evaluate(() => HOST.cur.peek('(showView("default"), orbit.cur = orbit.to, orbit.to = null, 0)'));
   await page.waitForTimeout(400);
   // a miniature the mouse can reach (clear of the side panel), found by the same ray as the click

@@ -1,0 +1,210 @@
+{
+ "about": "packages/tutorial/src/props.json: the tutorial story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "tutorial/guide",
+   "key": "guide",
+   "story": "tutorial",
+   "reusedBy": [],
+   "reuses": [
+    "bodies.js mannequin"
+   ],
+   "file": "packages/tutorial/src/sets/guide.js",
+   "manifest": "packages/tutorial/src/sets/guide.md",
+   "shows": "A robot guide (the people's street-armour figure, bodies.js, posed by ik.js, driven by a script) in your room, and the props it makes from its own body: a ray from its fist, a target, five floor markers from its spine, a ten-node network from its chest badge, a mini menu, an amber copy of itself, boot trails, a card; a dark floor with a grid fading out from 3 m (none in AR).",
+   "frame": "Life size: 1 unit = 1 m, the viewer's start at the origin, floor y = 0, ahead along -z; the guide stands at (0.35, -2.0).",
+   "size": "life size; the guide 1.75 m tall, its props within 2.5 m of the viewer",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "guide_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "guide_clock",
+     "range": "0..187 (story seconds)",
+     "default": 0,
+     "eased": false,
+     "meaning": "the script's clock: everything the guide and its props do is evalGuide at this time (keyed linear 0 to T_END)",
+     "usedInStory": [
+      0,
+      187
+     ]
+    },
+    {
+     "name": "guide_mode",
+     "range": "0 or 1",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 the story's script, 1 practice (explore mode: its own clock and reactions)"
+    },
+    {
+     "name": "guide_net",
+     "range": "0 or 1",
+     "default": 1,
+     "eased": false,
+     "meaning": "in practice: the network as the 4-node badge (0) or grown to 10 nodes (1)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -8,
+      12,
+      2.48,
+      0.35,
+      1.1,
+      -2
+     ],
+     "frames": "where you stand, the guide at home ahead"
+    },
+    {
+     "name": "side",
+     "view": [
+      44,
+      22,
+      2.87,
+      0.45,
+      0.6,
+      -2.2
+     ],
+     "frames": "from the right, at the markers on the floor"
+    },
+    {
+     "name": "net",
+     "view": [
+      16,
+      13,
+      1.12,
+      -0.05,
+      1.3,
+      -1.25
+     ],
+     "frames": "at the network from about a metre"
+    },
+    {
+     "name": "wide",
+     "view": [
+      -15,
+      14,
+      2.83,
+      0.8,
+      1,
+      -2.05
+     ],
+     "frames": "wide enough for the guide and its copy"
+    }
+   ],
+   "controls": [
+    {
+     "key": "net",
+     "label": "Network",
+     "options": [
+      {
+       "value": "grown",
+       "label": "Grown"
+      },
+      {
+       "value": "badge",
+       "label": "Badge"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "guide_mode",
+    "guide_net"
+   ],
+   "anchors": [
+    "head",
+    "tag",
+    "copy",
+    "copyTag",
+    "fist",
+    "chest",
+    "boots",
+    "net",
+    "target",
+    "menu",
+    "card",
+    "nodeTag",
+    "marker0",
+    "marker1",
+    "marker2",
+    "marker3",
+    "marker4",
+    "node0",
+    "node1",
+    "node2",
+    "node3",
+    "node4",
+    "node5",
+    "node6",
+    "node7",
+    "node8",
+    "node9"
+   ],
+   "anchorCount": 27,
+   "labels": [
+    {
+     "text": "(its status line: Calibrating, Paused, Task 3 of 7: done ...)",
+     "at": "tag",
+     "cls": "",
+     "shows": [
+      "guide_clock"
+     ]
+    },
+    {
+     "text": "Guest",
+     "at": "copyTag",
+     "cls": "amb",
+     "shows": [
+      "guide_clock"
+     ]
+    },
+    {
+     "text": "Hub: 6 links (the node pointed at)",
+     "at": "nodeTag",
+     "cls": "cyn",
+     "shows": [
+      "guide_clock",
+      "guide_mode"
+     ]
+    }
+   ],
+   "labelCount": 3,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "A script (sets/script.js: SCRIPT, evalGuide); nothing is data."
+   },
+   "api": [],
+   "otherExports": [
+    "see",
+    "hit",
+    "signal",
+    "signalOn",
+    "chapters",
+    "react",
+    "walkTo",
+    "figure",
+    "usePlain",
+    "bodyStats",
+    "practice",
+    "setRun",
+    "practiceReset",
+    "frame",
+    "nodeAt",
+    "degree",
+    "state",
+    "dispose"
+   ],
+   "buildMsNode": null,
+   "notes": "Needs HOST.bodies (bodies.js, through HOST.needBodies) for its figures, else a plain figure of boxes and cylinders. A pure function of guide_clock (the solver re-warmed after a jump). The engine's see() gives the viewer's head and ray, the panel's buttons, AR and the room."
+  }
+ ]
+}

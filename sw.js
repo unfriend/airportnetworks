@@ -51,15 +51,17 @@ async function pkgIndex() {
   const hit = await caches.open(PKG).then(c => c.match(u));
   return hit ? hit.json().catch(() => null) : null;
 }
-// At install, every listed package's main.js (the story itself, as SHELL takes each stories/<key>.js), so an installed
-// copy opens every story offline, moved into a package or not (silent until its narration is taken); never fails the
-// install
+// At install, every listed package's main.js (the story itself, as SHELL takes each stories/<key>.js) and its
+// miniatures' file (story.json's minis: its stations' icon and its props on the design room's table), so an installed
+// copy opens every story offline, moved into a package or not (silent until its narration is taken), and its rooms show
+// every station's icon; never fails the install
 async function takeMains() {
   const j = await pkgIndex(), c = await caches.open(PKG);
-  await Promise.all(listedPkgs(j).filter(m => m.files['main.js']).map(async m => {
-    const u = pkgAddr(m, 'main.js');
+  const want = [];
+  for (const m of listedPkgs(j)) for (const f of ['main.js', m.minis]) if (typeof f === 'string' && m.files[f]) want.push(pkgAddr(m, f));
+  await Promise.all(want.map(async u => {
     if (await c.match(u)) return;
-    try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first played */ }
+    try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first asked for */ }
   }));
 }
 // Take all stories (v185, docs/packages-migration.md "Decided route"): every file of every listed package (main.js,
@@ -164,9 +166,17 @@ function fresh(net, key, cache) {
   const slow = new Promise(r => setTimeout(r, 4000)).then(cached).then(hit => hit || safe);
   return Promise.race([safe, slow]);
 }
+// The narrations' own cache (NARR) holds only those still in audio/ (AUDIO): since v187 each story's narration is its
+// package's (PKG), so a copy of an old address (audio/narration*.mp3, up to about 60 MB on a device that played them
+// before v187) is dropped at activate; a current one is never touched
+async function narrPrune() {
+  const n = await caches.open(NARR), keep = new Set(AUDIO.map(a => new URL(a, self.registration.scope).href));
+  for (const k of await n.keys()) if (!keep.has(new URL(k.url, self.registration.scope).href)) await n.delete(k);
+}
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
     .then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== NARR && k !== PKG).map(k => caches.delete(k))))
+    .then(() => narrPrune().catch(() => {}))
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {

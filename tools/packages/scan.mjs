@@ -46,15 +46,26 @@ const KEY = /^[a-z][a-z0-9-]{1,30}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 const str = v => typeof v === 'string', opt = f => v => v === undefined || f(v);
 const full = v => str(v) && v.trim().length > 0 && v.length <= 600;
 // story.json's fields (SPEC.md, "story.json"): what each must be; any other is wrong
-// icon: its stations' miniature in a shared room, a key of lowpoly.js's LOWPOLY_MODELS (<key>.<set>); intro: an
-// introduction, not one of the stories (the tutorial: skipped by the default start, Repeat all and the count)
-const MINIS = (() => { try { return fs.readFileSync(path.join(root, 'lowpoly.js'), 'utf8'); } catch (e) { return ''; } })();
-const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.includes(`'${v}'`);
+// minis: the file of its own miniatures (built from src/minis.js by tools/lowpoly/build.mjs; SPEC.md "Miniatures");
+// icon: its stations' miniature in a shared room (<key>.<set>): one of its own, or another package's or the shell's
+// (lowpoly.js); intro: an introduction, not one of the stories (the tutorial: skipped by the default start, Repeat all
+// and the count)
+const MINIFILE = /^[a-z0-9][a-z0-9_-]*\.js$/, MINI = /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/;
+const readText = f => { try { return fs.readFileSync(f, 'utf8'); } catch (e) { return ''; } };
+// the file a miniature's name points to (its package's minis file, or lowpoly.js for the shell's): whether it registers it
+function miniThere(v) {
+  const k = v.split('.')[0];
+  let sj2 = null;
+  try { sj2 = JSON.parse(readText(path.join(dir, k, 'story.json')).replace(/^\uFEFF/, '')); } catch (e) { /* not a package */ }
+  const f = sj2 && MINIFILE.test(sj2.minis || '') ? path.join(dir, k, sj2.minis) : path.join(root, 'lowpoly.js');
+  return readText(f).includes(`LOWPOLY_MODELS[${JSON.stringify(v)}]`) || new RegExp(`(?:add|def)\\('${v.replace('.', '\\.')}'`).test(readText(f));
+}
+const mini = v => str(v) && MINI.test(v);
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: opt(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: opt(str), page: opt(full), brand: opt(full), sub: opt(str), aria: opt(full), thing: opt(full), loading: opt(full),
   authors: opt(str), life: opt(v => typeof v === 'boolean'), list: opt(v => ['stories', 'experiments', 'hidden'].includes(v)), needs: opt(v => Number.isInteger(v) && v >= 1),
-  icon: opt(mini), intro: opt(v => v === true),
+  minis: opt(v => str(v) && MINIFILE.test(v)), icon: opt(mini), intro: opt(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];
 
@@ -85,7 +96,9 @@ for (const name of dirs) {
   if (!sj || typeof sj !== 'object' || Array.isArray(sj)) { why('its story.json is not an object'); continue; }
   const miss = NEED.filter(k => sj[k] === undefined), bad = Object.keys(sj).filter(k => !FIELDS[k] || !FIELDS[k](sj[k]));
   if (miss.length) { why(`story.json lacks ${miss.join(', ')}`); continue; }
-  if (bad.length) { why(`story.json: ${bad.map(k => (k === 'icon' ? 'icon names no miniature of lowpoly.js (a <key>.<set>; icon.png is its card\'s picture)' : FIELDS[k] ? `${k} is wrong` : `${k} is not a field`)).join('; ')}`); continue; }
+  if (bad.length) { why(`story.json: ${bad.map(k => (k === 'icon' ? 'icon is not a miniature\'s name (<key>.<set>; icon.png is its card\'s picture)' : FIELDS[k] ? `${k} is wrong` : `${k} is not a field`)).join('; ')}`); continue; }
+  if (sj.minis !== undefined && !fs.existsSync(path.join(base, sj.minis))) { why(`story.json names minis ${sj.minis}, which is not there (node tools/lowpoly/build.mjs builds it from src/minis.js)`); continue; }
+  if (sj.icon !== undefined && !miniThere(sj.icon)) { why(`story.json: icon ${sj.icon} is no miniature of ${sj.icon.split('.')[0] === name ? `its ${sj.minis || 'minis file (story.json names none)'}` : `${sj.icon.split('.')[0]}'s minis file or lowpoly.js`}`); continue; }
   if (sj.key !== name) { why(`story.json's key is ${JSON.stringify(sj.key)}, not the folder's name`); continue; }
   if (!fs.existsSync(path.join(base, 'main.js'))) { why('it has no main.js'); continue; }
   const f = files(base);

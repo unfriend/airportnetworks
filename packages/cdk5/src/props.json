@@ -1,0 +1,482 @@
+{
+ "about": "packages/cdk5/src/props.json: the cdk5 story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "cdk5/net",
+   "key": "net",
+   "story": "cdk5",
+   "reusedBy": [],
+   "reuses": [
+    "soil/net (adapted, not reused)"
+   ],
+   "file": "packages/cdk5/src/sets/net.js",
+   "manifest": "packages/cdk5/src/sets/net.md",
+   "shows": "The human interactome's 16,376 proteins as glowing points flowing between the authors' six arrangements: the map of GO processes on a sphere (its knots of shared processes tagged), CDK5 with its activators, NTRK2 signalling, calpain, the Alzheimer's pathway, and the disease landscape the sphere opens into; each scene's links, CDK5's halo turning from green to red, its 205 partners' lines, its cousins, a pathway or a disease term lit, its 30 nearest in the landscape, and a veil that clears the view to the map's centre.",
+   "frame": "The map of processes a sphere of radius about 1 round the origin (proteins without a process on an outer shell at 1.2); each scene's centre proteins within 0.42 of the origin; the landscape's proteins with a disease round about (0, 0.16, 0.34), the rest on a sphere of radius 1.2 round them.",
+   "size": "sphere radius ~1.2; landscape bulk radius ~0.3",
+   "sharesFrameWith": [
+    "cdk5/core"
+   ],
+   "params": [
+    {
+     "name": "net_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "net_scene",
+     "range": "0..5",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..5: the authors' scene (0 map of processes, 1 activators, 2 NTRK2, 3 calpain, 4 Alzheimer's, 5 disease landscape); eased between integers"
+    },
+    {
+     "name": "net_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the map grows from the centre (each protein by its radius and a seeded share), the links after (from 0.7); default 1"
+    },
+    {
+     "name": "net_shell",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the outer shell (proteins without a known process) on the sphere: 1 shown, 0 faint (18 %); default 1"
+    },
+    {
+     "name": "net_links",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the scene's links on or off; default 1"
+    },
+    {
+     "name": "net_cdk5",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "CDK5 findable: its point in its state's colour, a halo (pulsing slowly), a ring facing the eye, its tag"
+    },
+    {
+     "name": "net_hyper",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "CDK5's state colour: green CLOOK.C.cdk5 → red CLOOK.C.hyper (pulse faster); its tag gains \"hyperactive\" past 0.5"
+    },
+    {
+     "name": "net_partners",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "lines shoot from CDK5 to its 205 partners (each at its own moment, pale green: C.partner mixed 45 % with CDK5's state colour), the partners brighten; tag \"205 partners\""
+    },
+    {
+     "name": "net_pick",
+     "range": "step",
+     "default": -1,
+     "eased": false,
+     "meaning": "step: -1, or a protein index: its ring (cyan), halo, tag \"SYMBOL · n partners\", its partners' lines in C.pick (alpha by degree) and the partners in C.partner; the rest steps back a little"
+    },
+    {
+     "name": "net_family",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the CDK family lights (pale lime halos); tags: \"Its cousins · kinases of cell division\" above the crowd within 5° of CDK5 and \"CDK2, 3, 4, 6, 7, 8, 9 · within 5° of it\" below it, \"CDK1 · 73° away\", and the other cousins' names (minor, only while on the side facing the eye)"
+    },
+    {
+     "name": "net_homes",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "p35 and p39 light where they are, with great-circle arcs from CDK5 drawn out over the sphere; tags \"p35 · 99 degrees away\", \"p39 · 172 degrees away\" (\", round the back\" and moved onto its arc when the protein is on the far side from the eye)"
+    },
+    {
+     "name": "net_path",
+     "range": "step",
+     "default": -1,
+     "eased": false,
+     "meaning": "step: -1, 0 Signalling by NTRK2 (cyan), 1 the Alzheimer's pathway (orange): its members brighten wherever they are, with small halos"
+    },
+    {
+     "name": "net_term",
+     "range": "step",
+     "default": -1,
+     "eased": false,
+     "meaning": "step: -1, or an index into CDATA.terms"
+    },
+    {
+     "name": "net_termA",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the term's proteins light magenta (C.term), the rest steps back to half; tag \"name · n proteins\" at its member nearest the middle"
+    },
+    {
+     "name": "net_near",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "CDK5's 30 nearest in the landscape light (amber halos); tag \"27 of its 30 nearest · share its brain-development terms\" (nearTop[0].k) above them, and \"YWHAE, ACTB, TUBA1A · among them\" (the three best linked) below"
+    },
+    {
+     "name": "net_veil",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the points between the eye and the centre fade (above)"
+    },
+    {
+     "name": "net_core",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the current scene's centre proteins' own points and their links among each other fade (the core set draws them)"
+    },
+    {
+     "name": "net_dim",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "everything not highlighted dims (to 12 %); links to 15 %"
+    },
+    {
+     "name": "net_hub",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "APP lights; tag \"APP · 2,123 partners\""
+    },
+    {
+     "name": "net_shells",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tags \"13,003 with a known process\" (inner shell) and \"3,373 without\" (outer shell)"
+    },
+    {
+     "name": "net_landTags",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tags \"Proteins with a disease · 6,538\" (the bulk's top) and \"None known · pushed to the walls\""
+    },
+    {
+     "name": "net_clouds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the map of processes' knots (CDATA.clouds, 14): each knot's proteins brighter and a little larger in the scene's own colours (no new hue), a soft glow at its centre in their mean colour, and a tag at its centre: a short name (a small map in the set for the long GO names, e.g. \"Sugar import\", \"Glutamate synapses\"; else the name, cut at 30 characters) and \" · 7 of 15 here\" (the GO name in explore, not on the tag: it ran off narrow screens). Only knots facing the eye are tagged, at most six, the most squarely facing first, none within 24° of one shown (tags run to the right). Scene 0 only: they fade as net_scene leaves 0 (gone by 0.35)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -23.34,
+      14,
+      4.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole map from the front, a little above"
+    },
+    {
+     "name": "side",
+     "view": [
+      63.66,
+      8,
+      4.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the map from the side"
+    },
+    {
+     "name": "cdk5",
+     "view": [
+      -21.34,
+      21.738,
+      1.3,
+      -0.512,
+      0.278,
+      0.841
+     ],
+     "frames": "close to CDK5 on the sphere, its cousins round it"
+    },
+    {
+     "name": "centre",
+     "view": [
+      -23.34,
+      10,
+      1.85,
+      0,
+      0,
+      0
+     ],
+     "frames": "the centre close-up through the veil"
+    },
+    {
+     "name": "inside",
+     "view": [
+      148.66,
+      -15.738,
+      0.35,
+      -0.175,
+      0.095,
+      0.288
+     ],
+     "frames": "from the map's middle, looking out at CDK5's side"
+    },
+    {
+     "name": "land",
+     "view": [
+      -23.34,
+      14,
+      4.6,
+      -0.006,
+      0.162,
+      0.338
+     ],
+     "frames": "the whole disease landscape"
+    },
+    {
+     "name": "landCore",
+     "view": [
+      -23.34,
+      16,
+      1.9,
+      -0.006,
+      0.162,
+      0.338
+     ],
+     "frames": "the landscape's bulk"
+    },
+    {
+     "name": "landCdk5",
+     "view": [
+      161.043,
+      8,
+      0.55,
+      0.077,
+      0.085,
+      0.082
+     ],
+     "frames": "close to CDK5 in the landscape, its 30 nearest round it"
+    }
+   ],
+   "controls": [
+    {
+     "key": "clouds",
+     "label": "Processes",
+     "options": [
+      {
+       "value": "shown",
+       "label": "Shown"
+      },
+      {
+       "value": "hidden",
+       "label": "Hidden"
+      }
+     ]
+    },
+    {
+     "key": "links",
+     "label": "Links",
+     "options": [
+      {
+       "value": "on",
+       "label": "On"
+      },
+      {
+       "value": "off",
+       "label": "Off"
+      }
+     ]
+    },
+    {
+     "key": "shell",
+     "label": "Outer shell",
+     "options": [
+      {
+       "value": "shown",
+       "label": "Shown"
+      },
+      {
+       "value": "faint",
+       "label": "Faint"
+      }
+     ]
+    }
+   ],
+   "anchors": [
+    "centre",
+    "top",
+    "cdk5",
+    "p35",
+    "p39",
+    "capn1",
+    "app",
+    "near",
+    "nearTag",
+    "nearNames",
+    "pick",
+    "term",
+    "partners",
+    "famNear",
+    "famList",
+    "p35tag",
+    "p39tag",
+    "clouds",
+    "cloud",
+    "shellIn",
+    "shellOut",
+    "landDis",
+    "landWall",
+    "fam_CDK1",
+    "fam_CDK2",
+    "fam_CDK8",
+    "fam_CDK19",
+    "fam_CDK15",
+    "fam_CDK3",
+    "fam_CDK7",
+    "fam_CDK9",
+    "fam_CDK4",
+    "fam_CDK13",
+    "fam_CDK6",
+    "fam_CDK20",
+    "fam_CDK14",
+    "fam_CDK18",
+    "fam_CDK10",
+    "fam_CDK16",
+    "fam_CDK17",
+    "fam_CDK12",
+    "cloud0",
+    "cloud1",
+    "cloud2",
+    "cloud3",
+    "cloud4",
+    "cloud5",
+    "cloud6",
+    "cloud7",
+    "cloud8",
+    "cloud9",
+    "cloud10",
+    "cloud11",
+    "cloud12",
+    "cloud13"
+   ],
+   "otherExports": [
+    "api"
+   ],
+   "notes": "Every place, colour and link is the authors' (the CDK5_analytics VR project, through CDATA); the tags' numbers come from CDATA."
+  },
+  {
+   "id": "cdk5/core",
+   "key": "core",
+   "story": "cdk5",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/cdk5/src/sets/core.js",
+   "manifest": "packages/cdk5/src/sets/core.md",
+   "shows": "The close-up at the map's centre: each scene's centre proteins as lit balls with their names (CDK5 larger, green turning red), their links as glowing tubes, pulses running along NTRK2's and the Alzheimer's pathway's links, and the CDK5 - calpain link the authors drew flashing as p35 is cut.",
+   "frame": "In the net set's frame: the centre proteins within radius 0.42 of the origin.",
+   "size": "about 0.85 across",
+   "sharesFrameWith": [
+    "cdk5/net"
+   ],
+   "params": [
+    {
+     "name": "core_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "core_scene",
+     "range": "0..5, eased",
+     "default": 1,
+     "eased": true,
+     "meaning": "the scene; the engine keys it with net_scene. Between two scenes the balls move from one place to the next and a protein leaving or joining the centre fades with the move; scenes 0 and 5 have no centre"
+    },
+    {
+     "name": "core_names",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "1 every name, 0.5 the key ones only (BDNF, NTRK2, p35, p39, calpain, APP, LMNB1, FOXO3, GOLGA2, PRDX1, with short roles)"
+    },
+    {
+     "name": "core_hyper",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "CDK5's ball green to red, its halo brighter and pulsing faster (two oscillators mixed, a function of t)"
+    },
+    {
+     "name": "core_cut",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the CDK5 - calpain link the authors drew comes in and flashes once (a function of the param alone); tags \"p35 cut into p25 · CDK5 stays on\" and \"Drawn by the authors · calpain acts on p35\" while the calpain scene shows"
+    },
+    {
+     "name": "core_flow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "pulses run along the pathway's links level by level (breadth-first): NTRK2's from BDNF and NTF4 in cyan (scene 2), the Alzheimer's from CDK5 in orange (scene 4); each protein brightens as the wave reaches it; a function of t"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      20,
+      10,
+      1.9,
+      0,
+      0,
+      0
+     ],
+     "frames": "the centre close-up, about 0.9 across"
+    },
+    {
+     "name": "low",
+     "view": [
+      32,
+      -16,
+      1.9,
+      0,
+      -0.04,
+      0
+     ],
+     "frames": "the close-up from a little below"
+    }
+   ],
+   "controls": [],
+   "anchors": [
+    "centre",
+    "cdk5",
+    "capn1",
+    "bdnf",
+    "ntrk2",
+    "app",
+    "top",
+    "cutTag",
+    "cutMid"
+   ],
+   "otherExports": [
+    "api"
+   ],
+   "notes": "Every place, colour and link is the authors' (the CDK5_analytics VR project, through CDATA); the tags' numbers come from CDATA."
+  }
+ ]
+}

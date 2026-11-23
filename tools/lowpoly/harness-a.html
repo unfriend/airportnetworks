@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Miniatures, batch a</title>
+<html lang="en"><head><meta charset="utf-8"><title>Miniatures, kit a</title>
 <style>
 html, body { margin: 0; background: #040912; overflow: hidden; font-family: sans-serif; }
 canvas { display: block; }
@@ -9,14 +9,15 @@ canvas { display: block; }
 #info { position: absolute; right: 8px; top: 4px; color: #6c7d94; font: 12px monospace; }
 </style>
 <script src="../../three.min.js"></script>
-<script src="models-a.js"></script>
+<script>var LOWPOLY_KIT = 'a';</script>
+<script src="load.js"></script>
 </head><body>
 <div id="info"></div>
 <script>
 'use strict';
-// The miniatures of models-a.js in a grid, lit as the app's scenes are, turning slowly (serve the repository root,
-// open /tools/lowpoly/harness-a.html). Query: still (no turning, for screenshots), page=0&per=12 (one sheet of a
-// longer list), cols=4, only=pet.scan,lbi.mac (these keys), az=30&el=18 (the view), box (a faint 1 x 1 x 1 box).
+// The miniatures of kit a (the packages' src/minis.js that say "// kit: a", put together by load.js) in a grid, lit as
+// the app's scenes are, turning slowly (serve the repository root, open /tools/lowpoly/harness-a.html). Query: still (no turning, for screenshots), page=0&per=12 (one sheet of a
+// longer list), cols=4, only=pet.scan,lbi.mac (these keys), pkg=pet,lbi (those packages), built (the built files), az=30&el=18 (the view), box (a faint 1 x 1 x 1 box).
 // Screenshots (Node, with Playwright):
 //   const { chromium } = require('playwright'); const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 //   const p = await b.newPage({ viewport: { width: 1280, height: 760 } });

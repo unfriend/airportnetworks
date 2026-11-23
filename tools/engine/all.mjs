@@ -4,7 +4,8 @@
 // (Not named build.mjs: the relay's --build takes every tools/<dir>/build.mjs for a story's.)
 // The app's own stories moved into packages (named in packages/order.json, tools/stories.mjs) too: packages/<key>/src/
 // build.mjs, which finds the parts as path.join(root, 'tools', 'engine', 'parts.mjs'). Other people's packages (not
-// named there) are theirs to build again: the engine reaches them only then (tools/packages/SPEC.md).
+// named there) are theirs to build again: the engine reaches them only then (tools/packages/SPEC.md). Last, the
+// miniatures (tools/lowpoly/build.mjs: lowpoly.js and every package's minis.js).
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
@@ -16,6 +17,8 @@ const uses = f => { const t = fs.readFileSync(f, 'utf8'); return t.includes("'..
 const builds = fs.readdirSync(tools).sort().map(k => path.join(tools, k, 'build.mjs'))
   .concat(stories(root).list.filter(s => s.pkg && s.build).map(s => path.join(root, s.build)))
   .filter(f => fs.existsSync(f) && uses(f));
+// (and the miniatures: lowpoly.js and every package's minis.js, tools/lowpoly/build.mjs)
+builds.push(path.join(tools, 'lowpoly', 'build.mjs'));
 const keys = builds;
 let bad = 0;
 for (const f of builds) {

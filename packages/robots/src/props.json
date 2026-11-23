@@ -1,0 +1,313 @@
+{
+ "about": "packages/robots/src/props.json: the robots story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "robots/robots",
+   "key": "robots",
+   "story": "robots",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/robots/src/sets/robots.js",
+   "manifest": "packages/robots/src/sets/robots.md",
+   "shows": "A gang of 6 to 24 robot vacuums (a live simulation) in a living room: dock, bump and turn, follow you, conga line or keep away; each robot follows rules about who it follows, which is the network. On a screen the model living room; in a headset your own room from detected planes and meshes.",
+   "frame": "Life size: 1 unit = 1 m, floor at y = 0 in the set's own frame; the room description {kind, floor, walls, blocks} is set with setRoom().",
+   "size": "life size; robot radius 0.17 m",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "robots_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "robots_rule",
+     "range": "0..4",
+     "default": 1,
+     "eased": false,
+     "meaning": "0 dock, 1 bounce, 2 follow, 3 chain, 4 flee",
+     "usedInStory": [
+      0,
+      3
+     ]
+    },
+    {
+     "name": "robots_n",
+     "range": "1..24",
+     "default": 6,
+     "eased": false,
+     "meaning": "how many robots, 1 to 24"
+    },
+    {
+     "name": "robots_trails",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the cleaned area's cyan tint",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "robots_links",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "who follows whom",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "robots_scan",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the room-finding sweep (1: done, gone)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "robots_room",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "1 draw the room; 0 passthrough overlays only"
+    },
+    {
+     "name": "robots_walk",
+     "range": "0..1",
+     "default": 0,
+     "eased": false,
+     "meaning": "when 1 the avatar strolls (a step; the target is set with walkTo)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "robots_dust",
+     "range": "counter",
+     "default": 0,
+     "eased": false,
+     "meaning": "counter: dusty again at each whole number",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "robots_crumbs",
+     "range": "counter",
+     "default": 0,
+     "eased": false,
+     "meaning": "counter: a pile at each whole number",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      35,
+      52,
+      7.8,
+      0,
+      0.1,
+      0.15
+     ],
+     "frames": "the whole room from above and to one side"
+    },
+    {
+     "name": "low",
+     "view": [
+      25,
+      6,
+      1.7,
+      0,
+      0.1,
+      0
+     ],
+     "frames": "low, near the floor"
+    },
+    {
+     "name": "eyes",
+     "view": [
+      0,
+      -18,
+      0.3,
+      0,
+      1.6,
+      0
+     ],
+     "frames": "a stand-in at head height; the engine uses the player's own head"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Above"
+      },
+      {
+       "value": "low",
+       "label": "Low down"
+      },
+      {
+       "value": "eyes",
+       "label": "Your eyes"
+      }
+     ]
+    },
+    {
+     "key": "rule",
+     "label": "Rule",
+     "options": [
+      {
+       "value": "follow",
+       "label": "Follow me"
+      },
+      {
+       "value": "chain",
+       "label": "Conga line"
+      },
+      {
+       "value": "flee",
+       "label": "Keep away"
+      },
+      {
+       "value": "bounce",
+       "label": "Bump and turn"
+      }
+     ]
+    },
+    {
+     "key": "robots",
+     "label": "Robots",
+     "options": [
+      {
+       "value": "6",
+       "label": "6"
+      },
+      {
+       "value": "12",
+       "label": "12"
+      },
+      {
+       "value": "24",
+       "label": "24"
+      }
+     ]
+    },
+    {
+     "key": "trails",
+     "label": "Floor",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Cleaned floor"
+      }
+     ]
+    },
+    {
+     "key": "links",
+     "label": "Network",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Who follows whom"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "robots_rule",
+    "robots_n",
+    "robots_trails",
+    "robots_links",
+    "robots_walk"
+   ],
+   "anchors": [
+    "floor",
+    "wall",
+    "dock",
+    "you",
+    "gang",
+    "lead",
+    "crumbs"
+   ],
+   "anchorCount": 7,
+   "labels": [
+    {
+     "text": "Floor",
+     "at": "floor",
+     "cls": "cyn",
+     "shows": [
+      "robots_scan"
+     ]
+    },
+    {
+     "text": "Wall",
+     "at": "wall",
+     "cls": "cyn",
+     "shows": [
+      "robots_scan"
+     ]
+    },
+    {
+     "text": "You",
+     "at": "fn",
+     "cls": "amb",
+     "shows": [
+      "robots_links"
+     ]
+    }
+   ],
+   "labelCount": 3,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "A live simulation; nothing is data."
+   },
+   "api": [],
+   "otherExports": [
+    "setRoom",
+    "modelRoom",
+    "room",
+    "player",
+    "walkTo",
+    "crumbs",
+    "crumbsNear",
+    "floorPoint",
+    "see",
+    "avatar",
+    "shift",
+    "coverage",
+    "robots",
+    "bumps",
+    "state"
+   ],
+   "buildMsNode": 91,
+   "notes": "update(S, t, dt) advances in steps of at most 1/60 s. Step params robots_rule, robots_n, robots_walk, robots_dust, robots_crumbs. Needs the engine's xrRoom for a real room (planes, meshes). In passthrough nothing opaque is drawn. Exports setRoom, modelRoom, room, player, walkTo, crumbs, floorPoint, see, avatar, shift, coverage, robots, bumps, state."
+  }
+ ]
+}

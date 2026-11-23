@@ -1615,7 +1615,8 @@ async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true
 // changed; one build at a time, a moment after the last change). The fingerprint is index.html's HOST.fingerprint.
 // Story packages (packages/, v185) likewise: a package's main.js is told as a story (story { key, fp }), its index
 // (packages/index.json) as the list; with --build a package's sources (packages/<key>/src/, and the folders of tools/ its
-// build names) run packages/<key>/src/build.mjs, then tools/packages/scan.mjs (so the index has its new fingerprint).
+// build names) run packages/<key>/src/build.mjs, then tools/packages/scan.mjs (so the index has its new fingerprint);
+// its miniatures' source or cards (src/minis.js, src/props.json) run tools/lowpoly/build.mjs, then the scan.
 function fingerprint(s) {
   let a = 0xdeadbeef, b = 0x41c6ce57;
   for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
@@ -1724,6 +1725,8 @@ function pkgSourceChanged(rel) {
   W.fps.set(f, fp);
   if (parts[2] === 'build.mjs') buildMap();
   if (W.builds.has('pkg:' + parts[0])) wantBuild('pkg:' + parts[0]);
+  // (its miniatures and their cards: tools/lowpoly/build.mjs writes its minis.js, then the scan)
+  if (parts.length === 3 && (parts[2] === 'minis.js' || parts[2] === 'props.json') && W.builds.has('lowpoly')) wantBuild('lowpoly');
   // (and every build that reads this package's sources: the readers of a moved story's shared sets)
   for (const [k, b] of W.builds) if (b.pkgs && b.pkgs.has(parts[0]) && k !== 'pkg:' + parts[0]) wantBuild(k);
 }
@@ -1742,8 +1745,8 @@ function nextBuild() {
   const b = W.builds.get(k) || {};
   execFile(process.execPath, [b.script || path.join(WATCH, 'tools', k, 'build.mjs')], { cwd: WATCH, timeout: 180000, maxBuffer: 4 << 20 }, (err, out, errOut) => {
     W.building = '';
-    // (a package's new main.js: its index again, so its fingerprint there is the new one)
-    if (!err && b.pkg) { try { execFileSync(process.execPath, [path.join(WATCH, 'tools', 'packages', 'scan.mjs')], { cwd: WATCH, timeout: 60000, stdio: 'ignore' }); } catch { /* told by --check */ } }
+    // (a package's new main.js, or new miniatures: its index again, so its fingerprints there are the new ones)
+    if (!err && (b.pkg || k === 'lowpoly')) { try { execFileSync(process.execPath, [path.join(WATCH, 'tools', 'packages', 'scan.mjs')], { cwd: WATCH, timeout: 60000, stdio: 'ignore' }); } catch { /* told by --check */ } }
     const ms = Date.now() - t0, text = (String(out || '') + String(errOut || '')).slice(-2000);
     log(`build: ${k} ${err ? 'failed' : 'done'} in ${ms} ms${err ? ': ' + text.trim().split('\n').slice(-1)[0] : ''}`);
     tell('build', { key: b.pkg || k, ok: !err, ms, out: text });

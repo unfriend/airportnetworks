@@ -1,0 +1,1863 @@
+{
+ "about": "packages/micro/src/props.json: the micro story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "micro/organs",
+   "key": "organs",
+   "story": "micro",
+   "reusedBy": [
+    "micro/atlas",
+    "micro/hier",
+    "topo/*"
+   ],
+   "reuses": [],
+   "file": "packages/micro/src/sets/organs.js",
+   "manifest": "packages/micro/src/sets/organs.md",
+   "shows": "Small lit 3D models of the 29 organs of the microanatomy atlas (adipose to vagina), each a signed distance field of a few primitives polygonised by surface nets, replacing flat icons. Used as meshes on the body, the atlas plates and the network's organ ring, and as pictures in panes.",
+   "frame": "Each model is centred in its own small box; no shared scene frame. Other sets read ORGAN3D, not this set's group.",
+   "size": "drawn small (organ nodes on the network ring are radius 0.062 + 0.005 sqrt(degree))",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "organs_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "organs_spin",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "turns the models (harness)"
+    },
+    {
+     "name": "organs_tint",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "models take their level colour (harness)"
+    },
+    {
+     "name": "organs_pics",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "lays the 2D pictures over the page (harness)"
+    },
+    {
+     "name": "organs_lite",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "shows the lighter low-triangle models"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      0,
+      3.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "one frame for the harness grid of 29 models"
+    }
+   ],
+   "controls": [],
+   "exploreDrives": [],
+   "anchors": [],
+   "anchorCount": 0,
+   "labels": [
+    {
+     "text": "brain",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "thyroid",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "lungs",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "heart",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "liver",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "spleen",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "pancreas",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "kidney",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "adrenal",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "smallint",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "colon",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "muscle",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "adipose",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "artery",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "bladder",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "breast",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "cervix",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "esophagus",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "fallopian",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "salivary",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "nerve",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "ovary",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "pituitary",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "prostate",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "skin",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "stomach",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "testis",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "uterus",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "vagina",
+     "at": "point",
+     "cls": "",
+     "shows": []
+    }
+   ],
+   "labelCount": 29,
+   "data": {
+    "kind": "none",
+    "reads": [
+     "MICRO_DATA.organs (names, to find each model by name)"
+    ],
+    "text": "Drawn models; natural colours brightened for the dark scene."
+   },
+   "api": [],
+   "otherExports": [
+    "tris",
+    "trisLite"
+   ],
+   "buildMsNode": 2685,
+   "notes": "Slow to build (about 2.8 s in total), so it is built between frames from the start, one organ after another, the one on show first. Exports tris, trisLite and ORGAN3D (the topology liver scene uses it). Harness only controls: organs_spin, organs_tint, organs_pics, organs_lite.",
+   "cardNote": "Not a scene of its own: a library of small organ models (ORGAN3D) that the atlas, the network and the tissue topology story draw."
+  },
+  {
+   "id": "micro/slide",
+   "key": "slide",
+   "story": "micro",
+   "reusedBy": [],
+   "reuses": [
+    "lbi/tissue (overlay in its frame)"
+   ],
+   "file": "packages/micro/src/sets/slide.js",
+   "manifest": "packages/micro/src/sets/slide.md",
+   "shows": "The preprint's method (H&E-UTAG) shown on one section: it is cut into tiles, a vision model describes each as glowing blocks, a network of neighbours passes messages, the tiles lift into a 3D map where alike tiles gather and take their domain colour, then fly back and colour the section; the domains change from age 20 to 70.",
+   "frame": "An overlay in the tour's tissue set's frame (the stomach-wall H&E slab); show tissue and slide together with the same transform.",
+   "size": "as the tissue slab (~2.1 long)",
+   "sharesFrameWith": [
+    "lbi/tissue"
+   ],
+   "params": [
+    {
+     "name": "slide_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "slide_tiles",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tile outlines draw on, each traced round its edge, in a diagonal sweep from left to right with some randomness",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_feat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the slide darkens and every tile's mosaic lights up, in a wave from the close-up tile (each block rises over 0.45 of the param)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_adj",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "each tile takes its own tint (0-0.25); the network appears in a wave from the close-up tile (nodes, then links), messages run along the links, and the tints and mosaics",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_group",
+     "range": "0..2",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..2. 0-1: the nodes lift off (staggered) and gather in the map, taking their group's colour; the links go (0-0.25)",
+     "usedInStory": [
+      0,
+      2
+     ]
+    },
+    {
+     "name": "slide_domain",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tiles take their domain colours one by one (each over 0.45 of the param, the last starting at 0.55)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_age",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "age 20 (0) to 70 (1): the submucosa / muscle border rises, so the submucosa loses the same fraction of itself as in the preprint's example (about a fifth)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "slide_focus",
+     "range": "0..6 (domain + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0..6: domain index + 1 (0 none). That domain shows its colour (even without slide_domain), glows softly and gets bright borders; the rest dim, their borders too",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "slide_gauge",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "shows the gauge (and its label) even at age 20"
+    },
+    {
+     "name": "slide_ghost",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "harness only: draws an instance of SETS.tissue under the overlay (built the first time it is > 0)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      6,
+      3.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole slab (as the tissue set's section)"
+    },
+    {
+     "name": "section",
+     "view": [
+      0,
+      6,
+      3.2,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole section, same as default"
+    },
+    {
+     "name": "tiles",
+     "view": [
+      -20.556,
+      12,
+      1.7,
+      -0.301,
+      0.108,
+      -0.03
+     ],
+     "frames": "the top-left tiles), feat (over the close-up tile's mosaic, a little right of it), listen (the close-up"
+    },
+    {
+     "name": "matrix",
+     "view": [
+      -20.123,
+      20,
+      0.56,
+      -0.164,
+      0.121,
+      -0.024
+     ],
+     "frames": "the mosaics close up at a slant, so the blocks stand out of the slide"
+    },
+    {
+     "name": "close",
+     "view": [
+      -12.428,
+      26,
+      0.8,
+      -0.137,
+      0.119,
+      -0.011
+     ],
+     "frames": "the network over the close-up tile and its neighbours"
+    },
+    {
+     "name": "group",
+     "view": [
+      -12,
+      12,
+      3,
+      0.08,
+      0.34,
+      0.135
+     ],
+     "frames": "the map and the whole section under it"
+    },
+    {
+     "name": "domains",
+     "view": [
+      5,
+      5,
+      2.85,
+      0.02,
+      -0.02,
+      0
+     ],
+     "frames": "the domain map with its labels"
+    },
+    {
+     "name": "age",
+     "view": [
+      0,
+      8,
+      3.25,
+      -0.06,
+      0.12,
+      0
+     ],
+     "frames": "the section for the age sweep from 20 to 70"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "section",
+       "label": "Section"
+      },
+      {
+       "value": "tiles",
+       "label": "Tiles"
+      },
+      {
+       "value": "matrix",
+       "label": "Features"
+      },
+      {
+       "value": "close",
+       "label": "Neighbours"
+      },
+      {
+       "value": "group",
+       "label": "Groups"
+      },
+      {
+       "value": "domains",
+       "label": "Domains"
+      },
+      {
+       "value": "age",
+       "label": "Age"
+      }
+     ]
+    },
+    {
+     "key": "age",
+     "label": "Age",
+     "options": [
+      {
+       "value": "20",
+       "label": "20"
+      },
+      {
+       "value": "70",
+       "label": "70"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "slide_tiles",
+    "slide_feat",
+    "slide_adj",
+    "slide_group",
+    "slide_domain",
+    "slide_age",
+    "slide_gauge"
+   ],
+   "anchors": [
+    "tiles",
+    "feat",
+    "listen",
+    "close",
+    "cloud",
+    "cloudC",
+    "mucosa",
+    "submucosa",
+    "inner",
+    "outer",
+    "lymphoid",
+    "vessels",
+    "muscularis",
+    "gauge",
+    "grp0",
+    "grp1",
+    "grp2",
+    "grp3",
+    "grp4",
+    "grp5"
+   ],
+   "anchorCount": 20,
+   "labels": [
+    {
+     "text": "Tiles",
+     "at": "tiles",
+     "cls": "cyn",
+     "shows": [
+      "slide_tiles",
+      "slide_feat",
+      "slide_adj",
+      "slide_domain"
+     ]
+    },
+    {
+     "text": "Featuresa list of numbers a tile",
+     "at": "feat",
+     "cls": "cyn",
+     "shows": [
+      "slide_feat",
+      "slide_adj",
+      "slide_group",
+      "slide_domain"
+     ]
+    },
+    {
+     "text": "Each tilelistens to its neighbours",
+     "at": "listen",
+     "cls": "cyn",
+     "shows": [
+      "slide_adj",
+      "slide_group",
+      "slide_domain"
+     ]
+    },
+    {
+     "text": "Alike tilesgather: a domain each",
+     "at": "cloud",
+     "cls": "cyn",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Mucosa",
+     "at": "grp0",
+     "cls": "amb",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Submucosa",
+     "at": "grp1",
+     "cls": "mag",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Muscleinner, circular",
+     "at": "grp2",
+     "cls": "grn",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Muscleouter, lengthwise",
+     "at": "grp3",
+     "cls": "grn",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Lymphoidpatch",
+     "at": "grp4",
+     "cls": "cyn",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Blood vessels",
+     "at": "grp5",
+     "cls": "",
+     "shows": [
+      "slide_group",
+      "slide_focus"
+     ]
+    },
+    {
+     "text": "Mucosa",
+     "at": "mucosa",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Submucosa",
+     "at": "submucosa",
+     "cls": "mag",
+     "shows": []
+    },
+    {
+     "text": "Muscleinner, circular",
+     "at": "inner",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Muscleouter, lengthwise",
+     "at": "outer",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Lymphoidpatch",
+     "at": "lymphoid",
+     "cls": "cyn",
+     "shows": []
+    },
+    {
+     "text": "Blood vessels",
+     "at": "vessels",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Gut submucosathins with age",
+     "at": "gauge",
+     "cls": "mag",
+     "shows": []
+    }
+   ],
+   "labelCount": 17,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "MICRO_DATA"
+    ],
+    "text": "Domain shares and examples from the preprint (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025), typed in; tiles and features are drawn. No GTEx images."
+   },
+   "api": [
+    "domains",
+    "titles",
+    "colours",
+    "shares",
+    "pick",
+    "domainColour",
+    "recolour"
+   ],
+   "otherExports": [
+    "textures",
+    "dispose",
+    "tileCount",
+    "linkCount"
+   ],
+   "buildMsNode": 123,
+   "notes": "Copies layers(), plane(), the centring and the lymphoid aggregate from the tissue set; if tissue.js changes its geometry, change it here too. Step params slide_focus. Exports api (domains, titles, colours, shares, pick, recolour), textures, dispose."
+  },
+  {
+   "id": "micro/atlas",
+   "key": "atlas",
+   "story": "micro",
+   "reusedBy": [],
+   "reuses": [
+    "micro/organs (ORGAN3D)"
+   ],
+   "file": "packages/micro/src/sets/atlas.js",
+   "manifest": "packages/micro/src/sets/atlas.md",
+   "shows": "The slide library as a curved wall of glass slides, the atlas of 40 sections standing in relief on a 10 x 4 arc with each section's organ model, a cloud of tiles, the volcano of changing domains, the age trajectories on glass lanes; at the end it morphs into the network of organ architecture.",
+   "frame": "y up, viewer towards +z; wall at the back, sections in front, tiles in the middle; centred on the origin.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "atlas_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "atlas_lib",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the library: slides burst from the stage's middle onto the wall in waves (the centre columns first); glints sweep the glass",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_map",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the atlas: each tissue's section leaves its column on the wall and comes forward to the arc as an H&E section (0.0 to 0.6), then its domain colours wash in",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_umap",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the tile cloud: tiles rise out of the sections (staggered, an arc upwards) into the embedding; plates and captions fade",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_focus",
+     "range": "0..40 (tissue + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "tissue index + 1 (0 none): that section comes forward big, the others recede and dim",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "atlas_age",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "age 20 -> 70 for every section's domains; a gauge with a marker runs along the top of a focused section",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_volcano",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the volcano: a dark glass floor and the two axes as lit rods, a faint grid (0 to 0.35); bubbles (lit spheres) pop in with their soft shadows on the floor (0.15 to 0.8)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_curves",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "trajectories: five lanes, each on a strip of dark glass, draw from age 20 to 70 as a glowing tube along the top of a lit ribbon (0.034 deep) over a soft curtain",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "atlas_net",
+     "range": "0..1 (morph, jumps)",
+     "default": 0,
+     "eased": false,
+     "meaning": "with atlas_map 1 the atlas turns into the network of organ architecture, in step with hier_grow",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      10,
+      3.4,
+      0,
+      0,
+      -0.12
+     ],
+     "frames": "the wall of slides (same as library)"
+    },
+    {
+     "name": "library",
+     "view": [
+      0,
+      10,
+      3.4,
+      0,
+      0,
+      -0.12
+     ],
+     "frames": "the curved wall of glass slides"
+    },
+    {
+     "name": "atlas",
+     "view": [
+      0,
+      3,
+      3.2,
+      0,
+      0,
+      0.14
+     ],
+     "frames": "the arc's centre"
+    },
+    {
+     "name": "umap",
+     "view": [
+      24,
+      14,
+      3.3,
+      0,
+      0.05,
+      0.08
+     ],
+     "frames": "the cloud of tiles in the middle"
+    },
+    {
+     "name": "focus",
+     "view": [
+      -26,
+      16,
+      1.95,
+      0,
+      0,
+      0.72
+     ],
+     "frames": "the focused section's centre, or the atlas's centre"
+    },
+    {
+     "name": "volcano",
+     "view": [
+      -6,
+      9,
+      3.1,
+      0.24,
+      0.02,
+      0.1
+     ],
+     "frames": "the volcano of bubbles over its glass floor, with a section beside it"
+    },
+    {
+     "name": "curves",
+     "view": [
+      -20,
+      14,
+      3.4,
+      0.33,
+      -0.04,
+      0.08
+     ],
+     "frames": "the trajectories on their glass lanes, age 20 to 70"
+    },
+    {
+     "name": "age",
+     "view": [
+      0,
+      6,
+      3.4,
+      0.2,
+      0.02,
+      0.3
+     ],
+     "frames": "volcano or curves with a focused section"
+    },
+    {
+     "name": "slides",
+     "view": [
+      -8,
+      6,
+      0.75,
+      -0.1,
+      0.22,
+      -0.49
+     ],
+     "frames": "close on a tissue's glass slides"
+    },
+    {
+     "name": "shelf",
+     "view": [
+      -32,
+      10,
+      0.3,
+      -0.12,
+      0.1,
+      -0.47
+     ],
+     "frames": "very close: slides standing in the wall's compartments"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "library",
+       "label": "Library"
+      },
+      {
+       "value": "atlas",
+       "label": "Atlas"
+      },
+      {
+       "value": "tiles",
+       "label": "Tiles"
+      },
+      {
+       "value": "age",
+       "label": "Age"
+      },
+      {
+       "value": "pathology",
+       "label": "Pathology"
+      }
+     ]
+    },
+    {
+     "key": "age",
+     "label": "Age",
+     "options": [
+      {
+       "value": "20",
+       "label": "20 years"
+      },
+      {
+       "value": "70",
+       "label": "70 years"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "atlas_lib",
+    "atlas_map",
+    "atlas_umap",
+    "atlas_volcano",
+    "atlas_curves",
+    "atlas_age"
+   ],
+   "anchors": [
+    "library",
+    "libTop",
+    "libBase",
+    "libAge",
+    "libAge20",
+    "libAge70",
+    "atlas",
+    "atlasTop",
+    "umap",
+    "umapTop",
+    "focus",
+    "focusTop",
+    "age20",
+    "age70",
+    "ageMark",
+    "volcano",
+    "volcanoTop",
+    "vLeft",
+    "vRight",
+    "curves",
+    "curveAxis",
+    "age",
+    "ex0",
+    "exDom0",
+    "ex1",
+    "exDom1",
+    "ex2",
+    "exDom2",
+    "sec0",
+    "secTop0",
+    "sec1",
+    "secTop1",
+    "sec2",
+    "secTop2",
+    "sec3",
+    "secTop3",
+    "sec4",
+    "secTop4",
+    "sec5",
+    "secTop5",
+    "sec6",
+    "secTop6",
+    "sec7",
+    "secTop7",
+    "sec8",
+    "secTop8",
+    "sec9",
+    "secTop9",
+    "sec10",
+    "secTop10",
+    "sec11",
+    "secTop11",
+    "sec12",
+    "secTop12",
+    "sec13",
+    "secTop13",
+    "sec14",
+    "secTop14",
+    "sec15",
+    "secTop15",
+    "sec16",
+    "secTop16",
+    "sec17",
+    "secTop17",
+    "sec18",
+    "secTop18",
+    "sec19",
+    "secTop19",
+    "sec20",
+    "secTop20",
+    "sec21",
+    "secTop21",
+    "sec22",
+    "secTop22",
+    "sec23",
+    "secTop23",
+    "sec24",
+    "secTop24",
+    "sec25",
+    "secTop25"
+   ],
+   "anchorCount": 118,
+   "labels": [
+    {
+     "text": "24,945 slides",
+     "at": "libTop",
+     "cls": "mag",
+     "shows": [
+      "atlas_lib",
+      "atlas_map",
+      "atlas_umap",
+      "atlas_volcano",
+      "atlas_curves",
+      "atlas_focus"
+     ]
+    },
+    {
+     "text": "40 tissues of 29 organs",
+     "at": "libBase",
+     "cls": "",
+     "shows": [
+      "atlas_lib",
+      "atlas_map",
+      "atlas_umap",
+      "atlas_volcano",
+      "atlas_curves",
+      "atlas_focus"
+     ]
+    },
+    {
+     "text": "983 people, aged 20 to 70",
+     "at": "libAge",
+     "cls": "amb",
+     "shows": [
+      "atlas_lib",
+      "atlas_map",
+      "atlas_umap",
+      "atlas_volcano",
+      "atlas_curves",
+      "atlas_focus"
+     ]
+    },
+    {
+     "text": "70 years",
+     "at": "libAge70",
+     "cls": "",
+     "shows": [
+      "atlas_lib",
+      "atlas_map",
+      "atlas_umap",
+      "atlas_volcano",
+      "atlas_curves",
+      "atlas_focus"
+     ]
+    },
+    {
+     "text": "20 years",
+     "at": "libAge20",
+     "cls": "",
+     "shows": [
+      "atlas_lib",
+      "atlas_map",
+      "atlas_umap",
+      "atlas_volcano",
+      "atlas_curves",
+      "atlas_focus"
+     ]
+    },
+    {
+     "text": "218 domains in 74 types",
+     "at": "atlasTop",
+     "cls": "cyn",
+     "shows": [
+      "atlas_map",
+      "atlas_umap",
+      "atlas_net"
+     ]
+    },
+    {
+     "text": "162 million tiles, 218 domains",
+     "at": "umapTop",
+     "cls": "cyn",
+     "shows": [
+      "atlas_umap"
+     ]
+    },
+    {
+     "text": "28 % of domains change with age",
+     "at": "volcanoTop",
+     "cls": "amb",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Falls with age",
+     "at": "vLeft",
+     "cls": "cyn",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Rises with age",
+     "at": "vRight",
+     "cls": "mag",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Age 20 to 70",
+     "at": "curveAxis",
+     "cls": "",
+     "shows": [
+      "atlas_curves"
+     ]
+    },
+    {
+     "text": "Corpus albicans ovary",
+     "at": "ex0",
+     "cls": "mag",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Corpus albicans 1.4 % → 11.9 %",
+     "at": "exDom0",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Corpus albicans 1.4 → 11.9 %",
+     "at": "exDom0",
+     "cls": "amb",
+     "shows": [
+      "atlas_curves"
+     ]
+    },
+    {
+     "text": "Submucosa gut",
+     "at": "ex1",
+     "cls": "cyn",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Submucosa 42.9 % → 34.5 %",
+     "at": "exDom1",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Submucosa 42.9 → 34.5 %",
+     "at": "exDom1",
+     "cls": "amb",
+     "shows": [
+      "atlas_curves"
+     ]
+    },
+    {
+     "text": "Adenohypophysis pituitary",
+     "at": "ex2",
+     "cls": "cyn",
+     "shows": [
+      "atlas_volcano"
+     ]
+    },
+    {
+     "text": "Adenohypophysis 82.6 % → 67.9 %",
+     "at": "exDom2",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Adenohypophysis 82.6 → 67.9 %",
+     "at": "exDom2",
+     "cls": "amb",
+     "shows": [
+      "atlas_curves"
+     ]
+    },
+    {
+     "text": "Calcified plaques arteries",
+     "at": "curve0",
+     "cls": "mag",
+     "shows": []
+    },
+    {
+     "text": "Calcified plaques",
+     "at": "curveTag0",
+     "cls": "mag",
+     "shows": []
+    },
+    {
+     "text": "Infarct tissue heart",
+     "at": "curve1",
+     "cls": "mag",
+     "shows": []
+    },
+    {
+     "text": "Infarct tissue",
+     "at": "curveTag1",
+     "cls": "mag",
+     "shows": []
+    },
+    {
+     "text": "Corpus albicans 1.4 → 11.9 %",
+     "at": "curve2",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Corpus albicans",
+     "at": "curveTag2",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Submucosa 42.9 → 34.5 %",
+     "at": "curve3",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Submucosa",
+     "at": "curveTag3",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Adenohypophysis 82.6 → 67.9 %",
+     "at": "curve4",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Adenohypophysis",
+     "at": "curveTag4",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "20 years",
+     "at": "age20",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "70 years",
+     "at": "age70",
+     "cls": "",
+     "shows": []
+    }
+   ],
+   "labelCount": 32,
+   "data": {
+    "kind": "figures",
+    "reads": [
+     "MICRO_DATA",
+     "ORGAN3D"
+    ],
+    "text": "The preprint's numbers (24,945 slides of 40 tissues) typed in and values read off the talk's figures (figures.json). Sections and slides are drawn, never GTEx images."
+   },
+   "api": [
+    "tissues",
+    "short",
+    "organs",
+    "examples",
+    "pick",
+    "domainColour",
+    "domains",
+    "tissuesOf",
+    "volcanoFromFigure",
+    "slides",
+    "tiles",
+    "useNetwork",
+    "netLead",
+    "netMap"
+   ],
+   "otherExports": [
+    "finish"
+   ],
+   "buildMsNode": 1074,
+   "notes": "Build 0.25 to 1.9 s depending on load; up to 14 draw calls; 150k to 225k triangles per view. atlas_net jumps (the morph is keyed with hier_grow; the network takes the atlas's turn at hand-over). Exports api (tissues, organs, examples, tiles, useNetwork, netLead, netMap ...)."
+  },
+  {
+   "id": "micro/hier",
+   "key": "hier",
+   "story": "micro",
+   "reusedBy": [],
+   "reuses": [
+    "micro/organs (ORGAN3D)"
+   ],
+   "file": "packages/micro/src/sets/hier.js",
+   "manifest": "packages/micro/src/sets/hier.md",
+   "shows": "Organ architecture as a four-level hourglass network (29 organs, 24 tissues, 10 tissue types, 70 domains) with glowing curved links, each organ its small 3D model, and the contact networks between domains for six organs.",
+   "frame": "Centred on the origin facing +z; rings at y 0.66 (organs, radius 0.9), 0.28 (tissues, 0.7), -0.1 (tissue types, 0.4), -0.62 (domains, 0.9).",
+   "size": "radius ~0.9; node sizes by degree",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "hier_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "hier_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the network grows top to bottom: organs 0-0.18, tissues 0.22-0.4, tissue types 0.44-0.62, domains 0.66-0.84"
+    },
+    {
+     "name": "hier_focus",
+     "range": "-1..132 (node index)",
+     "default": -1,
+     "eased": false,
+     "meaning": "a node index into MICRO_DATA.graph.nodes (-1 none): it and everything linked above and below light up",
+     "usedInStory": [
+      -1,
+      -1
+     ]
+    },
+    {
+     "name": "hier_contacts",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the contact network comes forward: nodes fly 0.04-0.56, bands draw from both ends to the middle 0.55-0.95, its labels from 0.55",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "hier_organ",
+     "range": "0..5 (contact network)",
+     "default": 0,
+     "eased": false,
+     "meaning": "which contact network: 0 Colon, 1 Skin, 2 Ovary, 3 Fallopian tube, 4 Uterus, 5 Coronary artery (a fraction crossfades two)",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "hier_age",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "age 20 (0) to 70 (1): the changing bands' widths and colours; nodes of the preprint's examples change size",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      12,
+      4.15,
+      0,
+      -0.03,
+      0
+     ],
+     "frames": "the whole hourglass"
+    },
+    {
+     "name": "net",
+     "view": [
+      28,
+      38,
+      4.6,
+      0,
+      -0.2,
+      0
+     ],
+     "frames": "from above: the rings"
+    },
+    {
+     "name": "grow",
+     "view": [
+      6,
+      20,
+      4.4,
+      0,
+      0,
+      0.12
+     ],
+     "frames": "higher and further back: wide enough for the atlas's sections in front of the network"
+    },
+    {
+     "name": "contacts",
+     "view": [
+      0,
+      6,
+      2.8,
+      0.28,
+      0.05,
+      0.45
+     ],
+     "frames": "the contact network left of the middle with its notes column on the right"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "network",
+       "label": "Network"
+      },
+      {
+       "value": "contacts",
+       "label": "Contacts"
+      }
+     ]
+    },
+    {
+     "key": "organ",
+     "label": "Organ",
+     "options": [
+      {
+       "value": "0",
+       "label": "Colon"
+      },
+      {
+       "value": "1",
+       "label": "Skin"
+      },
+      {
+       "value": "2",
+       "label": "Ovary"
+      },
+      {
+       "value": "3",
+       "label": "Fallopian tube"
+      },
+      {
+       "value": "4",
+       "label": "Uterus"
+      },
+      {
+       "value": "5",
+       "label": "Coronary artery"
+      }
+     ]
+    },
+    {
+     "key": "age",
+     "label": "Age",
+     "options": [
+      {
+       "value": "20",
+       "label": "20 years"
+      },
+      {
+       "value": "70",
+       "label": "70 years"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "hier_grow",
+    "hier_contacts",
+    "hier_organ",
+    "hier_age"
+   ],
+   "anchors": [
+    "top",
+    "bottom",
+    "connective",
+    "focus",
+    "contacts",
+    "change",
+    "core",
+    "age",
+    "lv0",
+    "lv1",
+    "lv2",
+    "lv3"
+   ],
+   "anchorCount": 12,
+   "labels": [
+    {
+     "text": "Organs · 29",
+     "at": "lv0",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Tissues · 24 in this map",
+     "at": "lv1",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Tissue types · 10",
+     "at": "lv2",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Domains · 70",
+     "at": "lv3",
+     "cls": "cyn",
+     "shows": []
+    },
+    {
+     "text": "Connective tissue · in 28 of 29 organs",
+     "at": "connective",
+     "cls": "amb",
+     "shows": [
+      "hier_grow"
+     ]
+    },
+    {
+     "text": "Adipose · 2 tissues, 5 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Adipose",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Adrenal Gland · 2 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Adrenal Gland",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Artery · 3 tissues, 5 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Artery",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Bladder · 3 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Bladder",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Brain · 2 tissues, 1 type",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Brain",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Breast · 1 tissue, 3 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Breast",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Cervix · 2 tissues, 3 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Cervix",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Colon · 2 tissues, 3 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Colon",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Esophagus · 3 tissues, 6 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Esophagus",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Fallopian Tube · 5 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Fallopian Tube",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Heart · 2 tissues, 2 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Heart",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Kidney · 2 tissues, 2 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Kidney",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Liver · 3 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Liver",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Lung · 2 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Lung",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Minor Salivary Gland · 4 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Minor Salivary Gland",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Muscle · 1 tissue, 2 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Muscle",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Nerve · 1 tissue, 2 types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    },
+    {
+     "text": "Nerve",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Ovary · 2 tissue types",
+     "at": "fn",
+     "cls": "grn",
+     "shows": []
+    }
+   ],
+   "labelCount": 342,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "MICRO_DATA.graph"
+    ],
+    "text": "Iva Buljan's network of organ architecture (the file stays out of the repository); contacts from the talk."
+   },
+   "api": [
+    "nodes",
+    "levels",
+    "pick",
+    "find",
+    "linked",
+    "organsOfType",
+    "organsOfDomain",
+    "contactOrgans",
+    "levelColour",
+    "layout",
+    "useColours"
+   ],
+   "otherExports": [
+    "idle",
+    "finish"
+   ],
+   "buildMsNode": 115,
+   "notes": "Organs are meshes built between frames (idle, finish; spheres until then). 342 labels. Focus and organ are step params. Exports api (nodes, levels, pick, find, linked, organsOfType, organsOfDomain, contactOrgans, layout ...)."
+  }
+ ]
+}

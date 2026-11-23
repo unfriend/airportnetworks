@@ -1,0 +1,1598 @@
+{
+ "about": "packages/qubits/src/props.json: the qubits story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "qubits/pairs",
+   "key": "pairs",
+   "story": "qubits",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/qubits/src/sets/pairs.js",
+   "manifest": "packages/qubits/src/sets/pairs.md",
+   "shows": "Why pairs: a grid of all pairs of genes grows; the example network as a city map with two walkers settling into valleys; a chip with three qubits; and the map folding into eight neighborhoods placed on a ring in Gray-code order with three-digit codes.",
+   "frame": "Centred on the origin, flat map seen from above; neighborhoods on a ring in Gray order.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "pairs_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "pairs_genes",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the grid's genes (dots on its diagonal)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_grid",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the grid of pairs grows: genes n = 6 x 40^grid (6 to 240), pairs n(n-1)/2; the spacing shrinks so it fills the view",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_map",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the city map (ground, streets, street lights); the grid fades as it comes",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_walk",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "two walkers (magenta, cyan) wander the streets with short trails (by t)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_valley",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the valleys dip and glow amber (two, on opposite sides of the map)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_settle",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the walkers settle in the valleys; an amber arc joins them (the pair)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_chip",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the chip with three qubits beside the map (qubits twinkle; with a code picked they show its bits)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_fold",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the map folds into the eight neighborhoods (rings in the cells' colors, code labels)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "pairs_code",
+     "range": "0..8 (neighborhood + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 none, k = 1..8: neighborhood k-1 lights up, its code shows on the chip (bright qubit = 1) and an arc joins them",
+     "usedInStory": [
+      0,
+      8
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      18,
+      46,
+      3.6,
+      0.15,
+      -0.3,
+      0
+     ],
+     "frames": "the map of the example network from above (same as map)"
+    },
+    {
+     "name": "grid",
+     "view": [
+      0,
+      3,
+      3.5,
+      0,
+      0,
+      0
+     ],
+     "frames": "face on to the grid"
+    },
+    {
+     "name": "map",
+     "view": [
+      18,
+      46,
+      3.4,
+      0,
+      -0.3,
+      0
+     ],
+     "frames": "oblique over the map"
+    },
+    {
+     "name": "walkers",
+     "view": [
+      24,
+      34,
+      2.6,
+      0,
+      -0.3,
+      0
+     ],
+     "frames": "closer, the valleys"
+    },
+    {
+     "name": "chip",
+     "view": [
+      -12,
+      34,
+      3.7,
+      0.45,
+      -0.25,
+      0.1
+     ],
+     "frames": "the three-qubit chip and the folded ring"
+    },
+    {
+     "name": "hoods",
+     "view": [
+      6,
+      58,
+      3.9,
+      0.35,
+      -0.3,
+      0.05
+     ],
+     "frames": "from above, the folded ring and the chip"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "pairs",
+       "label": "Pairs"
+      },
+      {
+       "value": "map",
+       "label": "Map"
+      },
+      {
+       "value": "walkers",
+       "label": "Walkers"
+      },
+      {
+       "value": "hoods",
+       "label": "Neighborhoods"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "pairs_genes",
+    "pairs_grid",
+    "pairs_map",
+    "pairs_walk",
+    "pairs_valley",
+    "pairs_settle",
+    "pairs_chip",
+    "pairs_fold",
+    "pairs_code"
+   ],
+   "anchors": [
+    "tri",
+    "genes0",
+    "corner",
+    "map",
+    "walker0",
+    "walker1",
+    "valley0",
+    "valley1",
+    "chip",
+    "q2",
+    "q1",
+    "q0",
+    "hood0",
+    "hood1",
+    "hood2",
+    "hood3",
+    "hood4",
+    "hood5",
+    "hood6",
+    "hood7"
+   ],
+   "anchorCount": 20,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "corner",
+     "cls": "cyn",
+     "shows": [
+      "pairs_genes",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "Walker 1",
+     "at": "walker0",
+     "cls": "mag",
+     "shows": [
+      "pairs_walk",
+      "pairs_map",
+      "pairs_settle",
+      "pairs_fold"
+     ]
+    },
+    {
+     "text": "Walker 2",
+     "at": "walker1",
+     "cls": "cyn",
+     "shows": [
+      "pairs_walk",
+      "pairs_map",
+      "pairs_settle",
+      "pairs_fold"
+     ]
+    },
+    {
+     "text": "Valley · illustrative",
+     "at": "valley0",
+     "cls": "amb",
+     "shows": [
+      "pairs_valley",
+      "pairs_map",
+      "pairs_fold"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "chip",
+     "cls": "",
+     "shows": [
+      "pairs_chip"
+     ]
+    },
+    {
+     "text": "000",
+     "at": "hood0",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "001",
+     "at": "hood1",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "010",
+     "at": "hood2",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "011",
+     "at": "hood3",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "100",
+     "at": "hood4",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "101",
+     "at": "hood5",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "110",
+     "at": "hood6",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    },
+    {
+     "text": "111",
+     "at": "hood7",
+     "cls": "cyn",
+     "shows": [
+      "pairs_code",
+      "pairs_fold",
+      "pairs_map"
+     ]
+    }
+   ],
+   "labelCount": 13,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "QMATH",
+     "QLOOK"
+    ],
+    "text": "Example network (QMATH.DEFAULT, Uneven groups: 320 genes, 5,637 links) computed live; the valleys of the walkers' map are labelled illustrative. American spelling."
+   },
+   "api": [
+    "genes",
+    "links",
+    "codes",
+    "hood",
+    "nmax"
+   ],
+   "otherExports": [],
+   "buildMsNode": 282,
+   "notes": "pairs_code is a step param. Exports api (genes, links, codes, hood, nmax)."
+  },
+  {
+   "id": "qubits/cube",
+   "key": "cube",
+   "story": "qubits",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/qubits/src/sets/cube.js",
+   "manifest": "packages/qubits/src/sets/cube.md",
+   "shows": "The cuts and the coarse operator: the network is cut in two, four and eight and its genes fly to the corners of a cube; the coarse operator A_c lives on the cube; Pauli strings are small cubes with weights, added one by one as the error shrinks; the toolbox (so(6) or so(7)) keeps strings in the algebra bright and drops the rest.",
+   "frame": "Centred on the origin; first cut left/right, second front/back, third top/bottom; 000 is top-front-left.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "cube_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "cube_net",
+     "range": "0..3 (example network)",
+     "default": 1,
+     "eased": false,
+     "meaning": "which example network: 0 Clear groups, 1 Uneven groups, 2 Strong mixing, 3 Random network"
+    },
+    {
+     "name": "cube_cut",
+     "range": "0..1 (found cut or random)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 the found cut, 1 random halvings. Step param"
+    },
+    {
+     "name": "cube_genes",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the gene-level network (points and links)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_bits",
+     "range": "0..3",
+     "default": 3,
+     "eased": true,
+     "meaning": "0..3: the cuts (0 the network, 1 two halves, 2 a square, 3 a cube); links across the cut being made flash amber and a glowing sheet shows the cut",
+     "usedInStory": [
+      0,
+      3
+     ]
+    },
+    {
+     "name": "cube_ac",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the genes gather into their corners and the coarse operator grows: a loop at each corner (the diagonal), an edge between every two corners as wide as their coupling",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_bricks",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the big cube moves left and the gallery of strings comes in (2 rows of 5)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_lesson",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "1: the gallery shows the reference figure's strings one by one, without weights (I, X0, X1, X2, Z2, Z2X1, X2X1, Y2Y1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_build",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the big cube shows the sum of the strings added so far (a gray ghost of A_c behind), with the error-left gauge under it",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_sum",
+     "range": "0..10",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..10: how many strings have been added (continuous: each flies from its slot into the big cube)",
+     "usedInStory": [
+      0,
+      10
+     ]
+    },
+    {
+     "name": "cube_alg",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "strings outside the algebra go gray in the gallery",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_keep",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the big cube keeps only the trace part and the strings inside the algebra; the gauge shows the residual",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "cube_algebra",
+     "range": "0..1 (so(2L) or so(2L+1))",
+     "default": 1,
+     "eased": false,
+     "meaning": "0 so(2L) (the TFIM chain), 1 so(2L+1) (with the boundary Z on the top qubit)"
+    },
+    {
+     "name": "cube_focus",
+     "range": "-1, 0.. (string index)",
+     "default": -1,
+     "eased": false,
+     "meaning": "a string index k (QMATH.parse(name, L), at the bits shown) or -1: the big cube shows that one string's pattern (its loops and hops, unit size) and its name and what it",
+     "usedInStory": [
+      -1,
+      -1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      24,
+      16,
+      3.3,
+      0,
+      0,
+      0
+     ],
+     "frames": "three-quarter view of the cube, as in the reference figure"
+    },
+    {
+     "name": "genes",
+     "view": [
+      30,
+      14,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "the network's center"
+    },
+    {
+     "name": "cube",
+     "view": [
+      24,
+      16,
+      2.7,
+      0,
+      0.02,
+      0
+     ],
+     "frames": "the big cube's center, moves with the gallery"
+    },
+    {
+     "name": "bricks",
+     "view": [
+      4,
+      8,
+      5.6,
+      0.45,
+      -0.02,
+      0
+     ],
+     "frames": "the gallery now , lesson(L) the lesson's names"
+    },
+    {
+     "name": "gallery",
+     "view": [
+      2,
+      6,
+      3.9,
+      1.12,
+      -0.02,
+      0
+     ],
+     "frames": "the gallery of Pauli-string bricks"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "genes",
+       "label": "Genes"
+      },
+      {
+       "value": "cut",
+       "label": "Cut"
+      },
+      {
+       "value": "cube",
+       "label": "Cube"
+      },
+      {
+       "value": "bricks",
+       "label": "Bricks"
+      },
+      {
+       "value": "toolbox",
+       "label": "Toolbox"
+      }
+     ]
+    },
+    {
+     "key": "net",
+     "label": "Network",
+     "options": [
+      {
+       "value": "0",
+       "label": "Clear groups"
+      },
+      {
+       "value": "1",
+       "label": "Uneven groups"
+      },
+      {
+       "value": "2",
+       "label": "Strong mixing"
+      },
+      {
+       "value": "3",
+       "label": "Random network"
+      }
+     ]
+    },
+    {
+     "key": "cut",
+     "label": "Cut",
+     "options": [
+      {
+       "value": "0",
+       "label": "Found"
+      },
+      {
+       "value": "1",
+       "label": "Random"
+      }
+     ]
+    },
+    {
+     "key": "bits",
+     "label": "Bits",
+     "options": [
+      {
+       "value": "3",
+       "label": "3"
+      },
+      {
+       "value": "2",
+       "label": "2"
+      },
+      {
+       "value": "1",
+       "label": "1"
+      }
+     ]
+    },
+    {
+     "key": "alg",
+     "label": "Algebra",
+     "options": [
+      {
+       "value": "1",
+       "label": "so(2L+1)"
+      },
+      {
+       "value": "0",
+       "label": "so(2L)"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "cube_net",
+    "cube_cut",
+    "cube_bits",
+    "cube_genes",
+    "cube_ac",
+    "cube_bricks",
+    "cube_lesson",
+    "cube_build",
+    "cube_sum",
+    "cube_alg",
+    "cube_keep",
+    "cube_algebra",
+    "cube_focus"
+   ],
+   "anchors": [
+    "genes",
+    "cube",
+    "top",
+    "gallery",
+    "gauge",
+    "cut1",
+    "cut2",
+    "cut3",
+    "c000",
+    "c001",
+    "c010",
+    "c011",
+    "c100",
+    "c101",
+    "c110",
+    "c111",
+    "brick0",
+    "brick1",
+    "brick2",
+    "brick3",
+    "brick4",
+    "brick5",
+    "brick6",
+    "brick7",
+    "brick8",
+    "brick9"
+   ],
+   "anchorCount": 26,
+   "labels": [
+    {
+     "text": "0",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "1",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "00",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "01",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "10",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "11",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "000",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "001",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "010",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "011",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "100",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "101",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "110",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "111",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "cube_bits",
+      "cube_genes",
+      "cube_ac",
+      "cube_bricks"
+     ]
+    },
+    {
+     "text": "First cut · digit q2",
+     "at": "cut1",
+     "cls": "amb",
+     "shows": [
+      "cube_genes",
+      "cube_bits",
+      "cube_ac"
+     ]
+    },
+    {
+     "text": "Second cut · digit q1",
+     "at": "cut2",
+     "cls": "amb",
+     "shows": [
+      "cube_genes",
+      "cube_bits",
+      "cube_ac"
+     ]
+    },
+    {
+     "text": "Third cut · digit q0",
+     "at": "cut3",
+     "cls": "amb",
+     "shows": [
+      "cube_genes",
+      "cube_bits",
+      "cube_ac"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "cube_alg"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "top",
+     "cls": "mag",
+     "shows": [
+      "cube_ac"
+     ]
+    },
+    {
+     "text": "Error left",
+     "at": "gauge",
+     "cls": "",
+     "shows": [
+      "cube_build",
+      "cube_keep",
+      "cube_ac"
+     ]
+    },
+    {
+     "text": "Residual · the share dropped",
+     "at": "gauge",
+     "cls": "amb",
+     "shows": [
+      "cube_keep",
+      "cube_ac"
+     ]
+    }
+   ],
+   "labelCount": 40,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "QMATH",
+     "QLOOK"
+    ],
+    "text": "Every number is computed live by QMATH for the example networks (nothing is the real network's). The cut stands in for the authors' beam search."
+   },
+   "api": [
+    "nets",
+    "defaultNet",
+    "analysis",
+    "analyze",
+    "bricks",
+    "lesson",
+    "algebra",
+    "corner",
+    "pick",
+    "NB"
+   ],
+   "otherExports": [
+    "finish"
+   ],
+   "buildMsNode": 52,
+   "notes": "Builds its default network at load and the others when first asked for in explore (a short pause). Step params: cube_net, cube_cut, cube_algebra, cube_focus. Labels with function text (gallery weights, grid count). Exports finish, api (nets, analysis, analyze, bricks, lesson, algebra, corner, pick)."
+  },
+  {
+   "id": "qubits/chart",
+   "key": "chart",
+   "story": "qubits",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/qubits/src/sets/chart.js",
+   "manifest": "packages/qubits/src/sets/chart.md",
+   "shows": "The real run's best residual by depth (our cuts against random ones, with the example network's own residuals live at 1 to 3 bits) and one Trotter step at 3 bits in so(7) as a circuit of six gates with its angles.",
+   "frame": "Chart and circuit share the origin; show one at a time.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "chart_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "chart_plot",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the chart (back panel with lines at 0, 0.25 .. 1, bits 1 to 8 across)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "chart_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the two series draw left to right (bit by bit)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "chart_rand",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the random-cut series (gray, behind)"
+    },
+    {
+     "name": "chart_best",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the best 8-bit run (0.82, K = 256) as a dashed ring at 8 bits"
+    },
+    {
+     "name": "chart_ex",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the example network's residuals at 1, 2, 3 bits (amber rings, dashed line)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "chart_circuit",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the circuit: wires q2, q1, q0 (left to right), time running down, pulses down the wires",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "chart_gates",
+     "range": "0..6",
+     "default": 6,
+     "eased": true,
+     "meaning": "0..6: the gates appear in time order (RX q0, RX q1, RX q2, RZZ q2 q1, RZZ q1 q0, RZ q2)",
+     "usedInStory": [
+      0,
+      6
+     ]
+    },
+    {
+     "name": "chart_run",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "pulses run down the wires and light each gate as they pass (by t)"
+    },
+    {
+     "name": "chart_src",
+     "range": "0..1",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 the real run's angles, 1 the example network's"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      8,
+      3.9,
+      0.1,
+      0.02,
+      0
+     ],
+     "frames": "the residual chart (same as chart)"
+    },
+    {
+     "name": "chart",
+     "view": [
+      0,
+      8,
+      3.9,
+      0.1,
+      0.02,
+      0
+     ],
+     "frames": "face on, a little above"
+    },
+    {
+     "name": "circuit",
+     "view": [
+      -14,
+      6,
+      4.1,
+      0.05,
+      0.03,
+      0
+     ],
+     "frames": "a little from the left"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "chart",
+       "label": "Chart"
+      },
+      {
+       "value": "circuit",
+       "label": "Circuit"
+      }
+     ]
+    },
+    {
+     "key": "ex",
+     "label": "Example network",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    },
+    {
+     "key": "src",
+     "label": "Angles",
+     "options": [
+      {
+       "value": "real",
+       "label": "Real network"
+      },
+      {
+       "value": "ex",
+       "label": "Example network"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "chart_plot",
+    "chart_circuit",
+    "chart_grow",
+    "chart_rand",
+    "chart_best",
+    "chart_ex",
+    "chart_gates",
+    "chart_run",
+    "chart_src"
+   ],
+   "anchors": [
+    "chart",
+    "ours",
+    "rand",
+    "best8",
+    "ex3",
+    "ours3",
+    "axis",
+    "bits",
+    "circuit",
+    "top",
+    "time",
+    "q2",
+    "q1",
+    "q0"
+   ],
+   "anchorCount": 14,
+   "labels": [
+    {
+     "text": "Our cuts · real network",
+     "at": "ours",
+     "cls": "cyn",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "Random cuts",
+     "at": "rand",
+     "cls": "",
+     "shows": [
+      "chart_grow",
+      "chart_rand"
+     ]
+    },
+    {
+     "text": "Best 8-bit run · 0.82",
+     "at": "best8",
+     "cls": "cyn",
+     "shows": [
+      "chart_best",
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "Example network · computed here",
+     "at": "ex3",
+     "cls": "amb",
+     "shows": [
+      "chart_ex"
+     ]
+    },
+    {
+     "text": "Residual · 0 nothing lost, 1 all lost",
+     "at": "axis",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "Bits · qubits per walker",
+     "at": "bits",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "1",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "2",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "3",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "4",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "5",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "6",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "7",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "8",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "chart_grow"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "top",
+     "cls": "mag",
+     "shows": [
+      "chart_circuit"
+     ]
+    },
+    {
+     "text": "q2",
+     "at": "q2",
+     "cls": "",
+     "shows": [
+      "chart_circuit"
+     ]
+    },
+    {
+     "text": "q1",
+     "at": "q1",
+     "cls": "",
+     "shows": [
+      "chart_circuit"
+     ]
+    },
+    {
+     "text": "q0",
+     "at": "q0",
+     "cls": "",
+     "shows": [
+      "chart_circuit"
+     ]
+    },
+    {
+     "text": "Time",
+     "at": "time",
+     "cls": "",
+     "shows": [
+      "chart_circuit"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "mag",
+     "shows": [
+      "chart_gates"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "mag",
+     "shows": [
+      "chart_gates"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "mag",
+     "shows": [
+      "chart_gates"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "chart_gates"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "chart_gates"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "chart_gates"
+     ]
+    }
+   ],
+   "labelCount": 25,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "QUBITS_DATA",
+     "QMATH"
+    ],
+    "text": "Joel Hancock's real run's residuals and circuit angles typed in from his brief, shown only as \"in the real network\"; the example residuals and angles are computed live."
+   },
+   "api": [
+    "residual",
+    "example",
+    "gates"
+   ],
+   "otherExports": [],
+   "buildMsNode": 3,
+   "notes": "Cheap. chart_src is a step (real or example angles). Exports api (residual, example, gates)."
+  }
+ ]
+}

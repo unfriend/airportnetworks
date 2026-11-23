@@ -12,5 +12,7 @@
   "authors": "The app's authors",
   "life": false,
   "list": "experiments",
+  "minis": "minis.js",
+  "icon": "hello.ring",
   "needs": 169
 }

@@ -2885,6 +2885,7 @@ HOST.packages = (function () {
     if (o.life === true) m.life = true;
     if (o.intro === true) m.intro = true;
     if (typeof o.icon === 'string' && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(o.icon)) m.icon = o.icon;
+    if (typeof o.minis === 'string' && /^[a-z0-9][a-z0-9_-]*\.js$/.test(o.minis) && HEX.test(files[o.minis] || '')) m.minis = o.minis;   // (its miniatures: HOST.lowpoly)
     if (P.order.includes(o.key)) m.app = true;
     if (Number.isInteger(o.needs)) m.needs = o.needs;
     if (old) m.refused = true;
@@ -2954,25 +2955,50 @@ HOST.pkgUrl = function (key, file) {
   const m = this.packages.get(key), f = String(file || '').replace(/^\.?\/+/, ''), fp = m && m.files[f];
   return 'packages/' + key + '/' + f + (fp ? '?v=' + fp : '');
 };
-// The low-poly miniatures of every story's sets (lowpoly.js, built by tools/lowpoly/build.mjs): loaded once, when first
-// asked for (the design room's table, the shared rooms' station icons). Its load listener is the shell's (added with
-// HOST.quiet set: a story change removes the listeners a story adds), so it survives a change of story. Resolves to
-// LOWPOLY_MODELS; a failed load is asked again next time.
-HOST.lowpoly = function () {
-  if (this.lowpolyP) return this.lowpolyP;
-  const p = this.lowpolyP = new Promise((res, rej) => {
-    if (self.LOWPOLY_MODELS && Object.keys(self.LOWPOLY_MODELS).length) { res(self.LOWPOLY_MODELS); return; }
-    const s = document.createElement('script'), q = this.quiet;
-    s.src = 'lowpoly.js';
-    this.quiet = true;
-    try {
-      s.addEventListener('load', () => (self.LOWPOLY_MODELS ? res(self.LOWPOLY_MODELS) : rej(new Error('lowpoly.js registered no miniatures'))));
-      s.addEventListener('error', () => rej(new Error('Could not load the miniatures')));
-    } finally { this.quiet = q; }
-    document.head.appendChild(s);
-  });
-  p.catch(() => { if (this.lowpolyP === p) this.lowpolyP = null; });
-  return p;
+// The low-poly miniatures (tools/packages/SPEC.md, "Miniatures"): the shell's own in lowpoly.js (built by
+// tools/lowpoly/build.mjs: the design room's, the studio's and the shell's circles' icons), a story package's in its own
+// file (story.json's minis, packages/<key>/minis.js), each loaded once, when a miniature in it is first asked for (a
+// station's icon, the design room's table), never with the story's main.js. Their load listeners are the shell's (added
+// with HOST.quiet set: a story change removes the listeners a story adds), so they survive a change of story. Each
+// resolves to LOWPOLY_MODELS (the global every file adds to); a failed load is asked again next time.
+// HOST.lowpoly(): lowpoly.js; HOST.lowpoly('<key>.<set>' or '<key>'): the file that holds it (a listed package's own;
+// lowpoly.js for the shell's; for a key this device does not list, packages/<key>/minis.js on the chance it is there: a
+// station's icon of a story not on this device); HOST.lowpoly('*'): lowpoly.js and every listed package's (not the
+// hidden ones), each failure soft.
+HOST.lowpoly = function (name) {
+  const L = this.lowpolyL || (this.lowpolyL = new Map());
+  const load = url => {
+    if (L.has(url)) return L.get(url);
+    const p = new Promise((res, rej) => {
+      const s = document.createElement('script'), q = this.quiet;
+      s.src = url;
+      this.quiet = true;
+      try {
+        s.addEventListener('load', () => (self.LOWPOLY_MODELS ? res(self.LOWPOLY_MODELS) : rej(new Error(url + ' registered no miniatures'))));
+        s.addEventListener('error', () => { s.remove(); rej(new Error('Could not load the miniatures (' + url + ')')); });
+      } finally { this.quiet = q; }
+      document.head.appendChild(s);
+    });
+    L.set(url, p);
+    p.catch(() => { if (L.get(url) === p) L.delete(url); });
+    return p;
+  };
+  if (name === '*') {
+    const soft = p => p.catch(e => console.warn(e && e.message));
+    return (this.packages ? this.packages.ready(5000) : Promise.resolve()).then(() => Promise.all([soft(load('lowpoly.js'))].concat(this.packages ? this.packages.all()
+      .filter(m => m.minis && m.list !== 'hidden').map(m => soft(load(this.pkgUrl(m.key, m.minis)))) : [])))
+      .then(() => { const M = self.LOWPOLY_MODELS; if (!M || !Object.keys(M).length) throw new Error('Could not load the miniatures'); return M; });
+  }
+  const url = this.lowpolyUrl(name);
+  return url ? load(url) : Promise.reject(new Error('No miniatures for ' + name));
+};
+// the file a miniature's name points to ('' none: a listed package without miniatures)
+HOST.lowpolyUrl = function (name) {
+  const k = String(name || '').split('.')[0];
+  if (!k || ['design', 'studio', 'all'].includes(k) || (self.STORY_EXTRA || []).some(m => m && m.key === k)) return 'lowpoly.js';
+  const m = this.packages && this.packages.get(k);
+  if (m) return m.minis ? this.pkgUrl(k, m.minis) : '';
+  return /^[a-z][a-z0-9-]{1,30}$/.test(k) ? 'packages/' + k + '/minis.js' : '';
 };
 // ---------------------------------------------------------------- loading --
 // A story builds in steps (its LOAD queue, each step a task of its own) and reports each one with

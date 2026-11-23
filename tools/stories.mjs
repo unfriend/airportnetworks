@@ -9,7 +9,8 @@
 //   S.all     both; S.get(key) one of them (or a package of anyone's, by its folder), or null
 //   S.keys    S.list's keys; S.order: packages/order.json's list (empty when there is none)
 // file: the story's built or hand-written file (stories/<key>.js or packages/<key>/main.js), relative to root;
-// src: its sources' folder (tools/<key> or packages/<key>/src; null for a hand-written story); build: its build script or
+// src: its sources' folder (tools/<key> or packages/<key>/src; null for a hand-written story, whose src/ holds only its
+// miniatures' sources); build: its build script or
 // null; narrations: its recordings that are there (the first language first); narration(lang): where its recording in
 // that language is or would go (audio/narration[-<key>][-<lang>].mp3, or packages/<key>/audio/narration[-<lang>].mp3).
 import fs from 'fs';
@@ -29,7 +30,7 @@ export function stories(root = HERE) {
   const pkgMeta = k => json(at('packages', k, 'story.json'));
   function one(key, meta, pkg) {
     const file = pkg ? `packages/${key}/main.js` : `stories/${key}.js`;
-    const src = pkg ? (has('packages', key, 'src') ? `packages/${key}/src` : null) : (has('tools', key, 'build.mjs') ? `tools/${key}` : null);
+    const src = pkg ? (has('packages', key, 'src', 'build.mjs') ? `packages/${key}/src` : null) : (has('tools', key, 'build.mjs') ? `tools/${key}` : null);
     const build = src && has(src, 'build.mjs') ? `${src}/build.mjs` : null;
     const narration = lang => (pkg ? `packages/${key}/audio/narration${lang ? '-' + lang : ''}.mp3`
       : key === 'airports' && !lang ? 'audio/narration.mp3' : `audio/narration-${key}${lang ? '-' + lang : ''}.mp3`);

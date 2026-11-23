@@ -1,0 +1,217 @@
+{
+ "about": "packages/flock/src/props.json: the flock story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "flock/flock",
+   "key": "flock",
+   "story": "flock",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/flock/src/sets/flock.js",
+   "manifest": "packages/flock/src/sets/flock.md",
+   "shows": "Starlings at dusk all around you: 200 birds (50 to 400, a live simulation), each following its seven nearest neighbours, keeping its distance and fleeing a falcon with alarm passing between neighbours; sky, a lake, trees and reeds; the flock swoops round you every 88 s.",
+   "frame": "Life size: 1 unit = 1 m, the viewer at the origin, ground y = 0, the sun sets towards -z.",
+   "size": "life size; sky to the horizon, 2,600 reeds within 32 m",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "flock_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "flock_birds",
+     "range": "50..400",
+     "default": 200,
+     "eased": false,
+     "meaning": "how many birds (50-400; new ones join beside a bird already flying)"
+    },
+    {
+     "name": "flock_links",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the network: 0 hidden, 1 shown",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "flock_sky",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the sky, land and reeds; below 0.5 (passthrough AR) hidden, the flock at a third of life size in your room"
+    },
+    {
+     "name": "flock_falcon",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "above 0.5 a falcon comes now and then",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "flock_hunt",
+     "range": "counter (falcon at each whole number)",
+     "default": 0,
+     "eased": false,
+     "meaning": "a falcon each time this passes a whole number (for the story)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      -26,
+      0.25,
+      0,
+      1.6,
+      0
+     ],
+     "frames": "standing in the field, looking up at the sky"
+    },
+    {
+     "name": "up",
+     "view": [
+      30,
+      -48,
+      0.25,
+      0,
+      1.6,
+      0
+     ],
+     "frames": "looking steeply up"
+    },
+    {
+     "name": "afar",
+     "view": [
+      20,
+      6,
+      17,
+      0,
+      9,
+      -4
+     ],
+     "frames": "the engine aims it at the flock"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Follow the flock"
+      },
+      {
+       "value": "free",
+       "label": "Look around"
+      },
+      {
+       "value": "afar",
+       "label": "From afar"
+      }
+     ]
+    },
+    {
+     "key": "birds",
+     "label": "Birds",
+     "options": [
+      {
+       "value": "200",
+       "label": "200"
+      },
+      {
+       "value": "100",
+       "label": "100"
+      },
+      {
+       "value": "400",
+       "label": "400"
+      }
+     ]
+    },
+    {
+     "key": "links",
+     "label": "Network",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "Who follows whom"
+      }
+     ]
+    },
+    {
+     "key": "falcon",
+     "label": "Falcon",
+     "options": [
+      {
+       "value": "some",
+       "label": "Now and then"
+      },
+      {
+       "value": "off",
+       "label": "Off"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "flock_birds",
+    "flock_links",
+    "flock_falcon"
+   ],
+   "anchors": [
+    "flock",
+    "falcon"
+   ],
+   "anchorCount": 2,
+   "labels": [
+    {
+     "text": "Falcon",
+     "at": "falcon",
+     "cls": "amb",
+     "shows": []
+    }
+   ],
+   "labelCount": 1,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "A live simulation; nothing is data."
+   },
+   "api": [],
+   "otherExports": [
+    "see",
+    "scatter",
+    "falcon",
+    "flight",
+    "follow",
+    "hush",
+    "birds",
+    "falconOn",
+    "following",
+    "state"
+   ],
+   "buildMsNode": 286,
+   "notes": "update depends on history, so seeking changes only the params. In a shared room the flock belongs to the station. In passthrough the sky and land are hidden and the flock flies in your room at a third of life size. Step params flock_birds, flock_hunt. Exports see(head, hands, spot), scatter(dir), falcon, follow, hush, state."
+  }
+ ]
+}

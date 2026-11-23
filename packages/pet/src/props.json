@@ -1,0 +1,1267 @@
+{
+ "about": "packages/pet/src/props.json: the pet story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "pet/scan",
+   "key": "scan",
+   "story": "pet",
+   "reusedBy": [],
+   "reuses": [
+    "lbi/body (an unchanged instance inside the patient)"
+   ],
+   "file": "packages/pet/src/sets/scan.js",
+   "manifest": "packages/pet/src/sets/scan.md",
+   "shows": "A glossy PET/CT scanner (no brand, no text) with a patient on the couch, shown as a studio product shot. A plane cuts the housing away to show the detector ring of 4,608 crystals; positrons annihilate, pairs of 511 keV photons fly apart and lines of response join the struck crystals; the couch carries the patient through; the image builds up; finally the patient stands up and hands over to the body set.",
+   "frame": "1 unit = 1 m. Origin at the centre of the bore; its axis is z; the couch comes out towards +z; floor at y = -1.05 (exported as floorY).",
+   "size": "gantry 2.02 wide, 2.1 tall; scanner life size",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "scan_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "scan_bed",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the couch slides in: 0 the table's head end at the gantry's face (the patient outside), 1 the head (its centre) at the ring's centre plane (travel 1.15 m)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_pass",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "added: the couch goes on through the ring, 0 the head in the ring, 0.4 the chest (heart and the lung tumour), 1 the pelvis to the thighs",
+     "usedInStory": [
+      0,
+      0.6
+     ]
+    },
+    {
+     "name": "scan_cut",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the housing's upper half goes (plane from y 1.12 down to 0.015); from 0.5 the bore's cover opens over the ring",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_events",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 none; from about 0.03 the featured event (one every 2 s: slow, comets, a beam for its line; the labels follow it); above 0.08 the others join, their share growing",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_lines",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how many lines of the web stay: 0 none, 1 the newest 3,000 (15 s of the stream); rising, it uncovers older lines, so the web grows",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_image",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0-0.6 the couch carries the patient on through the ring (scan_pass to 1) and the counts light up behind it (grainy); the lines and events fade (gone by about 0.55)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_vision",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the vision row: 0-0.45 the scanner moves left",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "scan_floor",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "added: the floor and its reflection; set 0 in passthrough AR"
+    },
+    {
+     "name": "scan_rise",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "added: the hand-over to the body set. 0-0.25 the scanner goes",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      34,
+      13,
+      7.2,
+      0,
+      -0.25,
+      0.95
+     ],
+     "frames": "three-quarter view of scanner and couch from slightly above"
+    },
+    {
+     "name": "front",
+     "view": [
+      0,
+      4,
+      6.4,
+      0,
+      -0.1,
+      0.4
+     ],
+     "frames": "straight at the bore"
+    },
+    {
+     "name": "ring",
+     "view": [
+      28,
+      22,
+      2.4,
+      0,
+      -0.02,
+      0
+     ],
+     "frames": "close to the cut detector ring, the web and events inside (needs scan_cut 1)"
+    },
+    {
+     "name": "side",
+     "view": [
+      90,
+      6,
+      7.6,
+      0,
+      -0.25,
+      0.9
+     ],
+     "frames": "side view along the couch"
+    },
+    {
+     "name": "inside",
+     "view": [
+      0,
+      18,
+      1.1,
+      0,
+      -0.08,
+      -0.35
+     ],
+     "frames": "in the bore (26 cm above its axis, 10 cm inside its mouth) looking along"
+    },
+    {
+     "name": "vision",
+     "view": [
+      0,
+      3,
+      8.2,
+      0,
+      -0.02,
+      0
+     ],
+     "frames": "the scanner pulled back for the vision row"
+    },
+    {
+     "name": "life",
+     "view": [
+      20,
+      12.4,
+      2.56,
+      0,
+      0,
+      0.8
+     ],
+     "frames": "the scanner from 2.5 m at eye height (1.6 m above the floor)"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "scanner",
+       "label": "Scanner"
+      },
+      {
+       "value": "ring",
+       "label": "Ring"
+      },
+      {
+       "value": "inside",
+       "label": "Inside"
+      },
+      {
+       "value": "vision",
+       "label": "Vision"
+      }
+     ]
+    },
+    {
+     "key": "events",
+     "label": "Events",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    },
+    {
+     "key": "image",
+     "label": "Image",
+     "options": [
+      {
+       "value": "lines",
+       "label": "Lines"
+      },
+      {
+       "value": "image",
+       "label": "Image"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "scan_bed",
+    "scan_pass",
+    "scan_cut",
+    "scan_vision",
+    "scan_events",
+    "scan_lines",
+    "scan_image"
+   ],
+   "anchors": [
+    "centre",
+    "bore",
+    "ring",
+    "gantry",
+    "couch",
+    "patient",
+    "head",
+    "tumour",
+    "event",
+    "lor",
+    "floor",
+    "vision_scan",
+    "vision_body",
+    "vision_net",
+    "vision_prog",
+    "vision_med"
+   ],
+   "anchorCount": 16,
+   "labels": [
+    {
+     "text": "PET/CT scanner",
+     "at": "gantry",
+     "cls": "cyn",
+     "shows": [
+      "scan_cut",
+      "scan_image"
+     ]
+    },
+    {
+     "text": "Detector ring",
+     "at": "ring",
+     "cls": "cyn",
+     "shows": [
+      "scan_cut",
+      "scan_image"
+     ]
+    },
+    {
+     "text": "Two gamma photons· 511 keV each",
+     "at": "event",
+     "cls": "amb",
+     "shows": [
+      "scan_events",
+      "scan_lines"
+     ]
+    },
+    {
+     "text": "Line of response",
+     "at": "lor",
+     "cls": "amb",
+     "shows": [
+      "scan_events",
+      "scan_lines"
+     ]
+    },
+    {
+     "text": "FDGin the patient",
+     "at": "patient",
+     "cls": "amb",
+     "shows": [
+      "scan_image",
+      "scan_rise"
+     ]
+    },
+    {
+     "text": "PET scan",
+     "at": "vision_scan",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "One body",
+     "at": "vision_body",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "One network",
+     "at": "vision_net",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Prognosis",
+     "at": "vision_prog",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Medication",
+     "at": "vision_med",
+     "cls": "",
+     "shows": []
+    }
+   ],
+   "labelCount": 10,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "PET_DATA",
+     "PET_ICONS"
+    ],
+    "text": "Which organs are hot sources (brain, heart, bladder, liver, kidneys, tumour) uses PET_DATA's typical uptakes; the rest is drawn."
+   },
+   "api": [
+    "floorY",
+    "event",
+    "live"
+   ],
+   "otherExports": [
+    "floorY",
+    "riseTo"
+   ],
+   "buildMsNode": 1202,
+   "notes": "Build ~1.2 s, custom studio shader. Embeds an unchanged instance of the tour's body set inside the patient. Exports floorY, riseTo (the hand-over), api (event, live). scan_vision, scan_rise and scan_floor (set 0 in passthrough) are the story's."
+  },
+  {
+   "id": "pet/organs",
+   "key": "organs",
+   "story": "pet",
+   "reusedBy": [],
+   "reuses": [
+    "lbi/body (drawn on it)"
+   ],
+   "file": "packages/pet/src/sets/organs.js",
+   "manifest": "packages/pet/src/sets/organs.md",
+   "shows": "Organs, uptake and the cohort network, drawn on the body: a scan plane segments 14 organs (translucent shells with outlines), 14 uptake bars to the body's right (aorta as the unit), a slab of 658 x 11 cells and the partial-correlation panel with 658 stand-in people, then the paper's networks (all scans, tracers, doses, disease) and lesion views.",
+   "frame": "The body set's frame (feet y -0.95, 1.9 tall, faces +z, slimmed by XS = 0.9); always shown with body.",
+   "size": "body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13",
+   "sharesFrameWith": [
+    "lbi/body"
+   ],
+   "params": [
+    {
+     "name": "organs_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "organs_seg",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the sweep. At 0 no shells, at 1 all of them (the resting look)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_suv",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the uptake bars grow head to toe (0.03 apart, each over 0.36), with icons, leaders, the unit line and labels",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_focus",
+     "range": "0..14 (organ index + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "organ index + 1 in PET_DATA.organs order (brain 1 ... aorta 14), 0 for none",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "organs_lesion",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the tumour hot spot and its rings. Key 0 -> 1 late in the body chapter, and back to 0 before the sweep",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_rows",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0-0.28: the f2 bars become one row (the others fade)"
+    },
+    {
+     "name": "organs_pair",
+     "range": "0..5",
+     "default": 0,
+     "eased": false,
+     "meaning": "which explainer pair: 1..5 (api().pairs index + 1; 1 liver/spleen, 2 heart/lungs, 3 lungs/liver, 4 intestine/marrow, 5 intestine/liver, the indirect one)"
+    },
+    {
+     "name": "organs_scatter",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the rise of the dots and the panel, multiplied with min(organs_pair, 1)"
+    },
+    {
+     "name": "organs_partial",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 the raw values and r; 0-0.55 the cloud shrinks to the residuals"
+    },
+    {
+     "name": "organs_net",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0-0.48: the nodes rise (head to toe, 0.028 apart)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_which",
+     "range": "0..14 (network index)",
+     "default": 0,
+     "eased": false,
+     "meaning": "which network: 0 full, 1 FDG_healthy, 2 A_low, 3 A_high, 4 B_low, 5 B_high, 6 C_low, 7 C_mid, 8 C_high, 9 HK2, 10 GLUT; extras 11 vena, 12 dose_standard, 13"
+    },
+    {
+     "name": "organs_prev",
+     "range": "0..14",
+     "default": 0,
+     "eased": false,
+     "meaning": "the network crossfaded from (an index as above, rounded)"
+    },
+    {
+     "name": "organs_mix",
+     "range": "0..1",
+     "default": 1,
+     "eased": false,
+     "meaning": "0 shows organs_prev, 1 shows organs_which, between a direct crossfade of the two",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_measures",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the density and disorder tag under the network's title (in by 0.4-0.8, only with the network: organs_net)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "organs_ghost",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "harness only: an instance of SETS.body (body_pet 1) under the shells at this alpha, for checking the fit"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      0,
+      4,
+      3.75,
+      0,
+      0,
+      0
+     ],
+     "frames": "the body, all of it"
+    },
+    {
+     "name": "seg",
+     "view": [
+      18,
+      16,
+      2.4,
+      0,
+      0.28,
+      0
+     ],
+     "frames": "the torso with the segmentation plane seen from a little above"
+    },
+    {
+     "name": "bars",
+     "view": [
+      -6,
+      4,
+      3,
+      0.42,
+      0.2,
+      0
+     ],
+     "frames": "above the column), unit (the foot of the ÷ aorta line, under the axis), matrix (right end of the"
+    },
+    {
+     "name": "matrix",
+     "view": [
+      32,
+      30,
+      2.5,
+      0.76,
+      0.1,
+      -0.32
+     ],
+     "frames": "the cohort slab of 658 x 11 cells beside the body"
+    },
+    {
+     "name": "scatter",
+     "view": [
+      8,
+      6,
+      2.1,
+      0.76,
+      0.52,
+      0.2
+     ],
+     "frames": "above the panel"
+    },
+    {
+     "name": "net",
+     "view": [
+      8,
+      6,
+      3.1,
+      0.05,
+      0.37,
+      0.4
+     ],
+     "frames": "the network's middle"
+    },
+    {
+     "name": "lesion",
+     "view": [
+      -24,
+      8,
+      1.15,
+      -0.099,
+      0.42,
+      0.03
+     ],
+     "frames": "close on the lesion"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "organs",
+       "label": "Organs"
+      },
+      {
+       "value": "uptake",
+       "label": "Uptake"
+      },
+      {
+       "value": "matrix",
+       "label": "Matrix"
+      },
+      {
+       "value": "partial",
+       "label": "Partial"
+      },
+      {
+       "value": "network",
+       "label": "Network"
+      }
+     ]
+    },
+    {
+     "key": "network",
+     "label": "Network",
+     "options": [
+      {
+       "value": "full",
+       "label": "All scans"
+      },
+      {
+       "value": "FDG_healthy",
+       "label": "FDG, 9 organs"
+      },
+      {
+       "value": "A_low",
+       "label": "BMI low"
+      },
+      {
+       "value": "A_high",
+       "label": "BMI high"
+      },
+      {
+       "value": "B_low",
+       "label": "Tumour low"
+      },
+      {
+       "value": "B_high",
+       "label": "Tumour high"
+      },
+      {
+       "value": "C_low",
+       "label": "CRP low"
+      },
+      {
+       "value": "C_mid",
+       "label": "CRP mid"
+      },
+      {
+       "value": "C_high",
+       "label": "CRP high"
+      },
+      {
+       "value": "HK2",
+       "label": "HK2"
+      },
+      {
+       "value": "GLUT",
+       "label": "GLUT"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "organs_seg",
+    "organs_suv",
+    "organs_rows",
+    "organs_pair",
+    "organs_scatter",
+    "organs_partial",
+    "organs_net",
+    "organs_measures",
+    "organs_which",
+    "organs_prev",
+    "organs_mix",
+    "organs_lesion"
+   ],
+   "anchors": [
+    "bars",
+    "unit",
+    "matrix",
+    "scatter",
+    "axisX",
+    "axisY",
+    "fit",
+    "net",
+    "title",
+    "measures",
+    "lesion",
+    "plane",
+    "hub",
+    "brain",
+    "bar_brain",
+    "seg_brain",
+    "thyroid",
+    "bar_thyroid",
+    "seg_thyroid",
+    "lungs",
+    "bar_lungs",
+    "seg_lungs",
+    "heart",
+    "bar_heart",
+    "seg_heart",
+    "liver",
+    "bar_liver",
+    "seg_liver",
+    "spleen",
+    "bar_spleen",
+    "seg_spleen",
+    "pancreas",
+    "bar_pancreas",
+    "seg_pancreas",
+    "kidneys",
+    "bar_kidneys",
+    "seg_kidneys",
+    "adrenal",
+    "bar_adrenal",
+    "seg_adrenal",
+    "intestine",
+    "bar_intestine",
+    "seg_intestine",
+    "muscle",
+    "bar_muscle",
+    "seg_muscle",
+    "marrow",
+    "bar_marrow",
+    "seg_marrow",
+    "fat",
+    "bar_fat",
+    "seg_fat",
+    "aorta",
+    "bar_aorta",
+    "seg_aorta"
+   ],
+   "anchorCount": 55,
+   "labels": [
+    {
+     "text": "Brain",
+     "at": "seg_brain",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Brain",
+     "at": "brain",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Brain",
+     "at": "brain",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Brain · hub",
+     "at": "brain",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Brain · 4.4×",
+     "at": "bar_brain",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Thyroid",
+     "at": "seg_thyroid",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Thyroid",
+     "at": "thyroid",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Thyroid",
+     "at": "thyroid",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Thyroid · hub",
+     "at": "thyroid",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Thyroid · 0.95×",
+     "at": "bar_thyroid",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Lungs",
+     "at": "seg_lungs",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Lungs",
+     "at": "lungs",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Lungs",
+     "at": "lungs",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Lungs · hub",
+     "at": "lungs",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Lungs · 0.55×",
+     "at": "bar_lungs",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Heart",
+     "at": "seg_heart",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Heart",
+     "at": "heart",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Heart",
+     "at": "heart",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Heart · hub",
+     "at": "heart",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Heart · 1.8×",
+     "at": "bar_heart",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Liver",
+     "at": "seg_liver",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Liver",
+     "at": "liver",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Liver",
+     "at": "liver",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Liver · hub",
+     "at": "liver",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Liver · 1.35×",
+     "at": "bar_liver",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Spleen",
+     "at": "seg_spleen",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Spleen",
+     "at": "spleen",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Spleen",
+     "at": "spleen",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Spleen · hub",
+     "at": "spleen",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Spleen · 1.1×",
+     "at": "bar_spleen",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Pancreas",
+     "at": "seg_pancreas",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Pancreas",
+     "at": "pancreas",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Pancreas",
+     "at": "pancreas",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Pancreas · hub",
+     "at": "pancreas",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Pancreas · 0.95×",
+     "at": "bar_pancreas",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    },
+    {
+     "text": "Kidneys",
+     "at": "seg_kidneys",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Kidneys",
+     "at": "kidneys",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Kidneys",
+     "at": "kidneys",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Kidneys · hub",
+     "at": "kidneys",
+     "cls": "amb",
+     "shows": []
+    },
+    {
+     "text": "Kidneys · 1.6×",
+     "at": "bar_kidneys",
+     "cls": "",
+     "shows": [
+      "organs_suv",
+      "organs_rows"
+     ]
+    }
+   ],
+   "labelCount": 122,
+   "data": {
+    "kind": "figures",
+    "reads": [
+     "PET_DATA",
+     "PET_ICONS"
+    ],
+    "text": "Paper tables typed in (Geist et al., Med 2025), the two weight matrices printed in its Figure 2A and values read off its Figures 3 and 4 by two readers (stand-ins: typical organ uptakes and a synthetic cohort with Figure 2A's partial correlations). No patient data."
+   },
+   "api": [
+    "netIds",
+    "extraNetIds",
+    "pairs",
+    "pick",
+    "setFocus",
+    "stats"
+   ],
+   "otherExports": [
+    "idle",
+    "finish"
+   ],
+   "buildMsNode": 48,
+   "notes": "Many step params (organs_focus, organs_pair, organs_which, organs_prev, organs_mix). 122 labels. Built between frames in part (idle, finish). Exports api (netIds, extraNetIds, pairs, pick, setFocus, stats)."
+  },
+  {
+   "id": "pet/liver",
+   "key": "liver",
+   "story": "pet",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/pet/src/sets/liver.js",
+   "manifest": "packages/pet/src/sets/liver.md",
+   "shows": "An organ is a network too: a liver made of 3,000 small patches joined into a network (about 19,700 links) by the poster's rule, with its gallbladder and falciform ligament, patches coloured by a stand-in uptake and hubs picked out.",
+   "frame": "Seen from the front: x the patient's left, y up, z forward; centred on the origin by its bounding box.",
+   "size": "1.65 wide, 0.99 tall, 0.77 deep (about 1 unit = 13 cm)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "liver_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "liver_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "patches appear from the middle of the patches outwards, with a cyan front (not white: it must not read as the hottest tissue); at 0 only the glassy organ shows, a"
+    },
+    {
+     "name": "liver_links",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the links appear (from the middle out, in a loose order); the patches dim a little and the shell, the gallbladder and the ligament step back"
+    },
+    {
+     "name": "liver_top",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the best-connected 5 % stand out: each keeps its own hot-iron colour (its uptake) inside a slowly pulsing orange-yellow ring (#ffb020), a little larger and brighter"
+    },
+    {
+     "name": "liver_spin",
+     "range": "turns (0.25 = quarter turn)",
+     "default": 0,
+     "eased": true,
+     "meaning": "turns the organ about its vertical axis (0.25 = a quarter turn); anchors follow"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -16,
+      9,
+      3.4,
+      0,
+      -0.02,
+      0
+     ],
+     "frames": "three-quarter front view, the whole organ"
+    },
+    {
+     "name": "front",
+     "view": [
+      0,
+      3,
+      3.1,
+      0,
+      0,
+      0
+     ],
+     "frames": "straight at the front, the atlas view: both lobes, the notches and the gallbladder's fundus"
+    },
+    {
+     "name": "close",
+     "view": [
+      -34,
+      12,
+      1.7,
+      -0.427,
+      0.153,
+      0.073
+     ],
+     "frames": "into the web round the warmer patch (only for liver_spin 0)"
+    },
+    {
+     "name": "below",
+     "view": [
+      -12,
+      -52,
+      3.1,
+      0,
+      -0.05,
+      0
+     ],
+     "frames": "the underside: the gallbladder in its bed"
+    },
+    {
+     "name": "side",
+     "view": [
+      -90,
+      6,
+      3,
+      0,
+      0,
+      0
+     ],
+     "frames": "from the patient's right: the right lobe's wedge-shaped profile"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "patches",
+       "label": "Patches"
+      },
+      {
+       "value": "links",
+       "label": "Links"
+      },
+      {
+       "value": "hubs",
+       "label": "Hubs"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "liver_grow",
+    "liver_links",
+    "liver_top",
+    "liver_spin"
+   ],
+   "anchors": [
+    "centre",
+    "core",
+    "top",
+    "right",
+    "left",
+    "dome",
+    "notch",
+    "teres",
+    "warm",
+    "cool",
+    "web"
+   ],
+   "anchorCount": 11,
+   "labels": [
+    {
+     "text": "3,000 patches",
+     "at": "right",
+     "cls": "",
+     "shows": [
+      "liver_grow",
+      "liver_links"
+     ]
+    },
+    {
+     "text": "Links:uptake ratio above the threshold",
+     "at": "web",
+     "cls": "cyn",
+     "shows": [
+      "liver_links",
+      "liver_grow",
+      "liver_top"
+     ]
+    },
+    {
+     "text": "Best connectedthe top 5 % of patches",
+     "at": "top",
+     "cls": "amb",
+     "shows": [
+      "liver_top",
+      "liver_grow"
+     ]
+    }
+   ],
+   "labelCount": 3,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "PET_DATA.organs (liver colour only)"
+    ],
+    "text": "Shape and patches are generated, seeded and deterministic; no patient data."
+   },
+   "api": [
+    "patches",
+    "links",
+    "theta",
+    "hubs",
+    "step",
+    "pairs",
+    "meanLinks",
+    "maxLinks"
+   ],
+   "otherExports": [],
+   "buildMsNode": 741,
+   "notes": "Explore-only scene in the PET story. Surface from a signed distance field by surface nets at load (~0.7 s). liver_spin turns it about its vertical axis; bring it back to 0 before the close view. Exports api (patches, links, theta, hubs, step, pairs ...)."
+  }
+ ]
+}

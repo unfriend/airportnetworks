@@ -16,6 +16,7 @@
   "authors": "Christiane Hütter (the Menche lab's CDK5_data); the app's authors",
   "life": false,
   "list": "experiments",
+  "minis": "minis.js",
   "icon": "cdk5.net",
   "needs": 188
 }

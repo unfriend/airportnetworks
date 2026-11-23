@@ -16,6 +16,7 @@
   "authors": "The app's authors",
   "life": false,
   "list": "stories",
+  "minis": "minis.js",
   "icon": "soil.soil",
   "needs": 185
 }

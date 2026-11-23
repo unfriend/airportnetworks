@@ -16,6 +16,7 @@
   "authors": "The app's authors",
   "life": true,
   "list": "stories",
+  "minis": "minis.js",
   "icon": "tutorial.guide",
   "intro": true,
   "needs": 185

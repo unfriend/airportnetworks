@@ -1,0 +1,1757 @@
+{
+ "about": "packages/endo/src/props.json: the endo story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "endo/syn",
+   "key": "syn",
+   "story": "endo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/endo/src/sets/syn.js",
+   "manifest": "packages/endo/src/sets/syn.md",
+   "shows": "One neuromuscular junction close up as a cut-away: a glass nerve bouton with vesicles, active zones, mitochondria and Schwann cell; the synaptic cleft with basement membrane, laminin, collagen IV and Q, acetylcholinesterase and agrin; the muscle side with six junctional folds, 1,677 acetylcholine receptors, MuSK/LRP4 and sodium channels; and the inside of the fibre with nuclei, ER, Golgi, myofibrils, desmin and plectin. Endotype clouds of genes can arrive and settle at their place.",
+   "frame": "Up (+y) is the nerve, down the muscle. Cut plane z = 0.34 facing +z. Axon reaches up and left to about (-2.9, 2.3); the fibre's surface spreads to x +-5 for the wide view.",
+   "size": "~2.4 across (x -1.2 to 1.2); 1 micrometre ~ 0.5 units; small parts drawn bigger than life",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "syn_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "syn_build",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "The junction assembles. 0 to 0.3: the fibre's interior grows in (each part from its middle)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "syn_fire",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Firing, one impulse a second, all from t (phase = t mod 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "syn_tired",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Fatigable weakness, with firing on. An 8-second loop: six impulses release less and less (relative release 1, 0.7, 0.5, 0.36, 0.27, 0.2 at syn_tired 1), then two",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "syn_genes",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The 35 seed genes light up where they act, as glowing markers in their endotype's colour",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "syn_place",
+     "range": "0..12 (endotype id + 1, 0 none)",
+     "default": 0,
+     "eased": false,
+     "meaning": "Endotype id + 1, 0 none. Its place glows in its colour and the rest dims to about a third",
+     "usedInStory": [
+      0,
+      0
+     ]
+    },
+    {
+     "name": "syn_endo",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "The endotypes arrive. Each is a cloud of its genes (as many as it has, up to 40; 295 dots), starting on a ring above the scene (centre (0, 1.95, 0), 11 at the top, like",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "syn_shell",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "The fibre's wide surface round the junction (the cylinder of the wide view)",
+     "usedInStory": [
+      0,
+      0
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      26,
+      16,
+      5.8,
+      -0.05,
+      0.05,
+      0
+     ],
+     "frames": "three-quarter view of the whole section, a little from above, the"
+    },
+    {
+     "name": "terminal",
+     "view": [
+      22,
+      14,
+      2.1,
+      0,
+      0.42,
+      0.1
+     ],
+     "frames": "the bouton's inside: vesicle clusters, mitochondria, endosomes"
+    },
+    {
+     "name": "cleft",
+     "view": [
+      62,
+      4,
+      1.05,
+      0.1,
+      0.06,
+      0.15
+     ],
+     "frames": "low and close, along the cleft from the front right"
+    },
+    {
+     "name": "receptors",
+     "view": [
+      6,
+      48,
+      0.32,
+      0.25,
+      0,
+      0.27
+     ],
+     "frames": "down onto a crest's carpet of receptor rosettes, from in front of the"
+    },
+    {
+     "name": "folds",
+     "view": [
+      10,
+      6,
+      1.45,
+      0.1,
+      -0.18,
+      0.2
+     ],
+     "frames": "the folds' cut face, receptors on top, sodium channels below"
+    },
+    {
+     "name": "nucleus",
+     "view": [
+      -16,
+      10,
+      1.45,
+      -0.32,
+      -0.66,
+      0.15
+     ],
+     "frames": "nucleus A cut open, ER, Golgi, myofibrils"
+    },
+    {
+     "name": "gap",
+     "view": [
+      -90,
+      0,
+      1.1,
+      0.35,
+      0.092,
+      0.1
+     ],
+     "frames": "inside the cleft (the camera at x -0.75, y 0.092), looking along +x:"
+    },
+    {
+     "name": "wide",
+     "view": [
+      24,
+      20,
+      8.2,
+      -0.25,
+      -0.25,
+      -0.2
+     ],
+     "frames": "pulled back, the fibre's striated surface round the cut-away and the"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Junction"
+      },
+      {
+       "value": "terminal",
+       "label": "Nerve ending"
+      },
+      {
+       "value": "cleft",
+       "label": "Cleft"
+      },
+      {
+       "value": "folds",
+       "label": "Folds"
+      },
+      {
+       "value": "nucleus",
+       "label": "Inside the fibre"
+      }
+     ]
+    },
+    {
+     "key": "fire",
+     "label": "Firing",
+     "options": [
+      {
+       "value": "still",
+       "label": "Still"
+      },
+      {
+       "value": "firing",
+       "label": "Firing"
+      },
+      {
+       "value": "tired",
+       "label": "Until tired"
+      }
+     ]
+    },
+    {
+     "key": "genes",
+     "label": "Genes",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "syn_build",
+    "syn_fire",
+    "syn_tired",
+    "syn_genes",
+    "syn_place",
+    "syn_endo",
+    "syn_shell"
+   ],
+   "anchors": [
+    "axon",
+    "terminal",
+    "vesicles",
+    "activezone",
+    "mito",
+    "endosome",
+    "cleft",
+    "lamina",
+    "receptors",
+    "folds",
+    "channels",
+    "nucleus",
+    "er",
+    "golgi",
+    "scaffold",
+    "fibre",
+    "gap",
+    "junction",
+    "loose",
+    "e0",
+    "e1",
+    "e2",
+    "e3",
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e8",
+    "e9",
+    "e10",
+    "e11",
+    "place"
+   ],
+   "anchorCount": 32,
+   "labels": [
+    {
+     "text": "Nerve endingof a motor axon",
+     "at": "terminal",
+     "cls": "cyn",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Synaptic vesiclesfull of acetylcholine",
+     "at": "vesicles",
+     "cls": "",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Mitochondrion",
+     "at": "mito",
+     "cls": "mag",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Basement membranein the cleft",
+     "at": "lamina",
+     "cls": "cyn",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Acetylcholine receptorson the crests",
+     "at": "receptors",
+     "cls": "grn",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Junctional folds",
+     "at": "folds",
+     "cls": "amb",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "Muscle fibre",
+     "at": "fibre",
+     "cls": "",
+     "shows": [
+      "syn_build"
+     ]
+    },
+    {
+     "text": "CHAT · SLC5A7 · SLC18A3making and recycling acetylcholine",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "SYT2 · VAMP1 · SNAP25 · UNC13A · RPH3Arelease",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "SLC25A1mitochondrion",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "PREPL · MYO9Anerve ending",
+     "at": "point",
+     "cls": "cyn",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "COLQ · AGRN · LAMB2 · LAMA5 · COL13A1basement membrane",
+     "at": "point",
+     "cls": "",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "CHRNA1 · B1 · D · E · Greceptor",
+     "at": "point",
+     "cls": "amb",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "RAPSN · MUSK · LRP4 · DOK7clustering",
+     "at": "point",
+     "cls": "amb",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "SCN4Asodium channel",
+     "at": "point",
+     "cls": "amb",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "DPAGT1 · ALG2 · ALG14 · GFPT1 · GMPPBsugar chains",
+     "at": "point",
+     "cls": "mag",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "PLEC · DESscaffold",
+     "at": "point",
+     "cls": "mag",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "TOR1AIP1 · CHD8nucleus",
+     "at": "point",
+     "cls": "mag",
+     "shows": [
+      "syn_genes",
+      "syn_endo",
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 0No shared place",
+     "at": "e0",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 1Mitochondria",
+     "at": "mito",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 2Basement membrane",
+     "at": "lamina",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 3Golgi",
+     "at": "golgi",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 4No shared place",
+     "at": "e4",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 5Ion channels",
+     "at": "channels",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 6Organelle membranes",
+     "at": "er",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 7No shared place",
+     "at": "e7",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 8Endosomes",
+     "at": "endosome",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 9Vesicles",
+     "at": "vesicles",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 10Muscle scaffold",
+     "at": "scaffold",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "Endotype 11The junction",
+     "at": "junction",
+     "cls": "",
+     "shows": [
+      "syn_place"
+     ]
+    },
+    {
+     "text": "No shared placeendotypes 0, 4 and 7",
+     "at": "loose",
+     "cls": "",
+     "shows": [
+      "syn_endo",
+      "syn_place"
+     ]
+    }
+   ],
+   "labelCount": 31,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "ENDO_DATA"
+    ],
+    "text": "The junction is drawn anatomy. Each endotype's place and genes (the clouds of up to 40 dots) come from the authors' data."
+   },
+   "api": [],
+   "otherExports": [
+    "keepClear",
+    "showPlace",
+    "genePos",
+    "geneGroups"
+   ],
+   "buildMsNode": 354,
+   "notes": "Build ~0.3 s. keepClear (with a function giving the cut-away's hidden region) keeps close views 0.35 m from the head in a headset. Exports showPlace, genePos, geneGroups."
+  },
+  {
+   "id": "endo/net",
+   "key": "net",
+   "story": "endo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/endo/src/sets/net.js",
+   "manifest": "packages/endo/src/sets/net.md",
+   "shows": "The authors' protein network (18,306 proteins) as a deep glowing cloud: the 35 congenital-myasthenic seed genes, their neighbourhoods growing and merging as k rises, walkers doing a random walk with restart, the module of 393 genes pulling out of the cloud with endotype colours, and one gene's 184-gene neighbourhood.",
+   "frame": "Centred on the origin; 2,000 core genes near the middle, the other 16,306 in a shell from radius 1.8 to 2.4. The module layout is a drawing about 1.3 across.",
+   "size": "~4.8 across (larger than the usual radius 1.1)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "net_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "net_cloud",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the cloud appears from the centre outwards with a bright front (default 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_seeds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 35 seeds glow white-hot and grow, everything else dims a little; labels \"35 seed genes\" and four seeds (CHRNA1, MUSK, AGRN, DOK7)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_k",
+     "range": "0..12",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..12: neighbourhood size groups.k[round(net_k)]; between integers the lit neighbourhoods grow rank by rank, halos grow and colours and arcs crossfade"
+    },
+    {
+     "name": "net_walk",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "walkers: their number grows with the value (300 at 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_heat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "every gene coloured by the walk from all seeds (heat, log scale): deep blue, blue, teal, amber, orange, white-hot (seeds); hot genes larger",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_module",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the module pulls out: its 393 genes move (each at its own moment, with a slight swirl) to the module layout, their links brighten, the rest of the cloud recedes",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_endo",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "module genes (and their links) take their endotype colours; seeds keep a white heart"
+    },
+    {
+     "name": "net_gene",
+     "range": "-1, 0..392 (module index)",
+     "default": -1,
+     "eased": false,
+     "meaning": "-1 none, else a module index (0..392). Key as a step, while net_hood is 0",
+     "usedInStory": [
+      -1,
+      -1
+     ]
+    },
+    {
+     "name": "net_hood",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0..0.3: the gene is marked (a cyan bubble, white point, its label) and the rest dims",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_focus",
+     "range": "0..12 (endotype id + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 none, id + 1: that endotype's genes and links bright, everything else dims (seeds soften)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      18,
+      12,
+      6.8,
+      0,
+      0,
+      0
+     ],
+     "frames": "the whole cloud"
+    },
+    {
+     "name": "core",
+     "view": [
+      24,
+      10,
+      4.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "the core of the protein network"
+    },
+    {
+     "name": "module",
+     "view": [
+      20,
+      8,
+      2.9,
+      0,
+      0,
+      0
+     ],
+     "frames": "the module of 393 genes pulled out of the cloud"
+    },
+    {
+     "name": "seeds",
+     "view": [
+      -28,
+      14,
+      3.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "module indices of the 35 seeds in the Gene Table's order"
+    },
+    {
+     "name": "gene",
+     "view": [
+      20,
+      10,
+      2.9,
+      0,
+      0,
+      0
+     ],
+     "frames": "the current gene, or the module's centroid"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "network",
+       "label": "Network"
+      },
+      {
+       "value": "module",
+       "label": "Module"
+      }
+     ]
+    },
+    {
+     "key": "walkers",
+     "label": "Walkers",
+     "options": [
+      {
+       "value": "off",
+       "label": "Off"
+      },
+      {
+       "value": "on",
+       "label": "On"
+      }
+     ]
+    },
+    {
+     "key": "colour",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "walk",
+       "label": "Walk"
+      },
+      {
+       "value": "endo",
+       "label": "Endotypes"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "net_cloud",
+    "net_seeds",
+    "net_module",
+    "net_walk",
+    "net_heat",
+    "net_endo"
+   ],
+   "anchors": [
+    "centre",
+    "cloud",
+    "module",
+    "moduleTop",
+    "seeds",
+    "seedTop",
+    "k",
+    "gene",
+    "hood",
+    "e0",
+    "e1",
+    "e2",
+    "e3",
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e8",
+    "e9",
+    "e10",
+    "e11"
+   ],
+   "anchorCount": 21,
+   "labels": [
+    {
+     "text": "18,306proteins",
+     "at": "cloud",
+     "cls": "cyn",
+     "shows": [
+      "net_cloud",
+      "net_seeds",
+      "net_module"
+     ]
+    },
+    {
+     "text": "35 seed genes",
+     "at": "seedTop",
+     "cls": "",
+     "shows": [
+      "net_seeds"
+     ]
+    },
+    {
+     "text": "CHRNA1",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "net_seeds"
+     ]
+    },
+    {
+     "text": "MUSK",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "net_seeds"
+     ]
+    },
+    {
+     "text": "AGRN",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "net_seeds"
+     ]
+    },
+    {
+     "text": "DOK7",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "net_seeds"
+     ]
+    },
+    {
+     "text": "k = 1· 34 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 2· 34 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 3· 34 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 4· 33 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 5· 33 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 10· 29 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 20· 10 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 30· 5 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 50· 2 groups",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 75· one group",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 100· one group",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 150· one group",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "k = 200· one group",
+     "at": "k",
+     "cls": "amb",
+     "shows": [
+      "net_seeds",
+      "net_endo"
+     ]
+    },
+    {
+     "text": "The module· 393 genes",
+     "at": "moduleTop",
+     "cls": "amb",
+     "shows": [
+      "net_module",
+      "net_focus"
+     ]
+    },
+    {
+     "text": "CHRNA1· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "CHRNB1· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "CHRND· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "CHRNE· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "COLQ· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "CHAT· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "SYT2· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "AGRN· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "MUSK· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "DOK7· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "RAPSN· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "GFPT1· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "DPAGT1· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "ALG2· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "ALG14· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "SCN4A· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "LRP4· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "SNAP25· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "COL13A1· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    },
+    {
+     "text": "SLC5A7· 184-gene neighbourhood",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "net_hood"
+     ]
+    }
+   ],
+   "labelCount": 55,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "ENDO_DATA"
+    ],
+    "text": "The authors' saved run: their protein network, 35 seed genes and 12 endotypes. Seed groups, walk, neighbourhoods and the tree are re-run with the package's defaults to show the method (said in the story)."
+   },
+   "api": [
+    "names",
+    "setGene",
+    "geneIndex",
+    "pick",
+    "seeds",
+    "kValues",
+    "groupCount",
+    "endoOf",
+    "geneView",
+    "hoodCore"
+   ],
+   "otherExports": [],
+   "buildMsNode": 642,
+   "notes": "Build ~1.3 s (the slowest of the endotype sets). 300 walkers follow paths planned from t, so seeking works. Exports api (names, setGene, geneIndex, pick, seeds, kValues, groupCount, endoOf, geneView, hoodCore)."
+  },
+  {
+   "id": "endo/tree",
+   "key": "tree",
+   "story": "endo",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/endo/src/sets/tree.js",
+   "manifest": "packages/endo/src/sets/tree.md",
+   "shows": "From neighbourhoods to endotypes: the gene x term matrix (393 x 457) fills row by row, a dendrogram grows beside it, a test pulse runs down the tree (green check at kept splits, red cross inside an endotype), endotype colours run down the subtree, then genes fly into the poster's metagraph of translucent bubbles on a ring.",
+   "frame": "Centred on the origin; leaves at the rows, root at the far left, the tree curving towards you.",
+   "size": "not stated in the manifest (see views)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "tree_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "tree_matrix",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the empty matrix appears (first 6 %), then a scan line fills it row by row; each row flashes as it fills",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_tree",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the dendrogram grows from the leaves (0) to the root and its trunk (1), a glow at the growing front",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_test",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the test pulse runs down the tree from the root: kept splits get a green check and the rows part, in-endotype splits a red cross; at 1 every split is decided",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_mds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "genes fly (staggered, in an arc towards you) from their rows to their tree-distance spots; matrix and tree fade out by 0.55",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_meta",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "genes fly (from the rows or from the spots) into their bubbles; bubbles 0.3-0.85, bands grow in from both ends 0.45-0.95, links 0.55-1, names from 0.85",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tree_focus",
+     "range": "0..12 (endotype id + 1)",
+     "default": 0,
+     "eased": false,
+     "meaning": "id + 1 of the endotype in focus (0 none): it brightens and comes forward (rows 0.04, cluster 0.16, bubble 0.34 and towards the ring's centre, 16 % bigger), the others",
+     "usedInStory": [
+      0,
+      0
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      14,
+      8,
+      4.4,
+      -0.05,
+      0,
+      0.05
+     ],
+     "frames": "matrix and tree"
+    },
+    {
+     "name": "matrix",
+     "view": [
+      6,
+      4,
+      2.6,
+      0.39,
+      0,
+      0
+     ],
+     "frames": "the gene x term matrix beside the tree"
+    },
+    {
+     "name": "tree",
+     "view": [
+      30,
+      6,
+      3,
+      -0.722,
+      0,
+      0.06
+     ],
+     "frames": "the tree a little from the side, so its curve shows"
+    },
+    {
+     "name": "mds",
+     "view": [
+      22,
+      14,
+      3.5,
+      0,
+      0,
+      0
+     ],
+     "frames": "field of ENDO_DATA is not used"
+    },
+    {
+     "name": "meta",
+     "view": [
+      0,
+      5,
+      4.3,
+      0,
+      0,
+      0
+     ],
+     "frames": "the poster's metagraph ring of endotype bubbles"
+    },
+    {
+     "name": "focus",
+     "view": [
+      14,
+      8,
+      4.4,
+      -0.05,
+      0,
+      0.05
+     ],
+     "frames": "the endotype in focus (same framing as default)"
+    },
+    {
+     "name": "e0",
+     "view": [
+      6.776,
+      2.043,
+      1.698,
+      0.484,
+      -0.66,
+      0.24
+     ],
+     "frames": "close on endotype 0 (one view per endotype, e0 to e11)"
+    },
+    {
+     "name": "e1",
+     "view": [
+      5.033,
+      8.418,
+      2.028,
+      0.36,
+      0.403,
+      0.42
+     ],
+     "frames": "close on endotype 1"
+    },
+    {
+     "name": "e2",
+     "view": [
+      7.078,
+      6.631,
+      2.164,
+      0.506,
+      0.105,
+      0.36
+     ],
+     "frames": "close on endotype 2"
+    },
+    {
+     "name": "e3",
+     "view": [
+      -6.252,
+      4.78,
+      2.001,
+      -0.447,
+      -0.203,
+      0.408
+     ],
+     "frames": "close on endotype 3"
+    },
+    {
+     "name": "e4",
+     "view": [
+      -3.556,
+      3.602,
+      1.83,
+      -0.254,
+      -0.4,
+      0.409
+     ],
+     "frames": "close on endotype 4"
+    },
+    {
+     "name": "e5",
+     "view": [
+      -7.078,
+      6.631,
+      2.079,
+      -0.506,
+      0.105,
+      0.32
+     ],
+     "frames": "close on endotype 5"
+    },
+    {
+     "name": "e6",
+     "view": [
+      3.39,
+      3.562,
+      1.846,
+      0.242,
+      -0.406,
+      0.273
+     ],
+     "frames": "close on endotype 6"
+    },
+    {
+     "name": "e7",
+     "view": [
+      -6.776,
+      1.938,
+      1.804,
+      -0.484,
+      -0.677,
+      0.24
+     ],
+     "frames": "close on endotype 7"
+    },
+    {
+     "name": "e8",
+     "view": [
+      -0.113,
+      3.195,
+      1.875,
+      -0.008,
+      -0.467,
+      0.343
+     ],
+     "frames": "close on endotype 8"
+    },
+    {
+     "name": "e9",
+     "view": [
+      6.165,
+      4.714,
+      1.991,
+      0.44,
+      -0.214,
+      0.27
+     ],
+     "frames": "close on endotype 9"
+    },
+    {
+     "name": "e10",
+     "view": [
+      -5.102,
+      8.388,
+      2.071,
+      -0.364,
+      0.398,
+      0.26
+     ],
+     "frames": "close on endotype 10"
+    },
+    {
+     "name": "e11",
+     "view": [
+      0,
+      9.309,
+      2.537,
+      0,
+      0.551,
+      0.34
+     ],
+     "frames": "close on endotype 11"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "matrix",
+       "label": "Matrix"
+      },
+      {
+       "value": "tree",
+       "label": "Tree"
+      },
+      {
+       "value": "dist",
+       "label": "Distances"
+      },
+      {
+       "value": "endo",
+       "label": "Endotypes"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "tree_a",
+    "tree_tree",
+    "tree_test",
+    "tree_mds",
+    "tree_meta"
+   ],
+   "anchors": [
+    "matrix",
+    "matrixTop",
+    "tree",
+    "treeTop",
+    "root",
+    "kept",
+    "refused",
+    "scan",
+    "mds",
+    "mdsTop",
+    "meta",
+    "metaLow",
+    "focus",
+    "e0",
+    "e1",
+    "e2",
+    "e3",
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e8",
+    "e9",
+    "e10",
+    "e11"
+   ],
+   "anchorCount": 25,
+   "labels": [
+    {
+     "text": "393 genes× 457 terms",
+     "at": "matrixTop",
+     "cls": "cyn",
+     "shows": [
+      "tree_matrix"
+     ]
+    },
+    {
+     "text": "Tree of genes",
+     "at": "treeTop",
+     "cls": "",
+     "shows": [
+      "tree_tree"
+     ]
+    },
+    {
+     "text": "Split kept· the two sides differ",
+     "at": "kept",
+     "cls": "grn",
+     "shows": [
+      "tree_test"
+     ]
+    },
+    {
+     "text": "Split refused· too alike",
+     "at": "refused",
+     "cls": "amb",
+     "shows": [
+      "tree_test"
+     ]
+    },
+    {
+     "text": "Tree distances· near in the tree, near here",
+     "at": "mdsTop",
+     "cls": "cyn",
+     "shows": [
+      "tree_mds",
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "12 endotypes",
+     "at": "metaLow",
+     "cls": "mag",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "0· No shared place",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "1· Mitochondria",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "2· Basement membrane",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "3· Golgi",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "4· No shared place",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "5· Ion channels",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "6· Organelle membranes",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "7· No shared place",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "8· Endosomes",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "9· Vesicles",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "10· Muscle scaffold",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    },
+    {
+     "text": "11· The junction",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tree_meta"
+     ]
+    }
+   ],
+   "labelCount": 18,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "ENDO_DATA"
+    ],
+    "text": "The authors' endotypes, tree, cut, gene and term features; the tree is drawn to agree with their endotypes."
+   },
+   "api": [
+    "setFocus",
+    "pick",
+    "focus",
+    "genePos",
+    "endoPos",
+    "genes",
+    "terms",
+    "order",
+    "cells",
+    "kept",
+    "endoRoots",
+    "testTimes",
+    "bands",
+    "own",
+    "loose",
+    "name",
+    "bubble"
+   ],
+   "otherExports": [],
+   "buildMsNode": 320,
+   "notes": "All geometry is built once; positions, colours and morphs come from shader uniforms, so update sets only a few dozen numbers. 18 camera views (one per endotype e0..e11). Exports api (setFocus, pick, focus, genePos, endoPos, genes, terms, order, cells, kept, endoRoots, bands, bubble ...)."
+  }
+ ]
+}

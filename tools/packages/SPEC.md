@@ -3,7 +3,8 @@
 The owner, 18 November 2026: colleagues and people the owner trusts may write their own stories; each is "all contained
 within a folder and independent from the rest of the app"; they come in through git (pull requests, or a fork they host
 themselves). Since v185 the app's own stories move into packages too (`docs/packages-migration.md`; the robot gang
-first, all sixteen by v187): the same contract, plus `packages/order.json`, `icon` and `intro` below.
+first, all sixteen by v187): the same contract, plus `packages/order.json`, `icon` and `intro` below. Since v190 a
+package carries its own miniatures (`minis`, "Miniatures" below).
 
 A package is code from a trusted person running with the app's full rights (it is not a sandbox). Only the folder in git
 (or on the host serving the app) is ever run: never anything from the relay's scenes, an upload or a link.
@@ -15,6 +16,7 @@ packages/<key>/
   story.json      what the shell needs to list and load it (below)
   main.js         the story: HOST.register('<key>', function (HOST) { ... }), the same contract as stories/<key>.js
   icon.png        optional: its card's picture (square, at most 512 px, at most 200 KB)
+  minis.js        optional (v190): its miniatures, built from src/minis.js ("Miniatures" below)
   audio/ data/ models/ ...   anything else it loads, by HOST.pkgUrl('<key>', 'data/x.bin')
   src/            optional: its sources and build (tools/packages/template is a start), served but never run
   README.md       who made it, what it shows, where its data comes from and the permission to show it
@@ -34,7 +36,7 @@ never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `vie
   "title": "Six handshakes", "kick": "Small worlds", "col": "#8fd3ff",
   "desc": "One sentence for its card.", "len": "Story 1:30",
   "page": "...", "brand": "...", "sub": "...", "aria": "...", "thing": "...", "loading": "...",
-  "authors": "Name, Name", "life": false, "list": "stories", "needs": 168
+  "authors": "Name, Name", "life": false, "list": "stories", "minis": "minis.js", "icon": "hello.ring", "needs": 169
 }
 ```
 
@@ -47,11 +49,67 @@ never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `vie
   in Arrange all; Add and an All stories circle take it) or `"hidden"` (opened only by its address `#<key>` or
   `HOST.go`, and listed on the Stories screen in developer mode).
 - `needs` (optional): the oldest shell release it works with (`HOST.shell.n`); refused on an older shell, as a story.
-- `icon` (optional, v185): its stations' miniature in a shared room, a key of `lowpoly.js`'s `LOWPOLY_MODELS`
-  (`<key>.<set>`, which must exist there); without it its station has no miniature (the ring, the card and the plain
-  glowing shape every key without one gets, in its colour). Its card on the page shows `icon.png` when the folder has
-  one, else a plain tile in its colour (one of the app's own stories, named in `packages/order.json`, a story's card).
+- `minis` (optional, v190): the file of its miniatures, `minis.js` (a `.js` file of the folder; "Miniatures" below).
+- `icon` (optional, v185): its stations' miniature in a shared room, a miniature's name `<key>.<set>`: one of its own
+  (in its `minis` file: the usual case), or another package's or the shell's (`lowpoly.js`), which shows only where
+  that one is listed (the cell stress test's `spatial.cell`; the check warns). The scan leaves out a package whose `icon`
+  is in no such file. Without it its station has no miniature (the ring, the card and the plain glowing shape every key
+  without one gets, in its colour). Its card on the page shows `icon.png` when the folder has one, else a plain tile in
+  its colour (one of the app's own stories, named in `packages/order.json`, a story's card).
 - `intro` (optional, `true` only, v185): an introduction, not one of the stories (the tutorial), as in `stories/list.js`.
+
+## Miniatures (v190)
+
+A package's sets in small: low-poly models, each at most 1,200 triangles, standing on the design room's table (every
+listed package's, not the hidden ones) and, the one `icon` names, over its stations' rings in a shared room. Until v190
+they were the shell's (`lowpoly.js`); now each story's are in its package, and adding a package with miniatures needs no
+change to the shell, `tools/lowpoly/` or the design room.
+
+- **The built file** (what the shell loads; `story.json`'s `minis`, `minis.js`): a classic script that adds entries to
+  the global `LOWPOLY_MODELS` (`var LOWPOLY_MODELS = LOWPOLY_MODELS || {};`, then everything inside one function) and
+  does nothing else when it runs. Each entry is `LOWPOLY_MODELS['<key>.<set>'] = { story: '<key>', set, name, shows, tris,
+  build(THREE), card, icon }`: `build` returns a `THREE.Group` centred on x and z, standing on y = 0 and fitting a 1 x 1 x
+  1 box (the caller scales it), with three.js r128 only; `tris` is its triangle count, exact; `card` (optional) is what
+  the design room's card shows (`tools/design/SPEC.md`: `{ story, set, name, tris, id, shows, size, frame, params, views,
+  reusedBy, reuses, file, manifest, note }`; without one the miniature is not on the table); `icon: true` on the one
+  `story.json`'s `icon` names (a device without the package's entry in its index finds the icon by it). Every name
+  starts with the package's key. It never needs the story's `main.js`: a station's icon shows for a story that is not
+  loaded, and on a device whose list lacks it.
+- **Its source** (the app's own packages, and the template's way): `src/minis.js`, a list of `def(...)` (kit b) or
+  `add(...)` (kit a) calls with the helpers they need, and a line `// kit: a` or `// kit: b` naming the kit
+  (`tools/lowpoly/kit-<x>.js`: the shapes, the materials and `def`, pasted before it). `node tools/lowpoly/build.mjs`
+  builds every `packages/<key>/src/minis.js` (and the shell's `lowpoly.js` from `tools/lowpoly/shell.js`) into the file
+  `minis` names, with each miniature's `card` from the catalogue (`src/props.json`: `{ "sets": [...] }` entries of
+  `docs/props.md`'s shape, or `{ "handwritten": {...} }` for a hand-written story; a miniature with no entry gets a
+  short card of its own name and shows) and `icon: true` from `story.json`. It builds each one with three.js in Node and
+  fails on a wrong `tris`, more than 1,200, a name without the package's key or a missing field; `--check` says whether
+  every file is current; `tools/engine/all.mjs` runs it too, and the relay's `--build` after a change to `src/minis.js`
+  or `src/props.json`. A package may also ship a `minis.js` made another way (no source): the built file's contract is
+  all the shell reads.
+- **The harnesses** (`tools/lowpoly/harness-a.html`, `harness-b.html`, through `load.js`) put each source together as the
+  build does, straight from `src/minis.js` (no build needed while editing; `?pkg=<key>` one package, `?built` the built
+  files), and mark a miniature whose listed `tris` is wrong in red.
+- **The shell**: `HOST.lowpoly(name)` loads the file that holds a miniature (`'<key>.<set>'` or a package's key: its
+  `minis` file through `HOST.pkgUrl`, so a new version is fetched anew; the shell's own from `lowpoly.js`), each file
+  once, by a script tag the shell owns; `HOST.lowpoly('*')` loads `lowpoly.js` and every listed package's (not hidden),
+  each failure soft. A station's icon (shared.js, "station icons") asks for its file the first time it shows (again 30 s
+  after a failure) and is the plain glowing shape in the story's colour until the file is here, then the miniature (built
+  one a frame); every device that has the file shows the same one, from the same room keys (nothing about miniatures is
+  in a room key). For a key this device does not list (*Not on this device*) it tries `packages/<key>/minis.js` and takes
+  the entry marked `icon`, tinted in that card's grey; with no such file, the plain shape.
+- **The design room** loads every listed package's file before it lays out its table (`HOST.lowpoly('*')`, at most 8 s;
+  `takeCards`): each miniature with a `card` stands on its package's plate, the packages in the table's order before v190
+  and any other after them in the index's order. `tools/design/props.json` keeps only the shell's own part of the
+  catalogue (none yet).
+- **Offline**: the service worker's install takes every listed package's `main.js` and its `minis` file; *Take all
+  stories* takes every file of the package, the miniatures among them; the relay serves them as the rest of `packages/`.
+- **The checks** (`tools/packages/check.mjs`): `minis` names a `.js` file of the package; every `add`/`def` name in it starts
+  with `<key>.`; a package with `src/minis.js` names its `minis`; its own `icon` is one of its miniatures (another's is
+  warned). With `--build` or `--load` (they run the package's code) it also builds each one with three.js in a Node
+  sandbox: a field missing, a wrong `tris` or more than 1,200 fail, and `tools/lowpoly/build.mjs --check --only <key>`
+  says whether the built file is current.
+- **Names stay**: a miniature's name is `<key>.<set>` wherever it lives, so the design room's shared state (its moved
+  miniatures, by name) and the stations' icons read the same before and after a story's miniatures moved.
 
 ## Discovery: packages/index.json
 
@@ -127,12 +185,14 @@ mode and fails on any console error.
 
 ## Writing one
 
-`tools/packages/template/` is a package's `src/`: copy it to `packages/<key>/src/`, rename, and `node
+`tools/packages/template/` is a package's `src/` (its `minis.js` an example miniature: rename `yourkey`): copy it to
+`packages/<key>/src/`, rename, and `node
 packages/<key>/src/build.mjs` writes `packages/<key>/main.js` from the app's kit (`tools/engine/kit.js`), the shared engine
 parts (`tools/engine/`) and its own sets and story, as the built stories are made (`docs/agents/stories.md`). The built
 `main.js` holds everything it needs: the app's later changes to the engine reach a package only when its author builds it
 again. `packages/hello/` is the example (on the Experiments set, or `#hello`).
 
-A hand-written package is allowed too: `main.js` written by hand, no `src/` (`src/` is optional; the checks are the
-same, on `main.js` itself). The app's airports, proteins and spatial stories are such packages (v187, wrapped as they
-were in `stories/`): edit `main.js`, then `node tools/packages/scan.mjs`.
+A hand-written package is allowed too: `main.js` written by hand, no `src/` build (`src/` is optional; the checks are
+the same, on `main.js` itself). The app's airports, proteins and spatial stories are such packages (v187, wrapped as they
+were in `stories/`): edit `main.js`, then `node tools/packages/scan.mjs`. Their `src/` holds only their miniatures'
+sources (`src/minis.js`, `src/props.json`: `node tools/lowpoly/build.mjs`).

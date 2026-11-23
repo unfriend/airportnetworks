@@ -1,0 +1,1286 @@
+{
+ "about": "packages/nmd/src/props.json: the nmd story's part of the catalogue of 3D sets (props; docs/props.md, tools/packages/SPEC.md \"Miniatures\"): what the design room's card of each of its miniatures shows; code is authoritative",
+ "sets": [
+  {
+   "id": "nmd/tower",
+   "key": "tower",
+   "story": "nmd",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/nmd/src/sets/tower.js",
+   "manifest": "packages/nmd/src/sets/tower.md",
+   "shows": "The multiplex network of rare muscle diseases: 71 layers of gene links (phenotypes, pathways, drug targets, co-essential genes, 39 co-expression layers, 27 protein-interaction layers) stacked into a tower with the same gene at the same spot in every layer. Pick a disease group to light its module, seeds, endotypes, a random walk, a squashed endotype grid, z-score bars or a pair of groups.",
+   "frame": "Centred on the origin, y up; layers top to bottom in data order with 0.08 gaps between categories.",
+   "size": "~2.2 tall, discs radius 1",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "tower_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_rise",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "layers appear from the bottom up (default 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_cats",
+     "range": "0..1",
+     "default": 0.4,
+     "eased": true,
+     "meaning": "category tints, and the six category labels above 0.5 (default 0.4)",
+     "usedInStory": [
+      0.4,
+      1
+     ]
+    },
+    {
+     "name": "tower_group",
+     "range": "0..13 (group index + 1, 0 all)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 all groups (group colours, genes in several groups white-gold, a web of context links in the same colours); k = 1..13 selects group k-1: its module glows, the rest",
+     "usedInStory": [
+      0,
+      10
+     ]
+    },
+    {
+     "name": "tower_seeds",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the selected group's seeds glow and pulse; the rest of its module is hidden",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_walk",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "about 20 walkers (sparks with trails) hop along the module's links, climb threads to switch layer, flash back to a seed on restart",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_heat",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "genes warm up by the group's heat (dark blue, cyan, white); genes outside the module that the walk visits show too",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_module",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the added genes join the module one by one in order of heat (each flashes as it joins); with tower_seeds 1 this is the module growing",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_z",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "layer significance (slide 5): protein layers glow by the selected group's z-score; a bar per protein layer sticks out of the rim, left of the default view, bars rising",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_endo",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the selected group's genes take endotype colours (20-hue palette, endoColour(c))",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_grid",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the endotype grid: the group's genes gather into one block per endotype (block size by gene count, hottest genes in the middle), at the same place in every layer; the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_pair",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Congenital Myopathies (left) and Hereditary Cardiomyopathies (right) as two towers; the 29 genes in both in a narrow middle column; links between the sides are the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_seedonly",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "in pair mode only seeds and their links stay highlighted (each link brighter, as they are fewer); the walk's genes fade, their links left among the faint context",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "tower_drop",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "robustness: layers fall a little and fade one by one in a fixed random order (the last five are protein layers); at 1 five remain; the selected module stays lit with",
+     "usedInStory": [
+      0,
+      0.85
+     ]
+    },
+    {
+     "name": "tower_room",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the layout moves out into an annulus (inner radius 0.45), with an inner rim, so a person can stand in the middle",
+     "usedInStory": [
+      0,
+      1
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      24,
+      16,
+      5.6,
+      0,
+      -0.03,
+      0
+     ],
+     "frames": "the whole tower slightly from above"
+    },
+    {
+     "name": "ppi",
+     "view": [
+      30,
+      20,
+      2.9,
+      0,
+      -0.766,
+      0
+     ],
+     "frames": "tower layer indices"
+    },
+    {
+     "name": "top",
+     "view": [
+      24,
+      86,
+      3.7,
+      0,
+      0,
+      0
+     ],
+     "frames": "straight down onto the top layer"
+    },
+    {
+     "name": "side",
+     "view": [
+      90,
+      1,
+      4.6,
+      0,
+      0,
+      0
+     ],
+     "frames": "level side view of the stack"
+    },
+    {
+     "name": "grid",
+     "view": [
+      15,
+      64,
+      3.8,
+      0,
+      -0.716,
+      0
+     ],
+     "frames": "above the squashed endotype grid"
+    },
+    {
+     "name": "z",
+     "view": [
+      -20,
+      10,
+      3.6,
+      -0.502,
+      -0.716,
+      0.224
+     ],
+     "frames": "the z-score bar chart column"
+    },
+    {
+     "name": "pair",
+     "view": [
+      0,
+      12,
+      5.4,
+      0.18,
+      0,
+      0
+     ],
+     "frames": "the two towers of a pair, target moved right so layer names fit"
+    },
+    {
+     "name": "inside",
+     "view": [
+      0,
+      30,
+      0.95,
+      0,
+      -0.75,
+      -0.8
+     ],
+     "frames": "from the middle of the tower looking out and down (stand inside)"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "tower",
+       "label": "Tower"
+      },
+      {
+       "value": "grid",
+       "label": "Endotype grid"
+      },
+      {
+       "value": "pair",
+       "label": "Two groups"
+      },
+      {
+       "value": "room",
+       "label": "Room"
+      }
+     ]
+    },
+    {
+     "key": "colour",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "groups",
+       "label": "Groups"
+      },
+      {
+       "value": "endo",
+       "label": "Endotypes"
+      },
+      {
+       "value": "heat",
+       "label": "Walk heat"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "module",
+       "label": "Module"
+      },
+      {
+       "value": "seeds",
+       "label": "Seeds"
+      },
+      {
+       "value": "walk",
+       "label": "Walk"
+      },
+      {
+       "value": "z",
+       "label": "Layer scores"
+      },
+      {
+       "value": "drop",
+       "label": "Robustness"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "tower_a",
+    "tower_cats",
+    "tower_grid",
+    "tower_pair",
+    "tower_room",
+    "tower_endo",
+    "tower_heat",
+    "tower_seeds",
+    "tower_module",
+    "tower_seedonly",
+    "tower_walk",
+    "tower_z",
+    "tower_drop"
+   ],
+   "anchors": [
+    "top",
+    "bottom",
+    "mid",
+    "ppi",
+    "coex",
+    "pheno",
+    "layer",
+    "zbar",
+    "zline",
+    "group",
+    "endo",
+    "gene",
+    "pairLeft",
+    "pairRight",
+    "pairMid"
+   ],
+   "anchorCount": 15,
+   "labels": [
+    {
+     "text": "Phenotypes2 layers",
+     "at": "fn",
+     "cls": "mag",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Pathways1 layer",
+     "at": "fn",
+     "cls": "amb",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Drug targets1 layer",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Essential genes1 layer",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Co-expression39 layers",
+     "at": "fn",
+     "cls": "grn",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Protein interactions27 layers",
+     "at": "fn",
+     "cls": "cyn",
+     "shows": [
+      "tower_cats",
+      "tower_pair",
+      "tower_z",
+      "tower_rise"
+     ]
+    },
+    {
+     "text": "Motor neuron94 genes, 93 seeds",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tower_pair",
+      "tower_room"
+     ]
+    },
+    {
+     "text": "1· rRNA metabolic process",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "3· Vitamin transport",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "2· Cellular response to heat",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "5· Placenta development",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "4· Retrograde axonal transport",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "6· Negative regulation of…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "1· rRNA metabolic…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "3· Vitamin transport",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "2· Cellular response…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "5· Placenta developm…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "4· Retrograde…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "6· Negative regulati…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Motor & sensory nerve310 genes, 110 seeds",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tower_pair",
+      "tower_room"
+     ]
+    },
+    {
+     "text": "4· Cytosolic transport",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "7· Response to unfolded protein",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "6· Sensory perception of pain",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "9· Positive regulation of…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "2· Organophosphate…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "14· Wound healing",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "4· Cytosolic…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "7· Response to…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "6· Sensory perceptio…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "9· Positive regulati…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "2· Organophosphate…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "14· Wound healing",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "Ataxias287 genes, 87 seeds",
+     "at": "fn",
+     "cls": "",
+     "shows": [
+      "tower_pair",
+      "tower_room"
+     ]
+    },
+    {
+     "text": "2· Protein maturation",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "5· Copper ion homeostasis",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "3· Aerobic respiration",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "4· Cellular respiration",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "8· Double-Strand break repair",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "13· Protein quality control for…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    },
+    {
+     "text": "2· Protein maturatio…",
+     "at": "fn",
+     "cls": "",
+     "shows": []
+    }
+   ],
+   "labelCount": 164,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "NMD_DATA"
+    ],
+    "text": "The authors' analysis files (ikerdata): 1,182 genes, 125,463 layer-links, endotypes. Layer z-scores (degree-matched random sets), walk visits and endotype names (most typical GO process) are computed by the generator as stand-ins until the authors send theirs. No patient or variant data."
+   },
+   "api": [],
+   "otherExports": [
+    "genes",
+    "groups",
+    "layers",
+    "ppi",
+    "N",
+    "edgeCount",
+    "pairs",
+    "endoCount",
+    "endoColour",
+    "state",
+    "setState",
+    "walk",
+    "pick",
+    "links",
+    "linkStats",
+    "members",
+    "seeds",
+    "endoGenes",
+    "heatOf",
+    "genePos",
+    "pair",
+    "zMin",
+    "drop"
+   ],
+   "buildMsNode": 233,
+   "notes": "Build 70 to 235 ms; 5 to 7 draw calls; up to ~42,000 link entries in any settled state. Rich api (setState, walk, pick, links, linkStats, members, seeds, genePos, pair ...). Needs NMD_DATA pasted before it."
+  },
+  {
+   "id": "nmd/motor",
+   "key": "motor",
+   "story": "nmd",
+   "reusedBy": [
+    "endo"
+   ],
+   "reuses": [],
+   "file": "packages/nmd/src/sets/motor.js",
+   "manifest": "packages/nmd/src/sets/motor.md",
+   "shows": "The motor unit from nerve to sarcomere, and the heart: spinal cord, motor and sensory neurons, myelinated axons, six neuromuscular junctions, a fascicle of 20 striated fibres with one opened to show myofibrils, a magnified sarcomere with myosin, actin, titin, Z-discs and M-band, and a smooth surface-net heart with great vessels. Sites can be highlighted and shown with impulses or contraction.",
+   "frame": "Read left to right, y up; ventral points right (+x). Heart centre (0.30, 0.29, -0.12).",
+   "size": "~2.5 long (x -1.18 to 1.27, y -0.5 to 0.7)",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "motor_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "motor_build",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "The scene appears along the path from left to right (a cut that moves along x with a cyan edge glow): cord and neurons, roots, nerve, junctions, fibres",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_signal",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Impulses, all from t (a 1.7 s cycle, the stretch reflex): the spindle fires and a cyan impulse runs up the sensory axon (bright flashes at the nodes) to the T, the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_open",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0-0.5: one front fibre's sheath opens along its distal part (a widening wedge, its far cap goes) and the myofibrils grow in",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_contract",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Sarcomere contraction: thin filaments and Z-discs slide towards the M-band (by 0.055 of 0.27; the H-zone nearly closes, titin springs compress) and the myosin heads",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_heart",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0-0.3 a magenta glow, 0.2-0.75 the heart fades in from it and grows (scale 0.55 to 1 over 0.1-1), the rim glow settling; it beats at 69 per minute",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_groups",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "Every disease group's colour lights its site (colours and sites from NMD_DATA.groups): rings with a running highlight and soft halos, and the part's surfaces take the",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "motor_site",
+     "range": "0..5 (0 all, 1 neuron, 2 nerve, 3 junction, 4 muscle, 5 heart)",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 all sites alike; 1 neuron, 2 nerve, 3 junction, 4 muscle, 5 heart: that site glows and the rest dims to 30 %",
+     "usedInStory": [
+      0,
+      5
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -20,
+      14,
+      3.35,
+      0.05,
+      0.05,
+      0
+     ],
+     "frames": "the whole unit, three-quarter view from the front left"
+    },
+    {
+     "name": "cord",
+     "view": [
+      -24,
+      12,
+      0.95,
+      -0.95,
+      -0.15,
+      0
+     ],
+     "frames": "the cord's cut face, the motor neuron, roots and ganglion"
+    },
+    {
+     "name": "junction",
+     "view": [
+      20,
+      26,
+      0.42,
+      0.097,
+      -0.311,
+      0.188
+     ],
+     "frames": "close on the third end plate with its vesicles"
+    },
+    {
+     "name": "fibre",
+     "view": [
+      32,
+      16,
+      1,
+      0.5,
+      -0.2,
+      0.08
+     ],
+     "frames": "the opened fibre, its myofibrils and the sarcomere growing out"
+    },
+    {
+     "name": "sarcomere",
+     "view": [
+      92.237,
+      -2.682,
+      0.256,
+      0.73,
+      -0.011,
+      0.01
+     ],
+     "frames": "inside the lattice, in the bare zone beside the M-band, in a corridor between two thick"
+    },
+    {
+     "name": "sarcEnd",
+     "view": [
+      75,
+      10,
+      0.9,
+      1.05,
+      -0.05,
+      0
+     ],
+     "frames": "the magnified sarcomere from outside, down its filaments from beyond the"
+    },
+    {
+     "name": "sarcSide",
+     "view": [
+      15,
+      14,
+      1.15,
+      0.97,
+      -0.05,
+      0
+     ],
+     "frames": "the sarcomere from the side, a little from above, for the filaments"
+    },
+    {
+     "name": "heart",
+     "view": [
+      -10,
+      8,
+      1.35,
+      0.3,
+      0.34,
+      -0.12
+     ],
+     "frames": "the heart from the front, a little from its right: right atrium,"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "Motor unit"
+      },
+      {
+       "value": "junction",
+       "label": "Junction"
+      },
+      {
+       "value": "sarcomere",
+       "label": "Sarcomere"
+      },
+      {
+       "value": "heart",
+       "label": "Heart"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "off",
+       "label": "Diseases off"
+      },
+      {
+       "value": "on",
+       "label": "Diseases on"
+      }
+     ]
+    },
+    {
+     "key": "motion",
+     "label": "Motion",
+     "options": [
+      {
+       "value": "still",
+       "label": "Still"
+      },
+      {
+       "value": "impulses",
+       "label": "Impulses"
+      },
+      {
+       "value": "contraction",
+       "label": "Contraction"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "motor_build",
+    "motor_open",
+    "motor_heart",
+    "motor_groups",
+    "motor_site",
+    "motor_signal",
+    "motor_contract"
+   ],
+   "anchors": [
+    "cord",
+    "soma",
+    "ganglion",
+    "axon",
+    "myelin",
+    "nerve",
+    "junction",
+    "spindle",
+    "fibre",
+    "myofibril",
+    "sarcomere",
+    "zdisc",
+    "mband",
+    "heart"
+   ],
+   "anchorCount": 14,
+   "labels": [
+    {
+     "text": "Spinal cordgrey matter inside",
+     "at": "cord",
+     "cls": "",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Motor neuronin the anterior horn",
+     "at": "soma",
+     "cls": "amb",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Sensory neurondorsal root ganglion",
+     "at": "ganglion",
+     "cls": "cyn",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Axonin its myelin sheath",
+     "at": "myelin",
+     "cls": "",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Neuromuscular junction",
+     "at": "junction",
+     "cls": "grn",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Muscle fibrestriated",
+     "at": "fibre",
+     "cls": "",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Sarcomereactin, myosin, titin",
+     "at": "sarcomere",
+     "cls": "cyn",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    },
+    {
+     "text": "Heartthe same sarcomere",
+     "at": "heart",
+     "cls": "mag",
+     "shows": [
+      "motor_open",
+      "motor_heart",
+      "motor_site",
+      "motor_build"
+     ]
+    }
+   ],
+   "labelCount": 8,
+   "data": {
+    "kind": "none",
+    "reads": [
+     "NMD_DATA.groups"
+    ],
+    "text": "Anatomy is drawn. Only the disease groups' names, colours and body site are read (for the Diseases on/off colouring)."
+   },
+   "api": [],
+   "otherExports": [
+    "keepClear",
+    "idle",
+    "finish"
+   ],
+   "buildMsNode": 448,
+   "notes": "The heart is a signed distance field polygonised by surface nets as a job in slices (idle(dt), finish()); it fades in once built (about 0.4 s of work). keepClear is exported so a headset never brings a close view nearer than 0.35 m. Reused unchanged by the endotype story."
+  },
+  {
+   "id": "nmd/hpc",
+   "key": "hpc",
+   "story": "nmd",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "packages/nmd/src/sets/hpc.js",
+   "manifest": "packages/nmd/src/sets/hpc.md",
+   "shows": "The stress test on a supercomputer: a hall of racks with a cold aisle, blinking lights, cable trays and a glass door, and the field of tiny towers it computes, stretching to the horizon. Each tower is a stack of 20 glowing discs; far ones are single points.",
+   "frame": "Floor at y = -0.3; hall fits |x|, |z| < 0.85; the field extends to about 22 units.",
+   "size": "1 unit ~ 4 m (racks 2 m tall); field far beyond the usual radius on purpose",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "hpc_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "hpc_racks",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the racks rise out of the floor, nearest first, then their lights power on; trays, lights and glass come in last (default 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "hpc_field",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the field spreads from the hall to the horizon: a cyan ring runs across the floor, sparks stream out of the hall to it, towers build disc by disc as it passes (default 0)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "hpc_remove",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "in a wave from the hall outwards (an amber ring on the floor), discs vanish from each tower in its own order (a brief flash, then they widen and fade)",
+     "usedInStory": [
+      0,
+      0.9
+     ]
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      38,
+      24,
+      3.6,
+      0,
+      -0.12,
+      0
+     ],
+     "frames": "the hall from above, three-quarter view"
+    },
+    {
+     "name": "racks",
+     "view": [
+      0,
+      4,
+      1.4,
+      0,
+      -0.03,
+      -0.62
+     ],
+     "frames": "down the cold aisle between the racks"
+    },
+    {
+     "name": "aisle",
+     "view": [
+      0,
+      6,
+      2.1,
+      0,
+      -0.03,
+      -0.62
+     ],
+     "frames": "on the same line, just outside the aisle's open end: the way in and out"
+    },
+    {
+     "name": "field",
+     "view": [
+      24,
+      19,
+      7.5,
+      0,
+      -0.3,
+      -1
+     ],
+     "frames": "high over the hall and the field of tiny towers"
+    },
+    {
+     "name": "near",
+     "view": [
+      53,
+      18,
+      1,
+      1.8,
+      -0.19,
+      3
+     ],
+     "frames": "one tower close, its neighbours receding towards the hall"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "racks",
+       "label": "Racks"
+      },
+      {
+       "value": "field",
+       "label": "Field"
+      }
+     ]
+    },
+    {
+     "key": "removed",
+     "label": "Removed",
+     "options": [
+      {
+       "value": "none",
+       "label": "None"
+      },
+      {
+       "value": "half",
+       "label": "Half"
+      },
+      {
+       "value": "most",
+       "label": "Most"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "hpc_racks",
+    "hpc_field",
+    "hpc_remove"
+   ],
+   "anchors": [
+    "racks",
+    "field",
+    "near"
+   ],
+   "anchorCount": 3,
+   "labels": [
+    {
+     "text": "MareNostrum 5Barcelona Supercomputing Center",
+     "at": "racks",
+     "cls": "cyn",
+     "shows": [
+      "hpc_racks",
+      "hpc_field"
+     ]
+    },
+    {
+     "text": "680,000 networks",
+     "at": "field",
+     "cls": "amb",
+     "shows": [
+      "hpc_field"
+     ]
+    }
+   ],
+   "labelCount": 2,
+   "data": {
+    "kind": "none",
+    "reads": [],
+    "text": "Drawn; no data, no brand marks."
+   },
+   "api": [],
+   "otherExports": [
+    "streamMat",
+    "keepOut",
+    "still",
+    "towerCount",
+    "pointCount",
+    "nearTower"
+   ],
+   "buildMsNode": 81,
+   "notes": "11 draw calls, 176k triangles, 25k points. Exports keepOut and still (the engine keeps the camera out of the racks and rests the explore sway), streamMat, counts."
+  }
+ ]
+}

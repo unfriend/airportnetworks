@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Station icons</title>
-<!-- The stations' icons (shared.js, "station icons": each story's miniature from lowpoly.js, its entry's icon in
-     stories/list.js) in a grid, lit as in a headset, on the app's dark background: every story's, then the pages' that are
+<!-- The stations' icons (shared.js, "station icons": each story's miniature from its package's minis.js, its entry's icon
+     in story.json; the shell's own from lowpoly.js) in a grid, lit as in a headset, on the app's dark background: every story's, then the pages' that are
      not stories (STORY_EXTRA: the design room's, the studio's), then the shell's own circles' (All stories and Back to the
      lobby: HOST.collab.kinds(), keys all and lobby).
      Served next to the app: http://127.0.0.1:8123/tools/icons.html
@@ -45,8 +45,8 @@
     try { const H = frame.contentWindow.eval('typeof HOST !== "undefined" && HOST'); if (H && H.collab && H.collab.icon && H.list) W = H; } catch (e) { /* not yet */ }
   }
   if (!W) { document.getElementById('note').textContent = 'The app did not load (or its shell has no station icons).'; return; }
-  // (the miniatures first: an icon made before lowpoly.js is here is the fallback)
-  try { if (W.lowpoly) await W.lowpoly(); } catch (e) { document.getElementById('note').textContent = 'lowpoly.js did not load: the icons are the fallback.'; }
+  // (the miniatures first: every file of them: an icon made before its file is here is the fallback)
+  try { if (W.lowpoly) await W.lowpoly('*'); } catch (e) { document.getElementById('note').textContent = 'The miniatures did not load: the icons are the fallback.'; }
   // (the shell's own kinds of circle last, where the shell has them: their keys name their look as a story's does)
   const kinds = W.collab.kinds ? Object.values(W.collab.kinds()) : [];
   const T = frame.contentWindow.THREE, list = W.list.concat(frame.contentWindow.STORY_EXTRA || [], kinds);
