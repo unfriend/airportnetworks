@@ -27,7 +27,7 @@ Decisions (the owner's and Joel's):
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences:
 - Set files live in `packages/qubits/src/sets/`; the harness is `packages/qubits/src/harness.html` (the same query syntax; `cam=` a
-  view by name or six numbers) and the screenshot tool `packages/qubits/src/shot.mjs` (run it from `tools/qubits`; `SHOTS=<dir>`
+  view by name or six numbers) and the screenshot tool `packages/qubits/src/shot.mjs` (run it from `packages/qubits/src`; `SHOTS=<dir>`
   and `PORT=<port>`; shots go to `packages/qubits/src/shots/` by default, ignored by git).
 - Three shared globals come before the sets (the build pastes them inside the story's closure in this order):
   `QMATH` (`sets/qmath.js`, the maths), `QUBITS_DATA` (`sets/data.js`, the real run's numbers, typed in) and `QLOOK`
@@ -225,5 +225,5 @@ Suggested hashes: `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=
 - `node packages/qubits/src/test-qmath.mjs`: the maths (exact Pauli rebuilds at 1 to 4 bits, so(2L) and so(2L+1) dimensions
   at 1 to 5 bits, so(7)'s strings as in the reference figure, the planted groups found with the cube's labelling,
   balanced A_c, residual 0 at 1 bit and equal to the projection's by matrices, Trotter angles, seeded networks).
-- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `tools/qubits` (serve the repository root).
+- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `packages/qubits/src` (serve the repository root).
 - `node packages/qubits/src/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the engine is adapted).

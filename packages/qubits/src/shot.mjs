@@ -1,5 +1,5 @@
 // Screenshots of one set in the harness. Serve the repository root on port 8123 first.
-// usage (from tools/qubits): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
+// usage (from packages/qubits/src): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
 //   each query is the rest of the harness URL, e.g. "p=cube_bits:2,cube_ac:0,cube_genes:1&cam=genes"
 // writes shots/<outprefix>-<k>.png and prints build/frame stats and page errors
 import fs from 'fs';

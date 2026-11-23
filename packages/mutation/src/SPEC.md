@@ -40,7 +40,7 @@ Decisions (the owner's and the author's, 27 Oct 2026):
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the qubits story's, `tools/qubits/SPEC.md`):
 - Set files live in `packages/mutation/src/sets/`; the harness is `packages/mutation/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
-  cam=<view or six numbers>&anim=1`) and the screenshot tool `packages/mutation/src/shot.mjs` (run it from `tools/mutation`;
+  cam=<view or six numbers>&anim=1`) and the screenshot tool `packages/mutation/src/shot.mjs` (run it from `packages/mutation/src`;
   `SHOTS=<dir>` and `PORT=<port>`). The harness loads `MMATH`, `MUT_DATA` and `MLOOK` before the set.
 - Three shared globals come before the sets (the build pastes them inside the story's closure in this order): `MMATH`
   (`sets/mmath.js`, the maths; also a Node module, checked by `node packages/mutation/src/test-mmath.mjs`), `MUT_DATA`
@@ -366,6 +366,6 @@ gives `state()` back; the shell's `FORMAT` goes up with a new story).
 ## Testing
 
 - `node packages/mutation/src/test-mmath.mjs` (the maths).
-- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `tools/mutation` (serve the repository root).
+- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `packages/mutation/src` (serve the repository root).
 - `node packages/mutation/src/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the story is in
   `HOST.list` and the smoke test knows it).

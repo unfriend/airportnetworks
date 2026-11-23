@@ -1,5 +1,5 @@
 // Screenshots of one set in the harness. Serve the repository root on port 8123 first.
-// usage (from tools/flock): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
+// usage (from packages/flock/src): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
 //   each query is the rest of the harness URL, e.g. "p=atp_assemble:1&t=2&cam=30,15,3.6,0,0,0"
 // writes shots/<outprefix>-<k>.png and prints build/frame stats and page errors
 import fs from 'fs';

@@ -1,4 +1,4 @@
-# tools/qubits: the sources of the qubits story (`packages/qubits/main.js`)
+# packages/qubits/src: the sources of the qubits story (`packages/qubits/main.js`)
 
 "Three qubits: how a gene network fits on a tiny quantum computer", after Joel Hancock's brief for this visualization
 (network compression onto qubits and the Pauli decomposition; 21 Oct 2026), his figures and his notes on the runs.

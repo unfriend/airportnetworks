@@ -1,4 +1,4 @@
-# tools/mutation: the sources of the mutation story (`packages/mutation/main.js`)
+# packages/mutation/src: the sources of the mutation story (`packages/mutation/main.js`)
 
 "The mutation machine: DNA's changes as a quantum circuit", after the poster "Converting Mutation into a Machinery: DNA
 Substitution Models as Quantum Circuits" by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the

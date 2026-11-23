@@ -1,5 +1,5 @@
 // Screenshots of one set in the harness. Serve the repository root on port 8123 first.
-// usage (from tools/mutation): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
+// usage (from packages/mutation/src): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
 //   each query is the rest of the harness URL, e.g. "p=rule_path:1&cam=pyramid"
 // writes shots/<outprefix>-<k>.png and prints build/frame stats and page errors
 import fs from 'fs';

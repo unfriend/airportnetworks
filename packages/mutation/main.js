@@ -8,7 +8,7 @@
 // own test; the poster's own numbers (MUT_DATA) appear only where the story says "in the authors' test".
 // Runs inside index.html, which owns the page, the renderer and the headset session.
 // Built by packages/mutation/src/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in
-// tools/mutation: edit those, not this file.
+// packages/mutation/src: edit those, not this file.
 HOST.register('mutation', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
