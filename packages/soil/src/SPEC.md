@@ -1,6 +1,6 @@
 # Holding on to nitrogen: 3D sets, data and engine spec
 
-The sixteenth story of the app: `stories/soil.js`, built from `tools/soil/` like the tissue topology story is built from
+The sixteenth story of the app: `packages/soil/main.js`, built from `packages/soil/src/` like the tissue topology story is built from
 `tools/topo/`. It is made for the Global Peter Drucker Forum in Vienna (a lay, business audience), from the slides
 **"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter
 Wheat"** by **Marina Montserrat Díez**, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios
@@ -30,7 +30,7 @@ thing `field`, loading "Spreading the fertiliser", icon a wheat ear (the integra
 - **Never the slides' pictures or photos**: everything is redrawn in 3D. The authors' raw files stay out of the
   repository; only derived numbers go in. The kinds of microbe are numbered by abundance, never named by their ids; no
   sequences. No e-mail addresses anywhere.
-- **The honest message** (the data's verdict, `tools/soil/README.md`): in the slides' measurements the BNI wheat stays
+- **The honest message** (the data's verdict, `packages/soil/src/README.md`): in the slides' measurements the BNI wheat stays
   greener and leaks less nitrate and N2O; the soil's microbe community and its co-occurrence network follow the
   fertiliser and the field plots, not the wheat line (2 of 3,384 common kinds differ; the two lines' networks differ no
   more than random halves of the samples do); rising together is not working together; strong indications, not yet
@@ -55,9 +55,9 @@ correlation across the samples), "modules" (groups that rise together), "the cro
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the tissue topology story's, `tools/topo/SPEC.md`):
-- Set files live in `tools/soil/sets/`; the harness is `tools/soil/harness.html`
+- Set files live in `packages/soil/src/sets/`; the harness is `packages/soil/src/harness.html`
   (`?set=<name>&p=k:v,...&t=..&cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool
-  `tools/soil/shot.mjs` (run it from `tools/soil`; `SHOTS=<dir>` and `PORT=<port>`). The harness always loads
+  `packages/soil/src/shot.mjs` (run it from `packages/soil/src`; `SHOTS=<dir>` and `PORT=<port>`). The harness always loads
   `SOIL_DATA`, `SDATA`, `SLOOK`, `TLOOK` and the tour's `web` set (`set=web` shows the globe:
   `set=web&p=web_net:0,web_globe:1,web_spin:-0.25&cam=globe`).
 - Shared globals before the sets (the build pastes them inside the story's closure in this order): `SOIL_DATA`
@@ -140,12 +140,12 @@ for correlations among the kinds in their notes on the data): say so in its smal
 
 ## The data: `SOIL_DATA` (`sets/data.js`, generated; never edit)
 
-Written by `python -I tools/soil/data/gen_data.py <folder with the three CSVs>` (about five minutes; its header lists
-every field; Python with numpy, pandas, scipy, networkx: `tools/soil/data/requirements.txt`), from the authors'
+Written by `python -I packages/soil/src/data/gen_data.py <folder with the three CSVs>` (about five minutes; its header lists
+every field; Python with numpy, pandas, scipy, networkx: `packages/soil/src/data/requirements.txt`), from the authors'
 `Soil_ASVs.csv` (raw 16S read counts, 100,116 kinds x 119 samples), `ASV_Identifiers.csv` (their taxonomy) and
 `Field_Metadata.csv` (chlorophyll, nitrate, ammonium, N2O, soil water, pH per sample), kept out of the repository, and
-from `tools/soil/data/figures.json` (the slides' charts read off by two readers and reconciled by
-`tools/soil/data/reconcile.py`: their mean where they agree, flagged where they do not; one point of 450 is flagged).
+from `packages/soil/src/data/figures.json` (the slides' charts read off by two readers and reconciled by
+`packages/soil/src/data/reconcile.py`: their mean where they agree, flagged where they do not; one point of 450 is flagged).
 About 425 KB. Indices are the same everywhere: line 0 BNI, 1 control; fert 0 not fertilised, 1 fertilised, 2 fertilised +
 DCD; time 0..4 the dates T1..T5; rep 0..3; a group `g = (line * 3 + fert) * 5 + time` (30); a sample's slot `s = g * 4 +
 rep` (120; the missing sample, BNI fertilised + DCD T4 rep 1, is null in every per-sample list); a plot `p = (line * 3 +
@@ -194,7 +194,7 @@ fert) * 4 + rep` (24).
 time)`, `value(key, s)`, `lineTest(key, fert, time)`, `phylumShare(g, i)`, `guild(key, g)`, the decoded `cloud`,
 `common` (with `name(i)`), `net` (`cloudOf(i)`, `xyz`, `ij`, `rho`, `split`, `cut(rho)`, `members(m)`, `score(m, s)`,
 `share(m, g)`), `n2o(day, fert, line)`, `qpcr(kind, fert, day, line)`, `chl70(fert, line)`. **The app computes nothing
-scientific**: it looks numbers up and draws them. `node tools/soil/test-data.mjs` checks the key numbers.
+scientific**: it looks numbers up and draws them. `node packages/soil/src/test-data.mjs` checks the key numbers.
 
 What is real, read off, illustrative (say so in the story):
 - Real (the data): every field measure per plot and date, the groups' means, the phyla, the guilds, the cloud, the
@@ -323,11 +323,11 @@ Chapter 4 opens on the globe facing Europe (`web_globe` 1, `web_net` 0, `web_tie
 about -0.25) while the hop (`hop_a`, `hop_t` 0..1) draws its arc from Vienna to Japan, then the camera dives towards
 Japan and the field fades in. `web_globe` must be 1 while the hop shows (it does not scale with the globe's growth).
 
-## The engine (`tools/soil/engine/`, copied from the tissue topology story's; builder B)
+## The engine (`packages/soil/src/engine/`, copied from the tissue topology story's; builder B)
 
 Done: `e1_head.js` (header, `HOST.register('soil', ...)`), `e2_scene.js` (`SET_ORDER = ['soil', 'web', 'field', 'net']`,
 `FRAME = { net: 'field' }`, the hop), in `e3_story.js` the chapters (`CH`), a placeholder `NARRATION_SYNC`, the engine's
-defaults, `logMix`, `FACTS` (a start) and the credits, `XR_HERE = 'soil'`, the narration file `audio/narration-soil.mp3`.
+defaults, `logMix`, `FACTS` (a start) and the credits, `XR_HERE = 'soil'`, the narration file `packages/soil/audio/narration.mp3`.
 Everything else story-specific is still the topo story's, marked `TODO(soil B)` where it stands: `buildStory` and the
 story labels, `FIT`, `NARROW` and `LOW` (measure them), the stand view, explore's scenes, tabs, state, actions, panes
 (HTML in `e4_explore.js`, canvas twins in `e6_panels.js`), picking, `APP.enterExplore`'s scene for a moment, `openStart`
@@ -408,8 +408,8 @@ state, not effects.
 
 ## Testing
 
-- `node tools/soil/test-data.mjs` (a second) after the data or the decoders change; `node tools/soil/build.mjs --check`.
-- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `tools/soil` (serve the repository root on
+- `node packages/soil/src/test-data.mjs` (a second) after the data or the decoders change; `node packages/soil/src/build.mjs --check`.
+- A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `packages/soil/src` (serve the repository root on
   8123), e.g. `node shot.mjs field "p=field_date:4,field_chl:1&cam=low|p=field_jars:1,field_inc:0.4&cam=jars" f`.
 - The story: `sweep.mjs` once the story is in `HOST.list` (the integrator), then the smoke test.
 - Report headset behaviour (sizes, the pore's bubble, the life-size field) as untested.

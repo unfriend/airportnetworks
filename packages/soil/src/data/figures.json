@@ -1,5 +1,5 @@
 {
- "source": "the slides \"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat\" (Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou, Christa Schleper): its charts read off by two independent readers (A and B) and reconciled by tools/soil/data/reconcile.py",
+ "source": "the slides \"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat\" (Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou, Christa Schleper): its charts read off by two independent readers (A and B) and reconciled by packages/soil/src/data/reconcile.py",
  "rule": "v: the mean of the two readings where both exist; flag \"disagree\" where they differ by more than the sum of the readers' precisions, \"one\" where only one reader saw the point, \"under\" where the point lies under the other line's and that value is taken; err: the mean half-length of the error bars (SD per the notes' caption of slide 6; not said for slides 7 and 9)",
  "days": [
   1,

@@ -1,4 +1,4 @@
-# tools/soil: the sources of the soil story (`stories/soil.js`)
+# packages/soil/src: the sources of the soil story (`packages/soil/main.js`)
 
 "Holding on to nitrogen", after the slides "Exploring the Effects of Biological Nitrification Inhibition on the
 Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao
@@ -6,15 +6,15 @@ Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina K
 Vienna; University of Thessaly; Université Lyon 1; JIRCAS), and their field trial's data, used with the authors'
 permission (given through the project's owner, 29 October 2026). Made for the Global Peter Drucker Forum in Vienna.
 Built like the tissue topology story (`tools/topo/`), with the shared kit (`tools/engine/kit.js`) and set contract. British spelling, English
-only. Never edit `stories/soil.js` by hand.
+only. Never edit `packages/soil/main.js` by hand.
 
 ```sh
-node tools/soil/test-data.mjs       # checks the data, its decoders and the story's key numbers (a second)
-node tools/soil/build.mjs           # writes stories/soil.js
-node tools/soil/build.mjs --check   # exits 1 if out of date
+node packages/soil/src/test-data.mjs       # checks the data, its decoders and the story's key numbers (a second)
+node packages/soil/src/build.mjs           # writes packages/soil/main.js
+node packages/soil/src/build.mjs --check   # exits 1 if out of date
 # the data, from the authors' three CSVs (kept out of the repository), in a Python with requirements.txt:
-python -I tools/soil/data/reconcile.py <reader A readings.json> <reader B readings.json>   # data/figures.json
-python -I tools/soil/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>   # sets/data.js
+python -I packages/soil/src/data/reconcile.py <reader A readings.json> <reader B readings.json>   # data/figures.json
+python -I packages/soil/src/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>   # sets/data.js
 ```
 
 | Path | What it is |

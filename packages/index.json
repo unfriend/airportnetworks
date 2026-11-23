@@ -161,6 +161,34 @@
       }
     },
     {
+      "key": "soil",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Holding on to nitrogen",
+      "kick": "Soil microbes",
+      "col": "#b0a83c",
+      "desc": "Less than half of the fertiliser a farmer spreads ends up in the crop. In a field trial in Japan, a wheat with a trait from a wild grass stays greener and leaks less nitrate, while the soil's microbes follow the fertiliser far more than the wheat.",
+      "len": "Story 11:03 · 3D field",
+      "page": "Holding on to nitrogen: a wheat, its soil and the microbes in between",
+      "brand": "Holding on to nitrogen",
+      "sub": "a wheat, its soil and its microbes",
+      "aria": "Interactive 3D story of how soil microbes turn fertiliser into nitrate and nitrous oxide, a wheat bred to slow them down, and the network of microbes in a field trial",
+      "thing": "field",
+      "loading": "Spreading the fertiliser",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "soil.soil",
+      "needs": 186,
+      "fp": "54a551459e7d1401",
+      "bytes": 6270638,
+      "files": {
+        "audio/narration.mp3": "63ea6285de3f657a",
+        "main.js": "0ea825d0c6f067bf",
+        "story.json": "98e8f33f4f0f0b33"
+      }
+    },
+    {
       "key": "flock",
       "api": 1,
       "version": "1.0.0",

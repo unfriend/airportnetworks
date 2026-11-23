@@ -1,7 +1,7 @@
 // Checks that SDATA decodes SOIL_DATA and that the data holds the numbers the story tells. No science: the numbers are
 // the trial's (sets/data.js, written by data/gen_data.py) or read off the slides (data/figures.json); this only checks that
 // the data, its decoders and the story's key numbers agree.
-// usage (from the repository root): node tools/soil/test-data.mjs
+// usage (from the repository root): node packages/soil/src/test-data.mjs
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';

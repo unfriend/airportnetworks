@@ -1,4 +1,4 @@
-# Writes tools/soil/data/figures.json: the values the soil story takes from the slides' charts, read off twice
+# Writes packages/soil/src/data/figures.json: the values the soil story takes from the slides' charts, read off twice
 # independently (two readers, each with its own crops and method) and reconciled here.
 # The slides ("Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a
 # BNI-enabled Winter Wheat", Marina Montserrat Díez et al.) are not in the repository and none of their pictures is
@@ -12,7 +12,7 @@
 # reader's value is taken ('one'); where neither could, and both say the point lies under the other line's, the other
 # line's value is taken ('under'). Error bars: the mean of the two readers' half-lengths (the slides do not say whether
 # they are SD or SE; the notes' caption of slide 6 says SD).
-# usage: python -I tools/soil/data/reconcile.py <reader A readings.json> <reader B readings.json>
+# usage: python -I packages/soil/src/data/reconcile.py <reader A readings.json> <reader B readings.json>
 import sys, os, json
 
 A_PATH, B_PATH = sys.argv[1], sys.argv[2]
@@ -153,7 +153,7 @@ data = {
     'source': 'the slides "Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of '
               'a BNI-enabled Winter Wheat" (Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, '
               'Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou, Christa Schleper): its charts '
-              'read off by two independent readers (A and B) and reconciled by tools/soil/data/reconcile.py',
+              'read off by two independent readers (A and B) and reconciled by packages/soil/src/data/reconcile.py',
     'rule': 'v: the mean of the two readings where both exist; flag "disagree" where they differ by more than the sum of '
             'the readers\' precisions, "one" where only one reader saw the point, "under" where the point lies under the '
             'other line\'s and that value is taken; err: the mean half-length of the error bars (SD per the notes\' caption '

@@ -10,7 +10,7 @@
 // their field trial's data, used with the authors' permission (SOIL_DATA, decoded by SDATA). The soil block, the flows,
 // the relay, the chromosome and the field's layout are illustrative; every number is the data's or read off the slides.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/soil/build.mjs from the tour's kit and the data, look, sets and engine parts in tools/soil: edit
+// Built by packages/soil/src/build.mjs from the tour's kit and the data, look, sets and engine parts in packages/soil/src: edit
 // those, not this file.
 HOST.register('soil', function (HOST) {
 'use strict';
