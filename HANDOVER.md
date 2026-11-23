@@ -138,6 +138,33 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **Open after v191 (23 November 2026).** Nothing here blocks `dev`; the full suites run before `main` moves.
+  - *Tests*: the smoke step `studio sequences` is red (the page that started a sequence and a page given its state differ
+    by one frame of the 0.4 s fade just after a show at 1.5 s; cause not found). The smoke step `flock: anchored
+    placement` ("no word while the saved place is being looked for") has been red since before v187. The full
+    `node tools/collab.mjs` run has not reached its end on the cloud machine (smooth, walk, welcome and the relay-clock
+    checks fail only in long runs under software drawing; `--all`, `--ask` and `--design` pass alone).
+    `tools/output/test-page.mjs` says "cannot be checked here" for live sound's pace (to be tried on a real output page).
+    The full suites have not run on v188 to v191.
+  - *Untested on a headset since v184*: the stories loaded from packages with their narration; *Take all stories* in
+    Quest Browser; the two sets of cards (main and Experiments) and their Open and back cards; leaving AR with a pop-up
+    open (v188); the G protein at 48,000 triangles in Back into the cell's Walls; station icons and the design room's
+    table from the packages' `minis.js` (v190); the reworked CDK5 story (structures, docking, frame rate with 16,376
+    points; its voice unheard).
+  - *Waiting on the owner*: the CDK5 row marked **TO FILL** in `docs/data-and-permissions.md`; the Human Protein Atlas
+    licence for Back into the cell, to confirm; in Back into the cell in AR the interactome ball looked half bright and
+    half dark (probably real-world occlusion: retry with occlusion off) and some blue and white dots showed in front
+    (probably really in front: re-check); a real *Record a run* log (the only one on the relay is a one-second desktop
+    test); files no longer used that the owner may delete (the rule forbids agents to): `packages/ppicell/src/sets/mol.js`
+    and `orb.js`, `packages/ppicell/models/{egfr,erbb2,met,kit,shc1,sos1,cbl,dnm1}.mol`, and the empty untracked `audio/`
+    folder.
+  - *Waiting on the colleague (Christiane Hütter)*: C1 and C3 to C10 in `docs/questions-for-authors.md`; in particular C8
+    (why CDK5 with p25 leaves its place: the story names no mechanism until answered) and C9 (two spoken lines the data
+    does not back: CDK5's say in NPAS4's pathway, whose only link was drawn by the authors, and "even in the nucleus").
+  - *Developer notes*: all 66 notes on the relay up to 23 November 2026 are implemented (through v188); they still show
+    as new because marking them done is the owner's (`CLAUDE.md`).
+  - *An idea*: a paper on Back into the cell's layout method (the owner, 23 November 2026; not started):
+    `packages/ppicell/src/SPEC.md`, "A paper on the layout method (idea)".
 - **networks-v190 (23 November 2026; FORMAT networks-55), on `dev` only: miniatures in the packages.** Each story's
     miniatures (its station icon and its props on the design room's table) moved from `tools/lowpoly/models-*.js` into
     its package (`packages/<key>/src/minis.js`, built into `packages/<key>/minis.js` with the design room's cards from

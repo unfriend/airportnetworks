@@ -142,3 +142,15 @@ in living cells), the kinds compared, the two readings, the proteins without a p
 - Whether the story is listed for everyone when done (then the shell lists packages before the tutorial, one line).
 - Examples (the owner, 22 November 2026: agreed, and TP53 added): GRB2 the hub, TP53 the famous one (hub and shuttle),
   STAT3 the shuttle, RELA the amber example. TP53 is also the explore mode's first pick in the address examples.
+
+## A paper on the layout method (idea)
+
+- **The idea** (the owner, 23 November 2026): the layout method of this story "has potential, could we formalize this and
+  maybe write a paper about it?"
+- **The method**: an interactome's proteins are placed into the compartments of a model cell, and each link is judged by
+  where its two proteins can meet: possible (a shared space), through a gate (one known crossing) or impossible
+  ("The method" above).
+- **Needed before a paper**: a formal statement of the method; a check of prior work (ComPPI and other
+  localisation-filtered interactomes were named from memory and need a proper literature search); validation against
+  proximity-labelling or other spatial proteomics maps; the Human Protein Atlas data's terms.
+- **Status**: not started; the owner has not asked for a draft.

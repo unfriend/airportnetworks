@@ -19,7 +19,7 @@ kinase CDK5 among the human interactome: its activators, its healthy signalling,
 pathway in Alzheimer's disease and the diseases its network points to", thing `map`, loading "Placing 16,376 proteins",
 icon the integrator's (`lowpoly.js`), len from the narration.
 
-## The rework (v190, the owner, 23 November 2026)
+## The rework (v191, the owner, 23 November 2026)
 
 The owner asked to follow the colleague's scene document (scenes 0 to 9), add the three subnetworks the story lacked,
 show real protein structures at the small subnetworks in the middle, replace the narration with a new script (one
@@ -59,9 +59,9 @@ the v189 brief below wherever they differ (the two decisions marked *superseded*
 
 ## Decisions (the owner's, 18 November 2026)
 
-- *Superseded at v190 (above).* **The analytics project only**: its six scenes (below), on the whole interactome. The repository's seven-scene
+- *Superseded at v191 (above).* **The analytics project only**: its six scenes (below), on the whole interactome. The repository's seven-scene
   standalone project (`CDK5_minimal_new`: the Semaphorin and NPAS4 pathways, the 205-partner star) is **not** used.
-- *Superseded at v190 for the structures at the centre (above).* **Networks only**: nothing drawn beyond the networks and their numbers (no neuron, no molecules, no cell). Explain the
+- *Superseded at v191 for the structures at the centre (above).* **Networks only**: nothing drawn beyond the networks and their numbers (no neuron, no molecules, no cell). Explain the
   biology in words; the networks carry the pictures.
 - **Take the data, the scene descriptions and the data representations from the repository**: its layouts (the
   sphere of processes, the scenes' centres, the disease landscape), its colours (CDK5 green, hyperactive red, NTRK2 cyan,

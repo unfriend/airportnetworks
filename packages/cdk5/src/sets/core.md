@@ -1,6 +1,6 @@
 # core: the close-up at the map's centre
 
-(v190) Nine scenes (`core_scene` 0..8); the partners' star has only CDK5 at the centre. **Structures**: real PDB
+(v191) Nine scenes (`core_scene` 0..8); the partners' star has only CDK5 at the centre. **Structures**: real PDB
 structures take the place of their protein's ball, each shown by its own param, loaded once the core first shows
 (`molLoad`, `HOST.pkgUrl('cdk5', 'models/')`; a ball stands in until a file comes): `core_mCdk5` (CDK5, 1H4L),
 `core_mP35` (p35's part that grips CDK5, 1H4L, at the same scale as CDK5; with a small ball for the rest of p35, which

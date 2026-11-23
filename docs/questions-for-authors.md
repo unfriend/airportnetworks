@@ -182,7 +182,7 @@ disagrees now (`SOIL_DATA.open` in `packages/soil/src/sets/data.js`, written by 
 ## The switch that sticks (`cdk5`)
 
 Source: the Menche lab's repository CDK5_data (github.com/menchelab/CDK5_data, Christiane Hütter), its CDK5_analytics VR
-project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v190 its CDK5_minimal_new project
+project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v191 its CDK5_minimal_new project
 (`CDK5_BioStory_minimal_adapted.ipynb`) and the colleague's scene document; everything the story shows is decoded from it
 (`packages/cdk5/src/data/gen_data.py`; `packages/cdk5/src/SPEC.md`, "Decisions"). Who to ask: Christiane Hütter. Contact person:
 **TO FILL (owner)**.
@@ -190,7 +190,7 @@ project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v19
 | # | Item | Where in the source | What the story shows now | Status |
 | --- | --- | --- | --- | --- |
 | C1 | The Alzheimer's pathway's name | `input/neurodegenerativepathwaysAlzheimers.tsv` (no name or id in the file) | Reactome's "Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer's disease models", our reading of its 22 members, said so | open |
-| C2 | The CDK5 - calpain link | scene 03 adds it (the interactome has none) | drawn as the authors draw it, its small print saying that calpain cuts p35, not CDK5; the voice says so too (v190) | answered by the owner, 23 November 2026: calpain cuts p35 |
+| C2 | The CDK5 - calpain link | scene 03 adds it (the interactome has none) | drawn as the authors draw it, its small print saying that calpain cuts p35, not CDK5; the voice says so too (v191) | answered by the owner, 23 November 2026: calpain cuts p35 |
 | C3 | p35 and p39 in the subunits scene | the notebook compares a protein with the list of both (`node == subunits_entrezIDs`), so they keep their degree colour in the texture | the map's points as the texture has them; the close-up colours them light green | open: was green meant? |
 | C4 | p39 at the centre in the NTRK2 and Alzheimer's scenes | their layouts start from scene 1's, which pulled p39 in | p39 left at the centre, faint and unnamed, as in the textures | open: keep, or send p39 home? |
 | C5 | The interactome's and the Disease Ontology associations' sources and dates | cartoGRAPHs' `load_graph('human')`, `input/d_gene_do.pkl` | "the human interactome" and "the Disease Ontology" in the credits, no version | open |

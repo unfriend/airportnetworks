@@ -552,8 +552,8 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   `XR.inW`), `xrTip`, `xrBallHit` and `xrMinD` in the net's frame (explore's scenes are not sets: `X.scene` is one of
   `CDATA.SCENES`); `frame` (the shared one with explore's views from `sceneCam()` in the net set, and `XR.scene`,
   `XR.inW`, `XR.inV` set each frame); `sigFoot` and `drawFootX` (Stand inside). Its `collab.state()` carries `v:
-  COLLAB_V` (2 since v190: the three new scenes and pathways 2 and 3), which `apply()` checks (`tools/packages/SPEC.md`, "Shared rooms"). The story's text,
-  `NARRATION_SYNC` and `NARRATION_ENDS` were the fork's until v190's new script (`node tools/voice/narrate.mjs cdk5`).
+  COLLAB_V` (2 since v191: the three new scenes and pathways 2 and 3), which `apply()` checks (`tools/packages/SPEC.md`, "Shared rooms"). The story's text,
+  `NARRATION_SYNC` and `NARRATION_ENDS` were the fork's until v191's new script (`node tools/voice/narrate.mjs cdk5`).
 - The data: `python3 -I packages/cdk5/src/data/gen_data.py <folder of the CDK5_data clone> --go <folder with
   goa_human.gaf.gz and go-basic.obo>` reads the repository's `CDK5_analytics` VR project, whose layouts, colours and
   links it decodes exactly from the textures (`layouts/` and `layoutsl/` the high and low bytes of each coordinate;
@@ -562,7 +562,7 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   Reactome pathway exports and its Disease Ontology tables (pickles of dicts, lists and strings only, read by an
   unpickler that refuses every class). The clone stays out of the repository. The notebook's two feature pickles (GO
   processes and diseases by gene) are on the lab's Drive, not in the repository: the layouts they gave are in the
-  textures. Never lay the authors' layouts out again in the app. Since v190 also three scenes of `CDK5_minimal_new`
+  textures. Never lay the authors' layouts out again in the app. Since v191 also three scenes of `CDK5_minimal_new`
   and two more Reactome exports; the process knots are kept from the data file before (`--keep-clouds`), as their GO
   release (2026-07-26) is no longer to be had.
 - What is ours, said so: the close-ups at the centre (the authors' centre proteins at their relative places, scaled up to
@@ -573,7 +573,7 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   GO finds no single process in the map's big dense clouds, so 14 small knots where one process gathers are labelled
   instead, and the story says so. The authors' one drawn link, CDK5 - calpain (calpain acts on p35, not on CDK5), is
   said so.
-- Reworked at v190 (the owner, 23 November 2026; `packages/cdk5/src/SPEC.md`, "The rework"): the colleague's scene
+- Reworked at v191 (the owner, 23 November 2026; `packages/cdk5/src/SPEC.md`, "The rework"): the colleague's scene
   document's ten scenes and a close (`title`, `activators`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`, `reach`,
   `alzheimer`, `landscape`, `learn`), a new script recorded word for word (8:27; each spoken line a `data-say`, a line
   with no key point of its own an empty `vo` mark), presentation-like (a heading and at most two points at once, names

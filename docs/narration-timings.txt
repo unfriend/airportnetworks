@@ -66,7 +66,7 @@ at 11:03; its tables are in packages/soil/src/engine/e3_story.js (then rebuild).
 
 The CDK5 story, The switch that sticks (#cdk5, a story package since v189), has packages/cdk5/audio/narration.mp3. Its
 chapters start at 0:00, 1:17, 2:03, 2:32, 3:12, 3:52, 4:35, 5:23, 6:07, 6:57
-and 7:58, ending at 8:27 (the v190 script); its tables are in packages/cdk5/src/engine/e3_story.js (then rebuild).
+and 7:58, ending at 8:27 (the v191 script); its tables are in packages/cdk5/src/engine/e3_story.js (then rebuild).
 
 The network-medicine story (#proteins) has packages/proteins/audio/narration.mp3. Its
 chapters start at 0:00, 0:21, 0:50, 1:21, 1:49, 2:25, 3:20, 3:54, 4:34 and

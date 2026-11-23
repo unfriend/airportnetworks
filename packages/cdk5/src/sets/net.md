@@ -1,6 +1,6 @@
 # `net` - the interactome in the authors' six arrangements (sets/net.js)
 
-(v190: nine arrangements, `net_scene` 0..8: `bioproc`, `subunits`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`,
+(v191: nine arrangements, `net_scene` 0..8: `bioproc`, `subunits`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`,
 `alzheimer`, `disease`; the delays by the move's second scene: into `alzheimer` the wave, into `disease` the peel, else
 seeded at random; `net_path` 0 NTRK2, 1 the Alzheimer's, 2 Semaphorin interactions, 3 NPAS4. The numbers in the table
 below are the v189 story's.)
