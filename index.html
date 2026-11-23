@@ -2573,7 +2573,7 @@ Object.assign(HOST.xr, (function () {
 (function () {
   let s = null;
   // (developer mode's card on the page closes as a session starts, as Later: the headset menu has its own page)
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); if (v && HOST.dev) HOST.dev.close(); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); if (v && HOST.dev) HOST.dev.close(); if (!v && HOST.live && HOST.live.xrOff) HOST.live.xrOff(); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
@@ -4754,6 +4754,9 @@ HOST.live = (function () {
     },
     // the shell is about to tear the story down: the headset's panel leaves its scene
     detach() { if (XQ.mesh && XQ.mesh.parent) XQ.mesh.parent.remove(XQ.mesh); XQ.camFor = null; },
+    // a headset session over (HOST.session set to null, v188): its question in the headset goes with it, as the shell's
+    // other pop-ups there do (shared.js's overlay: HOST.room.watch), not on the page's view of the scene
+    xrOff() { if (XQ.mesh) XQ.mesh.visible = false; XQ.placed = false; },
     get watching() { return L.watching; }, get pending() { return L.pending; }, get question() { return L.ask && !L.ask.hidden ? L.ask.text : ''; },
     state: () => L, xr: () => XQ, xrTick,   // (for tests)
   };

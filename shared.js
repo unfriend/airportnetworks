@@ -10732,6 +10732,11 @@
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)
     notesRelease();   // (the notebook's Notes page: its sound stopped, its pictures and recording let go)
     PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
+    // a session over (v188): the overlay goes at once, everything on it with it (the menu, the welcome, notices, questions,
+    // subtitles, the frame-rate read-out, the room's marks and people), since only a session's frames hide it (drawOverlay)
+    // and it hangs in the story's scene, which the page goes on drawing (the owner's note in a Quest 3, 23 November 2026:
+    // "make sure when we exit AR that all of these little AR pop-ups are hidden")
+    if (!s && OV.root) OV.root.visible = false;
     PCP.on = false;   // (placing the preview camera: not across sessions)
     kpEnd(null); askClose('session');   // (a keypad waiting for a word, a question about a circle: gone with the session)
     // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
