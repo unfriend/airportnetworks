@@ -1,0 +1,21 @@
+{
+  "key": "ovary",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "The aging ovary",
+  "kick": "Ovarian aging",
+  "col": "#ff6f91",
+  "desc": "Sections of 255 ovaries from donors aged 20 to 70, read by deep learning: follicles run out, scars pile up and blood vessels grow fewer. Two methods, one picture of aging.",
+  "len": "Story 7:48 · 3D ovary",
+  "page": "The aging ovary: what 255 ovaries show about aging",
+  "brand": "The aging ovary",
+  "sub": "what 255 ovaries show about aging",
+  "aria": "Interactive 3D story of how the human ovary changes with age, seen through deep learning on 255 tissue sections",
+  "thing": "ovary",
+  "loading": "Staining the sections",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "ovary.organ",
+  "needs": 186
+}

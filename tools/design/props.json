@@ -10003,8 +10003,8 @@
    "reuses": [
     "lbi/body (small in its pelvis)"
    ],
-   "file": "tools/ovary/sets/organ.js",
-   "manifest": "tools/ovary/sets/organ.md",
+   "file": "packages/ovary/src/sets/organ.js",
+   "manifest": "packages/ovary/src/sets/organ.md",
    "shows": "A large cut-away ovary (almond-shaped, tunica albuginea, cortex and medulla) with antral follicles, scars (corpora albicantia), vessels and a corpus luteum, whose contents follow the poster's trend lines as it ages from 20 to 70. It is small in the body's pelvis at first and grows out of it. Say \"drawn\", never \"to scale\".",
    "frame": "Centred on the origin; in the body, the same frame as the body set (the ovary sits in its pelvis before growing).",
    "size": "~1.9 long, 1.1 tall, 0.9 deep",
@@ -10451,8 +10451,8 @@
    "story": "ovary",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/ovary/sets/section.js",
-   "manifest": "tools/ovary/sets/section.md",
+   "file": "packages/ovary/src/sets/section.js",
+   "manifest": "packages/ovary/src/sets/section.md",
    "shows": "A drawn H&E section of an ovary with blood vessels, macrophages, corpora albicantia, follicles and cysts in relief; tiles, UNI2 features and a forest of decision trees that votes; SegFormer's masks with scores as tags; and an illustrative neighbor network that tips off the section and gathers into five hubs by kind joined by bands.",
    "frame": "Section A in the xy plane facing +z, centred on the origin; a second section for the pair view; the grove and hubs beside it.",
    "size": "section ~1.9 x 1.5, 0.03 thick",
@@ -11056,8 +11056,8 @@
    "story": "ovary",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/ovary/sets/charts.js",
-   "manifest": "tools/ovary/sets/charts.md",
+   "file": "packages/ovary/src/sets/charts.js",
+   "manifest": "packages/ovary/src/sets/charts.md",
    "shows": "Only the donors in 3D: 255 glass slides fly in, fan out in three arcs and stack into the poster's age histogram, one slide per donor. The story's one graph, shown in passing.",
    "frame": "Centred near the origin facing +z in front of a backdrop of ages and counts.",
    "size": "not stated in the manifest (see views)",
@@ -20913,11 +20913,11 @@
    "what": "MICRO_DATA, the microanatomy story's data block (generated)"
   },
   {
-   "file": "tools/ovary/sets/data.js",
+   "file": "packages/ovary/src/sets/data.js",
    "what": "OVARY_DATA and OVARY_TREND, the poster's numbers (generated)"
   },
   {
-   "file": "tools/ovary/sets/look.js",
+   "file": "packages/ovary/src/sets/look.js",
    "what": "OVARY_LOOK, the ovary story's shared look"
   },
   {

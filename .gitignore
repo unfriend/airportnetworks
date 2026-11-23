@@ -31,7 +31,7 @@ Network_VR*/
 *.nrrd
 tools/pass/shots/
 tools/pass/gen/
-tools/ovary/shots/
+packages/ovary/src/shots/
 packages/mutation/src/shots/
 tools/topo/shots/
 

@@ -5,16 +5,16 @@
 // "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty, Samir Moustafa and André Rendeiro
 // (LBI for Network Medicine; CeMM; Faculty of Computer Science, University of Vienna). American spelling in this story.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/ovary/build.mjs from the tour's kit, the tour's PET body set and the data, shared look, sets and engine
-// parts in tools/ovary (the engine adapted from the microanatomy story's): edit those, not this file.
+// Built by packages/ovary/src/build.mjs from the tour's kit, the tour's PET body set and the data, shared look, sets and engine
+// parts in packages/ovary/src (the engine adapted from the microanatomy story's): edit those, not this file.
 HOST.register('ovary', function (HOST) {
 'use strict';
 //#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// OVARY_DATA (the poster's numbers, the figures' readings and the donors' ages, tools/ovary/sets/data.js) comes
-// first, then OVARY_TREND and OVARY_LOOK (tools/ovary/sets/look.js: the trend lines looked up, the story's look) and
+// OVARY_DATA (the poster's numbers, the figures' readings and the donors' ages, packages/ovary/src/sets/data.js) comes
+// first, then OVARY_TREND and OVARY_LOOK (packages/ovary/src/sets/look.js: the trend lines looked up, the story's look) and
 // the tour's PET body set (SETS.body, unchanged); then the story's sets organ, section and charts.
 const SETS = {};
 //@@SETS@@

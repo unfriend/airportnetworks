@@ -1,16 +1,16 @@
-# tools/ovary: the sources of the aging ovary story (`stories/ovary.js`)
+# packages/ovary/src: the sources of the aging ovary story (`packages/ovary/main.js`)
 
 "The aging ovary: what 255 ovaries show about aging", after the poster "Mapping the histological landscape of human
 ovarian aging" (Parijat Chakraborty, Samir Moustafa, André Rendeiro; LBI for Network Medicine, CeMM, Faculty of Computer
 Science, University of Vienna; support CeMM and the ERC; data GTEx). Built like the microanatomy story (`tools/micro/`):
 the shared kit (`tools/engine/kit.js`) and body set and three sets of its own. Everything is drawn as lit
 3D objects; no GTEx image and no image from the poster is used. American spelling in this story only. Never edit
-`stories/ovary.js` by hand.
+`packages/ovary/main.js` by hand.
 
 ```sh
-node tools/ovary/data/gen_data.mjs      # -> sets/data.js (OVARY_DATA)
-node tools/ovary/build.mjs              # writes stories/ovary.js
-node tools/ovary/build.mjs --check      # exits 1 if out of date
+node packages/ovary/src/data/gen_data.mjs      # -> sets/data.js (OVARY_DATA)
+node packages/ovary/src/build.mjs              # writes packages/ovary/main.js
+node packages/ovary/src/build.mjs --check      # exits 1 if out of date
 ```
 
 | Path | What it is |

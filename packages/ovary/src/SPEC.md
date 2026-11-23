@@ -10,7 +10,7 @@ back and gathers its illustrative neighbor network into five hubs by kind joined
 stray `organ_grow` key that shrank the ovary in the Reserve chapter's cortex close-up is gone. Six chapters, about
 seven minutes. This spec says what is built now; the parts taken out are in git history.
 
-The thirteenth story of the web app in `/home/user/airportnetworks`: `stories/ovary.js`, built from `tools/ovary/` like
+The thirteenth story of the web app in `/home/user/airportnetworks`: `packages/ovary/main.js`, built from `packages/ovary/src/` like
 the microanatomy story `stories/micro.js` is built from `tools/micro/`. It turns a poster into a narrated, about
 four-and-a-half-minute 3D story (about seven minutes after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser).
@@ -40,7 +40,7 @@ function returning `[bold, rest]`, read again while it shows, as the qubits stor
 | `sets/look.js` | `OVARY_TREND` (lookups) and `OVARY_LOOK` (the shared look), pasted before the sets |
 | `sets/organ.js`, `sets/section.js`, `sets/charts.js` | the three sets, each with a manifest `sets/<name>.md` |
 | `engine/*.js` | the engine, adapted from the microanatomy story's (see "The engine" below) |
-| `build.mjs` | assembles `stories/ovary.js`: kit, data, look, `tools/lbi/sets/body.js` (unchanged), organ, section, charts, engine |
+| `build.mjs` | assembles `packages/ovary/main.js`: kit, data, look, `tools/lbi/sets/body.js` (unchanged), organ, section, charts, engine |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`?set=organ&with=body&p=...&cam=<view or six numbers>`; `nofinish=1` leaves what builds between frames unbuilt), its screenshots, screenshots of the whole story |
 
 ## Data (`OVARY_DATA`, `OVARY_TREND`)
@@ -137,7 +137,7 @@ controls.
 
 ## The engine (`engine/`, adapted from the microanatomy story's)
 
-- `HOST.register('ovary', ...)`, `audio/narration-ovary.mp3`, `SET_ORDER = ['body', 'organ', 'section', 'charts']`,
+- `HOST.register('ovary', ...)`, `packages/ovary/audio/narration.mp3`, `SET_ORDER = ['body', 'organ', 'section', 'charts']`,
   `FRAME = { body: 'organ' }` (one frame: the ovary sits in the body's pelvis); the microanatomy story's own parts
   (MICRO_DATA, its sets, the organ points and models, the Organs/Domains tabs) are gone, and `build.mjs` no longer
   includes `tools/micro/sets/organs.js`. The shared-room hooks, the headset code, the slideshow and the narration lines
