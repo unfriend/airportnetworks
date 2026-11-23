@@ -1,0 +1,20 @@
+{
+  "version": "networks-v190",
+  "date": "2026-11-23",
+  "new": [
+    "Each story now carries its own miniatures: its station icon in a shared room and its props on the design room's table come from its own folder.",
+    "A new story with miniatures needs no change to the app itself to show its icon and its props.",
+    "The example story, Six handshakes, has a miniature of its own: a ring of people with three shortcuts.",
+    "An installed app drops old copies of narrations it no longer uses, which frees up to about 60 MB."
+  ],
+  "test": [
+    "In a shared room, check every circle shows its story's icon over its ring, as before.",
+    "Open the design room and check the table looks as before, with one more plate for Six handshakes.",
+    "Put a prop on the stage and check its card, then move a miniature by hand and check the others see it.",
+    "On a phone, press Take all stories, then turn the network off and open a story you have not played."
+  ],
+  "untested": [
+    "The icons and the design room's table in a real headset: they looked the same as before in pictures.",
+    "How long the icons take to appear on a slow network in a headset."
+  ]
+}

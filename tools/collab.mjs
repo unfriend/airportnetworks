@@ -879,8 +879,8 @@ async function headView(H, file, yawRoom, pitch, size, pre) {
 }
 
 // ---- the design room in a headset in a room (after designRoom, with a pretend headset H aligned in the room; S any
-// station, to find a spot away from them all): every station's icon built from its story's miniature (lowpoly.js, the
-// entry's icon), in its colour and turning (hidden but built when the headset is in a circle already); with the circles
+// station, to find a spot away from them all): every station's icon built from its story's miniature (its package's
+// minis.js since v190, the entry's icon), in its colour and turning (hidden but built when the headset is in a circle already); with the circles
 // locked the menu's Design room button is greyed and places nothing; pressed, it puts the props table at the headset's
 // feet as a circle facing its way, which every page sees; the headset standing in it, it becomes its station and the
 // design room opens there, its icon gone over it; walked out, the headset stays at the design room (its icon still gone,
@@ -913,7 +913,7 @@ async function headsetDesign(A, B, H, S, shots) {
   let i1 = [];
   for (let k = 0; k < 12; k++) { await step(400); i1 = await icons(); if (i1.every((x, j) => x.id === own || angle(x.a, i0[j].a) > 0.05)) break; }
   const bad = i1.filter((x, k) => !(x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && (x.id === own ? !x.on : x.on && angle(x.a, i0[k].a) > 0.05)));
-  check(`design room: every station's icon is built from its story's miniature (lowpoly.js), in its colour and turning${own ? ' (but its own station\'s: the headset is in its circle)' : ''}`,
+  check(`design room: every station's icon is built from its story's miniature (its package's minis.js), in its colour and turning${own ? ' (but its own station\'s: the headset is in its circle)' : ''}`,
     built && i1.length > 5 && !bad.length, JSON.stringify({ built, n: i1.length, bad }));
   // locked: the button greyed, nothing placed
   const n0 = await H.evaluate(() => HOST.collab.stations().length);
@@ -9212,7 +9212,7 @@ try {
   check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button)',
     away0.away && !away0.mine && !away0.stories && !away0.playing && !away0.world && !away0.panels && !away0.land && !away0.kind && away0.control === 'globe' && !away0.button &&
     away0.still, JSON.stringify(away0));
-  // before any circle every station shows its story's icon over its ring: its miniature (lowpoly.js, its entry's icon;
+  // before any circle every station shows its story's icon over its ring: its miniature (its package's minis.js, its entry's icon;
   // built one a frame, the fallback until then), in the story's colour and turning, and its card
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const iconsSeen = () => H.evaluate(() => [...HOST.collab.overlay().rings].map(([id, o]) => {

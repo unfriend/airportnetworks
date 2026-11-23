@@ -1,21 +1,20 @@
 {
-  "version": "networks-v189",
+  "version": "networks-v190",
   "date": "2026-11-23",
   "new": [
-    "A new story on the Experiments cards: The switch that sticks, by Christiane Hütter. It follows CDK5, a switch in neurons, among 16,376 human proteins, from healthy signalling to Alzheimer's disease and a landscape of diseases.",
-    "It is narrated (8:27) and has its own explore mode: the six scenes, any protein by name, 88 disease terms and an About tab.",
-    "Two new miniatures for it: its station icon, a map of proteins, and CDK5 at the centre. Both stand on the design room's table."
+    "Each story now carries its own miniatures: its station icon in a shared room and its props on the design room's table come from its own folder.",
+    "A new story with miniatures needs no change to the app itself to show its icon and its props.",
+    "The example story, Six handshakes, has a miniature of its own: a ring of people with three shortcuts.",
+    "An installed app drops old copies of narrations it no longer uses, which frees up to about 60 MB."
   ],
   "test": [
-    "In a headset, open Experiments and play The switch that sticks. In the first two chapters the map should stand round you; from the third it floats in front of you.",
-    "Check the map never comes closer than an arm's length to your eyes, also after zooming in explore mode.",
-    "In explore mode, point at a protein and pull the trigger; try Stand inside on the map of processes, then Whole scene.",
-    "On a phone and a laptop, play it through once and try each explore tab.",
-    "In a shared room, add it as a circle and check two people see the same scene, protein and disease term."
+    "In a shared room, check every circle shows its story's icon over its ring, as before.",
+    "Open the design room and check the table looks as before, with one more plate for Six handshakes.",
+    "Put a prop on the stage and check its card, then move a miniature by hand and check the others see it.",
+    "On a phone, press Take all stories, then turn the network off and open a story you have not played."
   ],
   "untested": [
-    "Anything of the new story in a real headset: placement, standing inside, the trigger and the panels.",
-    "How its narration and sound effects sound.",
-    "Its frame rate on a Quest with 16,376 points."
+    "The icons and the design room's table in a real headset: they looked the same as before in pictures.",
+    "How long the icons take to appear on a slow network in a headset."
   ]
 }

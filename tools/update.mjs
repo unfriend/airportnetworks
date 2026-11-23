@@ -150,9 +150,10 @@ if (unchanged) report('narrations: one unchanged is kept as it was', await size(
 // which can outlast the two visits above; offline before it is active would test the older worker's copy)
 const NEWV = (/const VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(newDir, 'sw.js'), 'utf8')) || [])[1];
 // (the browser looks for a new worker as pages load, not always at once: asked here, as a later visit would)
-// (its cache is made as its install starts: it is done when nothing is installing or waiting any more)
+// (its cache is made as its install starts: it is done when nothing is installing or waiting any more and the active
+// worker has finished its activate, which prunes the narrations' cache)
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r && r.update())).catch(() => {});
-const settled = v => page.evaluate(async v => { const r = await navigator.serviceWorker.getRegistration(); return !!r && !r.installing && !r.waiting && await caches.has(v); }, v).catch(() => false);
+const settled = v => page.evaluate(async v => { const r = await navigator.serviceWorker.getRegistration(); return !!r && !r.installing && !r.waiting && !!r.active && r.active.state === 'activated' && await caches.has(v); }, v).catch(() => false);
 for (let i = 0; i < 360 && !(await settled(NEWV)); i++) await wait(250);
 // (the new worker active: its install refreshed the narrations held here that it still lists, fetched no others, and
 // its activate dropped the copies whose address is no longer one of its narrations: sw.js narrPrune)
