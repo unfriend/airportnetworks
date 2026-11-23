@@ -1,7 +1,7 @@
 # `cell` - the cell map's cell (sets/cell.js)
 
 The cell map story's cell, exactly as it is: built by that story's own `buildScene` from its own lists (`PLACES`,
-`PROTEINS`, `LINKS`, `TOGETHER`, `MOVES`), layout and shaders, cut out of `stories/spatial.js` by `build.mjs`
+`PROTEINS`, `LINKS`, `TOGETHER`, `MOVES`), layout and shaders, cut out of `packages/spatial/main.js` by `build.mjs`
 (`PASS_SPATIAL`, see SPEC.md). Radius 1 (a cell about 20 micrometres across; the membrane is a slightly flattened
 ellipsoid), centred on the origin. 249 proteins (282 copies, one per place), 252 links, 13 places, 10 organelles, 7
 moves (`api.counts()`).

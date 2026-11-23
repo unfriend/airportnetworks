@@ -292,12 +292,12 @@
       "list": "stories",
       "icon": "pass.fish",
       "needs": 185,
-      "fp": "d6009ec8ab93481e",
-      "bytes": 7514920,
+      "fp": "b2a37686b1871f14",
+      "bytes": 7514938,
       "files": {
         "audio/narration-de.mp3": "1d3995bde9711a52",
         "audio/narration.mp3": "0c33c976e1f19b54",
-        "main.js": "fecc4eee1370c9dc",
+        "main.js": "1dfb4bf216fba745",
         "story.json": "ebaae9cee1c39d77"
       }
     },
@@ -355,6 +355,34 @@
         "audio/narration.mp3": "a415e6baa85b71bf",
         "main.js": "d7498f1db08c1d89",
         "story.json": "a274c0bae6dd332d"
+      }
+    },
+    {
+      "key": "spatial",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Cell map",
+      "kick": "Spatial interactome",
+      "col": "#3ee08f",
+      "desc": "249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.",
+      "len": "Story 5:41 · cell model",
+      "page": "Spatial interactome, where proteins meet in a cell",
+      "brand": "Spatial interactome",
+      "sub": "where proteins meet in a cell",
+      "aria": "Interactive 3D model of a human cell and its protein network",
+      "thing": "cell",
+      "loading": "Building the cell",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "spatial.cell",
+      "needs": 185,
+      "fp": "8ce186b6c197f450",
+      "bytes": 2991011,
+      "files": {
+        "audio/narration.mp3": "00886ba8d141ecf8",
+        "main.js": "c81b0e24baf66e8f",
+        "story.json": "cd12d8a66290c7c6"
       }
     },
     {

@@ -1,9 +1,9 @@
 // Assembles packages/pass/main.js from the tour's kit (tools/engine/kit.js), the airports story's globe and the cell map story's
-// cell (taken from stories/airports.js and stories/spatial.js as they are, see ORIGINALS), the sets and the engine parts
+// cell (taken from stories/airports.js and packages/spatial/main.js as they are, see ORIGINALS), the sets and the engine parts
 // in this folder.
 // usage (from the repository root): node packages/pass/src/build.mjs        -> writes packages/pass/main.js (and gen/, for the harness)
 //                                   node packages/pass/src/build.mjs --check -> exits 1 if packages/pass/main.js is out of date
-// Rebuild after any change to stories/airports.js or stories/spatial.js too: the globe and the cell come from there.
+// Rebuild after any change to stories/airports.js or packages/spatial/main.js too: the globe and the cell come from there.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,7 +30,7 @@ const ORIGINALS = [
     names: ['matches', 'findAirport'],
     glue: '',
     out: 'NET, A, GL, buildScene, matches, findAirport, setHighlight, setPathAttribute, arcPoints, tubeGeometry, mulberry, bfs, bestPath, connectivity, km, LIFT, D2R, STATS, HOP_DIST, COMM_NAMES, COMM_COLORS, INTER_COLOR, PATH_COL, PATH_A' },
-  { name: 'PASS_SPATIAL', file: 'stories/spatial.js', what: "the cell map story's cell: its places, proteins, links, moves, layout, shaders and scene",
+  { name: 'PASS_SPATIAL', file: 'packages/spatial/main.js', what: "the cell map story's cell: its places, proteins, links, moves, layout, shaders and scene",
     sections: [
       ['// Spatial interactome data', '// ------------------------------------------------------------------ camera --'],   // data, network, cell, layout, curves, shaders, scene
     ],

@@ -6,7 +6,7 @@ German. Read with `tools/lbi/SPEC.md` (the set contract) and the manifests `sets
 `sets/cell.md` (each set's params, API, anchors, labels, views and science). The owner's decisions:
 
 - Reuse the airports story's globe and the cell map story's cell **as they are**; do not change `stories/airports.js` or
-  `stories/spatial.js`. The only new model is the school of fish, from the flock's simulation.
+  `packages/spatial/main.js`. The only new model is the school of fish, from the flock's simulation.
 - English and German with a switcher on the story panel (page, headset panel, explore panes); the language is per
   device (`passLang` in `localStorage`, default German when `navigator.language` starts with `de`, `#pass&lang=de` /
   `&lang=en`), never in `collab.state()`. The shell's own UI stays English. British English; plain, natural German for a
@@ -18,7 +18,7 @@ German. Read with `tools/lbi/SPEC.md` (the set contract) and the manifests `sets
 
 ## How the globe and the cell are taken from the original stories
 
-`build.mjs` reads `stories/airports.js` and `stories/spatial.js` and cuts out whole sections (from a line that starts
+`build.mjs` reads `stories/airports.js` and `packages/spatial/main.js` and cuts out whole sections (from a line that starts
 with a marker to the line that starts with the next one) and whole top-level declarations by name, unchanged, and pastes
 each original's parts in its own order inside a function of its own (`PASS_AIRPORTS`, `PASS_SPATIAL`), so their names
 (`GL`, `NET`, `buildScene` ...) never meet the engine's or each other's. A little glue says what the cut-out code still

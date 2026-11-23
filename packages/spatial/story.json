@@ -1,0 +1,21 @@
+{
+  "key": "spatial",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Cell map",
+  "kick": "Spatial interactome",
+  "col": "#3ee08f",
+  "desc": "249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.",
+  "len": "Story 5:41 · cell model",
+  "page": "Spatial interactome, where proteins meet in a cell",
+  "brand": "Spatial interactome",
+  "sub": "where proteins meet in a cell",
+  "aria": "Interactive 3D model of a human cell and its protein network",
+  "thing": "cell",
+  "loading": "Building the cell",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "spatial.cell",
+  "needs": 185
+}

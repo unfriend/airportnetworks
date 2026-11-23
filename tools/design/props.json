@@ -19486,7 +19486,7 @@
    "story": "pass",
    "reusedBy": [],
    "reuses": [
-    "stories/spatial.js (cell cut out unchanged)"
+    "packages/spatial/main.js (cell cut out unchanged)"
    ],
    "file": "packages/pass/src/sets/cell.js",
    "manifest": "packages/pass/src/sets/cell.md",
@@ -20103,7 +20103,7 @@
    "data": {
     "kind": "illustrative",
     "reads": [
-     "PASS_SPATIAL (cut out of stories/spatial.js at build)"
+     "PASS_SPATIAL (cut out of packages/spatial/main.js at build)"
     ],
     "text": "Curated protein locations and links (complexes, textbook pathways, Human Protein Atlas / UniProt); the layout is illustrative."
    },
@@ -20137,7 +20137,7 @@
     "setLang"
    ],
    "buildMsNode": 306,
-   "notes": "Cut unchanged out of stories/spatial.js by packages/pass/src/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts)."
+   "notes": "Cut unchanged out of packages/spatial/main.js by packages/pass/src/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts)."
   },
   {
    "id": "flock/flock",
@@ -20878,7 +20878,7 @@
   },
   {
    "story": "spatial",
-   "file": "stories/spatial.js",
+   "file": "packages/spatial/main.js",
    "scenes": "One scene: a model cell with 13 compartments, 249 proteins and 252 links. Chapters: Intro, Compartments, Addresses, Meeting, Many places, Signals, Moving, Proximity, Wrong place, Recap. Explore tabs: Protein, Paths, Places, Moves, Proximity."
   }
  ],

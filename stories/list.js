@@ -15,11 +15,7 @@ self.STORY_LIST = [
   { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff', icon: 'airports.globe',
     desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
     page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",
-    aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes', len: 'Story 3:51 · globe' },
-  { key: 'spatial', kick: 'Spatial interactome', title: 'Cell map', col: '#3ee08f', icon: 'spatial.cell',
-    desc: '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.',
-    page: 'Spatial interactome, where proteins meet in a cell', brand: 'Spatial interactome', sub: 'where proteins meet in a cell',
-    aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 5:41 · cell model' }
+    aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes', len: 'Story 3:51 · globe' }
 ];
 // Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
 // story, but not one of them (the Stories screens, Arrange all, the count, Repeat see only STORY_LIST; the station

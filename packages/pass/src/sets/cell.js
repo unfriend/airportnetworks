@@ -1,4 +1,4 @@
-// The cell map story's cell (stories/spatial.js: its compartments, 249 proteins in their places, their links, the
+// The cell map story's cell (packages/spatial/main.js: its compartments, 249 proteins in their places, their links, the
 // dotted links between copies of one protein, its moves and signals and the wrong-place cases, cut out of that story at
 // build time as PASS_SPATIAL and built by its own buildScene, unchanged) behind the set contract. What the cell map's
 // story and explore mode drive (applyUniforms, exploreStep's travelling proteins, updateLight) is redone here from

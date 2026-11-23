@@ -3,7 +3,7 @@
 An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) for a general audience (about 12
 and up): how warnings, viruses and signals spread through networks, at three scales: a school of fish, the airports'
 globe with an outbreak on its routes, and the cell map's cell. English and German. The globe and the cell are the
-airports story's and the cell map story's own, taken unchanged from `stories/airports.js` and `stories/spatial.js` when
+airports story's and the cell map story's own, taken unchanged from `stories/airports.js` and `packages/spatial/main.js` when
 the story is built; the fish are new, after the flock. Never edit `packages/pass/main.js` by hand.
 
 ```sh
