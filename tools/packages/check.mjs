@@ -34,10 +34,13 @@ const words = (/never a word the address already uses \(([^)]*)\)/.exec(fs.readF
 const reserved = new Set([...words.matchAll(/`([a-z0-9-]+)`/g)].map(m => m[1]));
 const KEY = /^[a-z][a-z0-9-]{1,30}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const str = v => typeof v === 'string', may = f => v => v === undefined || f(v), full = v => str(v) && v.trim().length > 0 && v.length <= 600;
+const MINIS = (() => { try { return fs.readFileSync(path.join(root, 'lowpoly.js'), 'utf8'); } catch (e) { return ''; } })();
+const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.includes(`'${v}'`);   // (a miniature of lowpoly.js)
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: may(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: may(str), page: may(full), brand: may(full), sub: may(str), aria: may(full), thing: may(full), loading: may(full),
   authors: may(str), life: may(v => typeof v === 'boolean'), list: may(v => v === 'stories' || v === 'hidden'), needs: may(v => Number.isInteger(v) && v >= 1),
+  icon: may(mini), intro: may(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];
 const sjf = `${show}/story.json`;
@@ -51,7 +54,8 @@ if (sj !== null && (typeof sj !== 'object' || Array.isArray(sj))) { fail(sjf, 'n
 if (sj) {
   for (const k of NEED) if (sj[k] === undefined) fail(sjf, `lacks ${k}`);
   for (const k of Object.keys(sj)) {
-    if (!FIELDS[k]) fail(sjf, k === 'icon' ? 'no icon field (icon.png is its picture)' : `${k} is not a field`);
+    if (!FIELDS[k]) fail(sjf, `${k} is not a field`);
+    else if (k === 'icon' && !FIELDS.icon(sj.icon)) fail(sjf, `icon ${JSON.stringify(sj.icon).slice(0, 60)} names no miniature of lowpoly.js (a <key>.<set>; icon.png is its card's picture)`);
     else if (sj[k] !== undefined && !FIELDS[k](sj[k])) fail(sjf, `${k} is wrong (${JSON.stringify(sj[k]).slice(0, 60)})`);
   }
   if (sj.key !== undefined && sj.key !== name) fail(sjf, `its key is ${JSON.stringify(sj.key)}, not the folder's name`);

@@ -1,5 +1,24 @@
 {
   "api": 1,
+  "order": [
+    "airports",
+    "lbi",
+    "nmd",
+    "endo",
+    "pet",
+    "micro",
+    "ovary",
+    "qubits",
+    "mutation",
+    "topo",
+    "pass",
+    "soil",
+    "proteins",
+    "spatial",
+    "flock",
+    "robots",
+    "tutorial"
+  ],
   "packages": [
     {
       "key": "cellstress",
@@ -17,6 +36,7 @@
       "list": "hidden",
       "needs": 178,
       "fp": "d8d4dd59a75fd302",
+      "bytes": 253521,
       "files": {
         "main.js": "ec63ca1a05092c2b",
         "story.json": "3866482e779c36b3"
@@ -38,6 +58,7 @@
       "list": "hidden",
       "needs": 169,
       "fp": "5a13f524b83ee502",
+      "bytes": 258853,
       "files": {
         "icon.png": "fb2e43f5422b9ad0",
         "main.js": "4f2b614bdf744edc",
@@ -60,6 +81,7 @@
       "list": "hidden",
       "needs": 178,
       "fp": "859e161687449ae1",
+      "bytes": 14378971,
       "files": {
         "audio/narration.mp3": "be03f44bdaf75d92",
         "main.js": "6d399a72f8fb06b5",

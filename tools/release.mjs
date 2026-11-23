@@ -17,6 +17,11 @@
 // (its entry's own needs, else the shell of the release in which its file last changed). A page compares: another shell
 // or format, or a story that needs a newer shell, is asked about (Reload now or Later); a new or changed story is taken.
 // The fingerprint is index.html's HOST.fingerprint (and relay/server.mjs's), so the three agree.
+// The app's own story packages (v185, docs/packages-migration.md: the stories named in packages/order.json that have
+// moved into packages/<key>/): packages: { <key>: { fp, needs } }, the index's fp (packages/index.json) and the oldest
+// shell it works with, its story.json's needs (which each must have: the release that moved it, at least; the shell
+// refuses a package that needs a newer one, HOST.packages). STORY_LIST may shrink as stories move, to nothing once all
+// have. --check also runs node tools/packages/scan.mjs --check.
 // whatsnew.json (developer mode's box, HOST.dev: { version, date, new, test, untested }, lists of short sentences) is
 // written by hand at every release; this script only checks it: a file that does not name sw.js's VERSION (or is not in
 // that shape) is a warning, and --check fails on it, so a release does not go out with an old box. Each release's file is
@@ -25,6 +30,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
+import { execFileSync } from 'child_process';
 
 const args = process.argv.slice(2), check = args.includes('--check');
 const ri = args.indexOf('--root');
@@ -47,7 +53,12 @@ const vnum = +/(\d+)$/.exec(version)[1];
 const ctx = { self: {} };
 vm.runInNewContext(read('stories/list.js'), ctx, { filename: 'stories/list.js' });
 const list = ctx.self.STORY_LIST;
-if (!Array.isArray(list) || !list.length) fail('stories/list.js gives no STORY_LIST');
+// the app's own story packages: those packages/order.json names that are folders of packages/ (their index entries)
+const pjson = f => { try { return JSON.parse(read(f)); } catch (e) { return null; } };
+const order = ((pjson('packages/order.json') || {}).order || []).filter(k => typeof k === 'string');
+const pindex = pjson('packages/index.json') || { packages: [] };
+const pkgs = order.filter(k => fs.existsSync(path.join(root, 'packages', k, 'story.json')));
+if (!Array.isArray(list) || (!list.length && !pkgs.length)) fail('stories/list.js gives no STORY_LIST, and no story has moved into a package');
 const extra = Array.isArray(ctx.self.STORY_EXTRA) ? ctx.self.STORY_EXTRA : [];
 
 const STAMP = /shell: \{ n: \d+, id: '[0-9a-f]*', format: '[^']*' \},/;
@@ -76,7 +87,14 @@ for (const m of list.concat(extra)) {
   const needs = Number.isInteger(m.needs) ? m.needs : was && was.fp === fp && Number.isInteger(was.needs) ? was.needs : n;
   stories[m.key] = { fp, needs };
 }
-const out = JSON.stringify({ app: 'networks', version, format, shell: { n, id }, list: fingerprint(JSON.stringify(list)), stories }, null, 2) + '\n';
+const packages = {};
+for (const k of pkgs) {
+  const e = (pindex.packages || []).find(p => p && p.key === k);
+  if (!e) fail(`packages/${k} is named in packages/order.json but not in packages/index.json: run node tools/packages/scan.mjs`);
+  if (!Number.isInteger(e.needs)) fail(`packages/${k}/story.json has no needs: give it the release that moved it (one of the app's own stories)`);
+  packages[k] = { fp: e.fp, needs: e.needs };
+}
+const out = JSON.stringify({ app: 'networks', version, format, shell: { n, id }, list: fingerprint(JSON.stringify(list)), stories, ...(pkgs.length ? { packages } : {}) }, null, 2) + '\n';
 
 // sw.js's lists, written from what is there (v171): SHELL's story files from stories/list.js (its stories and
 // STORY_EXTRA, in that order), AUDIO from the narrations in audio/ (the airports' narration.mp3, then each story's in the
@@ -121,8 +139,10 @@ const wstale = () => (wnow && wold(version + '.json') !== wnow ? [version + '.js
 
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
-  const ok = hadOut === out && stamped === index, ws = wstale(), swOk = swOut === swText;
-  console.log(ok ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
+  let scanOk = true;
+  try { execFileSync(process.execPath, [path.join(root, 'tools/packages/scan.mjs'), '--check', '--root', root], { stdio: 'inherit' }); } catch (e) { scanOk = false; }
+  const ok = hadOut === out && stamped === index && scanOk, ws = wstale(), swOk = swOut === swText;
+  console.log(hadOut === out && stamped === index ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
   console.log(swOk ? "sw.js's story files and narrations are current" : "sw.js's SHELL story files or AUDIO list are out of date (stories/list.js, audio/): run node tools/release.mjs");
   console.log(ws.length ? `whatsnew/ is out of date (${ws.join(', ')}): run node tools/release.mjs` : `whatsnew/ is current (${wlist.length} releases)`);
@@ -138,5 +158,5 @@ if (wstale().length) {
   fs.writeFileSync(path.join(wdir, 'index.json'), windex);
   console.log(`wrote whatsnew/ (${wlist.length} releases, newest ${wlist.length ? wlist[0].replace(/\.json$/, '') : 'none'})`);
 }
-console.log(`wrote version.json (${version}, format ${format}, shell ${n} ${id}, ${list.length} stories)` + (stamped !== index ? " and index.html's stamp" : ''));
+console.log(`wrote version.json (${version}, format ${format}, shell ${n} ${id}, ${list.length} stories${pkgs.length ? `, ${pkgs.length} moved into packages` : ''})` + (stamped !== index ? " and index.html's stamp" : ''));
 warn();

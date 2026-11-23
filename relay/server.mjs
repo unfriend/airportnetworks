@@ -1613,6 +1613,9 @@ async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true
 // (swapped in place where it is on show), list (the list of stories, read again), shell { file, fp } (the page reloads
 // with its place kept) and, with --build, build { key, ok, ms, out } (a built story's build ran: its sources in tools/
 // changed; one build at a time, a moment after the last change). The fingerprint is index.html's HOST.fingerprint.
+// Story packages (packages/, v185) likewise: a package's main.js is told as a story (story { key, fp }), its index
+// (packages/index.json) as the list; with --build a package's sources (packages/<key>/src/, and the folders of tools/ its
+// build names) run packages/<key>/src/build.mjs, then tools/packages/scan.mjs (so the index has its new fingerprint).
 function fingerprint(s) {
   let a = 0xdeadbeef, b = 0x41c6ce57;
   for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
@@ -1628,12 +1631,15 @@ const MAX_WATCHERS = 200;
 const sse = (res, event, data) => { try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* gone */ } };
 const tell = (event, data) => { for (const res of W.clients) sse(res, event, data); };
 const fpOf = f => { try { return fingerprint(fs.readFileSync(f, 'utf8').replace(/^﻿/, '')); } catch { return ''; } };
+const PKG_DIR = () => path.join(WATCH, 'packages');
 function hello() {
   const shell = {}, stories = {};
   for (const f of SHELL_FILES) shell[f] = W.fps.get(path.join(WATCH, f)) || '';
   for (const [f, fp] of W.fps) {
     const m = path.dirname(f) === path.join(WATCH, 'stories') && STORY_FILE.exec(path.basename(f));
     if (m && m[1] !== 'list') stories[m[1]] = fp;
+    // (a story package's main.js: packages/<key>/main.js)
+    if (path.basename(f) === 'main.js' && path.dirname(path.dirname(f)) === PKG_DIR()) stories[path.basename(path.dirname(f))] = fp;
   }
   return { shell, stories, list: W.fps.get(path.join(WATCH, 'stories', 'list.js')) || '', build: OPT.build };
 }
@@ -1657,6 +1663,8 @@ function changedFile(f, kind) {
     W.fps.set(f, fp);
     const name = path.basename(f);
     if (kind === 'shell') { log(`watch: ${name} changed (pages reload)`); tell('shell', { file: name, fp }); return; }
+    if (kind === 'index') { log('watch: packages/index.json changed'); tell('list', { fp }); return; }
+    if (kind === 'pkg') { const key = path.basename(path.dirname(f)); log(`watch: packages/${key}/main.js changed`); tell('story', { key, fp }); return; }
     const key = STORY_FILE.exec(name)[1];
     if (key === 'list') { log('watch: the list of stories changed'); tell('list', { fp }); }
     else { log(`watch: stories/${name} changed`); tell('story', { key, fp }); }
@@ -1678,7 +1686,20 @@ function buildMap() {
     const dirs = new Set([k]), files = new Set();
     for (const m of src.matchAll(/['"`]\.\.\/([\w-]+)\//g)) dirs.add(m[1]);
     for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) if (m[1] !== k + '.js') files.add('stories/' + m[1]);
-    W.builds.set(k, { dirs, files });
+    W.builds.set(k, { dirs, files, script: f });
+  }
+  // the story packages' builds (packages/<key>/src/build.mjs): their own src/, and the folders of tools/ they name
+  // ('tools', 'engine' or tools/<dir>/); keyed pkg:<key>, so a package never shadows a tools/ build of the same name
+  let pk = [];
+  try { pk = fs.readdirSync(PKG_DIR()); } catch { return; }
+  for (const k of pk) {
+    const f = path.join(PKG_DIR(), k, 'src', 'build.mjs');
+    let src;
+    try { src = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    const dirs = new Set(['engine']), files = new Set();
+    for (const m of src.matchAll(/['"`]tools['"`]\s*,\s*['"`]([\w-]+)['"`]|['"`/]tools\/([\w-]+)\//g)) dirs.add(m[1] || m[2]);
+    for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) files.add('stories/' + m[1]);
+    W.builds.set('pkg:' + k, { dirs, files, script: f, pkg: k });
   }
 }
 const SKIP = /(^|[\\/])(shots|gen|data|node_modules)([\\/]|$)/;
@@ -1689,6 +1710,16 @@ function sourceChanged(rel) {
   if (!fp || fp === W.fps.get(f)) return;
   W.fps.set(f, fp);
   for (const [k, b] of W.builds) if (b.dirs.has(parts[0])) wantBuild(k);
+}
+// a story package's source changed (packages/<key>/src/...): its own build
+function pkgSourceChanged(rel) {
+  const parts = rel.split(/[\\/]/);
+  if (parts.length < 3 || parts[1] !== 'src' || !/\.(js|mjs|json)$/.test(rel) || SKIP.test(parts.slice(2, -1).join('/'))) return;
+  const f = path.join(PKG_DIR(), rel), fp = fpOf(f);
+  if (!fp || fp === W.fps.get(f)) return;
+  W.fps.set(f, fp);
+  if (parts[2] === 'build.mjs') buildMap();
+  if (W.builds.has('pkg:' + parts[0])) wantBuild('pkg:' + parts[0]);
 }
 function wantBuild(k) {
   W.queue.add(k);
@@ -1702,8 +1733,11 @@ function nextBuild() {
   W.building = k;
   const t0 = Date.now();
   log(`build: ${k}...`);
-  execFile(process.execPath, [path.join(WATCH, 'tools', k, 'build.mjs')], { cwd: WATCH, timeout: 180000, maxBuffer: 4 << 20 }, (err, out, errOut) => {
+  const b = W.builds.get(k) || {};
+  execFile(process.execPath, [b.script || path.join(WATCH, 'tools', k, 'build.mjs')], { cwd: WATCH, timeout: 180000, maxBuffer: 4 << 20 }, (err, out, errOut) => {
     W.building = '';
+    // (a package's new main.js: its index again, so its fingerprint there is the new one)
+    if (!err && b.pkg) { try { execFileSync(process.execPath, [path.join(WATCH, 'tools', 'packages', 'scan.mjs')], { cwd: WATCH, timeout: 60000, stdio: 'ignore' }); } catch { /* told by --check */ } }
     const ms = Date.now() - t0, text = (String(out || '') + String(errOut || '')).slice(-2000);
     log(`build: ${k} ${err ? 'failed' : 'done'} in ${ms} ms${err ? ': ' + text.trim().split('\n').slice(-1)[0] : ''}`);
     tell('build', { key: k, ok: !err, ms, out: text });
@@ -1719,6 +1753,17 @@ function startWatch() {
   const lost = err => console.log('--watch stopped watching a folder: ' + err.message);
   fs.watch(WATCH, (ev, name) => { if (name && SHELL_FILES.includes(String(name))) changedFile(path.join(WATCH, String(name)), 'shell'); }).on('error', lost);
   fs.watch(stories, (ev, name) => { if (name && STORY_FILE.test(String(name))) changedFile(path.join(stories, String(name)), 'story'); }).on('error', lost);
+  // the story packages: each main.js and the index; with --build their sources
+  try {
+    for (const n of fs.readdirSync(PKG_DIR())) { const f = path.join(PKG_DIR(), n, 'main.js'); if (fs.existsSync(f)) W.fps.set(f, fpOf(f)); }
+    fs.watch(PKG_DIR(), { recursive: true }, (ev, name) => {
+      if (!name) return;
+      const rel = String(name), parts = rel.split(/[\\/]/);
+      if (rel === 'index.json') changedFile(path.join(PKG_DIR(), rel), 'index');
+      else if (parts.length === 2 && parts[1] === 'main.js') changedFile(path.join(PKG_DIR(), rel), 'pkg');
+      else if (OPT.build && parts[1] === 'src') { clearTimeout(W.timers.get('p:' + rel)); W.timers.set('p:' + rel, setTimeout(() => { W.timers.delete('p:' + rel); pkgSourceChanged(rel); }, 150)); }
+    }).on('error', lost);
+  } catch (err) { if (fs.existsSync(PKG_DIR())) console.log('--watch cannot watch packages/ here (' + err.message + '): it needs Node 20 or newer on Linux'); }
   if (OPT.build) {
     buildMap();
     try {

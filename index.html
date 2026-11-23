@@ -2856,10 +2856,13 @@ HOST.load = function (key, fresh) {
 // again with the list of stories (HOST.live); a missing or bad file means no packages, quietly. Each package becomes an
 // entry of HOST.list after the app's own (list: 'stories') or a hidden one (list: 'hidden': its address, HOST.go, and the
 // Stories screen in developer mode), with pkg, base, fp and iconUrl; HOST.meta finds both. One written for a newer Story
-// API (api above HOST.storyApi) or a newer shell (needs) is never loaded: its card says so
+// API (api above HOST.storyApi) or a newer shell (needs) is never loaded: its card says so. The index's order (packages/
+// order.json, v185: every one of the app's stories, moved into a package or not) sorts HOST.list, so a story keeps its
+// card's place when it moves; the packages it names are the app's own (app: true; icon names its stations' miniature,
+// intro marks an introduction, as in stories/list.js)
 HOST.storyApi = 1;
 HOST.packages = (function () {
-  const P = { all: [], reading: null, ran: {}, read: false };
+  const P = { all: [], reading: null, ran: {}, read: false, order: [] };
   const KEY = /^[a-z][a-z0-9-]{1,30}$/, HEX = /^[0-9a-f]{16}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
   const str = (v, d) => (typeof v === 'string' && v.trim() ? v.slice(0, 600) : d);
   const appKey = k => (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).some(m => m && m.key === k);
@@ -2875,6 +2878,9 @@ HOST.packages = (function () {
       thing: str(o.thing, 'scene'), loading: str(o.loading, 'Loading ' + title), len: old ? 'Needs a newer version of the app' : str(o.len, ''),
       pkg: true, base: 'packages/' + o.key + '/', fp: o.fp, api: o.api, list: o.list === 'hidden' ? 'hidden' : 'stories', files };
     if (o.life === true) m.life = true;
+    if (o.intro === true) m.intro = true;
+    if (typeof o.icon === 'string' && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(o.icon)) m.icon = o.icon;
+    if (P.order.includes(o.key)) m.app = true;
     if (Number.isInteger(o.needs)) m.needs = o.needs;
     if (old) m.refused = true;
     if (typeof o.version === 'string') m.version = o.version.slice(0, 60);
@@ -2884,8 +2890,14 @@ HOST.packages = (function () {
   }
   // the app's own entries and the listed packages (HOST.live's take keeps them in step with stories/list.js)
   const listed = () => P.all.filter(m => m.list === 'stories');
+  // a list in the index's order (stable: a key it does not name keeps its place among the others, after those it names)
+  const sort = list => {
+    if (!P.order.length) return list;
+    const r = (m, i) => { const j = P.order.indexOf(m.key); return j >= 0 ? j : P.order.length + i; };
+    return list.map((m, i) => [r(m, i), m]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  };
   function merge() {
-    const next = HOST.list.filter(s => !s.pkg).concat(listed());
+    const next = sort(HOST.list.filter(s => !s.pkg).concat(listed()));
     // (the story on show keeps its card, as HOST.live keeps a story's)
     const cur = HOST.list.find(s => s.pkg && s.key === HOST.curKey);
     if (cur && !next.some(s => s.key === cur.key)) next.push(cur);
@@ -2904,6 +2916,7 @@ HOST.packages = (function () {
       try { const r = await fetch('packages/index.json', { cache: 'no-store' }); if (r.ok) j = await r.json(); } catch (e) { /* no packages here */ }
       P.reading = null;
       const was = P.all, all = [];
+      if (j && typeof j === 'object' && Array.isArray(j.order)) P.order = j.order.filter(k => typeof k === 'string' && KEY.test(k));
       if (j && typeof j === 'object' && Array.isArray(j.packages)) for (const o of j.packages) { const m = entry(o); if (m && !all.some(x => x.key === m.key)) all.push(m); }
       // (a package on show that left the index keeps its entry until another story starts)
       const cur = was.find(m => m.key === HOST.curKey);
@@ -2921,7 +2934,7 @@ HOST.packages = (function () {
     // the boot: the first read, or ms at most (a slow or missing file must not hold the start; it is merged when it comes)
     ready: ms => Promise.race([first.catch(() => false), new Promise(r => setTimeout(r, ms))]),
     get: key => P.all.find(m => m.key === key),
-    all: () => P.all.slice(), hidden: () => P.all.filter(m => m.list === 'hidden'), listed,
+    all: () => P.all.slice(), hidden: () => P.all.filter(m => m.list === 'hidden'), listed, sort,
     // the fingerprint of the package as last run here (set by HOST.load)
     ran(key, fp) { if (fp !== undefined) P.ran[key] = fp; return P.ran[key]; },
     state: () => P,   // (for tests)
@@ -4286,6 +4299,7 @@ HOST.live = (function () {
     for (const m of HOST.packages.listed()) if (!next.some(x => x.key === m.key)) next.push(m);
     // (the story on show keeps its card, whatever the list now says)
     if (HOST.curKey && !next.some(m => m.key === HOST.curKey)) { const m = HOST.list.find(s => s.key === HOST.curKey); if (m) next.push(m); }
+    next.splice(0, next.length, ...HOST.packages.sort(next));   // (in the index's order: packages/order.json)
     if (!next.length || JSON.stringify(next) === JSON.stringify(HOST.list)) return;
     HOST.list.splice(0, HOST.list.length, ...next);
     HOST.listRev++;
@@ -4715,12 +4729,13 @@ HOST.unknown = (function () {
 <script>
 'use strict';
 // the Stories screen's cards, one per story (again when the list changes while the app runs: HOST.live). A story
-// package's card has its icon.png or a plain tile in its colour; in developer mode the hidden packages follow, dashed
+// package's card has its icon.png or a plain tile in its colour (one of the app's own, named in packages/order.json, a
+// story's card); in developer mode the hidden packages follow, dashed
 HOST.cards = function () {
   const box = document.querySelector('#picker .cards'), had = document.activeElement && document.activeElement.closest && document.activeElement.closest('#picker .card');
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const pic = s => (!s.pkg ? '' : s.iconUrl ? `<img class="pk" src="${esc(s.iconUrl)}" alt="" loading="lazy">` : `<i class="pk" style="background:${esc(s.col)}"></i>`);
-  const card = s => (s.pkg ? `<button class="card pkg${s.key === this.curKey ? ' here' : ''}${s.list === 'hidden' ? ' hid' : ''}${s.refused ? ' old' : ''}" type="button" data-story="${esc(s.key)}">
+  const card = s => (s.pkg && !s.app ? `<button class="card pkg${s.key === this.curKey ? ' here' : ''}${s.list === 'hidden' ? ' hid' : ''}${s.refused ? ' old' : ''}" type="button" data-story="${esc(s.key)}">
     ${pic(s)}<span class="k" style="color:${esc(s.col)}">${esc(s.kick)}</span><b>${esc(s.title)}</b><span class="d">${esc(s.desc)}</span><em>${esc(s.list === 'hidden' ? (s.len ? s.len + ' · ' : '') + 'hidden package' : s.len)}</em></button>`
     : `<button class="card${s.key === this.curKey ? ' here' : ''}" type="button" data-story="${s.key}">
     <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`);
@@ -5598,12 +5613,13 @@ HOST.arrange = (function () {
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
-  // the story packages' index first, but only when the address names something that is not one of the app's own (#<key>
-  // of a package): then waited for 4 s at most; an ordinary start never waits, and a package that comes later still
-  // gets its card (HOST.packages)
+  // the story packages' index first: when the address names something that is not one of the app's own (#<key> of a
+  // package), waited for 4 s at most; a start with no story named (the Stories screen, whose cards and first story may
+  // be packages since v185: packages/order.json) 1.5 s at most; a start of one of the app's own never waits, and a
+  // package that comes later still gets its card (HOST.packages)
   const appKeys = (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).map(s => s && s.key);
   const named = [...hp.keys()].some(k => /^[a-z][a-z0-9-]{1,30}$/.test(k) && !hp.get(k) && !appKeys.includes(k));
-  HOST.packages.ready(named && !appKeys.some(k => hp.has(k)) ? 4000 : 0).then(() => {
+  HOST.packages.ready(appKeys.some(k => hp.has(k)) ? 0 : named ? 4000 : 1500).then(() => {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)

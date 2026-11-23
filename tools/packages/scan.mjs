@@ -8,6 +8,11 @@
 // stories/list.js) or reserved (a word the address uses: the list in SPEC.md), or it has no main.js. Each package's files
 // are fingerprinted as tools/release.mjs does a story's (index.html's HOST.fingerprint of the text; a binary file's bytes
 // as one character each), its fp is the fingerprint of that list; src/, README.md and dot-files are left out of it.
+// packages/order.json (hand-written, docs/packages-migration.md): { "order": [<key>, ...] }, every one of the app's
+// stories in the Stories screen's order, moved into a package or still in stories/list.js. The index carries it
+// (order) and lists the packages it names first, in its order, then the others by key; the shell sorts HOST.list by it.
+// A key there that is neither a package here nor a story of stories/list.js fails the scan. Each entry also gets bytes
+// (the sum of its files' sizes: what taking it for offline use costs).
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -41,10 +46,15 @@ const KEY = /^[a-z][a-z0-9-]{1,30}$/, COL = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 const str = v => typeof v === 'string', opt = f => v => v === undefined || f(v);
 const full = v => str(v) && v.trim().length > 0 && v.length <= 600;
 // story.json's fields (SPEC.md, "story.json"): what each must be; any other is wrong
+// icon: its stations' miniature in a shared room, a key of lowpoly.js's LOWPOLY_MODELS (<key>.<set>); intro: an
+// introduction, not one of the stories (the tutorial: skipped by the default start, Repeat all and the count)
+const MINIS = (() => { try { return fs.readFileSync(path.join(root, 'lowpoly.js'), 'utf8'); } catch (e) { return ''; } })();
+const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.includes(`'${v}'`);
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: opt(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: opt(str), page: opt(full), brand: opt(full), sub: opt(str), aria: opt(full), thing: opt(full), loading: opt(full),
   authors: opt(str), life: opt(v => typeof v === 'boolean'), list: opt(v => v === 'stories' || v === 'hidden'), needs: opt(v => Number.isInteger(v) && v >= 1),
+  icon: opt(mini), intro: opt(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];
 
@@ -75,16 +85,32 @@ for (const name of dirs) {
   if (!sj || typeof sj !== 'object' || Array.isArray(sj)) { why('its story.json is not an object'); continue; }
   const miss = NEED.filter(k => sj[k] === undefined), bad = Object.keys(sj).filter(k => !FIELDS[k] || !FIELDS[k](sj[k]));
   if (miss.length) { why(`story.json lacks ${miss.join(', ')}`); continue; }
-  if (bad.length) { why(`story.json: ${bad.map(k => (FIELDS[k] ? `${k} is wrong` : k === 'icon' ? 'no icon field (icon.png is its picture)' : `${k} is not a field`)).join('; ')}`); continue; }
+  if (bad.length) { why(`story.json: ${bad.map(k => (k === 'icon' ? 'icon names no miniature of lowpoly.js (a <key>.<set>; icon.png is its card\'s picture)' : FIELDS[k] ? `${k} is wrong` : `${k} is not a field`)).join('; ')}`); continue; }
   if (sj.key !== name) { why(`story.json's key is ${JSON.stringify(sj.key)}, not the folder's name`); continue; }
   if (!fs.existsSync(path.join(base, 'main.js'))) { why('it has no main.js'); continue; }
   const f = files(base);
   for (const r of f.deep) console.log(`packages/${name}/${r} is not listed: at most 4 folders deep`);
   const fp = fingerprint(Object.entries(f.all).map(([p, v]) => p + ' ' + v).join('\n'));
-  entries.push({ ...sj, fp, files: f.all });
+  const bytes = Object.keys(f.all).reduce((n, r) => n + fs.statSync(path.join(base, r)).size, 0);
+  entries.push({ ...sj, fp, bytes, files: f.all });
 }
+// the order (packages/order.json): its packages first, in its order, then the others by key
+let order = [];
+if (fs.existsSync(path.join(dir, 'order.json'))) {
+  let oj = null;
+  try { oj = JSON.parse(fs.readFileSync(path.join(dir, 'order.json'), 'utf8').replace(/^\uFEFF/, '')); } catch (e) { /* below */ }
+  if (!oj || !Array.isArray(oj.order) || !oj.order.every(k => typeof k === 'string' && KEY.test(k)) || new Set(oj.order).size !== oj.order.length) left.push('packages/order.json is not { "order": [<key>, ...] } with each key once');
+  else {
+    order = oj.order;
+    const listed = new Set((ctx.self.STORY_LIST || []).map(m => m && m.key));
+    for (const k of order) if (!listed.has(k) && !entries.some(e => e.key === k)) left.push(`packages/order.json names ${k}, which is neither a package here nor a story of stories/list.js`);
+    for (const k of listed) if (!order.includes(k)) left.push(`packages/order.json leaves out ${k}, a story of stories/list.js: name every story there`);
+  }
+}
+const rank = e => (order.includes(e.key) ? order.indexOf(e.key) : order.length);
+entries.sort((a, b) => rank(a) - rank(b) || (a.key < b.key ? -1 : 1));
 for (const l of left) console.log(l);
-const text = JSON.stringify({ api: API, packages: entries }, null, 2) + '\n';
+const text = JSON.stringify(order.length ? { api: API, order, packages: entries } : { api: API, packages: entries }, null, 2) + '\n';
 const had = (() => { try { return fs.readFileSync(out, 'utf8'); } catch (e) { return null; } })();
 const list = entries.map(e => e.key + (e.list === 'hidden' ? ' (hidden)' : '')).join(', ') || 'none';
 if (check) {
