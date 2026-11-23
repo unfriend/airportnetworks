@@ -1,5 +1,5 @@
 // The template's set (replace it with your own): points that gather into a ball and spread out, and a lit core.
-// The contract is tools/lbi/SPEC.md, "What a set exports": a group, params (names start with the set's key; <key>_a is
+// The contract is packages/lbi/src/SPEC.md, "What a set exports": a group, params (names start with the set's key; <key>_a is
 // its fade, the engine's), update(S, t) depending only on the params and the time, anchors, labels, cam views,
 // controls and explore(c).
 SETS.orb = function (K) {

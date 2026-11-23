@@ -1,7 +1,7 @@
 // A glimpse into the future of network medicine: a 3D tour of the Ludwig Boltzmann
 // Institute for Network Medicine, from the parts of a protein machine to whole bodies.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/lbi/build.mjs from the kit, sets and engine parts in tools/lbi: edit those, not this file.
+// Built by packages/lbi/src/build.mjs from the kit, sets and engine parts in packages/lbi/src: edit those, not this file.
 HOST.register('lbi', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
@@ -9010,7 +9010,7 @@ function updateLight(xr) {
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
 // on the matching sentence. The tour is narrated by a synthetic voice
-// (audio/narration-lbi.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs lbi
+// (packages/lbi/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs lbi
 // writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see tools/voice/README.md).
@@ -11673,7 +11673,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-lbi.mp3';
+const narrationFile = () => HOST.pkgUrl('lbi', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

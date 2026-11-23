@@ -1,11 +1,11 @@
-# tools/lbi: the sources of the tour (`stories/lbi.js`)
+# packages/lbi/src: the sources of the tour (`packages/lbi/main.js`)
 
-`stories/lbi.js` is assembled from the files in this folder. Edit these, then
-rebuild; never edit `stories/lbi.js` by hand, and commit both together.
+`packages/lbi/main.js` is assembled from the files in this folder. Edit these, then
+rebuild; never edit `packages/lbi/main.js` by hand, and commit both together.
 
 ```sh
-node tools/lbi/build.mjs           # writes stories/lbi.js
-node tools/lbi/build.mjs --check   # exits 1 if stories/lbi.js is out of date
+node packages/lbi/src/build.mjs           # writes packages/lbi/main.js
+node packages/lbi/src/build.mjs --check   # exits 1 if packages/lbi/main.js is out of date
 ```
 
 | Path | What it is |
@@ -30,10 +30,10 @@ Test a set alone first (cheap), then the story:
 
 ```sh
 npx http-server -p 8123 -c-1 .                                     # from the repository root
-cd tools/lbi && node shot.mjs atp "p=atp_build:1&t=2" check        # one set, one look
+cd packages/lbi/src && node shot.mjs atp "p=atp_build:1&t=2" check        # one set, one look
 node sweep.mjs check "118,215,431"                                 # the tour at a few seconds
-cd ../.. && node tools/lbi/build.mjs && node tools/smoke.mjs        # build, then the smoke test
+cd ../.. && node packages/lbi/src/build.mjs && node tools/smoke.mjs        # build, then the smoke test
 ```
 
 The Playwright scripts read `PLAYWRIGHT_MODULE` and `CHROMIUM_PATH` like `tools/smoke.mjs`. Screenshots go to
-`tools/lbi/shots/` (ignored by git). See "Working economically" in `AGENTS.md` before starting large reviews.
+`packages/lbi/src/shots/` (ignored by git). See "Working economically" in `AGENTS.md` before starting large reviews.

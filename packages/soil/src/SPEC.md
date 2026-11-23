@@ -53,7 +53,7 @@ fertilised, fertilised (250 kg N per hectare), fertilised + DCD (a synthetic nit
 reading), "plots", "blocks" (the four replicates, drawn as rows), "sampling dates", "rising together" (co-occurrence:
 correlation across the samples), "modules" (groups that rise together), "the crowd" (the community).
 
-**The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
+**The rules for sets are the tour's**: `packages/lbi/src/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the tissue topology story's, `packages/topo/src/SPEC.md`):
 - Set files live in `packages/soil/src/sets/`; the harness is `packages/soil/src/harness.html`
   (`?set=<name>&p=k:v,...&t=..&cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool
@@ -64,7 +64,7 @@ correlation across the samples), "modules" (groups that rise together), "the cro
   (`sets/data.js`, generated), `SDATA` (`sets/sdata.js`: decoders and lookups, no science), `SLOOK` (`sets/look.js`: the
   story's palette and colour rules; a shape both A's sets draw, the wheat plant, may be added there), `TLOOK`
   (`packages/topo/src/sets/look.js`, **unchanged**: lit instanced tubes, rings, balls, boxes, halos, cones, glass spheres, glass
-  discs, ribbons, glass slides; read its header), then the tour's `web` set (`tools/lbi/sets/web.js`, **unchanged**: only
+  discs, ribbons, glass slides; read its header), then the tour's `web` set (`packages/lbi/src/sets/web.js`, **unchanged**: only
   its globe is used), then this story's sets: `soil`, `field`, `net`.
 - **Copied and adapted** (not included): the endotype story's `net` set (`packages/endo/src/sets/net.js`) as `sets/net.js`
   (builder B); the flock's swaying reeds (`packages/flock/src/sets/flock.js`, "reeds and grass round where you stand": blades as

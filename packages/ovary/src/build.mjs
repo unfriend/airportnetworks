@@ -13,7 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here
 const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/ovary', f) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the data and the shared look (OVARY_TREND, OVARY_LOOK) first, then the sets in the order the story uses them
-const SET_FILES = ['sets/data', 'sets/look', '../lbi/sets/body', 'sets/organ', 'sets/section', 'sets/charts'];
+const SET_FILES = ['sets/data', 'sets/look', '../../packages/lbi/src/sets/body', 'sets/organ', 'sets/section', 'sets/charts'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')

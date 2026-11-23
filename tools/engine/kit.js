@@ -1,6 +1,7 @@
-// Shared helpers for the 3D sets of the LBI story (stories/lbi.js).
+// Shared helpers for the 3D sets of the built stories (first the LBI tour's, packages/lbi/).
 // Plain script, no modules: defines makeKit(THREE), which returns K.
-// In stories/lbi.js this block is pasted verbatim inside the story's closure.
+// In each built story (packages/<key>/main.js, stories/design.js, stories/studio.js) this block is pasted verbatim
+// inside the story's closure.
 function makeKit(THREE) {
   const smooth = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);

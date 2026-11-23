@@ -9,7 +9,7 @@ fly back down and colour the section: the domains. Then the domain map changes f
 preprint's gut submucosa example.
 
 The set draws nothing of its own section. It is an overlay in **the tour's tissue set's frame** (the H&E section of
-stomach wall, `tools/lbi/sets/tissue.js`, used unchanged), so the engine shows `tissue` and `slide` together, with the
+stomach wall, `packages/lbi/src/sets/tissue.js`, used unchanged), so the engine shows `tissue` and `slide` together, with the
 same transform. `slide.js` copies what it needs from `tissue.js`: `layers()`, `plane()`, the centring, the lymphoid
 aggregate `AG` and the zoom patch's artery and vein. If `tissue.js` changes its geometry, copy the change here too.
 

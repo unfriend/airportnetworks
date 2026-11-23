@@ -14,6 +14,6 @@ const pkgUrl = file => (HOST.pkgUrl ? HOST.pkgUrl(KEY, file) : `packages/${KEY}/
 const pkgMeta = () => (HOST.packages && HOST.packages.get(KEY)) || (HOST.meta && HOST.meta(KEY)) || null;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades sets in and out and drives them
-// through their params (see SETS.x.params); the set contract is tools/lbi/SPEC.md, "What a set exports".
+// through their params (see SETS.x.params); the set contract is packages/lbi/src/SPEC.md, "What a set exports".
 const SETS = {};
 //@@SETS@@

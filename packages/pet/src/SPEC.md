@@ -42,7 +42,7 @@ into a narrated, about five-and-a-half-minute 3D story with an explore mode, on 
 Card: kick "Whole-body PET", title **One scan, one system**, tagline "the body as a metabolic network", colour
 `#ffe066`. Story key `pet`.
 
-**The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
+**The rules for sets are those of the tour**: read `packages/lbi/src/SPEC.md` from the top down to (and including)
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
 labels, controls, camera views, performance budget, harness, palette), with these differences:
 
@@ -55,7 +55,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   from the paper's tables and `packages/pet/src/data/figures.json`; never edit it by hand). Its header comment documents
   every field. It may be regenerated while you work (refined figure readings), with the same shape.
 - The organ icons are the global `PET_ICONS` (`packages/pet/src/sets/icons.js`, see "Organ icons"); the harness loads it.
-- The tour's PET body set (`tools/lbi/sets/body.js`, manifest `tools/lbi/sets/body.md`) is used unchanged: never
+- The tour's PET body set (`packages/lbi/src/sets/body.js`, manifest `packages/lbi/src/sets/body.md`) is used unchanged: never
   edit it. The harness always loads it (`harness.html?set=body` shows it alone), so a set may also make its own
   instance with `SETS.body(K)` (it returns `{ group, params, update, setAlpha, ... }`: add its group as a child,
   drive its params in your `update`, call its `setAlpha`).
@@ -219,16 +219,16 @@ Controls: View (Scanner / Ring / Inside / Vision), Events (Off / On), Image (Lin
 Performance: Quest-ready: instance the crystals, lines in one buffer (ring of reusable slots), photons as points;
 under 120 draw calls (the body instance included).
 
-### `body` - the tour's PET body (file `tools/lbi/sets/body.js`, unchanged)
+### `body` - the tour's PET body (file `packages/lbi/src/sets/body.js`, unchanged)
 
-Read `tools/lbi/sets/body.md`. The story uses `body_pet` (the tracer arriving: injection, blood, organs, urine) and
+Read `packages/lbi/src/sets/body.md`. The story uses `body_pet` (the tracer arriving: injection, blood, organs, urine) and
 the views `front` and `side`. Its own organ network (`body_net`, `body_state`) is the tour's illustration: this story
 leaves `body_net` at 0 and draws the paper's networks with `organs` instead.
 
 ### `organs` - organs, uptake and the network of the cohort (file `sets/organs.js`)
 
 Drawn in **the body set's frame** (feet at y -0.95, 1.9 tall, faces +z, the person's left +x; x of the body set's
-modelling coordinates multiplied by its `XS` = 0.9: read `tools/lbi/sets/body.js` for where its organs are filled,
+modelling coordinates multiplied by its `XS` = 0.9: read `packages/lbi/src/sets/body.js` for where its organs are filled,
 and match them), so the engine shows `body` and `organs` together, one over the other.
 - **Segmentation** (`organs_seg` 0..1): a glowing horizontal scan plane sweeps down from the head to the thighs (an AI
   outlining organs slice by slice); as it passes each organ, the organ's shell appears: a smooth translucent surface

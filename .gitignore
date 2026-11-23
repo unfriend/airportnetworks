@@ -1,8 +1,8 @@
 node_modules
 .claude/worktrees/
-tools/lbi/shots/
-tools/lbi/data/*.json
-tools/lbi/data/airports_*
+packages/lbi/src/shots/
+packages/lbi/src/data/*.json
+packages/lbi/src/data/airports_*
 packages/nmd/src/shots/
 packages/endo/src/shots/
 packages/flock/src/shots/

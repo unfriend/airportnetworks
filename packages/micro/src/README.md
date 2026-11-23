@@ -22,9 +22,9 @@ node packages/micro/src/build.mjs --check                                       
 | `data/figures.json` | values read off the talk's figures (the atlas of sections, the volcano, trajectories, contact networks) |
 | `sets/data.js` | the constant `MICRO_DATA` (generated; its header documents the fields) |
 | `sets/organs.js` | `ORGAN3D`: small lit 3D models of the 29 organs (signed distance fields polygonised by surface nets, built between frames), drawn as meshes in the scenes and as pictures in the panes; manifest `sets/organs.md` (`SETS.organs` is the harness's gallery) |
-| `sets/slide.js`, `sets/atlas.js`, `sets/hier.js` | the 3D sets (tiles, features, neighbours, groups and domains over the tour's tissue section; the slide library, the atlas, the tile cloud, the volcano and the trajectories; the network of organ architecture and the domain contacts), each with a manifest `sets/<name>.md`; the story also uses `tools/lbi/sets/body.js` and `tools/lbi/sets/tissue.js` |
+| `sets/slide.js`, `sets/atlas.js`, `sets/hier.js` | the 3D sets (tiles, features, neighbours, groups and domains over the tour's tissue section; the slide library, the atlas, the tile cloud, the volcano and the trajectories; the network of organ architecture and the domain contacts), each with a manifest `sets/<name>.md`; the story also uses `packages/lbi/src/sets/body.js` and `packages/lbi/src/sets/tissue.js` |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the PET story |
-| `SPEC.md` | what each set and the engine must do; read with `tools/lbi/SPEC.md` |
+| `SPEC.md` | what each set and the engine must do; read with `packages/lbi/src/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (the body and tissue sets and the organ models always loaded; `cam=` a view by name or six numbers; `nofinish=1` leaves what builds between frames unbuilt, for build times), its screenshots, and screenshots of the whole story (`SHOTS=<dir>` and `PORT=<port>` for both tools) |
 

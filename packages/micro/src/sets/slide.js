@@ -1,5 +1,5 @@
 // One H&E section, the method and the domains (the microanatomy story; Buljan, Bago-Horvath & Rendeiro, bioRxiv 2025),
-// drawn over the tour's tissue set (tools/lbi/sets/tissue.js) in its frame, in the tour's visual language for its cell
+// drawn over the tour's tissue set (packages/lbi/src/sets/tissue.js) in its frame, in the tour's visual language for its cell
 // network: the section is cut into tiles; every tile grows a little skyline of 16 bars, its description (features);
 // a network floats over the tiles, each joined to its neighbours, with light running along the links (message
 // passing) while the skylines and colours mix; the nodes lift off into a 3D map of their mixed descriptions where
@@ -16,7 +16,7 @@ SETS.slide = function (K) {
   const AGES = (MD.facts && MD.facts.ages) || [20, 70];
 
   // ------------------------------------------------- the tissue set's frame
-  // (copied from tools/lbi/sets/tissue.js, which this set must match: the strip's layers and its curve in space)
+  // (copied from packages/lbi/src/sets/tissue.js, which this set must match: the strip's layers and its curve in space)
   const L = 2.1, TH = 0.008, BK = 0.1, RA = 2.7, TILT = -0.15;
   function noise1(seed) {
     const r = K.rng(seed), v = new Float32Array(256);

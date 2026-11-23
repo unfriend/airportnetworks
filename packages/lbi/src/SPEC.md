@@ -1,7 +1,7 @@
 # The LBI story: 3D sets spec
 
 We are adding a fourth story to the web app in `/home/user/airportnetworks` (read its `AGENTS.md` once for
-context and conventions). The story, `stories/lbi.js`, turns a 43-slide institute presentation
+context and conventions). The story, `packages/lbi/main.js`, turns a 43-slide institute presentation
 ("Welcome to the Ludwig Boltzmann Institute for Network Medicine", Jörg Menche, LBG visit 2026; PDF at
 not in the repository; read it with the Read tool,
 `pages` at most 20 per call, if you want to see your slides) into a narrated, about seven-minute 3D tour, followed by an
@@ -88,8 +88,8 @@ SETS.atp = function (K) {
 ## Testing your set
 
 Serve the repository root on port 8123 (`npx http-server -p 8123 -c-1 .`). The harness renders one set:
-`http://127.0.0.1:8123/tools/lbi/harness.html?set=<key>&p=name:value,name:value&t=<seconds>&cam=az,el,dist,tx,ty,tz`
-(labels drawn too; stats in the corner). Screenshots: from `tools/lbi` run
+`http://127.0.0.1:8123/packages/lbi/src/harness.html?set=<key>&p=name:value,name:value&t=<seconds>&cam=az,el,dist,tx,ty,tz`
+(labels drawn too; stats in the corner). Screenshots: from `packages/lbi/src` run
 `node shot.mjs <key> "<query>|<query>" <prefix>` (writes `shots/<prefix>-<k>.png`, prints build time, draw calls,
 triangles, points, lines and page errors; set PLAYWRIGHT_MODULE and CHROMIUM_PATH as for the smoke test). Keep
 screenshots small and few: each image viewed costs tokens (see "Working economically" in AGENTS.md).

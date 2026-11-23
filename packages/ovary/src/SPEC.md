@@ -26,7 +26,7 @@ four-and-a-half-minute 3D story (about seven minutes after `tools/pace.mjs`) wit
   qubits story; English only. The rest of the app stays British.
 - Everything is drawn: no GTEx image and no image from the poster is used or copied into the repository.
 
-The rules for sets are the tour's (`tools/lbi/SPEC.md` down to "Palette and look", and `tools/engine/kit.js`), with the
+The rules for sets are the tour's (`packages/lbi/src/SPEC.md` down to "Palette and look", and `tools/engine/kit.js`), with the
 microanatomy story's additions (sets that build between frames export `idle()` and `finish()`; a label's `text` may be a
 function returning `[bold, rest]`, read again while it shows, as the qubits story's `labelText`).
 
@@ -40,7 +40,7 @@ function returning `[bold, rest]`, read again while it shows, as the qubits stor
 | `sets/look.js` | `OVARY_TREND` (lookups) and `OVARY_LOOK` (the shared look), pasted before the sets |
 | `sets/organ.js`, `sets/section.js`, `sets/charts.js` | the three sets, each with a manifest `sets/<name>.md` |
 | `engine/*.js` | the engine, adapted from the microanatomy story's (see "The engine" below) |
-| `build.mjs` | assembles `packages/ovary/main.js`: kit, data, look, `tools/lbi/sets/body.js` (unchanged), organ, section, charts, engine |
+| `build.mjs` | assembles `packages/ovary/main.js`: kit, data, look, `packages/lbi/src/sets/body.js` (unchanged), organ, section, charts, engine |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`?set=organ&with=body&p=...&cam=<view or six numbers>`; `nofinish=1` leaves what builds between frames unbuilt), its screenshots, screenshots of the whole story |
 
 ## Data (`OVARY_DATA`, `OVARY_TREND`)

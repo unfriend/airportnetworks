@@ -2059,7 +2059,7 @@ try {
     const bw = await req('GET', '/basis/basis_transcoder.wasm', { headers: { 'Accept-Encoding': 'gzip' } });
     ok(bw.status === 200 && /^application\/wasm/.test(bw.headers['content-type']) && bw.headers['content-encoding'] === 'gzip', `basis/basis_transcoder.wasm served as WebAssembly, gzipped (${bw.status} ${bw.headers['content-type']} ${bw.headers['content-encoding']})`);
     const data = 'iker_nodes.tsv';   // (the authors' files: never served, also from a copy kept in the folder)
-    const not = ['/ikerdata/' + encodeURIComponent(data), '/tools/smoke.mjs', '/tools/lbi/build.mjs', '/docs/shared-space-plan.md', '/relay/server.mjs', '/relay/README.md',
+    const not = ['/ikerdata/' + encodeURIComponent(data), '/tools/smoke.mjs', '/tools/lowpoly/build.mjs', '/docs/shared-space-plan.md', '/relay/server.mjs', '/relay/README.md',
       '/AGENTS.md', '/README.md', '/stories/', '/audio', '/ikerdata/', '/stories/x/../../tools/smoke.mjs', '/INDEX.HTML'];
     for (const p of not) { const r = await req('GET', p); ok(r.status === 404, `not served: ${p} (${r.status})`); }
   });

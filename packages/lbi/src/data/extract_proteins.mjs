@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repo = process.argv[2] || path.join(here, '../../..');
+const repo = process.argv[2] || path.join(here, '../../../..');
 const out = process.argv[3] || path.join(here, 'proteins.json');
 const src = fs.readFileSync(path.join(repo, 'stories/proteins.js'), 'utf8');
 

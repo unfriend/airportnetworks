@@ -201,7 +201,7 @@ needs about twice the distance.
 
 Sources: Geist et al., Med 6, 100881 (2025): Figure 2A (printed matrices), Figures 2B, 3A-C and 4 (read off), Table 2
 (densities, disorders, group labels). Organ colours and positions from `PET_DATA.organs`; anatomy fitted to
-`tools/lbi/sets/body.js`.
+`packages/lbi/src/sets/body.js`.
 
 ## Performance (headless Chromium, SwiftShader, 4 CPUs shared with other agents)
 

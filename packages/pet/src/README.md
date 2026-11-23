@@ -21,9 +21,9 @@ node packages/pet/src/build.mjs --check     # exits 1 if packages/pet/main.js is
 | `data/figures.json` | values read off the paper's Figures 3 and 4, each read twice independently and reconciled; it also holds readings of the poster's plots (its patients only as group summaries), which the story no longer uses |
 | `sets/data.js` | the constant `PET_DATA` (generated; its header documents the fields) |
 | `sets/icons.js` | `PET_ICONS`: line icons of the 13 organs and the aorta, for the panes' pictures (the scenes show the organs' 3D models, `ORGAN3D`; its texture atlas is unused since v107) |
-| `sets/scan.js`, `sets/organs.js`, `sets/liver.js` | the 3D sets (the scanner, how PET sees and the vision row; organs, uptake and the paper's networks over the tour's body; an organ as a network of patches, in explore mode only), each with a manifest `sets/<name>.md`; the story also uses `tools/lbi/sets/body.js` and the microanatomy story's 3D organs, `packages/micro/src/sets/organs.js` (the vision row's network and, since v107, every organ the organs set marks: its nodes, the bars' feet, the slab's column heads and the panel's axes; rebuild after changing it) |
+| `sets/scan.js`, `sets/organs.js`, `sets/liver.js` | the 3D sets (the scanner, how PET sees and the vision row; organs, uptake and the paper's networks over the tour's body; an organ as a network of patches, in explore mode only), each with a manifest `sets/<name>.md`; the story also uses `packages/lbi/src/sets/body.js` and the microanatomy story's 3D organs, `packages/micro/src/sets/organs.js` (the vision row's network and, since v107, every organ the organs set marks: its nodes, the bars' feet, the slab's column heads and the panel's axes; rebuild after changing it) |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the endotype story |
-| `SPEC.md` | what each set and the engine must do; read with `tools/lbi/SPEC.md` |
+| `SPEC.md` | what each set and the engine must do; read with `packages/lbi/src/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (the body set, the icons and the 3D organs always loaded), its screenshots, and screenshots of the whole story |
 

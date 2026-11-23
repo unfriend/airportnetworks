@@ -14,7 +14,7 @@ const read = f => fs.readFileSync(src(f), 'utf8');
 // the data, the organ icons and the microanatomy story's 3D organs (ORGAN3D, for the vision row's network; without its
 // harness gallery, which would be a second SETS.organs) first, then the sets in the order the story uses them (body:
 // the tour's PET scan)
-const SET_FILES = ['sets/data', 'sets/icons', '../../packages/micro/src/sets/organs', 'sets/scan', '../lbi/sets/body', 'sets/organs', 'sets/liver'];
+const SET_FILES = ['sets/data', 'sets/icons', '../../packages/micro/src/sets/organs', 'sets/scan', '../../packages/lbi/src/sets/body', 'sets/organs', 'sets/liver'];
 const GALLERY = "\n// the harness's gallery of the models";
 const cutGallery = (f, t) => {
   if (f !== '../../packages/micro/src/sets/organs') return t;

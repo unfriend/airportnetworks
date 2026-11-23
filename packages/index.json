@@ -21,6 +21,34 @@
   ],
   "packages": [
     {
+      "key": "lbi",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "The future",
+      "kick": "LBI Network Medicine",
+      "col": "#ffb43b",
+      "desc": "A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.",
+      "len": "Story 10:43 · 3D tour",
+      "page": "A glimpse into the future of network medicine",
+      "brand": "LBI NetMed",
+      "sub": "a glimpse into the future",
+      "aria": "Interactive 3D tour of network medicine, from proteins to the whole body",
+      "thing": "scene",
+      "loading": "Building the scenes",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "lbi.int",
+      "needs": 185,
+      "fp": "f8f5659af0503dd7",
+      "bytes": 5937354,
+      "files": {
+        "audio/narration.mp3": "3845dddd3829424b",
+        "main.js": "f804d42bb2487776",
+        "story.json": "5a90bd8f03740d1f"
+      }
+    },
+    {
       "key": "nmd",
       "api": 1,
       "version": "1.0.0",
@@ -96,11 +124,11 @@
       "list": "stories",
       "icon": "pet.scan",
       "needs": 185,
-      "fp": "e7c2e030a880840c",
-      "bytes": 3629236,
+      "fp": "ebea262ff9fec963",
+      "bytes": 3629243,
       "files": {
         "audio/narration.mp3": "cbd7cbd77e2046c6",
-        "main.js": "9330509c4bc5c587",
+        "main.js": "58a4becfa7f19b99",
         "story.json": "d5b35aa4b2ad13e5"
       }
     },
@@ -124,11 +152,11 @@
       "list": "stories",
       "icon": "micro.slide",
       "needs": 185,
-      "fp": "73046c3171c8a834",
-      "bytes": 4593663,
+      "fp": "1b0c97237331b994",
+      "bytes": 4593677,
       "files": {
         "audio/narration.mp3": "5df9ca0443241bd0",
-        "main.js": "29d559470996e60f",
+        "main.js": "a16cb409e92688ee",
         "story.json": "ce9129720ce2a457"
       }
     },

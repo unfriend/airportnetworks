@@ -44,7 +44,7 @@ Decisions (the owner's and the author's, 28 Oct 2026):
   for the growing discs, "radius" r in µm (the alpha filtration's value is t = r²: small print), "the tower of scales"
   for the filtration drawn upwards, "a network with triangles" for a simplicial complex.
 
-**The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
+**The rules for sets are the tour's**: `packages/lbi/src/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the mutation story's, `packages/mutation/src/SPEC.md`):
 - Set files live in `packages/topo/src/sets/`; the harness is `packages/topo/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
   cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool `packages/topo/src/shot.mjs` (run it from
@@ -53,7 +53,7 @@ Decisions (the owner's and the author's, 28 Oct 2026):
 - Shared globals before the sets (the build pastes them inside the story's closure in this order): `TOPO_DATA`
   (`sets/data.js`, generated), `TDATA` (`sets/tdata.js`: the decoders and lookups below, no science), `TLOOK`
   (`sets/look.js`, the story's look, from the mutation story's `MLOOK`), then the tour's `body` set
-  (`tools/lbi/sets/body.js`, unchanged) and the microanatomy story's organ models (`packages/micro/src/sets/organs.js`,
+  (`packages/lbi/src/sets/body.js`, unchanged) and the microanatomy story's organ models (`packages/micro/src/sets/organs.js`,
   `ORGAN3D`, unchanged: only the liver is used), then this story's sets.
 - **Labels may have `text` as a function** returning `[bold, rest]` (the engine re-reads it while the label shows).
 - **Step params** (integers, never eased; list each in the set's manifest so the engine puts it in `STEP`).
@@ -68,7 +68,7 @@ The app's dark, glowing, lit 3D (the tour's light over the left shoulder, rim gl
 - **H&E** (drawn, never an image): haematoxylin nuclei deep purple `#3b2a7a` to `#5a3fa0`, eosin cytoplasm and stroma
   pink `#e7a3c0` to `#f2c4d6`, collagen of scars a paler, streaky pink `#f5d0dc`, sinusoids and vessels white with a
   faint pink edge; computed as the tour's tissue set does (Beer-Lambert from optical densities: read
-  `tools/lbi/sets/tissue.js` for its stain colours and cell splats and adapt them, do not include that set).
+  `packages/lbi/src/sets/tissue.js` for its stain colours and cell splats and adapt them, do not include that set).
 - **The two classes**: healthy blue `#4d9de0` (`#7cc0ff` where it must glow), cirrhosis red `#e0504d` (`#ff7a6b`);
   the per-cell map's colours are the poster's (RdBu_r): `slide`'s 11 stops from `#053061` through `#F7F6F6` at 0 to
   `#67001F` (see `TDATA.STOPS`).

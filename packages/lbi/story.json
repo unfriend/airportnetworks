@@ -1,0 +1,21 @@
+{
+  "key": "lbi",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "The future",
+  "kick": "LBI Network Medicine",
+  "col": "#ffb43b",
+  "desc": "A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.",
+  "len": "Story 10:43 · 3D tour",
+  "page": "A glimpse into the future of network medicine",
+  "brand": "LBI NetMed",
+  "sub": "a glimpse into the future",
+  "aria": "Interactive 3D tour of network medicine, from proteins to the whole body",
+  "thing": "scene",
+  "loading": "Building the scenes",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "lbi.int",
+  "needs": 185
+}

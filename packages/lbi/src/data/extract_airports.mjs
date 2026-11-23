@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const src = process.argv[2] || path.join(here, '../../../stories/airports.js');
+const src = process.argv[2] || path.join(here, '../../../../stories/airports.js');
 const out = process.argv[3] || here;
 
 // Pull the NET_B64 literal out without evaluating the story file.

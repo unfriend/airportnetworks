@@ -1583,7 +1583,7 @@ void main() {
 
   // ------------------------------------------------------------------ the patient --
   // The tour's PET body (its own set, unchanged) lies on the couch inside a soft glass shell of the same figure. The
-  // shell is the body set's own shape (its numbers, copied: tools/lbi/sets/body.js) polygonised once by surface nets.
+  // shell is the body set's own shape (its numbers, copied: packages/lbi/src/sets/body.js) polygonised once by surface nets.
   const fade3 = x => x * x * (3 - 2 * x);
   const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
   function cone(x, y, z, c) {

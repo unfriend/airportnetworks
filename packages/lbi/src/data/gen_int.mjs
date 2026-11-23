@@ -1,5 +1,5 @@
 // Generates the embedded data block of sets/int.js from proteins.json.
-// usage (from the repository root): node tools/lbi/data/extract_proteins.mjs, then node tools/lbi/data/gen_int.mjs
+// usage (from the repository root): node packages/lbi/src/data/extract_proteins.mjs, then node packages/lbi/src/data/gen_int.mjs
 // Writes the block between the '// <data>' and '// </data>' markers in sets/int.js (or prints it if the markers are missing).
 // Embedded: the 254 curated proteins (symbol, name, role, module, essential), their 375 interactions,
 // a 3D layout of each curated module (local coordinates, flattest axis = y) and of the 13-node ATP synthase network.

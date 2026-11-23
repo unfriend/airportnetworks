@@ -17,7 +17,7 @@ const FIG = JSON.parse(fs.readFileSync(path.join(here, 'figures.json'), 'utf8'))
 const r2 = x => Math.round(x * 100) / 100, r3 = x => Math.round(x * 1000) / 1000;
 
 // ---------------------------------------------------------------- organs --
-// pos: a home point in the frame of the tour's PET body (tools/lbi/sets/body.js: feet at y -0.95, the figure faces
+// pos: a home point in the frame of the tour's PET body (packages/lbi/src/sets/body.js: feet at y -0.95, the figure faces
 // +z, the person's left is +x; x already narrowed by its XS = 0.9). The organs set's anchors are the exact places.
 // suv: a typical uptake normalised to the aorta's blood pool (illustrative, not from the paper).
 const ORGANS = [

@@ -15,7 +15,7 @@ talk into a narrated, about five-minute 3D story with an explore mode, on deskto
 Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs are built, and how they age", colour
 `#ff9ec4`. Story key `micro`.
 
-**The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
+**The rules for sets are those of the tour**: read `packages/lbi/src/SPEC.md` from the top down to (and including)
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here, with these differences:
 
 - Set files live in `packages/micro/src/sets/`, the harness is `packages/micro/src/harness.html` (same query syntax) and the
@@ -26,10 +26,10 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
   >/dev/null 2>&1 < /dev/null &`).
 - The data is the global `MICRO_DATA` (`packages/micro/src/sets/data.js`, made by `packages/micro/src/data/gen_data.mjs`; never
   edit by hand; its header documents every field; it may be regenerated with the figures' readings, same shape).
-- Reused unchanged (never edit them): the tour's **tissue** set (`tools/lbi/sets/tissue.js`, manifest
-  `tools/lbi/sets/tissue.md`: an H&E-stained section of stomach wall of about 18,600 cells, with mucosa, submucosa
+- Reused unchanged (never edit them): the tour's **tissue** set (`packages/lbi/src/sets/tissue.js`, manifest
+  `packages/lbi/src/sets/tissue.md`: an H&E-stained section of stomach wall of about 18,600 cells, with mucosa, submucosa
   and muscle, a cell network, multiplexed colours and a 3D embedding) and the tour's **body** set (the PET body:
-  `tools/lbi/sets/body.md`). The harness always loads them (`set=tissue` or `set=body` shows one alone), and a set may
+  `packages/lbi/src/sets/body.md`). The harness always loads them (`set=tissue` or `set=body` shows one alone), and a set may
   make its own instance (`SETS.tissue(K)`).
 - **The organs in 3D** (`sets/organs.js`, manifest `sets/organs.md`; it replaced the PET story's flat line icons, which
   this story no longer uses; an organ's model is found by its name, `ORGAN3D.idOf`): a small
@@ -101,7 +101,7 @@ domains `#5aa9ff` (blue), as in the talk's Figure 5.
 ### `slide` - one section, the method, the domains (file `sets/slide.js`)
 
 Drawn in **the tour's tissue set's frame** (a slab about 2.1 long, up to 0.6 deep, facing +z, mucosa on top,
-muscle below; read `tools/lbi/sets/tissue.js` and `tissue.md` for where its layers are and copy what you need: do not
+muscle below; read `packages/lbi/src/sets/tissue.js` and `tissue.md` for where its layers are and copy what you need: do not
 edit it). The engine shows `tissue` and `slide` together.
 The method is drawn in the tour's visual language for its tissue (its cell network on the section, the colours that
 light up cell by cell, the lift into a 3D embedding), on the tour's own tissue set: tiles as nodes joined to their

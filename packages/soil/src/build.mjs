@@ -1,6 +1,6 @@
 // Assembles packages/soil/main.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
 // data/gen_data.py from the authors' field trial), its decoders (sets/sdata.js), the story's palette (sets/look.js), the
-// tissue topology story's look (packages/topo/src/sets/look.js, unchanged), the tour's web set (tools/lbi/sets/web.js,
+// tissue topology story's look (packages/topo/src/sets/look.js, unchanged), the tour's web set (packages/lbi/src/sets/web.js,
 // unchanged: only its globe is used), the sets and the engine parts in this folder.
 // usage (from the repository root): node packages/soil/src/build.mjs        -> writes packages/soil/main.js
 //                                   node packages/soil/src/build.mjs --check -> exits 1 if packages/soil/main.js is out of date
@@ -14,7 +14,7 @@ const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here
 const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/soil', f) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the data, its decoders and the looks first, then the globe, then the sets in the order the story uses them
-const SET_FILES = ['sets/data', 'sets/sdata', 'sets/look', '../../packages/topo/src/sets/look', '../lbi/sets/web', 'sets/soil', 'sets/field', 'sets/net'];
+const SET_FILES = ['sets/data', 'sets/sdata', 'sets/look', '../../packages/topo/src/sets/look', '../../packages/lbi/src/sets/web', 'sets/soil', 'sets/field', 'sets/net'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')

@@ -26,7 +26,7 @@ stories are made (`docs/agents/stories.md`). `packages/hello/` is a whole exampl
 
 ## Making it yours
 
-- `sets/`: one file per set (`SETS.<name> = function (K) { ... }`, the contract in `tools/lbi/SPEC.md`, "What a set
+- `sets/`: one file per set (`SETS.<name> = function (K) { ... }`, the contract in `packages/lbi/src/SPEC.md`, "What a set
   exports"), listed in `build.mjs`'s `SET_FILES`; a file of helpers the sets share (the example's `net.js`) goes first.
   Replace `orb.js` with your own.
 - `engine/e2_scene.js`: `SET_ORDER`, the sets in the order the story shows them (and `FRAME` for a set drawn on another).
