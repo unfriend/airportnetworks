@@ -8148,8 +8148,8 @@
     "topo/*"
    ],
    "reuses": [],
-   "file": "tools/micro/sets/organs.js",
-   "manifest": "tools/micro/sets/organs.md",
+   "file": "packages/micro/src/sets/organs.js",
+   "manifest": "packages/micro/src/sets/organs.md",
    "shows": "Small lit 3D models of the 29 organs of the microanatomy atlas (adipose to vagina), each a signed distance field of a few primitives polygonised by surface nets, replacing flat icons. Used as meshes on the body, the atlas plates and the network's organ ring, and as pictures in panes.",
    "frame": "Each model is centred in its own small box; no shared scene frame. Other sets read ORGAN3D, not this set's group.",
    "size": "drawn small (organ nodes on the network ring are radius 0.062 + 0.005 sqrt(degree))",
@@ -8409,8 +8409,8 @@
    "reuses": [
     "lbi/tissue (overlay in its frame)"
    ],
-   "file": "tools/micro/sets/slide.js",
-   "manifest": "tools/micro/sets/slide.md",
+   "file": "packages/micro/src/sets/slide.js",
+   "manifest": "packages/micro/src/sets/slide.md",
    "shows": "The preprint's method (H&E-UTAG) shown on one section: it is cut into tiles, a vision model describes each as glowing blocks, a network of neighbours passes messages, the tiles lift into a 3D map where alike tiles gather and take their domain colour, then fly back and colour the section; the domains change from age 20 to 70.",
    "frame": "An overlay in the tour's tissue set's frame (the stomach-wall H&E slab); show tissue and slide together with the same transform.",
    "size": "as the tissue slab (~2.1 long)",
@@ -8870,8 +8870,8 @@
    "reuses": [
     "micro/organs (ORGAN3D)"
    ],
-   "file": "tools/micro/sets/atlas.js",
-   "manifest": "tools/micro/sets/atlas.md",
+   "file": "packages/micro/src/sets/atlas.js",
+   "manifest": "packages/micro/src/sets/atlas.md",
    "shows": "The slide library as a curved wall of glass slides, the atlas of 40 sections standing in relief on a 10 x 4 arc with each section's organ model, a cloud of tiles, the volcano of changing domains, the age trajectories on glass lanes; at the end it morphs into the network of organ architecture.",
    "frame": "y up, viewer towards +z; wall at the back, sections in front, tiles in the middle; centred on the origin.",
    "size": "not stated in the manifest (see views)",
@@ -9522,8 +9522,8 @@
    "reuses": [
     "micro/organs (ORGAN3D)"
    ],
-   "file": "tools/micro/sets/hier.js",
-   "manifest": "tools/micro/sets/hier.md",
+   "file": "packages/micro/src/sets/hier.js",
+   "manifest": "packages/micro/src/sets/hier.md",
    "shows": "Organ architecture as a four-level hourglass network (29 organs, 24 tissues, 10 tissue types, 70 domains) with glowing curved links, each organ its small 3D model, and the contact networks between domains for six organs.",
    "frame": "Centred on the origin facing +z; rings at y 0.66 (organs, radius 0.9), 0.28 (tissues, 0.7), -0.1 (tissue types, 0.4), -0.62 (domains, 0.9).",
    "size": "radius ~0.9; node sizes by degree",
@@ -20909,7 +20909,7 @@
    "what": "PET_ICONS, organ icons for the PET story's panels"
   },
   {
-   "file": "tools/micro/sets/data.js",
+   "file": "packages/micro/src/sets/data.js",
    "what": "MICRO_DATA, the microanatomy story's data block (generated)"
   },
   {

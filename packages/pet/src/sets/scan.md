@@ -60,7 +60,7 @@ and time instead of the icons in the network, make the prognosis and medication 
 the story's own cyan and amber, no more neon orange, red and yellow):
 
 - **The network** (`netG`, its middle at x 0.68): the 14 organs of `PET_DATA` as the microanatomy story's 3D models
-  (`ORGAN3D`, `tools/micro/sets/organs.js`, which the build puts before the sets: brain, lungs, heart, liver, kidneys ->
+  (`ORGAN3D`, `packages/micro/src/sets/organs.js`, which the build puts before the sets: brain, lungs, heart, liver, kidneys ->
   `kidney`, thyroid, muscle, adrenal, spleen, pancreas, intestine -> `smallint`, fat -> `adipose`, aorta -> `artery`, and
   the bone marrow -> `marrow`, a model made for this row: a short piece of a long bone cut through, the red marrow
   showing inside a ring of hard bone). `SCAN_NET` (outside the set) lists each with its place and size: the five big

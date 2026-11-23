@@ -68,12 +68,40 @@
       "list": "stories",
       "icon": "pet.scan",
       "needs": 185,
-      "fp": "b376309662d6f5db",
-      "bytes": 3629229,
+      "fp": "e7c2e030a880840c",
+      "bytes": 3629236,
       "files": {
         "audio/narration.mp3": "cbd7cbd77e2046c6",
-        "main.js": "3b3b1c626e111ed1",
+        "main.js": "9330509c4bc5c587",
         "story.json": "d5b35aa4b2ad13e5"
+      }
+    },
+    {
+      "key": "micro",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Tissue and time",
+      "kick": "Tissue microanatomy",
+      "col": "#ff9ec4",
+      "desc": "Organs are built from small working units of cells. 24,945 slides of 40 tissues show which ones there are, how they connect, and which change as we age.",
+      "len": "Story 8:06 · 3D slides",
+      "page": "Tissue and time: how organs are built, and how they age",
+      "brand": "Tissue and time",
+      "sub": "how organs are built, and how they age",
+      "aria": "Interactive 3D story of the microanatomy of human tissues and how it changes with age",
+      "thing": "slide",
+      "loading": "Staining the slides",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "micro.slide",
+      "needs": 185,
+      "fp": "73046c3171c8a834",
+      "bytes": 4593663,
+      "files": {
+        "audio/narration.mp3": "5df9ca0443241bd0",
+        "main.js": "29d559470996e60f",
+        "story.json": "ce9129720ce2a457"
       }
     },
     {

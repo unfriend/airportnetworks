@@ -1,7 +1,7 @@
 # The microanatomy story: 3D sets and engine spec
 
-We are adding a tenth story to the web app in `/home/user/airportnetworks`: `stories/micro.js`, built from
-`tools/micro/` like the PET story `packages/pet/main.js` is built from `packages/pet/src/`. It turns a preprint, a poster and a
+We are adding a tenth story to the web app in `/home/user/airportnetworks`: `packages/micro/main.js`, built from
+`packages/micro/src/` like the PET story `packages/pet/main.js` is built from `packages/pet/src/`. It turns a preprint, a poster and a
 talk into a narrated, about five-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser). Bold and beautiful, as the other stories.
 
@@ -18,13 +18,13 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
 **The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here, with these differences:
 
-- Set files live in `tools/micro/sets/`, the harness is `tools/micro/harness.html` (same query syntax) and the
-  screenshot tool `tools/micro/shot.mjs` (run it from `tools/micro`; shots go to `tools/micro/shots/`, ignored by
+- Set files live in `packages/micro/src/sets/`, the harness is `packages/micro/src/harness.html` (same query syntax) and the
+  screenshot tool `packages/micro/src/shot.mjs` (run it from `packages/micro/src`; shots go to `packages/micro/src/shots/`, ignored by
   git, or to the folder in `SHOTS`; `cam=` takes a view of the set by name too). The server on port 8123 (or `PORT`)
   serves the repository root (check with `curl -sI http://127.0.0.1:8123/ | head -1`;
   if it is down: `setsid nohup python3 -m http.server 8123 --bind 127.0.0.1 --directory /home/user/airportnetworks
   >/dev/null 2>&1 < /dev/null &`).
-- The data is the global `MICRO_DATA` (`tools/micro/sets/data.js`, made by `tools/micro/data/gen_data.mjs`; never
+- The data is the global `MICRO_DATA` (`packages/micro/src/sets/data.js`, made by `packages/micro/src/data/gen_data.mjs`; never
   edit by hand; its header documents every field; it may be regenerated with the figures' readings, same shape).
 - Reused unchanged (never edit them): the tour's **tissue** set (`tools/lbi/sets/tissue.js`, manifest
   `tools/lbi/sets/tissue.md`: an H&E-stained section of stomach wall of about 18,600 cells, with mucosa, submucosa
@@ -183,10 +183,10 @@ Anchors: `top` (organs), `bottom` (domains), `focus`, `contacts`, `change` (the 
 `contacts`. Controls: View (Network / Contacts), Organ (the organs with contact data), Age (20 / 70). Explore API
 `api()`: `nodes` (names and levels), `pick(raycaster)` -> node index or -1, `contactOrgans`.
 
-## The engine (`tools/micro/engine/`, copied from the PET story's; adapt it)
+## The engine (`packages/micro/src/engine/`, copied from the PET story's; adapt it)
 
 Rename everything from the PET story: `HOST.register('micro', ...)`, the header comment (the preprint, the poster and
-the talk above), `audio/narration-micro.mp3`, `SET_ORDER = ['body', 'tissue', 'slide', 'atlas', 'hier']`, the
+the talk above), `packages/micro/audio/narration.mp3`, `SET_ORDER = ['body', 'tissue', 'slide', 'atlas', 'hier']`, the
 shared-room hooks unchanged (see "Shared rooms" in `docs/agents/shared-rooms.md`), the headset code unchanged except that the PET
 story's Life size mode goes (no room mode in this story). `tissue` and `slide` share one frame: wherever the story
 or explore shows `slide`, show `tissue` too (same transform).
@@ -239,4 +239,4 @@ URL hashes: `#micro&t=120`, `#micro&explore&organ=Ovary`, `&domain=submucosa`, `
 
 For each set: `sets/<file>.js`, `sets/<file>.md` (manifest: params, suggested keyframes, anchors, labels, cam views,
 controls, explore API, what a narrator may and must not say), final screenshots `shots/<key>-final-<k>.png` (640x400).
-Test in the harness only. The engine: `engine/*.js` adapted; `node tools/micro/build.mjs` builds `stories/micro.js`.
+Test in the harness only. The engine: `engine/*.js` adapted; `node packages/micro/src/build.mjs` builds `packages/micro/main.js`.

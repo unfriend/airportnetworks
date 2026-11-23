@@ -96,7 +96,7 @@ unless asked for by name.
 `harness.html?set=organs` shows all 29 in a grid, and the marrow (`extra`) after them (`organs_spin:1` turns them, `organs_tint:1` takes the level colour,
 `organs_pics:1` lays the pictures over the page on a light and a dark ground, `organs_lite:1` shows the lighter
 copies instead). `SETS.organs` is only the harness's
-gallery: the story builds it into `stories/micro.js` but never makes it.
+gallery: the story builds it into `packages/micro/main.js` but never makes it.
 
 ## For the narrator
 

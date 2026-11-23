@@ -7,16 +7,16 @@
 // "Microanatomical principles of tissue organization and their change with age" (Iva Buljan, Rendeiro group; LBI for
 // Network Medicine, CeMM, Medical University of Vienna), with Iva Buljan's network of organ architecture.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/micro/build.mjs from the tour's kit, the tour's PET body and tissue sets and the data, organ models,
-// sets and engine parts in tools/micro: edit those, not this file.
+// Built by packages/micro/src/build.mjs from the tour's kit, the tour's PET body and tissue sets and the data, organ models,
+// sets and engine parts in packages/micro/src: edit those, not this file.
 HOST.register('micro', function (HOST) {
 'use strict';
 //#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// MICRO_DATA (the preprint's numbers and the network of organ architecture, tools/micro/sets/data.js) comes first, then
-// the organs' small 3D models (ORGAN3D, tools/micro/sets/organs.js; SETS.organs there is the harness's gallery, not
+// MICRO_DATA (the preprint's numbers and the network of organ architecture, packages/micro/src/sets/data.js) comes first, then
+// the organs' small 3D models (ORGAN3D, packages/micro/src/sets/organs.js; SETS.organs there is the harness's gallery, not
 // part of the story); the tour's PET body and tissue sets (SETS.body, SETS.tissue) are used unchanged.
 const SETS = {};
 //@@SETS@@

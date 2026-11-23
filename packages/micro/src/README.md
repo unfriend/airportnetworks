@@ -1,4 +1,4 @@
-# tools/micro: the sources of the microanatomy story (`stories/micro.js`)
+# packages/micro/src: the sources of the microanatomy story (`packages/micro/main.js`)
 
 "Tissue and time: how organs are built, and how they age", after the preprint "Systematic mapping of human tissue
 microanatomy reveals age-associated remodeling and resilience" (Iva Buljan, Zsuzsanna Bago-Horvath, André F.
@@ -8,12 +8,12 @@ with age" (Iva Buljan, Rendeiro group; LBI for Network Medicine, CeMM, Medical U
 PET story (`packages/pet/src/`), with the shared kit (`tools/engine/kit.js`), set contract, body and tissue sets, and small 3D models of its organs.
 Everything is drawn as lit 3D objects in the other stories' look; the method is shown in the tour's visual language for
 its tissue (tiles joined to their neighbours on the tour's own section, messages along the links, the lift into a 3D
-map). Never edit `stories/micro.js` by hand.
+map). Never edit `packages/micro/main.js` by hand.
 
 ```sh
-node tools/micro/data/gen_data.mjs network_with_tissue_types_hierarchical.graphml   # -> sets/data.js
-node tools/micro/build.mjs                                                         # writes stories/micro.js
-node tools/micro/build.mjs --check                                                 # exits 1 if out of date
+node packages/micro/src/data/gen_data.mjs network_with_tissue_types_hierarchical.graphml   # -> sets/data.js
+node packages/micro/src/build.mjs                                                         # writes packages/micro/main.js
+node packages/micro/src/build.mjs --check                                                 # exits 1 if out of date
 ```
 
 | Path | What it is |

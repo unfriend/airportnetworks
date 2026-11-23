@@ -90,6 +90,27 @@ for (const f of walk(S).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f) && !f.
     return n;
   });
 }
+// 2b. the readers: other stories' sources that read this one's (a build's SET_FILES '../<key>/sets/...', a harness's
+// <script src="../<key>/...">, endo's '../nmd/sets/data.js'), in tools/<dir>/ or in a moved package's src/. Their paths
+// follow to packages/<key>/src/: '../<key>/' becomes '../../packages/<key>/src/', which resolves from tools/<dir>/ and,
+// through a moved build's src() (a shared source from tools/<dir>/..), from packages/<dir>/src/ alike; a moved harness's
+// '../../../tools/<key>/' becomes '../../../packages/<key>/src/'; and every file of a reader's folder names the new place
+// (its comments end up in its built file: the reader is built again below, its main.js changing only in those lines).
+const REL = new RegExp(`(['"\`])\\.\\./${key}/`, 'g'), DEEP = new RegExp(`\\.\\./\\.\\./\\.\\./tools/${key}/`, 'g');
+const srcDirs = fs.readdirSync(at('tools'), { withFileTypes: true }).filter(e => e.isDirectory() && e.name !== key && has('tools', e.name, 'build.mjs')).map(e => `tools/${e.name}`)
+  .concat(has('packages') ? fs.readdirSync(at('packages'), { withFileTypes: true }).filter(e => e.isDirectory() && e.name !== key && has('packages', e.name, 'src', 'build.mjs')).map(e => `packages/${e.name}/src`) : []);
+const reads = new RegExp(`(['"\`])\\.\\./${key}/|\\.\\./\\.\\./\\.\\./tools/${key}/`);
+const readers = srcDirs.filter(d => ['build.mjs', 'harness.html'].some(f => has(d, f) && reads.test(fs.readFileSync(at(d, f), 'utf8'))));
+for (const d of readers) {
+  say(`reader: ${d} reads ${key}'s sources`);
+  for (const f of walk(d).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f))) {
+    edit(f, t => t.replace(REL, `$1../../packages/${key}/src/`).replace(DEEP, `../../../packages/${key}/src/`)
+      .split(`tools/${key}/build.mjs`).join(`packages/${key}/src/build.mjs`)
+      .split(`tools/${key}/`).join(`packages/${key}/src/`)
+      .split(`stories/${key}.js`).join(`packages/${key}/main.js`)
+      .replace(BARE, `packages/${key}/src`));
+  }
+}
 const left = walk(S).filter(f => /\/engine\//.test(f) && new RegExp(`audio/narration-${key}`).test(fs.readFileSync(at(f), 'utf8')));
 if (left.length) console.log(`note: ${left.join(', ')} still name audio/narration-${key}...: change those by hand to HOST.pkgUrl('${key}', 'audio/narration[-<lang>].mp3')`);
 
@@ -133,6 +154,9 @@ const odd = diff.filter(i => !expected(i));
 console.log(`main.js against the old stories/${key}.js: ${a.length === b.length ? 'the same length' : `${a.length} -> ${b.length} lines`}, ${diff.length} lines differ` +
   (odd.length ? `, ${odd.length} unexpected (first at line ${odd[0]}): look before committing` : ' (each one naming the narration or the folders)'));
 for (const i of diff.slice(0, 8)) console.log(`  ${i}: ${(a[i - 1] || '').trim().slice(0, 110)}\n  ${' '.repeat(String(i).length)}  ${(b[i - 1] || '').trim().slice(0, 110)}`);
+
+// (the readers built again: their paths now name packages/<key>/src/, and their built files the comments that moved)
+for (const d of readers) execFileSync(process.execPath, [at(d, 'build.mjs')], { cwd: root, stdio: 'inherit' });
 
 // 6. the index and the design room (its cards name the sources' files)
 execFileSync(process.execPath, [at('tools/packages/scan.mjs')], { cwd: root, stdio: 'inherit' });

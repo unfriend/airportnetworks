@@ -1,4 +1,4 @@
-// The atlas set of the microanatomy story (stories/micro.js): the GTEx slide library, the atlas of 40 sections and
+// The atlas set of the microanatomy story (packages/micro/main.js): the GTEx slide library, the atlas of 40 sections and
 // their domains, the tile cloud, ageing (the volcano and the examples' morph) and trajectories over age. Manifest:
 // atlas.md. Slides, sections and tiles are drawn (procedural), never the GTEx images; shares, the volcano and the
 // curves come from MICRO_DATA (the preprint's numbers and readings of the talk's figures), stand-ins where it has none.

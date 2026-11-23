@@ -21,7 +21,7 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
 - **The organs in 3D** (since v107, the owner, 2 November 2026: "use the 3d organs from tissue and time instead of the
   icons in the network"; no flat glyphs anywhere in the scene, the organs' names as labels): every place the scene
   marks an organ (a node, a bar's foot, a column's head, the panel's axes) shows its 3D model from the microanatomy
-  story (`ORGAN3D`, `tools/micro/sets/organs.js`: the vision row's models and mapping, the marrow a bone of its own,
+  story (`ORGAN3D`, `packages/micro/src/sets/organs.js`: the vision row's models and mapping, the marrow a bone of its own,
   `PET_ORGAN3D` here), lit, taking on its organ's colour (the marrow keeps its bone's own colours more) and turning
   slowly about its own axis, each in its own phase. The panes' pictures (explore's Organs pane: its chips and the
   picked organ's heading, HTML and canvas) still draw `PET_ICONS`; the set no longer uses its atlas.

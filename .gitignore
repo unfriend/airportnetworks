@@ -11,7 +11,7 @@ packages/tutorial/src/shots/
 relay/.lan/
 relay/logs/
 packages/pet/src/shots/
-tools/micro/shots/
+packages/micro/src/shots/
 packages/qubits/src/shots/
 # inputs that must never be committed: the authors' files kept out on purpose (the microanatomy network, the endotype
 # run and seed table, the tissue topology story's cohort of cells) and any medical image (the PET authors' Network_VR

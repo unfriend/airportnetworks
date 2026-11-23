@@ -1675,6 +1675,9 @@ function changedFile(f, kind) {
 // ../<dir>/ (the tour's kit and sets, the muscle story's motor set...) and the story files it takes in (the pass story
 // cuts the globe and the cell out of the airports and cell map stories). Folders whose files a build or a tool writes
 // (shots, gen) and the data generators' folders are not sources.
+// (the moved stories whose sources a build reads: '../../packages/<key>/src/...' or packages/<key>/src/ named in it, as
+// tools/packages/move.mjs rewrites a reader's paths when a story whose sources others read moves)
+const pkgsOf = src => new Set([...src.matchAll(/packages\/([\w-]+)\/src\//g)].map(m => m[1]));
 function buildMap() {
   const dir = path.join(WATCH, 'tools');
   let names = [];
@@ -1686,7 +1689,7 @@ function buildMap() {
     const dirs = new Set([k]), files = new Set();
     for (const m of src.matchAll(/['"`]\.\.\/([\w-]+)\//g)) dirs.add(m[1]);
     for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) if (m[1] !== k + '.js') files.add('stories/' + m[1]);
-    W.builds.set(k, { dirs, files, script: f });
+    W.builds.set(k, { dirs, files, pkgs: pkgsOf(src), script: f });
   }
   // the story packages' builds (packages/<key>/src/build.mjs): their own src/, and the folders of tools/ they name
   // ('tools', 'engine' or tools/<dir>/); keyed pkg:<key>, so a package never shadows a tools/ build of the same name
@@ -1700,7 +1703,7 @@ function buildMap() {
     // (tools/packages/move.mjs's builds read a shared source as '../<dir>/...', resolved in tools/)
     for (const m of src.matchAll(/['"`]tools['"`]\s*,\s*['"`]([\w-]+)['"`]|['"`/]tools\/([\w-]+)\/|['"`]\.\.\/([\w-]+)\//g)) dirs.add(m[1] || m[2] || m[3]);
     for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) files.add('stories/' + m[1]);
-    W.builds.set('pkg:' + k, { dirs, files, script: f, pkg: k });
+    W.builds.set('pkg:' + k, { dirs, files, pkgs: pkgsOf(src), script: f, pkg: k });
   }
 }
 const SKIP = /(^|[\\/])(shots|gen|data|node_modules)([\\/]|$)/;
@@ -1721,6 +1724,8 @@ function pkgSourceChanged(rel) {
   W.fps.set(f, fp);
   if (parts[2] === 'build.mjs') buildMap();
   if (W.builds.has('pkg:' + parts[0])) wantBuild('pkg:' + parts[0]);
+  // (and every build that reads this package's sources: the readers of a moved story's shared sets)
+  for (const [k, b] of W.builds) if (b.pkgs && b.pkgs.has(parts[0]) && k !== 'pkg:' + parts[0]) wantBuild(k);
 }
 function wantBuild(k) {
   W.queue.add(k);

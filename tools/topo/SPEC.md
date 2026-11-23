@@ -53,7 +53,7 @@ Decisions (the owner's and the author's, 28 Oct 2026):
 - Shared globals before the sets (the build pastes them inside the story's closure in this order): `TOPO_DATA`
   (`sets/data.js`, generated), `TDATA` (`sets/tdata.js`: the decoders and lookups below, no science), `TLOOK`
   (`sets/look.js`, the story's look, from the mutation story's `MLOOK`), then the tour's `body` set
-  (`tools/lbi/sets/body.js`, unchanged) and the microanatomy story's organ models (`tools/micro/sets/organs.js`,
+  (`tools/lbi/sets/body.js`, unchanged) and the microanatomy story's organ models (`packages/micro/src/sets/organs.js`,
   `ORGAN3D`, unchanged: only the liver is used), then this story's sets.
 - **Labels may have `text` as a function** returning `[bold, rest]` (the engine re-reads it while the label shows).
 - **Step params** (integers, never eased; list each in the set's manifest so the engine puts it in `STEP`).

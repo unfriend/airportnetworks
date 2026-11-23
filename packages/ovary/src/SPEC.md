@@ -11,7 +11,7 @@ stray `organ_grow` key that shrank the ovary in the Reserve chapter's cortex clo
 seven minutes. This spec says what is built now; the parts taken out are in git history.
 
 The thirteenth story of the web app in `/home/user/airportnetworks`: `packages/ovary/main.js`, built from `packages/ovary/src/` like
-the microanatomy story `stories/micro.js` is built from `tools/micro/`. It turns a poster into a narrated, about
+the microanatomy story `packages/micro/main.js` is built from `packages/micro/src/`. It turns a poster into a narrated, about
 four-and-a-half-minute 3D story (about seven minutes after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser).
 
@@ -140,7 +140,7 @@ controls.
 - `HOST.register('ovary', ...)`, `packages/ovary/audio/narration.mp3`, `SET_ORDER = ['body', 'organ', 'section', 'charts']`,
   `FRAME = { body: 'organ' }` (one frame: the ovary sits in the body's pelvis); the microanatomy story's own parts
   (MICRO_DATA, its sets, the organ points and models, the Organs/Domains tabs) are gone, and `build.mjs` no longer
-  includes `tools/micro/sets/organs.js`. The shared-room hooks, the headset code, the slideshow and the narration lines
+  includes `packages/micro/src/sets/organs.js`. The shared-room hooks, the headset code, the slideshow and the narration lines
   are the shared ones, unchanged (the headset arc and its title now make room for thirteen stories, in every story).
 - `organ` and `section` build between frames: the engine calls `idle(dt, ms)` while a set is hidden, by turns within
   its build budget (v136: about 1 ms a frame in a headset, on a page an eighth of the frame, 2 to 8 ms; `BUILD` in
