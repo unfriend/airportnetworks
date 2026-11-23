@@ -140,7 +140,8 @@ const wstale = () => (wnow && wold(version + '.json') !== wnow ? [version + '.js
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
   let scanOk = true;
-  try { execFileSync(process.execPath, [path.join(root, 'tools/packages/scan.mjs'), '--check', '--root', root], { stdio: 'inherit' }); } catch (e) { scanOk = false; }
+  // (a copy without the packages' scan, a test's, has no index to check)
+  if (fs.existsSync(path.join(root, 'tools/packages/scan.mjs'))) try { execFileSync(process.execPath, [path.join(root, 'tools/packages/scan.mjs'), '--check', '--root', root], { stdio: 'inherit' }); } catch (e) { scanOk = false; }
   const ok = hadOut === out && stamped === index && scanOk, ws = wstale(), swOk = swOut === swText;
   console.log(hadOut === out && stamped === index ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
