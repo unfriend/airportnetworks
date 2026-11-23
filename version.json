@@ -1,6 +1,6 @@
 {
   "app": "networks",
-  "version": "networks-v188",
+  "version": "networks-v189",
   "format": "networks-55",
   "shell": {
     "n": 188,
@@ -9,7 +9,7 @@
   "list": "d095202279b28c9e",
   "stories": {
     "design": {
-      "fp": "e3a03a4140ae3cb1",
+      "fp": "10096f3cd607e5f9",
       "needs": 188
     },
     "studio": {
@@ -65,6 +65,10 @@
     "soil": {
       "fp": "743ece92080d7fb0",
       "needs": 185
+    },
+    "cdk5": {
+      "fp": "2f809062ea7be18c",
+      "needs": 188
     },
     "proteins": {
       "fp": "ad6249788d4fdea0",

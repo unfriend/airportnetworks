@@ -179,6 +179,23 @@ disagrees now (`SOIL_DATA.open` in `packages/soil/src/sets/data.js`, written by 
 | S8 | The co-occurrence network is ours, built for this story with a standard method (centred log-ratios, Spearman's rho of at least 0.6, false discovery rate under 5 %, Louvain modules; about five big ones, the count depends on the run). Do the authors agree with the method and with how the story words it ("rising together is not working together"; no hub called a keystone; the two wheat lines' networks differ no more than random halves do)? | the notes ask for correlations among the kinds | the network as ours, said so in chapter 7's small print and explore's Network pane (`packages/soil/src/data/gen_data.py`, `SOIL_DATA.net`) | open |
 | S9 | May the story be public (on GitHub Pages) before the work is published, or only shown at the Global Peter Drucker Forum from the local relay? And is the credit right (the slides' title, the eight authors and their institutes, Subbarao et al., PNAS, for the wheat line)? | the title slide | the credits in chapter 8's small print and explore's notes | open (also **TO FILL (owner)** in [data-and-permissions.md](data-and-permissions.md)) |
 
+## The switch that sticks (`cdk5`)
+
+Source: the Menche lab's repository CDK5_data (github.com/menchelab/CDK5_data, Christiane Hütter), its CDK5_analytics VR
+project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`); everything the story shows is decoded from it
+(`packages/cdk5/src/data/gen_data.py`; `packages/cdk5/src/SPEC.md`, "Decisions"). Who to ask: Christiane Hütter. Contact person:
+**TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| C1 | The Alzheimer's pathway's name | `input/neurodegenerativepathwaysAlzheimers.tsv` (no name or id in the file) | Reactome's "Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer's disease models", our reading of its 22 members, said so | open |
+| C2 | The CDK5 - calpain link | scene 03 adds it (the interactome has none) | drawn as the authors draw it, its small print saying that calpain acts on p35, not on CDK5 | open: confirm the wording |
+| C3 | p35 and p39 in the subunits scene | the notebook compares a protein with the list of both (`node == subunits_entrezIDs`), so they keep their degree colour in the texture | the map's points as the texture has them; the close-up colours them light green | open: was green meant? |
+| C4 | p39 at the centre in the NTRK2 and Alzheimer's scenes | their layouts start from scene 1's, which pulled p39 in | p39 left at the centre, faint and unnamed, as in the textures | open: keep, or send p39 home? |
+| C5 | The interactome's and the Disease Ontology associations' sources and dates | cartoGRAPHs' `load_graph('human')`, `input/d_gene_do.pkl` | "the human interactome" and "the Disease Ontology" in the credits, no version | open |
+| C7 | The GO matrix behind the map of processes | `Features_GO_BiolProc_Dataframe_human.pickle`, on the lab's Drive, not in the repository | the map's knots named from a current GO release (14 small knots); the big dense clouds left unnamed, as today's GO finds no single process in them | open: with the authors' matrix the big clouds could be named |
+| C6 | The over-representation counts | not in the repository: computed for the story (`CDK5_DATA.diseases`), within the proteins with a disease | "more than chance would give", with the numbers, "in this map" | open: the authors' preferred background and test |
+
 ## Pass it on (`pass`)
 
 The lab's own outreach story, so the questions are for the owner and whoever checks it for the institute, not for

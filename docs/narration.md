@@ -28,6 +28,10 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Spatial interactome: Cell map | `packages/spatial/audio/narration.mp3` | synthetic voice | 5:41 |
 | Spatial interactome: Back into the cell | `packages/ppicell/audio/narration.mp3` | synthetic voice | 12:32 |
 | Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
+| Brain kinase: The switch that sticks | `packages/cdk5/audio/narration.mp3` | synthetic voice | 8:27 |
+| Network medicine: Proteins | `packages/proteins/audio/narration.mp3` | synthetic voice | 5:48 |
+| Collective motion: Flock | `packages/flock/audio/narration.mp3` | synthetic voice | 1:36 |
+| Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
 
 ## Network theory: Airports (`#airports`)
 
@@ -1464,3 +1468,231 @@ File: `packages/tutorial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 
 - **3:22** Or stay, and practise: I have a few small tasks for you.
 - **3:26** Powering down.
 - **3:29** Your guide's moves and words were written by Claude, an AI model made by Anthropic. Its body is the app's armour figure, posed by code. Narration: a synthetic voice (Kokoro).
+
+## Brain kinase: The switch that sticks (`#cdk5`)
+
+File: `packages/cdk5/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Sixteen thousand proteins, 1:01 A kinase among its cousins, 2:09 Two partners switch it on, 3:10 Healthy signalling, 4:17 A cut that sticks, 5:18 Stuck on in Alzheimer's, 6:24 A landscape of diseases, 7:36 Too little, too much; it ends at 8:27.
+
+### 0:00 Sixteen thousand proteins
+
+- **0:01** The switch that sticks
+- **0:03** CDK5, its network and brain diseases
+- **0:07** A human cell runs on thousands of proteins.
+- **0:13** Here are 16,376 of them. Proteins with similar jobs sit close together, and lines join those known to bind.
+- **0:23** Where proteins share a job, they gather in knots: sugar import, synaptic vesicles and intermediate filaments.
+- **0:35** 13,003 with a known job, on the inner sphere
+- **0:39** 3,373 with none known, on the outer shell
+- **0:47** Somewhere among them is CDK5.
+- **0:56** After the Menche lab's CDK5_data repository by Christiane Hütter, and its CDK5_analytics VR scenes.
+
+### 1:01 A kinase among its cousins
+
+- **1:02** A kinase among its cousins
+- **1:04** CDK5 is a kinase: it switches other proteins on or off by adding phosphate to them.
+- **1:13** On the map it sits among its cousins, kinases that drive cell division or switch genes on.
+- **1:36** But CDK5 works in neurons, which no longer divide, and its partners are spread across the map.
+- **1:43** 205 partners
+- **1:46** 396th of 16,376 by partners
+
+### 2:09 Two partners switch it on
+
+- **2:10** Two partners switch it on
+- **2:12** Its cousins are switched on by cyclins. CDK5 is not.
+- **2:20** Two proteins found in neurons, p35 and p39, switch it on. On the map they live far apart.
+- **2:39** Here they come together at the centre.
+
+### 3:10 Healthy signalling
+
+- **3:11** Healthy signalling
+- **3:14** In a healthy neuron, the growth factor BDNF docks on its receptor, NTRK2.
+- **3:25** A chain of proteins passes the message on, and CDK5 with p35 is one link.
+- **3:43** The neuron grows, survives and connects.
+
+### 4:17 A cut that sticks
+
+- **4:17** A cut that sticks
+- **4:20** Under stress, calcium floods into a neuron and wakes calpain, an enzyme that cuts proteins.
+- **4:32** Calpain cuts p35 into a shorter piece, p25.
+- **4:44** Bound to p25, CDK5 stays switched on for too long, and in the wrong places: it is hyperactive.
+
+### 5:18 Stuck on in Alzheimer's
+
+- **5:19** Stuck on in Alzheimer's
+- **5:21** A switch stuck on does damage.
+- **5:25** In Alzheimer's disease models, hyperactive CDK5 sets off harmful paths at once:
+- **5:35** the cell cycle,
+- **5:39** the Golgi,
+- **5:42** the nuclear envelope,
+- **5:45** the defences against oxidative stress,
+- **5:49** and signals for the cell's death.
+- **6:02** Now the map is coloured by disease; grey proteins have none known.
+
+### 6:24 A landscape of diseases
+
+- **6:25** A landscape of diseases
+- **6:28** Now place every protein by the diseases it is linked to.
+- **6:44** Proteins with a known disease gather in the middle; the rest are pushed to the walls.
+- **7:00** CDK5 lands among proteins tied to the same rare brain disorders: lissencephaly, a smooth brain, and pontocerebellar hypoplasia.
+- **7:22** Its partners lean towards the brain too: more of them than chance would give are linked to Parkinson's disease and psychotic disorders.
+
+### 7:36 Too little, too much
+
+- **7:36** Too little, too much
+- **7:39** CDK5 shows why a network view helps.
+- **7:44** Too little CDK5, and the brain does not build itself properly.
+- **7:52** Too much, stuck on by calpain's cut, and neurons are damaged.
+- **8:02** Explore the map yourself: any protein, any pathway, any disease.
+- **8:07** After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter, and its CDK5_analytics VR project, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. The knots are named from today's Gene Ontology (release 2026-07-26), not the authors' own annotation; most of the map's big clouds mix many processes.
+- **8:08** Ours: the close-ups at the map's centre (their balls, tubes and names, a clearer drawing of the centre's proteins at the authors' places, scaled up), the tags with numbers and the over-representation counts. Narration: a synthetic voice.
+
+## Network medicine: Proteins (`#proteins`)
+
+File: `packages/proteins/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Proteins, 0:50 Interactions, 1:21 Hubs, 1:49 Essential, 2:25 Modules, 3:20 Disease modules, 3:54 Drug targets, 4:34 Robustness, 5:25 Recap; it ends at 5:48.
+
+### 0:00 Intro
+
+- **0:01** Network medicine
+- **0:03** told with the proteins in a human cell
+- **0:06** Here are 254 proteins and 375 interactions, placed where they work in the cell. First come eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
+
+### 0:21 Proteins
+
+- **0:22** Proteins are nodes
+- **0:24** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, which is the inner sphere.
+- **0:41** Proteins are nodes just like airports: the same rules of network theory apply.
+
+### 0:50 Interactions
+
+- **0:51** Interactions are edges
+- **0:53** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
+- **1:04** All together, 375 interactions tie these proteins into one network.
+- **1:10** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
+
+### 1:21 Hubs
+
+- **1:21** Hubs
+- **1:23** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, and beta-catenin has 12.
+- **1:34** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24 per cent of all interactions. The height of each spike shows how many partners a protein has.
+
+### 1:49 Essential
+
+- **1:50** Essential proteins
+- **1:52** Some proteins are essential: without them, almost no human cell can survive.
+- **1:58** 69 proteins in this map are essential, and they are highlighted. They have 3.2 partners on average, and the others have 2.9: essential proteins tend to have more partners.
+- **2:11** In yeast, hubs turned out more likely to be essential, a pattern known as the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
+
+### 2:25 Modules
+
+- **2:26** Modules
+- **2:28** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. A method called the Louvain algorithm found these ten from the interactions alone.
+- **2:40** Cell cycle & DNA copying
+- **2:43** DNA break repair
+- **2:43** p53 & gene control
+- **2:47** Growth-factor signalling
+- **2:50** Wnt & amyloid
+- **2:52** Proteasome
+- **2:54** DNA replication start
+- **2:56** AKT-mTOR & survival
+- **2:59** TNF & cell death
+- **3:02** RNA polymerase II
+
+### 3:20 Disease modules
+
+- **3:21** Disease modules
+- **3:23** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
+- **3:31** 12 of 16 form one connected module
+- **3:36** Pick 16 proteins at random, and their largest connected group has only 2.0 proteins on average. Disease genes cluster in the same neighbourhood. This is the disease module, the idea at the heart of network medicine.
+
+### 3:54 Drug targets
+
+- **3:55** Drugs and distance
+- **3:58** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
+- **4:06** Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits right next to it.
+- **4:22** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
+
+### 4:34 Robustness
+
+- **4:35** Robustness
+- **4:37** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
+- **4:46** 100%
+- **4:46** of protein pairs still connected
+- **4:49** Knock out 20 random proteins, and 75 per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
+- **5:02** Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the largest number of shortest paths between other proteins.
+- **5:13** The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
+
+### 5:25 Recap
+
+- **5:26** Network medicine
+- **5:28** Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness
+- **5:35** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
+- **5:37** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016. Narration: a synthetic voice (Kokoro).
+
+## Collective motion: Flock (`#flock`)
+
+File: `packages/flock/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 Seven, 0:53 Wave, 1:20 Around you; it ends at 1:36.
+
+### 0:00 Intro
+
+- **0:01** A flock
+- **0:02** of starlings at dusk
+- **0:04** Before they settle for the night, starlings gather in flocks of hundreds or thousands and sweep across the sky together. These 200 fly all around you.
+- **0:14** In a headset, look around: they never leave. On a screen the view follows them.
+
+### 0:23 Seven
+
+- **0:23** Seven neighbours
+- **0:26** No bird leads. Each one keeps track of about seven of its nearest neighbours, however near or far they are, and matches their heading and speed.
+- **0:35** Draw each bird's link to the seven it follows, and the flock is a network: every bird is a node, and every link is one bird watching another.
+- **0:44** The links change from moment to moment, as birds change places.
+- **0:46** Ballerini et al., PNAS 2008: starlings follow a set number of neighbours, not all birds within a set distance.
+
+### 0:53 Wave
+
+- **0:53** A wave
+- **0:55** A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.
+- **1:06** The dark bands you see are birds banking together, with their wings edge on or full on to you.
+- **1:12** Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.
+- **1:14** Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation. Narration: a synthetic voice (Kokoro).
+
+### 1:20 Around you
+
+- **1:21** All around you
+- **1:23** The flock flies on for as long as you stay.
+- **1:27** Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.
+
+## Swarm robotics: Robot gang (`#robots`)
+
+File: `packages/robots/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Robot gang, 0:19 Bump and turn, 0:45 Follow me, 1:09 Follow the one ahead, 1:33 Your gang; it ends at 1:49.
+
+### 0:00 Robot gang
+
+- **0:01** Robot gang
+- **0:02** vacuums in your room
+- **0:04** Six robot vacuums share a room with you. In a headset it is your own room: the headset knows your floor and walls from its room setup, and so do they.
+- **0:14** On a screen you stand in a model living room. Click the floor to walk.
+
+### 0:19 Bump and turn
+
+- **0:20** Bump and turn
+- **0:22** Early robot vacuums had no map of the room. Much of the time they simply drove until they bumped into something, turned, and drove on.
+- **0:31** Nobody plans a route, yet the floor gets clean.
+- **0:37** Bouncing at random reaches every corner in the end, but the last patches take longest.
+
+### 0:45 Follow me
+
+- **0:46** Follow me
+- **0:48** Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.
+- **0:54** Draw who follows whom and you get a network, with you in the middle and a link to every robot: a star.
+
+### 1:09 Follow the one ahead
+
+- **1:09** Follow the one ahead
+- **1:12** Rewire the network. Each robot follows the one in front of it; only the first follows you.
+- **1:18** Same robots, same rule, a different network: the gang becomes a line.
+- **1:25** Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007). Narration: a synthetic voice (Kokoro).
+
+### 1:33 Your gang
+
+- **1:33** Your gang
+- **1:35** The gang stays for as long as you do.
+- **1:38** Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.

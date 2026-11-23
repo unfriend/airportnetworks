@@ -1,4 +1,4 @@
-# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, pass, flock, robots, tutorial, design room)
+# The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
 Read on demand; the rules every agent needs are in AGENTS.md.
 
@@ -527,6 +527,62 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
   `packages/soil/src/data/reconcile.py`.
 - **British spelling** (colour, fertiliser, centre, grey, neighbourhood), English only; plain words for a business
   audience, the technical layer in small print.
+
+## The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way
+
+`packages/cdk5/main.js` ("The switch that sticks", the kinase CDK5 and brain diseases) was written by Christiane Hütter
+(the Menche lab) on a fork of the app at v135 (as `tools/cdk5/` and `stories/cdk5.js`; the owner, 18 November 2026:
+"take all data and scene descriptions and data representations from the github", of its two VR projects the analytics
+one only, networks only) and came into the app as a package at v189, on the Experiments set of cards (`list:
+"experiments"` in `story.json`: nobody has tried it on a headset yet; one field moves it to the main set). It is
+generated from `packages/cdk5/src/` (`node packages/cdk5/src/build.mjs`, `--check` as for the tour; then
+`node tools/packages/scan.mjs`): the shared kit (`tools/engine/kit.js`), `CDK5_DATA` (`sets/data.js`, generated, copied
+from the fork unchanged), its decoders `CDATA` (`sets/cdata.js`, checked by `node packages/cdk5/src/test-data.mjs`), the
+story's palette `CLOOK` (`sets/look.js`), the tissue topology story's look (`TLOOK`, `packages/topo/src/sets/look.js`,
+unchanged), two sets (`net`: 16,376 points flowing between the authors' six arrangements, each scene's links, CDK5's
+halo, its partners, its cousins, a pathway or a disease term lit, its 30 nearest in the landscape, the process knots,
+and a veil that clears the view to the map's centre; `core`: each scene's centre proteins as lit balls and tubes with
+names; each with a manifest) and the engine: the shared parts (`tools/engine/`) and the story's own (`src/README.md`
+lists them). `packages/cdk5/src/SPEC.md` is the contract.
+
+- Brought onto today's engine (v189) by a three-way merge of its engine files (the fork's soil engine, the fork's CDK5
+  engine, today's `packages/soil/src/engine/`): the story's own lines kept, every other line a `//#use` of the shared
+  parts. Its own beyond the soil story's: `key` (authored seconds times `K_T`, 0.9), `DEF_MORE`, `LIN` and `MORPH`
+  empty; `xrPlace` and its own `xrCap` (the default size, 0.35 m from the eyes by `XR_BOUND`, standing inside by
+  `XR.inW`), `xrTip`, `xrBallHit` and `xrMinD` in the net's frame (explore's scenes are not sets: `X.scene` is one of
+  `CDATA.SCENES`); `frame` (the shared one with explore's views from `sceneCam()` in the net set, and `XR.scene`,
+  `XR.inW`, `XR.inV` set each frame); `sigFoot` and `drawFootX` (Stand inside). Its `collab.state()` carries `v:
+  COLLAB_V` (1), which `apply()` checks (`tools/packages/SPEC.md`, "Shared rooms"). The story's text,
+  `NARRATION_SYNC` and `NARRATION_ENDS` are the fork's (the recording, 8:27, fits: `node tools/voice/check.mjs cdk5`).
+- The data: `python3 -I packages/cdk5/src/data/gen_data.py <folder of the CDK5_data clone> --go <folder with
+  goa_human.gaf.gz and go-basic.obo>` reads the repository's `CDK5_analytics` VR project, whose layouts, colours and
+  links it decodes exactly from the textures (`layouts/` and `layoutsl/` the high and low bytes of each coordinate;
+  `layoutsRGB/` a node's RGBA; `links/00-BIOPROC.bmp` each link as two pixels, a node's pixel in the 128-wide node
+  textures, R + 128 G; `linksRGB/` a link's RGBA), its interactome (`input/ppi_elist.txt`) and gene symbols, the two
+  Reactome pathway exports and its Disease Ontology tables (pickles of dicts, lists and strings only, read by an
+  unpickler that refuses every class). The clone stays out of the repository. The notebook's two feature pickles (GO
+  processes and diseases by gene) are on the lab's Drive, not in the repository: the layouts they gave are in the
+  textures. Never lay the authors' layouts out again in the app.
+- What is ours, said so: the close-ups at the centre (the authors' centre proteins at their relative places, scaled up to
+  radius `CDATA.CENTRE_R`), the tags, the over-representation of disease terms among CDK5's partners and its 30 nearest
+  proteins in the landscape (hypergeometric within the 6,538 proteins with a disease, Benjamini-Hochberg; "in this
+  map"), and the process knots on the map of processes (19 November 2026, the owner: "annotate the protein clouds in the
+  very first layout"): named from a current GO release, since the authors' GO matrix is not in their repository; today's
+  GO finds no single process in the map's big dense clouds, so 14 small knots where one process gathers are labelled
+  instead, and the story says so. The authors' one drawn link, CDK5 - calpain (calpain acts on p35, not on CDK5), is
+  said so.
+- Eight chapters: Sixteen thousand proteins, A kinase among its cousins, Two partners switch it on, Healthy signalling,
+  A cut that sticks, Stuck on in Alzheimer's, A landscape of diseases, Too little, too much. Every number from `CDATA`
+  (`FACTS`). In a headset chapters 1 and 2 stand you inside the map (`XR.inW`, the map's middle at your eyes, 1.25 m a
+  unit), and from chapter 3 it floats in front of you at 0.5 m a unit, its scale capped so no point comes within 0.35 m
+  of the eyes (`XR_BOUND`).
+- Explore: Scenes (the six, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
+  Diseases (88 terms, CDK5's own first) and About. Shared state `{ v, tab, scene, ctl, prot, term, path }` (never the
+  search text, the camera or standing inside). Links: `src/README.md`; the smoke test's `cdk5` step checks five of them.
+- Miniatures `cdk5.net` (its station icon, `icon` in `story.json`) and `cdk5.core` (`tools/lowpoly/models-b.js`), both
+  props of the design room (`tools/design/props.json`).
+- British spelling, English only. The open questions are C1 to C7 in `docs/questions-for-authors.md`; its permission row
+  in `docs/data-and-permissions.md` is marked TO FILL.
 
 ## The pass story (`packages/pass/main.js`) is built the same way
 

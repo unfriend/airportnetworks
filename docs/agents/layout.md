@@ -242,6 +242,13 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
   adapted from the tissue topology story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's `web` set
   and the tissue topology story's look); see its `README.md` and `SPEC.md`.
+- `packages/cdk5/` - the CDK5 story ("The switch that sticks"), written on a fork of the app at v135 by Christiane Hütter
+  and brought in as a package in v189 (on the Experiments set): `story.json`, `main.js` (built), `audio/narration.mp3`,
+  `README.md`, and `src/` its sources (the data generator, which reads a clone of the Menche lab's public CDK5_data
+  repository and a current GO release, neither in the repository; the data it writes, its decoders and their test; the
+  story's palette; two sets, `net` and `core`; the story's own engine parts with the shared ones of `tools/engine/`;
+  build script, set harness; it uses `tools/engine/kit.js` and the tissue topology story's look); see its `README.md`
+  and `SPEC.md`.
 - `packages/pass/src/` - the sources of `packages/pass/main.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `packages/airports/main.js` and `packages/spatial/main.js`, unchanged; three sets, `fish`, `globe` and `cell`;
   the story's words in two languages; engine parts adapted from the qubits and flock stories'; set checks, harness); see

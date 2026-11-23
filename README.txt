@@ -46,6 +46,11 @@ Network stories - installable web app
 Experiments: the last card on the Stories screen, Experiments, opens a second
 set of cards (in a headset a second arch of cards), with a card back to the
 main set; #experiments opens it too. In it:
+  - The switch that sticks: CDK5, a switch in neurons, among 16,376 human
+     proteins, from healthy signalling to the cut that leaves it stuck on, as
+     in Alzheimer's disease, and a landscape of diseases; after the Menche
+     lab's CDK5_data repository, by Christiane Hütter  (packages/cdk5/main.js;
+     not yet tried on a headset)
   - Network medicine, told with the proteins in a cell  (packages/proteins/main.js)
   - Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (packages/flock/main.js)
@@ -276,7 +281,7 @@ entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #cdk5, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 A story builds in steps while it loads: the page shows a thin bar and the step
@@ -909,6 +914,16 @@ layout are illustrative, and the story says so. The authors' files are not in
 the repository (packages/soil/src/data/gen_data.py reads them); kinds of microbe are
 numbered, and none of the slides' pictures is shown.
 
+The switch that sticks (packages/cdk5/main.js, on the Experiments set): written
+by Christiane Hütter on a fork of the app, after the Menche lab's public
+repository CDK5_data (github.com/menchelab/CDK5_data): its CDK5_analytics VR
+project, six scenes on the human interactome (16,376 proteins) made with
+cartoGRAPHs. Every layout, colour and link is the authors', decoded from their
+textures by packages/cdk5/src/data/gen_data.py (the clone is not in this
+repository); the close-ups at the centre, the tags, the counts of disease terms
+among CDK5's partners and neighbours, and the names of the process knots (from
+today's Gene Ontology) are ours, and the story says so.
+
 Pass it on (packages/pass/main.js): an outreach story of the Ludwig Boltzmann
 Institute for Network Medicine, in English and German (a switch, EN | DE, on the
 story panel and above the explore tabs; German when the device's language is,
@@ -965,6 +980,8 @@ node packages/mutation/src/build.mjs writes packages/mutation/main.js), packages
 story; node packages/topo/src/build.mjs writes packages/topo/main.js; its data from the authors' files, not in the repository),
 packages/soil/src/ (sources of the soil story; node packages/soil/src/build.mjs writes packages/soil/main.js; its data from the
 authors' files, not in the repository),
+packages/cdk5/src/ (sources of the CDK5 story; node packages/cdk5/src/build.mjs writes packages/cdk5/main.js; its data from a
+clone of the Menche lab's public CDK5_data repository, not in this one),
 packages/pass/src/ (sources of the pass story; node
 packages/pass/src/build.mjs writes packages/pass/main.js from them and from the airports and cell map stories;
 packages/airports/, proteins/ and spatial/ are hand-written: main.js is their source), packages/flock/src/ (sources of the flock; node packages/flock/src/build.mjs

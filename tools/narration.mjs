@@ -14,7 +14,8 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 await page.goto(base + 'index.html');
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && (!HOST.packages || HOST.packages.state().read), null, { timeout: 30000 });
-const list = await page.evaluate(() => HOST.list.map(s => ({ key: s.key, kick: s.kick, title: s.title, len: s.len })));
+// (the app's own stories on either set of cards: HOST.stories, the Experiments set's too, v188; other people's packages not)
+const list = await page.evaluate(() => (HOST.stories ? HOST.stories().filter(s => !s.pkg || s.app) : HOST.list).map(s => ({ key: s.key, kick: s.kick, title: s.title, len: s.len })));
 const mmss = s => { const n = Math.floor(Math.round(s * 100) / 100); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const docs = [];
 for (const s of list) {

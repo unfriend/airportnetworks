@@ -1,23 +1,21 @@
 {
-  "version": "networks-v188",
+  "version": "networks-v189",
   "date": "2026-11-23",
   "new": [
-    "The Stories screen has a last card, Experiments. It opens a second set of cards: proteins, the flock, the robot gang, the cell stress test and the example package. Its last card goes back.",
-    "Back into the cell is now one of the main stories, with its own card.",
-    "No number of stories anywhere: the app just says Network stories.",
-    "Leaving AR or VR now hides the menu, the welcome and the other pop-ups, so the page no longer shows them.",
-    "In Back into the cell, the G protein under the receptor (chapter Walls) is much finer."
+    "A new story on the Experiments cards: The switch that sticks, by Christiane Hütter. It follows CDK5, a switch in neurons, among 16,376 human proteins, from healthy signalling to Alzheimer's disease and a landscape of diseases.",
+    "It is narrated (8:27) and has its own explore mode: the six scenes, any protein by name, 88 disease terms and an About tab.",
+    "Two new miniatures for it: its station icon, a map of proteins, and CDK5 at the centre. Both stand on the design room's table."
   ],
   "test": [
-    "In a headset, open Experiments on the card arch, start the flock, then open the Stories screen again: it should show the Experiments cards with the flock to resume. Go back to the main cards.",
-    "On a phone and a laptop, do the same on the page's Stories screen.",
-    "In a shared room, check Arrange all places only the main stories, and Add can still place the flock or proteins.",
-    "Leave AR from a story with the menu or the welcome open: the page should show no pop-ups.",
-    "In Back into the cell, look closely at the receptor and its G protein in AR."
+    "In a headset, open Experiments and play The switch that sticks. In the first two chapters the map should stand round you; from the third it floats in front of you.",
+    "Check the map never comes closer than an arm's length to your eyes, also after zooming in explore mode.",
+    "In explore mode, point at a protein and pull the trigger; try Stand inside on the map of processes, then Whole scene.",
+    "On a phone and a laptop, play it through once and try each explore tab.",
+    "In a shared room, add it as a circle and check two people see the same scene, protein and disease term."
   ],
   "untested": [
-    "The two card arches and their Open and Back cards in a real headset.",
-    "Leaving a real AR or VR session with pop-ups open.",
-    "The finer G protein's frame rate on a Quest."
+    "Anything of the new story in a real headset: placement, standing inside, the trigger and the panels.",
+    "How its narration and sound effects sound.",
+    "Its frame rate on a Quest with 16,376 points."
   ]
 }

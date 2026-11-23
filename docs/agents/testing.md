@@ -58,7 +58,8 @@ for the tissue topology story the panes' numbers against its data (the patch's c
 held-out test, a window's share of the gap, the two groups, cell v's score), for the soil story the panes' numbers
 against its data (nitrate on day 24, day 70's chlorophyll read off the slides, the network's links at three thresholds,
 none left shuffled, the wheat lines' own networks) and a plot and a kind picked with the pointer, for the mutation,
-tissue topology and soil stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
+tissue topology and soil stories also their links (each opens explore mode on what it says), for the CDK5 story (v189) its
+data's key numbers against `CDATA` and five of its links, for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes; for the tutorial (`tutorial: the guide`, v173) its
 figure drawn by `bodies.js` (or the plain one where float vertex textures are missing) at 20 s, one figure, the
@@ -1283,7 +1284,7 @@ track).
 
 After changing a story's sound cues, run `node tools/sfx-cues.mjs
 http://127.0.0.1:8123/ <key>` (seconds; `all` for every story and the design
-room): every name a sound the shell knows, every place finite, every time within
+room; the app's own stories on either set of cards, the Experiments set's too since v189): every name a sound the shell knows, every place finite, every time within
 the story, 6 to 60 cues (the tour up to 80, the tutorial up to 70; the flock, the robots and the design
 room at least 1), at most 4 onsets in 3 s outside a marked sequence, no two of
 one sound closer than its gap, at most 6 cue voices and 2 continuous sounds at

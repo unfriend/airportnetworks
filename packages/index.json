@@ -13,6 +13,7 @@
     "topo",
     "pass",
     "soil",
+    "cdk5",
     "proteins",
     "spatial",
     "ppicell",
@@ -356,6 +357,34 @@
         "audio/narration.mp3": "63ea6285de3f657a",
         "main.js": "21d81ecc92767dcf",
         "story.json": "23e8fb0dc8cd7b2c"
+      }
+    },
+    {
+      "key": "cdk5",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "The switch that sticks",
+      "kick": "Brain kinase",
+      "col": "#7bdc4f",
+      "desc": "CDK5 is a switch in neurons that two partners turn on. Among 16,376 human proteins, follow it from healthy signalling to the cut that leaves it stuck on, as in Alzheimer's disease, and into a landscape of diseases where it sits with disorders of the developing brain.",
+      "len": "Story 8:27 · 3D interactome",
+      "page": "The switch that sticks: CDK5, its network and brain diseases",
+      "brand": "The switch that sticks",
+      "sub": "CDK5, its network and brain diseases",
+      "aria": "Interactive 3D story of the kinase CDK5 among the human interactome: its activators, its healthy signalling, how calpain makes it hyperactive, its pathway in Alzheimer's disease and the diseases its network points to",
+      "thing": "map",
+      "loading": "Placing 16,376 proteins",
+      "authors": "Christiane Hütter (the Menche lab's CDK5_data); the app's authors",
+      "life": false,
+      "list": "experiments",
+      "icon": "cdk5.net",
+      "needs": 188,
+      "fp": "2f809062ea7be18c",
+      "bytes": 5577378,
+      "files": {
+        "audio/narration.mp3": "394e227ef8685eb0",
+        "main.js": "6170a2029e8d7d6a",
+        "story.json": "9a6f39e901b6fd33"
       }
     },
     {

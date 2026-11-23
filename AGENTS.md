@@ -8,7 +8,7 @@ An installable web app that teaches network science in narrated stories
 (the airports about four minutes, the proteins and the cell map about six, the tour about ten and a half, the muscle
 story about nine, the endotype story about seven and a half, the PET story about six, the microanatomy story about eight,
 the ovary story about eight, the qubits story about nine, the mutation story about eight and a half, the tissue topology
-story about nine, the soil story about eleven, the pass story about seven, the flock and the robot gang about two), each
+story about nine, the soil story about eleven, the CDK5 story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -27,6 +27,7 @@ Quest Browser, WebXR).
 | Quantum phylogenetics | `packages/mutation/main.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
 | Tissue topology | `packages/topo/main.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
 | Soil microbes | `packages/soil/main.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
+| Brain kinase (on the Experiments set since v189; written by Christiane Hütter on a fork) | `packages/cdk5/main.js` | the human interactome (16,376 proteins, 309,355 interactions) in the six arrangements of the Menche lab's CDK5 VR project (CDK5_data): a sphere of GO biological processes, CDK5 with p35 and p39, Reactome's Signalling by NTRK2, calpain making CDK5 hyperactive, Reactome's pathway of deregulated CDK5 in Alzheimer's disease models, and the Disease Ontology landscape; explore by protein, pathway and disease term |
 | Networks for everyone (outreach; English and German) | `packages/pass/main.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `packages/flock/main.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
@@ -104,7 +105,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `tools/mol/` - protein models from the PDB (`build.py`, Python outside the repository: a surface with baked occlusion,
   a cartoon and balls at three levels each, `<name>.mol`); the engine's parts `MOLS molLoad ... molMesh` draw them.
 - `packages/<key>/src/` - the sources of each built story (`robots`, v185; `qubits` ... `soil`, v186; `micro`, `topo`,
-  `nmd`, `lbi`, `pass`, v187), each with a `README.md` and most with a `SPEC.md` (`docs/agents/stories.md`); a shared
+  `nmd`, `lbi`, `pass`, v187; `cdk5`, v189, from a fork), each with a `README.md` and most with a `SPEC.md` (`docs/agents/stories.md`); a shared
   set is read from its owner's `src/` (`'../../packages/lbi/src/sets/body'`); the tutorial's script is checked by
   `node packages/tutorial/src/test-script.mjs`. `tools/design/` the design room's.
 - `tools/studio/` - the sources of `stories/studio.js`: engine parts, sets, `vendor/` (never edited), the build,
@@ -251,7 +252,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Rebuild the dependants after a shared source changes (`node tools/engine/all.mjs` builds them all; the relay's
   `--build` the readers of a changed `packages/<key>/src/` file): `packages/lbi/src/sets/body.js` (pet, micro, ovary,
   topo), `packages/lbi/src/sets/tissue.js` (micro), `packages/micro/src/sets/organs.js` (pet, micro, topo),
-  `packages/nmd/src/sets/motor.js` and `sets/data.js` (endo), `packages/topo/src/sets/look.js` and
+  `packages/nmd/src/sets/motor.js` and `sets/data.js` (endo), `packages/topo/src/sets/look.js` (soil, cdk5) and
   `packages/lbi/src/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the studio), `tools/engine/*.js`
   (the shared engine parts: every built story but the studio), `packages/airports/main.js` and
   `packages/spatial/main.js` (pass), `tools/design/props.json` or a miniature's name (design).
@@ -267,7 +268,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Never show patient or variant data (the muscle story: nothing about zebrafish either); no GTEx ids, donor details or
   images, no poster pictures (figures are redrawn in 3D).
 - The tissue topology and soil stories compute nothing scientific in the app: they look numbers up in `TOPO_DATA`
-  through `TDATA` and in `SOIL_DATA` through `SDATA`.
+  through `TDATA` and in `SOIL_DATA` through `SDATA`; so does the CDK5 story (`CDK5_DATA` through `CDATA`: every layout,
+  colour and link the authors', decoded from their textures; never laid out again in the app).
 - Soil: never call a link an interaction or a hub a keystone, never say the wheat changes the microbiome or that the
   line changes nothing; keep the hedges and the illustrative labels.
 - Mutation: the coupling is our stand-in and says so; never call the circuit better or more accurate; the poster's
@@ -370,7 +372,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   (`packages/nmd/src/data/gen_data.mjs <the authors' folder>`, `packages/ovary/src/data/gen_data.mjs`, the topo and soil
   stories' `data/gen_data.py`, only from the authors' files), and its own test after its maths, data or sets
   (`packages/qubits/src/test-qmath.mjs`, `mutation/src/test-mmath.mjs`, `topo/src/test-data.mjs`,
-  `soil/src/test-data.mjs`, `pass/src/test-sets.mjs`, `tutorial/src/test-script.mjs`).
+  `soil/src/test-data.mjs`, `cdk5/src/test-data.mjs`, `pass/src/test-sets.mjs`, `tutorial/src/test-script.mjs`).
 - Rebuild `stories/design.js` after changing `tools/design/` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
   `tris` exact: the harnesses mark a wrong count in red). And `tools/studio/` and `stories/studio.js` (also after
@@ -424,7 +426,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/room-test.mjs` | after changing `room-test/` |
 | `node tools/perf.mjs [url] [--only words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` | measuring, not a test (exits 0; no GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`, so do not rename them) |
 | `tools/<story>/shot.mjs`, then `sweep.mjs` | a changed set: its harness first, then the story, then the smoke test |
-| `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `packages/topo/src/test-data.mjs`, `packages/soil/src/test-data.mjs`, `packages/pass/src/test-sets.mjs` | after changing that story's maths, data or sets |
+| `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `packages/topo/src/test-data.mjs`, `packages/soil/src/test-data.mjs`, `packages/cdk5/src/test-data.mjs`, `packages/pass/src/test-sets.mjs` | after changing that story's maths, data or sets |
 | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | after changing the test scene's maker (`node tools/studio/test/make.mjs` first) |
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |

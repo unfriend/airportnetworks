@@ -281,6 +281,11 @@ const STORIES = {
     change: "pickTab('network'); selectModule(2); setRho(0.72); setSplit('line')",
     back: "pickTab('field'); sceneCtl('field', 'date', '2'); pickShow('no3'); selectPlot(4)",
   },
+  cdk5: {
+    // (the NTRK2 scene with a protein and the pathway lit; then the landscape with a disease term)
+    change: "openScene('ntrk2'); selectProt(CDATA.find('NTRK2')); setPath(0)",
+    back: "pickTab('diseases'); openScene('disease'); selectProt(-1); setPath(-1); selectTerm(0)",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

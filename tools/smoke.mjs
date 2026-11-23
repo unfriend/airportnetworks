@@ -74,6 +74,7 @@ await step('start screen is the landing page', async () => {
 // story with a scene in its state with that scene applied as from the room (silent)
 const SFX_PICK = {
   airports: ['selectAirport(A("SYD"))', 'pick'],
+  cdk5: ['openScene("calpain")', 'whoosh'],   // (its scenes are the authors' arrangements, not sets)
   flock: ['setCtl("flock", "birds", ctlValue("flock", GL.sets.flock.controls[1]) === "400" ? "100" : "400")', 'flutter'],
   tutorial: ['sendSignal(3)', 'pulse'],
 };
@@ -995,6 +996,31 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
       }
     } finally { await lp.close(); }
   });
+  if (key === 'cdk5') await step('cdk5: its data, and its links open explore mode on what they say', async () => {
+    // (the numbers the story shows, against CDATA; then a page of its own per link: a link differing only in its hash
+    // would not load the story again)
+    const nums = await page.evaluate(() => HOST.cur.peek(`(() => { const C = CDATA; return [C.n, C.e, C.deg(C.cdk5), C.scene('ntrk2').links.reduce((a, l) => a + l.pairs.length / 2, 0), C.scene('disease').links.reduce((a, l) => a + l.pairs.length / 2, 0), C.clouds.length, typeof GL.sets.net.api === 'function', typeof GL.sets.core.api === 'function']; })()`));
+    if (JSON.stringify(nums) !== JSON.stringify([16376, 309355, 205, 83, 1283, 14, true, true])) errors.push('cdk5: its data or sets: ' + JSON.stringify(nums));
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+    lp.on('pageerror', e => errors.push('cdk5 link: ' + (e.stack || e.message)));
+    lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('cdk5 link: ' + m.text()); });
+    const LINKS = [
+      ['scene=disease', "X.scene === 'disease'"],
+      ['scene=ntrk2&links=off', "X.scene === 'ntrk2' && JSON.stringify(HOST.cur.collab.state()).includes('\"links\":\"off\"')"],
+      ['tab=proteins&q=CDK5R1', "X.prot === CDATA.r1"],
+      ['tab=diseases&term=lissencephaly', "X.term >= 0 && CDATA.terms[X.term].name === 'lissencephaly'"],
+      ['path=alzheimer', "X.path === 1"],
+    ];
+    try {
+      for (const [h, ok] of LINKS) {
+        await lp.goto('about:blank');
+        await lp.goto(base + 'index.html#cdk5&explore&' + h);
+        await lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'cdk5' && HOST.cur && HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 60000 });
+        const shown = await lp.evaluate(ok => HOST.cur.peek(ok), ok);
+        if (!shown) errors.push(`cdk5: the link #cdk5&explore&${h} does not show what it says (${await lp.evaluate(() => JSON.stringify(HOST.cur.collab.state()))})`);
+      }
+    } finally { await lp.close(); }
+  });
   if (key === 'pass') await step('pass: both languages and their switch, every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
     const panels = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.main.regions.map(r => r.id); })()`);
@@ -1191,13 +1217,13 @@ if (runs('headset')) {
 // The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
 // click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
 // by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
-await step('design: not on the Stories screen; #design opens the table and all 49 miniatures are built', async () => {
+await step('design: not on the Stories screen; #design opens the table and all 51 miniatures are built', async () => {
   if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
   if (await page.evaluate(() => HOST.stories().some(s => s.key === 'design') || /\d|sixteen/.test(document.getElementById('pickTitle').textContent))) errors.push('design: the design room is in the list of stories');
   await page.evaluate(() => HOST.start('design'));
   await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
-  if (n[0] !== 49 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 49 miniatures in explore mode at #design)');
+  if (n[0] !== 51 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 51 miniatures in explore mode at #design)');
 });
 // few draws (v136: 235 an eye before, a mesh per material of every miniature): each miniature in at most two meshes of
 // the two materials every miniature shares, the plates, edges, cards and homes one mesh each, what never moves its
