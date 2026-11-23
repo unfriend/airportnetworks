@@ -3203,7 +3203,7 @@ function drawFoot(ctx, P) {
 
 
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration.mp3.
+// Optional voice-over: put an MP3 at packages/airports/audio/narration.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -3211,7 +3211,7 @@ function drawFoot(ctx, P) {
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration.mp3', {
+  AUD = HOST.audio.narration(HOST.pkgUrl('airports', 'audio/narration.mp3'), {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -3235,7 +3235,7 @@ function audioSync() { if (AUD) AUD.sync(...slideSound()); }
 function audioFollow() { if (AUD && !SLIDE.tail) APP.t = AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
-// where each chapter's voice ends in audio/narration.mp3 (seconds; measured with ffmpeg's silencedetect at -38 dB,
+// where each chapter's voice ends in packages/airports/audio/narration.mp3 (seconds; measured with ffmpeg's silencedetect at -38 dB,
 // plus 0.1 s: the end of the words, not of the chapter, which can come earlier). A slideshow stop lets the voice
 // finish there before the story waits (slideVoice). Betweenness's words end before its stop and the Recap has
 // none. Measure again if you re-record.

@@ -798,7 +798,7 @@ Built (section B, the shell builder, 20 November 2026), where it differs from or
     difference 0), the triangle counts unchanged (2,470 and the halo's 840).
 22. Open (for the integrator, not done in section B): the headset Stories screen's title does not use `HOST.count()`.
     `drawLandHead` (`tools/engine/e6_panels.js` ~l.275, `tools/studio/engine/e9_panels.js`, and the hand-written copies
-    in `stories/airports.js`, `proteins.js`, `spatial.js`; built into every story) says
+    in `packages/airports/main.js`, `proteins.js`, `spatial.js`; built into every story) says
     `[...][HOST.list.length - 1] stories`, so with the tutorial in the list a headset would say "seventeen stories".
     Section A's point 3 ("the fixed sixteen strings need no change") holds for the page only. The fix: the same line
     with `(HOST.count ? HOST.count() : <today's words>)`, in the engine sources and the three hand-written stories (the
@@ -840,7 +840,7 @@ Built (sections A, C, D, E, F, the story builder, 20 November 2026), where it di
 37. The miniature `tutorial.guide` has 696 triangles. The design room's catalogue entry has `buildMsNode: null` (not
     measured in Node: the set needs `HOST.bodies`).
 38. Review note 22 done (the integrator): the headset Stories screen's title counts `HOST.count()` (falling back to
-    `HOST.list.length`) in `tools/engine/e6_panels.js`, `tools/studio/engine/e9_panels.js`, `stories/airports.js`,
+    `HOST.list.length`) in `tools/engine/e6_panels.js`, `tools/studio/engine/e9_panels.js`, `packages/airports/main.js`,
     `proteins.js` and `spatial.js`; every built story, the studio and the pass story rebuilt: it says sixteen again.
 39. `node tools/smoke.mjs <url> --only tutorial` does not test the tutorial: its block's first step, `load tutorial`, is
     filtered out by its own name (the step filter wants names starting with the words), so the story steps run on the

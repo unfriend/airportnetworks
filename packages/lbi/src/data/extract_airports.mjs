@@ -1,4 +1,4 @@
-// Decode NET_B64 from stories/airports.js and write airports.json plus a compact
+// Decode NET_B64 from packages/airports/main.js and write airports.json plus a compact
 // lat/lon string (0.1 degree, 4 base-64 chars per airport) and its decoder.
 // Usage: node extract_airports.mjs [path/to/airports.js] [outDir]
 import fs from 'node:fs';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const src = process.argv[2] || path.join(here, '../../../../stories/airports.js');
+const src = process.argv[2] || path.join(here, '../../../../packages/airports/main.js');
 const out = process.argv[3] || here;
 
 // Pull the NET_B64 literal out without evaluating the story file.
@@ -16,7 +16,7 @@ if (!m) throw new Error('NET_B64 not found');
 const u8 = new Uint8Array(Buffer.from(m[1], 'base64'));
 const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
 
-// Same layout as the NET decoder in stories/airports.js (little endian):
+// Same layout as the NET decoder in packages/airports/main.js (little endian):
 // u32 N, u32 E, u32 K | i16 lat*100 [N] | i16 lon*100 [N] | u16 degree [N] |
 // f32 betweenness [N] | u8 community [N] | (u16 u, u16 v) [E] | u16 random-removal list [K] |
 // UTF-8 text: code, city, country, name blocks split by \0, entries by \n.
@@ -55,7 +55,7 @@ for (let i = 0; i < N; i++) {
 fs.writeFileSync(path.join(out, 'airports_compact.txt'), `'${s}'`);
 
 const decoder = `// Decodes the airports_compact.txt string: 4 chars per airport (2 lat, 2 lon),
-// 0.1 degree steps, same order (and indices) as airports.json and NET in stories/airports.js.
+// 0.1 degree steps, same order (and indices) as airports.json and NET in packages/airports/main.js.
 function decodeLatLon(s) {
   const AL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const v = k => AL.indexOf(s[k]) * 64 + AL.indexOf(s[k + 1]);

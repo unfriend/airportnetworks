@@ -39,7 +39,7 @@
 // the button through an HRTF panner.
 // Whether sound really comes out of a headset can only be confirmed on the device (and how the effects sound, by ear).
 // Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]
-// Needs audio/narration.mp3. PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
+// Needs the airports story's recording (packages/airports/audio/narration.mp3). PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.argv[2] || 'http://127.0.0.1:8123/';
 const browser = await chromium.launch({

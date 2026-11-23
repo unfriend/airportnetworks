@@ -19164,7 +19164,7 @@
    "story": "pass",
    "reusedBy": [],
    "reuses": [
-    "stories/airports.js (globe cut out unchanged)"
+    "packages/airports/main.js (globe cut out unchanged)"
    ],
    "file": "packages/pass/src/sets/globe.js",
    "manifest": "packages/pass/src/sets/globe.md",
@@ -19447,7 +19447,7 @@
    "data": {
     "kind": "real",
     "reads": [
-     "PASS_AIRPORTS (cut out of stories/airports.js at build)"
+     "PASS_AIRPORTS (cut out of packages/airports/main.js at build)"
     ],
     "text": "OpenFlights airports and routes; the outbreak is a simple model, not a forecast."
    },
@@ -19478,7 +19478,7 @@
     "setLang"
    ],
    "buildMsNode": 315,
-   "notes": "Cut unchanged out of stories/airports.js by packages/pass/src/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...)."
+   "notes": "Cut unchanged out of packages/airports/main.js by packages/pass/src/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...)."
   },
   {
    "id": "pass/cell",
@@ -20868,7 +20868,7 @@
  "handwrittenStories": [
   {
    "story": "airports",
-   "file": "stories/airports.js",
+   "file": "packages/airports/main.js",
    "scenes": "One scene: the globe of 3,214 airports and 18,858 routes (pillars, arcs, communities, closures, a shortest path). Chapters: Intro, Nodes, Edges, Degree, Hubs, Shortest paths, Betweenness, Communities, Robustness, Recap. Explore tabs: Airport, Paths, Hubs, Communities, Closures."
   },
   {

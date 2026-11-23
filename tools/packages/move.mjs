@@ -63,7 +63,7 @@ if (wrap) {
   // 2w. the file itself: its narration through HOST.pkgUrl, its notes naming the new places
   const F = dry ? `stories/${key}.js` : `packages/${key}/main.js`;
   edit(F, t => t.split(`'${OLDN}'`).join(`HOST.pkgUrl('${key}', 'audio/narration.mp3')`)
-    .replace(new RegExp(`(?<![\\w/])${OLDN.replace(/[.]/g, '\\.')}`, 'g'), `packages/${key}/audio/narration.mp3`)
+    .replace(new RegExp(`(?<![\\w/'])${OLDN.replace(/[.]/g, '\\.')}`, 'g'), `packages/${key}/audio/narration.mp3`)
     .split(`stories/${key}.js`).join(`packages/${key}/main.js`));
   // the readers of the file (a build that cuts it, as the pass story's does airports and spatial; a data script that
   // reads it): in tools/<dir>/ and the app's packages' src/, every file that names stories/<key>.js names the new place

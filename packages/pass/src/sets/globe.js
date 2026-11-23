@@ -1,4 +1,4 @@
-// The airports story's globe (stories/airports.js: its land, 3,214 airports, 18,858 routes, pillars and look, cut out
+// The airports story's globe (packages/airports/main.js: its land, 3,214 airports, 18,858 routes, pillars and look, cut out
 // of that story at build time as PASS_AIRPORTS and built by its own buildScene, unchanged) behind the set contract,
 // and an outbreak on its route network: a seeded discrete-time model in which every city (airport) is susceptible,
 // exposed, infectious or recovered (S, E, I, R). Each day a susceptible city is reached over a route from each of its

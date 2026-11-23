@@ -188,7 +188,7 @@
   // the ducking demo: a background, then the voice; the engine ducks while B.speaking
   async function voiceBuf(c) {
     try {
-      const r = await fetch('../audio/narration.mp3');
+      const r = await fetch('../packages/airports/audio/narration.mp3');   // (the airports story's recording, in its package)
       if (!r.ok) throw new Error('missing');
       return { buf: await c.decodeAudioData(await r.arrayBuffer()), from: 26, real: true };
     } catch (e) {   // a stand-in voice: a buzz through two moving formants, in syllables
@@ -323,8 +323,10 @@
     TRACK.frame.remove(); TRACK.frame = null;
     // its narration, if it has a recording
     let voice = null;
-    for (const f of [key === 'airports' ? 'narration.mp3' : 'narration-' + key + '.mp3']) {
-      try { const r = await fetch('../audio/' + f); if (r.ok) voice = await new OfflineAudioContext(2, 44100, 44100).decodeAudioData(await r.arrayBuffer()); } catch (e) { voice = null; }
+    // (a story package's in its folder, every story's since v187; an older copy's in audio/)
+    for (const f of ['../packages/' + key + '/audio/narration.mp3', '../audio/' + (key === 'airports' ? 'narration.mp3' : 'narration-' + key + '.mp3')]) {
+      if (voice) break;
+      try { const r = await fetch(f); if (r.ok) voice = await new OfflineAudioContext(2, 44100, 44100).decodeAudioData(await r.arrayBuffer()); } catch (e) { voice = null; }
     }
     TRACK.voice[key] = voice;
     const T2 = Math.max(T, voice ? voice.duration + 0.5 : 0, ...cues.map(c => c.n + L.length(c.name, c.o) + 1));

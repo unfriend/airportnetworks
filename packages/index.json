@@ -21,6 +21,34 @@
   ],
   "packages": [
     {
+      "key": "airports",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Airports",
+      "kick": "Network theory",
+      "col": "#46d9ff",
+      "desc": "3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.",
+      "len": "Story 3:51 · globe",
+      "page": "Network theory, told with the world's airports",
+      "brand": "Network theory",
+      "sub": "told with the world's airports",
+      "aria": "Interactive globe of the world airline network",
+      "thing": "globe",
+      "loading": "Plotting 3,214 airports and 18,858 routes",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "airports.globe",
+      "needs": 185,
+      "fp": "41ba0e7700036fcd",
+      "bytes": 5271449,
+      "files": {
+        "audio/narration.mp3": "5f4b1b8b4f230902",
+        "main.js": "3de84ab9ed360055",
+        "story.json": "edbc607289e15cf5"
+      }
+    },
+    {
       "key": "lbi",
       "api": 1,
       "version": "1.0.0",
@@ -292,12 +320,12 @@
       "list": "stories",
       "icon": "pass.fish",
       "needs": 185,
-      "fp": "b2a37686b1871f14",
-      "bytes": 7514938,
+      "fp": "4343da98e6406e7d",
+      "bytes": 7514956,
       "files": {
         "audio/narration-de.mp3": "1d3995bde9711a52",
         "audio/narration.mp3": "0c33c976e1f19b54",
-        "main.js": "1dfb4bf216fba745",
+        "main.js": "95fc8cbc175797e8",
         "story.json": "ebaae9cee1c39d77"
       }
     },

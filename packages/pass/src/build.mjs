@@ -1,9 +1,9 @@
 // Assembles packages/pass/main.js from the tour's kit (tools/engine/kit.js), the airports story's globe and the cell map story's
-// cell (taken from stories/airports.js and packages/spatial/main.js as they are, see ORIGINALS), the sets and the engine parts
+// cell (taken from packages/airports/main.js and packages/spatial/main.js as they are, see ORIGINALS), the sets and the engine parts
 // in this folder.
 // usage (from the repository root): node packages/pass/src/build.mjs        -> writes packages/pass/main.js (and gen/, for the harness)
 //                                   node packages/pass/src/build.mjs --check -> exits 1 if packages/pass/main.js is out of date
-// Rebuild after any change to stories/airports.js or packages/spatial/main.js too: the globe and the cell come from there.
+// Rebuild after any change to packages/airports/main.js or packages/spatial/main.js too: the globe and the cell come from there.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -22,7 +22,7 @@ const ENGINE = ['e2_scene', 'e2_text', 'e3_story', 'e4_explore', 'e5_xr', 'e6_pa
 // other's. Nothing in them is changed: the sets wrap them (see sets/globe.js and sets/cell.js). `glue` is the little
 // the cut-out code still needs from the parts left out, and `out` what the function returns.
 const ORIGINALS = [
-  { name: 'PASS_AIRPORTS', file: 'stories/airports.js', what: "the airports story's globe: its data, airports, pillars, routes, shaders and scene",
+  { name: 'PASS_AIRPORTS', file: 'packages/airports/main.js', what: "the airports story's globe: its data, airports, pillars, routes, shaders and scene",
     sections: [
       ['const NET_B64=', '// Narration timing'],                     // the routes, the land and the lakes; D2R, LIFT
       ['const COMM_NAMES', '// ------------------------------------------------------------------ camera --'],   // network, maths, geometry, shaders, scene

@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { stories } from './stories.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const [oldDir, newDir = '.'] = process.argv.slice(2);
 if (!oldDir) { console.log('usage: node tools/update.mjs <folder with an older version> [folder with this version]'); process.exit(2); }
@@ -50,7 +51,7 @@ page.on('pageerror', e => errors.push(String(e)));
 // which version the page runs: its inline scripts and some airports story functions, compared word
 // for word with the files of each version (Function.prototype.toString gives the source text)
 const FNS = ['frame', 'init', 'audioInit', 'xrEnterScene', 'xrSetup', 'drawLandHead', 'drawMain'];
-const files = dir => ({ shell: fs.readFileSync(path.join(dir, 'index.html'), 'utf8'), story: fs.readFileSync(path.join(dir, 'stories/airports.js'), 'utf8') });
+const files = dir => ({ shell: fs.readFileSync(path.join(dir, 'index.html'), 'utf8'), story: fs.readFileSync(path.join(dir, stories(dir).get('airports').file), 'utf8') });   // (stories/airports.js, or packages/airports/main.js since v187)
 const NEW = files(newDir), OLD = files(oldDir);
 const running = () => page.evaluate(FNS => HOST.cur && HOST.curKey === 'airports' && {
   shell: [...document.scripts].map(s => s.textContent).filter(t => t.trim()),
@@ -99,17 +100,25 @@ for (const visit of ['first visit after the update', 'next visit']) {
   const v = await versions();
   report(visit + ': page and stories are new', v && v.shell && v.story, JSON.stringify(v));
 }
-// the worker answers byte ranges from the cached narration
-const ranges = await page.evaluate(async () => {
-  const get = async h => { const r = await fetch('audio/narration.mp3', { headers: { Range: h } }); return [r.status, (await r.arrayBuffer()).byteLength]; };
+// the worker answers byte ranges from the cached narration (the app's in audio/ while there was one; since v187 every
+// narration is in its package, kept in the packages' cache once fetched whole, and answered from there offline: below)
+const rangesOf = u => page.evaluate(async u => {
+  const get = async h => { const r = await fetch(u, { headers: { Range: h } }); return [r.status, (await r.arrayBuffer()).byteLength]; };
   return { first: await get('bytes=0-99'), last: await get('bytes=-100'), beyond: await get('bytes=999999999-') };
-});
-report('narration byte ranges from the cache', ranges.first.join() === '206,100' && ranges.last.join() === '206,100' && ranges.beyond[0] === 416, JSON.stringify(ranges));
+}, u);
+const rangesOk = r => r.first.join() === '206,100' && r.last.join() === '206,100' && r.beyond[0] === 416;
+const pkgNarr = !fs.existsSync(path.join(newDir, 'audio', 'narration.mp3'));
+let narrUrl = '';
+if (!pkgNarr) { const ranges = await rangesOf('audio/narration.mp3'); report('narration byte ranges from the cache', rangesOk(ranges), JSON.stringify(ranges)); }
+else {
+  narrUrl = await page.evaluate(() => HOST.pkgUrl('airports', 'audio/narration.mp3'));
+  await page.evaluate(u => fetch(u).then(r => r.arrayBuffer()), narrUrl);   // (played once, whole: kept for offline)
+}
 // the narrations keep a cache of their own (networks-narration): the new worker took over those the older version held,
 // fetched none that this device never played (the tour's and every other story's), and keeps one a story fetches to play
 const held = () => page.evaluate(async () => (await caches.has('networks-narration')) ? (await (await caches.open('networks-narration')).keys()).map(r => r.url.replace(/.*\/audio\//, '')).sort() : null);
 const oldHeld = before;   // (what the older version held on this device, not every file it shipped)
-const newAll = fs.readdirSync(path.join(newDir, 'audio')).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
+const newAll = (fs.existsSync(path.join(newDir, 'audio')) ? fs.readdirSync(path.join(newDir, 'audio')) : []).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
 const kept = await held();
 const fresh = newAll.find(f => !oldHeld.includes(f));
 report('narrations: the ones held before are kept, no others fetched at install',
@@ -131,6 +140,7 @@ await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();
 report('offline: the app opens from the cache', v && v.shell && v.story, JSON.stringify(v));
+if (narrUrl) { const ranges = await rangesOf(narrUrl); report('offline: a package\'s narration played before, answered as byte ranges from the cache', rangesOk(ranges), JSON.stringify(ranges)); }
 await page.evaluate(() => HOST.go('lbi'));
 await page.waitForFunction(() => HOST.curKey === 'lbi' && HOST.cur, null, { timeout: 30000 }).catch(() => {});
 report('offline: another story loads', await page.evaluate(() => HOST.curKey === 'lbi' && !!HOST.cur));
@@ -138,7 +148,7 @@ report('offline: another story loads', await page.evaluate(() => HOST.curKey ===
 // the new worker's install (sw.js takeMains), so it opens offline though this page never played it
 {
   let moved = '';
-  try { moved = (JSON.parse(fs.readFileSync(path.join(newDir, 'packages', 'order.json'), 'utf8')).order || []).find(k => fs.existsSync(path.join(newDir, 'packages', k, 'main.js'))) || ''; } catch (e) { /* none yet */ }
+  try { moved = (JSON.parse(fs.readFileSync(path.join(newDir, 'packages', 'order.json'), 'utf8')).order || []).find(k => k !== 'airports' && k !== 'lbi' && fs.existsSync(path.join(newDir, 'packages', k, 'main.js'))) || ''; } catch (e) { /* none yet */ }
   if (moved) {
     await page.evaluate(k => HOST.go(k), moved);
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur, moved, { timeout: 30000 }).catch(() => {});

@@ -5621,11 +5621,14 @@ HOST.arrange = (function () {
   // package that comes later still gets its card (HOST.packages)
   const appKeys = (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).map(s => s && s.key);
   const named = [...hp.keys()].some(k => /^[a-z][a-z0-9-]{1,30}$/.test(k) && !hp.get(k) && !appKeys.includes(k));
-  HOST.packages.ready(appKeys.some(k => hp.has(k)) ? 0 : named ? 4000 : 1500).then(() => {
+  // (every story a package since v187, STORY_LIST empty: with no card yet after that wait, the index is waited for longer,
+  // and with none at all the design room opens behind the Stories screen rather than nothing)
+  HOST.packages.ready(appKeys.some(k => hp.has(k)) ? 0 : named ? 4000 : 1500).then(() => (HOST.list.length ? true : HOST.packages.ready(30000))).then(() => {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
-    const key = (back && back.key) || keys.find(k => hp.has(k)) || (HOST.list.find(s => !s.intro) || HOST.list[0]).key;   // (not an introduction: the tutorial is built only when asked for)
+    const first = HOST.list.find(s => !s.intro) || HOST.list[0];   // (not an introduction: the tutorial is built only when asked for)
+    const key = (back && back.key) || keys.find(k => hp.has(k)) || (first ? first.key : 'design');
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
     HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
     // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story

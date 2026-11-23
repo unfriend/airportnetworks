@@ -12,10 +12,6 @@
 // ("sixteen stories" counts only the entries without it). The tutorial is the last card since v180 (the owner, 20
 // November 2026: "Move the tutorial to the last story card"; first from v173).
 self.STORY_LIST = [
-  { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff', icon: 'airports.globe',
-    desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
-    page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",
-    aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes', len: 'Story 3:51 · globe' }
 ];
 // Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
 // story, but not one of them (the Stories screens, Arrange all, the count, Repeat see only STORY_LIST; the station

@@ -2,7 +2,7 @@
 // Ludwig Boltzmann Institute for Network Medicine, LBI-NetMed). A school of fish passes on a warning; the airports'
 // globe carries an outbreak; the cell map's cell passes on a signal, and a protein in the wrong place stops it.
 // The globe and the cell are the airports story's and the cell map story's own, taken unchanged from
-// stories/airports.js and packages/spatial/main.js when this file is built (PASS_AIRPORTS, PASS_SPATIAL); the fish are new.
+// packages/airports/main.js and packages/spatial/main.js when this file is built (PASS_AIRPORTS, PASS_SPATIAL); the fish are new.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
 // Built by packages/pass/src/build.mjs from the tour's kit, those two stories and the sets and engine parts in packages/pass/src:
 // edit those, not this file.

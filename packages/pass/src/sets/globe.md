@@ -1,7 +1,7 @@
 # `globe` - the airports' globe, and an outbreak on its routes (sets/globe.js)
 
 The airports story's globe, exactly as it is: built by that story's own `buildScene` from its own data and shaders, cut
-out of `stories/airports.js` by `build.mjs` (`PASS_AIRPORTS`, see SPEC.md). Radius 1, centred on the origin, y up,
+out of `packages/airports/main.js` by `build.mjs` (`PASS_AIRPORTS`, see SPEC.md). Radius 1, centred on the origin, y up,
 longitude 0 towards +x, 90 E towards -z (`NET.P`). 3,214 airports, 18,858 routes (OpenFlights; the numbers come from
 `api.n()` and `api.routes()`).
 

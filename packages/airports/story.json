@@ -1,0 +1,21 @@
+{
+  "key": "airports",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Airports",
+  "kick": "Network theory",
+  "col": "#46d9ff",
+  "desc": "3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.",
+  "len": "Story 3:51 · globe",
+  "page": "Network theory, told with the world's airports",
+  "brand": "Network theory",
+  "sub": "told with the world's airports",
+  "aria": "Interactive globe of the world airline network",
+  "thing": "globe",
+  "loading": "Plotting 3,214 airports and 18,858 routes",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "airports.globe",
+  "needs": 185
+}

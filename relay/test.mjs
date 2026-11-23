@@ -2068,14 +2068,14 @@ try {
     const fds = () => fs.readdirSync(`/proc/${relay.pid}/fd`).filter(f => { try { return fs.readlinkSync(`/proc/${relay.pid}/fd/${f}`).endsWith('narration.mp3'); } catch { return false; } }).length;
     try { fds(); } catch { console.log('  (no /proc here: skipped)'); return; }
     const cut = headers => new Promise(resolve => {   // read the first bytes, then hang up
-      const r = http.get({ host: '127.0.0.1', port, path: '/audio/narration.mp3', headers }, res => res.once('data', () => { r.destroy(); resolve(); }));
+      const r = http.get({ host: '127.0.0.1', port, path: '/packages/airports/audio/narration.mp3', headers }, res => res.once('data', () => { r.destroy(); resolve(); }));
       r.on('error', resolve);
     });
     for (let i = 0; i < 20; i++) await cut(i % 2 ? { Range: 'bytes=1000-' } : {});
     let n = 0;
     for (const end = Date.now() + 2000; (n = fds()) && Date.now() < end;) await sleep(50);
     ok(n === 0, `no file left open after 20 aborted downloads (${n} open)`);
-    const r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=0-9' } });
+    const r = await req('GET', '/packages/airports/audio/narration.mp3', { headers: { Range: 'bytes=0-9' } });
     ok(r.status === 206 && r.buf.length === 10, 'and the file is still served');
   });
 
