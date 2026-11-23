@@ -1,0 +1,22 @@
+{
+  "key": "tutorial",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Your guide",
+  "kick": "Introduction",
+  "col": "#e8eef8",
+  "desc": "A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.",
+  "len": "Story 3:35 · then practice",
+  "page": "Tutorial: a robot guide shows you round",
+  "brand": "Tutorial",
+  "sub": "a robot guide shows you round",
+  "aria": "Interactive 3D tutorial in which a robot guide shows how to use the app in a headset",
+  "thing": "guide",
+  "loading": "Booting the guide",
+  "authors": "The app's authors",
+  "life": true,
+  "list": "stories",
+  "icon": "tutorial.guide",
+  "intro": true,
+  "needs": 186
+}

@@ -59,12 +59,7 @@ self.STORY_LIST = [
   { key: 'spatial', kick: 'Spatial interactome', title: 'Cell map', col: '#3ee08f', icon: 'spatial.cell',
     desc: '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.',
     page: 'Spatial interactome, where proteins meet in a cell', brand: 'Spatial interactome', sub: 'where proteins meet in a cell',
-    aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 5:41 · cell model' },
-  { key: 'tutorial', kick: 'Introduction', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',
-    desc: 'A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.',
-    page: 'Tutorial: a robot guide shows you round', brand: 'Tutorial', sub: 'a robot guide shows you round',
-    aria: 'Interactive 3D tutorial in which a robot guide shows how to use the app in a headset', thing: 'guide',
-    loading: 'Booting the guide', len: 'Story 3:35 · then practice', life: true, intro: true, needs: 173 }
+    aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 5:41 · cell model' }
 ];
 // Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
 // story, but not one of them (the Stories screens, Arrange all, the count, Repeat see only STORY_LIST; the station

@@ -1,5 +1,5 @@
 // The guide's timeline (SCRIPT) and its evaluator (evalGuide): plain maths, no THREE, so a Node test can load it
-// (tools/tutorial/test-script.mjs). Everything the guide and its props do is a pure function of a clock: the story's
+// (packages/tutorial/src/test-script.mjs). Everything the guide and its props do is a pure function of a clock: the story's
 // (story seconds) or the practice's (seconds of this device's own), so a seek, a late joiner or a pause gives the same
 // pose. live (the viewer's head and ray, the panel's places) only turns the head and aims the end's pointing.
 // The set's frame: floor y = 0, 1 unit = 1 m, the viewer's start at x = z = 0, ahead along -z, right +x.

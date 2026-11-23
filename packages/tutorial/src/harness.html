@@ -8,17 +8,17 @@ canvas { display: block; }
 .l b { margin-right: 6px; } .l.mag { border-color: #ff5ad9; } .l.amb { border-color: #ffb43b; } .l.grn { border-color: #3ee08f; } .l.cyn { border-color: #46d9ff; }
 #info { position: absolute; right: 8px; bottom: 6px; color: #6c7d94; font: 12px monospace; }
 </style>
-<script src="../../three.min.js"></script>
-<script src="../engine/kit.js"></script>
-<script src="../../ik.js"></script>
+<script src="../../../three.min.js"></script>
+<script src="../../../tools/engine/kit.js"></script>
+<script src="../../../ik.js"></script>
 <script>
-// Test harness for the guide (serve the repository root, open /tools/tutorial/harness.html):
+// Test harness for the guide (serve the repository root, open /packages/tutorial/src/harness.html):
 // harness.html?set=guide&t=60&cam=-8,12,2.48,0.35,1.1,-2&fov=58&anim=1 (t: story seconds; anim: run in real time;
 // mode=1: practice; nofvt: the plain figure). The guide's body comes from bodies.js, loaded here as the shell loads it.
 const SETS = {};
 const Q = new URLSearchParams(location.search);
 window.HOST = {};
-document.write(`<script src="../../bodies.js?v=${Date.now()}"><\/script>`);
+document.write(`<script src="../../../bodies.js?v=${Date.now()}"><\/script>`);
 document.write(`<script src="sets/script.js?v=${Date.now()}"><\/script>`);
 document.write(`<script src="sets/${Q.get('set') || 'guide'}.js?v=${Date.now()}"><\/script>`);
 </script>

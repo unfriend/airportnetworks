@@ -1,15 +1,15 @@
-// The guide's script, checked in Node (a cheap check, run on dev too): the rules of tools/tutorial/SPEC.md section C at
+// The guide's script, checked in Node (a cheap check, run on dev too): the rules of packages/tutorial/src/SPEC.md section C at
 // 30 Hz over the whole story and over practice's walks, in story time from SCRIPT and again in real time with the
-// built story's NARRATION_SYNC (read from stories/tutorial.js: run this again after narrate.mjs or pace.mjs); every key
+// built story's NARRATION_SYNC (read from packages/tutorial/main.js: run this again after narrate.mjs or pace.mjs); every key
 // inside its chapter; the tags in order; the sound cues in order and no more than 4 onsets in 3 s (a run marked seq
 // aside); the network's degrees (the hub 6).
-// usage (from the repository root): node tools/tutorial/test-script.mjs          -> exits 1 on a broken rule
-//                                   node tools/tutorial/test-script.mjs --words  -> also counts the spoken words (at most 415)
+// usage (from the repository root): node packages/tutorial/src/test-script.mjs          -> exits 1 on a broken rule
+//                                   node packages/tutorial/src/test-script.mjs --words  -> also counts the spoken words (at most 415)
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
-const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
 const require = createRequire(import.meta.url);
 const { GUIDE, SCRIPT, compileScript, evalGuide, gPos, moveSpeed, actorTracks, sortG } = require('./sets/script.js');
 const bad = [], note = [];
@@ -33,11 +33,11 @@ for (const c of GUIDE.CH) {
 }
 // ---------------------------------------------------------------- the real clock (the built story's NARRATION_SYNC)
 let SYNC = [[0, 0], [T_END, T_END]];
-const built = path.join(root, 'stories/tutorial.js');
+const built = path.join(root, 'packages/tutorial/main.js');
 if (fs.existsSync(built)) {
   const m = fs.readFileSync(built, 'utf8').match(/const NARRATION_SYNC = (\[[\s\S]*?\n\]);/);
   if (m) SYNC = Function('return ' + m[1].replace(/\/\/[^\n]*/g, ''))();
-} else note.push('no stories/tutorial.js yet: real time taken as story time');
+} else note.push('no packages/tutorial/main.js yet: real time taken as story time');
 const narrT = o => { for (let i = 1; i < SYNC.length; i++) if (o <= SYNC[i][1]) { const [n0, o0] = SYNC[i - 1], [n1, o1] = SYNC[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); } return SYNC[SYNC.length - 1][0] + (o - SYNC[SYNC.length - 1][1]); };
 // ---------------------------------------------------------------- the moves: walks at most 0.7 m/s, glides at least 1.6 (story) / 1.3 (real)
 function moves(A, who) {

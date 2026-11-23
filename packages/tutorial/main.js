@@ -1,7 +1,7 @@
 // The tutorial: a robot guide stands in your room and shows you how the app works in a headset (pointing, playing a
 // story, explore mode, the menu, Recenter, shared rooms), then explore mode is practice: seven small tasks.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/tutorial/build.mjs from the tour's kit and engine (adapted) and the script and set in tools/tutorial:
+// Built by packages/tutorial/src/build.mjs from the tour's kit and engine (adapted) and the script and set in packages/tutorial/src:
 // edit those, not this file.
 HOST.register('tutorial', function (HOST) {
 'use strict';
@@ -264,7 +264,7 @@ const { smooth, clamp } = K;
 // life size (1 unit is 1 m), the viewer standing at the origin. The story drives it through its clock.
 const SETS = {};
 // The guide's timeline (SCRIPT) and its evaluator (evalGuide): plain maths, no THREE, so a Node test can load it
-// (tools/tutorial/test-script.mjs). Everything the guide and its props do is a pure function of a clock: the story's
+// (packages/tutorial/src/test-script.mjs). Everything the guide and its props do is a pure function of a clock: the story's
 // (story seconds) or the practice's (seconds of this device's own), so a seek, a late joiner or a pause gives the same
 // pose. live (the viewer's head and ray, the panel's places) only turns the head and aims the end's pointing.
 // The set's frame: floor y = 0, 1 unit = 1 m, the viewer's start at x = z = 0, ahead along -z, right +x.
@@ -3606,7 +3606,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-tutorial.mp3';
+const narrationFile = () => HOST.pkgUrl('tutorial', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

@@ -20667,8 +20667,8 @@
    "reuses": [
     "bodies.js mannequin"
    ],
-   "file": "tools/tutorial/sets/guide.js",
-   "manifest": "tools/tutorial/sets/guide.md",
+   "file": "packages/tutorial/src/sets/guide.js",
+   "manifest": "packages/tutorial/src/sets/guide.md",
    "shows": "A robot guide (the people's street-armour figure, bodies.js, posed by ik.js, driven by a script) in your room, and the props it makes from its own body: a ray from its fist, a target, five floor markers from its spine, a ten-node network from its chest badge, a mini menu, an amber copy of itself, boot trails, a card; a dark floor with a grid fading out from 3 m (none in AR).",
    "frame": "Life size: 1 unit = 1 m, the viewer's start at the origin, floor y = 0, ahead along -z; the guide stands at (0.35, -2.0).",
    "size": "life size; the guide 1.75 m tall, its props within 2.5 m of the viewer",
@@ -20969,7 +20969,7 @@
    "what": "SLOOK, the soil story's palette and colour rules"
   },
   {
-   "file": "tools/tutorial/sets/script.js",
+   "file": "packages/tutorial/src/sets/script.js",
    "what": "GUIDE, SCRIPT and evalGuide: the tutorial guide's timeline as data and its evaluator (plain maths, tested in Node)"
   },
   {

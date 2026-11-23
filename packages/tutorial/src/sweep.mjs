@@ -1,5 +1,5 @@
 // Screenshots of the whole tutorial at given story times (as in CH: not the timeline, see NARRATION_SYNC), from one page load. Serve the repository root on port 8123 (or PORT) first.
-// usage (from tools/tutorial): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
+// usage (from packages/tutorial/src): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
 import fs from 'fs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const [,, prefix, times, W, H] = process.argv;

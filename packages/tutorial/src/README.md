@@ -1,4 +1,4 @@
-# The tutorial (`stories/tutorial.js`)
+# The tutorial (`packages/tutorial/main.js`)
 
 A robot guide stands in your room and shows you how the app works in a headset: pointing, playing a story, explore mode,
 the menu, Recenter, shared rooms (about three and a half minutes), then explore mode is practice: seven small tasks the
@@ -7,9 +7,9 @@ guide reacts to. It is first in `stories/list.js` with `intro: true`: an introdu
 edit the sources here, then
 
 ```sh
-node tools/tutorial/test-script.mjs          # the script's rules (speeds, distances, keys, tags, sounds, degrees); --words counts the spoken words
-node tools/tutorial/build.mjs                # writes stories/tutorial.js
-node tools/tutorial/build.mjs --check        # exits 1 if stories/tutorial.js is out of date
+node packages/tutorial/src/test-script.mjs          # the script's rules (speeds, distances, keys, tags, sounds, degrees); --words counts the spoken words
+node packages/tutorial/src/build.mjs                # writes packages/tutorial/main.js
+node packages/tutorial/src/build.mjs --check        # exits 1 if packages/tutorial/main.js is out of date
 ```
 
 and bump `VERSION` in `sw.js`. After the text changes: `node tools/voice/narrate.mjs tutorial` and

@@ -7,7 +7,7 @@ tools/nmd/shots/
 tools/endo/shots/
 packages/flock/src/shots/
 packages/robots/src/shots/
-tools/tutorial/shots/
+packages/tutorial/src/shots/
 relay/.lan/
 relay/logs/
 tools/pet/shots/

@@ -1,7 +1,7 @@
 // The tutorial: a robot guide stands in your room and shows you how the app works in a headset (pointing, playing a
 // story, explore mode, the menu, Recenter, shared rooms), then explore mode is practice: seven small tasks.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/tutorial/build.mjs from the tour's kit and engine (adapted) and the script and set in tools/tutorial:
+// Built by packages/tutorial/src/build.mjs from the tour's kit and engine (adapted) and the script and set in packages/tutorial/src:
 // edit those, not this file.
 HOST.register('tutorial', function (HOST) {
 'use strict';
