@@ -77,6 +77,34 @@
       }
     },
     {
+      "key": "flock",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Flock",
+      "kick": "Collective motion",
+      "col": "#9db4ff",
+      "desc": "200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.",
+      "len": "Story 1:36 · then on and on",
+      "page": "A flock of starlings, all around you",
+      "brand": "Flock",
+      "sub": "starlings at dusk",
+      "aria": "Interactive 3D flock of starlings flying around you at dusk",
+      "thing": "flock",
+      "loading": "Gathering the flock",
+      "authors": "The app's authors",
+      "life": true,
+      "list": "stories",
+      "icon": "flock.flock",
+      "needs": 186,
+      "fp": "5853eeb6e476ee75",
+      "bytes": 997937,
+      "files": {
+        "audio/narration.mp3": "e8062c756dc05e94",
+        "main.js": "e535ac7505feb62b",
+        "story.json": "ac8609a70511112d"
+      }
+    },
+    {
       "key": "robots",
       "api": 1,
       "version": "1.0.0",

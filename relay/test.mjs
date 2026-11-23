@@ -2503,7 +2503,7 @@ try {
     try { execFileSync('sh', ['-c', hc[1].replace(/^node /, JSON.stringify(process.execPath) + ' ').replace('8787', String(P.port))], { stdio: 'ignore', timeout: 5000 }); hcOk = true; } catch { /* failed */ }
     ok(hc && hcOk, 'the Dockerfile\'s health check passes on a public relay');
     r = await get('/', { Origin: EVIL });
-    ok(r.status === 200 && r.buf.equals(fs.readFileSync(path.join(REPO, 'index.html'))) && (await get('/stories/flock.js')).status === 200, 'the relay\'s own pages are served to anyone');
+    ok(r.status === 200 && r.buf.equals(fs.readFileSync(path.join(REPO, 'index.html'))) && (await get('/packages/flock/main.js')).status === 200, 'the relay\'s own pages are served to anyone');
     // sockets
     const code = (await get('/api/rooms', { Origin: APP }, { method: 'POST', body: { app: 'networks', version: 'v1' } })).json().code;
     const a = wsAt(P, `/api/ws?room=${code}&id=o1`, { Origin: APP });

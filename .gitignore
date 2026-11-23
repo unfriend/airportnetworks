@@ -5,7 +5,7 @@ tools/lbi/data/*.json
 tools/lbi/data/airports_*
 tools/nmd/shots/
 tools/endo/shots/
-tools/flock/shots/
+packages/flock/src/shots/
 packages/robots/src/shots/
 tools/tutorial/shots/
 relay/.lan/

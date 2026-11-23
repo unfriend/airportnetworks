@@ -1,11 +1,11 @@
-# The flock (`stories/flock.js`)
+# The flock (`packages/flock/main.js`)
 
 Starlings at dusk, flying all around you: a short story (about two minutes), then the flock flies on in explore mode for
 as long as you stay. Built like the tour and the muscle story: edit the sources here, then
 
 ```sh
-node tools/flock/build.mjs          # writes stories/flock.js
-node tools/flock/build.mjs --check  # exits 1 if stories/flock.js is out of date
+node packages/flock/src/build.mjs          # writes packages/flock/main.js
+node packages/flock/src/build.mjs --check  # exits 1 if packages/flock/main.js is out of date
 ```
 
 and bump `VERSION` in `sw.js`.

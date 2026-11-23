@@ -31,11 +31,11 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 
-// ---- a copy of the app (and, for --build, the flock's sources and tools/engine/: the shared engine parts and the kit)
+// ---- a copy of the app (and, for --build, the flock's sources (a package: packages/flock/src/), tools/engine/: the
+// shared engine parts and the kit, and tools/packages/ (the index the relay writes again after a package's build))
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
 for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'output.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
-for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/flock/engine', 'tools/flock/sets', 'tools/engine']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
-fs.copyFileSync(path.join(REPO, 'tools/flock/build.mjs'), path.join(T, 'tools/flock/build.mjs'));
+for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/engine', 'tools/packages']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
 const file = f => path.join(T, f);
 const read = f => fs.readFileSync(file(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(file(f), t);
@@ -105,7 +105,7 @@ try {
 
   // a story added in a release: its card, without a reload
   {
-    write('stories/flock2.js', read('stories/flock.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';"));
+    write('stories/flock2.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';"));
     write('stories/list.js', read('stories/list.js').replace(/\}\s*,?\s*\n\];/, `},\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
     brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];`));   // (at STORY_LIST's end: STORY_EXTRA follows)
     release();
@@ -247,14 +247,15 @@ try {
   {
     await dev.evaluate(() => HOST.start('flock')); await built(dev, 'flock');
     const n0 = await swapsNow(dev), fp0 = await dev.evaluate(() => HOST.fp.flock);
-    touch('tools/flock/engine/e7_app.js', 'a source touched while developing');
+    touch('packages/flock/src/engine/e7_app.js', 'a source touched while developing');
     const swapped = await until(dev, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 20000);
-    report('--build: a set\'s source touched builds its story, which swaps', swapped && await dev.evaluate(f => HOST.fp.flock !== f && HOST.curKey === 'flock', fp0) && /build: flock done/.test(relayOut));
+    report('--build: a set\'s source touched builds its story, which swaps', swapped && await dev.evaluate(f => HOST.fp.flock !== f && HOST.curKey === 'flock', fp0) && /build: (pkg:)?flock done/.test(relayOut));
   }
   // the list read again (a card's title changed)
   {
-    write('stories/list.js', read('stories/list.js').replace("title: 'Flock'", "title: 'Flock, changed'"));
-    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Flock, changed/.test(document.querySelector('#picker [data-story="flock"]').textContent) && window.__mark === 1, null, 8000));
+    // (a story still in stories/list.js: the flock's card comes from its package's story.json since v186)
+    write('stories/list.js', read('stories/list.js').replace("title: 'Airports'", "title: 'Airports, changed'"));
+    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Airports, changed/.test(document.querySelector('#picker [data-story="airports"]').textContent) && window.__mark === 1, null, 8000));
   }
   // a station in a shared room: the swap writes nothing to the room
   {
