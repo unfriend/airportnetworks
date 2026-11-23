@@ -1471,79 +1471,99 @@ File: `packages/tutorial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 
 
 ## Brain kinase: The switch that sticks (`#cdk5`)
 
-File: `packages/cdk5/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Sixteen thousand proteins, 1:01 A kinase among its cousins, 2:09 Two partners switch it on, 3:10 Healthy signalling, 4:17 A cut that sticks, 5:18 Stuck on in Alzheimer's, 6:24 A landscape of diseases, 7:36 Too little, too much; it ends at 8:27.
+File: `packages/cdk5/audio/narration.mp3` (synthetic voice). Chapters: 0:00 A city, 1:17 Switched on, 2:03 Its partners, 2:32 Growing, 3:12 Direction, 3:52 Timing, 4:35 The cut, 5:23 Out of place, 6:07 Alzheimer's, 6:57 Diseases, 7:58 Too much; it ends at 8:27.
 
-### 0:00 Sixteen thousand proteins
+### 0:00 A city
 
-- **0:01** The switch that sticks
-- **0:03** CDK5, its network and brain diseases
-- **0:07** A human cell runs on thousands of proteins.
-- **0:13** Here are 16,376 of them. Proteins with similar jobs sit close together, and lines join those known to bind.
-- **0:23** Where proteins share a job, they gather in knots: sugar import, synaptic vesicles and intermediate filaments.
-- **0:35** 13,003 with a known job, on the inner sphere
-- **0:39** 3,373 with none known, on the outer shell
-- **0:47** Somewhere among them is CDK5.
-- **0:56** After the Menche lab's CDK5_data repository by Christiane Hütter, and its CDK5_analytics VR scenes.
+- **0:03** Think of a cell as a city.
+- **0:07** Its workers are proteins, thousands of kinds of them. Here are sixteen thousand, and every line joins two that are known to work hand in hand.
+- **0:19** Workers with similar jobs live in the same neighbourhood. So this is a map of who does what.
+- **0:28** Some workers are messengers. We call them kinases. They carry instructions: start making energy, move this cargo, divide now.
+- **0:37** Today we follow one messenger. Its name is CDK5. Let's find it.
+- **0:44** There.
+- **0:46** Most of its family tell cells when to divide. CDK5 is the odd one out. It works in nerve cells, which never divide again. There it helps them grow, reach out and connect, which is what a brain needs in order to learn.
+- **1:07** It has side jobs elsewhere in the body too, from repairing DNA to releasing insulin.
+- **1:09** After the Menche lab's CDK5_data repository by Christiane Hütter, and its two VR projects.
 
-### 1:01 A kinase among its cousins
+### 1:17 Switched on
 
-- **1:02** A kinase among its cousins
-- **1:04** CDK5 is a kinase: it switches other proteins on or off by adding phosphate to them.
-- **1:13** On the map it sits among its cousins, kinases that drive cell division or switch genes on.
-- **1:36** But CDK5 works in neurons, which no longer divide, and its partners are spread across the map.
-- **1:43** 205 partners
-- **1:46** 396th of 16,376 by partners
+- **1:19** On its own, CDK5 does nothing.
+- **1:23** It needs a partner to switch it on. For the rest of its family, that partner is a cyclin.
+- **1:31** CDK5 waits for something else: one of two proteins made in nerve cells. We call them p35 and p39.
+- **1:40** Here they are, right beside it.
+- **1:44** When one of them docks, the switch is on. When it lets go, the switch is off. That is how it should be: on for a moment, then off again.
 
-### 2:09 Two partners switch it on
+### 2:03 Its partners
 
-- **2:10** Two partners switch it on
-- **2:12** Its cousins are switched on by cyclins. CDK5 is not.
-- **2:20** Two proteins found in neurons, p35 and p39, switch it on. On the map they live far apart.
-- **2:39** Here they come together at the centre.
+- **2:05** So who does this messenger talk to?
+- **2:10** These are all the proteins CDK5 is known to touch. About two hundred of them.
+- **2:17** That is a lot of conversations for one protein. And they are not all about the same thing.
+- **2:26** Let's listen in on three.
 
-### 3:10 Healthy signalling
+### 2:32 Growing
 
-- **3:11** Healthy signalling
-- **3:14** In a healthy neuron, the growth factor BDNF docks on its receptor, NTRK2.
-- **3:25** A chain of proteins passes the message on, and CDK5 with p35 is one link.
-- **3:43** The neuron grows, survives and connects.
+- **2:34** The first is about growing.
+- **2:38** A nerve cell gets a signal from outside, a growth factor called BDNF.
+- **2:45** It docks on a receptor in the cell's outer skin, NTRK2.
+- **2:51** From there the message is handed along a chain of proteins, and CDK5 is one of the hands.
+- **3:00** The result: the cell matures, it strengthens its connections, and it survives. The same route also carries our sense of pain.
 
-### 4:17 A cut that sticks
+### 3:12 Direction
 
-- **4:17** A cut that sticks
-- **4:20** Under stress, calcium floods into a neuron and wakes calpain, an enzyme that cuts proteins.
-- **4:32** Calpain cuts p35 into a shorter piece, p25.
-- **4:44** Bound to p25, CDK5 stays switched on for too long, and in the wrong places: it is hyperactive.
+- **3:14** The second is about direction.
+- **3:19** A growing nerve cell sends out a long thread, and its tip has to find the right way.
+- **3:28** Signals outside the cell act like road signs. They are called semaphorins, after the old signal towers.
+- **3:36** CDK5 helps the cell read those signs, and it helps build the scaffolding inside the growing tip.
+- **3:45** So the thread goes where it should.
 
-### 5:18 Stuck on in Alzheimer's
+### 3:52 Timing
 
-- **5:19** Stuck on in Alzheimer's
-- **5:21** A switch stuck on does damage.
-- **5:25** In Alzheimer's disease models, hyperactive CDK5 sets off harmful paths at once:
-- **5:35** the cell cycle,
-- **5:39** the Golgi,
-- **5:42** the nuclear envelope,
-- **5:45** the defences against oxidative stress,
-- **5:49** and signals for the cell's death.
-- **6:02** Now the map is coloured by disease; grey proteins have none known.
+- **3:54** The third is about timing.
+- **4:00** When a nerve cell has been busy, a protein called NPAS4 goes to the DNA and switches genes on.
+- **4:07** It is how the cell takes note of what it has just been through.
+- **4:14** CDK5 has a say in that as well. And this route has been tied to the body's clock, the rhythm that tells us when to sleep and when to wake.
+- **4:27** Three conversations, three different jobs. All of them healthy.
 
-### 6:24 A landscape of diseases
+### 4:35 The cut
 
-- **6:25** A landscape of diseases
-- **6:28** Now place every protein by the diseases it is linked to.
-- **6:44** Proteins with a known disease gather in the middle; the rest are pushed to the walls.
-- **7:00** CDK5 lands among proteins tied to the same rare brain disorders: lissencephaly, a smooth brain, and pontocerebellar hypoplasia.
-- **7:22** Its partners lean towards the brain too: more of them than chance would give are linked to Parkinson's disease and psychotic disorders.
+- **4:37** Now for what can go wrong.
+- **4:41** When a nerve cell is under stress, calcium floods in, and it wakes an enzyme called calpain. Calpain is a pair of scissors.
+- **4:52** It does not touch CDK5. It cuts the partner, p35, and leaves a shorter piece. We call it p25.
+- **5:02** Here is the trouble. p35 is short lived, so the switch goes off by itself. p25 is tough. It hangs on.
+- **5:12** And so the switch sticks. CDK5 stays on, long after it should have stopped.
 
-### 7:36 Too little, too much
+### 5:23 Out of place
 
-- **7:36** Too little, too much
-- **7:39** CDK5 shows why a network view helps.
-- **7:44** Too little CDK5, and the brain does not build itself properly.
-- **7:52** Too much, stuck on by calpain's cut, and neurons are damaged.
-- **8:02** Explore the map yourself: any protein, any pathway, any disease.
-- **8:07** After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter, and its CDK5_analytics VR project, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. The knots are named from today's Gene Ontology (release 2026-07-26), not the authors' own annotation; most of the map's big clouds mix many processes.
-- **8:08** Ours: the close-ups at the map's centre (their balls, tubes and names, a clearer drawing of the centre's proteins at the authors' places, scaled up), the tags with numbers and the over-representation counts. Narration: a synthetic voice.
+- **5:25** A switch that is stuck on is bad enough. But there is a second problem.
+- **5:32** With its normal partner, CDK5 is kept in its place. With p25, it is not.
+- **5:40** It wanders. It turns up deep inside the cell, even in the nucleus, where the DNA is kept.
+- **5:48** Look how far its connections reach: right across the map.
+- **5:56** A messenger that never stops, in places it should not be, handing out instructions nobody asked for.
+
+### 6:07 Alzheimer's
+
+- **6:09** We know one disease where this happens: Alzheimer's.
+- **6:15** Inside every nerve cell there are tracks that carry cargo, and a protein called Tau holds those tracks together.
+- **6:25** Overactive CDK5 loads Tau with far too many phosphate tags.
+- **6:30** Tau lets go of the tracks and clumps into tangles. Those tangles are one of the hallmarks of Alzheimer's disease.
+- **6:40** That is why researchers are looking at CDK5 as a possible target for treatment. It is early days, but the idea is simple: unstick the switch.
+
+### 6:57 Diseases
+
+- **6:59** Let's step back one last time, and redraw the map.
+- **7:07** Now proteins sit together when they are linked to the same diseases. It is a landscape of what goes wrong.
+- **7:16** CDK5 lands among proteins tied to rare disorders in which the brain does not form properly.
+- **7:25** And its partners lean towards the brain as well: Parkinson's disease, psychotic disorders. More of them than chance would give us.
+- **7:35** But its lines also run into parts of this landscape that have nothing to do with the brain, some cancers among them.
+- **7:45** Nobody knows yet what CDK5 is doing there. A map like this does not prove anything. It tells us where to look next.
+
+### 7:58 Too much
+
+- **8:00** So that is CDK5. One messenger, many conversations.
+- **8:05** Too little of it, and a brain cannot build itself. Too much, stuck on, and nerve cells are harmed.
+- **8:14** The map is yours now. Pick any protein, any pathway, any disease. Have a look around.
+- **8:18** After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter: its CDK5_analytics and CDK5_minimal_new VR projects, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. The knots are named from today's Gene Ontology (release 2026-07-26), not the authors' own annotation; most of the map's big clouds mix many processes.
+- **8:19** Ours: the close-ups at the map's centre (their balls, tubes and names, a clearer drawing of the centre's proteins at the authors' places, scaled up; the structures from the Protein Data Bank, not to scale), the tags with numbers and the over-representation counts. Narration: a synthetic voice.
 
 ## Network medicine: Proteins (`#proteins`)
 

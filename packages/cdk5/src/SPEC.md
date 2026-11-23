@@ -10,7 +10,7 @@ panels). An integrator adds the story to the app afterwards (`stories/list.js`, 
 tests, the station icon, the design room's props, the narration, `AGENTS.md`, `CLAUDE.md`, `HANDOVER.md`, the docs):
 builders do not touch those files.
 
-Card (`HOST.list`, for the integrator): key `cdk5`, kick "Brain kinase", title **The switch that sticks**, colour
+Card (`HOST.list`, for the integrator; `story.json` holds today's): key `cdk5`, kick "Brain kinase", title **The switch that sticks**, colour
 `#7bdc4f`, desc "CDK5 is a switch in neurons that two partners turn on. Among 16,376 human proteins, follow it from
 healthy signalling to the cut that leaves it stuck on, as in Alzheimer's disease, and into a landscape of diseases
 where it sits with disorders of the developing brain.", page "The switch that sticks: CDK5, its network and brain
@@ -19,11 +19,49 @@ kinase CDK5 among the human interactome: its activators, its healthy signalling,
 pathway in Alzheimer's disease and the diseases its network points to", thing `map`, loading "Placing 16,376 proteins",
 icon the integrator's (`lowpoly.js`), len from the narration.
 
+## The rework (v190, the owner, 23 November 2026)
+
+The owner asked to follow the colleague's scene document (scenes 0 to 9), add the three subnetworks the story lacked,
+show real protein structures at the small subnetworks in the middle, replace the narration with a new script (one
+speaker, the cell as a city and CDK5 as a messenger) and "make it clean and presentation like". This section overrides
+the v189 brief below wherever they differ (the two decisions marked *superseded*).
+
+- **Nine scenes** (`CDATA.SCENES`): `bioproc`, `subunits`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`,
+  `alzheimer`, `disease`. `partners` (CDK5's 205 partners as the authors' star, a spring layout), `sema` (Reactome's
+  Semaphorin interactions: 56 of its 63 proteins in the map, the piece their links join) and `npas4` (Transcriptional
+  regulation by NPAS4: 25 of its 33 and CDK5, with the line the authors drew from CDK5 to NPAS4, which the interactome
+  does not have) come from the second project, `CDK5_minimal_new`, decoded by `data/gen_data.py` (its header: the 311
+  proteins told apart by their links and scenes; six pairs with the very same links in every scene, `CDATA.ambiguous`,
+  may be the other way round, and the About pane says so). The net's moves: into `alzheimer` the wave, into `disease`
+  the peel, every other move seeded at random. Pathways lit (`net_path`): 0 NTRK2, 1 the Alzheimer's, 2 Semaphorin
+  interactions, 3 NPAS4.
+- **Chapters** (`CH`, keys and the scene each ends on): `title` (the map of processes; the search for CDK5),
+  `activators` (`subunits`), `partners` (`partners`), `ntrk2`, `sema`, `npas4`, `calpain`, `reach` (still `calpain`: the
+  view back to the whole map, CDK5's lines to its partners, towards the side where they crowd; no mechanism named for
+  why CDK5 moves), `alzheimer`, `landscape` (`disease`; Parkinson's disease, then cancer lit as Disease Ontology terms)
+  and `learn`. Presentation-like: a heading and at most two key points at once (`turns`), small print muted, one thing
+  shown at a time, names and structures appearing as the voice says them (their params), what a chapter is not about
+  faded or hidden, calm camera moves between lines.
+- **Narration**: the script's VOICE lines word for word (`data-say`), one cue per line; a line with no key point of its
+  own is a cue mark (`vo`: an empty mark in the panel). Recorded with `node tools/voice/narrate.mjs cdk5` (8:27),
+  checked by `node tools/voice/check.mjs cdk5`. `K_T` is 1.
+- **Structures** at the centre (`core`, `src/models.json`, built by `tools/mol/build.py` into `packages/cdk5/models/`,
+  about 2 MB; fetched once the close-up first shows, a ball standing in until a file arrives; three levels of detail each,
+  by size on screen). CDK5 and p35's gripping part (1H4L) share one scale and dock as in the crystal (`core_dock`); the
+  rest of p35 (no known shape) is a small ball that the cut takes away (p35 becomes p25); calpain-1's protease core
+  (1ZCM); BDNF (1BND, one chain of a BDNF and NT-3 pair); NTRK2's binding domain d5 (1HCF, there with NT-4/5); SEMA4D and
+  PLXNB1's first two domains (3OL2); mouse NPAS4 (7XI3); and a Tau filament (5O3L), beside the centre, its line to
+  CDK5 the interactome's link (Tau, MAPT, is a partner of CDK5, not in the Alzheimer's pathway's list). p39 has no
+  structure: a ball. Not to scale with the map or each other ("close-ups not to scale"); the PDB ids on the About tab.
+- **Decided wording**: calpain cuts p35, not CDK5 (the owner answered C2); scene 7 names no mechanism for CDK5's move
+  (asked of the author: `docs/questions-for-authors.md`); the NPAS4 scene's tie to the body's clock is "reported, not
+  shown here".
+
 ## Decisions (the owner's, 18 November 2026)
 
-- **The analytics project only**: its six scenes (below), on the whole interactome. The repository's seven-scene
+- *Superseded at v190 (above).* **The analytics project only**: its six scenes (below), on the whole interactome. The repository's seven-scene
   standalone project (`CDK5_minimal_new`: the Semaphorin and NPAS4 pathways, the 205-partner star) is **not** used.
-- **Networks only**: nothing drawn beyond the networks and their numbers (no neuron, no molecules, no cell). Explain the
+- *Superseded at v190 for the structures at the centre (above).* **Networks only**: nothing drawn beyond the networks and their numbers (no neuron, no molecules, no cell). Explain the
   biology in words; the networks carry the pictures.
 - **Take the data, the scene descriptions and the data representations from the repository**: its layouts (the
   sphere of processes, the scenes' centres, the disease landscape), its colours (CDK5 green, hyperactive red, NTRK2 cyan,

@@ -97,7 +97,7 @@ function drawDiseasesPane(ctx, P, x, y, W, bottom) {
 }
 // what is whose, the authors' nine scenes and the structures
 function drawAboutPane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, ABOUT, x, y, W, 21, 29, VC.muted, 400, 9) + 12;
+  y += textBlock(ctx, ABOUT, x, y, W, 21, 29, VC.muted, 400, 5) + 10;
   y += head(ctx, x, y, 'The authors\' nine scenes');
   SCENES.forEach(([k, n], i) => {
     if (y + 34 > bottom) return;

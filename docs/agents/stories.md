@@ -552,8 +552,8 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   `XR.inW`), `xrTip`, `xrBallHit` and `xrMinD` in the net's frame (explore's scenes are not sets: `X.scene` is one of
   `CDATA.SCENES`); `frame` (the shared one with explore's views from `sceneCam()` in the net set, and `XR.scene`,
   `XR.inW`, `XR.inV` set each frame); `sigFoot` and `drawFootX` (Stand inside). Its `collab.state()` carries `v:
-  COLLAB_V` (1), which `apply()` checks (`tools/packages/SPEC.md`, "Shared rooms"). The story's text,
-  `NARRATION_SYNC` and `NARRATION_ENDS` are the fork's (the recording, 8:27, fits: `node tools/voice/check.mjs cdk5`).
+  COLLAB_V` (2 since v190: the three new scenes and pathways 2 and 3), which `apply()` checks (`tools/packages/SPEC.md`, "Shared rooms"). The story's text,
+  `NARRATION_SYNC` and `NARRATION_ENDS` were the fork's until v190's new script (`node tools/voice/narrate.mjs cdk5`).
 - The data: `python3 -I packages/cdk5/src/data/gen_data.py <folder of the CDK5_data clone> --go <folder with
   goa_human.gaf.gz and go-basic.obo>` reads the repository's `CDK5_analytics` VR project, whose layouts, colours and
   links it decodes exactly from the textures (`layouts/` and `layoutsl/` the high and low bytes of each coordinate;
@@ -562,7 +562,9 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   Reactome pathway exports and its Disease Ontology tables (pickles of dicts, lists and strings only, read by an
   unpickler that refuses every class). The clone stays out of the repository. The notebook's two feature pickles (GO
   processes and diseases by gene) are on the lab's Drive, not in the repository: the layouts they gave are in the
-  textures. Never lay the authors' layouts out again in the app.
+  textures. Never lay the authors' layouts out again in the app. Since v190 also three scenes of `CDK5_minimal_new`
+  and two more Reactome exports; the process knots are kept from the data file before (`--keep-clouds`), as their GO
+  release (2026-07-26) is no longer to be had.
 - What is ours, said so: the close-ups at the centre (the authors' centre proteins at their relative places, scaled up to
   radius `CDATA.CENTRE_R`), the tags, the over-representation of disease terms among CDK5's partners and its 30 nearest
   proteins in the landscape (hypergeometric within the 6,538 proteins with a disease, Benjamini-Hochberg; "in this
@@ -571,17 +573,25 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
   GO finds no single process in the map's big dense clouds, so 14 small knots where one process gathers are labelled
   instead, and the story says so. The authors' one drawn link, CDK5 - calpain (calpain acts on p35, not on CDK5), is
   said so.
-- Eight chapters: Sixteen thousand proteins, A kinase among its cousins, Two partners switch it on, Healthy signalling,
-  A cut that sticks, Stuck on in Alzheimer's, A landscape of diseases, Too little, too much. Every number from `CDATA`
-  (`FACTS`). In a headset chapters 1 and 2 stand you inside the map (`XR.inW`, the map's middle at your eyes, 1.25 m a
-  unit), and from chapter 3 it floats in front of you at 0.5 m a unit, its scale capped so no point comes within 0.35 m
-  of the eyes (`XR_BOUND`).
-- Explore: Scenes (the six, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
+- Reworked at v190 (the owner, 23 November 2026; `packages/cdk5/src/SPEC.md`, "The rework"): the colleague's scene
+  document's ten scenes and a close (`title`, `activators`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`, `reach`,
+  `alzheimer`, `landscape`, `learn`), a new script recorded word for word (8:27; each spoken line a `data-say`, a line
+  with no key point of its own an empty `vo` mark), presentation-like (a heading and at most two points at once, names
+  and structures as the voice says them). Three scenes from the second VR project, `CDK5_minimal_new` (the 205-partner
+  star, Semaphorin interactions, NPAS4), decoded by the generator (the 311 proteins told apart by their links; six pairs
+  with identical links may be swapped, said on the About tab). PDB structures at the centre (`src/models.json`, built by
+  `tools/mol/build.py` into `packages/cdk5/models/`, about 2 MB, fetched once the close-up shows, a ball until then):
+  CDK5 with p35's gripping part (1H4L, docking), calpain-1's core (1ZCM), BDNF (1BND), NTRK2's domain d5 (1HCF),
+  SEMA4D and PLXNB1 (3OL2), mouse NPAS4 (7XI3), a Tau filament (5O3L); p39 a ball. Every number from `CDATA` (`FACTS`).
+  In a headset the first chapter stands you inside the map (`XR.inW`, the map's middle at your eyes, 1.25 m a unit),
+  then it floats in front of you at 0.5 m a unit, its scale capped so no point comes within 0.35 m of the eyes
+  (`XR_BOUND`).
+- Explore: Scenes (the nine, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
   Diseases (88 terms, CDK5's own first) and About. Shared state `{ v, tab, scene, ctl, prot, term, path }` (never the
   search text, the camera or standing inside). Links: `src/README.md`; the smoke test's `cdk5` step checks five of them.
 - Miniatures `cdk5.net` (its station icon, `icon` in `story.json`) and `cdk5.core` (`packages/cdk5/src/minis.js`, kit
   b), both props of the design room (their cards from `packages/cdk5/src/props.json`).
-- British spelling, English only. The open questions are C1 to C7 in `docs/questions-for-authors.md`; its permission row
+- British spelling, English only. The open questions are C1 to C10 in `docs/questions-for-authors.md`; its permission row
   in `docs/data-and-permissions.md` is marked TO FILL.
 
 ## The pass story (`packages/pass/main.js`) is built the same way

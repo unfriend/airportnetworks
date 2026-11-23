@@ -182,18 +182,22 @@ disagrees now (`SOIL_DATA.open` in `packages/soil/src/sets/data.js`, written by 
 ## The switch that sticks (`cdk5`)
 
 Source: the Menche lab's repository CDK5_data (github.com/menchelab/CDK5_data, Christiane Hütter), its CDK5_analytics VR
-project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`); everything the story shows is decoded from it
+project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v190 its CDK5_minimal_new project
+(`CDK5_BioStory_minimal_adapted.ipynb`) and the colleague's scene document; everything the story shows is decoded from it
 (`packages/cdk5/src/data/gen_data.py`; `packages/cdk5/src/SPEC.md`, "Decisions"). Who to ask: Christiane Hütter. Contact person:
 **TO FILL (owner)**.
 
 | # | Item | Where in the source | What the story shows now | Status |
 | --- | --- | --- | --- | --- |
 | C1 | The Alzheimer's pathway's name | `input/neurodegenerativepathwaysAlzheimers.tsv` (no name or id in the file) | Reactome's "Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer's disease models", our reading of its 22 members, said so | open |
-| C2 | The CDK5 - calpain link | scene 03 adds it (the interactome has none) | drawn as the authors draw it, its small print saying that calpain acts on p35, not on CDK5 | open: confirm the wording |
+| C2 | The CDK5 - calpain link | scene 03 adds it (the interactome has none) | drawn as the authors draw it, its small print saying that calpain cuts p35, not CDK5; the voice says so too (v190) | answered by the owner, 23 November 2026: calpain cuts p35 |
 | C3 | p35 and p39 in the subunits scene | the notebook compares a protein with the list of both (`node == subunits_entrezIDs`), so they keep their degree colour in the texture | the map's points as the texture has them; the close-up colours them light green | open: was green meant? |
 | C4 | p39 at the centre in the NTRK2 and Alzheimer's scenes | their layouts start from scene 1's, which pulled p39 in | p39 left at the centre, faint and unnamed, as in the textures | open: keep, or send p39 home? |
 | C5 | The interactome's and the Disease Ontology associations' sources and dates | cartoGRAPHs' `load_graph('human')`, `input/d_gene_do.pkl` | "the human interactome" and "the Disease Ontology" in the credits, no version | open |
 | C7 | The GO matrix behind the map of processes | `Features_GO_BiolProc_Dataframe_human.pickle`, on the lab's Drive, not in the repository | the map's knots named from a current GO release (14 small knots); the big dense clouds left unnamed, as today's GO finds no single process in them | open: with the authors' matrix the big clouds could be named |
+| C8 | Scene 7: why hyperactive CDK5 moves into the cell's interior and nucleus | the colleague's scene document: "due to this conformational change, the molecule can now translocate into the nucleoplasm" | no mechanism named: "With p25, it is not [kept in its place]" | open (the owner is asking): a change of shape, or p25 losing p35's membrane anchor (p35's myristoylated N-terminal part, cut off as p10)? |
+| C9 | NPAS4 and the body's clock | the scene document calls the NPAS4 pathway "circadian rhythm associated"; Reactome's list holds CDK5, but no link of the interactome joins it to the others, so the authors drew CDK5 - NPAS4 | "this route has been tied to the body's clock" (spoken); small print "reported, not shown here"; the drawn line said so | open: a reference for the circadian link and for CDK5 acting on NPAS4 |
+| C10 | The interactome's source | the scene document: "the HIPPIE database to retrieve protein interactions" | small print "Interactions as the authors collected them (HIPPIE)" | open: confirm HIPPIE (and its version) for cartoGRAPHs' `load_graph('human')` |
 | C6 | The over-representation counts | not in the repository: computed for the story (`CDK5_DATA.diseases`), within the proteins with a disease | "more than chance would give", with the numbers, "in this map" | open: the authors' preferred background and test |
 
 ## Pass it on (`pass`)

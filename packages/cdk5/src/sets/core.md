@@ -1,5 +1,18 @@
 # core: the close-up at the map's centre
 
+(v190) Nine scenes (`core_scene` 0..8); the partners' star has only CDK5 at the centre. **Structures**: real PDB
+structures take the place of their protein's ball, each shown by its own param, loaded once the core first shows
+(`molLoad`, `HOST.pkgUrl('cdk5', 'models/')`; a ball stands in until a file comes): `core_mCdk5` (CDK5, 1H4L),
+`core_mP35` (p35's part that grips CDK5, 1H4L, at the same scale as CDK5; with a small ball for the rest of p35, which
+the cut breaks off: the label turns from p35 to p25), `core_dock` (0 at p35's own ball, 1 docked as in the crystal),
+`core_p39` (p39's name: a ball, no structure), `core_mCapn` (1ZCM), `core_mBdnf` (1BND), `core_mTrkb` (1HCF),
+`core_mSema` (SEMA4D and PLXNB1, 3OL2), `core_mNpas4` (7XI3), `core_tau` (Tau's ball, name and its line to CDK5, at a
+close-up place beside the centre, `tauAt`), `core_mTau` (its filament, 5O3L), `core_phos` (phosphate tags gathering on
+Tau, pulses down the line). `core_names`: 1 every name (explore, but a crowded centre), 0 only the ones the params show.
+Labels: p35/p25 on its structure, Tau, the key proteins with roles; "Drawn by the authors" on the CDK5 - calpain and
+CDK5 - NPAS4 lines only with every name on. Views: `default`, `low`, and the close-ups `dock`, `trk`, `sema`, `npas`,
+`cut`, `tau` (from the data's places). Draw calls: three, plus one per structure on show (at most four at once).
+
 Each scene's centre proteins (`CDATA.scene(k).centre`, at their places in `CDATA.layout(k)`: the authors' spring layouts
 scaled up about CDK5's middle place to radius `CDATA.CENTRE_R`, 0.42) as lit balls (TLOOK balls) in their scene's
 colours with their names, and the scene's links among them as lit tubes in the links' colours (CDATA's, the authors'

@@ -106,16 +106,16 @@ SETS.core = function (K) {
   // looks from 20 degrees round, so its right is (cos 20, 0, -sin 20)), its thread to CDK5 the interactome's link
   const MURL = f => HOST.pkgUrl('cdk5', 'models/' + f);
   const fnd = s => CD.find(s);
-  const TAUP = [0.6 * Math.cos(20 * Math.PI / 180), 0.08, -0.6 * Math.sin(20 * Math.PI / 180)];
+  const TAUP = [0.5 * Math.cos(20 * Math.PI / 180), 0.1, -0.5 * Math.sin(20 * Math.PI / 180)];
   const SLOTS = [
     { m: 'cdk5', i: CDK5, r: 0.075, p: 'core_mCdk5' },
     { m: 'p25', i: R1, p: 'core_mP35' },
     { m: 'capn1', i: CAPN1, r: 0.07, p: 'core_mCapn' },
     { m: 'bdnf', i: fnd('BDNF'), r: 0.05, p: 'core_mBdnf' },
     { m: 'trkb', i: fnd('NTRK2'), r: 0.05, p: 'core_mTrkb' },
-    { m: 'sema4d', i: fnd('SEMA4D'), r: 0.085, p: 'core_mSema' },
-    { m: 'plxnb1', i: fnd('PLXNB1'), r: 0.075, p: 'core_mSema' },
-    { m: 'npas4', i: NPAS4, r: 0.07, p: 'core_mNpas4' },
+    { m: 'sema4d', i: fnd('SEMA4D'), r: 0.12, p: 'core_mSema' },
+    { m: 'plxnb1', i: fnd('PLXNB1'), r: 0.1, p: 'core_mSema' },
+    { m: 'npas4', i: NPAS4, r: 0.09, p: 'core_mNpas4' },
     { m: 'tau', i: -1, r: 0.12, p: 'core_mTau' },
   ];
   for (const s of SLOTS) { s.j = s.i >= 0 ? jOf(s.i) : -1; s.mesh = null; s.a = 0; s.u = { value: 0 }; }
@@ -303,7 +303,7 @@ SETS.core = function (K) {
   labels.push({ text: ['Drawn by the authors', ' · calpain cuts p35'], at: 'cutMid', cls: '', minor: true,
     alpha: S => 0.9 * prog(S.core_cut, 0.6, 1) * clamp(1 - 2 * Math.abs(cur.s - S_CAL), 0, 1) * (S.core_names >= 0.99 ? 1 : 0) });
   labels.push({ text: ['Drawn by the authors', ''], at: 'npasMid', cls: '', minor: true,
-    alpha: S => 0.9 * cur.midNW * clamp(1 - 2 * Math.abs(cur.s - S_NP), 0, 1) * clamp(Math.max(S.core_mNpas4 || 0, S.core_names), 0, 1) });
+    alpha: S => 0.9 * cur.midNW * clamp(1 - 2 * Math.abs(cur.s - S_NP), 0, 1) * (S.core_names >= 0.99 ? 1 : 0) });
 
   // -------------------------------------------------------------- picking
   const _inv = new THREE.Matrix4(), _ray = new THREE.Ray();
@@ -337,7 +337,7 @@ SETS.core = function (K) {
     sema: near(18, 10, 1.5, midOf(lay('sema', fnd('SEMA4D')), lay('sema', fnd('PLXNB1')))),
     npas: near(20, 10, 1.7, midOf(lay('npas4', NPAS4), [0, 0, 0])),
     cut: near(20, 12, 1.3, midOf([0, 0, 0], lay('calpain', CAPN1))),
-    tau: near(20, 8, 1.75, [TAUP[0] * 0.62, TAUP[1] * 0.62, TAUP[2] * 0.62]),
+    tau: near(20, 8, 1.7, [TAUP[0] * 0.75, TAUP[1] * 0.75, TAUP[2] * 0.75]),
   };
   const API = {
     pick,

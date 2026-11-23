@@ -75,7 +75,8 @@ function exploreTargets() {
   const tg = Object.assign({}, GL.sets.net.params, GL.sets.core.params, {
     net_a: 1, core_a: core ? 1 : 0, net_scene: i, core_scene: i, net_grow: 1,
     net_links: sw('links') === 'off' ? 0 : 1, net_shell: sw('shell') === 'faint' ? 0 : 1,
-    net_cdk5: 1, net_hyper: hyper, core_hyper: hyper, core_cut: hyper, core_flow: ['ntrk2', 'sema', 'npas4', 'alzheimer'].includes(k) ? 1 : 0, core_names: 1,
+    net_cdk5: 1, net_hyper: hyper, core_hyper: hyper, core_cut: hyper, core_flow: ['ntrk2', 'sema', 'npas4', 'alzheimer'].includes(k) ? 1 : 0,
+    core_names: hasCore(k) && CD.scene(k).centre.length > 30 ? 0 : 1,   // (a crowded centre: only its key names; a pick names any)
     core_dock: 1, core_mCdk5: 0, core_mP35: 0, core_p39: 0, core_mCapn: 0, core_mBdnf: 0, core_mTrkb: 0, core_mSema: 0, core_mNpas4: 0, core_tau: 0, core_mTau: 0, core_phos: 0,
     net_veil: core ? 1 : 0, net_core: core ? 1 : 0, net_family: sw('cousins') === 'on' ? 1 : 0, net_near: sw('near') === 'on' ? 1 : 0,
     net_clouds: i === 0 && sw('clouds') !== 'hidden' ? 1 : 0, net_shells: 0, net_landTags: k === 'disease' ? 1 : 0, net_homes: 0, net_hub: 0, net_partners: 0,

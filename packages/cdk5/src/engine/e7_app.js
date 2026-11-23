@@ -144,13 +144,13 @@ function initEnd() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #cdk5&explore&scene=disease (a scene: bioproc, subunits, ntrk2, calpain, alzheimer, disease, or its number 0 to 5),
+    // #cdk5&explore&scene=disease (a scene: bioproc, subunits, partners, ntrk2, sema, npas4, calpain, alzheimer, disease, or its number 0 to 8),
     // &tab=scenes|proteins|diseases|about, &links=on|off, &shell=shown|faint, &cousins=on|off, &near=on|off (every scene
     // that has the switch), &view=<a camera of the net set>, &q=CDK5R1 (a protein by its gene symbol: picked, in the
     // Proteins tab), &term=lissencephaly (a Disease Ontology term by its name or id, in the Diseases tab),
-    // &path=ntrk2|alzheimer (a pathway lit), &inside (Stand inside), &now=1 (no glide)
+    // &path=ntrk2|alzheimer|sema|npas4 (a pathway lit), &inside (Stand inside), &now=1 (no glide)
     const sc = hp.get('scene'), tb = hp.get('tab'), tabOK = TABS.some(t => t[0] === tb);
-    const si = SCN.includes(sc) ? sc : /^[0-5]$/.test(sc || '') ? SCN[+sc] : null;
+    const si = SCN.includes(sc) ? sc : /^[0-8]$/.test(sc || '') ? SCN[+sc] : null;
     if (si) openScene(si, false);
     else if (!hp.has('t')) openStart();   // straight in: the landscape
     if (hp.has('inside')) { if (!INSIDE_OK(X.scene)) openScene('bioproc', false); X.inside = true; }   // (standing inside: the map of processes)
@@ -167,7 +167,7 @@ function initEnd() {
       const jj = j >= 0 ? j : CD.terms.findIndex(t => t.name.toLowerCase().startsWith(q));
       if (jj >= 0) { selectTerm(jj); showTab('diseases'); }
     }
-    if (hp.get('path')) setPath({ ntrk2: 0, '0': 0, alzheimer: 1, '1': 1 }[hp.get('path').toLowerCase()] ?? -1, false);
+    if (hp.get('path')) setPath({ ntrk2: 0, '0': 0, alzheimer: 1, '1': 1, sema: 2, '2': 2, npas4: 3, '3': 3 }[hp.get('path').toLowerCase()] ?? -1, false);
     if (tabOK) showTab(tb);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; if (X.inside) XR.inW = 1; }
     renderAll();
