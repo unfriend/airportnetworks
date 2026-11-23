@@ -30,13 +30,13 @@ SETS.net = function (K) {
   const FRONT = [Math.cos(rad(14)) * Math.sin(rad(AZ + 8)), Math.sin(rad(14)), Math.cos(rad(14)) * Math.cos(rad(AZ + 8))];
 
   // ---------------------------------------------------------------- each protein's delay, per move
-  // the moves within the sphere: seeded at random; 3 -> 4 (the map recoloured by disease): a wave spreading over the
-  // sphere from CDK5's side; 4 -> 5 (the sphere opening into the landscape): from the front backwards, so the sphere
+  // the moves within the sphere: seeded at random; calpain -> Alzheimer's (the map recoloured by disease): a wave spreading over the
+  // sphere from CDK5's side; Alzheimer's -> the landscape (the sphere opening into the landscape): from the front backwards, so the sphere
   // peels open towards the viewer and the landscape gathers inside
   const RND = new Float32Array(n); for (let i = 0; i < n; i++) RND[i] = R();
   const ST_R = new Float32Array(n), ST_C = new Float32Array(n), ST_W = new Float32Array(n);
   {
-    const S0 = LAY[0], S4 = LAY[4], c = 3 * C5, cl = Math.hypot(S0[c], S0[c + 1], S0[c + 2]) || 1;
+    const S0 = LAY[0], S4 = LAY[SC.indexOf('alzheimer')], c = 3 * C5, cl = Math.hypot(S0[c], S0[c + 1], S0[c + 2]) || 1;
     const wx = S0[c] / cl, wy = S0[c + 1] / cl, wz = S0[c + 2] / cl;
     for (let i = 0; i < n; i++) {
       const x = S0[3 * i], y = S0[3 * i + 1], z = S0[3 * i + 2], r = Math.hypot(x, y, z) || 1;
@@ -46,11 +46,13 @@ SETS.net = function (K) {
       ST_W[i] = D * (0.85 * (1 - (S4[3 * i] * FRONT[0] + S4[3 * i + 1] * FRONT[1] + S4[3 * i + 2] * FRONT[2]) / r4) / 2 + 0.15 * RND[i]);
     }
   }
-  const STAG = [ST_R, ST_R, ST_R, ST_C, ST_W];
+  // (by the pair's second scene: into the Alzheimer's scene the wave, into the landscape the peel, else at random)
+  const STAG = SC.slice(1).map(k => (k === 'alzheimer' ? ST_C : k === 'disease' ? ST_W : ST_R));
 
   // ---------------------------------------------------------------- who is who (fixed bits)
   // 1 CDK5's partner, 2 the CDK family, 4 CDK5's 30 nearest in the landscape, 8 Signalling by NTRK2, 16 the Alzheimer's
-  // pathway, 32 an activator (p35, p39), 64 has a GO process, 128 CDK5, 256 the hub (APP)
+  // pathway, 32 an activator (p35, p39), 64 has a GO process, 128 CDK5, 256 the hub (APP); 1024 Semaphorin interactions,
+  // 2048 Transcriptional regulation by NPAS4 (512: below)
   const FL = new Uint16Array(n);
   const NB5 = CD.nb(C5);
   for (const j of NB5) FL[j] |= 1;
@@ -59,6 +61,8 @@ SETS.net = function (K) {
   for (const i of DZ.near) FL[i] |= 4;
   for (const i of CD.pathways.ntrk2.members) FL[i] |= 8;
   for (const i of CD.pathways.alzheimer.members) FL[i] |= 16;
+  for (const i of CD.pathways.sema.members) FL[i] |= 1024;
+  for (const i of CD.pathways.npas4.members) FL[i] |= 2048;
   FL[R1] |= 32; FL[R2] |= 32;
   for (let i = 0; i < n; i++) if (CD.bp(i)) FL[i] |= 64;
   FL[C5] |= 128;
@@ -449,7 +453,9 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
   // ---------------------------------------------------------------- update
   const ARCEND = [[0, 0, 0], [0, 0, 0]], BEHIND = [false, false], ARCPTS = [new Float32Array(3 * ARC + 3), new Float32Array(3 * ARC + 3)];
   const stateCol = [0, 0, 0], lineCol = [0, 0, 0], ACT = [R1, R2], hubCol = K.rgb('#fff4d6'), famCol = K.rgb('#e9ffbf'), nearCol = K.rgb('#ffe08a');
-  const PATHS = [CD.pathways.ntrk2.members, CD.pathways.alzheimer.members], PATHCOL = [RGB.pathway, RGB.alz];
+  // (0 NTRK2, 1 the Alzheimer's, 2 Semaphorin interactions, 3 NPAS4: their bits in FL, and colours)
+  const PATHS = [CD.pathways.ntrk2.members, CD.pathways.alzheimer.members, CD.pathways.sema.members, CD.pathways.npas4.members];
+  const PATHCOL = [RGB.pathway, RGB.alz, RGB.pathway, RGB.pathway], PATHBIT = [3, 4, 10, 11];
   const _ringAx = [0, 0, 1];
   // how much of a protein the core set has taken over (after placeAt(i))
   const coreOf = i => 1 - 0.75 * cur.core * cenNow(i);
@@ -470,7 +476,7 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
     cur.fam = clamp(S.net_family, 0, 1); cur.homes = clamp(S.net_homes, 0, 1); cur.near = clamp(S.net_near, 0, 1);
     cur.veil = clamp(S.net_veil, 0, 1); cur.core = clamp(S.net_core, 0, 1); cur.dim = clamp(S.net_dim, 0, 1); cur.hub = clamp(S.net_hub || 0, 0, 1);
     cur.termA = clamp(S.net_termA, 0, 1);
-    const pa = Math.round(S.net_path), path = pa === 0 || pa === 1 ? pa : -1;
+    const pa = Math.round(S.net_path), path = pa >= 0 && pa < PATHS.length ? pa : -1;
     cur.path = path;
     const pk = S.net_pick >= -0.5 ? Math.round(S.net_pick) : -1;
     if ((pk >= 0 && pk < n ? pk : -1) !== cur.pick) setPick(pk >= 0 && pk < n ? pk : -1);
@@ -478,7 +484,7 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
     if (tv !== cur.term) setTerm(tv);
     CLOOK.mix(RGB.cdk5, RGB.hyper, cur.hyper, stateCol);
     U.uF.value = cur.f; U.uLand.value = cur.land; U.uGrow.value = cur.grow; U.uVeil.value = cur.veil; U.uShell.value = cur.shell;
-    U.uCdk5.value = cur.cdk5; U.uPart.value = cur.part; U.uFam.value = cur.fam; U.uHomes.value = cur.homes; U.uPathB.value = path < 0 ? -1 : 3 + path;
+    U.uCdk5.value = cur.cdk5; U.uPart.value = cur.part; U.uFam.value = cur.fam; U.uHomes.value = cur.homes; U.uPathB.value = path < 0 ? -1 : PATHBIT[path];
     U.uTermA.value = tv >= 0 ? cur.termA : 0; U.uNear.value = cur.near; U.uCore.value = cur.core; U.uDim.value = cur.dim;
     // the knots' tags and glow: on the map of processes only (they fade as net_scene leaves 0)
     cur.clouds = clamp(S.net_clouds || 0, 0, 1) * (1 - prog(s, 0, 0.35)); U.uClouds.value = cur.clouds;

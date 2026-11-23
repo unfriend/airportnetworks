@@ -1,6 +1,6 @@
 //#use GL
-// the sets: the interactome in the authors' six arrangements (every chapter) and the close-up at its centre (chapters 3
-// to 6, and explore's scenes with a centre)
+// the sets: the interactome in the authors' nine arrangements (every chapter) and the close-up at its centre (the
+// chapters at the centre, and explore's scenes with a centre)
 const SET_ORDER = ['net', 'core'];
 // the core is drawn in the net's frame (its balls are the net's centre proteins, scaled up as CDATA places them), so
 // the two always turn together
@@ -8,7 +8,7 @@ const FRAME = { core: 'net' };
 //#use frameOf buildScene buildSet
 // once every set is built (a step of the load): what joins them. The core's balls follow the net's own points (its
 // api().pos: each protein's current place, the net's stagger included), so a ball and its point never part; and how far
-// each of the six layouts reaches from the map's middle (XR_BOUND, the headset's clearance: xrPlace)
+// each of the nine layouts reaches from the map's middle (XR_BOUND, the headset's clearance: xrPlace)
 const XR_BOUND = [];
 function sceneJoin() {
   const na = GL.sets.net.api ? GL.sets.net.api() : null, ca = GL.sets.core.api ? GL.sets.core.api() : null;
@@ -47,3 +47,5 @@ function updateSets(S, t, dt, story) {
 // on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
 const STRIP_FIT = 0.9;
 //#use _vd viewDir narrowK lowK applyCamera _yA keepCamera resize LV updateLight
+// the protein structures the core draws (src/models.json, built by tools/mol/build.py into packages/cdk5/models/)
+//#use MOLS molLoad molParse molMaterial molMesh

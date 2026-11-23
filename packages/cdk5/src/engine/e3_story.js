@@ -9,31 +9,37 @@
 // plus a pause); run it again after the text changes (see
 // tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [1.32, 1.2], [3.88, 2.4], [7.88, 5], [13.38, 10], [23.12, 17], [35.88, 28.6],
-  [39.41, 29.5],                                      // Sixteen thousand proteins
-  [61.41, 49.5], [62.71, 50.68], [64.97, 50.7], [96.65, 79.5], [103.96, 85.5], [106.31, 87],  // A kinase among its cousins
-  [129.41, 108], [130.71, 109.18], [132.87, 109.2],   // Two partners switch it on
-  [190.95, 162], [192.24, 163.18], [194.04, 163.2],   // Healthy signalling
-  [257.07, 220.5], [258.37, 221.68], [260.26, 221.7],  // A cut that sticks
-  [318.34, 274.5], [319.64, 275.68], [321.8, 275.7],  // Stuck on in Alzheimer's
-  [384.83, 333], [386.13, 334.18], [388.32, 334.2],   // A landscape of diseases
-  [456.3, 396], [457.6, 397.18], [459.46, 397.2], [507.64, 441],  // Too little, too much
+  [0, 0],                                             // One messenger in a city
+  [77, 70], [91.3, 83], [100.33, 91],                 // Two partners switch it on
+  [123.43, 112],                                      // Everyone it talks to
+  [152.03, 138],                                      // Growing and connecting
+  [192.73, 175],                                      // Finding the way
+  [232.33, 211],                                      // Reading the day
+  [275.23, 250],                                      // A cut that sticks
+  [323.63, 294],                                      // Stuck on, and out of place
+  [367.63, 334],                                      // Stuck on in Alzheimer's
+  [417.13, 379],                                      // A landscape of diseases
+  [478.73, 435], [507.33, 461],                       // Too little, too much
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
-const NARRATION_ENDS = { title: 50.25, kinase: 111.5, activators: 161.25, signal: 226.2, calpain: 292, alzheimer: 366.5, landscape: 450.2, learn: 486.55 };
+const NARRATION_ENDS = { title: 72.9, activators: 112.55, partners: 148.35, ntrk2: 188.45, sema: 227.75, npas4: 271.5, calpain: 317.95, reach: 363.25, alzheimer: 410.75, landscape: 473.45, learn: 499.4 };
 //#use storyT narrT T_END
 // (the chapters and every key, cue and line are authored in seconds as below and run at K_T of them: the story's own
-// clock, so the narration, paced at least 1.1 times story time, comes to about 8 minutes)
-const K_T = 0.9;
+// clock; the narration paces it at least 1.1 times story time)
+const K_T = 1;
+// the chapters follow the scenes of the colleague's scene document (0 to 9) and a short close
 const CH0 = [
-  { key: 'title', name: 'Sixteen thousand proteins', a: 0, b: 55 },
-  { key: 'kinase', name: 'A kinase among its cousins', a: 55, b: 120 },
-  { key: 'activators', name: 'Two partners switch it on', a: 120, b: 180 },
-  { key: 'signal', name: 'Healthy signalling', a: 180, b: 245 },
-  { key: 'calpain', name: 'A cut that sticks', a: 245, b: 305 },
-  { key: 'alzheimer', name: 'Stuck on in Alzheimer\'s', a: 305, b: 370 },
-  { key: 'landscape', name: 'A landscape of diseases', a: 370, b: 440 },
-  { key: 'learn', name: 'Too little, too much', a: 440, b: 490 },
+  { key: 'title', name: 'One messenger in a city', a: 0, b: 70 },
+  { key: 'activators', name: 'Two partners switch it on', a: 70, b: 112 },
+  { key: 'partners', name: 'Everyone it talks to', a: 112, b: 138 },
+  { key: 'ntrk2', name: 'Growing and connecting', a: 138, b: 175 },
+  { key: 'sema', name: 'Finding the way', a: 175, b: 211 },
+  { key: 'npas4', name: 'Reading the day', a: 211, b: 250 },
+  { key: 'calpain', name: 'A cut that sticks', a: 250, b: 294 },
+  { key: 'reach', name: 'Stuck on, and out of place', a: 294, b: 334 },
+  { key: 'alzheimer', name: 'Stuck on in Alzheimer\'s', a: 334, b: 379 },
+  { key: 'landscape', name: 'A landscape of diseases', a: 379, b: 435 },
+  { key: 'learn', name: 'Too little, too much', a: 435, b: 461 },
 ];
 const CH = CH0.map(c => Object.assign({}, c, { a: c.a * K_T, b: c.b * K_T }));
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
@@ -97,15 +103,42 @@ const FACTS = (() => {
     knots: (CD.clouds || []).slice(0, 3).map(c => c.name), goRel: CD.go && CD.go.release ? String(CD.go.release).replace(/^releases\//, '') : '',
     famMaxR: Math.ceil(Math.max(...near.map(f => f.deg))),   // (the net's tag rounds it up too)
     cancers: Dz.partnerTop.filter(t => t.q < 0.05 && /cancer|carcinoma|neoplasm/i.test(t.name)).length, topN: Dz.partnerTop.length, termsN: CD.terms.length,
+    // the second project's two pathways: in the map, and shown (the piece their links join)
+    sema: F.pathways.sema, semaShown: F.pathways.semaShown, semaLinks: F.sceneLinks.sema, npas4: F.pathways.npas4, npas4Shown: F.pathways.npas4Shown,
+    family5: F.family5 || 0,
+    // where CDK5's partners crowd on the map of processes (for the view only): the partner with the most others within
+    // 30 degrees of it, its place
+    dense: (() => {
+      const nb = Array.from(CD.nb(CD.cdk5)).map(sphereAt).map(p => { const l = Math.hypot(...p) || 1; return p.map(v => v / l); });
+      let best = 0, bi = 0;
+      nb.forEach((u, i) => { let c = 0; for (const w of nb) if (u[0] * w[0] + u[1] * w[1] + u[2] * w[2] > 0.866) c++; if (c > best) { best = c; bi = i; } });
+      return nb[bi] || [0, 0, 1];
+    })(),
   };
 })();
 // where the knots' names come from, wherever the knots show (chapter 1's small print, the credits, explore's scene)
 const KNOT_NOTE = `The knots are named from today's Gene Ontology${FACTS.goRel ? ` (release ${FACTS.goRel})` : ''}, not the authors' own annotation; most of the map's big clouds mix many processes.`;
-// the authors' own names of their six scenes (the CDK5_analytics project's folders), in the story's order
-const AUTHOR_SC = ['00-BIOPROC', '01-CDK5-subunits', '02-CDK5active-Signalling_by_NTRK2', '03-CDK5p35-CALPAIN', '04-CDK5-hyperactive-alzheimers', '05-CDK5-hyperactive_diseaseInference'];
+// the authors' own names of their nine scenes (the VR projects' folders: CDK5_analytics, and CDK5_minimal_new for
+// three), in the story's order
+const AUTHOR_SC = CD.SCENES.map(k => CD.scene(k).texture || k);
 // the credits: the last chapter's small print and explore's About pane (page and headset)
-const OURS = 'Ours: the close-ups at the map\'s centre (their balls, tubes and names, a clearer drawing of the centre\'s proteins at the authors\' places, scaled up), the tags with numbers and the over-representation counts.';
-const ABOUT = `After ${CD.about}. The authors': the interactome of ${fmt(FACTS.proteins)} proteins and ${fmt(FACTS.links)} links, every layout, colour and link of the six scenes, the pathways' members (Reactome) and the proteins' Disease Ontology associations. ${OURS} The layouts place proteins with similar processes or diseases close only roughly (UMAP): distances on them are not measurements.`;
+const OURS = 'Ours: the close-ups at the map\'s centre (their balls, tubes and names, a clearer drawing of the centre\'s proteins at the authors\' places, scaled up; the structures from the Protein Data Bank, not to scale), the tags with numbers and the over-representation counts.';
+const ABOUT = `After ${CD.about}. The authors': the interactome of ${fmt(FACTS.proteins)} proteins and ${fmt(FACTS.links)} links, every layout, colour and link of the nine scenes (six from their CDK5_analytics project, three from CDK5_minimal_new), the pathways' members (Reactome) and the proteins' Disease Ontology associations. ${OURS} The layouts place proteins with similar processes or diseases close only roughly (UMAP): distances on them are not measurements.`;
+// the structures the close-ups show (sets/core.js, src/models.json): the protein, the entry and what it really is
+// (explore's About, page and headset)
+const STRUCTS = [
+  ['CDK5', 'PDB 1H4L (Tarricone et al., Mol Cell 2001): human CDK5, from its crystal with p25'],
+  ['p35', 'PDB 1H4L: only the part that grips CDK5, residues 147 to 293, within p25; the rest of p35 has no known shape (a small ball)'],
+  ['p39', 'no structure known: a ball'],
+  ['calpain (CAPN1)', 'PDB 1ZCM (Li et al., Biochemistry 2006): calpain-1\'s cutting core, its two protease domains only'],
+  ['BDNF', 'PDB 1BND (Robinson et al., Biochemistry 1995): one chain of a pair of BDNF and NT-3'],
+  ['NTRK2 (TrkB)', 'PDB 1HCF (Banfield et al., Structure 2001): only its binding domain (d5), there holding NT-4/5, a close cousin of BDNF'],
+  ['SEMA4D, PLXNB1', 'PDB 3OL2 (Janssen et al., Nature 2010): the two together, their parts outside the cell (of PLXNB1 its first two domains)'],
+  ['NPAS4', 'PDB 7XI3 (Sun et al., PNAS 2022): mouse NPAS4, its DNA-binding and PAS parts, from a crystal with ARNT2 on DNA'],
+  ['Tau (MAPT)', 'PDB 5O3L (Fitzpatrick et al., Nature 2017): ten layers of the core of a paired helical filament from an Alzheimer\'s brain (cryo-EM)'],
+];
+// the About pane's note (page and headset): the two links the authors drew; the pairs the second project does not tell apart
+const ABOUT_NOTE = `The CDK5 - calpain line of the calpain scene and the CDK5 - NPAS4 line of the NPAS4 scene are the authors' own, not interactions of the interactome: calpain cuts p35. In the second project's files ${CD.ambiguous.length} pairs of proteins have the very same links and colours in every scene (${CD.ambiguous.map(p => p.map(i => CD.sym[i]).join(' and ')).join(', ')}): which of a pair's two places is whose cannot be told, so they may be the other way round. Structures from the Protein Data Bank (CC0).`;
 //#use inkCol swCol
 // the story's colours (SPEC.md, "Look", CLOOK)
 const CYAN = '#46d9ff', AMBER = '#ffb43b', RED = '#ff7a6b', GREEN = '#3ee08f', GREY = '#8e98ab';
@@ -116,94 +149,113 @@ function buildStory() {
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
+  // a param up over [t0, t1] (and down over [t2, t3])
+  const up = (n, t0, t1, t2, t3, v) => { ramp(n, t0, t1, 0, v || 1); if (t2 !== undefined) ramp(n, t2, t3, v || 1, 0); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
-  const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
-  // a big number in a colour of its own (the headset's canvas reads data-col)
-  const big = (col, v) => `<b data-col="${col}" style="color:${inkCol(col)}">${v}</b>`;
-  // (out: where a part that takes turns with the next fades out)
-  const fact = (at, col, v, small, out) => `<div data-at="${at}"${out ? ` data-out="${out}"` : ''}>${big(col, v)}<small>${small}</small></div>`;
   // ------------------------------------------------------------ panel copy
-  // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
-  // panel cannot scroll, so no chapter shows more than fits at once
-  const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
-  const n1 = v => (Math.round(v * 10) / 10).toFixed(1), deg = v => `${Math.round(v)}°`;
-  const ACT = CC.activator, ALZ = CC.alz, HYP = CC.hyper;
-  // small print the narration leaves out (data-say ""; it stays on the panels and in a headset)
-  const note = (at, text, out) => `<p class="note" data-say="" data-at="${at}"${out ? ` data-out="${out}"` : ''}>${text}</p>`;
-  const quiet = (at, col, v, small, out) => fact(at, col, v, small, out).replace('<div data-at', '<div data-say="" data-at');
-  // the knots' short names (the net's tags), and where their names come from (shown wherever the knots are)
+  // Each chapter: a heading, the key points (data-at: when a line appears, seconds into the chapter) and its small
+  // print. The voice has its own words (data-say: tools/voice/narrate.mjs speaks them, the headset's subtitles show
+  // them), one spoken line per cue: a key point carries the line said as it appears; a line said with no key point of
+  // its own is a cue mark (vo: an empty mark in the panel, its words only spoken and subtitled). A key point not spoken
+  // and the small print carry data-say="" (mute).
+  const sy = s => ` data-say="${esc(s.replace(/\s+/g, ' ').trim())}"`, mute = ' data-say=""';
+  const vo = (at, s) => `<span class="vo" data-at="${at}"${sy(s)}>​</span>`;
+  const pt = (at, text, say, cls) => `<p data-at="${at}"${cls ? ` class="${cls}"` : ''}${say === undefined ? mute : sy(say)}>${text}</p>`;
+  const note = (at, text) => `<p class="note" data-at="${at}"${mute}>${text}</p>`;
+  const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
+  // a round number as the voice says it (one to nineteen, and whole hundreds), else in figures
+  const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const say = v => (v < 20 ? ONES[v] : v % 100 === 0 && v < 2000 ? `${ONES[v / 100]} hundred` : fmt(v));
   const knots = F.knots.map(n => (api('net').knotName ? api('net').knotName(n) : n).toLowerCase());
-  // the partners' terms that pass (FACTS: q under 0.05 among the most over-represented), named in the text only then
-  const lean = [[F.park, 'Parkinson\'s disease', 'Parkinson\'s'], [F.psych, 'psychotic disorders', 'psychotic disorders']].filter(x => x[0]);
-  const qTxt = t => (t.q < 0.001 ? 'q < 0.001' : `q = ${t.q.toFixed(3)}`);
+  const park = F.park, about = v => (v >= 10 ? fmt(Math.round(v)) : n1(v));
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">The switch that sticks</h1>
-      <p class="lede" data-at="2.4">CDK5, its network and brain diseases</p>
-      ${turns(`<p data-at="5" data-out="27.5">A human cell runs on thousands of proteins.</p>
-        <p data-at="10" data-out="27.5">Here are ${fmt(F.proteins)} of them. Proteins with similar jobs sit close together, and lines join those known to bind.</p>
-        ${knots.length ? `<p data-at="17" data-out="27.5" class="amber">Where proteins share a job, they gather in knots: ${esc(listAnd(knots))}.</p>` : ''}`,
-      `<div class="facts">${fact(28, GREEN, fmt(F.withProcess), 'with a known job, on the inner sphere')}${fact(29.5, GREY, fmt(F.without), 'with none known, on the outer shell')}</div>
-        <p data-at="37" class="green">Somewhere among them is CDK5.</p>
-        ${note(42, `This is the map of processes: each protein placed on a sphere by the Gene Ontology biological processes it takes part in, with the lab's cartoGRAPHs. The interactome joins proteins that bind with ${fmt(F.links)} links; the map shows only the ${fmt(F.mapLinks)} between near neighbours. Colours follow how many partners a protein has, from dark green to pale yellow for the most linked. ${KNOT_NOTE}`)}
-        <p class="credits" data-at="45">After the Menche lab's CDK5_data repository by Christiane Hütter, and its CDK5_analytics VR scenes.</p>`)}`,
-    kinase: `<h2 data-at="0.6">A kinase among its cousins</h2>
-      ${turns(`<p data-at="1.2" data-out="29.5">CDK5 is a kinase: it switches other proteins on or off by adding phosphate to them.</p>
-        <p data-at="9" data-out="29.5" class="green">On the map it sits among its cousins, kinases that drive cell division or switch genes on.</p>
-        ${note(15, `CDK stands for cyclin-dependent kinase. CDK2, 4 and 6 drive cell division; CDK7, 8 and 9 mainly control how genes are read. ${listAnd(F.famNear)} sit within ${F.famMaxR} degrees of CDK5 on the sphere; CDK1 is ${Math.round(F.cdk1)} degrees away.`, 29.5)}`,
-      `<p data-at="30">But CDK5 works in neurons, which no longer divide, and its partners are spread across the map.</p>
-        <div class="facts">${fact(36, GREEN, fmt(F.deg), 'partners')}${fact(37.5, CYAN, ordinal(F.rank), `of ${fmt(F.proteins)} by partners`)}${quiet(46, AMBER, fmt(F.hubDeg), `for ${esc(F.hub)}, the most`)}</div>
-        ${note(49, 'Partners are the proteins it is known to bind, its protein-protein interactions. Many proteins have only a few; the best studied have the most.')}`)}`,
-    activators: `<h2 data-at="0.6">Two partners switch it on</h2>
-      ${turns(`<p data-at="1.2" data-out="24.5">Its cousins are switched on by cyclins. CDK5 is not.</p>
-        <p data-at="8" data-out="24.5" class="green">Two proteins found in neurons, p35 and p39, switch it on. On the map they live far apart.</p>
-        <div class="facts">${quiet(14, ACT, deg(F.p35), 'from CDK5 to p35 on the sphere', 24.5)}${quiet(15.5, ACT, deg(F.p39), 'to p39, nearly opposite', 24.5)}</div>`,
-      `<p data-at="25">Here they come together at the centre.</p>
-        ${note(35, 'p35 is the protein CDK5R1 and p39 is CDK5R2. This is the authors\' scene of CDK5 and its regulatory subunits, with its two links bright green. The balls, tubes and names at the centre are our clearer drawing of the centre\'s proteins, at the authors\' places, scaled up.')}`)}`,
-    signal: `<h2 data-at="0.6">Healthy signalling</h2>
-      ${turns(`<p data-at="1.2" data-out="27.5">In a healthy neuron, the growth factor BDNF docks on its receptor, NTRK2.</p>
-        <p data-at="12" data-out="27.5" class="cyan">A chain of proteins passes the message on, and CDK5 with p35 is one link.</p>`,
-      `<p data-at="28">The neuron grows, survives and connects.</p>
-        <div class="facts">${quiet(34, CYAN, fmt(F.ntrk2), 'proteins in the pathway')}${quiet(35.5, CYAN, fmt(F.ntrk2Links), 'links among them')}</div>
-        ${note(40, 'This is Reactome\'s pathway Signalling by NTRK2, its proteins pulled into the centre with the links among them in the interactome; only these links show now. NTRK2 is also called TrkB. The message branches through the RAS proteins, PI3K and PLCG1, and CDK5 works with TIAM1 and RAC1 on the cell\'s skeleton. The faint ball is p39, left from the scene before.')}`)}`,
-    calpain: `<h2 data-at="0.6">A cut that sticks</h2>
-      ${turns(`<p data-at="1.2" data-out="22.5">Under stress, calcium floods into a neuron and wakes calpain, an enzyme that cuts proteins.</p>
-        <p data-at="12" data-out="22.5" class="amber">Calpain cuts p35 into a shorter piece, p25.</p>`,
-      `<p data-at="23" class="red">Bound to p25, CDK5 stays switched on for too long, and in the wrong places: it is hyperactive.</p>
-        ${note(34, 'Calpain here is CAPN1 (Patrick and colleagues, Nature 1999; Lee and colleagues, Nature 2000). The link drawn between CDK5 and calpain is the authors\': calpain acts on p35, not on CDK5, and the interactome has no such link. The authors also left out every other link of CDK5 and of calpain in this scene. p25 has no point of its own in the interactome.')}`)}`,
-    alzheimer: `<h2 data-at="0.6">Stuck on in Alzheimer's</h2>
-      ${turns(`<p data-at="1.2" data-out="37.5">A switch stuck on does damage.</p>
-        <p data-at="5" data-out="37.5">In Alzheimer's disease models, hyperactive CDK5 sets off harmful paths at once:</p>
-        <ul class="steps">
-          ${step(14, 37.5, ALZ, 'The cell cycle', 'CDC25A, B and C').replace('<li ', '<li data-say="the cell cycle," ')}
-          ${step(17, 37.5, ALZ, 'The Golgi', 'GOLGA2').replace('<li ', '<li data-say="the Golgi," ')}
-          ${step(20, 37.5, ALZ, 'The nuclear envelope', 'the lamins LMNA and LMNB1').replace('<li ', '<li data-say="the nuclear envelope," ')}
-          ${step(23, 37.5, ALZ, 'Defences against oxidative stress', 'PRDX1, PRDX2 and SOD2').replace('<li ', '<li data-say="the defences against oxidative stress," ')}
-          ${step(26, 37.5, ALZ, 'Signals for the cell\'s death', 'FOXO3, and its targets BCL2L11 and FASLG').replace('<li ', '<li data-say="and signals for the cell\'s death." ')}
-        </ul>`,
-      `<p data-at="38">Now the map is coloured by disease; grey proteins have none known.</p>
-        <div class="facts">${quiet(44, ALZ, fmt(F.withDisease), 'proteins with a known disease')}${quiet(45.5, ALZ, fmt(F.alz), 'in the pathway')}${quiet(47, ALZ, fmt(F.alzLinks), 'links among them')}</div>
-        ${note(50, 'The pathway is Reactome\'s "Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer\'s disease models", our reading of the name of the authors\' file. The diseases are those of the Disease Ontology. The faint ball is p39 again.')}`)}`,
-    landscape: `<h2 data-at="0.6">A landscape of diseases</h2>
-      ${turns(`<p data-at="1.2" data-out="29.5">Now place every protein by the diseases it is linked to.</p>
-        <p data-at="16" data-out="29.5" class="amber">Proteins with a known disease gather in the middle; the rest are pushed to the walls.</p>`,
-      `<p data-at="30" data-out="49.5">CDK5 lands among proteins tied to the same rare brain disorders: lissencephaly, a smooth brain, and pontocerebellar hypoplasia.</p>
-        <div class="facts">${quiet(36, HYP, `${F.liss.near} of ${F.nearN}`, 'of its nearest share its lissencephaly', 49.5)}${quiet(38, HYP, `${F.pch.near} of ${F.nearN}`, 'its pontocerebellar hypoplasia', 49.5)}</div>
-        ${note(41, `By construction: this layout places proteins with the same diseases together, so its nearest share them. In pontocerebellar hypoplasia the pons and the cerebellum stay small. CDK5's own Disease Ontology terms, ${F.cdk5Terms} with their parents, include lissencephaly, pontocerebellar hypoplasia, intellectual disability, schizophrenia and neurodegenerative disease.`, 49.5)}`,
-      `<p data-at="50">${lean.length ? `Its partners lean towards the brain too: more of them than chance would give are linked to ${esc(listAnd(lean.map(x => x[1])))}.` : 'Its partners are spread over many diseases.'}</p>
-        ${lean.length ? `<div class="facts">${lean.map(([t, , nm], k) => quiet(57 + 1.5 * k, CYAN, fmt(t.k), `${k ? 'with' : 'partners with'} ${esc(nm)}, about ${t.exp >= 10 ? Math.round(t.exp) : n1(t.exp)} expected`)).join('')}</div>` : ''}
-        ${note(61, `The landscape places each protein by its Disease Ontology terms, their parents included (UMAP in 3D); its ${fmt(F.landLinks)} links join near proteins that interact. The counts are ours, over the ${fmt(F.withDisease)} proteins with any disease, ${F.partnersDz} of CDK5's ${F.deg} partners among them (a hypergeometric test, corrected for testing many terms${lean.length ? `: ${lean.map(([t, , nm]) => `${nm} ${qTxt(t)}`).join(', ')}` : ''}).${F.cancers ? ` Several cancers lean the same way (${F.cancers} of the ${F.topN} strongest terms).` : ''} Well-studied proteins have more known partners and diseases: in this map these are hints, not findings.`)}`)}`,
-    learn: `<h2 data-at="0.6">Too little, too much</h2>
-      ${turns(`<p data-at="1.2" data-out="21.5">CDK5 shows why a network view helps.</p>
-        <p data-at="6" data-out="21.5">Too little CDK5, and the brain does not build itself properly.</p>
-        <p data-at="13" data-out="21.5" class="red">Too much, stuck on by calpain's cut, and neurons are damaged.</p>`,
-      `<p data-at="22">Explore the map yourself: any protein, any pathway, any disease.</p>
-        <p data-at="25"><button class="btn primary" id="btnGoExplore" type="button">Explore the map</button></p>
-        <p class="credits" data-at="27">After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter, and its CDK5_analytics VR project, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. ${KNOT_NOTE}</p>
-        <p class="credits" data-at="28">${OURS} Narration: a synthetic voice.</p>`)}`,
+      <h1 data-at="1"${mute}>The switch that sticks</h1>
+      <p class="lede" data-at="2"${mute}>CDK5, its network and brain diseases</p>
+      ${vo(3, 'Think of a cell as a city.')}
+      ${pt(6.5, `${fmt(F.proteins)} human proteins; lines join those known to bind`, `Its workers are proteins, thousands of kinds of them. Here are ${say(Math.floor(F.proteins / 1000))} thousand, and every line joins two that are known to work hand in hand.`)}
+      ${pt(18, 'Proteins with similar jobs sit close together', 'Workers with similar jobs live in the same neighbourhood. So this is a map of who does what.')}
+      ${vo(26, 'Some workers are messengers. We call them kinases. They carry instructions: start making energy, move this cargo, divide now.')}
+      ${vo(34, 'Today we follow one messenger. Its name is CDK5. Let\'s find it.')}
+      ${vo(40, 'There.')}
+      ${pt(42.5, 'CDK5: a kinase of nerve cells', 'Most of its family tell cells when to divide. CDK5 is the odd one out. It works in nerve cells, which never divide again. There it helps them grow, reach out and connect, which is what a brain needs in order to learn.', 'green')}
+      ${vo(61, 'It has side jobs elsewhere in the body too, from repairing DNA to releasing insulin.')}
+      ${note(62, `The map of processes: each protein placed on a sphere by the Gene Ontology biological processes it takes part in (the lab's cartoGRAPHs); ${fmt(F.withProcess)} with a known process inside, ${fmt(F.without)} without on the outer shell. The map draws ${fmt(F.mapLinks)} of the ${fmt(F.links)} links, between near neighbours. ${knots.length ? `The knots named: ${esc(listAnd(knots))}. ` : ''}${KNOT_NOTE}`)}
+      <p class="credits" data-at="63">After the Menche lab's CDK5_data repository by Christiane Hütter, and its two VR projects.</p>`,
+    activators: `<h2 data-at="0.6"${mute}>Two partners switch it on</h2>
+      ${vo(2, 'On its own, CDK5 does nothing.')}
+      ${pt(6, 'Its cousins are switched on by cyclins. CDK5 is not.', 'It needs a partner to switch it on. For the rest of its family, that partner is a cyclin.')}
+      ${pt(13, 'p35 (CDK5R1) and p39 (CDK5R2), both made in nerve cells', 'CDK5 waits for something else: one of two proteins made in nerve cells. We call them p35 and p39.', 'green')}
+      ${vo(21, 'Here they are, right beside it.')}
+      ${vo(25, 'When one of them docks, the switch is on. When it lets go, the switch is off. That is how it should be: on for a moment, then off again.')}
+      ${note(36, 'The authors\' scene of CDK5 and its regulatory subunits, pulled into the map\'s centre. The structures are real: CDK5 and the part of p35 that grips it, as they sit together in a crystal (residues 147 to 293, within p25); the rest of p35 has no known shape and is a small ball. p39 has no known structure: a ball. Close-ups not to scale.')}`,
+    partners: `<h2 data-at="0.6"${mute}>Everyone it talks to</h2>
+      ${vo(1.5, 'So who does this messenger talk to?')}
+      ${pt(6, `<b class="big">${fmt(F.deg)}</b> proteins are known to bind CDK5`, `These are all the proteins CDK5 is known to touch. About ${say(Math.round(F.deg / 100) * 100)} of them.`, 'green')}
+      ${pt(13, `${ordinal(F.rank)} of ${fmt(F.proteins)} by number of partners`, 'That is a lot of conversations for one protein. And they are not all about the same thing.')}
+      ${vo(21, 'Let\'s listen in on three.')}
+      ${note(22, `Interactions as the authors collected them (HIPPIE); pathways from Reactome. The authors' star of CDK5's partners, from their second project; ${F.family5} of its cousins, other CDKs, brighter.`)}`,
+    ntrk2: `<h2 data-at="0.6"${mute}>Growing and connecting</h2>
+      ${vo(2, 'The first is about growing.')}
+      ${pt(6, `Signalling by NTRK2: ${fmt(F.ntrk2)} proteins (Reactome)`, 'A nerve cell gets a signal from outside, a growth factor called BDNF.', 'cyan')}
+      ${pt(12, 'BDNF docks on its receptor, NTRK2; the message passes down a chain', 'It docks on a receptor in the cell\'s outer skin, NTRK2.')}
+      ${vo(18, 'From there the message is handed along a chain of proteins, and CDK5 is one of the hands.')}
+      ${pt(26, 'Further down: the MAP kinase and PI3K-AKT routes', 'The result: the cell matures, it strengthens its connections, and it survives. The same route also carries our sense of pain.')}
+      ${note(33, `Reactome's pathway, its proteins pulled into the centre with the ${fmt(F.ntrk2Links)} links among them. NTRK2 is also called TrkB. The structures: BDNF is one chain of a crystal of BDNF with NT-3; NTRK2 is only its binding domain, from a crystal with NT-4/5, a close cousin of BDNF; CDK5 with p35's gripping part. Close-ups not to scale.`)}`,
+    sema: `<h2 data-at="0.6"${mute}>Finding the way</h2>
+      ${vo(2, 'The second is about direction.')}
+      ${pt(6, `Semaphorin interactions: ${fmt(F.sema)} proteins (Reactome)`, 'A growing nerve cell sends out a long thread, and its tip has to find the right way.', 'cyan')}
+      ${pt(14, 'Semaphorins: signals outside the cell that guide its shape and movement', 'Signals outside the cell act like road signs. They are called semaphorins, after the old signal towers.')}
+      ${vo(22, 'CDK5 helps the cell read those signs, and it helps build the scaffolding inside the growing tip.')}
+      ${vo(30, 'So the thread goes where it should.')}
+      ${note(31, `From the authors' second project: the ${fmt(F.semaShown)} proteins of the pathway that its links join in one piece, with the ${fmt(F.semaLinks)} links among them. The structures: the semaphorin SEMA4D and the start of its receptor, PLXNB1, from one crystal of the two together, their parts outside the cell. Close-ups not to scale.`)}`,
+    npas4: `<h2 data-at="0.6"${mute}>Reading the day</h2>
+      ${vo(2, 'The third is about timing.')}
+      ${pt(6, `Transcriptional regulation by NPAS4: ${fmt(F.npas4)} proteins (Reactome)`, undefined, 'cyan')}
+      ${pt(7, 'NPAS4 switches genes on when a nerve cell has been active', 'When a nerve cell has been busy, a protein called NPAS4 goes to the DNA and switches genes on.')}
+      ${vo(14, 'It is how the cell takes note of what it has just been through.')}
+      ${pt(20, 'Linked to the body\'s day and night rhythm', 'CDK5 has a say in that as well. And this route has been tied to the body\'s clock, the rhythm that tells us when to sleep and when to wake.')}
+      ${vo(32, 'Three conversations, three different jobs. All of them healthy.')}
+      ${note(34, `From the authors' second project: the ${fmt(F.npas4Shown - 1)} proteins its links join in one piece, and CDK5. CDK5 is in Reactome's list, but no link of the interactome joins it to the rest, so the authors drew one to NPAS4. The tie to the body's clock is reported, not shown here. The structure: mouse NPAS4, the part that holds DNA, from a crystal with its partner ARNT2. Close-ups not to scale.`)}`,
+    calpain: `<h2 data-at="0.6"${mute}>A cut that sticks</h2>
+      ${vo(2, 'Now for what can go wrong.')}
+      ${vo(6, 'When a nerve cell is under stress, calcium floods in, and it wakes an enzyme called calpain. Calpain is a pair of scissors.')}
+      ${pt(16, 'Calpain (CAPN1) cuts p35 into a shorter piece, p25', 'It does not touch CDK5. It cuts the partner, p35, and leaves a shorter piece. We call it p25.', 'amber')}
+      ${pt(25, 'p25 lasts much longer than p35: the switch stays on', 'Here is the trouble. p35 is short lived, so the switch goes off by itself. p25 is tough. It hangs on.')}
+      ${vo(34, 'And so the switch sticks. CDK5 stays on, long after it should have stopped.')}
+      ${note(40, 'The line the authors drew from CDK5 to calpain is not a binding of the interactome: calpain cuts p35, not CDK5. The structure: calpain-1\'s cutting core (CAPN1, its two protease domains). Close-ups not to scale.')}`,
+    reach: `<h2 data-at="0.6"${mute}>Stuck on, and out of place</h2>
+      ${vo(1.5, 'A switch that is stuck on is bad enough. But there is a second problem.')}
+      ${pt(8, 'With p25, CDK5 is no longer kept where it belongs', 'With its normal partner, CDK5 is kept in its place. With p25, it is not.', 'red')}
+      ${pt(15, 'It reaches the cell\'s interior and the nucleus', 'It wanders. It turns up deep inside the cell, even in the nucleus, where the DNA is kept.')}
+      ${pt(23, `Its partners lie all across the map`, 'Look how far its connections reach: right across the map.')}
+      ${vo(30, 'A messenger that never stops, in places it should not be, handing out instructions nobody asked for.')}
+      ${note(37, `CDK5's ${fmt(F.deg)} partners on the map of processes, its lines drawn from the map's centre.`)}`,
+    alzheimer: `<h2 data-at="0.6"${mute}>Stuck on in Alzheimer's</h2>
+      ${pt(2, `Deregulated CDK5 in Alzheimer's disease models: ${fmt(F.alz)} proteins (Reactome)`, 'We know one disease where this happens: Alzheimer\'s.', 'amber')}
+      ${vo(7, 'Inside every nerve cell there are tracks that carry cargo, and a protein called Tau holds those tracks together.')}
+      ${pt(16, 'It overloads Tau and neurofilaments with phosphate', 'Overactive CDK5 loads Tau with far too many phosphate tags.')}
+      ${pt(21, 'Tangles of Tau are a hallmark of Alzheimer\'s disease', 'Tau lets go of the tracks and clumps into tangles. Those tangles are one of the hallmarks of Alzheimer\'s disease.', 'amber')}
+      ${vo(30, 'That is why researchers are looking at CDK5 as a possible target for treatment. It is early days, but the idea is simple: unstick the switch.')}
+      ${note(41, 'Reactome\'s "Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer\'s disease models" (our reading of the name of the authors\' file); the map now coloured by disease, grey for none known. Tau (MAPT) is not in the pathway\'s list: it is one of CDK5\'s partners in the interactome, and its line to CDK5 is that link. The structure: the core of a Tau filament from an Alzheimer\'s brain, ten layers. Close-ups not to scale.')}`,
+    landscape: `<h2 data-at="0.6"${mute}>A landscape of diseases</h2>
+      ${vo(2, 'Let\'s step back one last time, and redraw the map.')}
+      ${pt(9, `${fmt(F.withDisease)} proteins with a known disease, placed by the diseases they share`, 'Now proteins sit together when they are linked to the same diseases. It is a landscape of what goes wrong.')}
+      ${pt(18, 'CDK5 lands among rare disorders of brain development', 'CDK5 lands among proteins tied to rare disorders in which the brain does not form properly.', 'red')}
+      ${pt(26, park ? `${fmt(park.k)} of its partners are linked to Parkinson's disease; about ${about(park.exp)} would be expected by chance (in this map)` : 'Its partners lean towards brain disorders (in this map)', 'And its partners lean towards the brain as well: Parkinson\'s disease, psychotic disorders. More of them than chance would give us.', 'cyan')}
+      ${vo(35, 'But its lines also run into parts of this landscape that have nothing to do with the brain, some cancers among them.')}
+      ${vo(44, 'Nobody knows yet what CDK5 is doing there. A map like this does not prove anything. It tells us where to look next.')}
+      ${note(52, `Well-studied proteins have more known partners and more known diseases; a pattern, not proof. The landscape places each protein by its Disease Ontology terms (UMAP in 3D). The counts are ours, over the ${fmt(F.withDisease)} proteins with any disease, ${F.partnersDz} of CDK5's ${F.deg} partners among them (a hypergeometric test, corrected for testing many terms). Lit: Parkinson's disease, then cancer.`)}`,
+    learn: `<h2 data-at="0.6"${mute}>Too little, too much</h2>
+      ${vo(1.5, 'So that is CDK5. One messenger, many conversations.')}
+      ${pt(6, 'Too little CDK5: the brain does not build itself properly', 'Too little of it, and a brain cannot build itself. Too much, stuck on, and nerve cells are harmed.')}
+      ${pt(10, 'Too much, stuck on: nerve cells are damaged', undefined, 'red')}
+      ${pt(14, 'Explore it yourself: any protein, any pathway, any disease', 'The map is yours now. Pick any protein, any pathway, any disease. Have a look around.')}
+      <p data-at="16"${mute}><button class="btn primary" id="btnGoExplore" type="button">Explore the map</button></p>
+      <p class="credits" data-at="18">After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter: its CDK5_analytics and CDK5_minimal_new VR projects, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. ${KNOT_NOTE}</p>
+      <p class="credits" data-at="19">${OURS} Narration: a synthetic voice.</p>`,
   };
-
 
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
@@ -223,160 +275,224 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t * K_T, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name), lowOf(k, name)]);
   };
-  // turns of the whole map's view that face a protein on the sphere (CDK5, APP), or the middle of CDK5 and its
-  // activators (their homes are 99 and 172 degrees apart)
-  const az0 = view('net', 'default')[0], toC = azOf(sphereAt(CD.cdk5)) - az0, toApp = azOf(sphereAt(Math.max(0, CD.find(F.hub)))) - az0;
-  const mid = [CD.cdk5, CD.r1, CD.r2].map(sphereAt).reduce((s, p) => [s[0] + p[0], s[1] + p[1], s[2] + p[2]], [0, 0, 0]), toMid = azOf(mid) - az0;
+  // turns of the whole map's view that face a protein on the sphere (CDK5), and the side where CDK5's partners crowd
+  const az0 = view('net', 'default')[0], el0 = view('net', 'default')[1], toC = azOf(sphereAt(CD.cdk5)) - az0;
+  const toDense = azOf(F.dense) - az0, elDense = Math.max(-25, Math.min(35, Math.asin(F.dense[1] / Math.hypot(...F.dense)) / D2R)) - el0;
+  const termIx = n => CD.terms.findIndex(t => t.name === n);
+  const PARK = termIx('Parkinson\'s disease'), CANCER = termIx('cancer');
+  const S = sc => CD.SCENES.indexOf(sc);
   start({ net_grow: 0, net_scene: 0, net_shell: 1, net_links: 1, net_cdk5: 0, net_hyper: 0, net_partners: 0, net_pick: -1, net_family: 0,
     net_homes: 0, net_clouds: 0, net_path: -1, net_term: -1, net_termA: 0, net_near: 0, net_veil: 0, net_core: 0, net_dim: 0, net_hub: 0, net_shells: 0,
-    net_landTags: 0, core_scene: 0, core_names: 1, core_hyper: 0, core_cut: 0, core_flow: 0 });
+    net_landTags: 0, core_scene: 0, core_names: 0, core_hyper: 0, core_cut: 0, core_flow: 0, core_dock: 0, core_mCdk5: 0, core_mP35: 0, core_p39: 0,
+    core_mCapn: 0, core_mBdnf: 0, core_mTrkb: 0, core_mSema: 0, core_mNpas4: 0, core_tau: 0, core_mTau: 0, core_phos: 0 });
+  // both sets move from one of the authors' scenes to the next together, over [t0, t1]
+  const move = (t0, t1, from, to) => { ramp('net_scene', t0, t1, S(from), S(to)); ramp('core_scene', t0, t1, S(from), S(to)); };
   let a, b;
-  // Sixteen thousand proteins: the map grows from its middle; its two shells named; CDK5 found, the view turned to it
+  // 0 One messenger in a city: the map grows from its middle; the knots where proteins share a job; the search for
+  // CDK5 (the view turning to it), found and named
   a = C0.title.a; b = C0.title.b;
   show('net', 0.2, 2);
-  ramp('net_grow', a + 1, a + 9, 0, 1);
-  ramp('net_clouds', a + 16, a + 19, 0, 1);   // (the knots where proteins share a job, named)
-  ramp('net_clouds', a + 33, a + 36, 1, 0);
-  ramp('net_shells', a + 26, a + 29, 0, 1);
-  ramp('net_shells', a + 36, a + 38, 1, 0);
-  ramp('net_cdk5', a + 37.5, a + 40, 0, 1);
-  cam(a, 'net', 'default', toC - 70);
-  cam(a + 9, 'net', 'default', toC - 45);
-  cam(a + 26, 'net', 'default', toC - 20, 'spin');
-  cam(a + 37, 'net', 'default', toC);
-  cam(b - 0.5, 'net', 'default', toC + 8, 'spin');
-  // In a headset the first two chapters stand you inside the map (xrPlace: the map's middle at your eyes, about 2.5 m
-  // round you, CDK5's side in front), once it has grown, and float it in front of you again for the activators
-  ST.stand.push([a + 7, a + 10, C0.kinase.b - 5, C0.kinase.b - 0.5].map(x => x * K_T));
-  // A kinase among its cousins: close to CDK5, its family lit round it; then its 205 partners across the map; the hub
-  a = C0.kinase.a; b = C0.kinase.b;
-  ramp('net_family', a + 9, a + 12, 0, 1);
-  ramp('net_family', a + 27, a + 30, 1, 0);
-  ramp('net_partners', a + 31, a + 37, 0, 1);
-  ramp('net_dim', a + 31, a + 35, 0, 0.55);
-  ramp('net_hub', a + 45, a + 48, 0, 1);
-  ramp('net_hub', b - 4, b - 1, 1, 0);
-  ramp('net_partners', b - 3.5, b - 0.5, 1, 0);
-  ramp('net_dim', b - 3.5, b - 0.5, 0.55, 0);
-  cam(a + 1.5, 'net', 'cdk5', 0);
-  cam(a + 26, 'net', 'cdk5', 12, 'spin');
-  cam(a + 31, 'net', 'default', toC);
-  cam(a + 48, 'net', 'default', toApp, 'spin');   // (the short way round to the hub, at a steady pace)
-  cam(b - 0.5, 'net', 'default', toApp + 12, 'spin');
-  // Two partners switch it on: p35's and p39's homes lit on the sphere; then the three pulled into the centre (scene 0
-  // to 1), the core coming in with them and the sphere veiled in front of it
+  ramp('net_grow', a + 2, a + 11, 0, 1);
+  up('net_clouds', a + 19, a + 22, a + 30, a + 33);
+  up('net_cdk5', a + 39.6, a + 41.5);
+  cam(a, 'net', 'default', toC - 80);
+  cam(a + 11, 'net', 'default', toC - 55, 'spin');
+  cam(a + 19, 'net', 'default', toC - 40);
+  cam(a + 31, 'net', 'default', toC - 25, 'spin');
+  cam(a + 35, 'net', 'default', toC - 18);
+  cam(a + 40, 'net', 'cdk5', 0);
+  cam(b - 0.5, 'net', 'cdk5', 8, 'spin');
+  // In a headset the first chapter stands you inside the map (xrPlace: the map's middle at your eyes, about 2.5 m round
+  // you, CDK5's side in front), once it has grown, and floats it in front of you again before CDK5 is found
+  ST.stand.push([a + 9, a + 12, a + 33, a + 37].map(x => x * K_T));
+  // 1 Two partners switch it on: CDK5, p35 and p39 pulled into the centre (scene 0 to 1), the view into the centre with
+  // them; their structures as they are named; p35 docks on CDK5 (the switch on) and lets go again (off)
   a = C0.activators.a; b = C0.activators.b;
-  ramp('net_homes', a + 8, a + 11, 0, 1);
-  ramp('net_homes', a + 22, a + 25, 1, 0);
-  ramp('net_scene', a + 25, a + 33, 0, 1); ramp('core_scene', a + 25, a + 33, 0, 1);
-  show('core', a + 25, a + 27);
-  ramp('net_core', a + 25, a + 31, 0, 1);
-  ramp('net_veil', a + 28, a + 33, 0, 1);
-  cam(a + 1, 'net', 'default', toMid, null, [0, 16, 0.3]);
-  cam(a + 22, 'net', 'default', toMid + 18, 'spin', [0, 16, 0.3]);
-  cam(a + 26, 'net', 'default', toC);
-  cam(a + 33, 'net', 'centre', 0);
-  cam(b - 0.5, 'net', 'centre', 25, 'spin');
-  // Healthy signalling: the pathway's proteins pulled in (scene 1 to 2), the signal running out from BDNF
-  a = C0.signal.a; b = C0.signal.b;
-  ramp('net_scene', a + 3, a + 10, 1, 2); ramp('core_scene', a + 3, a + 10, 1, 2);
-  ramp('core_flow', a + 14, a + 17, 0, 1);
-  ramp('core_flow', b - 3, b - 0.5, 1, 0);
-  cam(a + 1, 'net', 'centre', 30);
-  cam(a + 12, 'core', 'low', -10);
-  cam(a + 40, 'core', 'low', 25, 'spin');
-  cam(b - 0.5, 'net', 'centre', 10);
-  // A cut that sticks: calpain and CDK5 at the centre (scene 2 to 3); the link the authors drew flashes on; CDK5 turns red
-  a = C0.calpain.a; b = C0.calpain.b;
-  ramp('net_scene', a + 3, a + 10, 2, 3); ramp('core_scene', a + 3, a + 10, 2, 3);
-  ramp('core_cut', a + 14, a + 19, 0, 1);
-  ramp('net_hyper', a + 24, a + 30, 0, 1); ramp('core_hyper', a + 24, a + 30, 0, 1);
-  cam(a + 1, 'net', 'centre', -10);
-  cam(a + 12, 'core', 'default', -5);
-  cam(b - 0.5, 'core', 'default', 30, 'spin');
-  // Stuck on in Alzheimer's: the pathway's proteins pulled in (scene 3 to 4), the map recoloured by disease; the signal
-  // runs out from CDK5 in orange; then back to see the map, the veil lifting
-  a = C0.alzheimer.a; b = C0.alzheimer.b;
-  ramp('net_scene', a + 3, a + 10, 3, 4); ramp('core_scene', a + 3, a + 10, 3, 4);
-  ramp('core_flow', a + 14, a + 17, 0, 1);
-  ramp('core_flow', a + 40, a + 43, 1, 0);
-  ramp('net_veil', a + 41, a + 46, 1, 0);
-  cam(a + 1, 'net', 'centre', -10);
-  cam(a + 12, 'core', 'default', -10);
-  cam(a + 38, 'core', 'default', 15, 'spin');
-  cam(a + 45, 'net', 'default', toC);
-  cam(b - 0.5, 'net', 'default', toC + 25, 'spin');
-  // A landscape of diseases: the sphere opens into the landscape (scene 4 to 5), the core going; its two kinds named;
-  // close to CDK5, its 30 nearest; then its partners across the landscape
-  a = C0.landscape.a; b = C0.landscape.b;
-  ramp('net_scene', a + 3, a + 15, 4, 5); ramp('core_scene', a + 3, a + 15, 4, 5);
-  hide('core', a + 8, a + 13);
-  ramp('net_core', a + 3, a + 12, 1, 0);
-  ramp('net_landTags', a + 16, a + 19, 0, 1);
-  ramp('net_landTags', a + 27, a + 30, 1, 0);
-  ramp('net_near', a + 31, a + 35, 0, 1);
-  ramp('net_dim', a + 31, a + 34, 0, 0.55);
-  ramp('net_near', a + 47, a + 50, 1, 0);
-  ramp('net_partners', a + 51, a + 57, 0, 1);
+  move(a + 1, a + 9, 'bioproc', 'subunits');
+  show('core', a + 1, a + 3);
+  ramp('net_core', a + 1, a + 7, 0, 1);
+  ramp('net_veil', a + 4, a + 9, 0, 1);
+  up('core_mCdk5', a + 20.6, a + 22.4);
+  up('core_mP35', a + 21, a + 23);
+  up('core_p39', a + 21.4, a + 23.4);
+  ramp('core_dock', a + 25.5, a + 28.5, 0, 1);
+  ramp('core_dock', a + 30.5, a + 33.5, 1, 0);
   cam(a + 1, 'net', 'default', toC);
+  cam(a + 9, 'net', 'centre', 0);
+  cam(a + 18, 'net', 'centre', 15, 'spin');
+  cam(a + 23, 'core', 'dock', 0);
+  cam(b - 0.5, 'core', 'dock', 12, 'spin');
+  // 2 Everyone it talks to: the authors' star of CDK5's 205 partners round it (scene 1 to 2), the activators going
+  a = C0.partners.a; b = C0.partners.b;
+  ramp('core_mP35', a + 0.5, a + 3, 1, 0); ramp('core_p39', a + 0.5, a + 3, 1, 0);
+  move(a + 4, a + 11, 'subunits', 'partners');
+  cam(a + 1, 'core', 'default', 0);
+  cam(a + 10, 'net', 'centre', 10, null, [0, 4, 0.35]);
+  cam(b - 0.5, 'net', 'centre', 40, 'spin', [0, 4, 0.35]);
+  // 3 Growing and connecting: Signalling by NTRK2 pulled in (scene 2 to 3); BDNF and its receptor as they are named,
+  // then CDK5 with p35 docked, the message running from BDNF
+  a = C0.ntrk2.a; b = C0.ntrk2.b;
+  move(a + 1, a + 8, 'partners', 'ntrk2');
+  key('core_dock', a, 1);
+  up('core_mBdnf', a + 8, a + 10);
+  up('core_mTrkb', a + 12.6, a + 14.4);
+  up('core_mP35', a + 18.5, a + 20.5);
+  up('core_flow', a + 19, a + 22, b - 3, b - 0.5);
+  cam(a + 1, 'net', 'centre', 40, null, [0, 4, 0.35]);
+  cam(a + 8, 'net', 'centre', 70, 'spin');
+  cam(a + 13, 'core', 'trk', 0);
+  cam(a + 18, 'core', 'trk', 10, 'spin');
+  cam(a + 23, 'core', 'default', 0);
+  cam(b - 0.5, 'core', 'default', 30, 'spin');
+  // 4 Finding the way: Semaphorin interactions pulled in (scene 3 to 4); a semaphorin and its receptor; the signs read
+  a = C0.sema.a; b = C0.sema.b;
+  ramp('core_mBdnf', a + 0.5, a + 3, 1, 0); ramp('core_mTrkb', a + 0.5, a + 3, 1, 0); ramp('core_mP35', a + 0.5, a + 3, 1, 0);
+  move(a + 2, a + 9, 'ntrk2', 'sema');
+  up('core_mSema', a + 17.5, a + 19.5);
+  up('core_flow', a + 22.5, a + 25.5, b - 3, b - 0.5);
+  cam(a + 2, 'core', 'default', 30);
+  cam(a + 9, 'net', 'centre', 50, 'spin');
+  cam(a + 18, 'core', 'sema', 0);
+  cam(a + 23, 'core', 'default', 0);
+  cam(b - 0.5, 'core', 'default', 25, 'spin');
+  // 5 Reading the day: Transcriptional regulation by NPAS4 pulled in (scene 4 to 5); NPAS4; the authors' line from CDK5
+  a = C0.npas4.a; b = C0.npas4.b;
+  ramp('core_mSema', a + 0.5, a + 3, 1, 0);
+  move(a + 1, a + 8, 'sema', 'npas4');
+  up('core_mNpas4', a + 10.5, a + 12.5);
+  up('core_flow', a + 13, a + 16, b - 4, b - 1);
+  cam(a + 1, 'core', 'default', 25);
+  cam(a + 8, 'net', 'centre', 45, 'spin');
+  cam(a + 12, 'core', 'npas', 0);
+  cam(a + 30, 'core', 'npas', 15, 'spin');
+  cam(b - 0.5, 'core', 'default', 20);
+  // 6 A cut that sticks: calpain and CDK5 at the centre (scene 5 to 6), p35 docked on CDK5; calpain as it is named; the
+  // cut (p35's rest breaks off: p25), then CDK5 turning red
+  a = C0.calpain.a; b = C0.calpain.b;
+  ramp('core_mNpas4', a + 0.5, a + 3, 1, 0);
+  move(a + 1, a + 8, 'npas4', 'calpain');
+  up('core_mP35', a + 6, a + 8);
+  up('core_mCapn', a + 12.6, a + 14.4);
+  ramp('core_cut', a + 18, a + 24, 0, 1);
+  ramp('net_hyper', a + 35, a + 39, 0, 1); ramp('core_hyper', a + 35, a + 39, 0, 1);
+  cam(a + 1, 'core', 'default', 20);
+  cam(a + 9, 'core', 'default', 0);
+  cam(a + 14, 'core', 'cut', 0);
+  cam(a + 33, 'core', 'cut', 15, 'spin');
+  cam(b - 0.5, 'core', 'cut', 20, 'spin');
+  // 7 Stuck on, and out of place: the view back to the whole map (the close-up and the veil going), CDK5's lines to
+  // its partners across the map; towards the side where they crowd
+  a = C0.reach.a; b = C0.reach.b;
+  ramp('core_mCapn', a + 8, a + 11, 1, 0);
+  hide('core', a + 10, a + 14);
+  ramp('net_core', a + 10, a + 14, 1, 0);
+  ramp('net_veil', a + 10, a + 15, 1, 0);
+  up('net_partners', a + 23, a + 28);
+  ramp('net_dim', a + 23, a + 27, 0, 0.55);
+  cam(a + 1, 'core', 'cut', 20);
+  cam(a + 9, 'core', 'default', 10);
+  cam(a + 18, 'net', 'default', toC);
+  cam(a + 25, 'net', 'default', toC + 8, 'spin');
+  cam(a + 33, 'net', 'default', toDense, null, [0, elDense, -0.25]);
+  cam(b - 0.5, 'net', 'default', toDense + 10, 'spin', [0, elDense, -0.25]);
+  // 8 Stuck on in Alzheimer's: back to the centre; the pathway pulled in (scene 6 to 7), the map coloured by disease;
+  // Tau beside the centre, phosphate tags piling on it, then its filament, the harm running out from CDK5
+  a = C0.alzheimer.a; b = C0.alzheimer.b;
+  ramp('net_partners', a + 0.5, a + 3, 1, 0); ramp('net_dim', a + 0.5, a + 3, 0.55, 0);
+  move(a + 3, a + 10, 'calpain', 'alzheimer');
+  show('core', a + 3, a + 5);
+  ramp('net_core', a + 3, a + 8, 0, 1);
+  ramp('net_veil', a + 4, a + 9, 0, 1);
+  up('core_tau', a + 12.6, a + 14.4);
+  up('core_phos', a + 17, a + 22);
+  up('core_mTau', a + 22.5, a + 24.5);
+  up('core_flow', a + 31, a + 34);
+  cam(a + 1, 'net', 'default', toDense, null, [0, elDense, -0.25]);
+  cam(a + 9, 'net', 'centre', 0);
+  cam(a + 15, 'core', 'tau', 0);
+  cam(a + 29, 'core', 'tau', 12, 'spin');
+  cam(a + 33, 'core', 'default', 5);
+  cam(b - 0.5, 'core', 'default', 25, 'spin');
+  // 9 A landscape of diseases: the sphere opens into the landscape (scene 7 to 8), the close-up going; its two kinds;
+  // close to CDK5, its nearest; its partners' lines; Parkinson's disease lit, then cancer
+  a = C0.landscape.a; b = C0.landscape.b;
+  move(a + 3, a + 15, 'alzheimer', 'disease');
+  hide('core', a + 4, a + 9);
+  ramp('core_flow', a + 3, a + 6, 1, 0); ramp('core_mTau', a + 4, a + 8, 1, 0); ramp('core_tau', a + 4, a + 8, 1, 0); ramp('core_phos', a + 4, a + 8, 1, 0);
+  ramp('net_core', a + 3, a + 12, 1, 0);
+  ramp('net_veil', a + 3, a + 9, 1, 0);
+  up('net_landTags', a + 12, a + 15, a + 18, a + 20);
+  up('net_near', a + 19, a + 22, a + 25, a + 27);
+  ramp('net_dim', a + 19, a + 22, 0, 0.55);
+  up('net_partners', a + 26, a + 30);
+  key('net_term', a + 27.9, -1); key('net_term', a + 28, PARK);
+  ramp('net_termA', a + 28, a + 31, 0, 1);
+  ramp('net_termA', a + 35, a + 36.5, 1, 0);
+  key('net_term', a + 36.6, PARK); key('net_term', a + 36.7, CANCER);
+  ramp('net_termA', a + 36.8, a + 39, 0, 1);
+  ramp('net_termA', a + 50, a + 53, 1, 0);
+  cam(a + 1, 'core', 'default', 25);
+  cam(a + 4, 'net', 'default', toC);
   cam(a + 15, 'net', 'land', -20);
-  cam(a + 27, 'net', 'land', 5, 'spin');
-  cam(a + 31, 'net', 'landCdk5', 0);
-  cam(a + 47, 'net', 'landCdk5', 20, 'spin');
-  cam(a + 52, 'net', 'land', 10);
-  cam(b - 0.5, 'net', 'land', 30, 'spin');
+  cam(a + 18, 'net', 'land', -10, 'spin');
+  cam(a + 22, 'net', 'landCdk5', 0);
+  cam(a + 26, 'net', 'landCdk5', 10, 'spin');
+  cam(a + 31, 'net', 'land', 10);
+  cam(b - 0.5, 'net', 'land', 45, 'spin');
   // Too little, too much: the landscape, CDK5 glowing, a slow turn
   a = C0.learn.a; b = C0.learn.b;
   ramp('net_partners', a, a + 3, 1, 0);
   ramp('net_dim', a, a + 3, 0.55, 0);
-  cam(a + 1, 'net', 'land', 32);
-  cam(b - 0.5, 'net', 'land', 72, 'spin');
+  key('net_term', a + 4, CANCER); key('net_term', a + 4.1, -1);
+  cam(a + 1, 'net', 'land', 46);
+  cam(b - 0.5, 'net', 'land', 80, 'spin');
   // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
-  // before the line it goes with, textures under the voice soft (cued in authored seconds, as the keys)
+  // before the moment it goes with, soft under the voice
   const cue = (t, ...r) => sfxCue(t * K_T, ...r);
   a = C0.title.a;
-  cue(a + 0.8, 'grow', 'net', 'centre', { dur: 8 });                              // the map grows from its middle
-  cue(a + 37.3, 'ping', 'net', 'cdk5');                                           // CDK5 found
-  a = C0.kinase.a;
-  cue(a + 1, 'whoosh', 'net', 'cdk5', { dur: 1.5 });                              // close to CDK5
-  cue(a + 8.8, 'ping', 'net', 'cdk5', { pitch: 1.2 });                            // its cousins lit
-  [31, 31.5, 32, 32.5, 33].forEach((s, i) => cue(a + s, 'link', 'net', 'cdk5', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // its partners
-  cue(a + 44.8, 'ping', 'net', 'app', { pitch: 0.8 });                            // the hub
+  cue(a + 1.8, 'grow', 'net', 'centre', { dur: 8 });                              // the map grows from its middle
+  cue(a + 39.5, 'ping', 'net', 'cdk5');                                           // CDK5 found
   a = C0.activators.a;
-  cue(a + 7.8, 'step', 'net', 'p35');                                             // p35's home
-  cue(a + 8.4, 'step', 'net', 'p39', { pitch: 1.12 });                            // p39's
-  cue(a + 24.8, 'whoosh', 'net', 'centre', { dur: 7 });                           // pulled into the centre
-  cue(a + 31, 'link', 'core', 'cdk5', { seq: true });                             // their two links
-  cue(a + 31.6, 'link', 'core', 'cdk5', { pitch: 1.12, seq: true });
-  a = C0.signal.a;
-  cue(a + 2.8, 'whoosh', 'net', 'centre', { dur: 6 });                            // the pathway pulled in
-  cue(a + 13.8, 'pulse', 'core', 'bdnf');                                         // the signal
-  cue(a + 28, 'pulse', 'core', 'ntrk2', { gain: 0.4 });
+  cue(a + 0.8, 'whoosh', 'net', 'centre', { dur: 7 });                            // pulled into the centre
+  cue(a + 25.6, 'link', 'core', 'cdk5', { seq: true });                           // p35 docks: on
+  cue(a + 30.6, 'link', 'core', 'cdk5', { pitch: 0.8, seq: true });               // lets go: off
+  a = C0.partners.a;
+  cue(a + 3.8, 'whoosh', 'net', 'centre', { dur: 6 });                            // the star
+  [6, 6.5, 7, 7.5].forEach((s, i) => cue(a + s, 'link', 'net', 'cdk5', { pitch: Math.pow(2, 2 * i / 12), seq: true, gain: 0.5 }));
+  a = C0.ntrk2.a;
+  cue(a + 0.8, 'whoosh', 'net', 'centre', { dur: 6 });                            // the pathway pulled in
+  cue(a + 18.8, 'pulse', 'core', 'bdnf');                                         // the message
+  a = C0.sema.a;
+  cue(a + 1.8, 'whoosh', 'net', 'centre', { dur: 6 });
+  cue(a + 22.3, 'pulse', 'core', 'sema', { pitch: 1.1 });
+  a = C0.npas4.a;
+  cue(a + 0.8, 'whoosh', 'net', 'centre', { dur: 6 });
+  cue(a + 12.8, 'pulse', 'core', 'npas4', { pitch: 0.9 });
   a = C0.calpain.a;
-  cue(a + 2.8, 'whoosh', 'net', 'centre', { dur: 6, pitch: 0.8 });                // the pathway goes, calpain comes
-  cue(a + 14, 'snap', 'core', 'capn1');                                           // the cut
-  cue(a + 14.5, 'spark', 'core', 'cdk5');
-  cue(a + 24, 'knock', 'core', 'cdk5');                                           // CDK5 turns red
+  cue(a + 0.8, 'whoosh', 'net', 'centre', { dur: 6, pitch: 0.8 });                // calpain comes in
+  cue(a + 18.6, 'snap', 'core', 'capn1');                                         // the cut
+  cue(a + 19.1, 'spark', 'core', 'cdk5');
+  cue(a + 35, 'knock', 'core', 'cdk5');                                           // CDK5 turns red
+  a = C0.reach.a;
+  [23, 23.5, 24, 24.5].forEach((s, i) => cue(a + s, 'link', 'net', 'cdk5', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // its lines
   a = C0.alzheimer.a;
   cue(a + 2.8, 'whoosh', 'net', 'centre', { dur: 6 });                            // the pathway pulled in
-  cue(a + 13.8, 'pulse', 'core', 'cdk5', { pitch: 0.8 });                         // the harm spreads from CDK5
-  [14, 17, 20, 23, 26].forEach((s, i) => cue(a + s - 0.3, 'step', 'core', 'app', { pitch: Math.pow(2, -2 * i / 12), gain: 0.4 }));   // its paths, one by one
-  cue(a + 37.8, 'rise', 'net', 'top', { dur: 3 });                                // the map coloured by disease
+  cue(a + 9.8, 'rise', 'net', 'top', { dur: 3 });                                 // the map coloured by disease
+  [17, 18.5, 20].forEach((s, i) => cue(a + s, 'step', 'core', 'tau', { pitch: Math.pow(2, -2 * i / 12), gain: 0.4 }));   // phosphate tags
+  cue(a + 22.4, 'knock', 'core', 'tau', { pitch: 0.7 });                          // the tangle
   a = C0.landscape.a;
   cue(a + 2.8, 'whoosh', 'net', 'centre', { dur: 10, pitch: 0.7 });               // the sphere opens into the landscape
-  cue(a + 12, 'rise', 'net', 'centre', { dur: 3 });
-  cue(a + 30.8, 'ping', 'net', 'near');                                           // its 30 nearest
-  [51, 51.5, 52, 52.5].forEach((s, i) => cue(a + s, 'link', 'net', 'cdk5', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // its partners
+  cue(a + 18.8, 'ping', 'net', 'near');                                           // its nearest
+  [26, 26.5, 27, 27.5].forEach((s, i) => cue(a + s, 'link', 'net', 'cdk5', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // its partners
   a = C0.learn.a;
   cue(a + 0.5, 'rise', 'net', 'cdk5', { gain: 0.4 });                             // the landscape, CDK5 glowing
-  cue(a + 12.8, 'knock', 'net', 'cdk5', { pitch: 0.8, gain: 0.4 });               // too much
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts; the story adds what the map's colours mean once they turn to disease)
   a = C0.alzheimer.a;
-  label('net', 'top', '<b>Coloured by disease</b> · grey: none known', (a + 38) * K_T, (C0.alzheimer.b - 1) * K_T, 'amb');
+  label('net', 'top', '<b>Coloured by disease</b> · grey: none known', (a + 10) * K_T, (a + 15) * K_T, 'amb');
 }
 // no set turns into another at a hand-over (buildCamera's MORPH)
 const MORPH = {};

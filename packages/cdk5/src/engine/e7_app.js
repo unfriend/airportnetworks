@@ -81,7 +81,7 @@ function frame(now, xrFrame) {
     S = storyState(ts); tSet = ts;
     const v = storyCam(ts);
     GL.nf = v[6];
-    // (in a headset the first two chapters stand you inside the map: standW, by story time; facing the net's inside view)
+    // (in a headset the first chapter stands you inside the map: standW, by story time; facing the net's inside view)
     XR.scene = S.net_scene; XR.inW = standW(ts);
     if (XR.inW > 0) { const vi = view('net', 'inside'); vi[0] += setYaw('net', ts); XR.inV = vi; }
     if (xr) xrPlace(v); else { applyCamera(v); keepCamera(S, ts); }

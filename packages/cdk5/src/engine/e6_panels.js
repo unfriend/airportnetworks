@@ -27,17 +27,17 @@ function drawTabPane(ctx, P, x, y, W, bottom) {
 // the six scenes, the chosen one's switches, a pathway lit and Stand inside
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 24) / 3, i = sIdx(X.scene), sc = SCENES[i];
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + (j % 3) * (cw + 12), y + Math.floor(j / 3) * 64, cw, 54, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 23 }));
-  y += 140;
+  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + (j % 3) * (cw + 12), y + Math.floor(j / 3) * 60, cw, 52, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  y += Math.ceil(SCENES.length / 3) * 60 + 14;
   y += textBlock(ctx, sc[1], x, y, W, 30, 38, VC.ink, 700, 1) + 6;
-  y += textBlock(ctx, sc[2], x, y, W, 24, 33, VC.muted, 400, 4) + 16;
+  y += textBlock(ctx, sc[2], x, y, W, 22, 30, VC.muted, 400, 4) + 12;
   for (const c of ctlsOf(X.scene)) {
     if (y + 100 > bottom) break;
     y += head(ctx, x, y, c.label);
     y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => sceneCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 23, h: 52 }) + 14;
   }
   y += head(ctx, x, y, 'Light a pathway');
-  y += flow(ctx, P, PATHS.map(([v, n]) => ({ id: 'path:' + v, label: n, on: X.path === v, col: v === 0 ? CC.pathway : v === 1 ? CC.alz : null, fn: () => setPath(v) })), x, y, W, bottom, { px: 23, h: 52 }) + 16;
+  y += flow(ctx, P, PATHS.map(([v, n]) => ({ id: 'path:' + v, label: n, on: X.path === v, col: pathCol(v), fn: () => setPath(v) })), x, y, W, bottom, { px: 23, h: 52 }) + 16;
   if (INSIDE_OK(X.scene)) y += flow(ctx, P, [{ id: 'inside', label: 'Stand inside', on: X.inside, fn: () => setInside(!X.inside) }], x, y, W, bottom, { px: 23, h: 52 }) + 18;
   footNote(ctx, `The authors' scene: ${AUTHOR_SC[i]}.${hasCore(X.scene) ? ' The balls, tubes and names at the centre are our clearer drawing of its proteins, at the authors\' places, scaled up.' : ''}${X.inside ? ' Standing inside: the map round you; the thumbstick turns it.' : ''}`, x, y, W, bottom);
 }
@@ -95,17 +95,20 @@ function drawDiseasesPane(ctx, P, x, y, W, bottom) {
   } else y += textBlock(ctx, 'No term picked. Terms with a CDK5 swatch are its own.', x, y, W, 22, 30, VC.muted, 400, 1) + 10;
   footNote(ctx, NOTE.diseases, x, y, W, bottom);
 }
-// what is whose, and the authors' six scenes
+// what is whose, the authors' nine scenes and the structures
 function drawAboutPane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, ABOUT, x, y, W, 23, 32, VC.muted, 400, 14) + 16;
-  y += head(ctx, x, y, 'The authors\' six scenes');
+  y += textBlock(ctx, ABOUT, x, y, W, 21, 29, VC.muted, 400, 9) + 12;
+  y += head(ctx, x, y, 'The authors\' nine scenes');
   SCENES.forEach(([k, n], i) => {
-    if (y + 40 > bottom) return;
-    swatch(ctx, x, y + 6, 20, [CC.cdk5, CC.activator, CC.pathway, CC.calpain, CC.alz, CC.hyper][i]);
-    ctx.font = vfont(22); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, `${AUTHOR_SC[i]}: ${n}`, W - 36), x + 34, y + 4);
-    y += 38;
+    if (y + 34 > bottom) return;
+    swatch(ctx, x, y + 4, 18, SCENE_COL[k]);
+    ctx.font = vfont(19); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, `${AUTHOR_SC[i]}: ${n}`, W - 32), x + 30, y + 2);
+    y += 30;
   });
-  footNote(ctx, `The CDK5 - calpain link of the calpain scene is the authors' own addition, not an interaction of the interactome: calpain acts on p35.`, x, y + 12, W, bottom);
+  y += 6;
+  y += head(ctx, x, y, 'The structures (close-ups not to scale)');
+  for (const st of STRUCTS) { if (y + 30 > bottom) break; y += textBlock(ctx, `${st[0]}: ${st[1]}`, x, y, W, 18, 24, VC.ink, 400, 2) + 4; }
+  footNote(ctx, ABOUT_NOTE, x, y + 8, W, bottom);
 }
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {

@@ -8,7 +8,7 @@ Object.assign(XR, { inW: 0, inV: [0, 0, 1, 0, 0, 0], scene: 0 });
 // target sits in front of you. The story keeps the map at its default size (1 unit is XR_UNIT m: the sphere about
 // 1.2 m across, its middle about XR_DC m away), and explore's views make it bigger as they come closer; either way it is
 // kept clear of your eyes (XR_CLEAR: the layouts' reach from their middle, XR_BOUND, against where your head is). In
-// the first two chapters, and with Stand inside in explore, it blends (XR.inW) to standing inside the map instead: its
+// the first chapter, and with Stand inside in explore, it blends (XR.inW) to standing inside the map instead: its
 // middle at your eyes, XR_IN m a unit (the sphere about 2.5 m round you), turned so the inside view's side (CDK5's)
 // is in front of you.
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);

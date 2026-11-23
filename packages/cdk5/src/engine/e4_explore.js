@@ -1,23 +1,31 @@
 // ================================================================ EXPLORE ==
-// Explore mode: the authors' six scenes with their switches (Scenes), any protein by its gene symbol or by pointing at
+// Explore mode: the authors' nine scenes with their switches (Scenes), any protein by its gene symbol or by pointing at
 // it, with its partners lit (Proteins), the Disease Ontology terms offered, their proteins lit and their counts
 // (Diseases), and what is whose (About). The scenes are not sets: both sets show every scene (the net its
 // arrangement, the core its centre's close-up). Every number shown is looked up in CDK5_DATA (through CDATA and the
 // sets' api()): nothing is computed here.
-const SCN = CD.SCENES;   // bioproc, subunits, ntrk2, calpain, alzheimer, disease
+const SCN = CD.SCENES;   // bioproc, subunits, partners, ntrk2, sema, npas4, calpain, alzheimer, disease
 const SCENES = [
   ['bioproc', 'Map of processes', `Every protein on a sphere by the Gene Ontology biological processes it takes part in: the ${fmt(FACTS.withProcess)} with a known process on the inner sphere, the ${fmt(FACTS.without)} without on the outer shell; links only between near neighbours. ${KNOT_NOTE}`],
-  ['subunits', 'Activators', 'CDK5 and its two activators, p35 and p39, pulled into the map\'s centre, their two links bright green.'],
-  ['ntrk2', 'NTRK2 signalling', `The ${FACTS.ntrk2} proteins of Reactome's Signalling by NTRK2 pulled into the centre, with the ${FACTS.ntrk2Links} links among them; only these links show.`],
-  ['calpain', 'Calpain', 'CDK5, now hyperactive, and calpain at the centre, with the one link the authors drew between them (calpain acts on p35, not on CDK5); every other link of the two left out.'],
-  ['alzheimer', 'Alzheimer\'s pathway', `The ${FACTS.alz} proteins of the Alzheimer's pathway pulled into the centre, CDK5 red, the ${FACTS.alzLinks} links among them; the map coloured by disease.`],
+  ['subunits', 'Activators', 'CDK5 and its two activators, p35 and p39, pulled into the map\'s centre, their two links bright green. The structures: CDK5 with the part of p35 that grips it; p39 has none known.'],
+  ['partners', 'Its partners', `CDK5's ${fmt(FACTS.deg)} partners in the interactome, in the authors' star round it (their second project); ${FACTS.family5} of its cousins brighter.`],
+  ['ntrk2', 'NTRK2 signalling', `The ${FACTS.ntrk2} proteins of Reactome's Signalling by NTRK2 pulled into the centre, with the ${FACTS.ntrk2Links} links among them; only these links show. The structures: BDNF and NTRK2's binding domain.`],
+  ['sema', 'Semaphorins', `Reactome's Semaphorin interactions: the ${FACTS.semaShown} of its ${FACTS.sema} proteins in the map that its links join in one piece, with the ${FACTS.semaLinks} links among them (the authors' second project). The structures: SEMA4D and its receptor PLXNB1.`],
+  ['npas4', 'NPAS4', `Reactome's Transcriptional regulation by NPAS4: the ${FACTS.npas4Shown - 1} of its ${FACTS.npas4} proteins in the map that its links join in one piece, and CDK5, joined to NPAS4 by a line the authors drew (the interactome has none). The structure: NPAS4 (mouse).`],
+  ['calpain', 'Calpain', 'CDK5, now hyperactive, and calpain at the centre, with the one link the authors drew between them (calpain cuts p35, not CDK5); every other link of the two left out. The structures: calpain-1\'s cutting core; CDK5 with p25.'],
+  ['alzheimer', 'Alzheimer\'s pathway', `The ${FACTS.alz} proteins of the Alzheimer's pathway pulled into the centre, CDK5 red, the ${FACTS.alzLinks} links among them; the map coloured by disease. Beside the centre: a Tau filament (Tau is a partner of CDK5, not in the pathway's list).`],
   ['disease', 'Disease landscape', `Every protein placed by the Disease Ontology diseases it is linked to: the ${fmt(FACTS.withDisease)} with a disease in the middle, the rest pushed to the walls; links between near proteins that interact.`],
 ];
-const SCENE_SHORT = { bioproc: 'Processes', subunits: 'Activators', ntrk2: 'NTRK2', calpain: 'Calpain', alzheimer: 'Alzheimer\'s', disease: 'Diseases' };
+const SCENE_SHORT = { bioproc: 'Processes', subunits: 'Activators', partners: 'Partners', ntrk2: 'NTRK2', sema: 'Semaphorins', npas4: 'NPAS4', calpain: 'Calpain', alzheimer: 'Alzheimer\'s', disease: 'Diseases' };
 // the camera each scene opens on (the net's views)
-const SCENE_VIEW = { bioproc: 'default', subunits: 'centre', ntrk2: 'centre', calpain: 'centre', alzheimer: 'centre', disease: 'land' };
+const SCENE_VIEW = { bioproc: 'default', subunits: 'centre', partners: 'centre', ntrk2: 'centre', sema: 'centre', npas4: 'centre', calpain: 'centre', alzheimer: 'centre', disease: 'land' };
 const sIdx = k => SCN.indexOf(k);
-const hasCore = k => sIdx(k) >= 1 && sIdx(k) <= 4;
+const hasCore = k => k !== 'bioproc' && k !== 'disease' && SCN.includes(k);
+// the structures each scene shows in explore (the core's params), and p35 docked on CDK5 there
+const MOL_X = {
+  subunits: ['core_mCdk5', 'core_mP35', 'core_p39'], partners: ['core_mCdk5'], ntrk2: ['core_mCdk5', 'core_mP35', 'core_mBdnf', 'core_mTrkb'],
+  sema: ['core_mSema'], npas4: ['core_mNpas4'], calpain: ['core_mCdk5', 'core_mP35', 'core_mCapn'], alzheimer: ['core_mCdk5', 'core_mP35', 'core_tau', 'core_mTau', 'core_phos'],
+};
 // the panes' closing notes, the same on the page and in the headset
 const NOTE = {
   proteins: `Partners are the proteins one is known to bind (the interactome's protein-protein interactions). The diseases are among the ${FACTS.termsN} Disease Ontology terms offered here; a protein's own associations reach further. Gene symbols name the proteins (Entrez genes).`,
@@ -33,10 +41,13 @@ const CT = {
   cousins: { key: 'cousins', label: 'Its cousins', options: [['off', 'Off'], ['on', 'On']] },
   near: { key: 'near', label: 'Its 30 nearest', options: [['off', 'Off'], ['on', 'On']] },
 };
-const CTLS = { bioproc: [CT.clouds, CT.links, CT.shell, CT.cousins], subunits: [CT.links, CT.shell], ntrk2: [CT.links, CT.shell], calpain: [CT.links, CT.shell],
-  alzheimer: [CT.links, CT.shell], disease: [CT.links, CT.near] };
+const CTLS = { bioproc: [CT.clouds, CT.links, CT.shell, CT.cousins], subunits: [CT.links, CT.shell], partners: [CT.links, CT.shell], ntrk2: [CT.links, CT.shell],
+  sema: [CT.links, CT.shell], npas4: [CT.links, CT.shell], calpain: [CT.links, CT.shell], alzheimer: [CT.links, CT.shell], disease: [CT.links, CT.near] };
 const ctlsOf = k => CTLS[k] || [];
-const PATHS = [[-1, 'None'], [0, 'NTRK2 signalling'], [1, 'Alzheimer\'s pathway']];
+const PATHS = [[-1, 'None'], [0, 'NTRK2 signalling'], [2, 'Semaphorins'], [3, 'NPAS4'], [1, 'Alzheimer\'s pathway']];
+// a pathway's key in CDATA.pathways by its number, and its colour
+const PATH_KEY = ['ntrk2', 'alzheimer', 'sema', 'npas4'];
+const pathCol = v => (v === 1 ? CC.alz : v >= 0 ? CC.pathway : null);
 // (explore opens on the disease landscape; each scene's switches start as the story shows them)
 const X = { tab: 'scenes', scene: 'disease', t0: 0, turn: 'on', inside: false, ctl: {}, prot: -1, term: -1, path: -1, q: '', tpage: 0 };
 //#use XS
@@ -52,24 +63,26 @@ const API = {};
 // the Disease Ontology terms offered, CDK5's own first, then the rest alphabetically (indices into CDATA.terms)
 const TERM_ORDER = CD.terms.map((t, j) => j).sort((x, y) => (CD.terms[y].cdk5 - CD.terms[x].cdk5) || CD.terms[x].name.localeCompare(CD.terms[y].name, 'en', { sensitivity: 'base' }));
 // a protein's name as the story says it (p35 and p39, calpain), and its gene symbol
-const ALIAS = { [CD.r1]: 'p35', [CD.r2]: 'p39', [CD.capn1]: 'calpain' };
+const ALIAS = { [CD.r1]: 'p35', [CD.r2]: 'p39', [CD.capn1]: 'calpain', [CD.find('MAPT')]: 'Tau' };
 const protName = i => (ALIAS[i] ? `${ALIAS[i]} · ${CD.sym[i]}` : CD.sym[i]);
 // quick picks (Proteins): CDK5, its activators, calpain, the hub, the receptor and its growth factor
-const QUICK = [CD.cdk5, CD.r1, CD.r2, CD.capn1, CD.find('APP'), CD.find('NTRK2'), CD.find('BDNF')].filter(i => i >= 0);
-const pathOf = i => [0, 1].filter(p => CD.pathways[p ? 'alzheimer' : 'ntrk2'].members.includes(i));
+const QUICK = [CD.cdk5, CD.r1, CD.r2, CD.capn1, CD.find('MAPT'), CD.find('APP'), CD.find('NTRK2'), CD.find('BDNF'), CD.find('SEMA4D'), CD.npas4].filter(i => i >= 0);
+const pathOf = i => [0, 2, 3, 1].filter(p => CD.pathways[PATH_KEY[p]].members.includes(i));
 
 // what the chosen scene, its switches and the panes' picks ask for: both sets in (the core where the scene has a centre)
 function exploreTargets() {
-  const k = X.scene, i = Math.max(0, sIdx(k)), core = hasCore(k) && !X.inside, hyper = i >= 3 ? 1 : 0, sw = key => ctlv(k, key);
+  const k = X.scene, i = Math.max(0, sIdx(k)), core = hasCore(k) && !X.inside, hyper = i >= sIdx('calpain') ? 1 : 0, sw = key => ctlv(k, key);
   const tg = Object.assign({}, GL.sets.net.params, GL.sets.core.params, {
     net_a: 1, core_a: core ? 1 : 0, net_scene: i, core_scene: i, net_grow: 1,
     net_links: sw('links') === 'off' ? 0 : 1, net_shell: sw('shell') === 'faint' ? 0 : 1,
-    net_cdk5: 1, net_hyper: hyper, core_hyper: hyper, core_cut: i === 3 ? 1 : 0, core_flow: i === 2 || i === 4 ? 1 : 0, core_names: 1,
+    net_cdk5: 1, net_hyper: hyper, core_hyper: hyper, core_cut: hyper, core_flow: ['ntrk2', 'sema', 'npas4', 'alzheimer'].includes(k) ? 1 : 0, core_names: 1,
+    core_dock: 1, core_mCdk5: 0, core_mP35: 0, core_p39: 0, core_mCapn: 0, core_mBdnf: 0, core_mTrkb: 0, core_mSema: 0, core_mNpas4: 0, core_tau: 0, core_mTau: 0, core_phos: 0,
     net_veil: core ? 1 : 0, net_core: core ? 1 : 0, net_family: sw('cousins') === 'on' ? 1 : 0, net_near: sw('near') === 'on' ? 1 : 0,
-    net_clouds: i === 0 && sw('clouds') !== 'hidden' ? 1 : 0, net_shells: 0, net_landTags: i === 5 ? 1 : 0, net_homes: 0, net_hub: 0, net_partners: 0,
+    net_clouds: i === 0 && sw('clouds') !== 'hidden' ? 1 : 0, net_shells: 0, net_landTags: k === 'disease' ? 1 : 0, net_homes: 0, net_hub: 0, net_partners: 0,
     net_pick: X.prot, net_path: X.path, net_term: X.term, net_termA: X.term >= 0 ? 1 : 0,
     net_dim: X.prot >= 0 || X.term >= 0 || X.path >= 0 || sw('near') === 'on' ? 0.55 : sw('cousins') === 'on' ? 0.3 : 0,
   });
+  for (const n of MOL_X[k] || []) tg[n] = 1;
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -143,9 +156,10 @@ function selectTerm(j, ui = true) {
   if (ui && X.term >= 0) X.tpage = Math.floor(TERM_ORDER.indexOf(X.term) / TPAGE);
   renderAll();
 }
-// a pathway lit (-1 none, 0 NTRK2's, 1 the Alzheimer's): its members brighten wherever they are
+// a pathway lit (-1 none, 0 NTRK2's, 1 the Alzheimer's, 2 Semaphorin interactions, 3 NPAS4's): its members brighten
+// wherever they are
 function setPath(p, ui = true) {
-  const v = p === 0 || p === 1 ? p : -1;
+  const v = Number.isInteger(p) && p >= 0 && p < PATH_KEY.length ? p : -1;
   if (v >= 0 && v !== X.path) sfxAct('pulse', 'net', 'centre', { gain: 0.6 });
   X.path = v;
   renderAll();
@@ -176,7 +190,8 @@ async function xrSearch() {
 // What everyone at a station sees alike in explore mode: the tab, the scene, every scene's switches, the protein picked,
 // the term picked and the pathway lit. The camera (and standing inside), the search text and the term list's page are
 // each person's own. v: the shape of this state (a package changes it only together with v, which apply checks).
-const COLLAB_V = 1;
+// (v2, v190: the scenes partners, sema and npas4, the pathways 2 and 3)
+const COLLAB_V = 2;
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
 function collabView() {
@@ -204,7 +219,7 @@ function collabApply(v) {
   const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
   if (int(v.prot, -1, CD.n - 1) && v.prot !== X.prot) selectProt(v.prot, false);
   if (int(v.term, -1, CD.terms.length - 1) && v.term !== X.term) selectTerm(v.term, false);
-  if (int(v.path, -1, 1) && v.path !== X.path) setPath(v.path, false);
+  if (int(v.path, -1, PATH_KEY.length - 1) && v.path !== X.path) setPath(v.path, false);
   renderAll();
 }
 
@@ -271,7 +286,7 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    <p class="grp-h">Light a pathway</p><div class="chips">${PATHS.map(([v, n]) => chip(`data-act="path" data-v="${v}"`, esc(n), X.path === v, v === 0 ? CC.pathway : v === 1 ? CC.alz : null)).join('')}</div>
+    <p class="grp-h">Light a pathway</p><div class="chips">${PATHS.map(([v, n]) => chip(`data-act="path" data-v="${v}"`, esc(n), X.path === v, pathCol(v))).join('')}</div>
     ${INSIDE_OK(X.scene) ? `<div class="chips" style="margin-top:12px">${chip('data-act="inside"', 'Stand inside', X.inside)}</div>` : ''}
     <p class="note">The authors' scene: ${esc(AUTHOR_SC[i])}.${hasCore(X.scene) ? ' The balls, tubes and names at the centre are our clearer drawing of its proteins, at the authors\' places, scaled up.' : ''}</p>`;
 }
@@ -286,7 +301,7 @@ function protInfo(i) {
     rows: [['Partners', fmt(CD.deg(i)), i === CD.cdk5 ? `${ordinal(FACTS.rank)} of ${fmt(FACTS.proteins)}` : ''],
       ['Known process', CD.bp(i) ? 'yes' : 'none', CD.bp(i) ? 'on the inner sphere' : 'on the outer shell'],
       ['Diseases', CD.dis(i) ? (tm.length ? `${tm.length} of the ${FACTS.termsN} terms here` : 'none of the terms here') : 'none known', CD.dis(i) ? 'in the landscape\'s middle' : 'at the landscape\'s walls'],
-      ['Pathways', pw.length ? pw.map(p => (p ? 'Alzheimer\'s' : 'NTRK2 signalling')).join(', ') : 'neither']],
+      ['Pathways', pw.length ? pw.map(p => PATHS.find(x => x[0] === p)[1]).join(', ') : 'none of the four']],
     partners: nb.slice(0, 12), more: Math.max(0, nb.length - 12), terms: tm.slice(0, 6),
   };
 }
@@ -332,10 +347,14 @@ function renderAbout() {
   const pane = $('#pane-about');
   if (!pane) return;
   pane.innerHTML = `<p class="sub">${esc(ABOUT)}</p>
-    <p class="grp-h">The authors' six scenes</p>
-    <ul class="legend">${SCENES.map(([k, n], i) => `<li><span class="sw" style="background:${swCol([CC.cdk5, CC.activator, CC.pathway, CC.calpain, CC.alz, CC.hyper][i])}"></span>${esc(AUTHOR_SC[i])}: ${esc(n)}</li>`).join('')}</ul>
-    <p class="note">The CDK5 - calpain link of the calpain scene is the authors' own addition, not an interaction of the interactome: calpain acts on p35. Over-representation counts: ${esc(CD.diseases.method)}.</p>`;
+    <p class="grp-h">The authors' nine scenes</p>
+    <ul class="legend">${SCENES.map(([k, n], i) => `<li><span class="sw" style="background:${swCol(SCENE_COL[k])}"></span>${esc(AUTHOR_SC[i])}: ${esc(n)}</li>`).join('')}</ul>
+    <p class="grp-h">The structures (close-ups not to scale)</p>
+    <ul class="legend">${STRUCTS.map(s => `<li>${esc(s[0])}: ${esc(s[1])}</li>`).join('')}</ul>
+    <p class="note">${esc(ABOUT_NOTE)} Over-representation counts: ${esc(CD.diseases.method)}.</p>`;
 }
+// each scene's swatch (About)
+const SCENE_COL = { bioproc: CC.cdk5, subunits: CC.activator, partners: CC.partner, ntrk2: CC.pathway, sema: CC.pathway, npas4: CC.pathway, calpain: CC.calpain, alzheimer: CC.alz, disease: CC.hyper };
 // labels the panes add (none: the sets label their own picks)
 function updateExtraLabels() {}
 

@@ -1,0 +1,248 @@
+{
+ "v": 1,
+ "models": [
+  {
+   "name": "cdk5",
+   "title": "CDK5 (from its complex with p25)",
+   "credit": "PDB 1H4L (Tarricone et al., Mol Cell 2001): human CDK5 with p25",
+   "file": "cdk5.mol",
+   "fp": "357e88fe1ee559ab",
+   "bytes": 263812,
+   "radius": 37.251,
+   "size": [
+    63.691,
+    54.415,
+    52.398
+   ],
+   "residues": 278,
+   "chains": [
+    "A"
+   ],
+   "looks": {
+    "surface": [
+     13998,
+     4500,
+     1200
+    ]
+   },
+   "src": "29af5653a0c36429"
+  },
+  {
+   "name": "p25",
+   "title": "p35's activating part (residues 147 to 293, within p25)",
+   "credit": "PDB 1H4L (Tarricone et al., Mol Cell 2001): human CDK5 with p25",
+   "file": "p25.mol",
+   "fp": "ed38b74dab30cc9d",
+   "bytes": 172292,
+   "radius": 29.727,
+   "size": [
+    43.282,
+    45.903,
+    39.474
+   ],
+   "residues": 147,
+   "chains": [
+    "D"
+   ],
+   "looks": {
+    "surface": [
+     9000,
+     2998,
+     900
+    ]
+   },
+   "src": "e9249bb29e051411"
+  },
+  {
+   "name": "capn1",
+   "title": "calpain-1's cutting core (CAPN1, its two protease domains)",
+   "credit": "PDB 1ZCM (Li et al., Biochemistry 2006): human calpain-1 protease core",
+   "file": "capn1.mol",
+   "fp": "6d71cc3a1ba3662b",
+   "bytes": 265072,
+   "radius": 39.301,
+   "size": [
+    72.5591,
+    47.4128,
+    44.557
+   ],
+   "residues": 321,
+   "chains": [
+    "A"
+   ],
+   "looks": {
+    "surface": [
+     13998,
+     4498,
+     1200
+    ]
+   },
+   "src": "c41075acebc2bdae"
+  },
+  {
+   "name": "bdnf",
+   "title": "BDNF (one chain of a BDNF and NT-3 pair)",
+   "credit": "PDB 1BND (Robinson et al., Biochemistry 1995): human BDNF with NT-3",
+   "file": "bdnf.mol",
+   "fp": "58ab3d6836d53479",
+   "bytes": 118080,
+   "radius": 37.372,
+   "size": [
+    65.9874,
+    39.3828,
+    28.9364
+   ],
+   "residues": 109,
+   "chains": [
+    "A"
+   ],
+   "looks": {
+    "surface": [
+     6000,
+     2000,
+     800
+    ]
+   },
+   "src": "5d8273122dbb1a84"
+  },
+  {
+   "name": "trkb",
+   "title": "NTRK2's binding domain (TrkB-d5, from its complex with NT-4/5)",
+   "credit": "PDB 1HCF (Banfield et al., Structure 2001): human TrkB-d5 with NT-4/5",
+   "file": "trkb.mol",
+   "fp": "6aad426e67132620",
+   "bytes": 117884,
+   "radius": 31.058,
+   "size": [
+    60.49,
+    32.0824,
+    30.4356
+   ],
+   "residues": 101,
+   "chains": [
+    "X"
+   ],
+   "looks": {
+    "surface": [
+     5998,
+     2000,
+     800
+    ]
+   },
+   "src": "0a0e2662cc0742df"
+  },
+  {
+   "name": "sema4d",
+   "title": "SEMA4D, its outside part",
+   "credit": "PDB 3OL2 (Janssen et al., Nature 2010): human Semaphorin 4D with Plexin B1",
+   "file": "sema4d.mol",
+   "fp": "5d3d5fd5dfde44ff",
+   "bytes": 307048,
+   "radius": 58.938,
+   "size": [
+    113.1,
+    64.6827,
+    61.1951
+   ],
+   "residues": 614,
+   "chains": [
+    "A"
+   ],
+   "looks": {
+    "surface": [
+     16000,
+     4998,
+     1400
+    ]
+   },
+   "src": "5ef8b9f5ee3fb736"
+  },
+  {
+   "name": "plxnb1",
+   "title": "PLXNB1, its first two outside domains",
+   "credit": "PDB 3OL2 (Janssen et al., Nature 2010): human Semaphorin 4D with Plexin B1",
+   "file": "plxnb1.mol",
+   "fp": "c25ca1f80c6b3667",
+   "bytes": 269268,
+   "radius": 50.007,
+   "size": [
+    80.2034,
+    72.016,
+    53.2212
+   ],
+   "residues": 496,
+   "chains": [
+    "B"
+   ],
+   "looks": {
+    "surface": [
+     13998,
+     4500,
+     1200
+    ]
+   },
+   "src": "ad450a64bb625a49"
+  },
+  {
+   "name": "npas4",
+   "title": "NPAS4 (mouse; its DNA-binding and PAS parts)",
+   "credit": "PDB 7XI3 (Sun et al., PNAS 2022): mouse NPAS4 with ARNT2 on DNA",
+   "file": "npas4.mol",
+   "fp": "babbc4869bb13f49",
+   "bytes": 230728,
+   "radius": 49.991,
+   "size": [
+    95.0289,
+    55.5742,
+    44.078
+   ],
+   "residues": 314,
+   "chains": [
+    "B"
+   ],
+   "looks": {
+    "surface": [
+     11998,
+     3998,
+     1098
+    ]
+   },
+   "src": "73060cb0bcb95bdb"
+  },
+  {
+   "name": "tau",
+   "title": "Tau filament core from an Alzheimer's brain (ten layers)",
+   "credit": "PDB 5O3L (Fitzpatrick et al., Nature 2017): a paired helical filament of Tau, by cryo-EM",
+   "file": "tau.mol",
+   "fp": "167aee935c257bb3",
+   "bytes": 310216,
+   "radius": 71.096,
+   "size": [
+    138.7942,
+    66.8836,
+    35.8703
+   ],
+   "residues": 730,
+   "chains": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J"
+   ],
+   "looks": {
+    "surface": [
+     16000,
+     5000,
+     1398
+    ]
+   },
+   "src": "6fd16296284c4293"
+  }
+ ]
+}
