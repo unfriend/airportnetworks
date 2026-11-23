@@ -201,3 +201,20 @@ licence as the Blizzard 2013 Lessac data's
 purposes only, no commercial use). Whether that reaches a German voice finetuned from it is not settled; the app is
 non-commercial outreach. The owner decides (`docs/data-and-permissions.md`). A story narrated with it should say in its
 credits that the German narration is a synthetic voice (Piper, Thorsten). See `docs/data-and-permissions.md`.
+
+## The script
+
+A story's speech sounds like a human scientist speaking to a general audience (the owner, 23 November 2026; `AGENTS.md`,
+"Conventions"). The voice does not read the panel: each spoken line is the `data-say` of the panel line it belongs to
+(`narrate.mjs` speaks it, `check.mjs` checks it, the headset's subtitles show it), and `data-say=""` keeps a line
+silent (headings, the title, captions; `.credits` is never read).
+
+- One speaker talking to the listener: "we" and "you", questions, short sentences, one idea each.
+- One running image through the story (Back into the cell: a house with rooms, walls and doors), the proper terms
+  introduced once and kept on the panel and labels.
+- Round numbers in speech ("eight in ten", "about 3,000"), computed from the data like the panel's exact ones.
+- Point at the picture ("watch every dot fly home", "this one, GRB2"); each chapter ends on the next one's question.
+- The panel keeps key points and exact numbers. Each line's `data-at` is the scene moment it speaks to; `narrate.mjs`
+  stretches the story between them.
+- Narration scripts are written on Fable (`CLAUDE.md`, "Keeping token use down"). `packages/ppicell` is the example.
+

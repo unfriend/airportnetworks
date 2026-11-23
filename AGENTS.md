@@ -296,6 +296,10 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Writing in the UI is plain British English, short sentences, no jargon
   without a gloss (the qubits story uses American spelling, as its author asked, and so does the aging ovary story, as the owner asked; the pass story is in English and German, see its section). Numbers shown in the story are computed from the data at
   load time, not hard-coded, wherever possible.
+- A story's speech sounds like a human scientist speaking to a general audience (the owner, 23 November 2026): one
+  speaker, "we" and "you", short spoken sentences, one running image, round numbers, no headings or small print read
+  out. The voice has its own words (`data-say` on a line; the headset's subtitles show them); the panel keeps the key
+  points and the exact numbers. New and re-recorded narrations follow this (`tools/voice/README.md`, "The script").
 - Scientific content is illustrative but must be correct: only add
   interactions and locations that are well documented (complexes, textbook
   pathways, Human Protein Atlas / UniProt locations). Say "in this map" for
