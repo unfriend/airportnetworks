@@ -40,7 +40,7 @@ varying vec3 vC, vP; varying float vR;
 void main() {
   vec2 c = gl_PointCoord * 2.0 - 1.0; c.y = -c.y;
   float d2 = dot(c, c);
-  if (d2 > 1.0) discard;
+  if (d2 > 1.0 || uA < 0.004) discard;
   vec3 n = vec3(c, sqrt(1.0 - d2));
   vec3 L = normalize(vec3(-0.45, 0.6, 0.66));
   float diff = max(dot(n, L), 0.0), spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0);
@@ -51,8 +51,10 @@ void main() {
   gl_FragColor = vec4(col, uA);
 }`,
     });
-    // (see-through only while it fades, as the kit's materials are)
+    // (see-through only while it fades, as the kit's materials are, and then writing no depth: a ball nearly faded out
+    // would otherwise hide what lies behind it, a dark hole where it is, before its colour shows; the owner, 23 November 2026)
     Object.defineProperty(m, 'transparent', { configurable: true, get: () => U.uA.value < 0.999, set() {} });
+    Object.defineProperty(m, 'depthWrite', { configurable: true, get: () => U.uA.value >= 0.999, set() {} });
     set.mats.push(m);
     return m;
   }

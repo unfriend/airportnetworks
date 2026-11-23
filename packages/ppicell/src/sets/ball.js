@@ -94,11 +94,11 @@ void main() {
   // (a highlight, ball_hi: the protein (aHi 2) lights first, then its partners (1) with its links; the rest dims a
   // little, still seen)
   float on = step(0.5, aHi), me = step(1.5, aHi), hP = hiP(u), lit = me * hP + (1.0 - me) * on * hiL(u);
-  gl_PointSize = pointPx(aSize, mv) * (1.0 + lit * (0.5 + 2.0 * me));
+  gl_PointSize = pointPx(aSize, mv) * (1.0 + lit * (0.2 + 2.3 * me));
   vec3 pale = vec3(0.5, 0.68, 1.0);
   vC = mix(pale, aOut > 0.5 ? vec3(0.5, 0.53, 0.58) : aCol, u) * mix(1.0, 0.75, aOut * u);
   vC = mix(vC, me > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), lit);
-  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * (on > 0.5 ? mix(1.0, 4.0, lit) : mix(1.0, 0.6, hP));
+  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * (on > 0.5 ? mix(1.0, 1.8, lit) : mix(1.0, 0.85, hP));
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `uniform float uA; varying vec3 vC; varying float vA;
@@ -129,11 +129,11 @@ void main() {
   // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
   float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
   vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint);
-  // (while a protein's links are lit the others turn a cooler violet, a little fainter, still seen: the owner, 22
-  // November 2026; while the sweep runs they step back)
+  // (while a protein's links are lit the others turn a cooler violet, still seen, a little brighter than before so they
+  // read beside the lit ones: the owners, 22 and 23 November 2026; while the sweep runs they step back)
   float hP = hiP(u);
-  vC = mix(vC, vec3(0.55, 0.5, 1.0) * 0.5, hP);
-  vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.3 * hP) * (1.0 - 0.7 * uSwOn * (1.0 - u));
+  vC = mix(vC, vec3(0.6, 0.55, 1.0) * 0.72, hP);
+  vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 + 0.3 * hP) * (1.0 - 0.7 * uSwOn * (1.0 - u));
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
@@ -155,7 +155,8 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
   vA = hiL(u);
 }`,
-    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.3 * vA * uA); }',
+    // (soft, not burning: the owner, 23 November 2026, the other links must still read beside them)
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.74, 0.38, 0.13 * vA * uA); }',
   });
   set.mats.push(hiMat);
   const hiLines = new THREE.LineSegments(hg, hiMat); hiLines.frustumCulled = false; hiLines.renderOrder = 6; hiLines.visible = false;

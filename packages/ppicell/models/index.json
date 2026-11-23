@@ -134,29 +134,83 @@
   },
   {
    "name": "b2ar",
-   "title": "the beta-2 adrenergic receptor",
-   "credit": "PDB 2RH1 (Cherezov et al., 2007)",
+   "title": "the beta-2 adrenergic receptor (active, with its G protein)",
+   "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)",
    "file": "b2ar.mol",
-   "fp": "76d1f4994ea62f6f",
-   "bytes": 694880,
-   "radius": 38.779,
+   "fp": "99c2c30b1e89cdae",
+   "bytes": 698708,
+   "radius": 43.912,
    "size": [
-    68.6221,
-    49.8882,
-    41.7339
+    53.229,
+    50.467,
+    79.506
    ],
-   "residues": 282,
+   "residues": 284,
    "chains": [
-    "A"
+    "R"
    ],
    "looks": {
     "cartoon": [
-     33640,
-     13472,
-     5620
+     33780,
+     13536,
+     5650
     ]
    },
-   "src": "fac6770b4f355e2e"
+   "src": "05bebc19ed9491a3"
+  },
+  {
+   "name": "b2lig",
+   "title": "an agonist in the receptor's pocket (BI-167107)",
+   "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)",
+   "file": "b2lig.mol",
+   "fp": "dec0ffe9548fb5c1",
+   "bytes": 28220,
+   "radius": 8.287,
+   "size": [
+    11.901,
+    12.411,
+    12.852
+   ],
+   "residues": 1,
+   "chains": [
+    "R"
+   ],
+   "looks": {
+    "surface": [
+     1200,
+     600,
+     300
+    ]
+   },
+   "src": "a02e8d6f13cd7df6"
+  },
+  {
+   "name": "gs",
+   "title": "the G protein Gs (its three chains)",
+   "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)",
+   "file": "gs.mol",
+   "fp": "ee06aabf36e1178c",
+   "bytes": 286368,
+   "radius": 55.109,
+   "size": [
+    92.058,
+    84.211,
+    75.288
+   ],
+   "residues": 747,
+   "chains": [
+    "A",
+    "B",
+    "G"
+   ],
+   "looks": {
+    "surface": [
+     13998,
+     5000,
+     1598
+    ]
+   },
+   "src": "f487b0e6be521d7f"
   },
   {
    "name": "ras",
@@ -476,214 +530,6 @@
     ]
    },
    "src": "fcae85c5250954ec"
-  },
-  {
-   "name": "egfr",
-   "title": "EGFR's kinase domain",
-   "credit": "PDB 1M17 (Stamos et al., J Biol Chem 2002)",
-   "file": "egfr.mol",
-   "fp": "81a8db985d9d8023",
-   "bytes": 108356,
-   "radius": 48.918,
-   "size": [
-    88.7268,
-    61.407,
-    47.2934
-   ],
-   "residues": 312,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     4998,
-     1998,
-     698
-    ]
-   },
-   "src": "b500824d68bdd876"
-  },
-  {
-   "name": "erbb2",
-   "title": "ERBB2's kinase domain",
-   "credit": "PDB 3PP0 (Aertgeerts et al., J Biol Chem 2011)",
-   "file": "erbb2.mol",
-   "fp": "71ecf0fde85c47a9",
-   "bytes": 107884,
-   "radius": 36.172,
-   "size": [
-    63.9261,
-    52.3219,
-    48.9695
-   ],
-   "residues": 286,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     4998,
-     1998,
-     698
-    ]
-   },
-   "src": "97c79f3a33c1c204"
-  },
-  {
-   "name": "met",
-   "title": "MET's kinase domain",
-   "credit": "PDB 1R0P (Schiering et al., PNAS 2003)",
-   "file": "met.mol",
-   "fp": "06c08fb436f7670c",
-   "bytes": 108540,
-   "radius": 37.078,
-   "size": [
-    68.8906,
-    51.005,
-    43.7378
-   ],
-   "residues": 301,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     5000,
-     2000,
-     698
-    ]
-   },
-   "src": "c2e091796d6abb69"
-  },
-  {
-   "name": "kit",
-   "title": "KIT's kinase domain",
-   "credit": "PDB 1T46 (Mol et al., J Biol Chem 2004)",
-   "file": "kit.mol",
-   "fp": "3205076e4cbf13ab",
-   "bytes": 108324,
-   "radius": 38.155,
-   "size": [
-    62.9116,
-    57.4121,
-    43.6585
-   ],
-   "residues": 297,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     5000,
-     2000,
-     698
-    ]
-   },
-   "src": "032e5018a925017a"
-  },
-  {
-   "name": "shc1",
-   "title": "SHC1's SH2 domain",
-   "credit": "PDB 1MIL (Mikol et al., J Mol Biol 1995)",
-   "file": "shc1.mol",
-   "fp": "ffc8cd15ef581d92",
-   "bytes": 103480,
-   "radius": 23.346,
-   "size": [
-    39.8025,
-    36.7809,
-    34.0594
-   ],
-   "residues": 104,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     5000,
-     1998,
-     700
-    ]
-   },
-   "src": "1ff3edb4a90b4f93"
-  },
-  {
-   "name": "sos1",
-   "title": "SOS1's catalytic part",
-   "credit": "PDB 2II0 (Freedman et al., PNAS 2006)",
-   "file": "sos1.mol",
-   "fp": "9b82c5bde3b32131",
-   "bytes": 112292,
-   "radius": 59.091,
-   "size": [
-    116.0292,
-    56.1116,
-    48.8682
-   ],
-   "residues": 463,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     4998,
-     2000,
-     700
-    ]
-   },
-   "src": "5e3ac15bc4f6f359"
-  },
-  {
-   "name": "cbl",
-   "title": "CBL's tyrosine kinase binding domain",
-   "credit": "PDB 2CBL (Meng et al., Nature 1999)",
-   "file": "cbl.mol",
-   "fp": "8e0fbc14265215ac",
-   "bytes": 108472,
-   "radius": 35.719,
-   "size": [
-    66.9825,
-    62.4072,
-    41.6173
-   ],
-   "residues": 305,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     5000,
-     2000,
-     698
-    ]
-   },
-   "src": "0f19e9199606a4c6"
-  },
-  {
-   "name": "dnm1",
-   "title": "dynamin 1's GTPase",
-   "credit": "PDB 2X2E (Chappie et al., Nature 2010)",
-   "file": "dnm1.mol",
-   "fp": "b1ef1c9cf2f55f06",
-   "bytes": 109376,
-   "radius": 43.527,
-   "size": [
-    84.7943,
-    52.0694,
-    51.4144
-   ],
-   "residues": 341,
-   "chains": [
-    "A"
-   ],
-   "looks": {
-    "surface": [
-     5000,
-     1998,
-     700
-    ]
-   },
-   "src": "0313f5f0f9521a3a"
   }
  ]
 }

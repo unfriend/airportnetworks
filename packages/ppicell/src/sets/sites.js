@@ -1,8 +1,8 @@
 // Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its real shape (PDB 1GRI, its molecular
 // surface: models.js), its three binding domains coloured (the one a partner docks at lit while it is there), an SH3, an SH2 and another SH3, its partners on a shell around it, one dot each (as many as it has
-// links, from the data), and partners taking turns at the domains, each a part of it as a surface (a real structure:
-// a receptor's kinase domain, SHC1's SH2, SOS1's catalytic part, CBL's TKB domain, dynamin's GTPase) with its docking
-// stretch in front (a short chain of amino acids): the SH2 holds a receptor's phosphorylated tyrosine,
+// links, from the data), and partners taking turns at the domains, each shown by the part that binds: its docking
+// stretch, a short chain of amino acids lying on the lit domain (the owner, 23 November 2026: the stretches are the real
+// binders, so no surfaces of the partners' other parts): the SH2 holds a receptor's phosphorylated tyrosine,
 // the SH3s a partner's proline-rich stretch (well-known partners from its links: EGFR, ERBB2, MET, KIT and SHC1 at the
 // SH2; SOS1, CBL and DNM1 at the SH3s). Then a shuttle (sites_act 1): a patch of the nuclear envelope with its
 // pores, the cytosol below and the nucleus above; TP53 goes to and fro (sites_tp: it moves on the time), then STAT3 is
@@ -39,19 +39,18 @@ SETS.sites = function (K) {
   // (each slot on its domain's outer face, along OUT, the three apart: the first SH3 up, the SH2 down and left, the
   // second SH3 right; as far out as the domain's residues reach that way and a residue more)
   const OUT = [[-0.2, 1, 0.3], [-0.7, -0.8, 0.3], [1, -0.25, 0.3]].map(v3.norm);
-  const SLOT = DOM.map((d, k) => { const ps = domPts[k].map(turn), far = ps.length ? Math.max(...ps.map(p => v3.dot(v3.sub(p, d.p), OUT[k]))) : d.r * 0.8; return v3.add(d.p, v3.mul(OUT[k], far + 5 * (G2.ok ? G2.s : 0.0064))); });
-  // (only partners with a structure to show: GAB1's part that holds GRB2 has no fixed shape, so it is left out)
-  const PART = { EGFR: 'egfr', ERBB2: 'erbb2', MET: 'met', KIT: 'kit', SHC1: 'shc1', SOS1: 'sos1', CBL: 'cbl', DNM1: 'dnm1' };
-  const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['DNM1', 'SOS1', 'CBL']].map(l => l.filter(s => symOK(s) && molHead(PART[s])));
-  // a partner is drawn as a part of it (a real structure, its surface, at 0.45 of GRB2's scale, PB: so the three fit in view) with its docking
-  // stretch in front, where it touches the domain: a short chain of amino acids (as big as GRB2's own balls, 3.8
-  // angstroms apart) in a gentle curve across the domain; at the SH2 a stretch round a phosphotyrosine (that one bright),
-  // at an SH3 a proline-rich stretch (its prolines darker)
-  const CH_N = 9, aa = G2.ok ? G2.s : 0.42 / 66, chainGeo = new THREE.IcosahedronGeometry(1, 1), PB = 0.45 * aa, rp = K.rng(17);
+  const SLOT = DOM.map((d, k) => { const ps = domPts[k].map(turn), far = ps.length ? Math.max(...ps.map(p => v3.dot(v3.sub(p, d.p), OUT[k]))) : d.r * 0.8; return v3.add(d.p, v3.mul(OUT[k], far + 4 * (G2.ok ? G2.s : 0.0064))); });
+  // (only partners in GRB2's links in this map)
+  const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['DNM1', 'SOS1', 'CBL']].map(l => l.filter(symOK));
+  // a partner is drawn as its docking stretch, where it touches the domain: a short chain of amino acids (smooth beads a
+  // little larger than a residue's reach, 3.8 angstroms apart, so they run together) in a gentle curve across the domain,
+  // bowed to follow its face; at the SH2 a stretch round a phosphotyrosine (that one bright), at an SH3 a proline-rich
+  // stretch (its prolines darker)
+  const CH_N = 9, aa = G2.ok ? G2.s : 0.42 / 66, chainGeo = new THREE.SphereGeometry(1, 14, 10);
   const visitors = SLOT.map((p, k) => {
     const c = k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], dir = v3.norm(v3.cross(OUT[k], [0.3, 0.2, 1]));   // (across the face)
     const im = new THREE.InstancedMesh(chainGeo, K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(0.25) })), CH_N);
-    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color(), rr = 2.4 * aa;
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color(), rr = 2.5 * aa;
     for (let i = 0; i < CH_N; i++) {
       const u = i - (CH_N - 1) / 2, bow = -0.06 * u * u * 3.8 * aa;   // (bowed toward the domain at its ends)
       M.compose(new THREE.Vector3(...v3.add(v3.mul(dir, u * 3.8 * aa), v3.mul(OUT[k], bow))), Q, new THREE.Vector3(rr, rr, rr)); im.setMatrixAt(i, M);
@@ -59,21 +58,6 @@ SETS.sites = function (K) {
       im.setColorAt(i, col.setRGB(...(k === 1 ? (hi ? [1.0, 1.0, 0.7] : c) : hi ? c.map(x => x * 0.7) : c)));
     }
     const g = new THREE.Group(); g.add(im); gA.add(g);
-    // (each partner's part behind its stretch, away from the domain, its surface just behind the stretch; one shown at
-    // a time, the one docked)
-    const parts = {};
-    for (const sym of WHO[k]) {
-      const mm = molMesh(set, PART[sym], { scale: PB }), H = molHead(PART[sym]), R = H.radius * PB;
-      mm.group.quaternion.setFromEuler(new THREE.Euler(rp() * 6.3, rp() * 6.3, rp() * 6.3));
-      // (as far out as its nearest residue, turned, is from its middle along the way in, plus a residue's reach: then its
-      // surface just meets the stretch)
-      const V = new THREE.Vector3(), O = new THREE.Vector3(...OUT[k]);
-      const near = Math.max(...molPts(PART[sym]).map(q => -V.fromArray(v3.sub(q, H.centre)).applyQuaternion(mm.group.quaternion).dot(O))), d = (near + 3) * PB + rr;
-      mm.group.position.set(...v3.mul(OUT[k], d));
-      mm.group.visible = false; g.add(mm.group);
-      parts[sym] = { o: mm, far: d + 0.85 * R };   // (far: its outer side, for the label)
-    }
-    g.userData.parts = parts;
     return g;
   });
   const FROM = SLOT.map((p, k) => v3.add(p, v3.mul(OUT[k], 0.6)));   // (where a partner comes from, and goes back to)
@@ -125,8 +109,8 @@ SETS.sites = function (K) {
   const WAY = PORES.map(b => new THREE.CatmullRomCurve3([P_CYT, [b[0], b[1] - 0.22, b[2]], [b[0], b[1] - 0.1, b[2]], b, [b[0], b[1] + 0.1, b[2]], [b[0], b[1] + 0.22, b[2]], P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'));
   const _w = new THREE.Vector3(), path = (u, pore) => WAY[pore].getPointAt(clamp(u, 0, 1), _w).toArray();
   let act = 0, mv = 0;
-  // (a partner's label just outside its part)
-  const slotAt = k => { const P = visitors[k].userData.parts[now[k]]; return v3.add(visitors[k].position.toArray(), v3.mul(OUT[k], (P ? P.far : 0.04) + 0.03)); };
+  // (a partner's label just outside its stretch)
+  const slotAt = k => v3.add(visitors[k].position.toArray(), v3.mul(OUT[k], 0.05));
   return Object.assign(set, {
     // sites_act: 0 GRB2, 1 the shuttle (TP53, then STAT3); sites_cyc: turns at GRB2's domains; sites_tp: TP53 on show
     // (going to and fro); sites_move: STAT3's way, 0 resting in the cytosol to 1 bound in the nucleus
@@ -144,8 +128,6 @@ SETS.sites = function (K) {
         visitors[k].position.set(...v3.lerp(FROM[k], p, s));
         visitors[k].visible = cyc > 0 && list.length > 0;
         now[k] = list.length ? list[n % list.length] : ''; nowA[k] = cyc > 0 && list.length ? s : 0;
-        const P = visitors[k].userData.parts;
-        for (const sym in P) P[sym].o.group.visible = sym === now[k];
       });
       // the domain where a partner is docked lights up (the strongest of the three, if two overlap)
       const hk = nowA.indexOf(Math.max(...nowA));
@@ -170,9 +152,10 @@ SETS.sites = function (K) {
       slot0: () => slotAt(0), slot1: () => slotAt(1), slot2: () => slotAt(2),
       tp53: () => v3.add(tp.position.toArray(), [0, 0.1, 0]), stat3: () => v3.add(st.position.toArray(), [0, 0.12, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
       pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
-    labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'at the SH2' : 'at an SH3'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
+    // (whose stretch it is and what it is: the owner, 23 November 2026)
+    labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'a phosphorylated tyrosine' : 'its proline-rich stretch'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
     cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
-    stats: () => ({ grb2: nGrb, who: WHO, models: [G2, T5, sA, sB, sD].map(o => o.ok), parts: WHO.map((l, k) => l.filter(x => visitors[k].userData.parts[x].o.ok)) }),
+    stats: () => ({ grb2: nGrb, who: WHO, models: [G2, T5, sA, sB, sD].map(o => o.ok) }),
   });
 };
-SETS.sites.prep = molPrep(['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'jak2', 'p300', 'egfr', 'erbb2', 'met', 'kit', 'shc1', 'sos1', 'cbl', 'dnm1']);
+SETS.sites.prep = molPrep(['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'jak2', 'p300']);

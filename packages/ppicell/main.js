@@ -325,8 +325,8 @@ const PPI_STRUCTS = {"grb2":{"title":"GRB2, full length","cite":"PDB 1GRI (Maign
 // a model's credit ('PDB 1GRI (Maignan et al., Science 1995)'). molPts: its residues' anchors (angstroms, the model's
 // frame); molAxis: the longest axis of such points (models built with orient: false, cut from one entry, line up).
 const MOL_URL = f => pkgUrl('models/' + f);
-const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh', 'tub', 'fxn',
-  'egfr', 'erbb2', 'met', 'kit', 'shc1', 'sos1', 'cbl', 'dnm1'];
+const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'b2lig', 'gs', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh',
+  'tub', 'fxn'];
 const molPrep = names => () => { molLoad(MOL_URL, MOL_ALL); return molReady(MOL_URL, names); };
 const molHead = n => (MOLS.m[n] && MOLS.m[n].head) || null;
 const molCredit = n => (molHead(n) ? molHead(n).credit : '');
@@ -1252,11 +1252,11 @@ void main() {
   // (a highlight, ball_hi: the protein (aHi 2) lights first, then its partners (1) with its links; the rest dims a
   // little, still seen)
   float on = step(0.5, aHi), me = step(1.5, aHi), hP = hiP(u), lit = me * hP + (1.0 - me) * on * hiL(u);
-  gl_PointSize = pointPx(aSize, mv) * (1.0 + lit * (0.5 + 2.0 * me));
+  gl_PointSize = pointPx(aSize, mv) * (1.0 + lit * (0.2 + 2.3 * me));
   vec3 pale = vec3(0.5, 0.68, 1.0);
   vC = mix(pale, aOut > 0.5 ? vec3(0.5, 0.53, 0.58) : aCol, u) * mix(1.0, 0.75, aOut * u);
   vC = mix(vC, me > 0.5 ? vec3(1.0, 0.78, 0.4) : vec3(0.95, 0.72, 0.42), lit);
-  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * (on > 0.5 ? mix(1.0, 4.0, lit) : mix(1.0, 0.6, hP));
+  vA = max(aFirst, u) * (aOut > 0.5 ? uOutA * mix(1.0, 0.55, u) : uIn) * mix(0.12, 0.8, u) * (on > 0.5 ? mix(1.0, 1.8, lit) : mix(1.0, 0.85, hP));
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `uniform float uA; varying vec3 vC; varying float vA;
@@ -1287,11 +1287,11 @@ void main() {
   // (additive lines: dimmer still near the ball's centre, where thousands cross, so its middle stays coloured)
   float core = mix(0.35, 1.0, smoothstep(0.15, 0.75, length(aStart) / ${R0.toFixed(2)}));
   vC = mix(vec3(0.75, 0.88, 1.0) * 0.5, aCol * 0.8, uTint);
-  // (while a protein's links are lit the others turn a cooler violet, a little fainter, still seen: the owner, 22
-  // November 2026; while the sweep runs they step back)
+  // (while a protein's links are lit the others turn a cooler violet, still seen, a little brighter than before so they
+  // read beside the lit ones: the owners, 22 and 23 November 2026; while the sweep runs they step back)
   float hP = hiP(u);
-  vC = mix(vC, vec3(0.55, 0.5, 1.0) * 0.5, hP);
-  vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 - 0.3 * hP) * (1.0 - 0.7 * uSwOn * (1.0 - u));
+  vC = mix(vC, vec3(0.6, 0.55, 1.0) * 0.72, hP);
+  vA = mix(0.16 * core, 0.3, u) * uIn * (1.0 + 0.3 * hP) * (1.0 - 0.7 * uSwOn * (1.0 - u));
 }`,
     fragmentShader: 'uniform float uA; varying vec3 vC; varying float vA; void main() { gl_FragColor = vec4(vC, vA * uA); }',
   });
@@ -1313,7 +1313,8 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(way(u), 1.0);
   vA = hiL(u);
 }`,
-    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.72, 0.32, 0.3 * vA * uA); }',
+    // (soft, not burning: the owner, 23 November 2026, the other links must still read beside them)
+    fragmentShader: 'uniform float uA; varying float vA; void main() { gl_FragColor = vec4(1.0, 0.74, 0.38, 0.13 * vA * uA); }',
   });
   set.mats.push(hiMat);
   const hiLines = new THREE.LineSegments(hg, hiMat); hiLines.frustumCulled = false; hiLines.renderOrder = 6; hiLines.visible = false;
@@ -1563,7 +1564,7 @@ varying vec3 vC, vP; varying float vR;
 void main() {
   vec2 c = gl_PointCoord * 2.0 - 1.0; c.y = -c.y;
   float d2 = dot(c, c);
-  if (d2 > 1.0) discard;
+  if (d2 > 1.0 || uA < 0.004) discard;
   vec3 n = vec3(c, sqrt(1.0 - d2));
   vec3 L = normalize(vec3(-0.45, 0.6, 0.66));
   float diff = max(dot(n, L), 0.0), spec = pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 28.0);
@@ -1574,8 +1575,10 @@ void main() {
   gl_FragColor = vec4(col, uA);
 }`,
     });
-    // (see-through only while it fades, as the kit's materials are)
+    // (see-through only while it fades, as the kit's materials are, and then writing no depth: a ball nearly faded out
+    // would otherwise hide what lies behind it, a dark hole where it is, before its colour shows; the owner, 23 November 2026)
     Object.defineProperty(m, 'transparent', { configurable: true, get: () => U.uA.value < 0.999, set() {} });
+    Object.defineProperty(m, 'depthWrite', { configurable: true, get: () => U.uA.value >= 0.999, set() {} });
     set.mats.push(m);
     return m;
   }
@@ -1631,8 +1634,8 @@ void main() {
 // Spaces and walls (chapter 3), over the cell (its frame and its shapes: SETS.cell's api().CELL). The spaces light up one
 // after another (walls_lit: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria's insides, the
 // small organelles' insides, each its own, and outside the cell); the membranes then glow as walls (walls_wall). Three close-ups, not to scale: a receptor
-// across the plasma membrane (the beta-2 adrenergic receptor's real fold as a cartoon: molMesh) with a part on each side (a
-// signal outside, a partner inside), a nuclear pore (schematic) with a protein going through (TP53's core, its surface),
+// across the plasma membrane (the beta-2 adrenergic receptor's real fold as a cartoon: molMesh) with a real part on each side (an
+// agonist outside coming into its pocket, the G protein Gs inside: PDB 3SN6), a nuclear pore (schematic) with a protein going through (TP53's core, its surface),
 // and an import site on a mitochondrion (two schematic gates) where a folded protein (frataxin's surface) threads in
 // unfolded, a chain of amino acids (walls_parts). Motion depends only on
 // the time.
@@ -1684,37 +1687,42 @@ SETS.walls = function (K) {
   const patch = (R, hole) => new THREE.Mesh(new THREE.RingGeometry(hole || 0.0005, R, 40, 1), K.fade(set, new THREE.MeshBasicMaterial({ color: 0x9fd0ff, side: THREE.DoubleSide, depthWrite: false }), 0.18));
   const orient = (g, p, n) => { g.position.set(...p); g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(n))); set.group.add(g); return g; };
   const flat = g => { g.rotation.x = -Math.PI / 2; return g; };   // (a ring lies across the y axis: the membrane's plane)
-  // a receptor across the plasma membrane: the beta-2 adrenergic receptor (PDB 2RH1, its backbone as a cartoon: helices
+  // a receptor across the plasma membrane: the beta-2 adrenergic receptor (PDB 3SN6, its backbone as a cartoon: helices
   // as ribbons), its seven helices through the membrane, its loops outside and inside, coloured by UniProt P07550's
-  // membrane spans (models.json: outside cyan, in the membrane yellow, inside pale blue); a signal comes from outside, a
-  // partner binds inside
+  // membrane spans (models.json: outside cyan, in the membrane yellow, inside pale blue); the signal outside, an agonist
+  // (BI-167107, adrenaline's stand-in in the entry: its surface), comes into its pocket among the helices, and the partner
+  // inside, the G protein Gs (its three chains' surface), docks below; all three cut from the one entry (orient: false),
+  // so each comes to the very place it holds there
   const rd = v3.norm([0.62, 0.42, 0.66]), RP = v3.mul(rd, 1 / CELL.eScale(rd)), RN = v3.norm([rd[0] / CELL.pm[0] ** 2, rd[1] / CELL.pm[1] ** 2, rd[2] / CELL.pm[2] ** 2]);
-  const rec = new THREE.Group();
-  const b2 = molMesh(set, 'b2ar', { look: 'cartoon', width: 0.07 });
+  const rec = new THREE.Group(), RS = 0.07 / 68;   // (scene units an angstrom: the receptor about 0.07 long, as it was)
+  const b2 = molMesh(set, 'b2ar', { look: 'cartoon', scale: RS });
+  const lig = molMesh(set, 'b2lig', { scale: RS, centred: false }), gs = molMesh(set, 'gs', { scale: RS, centred: false });
+  // (the agonist and the G protein in the receptor's own frame: beside its inner group, which is shifted to its middle)
+  const own = new THREE.Group(); own.position.copy(b2.group.children[0].position); own.add(lig.group, gs.group); b2.group.add(own);
   // (the bundle's axis: from the helices' inner ends to their outer ends, the membrane spans; the membrane's middle
   // halfway between)
-  const at = n => b2.anchor('A', n).toArray();
+  const at = n => b2.anchor('R', n).toArray();
   const meanOf = l => v3.mul(l.map(at).reduce((c, p) => v3.add(c, p), [0, 0, 0]), 1 / l.length);
   const OUTER = b2.ok ? meanOf([35, 95, 107, 173, 197, 298, 306]) : [0, 0.01, 0], INNER = b2.ok ? meanOf([58, 72, 129, 151, 220, 275, 329]) : [0, -0.01, 0];
+  const UP = v3.norm(v3.sub(OUTER, INNER)), SIDE = v3.norm(v3.cross(UP, [0, 0, 1]));   // (out of the cell, in the receptor's frame; a way across)
   const rcp = new THREE.Group(); rcp.add(b2.group); b2.group.position.set(...v3.mul(v3.add(OUTER, INNER), -0.5));
-  rcp.quaternion.setFromUnitVectors(new THREE.Vector3(...v3.norm(v3.sub(OUTER, INNER))), new THREE.Vector3(0, 1, 0));
+  rcp.quaternion.setFromUnitVectors(new THREE.Vector3(...UP), new THREE.Vector3(0, 1, 0));
   const half = v3.len(v3.sub(OUTER, INNER)) / 2, MEM = -0.004;   // (the membrane's middle, between its two faces)
   rcp.position.y = MEM; rec.add(rcp);
-  // how far it reaches up and down (its residues' anchors along the membrane's normal)
-  let top = half, bot = -half;
-  if (b2.ok) {
-    const V = new THREE.Vector3(), R = b2.res;
-    for (let i = 0; i < R.n; i++) {
-      V.set(R.pos[3 * i], R.pos[3 * i + 1], R.pos[3 * i + 2]).multiplyScalar(b2.s).add(b2.group.children[0].position).add(b2.group.position).applyQuaternion(rcp.quaternion);
-      top = Math.max(top, V.y); bot = Math.min(bot, V.y);
+  // how far a model reaches up and down (its residues' anchors along the membrane's normal; [lo, hi])
+  const span = name => {
+    const V = new THREE.Vector3(), P = molPts(name);
+    let lo = Infinity, hi = -Infinity;
+    for (const q of P) {
+      V.fromArray(q).multiplyScalar(RS).add(b2.group.children[0].position).add(b2.group.position).applyQuaternion(rcp.quaternion);
+      lo = Math.min(lo, V.y); hi = Math.max(hi, V.y);
     }
-  }
-  top += MEM; bot += MEM;
-  // the membrane's two faces, as far apart as the helices' ends
-  rec.add(flat(patch(0.07)));
-  { const a = rec.children[rec.children.length - 1]; a.position.y = MEM + half * 0.8; const b = flat(patch(0.07)); b.position.y = MEM - half * 0.8; rec.add(b); }
-  const signal = new THREE.Mesh(new THREE.IcosahedronGeometry(0.006, 1), solid([1.0, 0.75, 0.3], 0.5)); rec.add(signal);
-  const partner = new THREE.Mesh(new THREE.IcosahedronGeometry(0.011, 1), solid([0.4, 1.0, 0.6], 0.3)); rec.add(partner);
+    return P.length ? [lo + MEM, hi + MEM] : [-half + MEM, half + MEM];
+  };
+  const [bot, top] = span('b2ar'), gsLo = gs.ok ? span('gs')[0] : bot - 0.02;
+  // the membrane's two faces, as far apart as the helices' ends (wide enough for the G protein below)
+  rec.add(flat(patch(0.09)));
+  { const a = rec.children[rec.children.length - 1]; a.position.y = MEM + half * 0.8; const b = flat(patch(0.09)); b.position.y = MEM - half * 0.8; rec.add(b); }
   orient(rec, RP, RN);
   // a nuclear pore in the nuclear envelope (two membranes), cargo going through: TP53's core domain (PDB 1TSR, a protein
   // the nucleus imports), its surface, small enough to pass the pore's opening with room to spare (a real pore's channel
@@ -1728,7 +1736,7 @@ SETS.walls = function (K) {
   orient(pore, NPp, nd);
   // an import site on a mitochondrion: two gates (the outer membrane's TOM and the inner one's TIM), a protein made in the
   // cytosol (frataxin, PDB 1EKG, its surface) comes folded, then threads in unfolded, a chain of amino acids, its
-  // targeting stretch (pale) first; inside, the chain would fold again
+  // targeting stretch (pale) first; inside, in the matrix, the chain folds up again (it never leaves the far side)
   const mi = CELL.mitos[0], md = v3.norm(v3.cross(mi.axis, [0, 1, 0])), MP = v3.add(mi.c, v3.mul(md, mi.b));
   const imp = new THREE.Group(), IG = [0, -0.008];   // (the two gates' heights)
   IG.forEach(y => { const g = flat(new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0025, 6, 20), solid([1.0, 0.55, 0.45]))); g.position.y = y; imp.add(g); });
@@ -1738,9 +1746,19 @@ SETS.walls = function (K) {
   { const c = new THREE.Color(); for (let i = 0; i < CN; i++) chain.setColorAt(i, i < 5 ? c.setRGB(0.75, 0.9, 1.0) : c.setRGB(1.0, 0.7, 0.4)); }
   chain.frustumCulled = false; imp.add(chain);
   orient(imp, MP, md);
-  // a point on the chain's way, s along it from the folded protein's middle: straight down through both gates, then
-  // wandering a little in the matrix
-  const way = s => { const y = F0 - s, d = Math.max(0, -0.014 - y); return [0.004 * Math.sin(d * 260) * Math.min(1, d / 0.01), y, 0.003 * Math.sin(d * 170 + 1) * Math.min(1, d / 0.01)]; };
+  // a point on the chain's way, s along it from the folded protein's middle: straight down through both gates into the
+  // matrix, then coiling along the mitochondrion's long axis (AX, in the site's frame), its middle a third of the way
+  // across (YC: the mitochondrion about 0.03 deep here, the site drawn 2.4 times larger); it stays inside
+  const AX = new THREE.Vector3(...mi.axis).applyQuaternion(imp.quaternion.clone().invert()).toArray(), AW = v3.norm(v3.cross(AX, [0, 1, 0]));
+  const S1 = F0 + 0.012, YC = -0.016, CR = 0.005, CA = 0.4, CW = Math.sqrt(1 - CA * CA) / CR;   // (coil: radius, advance an arc length, turn rate)
+  const LT = S1 + 0.004 + (CN - 1) * CS;   // (how far the lead bead goes: the last bead then past the inner gate)
+  const way = s => {
+    if (s <= S1) return [0, F0 - s, 0];
+    const u = s - S1, k = K.smooth(clamp(u / 0.008, 0, 1)), th = u * CW;   // (the coil starts at the gate's way out)
+    const c = v3.add(v3.add(v3.mul(AX, u * CA), [0, YC, 0]), v3.add(v3.mul([0, 1, 0], CR * Math.cos(th)), v3.mul(AW, CR * Math.sin(th))));
+    return v3.lerp([0, F0 - s, 0], c, k);
+  };
+  const FOLD_IN = v3.add(v3.mul(AX, (LT - S1) * CA * 0.5), [0, YC, 0]);   // (where it folds again: the coil's middle)
   const _M = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _P = new THREE.Vector3(), _S = new THREE.Vector3();
   const parts = [rec, pore, imp];
   return Object.assign(set, {
@@ -1761,30 +1779,43 @@ SETS.walls = function (K) {
       // (each motion a loop of a few seconds: the signal docks and leaves, the partner binds, the cargo crosses, the chain threads in)
       const a = (t * 0.2) % 1, b = (t * 0.17 + 0.3) % 1, c = (t * 0.15 + 0.15) % 1;   // (c: at about 0.1 as the story comes to the import site, 173 s)
       const dock = x => (x < 0.4 ? x / 0.4 : x < 0.7 ? 1 : 1 - (x - 0.7) / 0.3);
-      signal.position.set(0.035 * (1 - dock(a)), top - 0.006 + 0.035 * (1 - dock(a)), 0);   // (into the pocket among the helices' outer ends)
-      partner.position.set(-0.035 * (1 - dock(b)), bot - 0.006 - 0.025 * (1 - dock(b)), 0.004);
+      // (the agonist from outside into its pocket among the helices' outer ends; the G protein up from inside to the
+      // receptor's inner face, where it sits in the entry; each grows in on its way and shrinks away)
+      const ga = 1 - dock(a), gb = 1 - dock(b);
+      lig.group.position.set(...v3.add(v3.mul(UP, 0.045 * ga), v3.mul(SIDE, 0.02 * ga)));
+      lig.group.scale.setScalar(Math.max(0.01, 1 - K.smooth(clamp((ga - 0.7) / 0.3, 0, 1))));
+      gs.group.position.set(...v3.mul(UP, -0.04 * gb));
+      gs.group.scale.setScalar(Math.max(0.01, 1 - K.smooth(clamp((gb - 0.6) / 0.4, 0, 1))));
       // (the cargo: in from the cytosol side, through the ring, out into the nucleus at an even pace, growing in and
       // shrinking away at the loop's ends)
       const cs = K.smooth(b / 0.12) * K.smooth((1 - b) / 0.12);
       cargo.position.set(0, 0.05 - 0.11 * b, 0); cargo.scale.setScalar(Math.max(0.01, cs)); cargo.rotation.set(t * 0.4, t * 0.25, 0);
-      // (the import: the folded protein comes to the outer gate (c 0 to 0.2), its chain is pulled through both gates
-      // (0.2 to 0.85, the protein shrinking as it unfolds), then the chain fades)
-      const n = CN * K.smooth(clamp((c - 0.2) / 0.65, 0, 1)), left = 1 - n / CN, fin = 1 - K.smooth(clamp((c - 0.88) / 0.1, 0, 1));
-      fold.position.set(0, F0 + 0.03 * (1 - K.smooth(c / 0.2)), 0); fold.rotation.set(0, t * 0.3 * (1 - K.smooth(c / 0.2)), 0);
-      fold.scale.setScalar(Math.max(0.01, Math.cbrt(left) * K.smooth(c / 0.06))); fold.visible = left > 0.02;
-      for (let i = 0; i < CN; i++) {   // (bead i, the targeting stretch's first, is n - i beads' worth out of the folded part)
-        const s = (n - i) * CS, r = s > 0.005 ? CB * fin : 0;
-        chain.setMatrixAt(i, _M.compose(_P.set(...way(Math.max(0, s))), _Q, _S.setScalar(Math.max(r, 1e-5))));
+      // (the import: the folded protein comes to the outer gate (c 0 to 0.15), its chain is pulled through both gates
+      // into the matrix (0.15 to 0.62, the protein shrinking as it unfolds), then the chain folds up again inside
+      // (0.64 to 0.8: the beads gather, the same protein grows where they meet; done before the chapter ends) and fades
+      // at the loop's end)
+      const L = LT * K.smooth(clamp((c - 0.15) / 0.47, 0, 1)), left = 1 - Math.min(1, L / (CN * CS));
+      const g = K.smooth(clamp((c - 0.64) / 0.16, 0, 1)), fin = 1 - K.smooth(clamp((c - 0.93) / 0.07, 0, 1));
+      if (c < 0.64) {
+        fold.position.set(0, F0 + 0.03 * (1 - K.smooth(c / 0.15)), 0); fold.rotation.set(0, t * 0.3 * (1 - K.smooth(c / 0.15)), 0);
+        fold.scale.setScalar(Math.max(0.01, Math.cbrt(left) * K.smooth(c / 0.06))); fold.visible = left > 0.02;
+      } else {
+        fold.position.set(...FOLD_IN); fold.rotation.set(0, t * 0.3, 0);
+        fold.scale.setScalar(Math.max(0.01, g * fin)); fold.visible = g * fin > 0.02;
+      }
+      for (let i = 0; i < CN; i++) {   // (bead i, the targeting stretch's first, is i beads behind the lead)
+        const s = L - i * CS, r = s > 0.005 ? CB * (1 - g) : 0;
+        chain.setMatrixAt(i, _M.compose(_P.set(...v3.lerp(way(Math.max(0, s)), FOLD_IN, g)), _Q, _S.setScalar(Math.max(r, 1e-5))));
       }
       chain.instanceMatrix.needsUpdate = true;
     },
     anchors: { cytosol: SP[0].at, nucleus: SP[1].at, lumen: SP[2].at, mito: SP[3].at, small: SP[4].at, outside: SP[5].at,
-      receptor: v3.add(RP, v3.mul(RN, top + 0.015)), recIn: v3.add(RP, v3.mul(RN, bot - 0.02)), recOut: v3.add(RP, v3.mul(RN, top + 0.035)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
+      receptor: v3.add(RP, v3.mul(RN, top + 0.015)), recIn: v3.add(RP, v3.mul(RN, gsLo - 0.01)), recOut: v3.add(RP, v3.mul(RN, top + 0.035)), pore: v3.add(NPp, v3.mul(nd, 0.04)), import: v3.add(MP, v3.mul(md, 0.07)) },
     labels: [],
-    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(RP, v3.add(RN, [0.35, -0.25, 0.3]), 0.38), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(v3.mul(md, 0.6), v3.mul(v3.norm(mi.axis), 0.8)), 0.26) },
+    cam: { default: [20, 14, 3.6, 0, 0, 0], receptor: camAt(v3.add(RP, v3.mul(RN, (gsLo + top) / 2)), v3.add(RN, [0.35, -0.25, 0.3]), 0.42), pore: camAt(NPp, v3.add(nd, [-0.3, 0.25, 0.1]), 0.32), import: camAt(MP, v3.add(v3.mul(md, 0.6), v3.mul(v3.norm(mi.axis), 0.8)), 0.26) },
   });
 };
-SETS.walls.prep = molPrep(['b2ar', 'tp53', 'fxn']);
+SETS.walls.prep = molPrep(['b2ar', 'b2lig', 'gs', 'tp53', 'fxn']);
 
 // The methods as lenses over the cell (chapter 6): three rings, each with a small scene of how a method finds a link
 // (real shapes from the Protein Data Bank as molecular surfaces: models.js; not to scale against the yeast, the tube or the halo). Two-hybrid: in a yeast nucleus, two proteins each carry half of a switch; if they bind, the halves
@@ -1939,9 +1970,9 @@ SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira']);
 
 // Not all at once (chapter 7): links are moments. GRB2 up close (sites_act 0): its real shape (PDB 1GRI, its molecular
 // surface: models.js), its three binding domains coloured (the one a partner docks at lit while it is there), an SH3, an SH2 and another SH3, its partners on a shell around it, one dot each (as many as it has
-// links, from the data), and partners taking turns at the domains, each a part of it as a surface (a real structure:
-// a receptor's kinase domain, SHC1's SH2, SOS1's catalytic part, CBL's TKB domain, dynamin's GTPase) with its docking
-// stretch in front (a short chain of amino acids): the SH2 holds a receptor's phosphorylated tyrosine,
+// links, from the data), and partners taking turns at the domains, each shown by the part that binds: its docking
+// stretch, a short chain of amino acids lying on the lit domain (the owner, 23 November 2026: the stretches are the real
+// binders, so no surfaces of the partners' other parts): the SH2 holds a receptor's phosphorylated tyrosine,
 // the SH3s a partner's proline-rich stretch (well-known partners from its links: EGFR, ERBB2, MET, KIT and SHC1 at the
 // SH2; SOS1, CBL and DNM1 at the SH3s). Then a shuttle (sites_act 1): a patch of the nuclear envelope with its
 // pores, the cytosol below and the nucleus above; TP53 goes to and fro (sites_tp: it moves on the time), then STAT3 is
@@ -1978,19 +2009,18 @@ SETS.sites = function (K) {
   // (each slot on its domain's outer face, along OUT, the three apart: the first SH3 up, the SH2 down and left, the
   // second SH3 right; as far out as the domain's residues reach that way and a residue more)
   const OUT = [[-0.2, 1, 0.3], [-0.7, -0.8, 0.3], [1, -0.25, 0.3]].map(v3.norm);
-  const SLOT = DOM.map((d, k) => { const ps = domPts[k].map(turn), far = ps.length ? Math.max(...ps.map(p => v3.dot(v3.sub(p, d.p), OUT[k]))) : d.r * 0.8; return v3.add(d.p, v3.mul(OUT[k], far + 5 * (G2.ok ? G2.s : 0.0064))); });
-  // (only partners with a structure to show: GAB1's part that holds GRB2 has no fixed shape, so it is left out)
-  const PART = { EGFR: 'egfr', ERBB2: 'erbb2', MET: 'met', KIT: 'kit', SHC1: 'shc1', SOS1: 'sos1', CBL: 'cbl', DNM1: 'dnm1' };
-  const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['DNM1', 'SOS1', 'CBL']].map(l => l.filter(s => symOK(s) && molHead(PART[s])));
-  // a partner is drawn as a part of it (a real structure, its surface, at 0.45 of GRB2's scale, PB: so the three fit in view) with its docking
-  // stretch in front, where it touches the domain: a short chain of amino acids (as big as GRB2's own balls, 3.8
-  // angstroms apart) in a gentle curve across the domain; at the SH2 a stretch round a phosphotyrosine (that one bright),
-  // at an SH3 a proline-rich stretch (its prolines darker)
-  const CH_N = 9, aa = G2.ok ? G2.s : 0.42 / 66, chainGeo = new THREE.IcosahedronGeometry(1, 1), PB = 0.45 * aa, rp = K.rng(17);
+  const SLOT = DOM.map((d, k) => { const ps = domPts[k].map(turn), far = ps.length ? Math.max(...ps.map(p => v3.dot(v3.sub(p, d.p), OUT[k]))) : d.r * 0.8; return v3.add(d.p, v3.mul(OUT[k], far + 4 * (G2.ok ? G2.s : 0.0064))); });
+  // (only partners in GRB2's links in this map)
+  const WHO = [['SOS1', 'CBL', 'DNM1'], ['EGFR', 'SHC1', 'ERBB2', 'MET', 'KIT'], ['DNM1', 'SOS1', 'CBL']].map(l => l.filter(symOK));
+  // a partner is drawn as its docking stretch, where it touches the domain: a short chain of amino acids (smooth beads a
+  // little larger than a residue's reach, 3.8 angstroms apart, so they run together) in a gentle curve across the domain,
+  // bowed to follow its face; at the SH2 a stretch round a phosphotyrosine (that one bright), at an SH3 a proline-rich
+  // stretch (its prolines darker)
+  const CH_N = 9, aa = G2.ok ? G2.s : 0.42 / 66, chainGeo = new THREE.SphereGeometry(1, 14, 10);
   const visitors = SLOT.map((p, k) => {
     const c = k === 1 ? [0.3, 1.0, 0.6] : [1.0, 0.55, 0.85], dir = v3.norm(v3.cross(OUT[k], [0.3, 0.2, 1]));   // (across the face)
     const im = new THREE.InstancedMesh(chainGeo, K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05, emissive: new THREE.Color(...c).multiplyScalar(0.25) })), CH_N);
-    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color(), rr = 2.4 * aa;
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), col = new THREE.Color(), rr = 2.5 * aa;
     for (let i = 0; i < CH_N; i++) {
       const u = i - (CH_N - 1) / 2, bow = -0.06 * u * u * 3.8 * aa;   // (bowed toward the domain at its ends)
       M.compose(new THREE.Vector3(...v3.add(v3.mul(dir, u * 3.8 * aa), v3.mul(OUT[k], bow))), Q, new THREE.Vector3(rr, rr, rr)); im.setMatrixAt(i, M);
@@ -1998,21 +2028,6 @@ SETS.sites = function (K) {
       im.setColorAt(i, col.setRGB(...(k === 1 ? (hi ? [1.0, 1.0, 0.7] : c) : hi ? c.map(x => x * 0.7) : c)));
     }
     const g = new THREE.Group(); g.add(im); gA.add(g);
-    // (each partner's part behind its stretch, away from the domain, its surface just behind the stretch; one shown at
-    // a time, the one docked)
-    const parts = {};
-    for (const sym of WHO[k]) {
-      const mm = molMesh(set, PART[sym], { scale: PB }), H = molHead(PART[sym]), R = H.radius * PB;
-      mm.group.quaternion.setFromEuler(new THREE.Euler(rp() * 6.3, rp() * 6.3, rp() * 6.3));
-      // (as far out as its nearest residue, turned, is from its middle along the way in, plus a residue's reach: then its
-      // surface just meets the stretch)
-      const V = new THREE.Vector3(), O = new THREE.Vector3(...OUT[k]);
-      const near = Math.max(...molPts(PART[sym]).map(q => -V.fromArray(v3.sub(q, H.centre)).applyQuaternion(mm.group.quaternion).dot(O))), d = (near + 3) * PB + rr;
-      mm.group.position.set(...v3.mul(OUT[k], d));
-      mm.group.visible = false; g.add(mm.group);
-      parts[sym] = { o: mm, far: d + 0.85 * R };   // (far: its outer side, for the label)
-    }
-    g.userData.parts = parts;
     return g;
   });
   const FROM = SLOT.map((p, k) => v3.add(p, v3.mul(OUT[k], 0.6)));   // (where a partner comes from, and goes back to)
@@ -2064,8 +2079,8 @@ SETS.sites = function (K) {
   const WAY = PORES.map(b => new THREE.CatmullRomCurve3([P_CYT, [b[0], b[1] - 0.22, b[2]], [b[0], b[1] - 0.1, b[2]], b, [b[0], b[1] + 0.1, b[2]], [b[0], b[1] + 0.22, b[2]], P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'));
   const _w = new THREE.Vector3(), path = (u, pore) => WAY[pore].getPointAt(clamp(u, 0, 1), _w).toArray();
   let act = 0, mv = 0;
-  // (a partner's label just outside its part)
-  const slotAt = k => { const P = visitors[k].userData.parts[now[k]]; return v3.add(visitors[k].position.toArray(), v3.mul(OUT[k], (P ? P.far : 0.04) + 0.03)); };
+  // (a partner's label just outside its stretch)
+  const slotAt = k => v3.add(visitors[k].position.toArray(), v3.mul(OUT[k], 0.05));
   return Object.assign(set, {
     // sites_act: 0 GRB2, 1 the shuttle (TP53, then STAT3); sites_cyc: turns at GRB2's domains; sites_tp: TP53 on show
     // (going to and fro); sites_move: STAT3's way, 0 resting in the cytosol to 1 bound in the nucleus
@@ -2083,8 +2098,6 @@ SETS.sites = function (K) {
         visitors[k].position.set(...v3.lerp(FROM[k], p, s));
         visitors[k].visible = cyc > 0 && list.length > 0;
         now[k] = list.length ? list[n % list.length] : ''; nowA[k] = cyc > 0 && list.length ? s : 0;
-        const P = visitors[k].userData.parts;
-        for (const sym in P) P[sym].o.group.visible = sym === now[k];
       });
       // the domain where a partner is docked lights up (the strongest of the three, if two overlap)
       const hk = nowA.indexOf(Math.max(...nowA));
@@ -2109,12 +2122,13 @@ SETS.sites = function (K) {
       slot0: () => slotAt(0), slot1: () => slotAt(1), slot2: () => slotAt(2),
       tp53: () => v3.add(tp.position.toArray(), [0, 0.1, 0]), stat3: () => v3.add(st.position.toArray(), [0, 0.12, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
       pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
-    labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'at the SH2' : 'at an SH3'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
+    // (whose stretch it is and what it is: the owner, 23 November 2026)
+    labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'a phosphorylated tyrosine' : 'its proline-rich stretch'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
     cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
-    stats: () => ({ grb2: nGrb, who: WHO, models: [G2, T5, sA, sB, sD].map(o => o.ok), parts: WHO.map((l, k) => l.filter(x => visitors[k].userData.parts[x].o.ok)) }),
+    stats: () => ({ grb2: nGrb, who: WHO, models: [G2, T5, sA, sB, sD].map(o => o.ok) }),
   });
 };
-SETS.sites.prep = molPrep(['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'jak2', 'p300', 'egfr', 'erbb2', 'met', 'kit', 'shc1', 'sos1', 'cbl', 'dnm1']);
+SETS.sites.prep = molPrep(['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'jak2', 'p300']);
 
 // What it would take (chapter 8), over the cell (its frame and shapes): proximity maps (next_halo: baits in their places,
 // each with a halo of tagged neighbours), a cryo-electron tomogram (next_slab: a thin slab through the cell, packed with
@@ -2122,16 +2136,57 @@ SETS.sites.prep = molPrep(['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'jak2
 // such data look like, not data. Then the cell's own honest picture takes over (the story fades these out).
 // The tomogram's slab (chapter 8) packed with molecules: real proteins as balls, the crowd's kinds in the crowd's shares,
 // the largest 0.045 across, packed as densely as the crowd's cube (chapter 2), none overlapping, up to about 42,000 balls
-// (as many as the cube's); in the nucleus violet, else blue or amber. Each molecule's reach a sphere, kept apart on a
-// grid; done a slice a load step (SETS.next.prep), so no step runs long.
+// (as many as the cube's). The slab is a thin lamella through the cytosol beside the nucleus (the owner, 23 November
+// 2026: it should clearly cut through the cytosol, a mitochondrion and a piece of the nuclear envelope in it, as a
+// tomogram would): its plane through the middle of a mitochondrion (SLAB.pick: the one whose cut lies inside the slab and
+// nearest the nucleus), reaching just past the nuclear envelope. The membranes it cuts (the envelope's two, the
+// mitochondrion's two, any vesicle's one) are kept clear of molecules (SETS.next draws them); in the nucleus the
+// molecules are violet, in the mitochondrion's matrix pink, in small vesicles none, else blue or amber. Each molecule's
+// reach a sphere, kept apart on a grid; done a slice a load step (SETS.next.prep), so no step runs long.
 const SLAB = (() => {
-  const SW = [1.5, 1.1, 0.05], SZ = 0.18, BMAX = 42000, KS = CROWD.KINDS;
+  const BMAX = 42000, KS = CROWD.KINDS, TH = 0.05;   // (TH: the slab's thickness)
   const rnd = (s => () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; })(61);
   const pick = () => { let x = rnd(); for (const k of KS) { x -= k.share; if (x < 0) return k.key; } return KS[KS.length - 1].key; };
   const P = { done: false, mols: [], nb: 0, miss: 0, i: 0, grid: new Map(), SB: null };
   const gk = (x, y, z) => x + 4096 * (y + 4096 * z);
+  // the slab's place (SLAB.at: { c, w, h, z }) and the membranes in it (SLAB.shells: { c, q (a THREE.Quaternion), s
+  // [a, b, b], inner }, a membrane each; double membranes as two), worked out once from the cell's shapes
+  const at = {}, shells = [];
+  function place() {
+    if (at.c) return;
+    const { v3, clamp } = K;
+    const CELL = GL.sets.cell.api().CELL, N = CELL.nuc, X1 = new THREE.Vector3(1, 0, 0);
+    // (the mitochondrion nearest the nucleus that is clear of it and level with it; the slab's plane through its middle)
+    // (one lying across the slab, so it is cut along its length; on the near side of the nucleus first, z above its
+    // middle, where the story's views look from)
+    const gap = m => Math.hypot(m.c[0] - N.c[0], m.c[1] - N.c[1]) - N.r, fits = (m, near) => Math.abs(m.c[2] - N.c[2]) < N.r * 0.8 && (!near || m.c[2] > N.c[2]) && gap(m) > 0.08 && Math.abs(m.axis[2]) < 0.5;
+    const nearest = near => CELL.mitos.filter(m => fits(m, near)).sort((x, y) => gap(x) - gap(y))[0];
+    const best = { m: nearest(true) || nearest(false) };
+    const m = best ? best.m : CELL.mitos[0], z = m.c[2];
+    // (the slab round the nucleus's cut edge on the mitochondrion's side, just inside and outside it, and the whole
+    // mitochondrion, with a margin; between 0.6 and 0.85 across)
+    const rn = Math.sqrt(Math.max(0, N.r * N.r - (z - N.c[2]) ** 2)), ux = v3.norm([m.c[0] - N.c[0], m.c[1] - N.c[1], 0]);
+    const pts = [v3.add(N.c, v3.mul(ux, rn - 0.1)), v3.add(N.c, v3.mul(ux, rn + 0.05)), v3.add(m.c, v3.mul(m.axis, m.a)), v3.sub(m.c, v3.mul(m.axis, m.a))];
+    const lo = [0, 1].map(j => Math.min(...pts.map(p => p[j])) - 0.1), hi = [0, 1].map(j => Math.max(...pts.map(p => p[j])) + 0.1);
+    const mid = [0, 1].map(j => (lo[j] + hi[j]) / 2), size = [0, 1].map(j => clamp(hi[j] - lo[j], 0.6, 0.85));
+    const w = size[0], h = size[1];
+    Object.assign(at, { c: [mid[0], mid[1], z], w, h, z, mito: m });
+    const inSlab = (c, r) => Math.abs(c[2] - z) < r + TH / 2 && Math.abs(c[0] - at.c[0]) < w / 2 + r && Math.abs(c[1] - at.c[1]) < h / 2 + r;
+    const MW = 0.008;   // (the gap between a double membrane's two)
+    shells.push({ c: N.c, q: new THREE.Quaternion(), s: [N.r, N.r, N.r], kind: 'nuc' }, { c: N.c, q: new THREE.Quaternion(), s: [N.r - MW, N.r - MW, N.r - MW], kind: 'nuc' });
+    for (const o of CELL.mitos) if (inSlab(o.c, o.a)) {
+      const q = new THREE.Quaternion().setFromUnitVectors(X1, new THREE.Vector3(...o.axis));
+      shells.push({ c: o.c, q, s: [o.a, o.b, o.b], kind: 'mito', o }, { c: o.c, q, s: [o.a - MW, o.b - MW, o.b - MW], kind: 'mito', o });
+    }
+    for (const o of [...CELL.lysos, ...CELL.endos, ...CELL.peroxs]) if (inSlab(o.c, o.r)) shells.push({ c: o.c, q: new THREE.Quaternion(), s: [o.r, o.r, o.r], kind: 'ves', o });
+    shells.push({ c: [0, 0, 0], q: new THREE.Quaternion(), s: CELL.pm.slice(), kind: 'pm' });   // (the cell's own membrane, where the slab reaches it)
+  }
+  // where a point is against a shell: its scaled radius (1 on the membrane) and roughly how far from the membrane
+  const _v = new THREE.Vector3(), _qi = new THREE.Quaternion();
+  const rel = (sh, p) => { _v.set(p[0] - sh.c[0], p[1] - sh.c[1], p[2] - sh.c[2]).applyQuaternion(_qi.copy(sh.q).invert()); const q = Math.hypot(_v.x / sh.s[0], _v.y / sh.s[1], _v.z / sh.s[2]); return { q, d: Math.abs(q - 1) * Math.min(...sh.s) }; };
   function pack(ms) {
     const t0 = performance.now(), CELL = GL.sets.cell.api().CELL;
+    place();
     if (!P.SB) {
       const PS = 0.045 / Math.max(...KS.map(k => 2 * BALLS.reach(BALLS.of(k.key, 1))));
       P.SB = {}; for (const k of KS) { const b = BALLS.of(k.key, PS); P.SB[k.key] = { b, rr: BALLS.reach(b) }; }
@@ -2141,18 +2196,20 @@ const SLAB = (() => {
     while (!P.done && performance.now() - t0 < ms) {
       for (let n = 0; n < 200; n++) {
         if (P.nb >= BMAX || P.miss > 3000 || P.i++ > 200000) { P.done = true; break; }
-        const key = pick(), q = 0.85 + 0.3 * rnd(), rr = P.SB[key].rr * q, zr = Math.max(0, SW[2] / 2 - rr * 0.6);
-        const p = [0.1 + (rnd() - 0.5) * SW[0], (rnd() - 0.5) * SW[1], SZ + (rnd() * 2 - 1) * zr];
-        if (CELL.eScale(p) >= 0.92) { P.miss++; continue; }
+        const key = pick(), q = 0.85 + 0.3 * rnd(), rr = P.SB[key].rr * q, zr = Math.max(0, TH / 2 - rr * 0.6);
+        const p = [at.c[0] + (rnd() - 0.5) * at.w, at.c[1] + (rnd() - 0.5) * at.h, at.z + (rnd() * 2 - 1) * zr];
+        // (clear of every membrane; none inside a vesicle; which space it is in)
+        let ok = true, inMito = false;
+        for (const sh of shells) { const r = rel(sh, p); if (r.d < rr + 0.004 || (sh.kind === 'ves' && r.q < 1) || (sh.kind === 'pm' && r.q > 1)) { ok = false; break; } if (sh.kind === 'mito' && r.q < 1) inMito = true; }
+        if (!ok) { P.miss++; continue; }
         const cx = gi(p[0]), cy = gi(p[1]), cz = gi(p[2]);
-        let ok = true;
         for (let dx = -1; dx <= 1 && ok; dx++) for (let dy = -1; dy <= 1 && ok; dy++) for (let dz = -1; dz <= 1 && ok; dz++) {
           for (const o of P.grid.get(gk(cx + dx, cy + dy, cz + dz)) || []) if (d(o.p, p) < 0.9 * (o.rr + rr)) { ok = false; break; }
         }
         if (!ok) { P.miss++; continue; }
         P.miss = 0;
         const balls = P.SB[key].b.map(b => b.map(x => x * q)), c = rnd();
-        const m = { p, balls, rr, e: [rnd() * 6, rnd() * 6, rnd() * 6], c: d(p, CELL.nuc.c) < CELL.nuc.r ? [0.75, 0.62, 1.0] : c < 0.3 ? [1.0, 0.8, 0.4] : [0.6, 0.85, 1.0] };
+        const m = { p, balls, rr, e: [rnd() * 6, rnd() * 6, rnd() * 6], c: d(p, CELL.nuc.c) < CELL.nuc.r ? [0.75, 0.62, 1.0] : inMito ? [1.0, 0.6, 0.82] : c < 0.3 ? [1.0, 0.8, 0.4] : [0.6, 0.85, 1.0] };
         P.mols.push(m); P.nb += balls.length;
         const g = gk(cx, cy, cz); if (!P.grid.has(g)) P.grid.set(g, []); P.grid.get(g).push(m);
       }
@@ -2160,7 +2217,7 @@ const SLAB = (() => {
     if (P.done) P.grid = null;
     return P.done;
   }
-  return { SW, SZ, P, pack };
+  return { TH, at, shells, rel, P, pack };
 })();
 
 SETS.next = function (K) {
@@ -2186,11 +2243,44 @@ SETS.next = function (K) {
   });
   const hc = BALLS.cloud(set, hMols); set.group.add(hc.points);
   // ------------------------------------------------------------ a slab: a tomogram's thin slice, its molecules sharp
-  const { SW, SZ } = SLAB;
+  const { at: SA, TH } = SLAB, SW = [SA.w, SA.h, TH];
   const slabMat = K.fade(set, new THREE.MeshBasicMaterial({ color: 0x8fb8e8, depthWrite: false }), 0.12);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(...SW), slabMat); slab.position.set(0.1, 0, SZ); set.group.add(slab);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(...SW), slabMat); slab.position.set(...SA.c); set.group.add(slab);
   const slabEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(...SW)), K.fade(set, new THREE.LineBasicMaterial({ color: 0xbfe0ff, transparent: true }), 0.6));
   slabEdge.position.copy(slab.position); set.group.add(slabEdge);
+  // (the membranes the slab cuts, as a tomogram shows them: thin lines where each meets the slab's front face and its
+  // back face (where it reaches only one, the cut in the middle), kept inside the slab's sides; pale, in one draw; the
+  // envelope's and the mitochondrion's double)
+  const memGeo = (() => {
+    const out = [], NR = 200, LW = 0.0028, inRect = p => Math.abs(p[0] - SA.c[0]) < SW[0] / 2 && Math.abs(p[1] - SA.c[1]) < SW[1] / 2;
+    // (a ring: the membrane's cut by the plane z, found along rays out from the shell's middle seen in that plane)
+    const ring = (sh, z) => {
+      if (SLAB.rel(sh, [sh.c[0], sh.c[1], z]).q >= 1) return null;
+      const R = 2.2 * Math.max(...sh.s);
+      return Array.from({ length: NR }, (_, i) => {
+        const f = i / NR * Math.PI * 2, d = [Math.cos(f), Math.sin(f)];
+        let lo = 0, hi = R;
+        for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (SLAB.rel(sh, [sh.c[0] + d[0] * m, sh.c[1] + d[1] * m, z]).q < 1) lo = m; else hi = m; }
+        return [sh.c[0] + d[0] * lo, sh.c[1] + d[1] * lo, z];
+      });
+    };
+    // (a ribbon LW wide along a ring, lying in the face at z)
+    const line = (r, z) => {
+      const side = r.map((p, i) => { const a = r[(i + NR - 1) % NR], b = r[(i + 1) % NR], t = [b[0] - a[0], b[1] - a[1]], l = Math.hypot(...t) || 1; return [-t[1] / l * LW / 2, t[0] / l * LW / 2]; });
+      for (let i = 0; i < NR; i++) {
+        const j = (i + 1) % NR, q = [[r[i][0] - side[i][0], r[i][1] - side[i][1], z], [r[j][0] - side[j][0], r[j][1] - side[j][1], z], [r[j][0] + side[j][0], r[j][1] + side[j][1], z], [r[i][0] + side[i][0], r[i][1] + side[i][1], z]];
+        if (q.every(inRect)) out.push(...q[0], ...q[1], ...q[2], ...q[0], ...q[2], ...q[3]);
+      }
+    };
+    for (const sh of SLAB.shells) {
+      const mid = ring(sh, SA.z); if (!mid) continue;
+      line(ring(sh, SA.z - TH / 2) || mid, SA.z - TH / 2 - 0.001); line(ring(sh, SA.z + TH / 2) || mid, SA.z + TH / 2 + 0.001);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+    return g;
+  })();
+  const memMat = K.fade(set, new THREE.MeshBasicMaterial({ color: 0xe6eeff, side: THREE.DoubleSide, depthWrite: false }), 0.85);
+  const mem = new THREE.Mesh(memGeo, memMat); set.group.add(mem);
   // (its molecules: SLAB's packing, done before the set is built)
   const sMols = SLAB.P.mols;
   const sc = BALLS.cloud(set, sMols, { own: true }); set.group.add(sc.points);
@@ -2216,17 +2306,17 @@ SETS.next = function (K) {
         baits.forEach((p, i) => { const g = K.smooth(clamp(h * 1.5 - i / NH * 0.5, 0, 1)); for (let j = 0; j <= NT; j++) { const k = i * (NT + 1) + j; hc.place(k, v3.add(p, v3.mul(hOff[k], g)), hQ[k], g); } });
         hc.tick(t);
       }
-      slab.visible = slabEdge.visible = sc.points.visible = s > 0.01;
+      slab.visible = slabEdge.visible = mem.visible = sc.points.visible = s > 0.01;
       slab.scale.set(1, Math.max(0.01, s), 1); slabEdge.scale.copy(slab.scale);
       sc.U.uA.value = set.uA.value * clamp(s * 1.5 - 0.3, 0, 1); sc.tick(t);
-      slabMat.opacity *= s;
+      slabMat.opacity *= s; memMat.opacity *= clamp(s * 1.5 - 0.2, 0, 1);
       vol.visible = v > 0.01;
       if (vol.visible) { for (let i = 0; i < VA.length; i++) VA[i] = 0.12 * clamp(v * 1.4 - vr[i] * 0.4, 0, 1); vg.attributes.aA.needsUpdate = true; }
     },
-    anchors: { halo: () => v3.add(baits[3], [0, 0.1, 0]), slab: [0.1 + SW[0] * 0.5, SW[1] * 0.45, SZ], vol: [0, CELL.pm[1] * 1.02, 0], nucleus: CELL.nuc.c },
+    anchors: { halo: () => v3.add(baits[3], [0, 0.1, 0]), slab: [SA.c[0] + SW[0] * 0.5, SA.c[1] + SW[1] * 0.45, SA.z], vol: [0, CELL.pm[1] * 1.02, 0], nucleus: CELL.nuc.c },
     labels: [],
-    stats: () => ({ slab: sMols.length, balls: sc.balls }),
-    cam: { default: [20, 14, 3.6, 0, 0, 0], slab: [8, 8, 2.6, 0.1, 0, SZ], high: [30, 32, 3.8, 0, 0, 0] },
+    stats: () => ({ slab: sMols.length, balls: sc.balls, at: [SA.c, SA.w, SA.h], shells: SLAB.shells.map(o => o.kind), memTris: memGeo.attributes.position.count / 3 }),
+    cam: { default: [20, 14, 3.6, 0, 0, 0], slab: [8, 8, 1.9, SA.c[0], SA.c[1], SA.z], high: [30, 32, 3.8, 0, 0, 0] },
   });
 };
 SETS.next.prep = ms => SLAB.pack(ms || 25);
@@ -2798,11 +2888,11 @@ function buildStory() {
       ${turns(`<p data-at="1.5" data-out="26.5"${sy(`A cell is not a bag of soup. It is more like a house with rooms. The cytosol is one room. The inside of the nucleus is another. The endoplasmic reticulum and the Golgi, where proteins are made and shipped, have rooms of their own. Then come the mitochondria, the cell's power stations, and small organelles such as lysosomes. And the last room is the world outside.`)}>A cell is a house with rooms. Membranes are the walls; each space is a room.</p>
         <p data-at="14" data-out="26.5" class="amber"${sy(`Two proteins in different rooms cannot touch, however well they would fit. And every single mitochondrion is a room of its own.`)}>Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is its own.</p>`,
       `<p data-at="27" data-out="44.5"${sy(`Some proteins sit in a wall and reach into both rooms. This receptor crosses the cell's outer membrane. Outside, it catches a signal. Inside, it passes the message on to a partner.`)}>A protein in a membrane can reach into both sides: a receptor meets a signal outside and a partner inside.</p>
-        <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
+        <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, with an agonist (BI-167107) in its pocket and the G protein Gs docked inside, their surfaces; ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
       `<p data-at="45"${sy(`And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.`)}>Gates are the doors: nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes.</p>
         <p data-at="57"${sy(`A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.`)}>Into a mitochondrion a protein goes unfolded. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
         <p data-at="58" class="caption"${mute}>Close-ups not to scale.</p>
-        <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
+        <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
     back: `<h2 data-at="0.6"${mute}>Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5"${sy(`Now we need an address for every protein. For that we use the Human Protein Atlas, a large public project. Its teams stained human cells for one protein at a time, with an antibody that sticks to it, and photographed under a microscope where the cell lights up.`)}>Each protein goes where the Human Protein Atlas finds it: cells stained with an antibody for one protein at a time, and photographed. ${word(F.places)[0].toUpperCase() + word(F.places).slice(1)} places in this model cell.</p>`,
       `<p data-at="16" data-out="42.5"${sy(`Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.`)}>In this picture a protein in several places splits into copies: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more.</p>
@@ -2835,7 +2925,7 @@ function buildStory() {
     moments: `<h2 data-at="0.6"${mute}>Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5"${sy(`Now suppose a link is right, and both partners share a room. Even then, it is not a wire. Take GRB2 again. It has ${fmt(GRB2.deg)} partners, but only three hands: three small domains, each of which holds one partner at a time.`)}>GRB2: ${fmt(GRB2.deg)} links, but three binding domains, an SH2 and two SH3s.</p>
         <p data-at="18" data-out="35.5" class="amber"${sy(`So its partners have to take turns. A link in the map is a moment in time, not a permanent connection.`)}>Partners take turns. A link is a moment in time, not a permanent wire.</p>
-        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: parts of them as surfaces (PDB 1M17, 3PP0, 1R0P, 1T46, 1MIL, 2II0, 2CBL, 2X2E), smaller than to scale, each with its docking stretch as a chain of amino acids.</p>`,
+        <p data-at="3" data-out="35.5" class="credits">GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: their docking stretches, each a short chain of amino acids (illustrative).</p>`,
       `<p data-at="36" data-out="44.5"${sy(`Or take TP53, the cell's best-known guardian against cancer. It has ${fmt(TP53.deg)} links, and it travels to and fro through the nuclear pores. Some of its partners wait in the nucleus, others in the cytosol.`)}>TP53: ${fmt(TP53.deg)} links. It goes to and fro through the nuclear pores: ${fmt(TP53.nuc)} partners are listed in the nucleoplasm, ${fmt(TP53.cyt)} in the cytosol (some in both).</p>
         <p data-at="37" data-out="44.5" class="credits">TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.</p>`,
       `<p data-at="45" data-out="53.5" class="amber"${sy(`But be a little careful with that number. TP53 is one of the most studied proteins there is, and ${fmt(TP53.lit)} of its links come from individual papers. The more people look at a protein, the more partners they find. In systematic screens, which test every pair alike, it only ranks ${ordinal(TP53.binRank)}.`)}>Part of that is fame: ${fmt(TP53.lit)} of its links in this interactome come from papers. In systematic two-hybrid screens it ranks ${ordinal(TP53.binRank)}.</p>`,
@@ -2937,8 +3027,8 @@ function buildStory() {
   cam(a + 62, 'walls', 'import', 12, 'spin');   // (held while the protein threads in)
   cam(b, 'walls', 'default', 60);
   SPACES.forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'The endoplasmic reticulum and Golgi lumens', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 3 || i === 4 ? ' · each its own space' : ''}`, litAt(i) - 1, litAt(i) + 2.2, 'cyn'));
-  L('walls', 'recOut', '<b>Outside</b> · meets a signal', a + 32, a + 44, 'amb');
-  L('walls', 'recIn', '<b>Inside</b> · meets a partner', a + 34, a + 44, 'grn');
+  L('walls', 'recOut', '<b>Outside</b> · a signal in its pocket', a + 32, a + 44, 'amb');
+  L('walls', 'recIn', '<b>Inside</b> · its partner, a G protein', a + 34, a + 44, 'grn');
   L('walls', 'pore', '<b>A nuclear pore</b> · a gate', a + 49, a + 56, 'amb');
   L('walls', 'import', '<b>An import site</b> · into a mitochondrion', a + 59, b - 1, 'amb');
   SPACES.forEach((k, i) => sfxCue(litAt(i) - 1, 'ping', 'walls', k, { gain: 0.3, pitch: Math.pow(2, i / 12) }));
@@ -2970,6 +3060,10 @@ function buildStory() {
   ramp('cell_amb', a + 1, a + 3, 1, 0); ramp('cell_red', a + 1, a + 3, 1, 0);
   ramp('cell_amb', a + 16, a + 18, 0, 1);
   ramp('cell_red', a + 30, a + 32, 0, 1);
+  // (red is on show only while the story talks about it: the owner, 23 November 2026; out again for RELA's amber links,
+  // in for 'Why red?', out under the lenses, in for the shares by kind and the two readings, out with the proteins
+  // without a place, in again for the last picture's red remainder)
+  ramp('cell_red', a + 42, a + 44, 1, 0);
   const rela = RELA.p, relaAt = dotOf(net, rela);
   jump('cell_pp', a + 43, -1, rela);
   jump('cell_pp', b - 1, rela, -1);
@@ -2989,6 +3083,7 @@ function buildStory() {
   // faces, strict then generous; the proteins without a place
   a = C.red.a; b = C.red.b;
   ramp('cell_amb', a + 1, a + 3, 1, 0.15); ramp('cell_amb', a + 12, a + 14, 0.15, 1);
+  ramp('cell_red', a + 0.5, a + 2.5, 0, 1); ramp('cell_red', a + 13, a + 15, 1, 0); ramp('cell_red', a + 84, a + 86, 0, 1);
   show('lens', a + 13, a + 15, a + 84, a + 86);
   ramp('lens_open', a + 14, a + 19, 0, 1);
   ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3);
@@ -3020,7 +3115,7 @@ function buildStory() {
   sfxCue(a + 97, 'snap', 'cell', 'centre', { gain: 0.35 });
   // 7. Not all at once: GRB2's domains and partners in turn; TP53 to and fro; STAT3 through a pore
   a = C.moments.a; b = C.moments.b;
-  ramp('cell_a', a, a + 3, 1, 0);
+  ramp('cell_a', a, a + 3, 1, 0); ramp('cell_red', a, a + 2.5, 1, 0);
   show('sites', a + 1, a + 4, b - 2, b);
   ramp('sites_cyc', a + 6, a + 35, 0, 7);
   ramp('sites_act', a + 35, a + 39, 0, 1);
@@ -3046,6 +3141,7 @@ function buildStory() {
   ramp('cell_a', a, a + 3, 0, 1);
   show('next', a + 2, a + 4, a + 50, a + 52);
   ramp('cell_net', a + 2, a + 5, 1, 0.25); ramp('cell_net', a + 49, a + 53, 0.25, 1);   // (the cell's links dimmed under the methods)
+  ramp('cell_red', a + 52, a + 54, 0, 1);   // (the red remainder, back for the last picture)
   ramp('next_halo', a + 5, a + 11, 0, 1); ramp('next_halo', a + 20, a + 22, 1, 0);
   ramp('next_slab', a + 22, a + 28, 0, 1); ramp('next_slab', a + 35, a + 37, 1, 0);
   ramp('next_vol', a + 37, a + 43, 0, 1); ramp('next_vol', a + 49, a + 51, 1, 0);
@@ -3517,6 +3613,7 @@ function buildExplore() {
       place: () => setPick(-1, +v, true),
       clear: () => setPick(-1, -1, false),
       copies: () => setTies(+v, true),
+      pickp: () => setPick(+v, -1, true),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -3572,6 +3669,30 @@ function kindWords() {
   const k = GL.sets.cell && GL.sets.cell.stats().kind;
   return k >= 0 ? ` with ${api('cell').kinds[k].toLowerCase()} evidence` : '';
 }
+// The search for a protein: open or not (the headset's Pick pane), the letters typed, and every protein by its links
+// (the best connected first, built once). This device's own, never in collabState: only the pick it makes is shared.
+const SRCH = { on: false, q: '', byDeg: null };
+// up to n proteins whose symbols start with q (any case), the best connected first; with nothing typed, the biggest hubs
+function searchHits(q, n) {
+  const c = api('cell');
+  if (!c.sym) return [];
+  if (!SRCH.byDeg) {
+    const up = Array.from({ length: PDATA.N }, (_, p) => c.sym(p).toUpperCase().replace(/ /g, ''));   // ('Gene 934' typed GENE934)
+    SRCH.byDeg = Array.from(up.keys()).filter(p => up[p]).sort((x, y) => c.deg(y) - c.deg(x) || (up[x] < up[y] ? -1 : 1)).map(p => [p, up[p]]);
+  }
+  q = String(q || '').toUpperCase().replace(/ /g, '');
+  const out = [];
+  for (const [p, u] of SRCH.byDeg) if (u.startsWith(q) && out.push(p) >= n) break;
+  return out;
+}
+// a key of the headset's keyboard: a letter or digit added, 'del' the last one taken back, 'clear' all of them
+function searchKey(k) { SRCH.q = k === 'del' ? SRCH.q.slice(0, -1) : k === 'clear' ? '' : (SRCH.q + k).slice(0, 16); }
+// the suggestions under the page's box (the same as the headset's: the best connected first)
+function renderHits() {
+  const el = $('#pickHits'), inp = $('#pickSym');
+  if (!el || !inp) return;
+  el.innerHTML = searchHits(inp.value, 10).map(p => chip(`data-act="pickp" data-v="${p}"`, esc(api('cell').sym(p)), X.pp === p)).join('');
+}
 // a protein typed by its symbol (the page only): Enter picks it
 function findProtein(s) {
   const p = api('cell').find(s), msg = $('#pickMsg');
@@ -3585,9 +3706,12 @@ function renderPick() {
   if (!$('#pickBody')) {
     pane.innerHTML = `<p class="sub">Click a dot (in a headset: point and press) to pick a protein and see all its links, or pick a place. The same again lets go.</p>
       <form class="grp" id="pickFind" autocomplete="off"><label for="pickSym">Protein</label> <input id="pickSym" type="text" placeholder="a symbol, such as TP53" size="16" spellcheck="false"> <span class="sub" id="pickMsg"></span></form>
+      <div class="chips" id="pickHits"></div>
       <div id="pickBody"></div>`;
     $('#pickFind').addEventListener('submit', ev => { ev.preventDefault(); findProtein($('#pickSym').value); });
+    $('#pickSym').addEventListener('input', renderHits);
   }
+  renderHits();
   const names = api('cell').places || [];
   $('#pickBody').innerHTML = `<div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
     <p class="sub">${esc(pickLine())}</p>${kindsLine() ? `<p class="sub">${esc(kindsLine())}</p>` : ''}
@@ -4737,7 +4861,7 @@ function sigMain() {
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.ties, pickLine(), kindsLine()].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -5088,9 +5212,32 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   }
 }
 
-// the places to pick and what the pick shows (renderPick's twin)
+// the places to pick and what the pick shows (renderPick's twin). The headset has no box to type in, so the Search
+// button opens a keyboard and the proteins whose symbols start with what is typed, as buttons (the best connected
+// first; before anything is typed the biggest hubs): pressing one picks it. The places give way to them meanwhile, as
+// the panel cannot scroll.
 function drawPickPane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x, y, W, 25, 35, VC.muted, 400, 3) + 16;
+  vButton(ctx, P, 'pick:search', x, y, 170, 56, 'Search', () => { SRCH.on = !SRCH.on; }, { on: SRCH.on, px: 22 });
+  if (SRCH.on) {
+    // what is typed, in a field beside the button
+    rr(ctx, x + 186, y, W - 186, 56, 8); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = VC.line; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    if (SRCH.q) { ctx.font = vfont(26, 700); ctx.fillStyle = VC.ink; ctx.fillText(SRCH.q + '_', x + 204, y + 29); }
+    else { ctx.font = vfont(22); ctx.fillStyle = VC.faint; ctx.fillText('Type the start of a symbol, such as TP53', x + 204, y + 29); }
+    ctx.textBaseline = 'top';
+    y += 72;
+    for (const k of keyRects(x, y, W)) vButton(ctx, P, 'key:' + k.k, k.x, k.y, k.w, k.h, k.label, () => searchKey(k.k), { px: k.k.length > 1 ? 21 : 24, r: 8 });
+    y += KEYS_H + 16;
+    const hits = searchHits(SRCH.q, 10);
+    if (hits.length) y += flow(ctx, P, hits.map(p => ({ id: 'hit:' + p, label: api('cell').sym(p), on: X.pp === p, fn: () => setPick(p, -1, true) })), x, y, W, y + 2 * 52 + 8, { px: 23, h: 52 }) + 18;
+    else y += textBlock(ctx, `No protein in this interactome starts with ${SRCH.q}.`, x, y, W, 23, 32, VC.muted, 400, 1) + 18;
+    y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 5) + 12;
+    if (kindsLine()) y += textBlock(ctx, kindsLine(), x, y, W, 22, 31, VC.muted, 400, 2) + 18;
+    if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
+    return;
+  }
+  y += Math.max(56, textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x + 190, y, W - 190, 23, 31, VC.muted, 400, 3)) + 16;
   const names = api('cell').places || [];
   y += flow(ctx, P, names.map((n, k) => ({ id: 'place:' + k, label: n, on: X.pc === k, fn: () => setPick(-1, k, true) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
   y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 7) + 12;
@@ -5102,6 +5249,20 @@ function drawPickPane(ctx, P, x, y, W, bottom) {
   y += 36;
   y += flow(ctx, P, [[1, 'On'], [0, 'Off']].map(([v, n]) => ({ id: 'copies:' + v, label: n, on: X.ties === v, fn: () => setTies(v, true) })), x, y, W, bottom, { px: 24, h: 56 }) + 14;
   if (y + 60 < bottom) textBlock(ctx, COPIES_TEXT, x, y, W, 22, 31, VC.muted, 400, 2);
+}
+// the search's keyboard: ten keys a row, the last row's Delete and Erase all keys a key and a half each; KEYS_H its height
+const KEY_ROWS = ['ABCDEFGHIJ', 'KLMNOPQRST', 'UVWXYZ0123', '456789-'], KEY_H = 54, KEY_GAP = 8, KEYS_H = 4 * KEY_H + 3 * KEY_GAP;
+function keyRects(x, y, W) {
+  const kw = (W - 9 * KEY_GAP) / 10, out = [];
+  KEY_ROWS.forEach((row, r) => {
+    const ky = y + r * (KEY_H + KEY_GAP);
+    [...row].forEach((k, c) => out.push({ k, label: k, x: x + c * (kw + KEY_GAP), y: ky, w: kw, h: KEY_H }));
+    if (r === 3) {
+      const x0 = x + 7 * (kw + KEY_GAP), w2 = (x + W - x0 - KEY_GAP) / 2;
+      out.push({ k: 'del', label: 'Delete', x: x0, y: ky, w: w2, h: KEY_H }, { k: 'clear', label: 'Erase all', x: x0 + w2 + KEY_GAP, y: ky, w: w2, h: KEY_H });
+    }
+  });
+  return out;
 }
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {

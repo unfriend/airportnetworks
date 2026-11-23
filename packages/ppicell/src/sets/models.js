@@ -4,8 +4,8 @@
 // a model's credit ('PDB 1GRI (Maignan et al., Science 1995)'). molPts: its residues' anchors (angstroms, the model's
 // frame); molAxis: the longest axis of such points (models built with orient: false, cut from one entry, line up).
 const MOL_URL = f => pkgUrl('models/' + f);
-const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh', 'tub', 'fxn',
-  'egfr', 'erbb2', 'met', 'kit', 'shc1', 'sos1', 'cbl', 'dnm1'];
+const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'b2lig', 'gs', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'ubq', 'cam', 'actin', 'gapdh',
+  'tub', 'fxn'];
 const molPrep = names => () => { molLoad(MOL_URL, MOL_ALL); return molReady(MOL_URL, names); };
 const molHead = n => (MOLS.m[n] && MOLS.m[n].head) || null;
 const molCredit = n => (molHead(n) ? molHead(n).credit : '');
