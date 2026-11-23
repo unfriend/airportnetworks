@@ -67,8 +67,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   by `tools/release.mjs`.
 - `sw.js` - service worker: network first, checked each time; narration MP3s in their own cache
   (`networks-narration`); studio scenes and `examples/` passed through (`docs/agents/shell.md`).
-- `audio/` - since v187 only `PUT-narration.mp3-HERE.txt` (the chapter timings); each story's narration is
-  `packages/<key>/audio/narration.mp3` (the pass story's German `narration-de.mp3` beside it).
+- `docs/narration-timings.txt` - the chapter timings (v190; until then `audio/PUT-narration.mp3-HERE.txt`, and `audio/`
+  is gone); each story's narration is `packages/<key>/audio/narration.mp3` (the pass story's German `narration-de.mp3`).
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `LICENSE` (MIT, the code) and `NOTICE.md` (CC BY 4.0 for words, narrations, docs and icons; the data's and
   others' parts' own terms) - served with the app by the relay (`docs/data-and-permissions.md`, "Licence").
@@ -175,6 +175,8 @@ gets at most a line per feature and stays under 70 KB.
   tag 2; Opus via WebCodecs); per device, off by default, open mic with a voice gate and a *Mic* row (the Shared dialog,
   the menu's Circles tab, the phone sheet), no button taken; people both `here` never hear each other through it
   (`docs/agents/shared-rooms.md` "Talk").
+- Left for later (the owner, 23 November 2026): the shared library (G3) and rewriting airports, proteins and spatial
+  onto the shared engine with the unified look (R1 to R3): `docs/packages-migration.md`, "Left for later".
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
@@ -365,7 +367,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   about, and taken by itself at the next quiet moment (`HOST.reloadIfUpdated`:
   on the Stories screen, not in a headset); a story needing a newer shell is
   never swapped in. After changing `sw.js`, run `tools/update.mjs`.
-- Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt` (the narrations themselves are in
+- Story chapter timings are also documented in `docs/narration-timings.txt` (the narrations themselves are in
   `packages/<key>/audio/` since v187).
 - After changing anything in a built story's `packages/<key>/src/`, rebuild it (`node packages/<key>/src/build.mjs`,
   then `node tools/packages/scan.mjs`) and its readers ("Rebuild the dependants" above; `node tools/engine/all.mjs`
@@ -408,7 +410,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `npx playwright install chromium`). WebGL runs in SwiftShader headlessly, so frame rates are low. A 404 for a missing
   narration MP3 is expected; any other console error fails it.
 - `--only <words>` runs the blocks whose names start with the words, for a builder's own steps; the release run is the
-  whole test. Blocks: `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
+  whole test. Blocks: `'packages order'`, `'take all'`, `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `talk`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,

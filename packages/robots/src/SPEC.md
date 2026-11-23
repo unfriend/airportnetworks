@@ -312,7 +312,7 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
 - Docs: `AGENTS.md` (seven stories, the table row, layout entry for `packages/robots/src/`, a section "The robot gang
   (`packages/robots/main.js`) is built the same way" with what is special: live sim, room from the headset, world =
   inverse rig for a real room, plane/mesh detection requested by every story), `CLAUDE.md` (build line),
-  `README.md`, `README.txt`, `audio/PUT-narration.mp3-HERE.txt` (chapter timings), `packages/robots/src/README.md`.
+  `README.md`, `README.txt`, `docs/narration-timings.txt` (chapter timings), `packages/robots/src/README.md`.
 
 ## Science (may say / must not say)
 

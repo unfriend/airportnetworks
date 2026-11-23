@@ -173,6 +173,23 @@ studio's pages, `--only 'studio texture swaps'` one block of them, `--only tutor
 <key>` step always runs with its block, v179: before, it was filtered out by its own name and the story's steps ran on
 the page's default story). For a builder's own steps; the release run is the whole test.
 
+### smoke: packages order
+
+`--only 'packages order'` (v190, a few seconds): the Stories screens follow `packages/order.json`. On the main set,
+`HOST.list` (which the headset's Stories screen and Arrange all read) and the page's cards are order.json's keys whose
+package is on the main set, in its order, then the card to the Experiments; the tutorial (the one `intro`) last. On the
+Experiments set, `HOST.packages.experiments()` and the page's cards are the index's experiments in the index's order
+(order.json's first, then other packages by key), then the card back.
+
+### smoke: take all
+
+`--only 'take all'` (v190, a minute or two: about 100 MB from the local server): in a page of its own (its own service
+worker and caches) *Take all stories* (`#btnTakeAll`, `HOST.offline`, `sw.js` `takeAll`) ends in *All stories on this
+device* with nothing failed, and the packages' cache holds every file of every listed package at the address the app asks
+for (`?v=` its fingerprint): each `main.js`, `minis.js`, narration and data. Then, with the context offline (a request
+past the worker fails), a story this page never opened (the soil story) is answered from the cache: its narration and its
+miniatures' file, and it starts.
+
 ### smoke: away idle
 
 Its *away idle* steps (`--only 'away idle'`, a page of their own, a minute or two): the away lines (`xrIdle` and
@@ -1309,7 +1326,11 @@ touched swapping within about 2 s, a set's source touched building and swapping
 its story, the list read again, a swap at a station writing nothing to the room, a
 station of a story this device does not know, in a shared room a new `FORMAT` asked about with the bar's third
 button *Reload every device* (its first press arming it), the countdown, *Not now* holding it off and then the page
-taking it by itself, back in the room with its place, and a shell file reloading the page with its place.
+taking it by itself, back in the room with its place, and a shell file reloading the page with its place. A story
+package that needs a newer shell than the page's (v190 case: its `story.json`'s `needs` raised, its `main.js` changed) is
+never swapped in: the story on show stays, its card says *Needs a newer version of the app* (any note on the bar is put
+away with Later, then `needs` goes back). The "within about 2 s" step allows 3 s: on a loaded machine it can miss by a
+little (seen once in v190, then passing).
 
 ## `tools/update.mjs` (service worker updates)
 
@@ -1322,7 +1343,10 @@ on the first visit after the update, on the next visit and offline. It finds the
 `tools/stories.mjs` (`stories/airports.js` in an older tree, `packages/airports/main.js` since v187), asks the browser for
 the new worker and waits until it is installed before going offline (it takes every package's `main.js`, about 13 MB),
 checks byte ranges of a package narration from the packages' cache offline (asked with `no-store`: the browser's own
-cache answers a range it cannot satisfy with the whole file), and says what the page shows when no story runs.
+cache answers a range it cannot satisfy with the whole file), and says what the page shows when no story runs. The
+narrations' cache (v190): copies at old addresses (`audio/narration-proteins.mp3`, `audio/narration-lbi.mp3`, put there
+under the older worker where it held none, as a device that played them before v187 has) are dropped by the new worker's
+activate (`narrPrune`), and those its release still lists (`AUDIO`) are kept.
 
 ## `relay/test.mjs` and `tools/collab.mjs` (shared rooms)
 

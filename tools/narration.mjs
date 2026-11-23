@@ -1,5 +1,5 @@
 // Narration scripts: writes docs/narration.md, the words on each story's panel chapter by chapter, with the second
-// each line appears, to record a narration from (audio/PUT-narration.mp3-HERE.txt says where the files go).
+// each line appears, to record a narration from (docs/narration-timings.txt says where the files go).
 // The text is read from the running stories, so their numbers are the ones the data gives today.
 // Usage: serve the folder, then node tools/narration.mjs http://127.0.0.1:8123/ [docs/narration.md]
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
@@ -106,7 +106,7 @@ seconds on the recording's clock, from NARRATION_SYNC; for a story not recorded 
 set from these words). A narration follows these words and times; it can say them more freely, but the numbers must
 stay as they are (they come from the data).
 
-How to record and fit a narration: see "Recording a narration" in \`audio/PUT-narration.mp3-HERE.txt\`. In short, put the
+How to record and fit a narration: see "Recording a narration" in \`docs/narration-timings.txt\`. In short, put the
 MP3 at the file named under each story; if your chapters start at other times, change NARRATION_SYNC (pairs of
 [time in the recording, story time]) in the story's source (\`tools/<story>/engine/e3_story.js\`, then rebuild; in
 \`stories/<story>.js\` for the airports, proteins and spatial stories) and run the smoke test.

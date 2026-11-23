@@ -219,7 +219,7 @@ choices. The app also switches to the audio element by itself when Web Audio
 fails. A link ending in `#soundcheck` opens it directly.
 
 Chapter timings and how to record and re-sync a new recording are in
-`audio/PUT-narration.mp3-HERE.txt`. `NARRATION_SYNC` is in
+`docs/narration-timings.txt`. `NARRATION_SYNC` is in
 `tools/<story>/engine/e3_story.js` for the thirteen built stories (rebuild after
 changing it) and in `stories/<story>.js` for airports, proteins and spatial.
 After a narrated story's text changes, `node tools/voice/narrate.mjs <key>`

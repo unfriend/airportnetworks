@@ -10,8 +10,8 @@
 // A story in two languages (LANGS and setLang, the pass story) is read and spoken in each, English by Kokoro and German
 // by Piper, and laid out on one timeline: each stretch lasts the longest of 1.1 times its story time and each
 // language's line plus its pause (a line one language reads as one and the other as two spans both stretches). Each
-// language gets its own recording on that timeline (the first audio/narration-<key>.mp3, the others
-// audio/narration-<key>-<lang>.mp3, all of one length), so a device plays its own language on a shared clock.
+// language gets its own recording on that timeline (the first packages/<key>/audio/narration.mp3, the
+// others packages/<key>/audio/narration-<lang>.mp3, all of one length), so a device plays its own language on a shared clock.
 // It writes NARRATION_SYNC (recording time -> story time) and NARRATION_ENDS (where each chapter's words end in the
 // recording; in two languages the later of the two) into the story's source (tools/<key>/engine/e3_story.js, then
 // rebuilds; or stories/<key>.js) and the recordings (mono, 44.1 kHz, 64 kbps, loudness -16 LUFS).
@@ -27,7 +27,7 @@
 // Environment: VOICE_PYTHON (a Python with kokoro-onnx, piper-tts and soundfile; default python3), KOKORO_DIR (or
 // KOKORO_MODEL and KOKORO_VOICES), PIPER_DIR (or PIPER_MODEL) and VOICE_CACHE as kokoro.py and piper.py read them;
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in tools/smoke.mjs.
-// Afterwards: len in stories/list.js, audio/PUT-narration.mp3-HERE.txt, VERSION in sw.js, then the smoke and audio
+// Afterwards: len in packages/<key>/story.json, docs/narration-timings.txt, VERSION in sw.js, then the smoke and audio
 // tests and node tools/narration.mjs (docs/narration.md).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -362,5 +362,5 @@ console.log('wrote', srcOf(key));
 if (S(key) && S(key).build) execFileSync(process.execPath, [path.join(ROOT, S(key).build)], { stdio: 'inherit', cwd: ROOT });
 if (PKG(key)) execFileSync(process.execPath, [path.join(ROOT, 'tools/packages/scan.mjs')], { stdio: 'inherit', cwd: ROOT });
 fs.rmSync(tmp, { recursive: true, force: true });
-console.log(`\nNow: len in stories/list.js (Story ${mmss(T_END)}), the chapter times in audio/PUT-narration.mp3-HERE.txt, VERSION in sw.js,
+console.log(`\nNow: len in packages/${key}/story.json (Story ${mmss(T_END)}), the chapter times in docs/narration-timings.txt, VERSION in sw.js,
 then node tools/smoke.mjs and node tools/audio.mjs, node tools/voice/check.mjs ${key}${multi ? langs.slice(1).map(l => ` (and --lang ${l})`).join('') : ''}, and node tools/narration.mjs (docs/narration.md).`);

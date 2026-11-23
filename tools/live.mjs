@@ -3,7 +3,8 @@
 //  - the live site (served like GitHub Pages: ten-minute browser caching, ETags; a service worker looking after the
 //    page): version.json passed through the worker uncached, a story added live (its card appears without a reload),
 //    a changed story not on show fetched fresh next time, the story on show swapped in place (explore state and
-//    view kept; at a slideshow stop: mode, chapter, time and slideshow kept; a playing chapter waits for its end),
+//    view kept; at a slideshow stop: mode, chapter, time and slideshow kept; a playing chapter waits for its end), a
+//    story package needing a newer shell never swapped in (its card says so),
 //    another shell asked about first and the place restored after Reload now;
 //  - while developing (the relay with --watch --build): a story file touched swaps within about 2 s, a set's source
 //    touched builds and swaps its story, the list read again, a station's swap writing nothing to the shared room, a
@@ -36,7 +37,7 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
 // shared engine parts and the kit, and tools/packages/ (the index the relay writes again after a package's build))
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
 for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'output.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
-for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/engine', 'tools/packages']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
+for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/engine', 'tools/packages']) if (fs.existsSync(path.join(REPO, d))) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });   // (audio/: gone since v190)
 const file = f => path.join(T, f);
 const read = f => fs.readFileSync(file(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(file(f), t);
@@ -119,7 +120,7 @@ try {
       // (every story a package: the new one is a package too, a copy of the flock's, added to the index)
       fs.mkdirSync(file('packages/flock2'), { recursive: true });
       write('packages/flock2/main.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';").split("HOST.pkgUrl('flock', ").join("HOST.pkgUrl('flock2', "));
-      write('packages/flock2/story.json', JSON.stringify({ ...JSON.parse(read('packages/flock/story.json')), key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock', brand: 'Second flock', sub: 'added live', len: 'Story 1:57', list: 'stories' }, null, 2));   // (the main set: the flock's own is an experiment, v188)
+      write('packages/flock2/story.json', JSON.stringify({ ...JSON.parse(read('packages/flock/story.json')), minis: undefined, key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock', brand: 'Second flock', sub: 'added live', len: 'Story 1:57', list: 'stories' }, null, 2));   // (the main set: the flock's own is an experiment, v188)
       scan();
     }
     release();
@@ -158,6 +159,23 @@ try {
     const after = await place(page), fresh = await page.evaluate(c => HOST.cur !== c, cur0);
     report('the story on show, swapped in place: explore mode, its state and view kept', swapped && fresh && /TP53/.test(before.state) && after.mode === 'explore' && after.state === before.state && sameView(after.view, before.view), { before, after });
     report('... with no reload', await page.evaluate(() => window.__mark === 1));
+  }
+
+  // a story package that needs a newer shell than the page's (its story.json's needs, v190): never swapped in, the story
+  // on show stays as it was and its card says it needs a newer version (then needs is put back)
+  {
+    const n0 = await swapsNow(page), cur0 = await page.evaluateHandle(() => HOST.cur), sjf = 'packages/proteins/story.json';
+    const sj = JSON.parse(read(sjf)), was = sj.needs, n = await page.evaluate(() => HOST.shell.n);
+    write(sjf, JSON.stringify(Object.assign({}, sj, { needs: n + 1 }), null, 2) + '\n'); touch(fileOf('proteins'), 'needs a newer shell'); scan(); release();
+    await page.evaluate(() => HOST.live.check('test'));
+    await wait(3000);
+    const r = await page.evaluate(c => { const m = HOST.meta('proteins') || {}; const b = document.getElementById('livebar'); return { same: HOST.cur === c, key: HOST.curKey, swaps: HOST.swaps || 0, refused: !!m.refused, len: m.len, pending: HOST.live.pending, bar: b.hidden ? '' : b.textContent }; }, cur0);
+    report('a package needing a newer shell: not swapped in (the story on show stays), its card says it needs a newer version', r.same && r.key === 'proteins' && r.swaps === n0 && r.refused && /newer version/.test(r.len || ''), r);
+    write(sjf, JSON.stringify(Object.assign({}, sj, { needs: was }), null, 2) + '\n'); touch(fileOf('proteins'), 'its needs back'); scan(); release();
+    await page.evaluate(() => HOST.live.check('test'));
+    await wait(1000);
+    // (its note on the bar, if any, put away: Later)
+    await page.evaluate(() => { const b = document.getElementById('livebar'); if (!b.hidden) b.querySelector('[data-live="later"]').click(); });
   }
 
   // ... at a slideshow stop: mode, chapter, time and the slideshow kept

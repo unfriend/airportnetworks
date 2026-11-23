@@ -17,7 +17,7 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | --- | --- |
 | show the stories (screens, kiosk, headsets) | [README.md](README.md) (installing, using), [docs/event-runbook.md](docs/event-runbook.md), [relay/README.md](relay/README.md) for shared rooms |
 | check or answer for the science | [docs/data-and-permissions.md](docs/data-and-permissions.md), [docs/questions-for-authors.md](docs/questions-for-authors.md), the story's `tools/<story>/SPEC.md` |
-| record a narration | [docs/narration.md](docs/narration.md) (the words and times), [audio/PUT-narration.mp3-HERE.txt](audio/PUT-narration.mp3-HERE.txt); a synthetic voice: [tools/voice/README.md](tools/voice/README.md) |
+| record a narration | [docs/narration.md](docs/narration.md) (the words and times), [docs/narration-timings.txt](docs/narration-timings.txt); a synthetic voice: [tools/voice/README.md](tools/voice/README.md) |
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the core: structure, rules, conventions, testing) and its detail files in [docs/agents/](docs/agents/) (every shared-room rule, the studio, each story, every test) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 | run the studio, its scenes and uploads | [tools/studio/README.md](tools/studio/README.md), [relay/README.md](relay/README.md) (scenes, R2, the upload page) |

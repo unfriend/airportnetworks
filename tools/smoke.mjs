@@ -14029,6 +14029,77 @@ function FPS_FAKE() {
     isSessionSupported: async () => true, addEventListener() {}, removeEventListener() {},
     requestSession: async (mode, init) => { F.inits.push(JSON.parse(JSON.stringify({ mode, init }))); const s = new Session(mode, ['viewer', 'local', ...((init && init.optionalFeatures) || [])]); F.session = s; return s; } } });
 }
+// packages order (v190; docs/packages-migration.md): the Stories screens follow packages/order.json. The main set (the
+// page's cards, HOST.list, which the headset's Stories screen and Arrange all read) is its keys whose package is on the
+// main set, in its order, the tutorial (intro) last; the Experiments set is the index's experiments in the index's order
+// (order.json's first, then other packages by key), then the card back
+if (runs('packages order')) {
+  await step('packages order: both sets of cards in packages/order.json\'s order, the tutorial last', async () => {
+    const fs = await import('fs');
+    const order = JSON.parse(fs.readFileSync(new URL('../packages/order.json', import.meta.url), 'utf8')).order;
+    const ix = JSON.parse(fs.readFileSync(new URL('../packages/index.json', import.meta.url), 'utf8')), of = k => ix.packages.find(m => m.key === k);
+    const wantMain = order.filter(k => of(k) && (of(k).list || 'stories') === 'stories'), wantExp = ix.packages.filter(m => m.list === 'experiments').map(m => m.key);
+    const got = await page.evaluate(async () => {
+      if (!HOST.picking) HOST.openPicker();
+      const dom = () => [...document.querySelectorAll('#picker .cards .card[data-story]')].filter(c => !c.classList.contains('hid')).map(c => c.dataset.story);
+      const was = HOST.menu.at;
+      HOST.menu.open('main'); await new Promise(r => setTimeout(r, 100));
+      const main = { dom: dom(), list: HOST.list.map(s => s.key), intro: HOST.list.filter(s => s.intro).map(s => s.key) };
+      HOST.menu.open('experiments'); await new Promise(r => setTimeout(r, 100));
+      const exp = { dom: dom(), list: HOST.packages.experiments().map(s => s.key) };
+      HOST.menu.open(was === 'experiments' ? 'experiments' : 'main');
+      return { main, exp };
+    });
+    const J = JSON.stringify;
+    if (J(got.main.list) !== J(wantMain)) errors.push(`packages order: HOST.list ${J(got.main.list)}, order.json's main set ${J(wantMain)}`);
+    if (J(got.main.dom) !== J(wantMain.concat(wantExp.length ? ['experiments'] : []))) errors.push(`packages order: the main set's cards ${J(got.main.dom)}`);
+    if (got.main.list[got.main.list.length - 1] !== 'tutorial' || J(got.main.intro) !== '["tutorial"]') errors.push(`packages order: the tutorial is not last (intro ${J(got.main.intro)})`);
+    if (J(got.exp.list) !== J(wantExp) || J(got.exp.dom) !== J(wantExp.concat(['stories']))) errors.push(`packages order: the Experiments set ${J(got.exp)}, want ${J(wantExp)} then the card back`);
+  });
+}
+// take all (v190; sw.js takeAll, HOST.offline): in a page of its own (its own service worker and caches), *Take all
+// stories* takes every file of every listed package (each main.js, minis.js, narration and data, at the addresses the
+// app asks for) into the packages' cache; then, offline, a story never opened here starts and its narration and
+// miniatures are answered from the cache
+if (runs('take all')) {
+  await step('take all: Take all stories takes every package\'s files and narration; then a story opens offline', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1000, height: 700 } }), tp = await ctx.newPage(), out = [];
+    tp.on('pageerror', e => out.push('page error: ' + (e.stack || e.message)));
+    try {
+      await tp.goto(base + 'index.html');
+      await tp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.offline && navigator.serviceWorker && navigator.serviceWorker.controller !== undefined, null, { timeout: 60000 });
+      await tp.evaluate(() => navigator.serviceWorker.ready);
+      await tp.reload();
+      await tp.waitForFunction(() => typeof HOST !== 'undefined' && !!navigator.serviceWorker.controller && HOST.packages.state().read, null, { timeout: 60000 });
+      await tp.click('#btnTakeAll').catch(() => tp.evaluate(() => HOST.offline.take(true)));
+      await tp.waitForFunction(() => { const m = HOST.offline.state().msg; return !!m && (m.state === 'done' || m.state === 'full' || m.state === 'off'); }, null, { timeout: 600000, polling: 1000 });
+      const r = await tp.evaluate(async () => {
+        const m = HOST.offline.state().msg, ix = await (await fetch('packages/index.json', { cache: 'no-store' })).json(), c = await caches.open('networks-packages');
+        const miss = [], keys = [];
+        for (const p of ix.packages.filter(p => p.list !== 'hidden')) for (const f of Object.keys(p.files)) {
+          const u = new URL(`packages/${p.key}/${f}?v=${f === 'main.js' ? p.fp : p.files[f]}`, location.href).href;
+          if (!(await c.match(u))) miss.push(p.key + '/' + f); else keys.push(p.key + '/' + f);
+        }
+        return { msg: m, miss, n: keys.length, narr: keys.filter(k => /audio\/narration/.test(k)).length, minis: keys.filter(k => /\/minis\.js$/.test(k)).length, label: document.getElementById('btnTakeAll').textContent };
+      });
+      if (r.msg.state !== 'done' || r.msg.failed || r.miss.length || !r.narr || !r.minis || !/All stories on this device/.test(r.label)) out.push('taken: ' + JSON.stringify(r).slice(0, 600));
+      // offline: a story not opened in this page (with a narration), its narration and miniatures from the cache
+      const key = await tp.evaluate(() => { const ok = HOST.packages.all().filter(m => m.list !== 'hidden' && m.files['audio/narration.mp3'] && m.minis && m.key !== HOST.curKey && !HOST.packages.ran(m.key)); return (ok.find(m => m.key === 'soil') || ok[ok.length - 1] || {}).key || ''; });
+      await ctx.setOffline(true);
+      const off = await tp.evaluate(async k => {
+        const get = async u => { try { const r = await fetch(u); return r.status + ':' + (await r.arrayBuffer()).byteLength; } catch (e) { return 'failed'; } };
+        const narr = await get(HOST.pkgUrl(k, 'audio/narration.mp3')), minis = await get(HOST.pkgUrl(k, HOST.meta(k).minis)), net = await get('version.json?x=' + Date.now());
+        HOST.go(k);
+        for (let i = 0; i < 240 && !(HOST.curKey === k && HOST.cur); i++) await new Promise(r => setTimeout(r, 250));
+        return { key: k, narr, minis, net, started: HOST.curKey === k && !!HOST.cur };
+      }, key);
+      if (!key || !off.started || !/^200:[1-9]/.test(off.narr) || !/^200:[1-9]/.test(off.minis) || off.net !== 'failed') out.push('offline: ' + JSON.stringify(off));
+      await ctx.setOffline(false);
+    } catch (e) { out.push(String(e && e.message || e)); }
+    await ctx.close();
+    errors.push(...out.map(o => 'take all: ' + o));
+  });
+}
 if (runs('frame rate')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
   const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });

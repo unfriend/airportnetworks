@@ -88,6 +88,16 @@ console.log('older version installed and looking after the page');
 // has its narration in its folder)
 await page.evaluate(() => Promise.all(['narration-proteins.mp3', 'narration-lbi.mp3'].map(f => fetch('audio/' + f).then(r => r.arrayBuffer()).catch(() => null))));
 await wait(1500);
+// a device that played narrations before v187 still holds them at their old addresses (audio/narration*.mp3) in the
+// narrations' cache, up to about 60 MB: two such copies are put there now where the older version holds none (its
+// narrations are in its packages), which the new worker drops at activate unless its release still lists them (sw.js
+// AUDIO, the narrations still in audio/: narrPrune)
+const planted = await page.evaluate(async names => {
+  const c = await caches.open('networks-narration'), out = [];
+  for (const f of names) if (!(await caches.match('./audio/' + f))) { await c.put('./audio/' + f, new Response(new Uint8Array(2048), { headers: { 'Content-Type': 'audio/mpeg' } })); out.push(f); }
+  return out;
+}, ['narration-proteins.mp3', 'narration-lbi.mp3']);
+if (planted.length) console.log('old narration copies put in the narrations\' cache: ' + planted.join(', '));
 const before = await page.evaluate(async () => {
   const names = new Set();
   for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) { const m = /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(r.url); if (m) names.add(m[1]); }
@@ -122,10 +132,7 @@ else {
 const held = () => page.evaluate(async () => (await caches.has('networks-narration')) ? (await (await caches.open('networks-narration')).keys()).map(r => r.url.replace(/.*\/audio\//, '')).sort() : null);
 const oldHeld = before;   // (what the older version held on this device, not every file it shipped)
 const newAll = (fs.existsSync(path.join(newDir, 'audio')) ? fs.readdirSync(path.join(newDir, 'audio')) : []).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f)).sort();
-const kept = await held();
 const fresh = newAll.find(f => !oldHeld.includes(f));
-report('narrations: the ones held before are kept, no others fetched at install',
-  kept && oldHeld.every(f => kept.includes(f)) && kept.every(f => oldHeld.includes(f) || f === 'narration.mp3'), JSON.stringify({ held: kept, before: oldHeld }));
 if (fresh) {
   await page.evaluate(f => fetch('audio/' + f).then(r => r.arrayBuffer()), fresh);
   let has = false;
@@ -147,6 +154,14 @@ const NEWV = (/const VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(newDir,
 await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r && r.update())).catch(() => {});
 const settled = v => page.evaluate(async v => { const r = await navigator.serviceWorker.getRegistration(); return !!r && !r.installing && !r.waiting && await caches.has(v); }, v).catch(() => false);
 for (let i = 0; i < 360 && !(await settled(NEWV)); i++) await wait(250);
+// (the new worker active: its install refreshed the narrations held here that it still lists, fetched no others, and
+// its activate dropped the copies whose address is no longer one of its narrations: sw.js narrPrune)
+{
+  const kept = await held(), cur = oldHeld.filter(f => newAll.includes(f)), old = oldHeld.filter(f => !newAll.includes(f));
+  report('narrations: the ones held before that are still narrations are kept, no others fetched at install',
+    !!kept && cur.every(f => kept.includes(f)) && kept.every(f => cur.includes(f) || (f === fresh && newAll.includes(f))), JSON.stringify({ held: kept, before: oldHeld, current: newAll }));
+  if (old.length) report('narrations: old copies at addresses that are no longer narrations are dropped at activate', !!kept && old.every(f => !kept.includes(f)), JSON.stringify({ held: kept, dropped: old }));
+}
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();

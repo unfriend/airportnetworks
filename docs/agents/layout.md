@@ -202,7 +202,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `tools/voice/` - a synthetic narration (Kokoro-82M through kokoro-onnx, `kokoro.py`; German with Piper, `piper.py`;
   the models, their Python and the spoken lines stay outside the repository, see its `README.md`):
   `node tools/voice/narrate.mjs <key>` speaks a story's lines (how each word is said: `say.json`, its German rules in
-  their own section, `de`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
+  their own section, `de`), lays them out and writes `packages/<key>/audio/narration.mp3`, `NARRATION_SYNC` and
   `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser (`--lang de` a story's German).
   Every story but the airports (which keep their human recording) is narrated so, with the American voice `af_heart`
   (the owner's choice, 29 October 2026): the tour first, the other fourteen in v109 (3 November 2026, after a pass over

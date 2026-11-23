@@ -153,7 +153,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `node tools/engine/all.mjs --check && node tools/studio/build.mjs --check` | Node | after any change in `tools/` or a package's `src/`, and before every release | a few seconds | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every release to `main` (since 7 November 2026; not for `dev`) | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio` or `--only trackers`: for a builder's own steps; the release run is the whole test, with no `--only` |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `packages/airports/audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
@@ -203,11 +203,12 @@ is GitHub Pages' custom domain for `main`.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
-2. **Edit the sources, never a built story.** Thirteen stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
-   micro, ovary, qubits, mutation, topo, soil, pass, flock and robots (pass also takes its globe and cell from `packages/airports/main.js` and
-   `packages/spatial/main.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
-   `tools/design/`) and the miniatures (`lowpoly.js` from `tools/lowpoly/`, which the design room's names come from:
-   rebuild the design room after changing them), and the studio (`stories/studio.js` from `tools/studio/`, with three.js
+2. **Edit the sources, never a built story.** Every story but airports, proteins and spatial is built from
+   `packages/<key>/src/` (since v187; `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`; pass also
+   takes its globe and cell from `packages/airports/main.js` and `packages/spatial/main.js`: rebuild it after changing
+   either). So are the design room (`stories/design.js` from `tools/design/`) and the miniatures (since v190 each
+   story's `packages/<key>/minis.js` from its `src/minis.js` and `src/props.json`, and the shell's own `lowpoly.js` from
+   `tools/lowpoly/shell.js`, all by `node tools/lowpoly/build.mjs`), and the studio (`stories/studio.js` from `tools/studio/`, with three.js
    r128's own add-ons from `tools/studio/vendor/`, never edited). `packages/airports/main.js`, `packages/proteins/main.js` and `packages/spatial/main.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
@@ -216,7 +217,7 @@ is GitHub Pages' custom domain for `main`.
    | Source | Stories built from it |
    | --- | --- |
    | `tools/engine/kit.js` | all thirteen built stories, the design room, the studio |
-   | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js` (the studio's icon, `studio.stage`, too), the design room |
+   | `tools/lowpoly/kit-a.js`, `kit-b.js` | every `packages/<key>/minis.js` of that kit, `lowpoly.js` (kit b) |
    | `packages/lbi/src/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `packages/lbi/src/sets/tissue.js` | lbi, micro |
    | `packages/nmd/src/sets/motor.js`, `packages/nmd/src/sets/data.js` | nmd, endo |
@@ -226,13 +227,14 @@ is GitHub Pages' custom domain for `main`.
    | `packages/topo/src/sets/look.js` | topo, soil |
 
    Rebuilding all of them takes a few seconds:
-   `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`
+   `node tools/engine/all.mjs && node tools/studio/build.mjs`
 4. **Bump `VERSION` in `sw.js`** (`networks-v139` on `dev` and `networks-v135` on `main` now, so `networks-v140` next) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `notes.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
-   `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
-   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
-   the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
-   `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
+   `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `packages/` or `icons/`. For a new
+   file the app needs, add it to `SHELL` in `sw.js` (`node tools/release.mjs` writes its story files); a package's files
+   are its own (`packages/`, its own cache) and a story's narration is in its package (`packages/<key>/audio/`) since
+   v187. If the new file is not directly inside `stories/` or `icons/` (or in `packages/`), also add it to `APP_FILES` in
+   `relay/server.mjs`. A new story is a package since v187 (`tools/packages/SPEC.md`) and a key in `packages/order.json`.
 5. **Bump `FORMAT` in `shared.js`** (`networks-43` on `dev` and `networks-41` on `main` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
@@ -255,7 +257,7 @@ is GitHub Pages' custom domain for `main`.
    - AGENTS.md first: it is the single source of truth for structure; the details by area are in `docs/agents/`.
    - README.md and README.txt: they hold the same notes, so keep them in step.
    - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
-   - The chapter timings in `audio/PUT-narration.mp3-HERE.txt`.
+   - The chapter timings in `docs/narration-timings.txt`.
    - [narration.md](narration.md) (with `tools/narration.mjs`) if a story's text changed.
 7. **Run the tests** before `main` moves (for `dev`, only `node --check` on the changed files, the build check and
    `node tools/release.mjs --check`): the build check, `node tools/release.mjs --check`, smoke, update, live updates,
@@ -267,7 +269,7 @@ is GitHub Pages' custom domain for `main`.
    two the machine's (a load or a timing; they passed when run again) and one a real bug (v129, HANDOVER.md):
 
    ```sh
-   for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done
+   node tools/engine/all.mjs --check && node tools/studio/build.mjs --check
    node tools/release.mjs --check
    node tools/studio/scan.mjs tools/studio/test/scenes --check
    node tools/smoke.mjs http://127.0.0.1:8123/          # the whole test: no --only

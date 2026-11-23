@@ -1291,10 +1291,11 @@ shared password](#the-shared-password-collab_token)).
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `sfx.js`, `occlusion.js`, `ships.js`, `notes.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
 `spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `output.js` (the output page's), `version.json` (the release's version file, for
-live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the miniatures), and the files directly in `stories/`, `audio/`,
+live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the shell's miniatures), and the files directly in `stories/` (`audio/` until v190),
 `icons/`, `notes/` (the developer notebook's page, at `/notes/`; `/notes` moves there) and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
 `examples/` with its scene folders as deep as a scene's files go (the studio's example scenes, v137: `examples/<scene>/`
-and at most four folders under it, `APP_DEEP`)
+and at most four folders under it, `APP_DEEP`), and `packages/` likewise (the story packages, v185: each one's `main.js`,
+`minis.js`, narration and data)
 (`APP_FILES` and `APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
 authors' data (`ikerdata/`), `tools/`, `docs/`, the relay itself, folders (no listings), anything whose path has
 a part starting with `.` (no `..`, no `.git`), and links that lead out of those files. `GET` and `HEAD`. `Cache-Control: no-cache` with `ETag`/`Last-Modified` (304 when unchanged, as the

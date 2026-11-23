@@ -152,7 +152,7 @@ controls.
   each view beside the panel; labels whose text is a function are read again while they show (`labelText`, the qubits
   story's: the ovary's age and its count tags).
 - `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary`; run it again after the text
-  changes, then the length in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt` and `docs/narration.md`.
+  changes, then the length in `HOST.list`, `docs/narration-timings.txt` and `docs/narration.md`.
 - Explore (`e4_explore.js`, canvas twins in `e6_panels.js`): `X = { tab, scene, ctl, kind, age, method }`; setters
   `selectKind(key | null, ui)` (by hand it also sets the section's and the ovary's Pick out / Show), `setAge(n)`, `setMethod('rf' | 'seg', ui)` (by hand it brings up the section's Forest or Masks view and
   plays it again), `openScene(k)`, `setCtl(k, key, v)`, `showView(k, option)`, `pickTab(k)`. The sets' own Age controls

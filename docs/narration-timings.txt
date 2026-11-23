@@ -1,6 +1,7 @@
 Since v187 every story is a story package and keeps its narration in its own folder:
 packages/<key>/audio/narration.mp3 (the pass story's German packages/pass/audio/narration-de.mp3
-beside it). This file stays here with the chapter timings of each.
+beside it). This file (docs/narration-timings.txt; until v190 audio/PUT-narration.mp3-HERE.txt)
+holds the chapter timings of each.
 
 The airports story (#airports): put your recording at  packages/airports/audio/narration.mp3
 

@@ -89,7 +89,7 @@ an older shell. The colour `#e8eef8` (pearl) is the guide's own and the card's; 
    `APP_FILES` and `SHELL`).
 7. Narration: section D's text in `e3_story.js`; `tools/voice/say.json` `stories.tutorial` entries if `--phonemes`
    finds a word said wrong; `node tools/voice/narrate.mjs tutorial`, `node tools/voice/check.mjs tutorial`; the final
-   length into `len`; a paragraph in `audio/PUT-narration.mp3-HERE.txt`; `node tools/narration.mjs` -> `docs/narration.md`.
+   length into `len`; a paragraph in `docs/narration-timings.txt`; `node tools/narration.mjs` -> `docs/narration.md`.
 8. Tests' lists: `tools/collab.mjs` `STORIES` entry (section F) placed before `flock` (`HEADSET_STORY` stays last);
    `tools/engine/same.mjs`, `panelsame.mjs` and `xrsame.mjs` `KEYS` gain `tutorial`; `tools/sfx-cues.mjs` `MANY`; the
    test pages' `tutorialHold` switch; `tools/smoke.mjs` a `tutorial` step and a `SFX_PICK` entry.

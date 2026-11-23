@@ -2,7 +2,7 @@
 
 `narrate.mjs` reads a story's words from the running app, speaks them with a synthetic voice (Kokoro-82M through
 kokoro-onnx; German with Piper) and fits the story to the recording: it writes the story's `NARRATION_SYNC` and
-`NARRATION_ENDS` and `audio/narration-<key>.mp3`. Every story but the airports (a human recording) is narrated this way
+`NARRATION_ENDS` and `packages/<key>/audio/narration.mp3`. Every story but the airports (a human recording) is narrated this way
 with the American voice `af_heart`, the owner's choice (29 October 2026, from samples of several voices): the tour
 (*The future*, `#lbi`) first, the other fourteen in v109 (3 November 2026). A story in two languages (the pass story, *Pass it on* / *Weitersagen!*) gets one
 recording per language on one timeline: English with Kokoro's `af_heart`, German with Piper's Thorsten voice
@@ -74,7 +74,7 @@ Options: `--voice af_heart` (any Kokoro voice: `af_*` and `am_*` American, `bf_*
 `--lang en-us`, `--skip .credits` (what is small print), a base address other than `http://127.0.0.1:8123/`.
 
 Then, as after any change to a story's timing: `len` in `stories/list.js`, the chapter times in
-`audio/PUT-narration.mp3-HERE.txt`, `VERSION` in `sw.js`, `node tools/smoke.mjs` and `node tools/audio.mjs`, and
+`docs/narration-timings.txt`, `VERSION` in `sw.js`, `node tools/smoke.mjs` and `node tools/audio.mjs`, and
 `node tools/narration.mjs` (it rewrites `docs/narration.md` with the new times). The script prints the new length.
 
 `node tools/voice/check.mjs <key>` (about five minutes; `--quick` three slideshow stops instead of all) checks the
@@ -121,7 +121,7 @@ node tools/voice/check.mjs pass --quick --lang de        # German
   with an exclamation mark), that line spans both stretches and only needs the two together to be long enough.
 - `NARRATION_ENDS` is where each chapter's words end in the later of the two, so a slideshow stop waits for either.
 - Each language gets its own recording, levelled on its own, both as long as the later one needs: the first language's
-  is `audio/narration-<key>.mp3`, another's `audio/narration-<key>-<lang>.mp3`. The story plays the one of the language
+  is `packages/<key>/audio/narration.mp3`, another's `packages/<key>/audio/narration-<lang>.mp3`. The story plays the one of the language
   on show and changes it in place when the language is switched (`audioLang` in `packages/pass/src/engine/e7_app.js`); a
   missing file leaves that language silent, as before.
 

@@ -156,7 +156,9 @@
     b.textContent = 'Stop'; b.setAttribute('aria-pressed', 'true');
   });
   // every story and the design room (the tracks), and the backgrounds of those that have one (the flock and the pass story)
-  const stories = (self.STORY_LIST || []).map(s => ({ key: s.key, title: s.title, col: s.col }));
+  // (since v187 every story is a package: its entry in packages/index.json, read at once here, a tool page)
+  const pkgs = (() => { try { const x = new XMLHttpRequest(); x.open('GET', '../packages/index.json', false); x.send(); return x.status === 200 ? JSON.parse(x.responseText).packages || [] : []; } catch (e) { return []; } })();
+  const stories = (self.STORY_LIST || []).concat(pkgs.filter(m => m.list !== 'hidden')).map(s => ({ key: s.key, title: s.title, col: s.col }));
   for (const x of (self.STORY_EXTRA || [])) if (!stories.some(s => s.key === x.key)) stories.push({ key: x.key, title: x.title, col: x.col });
   $('#beds').innerHTML = stories.filter(s => L.bedOf(s.key)).map(s => {
     const k = L.bedOf(s.key);

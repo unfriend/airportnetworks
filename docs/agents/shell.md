@@ -1598,7 +1598,7 @@ the same path through their index, read again at every check: `docs/agents/packa
   so that the whole story reads at the airports' 2.1 words a second; where that
   slows a stretch a lot, a line's 0.6 s fade-in keeps the light pace and the
   rest of the stretch waits, so the text is there at once). Run it again after a story's text changes, then update the lengths
-  (`len` in `stories/list.js`, `audio/PUT-narration.mp3-HERE.txt`) and
+  (`len` in `stories/list.js`, `docs/narration-timings.txt`) and
   `docs/narration.md` (every story has a recording, so this is for a new story until it is narrated); the flock's first swoop (flight time, `roost` in its
   set) is timed to its last chapter in its recording. A recorded narration replaces
   the table with its own times (the airports' is): `pace.mjs` leaves a story
@@ -1610,8 +1610,8 @@ the same path through their index, read again at every check: `docs/agents/packa
   `docs/narration.md`. Narrated (`tools/voice/narrate.mjs`), it is spoken in each (English by Kokoro, German by Piper)
   and laid out on one timeline: each stretch lasts the longest of 1.1 times its story time and each language's line
   plus its pause (a line one language reads as one and the other as two spans both stretches), `NARRATION_ENDS` is the
-  later of the two, and each language has its own recording on that timeline (`audio/narration-<key>.mp3` for the
-  first, `audio/narration-<key>-<lang>.mp3` for the others, all of one length), so the clock, the slideshow's stops and
+  later of the two, and each language has its own recording on that timeline (`packages/<key>/audio/narration.mp3` for
+  the first, `packages/<key>/audio/narration-<lang>.mp3` for the others, all of one length), so the clock, the slideshow's stops and
   a station's clock are the same in either. `slideStep` (slideshow, see above)
   runs in `frame()` after the clock moves and before the end check.
 - Explore mode: the `X` state object, `exploreStep()`, tab renderers

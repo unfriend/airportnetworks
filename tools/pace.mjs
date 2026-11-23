@@ -12,7 +12,7 @@
 //   prints the tables; --write puts them into the sources (tools/<story>/engine/e3_story.js, or stories/<story>.js for
 //   the airports, proteins and spatial stories) and rebuilds the built stories. Run it again after a story's text
 //   changes, then update the lengths (len in stories/list.js, the chapter times in
-//   audio/PUT-narration.mp3-HERE.txt), bump VERSION in sw.js and regenerate docs/narration.md (tools/narration.mjs).
+//   docs/narration-timings.txt), bump VERSION in sw.js and regenerate docs/narration.md (tools/narration.mjs).
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -154,4 +154,4 @@ for (const key of list) {
 await browser.close();
 console.log('\n| Story | Words | Was | Now | Words a second |\n| --- | --- | --- | --- | --- |');
 for (const o of out) console.log(`| ${o.key}${o.recorded ? ' (recorded)' : ''} | ${o.words} | ${mmss(o.old)} | ${mmss(o.new)} | ${o.oldRate.toFixed(2)} -> ${o.newRate.toFixed(2)} |`);
-if (write && out.some(o => !o.recorded)) console.log('\nNow update the lengths (len in stories/list.js, audio/PUT-narration.mp3-HERE.txt), bump VERSION in sw.js and run tools/narration.mjs.');
+if (write && out.some(o => !o.recorded)) console.log('\nNow update the lengths (len in packages/<key>/story.json, docs/narration-timings.txt), bump VERSION in sw.js and run tools/narration.mjs.');

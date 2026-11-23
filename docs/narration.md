@@ -6,7 +6,7 @@ seconds on the recording's clock, from NARRATION_SYNC; for a story not recorded 
 set from these words). A narration follows these words and times; it can say them more freely, but the numbers must
 stay as they are (they come from the data).
 
-How to record and fit a narration: see "Recording a narration" in `audio/PUT-narration.mp3-HERE.txt`. In short, put the
+How to record and fit a narration: see "Recording a narration" in `docs/narration-timings.txt`. In short, put the
 MP3 at the file named under each story; if your chapters start at other times, change NARRATION_SYNC (pairs of
 [time in the recording, story time]) in the story's source (`tools/<story>/engine/e3_story.js`, then rebuild; in
 `stories/<story>.js` for the airports, proteins and spatial stories) and run the smoke test.
