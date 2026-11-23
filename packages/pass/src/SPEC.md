@@ -33,7 +33,7 @@ returns.
   `_tp`, `setActors`, `bestPath`, `reachInfo`, `partnersByPlace`, `placeName`, `placeShort`, `matches`, `findProtein`,
   `wherePlaces`.
 - A marker that moved or vanished stops the build with its name. One source of truth: after any change to either
-  story, rebuild `stories/pass.js` (`--check` says when it is out of date). The cut-out code goes to `tools/pass/gen/`
+  story, rebuild `packages/pass/main.js` (`--check` says when it is out of date). The cut-out code goes to `packages/pass/src/gen/`
   too (not committed), for the harness.
 - In the sets: each calls the original's `buildScene` with a stand-in `HOST.makeRenderer` (the engine owns the canvas;
   the original only asks the renderer how big a land texture the GPU takes, so the engine must set **`K.renderer`**
@@ -195,7 +195,7 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
 
 ## Tested, untested, open
 
-- Tested: `node tools/pass/test-sets.mjs` (the outbreak is the same for the same settings, its series add up, fewer
+- Tested: `node packages/pass/src/test-sets.mjs` (the outbreak is the same for the same settings, its series add up, fewer
   flights slow it, its chain runs back to the start; the school holds with seven, falls apart with one and comes
   together again, stays round you, its warning outruns the shark, a steered shark follows and leaves, and kept (being
   the shark) it cruises round the school and through it, clear of your head, comes back when steered and swims off when

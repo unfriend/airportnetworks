@@ -1,15 +1,15 @@
-# tools/pass: the sources of "Pass it on" (`stories/pass.js`)
+# packages/pass/src: the sources of "Pass it on" (`packages/pass/main.js`)
 
 An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) for a general audience (about 12
 and up): how warnings, viruses and signals spread through networks, at three scales: a school of fish, the airports'
 globe with an outbreak on its routes, and the cell map's cell. English and German. The globe and the cell are the
 airports story's and the cell map story's own, taken unchanged from `stories/airports.js` and `stories/spatial.js` when
-the story is built; the fish are new, after the flock. Never edit `stories/pass.js` by hand.
+the story is built; the fish are new, after the flock. Never edit `packages/pass/main.js` by hand.
 
 ```sh
-node tools/pass/build.mjs          # writes stories/pass.js (and tools/pass/gen/, for the harness)
-node tools/pass/build.mjs --check  # exits 1 if stories/pass.js is out of date (also after airports.js or spatial.js changed)
-node tools/pass/test-sets.mjs      # the sets without a browser: the outbreak, the school, the cell (about 30 s)
+node packages/pass/src/build.mjs          # writes packages/pass/main.js (and packages/pass/src/gen/, for the harness)
+node packages/pass/src/build.mjs --check  # exits 1 if packages/pass/main.js is out of date (also after airports.js or spatial.js changed)
+node packages/pass/src/test-sets.mjs      # the sets without a browser: the outbreak, the school, the cell (about 30 s)
 ```
 
 | Path | What it is |
@@ -25,11 +25,11 @@ node tools/pass/test-sets.mjs      # the sets without a browser: the outbreak, t
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`harness.html?set=globe&p=globe_out:1,globe_day:20&cam=start&lang=de&call=set.api.start('LHR')`; `fov`, `follow`, `warm`, `steer` for the fish), its screenshots, and screenshots of the whole story (`SHOTS=<dir>`, `PORT=<port>`) |
 | `test-sets.mjs` | the sets' checks in Node (three.js builds without a page; nothing is drawn) |
 
-Serve the repository root (`npx http-server -p 8123 -c-1 .`), run `node tools/pass/build.mjs` once, then the tools from
+Serve the repository root (`npx http-server -p 8123 -c-1 .`), run `node packages/pass/src/build.mjs` once, then the tools from
 this folder (`node shot.mjs fish "cam=afar&fov=60&follow=1&warm=20&p=fish_links:1" fish`). Shots go to `shots/`.
 
-The narration: a recording per language on one timeline, `audio/narration-pass.mp3` (English, Kokoro's `af_heart`) and
-`audio/narration-pass-de.mp3` (German, Piper's Thorsten voice), made by `node tools/voice/narrate.mjs pass` (it writes
+The narration: a recording per language on one timeline, `packages/pass/audio/narration.mp3` (English, Kokoro's `af_heart`) and
+`packages/pass/audio/narration-de.mp3` (German, Piper's Thorsten voice), made by `node tools/voice/narrate.mjs pass` (it writes
 `NARRATION_SYNC` and `NARRATION_ENDS` in `engine/e3_story.js` and rebuilds) and checked by
 `node tools/voice/check.mjs pass` and `--lang de`; see `tools/voice/README.md`. The story plays the language on show and
 changes the file in place when the language changes (`audioLang` in `engine/e7_app.js`). Run it again after the text

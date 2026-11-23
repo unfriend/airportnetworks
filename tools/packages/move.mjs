@@ -69,7 +69,7 @@ edit(`${S}/build.mjs`, t => {
     .split(`tools/${key}/build.mjs`).join(`packages/${key}/src/build.mjs`)
     .split(`tools/${key}/`).join(`packages/${key}/src/`)
     .replace(BARE, `packages/${key}/src`);
-  if (/src\(f\)/.test(n) && !/const src = /.test(n)) {
+  if (/src\(f\)/.test(n) && !/^const src = f =>/m.test(n)) {
     // (a source named '../<dir>/...' is read where it is, in tools/<dir>/: shared sources stay there)
     n = n.replace(/^(const here = .*\n)/m, `$1// (a shared source, '../<dir>/...', from tools/<dir>/, where shared sources stay; this story's own from here)\nconst src = f => (f.startsWith('../') ? path.join(here, '../../../tools/${key}', f) : path.join(here, f));\n`);
   }
@@ -82,8 +82,11 @@ for (const f of walk(S).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f) && !f.
       .split(`tools/${key}/`).join(`packages/${key}/src/`)
       .split(`stories/${key}.js`).join(`packages/${key}/main.js`)
       .replace(BARE, `packages/${key}/src`);
-    if (/\/engine\//.test(f)) n = n.split(NARR).join(`HOST.pkgUrl('${key}', 'audio/narration.mp3')`);
-    n = n.split(`audio/narration-${key}.mp3`).join(`packages/${key}/audio/narration.mp3`);
+    if (/\/engine\//.test(f)) n = n.split(NARR).join(`HOST.pkgUrl('${key}', 'audio/narration.mp3')`)
+      .replace(new RegExp(`'audio/narration-${key}-([a-z]+)\\.mp3'`, 'g'), `HOST.pkgUrl('${key}', 'audio/narration-$1.mp3')`);
+    // (the other languages too: audio/narration-<key>-<lang>.mp3 is the package's audio/narration-<lang>.mp3)
+    n = n.split(`audio/narration-${key}.mp3`).join(`packages/${key}/audio/narration.mp3`)
+      .replace(new RegExp(`(?<![\\w/])audio/narration-${key}-([a-z]+)\\.mp3`, 'g'), `packages/${key}/audio/narration-$1.mp3`);
     if (f.endsWith('.html')) n = n.replace(/(src|href)="\.\.\/\.\.\//g, '$1="../../../').replace(/(src|href)="\.\.\/(?!\.)/g, '$1="../../../tools/');
     // (a tool's root, two folders up from tools/<key>/, is three up from packages/<key>/src/)
     if (/\.mjs$/.test(f)) n = n.replace(/(from|require\()\s*'\.\.\/(?!\.)/g, "$1 '../../../tools/").replace(/path\.join\(here, '\.\.\/\.\.'\)/g, "path.join(here, '../../..')");

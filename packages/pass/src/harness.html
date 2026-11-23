@@ -9,15 +9,15 @@ canvas { display: block; }
 .l.red { border-color: #ff5a4b; } .l.tl { border-color: #38e6c7; }
 #info { position: absolute; right: 8px; bottom: 6px; color: #6c7d94; font: 12px monospace; }
 </style>
-<script src="../../three.min.js"></script>
-<script src="../engine/kit.js"></script>
+<script src="../../../three.min.js"></script>
+<script src="../../../tools/engine/kit.js"></script>
 <script>const SETS = {};</script>
 <!-- the airports story's globe and the cell map story's cell, cut out of those stories by build.mjs (run it first) -->
 <script src="gen/airports.js"></script>
 <script src="gen/spatial.js"></script>
 <script>
-// Test harness for one set of the pass story (serve the repository root, run node tools/pass/build.mjs once, open
-// /tools/pass/harness.html): harness.html?set=globe&p=globe_day:40&cam=default&lang=de&call=set.api.start('VIE')
+// Test harness for one set of the pass story (serve the repository root, run node packages/pass/src/build.mjs once, open
+// /packages/pass/src/harness.html): harness.html?set=globe&p=globe_day:40&cam=default&lang=de&call=set.api.start('VIE')
 // cam: a view by name or six numbers; fov: the lens (32 by default, the flock's 60 for the fish); anim: run in real
 // time; follow: aim at the school (fish); steer=x,y,z: the shark chases that point (fish); call: code run once with
 // `set` in scope; lang: en or de. A label's text may be a function (re-read every frame, as the engine does).

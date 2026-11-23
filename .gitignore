@@ -29,8 +29,8 @@ Network_VR*/
 *.nii.gz
 *.dcm
 *.nrrd
-tools/pass/shots/
-tools/pass/gen/
+packages/pass/src/shots/
+packages/pass/src/gen/
 packages/ovary/src/shots/
 packages/mutation/src/shots/
 packages/topo/src/shots/

@@ -18893,8 +18893,8 @@
    "reuses": [
     "flock/flock (simulation adapted, not reused)"
    ],
-   "file": "tools/pass/sets/fish.js",
-   "manifest": "tools/pass/sets/fish.md",
+   "file": "packages/pass/src/sets/fish.js",
+   "manifest": "packages/pass/src/sets/fish.md",
    "shows": "A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light shafts; a shark you steer or that comes now and then; the school can be pulled apart by watching fewer neighbours.",
    "frame": "Life size: 1 unit = 1 m, eyes at the origin (1.6 m), seabed 6.5 m below, surface 15 m above.",
    "size": "life size; fish 0.27 m long",
@@ -19166,8 +19166,8 @@
    "reuses": [
     "stories/airports.js (globe cut out unchanged)"
    ],
-   "file": "tools/pass/sets/globe.js",
-   "manifest": "tools/pass/sets/globe.md",
+   "file": "packages/pass/src/sets/globe.js",
+   "manifest": "packages/pass/src/sets/globe.md",
    "shows": "The airports story's globe exactly as it is (3,214 airports, 18,858 routes), driven from params, with a seeded S/E/I/R outbreak on its real routes: pick a start airport, set incubation, infectious days, spread and flights cut, and play the days.",
    "frame": "Radius 1, centred on the origin, y up, longitude 0 towards +x, 90 E towards -z.",
    "size": "radius 1",
@@ -19478,7 +19478,7 @@
     "setLang"
    ],
    "buildMsNode": 315,
-   "notes": "Cut unchanged out of stories/airports.js by tools/pass/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...)."
+   "notes": "Cut unchanged out of stories/airports.js by packages/pass/src/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...)."
   },
   {
    "id": "pass/cell",
@@ -19488,8 +19488,8 @@
    "reuses": [
     "stories/spatial.js (cell cut out unchanged)"
    ],
-   "file": "tools/pass/sets/cell.js",
-   "manifest": "tools/pass/sets/cell.md",
+   "file": "packages/pass/src/sets/cell.js",
+   "manifest": "packages/pass/src/sets/cell.md",
    "shows": "The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or colour, the growth signal from EGF to SRF, the TNF to NF-kB relay, and the moves that go wrong (CFTR in the ER, TDP-43 leaving the nucleus).",
    "frame": "Radius 1, centred on the origin; a cell about 20 micrometres across, the membrane a slightly flattened ellipsoid.",
    "size": "radius 1",
@@ -20137,7 +20137,7 @@
     "setLang"
    ],
    "buildMsNode": 306,
-   "notes": "Cut unchanged out of stories/spatial.js by tools/pass/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts)."
+   "notes": "Cut unchanged out of stories/spatial.js by packages/pass/src/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts)."
   },
   {
    "id": "flock/flock",

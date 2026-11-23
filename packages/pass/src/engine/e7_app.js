@@ -1,10 +1,10 @@
 //#use AUD audioInit
-// Optional voice-over, one recording per language on one timeline (NARRATION_SYNC): audio/narration-pass.mp3 in
-// English and audio/narration-pass-de.mp3 in German (node tools/voice/narrate.mjs pass makes both, a synthetic voice
+// Optional voice-over, one recording per language on one timeline (NARRATION_SYNC): packages/pass/audio/narration.mp3 in
+// English and packages/pass/audio/narration-de.mp3 in German (node tools/voice/narrate.mjs pass makes both, a synthetic voice
 // each, and lays out the story for the longer of the two lines at every cue). The language on show plays its own
 // (AUDIO, audioLang: switched in place, the clock, playing and the slideshow kept), so in a shared room every device
 // plays its own language on the station's clock.
-const AUDIO = { en: 'audio/narration-pass.mp3', de: 'audio/narration-pass-de.mp3' };
+const AUDIO = { en: HOST.pkgUrl('pass', 'audio/narration.mp3'), de: HOST.pkgUrl('pass', 'audio/narration-de.mp3') };
 const narrationFile = () => AUDIO[LANG] || AUDIO.en;
 // the language switched (setLang): the other language's recording, from where the story is now. The shell keeps one
 // file at a time, so it is fetched again (the service worker's copy) and decoded; meanwhile the <audio> element plays

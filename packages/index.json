@@ -273,6 +273,35 @@
       }
     },
     {
+      "key": "pass",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Pass it on",
+      "kick": "Networks for everyone",
+      "col": "#5fe0c8",
+      "desc": "A school of fish, the world's flights and a cell: how a warning, an infection and a signal pass from neighbour to neighbour. In English and German.",
+      "len": "Story 6:46 · fish, globe, cell",
+      "page": "Pass it on: how warnings, viruses and signals spread",
+      "brand": "Pass it on",
+      "sub": "how warnings, viruses and signals spread",
+      "aria": "Interactive 3D story of how warnings, viruses and signals spread through networks: a school of fish, the airline network and a cell",
+      "thing": "school",
+      "loading": "Gathering the school",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "pass.fish",
+      "needs": 185,
+      "fp": "d6009ec8ab93481e",
+      "bytes": 7514920,
+      "files": {
+        "audio/narration-de.mp3": "1d3995bde9711a52",
+        "audio/narration.mp3": "0c33c976e1f19b54",
+        "main.js": "fecc4eee1370c9dc",
+        "story.json": "ebaae9cee1c39d77"
+      }
+    },
+    {
       "key": "soil",
       "api": 1,
       "version": "1.0.0",

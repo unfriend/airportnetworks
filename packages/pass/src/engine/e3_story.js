@@ -2,8 +2,8 @@
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-pass.mp3, Kokoro's af_heart, and in German Piper's Thorsten
-// in audio/narration-pass-de.mp3): node tools/voice/narrate.mjs pass writes
+// (packages/pass/audio/narration.mp3, Kokoro's af_heart, and in German Piper's Thorsten
+// in packages/pass/audio/narration-de.mp3): node tools/voice/narrate.mjs pass writes
 // this table and NARRATION_ENDS from the recording it makes (each stretch lasts
 // the longer of 1.1 times its story time and its line's audio plus a pause; in
 // two languages, the longer of the two); run it again after the text changes

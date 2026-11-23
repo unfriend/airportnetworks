@@ -4,7 +4,7 @@
 // The globe and the cell are the airports story's and the cell map story's own, taken unchanged from
 // stories/airports.js and stories/spatial.js when this file is built (PASS_AIRPORTS, PASS_SPATIAL); the fish are new.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/pass/build.mjs from the tour's kit, those two stories and the sets and engine parts in tools/pass:
+// Built by packages/pass/src/build.mjs from the tour's kit, those two stories and the sets and engine parts in packages/pass/src:
 // edit those, not this file.
 HOST.register('pass', function (HOST) {
 'use strict';

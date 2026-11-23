@@ -75,7 +75,7 @@ SETS.cell = function (K) {
     cf: ['Mukoviszidose', 'CFTR bleibt im ER hängen', 'Die häufigste Mutation bei Mukoviszidose, F508del, lässt CFTR falsch falten. Die Qualitätskontrolle im ER (Calnexin, HSC70, CHIP, RNF5) fängt es ab und schickt es zum Abbau: An der Membran kommt es nie an.'],
   };
   // what each protein does, by the original's English words (a role the original changes or adds shows in English
-  // until it is added here: node tools/pass/test-sets.mjs lists any that are missing)
+  // until it is added here: node packages/pass/src/test-sets.mjs lists any that are missing)
   const ROLE_DE = {
     'growth signal': 'Wachstumssignal', 'inflammation signal': 'Entzündungssignal',
     'hormone that lowers blood sugar': 'Hormon, das den Blutzucker senkt', 'carries iron': 'transportiert Eisen',

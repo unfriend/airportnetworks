@@ -3,14 +3,14 @@
 // seven neighbours and falls apart with one, and its warning outruns the shark; up to four sharks at once (passing
 // ones, yours, others' drawn from their samples), and a follower's school taken into step with a leader's snapshots;
 // the cell's moves and API.
-// usage (from the repository root, after node tools/pass/build.mjs): node tools/pass/test-sets.mjs [globe|fish|cell ...]
+// usage (from the repository root, after node packages/pass/src/build.mjs): node packages/pass/src/test-sets.mjs [globe|fish|cell ...]
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
-const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
 const only = process.argv.slice(2);
 const want = k => !only.length || only.includes(k);
 // a page without a page: a canvas whose 2D context draws nothing, a screen, a window
@@ -24,14 +24,14 @@ vm.createContext(sandbox);
 const load = f => vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), sandbox, { filename: f });
 load('tools/engine/kit.js');
 vm.runInContext('var SETS = {}; var K = makeKit(THREE);', sandbox);
-for (const f of ['tools/pass/gen/airports.js', 'tools/pass/gen/spatial.js']) {
+for (const f of ['packages/pass/src/gen/airports.js', 'packages/pass/src/gen/spatial.js']) {
   // (top-level consts of a script stay in its own scope in vm: make the originals' functions reachable)
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8').replace(/^const (PASS_\w+) =/m, 'var $1 ='), sandbox, { filename: f });
 }
-for (const s of ['fish', 'globe', 'cell']) if (want(s)) load(`tools/pass/sets/${s}.js`);
+for (const s of ['fish', 'globe', 'cell']) if (want(s)) load(`packages/pass/src/sets/${s}.js`);
 // (tuning: FISH_TUNE='V0=1,KA=2' tries other numbers for the school without editing the set)
 if (process.env.FISH_TUNE && want('fish')) {
-  let src = fs.readFileSync(path.join(root, 'tools/pass/sets/fish.js'), 'utf8');
+  let src = fs.readFileSync(path.join(root, 'packages/pass/src/sets/fish.js'), 'utf8');
   src = src.replace(/^  const V0 = .*$/m, line => process.env.FISH_TUNE.split(',').reduce((l, kv) => { const [k, v] = kv.split('='); return l.replace(new RegExp(`\\b${k} = [-0-9.]+`), `${k} = ${v}`); }, line));
   vm.runInContext(src, sandbox, { filename: 'fish (tuned)' });
 }
