@@ -90,5 +90,5 @@ self.STORY_EXTRA = [
   { key: 'studio', kick: 'Studio', title: 'Your own scenes', col: '#e6d3b8', icon: 'studio.stage',
     desc: 'Your own models, textured and animated, placed life size in the room, with see-through trigger cubes that show and hide them as people walk about, and sounds placed where they belong.',
     page: 'The studio: your own scenes, placed in the room', brand: 'Studio', sub: 'your own scenes',
-    aria: 'Interactive 3D studio for placing your own models, trigger cubes and sounds in a room', thing: 'scene', loading: 'Opening the studio', len: 'No story · your own scenes', life: true }
+    aria: 'Interactive 3D studio for placing your own models, trigger cubes and sounds in a room', thing: 'scene', loading: 'Opening the studio', len: 'No story · your own scenes', life: true },
 ];

@@ -1741,7 +1741,7 @@ function nextBuild() {
     if (!err && b.pkg) { try { execFileSync(process.execPath, [path.join(WATCH, 'tools', 'packages', 'scan.mjs')], { cwd: WATCH, timeout: 60000, stdio: 'ignore' }); } catch { /* told by --check */ } }
     const ms = Date.now() - t0, text = (String(out || '') + String(errOut || '')).slice(-2000);
     log(`build: ${k} ${err ? 'failed' : 'done'} in ${ms} ms${err ? ': ' + text.trim().split('\n').slice(-1)[0] : ''}`);
-    tell('build', { key: k, ok: !err, ms, out: text });
+    tell('build', { key: b.pkg || k, ok: !err, ms, out: text });
     nextBuild();
   });
 }

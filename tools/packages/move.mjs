@@ -108,9 +108,9 @@ if (!dry) fs.writeFileSync(at('packages', key, 'README.md'), `# ${meta.kick}: ${
 const entry = new RegExp(`\\n  \\{ key: '${key}',[\\s\\S]*?(?=\\n  \\{ key: |\\n\\];)`);
 if (!entry.test(listText)) fail(`could not find ${key}'s entry in stories/list.js`);
 edit('stories/list.js', t => {
-  let n = t.replace(entry, '');
-  // (the list's last entry ends without a comma)
-  return n.replace(/,(\s*\n\];)/, '$1');
+  // (STORY_LIST's last entry ends without a comma: when the one removed was last, the new last one loses its comma)
+  const cut = t.indexOf('self.STORY_EXTRA'), head = cut >= 0 ? t.slice(0, cut) : t, rest = cut >= 0 ? t.slice(cut) : '';
+  return head.replace(entry, '').replace(/\},(\s*\n\];)/, '}$1') + rest;
 });
 edit('.gitignore', t => t.split(`tools/${key}/`).join(`packages/${key}/src/`));
 edit('tools/design/props.json', t => t.split(`tools/${key}/`).join(`packages/${key}/src/`));

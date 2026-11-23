@@ -133,6 +133,17 @@ report('offline: the app opens from the cache', v && v.shell && v.story, JSON.st
 await page.evaluate(() => HOST.go('lbi'));
 await page.waitForFunction(() => HOST.curKey === 'lbi' && HOST.cur, null, { timeout: 30000 }).catch(() => {});
 report('offline: another story loads', await page.evaluate(() => HOST.curKey === 'lbi' && !!HOST.cur));
+// a story moved into a story package (v185: packages/order.json names it, its folder is there): its main.js was taken at
+// the new worker's install (sw.js takeMains), so it opens offline though this page never played it
+{
+  let moved = '';
+  try { moved = (JSON.parse(fs.readFileSync(path.join(newDir, 'packages', 'order.json'), 'utf8')).order || []).find(k => fs.existsSync(path.join(newDir, 'packages', k, 'main.js'))) || ''; } catch (e) { /* none yet */ }
+  if (moved) {
+    await page.evaluate(k => HOST.go(k), moved);
+    await page.waitForFunction(k => HOST.curKey === k && HOST.cur, moved, { timeout: 30000 }).catch(() => {});
+    report(`offline: a story moved into a package (${moved}) loads`, await page.evaluate(k => HOST.curKey === k && !!HOST.cur, moved));
+  }
+}
 if (errors.length) { failed = true; console.log('page errors:\n  ' + errors.join('\n  ')); }
 await ctx.close();
 fs.rmSync(prof, { recursive: true, force: true });
