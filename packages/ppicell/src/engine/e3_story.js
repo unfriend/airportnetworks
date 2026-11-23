@@ -320,6 +320,10 @@ function buildStory() {
   ramp('cell_amb', a + 1, a + 3, 1, 0); ramp('cell_red', a + 1, a + 3, 1, 0);
   ramp('cell_amb', a + 16, a + 18, 0, 1);
   ramp('cell_red', a + 30, a + 32, 0, 1);
+  // (red is on show only while the story talks about it: the owner, 23 November 2026; out again for RELA's amber links,
+  // in for 'Why red?', out under the lenses, in for the shares by kind and the two readings, out with the proteins
+  // without a place, in again for the last picture's red remainder)
+  ramp('cell_red', a + 42, a + 44, 1, 0);
   const rela = RELA.p, relaAt = dotOf(net, rela);
   jump('cell_pp', a + 43, -1, rela);
   jump('cell_pp', b - 1, rela, -1);
@@ -339,6 +343,7 @@ function buildStory() {
   // faces, strict then generous; the proteins without a place
   a = C.red.a; b = C.red.b;
   ramp('cell_amb', a + 1, a + 3, 1, 0.15); ramp('cell_amb', a + 12, a + 14, 0.15, 1);
+  ramp('cell_red', a + 0.5, a + 2.5, 0, 1); ramp('cell_red', a + 13, a + 15, 1, 0); ramp('cell_red', a + 84, a + 86, 0, 1);
   show('lens', a + 13, a + 15, a + 84, a + 86);
   ramp('lens_open', a + 14, a + 19, 0, 1);
   ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3);
@@ -370,7 +375,7 @@ function buildStory() {
   sfxCue(a + 97, 'snap', 'cell', 'centre', { gain: 0.35 });
   // 7. Not all at once: GRB2's domains and partners in turn; TP53 to and fro; STAT3 through a pore
   a = C.moments.a; b = C.moments.b;
-  ramp('cell_a', a, a + 3, 1, 0);
+  ramp('cell_a', a, a + 3, 1, 0); ramp('cell_red', a, a + 2.5, 1, 0);
   show('sites', a + 1, a + 4, b - 2, b);
   ramp('sites_cyc', a + 6, a + 35, 0, 7);
   ramp('sites_act', a + 35, a + 39, 0, 1);
@@ -396,6 +401,7 @@ function buildStory() {
   ramp('cell_a', a, a + 3, 0, 1);
   show('next', a + 2, a + 4, a + 50, a + 52);
   ramp('cell_net', a + 2, a + 5, 1, 0.25); ramp('cell_net', a + 49, a + 53, 0.25, 1);   // (the cell's links dimmed under the methods)
+  ramp('cell_red', a + 52, a + 54, 0, 1);   // (the red remainder, back for the last picture)
   ramp('next_halo', a + 5, a + 11, 0, 1); ramp('next_halo', a + 20, a + 22, 1, 0);
   ramp('next_slab', a + 22, a + 28, 0, 1); ramp('next_slab', a + 35, a + 37, 1, 0);
   ramp('next_vol', a + 37, a + 43, 0, 1); ramp('next_vol', a + 49, a + 51, 1, 0);

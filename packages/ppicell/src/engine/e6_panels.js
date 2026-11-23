@@ -5,7 +5,7 @@
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.ties, pickLine(), kindsLine()].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -43,9 +43,32 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   }
 }
 
-// the places to pick and what the pick shows (renderPick's twin)
+// the places to pick and what the pick shows (renderPick's twin). The headset has no box to type in, so the Search
+// button opens a keyboard and the proteins whose symbols start with what is typed, as buttons (the best connected
+// first; before anything is typed the biggest hubs): pressing one picks it. The places give way to them meanwhile, as
+// the panel cannot scroll.
 function drawPickPane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x, y, W, 25, 35, VC.muted, 400, 3) + 16;
+  vButton(ctx, P, 'pick:search', x, y, 170, 56, 'Search', () => { SRCH.on = !SRCH.on; }, { on: SRCH.on, px: 22 });
+  if (SRCH.on) {
+    // what is typed, in a field beside the button
+    rr(ctx, x + 186, y, W - 186, 56, 8); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = VC.line; ctx.stroke();
+    ctx.textBaseline = 'middle';
+    if (SRCH.q) { ctx.font = vfont(26, 700); ctx.fillStyle = VC.ink; ctx.fillText(SRCH.q + '_', x + 204, y + 29); }
+    else { ctx.font = vfont(22); ctx.fillStyle = VC.faint; ctx.fillText('Type the start of a symbol, such as TP53', x + 204, y + 29); }
+    ctx.textBaseline = 'top';
+    y += 72;
+    for (const k of keyRects(x, y, W)) vButton(ctx, P, 'key:' + k.k, k.x, k.y, k.w, k.h, k.label, () => searchKey(k.k), { px: k.k.length > 1 ? 21 : 24, r: 8 });
+    y += KEYS_H + 16;
+    const hits = searchHits(SRCH.q, 10);
+    if (hits.length) y += flow(ctx, P, hits.map(p => ({ id: 'hit:' + p, label: api('cell').sym(p), on: X.pp === p, fn: () => setPick(p, -1, true) })), x, y, W, y + 2 * 52 + 8, { px: 23, h: 52 }) + 18;
+    else y += textBlock(ctx, `No protein in this interactome starts with ${SRCH.q}.`, x, y, W, 23, 32, VC.muted, 400, 1) + 18;
+    y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 5) + 12;
+    if (kindsLine()) y += textBlock(ctx, kindsLine(), x, y, W, 22, 31, VC.muted, 400, 2) + 18;
+    if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
+    return;
+  }
+  y += Math.max(56, textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x + 190, y, W - 190, 23, 31, VC.muted, 400, 3)) + 16;
   const names = api('cell').places || [];
   y += flow(ctx, P, names.map((n, k) => ({ id: 'place:' + k, label: n, on: X.pc === k, fn: () => setPick(-1, k, true) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
   y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 7) + 12;
@@ -57,5 +80,19 @@ function drawPickPane(ctx, P, x, y, W, bottom) {
   y += 36;
   y += flow(ctx, P, [[1, 'On'], [0, 'Off']].map(([v, n]) => ({ id: 'copies:' + v, label: n, on: X.ties === v, fn: () => setTies(v, true) })), x, y, W, bottom, { px: 24, h: 56 }) + 14;
   if (y + 60 < bottom) textBlock(ctx, COPIES_TEXT, x, y, W, 22, 31, VC.muted, 400, 2);
+}
+// the search's keyboard: ten keys a row, the last row's Delete and Erase all keys a key and a half each; KEYS_H its height
+const KEY_ROWS = ['ABCDEFGHIJ', 'KLMNOPQRST', 'UVWXYZ0123', '456789-'], KEY_H = 54, KEY_GAP = 8, KEYS_H = 4 * KEY_H + 3 * KEY_GAP;
+function keyRects(x, y, W) {
+  const kw = (W - 9 * KEY_GAP) / 10, out = [];
+  KEY_ROWS.forEach((row, r) => {
+    const ky = y + r * (KEY_H + KEY_GAP);
+    [...row].forEach((k, c) => out.push({ k, label: k, x: x + c * (kw + KEY_GAP), y: ky, w: kw, h: KEY_H }));
+    if (r === 3) {
+      const x0 = x + 7 * (kw + KEY_GAP), w2 = (x + W - x0 - KEY_GAP) / 2;
+      out.push({ k: 'del', label: 'Delete', x: x0, y: ky, w: w2, h: KEY_H }, { k: 'clear', label: 'Erase all', x: x0 + w2 + KEY_GAP, y: ky, w: w2, h: KEY_H });
+    }
+  });
+  return out;
 }
 //#use sigFoot drawFoot drawFootX

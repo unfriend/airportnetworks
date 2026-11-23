@@ -103,6 +103,7 @@ function buildExplore() {
       place: () => setPick(-1, +v, true),
       clear: () => setPick(-1, -1, false),
       copies: () => setTies(+v, true),
+      pickp: () => setPick(+v, -1, true),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -146,6 +147,30 @@ function kindWords() {
   const k = GL.sets.cell && GL.sets.cell.stats().kind;
   return k >= 0 ? ` with ${api('cell').kinds[k].toLowerCase()} evidence` : '';
 }
+// The search for a protein: open or not (the headset's Pick pane), the letters typed, and every protein by its links
+// (the best connected first, built once). This device's own, never in collabState: only the pick it makes is shared.
+const SRCH = { on: false, q: '', byDeg: null };
+// up to n proteins whose symbols start with q (any case), the best connected first; with nothing typed, the biggest hubs
+function searchHits(q, n) {
+  const c = api('cell');
+  if (!c.sym) return [];
+  if (!SRCH.byDeg) {
+    const up = Array.from({ length: PDATA.N }, (_, p) => c.sym(p).toUpperCase().replace(/ /g, ''));   // ('Gene 934' typed GENE934)
+    SRCH.byDeg = Array.from(up.keys()).filter(p => up[p]).sort((x, y) => c.deg(y) - c.deg(x) || (up[x] < up[y] ? -1 : 1)).map(p => [p, up[p]]);
+  }
+  q = String(q || '').toUpperCase().replace(/ /g, '');
+  const out = [];
+  for (const [p, u] of SRCH.byDeg) if (u.startsWith(q) && out.push(p) >= n) break;
+  return out;
+}
+// a key of the headset's keyboard: a letter or digit added, 'del' the last one taken back, 'clear' all of them
+function searchKey(k) { SRCH.q = k === 'del' ? SRCH.q.slice(0, -1) : k === 'clear' ? '' : (SRCH.q + k).slice(0, 16); }
+// the suggestions under the page's box (the same as the headset's: the best connected first)
+function renderHits() {
+  const el = $('#pickHits'), inp = $('#pickSym');
+  if (!el || !inp) return;
+  el.innerHTML = searchHits(inp.value, 10).map(p => chip(`data-act="pickp" data-v="${p}"`, esc(api('cell').sym(p)), X.pp === p)).join('');
+}
 // a protein typed by its symbol (the page only): Enter picks it
 function findProtein(s) {
   const p = api('cell').find(s), msg = $('#pickMsg');
@@ -159,9 +184,12 @@ function renderPick() {
   if (!$('#pickBody')) {
     pane.innerHTML = `<p class="sub">Click a dot (in a headset: point and press) to pick a protein and see all its links, or pick a place. The same again lets go.</p>
       <form class="grp" id="pickFind" autocomplete="off"><label for="pickSym">Protein</label> <input id="pickSym" type="text" placeholder="a symbol, such as TP53" size="16" spellcheck="false"> <span class="sub" id="pickMsg"></span></form>
+      <div class="chips" id="pickHits"></div>
       <div id="pickBody"></div>`;
     $('#pickFind').addEventListener('submit', ev => { ev.preventDefault(); findProtein($('#pickSym').value); });
+    $('#pickSym').addEventListener('input', renderHits);
   }
+  renderHits();
   const names = api('cell').places || [];
   $('#pickBody').innerHTML = `<div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
     <p class="sub">${esc(pickLine())}</p>${kindsLine() ? `<p class="sub">${esc(kindsLine())}</p>` : ''}
