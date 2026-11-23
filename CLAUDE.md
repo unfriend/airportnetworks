@@ -68,7 +68,7 @@ session and every agent and workflow it starts avoid them, and every agent promp
 | `stories/design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
 | `packages/<key>/main.js` of a built story (every story but airports, proteins and spatial, whose `main.js` is hand-written: edit it, then the scan) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too, and the readers of a shared source) |
 | `packages/index.json` | `packages/*/` and `packages/order.json` | `node tools/packages/scan.mjs` |
-| `lowpoly.js` | `tools/lowpoly/` | `node tools/lowpoly/build.mjs` |
+| `lowpoly.js` (the shell's four), `packages/<key>/minis.js` (a story's miniatures, v190) | `tools/lowpoly/`, `packages/<key>/src/minis.js` and `src/props.json` | `node tools/lowpoly/build.mjs` |
 | `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |
 | `tools/studio/test/scenes/` | `tools/studio/test/make.mjs` | the same, then `node tools/studio/scan.mjs tools/studio/test/scenes --check` |
 | `version.json` | `sw.js` `VERSION` | `node tools/release.mjs` |
