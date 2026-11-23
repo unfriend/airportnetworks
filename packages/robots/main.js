@@ -2,7 +2,7 @@
 // you, follow the one ahead - and who follows whom is a network: a star, or a chain. In a headset the room is your
 // own, read from the headset's room setup. A short story, then the gang stays for as long as you do.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/robots/build.mjs from the tour's kit and engine (adapted) and the set in tools/robots: edit those, not this file.
+// Built by packages/robots/src/build.mjs from the tour's kit and engine (adapted) and the set in tools/robots: edit those, not this file.
 HOST.register('robots', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
@@ -2512,7 +2512,7 @@ function tellRobots(xr) {
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-robots.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// (packages/robots/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
 // robots writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see
@@ -4691,7 +4691,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-robots.mp3';
+const narrationFile = () => HOST.pkgUrl('robots', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

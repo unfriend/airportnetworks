@@ -1697,7 +1697,8 @@ function buildMap() {
     let src;
     try { src = fs.readFileSync(f, 'utf8'); } catch { continue; }
     const dirs = new Set(['engine']), files = new Set();
-    for (const m of src.matchAll(/['"`]tools['"`]\s*,\s*['"`]([\w-]+)['"`]|['"`/]tools\/([\w-]+)\//g)) dirs.add(m[1] || m[2]);
+    // (tools/packages/move.mjs's builds read a shared source as '../<dir>/...', resolved in tools/)
+    for (const m of src.matchAll(/['"`]tools['"`]\s*,\s*['"`]([\w-]+)['"`]|['"`/]tools\/([\w-]+)\/|['"`]\.\.\/([\w-]+)\//g)) dirs.add(m[1] || m[2] || m[3]);
     for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) files.add('stories/' + m[1]);
     W.builds.set('pkg:' + k, { dirs, files, script: f, pkg: k });
   }

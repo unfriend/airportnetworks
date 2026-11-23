@@ -1,0 +1,21 @@
+{
+  "key": "robots",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Robot gang",
+  "kick": "Swarm robotics",
+  "col": "#c3e85a",
+  "desc": "A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.",
+  "len": "Story 1:49 · then free play",
+  "page": "A gang of robot vacuums in your room",
+  "brand": "Robot gang",
+  "sub": "vacuums in your room",
+  "aria": "Interactive 3D room with a gang of robot vacuums that follow you about",
+  "thing": "room",
+  "loading": "Waking the robots",
+  "authors": "The app's authors",
+  "life": true,
+  "list": "stories",
+  "icon": "robots.robots",
+  "needs": 185
+}

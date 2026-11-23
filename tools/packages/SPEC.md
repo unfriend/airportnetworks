@@ -2,7 +2,8 @@
 
 The owner, 18 November 2026: colleagues and people the owner trusts may write their own stories; each is "all contained
 within a folder and independent from the rest of the app"; they come in through git (pull requests, or a fork they host
-themselves). The app's own sixteen stories stay where they are (`stories/<key>.js`); nothing here changes them.
+themselves). Since v185 the app's own stories move into packages too, one by one (`docs/packages-migration.md`; the
+robot gang first): the same contract, plus `packages/order.json`, `icon` and `intro` below.
 
 A package is code from a trusted person running with the app's full rights (it is not a sandbox). Only the folder in git
 (or on the host serving the app) is ever run: never anything from the relay's scenes, an upload or a link.
@@ -44,17 +45,31 @@ never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `vie
 - `list`: `"stories"` (default: on the Stories screen after the app's own, and in Arrange all) or `"hidden"` (opened only
   by its address `#<key>` or `HOST.go`, and listed on the Stories screen in developer mode).
 - `needs` (optional): the oldest shell release it works with (`HOST.shell.n`); refused on an older shell, as a story.
-- No `icon` field: its card shows `icon.png` when the folder has one, else a plain tile in its colour; in a shared room
-  its station has no miniature (the ring, the card and the plain glowing shape every key without one gets, in its colour).
+- `icon` (optional, v185): its stations' miniature in a shared room, a key of `lowpoly.js`'s `LOWPOLY_MODELS`
+  (`<key>.<set>`, which must exist there); without it its station has no miniature (the ring, the card and the plain
+  glowing shape every key without one gets, in its colour). Its card on the page shows `icon.png` when the folder has
+  one, else a plain tile in its colour (one of the app's own stories, named in `packages/order.json`, a story's card).
+- `intro` (optional, `true` only, v185): an introduction, not one of the stories (the tutorial), as in `stories/list.js`.
 
 ## Discovery: packages/index.json
 
 `node tools/packages/scan.mjs` writes `packages/index.json` from the folders (`--check` exits 1 when it is not current,
 like the builds). It holds `{ "api": 1, "packages": [ { ...story.json, "fp": "<16 hex>", "files": { "<path>": "<16
-hex>" } } ] }`, sorted by key; `fp` is a hash of every file's own fingerprint (`files`), so a package's `fp` changes when
+hex>" } } ] }`, in `packages/order.json`'s order, then by key; `fp` is a hash of every file's own fingerprint (`files`), so a package's `fp` changes when
 any of its files does. A folder whose `story.json` is missing or wrong, whose key is taken or reserved, or without
 `main.js`, is left out with a line saying why (and `--check` fails while one is). `src/`, `README.md` and dot-files are
 listed in `files` only if the story loads them (never: they are left out of `files`).
+
+`bytes` (v185): the sum of its files' sizes, what taking it for offline use costs.
+
+### The order: packages/order.json
+
+Hand-written, `{ "order": [<key>, ...] }`: every one of the app's own stories in the Stories screen's order, moved into
+a package or still in `stories/list.js` (the tutorial last). The scan copies it into the index (`order`) and lists its
+packages first; `--check` fails on a key there that is neither a package nor a story of `stories/list.js`, and on a
+story of `stories/list.js` it leaves out. The shell sorts `HOST.list` by it; the packages it names are the app's own
+(`app: true` in their list entries), built by `tools/engine/all.mjs` and listed in `version.json`'s `packages`
+(`tools/release.mjs`, which needs their `needs`). Other people's packages come after, by key.
 
 ## The shell
 

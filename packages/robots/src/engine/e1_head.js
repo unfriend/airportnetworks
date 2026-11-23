@@ -2,7 +2,7 @@
 // you, follow the one ahead - and who follows whom is a network: a star, or a chain. In a headset the room is your
 // own, read from the headset's room setup. A short story, then the gang stays for as long as you do.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/robots/build.mjs from the tour's kit and engine (adapted) and the set in tools/robots: edit those, not this file.
+// Built by packages/robots/src/build.mjs from the tour's kit and engine (adapted) and the set in tools/robots: edit those, not this file.
 HOST.register('robots', function (HOST) {
 'use strict';
 //#use D2R $ esc css K d_smooth_clamp

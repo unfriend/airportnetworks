@@ -72,10 +72,6 @@ self.STORY_LIST = [
     desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
     page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
     aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:36 · then on and on', life: true },
-  { key: 'robots', kick: 'Swarm robotics', title: 'Robot gang', col: '#c3e85a', icon: 'robots.robots',
-    desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
-    page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
-    aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:49 · then free play', life: true },
   { key: 'tutorial', kick: 'Introduction', title: 'Your guide', col: '#e8eef8', icon: 'tutorial.guide',
     desc: 'A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.',
     page: 'Tutorial: a robot guide shows you round', brand: 'Tutorial', sub: 'a robot guide shows you round',
@@ -94,5 +90,5 @@ self.STORY_EXTRA = [
   { key: 'studio', kick: 'Studio', title: 'Your own scenes', col: '#e6d3b8', icon: 'studio.stage',
     desc: 'Your own models, textured and animated, placed life size in the room, with see-through trigger cubes that show and hide them as people walk about, and sounds placed where they belong.',
     page: 'The studio: your own scenes, placed in the room', brand: 'Studio', sub: 'your own scenes',
-    aria: 'Interactive 3D studio for placing your own models, trigger cubes and sounds in a room', thing: 'scene', loading: 'Opening the studio', len: 'No story · your own scenes', life: true },
+    aria: 'Interactive 3D studio for placing your own models, trigger cubes and sounds in a room', thing: 'scene', loading: 'Opening the studio', len: 'No story · your own scenes', life: true }
 ];

@@ -43,7 +43,7 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | Soil microbes: Holding on to nitrogen | `soil` | `tools/soil/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
-| Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
+| Swarm robotics: Robot gang | `robots` | `packages/robots/` (a story package, built from its `src/`) | synthetic (Kokoro, `af_heart`) | a live simulation |
 
 "Built" stories are generated: edit `tools/<key>/` and run `node tools/<key>/build.mjs` (`--check` says whether the
 built file is in step); never edit `stories/<key>.js` by hand. What is real and what is a stand-in, story by story, is
@@ -1876,7 +1876,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   then leaves a robot short of its dock spot: in about one run in eight one was still driving after 20 s (out of a
   jam), and in one run in twelve one stood still on open floor away from its spot even after 40 s. The smoke test now
   gives them up to 40 s and names the robots that miss. A real story starts with the robots at the dock, so it may never
-  show; worth a look in `tools/robots/sets/robots.js` (how a robot gives up on a blocked path) before an event that
+  show; worth a look in `packages/robots/src/sets/robots.js` (how a robot gives up on a blocked path) before an event that
   changes rules and rooms a lot.
 
 ## Decisions for the owner

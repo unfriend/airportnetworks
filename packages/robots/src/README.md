@@ -1,4 +1,4 @@
-# The robot gang (`stories/robots.js`)
+# The robot gang (`packages/robots/main.js`)
 
 A gang of robot vacuums in a room with you: a short story (about two minutes), then free play for as long as you stay. On a
 screen you stand in a model living room and click the floor to walk; in a headset the room is your own, read from the
@@ -6,8 +6,8 @@ headset's room setup (WebXR plane and mesh detection), and the gang drives on yo
 the sources here, then
 
 ```sh
-node tools/robots/build.mjs          # writes stories/robots.js
-node tools/robots/build.mjs --check  # exits 1 if stories/robots.js is out of date
+node packages/robots/src/build.mjs          # writes packages/robots/main.js
+node packages/robots/src/build.mjs --check  # exits 1 if packages/robots/main.js is out of date
 ```
 
 and bump `VERSION` in `sw.js`. The contract between the parts is `SPEC.md`.

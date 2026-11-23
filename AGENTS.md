@@ -29,7 +29,7 @@ Quest Browser, WebXR).
 | Soil microbes | `stories/soil.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
-| Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
+| Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 | Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `stories/tutorial.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
 
 Besides the stories, two pages that are not stories (`STORY_EXTRA`, on no Stories screen): the design room
@@ -112,7 +112,10 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `packages/` - story packages, a story in one folder each (`packages/<key>/`: `story.json`, `main.js`, `icon.png`, its
   files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract), `scan.mjs` (writes the
   index; `--check`), `check.mjs` (a package's rules; `--load`) and `template/` (a package's `src/`); `packages/hello/` the
-  example (hidden: `#hello`) (`docs/agents/packages.md`).
+  example (hidden: `#hello`) (`docs/agents/packages.md`). The app's own stories are moving into packages (v185,
+  `docs/packages-migration.md`): `packages/order.json` (hand-written) is the Stories screen's order of every story,
+  moved or not; `tools/packages/move.mjs <key>` moves a built story; `tools/stories.mjs` is how every tool finds a
+  story's file, sources and narration; *Take all stories* (`HOST.offline`, `sw.js` `takeAll`) takes them for offline.
 
 ## Detail files (read the one you need, when you need it)
 
@@ -232,7 +235,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 
 - Never edit a built file by hand: edit its sources and rebuild, and commit both (`--check` says when they are out of
   step). Built: `stories/lbi.js`, `nmd.js`, `endo.js`, `pet.js`, `micro.js`, `ovary.js`, `qubits.js`, `mutation.js`,
-  `topo.js`, `soil.js`, `pass.js`, `flock.js`, `robots.js`, `tutorial.js`, `design.js`, `studio.js` (each `node tools/<key>/build.mjs`),
+  `topo.js`, `soil.js`, `pass.js`, `flock.js`, `tutorial.js`, `design.js`, `studio.js` (each `node tools/<key>/build.mjs`),
+  a moved story's `packages/<key>/main.js` (`node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`),
   `lowpoly.js` (`node tools/lowpoly/build.mjs`), `examples/bliss-xp` (`node tools/studio/xp/make.mjs`),
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
 - Rebuild the dependants after a shared source changes: `tools/lbi/sets/body.js` (pet, micro, ovary, topo),
@@ -353,7 +357,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
   `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing
   `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
-  `stories/flock.js`, `tools/robots/` and `stories/robots.js`, and `tools/pet/` and `stories/pet.js` (and after
+  `stories/flock.js`, `packages/robots/src/` and `packages/robots/main.js` (then `node tools/packages/scan.mjs`), and `tools/pet/` and `stories/pet.js` (and after
   changing `tools/lbi/sets/body.js` or `tools/micro/sets/organs.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
   changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `tools/ovary/` and
   `stories/ovary.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first

@@ -8,6 +8,12 @@ There is no unit-test suite. When the suites run (the owner's rule: the full sui
 `dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts), `node tools/packages/scan.mjs --check` (the story packages' index is current and no folder in `packages/` is left out: `docs/agents/packages.md`) and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
+Every test and tool finds a story through `tools/stories.mjs` (v185: its file, sources, build and narrations, moved into
+a story package or not) or, in a page, `HOST.list` and `HOST.meta(k)` (`m.pkg ? m.base + 'main.js' : 'stories/<k>.js'`):
+smoke's `STORY_KEYS` are `HOST.list`'s stories (the app's own packages included, others' left out), collab's `STORIES`
+are checked against `tools/stories.mjs`, so a story that moves stays in every check. `tools/engine/all.mjs --check`
+covers the app's packages too.
+
 ## Windows: a tool's own folder, and line endings (fixed 16 November 2026)
 
 - **A tool's own folder.** On Windows, `path.dirname(new URL(import.meta.url).pathname)` gives `/C:/...`, which
@@ -2252,7 +2258,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `tools/robots/` and the tutorial in `tools/tutorial/` (also
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `packages/robots/src/` and the tutorial in `tools/tutorial/` (also
 `test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
 second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
 `mode=1` practice, `nofvt` the plain figure).

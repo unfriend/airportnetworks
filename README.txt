@@ -42,7 +42,7 @@ Networks, in sixteen stories - installable web app
      seven nearest neighbours  (stories/flock.js)
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
-     (stories/robots.js)
+     (packages/robots/, a story package)
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (stories/tutorial.js; the last
      card on the Stories screen, not counted as a story)
@@ -730,7 +730,7 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), audio/narration-flock.mp3 and, for the robot gang (a story package), packages/robots/audio/narration.mp3 (the airports
 one is a human recording; every other story has a synthetic voice, made by tools/voice/: Kokoro's American af_heart,
 and for the pass story's German Piper's Thorsten); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
@@ -924,7 +924,7 @@ headset. Its narration is not recorded yet (the voice will be the stories'
 synthetic one); in a headset with narration off it waits once for you to turn
 the voice on, or to press Play.
 
-Robot gang (stories/robots.js): a live simulation, not data, and no particular
+Robot gang (packages/robots/): a live simulation, not data, and no particular
 brand of robot. On a screen the robots live in a model living room and you click
 the floor to walk. In a headset they use your own room: every story asks the
 headset for the floor, walls and furniture of its room setup (WebXR plane and
@@ -955,8 +955,8 @@ tools/soil/ (sources of the soil story; node tools/soil/build.mjs writes stories
 authors' files, not in the repository),
 tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
-writes stories/flock.js), tools/robots/ (sources of the robot gang;
-node tools/robots/build.mjs writes stories/robots.js), tools/tutorial/ (sources of the tutorial; node
+writes stories/flock.js), packages/robots/src/ (sources of the robot gang,
+a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), tools/tutorial/ (sources of the tutorial; node
 tools/tutorial/build.mjs writes stories/tutorial.js, node tools/tutorial/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
 writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes

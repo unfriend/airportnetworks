@@ -379,7 +379,7 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   PNAS 2010 on how far a change spreads in a flock). Sky, land and birds are
   illustrative.
 
-- **Robot gang** (`stories/robots.js`): a live simulation, not data, and no
+- **Robot gang** (`packages/robots/`, a story package): a live simulation, not data, and no
   particular brand of robot. Early robot vacuums had no map and much of the
   time drove until they bumped into something, turned and drove on; in swarm
   robotics each robot often follows a few others, and the network of who
@@ -397,7 +397,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/soil.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the sixteen stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/soil.js`, `stories/pass.js`, `stories/flock.js`, `packages/robots/main.js` | the sixteen stories (the robot gang a story package since v185, `packages/order.json` their order), with their data, explore modes and headset panels |
 | `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
 | `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
 | `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `docs/agents/shell.md`, "Hot reload and live updates") |
@@ -435,7 +435,7 @@ The protein data is meant for teaching, not research.
 | `tools/soil/` | sources of the soil story (`node tools/soil/build.mjs` writes `stories/soil.js`; `node tools/soil/test-data.mjs` checks its data, decoders and key numbers; data from `tools/soil/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
-| `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
+| `packages/robots/src/` | sources of the robot gang, a story package (`node packages/robots/src/build.mjs` writes `packages/robots/main.js`) |
 | `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
 | `tools/trackers/` | the Vive trackers' bridge (`bridge.py`: SteamVR's poses to the relay on the same Windows PC; Python 3 and pyopenvr, `--fake` without SteamVR), a fake bridge in Node (`fake.mjs`), the setup on the PC (`README.md`) and the contracts as built (`SPEC.md`) |
 | `tools/voice/` | the synthetic narrations: `narrate.mjs <key>` speaks a story's words (Kokoro; German with Piper) and re-times the story, `check.mjs <key>` checks the result (models and Python outside the repository; see its `README.md`) |
@@ -465,8 +465,8 @@ microanatomy story (`stories/micro.js`) from `tools/micro/`, the aging ovary sto
 `tools/ovary/`, the qubits story (`stories/qubits.js`) from
 `tools/qubits/`, the mutation story (`stories/mutation.js`) from `tools/mutation/`, the tissue topology story (`stories/topo.js`) from `tools/topo/`, the soil story (`stories/soil.js`) from `tools/soil/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
 cell taken from their stories at build time), the flock
-(`stories/flock.js`) from `tools/flock/` and the robot gang
-(`stories/robots.js`) from `tools/robots/`, each with `node tools/<key>/build.mjs`
+(`stories/flock.js`) from `tools/flock/`, each with `node tools/<key>/build.mjs`, and the robot gang (a story package,
+`packages/robots/main.js`) from `packages/robots/src/` with `node packages/robots/src/build.mjs`
 (`--check` says whether the built file is out of step).
 `AGENTS.md` also has advice on working economically with AI coding agents.
 

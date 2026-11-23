@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 import { stories } from '../stories.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), tools = path.join(here, '..'), root = path.join(tools, '..');
 const check = process.argv.includes('--check');
-const uses = f => { const t = fs.readFileSync(f, 'utf8'); return t.includes("'../engine/parts.mjs'") || t.includes("'tools', 'engine', 'parts.mjs'"); };
+const uses = f => { const t = fs.readFileSync(f, 'utf8'); return t.includes("'../engine/parts.mjs'") || t.includes("/tools/engine/parts.mjs'") || t.includes("'tools', 'engine', 'parts.mjs'"); };
 const builds = fs.readdirSync(tools).sort().map(k => path.join(tools, k, 'build.mjs'))
   .concat(stories(root).list.filter(s => s.pkg && s.build).map(s => path.join(root, s.build)))
   .filter(f => fs.existsSync(f) && uses(f));

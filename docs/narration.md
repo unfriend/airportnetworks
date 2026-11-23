@@ -28,7 +28,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Network medicine: Proteins | `audio/narration-proteins.mp3` | synthetic voice | 5:48 |
 | Spatial interactome: Cell map | `audio/narration-spatial.mp3` | synthetic voice | 5:41 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | synthetic voice | 1:36 |
-| Swarm robotics: Robot gang | `audio/narration-robots.mp3` | synthetic voice | 1:49 |
+| Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
 | Introduction: Your guide | `audio/narration-tutorial.mp3` | synthetic voice | 3:35 |
 
 ## Network theory: Airports (`#airports`)
@@ -1428,7 +1428,7 @@ File: `audio/narration-flock.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 
 
 ## Swarm robotics: Robot gang (`#robots`)
 
-File: `audio/narration-robots.mp3` (synthetic voice). Chapters: 0:00 Robot gang, 0:19 Bump and turn, 0:45 Follow me, 1:09 Follow the one ahead, 1:33 Your gang; it ends at 1:49.
+File: `packages/robots/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Robot gang, 0:19 Bump and turn, 0:45 Follow me, 1:09 Follow the one ahead, 1:33 Your gang; it ends at 1:49.
 
 ### 0:00 Robot gang
 

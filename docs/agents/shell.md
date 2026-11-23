@@ -4,7 +4,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## How the shell and stories fit together
 
-- `HOST.list` comes from `stories/list.js` (always the same array, changed in
+- `HOST.list` comes from `stories/list.js` and the app's own story packages, in `packages/order.json`'s order (v185,
+  `docs/agents/packages.md`; always the same array, changed in
   place when the list is read again; `HOST.listRev` counts the changes), so a
   story's code may keep it (`XR_STORIES`). Nothing in a story writes the number
   of stories in: the title and Stories screen say it in words up to twenty

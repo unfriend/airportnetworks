@@ -95,7 +95,28 @@ network answers, however slowly (`cache: 'no-store'`; the cached copy only offli
 fetched from the network, or offline cut from the cached whole file. Old packages' files stay in `PKG` until the browser
 clears it.
 
+**At install (v185)** the worker also takes every listed package's `main.js` (`takeMains`: the index read, each
+`main.js?v=<the package's fp>`, never failing the install), as `SHELL` takes each `stories/<key>.js`, so an installed
+copy opens every story offline, moved into a package or not.
+
+**Take all stories (v185, `takeAll`; the page's `HOST.offline`).** A page posts `{ type: 'take', hidden }`; the worker
+reads the index and takes every file of every listed package (hidden ones too in developer mode) into `PKG` at the
+address the app asks for (`main.js` with the package's fp, the rest with their own: `pkgAddr`), and every narration
+still in `audio/` (`AUDIO`) into `NARR`; files already held are passed by, so a take broken off (the browser stopped the
+worker) carries on where it was, and a changed package takes only its changed files. First the room: what is missing
+(the index's `bytes`, a narration's `Content-Length`) and a fifth more against `navigator.storage.estimate()`; too
+little says so (`state: 'full'`). Two files at a time, each tried twice; progress `{ type: 'take', state: 'run' | 'done'
+| 'full' | 'off', done, total, bytes, need, failed }` to every page. The page: a *Take all stories* button in the
+Stories screen's row (its label the progress), `navigator.storage.persist()` asked on a press; automatic 20 s after the
+start on an installed app (standalone display) or a device that took them once (`localStorage.pkgAll`), and 3 s after
+`appinstalled`; asked again when a take stops moving for 45 s and whenever the packages' index changes. The headset
+menu has no row yet (an installed app takes them by itself; Quest Browser's page has the button).
+
 ## The relay (`relay/server.mjs`)
+
+`--watch` (v185) follows `packages/` too: a package's `main.js` is told as a story (`story { key, fp }`, swapped in
+place), `packages/index.json` as the list; with `--build`, a change under `packages/<key>/src/` runs its
+`src/build.mjs` (and a shared source of `tools/` it names, as `'../<dir>/'` or `tools/<dir>/`), then the scan.
 
 `packages` is in `APP_DIRS` and `APP_DEEP`: served as `examples/` is, `packages/<key>/<at most 4 folders>/<file>`, with
 the app's types; `packages/index.json` with `Cache-Control: no-store`, everything else `no-cache`. No endpoint writes
@@ -119,6 +140,28 @@ unchanged for packages.
 The story rules of `AGENTS.md` hold for a package as for a story: `HOST.makeRenderer`, `HOST.go`, sound only through
 `HOST.audio`, never navigating, never reading A or X, `dispose()` clearing its timers, the shared hooks. `SPEC.md`, "The
 rules a package keeps", lists what `tools/packages/check.mjs` fails on.
+
+## The app's own stories as packages (v185)
+
+The plan and its decided route: `docs/packages-migration.md`. What is in place:
+
+- `packages/order.json` (hand-written) orders every story, moved or not (`tools/packages/SPEC.md`, "The order"); the
+  shell sorts `HOST.list` by the index's copy and waits 1.5 s at most for the index when no story is named (the first
+  screen's cards). Its packages are `app: true` (a story's card, not a package's tile), take `icon` (a `lowpoly.js`
+  miniature: their stations keep theirs) and `intro`.
+- `tools/stories.mjs` is how every test and tool finds a story's file, sources, build and narrations (smoke's
+  `STORY_KEYS` from `HOST.list`, collab's `STORIES`, narration, pace, the voice tools, sfx-render, the relay test).
+- `tools/release.mjs` writes `packages: { <key>: { fp, needs } }` into `version.json` for the moved ones (each needs
+  `needs`: the release that moved it, so an older shell refuses it and `HOST.live` asks for the reload), accepts a
+  shrinking `STORY_LIST` and runs the scan's `--check` in its own. `tools/engine/all.mjs` builds them too.
+- **Moving one:** `node tools/packages/move.mjs <key> [--needs <n>] [--dry]` (a built story; the tree clean): `git mv`
+  of `tools/<key>/` to `packages/<key>/src/` and of `stories/<key>.js` to `packages/<key>/main.js`, its build patched
+  (parts and shared sources from `tools/`, the target), its narration(s) to `packages/<key>/audio/narration[-<lang>].mp3`
+  with `narrationFile()` through `HOST.pkgUrl`, `story.json` from its list entry, a `README.md`, its entry out of
+  `stories/list.js`, `.gitignore`'s and `props.json`'s paths; then it builds, compares the new `main.js` with the old
+  built file (only the lines naming the narration or the folders may differ) and runs the scan and the design room's
+  build. Then by hand: the `VERSION` bump and the release, `node tools/narration.mjs <url>`, the story's docs.
+- The robot gang (`packages/robots/`) moved first; the design room and the studio stay in the shell.
 
 ## Writing one
 

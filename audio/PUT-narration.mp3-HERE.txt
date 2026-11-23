@@ -71,10 +71,11 @@ The flock (#flock) has narration-flock.mp3. Its chapters start at 0:00, 0:23,
 0:53 and 1:20, ending at 1:36 (after that the flock flies on in explore mode);
 its tables are in tools/flock/engine/e3_story.js (then rebuild).
 
-The robot gang (#robots) has narration-robots.mp3. Its chapters start at 0:00,
+The robot gang (#robots, a story package since v185) has its narration in its
+own folder, packages/robots/audio/narration.mp3. Its chapters start at 0:00,
 0:19, 0:45, 1:09 and 1:33, ending at 1:49 (after that the gang stays in
-explore mode); its tables are in tools/robots/engine/e3_story.js (then
-rebuild).
+explore mode); its tables are in packages/robots/src/engine/e3_story.js (then
+node packages/robots/src/build.mjs and node tools/packages/scan.mjs).
 
 The tutorial (#tutorial) has narration-tutorial.mp3 (Kokoro's af_heart, made by
 node tools/voice/narrate.mjs tutorial): its chapters start at 0:00, 0:27, 0:54, 1:23,
@@ -170,10 +171,11 @@ The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
 if your recording differs.
 
-The robot gang (#robots) looks for narration-robots.mp3. Its chapters start at
+The robot gang (#robots) looks for packages/robots/audio/narration.mp3 (a
+story package since v185). Its chapters start at
 0:00, 0:23, 0:51, 1:14 and 1:44, ending at 2:01 (after that the gang stays in
-explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
-rebuild) if your recording differs.
+explore mode); change NARRATION_SYNC in packages/robots/src/engine/e3_story.js
+(then rebuild it and run node tools/packages/scan.mjs) if your recording differs.
 
 Recording a narration
 The airports story has a human recording (narration.mp3); every other story a

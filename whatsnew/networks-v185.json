@@ -1,0 +1,18 @@
+{
+  "version": "networks-v185",
+  "date": "2026-11-23",
+  "new": [
+    "The robot gang is the first of the app's stories moved into a story package (packages/robots/): the same story, the same place on the Stories screen and the same #robots link.",
+    "Take all stories (the Stories screen): every story, its models and its narration on this device for use offline, in the background, with progress. An installed app takes them by itself.",
+    "The Stories screen's order comes from one list (packages/order.json), whether a story has moved into a package or not."
+  ],
+  "test": [
+    "Open the robot gang from the Stories screen and in a headset: it should play with its narration, and its station in a shared room should still show the robot miniature.",
+    "On a phone or a laptop: press Take all stories, wait for All stories on this device, then go offline and open the robot gang and one other story.",
+    "Install the app on the Quest, wait a few minutes online, then open it offline: every story should start, narration included."
+  ],
+  "untested": [
+    "Taking all stories in Quest Browser (its storage room and whether it keeps them), and how long it runs on a headset.",
+    "The robot gang from its package in a real headset session and a shared room of several headsets."
+  ]
+}

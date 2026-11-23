@@ -1,4 +1,4 @@
-# The robot gang: spec (`stories/robots.js`, built from `tools/robots/`)
+# The robot gang: spec (`packages/robots/main.js`, built from `packages/robots/src/`)
 
 A seventh story for the app in `/home/user/airportnetworks` (read `AGENTS.md` once for context and conventions;
 `CLAUDE.md` for the working rules). A gang of robot vacuums lives in a room with you. In a headset it is **your**
@@ -18,14 +18,14 @@ model; copy and adapt rather than invent):
 
 | Path | What |
 | --- | --- |
-| `tools/robots/sets/robots.js` | the one set, key `robots` (`SETS.robots = function (K) {...}`) |
-| `tools/robots/sets/robots.md` | its manifest (params, anchors, labels, views, controls, API, numbers that were measured) |
-| `tools/robots/engine/e1_head.js` ... `e7_app.js` | engine parts, adapted from `tools/flock/engine/` |
-| `tools/robots/build.mjs` | like the flock's: kit + set + engine into `stories/robots.js`, `--check` |
-| `tools/robots/harness.html`, `shot.mjs`, `sweep.mjs`, `README.md` | set harness and screenshot tools, as the flock's |
-| `stories/robots.js` | generated; never edit by hand |
+| `packages/robots/src/sets/robots.js` | the one set, key `robots` (`SETS.robots = function (K) {...}`) |
+| `packages/robots/src/sets/robots.md` | its manifest (params, anchors, labels, views, controls, API, numbers that were measured) |
+| `packages/robots/src/engine/e1_head.js` ... `e7_app.js` | engine parts, adapted from `tools/flock/engine/` |
+| `packages/robots/src/build.mjs` | like the flock's: kit + set + engine into `packages/robots/main.js`, `--check` |
+| `packages/robots/src/harness.html`, `shot.mjs`, `sweep.mjs`, `README.md` | set harness and screenshot tools, as the flock's |
+| `packages/robots/main.js` | generated; never edit by hand |
 
-Shots go to `tools/robots/shots/` (git-ignored). Narration file (optional): `audio/narration-robots.mp3`.
+Shots go to `packages/robots/src/shots/` (git-ignored). Narration file (optional): `packages/robots/audio/narration.mp3`.
 
 ## Runtime rules (as for every set; see `tools/lbi/SPEC.md` "Runtime and code rules")
 
@@ -195,7 +195,7 @@ looking at the gang). Controls:
 - `trails`: `off` "Off", `on` "Cleaned floor"
 - `links`: `off` "Off", `on` "Who follows whom"
 
-## The engine (`tools/robots/engine/`)
+## The engine (`packages/robots/src/engine/`)
 
 Adapted from the flock's engine (one set, no Proteins tab, no scene list). Differences:
 
@@ -300,8 +300,8 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
   'plane-detection', 'mesh-detection']`; the headset Stories screen fits seven cards (cards 0.36 m wide, angle step
   about 0.31 rad at about 1.25 m, so neighbours do not overlap and the outer cards are within about 50°; check
   the arithmetic: chord = 2 d sin(step / 2) must exceed the card width).
-- `sw.js`: bump `VERSION`, add `./stories/robots.js` to `SHELL` and `./audio/narration-robots.mp3` to the audio list.
-  `manifest.webmanifest`: seven stories. `.gitignore`: `tools/robots/shots/`.
+- `sw.js`: bump `VERSION`, add `./packages/robots/main.js` to `SHELL` and `./packages/robots/audio/narration.mp3` to the audio list.
+  `manifest.webmanifest`: seven stories. `.gitignore`: `packages/robots/src/shots/`.
 - `tools/smoke.mjs`: `robots` in every story list (also the Repeat-all run and the anchored-placement loop; the grip
   there moves the panel, as for the flock); a robots step: every control and rule; a click on the floor walks the
   avatar (its position changes towards the point); `crumbs` spills a pile and a robot reaches it; robots stay inside
@@ -309,10 +309,10 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
   `frame.detectedPlanes` (a floor polygon, four walls, a couch plane, with poses) and `enabledFeatures` including
   `plane-detection`, checking that the set gets a `real` room with 4 walls and 1 block, the robots end up inside it,
   `GL.world` places the floor at the floor plane's height, and the trigger aimed at the floor spills crumbs.
-- Docs: `AGENTS.md` (seven stories, the table row, layout entry for `tools/robots/`, a section "The robot gang
-  (`stories/robots.js`) is built the same way" with what is special: live sim, room from the headset, world =
+- Docs: `AGENTS.md` (seven stories, the table row, layout entry for `packages/robots/src/`, a section "The robot gang
+  (`packages/robots/main.js`) is built the same way" with what is special: live sim, room from the headset, world =
   inverse rig for a real room, plane/mesh detection requested by every story), `CLAUDE.md` (build line),
-  `README.md`, `README.txt`, `audio/PUT-narration.mp3-HERE.txt` (chapter timings), `tools/robots/README.md`.
+  `README.md`, `README.txt`, `audio/PUT-narration.mp3-HERE.txt` (chapter timings), `packages/robots/src/README.md`.
 
 ## Science (may say / must not say)
 

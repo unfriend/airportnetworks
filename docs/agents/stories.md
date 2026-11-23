@@ -676,12 +676,15 @@ scene list).
   to 60); dragging takes the camera over (View: Look around). Wings and reeds
   move on real time, so they keep moving while the story is paused.
 
-## The robot gang (`stories/robots.js`) is built the same way
+## The robot gang (`packages/robots/`, a story package since v185) is built the same way
 
-`stories/robots.js` is generated from `tools/robots/` (`node tools/robots/build.mjs`,
-`--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/robots.js`, manifest
-`sets/robots.md`) and engine parts adapted from the flock's. `tools/robots/SPEC.md`
-is the contract between them.
+The first of the app's stories moved into a story package (`docs/packages-migration.md`, `tools/packages/move.mjs`):
+`packages/robots/main.js` is generated from `packages/robots/src/` (`node packages/robots/src/build.mjs`, `--check` as
+for the tour; then `node tools/packages/scan.mjs`): the shared kit (`tools/engine/kit.js`), one set (`sets/robots.js`,
+manifest `sets/robots.md`) and engine parts adapted from the flock's. `packages/robots/src/SPEC.md` is the contract
+between them. Its narration is `packages/robots/audio/narration.mp3` (`narrationFile()` through `HOST.pkgUrl`), its
+`story.json` carries its list entry (`icon: "robots.robots"`, `life`, `needs: 185`), its place on the Stories screen
+is `packages/order.json`'s.
 
 - A live simulation, like the flock: `update(S, t, dt)` advances it (steps of at
   most 1/60 s), and seeking the story changes only the params (the rule, the
@@ -837,7 +840,8 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   (`node tools/nmd/build.mjs`; data from the authors' files, kept out of the repository, via
   `node tools/nmd/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
   `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
-  and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
+  and `packages/robots/main.js` from `packages/robots/src/` (`node packages/robots/src/build.mjs`; a story package
+  since v185).
   `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
   (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
   `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).

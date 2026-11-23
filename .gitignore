@@ -6,7 +6,7 @@ tools/lbi/data/airports_*
 tools/nmd/shots/
 tools/endo/shots/
 tools/flock/shots/
-tools/robots/shots/
+packages/robots/src/shots/
 tools/tutorial/shots/
 relay/.lan/
 relay/logs/
