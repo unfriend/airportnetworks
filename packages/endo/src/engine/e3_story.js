@@ -3,7 +3,7 @@
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-endo.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// (packages/endo/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
 // endo writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see
@@ -72,7 +72,7 @@ const ED = (() => {
   return { D, M, genes, bySym, groups, members, hoodOf, cut, endo: D.endo, seeds: D.seeds, terms: D.terms };
 })();
 const geneIdx = s => { const i = ED.bySym.get(String(s || '').trim().toUpperCase()); return i === undefined ? -1 : i; };
-// where each seed gene acts in the junction (UniProt; see tools/endo/SPEC.md), for the story's count by region
+// where each seed gene acts in the junction (UniProt; see packages/endo/src/SPEC.md), for the story's count by region
 const SEED_SITE = {
   nerve: ['CHAT', 'SLC5A7', 'SLC18A3', 'SYT2', 'VAMP1', 'SNAP25', 'UNC13A', 'RPH3A', 'PREPL', 'MYO9A', 'SLC25A1'],
   cleft: ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1'],

@@ -31,7 +31,7 @@ Test timings in `tree_test` units (from `api().testTimes`): the 11 kept splits a
 (6, 8), 0.66 (0, 3, 5, 7); each endotype's colour reaches its leaves 0.17 later and has crossed its rows 0.30 later
 (all done by 0.96). The pulse starts on a short trunk left of the root (0 to 0.09).
 
-Suggested story keys (chapters in `tools/endo/SPEC.md`):
+Suggested story keys (chapters in `packages/endo/src/SPEC.md`):
 - `hood` (148-185): crossfade in with `tree_matrix` 0, `tree_tree` 0, `tree_test` 0 (cam `matrix`); `tree_matrix`
   0 -> 1 over about 10 s.
 - `split` (185-225): `tree_tree` 0 -> 1 over 6-8 s (cam `tree` or `default`); `tree_test` 0 -> 1 over about 18 s

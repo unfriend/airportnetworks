@@ -21,6 +21,34 @@
   ],
   "packages": [
     {
+      "key": "endo",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Endotypes",
+      "kick": "Disease endotypes",
+      "col": "#c08cff",
+      "desc": "A group of rare diseases of the junction between nerve and muscle, 35 genes and 12 endotypes: how a random walk and a tree that splits only when the data say so find them.",
+      "len": "Story 7:42 · 3D synapse",
+      "page": "Endotypes: one disease, many mechanisms",
+      "brand": "Endotypes",
+      "sub": "one disease, many mechanisms",
+      "aria": "Interactive 3D story of how disease endotypes are found, from a nerve-muscle junction to a protein network",
+      "thing": "synapse",
+      "loading": "Opening the synapse",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "endo.syn",
+      "needs": 186,
+      "fp": "af18dbcaef098904",
+      "bytes": 4719128,
+      "files": {
+        "audio/narration.mp3": "fb647e0514771dfa",
+        "main.js": "2260565181d29781",
+        "story.json": "d408966957964c22"
+      }
+    },
+    {
       "key": "qubits",
       "api": 1,
       "version": "1.0.0",

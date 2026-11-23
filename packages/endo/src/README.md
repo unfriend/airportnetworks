@@ -1,15 +1,15 @@
-# tools/endo: the sources of the endotype story (`stories/endo.js`)
+# packages/endo/src: the sources of the endotype story (`packages/endo/main.js`)
 
 "Endotypes: one disease, many mechanisms", after the ISMB 2026 poster "Introducing EndotypY: a Python package for
 network-based disease endotyping" by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia
 Guthrie and Jörg Menche (LBI Network Medicine), on their run of EndotypY (github.com/menchelab/EndotypY) on
 congenital myasthenic syndromes. Built like the muscle story (`tools/nmd/`), with the shared kit (`tools/engine/kit.js`) and set contract,
-and the muscle story's motor set. Never edit `stories/endo.js` by hand.
+and the muscle story's motor set. Never edit `packages/endo/main.js` by hand.
 
 ```sh
-python -I tools/endo/data/gen_data.py run.pkl seeds.xlsx   # the authors' files -> sets/data.js (only after a new run)
-node tools/endo/build.mjs                                  # writes stories/endo.js
-node tools/endo/build.mjs --check                          # exits 1 if stories/endo.js is out of date
+python -I packages/endo/src/data/gen_data.py run.pkl seeds.xlsx   # the authors' files -> sets/data.js (only after a new run)
+node packages/endo/src/build.mjs                                  # writes packages/endo/main.js
+node packages/endo/src/build.mjs --check                          # exits 1 if packages/endo/main.js is out of date
 ```
 
 | Path | What it is |

@@ -178,5 +178,5 @@ vesicles, the basement membrane with laminin (beta-2, alpha-5), collagen IV and 
 asymmetric acetylcholinesterase. They also cover agrin-LRP4-MuSK-DOK7 signalling and rapsyn under the receptors,
 the fetal (gamma) and adult (epsilon) receptor pentamers with two alpha, beta and delta, and Nav1.4 in the depths
 of the folds. And they cover subsynaptic nuclei, desmin round the Z-discs and plectin linking the intermediate
-filaments. Gene placements: `tools/endo/SPEC.md` (from UniProt). Endotype colours, places, seeds and sizes:
+filaments. Gene placements: `packages/endo/src/SPEC.md` (from UniProt). Endotype colours, places, seeds and sizes:
 `ENDO_DATA`.

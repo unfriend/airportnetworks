@@ -1,7 +1,7 @@
 # The endotype story: 3D sets and engine spec
 
-We are adding an eighth story to the web app in `/home/user/airportnetworks`: `stories/endo.js`, built from
-`tools/endo/` like the muscle story `stories/nmd.js` is built from `tools/nmd/`. It turns a poster (ISMB 2026,
+We are adding an eighth story to the web app in `/home/user/airportnetworks`: `packages/endo/main.js`, built from
+`packages/endo/src/` like the muscle story `stories/nmd.js` is built from `tools/nmd/`. It turns a poster (ISMB 2026,
 "Introducing EndotypY: a Python package for network-based disease endotyping", Chloé Bûcheron, Iker
 Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie, Jörg Menche; LBI Network Medicine, University of
 Vienna) and the package itself (github.com/menchelab/EndotypY, MIT licence) into a narrated, about five-minute 3D
@@ -12,11 +12,11 @@ as in the tour and the muscle story. Card title: **Endotypes**; tagline "one dis
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
 labels, controls, camera views, performance budget, harness, palette), with these differences:
 
-- Your set files live in `tools/endo/sets/`, the harness is `tools/endo/harness.html` (same query syntax) and the
-  screenshot tool is `tools/endo/shot.mjs` (run it from `tools/endo`; shots go to `tools/endo/shots/`, ignored by
+- Your set files live in `packages/endo/src/sets/`, the harness is `packages/endo/src/harness.html` (same query syntax) and the
+  screenshot tool is `packages/endo/src/shot.mjs` (run it from `packages/endo/src`; shots go to `packages/endo/src/shots/`, ignored by
   git). Serve the repository root on port 8123 first (`python3 -m http.server 8123` from the root works).
   Playwright: `node_modules` is linked into the repository root, so the tools find it.
-- The data is the global constant `ENDO_DATA` (`tools/endo/sets/data.js`, made by `tools/endo/data/gen_data.py`
+- The data is the global constant `ENDO_DATA` (`packages/endo/src/sets/data.js`, made by `packages/endo/src/data/gen_data.py`
   from the authors' files, which are not in the repository; never edit it by hand). Its header comment documents
   every field. Decode it once per set (base64 to typed arrays, little-endian).
 - The story also uses the muscle story's `motor` set unchanged (`tools/nmd/sets/motor.js`, manifest
@@ -250,10 +250,10 @@ Anchors: `matrix`, `tree`, `root`, `mds`, `meta`, `focus` (the focused endotype,
 Controls: View (Matrix / Tree / Distances / Endotypes). Explore API `api()`: `setFocus(id or -1)`,
 `pick(raycaster)` -> { gene: index } or { endo: id } or null.
 
-## The engine (`tools/endo/engine/`, copied from the muscle story; adapt it)
+## The engine (`packages/endo/src/engine/`, copied from the muscle story; adapt it)
 
 Rename everything from the muscle story to this one: `HOST.register('endo', ...)`, the header comment (the poster
-and authors above), `audio/narration-endo.mp3`, `SET_ORDER = ['motor', 'syn', 'net', 'tree']`, the shared-room
+and authors above), `packages/endo/audio/narration.mp3`, `SET_ORDER = ['motor', 'syn', 'net', 'tree']`, the shared-room
 hooks unchanged (see "Shared rooms" in `docs/agents/shared-rooms.md`: keep every hook line exactly), the headset code (`e5_xr.js`)
 unchanged except for "Stand in the gap" (below). The headset keeps the sets that export `keepClear` (`motor`,
 `syn`) at least 0.35 m from your head in every view but Stand in the gap (`xrClear`, as in the muscle story).
@@ -309,4 +309,4 @@ your head, the receptor-covered folds at your hips and the muscle below. Explore
 For each set: `sets/<file>.js`, `sets/<file>.md` (manifest: params with meaning and suggested story keyframes,
 anchors, labels, cam views, controls, explore API, what a narrator may and must not say), final screenshots
 `shots/<key>-final-<k>.png` (small: 640x400). Test in the harness only (never run the whole app's smoke test; that is
-the integrator's job). The engine: `engine/*.js` adapted, `node tools/endo/build.mjs` builds `stories/endo.js`.
+the integrator's job). The engine: `engine/*.js` adapted, `node packages/endo/src/build.mjs` builds `packages/endo/main.js`.

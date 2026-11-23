@@ -4,7 +4,7 @@ tools/lbi/shots/
 tools/lbi/data/*.json
 tools/lbi/data/airports_*
 tools/nmd/shots/
-tools/endo/shots/
+packages/endo/src/shots/
 packages/flock/src/shots/
 packages/robots/src/shots/
 packages/tutorial/src/shots/

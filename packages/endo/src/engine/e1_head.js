@@ -5,15 +5,15 @@
 // Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine, University of Vienna), on their
 // run of EndotypY (github.com/menchelab/EndotypY).
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/endo/build.mjs from the tour's kit, the muscle story's motor set and the data, sets and engine parts
-// in tools/endo: edit those, not this file.
+// Built by packages/endo/src/build.mjs from the tour's kit, the muscle story's motor set and the data, sets and engine parts
+// in packages/endo/src: edit those, not this file.
 HOST.register('endo', function (HOST) {
 'use strict';
 //#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// ENDO_DATA (the analysis data, tools/endo/sets/data.js) comes first, then the muscle story's disease groups
+// ENDO_DATA (the analysis data, packages/endo/src/sets/data.js) comes first, then the muscle story's disease groups
 // (NMD_DATA, only for its motor set).
 const SETS = {};
 //@@SETS@@

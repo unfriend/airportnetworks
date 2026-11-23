@@ -1,5 +1,5 @@
 // Screenshots of the whole muscle story at given story times (as in CH: not the timeline, see NARRATION_SYNC), from one page load. Serve the repository root on port 8123 first.
-// usage (from tools/endo): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
+// usage (from packages/endo/src): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
 import fs from 'fs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const [,, prefix, times, W, H] = process.argv;

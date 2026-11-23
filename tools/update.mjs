@@ -83,8 +83,9 @@ await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && navi
 await wait(1500);
 console.log('older version installed and looking after the page');
 // what this device holds of the narrations before the update, in any cache: since v109 a narration is kept only once a
-// story has played it (until v108 every one was fetched at install), so two are played here first, through the older worker
-await page.evaluate(() => Promise.all(['narration-endo.mp3', 'narration-lbi.mp3'].map(f => fetch('audio/' + f).then(r => r.arrayBuffer()).catch(() => null))));
+// story has played it (until v108 every one was fetched at install), so two are played here first, through the older worker (two still in audio/: a story moved into a package
+// has its narration in its folder)
+await page.evaluate(() => Promise.all(['narration-proteins.mp3', 'narration-lbi.mp3'].map(f => fetch('audio/' + f).then(r => r.arrayBuffer()).catch(() => null))));
 await wait(1500);
 const before = await page.evaluate(async () => {
   const names = new Set();
