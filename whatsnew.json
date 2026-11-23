@@ -1,13 +1,9 @@
 {
-  "version": "networks-v191",
+  "version": "networks-v192",
   "date": "2026-11-23",
   "new": [
-    "The switch that sticks has a new script and a new voice track: CDK5 as a messenger in a city of proteins.",
-    "It follows the colleague's ten scenes, with three new ones: CDK5's partners, the semaphorins and NPAS4.",
-    "Real protein structures now appear at the centre: CDK5 with p35, calpain, BDNF and its receptor, a semaphorin, NPAS4 and a Tau filament.",
-    "Calpain now visibly cuts p35 into p25, and CDK5 turns red.",
-    "Explore has the three new scenes and two more pathways to light.",
-    "The design room titles every plate by its story's name, the experiments' too."
+    "A tidy-up only: eight protein models Back into the cell no longer uses are gone, so taking all stories downloads about 0.9 MB less.",
+    "Everything else is as in the release before: The switch that sticks with its new script, voice track and protein structures."
   ],
   "test": [
     "Play The switch that sticks on a headset from start to end: check each name and structure appears as it is said.",

@@ -155,9 +155,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     licence for Back into the cell, to confirm; in Back into the cell in AR the interactome ball looked half bright and
     half dark (probably real-world occlusion: retry with occlusion off) and some blue and white dots showed in front
     (probably really in front: re-check); a real *Record a run* log (the only one on the relay is a one-second desktop
-    test); files no longer used that the owner may delete (the rule forbids agents to): `packages/ppicell/src/sets/mol.js`
-    and `orb.js`, `packages/ppicell/models/{egfr,erbb2,met,kit,shc1,sos1,cbl,dnm1}.mol`, and the empty untracked `audio/`
-    folder.
+    test). The files no longer used (`packages/ppicell/src/sets/mol.js` and `orb.js`, eight unused models in
+    `packages/ppicell/models/`, the empty `audio/` folder) were deleted at v192, with the owner's leave.
   - *Waiting on the colleague (Christiane Hütter)*: C1 and C3 to C10 in `docs/questions-for-authors.md`; in particular C8
     (why CDK5 with p25 leaves its place: the story names no mechanism until answered) and C9 (two spoken lines the data
     does not back: CDK5's say in NPAS4's pathway, whose only link was drawn by the authors, and "even in the nucleus").

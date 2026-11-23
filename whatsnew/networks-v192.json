@@ -1,0 +1,20 @@
+{
+  "version": "networks-v192",
+  "date": "2026-11-23",
+  "new": [
+    "A tidy-up only: eight protein models Back into the cell no longer uses are gone, so taking all stories downloads about 0.9 MB less.",
+    "Everything else is as in the release before: The switch that sticks with its new script, voice track and protein structures."
+  ],
+  "test": [
+    "Play The switch that sticks on a headset from start to end: check each name and structure appears as it is said.",
+    "Watch p35 dock on CDK5 and let go again, and the cut in the calpain chapter.",
+    "Check the structures look smooth when you walk close, and the frame rate stays steady.",
+    "On a phone, check the panel always shows its heading and the timeline names do not overlap badly.",
+    "In a shared room, open the new scenes in explore on two devices and check both follow."
+  ],
+  "untested": [
+    "The structures and the close-up views in a real headset: only seen in pictures.",
+    "How the new voice sounds: it was checked for timing, not listened to.",
+    "How long the structures take to arrive on a slow network."
+  ]
+}
