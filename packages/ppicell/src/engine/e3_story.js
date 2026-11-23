@@ -227,13 +227,15 @@ function buildStory() {
     ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, ball_sweep: 0, cell_ties: 1, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
     lens_open: 0, lens_focus: 0, sites_act: 0, sites_cyc: 0, sites_tp: 0, sites_move: 0, next_halo: 0, next_slab: 0, next_vol: 0 });
   let a, b;
-  // 1. A map without a place: the hairball turns beside the empty cell
+  // 1. A map without a place: the hairball alone, framed in the middle; the empty cell comes in beside it only as the
+  // voice brings it in ('the empty one waiting beside it', the amber line at a + 48; the owner, 23 November 2026)
   a = C.map.a; b = C.map.b;
   show('ball', 0.2, 2);
-  show('cell', 1, 4);
+  show('cell', a + 49, a + 53);
   cam(a, 'ball', 'ball', -25);
   cam(a + 18, 'ball', 'ball', 5);
-  cam(a + 40, 'ball', 'default', 0);
+  cam(a + 48, 'ball', 'ball', 12, 'spin');
+  cam(a + 54, 'ball', 'default', 4);
   cam(b, 'ball', 'default', 14, 'spin');
   L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · about ${about} links drawn`, a + 6, a + 20, 'cyn');
   L('ball', 'hub', `<b>GRB2</b> · ${fmt(GRB2.deg)} links`, a + 22, a + 39, 'amb');
@@ -243,7 +245,7 @@ function buildStory() {
   // (ball_hl's first third lights GRB2's dot, the rest its links)
   jump('ball_hi', a + 21, -1, GRB2.p); ramp('ball_hl', a + 21, a + 25, 0, 1);
   ramp('ball_hl', a + 38.5, a + 40.5, 1, 0); jump('ball_hi', a + 41, GRB2.p, -1);
-  L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 42, b - 1, '');
+  L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 51, b - 1, '');
   sfxCue(a + 0.5, 'grow', 'ball', 'ball', { dur: 3, gain: 0.35 });
   // 2. Billions and thousands: one dot opens into its crowd
   a = C.crowd.a; b = C.crowd.b;
@@ -327,10 +329,15 @@ function buildStory() {
   const rela = RELA.p, relaAt = dotOf(net, rela);
   jump('cell_pp', a + 43, -1, rela);
   jump('cell_pp', b - 1, rela, -1);
+  // (RELA's own dot and its links in front, facing you, not behind the nucleus (the owner, 23 November 2026): the view's
+  // bearing is RELA's from the nucleus, in the cell's own frame, and it looks between the two; in a headset the same
+  // bearing turns the scene, xrPlace)
+  const nuc = CELL_NUC(), relaAz = relaAt ? Math.atan2(relaAt[0] - nuc[0], relaAt[2] - nuc[2]) / D2R : 150;
+  const relaT = relaAt ? [0, 1, 2].map(i => nuc[i] + 0.3 * (relaAt[i] - nuc[i])) : nuc, relaN = [0, 0, -1.0, relaT[0], relaT[1], relaT[2]];
   cam(a + 2, 'cell', 'default', 70);
-  cam(a + 42, 'cell', 'default', 130, 'spin');
-  cam(a + 47, 'cell', 'default', 150, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
-  cam(b, 'cell', 'default', 185, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 42, 'cell', 'default', relaAz + 50, 'spin');
+  cam(a + 47, 'cell', 'default', relaAz - 10, null, relaN);
+  cam(b, 'cell', 'default', relaAz + 15, 'spin', relaN);
   L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}, read strictly`, a + 4, a + 16, 'cyn');
   L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}, read strictly`, a + 17, a + 30, 'amb');
   L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 31, a + 42, 'mag');
@@ -351,8 +358,8 @@ function buildStory() {
   jump('cell_faces', a + 104, 1, 0);
   jump('cell_show', a + 104, 2, 3);
   jump('cell_show', C.moments.a + 2.5, 3, 2);   // (as the cell fades out, nearly unseen: a hidden set is not updated, so later it would build as it comes back)
-  cam(a + 1, 'cell', 'default', 190, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
-  cam(a + 12, 'cell', 'default', 215, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 1, 'cell', 'default', relaAz + 20, null, [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);   // (on from RELA's bearing, no swing)
+  cam(a + 12, 'cell', 'default', relaAz + 45, 'spin', [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);
   cam(a + 14, 'lens', 'default', 0);
   cam(a + 21, 'lens', 'yeast', 0);
   cam(a + 42, 'lens', 'yeast', 8, 'spin');

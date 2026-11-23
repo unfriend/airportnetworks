@@ -719,8 +719,10 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   });
   set.mats.push(flagMat);
   // (and a faint copy of them not hidden by the dots, a little under half as strong, so the flagged links still read through a
-  // dense place without drawing over the dots in front at full strength)
-  const flagGhost = new THREE.ShaderMaterial({ uniforms: flagMat.uniforms, transparent: true, depthWrite: false, depthTest: false,
+  // dense place without drawing over the dots in front at full strength. Depth-tested all the same, but drawn before the
+  // dots' depth (renderOrder 4.8, the dots' depth pass 4.9): so the real world (occlusion's depth, drawn first), the panel
+  // and solid things still hide it, as they hide the rest of the cell; with depthTest off it showed through them in AR)
+  const flagGhost = new THREE.ShaderMaterial({ uniforms: flagMat.uniforms, transparent: true, depthWrite: false,
     vertexShader: flagMat.vertexShader, fragmentShader: flagMat.fragmentShader.replace('uK * uA * vK', '0.45 * uK * uA * vK') });
   set.mats.push(flagGhost);
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
@@ -963,7 +965,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     // (links through a gate and impossible ones in a draw of their own, at full strength: under the pale cytosol's they
     // would not show)
     if (fg) { NET.flags = new THREE.LineSegments(fg.g, flagMat); NET.flags.renderOrder = 6; NET.flags.frustumCulled = false; set.group.add(NET.flags);
-      NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 5.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
+      NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 4.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
     Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', bg: list.concat(flagged), drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
       pieces: rg.pieces + (fg ? fg.pieces : 0), ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
@@ -1360,7 +1362,7 @@ void main() {
     for (const q of part) { L.set(home.subarray(3 * p, 3 * p + 3), 6 * j); L.set(home.subarray(3 * q, 3 * q + 3), 6 * j + 3); j++; }
     hg.setAttribute('position', new THREE.BufferAttribute(L, 3)); hg.setAttribute('aStart', new THREE.BufferAttribute(L.slice(), 3));
     hg.setAttribute('aWhen', new THREE.BufferAttribute(new Float32Array(2 * part.size), 1));
-    hiLines.visible = part.size > 0;
+    hiLines.visible = false;   // (update shows it while it is lit)
   }
 
   // where the ball stands before it moves into the cell: to the cell's left, so the two show side by side
@@ -1384,6 +1386,8 @@ void main() {
       const h = Math.round(S.ball_hi);
       if (h !== HI) highlight(h >= 0 && h < NP ? h : -1);
       U.uHl.value = HI >= 0 ? clamp(S.ball_hl, 0, 1) : 0;
+      // (drawn only while it is lit: never left over when the hairball is gone, ball_hi -1 or its fade at 0)
+      hiLines.visible = HI >= 0 && U.uHl.value > 0.001 && U.uM.value < 0.99 && set.uA.value > 0.003;
       // (the sweep's window: from before the first link to past the last, so it starts and ends with none lit)
       const sw = clamp(S.ball_sweep || 0, 0, 1), wF = SW / NS, s0 = sw * (1 + wF) - wF;
       sweep.visible = sw > 0 && sw < 1 && U.uM.value < 0.01;
@@ -1974,8 +1978,8 @@ SETS.lens.prep = molPrep(['ras', 'raf', 'igg', 'bira']);
 // stretch, a short chain of amino acids lying on the lit domain (the owner, 23 November 2026: the stretches are the real
 // binders, so no surfaces of the partners' other parts): the SH2 holds a receptor's phosphorylated tyrosine,
 // the SH3s a partner's proline-rich stretch (well-known partners from its links: EGFR, ERBB2, MET, KIT and SHC1 at the
-// SH2; SOS1, CBL and DNM1 at the SH3s). Then a shuttle (sites_act 1): a patch of the nuclear envelope with its
-// pores, the cytosol below and the nucleus above; TP53 goes to and fro (sites_tp: it moves on the time), then STAT3 is
+// SH2; SOS1, CBL and DNM1 at the SH3s). Then a shuttle (sites_act 1): the nucleus, a ball with three pores in its
+// envelope, the cytosol outside and below; TP53 goes to and fro (sites_tp: it moves on the time), then STAT3 is
 // switched on in the cytosol by a kinase at a receptor (JAK2's kinase, PDB 2B7A), pairs up, goes through a pore and binds
 // DNA and a partner (EP300's acetyltransferase domain, PDB 3BIY) in the nucleus, all as surfaces (sites_move: 0 the cytosol, 1 the nucleus). sites_cyc counts turns at the domains (keyed at an
 // even pace by the story).
@@ -2032,21 +2036,27 @@ SETS.sites = function (K) {
   });
   const FROM = SLOT.map((p, k) => v3.add(p, v3.mul(OUT[k], 0.6)));   // (where a partner comes from, and goes back to)
   const now = ['', '', ''], nowA = [0, 0, 0], HIC = ['#ff8cd9', '#4dff99', '#ff8cd9'];   // (the domain lit in its partners' colour)
-  // ------------------------------------------------------------ the shuttle: a patch of the nuclear envelope
+  // ------------------------------------------------------------ the shuttle: the nucleus, a ball with three pores
+  // (the owner, 23 November 2026: the nucleus round, the pores set into its envelope): the envelope's two membranes as
+  // glassy spheres (their rims glow), each with a round hole at every pore (cut in the shader: no triangles spent), the
+  // pore's ring lying in the envelope round the hole, facing out; the cytosol outside and below, DNA and EP300 inside
   const gB = new THREE.Group(); set.group.add(gB);
-  const RW = 3, wallY = x => -RW + Math.sqrt(RW * RW - x * x);
-  for (const dy of [0, -0.035]) {
-    const g = new THREE.SphereGeometry(RW, 64, 10, 0, Math.PI * 2, 0, 0.3); g.translate(0, -RW + dy, 0);
-    const m = new THREE.Mesh(g, K.fade(set, new THREE.MeshBasicMaterial({ color: 0xa48cff, side: THREE.DoubleSide, depthWrite: false }), 0.16));
-    gB.add(m);
+  const NC = [0.12, 0.62, -0.1], RN = 0.75, HOLE = 0.205;
+  // (the pores on the lower front, where the view looks: 28 degrees under the equator, 55 degrees apart round it (the middle one facing the view), so their
+  // rings, each 0.22 across its middle, stay well apart)
+  const PDIR = [-45, 10, 65].map(az => { const a = az * Math.PI / 180, e = -28 * Math.PI / 180; return [Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)]; });
+  for (const [r, a0, a1] of [[RN, 0.025, 0.34], [RN - 0.035, 0.015, 0.2]]) {
+    const m = K.rim(set, { color: [0.64, 0.55, 1.0], a0, a1 });
+    m.uniforms.uPd = { value: PDIR.map(d => new THREE.Vector3(...d)) }; m.uniforms.uCos = { value: Math.cos(Math.asin(HOLE / r)) };
+    m.vertexShader = m.vertexShader.replace('varying vec3 vN, vW;', 'varying vec3 vN, vW, vO;').replace('vN = ', 'vO = position; vN = ');
+    m.fragmentShader = m.fragmentShader.replace('uniform vec3 uC;', 'uniform vec3 uC; uniform vec3 uPd[3]; uniform float uCos; varying vec3 vO;')
+      .replace('void main() {', 'void main() {\n  vec3 o = normalize(vO);\n  for (int i = 0; i < 3; i++) if (dot(o, uPd[i]) > uCos) discard;');
+    const g = new THREE.Mesh(new THREE.SphereGeometry(r, 64, 40), m); g.position.set(...NC); g.renderOrder = 2; gB.add(g);
   }
-  // (a faint dome of the nucleoplasm's colour over the envelope: the nucleus side at a glance)
-  { const d = new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), K.rim(set, { color: cellApi.placeCol[1], a0: 0.035, a1: 0.2 }));
-    d.scale.set(1, 0.75, 0.4); d.position.set(0.05, -0.02, -0.12); d.renderOrder = 2; gB.add(d); }
   // (the pores wide enough for the STAT3 pair and TP53 to pass clear of the ring: an opening 0.39 across, the pair at
   // most about 0.28 across its way; a real pore's channel is about 40 nm, a protein 5 to 15)
-  const PORES = [-0.5, 0.05, 0.6].map((x, i) => [x, wallY(x) - 0.017, i === 1 ? 0.1 : -0.15]);
-  PORES.forEach(p => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 10, 48), solid([0.8, 0.65, 1.0])); t.rotation.x = Math.PI / 2; t.position.set(...p); gB.add(t); });
+  const PORES = PDIR.map(d => v3.add(NC, v3.mul(d, RN - 0.0175)));
+  PORES.forEach((p, i) => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 10, 48), solid([0.8, 0.65, 1.0])); t.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...PDIR[i])); t.position.set(...p); gB.add(t); });
   const dnaB = new THREE.Mesh(K.tube([[-0.2, 0.42, -0.1], [0.1, 0.46, 0], [0.35, 0.44, 0.05], [0.6, 0.47, 0]], 0.012, 30, 6), solid([0.6, 0.65, 0.8])); gB.add(dnaB);
   // TP53's core domain (PDB 1TSR, the protein: its DNA does not travel) and the STAT3 pair with its DNA (PDB 1BG1: three
   // models cut from the entry's assembly in its own coordinates, so they line up), as surfaces at their finest level
@@ -2070,13 +2080,18 @@ SETS.sites = function (K) {
   const st = new THREE.Group(); st.add(S3); gB.add(st);
   // JAK2's kinase domain (PDB 2B7A) and p300's acetyltransferase domain (PDB 3BIY), surfaces, small and not to scale
   // against the pores
-  const jak = molMesh(set, 'jak2', { width: 0.09, lod: 0 }).group; jak.position.set(-0.45, -0.45, 0.05); gB.add(jak);
-  const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(-0.52, -0.52, 0.02); gB.add(recB);
+  // (each way starts out in the cytosol on its pore's axis, so it comes straight in, clear of the ring; STAT3's rests
+  // beside its start, by the kinase)
+  const OUTS = PORES.map((b, i) => v3.add(b, v3.mul(PDIR[i], 0.5))), REST = v3.add(OUTS[1], [-0.26, -0.04, -0.05]), JAK = v3.add(OUTS[1], [-0.5, -0.1, -0.08]);
+  const jak = molMesh(set, 'jak2', { width: 0.09, lod: 0 }).group; jak.position.set(...JAK); gB.add(jak);
+  const recB = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), solid([0.9, 0.85, 0.5])); recB.position.set(...v3.add(JAK, [-0.07, -0.07, -0.03])); gB.add(recB);
   const ep = molMesh(set, 'p300', { width: 0.1, lod: 0 }).group; ep.position.set(0.42, 0.56, 0.06); gB.add(ep);
-  const P_CYT = [-0.38, -0.4, 0.08], P_IN = [0.35, 0.48, 0.05];
-  // the way from the cytosol through a pore into the nucleus: one smooth curve, straight up through the pore for the
+  const P_CYT = OUTS[1], P_IN = [0.35, 0.48, 0.05];
+  // the way from the cytosol through a pore into the nucleus: one smooth curve, straight along the pore's axis for the
   // pair's height either side (so nothing clips the ring), walked at an even pace (u 0 to 1: along it by length)
-  const WAY = PORES.map(b => new THREE.CatmullRomCurve3([P_CYT, [b[0], b[1] - 0.22, b[2]], [b[0], b[1] - 0.1, b[2]], b, [b[0], b[1] + 0.1, b[2]], [b[0], b[1] + 0.22, b[2]], P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'));
+  const WAY = PORES.map((b, i) => { const d = PDIR[i], at = s => v3.add(b, v3.mul(d, s)); return new THREE.CatmullRomCurve3([OUTS[i], at(0.22), at(0.1), b, at(-0.1), at(-0.22), P_IN].map(p => new THREE.Vector3(...p)), false, 'centripetal'); });
+  // (the STAT3 pair stands upright; through its tilted pore it leans with the pore's axis, so its narrow way goes first)
+  const Y = new THREE.Vector3(0, 1, 0), lean = new THREE.Quaternion().setFromUnitVectors(Y, new THREE.Vector3(...PDIR[1]).negate()), Q0 = new THREE.Quaternion();
   const _w = new THREE.Vector3(), path = (u, pore) => WAY[pore].getPointAt(clamp(u, 0, 1), _w).toArray();
   let act = 0, mv = 0;
   // (a partner's label just outside its stretch)
@@ -2102,16 +2117,18 @@ SETS.sites = function (K) {
       // the domain where a partner is docked lights up (the strongest of the three, if two overlap)
       const hk = nowA.indexOf(Math.max(...nowA));
       if (nowA[hk] > 0.01) G2.setHighlight('A:' + RANGES[hk][0], 'A:' + RANGES[hk][1], HIC[hk], 0.85 * nowA[hk]); else G2.setHighlight(null);
-      // TP53: to and fro through the middle pore, a loop of 8 s
+      // TP53: to and fro through the left pore, a loop of 8 s
       // (eased only at the two ends, in the cytosol and in the nucleus: through the pore it keeps going)
       const ta = clamp(S.sites_tp, 0, 1), x = (t / 8) % 1, u = K.smooth(x < 0.5 ? x * 2 : 2 - x * 2);
-      tp.visible = ta > 0.01; tp.scale.setScalar(Math.max(0.01, ta)); tp.position.set(...path(u, 1));
-      // STAT3: switched on beside the kinase, the two copies pair up, through the left pore, onto the DNA
+      tp.visible = ta > 0.01; tp.scale.setScalar(Math.max(0.01, ta)); tp.position.set(...path(u, 0));
+      // STAT3: switched on beside the kinase, the two copies pair up, through the middle pore (facing you), onto the DNA
       mv = clamp(S.sites_move, 0, 1);
       const show3 = mv > 0.001, w = K.smooth(clamp((mv - 0.3) / 0.6, 0, 1)), pair = K.smooth(clamp((mv - 0.15) / 0.15, 0, 1));
       st.visible = jak.visible = recB.visible = ep.visible = show3;
-      const base = mv < 0.3 ? v3.lerp([-0.15, -0.3, 0.1], P_CYT, K.smooth(mv / 0.15)) : path(w, 0);
+      const base = mv < 0.3 ? v3.lerp(REST, P_CYT, K.smooth(mv / 0.15)) : path(w, 1);
       st.position.set(...base);
+      const ln = 1 - K.smooth(clamp((v3.dist(base, PORES[1]) - 0.16) / 0.2, 0, 1));
+      st.quaternion.copy(Q0).slerp(lean, ln);
       // (the two apart until they pair: the second comes in from the side; the DNA shows once they are in the nucleus)
       st2.position.copy(slide).multiplyScalar(1 - pair);
       st2.visible = show3 && pair > 0.02;
@@ -2120,11 +2137,11 @@ SETS.sites = function (K) {
     },
     anchors: { grb2: [0, 0.26, 0], sh2: v3.add(DOM[1].p, [0, DOM[1].r + 0.03, 0.05]), sh3a: v3.add(DOM[0].p, [-0.05, DOM[0].r + 0.02, 0]), sh3b: v3.add(DOM[2].p, [0.05, DOM[2].r + 0.02, 0]), shell: [0.95, 0.7, 0.3],
       slot0: () => slotAt(0), slot1: () => slotAt(1), slot2: () => slotAt(2),
-      tp53: () => v3.add(tp.position.toArray(), [0, 0.1, 0]), stat3: () => v3.add(st.position.toArray(), [0, 0.12, 0]), jak2: [-0.45, -0.52, 0.05], ep300: [0.42, 0.64, 0.06],
-      pore: [PORES[0][0], PORES[0][1] + 0.05, PORES[0][2]], cytosol: [0.5, -0.25, 0], nucleus: [-0.4, 0.3, -0.1] },
+      tp53: () => v3.add(tp.position.toArray(), [0, 0.1, 0]), stat3: () => v3.add(st.position.toArray(), [0, 0.12, 0]), jak2: v3.add(JAK, [0, -0.07, 0]), ep300: [0.42, 0.64, 0.06],
+      pore: v3.add(PORES[1], v3.mul(PDIR[1], 0.05)), cytosol: [0.62, -0.3, 0.2], nucleus: [NC[0] - 0.62, NC[1] + 0.48, NC[2]] },
     // (whose stretch it is and what it is: the owner, 23 November 2026)
     labels: [0, 1, 2].map(k => ({ text: () => [now[k], k === 1 ? 'a phosphorylated tyrosine' : 'its proline-rich stretch'], at: 'slot' + k, cls: k === 1 ? 'grn' : 'mag', alpha: () => (act < 0.3 ? nowA[k] : 0) })),
-    cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 2.3, 0.05, 0.02, 0] },
+    cam: { default: [12, 10, 2.2, 0, 0, 0], close: [16, 12, 1.1, 0, 0, 0], shuttle: [10, 16, 3.2, 0.05, 0.3, 0.1] },
     stats: () => ({ grb2: nGrb, who: WHO, models: [G2, T5, sA, sB, sD].map(o => o.ok) }),
   });
 };
@@ -2967,13 +2984,15 @@ function buildStory() {
     ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, ball_sweep: 0, cell_ties: 1, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
     lens_open: 0, lens_focus: 0, sites_act: 0, sites_cyc: 0, sites_tp: 0, sites_move: 0, next_halo: 0, next_slab: 0, next_vol: 0 });
   let a, b;
-  // 1. A map without a place: the hairball turns beside the empty cell
+  // 1. A map without a place: the hairball alone, framed in the middle; the empty cell comes in beside it only as the
+  // voice brings it in ('the empty one waiting beside it', the amber line at a + 48; the owner, 23 November 2026)
   a = C.map.a; b = C.map.b;
   show('ball', 0.2, 2);
-  show('cell', 1, 4);
+  show('cell', a + 49, a + 53);
   cam(a, 'ball', 'ball', -25);
   cam(a + 18, 'ball', 'ball', 5);
-  cam(a + 40, 'ball', 'default', 0);
+  cam(a + 48, 'ball', 'ball', 12, 'spin');
+  cam(a + 54, 'ball', 'default', 4);
   cam(b, 'ball', 'default', 14, 'spin');
   L('ball', 'top', `<b>${fmt(F.N)} proteins</b> · about ${about} links drawn`, a + 6, a + 20, 'cyn');
   L('ball', 'hub', `<b>GRB2</b> · ${fmt(GRB2.deg)} links`, a + 22, a + 39, 'amb');
@@ -2983,7 +3002,7 @@ function buildStory() {
   // (ball_hl's first third lights GRB2's dot, the rest its links)
   jump('ball_hi', a + 21, -1, GRB2.p); ramp('ball_hl', a + 21, a + 25, 0, 1);
   ramp('ball_hl', a + 38.5, a + 40.5, 1, 0); jump('ball_hi', a + 41, GRB2.p, -1);
-  L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 42, b - 1, '');
+  L('cell', 'nucleus', '<b>An empty cell</b> · no proteins yet', a + 51, b - 1, '');
   sfxCue(a + 0.5, 'grow', 'ball', 'ball', { dur: 3, gain: 0.35 });
   // 2. Billions and thousands: one dot opens into its crowd
   a = C.crowd.a; b = C.crowd.b;
@@ -3067,10 +3086,15 @@ function buildStory() {
   const rela = RELA.p, relaAt = dotOf(net, rela);
   jump('cell_pp', a + 43, -1, rela);
   jump('cell_pp', b - 1, rela, -1);
+  // (RELA's own dot and its links in front, facing you, not behind the nucleus (the owner, 23 November 2026): the view's
+  // bearing is RELA's from the nucleus, in the cell's own frame, and it looks between the two; in a headset the same
+  // bearing turns the scene, xrPlace)
+  const nuc = CELL_NUC(), relaAz = relaAt ? Math.atan2(relaAt[0] - nuc[0], relaAt[2] - nuc[2]) / D2R : 150;
+  const relaT = relaAt ? [0, 1, 2].map(i => nuc[i] + 0.3 * (relaAt[i] - nuc[i])) : nuc, relaN = [0, 0, -1.0, relaT[0], relaT[1], relaT[2]];
   cam(a + 2, 'cell', 'default', 70);
-  cam(a + 42, 'cell', 'default', 130, 'spin');
-  cam(a + 47, 'cell', 'default', 150, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
-  cam(b, 'cell', 'default', 185, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 42, 'cell', 'default', relaAz + 50, 'spin');
+  cam(a + 47, 'cell', 'default', relaAz - 10, null, relaN);
+  cam(b, 'cell', 'default', relaAz + 15, 'spin', relaN);
   L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}, read strictly`, a + 4, a + 16, 'cyn');
   L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}, read strictly`, a + 17, a + 30, 'amb');
   L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 31, a + 42, 'mag');
@@ -3091,8 +3115,8 @@ function buildStory() {
   jump('cell_faces', a + 104, 1, 0);
   jump('cell_show', a + 104, 2, 3);
   jump('cell_show', C.moments.a + 2.5, 3, 2);   // (as the cell fades out, nearly unseen: a hidden set is not updated, so later it would build as it comes back)
-  cam(a + 1, 'cell', 'default', 190, null, [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
-  cam(a + 12, 'cell', 'default', 215, 'spin', [0, 4, -1.0, CELL_NUC()[0], CELL_NUC()[1], CELL_NUC()[2]]);
+  cam(a + 1, 'cell', 'default', relaAz + 20, null, [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);   // (on from RELA's bearing, no swing)
+  cam(a + 12, 'cell', 'default', relaAz + 45, 'spin', [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);
   cam(a + 14, 'lens', 'default', 0);
   cam(a + 21, 'lens', 'yeast', 0);
   cam(a + 42, 'lens', 'yeast', 8, 'spin');

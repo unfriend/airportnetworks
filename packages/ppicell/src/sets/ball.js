@@ -202,7 +202,7 @@ void main() {
     for (const q of part) { L.set(home.subarray(3 * p, 3 * p + 3), 6 * j); L.set(home.subarray(3 * q, 3 * q + 3), 6 * j + 3); j++; }
     hg.setAttribute('position', new THREE.BufferAttribute(L, 3)); hg.setAttribute('aStart', new THREE.BufferAttribute(L.slice(), 3));
     hg.setAttribute('aWhen', new THREE.BufferAttribute(new Float32Array(2 * part.size), 1));
-    hiLines.visible = part.size > 0;
+    hiLines.visible = false;   // (update shows it while it is lit)
   }
 
   // where the ball stands before it moves into the cell: to the cell's left, so the two show side by side
@@ -226,6 +226,8 @@ void main() {
       const h = Math.round(S.ball_hi);
       if (h !== HI) highlight(h >= 0 && h < NP ? h : -1);
       U.uHl.value = HI >= 0 ? clamp(S.ball_hl, 0, 1) : 0;
+      // (drawn only while it is lit: never left over when the hairball is gone, ball_hi -1 or its fade at 0)
+      hiLines.visible = HI >= 0 && U.uHl.value > 0.001 && U.uM.value < 0.99 && set.uA.value > 0.003;
       // (the sweep's window: from before the first link to past the last, so it starts and ends with none lit)
       const sw = clamp(S.ball_sweep || 0, 0, 1), wF = SW / NS, s0 = sw * (1 + wF) - wF;
       sweep.visible = sw > 0 && sw < 1 && U.uM.value < 0.01;

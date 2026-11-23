@@ -375,8 +375,10 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   });
   set.mats.push(flagMat);
   // (and a faint copy of them not hidden by the dots, a little under half as strong, so the flagged links still read through a
-  // dense place without drawing over the dots in front at full strength)
-  const flagGhost = new THREE.ShaderMaterial({ uniforms: flagMat.uniforms, transparent: true, depthWrite: false, depthTest: false,
+  // dense place without drawing over the dots in front at full strength. Depth-tested all the same, but drawn before the
+  // dots' depth (renderOrder 4.8, the dots' depth pass 4.9): so the real world (occlusion's depth, drawn first), the panel
+  // and solid things still hide it, as they hide the rest of the cell; with depthTest off it showed through them in AR)
+  const flagGhost = new THREE.ShaderMaterial({ uniforms: flagMat.uniforms, transparent: true, depthWrite: false,
     vertexShader: flagMat.vertexShader, fragmentShader: flagMat.fragmentShader.replace('uK * uA * vK', '0.45 * uK * uA * vK') });
   set.mats.push(flagGhost);
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
@@ -619,7 +621,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     // (links through a gate and impossible ones in a draw of their own, at full strength: under the pale cytosol's they
     // would not show)
     if (fg) { NET.flags = new THREE.LineSegments(fg.g, flagMat); NET.flags.renderOrder = 6; NET.flags.frustumCulled = false; set.group.add(NET.flags);
-      NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 5.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
+      NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 4.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
     Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', bg: list.concat(flagged), drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
       pieces: rg.pieces + (fg ? fg.pieces : 0), ms: Math.round(performance.now() - t0) });
     if (set.onBuild) set.onBuild();
