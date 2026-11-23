@@ -63,7 +63,7 @@ SETS.walls = function (K) {
   const rd = v3.norm([0.62, 0.42, 0.66]), RP = v3.mul(rd, 1 / CELL.eScale(rd)), RN = v3.norm([rd[0] / CELL.pm[0] ** 2, rd[1] / CELL.pm[1] ** 2, rd[2] / CELL.pm[2] ** 2]);
   const rec = new THREE.Group(), RS = 0.07 / 68;   // (scene units an angstrom: the receptor about 0.07 long, as it was)
   const b2 = molMesh(set, 'b2ar', { look: 'cartoon', scale: RS });
-  const lig = molMesh(set, 'b2lig', { scale: RS, centred: false }), gs = molMesh(set, 'gs', { scale: RS, centred: false });
+  const lig = molMesh(set, 'b2lig', { scale: RS, centred: false }), gs = molMesh(set, 'gs', { scale: RS, centred: false, lod: 0 });   // (the partner inside at its finest always: a headset's close view, the owner's note of 23 November 2026)
   // (the agonist and the G protein in the receptor's own frame: beside its inner group, which is shifted to its middle)
   const own = new THREE.Group(); own.position.copy(b2.group.children[0].position); own.add(lig.group, gs.group); b2.group.add(own);
   // (the bundle's axis: from the helices' inner ends to their outer ends, the membrane spans; the membrane's middle

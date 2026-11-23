@@ -189,8 +189,8 @@
    "title": "the G protein Gs (its three chains)",
    "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)",
    "file": "gs.mol",
-   "fp": "ee06aabf36e1178c",
-   "bytes": 286368,
+   "fp": "7a5732d4502aca26",
+   "bytes": 866124,
    "radius": 55.109,
    "size": [
     92.058,
@@ -205,12 +205,12 @@
    ],
    "looks": {
     "surface": [
+     47998,
      13998,
-     5000,
-     1598
+     3198
     ]
    },
-   "src": "f487b0e6be521d7f"
+   "src": "01e6d4f17fd950e6"
   },
   {
    "name": "ras",

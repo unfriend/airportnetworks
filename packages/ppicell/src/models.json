@@ -33,7 +33,7 @@
     "colour": { "by": "uniform", "default": "#ffc04d" },
     "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)" },
   { "name": "gs", "title": "the G protein Gs (its three chains)", "pdb": "3SN6", "chains": ["A", "B", "G"], "orient": false,
-    "looks": ["surface"], "lods": [14000, 5000, 1600],
+    "looks": ["surface"], "lods": [48000, 14000, 3200],
     "colour": { "by": "chain", "chains": { "A": "#66e6a0", "B": "#59c7d9", "G": "#a6e8ff" } },
     "credit": "PDB 3SN6 (Rasmussen et al., Nature 2011)" },
   { "name": "ras", "title": "H-Ras", "pdb": "4G0N", "chains": ["A"], "orient": false, "looks": ["surface"],
