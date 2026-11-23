@@ -6,6 +6,31 @@ cost and the questions only the owner can answer. Nothing in it is done yet.
 
 Checked in the code on 23 November 2026 (v184, `FORMAT` `networks-55`). Anything marked *to check* was not.
 
+## Decided route (the owner, 23 November 2026, after the review)
+
+These decisions override the sections below where they differ.
+
+- **Lean** (the review's, `docs/packages-migration-review.md`): no `FORMAT` bump and no per-station copy record (**G4
+  dropped**: `needs`, `HOST.unknown` and `HOST.live` cover mixed copies). **G3 deferred**: shared sources stay where
+  they are (`tools/lbi/sets/body.js` ...); a moved story's build finds them by path; a shared library comes later.
+- **The three hand-written stories** (airports, proteins, spatial) are **wrapped** as packages later in the migration
+  (the file moved, its paths patched), not rewritten (R1 to R3 dropped for now; a later rewrite may take the unified look).
+- **Order**: one hand-written list, `packages/order.json` (every story, moved or not, in the Stories screen's order;
+  the tutorial last, `intro` kept). The scan copies it into the index (`order`), the shell sorts `HOST.list` by it.
+- **Sources** are served alongside each package (`packages/<key>/src/`, as ppicell).
+- **The design room and the studio stay in the shell.** A package's `story.json` names its station's miniature
+  (`icon: "<key>.<set>"`), which stays in `lowpoly.js` for now (**G5 deferred**: a later step moves the miniatures
+  into `packages/<key>/src/mini.js` and the design room's build reads them there).
+- **Narrations move into the packages** (`packages/<key>/audio/narration.mp3`; headsets download them again).
+- **Offline (G6, decided):** the worker's install takes every listed package's `main.js`; an installed app (standalone
+  display, or the `appinstalled` event) takes **all** stories in the background (every listed package's files, its
+  narration included, and the narrations still in `audio/`: about 85 MB), resumable, never blocking first use; a *Take
+  all stories* row on the Stories screen (and the headset menu's Settings tab) does the same with progress in a browser.
+  Storage is checked (`navigator.storage.estimate`, `persist`) and a failure is soft.
+- **First slice:** G2 (`tools/stories.mjs`), G1-lite and G7-lite, the offline download, the pilot **robots** (not flock:
+  flock is collab's `HEADSET_STORY`) and `tools/packages/move.mjs` for the next moves. Then the built stories tail first
+  in batches, the tutorial last of them, then the three wrapped, airports last; cleanup (Z) at the end.
+
 ## 0. What is there now (the facts the plan rests on)
 
 - Packages work today (`docs/agents/packages.md`, `tools/packages/SPEC.md`): `packages/<key>/{story.json, main.js,
