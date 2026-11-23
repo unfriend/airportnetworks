@@ -94,7 +94,8 @@ Follow "Working economically" in `AGENTS.md`. In particular:
   that plan, build, integrate or fix code get `model: 'opus'`; those that
   review, verify, run tests, sweep screenshots, measure, extract data or write
   docs get `model: 'sonnet'` (or `'haiku'` for mechanical checks), at low or
-  medium effort. Fable only when the owner asks for it.
+  medium effort. Narration (writing or rewriting a story's spoken script) is done on Fable (the owner, 23 November
+  2026); otherwise Fable only when the owner asks for it.
 - One critique and one fix round; batch verification; only high-severity
   findings get verified.
 - In the main conversation, view screenshots as small contact sheets, read line
