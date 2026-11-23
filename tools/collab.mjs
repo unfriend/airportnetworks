@@ -298,7 +298,7 @@ const STORIES = {
   },
   // the tutorial (v173): practice's network as the room's state; a signal is an effect (pulse on every page)
   tutorial: {
-    change: "setCtl('tutorial', 'net', 'badge')", back: "setCtl('tutorial', 'net', 'grown')",
+    change: "setCtl('guide', 'net', 'badge')", back: "setCtl('guide', 'net', 'grown')",
     effect: { quiet: '0', idle: '!GL.sets.guide.signalOn()', send: 'sendSignal(0)', seen: 'GL.sets.guide.signalOn()' },
     sound: ['pulse'],
   },
@@ -2092,7 +2092,7 @@ async function askRound(dir) {
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
   await frames(H, 300);
   const sts = await A.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2), SL = sts.find(s => s.kind === 'lobby');
-  check('ask: the pretend headset aligns in a room of its own with two story circles and the lobby', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!SL);
+  check('ask: the pretend headset aligns in a room of its own with two story circles and the lobby', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!SL, JSON.stringify([await H.evaluate(() => HOST.room.aligned), !!S1, !!S2, !!SL, sts.map(s => s.story || s.kind)]));
   // the question in front of the headset: { id, title (its canvas's), vis, d (from the head), hit (pointable) } or null
   const asked = () => H.evaluate(() => { window.__xr.step(); const a = HOST.collab.asking(), S = HOST.collab.overlay().ask, X = window.__xr;
     const head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
