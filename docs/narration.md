@@ -13,27 +13,27 @@ MP3 at the file named under each story; if your chapters start at other times, c
 
 | Story | File | Narration | Length |
 | --- | --- | --- | --- |
-| Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
-| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:43 |
-| Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | synthetic voice | 8:56 |
+| Network theory: Airports | `packages/airports/audio/narration.mp3` | recorded | 3:51 |
+| LBI Network Medicine: The future | `packages/lbi/audio/narration.mp3` | synthetic voice | 10:43 |
+| Rare muscle diseases: Muscle and heart | `packages/nmd/audio/narration.mp3` | synthetic voice | 8:56 |
 | Disease endotypes: Endotypes | `packages/endo/audio/narration.mp3` | synthetic voice | 7:42 |
 | Whole-body PET: One scan, one system | `packages/pet/audio/narration.mp3` | synthetic voice | 6:03 |
-| Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | synthetic voice | 8:06 |
+| Tissue microanatomy: Tissue and time | `packages/micro/audio/narration.mp3` | synthetic voice | 8:06 |
 | Ovarian aging: The aging ovary | `packages/ovary/audio/narration.mp3` | synthetic voice | 7:48 |
 | Quantum network compression: Three qubits | `packages/qubits/audio/narration.mp3` | synthetic voice | 8:54 |
 | Quantum phylogenetics: The mutation machine | `packages/mutation/audio/narration.mp3` | synthetic voice | 8:26 |
-| Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | synthetic voice | 8:50 |
-| Networks for everyone: Pass it on | `audio/narration-pass.mp3` | synthetic voice | 6:46 |
+| Tissue topology: The shape of tissue | `packages/topo/audio/narration.mp3` | synthetic voice | 8:50 |
+| Networks for everyone: Pass it on | `packages/pass/audio/narration.mp3` | synthetic voice | 6:46 |
 | Soil microbes: Holding on to nitrogen | `packages/soil/audio/narration.mp3` | synthetic voice | 11:03 |
-| Network medicine: Proteins | `audio/narration-proteins.mp3` | synthetic voice | 5:48 |
-| Spatial interactome: Cell map | `audio/narration-spatial.mp3` | synthetic voice | 5:41 |
+| Network medicine: Proteins | `packages/proteins/audio/narration.mp3` | synthetic voice | 5:48 |
+| Spatial interactome: Cell map | `packages/spatial/audio/narration.mp3` | synthetic voice | 5:41 |
 | Collective motion: Flock | `packages/flock/audio/narration.mp3` | synthetic voice | 1:36 |
 | Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
 | Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
 
 ## Network theory: Airports (`#airports`)
 
-File: `audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 Edges, 1:01 Degree, 1:17 Hubs, 1:44 Shortest paths, 2:17 Betweenness, 2:46 Communities, 2:59 Robustness, 3:37 Recap; it ends at 3:51.
+File: `packages/airports/audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 Edges, 1:01 Degree, 1:17 Hubs, 1:44 Shortest paths, 2:17 Betweenness, 2:46 Communities, 2:59 Robustness, 3:37 Recap; it ends at 3:51.
 
 ### 0:00 Intro
 
@@ -117,7 +117,7 @@ File: `audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 E
 
 ## LBI Network Medicine: The future (`#lbi`)
 
-File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:56 Disease, 5:34 Immunity, 6:31 Treatment, 7:13 Scales, 7:53 Institute, 8:45 Body, 9:19 Tissue, 9:54 Mission; it ends at 10:43.
+File: `packages/lbi/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:56 Disease, 5:34 Immunity, 6:31 Treatment, 7:13 Scales, 7:53 Institute, 8:45 Body, 9:19 Tissue, 9:54 Mission; it ends at 10:43.
 
 ### 0:00 Intro
 
@@ -250,7 +250,7 @@ File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Pa
 
 ## Rare muscle diseases: Muscle and heart (`#nmd`)
 
-File: `audio/narration-nmd.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:24 Motor unit, 1:38 Causes, 2:13 Layers, 3:22 Walker, 4:23 Contexts, 5:09 Endotypes, 6:01 Heart and muscle, 7:29 Stress test, 8:15 Next; it ends at 8:56.
+File: `packages/nmd/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:24 Motor unit, 1:38 Causes, 2:13 Layers, 3:22 Walker, 4:23 Contexts, 5:09 Endotypes, 6:01 Heart and muscle, 7:29 Stress test, 8:15 Next; it ends at 8:56.
 
 ### 0:00 Intro
 
@@ -507,7 +507,7 @@ File: `packages/pet/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro
 
 ## Tissue microanatomy: Tissue and time (`#micro`)
 
-File: `audio/narration-micro.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:35 Slide, 1:34 Library, 2:23 Method, 3:32 Atlas, 4:28 Age, 5:50 Disease, 6:38 Contacts, 7:19 Next; it ends at 8:06.
+File: `packages/micro/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:35 Slide, 1:34 Library, 2:23 Method, 3:32 Atlas, 4:28 Age, 5:50 Disease, 6:38 Contacts, 7:19 Next; it ends at 8:06.
 
 ### 0:00 Intro
 
@@ -872,7 +872,7 @@ File: `packages/mutation/audio/narration.mp3` (synthetic voice). Chapters: 0:00 
 
 ## Tissue topology: The shape of tissue (`#topo`)
 
-File: `audio/narration-topo.mp3` (synthetic voice). Chapters: 0:00 Where cells sit, 0:45 Which scale?, 1:31 Balls grow, 2:51 The tower, 3:59 123 slides, 5:11 Which scales, 6:38 Every cell, 7:45 What next; it ends at 8:50.
+File: `packages/topo/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Where cells sit, 0:45 Which scale?, 1:31 Balls grow, 2:51 The tower, 3:59 123 slides, 5:11 Which scales, 6:38 Every cell, 7:45 What next; it ends at 8:50.
 
 ### 0:00 Where cells sit
 
@@ -973,9 +973,9 @@ File: `audio/narration-topo.mp3` (synthetic voice). Chapters: 0:00 Where cells s
 
 ## Networks for everyone: Pass it on (`#pass`)
 
-File: `audio/narration-pass.mp3` (synthetic voice). Chapters: 0:00 The school, 0:45 Who watches whom, 1:53 Other links, 2:44 The sky, 4:20 The cell, 5:54 Medicine; it ends at 6:46.
+File: `packages/pass/audio/narration.mp3` (synthetic voice). Chapters: 0:00 The school, 0:45 Who watches whom, 1:53 Other links, 2:44 The sky, 4:20 The cell, 5:54 Medicine; it ends at 6:46.
 
-In 2 languages (en, de), each with its own recording on one timeline (`audio/narration-pass.mp3`, `audio/narration-pass-de.mp3`): every line has the time of the longer of its two recordings.
+In 2 languages (en, de), each with its own recording on one timeline (`packages/pass/audio/narration.mp3`, `packages/pass/audio/narration-de.mp3`): every line has the time of the longer of its two recordings.
 
 ### 0:00 The school
 
@@ -1228,7 +1228,7 @@ File: `packages/soil/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Half
 
 ## Network medicine: Proteins (`#proteins`)
 
-File: `audio/narration-proteins.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Proteins, 0:50 Interactions, 1:21 Hubs, 1:49 Essential, 2:25 Modules, 3:20 Disease modules, 3:54 Drug targets, 4:34 Robustness, 5:25 Recap; it ends at 5:48.
+File: `packages/proteins/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Proteins, 0:50 Interactions, 1:21 Hubs, 1:49 Essential, 2:25 Modules, 3:20 Disease modules, 3:54 Drug targets, 4:34 Robustness, 5:25 Recap; it ends at 5:48.
 
 ### 0:00 Intro
 
@@ -1310,7 +1310,7 @@ File: `audio/narration-proteins.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:
 
 ## Spatial interactome: Cell map (`#spatial`)
 
-File: `audio/narration-spatial.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Compartments, 0:59 Addresses, 1:31 Meeting, 2:10 Many places, 2:45 Signals, 3:25 Moving, 4:04 Proximity, 4:40 Wrong place, 5:19 Recap; it ends at 5:41.
+File: `packages/spatial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Compartments, 0:59 Addresses, 1:31 Meeting, 2:10 Many places, 2:45 Signals, 3:25 Moving, 4:04 Proximity, 4:40 Wrong place, 5:19 Recap; it ends at 5:41.
 
 ### 0:00 Intro
 

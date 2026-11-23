@@ -1,0 +1,23 @@
+{
+  "version": "networks-v187",
+  "date": "2026-11-23",
+  "new": [
+    "Every story is now a story package: the tour, the muscle story, tissue and time, the shape of tissue and Pass it on moved, and the airports, proteins and cell map stories were wrapped as they are.",
+    "Each one is the same story as before, with the same link, the same place on the Stories screen and the same miniature at its station in a shared room.",
+    "Their narrations now live in their own folders (Pass it on keeps its German one too), so a headset downloads each one again the first time it plays.",
+    "If the list of stories is slow to arrive, the app now waits for it instead of failing to start."
+  ],
+  "test": [
+    "Open each story from the Stories screen on a laptop and in a headset: it should load, play with its narration and open explore mode.",
+    "Play the airports story with sound: the recording should still line up with the globe, chapter by chapter.",
+    "Switch Pass it on to German and back while it plays: each language should have its voice.",
+    "A plain start (no story in the address) should still open the airports behind the Stories screen, with the tutorial last.",
+    "Old links to proteins.html and spatial.html should still open those stories.",
+    "With Take all stories done, go offline and open the airports and two other stories."
+  ],
+  "untested": [
+    "The moved stories in a real headset session, their narrations there, and a shared room of several headsets.",
+    "How the narration downloads behave on a slow network at an event.",
+    "How the narrations sound: unheard here."
+  ]
+}
