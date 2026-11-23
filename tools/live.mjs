@@ -17,6 +17,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { stories } from './stories.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -43,6 +44,11 @@ const touch = (f, note) => fs.appendFileSync(file(f), `\n// ${note}\n`);
 let vnum = 1000;
 const setVersion = () => write('sw.js', read('sw.js').replace(/const VERSION = '[^']+'/, `const VERSION = 'networks-v${vnum}'`));
 const release = () => execFileSync(process.execPath, [path.join(REPO, 'tools/release.mjs'), '--root', T], { encoding: 'utf8' });
+// a story's file in the copy, wherever it is (stories/<key>.js, or packages/<key>/main.js since it moved: then the index
+// is written again too, as a change to a package is published)
+const scan = () => execFileSync(process.execPath, [path.join(REPO, 'tools/packages/scan.mjs'), '--root', T], { encoding: 'utf8' });
+const fileOf = k => stories(T).get(k).file;
+const change = (k, note) => { touch(fileOf(k), note); if (stories(T).get(k).pkg) scan(); release(); };
 setVersion();
 fs.rmSync(file('version.json'), { force: true });
 release();
@@ -105,9 +111,17 @@ try {
 
   // a story added in a release: its card, without a reload
   {
-    write('stories/flock2.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';"));
-    write('stories/list.js', read('stories/list.js').replace(/\}\s*,?\s*\n\];/, `},\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
-    brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];`));   // (at STORY_LIST's end: STORY_EXTRA follows)
+    if (/\{ key: /.test(read('stories/list.js').split('self.STORY_EXTRA')[0])) {
+      write('stories/flock2.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';"));
+      write('stories/list.js', read('stories/list.js').replace(/\}\s*,?\s*\n\];/, `},\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
+      brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];`));   // (at STORY_LIST's end: STORY_EXTRA follows)
+    } else {
+      // (every story a package: the new one is a package too, a copy of the flock's, added to the index)
+      fs.mkdirSync(file('packages/flock2'), { recursive: true });
+      write('packages/flock2/main.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';").split("HOST.pkgUrl('flock', ").join("HOST.pkgUrl('flock2', "));
+      write('packages/flock2/story.json', JSON.stringify({ ...JSON.parse(read('packages/flock/story.json')), key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock', brand: 'Second flock', sub: 'added live', len: 'Story 1:57' }, null, 2));
+      scan();
+    }
     release();
     const [rev0, n0] = await page.evaluate(() => [HOST.listRev, HOST.list.length]);   // (the stories before, whatever their number)
     await page.evaluate(() => HOST.live.check('test'));
@@ -122,8 +136,8 @@ try {
   {
     await page.evaluate(() => HOST.start('proteins')); await built(page, 'proteins');
     await page.evaluate(() => HOST.start('airports')); await built(page, 'airports');
-    touch('stories/proteins.js', 'changed while not on show'); release();
-    const fp = fingerprint(read('stories/proteins.js'));
+    change('proteins', 'changed while not on show');
+    const fp = fingerprint(read(fileOf('proteins')));
     await page.evaluate(() => HOST.live.check('test'));
     const stale = await page.evaluate(() => HOST.live.state().stale.has('proteins'));
     await page.evaluate(() => HOST.start('proteins')); await built(page, 'proteins');
@@ -136,7 +150,7 @@ try {
     await until(page, () => HOST.cur.collab.view() != null, null, 10000);   // (null while the camera flies)
     const before = await place(page);
     const n0 = await swapsNow(page), cur0 = await page.evaluateHandle(() => HOST.cur);
-    touch('stories/proteins.js', 'changed on show'); release();
+    change('proteins', 'changed on show');
     await page.evaluate(() => HOST.live.check('test'));
     const swapped = await until(page, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 10000);
     await until(page, () => HOST.cur.collab.view() != null, null, 10000);
@@ -152,7 +166,7 @@ try {
     await page.evaluate(() => { HOST.slides.set('airports', true); const A = HOST.cur.collab.APP, s = HOST.cur.peek('slideStop(1)'); A.enterStory(s); A.playing = false; });
     await until(page, () => HOST.cur.peek('SLIDE.at') === 1, null, 5000);
     const before = await place(page), n0 = await swapsNow(page);
-    touch('stories/airports.js', 'changed at a stop'); release();
+    change('airports', 'changed at a stop');
     await page.evaluate(() => HOST.live.check('test'));
     const swapped = await until(page, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 10000);
     await until(page, () => HOST.cur.peek('SLIDE.at') === 1, null, 5000);
@@ -167,7 +181,7 @@ try {
     const i = ends.findIndex((e, k) => k > 0 && e - ends[k - 1] > 14);
     await page.evaluate(t => { const A = HOST.cur.collab.APP; A.enterStory(t); A.playing = true; }, ends[i] - 7);
     const n0 = await swapsNow(page);
-    touch('stories/airports.js', 'changed while playing'); release();
+    change('airports', 'changed while playing');
     await page.evaluate(() => HOST.live.check('test'));
     await wait(2500);
     const mid = await page.evaluate(() => ({ swaps: HOST.swaps || 0, pending: HOST.live.pending, t: HOST.cur.collab.APP.t, playing: HOST.cur.collab.APP.playing }));
@@ -235,7 +249,7 @@ try {
   // a story file touched: swapped within about 2 s
   {
     const n0 = await swapsNow(dev), t0 = Date.now();
-    touch('stories/airports.js', 'touched while developing');
+    touch(fileOf('airports'), 'touched while developing');
     // (the swap within about 2 s: the new file fetched and run; its build then takes as long as any load of the story,
     // its shaders compiled before the scene shows since the loading bar, seconds in software WebGL on a busy machine)
     const swapped = await until(dev, n => (HOST.swaps || 0) > n, n0, 8000), ms = Date.now() - t0;
@@ -254,7 +268,8 @@ try {
   // the list read again (a card's title changed)
   {
     // (a story still in stories/list.js: the flock's card comes from its package's story.json since v186)
-    write('stories/list.js', read('stories/list.js').replace("title: 'Airports'", "title: 'Airports, changed'"));
+    if (/title: 'Airports'/.test(read('stories/list.js'))) write('stories/list.js', read('stories/list.js').replace("title: 'Airports'", "title: 'Airports, changed'"));
+    else { write('packages/airports/story.json', read('packages/airports/story.json').replace('"title": "Airports"', '"title": "Airports, changed"')); scan(); }   // (a package: its story.json, the index again)
     report('the list touched: read again, the card changed without a reload', await until(dev, () => /Airports, changed/.test(document.querySelector('#picker [data-story="airports"]').textContent) && window.__mark === 1, null, 8000));
   }
   // a station in a shared room: the swap writes nothing to the room
@@ -268,7 +283,7 @@ try {
     await wait(2500);
     const seq = () => dev.evaluate(() => fetch('/api/rooms/' + HOST.collab.code).then(r => r.json()).then(j => j.seq));
     const s0 = await seq(), n0 = await swapsNow(dev);
-    touch('stories/airports.js', 'touched at a station');
+    touch(fileOf('airports'), 'touched at a station');
     const swapped = await until(dev, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 8000);
     await wait(3000);
     const s1 = await seq(), still = await dev.evaluate(i => HOST.collab.live() && HOST.collab.live().id === i, id);

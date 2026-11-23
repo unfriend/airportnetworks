@@ -1,4 +1,4 @@
-// Extract the curated protein network from stories/proteins.js into plain JSON.
+// Extract the curated protein network from packages/proteins/main.js into plain JSON.
 // Usage: node extract_proteins.mjs [repoDir] [outFile]
 // Evaluates only the data block of the story (from `const PPI =` up to the first
 // DOM helper `const $ = s =>`) in a vm sandbox; nothing touches a DOM or three.js.
@@ -10,10 +10,10 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = process.argv[2] || path.join(here, '../../../..');
 const out = process.argv[3] || path.join(here, 'proteins.json');
-const src = fs.readFileSync(path.join(repo, 'stories/proteins.js'), 'utf8');
+const src = fs.readFileSync(path.join(repo, 'packages/proteins/main.js'), 'utf8');
 
 const a = src.indexOf('const PPI = '), b = src.indexOf('const $ = s =>');
-if (a < 0 || b < 0 || b < a) throw new Error('markers not found: the layout of stories/proteins.js changed');
+if (a < 0 || b < 0 || b < a) throw new Error('markers not found: the layout of packages/proteins/main.js changed');
 const block = src.slice(a, b);
 const ctx = vm.createContext({ Math, Object, Array, JSON });
 const D = vm.runInContext(`'use strict';\n${block}\n;({ PPI, HOP_DIST, LIFT, NARRATION_SYNC, CH, COMM_NAMES, COMM_COLORS, INTER_COLOR, STATS })`, ctx);
@@ -85,7 +85,7 @@ const roles = [...groupsMap].map(([role, ids]) => {
 }).sort((x, y) => y.size - x.size || x.role.localeCompare(y.role));
 
 const res = {
-  source: 'stories/proteins.js (PPI, COMM_NAMES, COMM_COLORS, INTER_COLOR, STATS, HOP_DIST, CH)',
+  source: 'packages/proteins/main.js (PPI, COMM_NAMES, COMM_COLORS, INTER_COLOR, STATS, HOP_DIST, CH)',
   counts: { nodes: N, edges: E, modules: modules.length, roles: roles.length,
     essential: nodes.filter(n => n.essential).length,
     byCompartment: Object.fromEntries(Object.keys(COMP).map(c => [c, nodes.filter(n => n.comp === c).length])) },

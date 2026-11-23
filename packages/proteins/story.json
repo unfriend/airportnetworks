@@ -1,0 +1,21 @@
+{
+  "key": "proteins",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "Proteins",
+  "kick": "Network medicine",
+  "col": "#ff5fd2",
+  "desc": "254 proteins inside a human cell. Essential hubs, disease modules, drug targets and knockouts.",
+  "len": "Story 5:48 · cell",
+  "page": "Network medicine, told with the proteins in a cell",
+  "brand": "Network medicine",
+  "sub": "told with the proteins in a cell",
+  "aria": "Interactive 3D cell of protein interactions",
+  "thing": "cell",
+  "loading": "Placing 254 proteins and 375 interactions",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "proteins.cell",
+  "needs": 185
+}

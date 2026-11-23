@@ -55,11 +55,13 @@ const VOICES = { en: { engine: 'kokoro', voice: 'af_heart', lang: 'en-us' }, de:
 const SLOW = 1.1, FADE = 0.6, LEAD = 0.3, PAUSE = 0.5, TITLE_PAUSE = 1.0, STOP_GAP = 0.25, STOP = 0.7;
 // (a story package, packages/<key>/ with its sources in src/: its table there, its recording in its own audio/; the app's
 // own stories as tools/stories.mjs finds them, moved or not)
-const PKG = k => { const s = storiesOf(ROOT).get(k); return !!(s && s.pkg && fs.existsSync(path.join(ROOT, `packages/${k}/src/engine/e3_story.js`))); };
-const srcOf = k => PKG(k) ? `packages/${k}/src/engine/e3_story.js` : fs.existsSync(path.join(ROOT, `tools/${k}/engine/e3_story.js`)) ? `tools/${k}/engine/e3_story.js` : `stories/${k}.js`;
+const S = k => storiesOf(ROOT).get(k);
+const PKG = k => !!(S(k) && S(k).pkg);
+// (a built story's table is in its sources' e3_story.js; a hand-written one's, wrapped as a package or not, in its file)
+const srcOf = k => { const s = S(k); return s && s.src && fs.existsSync(path.join(ROOT, s.src, 'engine/e3_story.js')) ? `${s.src}/engine/e3_story.js` : s ? s.file : `stories/${k}.js`; };
 const r2 = x => Math.round(x * 100) / 100;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-if (key === 'airports' && !flag('dry') && !flag('lines') && !flag('phonemes')) { console.error('The airports story has a human recording (audio/narration.mp3): use --dry --out FILE to try a voice on it.'); process.exit(1); }
+if (key === 'airports' && !flag('dry') && !flag('lines') && !flag('phonemes')) { console.error(`The airports story has a human recording (${S('airports').narration()}): use --dry --out FILE to try a voice on it.`); process.exit(1); }
 
 // ------------------------------------------------------------------ read the story's words, as tools/narration.mjs does
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -144,7 +146,7 @@ const V = Object.fromEntries(langs.map((l, i) => {
   return [l, v];
 }));
 // the recordings: the first language's is the story's narration file, another language's has its code after the key
-const fileOf = (k, l) => k === 'airports' ? 'audio/narration.mp3' : PKG(k) ? `packages/${k}/audio/narration${l && l !== langs[0] ? '-' + l : ''}.mp3` : `audio/narration-${k}${l && l !== langs[0] ? '-' + l : ''}.mp3`;
+const fileOf = (k, l) => { const s = S(k), lg = l && l !== langs[0] ? l : ''; return s ? s.narration(lg) : `audio/narration-${k}${lg ? '-' + lg : ''}.mp3`; };
 const outOf = (f, l) => (l === langs[0] ? f : f.replace(/(\.mp3)?$/i, `-${l}$1`));
 
 // ------------------------------------------------------------------ what is read, and how it is said
@@ -356,9 +358,9 @@ if (/const NARRATION_ENDS = \{[^\n]*\};/.test(src)) src = src.replace(/const NAR
 else src = src.replace(table, `${table}\n// where each chapter's words end in the recording${multi ? 's' : ''} (seconds by chapter key${multi ? '; the later of its languages' : ''}): the slideshow lets the voice finish there\n${endsLine}`);
 fs.writeFileSync(f, src);
 console.log('wrote', srcOf(key));
-if (srcOf(key).startsWith('tools/')) execFileSync(process.execPath, [path.join(ROOT, `tools/${key}/build.mjs`)], { stdio: 'inherit', cwd: ROOT });
-// (a package: its own build, then the index, which must list the recording before the page plays it)
-if (PKG(key)) for (const s of [`packages/${key}/src/build.mjs`, 'tools/packages/scan.mjs']) execFileSync(process.execPath, [path.join(ROOT, s)], { stdio: 'inherit', cwd: ROOT });
+// (a built story: its build; a package: then the index, which must list the recording before the page plays it)
+if (S(key) && S(key).build) execFileSync(process.execPath, [path.join(ROOT, S(key).build)], { stdio: 'inherit', cwd: ROOT });
+if (PKG(key)) execFileSync(process.execPath, [path.join(ROOT, 'tools/packages/scan.mjs')], { stdio: 'inherit', cwd: ROOT });
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\nNow: len in stories/list.js (Story ${mmss(T_END)}), the chapter times in audio/PUT-narration.mp3-HERE.txt, VERSION in sw.js,
 then node tools/smoke.mjs and node tools/audio.mjs, node tools/voice/check.mjs ${key}${multi ? langs.slice(1).map(l => ` (and --lang ${l})`).join('') : ''}, and node tools/narration.mjs (docs/narration.md).`);

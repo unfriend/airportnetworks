@@ -20873,7 +20873,7 @@
   },
   {
    "story": "proteins",
-   "file": "stories/proteins.js",
+   "file": "packages/proteins/main.js",
    "scenes": "One scene: 254 curated proteins and 375 interactions as a network in a cell. Chapters: Intro, Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness, Recap. Explore tabs: Protein, Paths, Hubs, Modules, Knockouts."
   },
   {

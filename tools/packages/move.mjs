@@ -39,7 +39,9 @@ const listText = fs.readFileSync(at('stories/list.js'), 'utf8');
 vm.runInNewContext(listText, ctx);
 const meta = (ctx.self.STORY_LIST || []).find(m => m && m.key === key);
 if (!meta) fail(`${key} is not a story of stories/list.js (STORY_EXTRA's pages stay in the shell)`);
-if (!has('tools', key, 'build.mjs')) fail(`tools/${key}/build.mjs is not there: only a built story moves this way (a hand-written one is wrapped by hand)`);
+// (a hand-written story, with no tools/<key>/build.mjs: airports, proteins, spatial, is wrapped: its file moved as it is)
+const wrap = !has('tools', key, 'build.mjs');
+if (wrap && !has('stories', key + '.js')) fail(`stories/${key}.js is not there`);
 if (has('packages', key)) fail(`packages/${key} is there already`);
 const order = (JSON.parse(fs.readFileSync(at('packages/order.json'), 'utf8')).order || []);
 if (!order.includes(key)) fail(`packages/order.json does not name ${key}`);
@@ -50,9 +52,33 @@ const oldBuilt = fs.readFileSync(at('stories', key + '.js'), 'utf8');
 
 // 1. the folders
 if (!dry) fs.mkdirSync(at('packages', key), { recursive: true });
-git('mv', `tools/${key}`, `packages/${key}/src`);
+if (!wrap) git('mv', `tools/${key}`, `packages/${key}/src`);
 git('mv', `stories/${key}.js`, `packages/${key}/main.js`);
 const S = dry ? `tools/${key}` : `packages/${key}/src`;   // (where the sources are now)
+// (the airports story's recording is the app's first, audio/narration.mp3; every other's audio/narration-<key>.mp3)
+const OLDN = wrap && key === 'airports' ? 'audio/narration.mp3' : `audio/narration-${key}.mp3`;
+const walk = d => fs.readdirSync(at(d), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? (/^(shots|gen|node_modules)$/.test(e.name) ? [] : walk(`${d}/${e.name}`)) : [`${d}/${e.name}`]));
+let readers = [];
+if (wrap) {
+  // 2w. the file itself: its narration through HOST.pkgUrl, its notes naming the new places
+  const F = dry ? `stories/${key}.js` : `packages/${key}/main.js`;
+  edit(F, t => t.split(`'${OLDN}'`).join(`HOST.pkgUrl('${key}', 'audio/narration.mp3')`)
+    .replace(new RegExp(`(?<![\\w/])${OLDN.replace(/[.]/g, '\\.')}`, 'g'), `packages/${key}/audio/narration.mp3`)
+    .split(`stories/${key}.js`).join(`packages/${key}/main.js`));
+  // the readers of the file (a build that cuts it, as the pass story's does airports and spatial; a data script that
+  // reads it): in tools/<dir>/ and the app's packages' src/, every file that names stories/<key>.js names the new place
+  const appPkgs = JSON.parse(fs.readFileSync(at('packages/order.json'), 'utf8')).order.filter(k => k !== key && has('packages', k, 'src'));
+  const dirs = fs.readdirSync(at('tools'), { withFileTypes: true }).filter(e => e.isDirectory() && has('tools', e.name, 'build.mjs')).map(e => `tools/${e.name}`)
+    .concat(appPkgs.map(k => `packages/${k}/src`));
+  for (const d of dirs) {
+    let hit = false;
+    for (const f of walk(d).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f))) {
+      const before = fs.readFileSync(at(f), 'utf8');
+      if (edit(f, t => t.split(`stories/${key}.js`).join(`packages/${key}/main.js`)) !== before) hit = true;
+    }
+    if (hit && has(d, 'build.mjs')) { say(`reader: ${d} names stories/${key}.js`); readers.push(d); }
+  }
+} else {
 
 // 2. the build and the other sources' paths
 const NARR = `'audio/narration-${key}.mp3'`;
@@ -75,7 +101,6 @@ edit(`${S}/build.mjs`, t => {
   }
   return n;
 });
-const walk = d => fs.readdirSync(at(d), { withFileTypes: true }).flatMap(e => (e.isDirectory() ? (/^(shots|gen|node_modules)$/.test(e.name) ? [] : walk(`${d}/${e.name}`)) : [`${d}/${e.name}`]));
 for (const f of walk(S).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f) && !f.endsWith('/build.mjs'))) {
   edit(f, t => {
     let n = t.split(`tools/${key}/build.mjs`).join(`packages/${key}/src/build.mjs`)
@@ -106,7 +131,7 @@ const REL = new RegExp(`(['"\`])\\.\\./${key}/`, 'g'), DEEP = new RegExp(`\\.\\.
 const srcDirs = fs.readdirSync(at('tools'), { withFileTypes: true }).filter(e => e.isDirectory() && e.name !== key && has('tools', e.name, 'build.mjs')).map(e => `tools/${e.name}`)
   .concat(has('packages') ? fs.readdirSync(at('packages'), { withFileTypes: true }).filter(e => e.isDirectory() && e.name !== key && has('packages', e.name, 'src', 'build.mjs')).map(e => `packages/${e.name}/src`) : []);
 const reads = new RegExp(`(['"\`])\\.\\./${key}/|\\.\\./\\.\\./\\.\\./tools/${key}/`);
-const readers = srcDirs.filter(d => ['build.mjs', 'harness.html'].some(f => has(d, f) && reads.test(fs.readFileSync(at(d, f), 'utf8'))));
+readers = srcDirs.filter(d => ['build.mjs', 'harness.html'].some(f => has(d, f) && reads.test(fs.readFileSync(at(d, f), 'utf8'))));
 for (const d of readers) {
   say(`reader: ${d} reads ${key}'s sources`);
   for (const f of walk(d).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f))) {
@@ -119,11 +144,12 @@ for (const d of readers) {
 }
 const left = walk(S).filter(f => /\/engine\//.test(f) && new RegExp(`audio/narration-${key}`).test(fs.readFileSync(at(f), 'utf8')));
 if (left.length) console.log(`note: ${left.join(', ')} still name audio/narration-${key}...: change those by hand to HOST.pkgUrl('${key}', 'audio/narration[-<lang>].mp3')`);
+}
 
 // 3. the narration(s)
-const narrs = (has('audio') ? fs.readdirSync(at('audio')) : []).filter(f => new RegExp(`^narration-${key}(-[a-z]+)?\\.mp3$`).test(f));
+const narrs = (has('audio') ? fs.readdirSync(at('audio')) : []).filter(f => new RegExp(`^narration-${key}(-[a-z]+)?\\.mp3$`).test(f) || `audio/${f}` === OLDN);
 if (narrs.length && !dry) fs.mkdirSync(at('packages', key, 'audio'), { recursive: true });
-for (const f of narrs) git('mv', `audio/${f}`, `packages/${key}/audio/${f.replace(`narration-${key}`, 'narration')}`);
+for (const f of narrs) git('mv', `audio/${f}`, `packages/${key}/audio/${f === 'narration.mp3' ? f : f.replace(`narration-${key}`, 'narration')}`);
 
 // 4. story.json, README.md, stories/list.js, .gitignore, props.json
 const sj = { key, api: 1, version: '1.0.0' };
@@ -137,8 +163,10 @@ if (!dry) fs.writeFileSync(at('packages', key, 'story.json'), JSON.stringify(sj,
 say(`write packages/${key}/README.md`);
 if (!dry) fs.writeFileSync(at('packages', key, 'README.md'), `# ${meta.kick}: ${meta.title} (\`#${key}\`)\n\n${meta.desc}\n\n` +
   `One of the app's own stories, a story package since it moved here (docs/packages-migration.md). Made by the app's authors;\n` +
-  `its sources, its build and its notes are in \`src/\` (\`src/README.md\`, \`src/SPEC.md\` where there is one): \`node packages/${key}/src/build.mjs\`\n` +
-  `writes \`main.js\`, then \`node tools/packages/scan.mjs\`. Its data and the permission to show it: \`docs/data-and-permissions.md\`.\n`);
+  (wrap ? `hand-written: \`main.js\` is its source (no build; edit it, then \`node tools/packages/scan.mjs\`). Its data and the permission\n` +
+    `to show it: \`docs/data-and-permissions.md\`.\n`
+    : `its sources, its build and its notes are in \`src/\` (\`src/README.md\`, \`src/SPEC.md\` where there is one): \`node packages/${key}/src/build.mjs\`\n` +
+    `writes \`main.js\`, then \`node tools/packages/scan.mjs\`. Its data and the permission to show it: \`docs/data-and-permissions.md\`.\n`));
 const entry = new RegExp(`\\n  \\{ key: '${key}',[\\s\\S]*?(?=\\n  \\{ key: |\\n\\];)`);
 if (!entry.test(listText)) fail(`could not find ${key}'s entry in stories/list.js`);
 edit('stories/list.js', t => {
@@ -147,11 +175,11 @@ edit('stories/list.js', t => {
   return head.replace(entry, '').replace(/\},(\s*\n\];)/, '}$1') + rest;
 });
 edit('.gitignore', t => t.split(`tools/${key}/`).join(`packages/${key}/src/`));
-edit('tools/design/props.json', t => t.split(`tools/${key}/`).join(`packages/${key}/src/`));
+edit('tools/design/props.json', t => t.split(`tools/${key}/`).join(`packages/${key}/src/`).split(`stories/${key}.js`).join(`packages/${key}/main.js`));
 if (dry) process.exit(0);
 
 // 5. build, and compare with the old built file: only the lines naming the narration, the build and the folder differ
-execFileSync(process.execPath, [at('packages', key, 'src', 'build.mjs')], { cwd: root, stdio: 'inherit' });
+if (!wrap) execFileSync(process.execPath, [at('packages', key, 'src', 'build.mjs')], { cwd: root, stdio: 'inherit' });
 const a = oldBuilt.split('\n'), b = fs.readFileSync(at('packages', key, 'main.js'), 'utf8').split('\n');
 const diff = [];
 for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) diff.push(i + 1);
@@ -167,7 +195,7 @@ for (const d of readers) execFileSync(process.execPath, [at(d, 'build.mjs')], { 
 // 6. the index and the design room (its cards name the sources' files)
 execFileSync(process.execPath, [at('tools/packages/scan.mjs')], { cwd: root, stdio: 'inherit' });
 execFileSync(process.execPath, [at('tools/design/build.mjs')], { cwd: root, stdio: 'inherit' });
-console.log(`\nmoved ${key}. Next: git add -A packages/${key} stories tools audio .gitignore; the checks: node packages/${key}/src/build.mjs --check,
+console.log(`\n${wrap ? 'wrapped' : 'moved'} ${key}. Next: git add -A packages/${key} stories tools audio .gitignore; the checks: ${wrap ? '' : `node packages/${key}/src/build.mjs --check,`}
 node tools/packages/check.mjs packages/${key} --load, node tools/engine/all.mjs --check, node tools/packages/scan.mjs --check;
 the release (VERSION, whatsnew.json, node tools/release.mjs), node tools/narration.mjs <url>, the story's docs; then the smoke
 test's blocks for it and the suites before main (docs/packages-migration.md).`);

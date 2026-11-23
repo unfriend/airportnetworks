@@ -11,7 +11,7 @@ const LIFT = 0.0015;
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-proteins.mp3, Kokoro's af_heart): node
+// (packages/proteins/audio/narration.mp3, Kokoro's af_heart): node
 // tools/voice/narrate.mjs proteins writes this table and NARRATION_ENDS from
 // the recording it makes (each stretch lasts the longer of 1.1 times its story
 // time and its line's audio plus a pause); run it again after the text changes
@@ -3211,7 +3211,7 @@ function drawFoot(ctx, P) {
 
 
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-proteins.mp3.
+// Optional voice-over: put an MP3 at packages/proteins/audio/narration.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -3219,7 +3219,7 @@ function drawFoot(ctx, P) {
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-proteins.mp3', {
+  AUD = HOST.audio.narration(HOST.pkgUrl('proteins', 'audio/narration.mp3'), {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
