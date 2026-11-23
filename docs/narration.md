@@ -16,20 +16,20 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
 | LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:43 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | synthetic voice | 8:56 |
-| Disease endotypes: Endotypes | `audio/narration-endo.mp3` | synthetic voice | 7:42 |
-| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | synthetic voice | 6:03 |
+| Disease endotypes: Endotypes | `packages/endo/audio/narration.mp3` | synthetic voice | 7:42 |
+| Whole-body PET: One scan, one system | `packages/pet/audio/narration.mp3` | synthetic voice | 6:03 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | synthetic voice | 8:06 |
-| Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | synthetic voice | 7:48 |
-| Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | synthetic voice | 8:54 |
-| Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | synthetic voice | 8:26 |
+| Ovarian aging: The aging ovary | `packages/ovary/audio/narration.mp3` | synthetic voice | 7:48 |
+| Quantum network compression: Three qubits | `packages/qubits/audio/narration.mp3` | synthetic voice | 8:54 |
+| Quantum phylogenetics: The mutation machine | `packages/mutation/audio/narration.mp3` | synthetic voice | 8:26 |
 | Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | synthetic voice | 8:50 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | synthetic voice | 6:46 |
-| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | synthetic voice | 11:03 |
+| Soil microbes: Holding on to nitrogen | `packages/soil/audio/narration.mp3` | synthetic voice | 11:03 |
 | Network medicine: Proteins | `audio/narration-proteins.mp3` | synthetic voice | 5:48 |
 | Spatial interactome: Cell map | `audio/narration-spatial.mp3` | synthetic voice | 5:41 |
-| Collective motion: Flock | `audio/narration-flock.mp3` | synthetic voice | 1:36 |
+| Collective motion: Flock | `packages/flock/audio/narration.mp3` | synthetic voice | 1:36 |
 | Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
-| Introduction: Your guide | `audio/narration-tutorial.mp3` | synthetic voice | 3:35 |
+| Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
 
 ## Network theory: Airports (`#airports`)
 
@@ -347,7 +347,7 @@ File: `audio/narration-nmd.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:24 Mo
 
 ## Disease endotypes: Endotypes (`#endo`)
 
-File: `audio/narration-endo.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:27 Tired, 1:08 Genes, 1:55 Network, 2:56 Walk, 3:50 Neighbours, 4:41 Tree, 5:28 Endotypes, 7:04 What for; it ends at 7:42.
+File: `packages/endo/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:27 Tired, 1:08 Genes, 1:55 Network, 2:56 Walk, 3:50 Neighbours, 4:41 Tree, 5:28 Endotypes, 7:04 What for; it ends at 7:42.
 
 ### 0:00 Intro
 
@@ -442,7 +442,7 @@ File: `audio/narration-endo.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:27 T
 
 ## Whole-body PET: One scan, one system (`#pet`)
 
-File: `audio/narration-pet.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:31 Scanner, 1:39 Sugar, 2:26 Organs, 3:09 Network, 4:02 Health; it ends at 6:03.
+File: `packages/pet/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:31 Scanner, 1:39 Sugar, 2:26 Organs, 3:09 Network, 4:02 Health; it ends at 6:03.
 
 ### 0:00 Intro
 
@@ -608,7 +608,7 @@ File: `audio/narration-micro.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:35 
 
 ## Ovarian aging: The aging ovary (`#ovary`)
 
-File: `audio/narration-ovary.mp3` (synthetic voice). Chapters: 0:00 Reserve, 1:05 Donors, 1:58 Section, 3:09 Methods, 4:50 Age, 6:43 Next; it ends at 7:48.
+File: `packages/ovary/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Reserve, 1:05 Donors, 1:58 Section, 3:09 Methods, 4:50 Age, 6:43 Next; it ends at 7:48.
 
 ### 0:00 Reserve
 
@@ -680,7 +680,7 @@ File: `audio/narration-ovary.mp3` (synthetic voice). Chapters: 0:00 Reserve, 1:0
 
 ## Quantum network compression: Three qubits (`#qubits`)
 
-File: `audio/narration-qubits.mp3` (synthetic voice). Chapters: 0:00 Pairs, 0:58 Walkers, 1:50 Shrink, 2:36 Cuts, 3:46 Coarse, 4:42 Bricks, 6:15 Toolbox, 8:08 Circuit; it ends at 8:54.
+File: `packages/qubits/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Pairs, 0:58 Walkers, 1:50 Shrink, 2:36 Cuts, 3:46 Coarse, 4:42 Bricks, 6:15 Toolbox, 8:08 Circuit; it ends at 8:54.
 
 ### 0:00 Pairs
 
@@ -772,7 +772,7 @@ File: `audio/narration-qubits.mp3` (synthetic voice). Chapters: 0:00 Pairs, 0:58
 
 ## Quantum phylogenetics: The mutation machine (`#mutation`)
 
-File: `audio/narration-mutation.mp3` (synthetic voice). Chapters: 0:00 Letters, 0:41 Family tree, 1:39 Qubits, 2:44 The rule, 3:54 Machine, 5:09 Pairs, 6:19 Rebuild, 7:35 What for; it ends at 8:26.
+File: `packages/mutation/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Letters, 0:41 Family tree, 1:39 Qubits, 2:44 The rule, 3:54 Machine, 5:09 Pairs, 6:19 Rebuild, 7:35 What for; it ends at 8:26.
 
 ### 0:00 Letters
 
@@ -1129,7 +1129,7 @@ DE: Medizin
 
 ## Soil microbes: Holding on to nitrogen (`#soil`)
 
-File: `audio/narration-soil.mp3` (synthetic voice). Chapters: 0:00 Half the sack, 0:51 The relay, 2:06 A wheat fights back, 3:21 The field trial, 4:50 Greener, fewer leaks, 6:45 A crowd of 100,000, 8:14 Who rises together, 10:05 What we know; it ends at 11:03.
+File: `packages/soil/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Half the sack, 0:51 The relay, 2:06 A wheat fights back, 3:21 The field trial, 4:50 Greener, fewer leaks, 6:45 A crowd of 100,000, 8:14 Who rises together, 10:05 What we know; it ends at 11:03.
 
 ### 0:00 Half the sack
 
@@ -1395,7 +1395,7 @@ File: `audio/narration-spatial.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:2
 
 ## Collective motion: Flock (`#flock`)
 
-File: `audio/narration-flock.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 Seven, 0:53 Wave, 1:20 Around you; it ends at 1:36.
+File: `packages/flock/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 Seven, 0:53 Wave, 1:20 Around you; it ends at 1:36.
 
 ### 0:00 Intro
 
@@ -1465,7 +1465,7 @@ File: `packages/robots/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Ro
 
 ## Introduction: Your guide (`#tutorial`)
 
-File: `audio/narration-tutorial.mp3` (synthetic voice). Chapters: 0:00 Hello, 0:27 Pointing, 0:54 Playing a story, 1:23 Exploring, 1:52 The menu, 2:22 Recenter, 2:41 Together, 3:11 Your turn; it ends at 3:35.
+File: `packages/tutorial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Hello, 0:27 Pointing, 0:54 Playing a story, 1:23 Exploring, 1:52 The menu, 2:22 Recenter, 2:41 Together, 3:11 Your turn; it ends at 3:35.
 
 ### 0:00 Hello
 

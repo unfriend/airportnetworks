@@ -1,7 +1,9 @@
 // Moves one of the app's built stories into a story package (docs/packages-migration.md, "Decided route"; the robots
 // were the pilot): the same story, the same key and hooks, its sources and narration in its folder.
 // usage (from the repository root, on a clean tree): node tools/packages/move.mjs <key> [--needs <n>] [--dry]
-//   --needs: the oldest shell the package works with (default: sw.js's VERSION number + 1, the release that moves it)
+//   --needs: the oldest shell the package works with (default: the shell's release now, index.html's HOST.shell n: a
+//            moved story needs nothing newer; HOST.shell n moves only when a release changes the shell, so VERSION + 1
+//            would refuse the story on a shell that did not change)
 //   --dry:   says what it would do, changes nothing
 // What it does, each step with git mv where a file moves (history kept; nothing is deleted):
 //   1. tools/<key>/ -> packages/<key>/src/; stories/<key>.js -> packages/<key>/main.js (the built file stays built)
@@ -41,8 +43,8 @@ if (!has('tools', key, 'build.mjs')) fail(`tools/${key}/build.mjs is not there: 
 if (has('packages', key)) fail(`packages/${key} is there already`);
 const order = (JSON.parse(fs.readFileSync(at('packages/order.json'), 'utf8')).order || []);
 if (!order.includes(key)) fail(`packages/order.json does not name ${key}`);
-const vnum = +(/const VERSION = '[^']*?(\d+)'/.exec(fs.readFileSync(at('sw.js'), 'utf8')) || [])[1];
-const needs = ni >= 0 ? +args[ni + 1] : vnum + 1;
+const shellN = +(/shell: \{ n: (\d+)/.exec(fs.readFileSync(at('index.html'), 'utf8')) || [])[1];
+const needs = ni >= 0 ? +args[ni + 1] : shellN;
 if (!Number.isInteger(needs) || needs < 1) fail('--needs takes a release number');
 const oldBuilt = fs.readFileSync(at('stories', key + '.js'), 'utf8');
 

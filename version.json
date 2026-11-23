@@ -1,12 +1,12 @@
 {
   "app": "networks",
-  "version": "networks-v185",
+  "version": "networks-v186",
   "format": "networks-55",
   "shell": {
     "n": 185,
     "id": "ec8db69d12446a3b"
   },
-  "list": "02adaabd116c151d",
+  "list": "3b45be2b61777184",
   "stories": {
     "airports": {
       "fp": "04c3042792df1d87",
@@ -20,28 +20,8 @@
       "fp": "b99b60357aa550da",
       "needs": 173
     },
-    "endo": {
-      "fp": "c531e4babb42f1f0",
-      "needs": 173
-    },
-    "pet": {
-      "fp": "ee9b569ab2aacc41",
-      "needs": 173
-    },
     "micro": {
       "fp": "42836f8c2761d207",
-      "needs": 173
-    },
-    "ovary": {
-      "fp": "45b3f921101a48ec",
-      "needs": 173
-    },
-    "qubits": {
-      "fp": "7e8c164985fb11fd",
-      "needs": 173
-    },
-    "mutation": {
-      "fp": "831cf3899bf11252",
       "needs": 173
     },
     "topo": {
@@ -49,12 +29,8 @@
       "needs": 173
     },
     "pass": {
-      "fp": "d509a57905f37cd3",
-      "needs": 173
-    },
-    "soil": {
-      "fp": "4407855d49ba4ff0",
-      "needs": 173
+      "fp": "9d0d3c5ac23c7504",
+      "needs": 185
     },
     "proteins": {
       "fp": "b4af16b7cfc17b09",
@@ -64,16 +40,8 @@
       "fp": "a2dbbc71d152bf8c",
       "needs": 173
     },
-    "flock": {
-      "fp": "0c6a3cdf7eecdf08",
-      "needs": 173
-    },
-    "tutorial": {
-      "fp": "fd0fd0a0e6724c18",
-      "needs": 173
-    },
     "design": {
-      "fp": "c8ecc84685a5c7e3",
+      "fp": "fb80307ecfad3fd6",
       "needs": 185
     },
     "studio": {
@@ -82,8 +50,40 @@
     }
   },
   "packages": {
+    "endo": {
+      "fp": "2b428af7e8a49fed",
+      "needs": 185
+    },
+    "pet": {
+      "fp": "b376309662d6f5db",
+      "needs": 185
+    },
+    "ovary": {
+      "fp": "fddfd4e8e38109c4",
+      "needs": 185
+    },
+    "qubits": {
+      "fp": "6180fb9674d0f854",
+      "needs": 185
+    },
+    "mutation": {
+      "fp": "67d0a371caef1091",
+      "needs": 185
+    },
+    "soil": {
+      "fp": "67ffd33ae7b17077",
+      "needs": 185
+    },
+    "flock": {
+      "fp": "61f0df09bca7df92",
+      "needs": 185
+    },
     "robots": {
       "fp": "98c60bcfc56598b8",
+      "needs": 185
+    },
+    "tutorial": {
+      "fp": "33b1895add864afe",
       "needs": 185
     }
   }

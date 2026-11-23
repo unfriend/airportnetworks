@@ -57,4 +57,4 @@ ratio is taken; the formulas of Clearance, Heterogeneity and the index; which wa
 whether it is a position or a distance; what the dashed lines bound; means or medians and the spread; why 593 and 410
 scans against 630; what the p values test (all above 0.05, in 19 people); the follow-up results, which no panel shows.
 
-The poster's numbers, as group summaries, are in git: `git show b7053fb^:packages/pet/src/sets/data.js` (under `poster`).
+The poster's numbers, as group summaries, are in git: `git show b7053fb^:tools/pet/sets/data.js` (under `poster`).

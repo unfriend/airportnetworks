@@ -53,8 +53,9 @@ then pass, then the three wrapped.
 
 Moving a built story (one commit each, or a batch; the tree clean):
 
-1. `node tools/packages/move.mjs <key> --dry`, then `node tools/packages/move.mjs <key>` (`--needs <n>`: the release
-   that moves it, default `VERSION` + 1). It stops (exit 1) when the new `main.js` differs from the old built file in
+1. `node tools/packages/move.mjs <key> --dry`, then `node tools/packages/move.mjs <key>` (`--needs <n>`: the oldest
+   shell it works with, default the shell's release now, `index.html`'s `HOST.shell` `n`: `VERSION` + 1 refused the
+   v186 moves on a shell still 185, since a release that leaves the shell alone keeps its number). It stops (exit 1) when the new `main.js` differs from the old built file in
    any line but those naming the narration or the folders, and notes any `audio/narration-<key>...` left in the engine
    (the pass story's German: its `AUDIO` map's `de` entry, by hand to `HOST.pkgUrl('pass',
    'audio/narration-de.mp3')`; the voice tools already write a package's languages there).

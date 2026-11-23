@@ -114,8 +114,8 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   with lung cancer given immune checkpoint inhibitors before surgery it told good from poor responders better than
   CRP, tumour stage or age (a first test in 19 people: say so). After surgery and immunotherapy the index moved towards
   the healthy range. **`PET_DATA.poster.cohort` and `PET_DATA.poster.prognosis` are gone**: the current `data.js` keeps
-  only the poster's citation. They are in git as they were before commit b7053fb (`git show b7053fb^:packages/pet/src/sets/data.js`,
-  under `poster`; the generator that wrote them: `git show b7053fb^:packages/pet/src/data/gen_data.mjs`). A rebuild of the
+  only the poster's citation. They are in git as they were before commit b7053fb (`git show b7053fb^:tools/pet/sets/data.js`,
+  under `poster`; the generator that wrote them: `git show b7053fb^:tools/pet/data/gen_data.mjs`). A rebuild of the
   second half around the poster would take them from there (HANDOVER.md item 8; the open points are in
   `docs/questions-for-authors.md`, P4 to P11).
 - Stand-ins (say so where they show): typical organ uptakes; the 658 synthetic people behind explore's matrix and

@@ -1,0 +1,19 @@
+{
+  "version": "networks-v186",
+  "date": "2026-11-23",
+  "new": [
+    "Eight more stories moved into story packages: the qubits, the mutation machine, the flock, the tutorial, the endotypes, the PET story, the aging ovary and the soil story.",
+    "Each one is the same story as before, with the same link, the same place on the Stories screen and the same miniature at its station in a shared room.",
+    "Their narrations now live in their own folders, so a headset downloads each one again the first time it plays."
+  ],
+  "test": [
+    "Open each of the eight from the Stories screen on a laptop and in a headset: it should load, play with its narration and open explore mode.",
+    "Check the tutorial is still the last card and that a plain start (no story in the address) still opens the airports, not the tutorial.",
+    "In a shared room, place the flock and the soil story as stations: each should show its usual miniature, and a second headset should follow.",
+    "With Take all stories done, go offline and open two of the moved stories."
+  ],
+  "untested": [
+    "The moved stories in a real headset session, their narration there, and a shared room of several headsets.",
+    "How the new narration downloads behave on a slow network at an event."
+  ]
+}

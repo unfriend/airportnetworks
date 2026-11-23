@@ -39,13 +39,13 @@
       "life": false,
       "list": "stories",
       "icon": "endo.syn",
-      "needs": 186,
-      "fp": "af18dbcaef098904",
+      "needs": 185,
+      "fp": "2b428af7e8a49fed",
       "bytes": 4719128,
       "files": {
         "audio/narration.mp3": "fb647e0514771dfa",
         "main.js": "2260565181d29781",
-        "story.json": "d408966957964c22"
+        "story.json": "51f7bdb1ce1da52c"
       }
     },
     {
@@ -67,13 +67,13 @@
       "life": false,
       "list": "stories",
       "icon": "pet.scan",
-      "needs": 186,
-      "fp": "47b726a3b980f5e9",
+      "needs": 185,
+      "fp": "b376309662d6f5db",
       "bytes": 3629229,
       "files": {
         "audio/narration.mp3": "cbd7cbd77e2046c6",
         "main.js": "3b3b1c626e111ed1",
-        "story.json": "bb1d654cdda5201a"
+        "story.json": "d5b35aa4b2ad13e5"
       }
     },
     {
@@ -95,13 +95,13 @@
       "life": false,
       "list": "stories",
       "icon": "ovary.organ",
-      "needs": 186,
-      "fp": "949f41683781222a",
+      "needs": 185,
+      "fp": "fddfd4e8e38109c4",
       "bytes": 4173103,
       "files": {
         "audio/narration.mp3": "0ebe5ce62e30c0b1",
         "main.js": "ae72d9e2a6eb5f96",
-        "story.json": "3a811687cd277b36"
+        "story.json": "903ba6839734a837"
       }
     },
     {
@@ -123,13 +123,13 @@
       "life": false,
       "list": "stories",
       "icon": "qubits.cube",
-      "needs": 186,
-      "fp": "37c104fa01b0f134",
+      "needs": 185,
+      "fp": "6180fb9674d0f854",
       "bytes": 4625040,
       "files": {
         "audio/narration.mp3": "d22fa71e0e837e63",
         "main.js": "5a044003d1ed0b2c",
-        "story.json": "067698e62f9e84b5"
+        "story.json": "2b84b75a953d9772"
       }
     },
     {
@@ -151,13 +151,13 @@
       "life": false,
       "list": "stories",
       "icon": "mutation.tree",
-      "needs": 186,
-      "fp": "a410267ede72369a",
+      "needs": 185,
+      "fp": "67d0a371caef1091",
       "bytes": 4521765,
       "files": {
         "audio/narration.mp3": "8a7cff9c7d058814",
         "main.js": "2036f7cd75c985b3",
-        "story.json": "8f214c9a238e315e"
+        "story.json": "a97e96b47c811c55"
       }
     },
     {
@@ -179,13 +179,13 @@
       "life": false,
       "list": "stories",
       "icon": "soil.soil",
-      "needs": 186,
-      "fp": "bc7e67c6b8cc149c",
+      "needs": 185,
+      "fp": "67ffd33ae7b17077",
       "bytes": 6270645,
       "files": {
         "audio/narration.mp3": "63ea6285de3f657a",
         "main.js": "48a3629db3b5f32d",
-        "story.json": "98e8f33f4f0f0b33"
+        "story.json": "23e8fb0dc8cd7b2c"
       }
     },
     {
@@ -207,13 +207,13 @@
       "life": true,
       "list": "stories",
       "icon": "flock.flock",
-      "needs": 186,
-      "fp": "4146f11c3264830a",
+      "needs": 185,
+      "fp": "61f0df09bca7df92",
       "bytes": 997944,
       "files": {
         "audio/narration.mp3": "e8062c756dc05e94",
         "main.js": "526f55fe192c0d03",
-        "story.json": "ac8609a70511112d"
+        "story.json": "5c76877423d71e85"
       }
     },
     {
@@ -264,13 +264,13 @@
       "list": "stories",
       "icon": "tutorial.guide",
       "intro": true,
-      "needs": 186,
-      "fp": "f017ae2dd62f007a",
+      "needs": 185,
+      "fp": "33b1895add864afe",
       "bytes": 1983926,
       "files": {
         "audio/narration.mp3": "02d8cefbeb8a6a18",
         "main.js": "f36c23096d4e85f3",
-        "story.json": "decff13b47ed4c83"
+        "story.json": "4c296f398e596340"
       }
     },
     {
