@@ -1,20 +1,24 @@
 {
-  "version": "networks-v190",
+  "version": "networks-v191",
   "date": "2026-11-23",
   "new": [
-    "Each story now carries its own miniatures: its station icon in a shared room and its props on the design room's table come from its own folder.",
-    "A new story with miniatures needs no change to the app itself to show its icon and its props.",
-    "The example story, Six handshakes, has a miniature of its own: a ring of people with three shortcuts.",
-    "An installed app drops old copies of narrations it no longer uses, which frees up to about 60 MB."
+    "The switch that sticks has a new script and a new voice track: CDK5 as a messenger in a city of proteins.",
+    "It follows the colleague's ten scenes, with three new ones: CDK5's partners, the semaphorins and NPAS4.",
+    "Real protein structures now appear at the centre: CDK5 with p35, calpain, BDNF and its receptor, a semaphorin, NPAS4 and a Tau filament.",
+    "Calpain now visibly cuts p35 into p25, and CDK5 turns red.",
+    "Explore has the three new scenes and two more pathways to light.",
+    "The design room titles every plate by its story's name, the experiments' too."
   ],
   "test": [
-    "In a shared room, check every circle shows its story's icon over its ring, as before.",
-    "Open the design room and check the table looks as before, with one more plate for Six handshakes.",
-    "Put a prop on the stage and check its card, then move a miniature by hand and check the others see it.",
-    "On a phone, press Take all stories, then turn the network off and open a story you have not played."
+    "Play The switch that sticks on a headset from start to end: check each name and structure appears as it is said.",
+    "Watch p35 dock on CDK5 and let go again, and the cut in the calpain chapter.",
+    "Check the structures look smooth when you walk close, and the frame rate stays steady.",
+    "On a phone, check the panel always shows its heading and the timeline names do not overlap badly.",
+    "In a shared room, open the new scenes in explore on two devices and check both follow."
   ],
   "untested": [
-    "The icons and the design room's table in a real headset: they looked the same as before in pictures.",
-    "How long the icons take to appear on a slow network in a headset."
+    "The structures and the close-up views in a real headset: only seen in pictures.",
+    "How the new voice sounds: it was checked for timing, not listened to.",
+    "How long the structures take to arrive on a slow network."
   ]
 }
