@@ -206,7 +206,7 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
       const cueLike = got.filter(e => cues.some(q => match(e, q)));
       if (n0() === k0 || cueLike.length !== want.length || want.some(q => !cueLike.some(e => match(e, q)))) out.push(`played ${a.toFixed(2)} to ${t1.toFixed(2)} s: logged ${JSON.stringify(cueLike)}, expected ${JSON.stringify(want.map(q => [q[0], q[1]]))}`);
       // an explore action's sound (the table's, else another scene), and a room's state applied in silence
-      if (!pick && peek('typeof openScene === "function" && typeof GL !== "undefined" && !!GL.sets && Object.keys(GL.sets).length > 1')) pick = ['openScene((typeof SCENES !== "undefined" ? SCENES.map(s => s[0]) : Object.keys(GL.sets)).find(k => GL.sets[k] && k !== X.scene))', 'whoosh'];
+      if (!pick && peek('typeof openScene === "function" && typeof GL !== "undefined" && !!GL.sets && (typeof SCENES !== "undefined" ? SCENES.length : Object.keys(GL.sets).length) > 1'))   // (a story of one scene, as Back into the cell: no other to open) pick = ['openScene((typeof SCENES !== "undefined" ? SCENES.map(s => s[0]) : Object.keys(GL.sets)).find(k => GL.sets[k] && k !== X.scene))', 'whoosh'];
       if (pick) {
         peek('APP.enterExplore()'); await frames(2);
         const k1 = n0();
@@ -13160,8 +13160,10 @@ await step('Repeat one and Repeat all', async () => {
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
   if (await page.getAttribute('#picker [data-repeat="one"]', 'aria-pressed') !== 'false') errors.push('Repeat one still lit');
-  await page.click('#picker [data-story="robots"]');
-  await ready('robots'); await toEnd();
+  // (the last story of the main set, before the tutorial: the robots until v188, when they became an Experiment)
+  const lastK = await page.evaluate(() => (HOST.menu.open('main'), HOST.list.filter(s => !s.intro).pop().key));
+  await page.click(`#picker [data-story="${lastK}"]`);
+  await ready(lastK); await toEnd();
   await playsFromTop('airports', 'Repeat all did not go from the last story to the first');
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
@@ -17109,10 +17111,10 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
       const { ctx, p } = await open(phone, [fsStub, fakeXR(false, false)], '#stories');   // (Enter VR below asks a pretend WebXR)
       await p.waitForFunction(() => HOST.picking, null, { timeout: 30000 });
       const st = () => p.evaluate(() => ({ picking: HOST.picking, key: HOST.curKey, hash: location.hash, up: !!(history.state && history.state.nwUp), text: HOST.focus.text(), fs: window.__fs || 0 }));
-      await p.click('#picker [data-story="proteins"]');
-      await p.waitForFunction(() => HOST.curKey === 'proteins' && !HOST.picking && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      await p.click('#picker [data-story="spatial"]');
+      await p.waitForFunction(() => HOST.curKey === 'spatial' && !HOST.picking && HOST.cur.collab.scene(), null, { timeout: 60000 });
       let s = await st();
-      if (!s.up || s.hash !== '#proteins' || s.fs !== 1) errors.push(`a story from the Stories screen: ${JSON.stringify(s)} (an entry of its own, full screen asked for once)`);
+      if (!s.up || s.hash !== '#spatial' || s.fs !== 1) errors.push(`a story from the Stories screen: ${JSON.stringify(s)} (an entry of its own, full screen asked for once)`);
       await p.evaluate(() => history.back());
       await p.waitForFunction(() => HOST.picking, null, { timeout: 5000 }).catch(() => {});
       s = await st();
@@ -17120,14 +17122,14 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
       await p.evaluate(() => history.forward());
       await p.waitForFunction(() => !HOST.picking, null, { timeout: 5000 }).catch(() => {});
       s = await st();
-      if (s.picking || s.key !== 'proteins' || s.hash !== '#proteins' || s.fs !== 1) errors.push(`forward did not go back into the story (${JSON.stringify(s)})`);
+      if (s.picking || s.key !== 'spatial' || s.hash !== '#spatial' || s.fs !== 1) errors.push(`forward did not go back into the story (${JSON.stringify(s)})`);
       await p.click('#fcText');
       await p.evaluate(() => history.back()); await p.waitForTimeout(600);
       s = await st();
-      if (s.picking || s.text || !s.up || s.hash !== '#proteins') errors.push(`back with Text open: ${JSON.stringify(s)} (Text closed, still in the story)`);
+      if (s.picking || s.text || !s.up || s.hash !== '#spatial') errors.push(`back with Text open: ${JSON.stringify(s)} (Text closed, still in the story)`);
       // the Stories button goes back to the Stories screen's entry: no entries pile up
       const len = await p.evaluate(() => history.length);
-      for (const k of ['airports', 'proteins']) {
+      for (const k of ['airports', 'spatial']) {
         await p.click('#btnOther');
         await p.click(`#picker [data-story="${k}"]`);
         await p.waitForFunction(k => HOST.curKey === k && !HOST.picking && !HOST.busy && HOST.cur.collab.scene(), k, { timeout: 60000 });
@@ -17137,9 +17139,9 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
       if (await p.evaluate(() => history.length) !== len || !s.up) errors.push(`the history grew with Stories and a card (${len} entries, then ${await p.evaluate(() => history.length)}; ${JSON.stringify(s)})`);
       // a pretend headset session, and Enter VR just pressed (a session being asked for): no full screen asked for
       await p.evaluate(() => { HOST.session = { visibilityState: 'visible', renderState: {}, addEventListener() {}, removeEventListener() {} }; HOST.openPicker(); });
-      await p.click('#picker [data-story="proteins"]');
+      await p.click('#picker [data-story="spatial"]');
       await p.evaluate(() => { HOST.session = null; HOST.openPicker(); document.getElementById('btnVR').click(); });
-      await p.click('#picker [data-story="proteins"]');
+      await p.click('#picker [data-story="spatial"]');
       await p.waitForFunction(() => !HOST.picking, null, { timeout: 10000 }).catch(() => {});
       const fs = await p.evaluate(() => window.__fs);
       if (fs !== 3) errors.push(`full screen asked for ${fs} times (3 taps on a card outside a headset session, then 2 with one or with Enter VR just pressed)`);
