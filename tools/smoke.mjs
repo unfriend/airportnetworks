@@ -9824,7 +9824,8 @@ if (runs('studio press')) {
   });
 
   await step('studio press: a cut fade shows at once (alpha 1 in one frame), a fade over 0.4 s', async () => {
-    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: [{ on: 'fig001', what: 'show', fade: 'cut' }] } }); window.__pr.at(${T0 + 50000}, 3); const a0 = window.__pr.a('fig001');
+    // (5 frames first: the step before leaves the figure shown, and a fade takes 0.4 s, 4 frames of 0.1 s)
+    const r = await ss(`(() => { window.__pr.clean(); window.__pr.rec('box001', { press: { do: [{ on: 'fig001', what: 'show', fade: 'cut' }] } }); window.__pr.at(${T0 + 50000}, 5); const a0 = window.__pr.a('fig001');
       STUDIO.pressFire('box001'); window.__pr.at(${T0 + 50100}, 1); const a1 = window.__pr.a('fig001');
       window.__pr.rec('box001', { press: { do: [{ on: 'fig001', what: 'show' }] } }); STU.pr.clear(); window.__pr.at(${T0 + 50200}, 8); const b0 = window.__pr.a('fig001'); return [a0, a1, b0]; })()`);
     if (r[0] !== 0 || r[1] !== 1 || r[2] !== 0) bad(['a cut show in one frame, a fade not: ' + J(r)]);
@@ -10076,6 +10077,9 @@ if (runs('studio sends')) {
       seqCmd('sxq001', 'start', T + 100, 'test'); window.__sx.at(T + 116); window.__sx.at(T + 700); window.__sx.at(T + 2200); res.push(window.__sx.evs());
       setRec('cube01', { all: true, send: [{ on: 'enter' }, { on: 'leave', cc: 3 }] }); window.__sx.at(T + 3000);
       BEH.fake = [{ id: 'zz', p: [0, 1.6, 0], ts: T + 3010 }]; window.__sx.at(T + 3016); BEH.fake = null; window.__sx.at(T + 3100); window.__sx.at(T + 3300); res.push(window.__sx.evs()); window.__sx.at(T + 3500); res.push(window.__sx.evs());
+      // (an everyone cube's enters are this device's own to work out, never taken from the room: e6u_send.js's sendHeard; the
+      // effect is heard for a cube that is each person's own, as the cube is again here)
+      studioEffect('send', { id: 'cube01', ev: 'enter', at: T + 3900 }, 'm2xyz'); setRec('cube01', { all: undefined });
       studioEffect('send', { id: 'cube01', ev: 'enter', at: T + 4000 }, 'm2xyz'); studioEffect('send', { id: 'nope01', ev: 'enter', at: 1 }, 'm2xyz'); studioEffect('send', { id: 'box001', ev: 'stop', at: 1 }, 'm2xyz');
       studioEffect('send', { id: 'sxq001', ev: 'at', at: T + 4100, t: 0.5, try: 1 }, 'm2xyz'); res.push(window.__sx.evs());
       Object.defineProperty(HOST.collab, 'members', d0);

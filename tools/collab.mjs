@@ -2090,7 +2090,9 @@ async function askRound(dir) {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-  await frames(H, 300);
+  // (frames until it is aligned, 30 s at most, as the arc round waits: through the shared space a busy machine may take a
+  // while, and 300 ms of frames were not always enough here)
+  for (let t0 = Date.now(); ;) { await frames(H, 300); if (await H.evaluate(() => HOST.room.aligned) || Date.now() - t0 > 30000) break; }
   const sts = await A.evaluate(() => HOST.collab.stations()), S1 = sts.find(s => s.story === K1), S2 = sts.find(s => s.story === K2), SL = sts.find(s => s.kind === 'lobby');
   check('ask: the pretend headset aligns in a room of its own with two story circles and the lobby', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!SL, JSON.stringify([await H.evaluate(() => HOST.room.aligned), !!S1, !!S2, !!SL, sts.map(s => s.story || s.kind)]));
   // the question in front of the headset: { id, title (its canvas's), vis, d (from the head), hit (pointable) } or null
