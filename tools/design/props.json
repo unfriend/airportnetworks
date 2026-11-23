@@ -6884,8 +6884,8 @@
    "reuses": [
     "lbi/body (an unchanged instance inside the patient)"
    ],
-   "file": "tools/pet/sets/scan.js",
-   "manifest": "tools/pet/sets/scan.md",
+   "file": "packages/pet/src/sets/scan.js",
+   "manifest": "packages/pet/src/sets/scan.md",
    "shows": "A glossy PET/CT scanner (no brand, no text) with a patient on the couch, shown as a studio product shot. A plane cuts the housing away to show the detector ring of 4,608 crystals; positrons annihilate, pairs of 511 keV photons fly apart and lines of response join the struck crystals; the couch carries the patient through; the image builds up; finally the patient stands up and hands over to the body set.",
    "frame": "1 unit = 1 m. Origin at the centre of the bore; its axis is z; the couch comes out towards +z; floor at y = -1.05 (exported as floorY).",
    "size": "gantry 2.02 wide, 2.1 tall; scanner life size",
@@ -7266,8 +7266,8 @@
    "reuses": [
     "lbi/body (drawn on it)"
    ],
-   "file": "tools/pet/sets/organs.js",
-   "manifest": "tools/pet/sets/organs.md",
+   "file": "packages/pet/src/sets/organs.js",
+   "manifest": "packages/pet/src/sets/organs.md",
    "shows": "Organs, uptake and the cohort network, drawn on the body: a scan plane segments 14 organs (translucent shells with outlines), 14 uptake bars to the body's right (aorta as the unit), a slab of 658 x 11 cells and the partial-correlation panel with 658 stand-in people, then the paper's networks (all scans, tracers, doses, disease) and lesion views.",
    "frame": "The body set's frame (feet y -0.95, 1.9 tall, faces +z, slimmed by XS = 0.9); always shown with body.",
    "size": "body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13",
@@ -7941,8 +7941,8 @@
    "story": "pet",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/pet/sets/liver.js",
-   "manifest": "tools/pet/sets/liver.md",
+   "file": "packages/pet/src/sets/liver.js",
+   "manifest": "packages/pet/src/sets/liver.md",
    "shows": "An organ is a network too: a liver made of 3,000 small patches joined into a network (about 19,700 links) by the poster's rule, with its gallbladder and falciform ligament, patches coloured by a stand-in uptake and hubs picked out.",
    "frame": "Seen from the front: x the patient's left, y up, z forward; centred on the origin by its bounding box.",
    "size": "1.65 wide, 0.99 tall, 0.77 deep (about 1 unit = 13 cm)",
@@ -20901,11 +20901,11 @@
    "what": "ENDO_DATA, the endotype story's data block (generated)"
   },
   {
-   "file": "tools/pet/sets/data.js",
+   "file": "packages/pet/src/sets/data.js",
    "what": "PET_DATA, the PET story's data block (generated)"
   },
   {
-   "file": "tools/pet/sets/icons.js",
+   "file": "packages/pet/src/sets/icons.js",
    "what": "PET_ICONS, organ icons for the PET story's panels"
   },
   {

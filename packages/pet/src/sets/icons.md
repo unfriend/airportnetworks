@@ -91,10 +91,10 @@ L5; `muscle` is a flexed arm, while the paper measures the gluteus maximus.
 
 ## Testing
 
-`tools/pet/shots/icons-test.html` (served from the repository root) draws every icon at 24, 64 and 160 px, white and
+`packages/pet/src/shots/icons-test.html` (served from the repository root) draws every icon at 24, 64 and 160 px, white and
 neon, the atlas and tinted copies by `uv`, and times them; `?big=a,b,c` draws some at 240 px; `?cmp=a,b,c` some at
 200 px, at 64, 40, 28 and 24 px white and neon, and as atlas sprites in node discs of 20 to 56 px (`&adet=1`: the
-detailed atlas); `?final=0..3` the 640 x 400 pictures. From `tools/pet/shots`:
+detailed atlas); `?final=0..3` the 640 x 400 pictures. From `packages/pet/src/shots`:
 `node icons-shot.mjs <prefix> [dpr] [big|cmp=a,b,c|-] [final]`. Final pictures: `shots/icons-final-0.png` (white),
 `-1` (neon), `-2` (24, 40 and 64 px), `-3` (a small neon network, the atlas), `-4` (the atlas in the `organs` set's
 network, from the harness: `node shot.mjs organs "p=organs_a:1,organs_net:1,organs_measures:1&t=3&cam=8,6,2.6,0.06,0.28,0.4"

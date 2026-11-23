@@ -1,4 +1,4 @@
-# tools/pet: the sources of the PET story (`stories/pet.js`)
+# packages/pet/src: the sources of the PET story (`packages/pet/main.js`)
 
 "One scan, one system: the body as a metabolic network", after the paper "The metabolic organ connectome: A novel
 approach to measure allostatic load during health-to-disease transition" (Barbara Katharina Geist, Julia Guthrie,
@@ -7,12 +7,12 @@ Chrysoula Vraka, Josef Yu, Stefan Grünert, Marcus Hacker; Med 6, 100881, 2025; 
 Era in Nuclear Medicine" (Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic,
 Stefan Grünert, Marcus Hacker; Medical University of Vienna and LBI for Network Medicine) and their vision slide "One
 Scan, One System". Built like the endotype story (`tools/endo/`), with the shared kit (`tools/engine/kit.js`), set contract and PET body set.
-Never edit `stories/pet.js` by hand.
+Never edit `packages/pet/main.js` by hand.
 
 ```sh
-node tools/pet/data/gen_data.mjs     # the paper's tables + data/figures.json -> sets/data.js
-node tools/pet/build.mjs             # writes stories/pet.js
-node tools/pet/build.mjs --check     # exits 1 if stories/pet.js is out of date
+node packages/pet/src/data/gen_data.mjs     # the paper's tables + data/figures.json -> sets/data.js
+node packages/pet/src/build.mjs             # writes packages/pet/main.js
+node packages/pet/src/build.mjs --check     # exits 1 if packages/pet/main.js is out of date
 ```
 
 | Path | What it is |

@@ -10,7 +10,7 @@ packages/robots/src/shots/
 packages/tutorial/src/shots/
 relay/.lan/
 relay/logs/
-tools/pet/shots/
+packages/pet/src/shots/
 tools/micro/shots/
 packages/qubits/src/shots/
 # inputs that must never be committed: the authors' files kept out on purpose (the microanatomy network, the endotype

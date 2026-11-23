@@ -49,6 +49,34 @@
       }
     },
     {
+      "key": "pet",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "One scan, one system",
+      "kick": "Whole-body PET",
+      "col": "#ffe066",
+      "desc": "A PET scan sees every organ's sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; the aim is to read one scan against such a network.",
+      "len": "Story 6:03 · 3D scanner",
+      "page": "One scan, one system: the body as a metabolic network",
+      "brand": "One scan, one system",
+      "sub": "the body as a metabolic network",
+      "aria": "Interactive 3D story of whole-body PET scans and the network of the organs' metabolism",
+      "thing": "scanner",
+      "loading": "Warming up the scanner",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "pet.scan",
+      "needs": 186,
+      "fp": "47b726a3b980f5e9",
+      "bytes": 3629229,
+      "files": {
+        "audio/narration.mp3": "cbd7cbd77e2046c6",
+        "main.js": "3b3b1c626e111ed1",
+        "story.json": "bb1d654cdda5201a"
+      }
+    },
+    {
       "key": "qubits",
       "api": 1,
       "version": "1.0.0",

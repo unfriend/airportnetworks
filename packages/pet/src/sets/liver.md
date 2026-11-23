@@ -105,7 +105,7 @@ Points are in the set's frame and follow the spin (all but `centre`). Each ancho
 | `below` | [-12, -52, 3.1, 0, -0.05, 0] | the underside: the gallbladder in its bed |
 | `side` | [-90, 6, 3.0, 0, 0, 0] | from the patient's right: the right lobe's wedge-shaped profile |
 
-Final shots (`tools/pet/shots/liver-final-<k>.png`, 800x500): 0 the default view with links, 1 the front view with
+Final shots (`packages/pet/src/shots/liver-final-<k>.png`, 800x500): 0 the default view with links, 1 the front view with
 patches, 2 the hubs, 3 the `close` view, 4 growing (`liver_grow` 0.55), 5 the empty organ from `below`, 6 the empty
 organ from the `front`, 7 inside the web at 0.45 from the warmer patch (as in a headset).
 

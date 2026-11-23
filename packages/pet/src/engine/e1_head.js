@@ -7,15 +7,15 @@
 // Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker (Division
 // of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine).
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/pet/build.mjs from the tour's kit, the tour's PET body set, the microanatomy story's 3D organs and the
-// data, organ icons, sets and engine parts in tools/pet: edit those, not this file.
+// Built by packages/pet/src/build.mjs from the tour's kit, the tour's PET body set, the microanatomy story's 3D organs and the
+// data, organ icons, sets and engine parts in packages/pet/src: edit those, not this file.
 HOST.register('pet', function (HOST) {
 'use strict';
 //#use D2R $ fmt esc css K d_smooth_clamp
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// PET_DATA (the paper's and the poster's numbers, tools/pet/sets/data.js) comes first, then the organ icons (PET_ICONS)
+// PET_DATA (the paper's and the poster's numbers, packages/pet/src/sets/data.js) comes first, then the organ icons (PET_ICONS)
 // and the microanatomy story's 3D organs (ORGAN3D, tools/micro/sets/organs.js: the vision row's network); the tour's
 // PET body set (SETS.body) is used unchanged.
 const SETS = {};

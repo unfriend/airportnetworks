@@ -21,7 +21,7 @@ vision slide's; the liver scene's rule is "a rule like the poster's, applied her
 illustration". The story is now six chapters, about six and a half minutes (6:33). This spec says what is built now;
 the parts taken out are in git history.
 
-We are adding a ninth story to the web app in `/home/user/airportnetworks`: `stories/pet.js`, built from `tools/pet/`
+We are adding a ninth story to the web app in `/home/user/airportnetworks`: `packages/pet/main.js`, built from `packages/pet/src/`
 like the endotype story `stories/endo.js` is built from `tools/endo/`. It turns a paper, a poster and a vision slide
 into a narrated, about five-and-a-half-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser). Be bold and beautiful, as in the tour, the muscle story and the endotype story.
@@ -46,15 +46,15 @@ Card: kick "Whole-body PET", title **One scan, one system**, tagline "the body a
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
 labels, controls, camera views, performance budget, harness, palette), with these differences:
 
-- Your set files live in `tools/pet/sets/`, the harness is `tools/pet/harness.html` (same query syntax) and the
-  screenshot tool is `tools/pet/shot.mjs` (run it from `tools/pet`; shots go to `tools/pet/shots/`, ignored by git).
+- Your set files live in `packages/pet/src/sets/`, the harness is `packages/pet/src/harness.html` (same query syntax) and the
+  screenshot tool is `packages/pet/src/shot.mjs` (run it from `packages/pet/src`; shots go to `packages/pet/src/shots/`, ignored by git).
   Serve the repository root on port 8123 first (`python3 -m http.server 8123` from the root; check first whether
   one is already running: `curl -sI http://127.0.0.1:8123/ | head -1`). Playwright: `node_modules` is linked into the
   repository root, so the tools find it.
-- The data is the global constant `PET_DATA` (`tools/pet/sets/data.js`, made by `node tools/pet/data/gen_data.mjs`
-  from the paper's tables and `tools/pet/data/figures.json`; never edit it by hand). Its header comment documents
+- The data is the global constant `PET_DATA` (`packages/pet/src/sets/data.js`, made by `node packages/pet/src/data/gen_data.mjs`
+  from the paper's tables and `packages/pet/src/data/figures.json`; never edit it by hand). Its header comment documents
   every field. It may be regenerated while you work (refined figure readings), with the same shape.
-- The organ icons are the global `PET_ICONS` (`tools/pet/sets/icons.js`, see "Organ icons"); the harness loads it.
+- The organ icons are the global `PET_ICONS` (`packages/pet/src/sets/icons.js`, see "Organ icons"); the harness loads it.
 - The tour's PET body set (`tools/lbi/sets/body.js`, manifest `tools/lbi/sets/body.md`) is used unchanged: never
   edit it. The harness always loads it (`harness.html?set=body` shows it alone), so a set may also make its own
   instance with `SETS.body(K)` (it returns `{ group, params, update, setAlpha, ... }`: add its group as a child,
@@ -114,8 +114,8 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   with lung cancer given immune checkpoint inhibitors before surgery it told good from poor responders better than
   CRP, tumour stage or age (a first test in 19 people: say so). After surgery and immunotherapy the index moved towards
   the healthy range. **`PET_DATA.poster.cohort` and `PET_DATA.poster.prognosis` are gone**: the current `data.js` keeps
-  only the poster's citation. They are in git as they were before commit b7053fb (`git show b7053fb^:tools/pet/sets/data.js`,
-  under `poster`; the generator that wrote them: `git show b7053fb^:tools/pet/data/gen_data.mjs`). A rebuild of the
+  only the poster's citation. They are in git as they were before commit b7053fb (`git show b7053fb^:packages/pet/src/sets/data.js`,
+  under `poster`; the generator that wrote them: `git show b7053fb^:packages/pet/src/data/gen_data.mjs`). A rebuild of the
   second half around the poster would take them from there (HANDOVER.md item 8; the open points are in
   `docs/questions-for-authors.md`, P4 to P11).
 - Stand-ins (say so where they show): typical organ uptakes; the 658 synthetic people behind explore's matrix and
@@ -292,10 +292,10 @@ patches (top 5 %) glow brighter. Params: `liver_a` fade, `liver_grow` 0..1 (patc
 `centre`, `top`. Labels "3,000 patches", "links: uptake ratio above the threshold". Cam `default`, `close`. Controls:
 View (Patches / Links / Hubs). Under 20 draw calls.
 
-## The engine (`tools/pet/engine/`, copied from the endotype story; adapt it)
+## The engine (`packages/pet/src/engine/`, copied from the endotype story; adapt it)
 
 Rename everything from the endotype story to this one: `HOST.register('pet', ...)`, the header comment (the paper,
-the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs', 'liver']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
+the poster and the authors above), `packages/pet/audio/narration.mp3`, `SET_ORDER = ['scan', 'body', 'organs', 'liver']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
 `docs/agents/shared-rooms.md`: keep every hook line exactly), the headset code (`e5_xr.js`) unchanged except for "Life size" (below).
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
@@ -369,4 +369,4 @@ the couch towards you, events running: walk round it, look into the bore. In AR 
 For each set: `sets/<file>.js`, `sets/<file>.md` (manifest: params with meaning and suggested story keyframes,
 anchors, labels, cam views, controls, explore API, what a narrator may and must not say), final screenshots
 `shots/<key>-final-<k>.png` (small: 640x400). Test in the harness only (never run the whole app's smoke test; that is
-the integrator's job). The engine: `engine/*.js` adapted, `node tools/pet/build.mjs` builds `stories/pet.js`.
+the integrator's job). The engine: `engine/*.js` adapted, `node packages/pet/src/build.mjs` builds `packages/pet/main.js`.

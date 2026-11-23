@@ -1,5 +1,5 @@
 // Screenshots of one set in the harness. Serve the repository root on port 8123 first.
-// usage (from tools/pet): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
+// usage (from packages/pet/src): node shot.mjs <set> "<query>|<query>|..." <outprefix> [width height]
 //   each query is the rest of the harness URL, e.g. "p=atp_assemble:1&t=2&cam=30,15,3.6,0,0,0"
 // writes shots/<outprefix>-<k>.png and prints build/frame stats and page errors
 import fs from 'fs';
@@ -14,7 +14,7 @@ pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs
 let k = 0;
 for (const q of (queries || '').split('|')) {
   await pg.goto('about:blank');
-  await pg.goto(`http://127.0.0.1:8123/tools/pet/harness.html?set=${set}&${q}`);
+  await pg.goto(`http://127.0.0.1:8123/packages/pet/src/harness.html?set=${set}&${q}`);
   try { await pg.waitForFunction('window.__ready === true', null, { timeout: 60000 }); } catch (e) { errs.push('timeout waiting for first frame: ' + q); }
   await pg.waitForTimeout(400);
   const st = await pg.evaluate(() => window.__stats);
