@@ -1,7 +1,7 @@
 # Holding on to nitrogen: 3D sets, data and engine spec
 
 The sixteenth story of the app: `packages/soil/main.js`, built from `packages/soil/src/` like the tissue topology story is built from
-`tools/topo/`. It is made for the Global Peter Drucker Forum in Vienna (a lay, business audience), from the slides
+`packages/topo/src/`. It is made for the Global Peter Drucker Forum in Vienna (a lay, business audience), from the slides
 **"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter
 Wheat"** by **Marina Montserrat Díez**, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios
 Karpouzas, Christina Hazard, Melina Kerou and **Christa Schleper** (University of Vienna: Vienna Doctoral School of
@@ -54,7 +54,7 @@ reading), "plots", "blocks" (the four replicates, drawn as rows), "sampling date
 correlation across the samples), "modules" (groups that rise together), "the crowd" (the community).
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/engine/kit.js`, with these differences (as the tissue topology story's, `tools/topo/SPEC.md`):
+`tools/engine/kit.js`, with these differences (as the tissue topology story's, `packages/topo/src/SPEC.md`):
 - Set files live in `packages/soil/src/sets/`; the harness is `packages/soil/src/harness.html`
   (`?set=<name>&p=k:v,...&t=..&cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool
   `packages/soil/src/shot.mjs` (run it from `packages/soil/src`; `SHOTS=<dir>` and `PORT=<port>`). The harness always loads
@@ -63,7 +63,7 @@ correlation across the samples), "modules" (groups that rise together), "the cro
 - Shared globals before the sets (the build pastes them inside the story's closure in this order): `SOIL_DATA`
   (`sets/data.js`, generated), `SDATA` (`sets/sdata.js`: decoders and lookups, no science), `SLOOK` (`sets/look.js`: the
   story's palette and colour rules; a shape both A's sets draw, the wheat plant, may be added there), `TLOOK`
-  (`tools/topo/sets/look.js`, **unchanged**: lit instanced tubes, rings, balls, boxes, halos, cones, glass spheres, glass
+  (`packages/topo/src/sets/look.js`, **unchanged**: lit instanced tubes, rings, balls, boxes, halos, cones, glass spheres, glass
   discs, ribbons, glass slides; read its header), then the tour's `web` set (`tools/lbi/sets/web.js`, **unchanged**: only
   its globe is used), then this story's sets: `soil`, `field`, `net`.
 - **Copied and adapted** (not included): the endotype story's `net` set (`packages/endo/src/sets/net.js`) as `sets/net.js`
@@ -334,7 +334,7 @@ story labels, `FIT`, `NARROW` and `LOW` (measure them), the stand view, explore'
 and the hash. **Keep every shared line identical** (the headset code in `e5_xr.js`, the shared-room hooks, the slideshow,
 `fitTitle`, the landing screen, the headset settings, the panels setting, captions, the loading step queue: docs/agents/shell.md and docs/agents/shared-rooms.md,
 "Shared rooms" and "Inside a story"); before finishing, diff the shared parts against the then-current
-`tools/topo/engine/` (another builder may change them meanwhile) and take their changes. `FACTS` holds every number the
+`packages/topo/src/engine/` (another builder may change them meanwhile) and take their changes. `FACTS` holds every number the
 text shows, from `SOIL_DATA`; none is typed in.
 
 **Chapters** (about 7.5 minutes before pacing; `CH` keys and story times; the first key is `title`). Every chapter: one

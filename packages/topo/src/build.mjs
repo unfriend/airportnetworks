@@ -1,15 +1,17 @@
-// Assembles stories/topo.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
+// Assembles packages/topo/main.js from the tour's kit (tools/engine/kit.js), the data (sets/data.js, written by
 // data/gen_data.py from the authors' topocyte run), its decoders (sets/tdata.js), the shared look (sets/look.js), the
 // tour's body set, the microanatomy story's organ models, the sets and the engine parts in this folder.
-// usage (from the repository root): node tools/topo/build.mjs        -> writes stories/topo.js
-//                                   node tools/topo/build.mjs --check -> exits 1 if stories/topo.js is out of date
-// Check the data and its decoders first with node tools/topo/test-data.mjs.
+// usage (from the repository root): node packages/topo/src/build.mjs        -> writes packages/topo/main.js
+//                                   node packages/topo/src/build.mjs --check -> exits 1 if packages/topo/main.js is out of date
+// Check the data and its decoders first with node packages/topo/src/test-data.mjs.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { expand } from '../engine/parts.mjs';
-const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
-const read = f => fs.readFileSync(path.join(here, f), 'utf8');
+import { expand } from '../../../tools/engine/parts.mjs';
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
+// (a shared source, '../<dir>/...', from tools/<dir>/, where shared sources stay; this story's own from here)
+const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/topo', f) : path.join(here, f));
+const read = f => fs.readFileSync(src(f), 'utf8');
 // the data, its decoders and the look first, then the body and the organ models, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/tdata', 'sets/look', '../lbi/sets/body', '../../packages/micro/src/sets/organs', 'sets/slide', 'sets/map', 'sets/tower', 'sets/cohort'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
@@ -20,11 +22,11 @@ let kit = read('../engine/kit.js')
 const sets = SET_FILES.map(f => read(`${f}.js`).replace("if (typeof module !== 'undefined') module.exports = TDATA;\n", '').trimEnd() + '\n\n').join('');
 let out = expand(read('engine/e1_head.js'), 'e1_head').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
 for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
-const target = path.join(root, 'stories/topo.js');
+const target = path.join(root, 'packages/topo/main.js');
 if (process.argv.includes('--check')) {
   const same = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === out;
-  console.log(same ? 'stories/topo.js is up to date' : 'stories/topo.js is out of date: run node tools/topo/build.mjs');
+  console.log(same ? 'packages/topo/main.js is up to date' : 'packages/topo/main.js is out of date: run node packages/topo/src/build.mjs');
   process.exit(same ? 0 : 1);
 }
 fs.writeFileSync(target, out);
-console.log(`wrote stories/topo.js (${(out.length / 1024).toFixed(0)} KB)`);
+console.log(`wrote packages/topo/main.js (${(out.length / 1024).toFixed(0)} KB)`);

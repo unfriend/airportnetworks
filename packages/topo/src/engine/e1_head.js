@@ -8,7 +8,7 @@
 // cohort (TOPO_DATA, decoded and looked up by TDATA): the story computes nothing scientific. Slides are numbered, never
 // named; the tissue is drawn from the cells' positions and types, never an image.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/topo/build.mjs from the tour's kit and the data, look, sets and engine parts in tools/topo: edit
+// Built by packages/topo/src/build.mjs from the tour's kit and the data, look, sets and engine parts in packages/topo/src: edit
 // those, not this file.
 HOST.register('topo', function (HOST) {
 'use strict';

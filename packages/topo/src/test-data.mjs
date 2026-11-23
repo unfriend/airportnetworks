@@ -1,6 +1,6 @@
 // Checks that TDATA decodes TOPO_DATA and that its lookups give the poster's numbers. No science: the numbers are
 // topocyte's (sets/data.js, written by data/gen_data.py); this only checks that the data and the decoders agree.
-// usage (from the repository root): node tools/topo/test-data.mjs
+// usage (from the repository root): node packages/topo/src/test-data.mjs
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';

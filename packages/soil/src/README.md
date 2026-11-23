@@ -5,7 +5,7 @@ Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez
 Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of
 Vienna; University of Thessaly; Université Lyon 1; JIRCAS), and their field trial's data, used with the authors'
 permission (given through the project's owner, 29 October 2026). Made for the Global Peter Drucker Forum in Vienna.
-Built like the tissue topology story (`tools/topo/`), with the shared kit (`tools/engine/kit.js`) and set contract. British spelling, English
+Built like the tissue topology story (`packages/topo/src/`), with the shared kit (`tools/engine/kit.js`) and set contract. British spelling, English
 only. Never edit `packages/soil/main.js` by hand.
 
 ```sh
@@ -26,7 +26,7 @@ python -I packages/soil/src/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Ide
 | `sets/sdata.js` | `SDATA`: decodes `SOIL_DATA` once and gives the lookups the sets and the engine share; no science |
 | `sets/look.js` | `SLOOK`: the story's palette and colour rules (nitrogen's forms, the slides' line and regime colours, the guilds, soil and plant, leaf colour by chlorophyll, phyla, modules) |
 | `sets/soil.js`, `sets/field.js`, `sets/net.js` | the 3D sets: the cut-away soil block with its flows, the relay, the halo and the chromosome; the field of 24 plots, its wheat, nitrate, jars and cores; the cloud of microbes and the network, drawn over the field. Each gets a manifest `sets/<name>.md`. The build adds the tissue topology story's look (`TLOOK`) and the tour's `web` set (its globe), both unchanged |
-| `engine/e1_head.js` ... `e7_app.js` | the story engine, copied from the tissue topology story's (its shared lines kept identical: diff them against `tools/topo/engine/` when either changes). The story's own parts: the hop from Vienna to Japan (`e2_scene.js`); the eight chapters, their text from `SOIL_DATA` (`FACTS`), keys, cameras and the pace (`NARRATION_SYNC`, from `tools/pace.mjs`) in `e3_story.js`; explore's tabs Field, Nitrogen, Microbes, Network and Scenes, the shared state and picking in `e4_explore.js`; their headset twins in `e6_panels.js`; explore's start and the links (`#soil&explore&tab=network&mod=3&rho=0.7`, `&split=line`, `&kind=215`, `&plot=1`, `&shuffle`) in `e7_app.js` |
+| `engine/e1_head.js` ... `e7_app.js` | the story engine, copied from the tissue topology story's (its shared lines kept identical: diff them against `packages/topo/src/engine/` when either changes). The story's own parts: the hop from Vienna to Japan (`e2_scene.js`); the eight chapters, their text from `SOIL_DATA` (`FACTS`), keys, cameras and the pace (`NARRATION_SYNC`, from `tools/pace.mjs`) in `e3_story.js`; explore's tabs Field, Nitrogen, Microbes, Network and Scenes, the shared state and picking in `e4_explore.js`; their headset twins in `e6_panels.js`; explore's start and the links (`#soil&explore&tab=network&mod=3&rho=0.7`, `&split=line`, `&kind=215`, `&plot=1`, `&shuffle`) in `e7_app.js` |
 | `SPEC.md` | what the data, the sets and the engine must do (with the owner's decisions); read with `tools/lbi/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`cam=` a view by name or six numbers; `&with=<set>` adds a second set; the data, its decoders, both looks and the globe always loaded), its screenshots, and screenshots of the whole story (`SHOTS=<dir>` and `PORT=<port>` for both tools) |

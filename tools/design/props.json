@@ -14992,8 +14992,8 @@
    "story": "topo",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/topo/sets/slide.js",
-   "manifest": "tools/topo/sets/slide.md",
+   "file": "packages/topo/src/sets/slide.js",
+   "manifest": "packages/topo/src/sets/slide.md",
    "shows": "Real tissue on its glass slide drawn in H&E from cells alone: the healthy tile of 640 um round the poster's patch (945 cells) and the new slide's window of 1.5 mm (6,716 cells), plus sketches of other modalities (spots, multiplex), the fixed scales other tools read and an overview of the whole section.",
    "frame": "Lies flat (x-z, y up), centred on the origin on a glass slide whose +x end shows past it.",
    "size": "1.6 across",
@@ -15434,8 +15434,8 @@
    "story": "topo",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/topo/sets/map.js",
-   "manifest": "tools/topo/sets/map.md",
+   "file": "packages/topo/src/sets/map.js",
+   "manifest": "packages/topo/src/sets/map.md",
    "shows": "The signal back on the tissue: one cell's 50 um neighbourhood and its own network, bars and score; every cell scored as a relief; the two groups (healthy-like, cirrhosis-like) as piles with shares; and sketches of the next steps (genes, proteins).",
    "frame": "In the slide set's frame over the window (centred on the origin; side by side with slide_show 2 it moves to x 0.42).",
    "size": "1.6 across",
@@ -15953,8 +15953,8 @@
    "story": "topo",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/topo/sets/tower.js",
-   "manifest": "tools/topo/sets/tower.md",
+   "file": "packages/topo/src/sets/tower.js",
+   "manifest": "packages/topo/src/sets/tower.md",
    "shows": "The poster's patch of 110 real cells with glass balls growing round them, edges and triangles appearing, pieces joining and loops opening and closing, then the tower of scales and its barcode.",
    "frame": "The patch lies on a glass plate with its frosted label towards you, the poster's y running away (-z); the tower rises from it.",
    "size": "plate 1.5 wide; tower 1.68 units with the trunk",
@@ -16357,8 +16357,8 @@
    "story": "topo",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/topo/sets/cohort.js",
-   "manifest": "tools/topo/sets/cohort.md",
+   "file": "packages/topo/src/sets/cohort.js",
+   "manifest": "packages/topo/src/sets/cohort.md",
    "shows": "The 123 slides as a rack of glass slides with their curves (66 healthy, 57 cirrhotic), the classes' means, the main shapes, the cube of scores, the classifier's wall with its held-out stacks, and the weight for every radius on a column of radii with windows and a gap.",
    "frame": "Rack of slides in two rows stepping up towards the back; weights column at x 2.05; cube of scores 1.6 across.",
    "size": "rack plus a weights column out to x ~2.05; cube of scores 1.6 across",
@@ -20945,15 +20945,15 @@
    "what": "MLOOK, the mutation story's shared look"
   },
   {
-   "file": "tools/topo/sets/data.js",
+   "file": "packages/topo/src/sets/data.js",
    "what": "TOPO_DATA, topocyte's numbers (generated)"
   },
   {
-   "file": "tools/topo/sets/tdata.js",
+   "file": "packages/topo/src/sets/tdata.js",
    "what": "TDATA, the decoders and look-ups for TOPO_DATA"
   },
   {
-   "file": "tools/topo/sets/look.js",
+   "file": "packages/topo/src/sets/look.js",
    "what": "TLOOK, the topology story's shared look"
   },
   {

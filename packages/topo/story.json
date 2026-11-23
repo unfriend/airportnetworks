@@ -1,0 +1,21 @@
+{
+  "key": "topo",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "The shape of tissue",
+  "kick": "Tissue topology",
+  "col": "#ff5c5c",
+  "desc": "Where cells sit in a slide of liver, read at every scale at once: balls grow round the cells, pieces join and loops open and close. From 123 slides, a classifier learns which scales tell cirrhosis from healthy tissue, and maps it back onto every cell.",
+  "len": "Story 8:50 · 3D tower",
+  "page": "The shape of tissue: topology of cells in the liver",
+  "brand": "The shape of tissue",
+  "sub": "Topology of cells in the liver",
+  "aria": "Interactive 3D story of how the arrangement of cells in liver tissue is read at every scale with persistent homology, and how it tells cirrhosis from healthy tissue",
+  "thing": "tower",
+  "loading": "Growing the balls",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "topo.tower",
+  "needs": 185
+}

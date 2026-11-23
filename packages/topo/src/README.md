@@ -1,4 +1,4 @@
-# tools/topo: the sources of the tissue topology story (`stories/topo.js`)
+# packages/topo/src: the sources of the tissue topology story (`packages/topo/main.js`)
 
 "The shape of tissue: topology of cells in the liver", after the poster "topocyte: scale-resolved topological
 phenotyping of tissue architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche
@@ -8,12 +8,12 @@ BioCenter), shown at the Evaluation of the LBI for Network Medicine 2026, and th
 (topocyte.lab.lbi-netmed.com). Built like the mutation story (`packages/mutation/src/`), with the shared kit (`tools/engine/kit.js`) and set contract.
 **Every number is topocyte's** (`TOPO_DATA`, written by the generator from the authors' run on the GTEx liver cohort):
 the story only looks them up (`TDATA`), counts stored bars and adds stored shares; it computes nothing scientific.
-British spelling, English only. Never edit `stories/topo.js` by hand.
+British spelling, English only. Never edit `packages/topo/main.js` by hand.
 
 ```sh
-node tools/topo/test-data.mjs       # checks that the data and its decoders give the poster's numbers (a second)
-node tools/topo/build.mjs           # writes stories/topo.js
-node tools/topo/build.mjs --check   # exits 1 if out of date
+node packages/topo/src/test-data.mjs       # checks that the data and its decoders give the poster's numbers (a second)
+node packages/topo/src/build.mjs           # writes packages/topo/main.js
+node packages/topo/src/build.mjs --check   # exits 1 if out of date
 ```
 
 | Path | What it is |

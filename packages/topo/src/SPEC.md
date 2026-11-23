@@ -1,6 +1,6 @@
 # The shape of tissue: 3D sets, data and engine spec
 
-The fifteenth story of the app: `stories/topo.js`, built from `tools/topo/` like the mutation story is built from
+The fifteenth story of the app: `packages/topo/main.js`, built from `packages/topo/src/` like the mutation story is built from
 `packages/mutation/src/`. It follows the poster **"topocyte: scale-resolved topological phenotyping of tissue architecture
 across spatial modalities"** by **Simon Schindler, André Rendeiro and Jörg Menche** (Ludwig Boltzmann Institute for
 Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the
@@ -20,7 +20,7 @@ with HistoPLUS (CC BY 4.0).
 
 Decisions (the owner's and the author's, 28 Oct 2026):
 - **Every number is topocyte's.** The owner: "use the topocyte code for all calculations where possible, don't write
-  your own". All numbers come from `TOPO_DATA` (`sets/data.js`), written by `tools/topo/data/gen_data.py`, which runs
+  your own". All numbers come from `TOPO_DATA` (`sets/data.js`), written by `packages/topo/src/data/gen_data.py`, which runs
   topocyte and the poster's own figure scripts on the authors' data. **The story computes nothing scientific**: it
   draws what is in `TOPO_DATA`, looks things up (the simplices alive at a radius are those whose stored radius is at
   most it; a Betti number at a radius is the count of stored bars alive there; a window's share is the sum of stored
@@ -46,9 +46,9 @@ Decisions (the owner's and the author's, 28 Oct 2026):
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the mutation story's, `packages/mutation/src/SPEC.md`):
-- Set files live in `tools/topo/sets/`; the harness is `tools/topo/harness.html` (`?set=<name>&p=k:v,...&t=..&
-  cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool `tools/topo/shot.mjs` (run it from
-  `tools/topo`; `SHOTS=<dir>` and `PORT=<port>`). The harness loads `TOPO_DATA`, `TLOOK` (and the body set and
+- Set files live in `packages/topo/src/sets/`; the harness is `packages/topo/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
+  cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool `packages/topo/src/shot.mjs` (run it from
+  `packages/topo/src`; `SHOTS=<dir>` and `PORT=<port>`). The harness loads `TOPO_DATA`, `TLOOK` (and the body set and
   `ORGAN3D` where a set needs them) before the set.
 - Shared globals before the sets (the build pastes them inside the story's closure in this order): `TOPO_DATA`
   (`sets/data.js`, generated), `TDATA` (`sets/tdata.js`: the decoders and lookups below, no science), `TLOOK`
@@ -123,7 +123,7 @@ tower rising to y ≈ 1.6); `cohort` its own; `body` its own (the liver from `OR
 
 ## The data: `TOPO_DATA` (`sets/data.js`, generated; never edit)
 
-Written by `python -I tools/topo/data/gen_data.py <cells.h5ad> <fig1 dir>` (see its header). Radii in µm. Typed arrays
+Written by `python -I packages/topo/src/data/gen_data.py <cells.h5ad> <fig1 dir>` (see its header). Radii in µm. Typed arrays
 are base64 strings; `TDATA` decodes them once. Fields:
 - `src`: `mpp` (0.4942 µm per pixel), `healthy` 66, `cirrhosis` 57, `cells` (30,836,186), `components` 4, `folds` 5,
   `ruler` [1.5, 60] (µm: the poster's log ruler of r), `rcode` [0.5, 120] (one-byte radii, below), `runtime`
@@ -258,10 +258,10 @@ screen as the tour's tissue set does).
 - **`body`** (chapter 1, the tour's, unchanged) with the liver from `ORGAN3D` (the microanatomy story's model) lifting
   out of it and turning; a thin slice of it falls flat as the glass slide (the hand-off to `slide`).
 
-## The engine (`tools/topo/engine/`, adapted from the mutation story's)
+## The engine (`packages/topo/src/engine/`, adapted from the mutation story's)
 
 Copied from `packages/mutation/src/engine/` as a start. Rename everything: `HOST.register('topo', ...)`, the header comment
-(the poster, its authors, the data), `audio/narration-topo.mp3`, `SET_ORDER = ['body', 'slide', 'map', 'tower',
+(the poster, its authors, the data), `packages/topo/audio/narration.mp3`, `SET_ORDER = ['body', 'slide', 'map', 'tower',
 'cohort']`; remove the mutation story's own code (`MMATH`, `MUT_DATA`, its panes); `FACTS` from `TOPO_DATA` (every number
 the text shows: counts, shares, fve, accuracy, the snapshots, sizes, the cell's score, the runtime). Keep the shared lines
 identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing screen, the headset settings
@@ -343,9 +343,9 @@ anything per device; `apply(state())` gives `state()` back; the shell's `FORMAT`
 
 ## Testing
 
-- `node tools/topo/build.mjs --check`; a set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from
-  `tools/topo` (serve the repository root); the story: `sweep.mjs`, then the smoke test (once the story is in
+- `node packages/topo/src/build.mjs --check`; a set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from
+  `packages/topo/src` (serve the repository root); the story: `sweep.mjs`, then the smoke test (once the story is in
   `HOST.list` and the smoke test knows it).
-- `node tools/topo/test-data.mjs`: `TDATA` decodes `TOPO_DATA` and its lookups give the poster's numbers (the patch's
+- `node packages/topo/src/test-data.mjs`: `TDATA` decodes `TOPO_DATA` and its lookups give the poster's numbers (the patch's
   counts at the snapshots, the window shares 2.73 and 4.65 and the gap 7.04 summed from the fine shares, 62/4/10/47 from
   `held` and `y`, 66/57, the split's sizes); no science, only checks that the data and the decoders agree.

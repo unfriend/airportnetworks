@@ -33,7 +33,7 @@ tools/pass/shots/
 tools/pass/gen/
 packages/ovary/src/shots/
 packages/mutation/src/shots/
-tools/topo/shots/
+packages/topo/src/shots/
 
 # the owner's own scenes, linked in for local checks only (never committed)
 tools/studio/test/local
