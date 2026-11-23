@@ -93,6 +93,11 @@ file, the detail file says what is current.
 
 ### Hot reload and live updates
 - The owner said go, 29 October 2026. No swap in a session unless quiet: v145. In a shared room: v136. Until v111 `HOST.live` looked at the stories only, so a station of the design room asked every page and headset to update, and a page on its Stories screen reloaded itself.
+- v193 (the owner, 23 November 2026: the CDK5 story's author should "just work on her story and do it on dev so she can
+  directly see the results"): `tools/packages/publish.mjs`. A package-only change needs no new `VERSION` (the index's
+  fingerprint reaches every page; checked headless), which also keeps her pushes from colliding with the maintainer's
+  releases in `sw.js`, `version.json` and `whatsnew/`. The check found that a package fetched fresh lost its offline copy
+  (`sw.js` kept it under its `&fresh=` address): fixed in the same release.
 
 ### Inside a story
 - Focus mode's framing came in v106. Every story has a recording since v109.

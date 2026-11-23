@@ -7,6 +7,10 @@ numbers go into ours. Built like the soil story (`packages/soil/src/`), with the
 engine parts (`tools/engine/`). British spelling, English only. Never edit `packages/cdk5/main.js` by hand. Made on a fork
 of the app at v135 (as `tools/cdk5/` and `stories/cdk5.js`) and brought into the app as a package at v189.
 
+**Working on it** (editing, the preview, publishing to the test site with one command): `docs/working-on-a-story.md`.
+In short: `node relay/server.mjs --static . --watch --build` and http://localhost:8787/#cdk5 while editing, then
+`node tools/packages/publish.mjs cdk5 "<what changed>"`.
+
 ```sh
 node packages/cdk5/src/test-data.mjs       # checks the data and its decoders (a second)
 node packages/cdk5/src/build.mjs           # writes packages/cdk5/main.js

@@ -156,6 +156,11 @@ story of `stories/list.js` it leaves out. The shell sorts `HOST.list` by it; the
 - `packages/` is fetched network first (`fresh`, checked with the server) and kept in a cache of its own,
   `networks-packages`, which a new `VERSION` does not clear (as `NARR`): a package changes without an app release, and a
   package opened once works offline. `packages/index.json` is never taken from the cache while the network answers.
+  A file fetched fresh (`HOST.load`'s `&fresh=`) is kept at its address without `fresh` (v193), so it works offline too.
+- So publishing a change to a package's files needs only the scan (and, for one of the app's own packages, named in
+  `packages/order.json`, `node tools/release.mjs` with the same `VERSION`, for `version.json`'s entry); no new `VERSION`.
+  `node tools/packages/publish.mjs <key> "<what changed>"` does it for a package's author (`docs/agents/packages.md`,
+  "Publishing a package's change").
 - A package's own narration (`packages/<key>/audio/*.mp3`) goes through the same rule as the rest of its folder, never
   the app's narration cache.
 

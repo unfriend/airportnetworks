@@ -96,7 +96,10 @@ without an app release, and one opened once works offline. The rule comes before
 `audio/narration*.mp3` is never taken for (or cached as) the app's. `packages/index.json` is the server's whenever the
 network answers, however slowly (`cache: 'no-store'`; the cached copy only offline). A byte range (the audio element) is
 fetched from the network, or offline cut from the cached whole file. Old packages' files stay in `PKG` until the browser
-clears it.
+clears it. A fresh fetch (`HOST.load`'s `&fresh=<time>`: a package that changed while the page ran) is kept without its
+`fresh`, at the address an offline start asks for, and never answered from the cache while the network is slow (v193:
+it was kept under its one-off address, dropping the real one's copy, so the package had no offline copy until the app
+was opened again).
 
 **At install (v185)** the worker also takes every listed package's `main.js` (`takeMains`: the index read, each
 `main.js?v=<the package's fp>`, never failing the install), as `SHELL` takes each `stories/<key>.js`, so an installed
@@ -196,6 +199,85 @@ The plan and its decided route: `docs/packages-migration.md`. What is in place:
   and the studio stay in the shell. `stories/list.js`'s `STORY_LIST` is empty (old shells read the file); `index.html`
   loads it as `stories/list.js?v=<its fingerprint>` (stamped by `tools/release.mjs`), so a browser's ten-minute copy never
   gives a new page an old list naming stories that have moved.
+
+## Publishing a package's change (v193: `tools/packages/publish.mjs`)
+
+**What a change to a package's files alone needs** (found from the code and checked headless, v193). Not a new
+`VERSION`: the new fingerprint in `packages/index.json` reaches everything, and `tools/release.mjs --check` asks only that
+`version.json`'s entry for the package follows it.
+
+- *Running pages and headsets*: `HOST.live.check` (about once a minute, when the page comes back into view, when a new
+  worker takes over) reads `packages/index.json` again (`HOST.packages.read`, `no-store`) whatever `version.json` says; a
+  package already run here whose `fp` changed is `HOST.live.changed`: on show, swapped at a quiet moment (in a headset:
+  the Stories screen, away from every station, or the menu open); otherwise fetched fresh at its next start. Its files'
+  addresses carry their fingerprints (`main.js?v=<fp>`, `HOST.pkgUrl`), so no browser or host cache serves an old one.
+  `version.json`'s `packages` are read only by `HOST.live.missing` (a room's station of a story this copy lacks).
+- *Installed copies*: `sw.js` does not change, so no new worker installs; package files are network first in their own
+  cache (`networks-packages`), so online they get the new files; offline they run the version they last opened (since
+  v193 also one fetched fresh: "The service worker" above). A device that took all stories takes the changed files when
+  the index changes (`HOST.offline.again`).
+- *`tools/release.mjs`*: run with the same `VERSION`, it rewrites only `version.json`'s `packages.<key>.fp` (the shell's
+  id and `n` unchanged, `whatsnew.json` still naming this release); `--check` then passes. So `whatsnew.json` and
+  `whatsnew/` do not move; the change is described in its commit, and the next app release's box can mention it.
+- A package whose change needs a newer shell (its `story.json` `needs` raised, or code calling something the shell
+  lacks) is not a package-only change: that is a release, the maintainer's.
+- Checked by a headless test (a copy served like GitHub Pages, a page under the service worker; `packages/flock/main.js`
+  changed and only the scan run): the page read the new fingerprint, ran the new file at its next start with no new
+  worker, and (after the v193 fix) opened it offline after a reload; `release.mjs` with the same `VERSION` then made
+  `--check` pass. `tools/live.mjs`'s "changed story" rounds do the same without a `VERSION` bump.
+
+**The command** (for a story's author; her guide is `docs/working-on-a-story.md`):
+
+```sh
+node tools/packages/publish.mjs <key> "<what changed, one sentence>" [--test "<what to try>"] [--dry] [--allow-other]
+```
+
+In order, stopping with a plain sentence at the first problem:
+
+1. Refuses when not on `dev`, in an unfinished merge, for a key that is not a folder of `packages/` with a `story.json`,
+   or when tracked files outside `packages/<key>/` are changed, in the working tree or in commits not yet on GitHub
+   (listed; `--allow-other` lets them through and commits them too). Allowed besides the package: what the command
+   writes (`packages/index.json`, `version.json`, the built files of the builds that read its sources). New untracked
+   files outside the package are left alone, never committed.
+2. `git fetch origin dev` (a dry run goes on without GitHub).
+3. Builds `packages/<key>/src/build.mjs` (none: `main.js` is hand-written), the miniatures (`tools/lowpoly/build.mjs
+   --only <key>`) when `src/minis.js` or `src/props.json` changed, every build that names `packages/<key>/src/` (as the
+   relay's `--build` finds readers); runs `src/test-*.mjs`; `node --check` on the built files; the scan (stops if it left
+   the package out); `node tools/release.mjs` with the same `VERSION` (if it would also write `index.html`, `sw.js` or
+   `whatsnew/`, the app has unreleased changes: put back, and stops); then the build's, the scan's and the release's
+   `--check`, and `tools/packages/check.mjs packages/<key>` (with `--load` when Playwright with Chromium is there; else
+   says it skipped that).
+4. The spoken words, for a package with `audio/narration*.mp3`: when its text source (`src/engine/e3_story.js`, else
+   `main.js`) changed, it opens the story headless twice (its `main.js` at the commit that last changed `audio/`, then
+   now; a server of its own, no service worker) and compares each cue's voice line (`data-say`, else its text; small
+   print left out). Changed lines are listed with how to record again (`tools/voice/narrate.mjs <key>`, then
+   `check.mjs <key> --quick`; Kokoro, `tools/voice/README.md`) or to ask the maintainer. It never fails the run. Without
+   Playwright it says only that the text source changed.
+5. Commits what changed in the package and the generated files (`<key>: <sentence>`; body: *To try:* the `--test`
+   sentence or *Open <title> and check the change.*, *Untested: not tried on a headset.*, and the release line: the
+   package's fp, no app release). If GitHub's `dev` moved on, merges it (`git merge --no-edit origin/dev`): a conflict
+   only in generated files (`packages/index.json`, `version.json`, `whatsnew*`, a built `main.js`/`minis.js`,
+   `lowpoly.js`, `stories/design.js`/`studio.js`; `sw.js` and `index.html` only when nothing but `VERSION` or the
+   stamps differ) takes GitHub's copy and builds again; a conflict in a source file runs `git merge --abort` and stops,
+   the commit kept. Then `git push -u origin dev`, never forced; a rejected push fetches, merges, builds and pushes once
+   more. Prints `https://stories.lab.lbi-netmed.com/#<key>` and that the site takes a minute or two.
+6. `--dry`: steps 1 to 4, then says what a real run would commit and writes back every file it changed (it never
+   deletes: a file it made is named instead).
+
+Her work is committed before the merge (not merged first, as one might expect), so a conflict never touches her
+uncommitted edits. Tested (v193) with `--dry` on cdk5 after a one-word change to a spoken line (the line found, the
+files put back), and in throw-away clones of a bare copy: a clean publish, a publish behind GitHub with a conflict only in
+`packages/index.json` and `version.json` (taken, rebuilt, pushed; every `--check` passing after), a conflict in
+`e3_story.js` (stopped, merge aborted, commit kept), nothing to publish; the refusals (a changed `sw.js`, a wrong key,
+another branch, no sentence). Not tried on Windows or macOS; the push's access is the owner's to give (GitHub).
+
+**The preview while editing** (hot reload): `node relay/server.mjs --static . --watch --build`, then
+`http://localhost:8787/#<key>`. A save in `packages/<key>/src/` builds the story (well under a second for cdk5), the
+scan runs, and every page showing it swaps it in place within about a second or two (story time and explore state
+kept); a shell file reloads the page. Checked for cdk5 (v193): a source saved, swapped in place without a reload. On
+Linux, Node's recursive `fs.watch` stops seeing a file once an editor has saved it by replacing it (write a copy, then
+rename, as some editors and tools do): a second save of that file is then missed; restart the relay. macOS and Windows
+watch natively. In a headset on the same network: `--lan` (HTTPS, `docs/agents/shell.md`).
 
 ## Writing one
 

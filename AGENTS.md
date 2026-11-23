@@ -177,6 +177,10 @@ gets at most a line per feature and stays under 70 KB.
   (`docs/agents/shared-rooms.md` "Talk").
 - Left for later (the owner, 23 November 2026): the shared library (G3) and rewriting airports, proteins and spatial
   onto the shared engine with the unified look (R1 to R3): `docs/packages-migration.md`, "Left for later".
+- A change to one package's files alone needs no new `VERSION` (v193: its fingerprint in `packages/index.json` reaches
+  pages, installed copies and headsets; `node tools/release.mjs` with the same `VERSION` updates `version.json`): a
+  story's author publishes it to `dev` with `node tools/packages/publish.mjs <key> "<what changed>" [--dry]`, which
+  refuses changes outside the package (`docs/working-on-a-story.md`; `docs/agents/packages.md`, "Publishing").
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`; running pages follow
   `version.json` (`HOST.live`). The main site is GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); branch
   `dev` is the test place on the owner's Coolify (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as
