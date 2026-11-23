@@ -89,13 +89,14 @@ Follow "Working economically" in `AGENTS.md`. In particular:
   multi-agent run will cost before starting one. Ultracode or other
   "exhaustive" modes are for showpiece work, not routine changes.
 - Models (the owner, 15 November 2026: "opus is used for planning and code and
-  sonnet for the cheaper part"): the main conversation runs on Opus
-  (`"model": "opus"` in `.claude/settings.json`). Sub-agents and workflow agents
-  that plan, build, integrate or fix code get `model: 'opus'`; those that
-  review, verify, run tests, sweep screenshots, measure, extract data or write
-  docs get `model: 'sonnet'` (or `'haiku'` for mechanical checks), at low or
-  medium effort. Narration (writing or rewriting a story's spoken script) is done on Fable (the owner, 23 November
-  2026); otherwise Fable only when the owner asks for it.
+  sonnet for the cheaper part"; 23 November 2026: the default is Fable, for narration only): the main conversation
+  runs on Fable (`"model": "fable"` in `.claude/settings.json`). It writes and rewrites narration (a story's spoken
+  script) itself, talks with the owner and hands everything else over unless the owner says otherwise: planning,
+  building, integrating and fixing code go to sub-agents and workflow agents with `model: 'opus'` (a larger job to
+  one Opus agent that integrates and reports back, so the main conversation reads reports, not code); reviewing,
+  verifying, running tests, sweeping screenshots, measuring, extracting data and writing docs go to `model: 'sonnet'`
+  (or `'haiku'` for mechanical checks), at low or medium effort. No agent but the main conversation runs on Fable
+  unless the owner asks for it.
 - One critique and one fix round; batch verification; only high-severity
   findings get verified.
 - In the main conversation, view screenshots as small contact sheets, read line
