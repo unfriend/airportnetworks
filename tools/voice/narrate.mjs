@@ -34,6 +34,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { stories as storiesOf } from '../stories.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '../..');
 const args = process.argv.slice(2);
@@ -52,8 +53,9 @@ const VOICES = { en: { engine: 'kokoro', voice: 'af_heart', lang: 'en-us' }, de:
 // seconds: the least a stretch slows down (pace.mjs's), a line's fade-in in story time, the voice after its cue, the
 // pause after a line and after a heading, the voice's end before a slideshow stop, and the stop before a chapter's end
 const SLOW = 1.1, FADE = 0.6, LEAD = 0.3, PAUSE = 0.5, TITLE_PAUSE = 1.0, STOP_GAP = 0.25, STOP = 0.7;
-// (a story package, packages/<key>/ with its sources in src/: its table there, its recording in its own audio/)
-const PKG = k => fs.existsSync(path.join(ROOT, `packages/${k}/src/engine/e3_story.js`));
+// (a story package, packages/<key>/ with its sources in src/: its table there, its recording in its own audio/; the app's
+// own stories as tools/stories.mjs finds them, moved or not)
+const PKG = k => { const s = storiesOf(ROOT).get(k); return !!(s && s.pkg && fs.existsSync(path.join(ROOT, `packages/${k}/src/engine/e3_story.js`))); };
 const srcOf = k => PKG(k) ? `packages/${k}/src/engine/e3_story.js` : fs.existsSync(path.join(ROOT, `tools/${k}/engine/e3_story.js`)) ? `tools/${k}/engine/e3_story.js` : `stories/${k}.js`;
 const r2 = x => Math.round(x * 100) / 100;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;

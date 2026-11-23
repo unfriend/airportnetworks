@@ -13,6 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { stories as storiesOf } from '../tools/stories.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '..');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1993,12 +1994,14 @@ try {
 
   await step('serving the app', async () => {
     const file = p => fs.readFileSync(path.join(REPO, p));
+    // (a story's file and a recording wherever they are: tools/stories.mjs, a story moved into a package included)
+    const SF = storiesOf(REPO).get('flock').file, NA = storiesOf(REPO).get('airports').narrations[0];
     let r = await req('GET', '/');
     ok(r.status === 200 && /^text\/html/.test(r.headers['content-type']) && r.buf.equals(file('index.html')), '/ is index.html');
-    r = await req('GET', '/stories/flock.js');
-    ok(r.status === 200 && r.headers['content-type'] === 'text/javascript; charset=utf-8' && r.buf.equals(file('stories/flock.js')), 'a story file');
-    r = await req('GET', '/stories/flock.js', { headers: { 'Accept-Encoding': 'gzip, br' } });
-    ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file('stories/flock.js')) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
+    r = await req('GET', '/' + SF);
+    ok(r.status === 200 && r.headers['content-type'] === 'text/javascript; charset=utf-8' && r.buf.equals(file(SF)), 'a story file');
+    r = await req('GET', '/' + SF, { headers: { 'Accept-Encoding': 'gzip, br' } });
+    ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file(SF)) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
     const types = { '/shared.js': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript',
       '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html', '/peerjs.min.js': 'text/javascript',
       '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html',
@@ -2013,16 +2016,16 @@ try {
     ok(r.status === 200 && r.headers['cache-control'] === 'no-store' && r.buf.equals(file('whatsnew/index.json')), 'the history of what is new (whatsnew/index.json): served, never kept (no-store)');
     r = await req('GET', '/whatsnew/networks-v143.json');
     ok(r.status === 200 && r.headers['cache-control'] === 'no-store', 'an earlier release\'s what is new (whatsnew/<version>.json): never kept (no-store)');
-    const mp3 = file('audio/narration.mp3'), size = mp3.length;
-    r = await req('HEAD', '/audio/narration.mp3');
+    const mp3 = file(NA), size = mp3.length;
+    r = await req('HEAD', '/' + NA);
     ok(r.headers['content-type'] === 'audio/mpeg' && r.headers['accept-ranges'] === 'bytes' && +r.headers['content-length'] === size, 'the narration: audio/mpeg, ranges');
-    r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=0-99' } });
+    r = await req('GET', '/' + NA, { headers: { Range: 'bytes=0-99' } });
     ok(r.status === 206 && r.headers['content-range'] === `bytes 0-99/${size}` && r.buf.equals(mp3.subarray(0, 100)), 'a byte range');
-    r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=-10' } });
+    r = await req('GET', '/' + NA, { headers: { Range: 'bytes=-10' } });
     ok(r.status === 206 && r.buf.equals(mp3.subarray(size - 10)), 'a suffix range');
-    r = await req('GET', '/audio/narration.mp3', { headers: { Range: `bytes=${size - 5}-` } });
+    r = await req('GET', '/' + NA, { headers: { Range: `bytes=${size - 5}-` } });
     ok(r.status === 206 && r.buf.length === 5, 'an open range');
-    r = await req('GET', '/audio/narration.mp3', { headers: { Range: `bytes=${size}-` } });
+    r = await req('GET', '/' + NA, { headers: { Range: `bytes=${size}-` } });
     ok(r.status === 416 && r.headers['content-range'] === `bytes */${size}`, 'an unsatisfiable range: 416');
     const etag = (await req('HEAD', '/index.html')).headers.etag;
     ok((await req('GET', '/index.html', { headers: { 'If-None-Match': etag } })).status === 304, 'a matching ETag: 304');
@@ -2033,8 +2036,8 @@ try {
     // a fresh shared space: the app under s/<n>/ too (a new page address, so Quest Browser gives it a new space)
     r = await req('GET', '/s/2/');
     ok(r.status === 200 && r.buf.equals(file('index.html')), '/s/2/ is index.html');
-    r = await req('GET', '/s/2/stories/flock.js');
-    ok(r.status === 200 && r.buf.equals(file('stories/flock.js')), '/s/2/stories/flock.js is the story file');
+    r = await req('GET', '/s/2/' + SF);
+    ok(r.status === 200 && r.buf.equals(file(SF)), '/s/2/' + SF + ' is the story file');
     r = await req('GET', '/s/17?x=1');
     ok(r.status === 301 && r.headers.location === '/s/17/?x=1', '/s/17 moves to /s/17/ (relative addresses need the slash)');
     for (const p of ['/s/x/index.html', '/s/12345/', '/s/2/tools/smoke.mjs', '/s/2/../../.git/HEAD', '/s/2/s/3/index.html']) { r = await req('GET', p); ok(r.status >= 400 && !/ref: /.test(r.text), `refused: ${p} (${r.status})`); }

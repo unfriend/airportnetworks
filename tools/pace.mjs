@@ -16,6 +16,7 @@
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { stories } from './stories.mjs';
 const args = process.argv.slice(2), write = args.includes('--write');
 const base = args.find(a => /^https?:/.test(a)) || 'http://127.0.0.1:8123/';
 const only = args.filter(a => !a.startsWith('-') && !/^https?:/.test(a));
@@ -27,10 +28,12 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 await page.goto(base + 'index.html');
-await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list, null, { timeout: 30000 });
+await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && (!HOST.packages || HOST.packages.state().read), null, { timeout: 30000 });
 const list = (await page.evaluate(() => HOST.list.map(s => s.key))).filter(k => !only.length || only.includes(k));
-const fileOf = k => k === 'airports' ? 'audio/narration.mp3' : `audio/narration-${k}.mp3`;
-const srcOf = k => fs.existsSync(`tools/${k}/engine/e3_story.js`) ? `tools/${k}/engine/e3_story.js` : `stories/${k}.js`;
+// (where each story's recording and story text are: tools/stories.mjs, a story package's in its folder)
+const STORIES = stories(), storyAt = k => STORIES.get(k) || { narration: () => `audio/narration-${k}.mp3`, src: null, file: `stories/${k}.js` };
+const fileOf = k => storyAt(k).narration();
+const srcOf = k => storyAt(k).src && fs.existsSync(`${storyAt(k).src}/engine/e3_story.js`) ? `${storyAt(k).src}/engine/e3_story.js` : storyAt(k).file;
 const r1 = x => Math.round(x * 10) / 10, r2 = x => Math.round(x * 100) / 100;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; // as the timeline shows it
 const out = [];
@@ -143,7 +146,8 @@ for (const key of list) {
     const f = srcOf(key), src = fs.readFileSync(f, 'utf8'), re = /const NARRATION_SYNC = \[\n[\s\S]*?\n\];/;
     if (!re.test(src)) throw new Error(`${f}: no NARRATION_SYNC table found`);
     fs.writeFileSync(f, src.replace(re, table));
-    if (f.startsWith('tools/')) execFileSync(process.execPath, [`tools/${key}/build.mjs`], { stdio: 'inherit' });
+    if (storyAt(key).build && f.startsWith(storyAt(key).src + '/')) execFileSync(process.execPath, [storyAt(key).build], { stdio: 'inherit' });
+    if (storyAt(key).pkg) execFileSync(process.execPath, ['tools/packages/scan.mjs'], { stdio: 'inherit' });
     console.log('wrote', f);
   }
 }

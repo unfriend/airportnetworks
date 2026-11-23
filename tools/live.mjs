@@ -253,8 +253,8 @@ try {
   }
   // the list read again (a card's title changed)
   {
-    write('stories/list.js', read('stories/list.js').replace("title: 'Robot gang'", "title: 'Robot gang, changed'"));
-    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Robot gang, changed/.test(document.querySelector('#picker [data-story="robots"]').textContent) && window.__mark === 1, null, 8000));
+    write('stories/list.js', read('stories/list.js').replace("title: 'Flock'", "title: 'Flock, changed'"));
+    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Flock, changed/.test(document.querySelector('#picker [data-story="flock"]').textContent) && window.__mark === 1, null, 8000));
   }
   // a station in a shared room: the swap writes nothing to the room
   {

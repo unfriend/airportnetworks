@@ -29,7 +29,7 @@ let keys;
 {
   const p = await browser.newPage();
   await p.goto(base + '#stories', { waitUntil: 'load' });
-  await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && HOST.list.length, null, { timeout: 30000 });
+  await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && HOST.list.length && (!HOST.packages || HOST.packages.state().read), null, { timeout: 30000 });
   const all = await p.evaluate(() => HOST.list.map(s => s.key).concat((window.STORY_EXTRA || []).map(s => s.key)));
   keys = which === 'all' ? all : which.split(',').map(s => s.trim()).filter(Boolean);
   const bad = keys.filter(k => !all.includes(k));

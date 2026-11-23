@@ -57,10 +57,12 @@ const smokeStep = step;
 
 await page.goto(base + 'index.html');
 await page.waitForTimeout(4000);
-// the stories (stories/list.js's STORY_LIST, as the page has it: v171, so a story added or removed there needs no change
-// here; the steps that test one story by name are that story's own), and the pages that are not stories (STORY_EXTRA:
+// the stories (HOST.list as the page has it: stories/list.js's STORY_LIST and the app's own story packages, those named in
+// packages/order.json, so a story added, removed or moved into a package needs no change here; v171, v185; the steps that
+// test one story by name are that story's own; a story's file is HOST.meta(k)'s: stories/<k>.js or packages/<k>/main.js),
+// and the pages that are not stories (STORY_EXTRA:
 // the design room, the studio), which keep the same hook lines as every story: each check of those lines covers both
-const STORY_KEYS = await page.evaluate(() => (self.STORY_LIST || []).map(s => s.key));
+const STORY_KEYS = await page.evaluate(() => HOST.list.filter(s => !s.pkg || s.app).map(s => s.key));
 if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories (stories/list.js)'); process.exit(1); }
 const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
 await step('start screen is the landing page', async () => {
@@ -13632,7 +13634,7 @@ if (!ONLY) {
     await openXR('airports');
     const a1 = await at(140);
     if (!(a1.vis && await inPanel(a1.text))) bad.push('the airports at 140 s: no caption of its line: ' + JSON.stringify(a1));
-    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => (await (await fetch('stories/' + k + '.js')).text()).includes('caption: xrCaption') ? '' : k))).filter(Boolean),
+    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => (await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text()).includes('caption: xrCaption') ? '' : k))).filter(Boolean),
       STORY_KEYS);
     if (miss.length) bad.push('no caption hook in ' + miss.join(', '));
     await sp.evaluate(() => HOST.xr.setSubs(false));
@@ -13647,14 +13649,14 @@ if (!ONLY) {
       "else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);", 'fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });',
       'if (xrAway() || xrCards()) { APP.playing = false; SLIDE.tail = null; }', "() => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }",
       "if (!xrCards()) vButton(ctx, P, 'story:close', ", "if (XR.inStory && !xrCards()) vButton(ctx, P, 'back', "];
-    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
       [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('the All stories hook lines are missing in ' + miss.join(', '));
   });
   // focus mode's framing line (v106): every story frames its scene for the whole page while HOST.focus() is true
   await step('every story keeps the focus mode framing lines', async () => {
     const lines = ['GL.bare = !!(HOST.focus && HOST.focus());', 'if (GL.bare) camera.setViewOffset(w, h, 0, 0.05 * h, w, h);'];
-    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+    const miss = await sp.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
       [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('the focus mode framing lines are missing in ' + miss.join(', '));
   });
@@ -13735,7 +13737,7 @@ if (!ONLY) {
     await sp.evaluate(() => HOST.panels.set('design', 'shown'));
     if (await vis() !== want.shown) bad.push('the design room shown again: ' + await vis());
     // the same lines in all sixteen stories and the design room
-    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch('stories/' + k + '.js')).text();
+    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text();
       return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') &&
         s.includes("const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());") && s.includes("XR.lm = xrLabelMode(); XR.cm = xrCardMode();") &&
         s.includes("panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');") ? '' : k; }))).filter(Boolean),
@@ -14963,7 +14965,7 @@ if (runs('away idle')) {
       '  if (cards) { if (XR.landRev !== HOST.listRev) xrLandingCards(); XR.landN = 0; const now = performance.now(); for (const P of XR.panels) panelTick(P, now);',   // (v145: the cards branch goes on with a loop that shows them, so no closing brace here)
       '  audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;',
       'function xrWarm() {', '  if (xr) xrBegin(xrFrame, dt);\n  if (xrIdle(xr, dt)) return;'];
-    const miss = await page.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch('stories/' + k + '.js')).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
+    const miss = await page.evaluate(async ([keys, lines]) => (await Promise.all(keys.map(async k => { const t = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text(); const m = lines.filter(l => !t.includes(l)); return m.length ? k + ': ' + m.length : ''; }))).filter(Boolean),
       [[...STORY_KEYS, ...EXTRA], lines]);
     if (miss.length) errors.push('away idle: the away lines are missing in ' + miss.join(', '));
   });
@@ -15575,7 +15577,7 @@ if (runs('stick moving')) {
   // and no story playing or pausing on A or X (button 4)
   await step('stick moving: every story keeps the xrWalking line; none plays or pauses on A or X', async () => {
     const miss = await wp.evaluate(async keys => (await Promise.all(keys.map(async k => {
-      const t = await (await fetch('stories/' + k + '.js')).text(), why = [];
+      const t = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text(), why = [];
       if (!t.includes('const xrWalking = () => !!(HOST.xr && HOST.xr.walking && HOST.xr.walking());')) why.push('no xrWalking line');
       if (/APP\.mode === 'explore' && !c\.press && !c\.grab(?! && !xrWalking\(\))/.test(t)) why.push('an explore stick not waiting on it');
       if (t.includes('buttons[4]')) why.push('button 4 still read');
@@ -16554,7 +16556,7 @@ if (runs('occlusion')) {
   });
   await step('every story asks for its session through HOST.xr.request', async () => {
     const line = 'session = await (HOST.xr.request ? HOST.xr.request(mode) : navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) }));';
-    const miss = await op.evaluate(async ([keys, line]) => (await Promise.all(keys.map(async k => ((await (await fetch('stories/' + k + '.js')).text()).includes(line) ? '' : k)))).filter(Boolean), [[...STORY_KEYS, ...EXTRA], line]);
+    const miss = await op.evaluate(async ([keys, line]) => (await Promise.all(keys.map(async k => ((await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text()).includes(line) ? '' : k)))).filter(Boolean), [[...STORY_KEYS, ...EXTRA], line]);
     if (miss.length) errors.push('the session line is missing in ' + miss.join(', '));
   });
   await ctx.close();

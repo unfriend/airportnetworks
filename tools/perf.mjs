@@ -380,7 +380,7 @@ async function group(ids, fn) {   // a page shared by several scenes: runs when 
   try { await fn(); } catch (e) { for (const id of ids) if (wanted(id) && !results.some(r => r.id === id)) add(id, null, { note: 'failed: ' + String(e.message).split('\n')[0].slice(0, 300) }); }
 }
 
-const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => !!(typeof HOST !== 'undefined' && HOST.list && HOST.list.length), null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.list.map(s => s.key)); await close(); return k; })();
+const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => !!(typeof HOST !== 'undefined' && HOST.list && HOST.list.length && (!HOST.packages || HOST.packages.state().read)), null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.list.map(s => s.key)); await close(); return k; })();
 if (flag('--list')) { console.log('stories: ' + keys.join(', ')); await browser.close(); if (srv) srv.close(); process.exit(0); }
 
 // ---- every story: story mode at 25, 50 and 75 % (playing), explore mode

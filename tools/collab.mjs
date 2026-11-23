@@ -170,6 +170,7 @@ import fs from 'fs';
 import os from 'os';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
+import { stories as storiesOf } from './stories.mjs';
 
 const STORIES = {
   airports: {
@@ -364,14 +365,14 @@ const STORIES = {
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
 // stored state; the flock's sky catches every ray, so its rays have a length), another, one whose card it points at
 // (the trigger there runs nothing: stations are walk-in only) and one it moves by its card
-// the stories that are there (stories/list.js, v171): an entry here for a story no longer listed is left out, and a
-// listed story without an entry is named (it gets no per-story round until it has one)
+// the stories that are there (tools/stories.mjs: stories/list.js and the app's own story packages, v171, v185): an entry
+// here for a story no longer there is left out, and a story without an entry is named (it gets no per-story round until
+// it has one). A story moved into a package stays in: the same key, the same hooks
 {
-  const ctx = { self: {} };
-  createRequire(import.meta.url)('vm').runInNewContext(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'stories', 'list.js'), 'utf8'), ctx);
-  const listed = (ctx.self.STORY_LIST || []).concat(ctx.self.STORY_EXTRA || []).map(s => s.key);
-  for (const k of Object.keys(STORIES)) if (!listed.includes(k)) { console.log(`note: ${k} is not in stories/list.js: its round is left out`); delete STORIES[k]; }
-  const none = (ctx.self.STORY_LIST || []).map(s => s.key).filter(k => !STORIES[k]);
+  const S = storiesOf(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
+  const there = S.all.map(s => s.key);
+  for (const k of Object.keys(STORIES)) if (!there.includes(k)) { console.log(`note: ${k} is not one of the app's stories: its round is left out`); delete STORIES[k]; }
+  const none = S.keys.filter(k => !STORIES[k]);
   if (none.length) console.log(`note: no STORIES entry (and so no per-story round) for ${none.join(', ')}`);
 }
 const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';   // (PICK_STORY: its card is pointed at)

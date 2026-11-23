@@ -4,6 +4,7 @@
 // Usage: serve the folder, then node tools/narration.mjs http://127.0.0.1:8123/ [docs/narration.md]
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 import fs from 'node:fs';
+import { stories } from './stories.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const [base = 'http://127.0.0.1:8123/', out = 'docs/narration.md'] = process.argv.slice(2);
 const browser = await chromium.launch({
@@ -12,7 +13,7 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 await page.goto(base + 'index.html');
-await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list, null, { timeout: 30000 });
+await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && (!HOST.packages || HOST.packages.state().read), null, { timeout: 30000 });
 const list = await page.evaluate(() => HOST.list.map(s => ({ key: s.key, kick: s.kick, title: s.title, len: s.len })));
 const mmss = s => { const n = Math.floor(Math.round(s * 100) / 100); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const docs = [];
@@ -84,14 +85,16 @@ const toRec = (sync, t) => {
   }
   return t;
 };
-// (a story in two languages: the first language's file, and audio/narration-<key>-<lang>.mp3 for another)
-const fileOf = (k, l) => k === 'airports' ? 'audio/narration.mp3' : `audio/narration-${k}${l ? '-' + l : ''}.mp3`;
+// (a story in two languages: the first language's file, and audio/narration-<key>-<lang>.mp3 for another; a story
+// package's in its folder, packages/<key>/audio/narration[-<lang>].mp3: tools/stories.mjs)
+const STORIES = stories(), storyAt = k => STORIES.get(k) || { narration: l => `audio/narration-${k}${l ? '-' + l : ''}.mp3`, file: `stories/${k}.js` };
+const fileOf = (k, l) => storyAt(k).narration(l);
 // how a story is narrated: a recording, a synthetic voice (made by tools/voice/narrate.mjs, which the story's file names
 // beside its NARRATION_SYNC), or nothing yet
 const voiceOf = k => {
   if (!fs.existsSync(fileOf(k))) return '';
   let src = '';
-  try { src = fs.readFileSync(`stories/${k}.js`, 'utf8'); } catch (e) { /* not found: a recording */ }
+  try { src = fs.readFileSync(storyAt(k).file, 'utf8'); } catch (e) { /* not found: a recording */ }
   return /tools\/voice\/narrate\.mjs/.test(src) ? 'synthetic voice' : 'recorded';
 };
 let md = `# Narration scripts

@@ -26,6 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { stories } from './stories.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2), si = argv.indexOf('--story'), storyKeys = si >= 0 ? (argv[si + 1] || 'all') : '';
@@ -124,7 +125,7 @@ if (index2.length) {
 }
 // the narration, for comparison (its first two minutes)
 const voice = [];
-for (const f of ['audio/narration.mp3', 'audio/narration-lbi.mp3']) if (fs.existsSync(path.join(REPO, f))) {
+for (const f of ['airports', 'lbi'].map(k => (stories(REPO).get(k) || { narrations: [] }).narrations[0]).filter(Boolean)) if (fs.existsSync(path.join(REPO, f))) {   // (tools/stories.mjs: moved or not)
   const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-t', '120', '-i', path.join(REPO, f), '-af', 'ebur128=peak=true', '-f', 'null', '-'], { encoding: 'utf8' });
   const I = (/I:\s+(-?[\d.]+) LUFS\s*\n\s*Threshold/.exec(r.stderr) || [])[1], P = (/Peak:\s+(-?[\d.]+) dBFS/.exec(r.stderr) || [])[1];
   voice.push(`  ${f}: integrated ${I} LUFS, true peak ${P} dBFS (first 2 minutes)`);
