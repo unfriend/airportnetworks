@@ -1,0 +1,21 @@
+{
+  "key": "mutation",
+  "api": 1,
+  "version": "1.0.0",
+  "title": "The mutation machine",
+  "kick": "Quantum phylogenetics",
+  "col": "#4d8dff",
+  "desc": "DNA changes letter by letter as it is copied. A rule for those changes becomes a machine of gears on a quantum computer, one per branch of a family tree, and pairs of letters that change together are coupled.",
+  "len": "Story 8:26 · 3D machine",
+  "page": "The mutation machine: DNA's changes as a quantum circuit",
+  "brand": "The mutation machine",
+  "sub": "DNA's changes as a quantum circuit",
+  "aria": "Interactive 3D story of how DNA letters change along a family tree and how a quantum circuit models it, from a rule of change to an RNA stem",
+  "thing": "machine",
+  "loading": "Winding up the gears",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "stories",
+  "icon": "mutation.tree",
+  "needs": 186
+}

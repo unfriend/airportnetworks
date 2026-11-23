@@ -32,7 +32,7 @@ Network_VR*/
 tools/pass/shots/
 tools/pass/gen/
 tools/ovary/shots/
-tools/mutation/shots/
+packages/mutation/src/shots/
 tools/topo/shots/
 
 # the owner's own scenes, linked in for local checks only (never committed)

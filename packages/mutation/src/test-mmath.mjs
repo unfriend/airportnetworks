@@ -1,6 +1,6 @@
 // Checks the mutation story's maths (sets/mmath.js) against the poster's numbers (sets/data.js) and prints what the
 // example gives (the numbers the story text and the sets use).
-// usage (from the repository root): node tools/mutation/test-mmath.mjs     (exits 1 on a failed check; under a second)
+// usage (from the repository root): node packages/mutation/src/test-mmath.mjs     (exits 1 on a failed check; under a second)
 import fs from 'fs';
 import path from 'path';
 import { createRequire } from 'module';

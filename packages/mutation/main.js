@@ -7,7 +7,7 @@
 // 2026) and Enes's answers to our questions. The numbers drawn are examples, computed here (MMATH), as in the authors'
 // own test; the poster's own numbers (MUT_DATA) appear only where the story says "in the authors' test".
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/mutation/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in
+// Built by packages/mutation/src/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in
 // tools/mutation: edit those, not this file.
 HOST.register('mutation', function (HOST) {
 'use strict';
@@ -275,9 +275,9 @@ const SETS = {};
 // Sakalli: "for a test of the method these example numbers are fine, but for a real result they should be estimated
 // from real sequences"). The poster's own numbers are MUT_DATA (sets/data.js); the story shows them only as "in the
 // authors' test".
-// Plain script: in stories/mutation.js it is pasted inside the story's closure before MUT_DATA (the build drops the
+// Plain script: in packages/mutation/main.js it is pasted inside the story's closure before MUT_DATA (the build drops the
 // module line at the end), so it reads MUT_DATA only when a function is called, never while it loads; in Node,
-// require() or import it (tools/mutation/test-mmath.mjs checks it), with a copy of the few poster's facts it needs.
+// require() or import it (packages/mutation/src/test-mmath.mjs checks it), with a copy of the few poster's facts it needs.
 //
 // What it does, in the order of the story:
 // - letters are indices 0..3 for A, C, G, T; a letter's two qubits are its two bits, the first qubit the high bit
@@ -3662,7 +3662,7 @@ function updateLight(xr) {
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-mutation.mp3, Kokoro's af_heart): node
+// (packages/mutation/audio/narration.mp3, Kokoro's af_heart): node
 // tools/voice/narrate.mjs mutation writes this table and NARRATION_ENDS from
 // the recording it makes (each stretch lasts the longer of 1.1 times its story
 // time and its line's audio plus a pause); run it again after the text changes
@@ -6544,7 +6544,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-mutation.mp3';
+const narrationFile = () => HOST.pkgUrl('mutation', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

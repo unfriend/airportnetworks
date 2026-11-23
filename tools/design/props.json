@@ -12763,8 +12763,8 @@
    "story": "mutation",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/mutation/sets/letters.js",
-   "manifest": "tools/mutation/sets/letters.md",
+   "file": "packages/mutation/src/sets/letters.js",
+   "manifest": "packages/mutation/src/sets/letters.md",
    "shows": "A text in four letters copied with swaps: a 24-pair DNA helix, eight letters peeling into tiles (ACGTTAGC), two copies with swaps flashing, then one letter opened into its two qubits, a mix of letters and read-outs spinning like a coin and piling into four heaps as tall as the chances.",
    "frame": "Centred on the origin; helix vertical; tiles in a row.",
    "size": "not stated in the manifest (see views)",
@@ -13218,8 +13218,8 @@
    "story": "mutation",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/mutation/sets/tree.js",
-   "manifest": "tools/mutation/sets/tree.md",
+   "file": "packages/mutation/src/sets/tree.js",
+   "manifest": "packages/mutation/src/sets/tree.md",
    "shows": "A family tree in 3D (8 tips, 14 branches) that grows up from its root as a level of change rises (a branch rises by its length), every swap simulated, letters riding up each branch; a gear (machine) on every branch; and the poster's species tree. You walk round it and look up into it.",
    "frame": "Root at (0, -1, 0); tips on a ring round the vertical; the species tree in the same frame (stem set draws in it).",
    "size": "tree ~2.06 units tall with letters, widest radius 1.18",
@@ -13698,8 +13698,8 @@
    "story": "mutation",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/mutation/sets/rule.js",
-   "manifest": "tools/mutation/sets/rule.md",
+   "file": "packages/mutation/src/sets/rule.js",
+   "manifest": "packages/mutation/src/sets/rule.md",
    "shows": "The rule of change: four letter balls at the corners of a pyramid joined by rate arrows, the pyramid of mixes and a point gliding along its path, the compiler (a drum with a gear), the machine for one branch (copy the parent's letter, then turn it), its circuit and the turn blocks opening into their simple steps.",
    "frame": "Centred on the origin; A at the top, C front left, G back, T front right.",
    "size": "pyramid x +-0.93, y -0.5 to 1.2; machine x -1.15 to 1.05",
@@ -14351,8 +14351,8 @@
    "story": "mutation",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/mutation/sets/stem.js",
-   "manifest": "tools/mutation/sets/stem.md",
+   "file": "packages/mutation/src/sets/stem.js",
+   "manifest": "packages/mutation/src/sets/stem.md",
    "shows": "Letters that work together: an RNA strand folds into a stem of six pairs, one letter changes alone and its rung snaps, a coupling makes the pair change together, the count of combinations (16, 64, about a million) against qubits, then three fields of 2,000 rebuilt ancestors on the species tree.",
    "frame": "In the tree set's frame; chapter 6 at the origin with the tree hidden, chapter 7 at the species tree.",
    "size": "stem ~radius 1; fields in front of the root",
@@ -20933,15 +20933,15 @@
    "what": "QLOOK, the qubits story's lit tubes, rings, balls and halos"
   },
   {
-   "file": "tools/mutation/sets/mmath.js",
+   "file": "packages/mutation/src/sets/mmath.js",
    "what": "MMATH, the mutation story's maths"
   },
   {
-   "file": "tools/mutation/sets/data.js",
+   "file": "packages/mutation/src/sets/data.js",
    "what": "MUT_DATA, the poster's numbers"
   },
   {
-   "file": "tools/mutation/sets/look.js",
+   "file": "packages/mutation/src/sets/look.js",
    "what": "MLOOK, the mutation story's shared look"
   },
   {

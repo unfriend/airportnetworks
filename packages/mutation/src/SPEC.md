@@ -1,6 +1,6 @@
 # The mutation machine: 3D sets, maths and engine spec
 
-The fourteenth story of the app: `stories/mutation.js`, built from `tools/mutation/` like the qubits story is built from
+The fourteenth story of the app: `packages/mutation/main.js`, built from `packages/mutation/src/` like the qubits story is built from
 `tools/qubits/`. It follows the poster **"Converting Mutation into a Machinery: DNA Substitution Models as Quantum
 Circuits"** by **Enes Berk Sakalli** (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna) and
 **Arndt von Haeseler** (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and
@@ -39,11 +39,11 @@ Decisions (the owner's and the author's, 27 Oct 2026):
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the qubits story's, `tools/qubits/SPEC.md`):
-- Set files live in `tools/mutation/sets/`; the harness is `tools/mutation/harness.html` (`?set=<name>&p=k:v,...&t=..&
-  cam=<view or six numbers>&anim=1`) and the screenshot tool `tools/mutation/shot.mjs` (run it from `tools/mutation`;
+- Set files live in `packages/mutation/src/sets/`; the harness is `packages/mutation/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
+  cam=<view or six numbers>&anim=1`) and the screenshot tool `packages/mutation/src/shot.mjs` (run it from `tools/mutation`;
   `SHOTS=<dir>` and `PORT=<port>`). The harness loads `MMATH`, `MUT_DATA` and `MLOOK` before the set.
 - Three shared globals come before the sets (the build pastes them inside the story's closure in this order): `MMATH`
-  (`sets/mmath.js`, the maths; also a Node module, checked by `node tools/mutation/test-mmath.mjs`), `MUT_DATA`
+  (`sets/mmath.js`, the maths; also a Node module, checked by `node packages/mutation/src/test-mmath.mjs`), `MUT_DATA`
   (`sets/data.js`, the poster's numbers, typed in) and `MLOOK` (`sets/look.js`, the story's look: the qubits story's
   lit instanced tubes, rings, balls, boxes and halos, plus letter tiles, arrowheads, qubit spheres and gears).
 - **Labels may have `text` as a function** returning `[bold, rest]` (the engine re-reads it while the label shows).
@@ -118,7 +118,7 @@ y ≈ 1.2 within a radius of about 1.2; the stem's close-up (chapter 6) stands a
     matched" (`allSixPrior: 'about a quarter'`, words only).
 - `pairsOk`: A–T, C–G, G–T, both ways round.
 
-## The maths: `MMATH` (`sets/mmath.js`; checked by `node tools/mutation/test-mmath.mjs`)
+## The maths: `MMATH` (`sets/mmath.js`; checked by `node packages/mutation/src/test-mmath.mjs`)
 
 Plain JavaScript, no allocation in hot paths that run every frame (`path` and `bloch` are called per frame: give them an
 `out` argument). Letters are indices 0..3 for A, C, G, T; a letter's qubits are its two bits, the first qubit the high
@@ -285,10 +285,10 @@ chapter 5; `standView` in `engine/e3_story.js`, following the story's time only,
 size), and nothing of the tree comes within 0.35 m of your eyes; the species tree of chapters 7 and 8 stays at table
 size.
 
-## The engine (`tools/mutation/engine/`, adapted from the qubits story's)
+## The engine (`packages/mutation/src/engine/`, adapted from the qubits story's)
 
 Copied from `tools/qubits/engine/` as a start. Rename everything: `HOST.register('mutation', ...)`, the header comment
-(the poster, its authors, example numbers), `audio/narration-mutation.mp3`, `SET_ORDER = ['letters', 'tree', 'rule',
+(the poster, its authors, example numbers), `packages/mutation/audio/narration.mp3`, `SET_ORDER = ['letters', 'tree', 'rule',
 'stem']`; remove the qubits story's own code (`QMATH`, `QUBITS_DATA`, its panes); `FACTS` from `MUT_DATA` and `MMATH`.
 Keep the shared lines identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing
 screen: see "Shared rooms" and "Inside a story" in docs/agents/shared-rooms.md and docs/agents/shell.md; no life-size or room mode in this story). Keep labels
@@ -365,7 +365,7 @@ gives `state()` back; the shell's `FORMAT` goes up with a new story).
 
 ## Testing
 
-- `node tools/mutation/test-mmath.mjs` (the maths).
+- `node packages/mutation/src/test-mmath.mjs` (the maths).
 - A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `tools/mutation` (serve the repository root).
-- `node tools/mutation/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the story is in
+- `node packages/mutation/src/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the story is in
   `HOST.list` and the smoke test knows it).

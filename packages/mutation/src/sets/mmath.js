@@ -2,9 +2,9 @@
 // Sakalli: "for a test of the method these example numbers are fine, but for a real result they should be estimated
 // from real sequences"). The poster's own numbers are MUT_DATA (sets/data.js); the story shows them only as "in the
 // authors' test".
-// Plain script: in stories/mutation.js it is pasted inside the story's closure before MUT_DATA (the build drops the
+// Plain script: in packages/mutation/main.js it is pasted inside the story's closure before MUT_DATA (the build drops the
 // module line at the end), so it reads MUT_DATA only when a function is called, never while it loads; in Node,
-// require() or import it (tools/mutation/test-mmath.mjs checks it), with a copy of the few poster's facts it needs.
+// require() or import it (packages/mutation/src/test-mmath.mjs checks it), with a copy of the few poster's facts it needs.
 //
 // What it does, in the order of the story:
 // - letters are indices 0..3 for A, C, G, T; a letter's two qubits are its two bits, the first qubit the high bit

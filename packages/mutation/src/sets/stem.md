@@ -102,7 +102,7 @@ drives `stem_seed` (rebuild again) itself.
 - `pick(raycaster)` -> { kind: 'field', method } (where the ray meets a field's floor), { kind: 'stem', which: 'truth' |
   'indep' | 'exact' | 'coupled' | 's1' | 's2' | 's3' }, or null.
 
-Live numbers (the story's model, w = 8, seed 1, as `node tools/mutation/test-mmath.mjs` prints them): letter by letter
+Live numbers (the story's model, w = 8, seed 1, as `node packages/mutation/src/test-mmath.mjs` prints them): letter by letter
 10.9 % intact (exact chance 11.4 %), exact pair model 30.0 % (31.0 %), coupled stand-in 46.1 % (44.6 %); most likely ancestors ATTACT / CGATGG (1 broken), ATTACT / TGATGA and
 ATTACT / TGATGG (none broken).
 

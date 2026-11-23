@@ -1,4 +1,4 @@
-# tools/mutation: the sources of the mutation story (`stories/mutation.js`)
+# tools/mutation: the sources of the mutation story (`packages/mutation/main.js`)
 
 "The mutation machine: DNA's changes as a quantum circuit", after the poster "Converting Mutation into a Machinery: DNA
 Substitution Models as Quantum Circuits" by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the
@@ -6,12 +6,12 @@ University of Vienna) and Arndt von Haeseler (Center for Integrative Bioinformat
 University of Vienna and Medical University of Vienna), a draft of 26 Oct 2026, and Enes's answers to our questions.
 Built like the qubits story (`tools/qubits/`), with the shared kit (`tools/engine/kit.js`) and set contract. The numbers drawn are examples,
 computed live (`MMATH`), as in the authors' own test; the poster's numbers (`MUT_DATA`) appear only where the story says
-"in the authors' test". British spelling, English only. Never edit `stories/mutation.js` by hand.
+"in the authors' test". British spelling, English only. Never edit `packages/mutation/main.js` by hand.
 
 ```sh
-node tools/mutation/test-mmath.mjs     # checks the maths (under a second)
-node tools/mutation/build.mjs          # writes stories/mutation.js
-node tools/mutation/build.mjs --check  # exits 1 if out of date
+node packages/mutation/src/test-mmath.mjs     # checks the maths (under a second)
+node packages/mutation/src/build.mjs          # writes packages/mutation/main.js
+node packages/mutation/src/build.mjs --check  # exits 1 if out of date
 ```
 
 | Path | What it is |
