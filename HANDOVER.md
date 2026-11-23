@@ -41,6 +41,7 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | Quantum phylogenetics: The mutation machine | `mutation` | `packages/mutation/src/` (built) | synthetic (Kokoro, `af_heart`) | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
 | Tissue topology: The shape of tissue | `topo` | `packages/topo/src/` (built) | synthetic (Kokoro, `af_heart`) | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
 | Soil microbes: Holding on to nitrogen | `soil` | `packages/soil/src/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
+| Brain kinase: The switch that sticks (on the Experiments set since v189; written by Christiane Hütter on a fork) | `cdk5` | `packages/cdk5/src/` (built) | synthetic (Kokoro, `af_heart`) | real (the Menche lab's public CDK5_data: the interactome, every layout, colour and link decoded from its VR project's textures, through `CDATA`; never laid out again in the app); the close-ups, tags and the process knots' names ours, said so |
 | Networks for everyone: Pass it on | `pass` | `packages/pass/src/` (built; its globe and cell cut out of `packages/airports/main.js` and `packages/spatial/main.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `packages/flock/src/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `packages/robots/` (a story package, built from its `src/`) | synthetic (Kokoro, `af_heart`) | a live simulation |
@@ -137,6 +138,20 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     "Inputs not in the repository"), the owner's own studio scenes (in R2, never in the repository), the headsets
     and the trackers' PC. **TO FILL (owner):** who holds each of these and how the next person gets it.
     "Decisions for the owner" below still has blanks marked **TO FILL (owner)**, first of all item 6, who to ask.
+- **networks-v190 (23 November 2026; FORMAT networks-55), on `dev` only: miniatures in the packages.** Each story's
+    miniatures (its station icon and its props on the design room's table) moved from `tools/lowpoly/models-*.js` into
+    its package (`packages/<key>/src/minis.js`, built into `packages/<key>/minis.js` with the design room's cards from
+    `src/props.json`; `tools/packages/SPEC.md`, "Miniatures"); `lowpoly.js` keeps the shell's own four. The shell loads a
+    package's file when an icon or the design room wants it (`HOST.lowpoly(name)`), so a new package with miniatures
+    needs no change to the shell. Also the packages migration's clean-up (the chapter timings to `docs/`, old narration
+    copies pruned, two smoke blocks) and its "Left for later" in `docs/packages-migration.md`. Untested: the icons and the
+    table in a headset (they looked the same as before in headless pictures).
+- **networks-v189 (23 November 2026; FORMAT networks-55), on `dev` only: The switch that sticks (`cdk5`).** Christiane
+    Hütter's story of the kinase CDK5 among the human interactome (the Menche lab's CDK5_data), written on a fork and taken
+    in as a story package on the Experiments set: six arrangements of 16,376 proteins, explore by protein, pathway and
+    disease term. Its miniatures `cdk5.net` (its station icon) and `cdk5.core`; its rules in `docs/agents/stories.md`, its
+    data and permission in `docs/data-and-permissions.md` (the permission row still to fill), its questions C1 to C7 in
+    `docs/questions-for-authors.md`. Untested on a headset.
 - **networks-v180 (20 November 2026; FORMAT networks-55, shell 178), on `dev` only: the tutorial is the last card.**
     The owner: "Move the tutorial to the last story card". Its `stories/list.js` entry moved to the end (the headset's
     Stories screen: the lower row's right end; the page's Stories screen and Arrange all: last), its kicker
@@ -2329,8 +2344,9 @@ for `stories/<key>.js`, `packages/<key>/story.json` and `packages/order.json` fo
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
    data. Build `stories/<key>.js` and check it with `--check`. Add `tools/<key>/shots/` to `.gitignore`.
-2. `stories/list.js`: an entry (key, kick, title, colour, `icon`: its main miniature in `tools/lowpoly/` for the
-   stations' icons, made there first (each miniature under 1,200 triangles); loading text, length: pace the story first with
+2. `stories/list.js`: an entry (key, kick, title, colour, `icon`: its main miniature for the stations' icons, since
+   v190 in its own package, `packages/<key>/src/minis.js` and `story.json`'s `minis` (each miniature under 1,200
+   triangles; `tools/packages/SPEC.md`, "Miniatures"); loading text, length: pace the story first with
    `node tools/pace.mjs <url> --write <key>`, which prints it). The count on the start screen, in the title and on
    every headset Stories screen follows the list by itself; `index.html`'s head (title, meta description, link
    previews) and `manifest.webmanifest` say it in words for search engines and installs: update them, and the card
@@ -2382,10 +2398,10 @@ The Files table in [README.md](README.md) and [docs/agents/layout.md](docs/agent
   proteins and spatial hand-written), its narration in `audio/`; `packages/order.json` (by hand) their order.
 - `stories/`: the design room and the studio (built from `tools/design/`, `tools/studio/`) and `list.js` (by hand).
 - `tools/`: each built story's sources and build; `tools/studio/` (the studio, its test scenes), `tools/trackers/`
-  (the bridge and the fake), `tools/voice/` (the narrations), `tools/lowpoly/` (the miniatures); the test scripts.
+  (the bridge and the fake), `tools/voice/` (the narrations), `tools/lowpoly/` (the miniatures' kits and build; each story's miniatures are in its package since v190); the test scripts.
 - `relay/`: the server (rooms, scenes, R2, trackers), its tests and Dockerfile.
 - `docs/`, `audio/` (the narrations), `room-test/` and `p2p/` (test pages).
-- Generated, never edited by hand: the built `stories/<key>.js`, `lowpoly.js`, `version.json`, `docs/narration.md`.
+- Generated, never edited by hand: the built `stories/<key>.js` and `packages/<key>/main.js`, `lowpoly.js` and `packages/<key>/minis.js`, `version.json`, `docs/narration.md`.
   Written by hand at every release: `whatsnew.json`.
 - Outside the repository on purpose: the authors' data files, the voice models, the owner's own studio scenes (in R2,
   or `tools/studio/test/local/`, which git ignores) and the relay's logs.

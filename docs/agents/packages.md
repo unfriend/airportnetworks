@@ -129,14 +129,30 @@ one `--static` serves), so no save or upload can reach a package.
 ## Shared rooms
 
 A listed package is a story to the shared rooms: Arrange all and the station picker take it (both read `HOST.list`). A
-package runs at a station like a story. Its station has no miniature (no `icon` field): the stations' icon falls back to
-the plain glowing shape every key without one gets (shared.js, `fallbackDef`), with its colour. Its `collab.state()` is
+package runs at a station like a story. Its station's icon is the miniature its `story.json` names (`icon`, from its own
+`minis.js` since v190: `tools/packages/SPEC.md`, "Miniatures"), loaded when the icon first shows; until then, and with
+no `icon`, the plain glowing shape every key without one gets (shared.js, `fallbackDef`), in its colour. A device whose
+index lacks the package tries its `minis.js` all the same and shows the miniature marked `icon` there. Its `collab.state()` is
 its own: `FORMAT` is the app's and does not change for a package; a package changes the shape of its state only together
 with a field `v` that its `apply()` checks. A device whose index lacks a station's package (or that runs an older copy of
 the app) gets `HOST.unknown`'s stand-in: the station's card says *Not on this device* (title *Another story*) and the
 story never runs there; `HOST.live.missing` reads the index and `version.json` again, starts it if it has come, and asks
 for an update only when the latest release has that key (a package no update brings is not asked about). `shared.js` is
 unchanged for packages.
+
+## Miniatures (v190)
+
+A package's miniatures are its own (`tools/packages/SPEC.md`, "Miniatures"): `src/minis.js` (a kit's `def`/`add` calls,
+`// kit: a|b`) and `src/props.json` (the design room's cards), built by `node tools/lowpoly/build.mjs` into the file
+`story.json`'s `minis` names (`minis.js`, listed in the index like any file; `icon` names the station's). The shell's
+`HOST.lowpoly(name)` loads the file that holds a miniature (`index.html`, after `HOST.pkgUrl`), `HOST.lowpoly('*')`
+every listed package's and `lowpoly.js` (the shell's own four: the design room's, the studio's and the two circles'
+icons); `shared.js`'s station icons ask for theirs and show the plain shape until it comes; the design room loads them
+all before laying out its table (`takeCards`, `TABLE_ORDER`). The scan leaves out a package whose `icon` is in no file;
+the check fails on a name without the package's key and, with `--build`/`--load`, on a wrong `tris` or more than 1,200;
+the harnesses (`tools/lowpoly/harness-a.html`, `harness-b.html`, `load.js`) show the sources as they are edited. The
+service worker's install takes each listed package's `minis` file with its `main.js`. Every story's miniatures moved
+there in v190 (names unchanged); `packages/hello/` and `tools/packages/template/minis.js` show how.
 
 ## The rules a package keeps
 
@@ -150,8 +166,8 @@ The plan and its decided route: `docs/packages-migration.md`. What is in place:
 
 - `packages/order.json` (hand-written) orders every story, moved or not (`tools/packages/SPEC.md`, "The order"); the
   shell sorts `HOST.list` by the index's copy and waits 1.5 s at most for the index when no story is named (the first
-  screen's cards). Its packages are `app: true` (a story's card, not a package's tile), take `icon` (a `lowpoly.js`
-  miniature: their stations keep theirs) and `intro`.
+  screen's cards). Its packages are `app: true` (a story's card, not a package's tile), take `icon` (since v190 one of
+  their own miniatures, `minis`: their stations keep theirs, by the same name) and `intro`.
 - `tools/stories.mjs` is how every test and tool finds a story's file, sources, build and narrations (smoke's
   `STORY_KEYS` from `HOST.list`, collab's `STORIES`, narration, pace, the voice tools, sfx-render, the relay test).
 - `tools/release.mjs` writes `packages: { <key>: { fp, needs } }` into `version.json` for the moved ones (each needs

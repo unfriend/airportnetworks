@@ -43,7 +43,7 @@ The plan is `docs/shared-space-plan.md`.
   (`HOST.start('all')` would refuse); `KINDS` in `shared.js` gives their look wherever a station's is taken (cards, rings,
   icons, the dialog and its map, the menu's lists, people and Follow lines): All stories (`'all'`, kicker *Every
   story*, a pale cyan-white `#cfeeff`, icon `all.stories`) and Back to the lobby (`'lobby'`, kicker *The lobby*, a soft
-  green `#9fe5bf` (the design room has the gold), icon `all.lobby`); a key `lowpoly.js` does not have yet shows the glowing fallback. `lookKey(s)` is a
+  green `#9fe5bf` (the design room has the gold), icon `all.lobby`); a key whose miniature's file is not here yet shows the glowing fallback. `lookKey(s)` is a
   station's kind, else its story; `runs(s)` the story it runs ('' for an All stories circle's cards and the lobby);
   `stTitle(s)` "All stories" (": <the story picked>"), "Back to the lobby" or the story's title.
   - The first headset adds one (`allFirst`, from the shell's tick): a headset in the room with the others (AR, or VR
@@ -907,7 +907,10 @@ The plan is `docs/shared-space-plan.md`.
   and the shell's two circles' own, `all.stories`, the Stories screen in miniature (sixteen cards in the stories' colours
   in two rows on an arc under its header, lit from within), and `all.lobby`, an open doorway with light in it, stepping
   stones up to it and a curved arrow turning back over it (the icons of All stories and Back to the lobby, `KINDS` in
-  `shared.js`; not props either: story `all`, which the design room's build skips)), from `lowpoly.js`, loaded once through `HOST.lowpoly()` the first time an icon wants one. Its parts are merged into
+  `shared.js`; not props either: story `all`, which the design room's build skips)), from the file that holds it (since
+  v190 a story's own package's `minis.js`, the shell's four from `lowpoly.js`: `tools/packages/SPEC.md`, "Miniatures"),
+  loaded once through `HOST.lowpoly(name)` the first time an icon wants one (again 30 s after a failure); a station of a
+  story not on this device tries `packages/<key>/minis.js` and takes the miniature marked `icon` there, in the stand-in's grey. Its parts are merged into
   one mesh (one draw call; its see-through parts, glass and haze, in a second, drawn after without writing depth),
   centred and sized as the first hand-made models were (its box in a ball of 0.6 units, its longest side at most 0.9:
   a globe about 0.2 m across, `ICON.size` 0.3 m a unit), with a soft additive glow behind it in the story's colour
@@ -924,11 +927,11 @@ The plan is `docs/shared-space-plan.md`.
   only"). A child of its ring's group, so it eases with the station (`SHOWN`) and grows with it while carried; pointable
   through an unseen ball round it (`ICON.ball`), as its ring is. Built once per story, the
   first time a station of it shows, at most one a frame (a room's first view would build every one at once), and
-  kept; until then, while `lowpoly.js` loads (or if it cannot), and for a key whose entry names no miniature, a glowing
+  kept; until then, while its file loads (or if it cannot), and for a key whose entry names no miniature, a glowing
   dodecahedron with a ring in its colour stands there: a seventeenth story needs only its `icon`. 600 to 1,200
   triangles each. `tools/icons.html` (served next to the app) renders them all, every story's, then the design
   room's and the shell's two circles' (`HOST.collab.kinds()`, keys `all` and `lobby`), in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
-  from the app in a hidden frame through `HOST.lowpoly()` and `HOST.collab.icon(key)` (its `model` says which
+  from the app in a hidden frame through `HOST.lowpoly('*')` and `HOST.collab.icon(key)` (its `model` says which
   miniature, '' the fallback). How they read from across a real room is untested on a headset.
 - The design room in a room: not one of the stories, so never part of
   Arrange all (it neither places nor moves nor removes a station of it), but a station like any other once placed: the

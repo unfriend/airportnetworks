@@ -579,8 +579,8 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
 - Explore: Scenes (the six, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
   Diseases (88 terms, CDK5's own first) and About. Shared state `{ v, tab, scene, ctl, prot, term, path }` (never the
   search text, the camera or standing inside). Links: `src/README.md`; the smoke test's `cdk5` step checks five of them.
-- Miniatures `cdk5.net` (its station icon, `icon` in `story.json`) and `cdk5.core` (`tools/lowpoly/models-b.js`), both
-  props of the design room (`tools/design/props.json`).
+- Miniatures `cdk5.net` (its station icon, `icon` in `story.json`) and `cdk5.core` (`packages/cdk5/src/minis.js`, kit
+  b), both props of the design room (their cards from `packages/cdk5/src/props.json`).
 - British spelling, English only. The open questions are C1 to C7 in `docs/questions-for-authors.md`; its permission row
   in `docs/data-and-permissions.md` is marked TO FILL.
 
@@ -866,11 +866,14 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
 ## The design room (`stories/design.js`) is built the same way
 
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as
-for the tour): the shared kit (`tools/engine/kit.js`), the props' cards (`DESIGN_CARDS`, made at build time from `tools/design/props.json`,
-only the fields a card shows, and the miniatures' names in `tools/lowpoly/`), one set (`sets/table.js`) and engine parts
+for the tour): the shared kit (`tools/engine/kit.js`), the shell's own props' cards (`DESIGN_CARDS`, made at build time
+from `tools/design/props.json` and `tools/lowpoly/shell.js`: none yet), one set (`sets/table.js`) and engine parts
 adapted from the flock's (the shared-room, headset-setting and subtitle lines copied unchanged). `tools/design/SPEC.md`
-is the contract. Rebuild it after changing `props.json` or the miniatures' names, and `lowpoly.js`
-(`node tools/lowpoly/build.mjs`) after changing a miniature.
+is the contract. Since v190 the stories' miniatures and their cards are the packages' own (`packages/<key>/minis.js`,
+from `src/minis.js` and `src/props.json` by `node tools/lowpoly/build.mjs`; `tools/packages/SPEC.md`, "Miniatures"): the
+room loads every listed package's file before it lays out the table (`HOST.lowpoly('*')`, at most 8 s, `takeCards`), the
+packages in the table's order before v190 (`TABLE_ORDER`), any other after them, so a new package's miniatures stand on
+the table without a rebuild here.
 
 - **Not one of the stories** (a table with the low-poly versions of all props): its entry is in `STORY_EXTRA`, so it is on no Stories screen and not counted;
   `#design` or `HOST.go('design')` opens it, and `tools/release.mjs` lists it in `version.json` (live updates swap it).
@@ -878,7 +881,7 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   for a new wearer or Intro, and its end never starts Repeat.
 - **The table**, life size like the flock's land (1 unit is 1 m, the floor 1.6 m under your eyes in a headset): round,
   2.3 m across, its top at 0.86 m and its middle 1.55 m in front of you; a plate per story round the rim in the story's
-  colour with a place card (kicker and title), its miniatures (12 cm, from `lowpoly.js`, built a few per frame so the
+  colour with a place card (kicker and title), its miniatures (12 cm, from its package's `minis.js`, built a few per frame so the
   table fills in without a stall) on rings from the rim in; in the middle the stage, where the picked prop stands 40 cm
   tall and turns. Lit as the props are (sky light, a light over your shoulder, a cool rim light), dark navy.
 - **Few draws**: each miniature is merged as it is built into at most two meshes (`mergeMini` in `sets/table.js`: its
@@ -920,8 +923,8 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   and `packages/robots/main.js` from `packages/robots/src/` (`node packages/robots/src/build.mjs`; a story package
   since v185).
   `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
-  (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
-  `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
+  (`node tools/design/build.mjs`), its models and cards from the packages' `minis.js`, built from their `src/minis.js`
+  and `src/props.json` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
   `packages/endo/main.js` likewise from `packages/endo/src/` (`node packages/endo/src/build.mjs`; data
   from the authors' files via `packages/endo/src/data/gen_data.py`, which are not in the
   repository); it includes `packages/nmd/src/sets/motor.js`, so rebuild it after changing that.

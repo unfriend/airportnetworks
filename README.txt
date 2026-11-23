@@ -989,8 +989,9 @@ writes packages/flock/main.js), packages/robots/src/ (sources of the robot gang,
 a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), packages/tutorial/src/ (sources of the tutorial; node
 packages/tutorial/src/build.mjs writes packages/tutorial/main.js, node packages/tutorial/src/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
-writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
-lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a
+writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures' kits; node tools/lowpoly/build.mjs writes
+lowpoly.js, the shell's own miniatures, and each package's minis.js from its src/minis.js: the miniatures the design
+room and the stations' icons use), tools/voice/ (a
 synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), tools/release.mjs (writes version.json), tools/live.mjs
 (headless test of live updates), tools/icons.html (the stations' icons side by side),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt), LICENSE and NOTICE.md (the licences).

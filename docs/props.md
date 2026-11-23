@@ -1,8 +1,8 @@
 # Props: the catalogue of 3D sets
 
-Every 3D scene the stories are made from is a **set** (a "prop"): a self-contained group of meshes that the story engine fades in and out, flies the camera round, and drives with numbers called **params**. This page lists all of them, for the planned story design room and for a player that plays stories written as data. The machine-readable twin is `tools/design/props.json` (same facts, one object per set). Where a manifest and the code disagree, the code is right: the disagreements are listed at the end.
+Every 3D scene the stories are made from is a **set** (a "prop"): a self-contained group of meshes that the story engine fades in and out, flies the camera round, and drives with numbers called **params**. This page lists all of them, for the planned story design room and for a player that plays stories written as data. The machine-readable twin is each story package's `src/props.json` (same facts, one object per set; until v190 all in `tools/design/props.json`, which now keeps only the shell's own part and the notes): `tools/lowpoly/build.mjs` makes the design room's cards from them. Where a manifest and the code disagree, the code is right: the disagreements are listed at the end.
 
-Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<story>/sets/<name>.js`), the set contract `packages/lbi/src/SPEC.md`, and the stories' engines for which params are steps. The params, defaults, camera views, controls, anchors and labels below were read by building every set in Node (three.js runs there; nothing is drawn) and dumping what its returned object holds.
+Sources: each set's manifest (`packages/<story>/src/sets/<name>.md`) and code (`packages/<story>/src/sets/<name>.js`), the set contract `packages/lbi/src/SPEC.md`, and the stories' engines for which params are steps. The params, defaults, camera views, controls, anchors and labels below were read by building every set in Node (three.js runs there; nothing is drawn) and dumping what its returned object holds.
 
 ## How to read an entry
 
@@ -57,6 +57,8 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 | `soil/soil` | soil | A cut-away block of soil with a wheat plant (ears, leaves, fibrous roots and root hairs): fertiliser falls and dissolves into amber ammonium, flows of nitrogen climb the… | block 1.2 x 0.8 x 0.7; the plant to 0.83 above it | 15 | 8 | illustrative |
 | `soil/field` | soil | The trial's 24 plots in four blocks (two wheat lines, three regimes) under netting, the wheat growing over five dates with its leaves by each plot's measured… | field ~1.8 x 1.2 (2.2 wide with the bench) | 20 | 8 | mixed |
 | `soil/net` | soil | The soil's crowd of microbes as a deep cloud (20,000 kinds by phylum: the common ones in its core, the rare ones in a faint shell), the nitrifiers flaring in their… | cloud radius ~0.7; network radius ~0.6 | 12 | 7 | real |
+| `cdk5/net` | cdk5 | The human interactome's 16,376 proteins as glowing points flowing between the authors' six arrangements: the map of GO processes on a sphere (its knots of shared… | sphere radius ~1.2; landscape bulk radius ~0.3 | 22 | 8 | real |
+| `cdk5/core` | cdk5 | The close-up at the map's centre: each scene's centre proteins as lit balls with their names (CDK5 larger, green turning red), their links as glowing tubes, pulses… | about 0.85 across | 6 | 2 | real |
 | `pass/fish` | pass | A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light… | life size; fish 0.27 m long | 8 | 5 | none |
 | `pass/globe` | pass | The airports story's globe exactly as it is (3,214 airports, 18,858 routes), driven from params, with a seeded S/E/I/R outbreak on its real routes: pick a start… | radius 1 | 8 | 6 | real |
 | `pass/cell` | pass | The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or… | radius 1 | 21 | 6 | illustrative |
@@ -1792,6 +1794,84 @@ Own labels (35): "About 100,000 kinds · of microbe in this soil" at `cloud`; "3
 
 API (`set.api`): `n`, `nodes`, `centre`, `pick`, `pos`, `info`, `kindText`, `module`, `nodeOf`, `cloudOfNode`, `members`, `follows`, `nodesAt`, `guildTop`.
 
+### `cdk5/net`
+
+The human interactome's 16,376 proteins as glowing points flowing between the authors' six arrangements: the map of GO processes on a sphere (its knots of shared processes tagged), CDK5 with its activators, NTRK2 signalling, calpain, the Alzheimer's pathway, and the disease landscape the sphere opens into; each scene's links, CDK5's halo turning from green to red, its 205 partners' lines, its cousins, a pathway or a disease term lit, its 30 nearest in the landscape, and a veil that clears the view to the map's centre.
+
+- **File:** `packages/cdk5/src/sets/net.js`; manifest `packages/cdk5/src/sets/net.md`.
+- **Belongs to:** the CDK5 story; reuses soil/net (adapted, not reused).
+- **Frame:** The map of processes a sphere of radius about 1 round the origin (proteins without a process on an outer shell at 1.2); each scene's centre proteins within 0.42 of the origin; the landscape's proteins with a disease round about (0, 0.16, 0.34), the rest on a sphere of radius 1.2 round them.
+- **Size:** sphere radius ~1.2; landscape bulk radius ~0.3. Shown together with: `cdk5/core` (same frame).
+- **Data (real):** reads CDK5_DATA, CDATA. The human interactome of the Menche lab's CDK5 VR project (CDK5_data): every layout, colour and link the authors', decoded from their textures; never laid out again in the app.
+- **Cost and notes:** Every place, colour and link is the authors' (the CDK5_analytics VR project, through CDATA); the tags' numbers come from CDATA.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `net_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `net_scene` | 0..5 | 0 | yes | 0..5: the authors' scene (0 map of processes, 1 activators, 2 NTRK2, 3 calpain, 4 Alzheimer's, 5 disease landscape); eased between integers |
+| `net_grow` | 0..1 | 1 | yes | the map grows from the centre (each protein by its radius and a seeded share), the links after (from 0.7); default 1 |
+| `net_shell` | 0..1 | 1 | yes | the outer shell (proteins without a known process) on the sphere: 1 shown, 0 faint (18 %); default 1 |
+| `net_links` | 0..1 | 1 | yes | the scene's links on or off; default 1 |
+| `net_cdk5` | 0..1 | 0 | yes | CDK5 findable: its point in its state's colour, a halo (pulsing slowly), a ring facing the eye, its tag |
+| `net_hyper` | 0..1 | 0 | yes | CDK5's state colour: green CLOOK.C.cdk5 → red CLOOK.C.hyper (pulse faster); its tag gains "hyperactive" past 0.5 |
+| `net_partners` | 0..1 | 0 | yes | lines shoot from CDK5 to its 205 partners (each at its own moment, pale green: C.partner mixed 45 % with CDK5's state colour), the partners brighten; tag "205 partners" |
+| `net_pick` | step | -1 | **no** | step: -1, or a protein index: its ring (cyan), halo, tag "SYMBOL · n partners", its partners' lines in C.pick (alpha by degree) and the partners in C.partner; the rest steps back a little |
+| `net_family` | 0..1 | 0 | yes | the CDK family lights (pale lime halos); tags: "Its cousins · kinases of cell division" above the crowd within 5° of CDK5 and "CDK2, 3, 4, 6, 7, 8, 9 · within 5° of it" below it, "CDK1 · 73° away", and the other cousins' names (minor, only while on the side facing the eye) |
+| `net_homes` | 0..1 | 0 | yes | p35 and p39 light where they are, with great-circle arcs from CDK5 drawn out over the sphere; tags "p35 · 99 degrees away", "p39 · 172 degrees away" (", round the back" and moved onto its arc when the protein is on the far side from the eye) |
+| `net_path` | step | -1 | **no** | step: -1, 0 Signalling by NTRK2 (cyan), 1 the Alzheimer's pathway (orange): its members brighten wherever they are, with small halos |
+| `net_term` | step | -1 | **no** | step: -1, or an index into CDATA.terms |
+| `net_termA` | 0..1 | 0 | yes | the term's proteins light magenta (C.term), the rest steps back to half; tag "name · n proteins" at its member nearest the middle |
+| `net_near` | 0..1 | 0 | yes | CDK5's 30 nearest in the landscape light (amber halos); tag "27 of its 30 nearest · share its brain-development terms" (nearTop[0].k) above them, and "YWHAE, ACTB, TUBA1A · among them" (the three best linked) below |
+| `net_veil` | 0..1 | 0 | yes | the points between the eye and the centre fade (above) |
+| `net_core` | 0..1 | 0 | yes | the current scene's centre proteins' own points and their links among each other fade (the core set draws them) |
+| `net_dim` | 0..1 | 0 | yes | everything not highlighted dims (to 12 %); links to 15 % |
+| `net_hub` | 0..1 | 0 | yes | APP lights; tag "APP · 2,123 partners" |
+| `net_shells` | 0..1 | 0 | yes | tags "13,003 with a known process" (inner shell) and "3,373 without" (outer shell) |
+| `net_landTags` | 0..1 | 0 | yes | tags "Proteins with a disease · 6,538" (the bulk's top) and "None known · pushed to the walls" |
+| `net_clouds` | 0..1 | 0 | yes | the map of processes' knots (CDATA.clouds, 14): each knot's proteins brighter and a little larger in the scene's own colours (no new hue), a soft glow at its centre in their mean colour, and a tag at its centre: a short name (a small map in the set for the long GO names, e.g. "Sugar import", "Glutamate synapses"; else the name, cut at 30 characters) and " · 7 of 15 here" (the GO name in explore, not on the tag: it ran off narrow screens). Only knots facing the eye are tagged, at most six, the most squarely facing first, none within 24° of one shown (tags run to the right). Scene 0 only: they fade as net_scene leaves 0 (gone by 0.35) |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [-23.34, 14, 4.4, 0, 0, 0] | the whole map from the front, a little above |
+| `side` | [63.66, 8, 4.4, 0, 0, 0] | the map from the side |
+| `cdk5` | [-21.34, 21.738, 1.3, -0.512, 0.278, 0.841] | close to CDK5 on the sphere, its cousins round it |
+| `centre` | [-23.34, 10, 1.85, 0, 0, 0] | the centre close-up through the veil |
+| `inside` | [148.66, -15.738, 0.35, -0.175, 0.095, 0.288] | from the map's middle, looking out at CDK5's side |
+| `land` | [-23.34, 14, 4.6, -0.006, 0.162, 0.338] | the whole disease landscape |
+| `landCore` | [-23.34, 16, 1.9, -0.006, 0.162, 0.338] | the landscape's bulk |
+| `landCdk5` | [161.043, 8, 0.55, 0.077, 0.085, 0.082] | close to CDK5 in the landscape, its 30 nearest round it |
+
+Explore controls: **Processes** (`clouds`: `shown` Shown, `hidden` Hidden); **Links** (`links`: `on` On, `off` Off); **Outer shell** (`shell`: `shown` Shown, `faint` Faint).
+
+Anchors (55): `centre`, `top`, `cdk5`, `p35`, `p39`, `capn1`, `app`, `near`, `nearTag`, `nearNames`, `pick`, `term`, `partners`, `famNear`, `famList`, `p35tag`, `p39tag`, `clouds`, `cloud`, `shellIn`, `shellOut`, `landDis`, `landWall`, `fam_CDK1`, `fam_CDK2`, `fam_CDK8`, `fam_CDK19`, `fam_CDK15`, `fam_CDK3`, `fam_CDK7`, and 25 more.
+
+### `cdk5/core`
+
+The close-up at the map's centre: each scene's centre proteins as lit balls with their names (CDK5 larger, green turning red), their links as glowing tubes, pulses running along NTRK2's and the Alzheimer's pathway's links, and the CDK5 - calpain link the authors drew flashing as p35 is cut.
+
+- **File:** `packages/cdk5/src/sets/core.js`; manifest `packages/cdk5/src/sets/core.md`.
+- **Belongs to:** the CDK5 story.
+- **Frame:** In the net set's frame: the centre proteins within radius 0.42 of the origin.
+- **Size:** about 0.85 across. Shown together with: `cdk5/net` (same frame).
+- **Data (real):** reads CDK5_DATA, CDATA. The human interactome of the Menche lab's CDK5 VR project (CDK5_data): every layout, colour and link the authors', decoded from their textures; never laid out again in the app.
+- **Cost and notes:** Every place, colour and link is the authors' (the CDK5_analytics VR project, through CDATA); the tags' numbers come from CDATA.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `core_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `core_scene` | 0..5, eased | 1 | yes | the scene; the engine keys it with net_scene. Between two scenes the balls move from one place to the next and a protein leaving or joining the centre fades with the move; scenes 0 and 5 have no centre |
+| `core_names` | 0..1 | 1 | yes | 1 every name, 0.5 the key ones only (BDNF, NTRK2, p35, p39, calpain, APP, LMNB1, FOXO3, GOLGA2, PRDX1, with short roles) |
+| `core_hyper` | 0..1 | 0 | yes | CDK5's ball green to red, its halo brighter and pulsing faster (two oscillators mixed, a function of t) |
+| `core_cut` | 0..1 | 0 | yes | the CDK5 - calpain link the authors drew comes in and flashes once (a function of the param alone); tags "p35 cut into p25 · CDK5 stays on" and "Drawn by the authors · calpain acts on p35" while the calpain scene shows |
+| `core_flow` | 0..1 | 0 | yes | pulses run along the pathway's links level by level (breadth-first): NTRK2's from BDNF and NTF4 in cyan (scene 2), the Alzheimer's from CDK5 in orange (scene 4); each protein brightens as the wave reaches it; a function of t |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [20, 10, 1.9, 0, 0, 0] | the centre close-up, about 0.9 across |
+| `low` | [32, -16, 1.9, 0, -0.04, 0] | the close-up from a little below |
+
+Anchors (9): `centre`, `cdk5`, `capn1`, `bdnf`, `ntrk2`, `app`, `top`, `cutTag`, `cutMid`.
+
 ### `pass/fish`
 
 A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light shafts; a shark you steer or that comes now and then; the school can be pulled apart by watching fewer neighbours.
@@ -2073,4 +2153,4 @@ Wording differences only (not counted): control labels in the code against names
 
 ## Counts
 
-46 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, soil's three, pass's three, the flock, the robots and the tutorial's guide), 465 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 311 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.
+48 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, soil's three, CDK5's two, pass's three, the flock, the robots and the tutorial's guide), 493 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 321 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.
