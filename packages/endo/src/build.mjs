@@ -12,13 +12,13 @@ const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here
 const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/endo', f) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the data first, then the sets in the order the story uses them (motor: the muscle story's, for the dive in)
-const SET_FILES = ['sets/data', '../nmd/sets/motor', 'sets/syn', 'sets/net', 'sets/tree'];
+const SET_FILES = ['sets/data', '../../packages/nmd/src/sets/motor', 'sets/syn', 'sets/net', 'sets/tree'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../engine/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // the motor set reads only the muscle story's disease groups (name, short name, colour, site): pass those, not its data
-const nmd = new Function(read('../nmd/sets/data.js') + '\nreturn NMD_DATA;')();
+const nmd = new Function(read('../../packages/nmd/src/sets/data.js') + '\nreturn NMD_DATA;')();
 const shim = '// the muscle story\'s disease groups, for its motor set\nconst NMD_DATA = ' +
   JSON.stringify({ groups: nmd.groups.map(g => ({ name: g.name, short: g.short, col: g.col, site: g.site })) }) + ';\n\n';
 const sets = shim + SET_FILES.map(f => read(`${f}.js`).trimEnd() + '\n\n').join('');

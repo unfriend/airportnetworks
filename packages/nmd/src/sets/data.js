@@ -1,4 +1,4 @@
-// Data of the muscle story, made by tools/nmd/data/gen_data.mjs from ikerdata/ (do not edit by hand).
+// Data of the muscle story, made by packages/nmd/src/data/gen_data.mjs from ikerdata/ (do not edit by hand).
 // groups: name, short name, colour, where in the body (neuron, nerve, junction, muscle, heart), seed and added gene
 //   counts, z (layer z-score per protein layer, in the order of ppi), endo (endotypes: number c, size n, GO-based name)
 // layers: the tower from top to bottom: key, name, category (pheno, path, drug, ess, coex, ppi), data ('all', 'overlap' or '')

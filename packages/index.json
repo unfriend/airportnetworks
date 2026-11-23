@@ -21,6 +21,34 @@
   ],
   "packages": [
     {
+      "key": "nmd",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Muscle and heart",
+      "kick": "Rare muscle diseases",
+      "col": "#ff7a59",
+      "desc": "Rare diseases of nerves and muscles in a 71-layer network: a random walk, disease modules, endotypes, and what muscle and heart share.",
+      "len": "Story 8:56 · 3D tower",
+      "page": "Rare muscle diseases, seen through 71 layers",
+      "brand": "Muscle and heart",
+      "sub": "rare diseases in 71 layers",
+      "aria": "Interactive 3D multiplex network of rare neuromuscular diseases",
+      "thing": "tower",
+      "loading": "Stacking 71 layers",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "nmd.tower",
+      "needs": 185,
+      "fp": "b23bb211736f4e2f",
+      "bytes": 5186470,
+      "files": {
+        "audio/narration.mp3": "2f06d429ae2161eb",
+        "main.js": "c63ebdc1f33230b0",
+        "story.json": "c6463484eb7774f3"
+      }
+    },
+    {
       "key": "endo",
       "api": 1,
       "version": "1.0.0",

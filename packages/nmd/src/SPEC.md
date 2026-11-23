@@ -1,7 +1,7 @@
 # The muscle story: 3D sets spec
 
-We are adding a fifth story to the web app in `/home/user/airportnetworks`: `stories/nmd.js`, built from
-`tools/nmd/` like the tour `stories/lbi.js` is built from `tools/lbi/`. It turns a conference talk (ISMB 2026,
+We are adding a fifth story to the web app in `/home/user/airportnetworks`: `packages/nmd/main.js`, built from
+`packages/nmd/src/` like the tour `stories/lbi.js` is built from `tools/lbi/`. It turns a conference talk (ISMB 2026,
 "Deep integrative multiplex network-based analysis of rare neuromuscular disorders reveals overlapping multiscale
 endotypes involved in cardiac and skeletal muscle myopathies", Iker Núñez-Carpintero and Philipp Friedrich, with
 Julia Guthrie and Jörg Menche, LBI Network Medicine, Vienna) into a narrated, about seven-minute 3D story with an
@@ -11,10 +11,10 @@ explore mode, on desktop, phones and in VR/AR headsets (Meta Quest Browser). Be 
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`,
 exports, labels, controls, camera views, performance budget, harness, palette), with these differences:
 
-- Your set files live in `tools/nmd/sets/`, the harness is `tools/nmd/harness.html` (same query syntax) and the
-  screenshot tool is `tools/nmd/shot.mjs` (run it from `tools/nmd`; shots go to `tools/nmd/shots/`).
-- The real data of the analysis is the global constant `NMD_DATA` (file `tools/nmd/sets/data.js`, made by
-  `tools/nmd/data/gen_data.mjs`; never edit it by hand). It is loaded before the sets, in the harness and in the
+- Your set files live in `packages/nmd/src/sets/`, the harness is `packages/nmd/src/harness.html` (same query syntax) and the
+  screenshot tool is `packages/nmd/src/shot.mjs` (run it from `packages/nmd/src`; shots go to `packages/nmd/src/shots/`).
+- The real data of the analysis is the global constant `NMD_DATA` (file `packages/nmd/src/sets/data.js`, made by
+  `packages/nmd/src/data/gen_data.mjs`; never edit it by hand). It is loaded before the sets, in the harness and in the
   story. Its header comment documents every field. Decode it once per set (base64 to typed arrays).
 - No patient data and no variants appear anywhere, and nothing about zebrafish.
 - A set whose geometry is too slow to build at load may build it in slices: return `idle(dt, ms)` (called every frame

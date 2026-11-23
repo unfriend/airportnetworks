@@ -1,5 +1,5 @@
-// Turns the authors' analysis files into the data block of the muscle story (tools/nmd/sets/data.js).
-// usage (from the repository root): node tools/nmd/data/gen_data.mjs <folder with the files below>
+// Turns the authors' analysis files into the data block of the muscle story (packages/nmd/src/sets/data.js).
+// usage (from the repository root): node packages/nmd/src/data/gen_data.mjs <folder with the files below>
 // (the files are not in the repository since 3 November 2026; they are in its history up to then, as ikerdata/, and a
 // copy kept at ikerdata/ in the repository's folder is read when no folder is given: .gitignore keeps it out)
 // Inputs (Iker Núñez-Carpintero and Philipp Friedrich, LBI Network Medicine; no patient data):
@@ -15,7 +15,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
+const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../../..');
 const DIR = path.resolve(process.argv[2] || path.join(root, 'ikerdata'));
 if (!fs.existsSync(path.join(DIR, 'iker_nodes.tsv'))) { console.error(`No authors' files in ${DIR}: give the folder that holds iker_nodes.tsv, iker_edges.tsv and the group files.`); process.exit(1); }
 const tsv = f => {
@@ -317,7 +317,7 @@ const DATA = {
   overlap: { groups: [5, 11], genes: [...new Set(ov.flatMap(r => [r.V1, r.V2]))].filter(s => geneIdx.has(s)).map(s => geneIdx.get(s)) },
   walk: { restart: RESTART, switch: SWITCH, zMin: 1.645, runs: RUNS },
 };
-const js = `// Data of the muscle story, made by tools/nmd/data/gen_data.mjs from ikerdata/ (do not edit by hand).
+const js = `// Data of the muscle story, made by packages/nmd/src/data/gen_data.mjs from ikerdata/ (do not edit by hand).
 // groups: name, short name, colour, where in the body (neuron, nerve, junction, muscle, heart), seed and added gene
 //   counts, z (layer z-score per protein layer, in the order of ppi), endo (endotypes: number c, size n, GO-based name)
 // layers: the tower from top to bottom: key, name, category (pheno, path, drug, ess, coex, ppi), data ('all', 'overlap' or '')
@@ -328,6 +328,6 @@ const js = `// Data of the muscle story, made by tools/nmd/data/gen_data.mjs fro
 // pos: base64 Int16 x, y per gene in the unit disc (x 32000); heat: per group, base64 bytes per gene (walk visits)
 const NMD_DATA = ${JSON.stringify(DATA)};
 `;
-fs.writeFileSync(path.join(root, 'tools/nmd/sets/data.js'), js);
-console.log(`wrote tools/nmd/sets/data.js (${(js.length / 1024).toFixed(0)} KB), ${termTable.length} terms`);
+fs.writeFileSync(path.join(root, 'packages/nmd/src/sets/data.js'), js);
+console.log(`wrote packages/nmd/src/sets/data.js (${(js.length / 1024).toFixed(0)} KB), ${termTable.length} terms`);
 for (const [g, G] of DATA.groups.entries()) console.log(G.short, 'seeds', G.seeds, 'added', G.added, 'endotypes', G.endo.length, 'best z', Math.max(...G.z).toFixed(1), 'informative', G.z.filter(z => z >= 1.645).length);

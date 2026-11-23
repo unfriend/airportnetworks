@@ -2,7 +2,7 @@
 // 71 layers, a random walk, disease modules and endotypes, and what muscle and heart share. After the
 // ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/nmd/build.mjs from the tour's kit and the data, sets and engine parts in tools/nmd: edit those, not this file.
+// Built by packages/nmd/src/build.mjs from the tour's kit and the data, sets and engine parts in packages/nmd/src: edit those, not this file.
 HOST.register('nmd', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
@@ -262,9 +262,9 @@ const { smooth, clamp } = K;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// NMD_DATA (the analysis data, tools/nmd/sets/data.js) comes first.
+// NMD_DATA (the analysis data, packages/nmd/src/sets/data.js) comes first.
 const SETS = {};
-// Data of the muscle story, made by tools/nmd/data/gen_data.mjs from ikerdata/ (do not edit by hand).
+// Data of the muscle story, made by packages/nmd/src/data/gen_data.mjs from ikerdata/ (do not edit by hand).
 // groups: name, short name, colour, where in the body (neuron, nerve, junction, muscle, heart), seed and added gene
 //   counts, z (layer z-score per protein layer, in the order of ppi), endo (endotypes: number c, size n, GO-based name)
 // layers: the tower from top to bottom: key, name, category (pheno, path, drug, ess, coex, ppi), data ('all', 'overlap' or '')
@@ -3253,7 +3253,7 @@ function updateLight(xr) {
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-nmd.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// (packages/nmd/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
 // nmd writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see
@@ -6184,7 +6184,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-nmd.mp3';
+const narrationFile = () => HOST.pkgUrl('nmd', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

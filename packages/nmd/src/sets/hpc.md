@@ -74,5 +74,5 @@ SPEC.md's shared facts. No brand or vendor names for the hardware.
 
 ## Sources
 
-Slides 9-10 of the ISMB 2026 talk (Núñez-Carpintero, Friedrich, Guthrie, Menche); numbers from `tools/nmd/SPEC.md`
+Slides 9-10 of the ISMB 2026 talk (Núñez-Carpintero, Friedrich, Guthrie, Menche); numbers from `packages/nmd/src/SPEC.md`
 "Shared facts". The hall is generic (no MareNostrum 5 floor plan).

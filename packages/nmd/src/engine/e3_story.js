@@ -3,7 +3,7 @@
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-nmd.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// (packages/nmd/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
 // nmd writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see

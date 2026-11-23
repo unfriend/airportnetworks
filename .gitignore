@@ -3,7 +3,7 @@ node_modules
 tools/lbi/shots/
 tools/lbi/data/*.json
 tools/lbi/data/airports_*
-tools/nmd/shots/
+packages/nmd/src/shots/
 packages/endo/src/shots/
 packages/flock/src/shots/
 packages/robots/src/shots/
@@ -18,7 +18,7 @@ packages/qubits/src/shots/
 # holds a patient's scan); see docs/data-and-permissions.md
 *.graphml
 # the muscle story's authors' files (removed from the repository on 3 November 2026: give their folder to
-# tools/nmd/data/gen_data.mjs, or keep a copy here, never committed)
+# packages/nmd/src/data/gen_data.mjs, or keep a copy here, never committed)
 ikerdata/
 *.h5ad
 *.pkl

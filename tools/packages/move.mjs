@@ -87,6 +87,9 @@ for (const f of walk(S).filter(f => /\.(js|mjs|html|md|py|json)$/.test(f) && !f.
     if (f.endsWith('.html')) n = n.replace(/(src|href)="\.\.\/\.\.\//g, '$1="../../../').replace(/(src|href)="\.\.\/(?!\.)/g, '$1="../../../tools/');
     // (a tool's root, two folders up from tools/<key>/, is three up from packages/<key>/src/)
     if (/\.mjs$/.test(f)) n = n.replace(/(from|require\()\s*'\.\.\/(?!\.)/g, "$1 '../../../tools/").replace(/path\.join\(here, '\.\.\/\.\.'\)/g, "path.join(here, '../../..')");
+    // (and from a subfolder, tools/<key>/data/: its root three up becomes four, one more per level)
+    const depth = f.slice(S.length + 1).split('/').length - 1;
+    if (/\.mjs$/.test(f) && depth > 0) { const up = n => Array(n).fill('..').join('/'); n = n.split(`path.join(here, '${up(depth + 2)}')`).join(`path.join(here, '${up(depth + 3)}')`); }
     return n;
   });
 }

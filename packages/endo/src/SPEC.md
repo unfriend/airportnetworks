@@ -1,7 +1,7 @@
 # The endotype story: 3D sets and engine spec
 
 We are adding an eighth story to the web app in `/home/user/airportnetworks`: `packages/endo/main.js`, built from
-`packages/endo/src/` like the muscle story `stories/nmd.js` is built from `tools/nmd/`. It turns a poster (ISMB 2026,
+`packages/endo/src/` like the muscle story `packages/nmd/main.js` is built from `packages/nmd/src/`. It turns a poster (ISMB 2026,
 "Introducing EndotypY: a Python package for network-based disease endotyping", Chloé Bûcheron, Iker
 Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie, Jörg Menche; LBI Network Medicine, University of
 Vienna) and the package itself (github.com/menchelab/EndotypY, MIT licence) into a narrated, about five-minute 3D
@@ -19,8 +19,8 @@ labels, controls, camera views, performance budget, harness, palette), with thes
 - The data is the global constant `ENDO_DATA` (`packages/endo/src/sets/data.js`, made by `packages/endo/src/data/gen_data.py`
   from the authors' files, which are not in the repository; never edit it by hand). Its header comment documents
   every field. Decode it once per set (base64 to typed arrays, little-endian).
-- The story also uses the muscle story's `motor` set unchanged (`tools/nmd/sets/motor.js`, manifest
-  `tools/nmd/sets/motor.md`) for the dive from the motor unit into one junction. Do not edit it.
+- The story also uses the muscle story's `motor` set unchanged (`packages/nmd/src/sets/motor.js`, manifest
+  `packages/nmd/src/sets/motor.md`) for the dive from the motor unit into one junction. Do not edit it.
 - No patient data and no variants appear anywhere, and nothing about zebrafish.
 - Like the muscle story's tower, the **net** set is a live-ish view of real data, so it may keep state for
   walkers (particles) between frames, but positions, colours and highlights must depend only on the params.

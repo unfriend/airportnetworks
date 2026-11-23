@@ -1,13 +1,13 @@
-# tools/nmd: the sources of the muscle story (`stories/nmd.js`)
+# packages/nmd/src: the sources of the muscle story (`packages/nmd/main.js`)
 
 "Hidden connections in rare diseases of nerves and muscles", after the ISMB 2026 talk by Iker Núñez-Carpintero
 and Philipp Friedrich (with Julia Guthrie and Jörg Menche, LBI Network Medicine), on their data (kept out of the repository since 3 November 2026; `ikerdata/` in its history).
-Built like the tour (`tools/lbi/`), with the shared kit (`tools/engine/kit.js`) and set contract. Never edit `stories/nmd.js` by hand.
+Built like the tour (`tools/lbi/`), with the shared kit (`tools/engine/kit.js`) and set contract. Never edit `packages/nmd/main.js` by hand.
 
 ```sh
-node tools/nmd/data/gen_data.mjs <folder>   # the authors' files -> sets/data.js (about a minute; only after the data changes)
-node tools/nmd/build.mjs           # writes stories/nmd.js
-node tools/nmd/build.mjs --check   # exits 1 if stories/nmd.js is out of date
+node packages/nmd/src/data/gen_data.mjs <folder>   # the authors' files -> sets/data.js (about a minute; only after the data changes)
+node packages/nmd/src/build.mjs           # writes packages/nmd/main.js
+node packages/nmd/src/build.mjs --check   # exits 1 if packages/nmd/main.js is out of date
 ```
 
 | Path | What it is |
