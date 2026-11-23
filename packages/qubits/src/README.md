@@ -1,15 +1,15 @@
-# tools/qubits: the sources of the qubits story (`stories/qubits.js`)
+# tools/qubits: the sources of the qubits story (`packages/qubits/main.js`)
 
 "Three qubits: how a gene network fits on a tiny quantum computer", after Joel Hancock's brief for this visualization
 (network compression onto qubits and the Pauli decomposition; 21 Oct 2026), his figures and his notes on the runs.
 Built like the microanatomy story (`tools/micro/`), with the shared kit (`tools/engine/kit.js`) and set contract. The networks shown are
 examples, computed live (`QMATH`); the real run's numbers (`QUBITS_DATA`) appear only where the story says "in the real
-network". American spelling in this story only. Never edit `stories/qubits.js` by hand.
+network". American spelling in this story only. Never edit `packages/qubits/main.js` by hand.
 
 ```sh
-node tools/qubits/test-qmath.mjs     # checks the maths (about a second)
-node tools/qubits/build.mjs          # writes stories/qubits.js
-node tools/qubits/build.mjs --check  # exits 1 if out of date
+node packages/qubits/src/test-qmath.mjs     # checks the maths (about a second)
+node packages/qubits/src/build.mjs          # writes packages/qubits/main.js
+node packages/qubits/src/build.mjs --check  # exits 1 if out of date
 ```
 
 | Path | What it is |

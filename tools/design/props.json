@@ -11170,8 +11170,8 @@
    "story": "qubits",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/qubits/sets/pairs.js",
-   "manifest": "tools/qubits/sets/pairs.md",
+   "file": "packages/qubits/src/sets/pairs.js",
+   "manifest": "packages/qubits/src/sets/pairs.md",
    "shows": "Why pairs: a grid of all pairs of genes grows; the example network as a city map with two walkers settling into valleys; a chip with three qubits; and the map folding into eight neighborhoods placed on a ring in Gray-code order with three-digit codes.",
    "frame": "Centred on the origin, flat map seen from above; neighborhoods on a ring in Gray order.",
    "size": "not stated in the manifest (see views)",
@@ -11573,8 +11573,8 @@
    "story": "qubits",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/qubits/sets/cube.js",
-   "manifest": "tools/qubits/sets/cube.md",
+   "file": "packages/qubits/src/sets/cube.js",
+   "manifest": "packages/qubits/src/sets/cube.md",
    "shows": "The cuts and the coarse operator: the network is cut in two, four and eight and its genes fly to the corners of a cube; the coarse operator A_c lives on the cube; Pauli strings are small cubes with weights, added one by one as the error shrinks; the toolbox (so(6) or so(7)) keeps strings in the algebra bright and drops the rest.",
    "frame": "Centred on the origin; first cut left/right, second front/back, third top/bottom; 000 is top-front-left.",
    "size": "not stated in the manifest (see views)",
@@ -12327,8 +12327,8 @@
    "story": "qubits",
    "reusedBy": [],
    "reuses": [],
-   "file": "tools/qubits/sets/chart.js",
-   "manifest": "tools/qubits/sets/chart.md",
+   "file": "packages/qubits/src/sets/chart.js",
+   "manifest": "packages/qubits/src/sets/chart.md",
    "shows": "The real run's best residual by depth (our cuts against random ones, with the example network's own residuals live at 1 to 3 bits) and one Trotter step at 3 bits in so(7) as a circuit of six gates with its angles.",
    "frame": "Chart and circuit share the origin; show one at a time.",
    "size": "not stated in the manifest (see views)",
@@ -20921,15 +20921,15 @@
    "what": "OVARY_LOOK, the ovary story's shared look"
   },
   {
-   "file": "tools/qubits/sets/qmath.js",
+   "file": "packages/qubits/src/sets/qmath.js",
    "what": "QMATH, the qubits story's maths"
   },
   {
-   "file": "tools/qubits/sets/data.js",
+   "file": "packages/qubits/src/sets/data.js",
    "what": "QUBITS_DATA, the real run's numbers"
   },
   {
-   "file": "tools/qubits/sets/look.js",
+   "file": "packages/qubits/src/sets/look.js",
    "what": "QLOOK, the qubits story's lit tubes, rings, balls and halos"
   },
   {

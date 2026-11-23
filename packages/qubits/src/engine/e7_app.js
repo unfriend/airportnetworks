@@ -1,5 +1,5 @@
 //#use AUD audioInit
-const narrationFile = () => 'audio/narration-qubits.mp3';
+const narrationFile = () => HOST.pkgUrl('qubits', 'audio/narration.mp3');
 //#use audioSync audioFollow audioLabel audioToggle SLIDE slidesOn slideStop slideVoice slideStep slideTail slideSound
 //#use slideNext slideToggle slideSig slideDOM SFXQ sfxCue sfxHold sfxN _sfv sfxWhere sfxPlay sfxHidden sfxAct sfxStep
 //#use sfxPos

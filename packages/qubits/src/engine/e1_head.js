@@ -7,7 +7,7 @@
 // real run's numbers (QUBITS_DATA, on STRING) appear only where the story says "in the real network". American
 // spelling in this story only, as the brief asks.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/qubits/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
+// Built by packages/qubits/src/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
 // edit those, not this file.
 HOST.register('qubits', function (HOST) {
 'use strict';

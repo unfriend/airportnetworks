@@ -1,6 +1,6 @@
 # The qubits story: 3D sets, maths and engine spec
 
-The eleventh story of the app: `stories/qubits.js`, built from `tools/qubits/` like the microanatomy story is built from
+The eleventh story of the app: `packages/qubits/main.js`, built from `packages/qubits/src/` like the microanatomy story is built from
 `tools/micro/`. It explains, step by step, how a large gene network is compressed onto a handful of qubits and how the
 compressed network breaks down into simple building blocks (Pauli strings), after **Joel Hancock**'s brief for this
 visualization ("Prompt: visualize network compression and the Pauli decomposition", 21 Oct 2026; not in the
@@ -26,9 +26,9 @@ Decisions (the owner's and Joel's):
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences:
-- Set files live in `tools/qubits/sets/`; the harness is `tools/qubits/harness.html` (the same query syntax; `cam=` a
-  view by name or six numbers) and the screenshot tool `tools/qubits/shot.mjs` (run it from `tools/qubits`; `SHOTS=<dir>`
-  and `PORT=<port>`; shots go to `tools/qubits/shots/` by default, ignored by git).
+- Set files live in `packages/qubits/src/sets/`; the harness is `packages/qubits/src/harness.html` (the same query syntax; `cam=` a
+  view by name or six numbers) and the screenshot tool `packages/qubits/src/shot.mjs` (run it from `tools/qubits`; `SHOTS=<dir>`
+  and `PORT=<port>`; shots go to `packages/qubits/src/shots/` by default, ignored by git).
 - Three shared globals come before the sets (the build pastes them inside the story's closure in this order):
   `QMATH` (`sets/qmath.js`, the maths), `QUBITS_DATA` (`sets/data.js`, the real run's numbers, typed in) and `QLOOK`
   (`sets/look.js`, the story's lit instanced tubes, rings, balls, boxes and halos). The harness always loads them.
@@ -76,7 +76,7 @@ X₂X₁ or Z₀; any matrix on qubits is a weighted sum of them, as any signal 
 family of strings closed under commutators: operators built from it run as short circuits), residual (the share
 dropped: 0 nothing lost, 1 everything lost), exchange operator R (swaps the two walkers).
 
-## The maths: `QMATH` (`sets/qmath.js`; checked by `node tools/qubits/test-qmath.mjs`)
+## The maths: `QMATH` (`sets/qmath.js`; checked by `node packages/qubits/src/test-qmath.mjs`)
 
 Pauli strings are indices `k = (x << L) | z` (bit q of x: an X on qubit q; of z: a Z; both: Y); σ = i^|x∧z| X^x Z^z, so
 σ[b⊕x][b] = i^|x∧z| (−1)^|z∧b|. Qubit q is bit q of the cell index (q0 least significant). Names top qubit first
@@ -148,14 +148,14 @@ Performance (headless Chromium, software GL): builds `pairs` about 140 ms, `cube
 (330 to 400 ms with all four, `finish()`), `chart` about 90 ms; at most 13 draw calls, 75k triangles (the gallery's
 instanced tubes), 29k points (the grid of pairs), 11k lines (the strong-mixing network's links).
 
-## The engine (`tools/qubits/engine/`, adapted from the microanatomy story's)
+## The engine (`packages/qubits/src/engine/`, adapted from the microanatomy story's)
 
 Done in part 2: the first chapter's key is `title` (named Pairs), as the engine's shared title-arc lines expect; the
 others as below. Explore's shared state is `{ tab, scene, ctl, brick, sum, gal }` (the cube's network, cut, bits and
 algebra live in `ctl.cube`). Paced by `tools/pace.mjs` to 9:04.
 
 Rename everything: `HOST.register('qubits', ...)`, the header comment (Joel Hancock's method and figures; example
-networks), `audio/narration-qubits.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ
+networks), `packages/qubits/audio/narration.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ
 code (`dots`, `ORGAN3D`, `MICRO_DATA`, `domainColour`); `FACTS` from `QUBITS_DATA` and `QMATH`. Keep the shared-room
 hooks unchanged (see "Shared rooms" in docs/agents/shared-rooms.md), the headset code unchanged (no life-size or room mode in this story).
 Support labels whose `text` is a function, the step params above, and `finish()` (as for the micro sets).
@@ -222,8 +222,8 @@ Suggested hashes: `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=
 
 ## Testing
 
-- `node tools/qubits/test-qmath.mjs`: the maths (exact Pauli rebuilds at 1 to 4 bits, so(2L) and so(2L+1) dimensions
+- `node packages/qubits/src/test-qmath.mjs`: the maths (exact Pauli rebuilds at 1 to 4 bits, so(2L) and so(2L+1) dimensions
   at 1 to 5 bits, so(7)'s strings as in the reference figure, the planted groups found with the cube's labelling,
   balanced A_c, residual 0 at 1 bit and equal to the projection's by matrices, Trotter angles, seeded networks).
 - A set alone: `node shot.mjs <set> "<query>|..." <prefix> 640 400` from `tools/qubits` (serve the repository root).
-- `node tools/qubits/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the engine is adapted).
+- `node packages/qubits/src/build.mjs --check`; the story: `sweep.mjs`, then the smoke test (once the engine is adapted).

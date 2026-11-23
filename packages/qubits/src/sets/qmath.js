@@ -1,6 +1,6 @@
 // QMATH: the maths of the qubits story, computed live from small example networks (no real network data).
-// Plain script: in stories/qubits.js it is pasted inside the story's closure (the build drops the module line at the
-// end); in Node, require() or import it (tools/qubits/test-qmath.mjs checks it).
+// Plain script: in packages/qubits/main.js it is pasted inside the story's closure (the build drops the module line at the
+// end); in Node, require() or import it (packages/qubits/src/test-qmath.mjs checks it).
 //
 // What it does, in the order of the story:
 // - example networks: the planted hypercube block model (8 groups of genes on the corners of a cube, after the authors'

@@ -21,6 +21,34 @@
   ],
   "packages": [
     {
+      "key": "qubits",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Three qubits",
+      "kick": "Quantum network compression",
+      "col": "#7d74ff",
+      "desc": "Some diseases need two genes broken at once. To search the pairs on a quantum computer, a gene network is cut down to eight cells on three qubits, and its moves into a few building blocks.",
+      "len": "Story 8:54 · 3D cube",
+      "page": "Three qubits: how a gene network fits on a tiny quantum computer",
+      "brand": "Three qubits",
+      "sub": "a gene network on a tiny quantum computer",
+      "aria": "Interactive 3D story of how a gene network is shrunk onto three qubits and broken into building blocks a quantum computer runs",
+      "thing": "cube",
+      "loading": "Cutting the network",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "stories",
+      "icon": "qubits.cube",
+      "needs": 186,
+      "fp": "a278184b954e3858",
+      "bytes": 4625033,
+      "files": {
+        "audio/narration.mp3": "d22fa71e0e837e63",
+        "main.js": "15c5044bb665a3a1",
+        "story.json": "067698e62f9e84b5"
+      }
+    },
+    {
       "key": "robots",
       "api": 1,
       "version": "1.0.0",

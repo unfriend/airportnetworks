@@ -1,5 +1,5 @@
 // Checks the qubits story's maths (sets/qmath.js) and prints what the example networks give.
-// usage (from the repository root): node tools/qubits/test-qmath.mjs     (exits 1 on a failed check; about a second)
+// usage (from the repository root): node packages/qubits/src/test-qmath.mjs     (exits 1 on a failed check; about a second)
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const Q = require('./sets/qmath.js');

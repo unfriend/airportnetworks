@@ -7,7 +7,7 @@
 // real run's numbers (QUBITS_DATA, on STRING) appear only where the story says "in the real network". American
 // spelling in this story only, as the brief asks.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/qubits/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
+// Built by packages/qubits/src/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
 // edit those, not this file.
 HOST.register('qubits', function (HOST) {
 'use strict';
@@ -272,8 +272,8 @@ const { smooth, clamp } = K;
 // story's lit tubes, rings, balls and halos) come first, then the sets: pairs, cube, chart.
 const SETS = {};
 // QMATH: the maths of the qubits story, computed live from small example networks (no real network data).
-// Plain script: in stories/qubits.js it is pasted inside the story's closure (the build drops the module line at the
-// end); in Node, require() or import it (tools/qubits/test-qmath.mjs checks it).
+// Plain script: in packages/qubits/main.js it is pasted inside the story's closure (the build drops the module line at the
+// end); in Node, require() or import it (packages/qubits/src/test-qmath.mjs checks it).
 //
 // What it does, in the order of the story:
 // - example networks: the planted hypercube block model (8 groups of genes on the corners of a cube, after the authors'
@@ -2167,7 +2167,7 @@ function updateLight(xr) {
 // Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands on
 // the matching sentence. The story is narrated by a synthetic voice
-// (audio/narration-qubits.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
+// (packages/qubits/audio/narration.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs
 // qubits writes this table and NARRATION_ENDS from the recording it makes (each
 // stretch lasts the longer of 1.1 times its story time and its line's audio
 // plus a pause); run it again after the text changes (see
@@ -4780,7 +4780,7 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-const narrationFile = () => 'audio/narration-qubits.mp3';
+const narrationFile = () => HOST.pkgUrl('qubits', 'audio/narration.mp3');
 // the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
 // (an arrangement whose chapters are longer or shorter plays each line from its cue: arrSync)
 function audioSync() { if (AUD) { const [w, t] = slideSound(); if (ARR.R) arrSync(w, t); else AUD.sync(w, t); } }

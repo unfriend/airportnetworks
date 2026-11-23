@@ -15,7 +15,7 @@ pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs
 let k = 0;
 for (const q of (queries || '').split('|')) {
   await pg.goto('about:blank');
-  await pg.goto(`http://127.0.0.1:${PORT}/tools/qubits/harness.html?set=${set}&${q}`);
+  await pg.goto(`http://127.0.0.1:${PORT}/packages/qubits/src/harness.html?set=${set}&${q}`);
   try { await pg.waitForFunction('window.__ready === true', null, { timeout: 60000 }); } catch (e) { errs.push('timeout waiting for first frame: ' + q); }
   await pg.waitForTimeout(400);
   const st = await pg.evaluate(() => window.__stats);
