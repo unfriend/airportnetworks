@@ -270,7 +270,8 @@ try {
     // (a story still in stories/list.js: the flock's card comes from its package's story.json since v186)
     if (/title: 'Airports'/.test(read('stories/list.js'))) write('stories/list.js', read('stories/list.js').replace("title: 'Airports'", "title: 'Airports, changed'"));
     else { write('packages/airports/story.json', read('packages/airports/story.json').replace('"title": "Airports"', '"title": "Airports, changed"')); scan(); }   // (a package: its story.json, the index again)
-    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Airports, changed/.test(document.querySelector('#picker [data-story="airports"]').textContent) && window.__mark === 1, null, 8000));
+    await dev.evaluate(() => HOST.menu.open('main'));   // (the flock is an Experiment since v188: its set of cards was on show)
+    report('the list touched: read again, the card changed without a reload', await until(dev, () => /Airports, changed/.test((document.querySelector('#picker [data-story="airports"]') || {}).textContent || '') && window.__mark === 1, null, 8000));
   }
   // a station in a shared room: the swap writes nothing to the room
   {
