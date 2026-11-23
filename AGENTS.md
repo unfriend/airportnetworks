@@ -4,7 +4,7 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in sixteen narrated stories
+An installable web app that teaches network science in narrated stories
 (the airports about four minutes, the proteins and the cell map about six, the tour about ten and a half, the muscle
 story about nine, the endotype story about seven and a half, the PET story about six, the microanatomy story about eight,
 the ovary story about eight, the qubits story about nine, the mutation story about eight and a half, the tissue topology
@@ -225,7 +225,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   ignores unknown ones and never publishes.
 - A story never publishes anything itself except effects; effects are ephemeral (`e.<station>`) and their data means
   the same on every device.
-- Keep the shared hooks identical in all sixteen stories, the design room and the studio (the `collab` object, the ray
+- Keep the shared hooks identical in every story, the design room and the studio (the `collab` object, the ray
   and press lines, the grip line, `xrRoomOnly`, `xrAway`, `xrCards`, `xrAllHere`, `xrWalking`, `xrIdle`, Recenter,
   `caption`, `panels`).
 - Every write of a move by hand carries `ts` (and `h: 1` while held); every comparison of such a value leaves `ts` and

@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in sixteen stories**: an installable web app that teaches network
-science through sixteen short, animated stories. Each story takes a few minutes
+**Network stories**: an installable web app that teaches network
+science through short, animated stories. Each story takes a few minutes
 (the tour about ten and a half) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -397,7 +397,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `packages/airports/main.js`, `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/lbi/main.js`, `packages/nmd/main.js`, `packages/endo/main.js`, `packages/pet/main.js`, `packages/micro/main.js`, `packages/ovary/main.js`, `packages/qubits/main.js`, `packages/mutation/main.js`, `packages/topo/main.js`, `packages/soil/main.js`, `packages/pass/main.js`, `packages/flock/main.js`, `packages/robots/main.js` | the sixteen stories, each a story package (since v187 every one; `packages/order.json` their order, `packages/index.json` the scan's index), with their data, explore modes and headset panels; each one's narration in `packages/<key>/audio/` |
+| `packages/airports/main.js`, `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/lbi/main.js`, `packages/nmd/main.js`, `packages/endo/main.js`, `packages/pet/main.js`, `packages/micro/main.js`, `packages/ovary/main.js`, `packages/qubits/main.js`, `packages/mutation/main.js`, `packages/topo/main.js`, `packages/soil/main.js`, `packages/pass/main.js`, `packages/flock/main.js`, `packages/robots/main.js`, `packages/ppicell/main.js` | the stories, each a story package (since v187 every one; `packages/order.json` their order, `packages/index.json` the scan's index), with their data, explore modes and headset panels; each one's narration in `packages/<key>/audio/` |
 | `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
 | `stories/list.js` | the design room and the studio (`STORY_EXTRA`); `STORY_LIST` is empty since every story became a package (v187) |
 | `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `docs/agents/shell.md`, "Hot reload and live updates") |

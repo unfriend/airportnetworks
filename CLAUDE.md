@@ -36,7 +36,7 @@ session and every agent and workflow it starts avoid them, and every agent promp
   `AGENTS.md` gets at most a line per feature and stays under 70 KB; this file stays short.
 - The story files are large (`packages/airports/main.js` is ~700 KB because of its embedded data). Search with Grep and read
   line ranges; never read them whole. The same for the `docs/agents/` files.
-- Prefer small, exact edits. When a change touches the headset code, apply it to all sixteen stories: their XR, panel
+- Prefer small, exact edits. When a change touches the headset code, apply it to every story: their XR, panel
   and landing-screen code is meant to stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium screenshots (hashes such as `#spatial&t=60`
   jump straight to a moment). Report anything that can only be checked on a real headset as untested.

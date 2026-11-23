@@ -1,56 +1,68 @@
-Networks, in sixteen stories - installable web app
-  1. Network theory, told with the world's airports  (packages/airports/main.js)
-  2. A glimpse into the future of network medicine: a 3D tour of the Ludwig
+Network stories - installable web app
+  - Network theory, told with the world's airports  (packages/airports/main.js)
+  - A glimpse into the future of network medicine: a 3D tour of the Ludwig
      Boltzmann Institute for Network Medicine  (packages/lbi/main.js)
-  3. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
+  - Muscle and heart: rare diseases of nerves and muscles in a 71-layer
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (packages/nmd/main.js)
-  4. Endotypes: one rare disease of the junction between nerve and muscle, 35
+  - Endotypes: one rare disease of the junction between nerve and muscle, 35
      genes and 12 hidden mechanisms, after the EndotypY poster by Chloé Bûcheron
      and colleagues  (packages/endo/main.js)
-  5. One scan, one system: a PET scanner, the body's organs and the network of
+  - One scan, one system: a PET scanner, the body's organs and the network of
      their metabolism from 658 scans, after Barbara K Geist and colleagues
      (packages/pet/main.js)
-  6. Tissue and time: the small working units organs are built from, in 24,945
+  - Tissue and time: the small working units organs are built from, in 24,945
      slides, and how they change with age, after Iva Buljan and colleagues
      (packages/micro/main.js)
-  7. The aging ovary: what 255 ovaries show about aging, from the reserve of
+  - The aging ovary: what 255 ovaries show about aging, from the reserve of
      follicles to two deep-learning methods and the trends with age, after the
      poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro
      (packages/ovary/main.js)
-  8. Three qubits: how a gene network is shrunk to fit on a tiny quantum
+  - Three qubits: how a gene network is shrunk to fit on a tiny quantum
      computer, and broken into building blocks it runs well, after Joel
      Hancock's method and figures  (packages/qubits/main.js)
-  9. The mutation machine: how DNA changes letter by letter along a family
+  - The mutation machine: how DNA changes letter by letter along a family
      tree, and how a rule for those changes becomes a quantum circuit, one
      machine per branch; after the poster by Enes Berk Sakalli and Arndt von
      Haeseler  (packages/mutation/main.js)
-  10. The shape of tissue: where cells sit in slides of liver, read at every
+  - The shape of tissue: where cells sit in slides of liver, read at every
      scale at once (persistent homology), and which scales tell cirrhosis from
      healthy tissue, down to every cell; after the poster by Simon Schindler,
      André Rendeiro and Jörg Menche, on their data  (packages/topo/main.js)
-  11. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
+  - Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
      a school of fish to the world's flights to a cell; for everyone, in
      English and German  (packages/pass/main.js)
-  12. Holding on to nitrogen: a wheat, its soil and the microbes in between;
+  - Holding on to nitrogen: a wheat, its soil and the microbes in between;
      a wheat that slows the soil's microbes stays greener and leaks less
      nitrate in a field trial in Japan, while the crowd of microbes follows the
      fertiliser far more than the wheat; after the slides and field trial of
      Marina Montserrat Díez, Christa Schleper and colleagues  (packages/soil/main.js)
-  13. Network medicine, told with the proteins in a cell  (packages/proteins/main.js)
-  14. Spatial interactome, where proteins meet in a cell  (packages/spatial/main.js)
-  15. Flock: 200 starlings at dusk flying all around you, each following its
-     seven nearest neighbours  (packages/flock/main.js)
-  16. Robot gang: robot vacuums in your room that bump and turn, follow you
-     about or form a conga line; in a headset they find your floor and walls
-     (packages/robots/, a story package)
+  - Spatial interactome, where proteins meet in a cell  (packages/spatial/main.js)
+  - Back into the cell: an interactome of 13,460 proteins put back into a
+     model cell, which of its links can happen where  (packages/ppicell/main.js)
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
-     card on the Stories screen, not counted as a story)
+     story card on the Stories screen)
+
+Experiments: the last card on the Stories screen, Experiments, opens a second
+set of cards (in a headset a second arch of cards), with a card back to the
+main set; #experiments opens it too. In it:
+  - Network medicine, told with the proteins in a cell  (packages/proteins/main.js)
+  - Flock: 200 starlings at dusk flying all around you, each following its
+     seven nearest neighbours  (packages/flock/main.js)
+  - Robot gang: robot vacuums in your room that bump and turn, follow you
+     about or form a conga line; in a headset they find your floor and walls
+     (packages/robots/main.js)
+  - Cell stress test: the cell map's model cell filled with made-up proteins,
+     to read a headset's frame rate  (packages/cellstress/main.js)
+  - Six handshakes: the example story package  (packages/hello/main.js)
+  Each opens by its address too (#proteins, #flock ...). In a shared room an
+  experiment can be a circle (Add places it); Arrange all leaves them out.
 
 Story packages: more stories, each in a folder of its own (packages/<key>/,
 written by people the owner trusts and brought in through git), get a card on
-the Stories screen after these (or, hidden ones, only in developer mode and by
-their address, #<key>). node tools/packages/scan.mjs lists them in
+the Stories screen after these (list "stories" in its story.json), in the
+Experiments set (list "experiments"), or hidden (list "hidden": only in developer
+mode and by their address, #<key>). node tools/packages/scan.mjs lists them in
 packages/index.json; tools/packages/SPEC.md says how to write one.
 
 Besides the stories, the design room (#design, stories/design.js; not on the
@@ -931,7 +943,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), packages/ (the sixteen stories and the tutorial, each a story package since v187: main.js,
+Files: index.html (the app), packages/ (every story and the tutorial, each a story package since v187: main.js,
 story.json, its narration in audio/, its sources in src/; order.json their order, index.json written by
 node tools/packages/scan.mjs), stories/ (the design room, the studio and list.js),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
