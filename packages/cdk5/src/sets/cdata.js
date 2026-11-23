@@ -2,8 +2,10 @@
 // link and number is the authors' (CDK5_DATA, written by data/gen_data.py from their VR project's textures and input
 // files) or the generator's documented counts; these only decode the strings and look things up.
 // Proteins are indices 0..n-1 (the authors' order, the same in every texture); scenes are by key, in the story's order:
-// 'bioproc' (the map of processes), 'subunits' (CDK5 and its activators), 'ntrk2' (Signalling by NTRK2), 'calpain'
-// (calpain and CDK5), 'alzheimer' (the Alzheimer's pathway), 'disease' (the disease landscape).
+// 'bioproc' (the map of processes), 'subunits' (CDK5 and its activators), 'partners' (CDK5's 205 partners as a star),
+// 'ntrk2' (Signalling by NTRK2), 'sema' (Semaphorin interactions), 'npas4' (Transcriptional regulation by NPAS4),
+// 'calpain' (calpain and CDK5), 'alzheimer' (the Alzheimer's pathway), 'disease' (the disease landscape). Six are the
+// authors' CDK5_analytics project's; partners, sema and npas4 their CDK5_minimal_new project's (data/gen_data.py).
 // The story's frame: the authors' 0..1 cube centred on the origin and scaled by SCALE (2.4), so the map of processes is
 // a sphere of radius about 1 (the proteins with a GO process at 0.82 to 1.08, the others on an outer shell at 1.2). The
 // disease landscape is shifted by LAND_SHIFT, the middle of the bounding box of the proteins with a disease (outliers
@@ -11,22 +13,27 @@
 // lie on a sphere of radius 1.2 round the middle of those with one, as in the authors' scene. Each scene's centre (the proteins it pulls into the middle of the map,
 // in the authors' spring layouts) is scaled up about CDK5's middle place to radius CENTRE_R, so it can be read; the
 // layout's other proteins are where the authors put them.
-//   n, e, cdk5, r1, r2, capn1      counts and the four proteins' indices
+//   n, e, cdk5, r1, r2, capn1, npas4  counts and five proteins' indices
+//   ambiguous                      pairs of proteins the second project's textures do not tell apart (same links and
+//                                  colours in every scene): each pair's two places may be the other way round
 //   sym[i], find(name)             a protein's gene symbol; an index by symbol (any case), -1 none
 //   search(text, max)              indices whose symbol starts with text (then contains it), CDK5 first, at most max
 //   nb(i), deg(i)                  a protein's partners (a Uint16Array view, ascending) and how many
 //   linked(i, j)                   whether two proteins interact in the interactome
 //   bp(i), dis(i)                  has a GO biological process (the sphere's inner shell); has a disease association
-//   SCENES                         the scene keys in order; scene(k): { key, title, layout, centre (indices), moved,
+//   SCENES                         the scene keys in order; scene(k): { key, title, texture (the authors' folder name;
+//                                  'CDK5_minimal_new/...' for the second project's), layout, centre (indices), moved,
 //                                  colours ({ name: [indices] }), links ([{ cls, rgba, pairs (Uint16Array, flat) }]) }
 //   layout(k)                      a Float32Array(3n): every protein's place in scene k, in the story's frame (cached)
 //   base(name)                     the bare layouts, 'sphere' or 'landscape' (Float32Array(3n), cached)
 //   colours(k)                     a Float32Array(4n): every protein's RGBA in scene k, 0..1 (the authors' texture)
 //   col                            the named colours (RGBA 0..1): grey, greyL, greyD, green, greenL, cyan, red, yellow,
-//                                  orange, orangeL
+//                                  orange, orangeL; the second project's mint (CDK5), mintL (its cousins), olive (an
+//                                  activator), oliveL (a partner), teal (a pathway's protein), tealL (its links)
 //   pal                            { go, dz } the two palettes by degree ([r, g, b] 0..1, index 0 least linked)
 //   gidx, didx                     Uint8Array(n): a protein's class in each palette (255 none)
-//   pathways                       { ntrk2, alzheimer }: name, source, members (indices) and, for alzheimer, shown
+//   pathways                       { ntrk2, alzheimer, sema, npas4 }: name, source, members (indices in the map) and,
+//                                  but for ntrk2, shown (the ones its scene pulls in: the largest linked piece)
 //   terms                          the Disease Ontology terms offered: [{ id, name, n, genes (Uint16Array), cdk5,
 //                                  partners, expP, pP, near, expN, pN }]
 //   termsOf(i)                     indices into terms of the terms protein i is in
@@ -89,7 +96,7 @@ const CDATA = (() => {
     return (bases[name] = out);
   }
   const SCN = D.scenes.map(s => ({
-    key: s.key, title: s.title, layout: s.layout, centre: s.centre, moved: s.moved, colours: s.colours,
+    key: s.key, title: s.title, texture: s.texture, layout: s.layout, centre: s.centre, moved: s.moved, colours: s.colours,
     links: Object.keys(s.links).map(c => ({ cls: c, rgba: col[c], pairs: b64(s.links[c], Uint16Array) })),
     nlinks: s.nlinks, xyz: s.xyz,
   }));
@@ -113,7 +120,7 @@ const CDATA = (() => {
   function colours(k) {
     if (cols[k]) return cols[k];
     const s = byKey[k], out = new Float32Array(4 * n);
-    const grey = col[{ bioproc: 'grey', subunits: 'greyL', ntrk2: 'greyL', calpain: 'greyD' }[k] || 'greyD'];
+    const grey = col[{ bioproc: 'grey', subunits: 'greyL', partners: 'greyL', ntrk2: 'greyL', sema: 'greyL', npas4: 'greyL', calpain: 'greyD' }[k] || 'greyD'];
     const dzs = k === 'alzheimer' || k === 'disease';
     for (let i = 0; i < n; i++) {
       let c;
@@ -142,7 +149,7 @@ const CDATA = (() => {
   const clouds = (D.clouds || []).map(c => Object.assign({}, c, { knot: idxList(c.knot), members: idxList(c.members) }));
   const pathways = D.pathways;
   return {
-    n, e: D.e, cdk5: D.cdk5, r1: D.r1, r2: D.r2, capn1: D.capn1, SCALE, CENTRE_R, LAND_SHIFT,
+    n, e: D.e, cdk5: D.cdk5, r1: D.r1, r2: D.r2, capn1: D.capn1, npas4: D.npas4, ambiguous: D.ambiguous || [], SCALE, CENTRE_R, LAND_SHIFT,
     sym, find, search, nb, deg, linked, bp, dis, SCENES, scene, layout, base, colours, col, pal, gidx, didx,
     pathways, terms, termsOf, diseases: D.diseases, facts: D.facts, about: D.about, clouds, go: D.go || null,
   };

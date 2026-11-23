@@ -26,9 +26,9 @@ ok(C.facts.hub.sym === 'APP' && C.facts.hub.deg === 2123, 'the best-linked prote
 let nbp = 0, nds = 0; for (let i = 0; i < C.n; i++) { nbp += C.bp(i); nds += C.dis(i); }
 ok(nbp === 13003 && nds === 6538, `13,003 with a GO process, 6,538 with a disease (${nbp}, ${nds})`);
 const links = k => C.scene(k).links.reduce((a, l) => a + l.pairs.length / 2, 0);
-const want = { bioproc: 3964, subunits: 3966, ntrk2: 83, calpain: 3958, alzheimer: 39, disease: 1283 };
+const want = { bioproc: 3964, subunits: 3966, partners: 205, ntrk2: 83, sema: 125, npas4: 44, calpain: 3958, alzheimer: 39, disease: 1283 };
 for (const k in want) ok(links(k) === want[k], `${k}: ${want[k]} links shown (${links(k)})`);
-ok(C.SCENES.join() === 'bioproc,subunits,ntrk2,calpain,alzheimer,disease', 'the six scenes in order');
+ok(C.SCENES.join() === 'bioproc,subunits,partners,ntrk2,sema,npas4,calpain,alzheimer,disease', 'the nine scenes in order');
 // layouts: the sphere, the centres, the landscape
 const L0 = C.layout('bioproc');
 let rIn = [], rOut = [];
@@ -36,7 +36,7 @@ for (let i = 0; i < C.n; i++) (C.bp(i) ? rIn : rOut).push(Math.hypot(L0[3 * i], 
 rIn.sort((a, b) => a - b); rOut.sort((a, b) => a - b);
 near(rIn[rIn.length >> 1], 1.0, 0.08, 'the inner shell at radius about 1');
 near(rOut[rOut.length >> 1], 1.2, 0.01, 'the outer shell at radius 1.2');
-for (const k of ['subunits', 'ntrk2', 'calpain', 'alzheimer']) {
+for (const k of ['subunits', 'partners', 'ntrk2', 'sema', 'npas4', 'calpain', 'alzheimer']) {
   const L = C.layout(k), s = C.scene(k);
   let r = 0; for (const i of s.moved) r = Math.max(r, Math.hypot(L[3 * i], L[3 * i + 1], L[3 * i + 2]));
   near(r, C.CENTRE_R, 1e-6, `${k}: its centre scaled to radius ${C.CENTRE_R}`);
@@ -58,6 +58,22 @@ ok(at('bioproc', C.find('APP')).join() === '255,255,229,100', 'APP light yellow 
 // lookups, pathways, diseases, facts
 ok(C.find('cdk5') === C.cdk5 && C.search('cdk5')[0] === C.cdk5, 'find and search');
 ok(C.pathways.ntrk2.members.length === 25 && C.pathways.alzheimer.members.length === 22, 'the two pathways\' members');
+// the second project's three scenes (CDK5_minimal_new): the star, Semaphorin interactions, NPAS4
+const P2 = C.scene('partners');
+ok(P2.moved.length === 206 && P2.moved.every(i => i === C.cdk5 || C.linked(C.cdk5, i)), 'partners: CDK5 and its 205 partners');
+ok(P2.centre.join() === String(C.cdk5), 'partners: only CDK5 at the close-up');
+ok(at('partners', C.cdk5).join() === '144,255,143,200' && at('partners', C.r1).join() === '53,112,11,160', 'partners: CDK5 mint, its activators olive');
+ok(C.pathways.sema.members.length === 63 && C.pathways.sema.shown.length === 56 && C.scene('sema').moved.length === 56, 'Semaphorin interactions: 63 in the map, 56 linked in one piece');
+ok(C.pathways.npas4.members.length === 33 && C.pathways.npas4.shown.length === 26 && C.pathways.npas4.members.includes(C.cdk5), 'NPAS4: 33 in the map (CDK5 among them), 26 shown');
+ok(C.sym[C.npas4] === 'NPAS4' && !C.linked(C.cdk5, C.npas4), 'no CDK5 - NPAS4 link in the interactome (the authors add it)');
+ok(C.scene('npas4').links.some(l => { for (let k = 0; k < l.pairs.length; k += 2) if ((l.pairs[k] === C.cdk5 && l.pairs[k + 1] === C.npas4) || (l.pairs[k + 1] === C.cdk5 && l.pairs[k] === C.npas4)) return true; return false; }), 'NPAS4: the authors\' CDK5 - NPAS4 link drawn');
+for (const k of ['sema', 'npas4']) {
+  const s = C.scene(k); let nl = 0, out = 0;
+  for (const l of s.links) for (let j = 0; j < l.pairs.length; j += 2) { nl++; const a = l.pairs[j], b = l.pairs[j + 1]; if (!C.linked(a, b) && !(k === 'npas4' && (a === C.cdk5 || b === C.cdk5))) out++; }
+  ok(out === 0, `${k}: every link the interactome's (${out} not)`);
+}
+ok(C.ambiguous.length === 6 && C.ambiguous.every(p => p.length === 2), 'six pairs the second project does not tell apart');
+ok(at('sema', C.find('SEMA4D')).join() === '0,255,224,100', 'SEMA4D teal in its scene');
 ok(C.diseases.cdk5Terms.includes('lissencephaly') && C.diseases.cdk5Terms.includes('intellectual disability'), 'CDK5\'s own terms');
 ok(C.diseases.partnersAnnotated === 126, '126 of CDK5\'s partners have a disease');
 const pd = C.terms.find(t => t.name === "Parkinson's disease");

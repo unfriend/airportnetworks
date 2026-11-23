@@ -6,11 +6,25 @@
 #
 # usage (from the repository root):
 #   python3 -I packages/cdk5/src/data/gen_data.py <folder of the CDK5_data clone> --go <folder with a GO release>
+#   (or, without that GO release, --keep-clouds packages/cdk5/src/sets/data.js: the process knots and their GO release's
+#   note are copied unchanged from the data file written before, so a release no longer to be had keeps its names)
 #   then node packages/cdk5/src/test-data.mjs and node packages/cdk5/src/build.mjs
 # The GO folder holds goa_human.gaf.gz and go-basic.obo from https://current.geneontology.org/ (annotations/ and
 # ontology/; CC BY 4.0); without --go the process knots (clouds) are left out. Needs numpy, Pillow, scipy and
 # scikit-learn (python3 -m pip install numpy pillow scipy scikit-learn). Deterministic: the same inputs give the same
 # file. Under a minute.
+#
+# Three arrangements come from the repository's second VR project, CDK5_minimal_new (made by
+# CDK5_BioStory_minimal_adapted.ipynb): '02-CDK5_subnetwork' (CDK5 and its 205 partners as a star, a spring layout),
+# '04-CDK5active-SemaphorinInteractions' (Reactome's Semaphorin interactions, the largest piece its proteins make in the
+# interactome) and '05-CDK5active-TranscriptionalRegulationNPAS4' (Reactome's Transcriptional regulation by NPAS4, the
+# same, with a link the authors added from CDK5 to NPAS4: the interactome has none). That project holds only the 311
+# proteins of its seven scenes, in its own order, and no names: the first 206 are CDK5 and its partners in the
+# interactome's order (checked: every link among them is the interactome's), the other 105 are told apart by their links
+# and the scenes they show in, matched against the graphs the notebook builds (every protein and link must match, or
+# the generator stops). Six pairs among those 105 have the very same links and colours in every scene (NTF3 and NTF4,
+# KRAS and NRAS, LMNA and LMNB1, BCL2L11 and SOD2, TNRC6A and TNRC6B, PAK3 and RHOB): nothing in the textures says which
+# of a pair's two places is whose, so each pair is given in index order and listed in CDK5_DATA.ambiguous.
 #
 # Where everything comes from (all of it the authors'; nothing is laid out again here):
 # - the interactome: input/ppi_elist.txt (309,355 links) over input/DF_gene_symbol_human.csv (16,376 proteins, by
@@ -42,14 +56,18 @@ from scipy.stats import hypergeom
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else None
 GOD = sys.argv[sys.argv.index('--go') + 1] if '--go' in sys.argv else None
+KEEP = sys.argv[sys.argv.index('--keep-clouds') + 1] if '--keep-clouds' in sys.argv else None
 if not SRC or not os.path.isdir(os.path.join(SRC, 'CDK5_analytics')):
     sys.exit('usage: python3 -I packages/cdk5/src/data/gen_data.py <folder of the CDK5_data clone>')
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sets', 'data.js')
 P = lambda *a: os.path.join(SRC, *a)
-SCENES = [  # the analytics project's six layouts, in the story's order
+SCENES = [  # the six layouts of the analytics project and three of the second ('minimal:'), in the story's order
     ('bioproc', '00-BIOPROC', 'The map of processes'),
     ('subunits', '01-CDK5-subunits', 'CDK5 and its activators'),
+    ('partners', 'minimal:02-CDK5_subnetwork', 'Everyone CDK5 talks to'),
     ('ntrk2', '02-CDK5active-Signalling_by_NTRK2', 'Signalling by NTRK2'),
+    ('sema', 'minimal:04-CDK5active-SemaphorinInteractions', 'Semaphorin interactions'),
+    ('npas4', 'minimal:05-CDK5active-TranscriptionalRegulationNPAS4', 'Transcriptional regulation by NPAS4'),
     ('calpain', '03-CDK5p35-CALPAIN', 'Calpain and CDK5'),
     ('alzheimer', '04-CDK5-hyperactive-alzheimers', "Alzheimer's pathway"),
     ('disease', '05-CDK5-hyperactive_diseaseInference', 'The disease landscape'),
@@ -96,9 +114,10 @@ def layout(name):
 def ncol(name): return img(P('CDK5_analytics', 'layoutsRGB', name + '.png'), 'RGBA').reshape(-1, 4)[:N]
 def lcol(name): return img(P('CDK5_analytics', 'linksRGB', name + '.png'), 'RGBA').reshape(-1, 4)[:nl]
 
-pos = {k: layout(f) for k, f, _ in SCENES}
-cols = {k: ncol(f) for k, f, _ in SCENES}
-lcols = {k: lcol(f) for k, f, _ in SCENES}
+AN = [(k, f, t) for k, f, t in SCENES if not f.startswith('minimal:')]
+pos = {k: layout(f) for k, f, _ in AN}
+cols = {k: ncol(f) for k, f, _ in AN}
+lcols = {k: lcol(f) for k, f, _ in AN}
 
 # --------------------------------------------------------------------------------------------- annotations, colour --
 c0 = cols['bioproc']
@@ -131,15 +150,17 @@ cls_deg = [np.median([deg[i] for i in np.nonzero(didx == j)[0]]) for j in range(
 didx[CDK5] = int(np.argmin([abs(d - deg[CDK5]) for d in cls_deg]))
 assert len(gpal) <= 255 and len(dpal) <= 255
 
-COL = {  # the notebook's named colours (RGBA, alpha 0..255)
+COL = {  # the notebooks' named colours (RGBA, alpha 0..255); mint ... tealL are the second project's
     'grey': [50, 50, 50, 50], 'greyL': [80, 80, 80, 40], 'greyD': [80, 80, 80, 80], 'green': [42, 255, 0, 240], 'greenL': [42, 255, 0, 100],
     'cyan': [0, 255, 240, 200], 'red': [255, 0, 0, 200], 'yellow': [255, 255, 0, 200], 'orange': [255, 165, 0, 240],
     'orangeL': [255, 165, 0, 100],
+    'mint': [144, 255, 143, 200], 'mintL': [144, 255, 143, 100], 'olive': [53, 112, 11, 160], 'oliveL': [53, 112, 11, 60],
+    'teal': [0, 255, 224, 100], 'tealL': [0, 255, 224, 60],
 }
 def colour_of(k, i):
     # what the scene's texture holds for protein i, rebuilt from the palettes and the scene's own colours
-    if k in ('bioproc', 'subunits', 'ntrk2', 'calpain'):
-        grey = {'bioproc': 'grey', 'subunits': 'greyL', 'ntrk2': 'greyL', 'calpain': 'greyD'}[k]
+    if k in ('bioproc', 'subunits', 'partners', 'ntrk2', 'sema', 'npas4', 'calpain'):
+        grey = {'bioproc': 'grey', 'calpain': 'greyD'}.get(k, 'greyL')
         base = gpal[gidx[i]] + [100] if bp[i] else COL[grey]
     else:
         base = dpal[didx[i]] + [90] if dis[i] else COL['greyD']
@@ -164,7 +185,109 @@ def idxlist(sorted_idx):  # ascending indices as varint deltas, base64
 named = {tuple(v): k for k, v in COL.items()}
 scenes = []
 base_sphere = pos['bioproc']
+def tsv(f):
+    out = []
+    for line in open(P('input', f), encoding='utf-8').read().splitlines()[1:]:
+        parts = line.split('\t')
+        if len(parts) > 1 and parts[1].strip():
+            g = parts[1].split(' ')[1]
+            if g in sym and sym.index(g) not in out: out.append(sym.index(g))
+    return out
+
+# ------------------------------------------------------------------- the second project (CDK5_minimal_new) -----
+MN = 'CDK5_minimal_new'
+def mlayout(name):
+    hi = img(P(MN, 'layouts', name + '.bmp'), 'RGB').reshape(-1, 3).astype(np.int64)
+    lo = img(P(MN, 'layoutsl', name + 'l.bmp'), 'RGB').reshape(-1, 3).astype(np.int64)
+    return hi * 256 + lo
+ML = img(P(MN, 'links', '01-CDK5_regulatorysubunits.bmp'), 'RGB').reshape(-1, 3).astype(np.int64)
+mli = ML[:, 0] + 128 * ML[:, 1]
+mnl = (int(np.nonzero(mli)[0].max()) + 2) // 2
+mpairs = mli[:2 * mnl].reshape(-1, 2)
+MNAMES = ['01-CDK5_regulatorysubunits', '02-CDK5_subnetwork', '03-CDK5active-SignallingbyNTRK2', '04-CDK5active-SemaphorinInteractions',
+          '05-CDK5active-TranscriptionalRegulationNPAS4', '06-CDK5-CALPAIN', '07-CDK5-Alzheimerdiseasemodule']
+mcol = {m: img(P(MN, 'layoutsRGB', m + '.png'), 'RGBA').reshape(-1, 4) for m in MNAMES}
+mlcol = {m: img(P(MN, 'linksRGB', m + '.png'), 'RGBA').reshape(-1, 4)[:mnl] for m in MNAMES}
+MNN = int(mpairs.max()) + 1
+assert MNN == 311 and ((mcol[MNAMES[0]][MNN:] == [0, 0, 0, 10]).all(1)).all(), 'the second project is not 311 proteins'
+# the graphs its notebook builds (CDK5_BioStory_minimal_adapted.ipynb), from the same interactome and Reactome files
+def comps(nodes):
+    ns = set(nodes); seen = set(); cs = []
+    for s0 in nodes:
+        if s0 in seen: continue
+        st = [s0]; c = {s0}; seen.add(s0)
+        while st:
+            x = st.pop()
+            for y in adj[x] & ns:
+                if y not in seen: seen.add(y); c.add(y); st.append(y)
+        cs.append(c)
+    return cs
+def induced(ns): return {tuple(sorted((a, b))) for a in ns for b in adj[a] & ns}
+NPAS4 = sym.index('NPAS4')
+pw_sema = tsv('SemaphorinInteraction.tsv'); pw_npas4 = tsv('TranscriptionalRegulationbyNPAS4.tsv')
+star = sorted({CDK5} | adj[CDK5])
+lcc_sema = max(comps(pw_sema), key=len); lcc_npas4 = max(comps(pw_npas4), key=len)
+lcc_alz = max(comps(tsv('neurodegenerativepathwaysAlzheimers.tsv')), key=len)
+MG = [  # the notebook's seven graphs (nodes, links), in MNAMES' order
+    ({CDK5, R1, R2} | adj[CDK5], {e for e in induced({CDK5, R1, R2}) if CDK5 in e or (R1 in e and R2 in e)}),
+    (set(star), {tuple(sorted((CDK5, b))) for b in adj[CDK5]}),
+    (set(tsv('SignallingbyNTRK2.tsv')), induced(set(tsv('SignallingbyNTRK2.tsv')))),
+    (lcc_sema, induced(lcc_sema)),
+    (lcc_npas4 | {CDK5}, induced(lcc_npas4) | {tuple(sorted((CDK5, NPAS4)))}),
+    ({CDK5, CAPN1} | (adj[CDK5] - {R1, R2}), {tuple(sorted((CDK5, CAPN1)))}),   # (its neighbours leave the activators out)
+    (lcc_alz, induced(lcc_alz)),
+]
+assert NPAS4 not in adj[CDK5], 'CDK5 - NPAS4 is in the interactome now'
+allm = set().union(*[g[0] for g in MG]); assert len(allm) == MNN
+Eexp = set().union(*[g[1] for g in MG]); Etex = set(tuple(sorted(p)) for p in mpairs.tolist())
+assert len(Eexp) == len(Etex) == mnl, 'the second project\'s links are not the notebook\'s graphs'
+# its first nodes: CDK5 and its partners, in the interactome's order (the notebook's G_CDKsub keeps G's order)
+loc = {j: star[j] for j in range(len(star))}
+assert all(tuple(sorted((loc[a], loc[b]))) in Eexp for a, b in Etex if a < len(star) and b < len(star))
+vis_t = lambda j: tuple(int(mcol[m][j][3] > 0) for m in MNAMES)
+vis_e = lambda g: tuple(int(g in MG[k][0]) for k in range(len(MG)))
+nbt = {j: set() for j in range(MNN)}
+for a, b in Etex: nbt[a].add(b); nbt[b].add(a)
+nbe = {}
+for a, b in Eexp: nbe.setdefault(a, set()).add(b); nbe.setdefault(b, set()).add(a)
+unk = list(range(len(star), MNN)); cand = sorted(allm - set(star))
+clt = {j: 'K%d' % loc[j] for j in loc}; cle = {g: 'K%d' % g for g in star}
+for j in unk: clt[j] = 'U'
+for g in cand: cle[g] = 'U'
+for _ in range(12):   # colour refinement over both graphs at once: a node's class from its scenes and its neighbours'
+    nt = {j: clt[j] if j < len(star) else repr((vis_t(j), sorted(str(clt[x]) for x in nbt[j]))) for j in range(MNN)}
+    ne = {g: cle[g] if g in loc.values() and cle[g].startswith('K') else repr((vis_e(g), sorted(str(cle[x]) for x in nbe.get(g, ())))) for g in allm}
+    code = {v: 'C%d' % k for k, v in enumerate(sorted(set(nt.values()) | set(ne.values())))}
+    clt = {j: (nt[j] if j < len(star) else code[nt[j]]) for j in nt}; cle = {g: (ne[g] if ne[g].startswith('K') else code[ne[g]]) for g in ne}
+groups = {}
+for j in unk: groups.setdefault(clt[j], [[], []])[0].append(j)
+for g in cand: groups.setdefault(cle[g], [[], []])[1].append(g)
+ambiguous = []
+for c, (js, gs) in sorted(groups.items()):
+    assert len(js) == len(gs), 'the second project\'s proteins could not be told apart'
+    for j, g in zip(sorted(js), sorted(gs)): loc[j] = g
+    if len(gs) > 1: ambiguous.append(sorted(gs))
+assert len(set(loc.values())) == MNN and all(tuple(sorted((loc[a], loc[b]))) in Eexp for a, b in Etex), 'the matching failed'
+_bad = [(j, sym[loc[j]], vis_t(j), vis_e(loc[j])) for j in range(MNN) if vis_t(j) != vis_e(loc[j])]
+assert not _bad, _bad[:5]
+assert sorted(len(a) for a in ambiguous) == [2] * 6
+
 for k, f, title in SCENES:
+    if f.startswith('minimal:'):
+        m = f.split(':', 1)[1]; lay = mlayout(m); c = mcol[m]; lc = mlcol[m]
+        vis = [j for j in range(MNN) if c[j][3] > 0]
+        moved = sorted(loc[j] for j in vis); back = {loc[j]: j for j in vis}
+        special = {}
+        for g in moved:
+            t = tuple(int(x) for x in c[back[g]]); assert t in named, (k, sym[g], t)
+            special.setdefault(named[t], []).append(g)
+        links = {}
+        for e in np.nonzero(lc[:, 3])[0]:
+            t = tuple(int(x) for x in lc[e]); assert t in named, (k, t)
+            a, b = sorted((loc[int(mpairs[e][0])], loc[int(mpairs[e][1])])); links.setdefault(named[t], []).append([a, b])
+        scenes.append({'key': k, 'texture': MN + '/' + m, 'title': title, 'layout': 'sphere', 'moved': moved,
+                       'xyz': [lay[back[g]].tolist() for g in moved], 'colours': special, 'links': links})
+        continue
     lay = pos[k]
     base = 'landscape' if k == 'disease' else 'sphere'
     ref = pos['disease'] if base == 'landscape' else base_sphere
@@ -191,14 +314,6 @@ assert sorted(S['subunits']['moved']) == sorted([CDK5, R1, R2])
 assert sorted(S['calpain']['moved']) == sorted([CDK5, CAPN1])
 assert set(S['subunits']['colours']) == {'green'} and S['subunits']['colours']['green'] == [CDK5]
 
-def tsv(f):
-    out = []
-    for line in open(P('input', f), encoding='utf-8').read().splitlines()[1:]:
-        parts = line.split('\t')
-        if len(parts) > 1 and parts[1].strip():
-            g = parts[1].split(' ')[1]
-            if g in sym and sym.index(g) not in out: out.append(sym.index(g))
-    return out
 ntrk2 = tsv('SignallingbyNTRK2.tsv'); alz = tsv('neurodegenerativepathwaysAlzheimers.tsv')
 assert set(S['ntrk2']['moved']) <= set(ntrk2) | {R1, R2} and len(ntrk2) == 25
 alz_moved = set(S['alzheimer']['moved'])
@@ -207,6 +322,12 @@ assert alz_moved <= set(alz) | {R1, R2}
 # each scene's centre: the proteins it pulls to the middle of the map (the notebook's spring layouts)
 for s in scenes:
     s['centre'] = sorted(set(s['moved']) | ({CDK5} if s['key'] in ('subunits', 'ntrk2', 'calpain', 'alzheimer') else set()))
+# (the partners' star: its 205 partners stay points of the map, the activators among them, which the star puts right
+# against CDK5; only CDK5 is the close-up's)
+S['partners']['centre'] = [CDK5]
+assert set(S['partners']['moved']) == set(star) and S['partners']['colours']['mint'] == [CDK5]
+assert set(S['sema']['moved']) == lcc_sema and set(S['npas4']['moved']) == lcc_npas4 | {CDK5}
+assert [NPAS4, CDK5] in S['npas4']['links'].get('tealL', []) or [CDK5, NPAS4] in S['npas4']['links'].get('tealL', [])
 
 # ----------------------------------------------------------------------------------------------- diseases ----------
 annotated = [i for i in range(N) if dis[i]]; NA = len(annotated)
@@ -351,6 +472,11 @@ if GOD:
                           'nearest neighbours on the sphere that share it, against chance; the 14 best distinct at least 5 times chance, each at '
                           'its largest knot (DBSCAN); names from a current GO release, not the authors\' matrix'}
     for c in clouds: del c['dir']
+elif KEEP:
+    old = open(KEEP, encoding='utf-8').read(); old = json.loads(old[old.index('{'):old.rstrip().rindex(';')])
+    clouds, go_about = old['clouds'], old['go']
+    assert old['n'] == N and old['sym'] == ','.join(sym), 'the kept data file is of another protein table'
+    print('kept the process knots of', KEEP, '(GO', go_about['release'] + ')')
 else:
     print('no --go: the process knots are left out')
 
@@ -367,15 +493,19 @@ facts = {
     'family': [{'i': i, 'sym': sym[i], 'deg': round(ang(CDK5, i), 1)} for i in cdk_family],
     'activators': {'p35': round(ang(CDK5, R1), 1), 'p39': round(ang(CDK5, R2), 1)},
     'sceneLinks': {s['key']: links_of(s['key']) for s in scenes},
-    'pathways': {'ntrk2': len(ntrk2), 'alzheimer': len(alz), 'alzheimerShown': len(alz_moved | {CDK5})},
-    'added': [CDK5, CAPN1],
+    'pathways': {'ntrk2': len(ntrk2), 'alzheimer': len(alz), 'alzheimerShown': len(alz_moved | {CDK5}),
+                 'sema': len(pw_sema), 'semaShown': len(lcc_sema), 'npas4': len(pw_npas4), 'npas4Shown': len(lcc_npas4 | {CDK5})},
+    'added': [CDK5, CAPN1], 'addedNpas4': [CDK5, NPAS4],
+    'family5': len(S['partners']['colours'].get('mintL', [])),
 }
 
 D = {
     'about': "the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data, Christiane Hütter): its "
              "CDK5_analytics VR project, six scenes on the human interactome made with cartoGRAPHs, with the "
-             "Reactome pathways and Disease Ontology associations it uses",
-    'n': N, 'e': E, 'cdk5': CDK5, 'r1': R1, 'r2': R2, 'capn1': CAPN1,
+             "Reactome pathways and Disease Ontology associations it uses; and three scenes of its CDK5_minimal_new VR project "
+             "(CDK5's partners, Semaphorin interactions, Transcriptional regulation by NPAS4)",
+    'n': N, 'e': E, 'cdk5': CDK5, 'r1': R1, 'r2': R2, 'capn1': CAPN1, 'npas4': NPAS4,
+    'ambiguous': ambiguous,
     'sym': ','.join(sym),
     'adj': adj64,
     'pos': {'sphere': b64(base_sphere.astype('<u2')), 'landscape': b64(pos['disease'].astype('<u2'))},
@@ -391,6 +521,9 @@ D = {
         'alzheimer': {'name': 'Deregulated CDK5 triggers multiple neurodegenerative pathways in Alzheimer\'s disease models',
                       'short': "CDK5 in Alzheimer's disease", 'source': 'Reactome (our reading of the file\'s name)',
                       'members': alz, 'shown': sorted(alz_moved | {CDK5})},
+        'sema': {'name': 'Semaphorin interactions', 'source': 'Reactome', 'members': pw_sema, 'shown': sorted(lcc_sema)},
+        'npas4': {'name': 'Transcriptional regulation by NPAS4', 'source': 'Reactome', 'members': pw_npas4,
+                  'shown': sorted(lcc_npas4 | {CDK5})},
     },
     'diseases': {'annotated': NA, 'partnersAnnotated': len(pa), 'cdk5Terms': [don[d] for d in cdk5_terms],
                  'terms': terms, 'partnerTop': tops(en_part), 'near': near, 'nearTop': tops(en_near),
@@ -409,6 +542,7 @@ print('scenes', {s['key']: (len(s['centre']), {c: len(v) for c, v in s['links'].
 print('CDK5 degree', int(deg[CDK5]), 'rank', rank, 'partners with disease', len(pa), 'of', len(partners))
 print('partner top', [(r['name'], r['k'], round(r['exp'], 1), '%.2g' % r['q']) for r in en_part[:12]])
 print('near top', [(r['name'], r['k'], round(r['exp'], 1), '%.2g' % r['q']) for r in en_near[:10]], [sym[i] for i in near[:12]])
+print('second project: pairs not told apart', [[sym[g] for g in a] for a in ambiguous])
 print('family', [(f['sym'], f['deg']) for f in facts['family']], facts['activators'])
 print('terms offered', len(terms))
 print('process knots', [(c['name'], c['n'], c['size'], c['fold']) for c in clouds])
