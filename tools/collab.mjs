@@ -795,16 +795,17 @@ async function designRoom(A, B, C) {
   const n0 = await A.evaluate(() => HOST.collab.stations().length);
   const dsg = await A.evaluate(async () => {
     HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
-    const sel = document.querySelector('#shAdd'), opts = [...sel.options].map(o => o.value), last = sel.options[HOST.list.length];   // (then All stories and Back to the lobby)
+    const sel = document.querySelector('#shAdd'), opts = [...sel.options].map(o => o.value), last = sel.options[HOST.stories().length];   // (then All stories and Back to the lobby)
     sel.value = 'design'; document.querySelector('[data-sh="add"]').click();
     for (let k = 0; k < 20 && !HOST.collab.stations().some(x => x.story === 'design'); k++) await new Promise(r => setTimeout(r, 100));
     const st = HOST.collab.stations().find(x => x.story === 'design');
     HOST.collab.dialog(false);
-    return { opts, n: HOST.list.length, extra: (self.STORY_EXTRA || []).map(m => m.key), last: last && last.textContent, st };
+    return { opts, n: HOST.stories().length, extra: (self.STORY_EXTRA || []).map(m => m.key), last: last && last.textContent, st };
   });
   const id = dsg.st && dsg.st.id, same = (p, want) => until(p, w => { const s = HOST.collab.station(w.id); return !!s && s.story === 'design' && Math.abs(s.x - w.x) < 1e-6 && Math.abs(s.z - w.z) < 1e-6 && Math.abs(s.yaw - w.yaw) < 1e-6; }, want, 5000);
   const seen = !!id && await same(B, dsg.st) && await same(C, dsg.st);
-  // (the pages that are not stories, STORY_EXTRA's design room and studio, after the stories; then the shell's two circles)
+  // (the pages that are not stories, STORY_EXTRA's design room and studio, after the stories, the Experiments set's
+  // included: HOST.stories(); then the shell's two circles)
   check('the design room: the Shared dialog\'s station picker lists it after the stories (then the studio, All stories and Back to the lobby), and Add makes its station for every page',
     dsg.opts.slice(dsg.n).join() === dsg.extra.concat('all', 'lobby').join() && dsg.extra[0] === 'design' && dsg.opts.indexOf('design') === dsg.n && /design room/i.test(dsg.last) && seen, JSON.stringify(dsg));
   // locked: Add and the menu's button (HOST.collab.design) refused; nothing added or moved
@@ -931,7 +932,7 @@ async function headsetDesign(A, B, H, S, shots) {
   await press('addpage');
   const addIds = (await ids()).filter(x => x.startsWith('add:'));
   await press('add:cancel');
-  const [nStories, extra] = await H.evaluate(() => [HOST.list.length, (self.STORY_EXTRA || []).map(m => m.key)]);
+  const [nStories, extra] = await H.evaluate(() => [HOST.stories().length, (self.STORY_EXTRA || []).map(m => m.key)]);
   check('design room: the menu\'s Add here lists the design room after the stories (then the studio, All stories and Back to the lobby)',
     addIds.slice(nStories).join() === extra.concat('all', 'lobby', 'cancel').map(k => 'add:' + k).join() && addIds[nStories] === 'add:design', addIds.join());
   // pressed: the props table at its feet, facing its way, for every page

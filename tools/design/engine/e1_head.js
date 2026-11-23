@@ -13,9 +13,10 @@ HOST.register('design', function (HOST) {
 // ================================================================= CARDS ==
 //@@CARDS@@
 let CARD_KEYS = Object.keys(DESIGN_CARDS);
-// the stories in the shell's order (their colours and titles), then any the shell does not list
+// the stories in the shell's order, the Experiments set's after the main set's (HOST.stories(): their colours and
+// titles), then any the shell does not list
 const storiesOf = () => {
-  const L = (HOST.list || []).filter(s => CARD_KEYS.some(k => DESIGN_CARDS[k].story === s.key)).map(s => ({ key: s.key, kick: s.kick, title: s.title, col: s.col }));
+  const L = (HOST.stories ? HOST.stories() : HOST.list || []).filter(s => CARD_KEYS.some(k => DESIGN_CARDS[k].story === s.key)).map(s => ({ key: s.key, kick: s.kick, title: s.title, col: s.col }));
   for (const k of CARD_KEYS) { const st = DESIGN_CARDS[k].story; if (!L.some(s => s.key === st)) L.push({ key: st, kick: st, title: st, col: '#95a6bd' }); }
   return L.map(s => Object.assign(s, { keys: CARD_KEYS.filter(k => DESIGN_CARDS[k].story === s.key) }));
 };

@@ -18,7 +18,7 @@ shared-room, headset-setting and subtitle lines are the same as in every story.
 - Life size: 1 unit is 1 m, the floor at y = 0, the table round the origin, radius 1.15 m, its top at 0.86 m. In a
   headset the floor is 1.6 m under your eyes (`local` space) and the table's middle 1.55 m ahead (`xrPlace`), its near
   edge 40 cm in front of you; views never move it. In passthrough the floor is hidden (`table_floor` 0).
-- The stories round the rim in `HOST.list`'s order, from the front (+z, your side) round to the right, each with a
+- The stories round the rim in `HOST.stories()`'s order (the main set's, then the Experiments set's), from the front (+z, your side) round to the right, each with a
   share of the rim of (its count + 1.2) parts. A plate (an annular sector) per story in its colour darkened, a bright
   edge in its colour and a place card at the rim (kicker and title, one canvas row each). Its miniatures stand on
   rings from the rim inwards (0.98, 0.82, 0.66, 0.5 m), 16 cm apart, 12 cm tall, turned to face out.
