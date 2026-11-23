@@ -32,6 +32,96 @@ async function narrFetch(n, a) {
 // package changes without a release (its files' addresses carry their fingerprints, HOST.pkgUrl), and one opened once
 // works offline
 const PKG = 'networks-packages';
+// a package file's address as the app asks for it: main.js with the package's fingerprint (HOST.load), any other file
+// with its own (HOST.pkgUrl); the cache keeps one version of each file (storing one drops the others)
+const pkgAddr = (m, f) => new URL(`packages/${m.key}/${f}?v=${f === 'main.js' ? m.fp : m.files[f]}`, self.registration.scope).href;
+const listedPkgs = (j, hidden) => (j && Array.isArray(j.packages) ? j.packages : []).filter(m => m && typeof m.key === 'string' && m.files && typeof m.files === 'object' && (hidden || m.list !== 'hidden'));
+async function pkgPut(c, url, res) {
+  const bare = url.split('?')[0];
+  for (const k of await c.keys()) if (k.url !== url && k.url.split('?')[0] === bare) await c.delete(k);
+  await c.put(url, res);
+}
+// the packages' index: the server's, else the copy kept (offline)
+async function pkgIndex() {
+  const u = new URL('packages/index.json', self.registration.scope).href;
+  try {
+    const r = await fetch(u, { cache: 'no-store' });
+    if (r.status === 200) { const j = await r.clone().json(); await caches.open(PKG).then(c => c.put(u, r)); return j; }
+  } catch (e) { /* offline */ }
+  const hit = await caches.open(PKG).then(c => c.match(u));
+  return hit ? hit.json().catch(() => null) : null;
+}
+// At install, every listed package's main.js (the story itself, as SHELL takes each stories/<key>.js), so an installed
+// copy opens every story offline, moved into a package or not (silent until its narration is taken); never fails the
+// install
+async function takeMains() {
+  const j = await pkgIndex(), c = await caches.open(PKG);
+  await Promise.all(listedPkgs(j).filter(m => m.files['main.js']).map(async m => {
+    const u = pkgAddr(m, 'main.js');
+    if (await c.match(u)) return;
+    try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first played */ }
+  }));
+}
+// Take all stories (v185, docs/packages-migration.md "Decided route"): every file of every listed package (main.js,
+// models, data, its narration) into PKG and every narration still in audio/ (AUDIO) into NARR, two at a time, whole
+// files at the addresses the app asks for; a file already held is passed by, so a broken-off take carries on where it
+// was (the page asks again at its next start: HOST.offline) and a changed package takes only its changed files. The
+// storage is checked first (free space for what is missing, and a fifth more); a file that fails is tried once more,
+// the rest go on. Progress goes to every page: { type: 'take', state: 'run'|'done'|'full'|'off', done, total, bytes,
+// need, failed }.
+const TAKE = { run: null, msg: { type: 'take', state: 'idle', done: 0, total: 0, bytes: 0, need: 0, failed: 0 } };
+const tell = o => { TAKE.msg = Object.assign({ type: 'take' }, o); return self.clients.matchAll({ includeUncontrolled: true }).then(cs => cs.forEach(c => c.postMessage(TAKE.msg))); };
+function takeAll(hidden) {
+  if (TAKE.run) { tell(TAKE.msg); return TAKE.run; }
+  return (TAKE.run = (async () => {
+    const j = await pkgIndex();
+    if (!j) return tell({ state: 'off', done: 0, total: 0, bytes: 0, need: 0, failed: 0 });
+    const pc = await caches.open(PKG), nc = await caches.open(NARR), want = [];
+    for (const m of listedPkgs(j, hidden)) for (const f of Object.keys(m.files)) {
+      const u = pkgAddr(m, f);
+      if (!(await pc.match(u))) want.push({ u, c: pc, pkg: true, size: 0 });
+    }
+    for (const a of AUDIO) if (!(await nc.match(a))) want.push({ u: a, c: nc, pkg: false, size: 0 });
+    // what is missing, in bytes: the index's for packages (each file's share is not listed: the package's bytes spread
+    // by its files' count is close enough), the server's Content-Length for a narration
+    const per = {};
+    for (const m of listedPkgs(j, hidden)) per[m.key] = (+m.bytes || 0) / Math.max(1, Object.keys(m.files).length);
+    for (const w of want) {
+      if (w.pkg) w.size = per[(/\/packages\/([^/]+)\//.exec(w.u) || [])[1]] || 0;
+      else try { const h = await fetch(w.u, { method: 'HEAD', cache: 'no-store' }); w.size = +h.headers.get('Content-Length') || 0; } catch (e) { /* offline: tried below */ }
+    }
+    const need = want.reduce((n, w) => n + w.size, 0), total = want.length;
+    try {
+      const est = self.navigator.storage && self.navigator.storage.estimate ? await self.navigator.storage.estimate() : null;
+      if (est && est.quota && est.quota - (est.usage || 0) < need * 1.2) return tell({ state: 'full', done: 0, total, bytes: 0, need, failed: 0 });
+    } catch (e) { /* no estimate: try */ }
+    let done = 0, bytes = 0, failed = 0, i = 0;
+    tell({ state: 'run', done, total, bytes, need, failed });
+    async function one(w) {
+      for (let k = 0; k < 2; k++) {
+        try {
+          const r = await fetch(w.u, { cache: 'no-cache' });
+          if (r.status === 200) {
+            const b = await r.clone().arrayBuffer();
+            if (w.pkg) await pkgPut(w.c, w.u, r); else await w.c.put(w.u, r);
+            bytes += b.byteLength;
+            return true;
+          }
+        } catch (e) { /* once more */ }
+      }
+      return false;
+    }
+    const lane = async () => { while (i < want.length) { const w = want[i++]; if (!(await one(w))) failed++; done++; tell({ state: 'run', done, total, bytes, need, failed }); } };
+    await Promise.all([lane(), lane()]);
+    return tell({ state: 'done', done, total, bytes, need, failed });
+  })().finally(() => { TAKE.run = null; }));
+}
+self.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.type === 'take') e.waitUntil(takeAll(!!d.hidden));
+  else if (d.type === 'take?') e.waitUntil(TAKE.run ? tell(TAKE.msg) : tell(Object.assign({}, TAKE.msg)));
+});
 // the audio element (the fallback sound engine) asks for byte ranges; answer them from the
 // cached file, read once per file while this worker runs
 const BYTES = new Map();
@@ -58,6 +148,8 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)))
     // the narrations this device holds, fetched again only where they changed
     .then(() => caches.open(NARR)).then(n => Promise.all(AUDIO.map(a => narrFetch(n, a))))
+    // every listed story package's main.js (the stories moved into packages: offline as the others), never failing it
+    .then(() => takeMains().catch(() => {}))
     .then(() => self.skipWaiting()));
 });
 // the network's answer (and a fresh copy in the cache: this release's, or the one named); the cached copy when the

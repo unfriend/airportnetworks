@@ -764,6 +764,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
       <span class="hint"></span>
       <button class="rep" type="button" id="btnSndCheck" aria-expanded="false" aria-controls="sndcheck">Sound check</button>
       <button class="rep" type="button" id="btnSharedPick" data-open-shared aria-expanded="false" aria-controls="shared">Shared</button>
+      <button class="rep" type="button" id="btnTakeAll" hidden title="Every story, its models and its narration on this device, for use without a network (HOST.offline)">Take all stories</button>
     </div>
     <div id="sndcheck" hidden>
       <div class="row"><b>Sound check</b><span class="hint">No narration? Press both beeps. If you hear only one, choose that way to play.</span></div>
@@ -2925,6 +2926,7 @@ HOST.packages = (function () {
       for (const m of all) if (P.ran[m.key] && P.ran[m.key] !== m.fp && HOST.live && HOST.live.changed) HOST.live.changed(m.key);
       const changed = merge() || JSON.stringify(was) !== JSON.stringify(all);
       if (changed && HOST.cards) { HOST.cards(); HOST.chrome(HOST.picking); }
+      if (changed && HOST.offline) HOST.offline.again();   // (all stories taken here: a changed package's new files too)
       return changed;
     })());
   }
@@ -5655,6 +5657,66 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 HOST.reloadIfUpdated = function () {
   if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy) this.live.reload('quiet');
 };
+// ------------------------------------------------------------ all stories offline --
+// Take all stories (v185, docs/packages-migration.md "Decided route"; sw.js takeAll): the service worker fetches every
+// listed story package's files (its narration included) and the narrations still in audio/, in the background,
+// resumable, never in the way of the story on show. Automatic on an installed app (standalone display, or as it is
+// installed) and on a device that took them once by hand (localStorage pkgAll, this device's own: asked again at each
+// start and whenever the packages' index changes, so only new files come); by hand with the Stories screen's Take all
+// stories, which shows the progress. The browser is asked to keep it (navigator.storage.persist); the worker checks
+// the room first (estimate) and says when there is too little. Untested on a headset: Quest Browser's storage
+HOST.offline = (function () {
+  const O = { msg: null, at: 0, want: false };
+  const SW = 'serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:' ? navigator.serviceWorker : null;
+  const on = () => { try { return localStorage.getItem('pkgAll') === 'on'; } catch (e) { return false; } };
+  const installed = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true; } catch (e) { return false; } };
+  const mb = b => Math.max(1, Math.round((+b || 0) / 1048576));
+  // what the button says
+  function label() {
+    const m = O.msg;
+    if (!m || m.state === 'idle') return O.want ? 'Taking all stories…' : 'Take all stories';
+    if (m.state === 'run') return `Taking all stories: ${m.done} of ${m.total} files (${mb(m.bytes)} of about ${mb(m.need)} MB)`;
+    if (m.state === 'full') return `Too little room for all stories (about ${mb(m.need)} MB)`;
+    if (m.state === 'off') return 'Take all stories (offline now)';
+    return m.failed ? `All but ${m.failed} files on this device: take again` : 'All stories on this device';
+  }
+  function show() {
+    const b = document.getElementById('btnTakeAll');
+    if (!b) return;
+    b.hidden = !SW;
+    b.textContent = label();
+    b.setAttribute('aria-pressed', String(!!(O.msg && O.msg.state === 'done' && !O.msg.failed)));
+  }
+  async function post() {
+    if (!SW) return false;
+    const r = await SW.ready.catch(() => null), w = (r && r.active) || SW.controller;
+    if (!w) return false;
+    w.postMessage({ type: 'take', hidden: !!(HOST.dev && HOST.dev.on && HOST.dev.on()) });
+    return true;
+  }
+  // byHand: remembered on this device (taken again at each start), and the browser asked to keep it
+  async function take(byHand) {
+    if (!SW) return false;
+    if (byHand) {
+      try { localStorage.setItem('pkgAll', 'on'); } catch (e) { /* storage blocked: this time only */ }
+      try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) { /* not offered here */ }
+    }
+    O.want = true; O.at = Date.now();
+    show();
+    return post();
+  }
+  if (SW) {
+    SW.addEventListener('message', ev => { const d = ev.data; if (d && d.type === 'take') { O.msg = d; O.at = Date.now(); show(); } });
+    window.addEventListener('appinstalled', () => setTimeout(() => take(true), 3000));
+    document.getElementById('btnTakeAll').addEventListener('click', () => { if (!(O.msg && O.msg.state === 'run')) take(true); });
+    // automatic: an installed app, or a device that took them once; a while after the start, never in the first story's way
+    setTimeout(() => { if (on() || installed()) take(true); }, 20000);
+    // (a take the browser broke off, its worker stopped: asked again, and it carries on where it was)
+    setInterval(() => { if (O.want && O.msg && O.msg.state === 'run' && Date.now() - O.at > 45000) take(); }, 15000);
+    show();
+  }
+  return { take, on, installed, label, again: () => { if (on() && O.want) take(); }, state: () => O };
+})();
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', ev => {
   ev.preventDefault();
