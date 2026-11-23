@@ -84,7 +84,7 @@ const LAND_CHECK = `{
   const ids = XR.land[0].regions.map(r => r.id).join();
   if (ids !== 'back') throw new Error('the Stories screen\\'s header has [' + ids + '] (only Back to the story)');
   const n = HOST.list.length, per = Math.ceil(n / 2), cards = XR.land.slice(1), ch = P => P.mesh.geometry.parameters.height;
-  if (cards.length !== n || !XR.land.every(P => P.mesh.visible)) throw new Error('the Stories screen shows ' + cards.length + ' cards of ' + n);
+  if (cards.length !== n || !XR.land.every(P => P.mesh.visible)) throw new Error('the Stories screen shows ' + cards.length + ' cards of ' + n + (XR.land.every(P => P.mesh.visible) ? '' : ' (hidden: ' + XR.land.map((P, k) => P.mesh.visible ? '' : k).filter(String).join() + ')'));
   const wrong = cards.findIndex((P, k) => !P.sig().endsWith(HOST.list[k].key));
   if (wrong >= 0) throw new Error('the Stories screen\\'s card ' + wrong + ' is not ' + HOST.list[wrong].key);
   const rows = [cards.slice(0, per), cards.slice(per)], y = R => R.map(P => P.mesh.position.y), x = R => R.map(P => P.mesh.position.x);
@@ -1189,13 +1189,13 @@ if (runs('headset')) {
 // The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
 // click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
 // by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
-await step('design: not on the Stories screen; #design opens the table and all 48 miniatures are built', async () => {
+await step('design: not on the Stories screen; #design opens the table and all 49 miniatures are built', async () => {
   if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
   if (await page.evaluate(() => HOST.list.some(s => s.key === 'design') || HOST.count() !== 'sixteen')) errors.push('design: the design room is in the list of stories');
   await page.evaluate(() => HOST.start('design'));
   await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
-  if (n[0] !== 48 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 48 miniatures in explore mode at #design)');
+  if (n[0] !== 49 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 49 miniatures in explore mode at #design)');
 });
 // few draws (v136: 235 an eye before, a mesh per material of every miniature): each miniature in at most two meshes of
 // the two materials every miniature shares, the plates, edges, cards and homes one mesh each, what never moves its
@@ -1771,7 +1771,7 @@ if (runs('studio')) {
       // Hold it on the figure's headset card: the next grip of the other hand, on nothing, carries it from where it stands
       select('fig001'); X.tab = 'item'; X.scroll = {}; draw();
       let hr = null;
-      for (let off = 0; off < 4000 && !hr; off += 150) { X.scroll.item = off; draw(); hr = XR.main.regions.find(q => q.id === 'hold'); }
+      for (let off = 0; off < 8000 && !hr; off += 150) { X.scroll.item = off; draw(); hr = XR.main.regions.find(q => q.id === 'hold'); }
       if (!hr) out.push('the figure\\'s headset card has no Hold it');
       else hr.fn();
       if (XR.hold !== 'fig001') out.push('Hold it did not arm: ' + XR.hold);
@@ -1779,7 +1779,7 @@ if (runs('studio')) {
       const u0 = UNDO.length, w0 = fig.holder.getWorldPosition(new THREE.Vector3()), p0 = JSON.stringify(fig.rec.p);
       ctl(b, [3, 1, 3], away); b.hover = null; xrGrab(b, true);
       if (!b.grab || b.grab.id !== 'fig001' || b.grab.target !== 'item' || XR.hold) out.push('a grip on nothing after Hold it did not take the figure: ' + JSON.stringify(b.grab && [b.grab.target, b.grab.id]) + ' ' + XR.hold);
-      ctl(b, [3.4, 1.2, 3], away); carry(b, 0.016);
+      ctl(b, [3.4, 1.2, 3], away); if (b.grab) carry(b, 0.016);
       const w1 = fig.holder.getWorldPosition(new THREE.Vector3());
       if (Math.abs(w1.x - w0.x - 0.4) > 1e-3 || Math.abs(w1.y - w0.y - 0.2) > 1e-3 || Math.abs(w1.z - w0.z) > 1e-3) out.push('the figure did not follow the hand from where it stood: moved ' + w1.clone().sub(w0).toArray().map(v => v.toFixed(3)));
       xrGrab(b, false);
@@ -2720,13 +2720,13 @@ if (runs('studio')) {
     const xr = await ss(`(() => {
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, out = {};
       // (every button the card draws, scrolled through)
-      const ids = () => { const seen = []; for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) if (!seen.includes(r.id)) seen.push(r.id); } X.scroll = {}; draw(); return seen; };
+      const ids = () => { const seen = []; for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) if (!seen.includes(r.id)) seen.push(r.id); } X.scroll = {}; draw(); return seen; };
       XR.on = true; X.scroll = {}; draw();
       out.ids = ids().filter(i => /^(ft|ct):/.test(i)).join(); out.txt = paneBlocks('item').filter(b => !b.page).map(b => (b.label || '') + ' ' + (b.p || '')).join(' | ');
       const was = { kind: SRC.kind, upload: SRC.upload, save: SRC.save, held: SRC.held };
       Object.assign(SRC, { kind: 'relay', upload: true, save: true, held: false }); out.save = ids().includes('ft:save'); Object.assign(SRC, was); draw();
       // (10 % pressed where the card shows it, scrolled to)
-      for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === 'ft:10'); if (r) { r.fn(); break; } }
+      for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === 'ft:10'); if (r) { r.fn(); break; } }
       X.scroll = {};
       out.keep = FT.keep; draw();
       XR.on = false; return out;
@@ -2796,8 +2796,8 @@ if (runs('studio')) {
     const cx = await ss(`(() => {
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }, hit = id => { const r = XR.main.regions.find(q => q.id === id); if (r) r.fn(); return !!r; }, out = {};
       XR.on = true; X.scroll = {}; draw();
-      for (let off = 0; off < 4000 && !out.open; off += 150) { X.scroll.item = off; draw(); out.open = hit('ct:open'); } X.scroll = {}; draw();
-      const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
+      for (let off = 0; off < 8000 && !out.open; off += 150) { X.scroll.item = off; draw(); out.open = hit('ct:open'); } X.scroll = {}; draw();
+      const seen = new Set(); for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw();
       out.ids = [...seen].filter(i => /^ct:/.test(i)).join();
       XR.on = false; return out;
     })()`);
@@ -2995,7 +2995,7 @@ if (runs('studio')) {
         // cut-outs)
         X.tab = tab; X.scroll = {}; draw();
         const seen = new Set();
-        for (let off = 0; off < 4000; off += 150) { X.scroll[tab] = off; draw(); for (const r of XR.main.regions) seen.add(r.id); }
+        for (let off = 0; off < 8000; off += 150) { X.scroll[tab] = off; draw(); for (const r of XR.main.regions) seen.add(r.id); }
         X.scroll = {}; draw();
         const ids = [...seen], miss = want[tab].filter(i => !ids.includes(i));
         if (miss.length) out.push('the headset\\'s ' + tab + ' pane lacks ' + miss.join(', ') + ' (' + ids.join(' ') + ')');
@@ -3009,7 +3009,7 @@ if (runs('studio')) {
       if (STU.items.get('box001').rec.light !== 'scan') out.push('the headset\\'s As scanned did not set the box\\'s light');
       undo(); select('');
       // the headset's Stories screen, as every story's
-      const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0)); draw();
+      const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0)); for (let i = 0; i < 12; i++) { XR.landN = 0; draw(); }   // (the cards draw two a frame, as in a headset: panelTick)
       try { ${LAND_CHECK} } catch (e) { out.push(e.message); }
       XR.inStory = was; XR.stories = false; XR.on = false; XR.landShown = false; HOST.setUrl(false); GL.world.visible = true; for (const P of XR.panels) P.mesh.visible = false; X.tab = 'scene'; renderPanes();
       return out;
@@ -3584,8 +3584,8 @@ if (runs('studio follow')) {
     const out = await ss(`(() => {
       const out = [], draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
       // (every button the pane draws, scrolled through; a press scrolls to it first)
-      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
-      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       setEdit(true); select('voi001'); X.tab = 'item'; X.scroll = {}; XR.on = true; draw();
       const it = STU.items.get('voi001'), u0 = UNDO.length;
       let I = ids();
@@ -4040,8 +4040,8 @@ if (runs('studio cuts')) {
       undo(); step();
       // the headset's card: its rows, and Preview: whole pressed there
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
-      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
-      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); for (const r of XR.main.regions) seen.add(r.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const r = XR.main.regions.find(q => q.id === id); if (r && r.fn) { r.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       select('dor001'); X.tab = 'item'; X.scroll = {}; draw();
       const I = ids(), want = ['cutto', 'cgrow:0:-', 'cgrow:2:+', 'csize:2', 'turn', 'preview:seen', 'preview:cut', 'preview:whole', 'dup', 'del'];
       out.miss = want.filter(i => !I.has(i));
@@ -4518,8 +4518,8 @@ if (runs('studio groups')) {
       xrGrab(a, false); undo(); out.lostBack = [STU.items.has(gid), K(collabState()) === k0];
       // the headset's cards: the group's (its rows, Add or remove items... pressed and pressed again) and a member's
       const draw = () => { for (const P2 of XR.panels) { P2.last = ''; P2.t = -1e9; panelTick(P2, performance.now() + 1e6); } };
-      const ids = () => { const seen = new Set(); for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) seen.add(q.id); } X.scroll = {}; draw(); return seen; };
-      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      const ids = () => { const seen = new Set(); for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); for (const q of XR.main.regions) seen.add(q.id); } X.scroll = {}; draw(); return seen; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       select(gid); X.tab = 'item'; X.scroll = {}; draw();
       const I = ids();
       out.gmiss = ['gpick', 'sel:box001', 'sel:cube01', 'turn', 'floor', 'size:0.5', 'size:2', 'dup', 'ungroup', 'del'].filter(i => !I.has(i));
@@ -4672,7 +4672,7 @@ if (runs('studio faces')) {
     const xr = await ss(`(() => {
       XR.on = true;
       const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };
-      const press = id => { for (let off = 0; off < 4000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
+      const press = id => { for (let off = 0; off < 8000; off += 150) { X.scroll.item = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); X.scroll = {}; draw(); return true; } } X.scroll = {}; return false; };
       select('box001'); X.tab = 'item'; X.scroll = {}; draw();
       const r = [press('faces:inside'), STU.items.get('box001').rec.faces, window.__fc.sides('box001').startsWith('lit:1')];
       XR.on = false; select(''); X.tab = 'scene'; renderPanes();
@@ -5757,12 +5757,12 @@ if (runs('studio viewer')) {
     const k = await ss(`[STU.items.has('box001'), STU.sel, UNDO.length, MPAUSE.on]`);
     if (JSON.stringify(k) !== JSON.stringify([true, 'box001', b0[0], false])) out.push('a key pressed while it is open reached the scene: ' + JSON.stringify(k));
     // Esc: back as it was
-    const d0 = await ss('VW.drew'), f0 = await vp.evaluate(() => window.__frames);
+    const f0 = await vp.evaluate(() => window.__frames);
     await vp.keyboard.press('Escape');
-    const gone = await ss(`[VW.open, !!document.getElementById('stuViewer'), GL.canvas.style.zIndex, VW.root, VW.meshes.length]`);
+    const gone = await ss(`[VW.open, !!document.getElementById('stuViewer'), GL.canvas.style.zIndex, VW.root, VW.meshes.length]`), d0 = await ss('VW.drew');   // (counted once it is shut: frames drawn up to the key are the viewer's own)
     await vp.waitForFunction(f0 => window.__frames > f0 + 2, f0, { timeout: 20000 }).catch(() => {});
     const after = await before(), d1 = await ss('VW.drew');
-    if (JSON.stringify(gone) !== '[false,false,"",null,0]' || JSON.stringify(after) !== JSON.stringify(b0) || d1 > d0 + 1) out.push('Esc: back as it was (the overlay gone, the canvas under the page again, nothing written, Undo unchanged, the studio drawing): ' + JSON.stringify({ gone, b0, after, drew: [d0, d1] }));
+    if (JSON.stringify(gone) !== '[false,false,"",null,0]' || JSON.stringify(after) !== JSON.stringify(b0) || d1 > d0 + 1) out.push('Esc: back as it was (the overlay gone, the canvas under the page again, nothing written, Undo unchanged, the studio drawing): ' + JSON.stringify({ gone, drew: [d0, d1], same: JSON.stringify(after) === JSON.stringify(b0), b0, after }));
     await ss(`(select(''), X.tab = 'scene', renderPanes(), 0)`);
     bad(out);
   });
@@ -11767,7 +11767,6 @@ if (runs('studio screens')) {
       const ov = await ss(`(() => { __fr(3); const L = [...STU.items.values()].filter(it => it.kind === 'v'), o = L.filter(it => it.over).map(it => it.id), pl = L.filter(it => scrState(it).on && !it.over).length;
         const far = L.find(it => it.over); return { over: o.length, playing: pl, card: far ? STUDIO.screen(far.id).card : null, still: far ? scrState(far).on : null, cardText: far ? far.look.cardSig : '' }; })()`);
       if (ov.over !== 1 || ov.playing !== 4 || !ov.card || !ov.still || !/Too many videos playing here/.test(ov.cardText)) out.push('the limit of 4 on a page: ' + JSON.stringify([ov, lim]));
-      await ss(`(XR.on = true, GL.renderer.xr.isPresenting = true, 0)`).catch(() => {});
       const xl = await ss(`(() => { const L = [...STU.items.values()].filter(it => it.kind === 'v' && scrState(it).on); const keep = XR.on; XR.on = true; const r = Object.getOwnPropertyDescriptor(GL.renderer.xr, 'isPresenting'); GL.renderer.xr.isPresenting = true; XR.head.set(0, 1.6, 0); try { triggerStep(performance.now()); screensStep(false, performance.now(), 0.05); } finally { GL.renderer.xr.isPresenting = false; XR.on = keep; }
         return [L.filter(it => it.over).length, L.filter(it => !it.over).length]; })()`);
       if (xl[0] !== 3 || xl[1] !== 2) out.push('the limit of 2 in a headset: ' + JSON.stringify(xl));
@@ -11961,11 +11960,11 @@ if (runs('studio examples')) {
   // pressed, a greyed one being drawn with no region; and one pressed, scrolling down to it: true if it was there)
   const EX_DRAW = `const draw = () => { for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } };`;
   const EX_ROWS = `() => { XR.on = true; ${EX_DRAW} X.tab = 'scene'; X.scroll = {}; const live = new Set(), drawn = new Set();
-    try { for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); for (const q of XR.main.regions) live.add(q.id); const d = XR.main.drawn || []; for (let k = 0; k < d.length; k += 5) drawn.add(d[k]); } }
+    try { for (let off = 0; off < 8000; off += 150) { X.scroll.scene = off; draw(); for (const q of XR.main.regions) live.add(q.id); const d = XR.main.drawn || []; for (let k = 0; k < d.length; k += 5) drawn.add(d[k]); } }
     finally { X.scroll = {}; XR.on = false; renderPanes(); }
     return { live: [...live].filter(i => /^ex/.test(i)).sort(), drawn: [...drawn].filter(i => /^ex/.test(i)).sort() }; }`;
   const EX_PRESS = `id => { XR.on = true; ${EX_DRAW} X.tab = 'scene'; X.scroll = {};
-    try { for (let off = 0; off < 4000; off += 150) { X.scroll.scene = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); return true; } } return false; }
+    try { for (let off = 0; off < 8000; off += 150) { X.scroll.scene = off; draw(); const q = XR.main.regions.find(z => z.id === id); if (q && q.fn) { q.fn(); return true; } } return false; }
     finally { X.scroll = {}; XR.on = false; renderPanes(); } }`;
   // a folder of scenes of its own (the test scene copied), and a relay of its own serving the app and it (from 8960 up;
   // more: its other options, as --scenes-readonly)
@@ -16741,6 +16740,7 @@ if (runs('phone ar')) {
   });
   await step('phone ar: the welcome says how a phone points and opens the menu (no controller drawn); the notice too', async () => {
     // (the session began with the welcome off, as in every test: the notice The menu said it, 2.5 s in)
+    await p.waitForFunction(() => HOST.collab.notes().some(x => x.title === 'The menu'), null, { timeout: 15000 }).catch(() => {});   // (slow drawing: the notice may come late)
     const n = await p.evaluate(() => HOST.collab.notes().filter(x => x.title === 'The menu').map(x => x.text));
     if (n.slice(-1)[0] !== 'Tap the round button at the top right for the menu.') errors.push('phone ar: the notice The menu said ' + JSON.stringify(n));
     const w = await p.evaluate(() => { HOST.collab.autoWelcome(true); return HOST.collab.welcome(); });
@@ -17695,7 +17695,7 @@ if (runs('developer mode')) {
     const n0 = await nav(), N = idx.versions.length, short = v => v.replace(/^networks-/, '');
     if (!n0.navShown || n0.older !== true || n0.newer !== false || n0.pos !== `${short(file.version)} · 1 of ${N}` || !n0.got) bad.push('the newest release\'s card: ' + JSON.stringify(n0));
     await dp.click('#devOlder');
-    await dp.waitForFunction(() => !HOST.dev.busy() && /v142/.test(document.getElementById('devTitle').textContent), null, { timeout: 15000 });
+    await dp.waitForFunction(v => !HOST.dev.busy() && new RegExp(v).test(document.getElementById('devTitle').textContent), short(idx.versions[1]), { timeout: 15000 });
     const f1 = await rel(idx.versions[1]), n1 = await nav(), c1 = await card();
     if (n1.got || !n1.newer || !n1.older || n1.pos !== `${short(idx.versions[1])} · 2 of ${N}` || n1.date !== f1.date || c1.lists.new.join('|') !== f1.new.join('|')) bad.push('Older: ' + JSON.stringify([n1, f1.date]));
     await dp.evaluate(v => HOST.dev.show(v), idx.versions[N - 1]);
@@ -17806,8 +17806,9 @@ if (runs('developer mode')) {
     await press('news:older');
     await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view, null, { timeout: 15000 });
     await dp.evaluate(() => window.__tick(3));
+    const real0 = (await dp.evaluate(() => fetch('whatsnew/index.json').then(r => r.json()))).versions[0];   // (the real newest: the page's list is the faked v999, then the real ones)
     const s4 = await st(), p4 = await dp.evaluate(() => HOST.dev.position()), w4 = await dp.evaluate(() => HOST.collab.whatsNew());
-    if (s4.tab.includes('news:got') || !s4.tab.includes('news:newer') || !s4.tab.includes('news:older') || !s4.tab.includes('news:later') || p4.i !== 2 || p4.version !== 'networks-v143' || w4.sc !== 0) bad.push('Older: ' + JSON.stringify([s4.tab, p4, w4]));
+    if (s4.tab.includes('news:got') || !s4.tab.includes('news:newer') || !s4.tab.includes('news:older') || !s4.tab.includes('news:later') || p4.i !== 2 || p4.version !== real0 || w4.sc !== 0) bad.push('Older: ' + JSON.stringify([s4.tab, p4, w4]));
     if (s4.seen !== null) bad.push('an earlier release marked a version seen: ' + JSON.stringify(s4.seen));
     await press('news:newer');
     await dp.evaluate(() => window.__tick(3));
@@ -17829,8 +17830,12 @@ if (runs('developer mode')) {
     const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
     const here = path.dirname(path.dirname((await import('node:url')).fileURLToPath(import.meta.url))), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
     try {
-      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
+      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'output.js', 'ik.js', 'bodies.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
       fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });
+      // (the story packages release.mjs reads: their order, index and each story.json, not their files)
+      fs.mkdirSync(path.join(T, 'packages'));
+      for (const f of ['order.json', 'index.json']) fs.copyFileSync(path.join(here, 'packages', f), path.join(T, 'packages', f));
+      for (const k of fs.readdirSync(path.join(here, 'packages'))) if (fs.existsSync(path.join(here, 'packages', k, 'story.json'))) { fs.mkdirSync(path.join(T, 'packages', k)); fs.copyFileSync(path.join(here, 'packages', k, 'story.json'), path.join(T, 'packages', k, 'story.json')); }
       fs.cpSync(path.join(here, 'whatsnew'), path.join(T, 'whatsnew'), { recursive: true });
       fs.mkdirSync(path.join(T, 'tools'), { recursive: true }); fs.copyFileSync(path.join(here, 'tools', 'release.mjs'), path.join(T, 'tools', 'release.mjs'));
       const run = (...a) => spawnSync(process.execPath, [path.join(T, 'tools', 'release.mjs'), ...a], { cwd: T, encoding: 'utf8' });

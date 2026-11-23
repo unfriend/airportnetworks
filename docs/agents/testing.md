@@ -45,7 +45,7 @@ covers the app's packages too.
 
 ## The smoke test (`tools/smoke.mjs`)
 
-The smoke test (serve the folder, then run it) loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
+The smoke test (serve the folder, then run it) loads every story (and the design room: its 49 miniatures built, a click putting one on the stage
 with its card as `props.json` has it, a pretend headset's grip, its shared state, Tidy; and the studio, below), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
 last one, the voice finishing the chapter there where a story has a recording,
