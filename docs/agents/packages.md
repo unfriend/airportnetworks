@@ -29,7 +29,7 @@ shared rooms' two circles).
 
 `story.json` holds `key`, `api` (the Story API it was written for: 1), `title`, `kick`, `col`, `desc` (all needed), and
 optionally `version`, `len`, `page`, `brand`, `sub`, `aria`, `thing`, `loading`, `authors`, `life`, `list` (`"stories"`,
-the default, or `"hidden"`) and `needs` (the oldest shell release). Any other field is wrong, `icon` among them (its
+the default; `"experiments"`, v188: on the Experiments set of cards, `HOST.menu`; or `"hidden"`) and `needs` (the oldest shell release). Any other field is wrong, `icon` among them (its
 picture is `icon.png`).
 
 ## The index: `tools/packages/scan.mjs`
@@ -58,7 +58,9 @@ keeps").
 - Each entry becomes a list entry with the fields of `stories/list.js` (`page`, `brand`, `sub`, `aria`, `thing`,
   `loading` defaulting from `title` and `kick`), plus `pkg: true`, `base: 'packages/<key>/'`, `fp`, `api`, `list`,
   `files` and `iconUrl` when the folder has `icon.png`. `list: "stories"` packages go into `HOST.list` after the app's own
-  (`HOST.listRev` moves, the cards are drawn again); hidden ones only into `HOST.packages.hidden()`. `HOST.meta(key)`
+  (`HOST.listRev` moves, the cards are drawn again); `list: "experiments"` ones into `HOST.packages.experiments()` (the
+  Experiments set of cards, in the index's order: `HOST.menu`, `docs/agents/shell.md`); hidden ones only into
+  `HOST.packages.hidden()`. `HOST.meta(key)`
   finds every package. An entry whose key is one of the app's own is ignored.
 - `HOST.load(key)` loads a package's `packages/<key>/main.js?v=<fp>` (fresh: `&fresh=`), then everything as a story's:
   the fingerprint of its text in `HOST.fp`, the factory kept when a new file does not register. `HOST.packages.ran(key)`
@@ -74,7 +76,7 @@ keeps").
   plain tile in its colour; its text is escaped. In developer mode (`HOST.dev`) the hidden packages follow the list,
   dashed and marked *hidden package*; switching developer mode draws the cards again.
 - The headset's Stories screen is each story's own code (`tools/engine/e6_panels.js`, `drawLandCard`): it reads
-  `HOST.list` and draws kick, title, description, length and colour, so a listed package's card is there like a story's
+  `HOST.menu.cards()` (the set on show; `HOST.list` on a shell without it) and draws kick, title, description, length and colour, so a listed package's card is there like a story's
   (no picture: no story card has one in the headset), a refused one says so in its length line, and hidden packages are
   not on it (open them by address or `HOST.go`).
 - `HOST.live`: every check (about once a minute, on coming back into view, after a new service worker) reads the index
@@ -225,7 +227,7 @@ Built as it is (`story.json` with the key `tmpl`), the template loads, plays and
 
 ### The example (`packages/hello/`)
 
-*Six handshakes* (kick *Small worlds*, `list: "hidden"`, `needs` the shell release in `index.html`'s `HOST.shell.n`
+*Six handshakes* (kick *Small worlds*, `list: "experiments"` since v188 (was `"hidden"`), `needs` the shell release in `index.html`'s `HOST.shell.n`
 when it was made, 166): 60 people on a ring, each knowing their four nearest; a few links rewired at random (seeded)
 make everyone close while the ring still looks local (Watts and Strogatz, Nature 1998). About a minute and a half in
 four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then explore mode with one tab (*Network*).
@@ -254,7 +256,7 @@ four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then e
 
 ### The cell stress test (`packages/cellstress/`)
 
-*Cell stress test* (kick *Measuring*, `list: "hidden"`, `needs` 178; from 21 November 2026): a test bed, not a story.
+*Cell stress test* (kick *Measuring*, `list: "experiments"` since v188 (was `"hidden"`), `needs` 178; from 21 November 2026): a test bed, not a story.
 The cell map's model cell (`packages/spatial/main.js`: its `CELL` numbers, organelle skins and `shellMaterial`, `nodeMaterial`
 and `routeMaterial` copied into `src/sets/cell.js`) with made-up proteins and a made-up database of links. Its first
 headset test (the owner): 20k dots fine, links heavy from 5k (inside the cell) and too much to read above about 2k;
@@ -277,7 +279,9 @@ address. Address: `#cellstress&explore&show=2&art=0.3&miss=0.3`.
 
 ### Back into the cell (`packages/ppicell/`, in development)
 
-*Back into the cell* (`list: "hidden"`, `needs` 178; from 22 November 2026): the interactome of Menche et al. (2015)
+*Back into the cell* (`list: "stories"` and in `packages/order.json` since v188, before the tutorial, its stations'
+miniature the cell map's `spatial.cell`; it was `"hidden"`; the receptor's G protein built finer and drawn at its finest
+level, v188; `needs` 178; from 22 November 2026): the interactome of Menche et al. (2015)
 (13,460 proteins, 141,296 links, seven kinds of evidence) put back into the cell map's model cell with the Human Protein
 Atlas's locations, each link judged by the method `packages/cellstress` tried out. Its plan is `src/SPEC.md`; its data
 `src/sets/data.js` (`PPI_DATA`, derived numbers only) from `src/data/gen_data.py <folder>` (the three source files stay

@@ -885,11 +885,15 @@ The plan is `docs/shared-space-plan.md`.
   - Untested until tried: Web MIDI with real virtual ports (loopMIDI, the IAC Driver, ALSA) and Cardinal, real MIDI clock
     from a DAW, OSC to real apps, UDP through a firewall, the trackers' OSC rate on the PC, cubes and pointing from real
     headsets, how in time it feels.
-- Arrange all: two rows in front of you, half the stories (rounded up: eight of
-  sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
+- Arrange all: two rows in front of you, half the stories of the main set (`HOST.list`; rounded up: about eight)
+  1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 17 m x 4 m of floor from 1.2 m in front of you. It leaves the design room's table where it is (not a
-  story), and the All stories and lobby circles too (never moved, made or removed by it). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
+  story), the All stories and lobby circles too (never moved, made or removed by it), and since v188 the Experiments
+  set's stories (`HOST.menu`, `list: "experiments"`): never placed by it, a circle of one stays where it is. Add (the
+  page's picker, the headset's Add page) lists them after the main set's (`HOST.stories()`); an All stories circle's
+  arch can open the Experiments set (this device's own, never the room's) and its pick may be one (`allPick` takes any
+  of `HOST.stories()`); a station of one starts in story mode; no `FORMAT` change (the keys and states are as before). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
 - Station icons and halos (v145): all stations' halos are one instanced billboard draw (`HALO`, `haloAdd` in `iconStep`; instanced
   quads in a small additive `ShaderMaterial`, not `Points`, whose size a GPU clamps; `I.halo` is only the colour holder); an
   icon's see-through mesh is hidden while its scale is under 0.3. Icon miniatures of a room's stations are built by `iconIdle`

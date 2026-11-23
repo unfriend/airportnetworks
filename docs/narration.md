@@ -25,10 +25,8 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Tissue topology: The shape of tissue | `packages/topo/audio/narration.mp3` | synthetic voice | 8:50 |
 | Networks for everyone: Pass it on | `packages/pass/audio/narration.mp3` | synthetic voice | 6:46 |
 | Soil microbes: Holding on to nitrogen | `packages/soil/audio/narration.mp3` | synthetic voice | 11:03 |
-| Network medicine: Proteins | `packages/proteins/audio/narration.mp3` | synthetic voice | 5:48 |
 | Spatial interactome: Cell map | `packages/spatial/audio/narration.mp3` | synthetic voice | 5:41 |
-| Collective motion: Flock | `packages/flock/audio/narration.mp3` | synthetic voice | 1:36 |
-| Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
+| Spatial interactome: Back into the cell | `packages/ppicell/audio/narration.mp3` | synthetic voice | 12:32 |
 | Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
 
 ## Network theory: Airports (`#airports`)
@@ -1226,88 +1224,6 @@ File: `packages/soil/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Half
 - **10:41** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
 - **10:43** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative. Narration: a synthetic voice (Kokoro).
 
-## Network medicine: Proteins (`#proteins`)
-
-File: `packages/proteins/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Proteins, 0:50 Interactions, 1:21 Hubs, 1:49 Essential, 2:25 Modules, 3:20 Disease modules, 3:54 Drug targets, 4:34 Robustness, 5:25 Recap; it ends at 5:48.
-
-### 0:00 Intro
-
-- **0:01** Network medicine
-- **0:03** told with the proteins in a human cell
-- **0:06** Here are 254 proteins and 375 interactions, placed where they work in the cell. First come eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
-
-### 0:21 Proteins
-
-- **0:22** Proteins are nodes
-- **0:24** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, which is the inner sphere.
-- **0:41** Proteins are nodes just like airports: the same rules of network theory apply.
-
-### 0:50 Interactions
-
-- **0:51** Interactions are edges
-- **0:53** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
-- **1:04** All together, 375 interactions tie these proteins into one network.
-- **1:10** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
-
-### 1:21 Hubs
-
-- **1:21** Hubs
-- **1:23** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, and beta-catenin has 12.
-- **1:34** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24 per cent of all interactions. The height of each spike shows how many partners a protein has.
-
-### 1:49 Essential
-
-- **1:50** Essential proteins
-- **1:52** Some proteins are essential: without them, almost no human cell can survive.
-- **1:58** 69 proteins in this map are essential, and they are highlighted. They have 3.2 partners on average, and the others have 2.9: essential proteins tend to have more partners.
-- **2:11** In yeast, hubs turned out more likely to be essential, a pattern known as the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
-
-### 2:25 Modules
-
-- **2:26** Modules
-- **2:28** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. A method called the Louvain algorithm found these ten from the interactions alone.
-- **2:40** Cell cycle & DNA copying
-- **2:43** DNA break repair
-- **2:43** p53 & gene control
-- **2:47** Growth-factor signalling
-- **2:50** Wnt & amyloid
-- **2:52** Proteasome
-- **2:54** DNA replication start
-- **2:56** AKT-mTOR & survival
-- **2:59** TNF & cell death
-- **3:02** RNA polymerase II
-
-### 3:20 Disease modules
-
-- **3:21** Disease modules
-- **3:23** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
-- **3:31** 12 of 16 form one connected module
-- **3:36** Pick 16 proteins at random, and their largest connected group has only 2.0 proteins on average. Disease genes cluster in the same neighbourhood. This is the disease module, the idea at the heart of network medicine.
-
-### 3:54 Drug targets
-
-- **3:55** Drugs and distance
-- **3:58** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
-- **4:06** Tamoxifen and trastuzumab hit ESR1 and HER2, which sit inside the breast cancer module. Olaparib blocks PARP1, which sits right next to it.
-- **4:22** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
-
-### 4:34 Robustness
-
-- **4:35** Robustness
-- **4:37** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
-- **4:46** 100%
-- **4:46** of protein pairs still connected
-- **4:49** Knock out 20 random proteins, and 75 per cent of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
-- **5:02** Now knock out the 20 most central proteins, the ones with the highest betweenness: they lie on the largest number of shortest paths between other proteins.
-- **5:13** The network is robust to random failure, but fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
-
-### 5:25 Recap
-
-- **5:26** Network medicine
-- **5:28** Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness
-- **5:35** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
-- **5:37** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016. Narration: a synthetic voice (Kokoro).
-
 ## Spatial interactome: Cell map (`#spatial`)
 
 File: `packages/spatial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:21 Compartments, 0:59 Addresses, 1:31 Meeting, 2:10 Many places, 2:45 Signals, 3:25 Moving, 4:04 Proximity, 4:40 Wrong place, 5:19 Recap; it ends at 5:41.
@@ -1393,75 +1309,94 @@ File: `packages/spatial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 I
 - **5:28** Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.
 - **5:30** An illustrative, curated set of 249 well-studied human proteins and 252 documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg & Borner 2019. Narration: a synthetic voice (Kokoro).
 
-## Collective motion: Flock (`#flock`)
+## Spatial interactome: Back into the cell (`#ppicell`)
 
-File: `packages/flock/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:23 Seven, 0:53 Wave, 1:20 Around you; it ends at 1:36.
+File: `packages/ppicell/audio/narration.mp3` (synthetic voice). Chapters: 0:00 No place, 1:12 Crowds, 2:16 Walls, 3:40 Into the cell, 5:04 Can they meet?, 6:39 Why red?, 9:20 Moments, 11:00 What next; it ends at 12:32.
 
-### 0:00 Intro
+### 0:00 No place
 
-- **0:01** A flock
-- **0:02** of starlings at dusk
-- **0:04** Before they settle for the night, starlings gather in flocks of hundreds or thousands and sweep across the sky together. These 200 fly all around you.
-- **0:14** In a headset, look around: they never leave. On a screen the view follows them.
+- **0:03** This is a map of which human proteins stick to which. Biologists call it an interactome. Every dot is a protein, about 13,500 of them, and every line means: these two have been seen to bind.
+- **0:17** There are more than 140,000 lines, far too many to draw at once. So you just saw them sweep past, a couple of thousand at a time. What stays are the best supported ones.
+- **0:05** Menche and colleagues, 2015: seven kinds of evidence. Most suggest physical contact; 6,546 links do not.
+- **0:29** A few proteins have a huge number of partners. We call them hubs. This one, GRB2, has 871. Most proteins have far fewer: about 21 on average.
+- **0:51** It is a beautiful object. But notice what is missing. The map tells us who binds whom. It does not tell us where.
+- **0:59** And in a real cell, two proteins can only bind if they actually meet. So let's put this map back into a cell, the empty one waiting beside it, and see what survives.
 
-### 0:23 Seven
+### 1:12 Crowds
 
-- **0:23** Seven neighbours
-- **0:26** No bird leads. Each one keeps track of about seven of its nearest neighbours, however near or far they are, and matches their heading and speed.
-- **0:35** Draw each bird's link to the seven it follows, and the flock is a network: every bird is a node, and every link is one bird watching another.
-- **0:44** The links change from moment to moment, as birds change places.
-- **0:46** Ballerini et al., PNAS 2008: starlings follow a set number of neighbours, not all birds within a set distance.
+- **1:14** But first: what does one dot stand for? Let's pick one spot in the cytosol, the watery inside of the cell, and zoom in.
+- **1:22** This cube is about a hundred nanometres across, a thousandth of the width of a hair. Even in this speck there are a few thousand protein molecules, packed shoulder to shoulder. Here 3,600 are drawn, each simplified to a few balls.
+- **1:38** A whole human cell holds billions of protein molecules, of about ten thousand different kinds. It is a very crowded place.
+- **1:39** Molecules: ubiquitin, calmodulin, actin, GAPDH and tubulin from the Protein Data Bank (1UBQ, 1CLL, 1ATN, 1U8F, 1JFF), each simplified to a few balls (its residues grouped). Sizes to scale, packed about as densely as a real cytoplasm.
+- **1:52** So a dot on our map is not one molecule. It is every copy of one kind of protein, in one place. Like the bright ones here.
+- **2:00** One dot per kind, per place. Keep that in mind. It will matter in a moment.
+- **1:56** The bright ones: the 432 calmodulins drawn.
 
-### 0:53 Wave
+### 2:16 Walls
 
-- **0:53** A wave
-- **0:55** A falcon dives in. The birds nearest it turn away, their neighbours follow them, and theirs follow in turn, so a wave of turning runs through the whole flock.
-- **1:06** The dark bands you see are birds banking together, with their wings edge on or full on to you.
-- **1:12** Because every bird is linked to its neighbours, a turn can spread across the whole flock, however big it is.
-- **1:14** Cavagna et al., PNAS 2010; Procaccini et al., Animal Behaviour 2011. The flock here is a simulation. Narration: a synthetic voice (Kokoro).
+- **2:17** A cell is not a bag of soup. It is more like a house with rooms. The cytosol is one room. The inside of the nucleus is another. The endoplasmic reticulum and the Golgi, where proteins are made and shipped, have rooms of their own. Then come the mitochondria, the cell's power stations, and small organelles such as lysosomes. And the last room is the world outside.
+- **2:40** Two proteins in different rooms cannot touch, however well they would fit. And every single mitochondrion is a room of its own.
+- **2:55** Some proteins sit in a wall and reach into both rooms. This receptor crosses the cell's outer membrane. Outside, it catches a signal. Inside, it passes the message on to a partner.
+- **2:57** The receptor: the beta-2 adrenergic receptor, its chain as ribbons, with an agonist (BI-167107) in its pocket and the G protein Gs docked inside, their surfaces; PDB 3SN6 (Rasmussen et al., Nature 2011). Its seven helices cross the membrane.
+- **3:14** And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.
+- **3:28** A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.
+- **3:18** Crossing the pore: TP53's core domain, PDB 1TSR; threading into the mitochondrion: frataxin, PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000), its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.
 
-### 1:20 Around you
+### 3:40 Into the cell
 
-- **1:21** All around you
-- **1:23** The flock flies on for as long as you stay.
-- **1:27** Change the number of birds, show who follows whom, or send a falcon by clicking the sky, or by pointing and pulling the trigger in a headset.
+- **3:42** Now we need an address for every protein. For that we use the Human Protein Atlas, a large public project. Its teams stained human cells for one protein at a time, with an antibody that sticks to it, and photographed under a microscope where the cell lights up.
+- **3:59** Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.
+- **4:12** Inside each room, proteins that are linked settle close together, so their lines stay short. And each mitochondrion keeps its links to itself.
+- **4:29** The lines now take on colours. We will come to what they mean in a moment.
+- **4:42** But about a quarter of the proteins have no address at all. The Atlas has no reliable picture of them yet. They wait outside the cell, in grey.
 
-## Swarm robotics: Robot gang (`#robots`)
+### 5:04 Can they meet?
 
-File: `packages/robots/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Robot gang, 0:19 Bump and turn, 0:45 Follow me, 1:09 Follow the one ahead, 1:33 Your gang; it ends at 1:49.
+- **5:06** Now the test. For every link we ask: can these two proteins actually meet? We take the links where both partners have an address, about 99,000 of them.
+- **5:16** Eight in ten pass. Both partners share a room, so nothing stands between them. These keep the colour of their room.
+- **5:31** About 15 in a hundred are one door apart. Say, one partner is in the cytosol and the other in the nucleus, with the pores between them. Those we colour amber.
+- **5:46** And about 3,000 links should be impossible. Their partners share no room, and no door connects them. Those are red.
+- **6:00** Look at one protein, RELA. It is half of a famous alarm switch called N F kappa B. The Atlas photographed resting cells, and in a resting cell RELA sits in the cytosol. But raise the alarm, and it moves into the nucleus to switch genes on.
+- **6:17** So its 88 amber links are not mistakes. They are moments nobody photographed.
 
-### 0:00 Robot gang
+### 6:39 Why red?
 
-- **0:01** Robot gang
-- **0:02** vacuums in your room
-- **0:04** Six robot vacuums share a room with you. In a headset it is your own room: the headset knows your floor and walls from its room setup, and so do they.
-- **0:14** On a screen you stand in a model living room. Click the floor to walk.
+- **6:41** So what about the red ones? As drawn, those partners could never meet.
+- **6:47** So either the link is wrong, or an address is. To see how that can happen, we have to look at how links are found in the first place. There are three main ways.
+- **7:00** The first is called two-hybrid. You take two human proteins and make them both inside a yeast cell. Each carries half of a switch. If the two stick together, the halves meet, the switch turns on, and the yeast shows it. It is clever, and it can test thousands of pairs. But think about what it tells you: that two proteins can stick. Not that they ever meet in a human cell.
+- **7:22** And indeed, of the links found this way, about 5 in a hundred are red.
+- **7:03** H-Ras and Raf: PDB 4G0N, their surfaces. Not to scale.
+- **7:35** The second way works like fishing. You break cells open, catch one protein with a molecular hook, and see what comes up with it. A machine called a mass spectrometer identifies the catch. But notice: once the cell is broken, the walls are gone. Proteins from different rooms can meet in the tube, though they never would in life.
+- **7:55** Even so, the best-behaved links in our map are the complexes. These are proteins known to work together as stable machines, checked by hand across many studies. Fewer than one in a hundred of their links is red.
+- **8:09** The third way is the newest, and it works inside living cells. You pick a protein, the bait, and attach an enzyme to it that sprays a small tag onto everything within about ten nanometres. Then you collect whatever got tagged. That tells you who was nearby, in the right room. Not necessarily who was holding on.
+- **8:28** The big maps made this way came after the interactome we are looking at.
+- **8:13** The antibody: PDB 1IGT. BirA: PDB 1BIA. Their surfaces; the other proteins simplified. Not to scale.
+- **8:37** So how often a link turns out red depends on how it was found. That is a pattern. It is not proof that the method is to blame.
+- **8:38** Of the five kinds of evidence that suggest contact; a link found in several ways counts under each.
+- **8:48** Part of the problem is the Atlas itself. It tells us that a protein belongs to an organelle, but not on which side of the wall it sits. If we assume every such protein is inside, we get our 3,000 red links. If we allow it to face outwards as well, every one of them becomes possible. The truth lies somewhere in between.
+- **9:09** And remember the proteins waiting outside. Their links, about 35,000 of them, we cannot judge at all.
 
-### 0:19 Bump and turn
+### 9:20 Moments
 
-- **0:20** Bump and turn
-- **0:22** Early robot vacuums had no map of the room. Much of the time they simply drove until they bumped into something, turned, and drove on.
-- **0:31** Nobody plans a route, yet the floor gets clean.
-- **0:37** Bouncing at random reaches every corner in the end, but the last patches take longest.
+- **9:22** Now suppose a link is right, and both partners share a room. Even then, it is not a wire. Take GRB2 again. It has 871 partners, but only three hands: three small domains, each of which holds one partner at a time.
+- **9:40** So its partners have to take turns. A link in the map is a moment in time, not a permanent connection.
+- **9:24** GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: their docking stretches, each a short chain of amino acids (illustrative).
+- **10:00** Or take TP53, the cell's best-known guardian against cancer. It has 449 links, and it travels to and fro through the nuclear pores. Some of its partners wait in the nucleus, others in the cytosol.
+- **10:02** TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.
+- **10:15** But be a little careful with that number. TP53 is one of the most studied proteins there is, and 391 of its links come from individual papers. The more people look at a protein, the more partners they find. In systematic screens, which test every pair alike, it only ranks 47th.
+- **10:34** One last traveller: STAT3. It waits in the cytosol until a signal arrives at a receptor, where an enzyme called JAK2 switches it on. Two copies pair up, pass through a pore, and in the nucleus they bind D N A and new partners.
+- **10:51** Its 148 links happen in different places, at different times. Our map shows them all at once.
+- **10:39** STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: 2B7A; p300: 3BIY; their surfaces. Not to scale.
 
-### 0:45 Follow me
+### 11:00 What next
 
-- **0:46** Follow me
-- **0:48** Now give each robot one rule: follow you, keep a little distance, and keep clear of the others.
-- **0:54** Draw who follows whom and you get a network, with you in the middle and a link to every robot: a star.
-
-### 1:09 Follow the one ahead
-
-- **1:09** Follow the one ahead
-- **1:12** Rewire the network. Each robot follows the one in front of it; only the first follows you.
-- **1:18** Same robots, same rule, a different network: the gang becomes a line.
-- **1:25** Swarms of robots are often steered like this: each watches a few others, and the network of who follows whom shapes the group (Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007). Narration: a synthetic voice (Kokoro).
-
-### 1:33 Your gang
-
-- **1:33** Your gang
-- **1:35** The gang stays for as long as you do.
-- **1:38** Change the rule, add robots, show the cleaned floor, or spill crumbs. Click the floor to walk; in a headset, point at the floor and pull the trigger to spill them.
+- **11:01** So what would it take to draw a map that is true to a real cell? We would need to know where, and when, each pair really meets. Three kinds of experiment are getting us there.
+- **11:12** Proximity maps repeat the tagging trick with hundreds, even thousands of baits. They chart who is near whom, room by room.
+- **11:31** Cryo-electron tomography freezes a cell in an instant, cuts it into thin slices, and shows single molecules exactly where they were.
+- **11:47** And whole-cell imaging maps every organelle of an entire cell in three dimensions.
+- **11:59** It would also take fairer maps. Famous proteins collect links, and unstudied ones look lonely. Among the hundred biggest hubs, 42 in a hundred links come from papers alone. A map of binding is also a map of our attention.
+- **12:14** Until then, this is the honest picture. Dense networks inside each room. Thin traffic through the doors. And a red remainder that nobody can explain yet. Which of those links are mistakes, and which are biology we have not understood? That is still open. Have a look around.
+- **12:24** The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). The judgement is this story's own.
 
 ## Introduction: Your guide (`#tutorial`)
 

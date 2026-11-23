@@ -30,6 +30,7 @@ Quest Browser, WebXR).
 | Networks for everyone (outreach; English and German) | `packages/pass/main.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `packages/flock/main.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
+| Back into the cell (on the main cards since v188) | `packages/ppicell/main.js` | an interactome of 13,460 proteins put back into a model cell: which links can happen where, real protein structures at the close-ups |
 | Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `packages/tutorial/main.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
 
 Besides the stories, two pages that are not stories (`STORY_EXTRA`, on no Stories screen): the design room
@@ -116,7 +117,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `packages/` - story packages, a story in one folder each (`packages/<key>/`: `story.json`, `main.js`, `icon.png`, its
   files), listed in `packages/index.json`; `tools/packages/` their `SPEC.md` (the contract), `scan.mjs` (writes the
   index; `--check`), `check.mjs` (a package's rules; `--load`) and `template/` (a package's `src/`); `packages/hello/` the
-  example (hidden: `#hello`) (`docs/agents/packages.md`). The app's own stories are moving into packages (v185,
+  example (an Experiment: `#hello`) (`docs/agents/packages.md`). The app's own stories are moving into packages (v185,
   `docs/packages-migration.md`): `packages/order.json` (hand-written) is the Stories screen's order of every story,
   moved or not; `tools/packages/move.mjs <key>` moves a built story; `tools/stories.mjs` is how every tool finds a
   story's file, sources and narration; *Take all stories* (`HOST.offline`, `sw.js` `takeAll`) takes them for offline.
@@ -144,6 +145,10 @@ gets at most a line per feature and stays under 70 KB.
   survives a change of story: the new story calls `xrAdopt()` to take over the session, `HOST.inputs` and `HOST.xrPose`.
 - A story builds in steps (`LOAD`, `HOST.progress`), tells its chapters in `CH` on story time, follows its narration
   (`NARRATION_SYNC`, `HOST.audio.narration`), and then opens explore mode (`X`, `render*` and `draw*` twins).
+- Two sets of cards (v188, `HOST.menu`): the main Stories screen (`HOST.list`, then a card *Experiments*) and the
+  Experiments set (`story.json` `list: "experiments"`: proteins, the flock, the robots, the cell stress test, hello; a card
+  back), page and headset arch alike; `HOST.stories()` is both (a room's Add and picks); Arrange all only the main set. No
+  count of stories anywhere a user reads it (*Network stories*). `docs/agents/shell.md`.
 - In a headset each story hangs its Stories screen, story panel and scene on one frame, `GL.rig`, set from your head or
   from an anchor (`HOST.anchor`). The shell owns the menu, the subtitles, the settings, sound, occlusion and the
   spaceships.

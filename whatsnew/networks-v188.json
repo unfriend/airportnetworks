@@ -1,0 +1,23 @@
+{
+  "version": "networks-v188",
+  "date": "2026-11-23",
+  "new": [
+    "The Stories screen has a last card, Experiments. It opens a second set of cards: proteins, the flock, the robot gang, the cell stress test and the example package. Its last card goes back.",
+    "Back into the cell is now one of the main stories, with its own card.",
+    "No number of stories anywhere: the app just says Network stories.",
+    "Leaving AR or VR now hides the menu, the welcome and the other pop-ups, so the page no longer shows them.",
+    "In Back into the cell, the G protein under the receptor (chapter Walls) is much finer."
+  ],
+  "test": [
+    "In a headset, open Experiments on the card arch, start the flock, then open the Stories screen again: it should show the Experiments cards with the flock to resume. Go back to the main cards.",
+    "On a phone and a laptop, do the same on the page's Stories screen.",
+    "In a shared room, check Arrange all places only the main stories, and Add can still place the flock or proteins.",
+    "Leave AR from a story with the menu or the welcome open: the page should show no pop-ups.",
+    "In Back into the cell, look closely at the receptor and its G protein in AR."
+  ],
+  "untested": [
+    "The two card arches and their Open and Back cards in a real headset.",
+    "Leaving a real AR or VR session with pop-ups open.",
+    "The finer G protein's frame rate on a Quest."
+  ]
+}

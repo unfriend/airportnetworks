@@ -1414,6 +1414,16 @@ degrees of `@trk`, the circling one within 1 mm of the truth, kinds and names, a
 page's own test (Web MIDI and `HOST.cur.out` stubbed; a room on this device and a plain relay): `&output` and the
 dialog's button, MIDI notes and their held ends, OSC arguments, slots and a CC stream from pretend presence, incoming
 MIDI, OSC and MIDI clock calling `act()`, Learn, validation, Export and Import, a reload resuming it, a phone ignoring it.
+Its live sound (v162) reads and encodes the input on the page's main thread, which a page drawing in software headlessly
+(frames a hundred ms and more apart) starves: the pace (50 frames a second), the kbit/s and the count of frames are then
+printed as `note ... cannot be checked here` (v188), never failed; alone the same pipe gives 50 a second headless. The
+owner checks those on a real device.
+
+The collab arc round (`--all`, v188) steps the pretend headset until every card of the arch is drawn (the Stories screen
+draws two new cards a frame, `XR.landN`) and opens the set of cards (`HOST.menu`) of the card it presses (its
+`PICK_STORY`, proteins, is an Experiment); the ask round (`--ask`) gives the pretend headset frames until it is aligned
+(30 s at most). The main run places the Experiments set's stories that have rounds (proteins, the flock, the robots)
+with Add in a third row after Arrange all, which leaves them out.
 
 `node relay/test.mjs --talk` runs only Talk's steps (v178, also in the main run after live sound's; `relay/README.md`
 "Talk (v178)"), eight of them: `/api/ping`'s `talk: true` and `welcome`'s `talk: 1`, no `@talk` on a join into a room

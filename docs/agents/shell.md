@@ -10,11 +10,24 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   design room opens behind the Stories screen; `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
   `tools/release.mjs`, so a browser's held copy never gives a new page an old list; always the same array, changed in
   place when the list is read again; `HOST.listRev` counts the changes), so a
-  story's code may keep it (`XR_STORIES`). Nothing in a story writes the number
-  of stories in: the title and Stories screen say it in words up to twenty
-  (`HOST.count()`; the headsets' `drawLandHead` the same), and the headset
-  Stories screen lays its cards out in two rows from the number
-  (`xrLandingCards`, built again when `HOST.listRev` moves on). A story the list does not have (a shared
+  story's code may keep it (`XR_STORIES`). No count of stories is shown anywhere since v188 (the owner, 23 November
+  2026: "remove the number of stories everywhere, just say network stories, no number needed"): the title, the brand and
+  the Stories screens say *Network stories* (`HOST.menu.title()`); `HOST.count()` stays only for packages built before
+  v188, whose headset title still uses it. The headset Stories screen lays its cards out in two rows from their number
+  (`xrLandingCards`, built again when `HOST.listRev` moves on).
+- Two sets of cards (v188, `HOST.menu`; the owner: "add one card at the end called experiments that opens another cards
+  arch menu with the hidden and experimental things that are not in the main menu"): the main set is `HOST.list` (the
+  packages with `list: "stories"` in their `story.json`, the tutorial last) and then a card *Experiments*; that set is
+  `HOST.packages.experiments()` (`list: "experiments"`: proteins, the flock, the robot gang, the cell stress test, the
+  hello example) and then a card *Network stories* back. The same on the page (`HOST.cards`, `#picker.exp`, the title
+  and lede follow) and in the headset (the card arch: `xrLandList()` is `HOST.menu.cards()`, its header
+  `xrLandTitle()`, a menu card's button says *Open*). A menu card's key (`experiments`, `stories`) is no story: the
+  page's click and `HOST.go` open its set (`HOST.menu.open`, which moves `HOST.listRev` so every arch is built again).
+  The set on show is this device's, never in a room's state; `HOST.start` sets it to the started story's
+  (`HOST.menu.follow`), so the Stories screen opens on the set the story is in; `#experiments` opens on that set.
+  `HOST.stories()` is every story of both sets: what a shared room may run (Add, an All stories circle's pick, a
+  station's clock); Arrange all, Repeat all and the default start see only `HOST.list`. `hidden` still means hidden
+  (developer mode on the main set, and the address): no package uses it now. A story the list does not have (a shared
   room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`. An entry with `intro: true` (v173, the
   tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
   counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
@@ -100,12 +113,12 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   (`XR.stories`, built by `xrLandingSetup`). Entering VR/AR from inside a
   story resumes that story. In a shared room a headset never shows the
   Stories screen (see "Shared rooms"), except at an All stories circle.
-  - The headset Stories screen (the same lines in all sixteen stories and the design room, on `XR.landGroup` in
-    `GL.rig`): a header (`XR.land[0]`, `drawLandHead`, 1.02 m wide) with only the title (*Networks, in sixteen
-    stories*), its hint (or where an anchored place stands, `HOST.anchor.status()`) and *Back to the story* (while
+  - The headset Stories screen (the same lines in every story and the design room, on `XR.landGroup` in
+    `GL.rig`): a header (`XR.land[0]`, `drawLandHead`, 1.02 m wide) with only the title (*Network stories*, or
+    *Experiments*: the set on show, `HOST.menu`), its hint (or where an anchored place stands, `HOST.anchor.status()`) and *Back to the story* (while
     `XR.inStory` and not at an All stories circle's cards); the sound, Sound check, Anchor, Exit, Recenter or Place
     again and Repeat are the headset's menu's, not on it. Under it one card per story (`XR.land[1..]`, in
-    `HOST.list`'s order, 0.36 m x 0.461 m, the whole card a button: here and not at an All stories circle's cards back
+    the order of the set on show, `HOST.menu.cards()`, 0.36 m x 0.461 m, the whole card a button: here and not at an All stories circle's cards back
     into the story, else `HOST.go(key)`) in two rows on one arc, as the All stories circle's icon has them: the first
     half of the list (rounded up) in the upper row, the rest under it, a shorter row centred, each card turned to you.
     In a row neighbours stand 0.381 m apart and the outer ones at most 62 degrees to the side, never nearer than

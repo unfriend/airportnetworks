@@ -42,8 +42,10 @@ never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `vie
   whose `api` is above its own `HOST.storyApi`). `version` is the package's own, free text.
 - `title` ... `loading`, `len`, `life`: the same meaning as an entry of `stories/list.js` (its comment says each).
   `page` ... `loading` default from `title` and `kick` when left out.
-- `list`: `"stories"` (default: on the Stories screen after the app's own, and in Arrange all) or `"hidden"` (opened only
-  by its address `#<key>` or `HOST.go`, and listed on the Stories screen in developer mode).
+- `list`: `"stories"` (default: on the Stories screen's main set of cards, after the app's own, and in Arrange all),
+  `"experiments"` (v188: on the Experiments set of cards, which the main set's last card opens, page and headset; not
+  in Arrange all; Add and an All stories circle take it) or `"hidden"` (opened only by its address `#<key>` or
+  `HOST.go`, and listed on the Stories screen in developer mode).
 - `needs` (optional): the oldest shell release it works with (`HOST.shell.n`); refused on an older shell, as a story.
 - `icon` (optional, v185): its stations' miniature in a shared room, a key of `lowpoly.js`'s `LOWPOLY_MODELS`
   (`<key>.<set>`, which must exist there); without it its station has no miniature (the ring, the card and the plain
@@ -76,7 +78,7 @@ story of `stories/list.js` it leaves out. The shell sorts `HOST.list` by it; the
 - `HOST.storyApi = 1`.
 - At start, before the first story is chosen, the shell reads `packages/index.json` (`cache: 'no-store'`; a missing or
   bad file means no packages, quietly). Each package becomes an entry of `HOST.list` (after the app's own, `list:
-  "stories"` only) or of the hidden packages (`HOST.meta(key)` finds both), with `pkg: true`, `base: 'packages/<key>/'`,
+  "stories"` only), of the Experiments set (`HOST.packages.experiments()`) or of the hidden packages (`HOST.meta(key)` finds both), with `pkg: true`, `base: 'packages/<key>/'`,
   `fp`, and `iconUrl` when it has `icon.png`. `HOST.listRev` changes when the list does. A hidden package shows on the
   page's Stories screen in developer mode (the headset's Stories screen is each story's own code and lists `HOST.list`
   only).
@@ -129,7 +131,7 @@ mode and fails on any console error.
 packages/<key>/src/build.mjs` writes `packages/<key>/main.js` from the app's kit (`tools/engine/kit.js`), the shared engine
 parts (`tools/engine/`) and its own sets and story, as the built stories are made (`docs/agents/stories.md`). The built
 `main.js` holds everything it needs: the app's later changes to the engine reach a package only when its author builds it
-again. `packages/hello/` is the example (hidden: developer mode, or `#hello`).
+again. `packages/hello/` is the example (on the Experiments set, or `#hello`).
 
 A hand-written package is allowed too: `main.js` written by hand, no `src/` (`src/` is optional; the checks are the
 same, on `main.js` itself). The app's airports, proteins and spatial stories are such packages (v187, wrapped as they

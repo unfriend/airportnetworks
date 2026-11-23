@@ -1,89 +1,93 @@
 {
   "app": "networks",
-  "version": "networks-v187",
+  "version": "networks-v188",
   "format": "networks-55",
   "shell": {
-    "n": 187,
-    "id": "198ba8a46838b139"
+    "n": 188,
+    "id": "6d0ac4e04892f003"
   },
   "list": "d095202279b28c9e",
   "stories": {
     "design": {
-      "fp": "7d1d8617c72fd2f6",
-      "needs": 187
+      "fp": "e3a03a4140ae3cb1",
+      "needs": 188
     },
     "studio": {
-      "fp": "c3b8c5ca38c6a3f0",
-      "needs": 178
+      "fp": "e23c0e66b18b9e24",
+      "needs": 188
     }
   },
   "packages": {
     "airports": {
-      "fp": "41ba0e7700036fcd",
+      "fp": "e2f3d6fa4f25e4ab",
       "needs": 185
     },
     "lbi": {
-      "fp": "f8f5659af0503dd7",
+      "fp": "74bb0b729a6df271",
       "needs": 185
     },
     "nmd": {
-      "fp": "b23bb211736f4e2f",
+      "fp": "8089b98ca1866c2c",
       "needs": 185
     },
     "endo": {
-      "fp": "2b428af7e8a49fed",
+      "fp": "c0d168163850d940",
       "needs": 185
     },
     "pet": {
-      "fp": "ebea262ff9fec963",
+      "fp": "faef3876f704fc91",
       "needs": 185
     },
     "micro": {
-      "fp": "1b0c97237331b994",
+      "fp": "b97d806422f84141",
       "needs": 185
     },
     "ovary": {
-      "fp": "fddfd4e8e38109c4",
+      "fp": "7ca3e4017fb7eb2a",
       "needs": 185
     },
     "qubits": {
-      "fp": "6180fb9674d0f854",
+      "fp": "b6d9b6df2c1ab4a7",
       "needs": 185
     },
     "mutation": {
-      "fp": "67d0a371caef1091",
+      "fp": "23354d8a0d07ddd3",
       "needs": 185
     },
     "topo": {
-      "fp": "fc82306f3f2e6805",
+      "fp": "ae30f2b54ade6c03",
       "needs": 185
     },
     "pass": {
-      "fp": "4343da98e6406e7d",
+      "fp": "e0f828be7a804775",
       "needs": 185
     },
     "soil": {
-      "fp": "67ffd33ae7b17077",
+      "fp": "743ece92080d7fb0",
       "needs": 185
     },
     "proteins": {
-      "fp": "d299c986b6bf6216",
+      "fp": "ad6249788d4fdea0",
       "needs": 185
     },
     "spatial": {
-      "fp": "8ce186b6c197f450",
+      "fp": "bdcfb64de7c5dcb9",
       "needs": 185
     },
+    "ppicell": {
+      "fp": "7df88367648b0600",
+      "needs": 178
+    },
     "flock": {
-      "fp": "61f0df09bca7df92",
+      "fp": "b5bc27fbd51ae57e",
       "needs": 185
     },
     "robots": {
-      "fp": "98c60bcfc56598b8",
+      "fp": "8ef23a9646b6ec0f",
       "needs": 185
     },
     "tutorial": {
-      "fp": "33b1895add864afe",
+      "fp": "e125d674c111b7a8",
       "needs": 185
     }
   }
