@@ -2,7 +2,7 @@
 
 Every 3D scene the stories are made from is a **set** (a "prop"): a self-contained group of meshes that the story engine fades in and out, flies the camera round, and drives with numbers called **params**. This page lists all of them, for the planned story design room and for a player that plays stories written as data. The machine-readable twin is `tools/design/props.json` (same facts, one object per set). Where a manifest and the code disagree, the code is right: the disagreements are listed at the end.
 
-Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<story>/sets/<name>.js`), the set contract `tools/lbi/SPEC.md`, and the stories' engines for which params are steps. The params, defaults, camera views, controls, anchors and labels below were read by building every set in Node (three.js runs there; nothing is drawn) and dumping what its returned object holds.
+Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<story>/sets/<name>.js`), the set contract `packages/lbi/src/SPEC.md`, and the stories' engines for which params are steps. The params, defaults, camera views, controls, anchors and labels below were read by building every set in Node (three.js runs there; nothing is drawn) and dumping what its returned object holds.
 
 ## How to read an entry
 
@@ -74,17 +74,17 @@ Data kinds: **real** = the authors' or a public dataset; **figures** = numbers t
 - `nmd/motor` (the motor unit and the heart) is used unchanged by the endotype story.
 - `topo/slide` and `topo/map` share the slide's frame (the window of 6,716 cells); `mutation/tree` and `mutation/stem` share the tree's frame; `micro/atlas` hands over to `micro/hier` (`atlas_net` with `hier_grow`, keyed at the same times).
 - `soil/net` is drawn in `soil/field`'s frame (the cloud and the network over the field, centred at (0, 1.3, 0)); the soil story also uses `lbi/web` unchanged, only its globe (with the engine's hop from Vienna to Japan). `soil/net` adapts the endotype story's `net` set, and `soil/field` the flock's swaying reeds (its wheat) and the ovary charts' stacking movement (its cores); the soil story pastes the topology story's look (`TLOOK`) unchanged.
-- `pass/globe` and `pass/cell` are the airports story's globe and the cell map story's cell, cut unchanged out of `stories/airports.js` and `stories/spatial.js` at build time by `tools/pass/build.mjs` (rebuild the pass story after changing either) and wrapped as sets (`tools/pass/sets/globe.js`, `cell.js`). `pass/fish` adapts the flock's simulation. The flock and the robots are life size (1 unit = 1 m); so are `pass/fish` and the PET scanner.
+- `pass/globe` and `pass/cell` are the airports story's globe and the cell map story's cell, cut unchanged out of `packages/airports/main.js` and `packages/spatial/main.js` at build time by `packages/pass/src/build.mjs` (rebuild the pass story after changing either) and wrapped as sets (`packages/pass/src/sets/globe.js`, `cell.js`). `pass/fish` adapts the flock's simulation. The flock and the robots are life size (1 unit = 1 m); so are `pass/fish` and the PET scanner.
 - `tutorial/guide` is drawn by the people's bodies (`bodies.js`, a draw set of its own) and props of its own; its script, `packages/tutorial/src/sets/script.js`, is a shared part, not a prop.
-- `tools/lbi/sets/demo.js` is a tiny example set (points on a sphere) used by the harness; no story uses it, so it is not listed.
+- `packages/lbi/src/sets/demo.js` is a tiny example set (points on a sphere) used by the harness; no story uses it, so it is not listed.
 
 ## Stories not built from sets
 
 The first three stories are hand-written single scenes, not made of sets. They cannot be reused as props except through the pass story's wrapping of two of them.
 
-- **airports** (`stories/airports.js`): One scene: the globe of 3,214 airports and 18,858 routes (pillars, arcs, communities, closures, a shortest path). Chapters: Intro, Nodes, Edges, Degree, Hubs, Shortest paths, Betweenness, Communities, Robustness, Recap. Explore tabs: Airport, Paths, Hubs, Communities, Closures.
-- **proteins** (`stories/proteins.js`): One scene: 254 curated proteins and 375 interactions as a network in a cell. Chapters: Intro, Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness, Recap. Explore tabs: Protein, Paths, Hubs, Modules, Knockouts.
-- **spatial** (`stories/spatial.js`): One scene: a model cell with 13 compartments, 249 proteins and 252 links. Chapters: Intro, Compartments, Addresses, Meeting, Many places, Signals, Moving, Proximity, Wrong place, Recap. Explore tabs: Protein, Paths, Places, Moves, Proximity.
+- **airports** (`packages/airports/main.js`): One scene: the globe of 3,214 airports and 18,858 routes (pillars, arcs, communities, closures, a shortest path). Chapters: Intro, Nodes, Edges, Degree, Hubs, Shortest paths, Betweenness, Communities, Robustness, Recap. Explore tabs: Airport, Paths, Hubs, Communities, Closures.
+- **proteins** (`packages/proteins/main.js`): One scene: 254 curated proteins and 375 interactions as a network in a cell. Chapters: Intro, Proteins, Interactions, Hubs, Essential, Modules, Disease modules, Drug targets, Robustness, Recap. Explore tabs: Protein, Paths, Hubs, Modules, Knockouts.
+- **spatial** (`packages/spatial/main.js`): One scene: a model cell with 13 compartments, 249 proteins and 252 links. Chapters: Intro, Compartments, Addresses, Meeting, Many places, Signals, Moving, Proximity, Wrong place, Recap. Explore tabs: Protein, Paths, Places, Moves, Proximity.
 
 ## The sets
 
@@ -92,7 +92,7 @@ The first three stories are hand-written single scenes, not made of sets. They c
 
 A big glowing human protein interaction network (about 9,100 proteins, 22,100 interactions) with a dense centre and filaments towards the rim. The story lights curated pathways, the ATP synthase complex, flattens it into a city map with pins and a route, shows disease modules, a rare disease and its drug target, 173 immunity genes in 19 clusters, drug capsules and heat spreading from three seeds.
 
-- **File:** `tools/lbi/sets/int.js`; manifest `tools/lbi/sets/int.md`.
+- **File:** `packages/lbi/src/sets/int.js`; manifest `packages/lbi/src/sets/int.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Centred on the origin, y up, about radius 1 (city mode flattens it onto a disc of radius 1.12). Views are [az, el, dist, tx, ty, tz].
 - **Size:** radius ~1.
@@ -153,7 +153,7 @@ Other exports: `modules`, `iei`, `nodeCount`, `edgeCount`, `coreCount`, `core`, 
 
 A beige 1990s all-in-one computer (no brand marks) on a table. It switches off like a CRT, comes apart in the order of a real teardown, every part lands in neat rows, glowing wires connect the chips, then the parts shrink into a network of 106 nodes and 209 links that lifts off the table.
 
-- **File:** `tools/lbi/sets/mac.js`; manifest `tools/lbi/sets/mac.md`.
+- **File:** `packages/lbi/src/sets/mac.js`; manifest `packages/lbi/src/sets/mac.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** y up; table top at y = -0.30; computer faces +z, keyboard in front, mouse right; network floats at (0, -0.14, 0).
 - **Size:** table 1.76 x 1.48 (corners reach radius ~1.15); network radius ~0.6.
@@ -189,7 +189,7 @@ Other exports: `counts`.
 
 Networks are everywhere: first the internet as a tree-like network of 15,938 nodes and 16,359 links in the style of the Opte maps, then a dark globe with the 3,214 airport cities as lights and about 11,800 friendship ties as arcs (mostly local, about 650 long ones with travelling glints).
 
-- **File:** `tools/lbi/sets/web.js`; manifest `tools/lbi/sets/web.md`.
+- **File:** `packages/lbi/src/sets/web.js`; manifest `packages/lbi/src/sets/web.md`.
 - **Belongs to:** the lbi story; reused by soil (its globe only, with the engine's hop).
 - **Frame:** Centred on the origin; the globe has radius 1 and turns about the polar axis (web_spin).
 - **Size:** globe radius 1; internet about radius 1.
@@ -224,7 +224,7 @@ Other exports: `netNodes`, `netLinks`, `cities`, `tieCount`, `localShare`.
 
 A long DNA double helix is written from the middle outwards, coils into the 23 chromosomes, threads grow from genes and fold into 25 AlphaFold-style protein chains in a 5 x 5 grid, which then becomes a tiny framed patch in a field of 20,000 proteins.
 
-- **File:** `tools/lbi/sets/dna.js`; manifest `tools/lbi/sets/dna.md`.
+- **File:** `packages/lbi/src/sets/dna.js`; manifest `packages/lbi/src/sets/dna.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Centred on the origin; the helix runs along x, the grid in the z = 0 plane; the field fills a ball of radius ~15 around you.
 - **Size:** helix, karyotype and grid ~radius 1; field radius ~15 (default view dist 3.9, field view dist 17).
@@ -260,7 +260,7 @@ Other exports: `proteins`, `counts`.
 
 ATP synthase in three looks: a grid of its 13 AlphaFold-like chains, the assembled complex in a lipid membrane (protons turn the rotor, ATP pops out of the head), and the 13 parts and their 21 contacts as a network over a faint ghost of the complex.
 
-- **File:** `tools/lbi/sets/atp.js`; manifest `tools/lbi/sets/atp.md`.
+- **File:** `packages/lbi/src/sets/atp.js`; manifest `packages/lbi/src/sets/atp.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Rotor axis on y; head at the top (matrix side), membrane at y ~ -0.38; subunit a and the peripheral stalk on +x. The parts grid lies in the z = 0 plane (x +-1.0, y +-0.9).
 - **Size:** 1.2 units tall.
@@ -299,7 +299,7 @@ Other exports: `parts`, `contacts`.
 
 6,000 instanced lit people. The first crowd of 422 stands in curved rows; one turns red and glows under a beam of light; the other 5,578 then rise out of the floor outwards until a sea of people reaches the horizon (one figure per rare disease).
 
-- **File:** `tools/lbi/sets/clinic.js`; manifest `tools/lbi/sets/clinic.md`.
+- **File:** `packages/lbi/src/sets/clinic.js`; manifest `packages/lbi/src/sets/clinic.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Feet at y = 0; rows on arcs bending towards the viewer; people ~0.13 tall.
 - **Size:** first crowd ~2.3 x 2.0 (radius 1.45, exported as radius); grown sea ~12 x 7.
@@ -330,7 +330,7 @@ Other exports: `radius`, `count`, `baseCount`.
 
 A 3D Sankey diagram, 9 clinical categories on the left against 19 molecular clusters on the right, joined by 58 ribbons whose height is the gene count; each category's ribbons lie in their own depth layer so the diagram has parallax. A gene dot travels along each ribbon.
 
-- **File:** `tools/lbi/sets/clinic.js`; manifest `tools/lbi/sets/clinic.md`.
+- **File:** `packages/lbi/src/sets/clinic.js`; manifest `packages/lbi/src/sets/clinic.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Centred on the origin, facing +z.
 - **Size:** ~1.45 wide, 1.47 tall.
@@ -373,7 +373,7 @@ Other exports: `left`, `right`, `total`, `leftShort`, `rightShort`, `leftColours
 
 A glowing tower of eight length scales (DNA bases, proteins, ATP synthase, a mitochondrion, a cell, a tissue, a brain, a body), with an amber time spiral, small networks at four floors, a medicine column, four research-group bands with 22 synergy arcs, and finally the tower dissolving into a team of 42 people.
 
-- **File:** `tools/lbi/sets/scale.js`; manifest `tools/lbi/sets/scale.md`.
+- **File:** `packages/lbi/src/sets/scale.js`; manifest `packages/lbi/src/sets/scale.md`.
 - **Belongs to:** the lbi story.
 - **Frame:** Centred on the origin, y up; floors one above another.
 - **Size:** ~2.45 tall, discs radius ~1.
@@ -411,7 +411,7 @@ Own labels (28): "DNA bases1 nm" at `floor0`; "Proteins10 nm" at `floor1`; "Comp
 
 A standing figure, arms raised and hands crossed over the head, as a total-body PET maximum-intensity projection (about 52k glowing points, max blending, hot-iron colours). Twelve organ nodes rise onto a cage around the body, joined by bands that rewire between a healthy and a disease network, and a tracer injection can run.
 
-- **File:** `tools/lbi/sets/body.js`; manifest `tools/lbi/sets/body.md`.
+- **File:** `packages/lbi/src/sets/body.js`; manifest `packages/lbi/src/sets/body.md`.
 - **Belongs to:** the lbi story; reused by pet, micro, ovary, topo.
 - **Frame:** Feet at y = -0.95, hands at +0.95; faces +z; the person's left is +x. The figure is slimmed across by XS = 0.9. Other sets that draw on the body use this frame.
 - **Size:** 1.9 tall; the network cage spans y -0.42 to 0.8 and ~1.3 wide with labels. Shown together with: `pet/organs`, `ovary/organ` (same frame).
@@ -446,7 +446,7 @@ Other exports: `organs`.
 
 An H&E-stained section of stomach wall built from about 18,600 cells: zoom in and every cell is there, join cells to neighbours for a network, switch to multiplexed imaging so cells take their type colours, then 300 tissue regions lift off into a 3D embedding with loading arrows.
 
-- **File:** `tools/lbi/sets/tissue.js`; manifest `tools/lbi/sets/tissue.md`.
+- **File:** `packages/lbi/src/sets/tissue.js`; manifest `packages/lbi/src/sets/tissue.md`.
 - **Belongs to:** the lbi story; reused by micro (slide overlay).
 - **Frame:** A thin slab (0.008 thick) standing upright, facing +z, centred on the origin; mucosa on top, muscle below. Overlay sets draw in this frame.
 - **Size:** ~2.1 long, up to 0.6 deep. Shown together with: `micro/slide` (same frame).
@@ -481,7 +481,7 @@ Other exports: `textures`, `dispose`, `cellCount`, `regionCount`, `types`.
 
 The multiplex network of rare muscle diseases: 71 layers of gene links (phenotypes, pathways, drug targets, co-essential genes, 39 co-expression layers, 27 protein-interaction layers) stacked into a tower with the same gene at the same spot in every layer. Pick a disease group to light its module, seeds, endotypes, a random walk, a squashed endotype grid, z-score bars or a pair of groups.
 
-- **File:** `tools/nmd/sets/tower.js`; manifest `tools/nmd/sets/tower.md`.
+- **File:** `packages/nmd/src/sets/tower.js`; manifest `packages/nmd/src/sets/tower.md`.
 - **Belongs to:** the nmd story.
 - **Frame:** Centred on the origin, y up; layers top to bottom in data order with 0.08 gaps between categories.
 - **Size:** ~2.2 tall, discs radius 1.
@@ -529,7 +529,7 @@ Other exports: `genes`, `groups`, `layers`, `ppi`, `N`, `edgeCount`, `pairs`, `e
 
 The motor unit from nerve to sarcomere, and the heart: spinal cord, motor and sensory neurons, myelinated axons, six neuromuscular junctions, a fascicle of 20 striated fibres with one opened to show myofibrils, a magnified sarcomere with myosin, actin, titin, Z-discs and M-band, and a smooth surface-net heart with great vessels. Sites can be highlighted and shown with impulses or contraction.
 
-- **File:** `tools/nmd/sets/motor.js`; manifest `tools/nmd/sets/motor.md`.
+- **File:** `packages/nmd/src/sets/motor.js`; manifest `packages/nmd/src/sets/motor.md`.
 - **Belongs to:** the nmd story; reused by endo.
 - **Frame:** Read left to right, y up; ventral points right (+x). Heart centre (0.30, 0.29, -0.12).
 - **Size:** ~2.5 long (x -1.18 to 1.27, y -0.5 to 0.7).
@@ -570,7 +570,7 @@ Other exports: `keepClear`, `idle`, `finish`.
 
 The stress test on a supercomputer: a hall of racks with a cold aisle, blinking lights, cable trays and a glass door, and the field of tiny towers it computes, stretching to the horizon. Each tower is a stack of 20 glowing discs; far ones are single points.
 
-- **File:** `tools/nmd/sets/hpc.js`; manifest `tools/nmd/sets/hpc.md`.
+- **File:** `packages/nmd/src/sets/hpc.js`; manifest `packages/nmd/src/sets/hpc.md`.
 - **Belongs to:** the nmd story.
 - **Frame:** Floor at y = -0.3; hall fits |x|, |z| < 0.85; the field extends to about 22 units.
 - **Size:** 1 unit ~ 4 m (racks 2 m tall); field far beyond the usual radius on purpose.
@@ -864,7 +864,7 @@ API (`set.api`): `patches`, `links`, `theta`, `hubs`, `step`, `pairs`, `meanLink
 
 Small lit 3D models of the 29 organs of the microanatomy atlas (adipose to vagina), each a signed distance field of a few primitives polygonised by surface nets, replacing flat icons. Used as meshes on the body, the atlas plates and the network's organ ring, and as pictures in panes.
 
-- **File:** `tools/micro/sets/organs.js`; manifest `tools/micro/sets/organs.md`.
+- **File:** `packages/micro/src/sets/organs.js`; manifest `packages/micro/src/sets/organs.md`.
 - **Belongs to:** the micro story; reused by micro/atlas, micro/hier, topo/*.
 - **Frame:** Each model is centred in its own small box; no shared scene frame. Other sets read ORGAN3D, not this set's group.
 - **Size:** drawn small (organ nodes on the network ring are radius 0.062 + 0.005 sqrt(degree)).
@@ -895,7 +895,7 @@ Other exports: `tris`, `trisLite`.
 
 The preprint's method (H&E-UTAG) shown on one section: it is cut into tiles, a vision model describes each as glowing blocks, a network of neighbours passes messages, the tiles lift into a 3D map where alike tiles gather and take their domain colour, then fly back and colour the section; the domains change from age 20 to 70.
 
-- **File:** `tools/micro/sets/slide.js`; manifest `tools/micro/sets/slide.md`.
+- **File:** `packages/micro/src/sets/slide.js`; manifest `packages/micro/src/sets/slide.md`.
 - **Belongs to:** the micro story; reuses lbi/tissue (overlay in its frame).
 - **Frame:** An overlay in the tour's tissue set's frame (the stomach-wall H&E slab); show tissue and slide together with the same transform.
 - **Size:** as the tissue slab (~2.1 long). Shown together with: `lbi/tissue` (same frame).
@@ -940,7 +940,7 @@ Other exports: `textures`, `dispose`, `tileCount`, `linkCount`.
 
 The slide library as a curved wall of glass slides, the atlas of 40 sections standing in relief on a 10 x 4 arc with each section's organ model, a cloud of tiles, the volcano of changing domains, the age trajectories on glass lanes; at the end it morphs into the network of organ architecture.
 
-- **File:** `tools/micro/sets/atlas.js`; manifest `tools/micro/sets/atlas.md`.
+- **File:** `packages/micro/src/sets/atlas.js`; manifest `packages/micro/src/sets/atlas.md`.
 - **Belongs to:** the micro story; reuses micro/organs (ORGAN3D).
 - **Frame:** y up, viewer towards +z; wall at the back, sections in front, tiles in the middle; centred on the origin.
 - **Size:** not stated in the manifest (see views).
@@ -986,7 +986,7 @@ Other exports: `finish`.
 
 Organ architecture as a four-level hourglass network (29 organs, 24 tissues, 10 tissue types, 70 domains) with glowing curved links, each organ its small 3D model, and the contact networks between domains for six organs.
 
-- **File:** `tools/micro/sets/hier.js`; manifest `tools/micro/sets/hier.md`.
+- **File:** `packages/micro/src/sets/hier.js`; manifest `packages/micro/src/sets/hier.md`.
 - **Belongs to:** the micro story; reuses micro/organs (ORGAN3D).
 - **Frame:** Centred on the origin facing +z; rings at y 0.66 (organs, radius 0.9), 0.28 (tissues, 0.7), -0.1 (tissue types, 0.4), -0.62 (domains, 0.9).
 - **Size:** radius ~0.9; node sizes by degree.
@@ -1470,7 +1470,7 @@ API (`set.api`): `methods`, `names`, `namesLive`, `strand`, `loop`, `pair`, `tru
 
 Real tissue on its glass slide drawn in H&E from cells alone: the healthy tile of 640 um round the poster's patch (945 cells) and the new slide's window of 1.5 mm (6,716 cells), plus sketches of other modalities (spots, multiplex), the fixed scales other tools read and an overview of the whole section.
 
-- **File:** `tools/topo/sets/slide.js`; manifest `tools/topo/sets/slide.md`.
+- **File:** `packages/topo/src/sets/slide.js`; manifest `packages/topo/src/sets/slide.md`.
 - **Belongs to:** the topo story.
 - **Frame:** Lies flat (x-z, y up), centred on the origin on a glass slide whose +x end shows past it.
 - **Size:** 1.6 across. Shown together with: `topo/map` (same frame).
@@ -1514,7 +1514,7 @@ API (`set.api`): `TW`, `layout`, `tile`, `win`, `overview`, `pos`, `hub`, `six`,
 
 The signal back on the tissue: one cell's 50 um neighbourhood and its own network, bars and score; every cell scored as a relief; the two groups (healthy-like, cirrhosis-like) as piles with shares; and sketches of the next steps (genes, proteins).
 
-- **File:** `tools/topo/sets/map.js`; manifest `tools/topo/sets/map.md`.
+- **File:** `packages/topo/src/sets/map.js`; manifest `packages/topo/src/sets/map.md`.
 - **Belongs to:** the topo story.
 - **Frame:** In the slide set's frame over the window (centred on the origin; side by side with slide_show 2 it moves to x 0.42).
 - **Size:** 1.6 across. Shown together with: `topo/slide` (same frame).
@@ -1560,7 +1560,7 @@ API (`set.api`): `n`, `e`, `drawR`, `eLogOdds`, `limit50`, `limit100`, `delta`, 
 
 The poster's patch of 110 real cells with glass balls growing round them, edges and triangles appearing, pieces joining and loops opening and closing, then the tower of scales and its barcode.
 
-- **File:** `tools/topo/sets/tower.js`; manifest `tools/topo/sets/tower.md`.
+- **File:** `packages/topo/src/sets/tower.js`; manifest `packages/topo/src/sets/tower.md`.
 - **Belongs to:** the topo story.
 - **Frame:** The patch lies on a glass plate with its frosted label towards you, the poster's y running away (-z); the tower rises from it.
 - **Size:** plate 1.5 wide; tower 1.68 units with the trunk.
@@ -1600,7 +1600,7 @@ Other exports: `log`.
 
 The 123 slides as a rack of glass slides with their curves (66 healthy, 57 cirrhotic), the classes' means, the main shapes, the cube of scores, the classifier's wall with its held-out stacks, and the weight for every radius on a column of radii with windows and a gap.
 
-- **File:** `tools/topo/sets/cohort.js`; manifest `tools/topo/sets/cohort.md`.
+- **File:** `packages/topo/src/sets/cohort.js`; manifest `packages/topo/src/sets/cohort.md`.
 - **Belongs to:** the topo story.
 - **Frame:** Rack of slides in two rows stepping up towards the back; weights column at x 2.05; cube of scores 1.6 across.
 - **Size:** rack plus a weights column out to x ~2.05; cube of scores 1.6 across.
@@ -1796,7 +1796,7 @@ API (`set.api`): `n`, `nodes`, `centre`, `pick`, `pos`, `info`, `kindText`, `mod
 
 A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light shafts; a shark you steer or that comes now and then; the school can be pulled apart by watching fewer neighbours.
 
-- **File:** `tools/pass/sets/fish.js`; manifest `tools/pass/sets/fish.md`.
+- **File:** `packages/pass/src/sets/fish.js`; manifest `packages/pass/src/sets/fish.md`.
 - **Belongs to:** the pass story; reuses flock/flock (simulation adapted, not reused).
 - **Frame:** Life size: 1 unit = 1 m, eyes at the origin (1.6 m), seabed 6.5 m below, surface 15 m above.
 - **Size:** life size; fish 0.27 m long.
@@ -1834,12 +1834,12 @@ Other exports: `see`, `steer`, `hold`, `scatter`, `shark`, `flight`, `follow`, `
 
 The airports story's globe exactly as it is (3,214 airports, 18,858 routes), driven from params, with a seeded S/E/I/R outbreak on its real routes: pick a start airport, set incubation, infectious days, spread and flights cut, and play the days.
 
-- **File:** `tools/pass/sets/globe.js`; manifest `tools/pass/sets/globe.md`.
-- **Belongs to:** the pass story; reuses stories/airports.js (globe cut out unchanged).
+- **File:** `packages/pass/src/sets/globe.js`; manifest `packages/pass/src/sets/globe.md`.
+- **Belongs to:** the pass story; reuses packages/airports/main.js (globe cut out unchanged).
 - **Frame:** Radius 1, centred on the origin, y up, longitude 0 towards +x, 90 E towards -z.
 - **Size:** radius 1.
-- **Data (real):** reads PASS_AIRPORTS (cut out of stories/airports.js at build). OpenFlights airports and routes; the outbreak is a simple model, not a forecast.
-- **Cost and notes:** Cut unchanged out of stories/airports.js by tools/pass/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...). Node cold build 315 ms.
+- **Data (real):** reads PASS_AIRPORTS (cut out of packages/airports/main.js at build). OpenFlights airports and routes; the outbreak is a simple model, not a forecast.
+- **Cost and notes:** Cut unchanged out of packages/airports/main.js by packages/pass/src/build.mjs: rebuild the pass story after changing it. Same start and settings give the same outbreak on every device. globe_day is a step (continuous). English and German via setLang. Exports api (setup, start, settings, end, series, count, summary, arrivalDay, chain, select, pick, find, info, search ...). Node cold build 315 ms.
 
 | param | range | default | eased | what it does |
 | --- | --- | --- | --- | --- |
@@ -1875,12 +1875,12 @@ Other exports: `setLang`.
 
 The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or colour, the growth signal from EGF to SRF, the TNF to NF-kB relay, and the moves that go wrong (CFTR in the ER, TDP-43 leaving the nucleus).
 
-- **File:** `tools/pass/sets/cell.js`; manifest `tools/pass/sets/cell.md`.
-- **Belongs to:** the pass story; reuses stories/spatial.js (cell cut out unchanged).
+- **File:** `packages/pass/src/sets/cell.js`; manifest `packages/pass/src/sets/cell.md`.
+- **Belongs to:** the pass story; reuses packages/spatial/main.js (cell cut out unchanged).
 - **Frame:** Radius 1, centred on the origin; a cell about 20 micrometres across, the membrane a slightly flattened ellipsoid.
 - **Size:** radius 1.
-- **Data (illustrative):** reads PASS_SPATIAL (cut out of stories/spatial.js at build). Curated protein locations and links (complexes, textbook pathways, Human Protein Atlas / UniProt); the layout is illustrative.
-- **Cost and notes:** Cut unchanged out of stories/spatial.js by tools/pass/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts). Node cold build 306 ms.
+- **Data (illustrative):** reads PASS_SPATIAL (cut out of packages/spatial/main.js at build). Curated protein locations and links (complexes, textbook pathways, Human Protein Atlas / UniProt); the layout is illustrative.
+- **Cost and notes:** Cut unchanged out of packages/spatial/main.js by packages/pass/src/build.mjs. 541 anchors (one per protein copy and organelle). cell_cue and the moves ease at a limited rate (MOVE_P). English and German (roles in ROLE_DE). Exports api (pick, info, select, moveDelta, protein, copyOf, pos, search, moves, move, path, highlight, setFocus, isolate, places, growthPath, relay, counts). Node cold build 306 ms.
 
 | param | range | default | eased | what it does |
 | --- | --- | --- | --- | --- |
@@ -2035,11 +2035,11 @@ Other exports: `see`, `hit`, `signal`, `signalOn`, `chapters`, `react`, `walkTo`
 These files in `tools/*/sets/` are pasted before the sets and are not props themselves: data blocks, maths, shared looks, icons and one harness example.
 
 - `tools/engine/kit.js`: the shared kit K (seeded random numbers, vector helpers, fading materials); every story pastes it before its sets
-- `tools/nmd/sets/data.js`: NMD_DATA, the muscle story's data block (generated by tools/nmd/data/gen_data.mjs); also read by the endotype story's build
+- `packages/nmd/src/sets/data.js`: NMD_DATA, the muscle story's data block (generated by packages/nmd/src/data/gen_data.mjs); also read by the endotype story's build
 - `packages/endo/src/sets/data.js`: ENDO_DATA, the endotype story's data block (generated)
 - `packages/pet/src/sets/data.js`: PET_DATA, the PET story's data block (generated)
 - `packages/pet/src/sets/icons.js`: PET_ICONS, organ icons for the PET story's panels
-- `tools/micro/sets/data.js`: MICRO_DATA, the microanatomy story's data block (generated)
+- `packages/micro/src/sets/data.js`: MICRO_DATA, the microanatomy story's data block (generated)
 - `packages/ovary/src/sets/data.js`: OVARY_DATA and OVARY_TREND, the poster's numbers (generated)
 - `packages/ovary/src/sets/look.js`: OVARY_LOOK, the ovary story's shared look
 - `packages/qubits/src/sets/qmath.js`: QMATH, the qubits story's maths
@@ -2048,14 +2048,14 @@ These files in `tools/*/sets/` are pasted before the sets and are not props them
 - `packages/mutation/src/sets/mmath.js`: MMATH, the mutation story's maths
 - `packages/mutation/src/sets/data.js`: MUT_DATA, the poster's numbers
 - `packages/mutation/src/sets/look.js`: MLOOK, the mutation story's shared look
-- `tools/topo/sets/data.js`: TOPO_DATA, topocyte's numbers (generated)
-- `tools/topo/sets/tdata.js`: TDATA, the decoders and look-ups for TOPO_DATA
-- `tools/topo/sets/look.js`: TLOOK, the topology story's shared look
+- `packages/topo/src/sets/data.js`: TOPO_DATA, topocyte's numbers (generated)
+- `packages/topo/src/sets/tdata.js`: TDATA, the decoders and look-ups for TOPO_DATA
+- `packages/topo/src/sets/look.js`: TLOOK, the topology story's shared look
 - `packages/soil/src/sets/data.js`: SOIL_DATA, the soil story's field trial data (generated by packages/soil/src/data/gen_data.py)
 - `packages/soil/src/sets/sdata.js`: SDATA, the decoders and look-ups for SOIL_DATA
 - `packages/soil/src/sets/look.js`: SLOOK, the soil story's palette and colour rules
 - `packages/tutorial/src/sets/script.js`: GUIDE, SCRIPT and evalGuide: the tutorial guide's timeline as data and its evaluator (plain maths, tested in Node)
-- `tools/lbi/sets/demo.js`: a tiny example set (points on a sphere) for the set harness; no story uses it
+- `packages/lbi/src/sets/demo.js`: a tiny example set (points on a sphere) for the set harness; no story uses it
 
 ## Where manifests disagree with the code
 
@@ -2065,7 +2065,7 @@ Found by comparing every manifest with what the built set returns (param names a
 - `mutation/tree`, view `pair`: the manifest says `[47, 14, 4.6, 0.29, 0.3, -0.15]` ("computed for seed 1"), the code gives `[47, 14, 4.6, 0.39, 0.3, -0.26]` (the target is computed from the branches when built).
 - `topo/cohort`, view `wall`: the manifest says `[80, 8, 4.6, -0.03, 0.69, 0.16]`, the code computes `[80, 8, 4.6, -0.03, 0.71, 0.15]`.
 - `micro/organs` (and the topology story, which pastes it): the code has a fade param `organs_a` that the manifest does not list (it lists only `organs_spin`, `organs_tint`, `organs_pics`, `organs_lite`). Its manifest has no anchors or camera section; the code gives one view, `default`, and no controls.
-- `lbi/clinic.md` says `sets/crowd.js` and `sets/sankey.js` are symlinks to `clinic.js` for the harness; there are no such files in `tools/lbi/sets/` (one file, `clinic.js`, defines both sets).
+- `lbi/clinic.md` says `sets/crowd.js` and `sets/sankey.js` are symlinks to `clinic.js` for the harness; there are no such files in `packages/lbi/src/sets/` (one file, `clinic.js`, defines both sets).
 - Step params: the manifests of `pet/organs` (`organs_focus`, `organs_pair`, `organs_which`, `organs_prev`, `organs_mix`), `micro/slide` (`slide_focus`), `micro/atlas` (`atlas_focus`), `micro/hier` (`hier_focus`), `pass/fish` (`fish_n`, `fish_k`, `fish_hunt`), `flock/flock` (`flock_birds`, `flock_hunt`) and `robots/robots` (`robots_rule`, `robots_n`, `robots_walk`, `robots_dust`, `robots_crumbs`) do not say that the explore engine jumps them rather than easing (`STEP` in each story's `engine/e4_explore.js`); `pass/globe` says `globe_day` is "continuous; ease it" while the pass engine lists it in `STEP`; `pet/organs_mix` is eased in the story (0 to 1 over 2 s) but jumps in explore. `micro`'s `STEP` also lists `dots_pick`, which no set has as a param (a dead entry). `lbi` has no `STEP`: `sankey_hi` is a step only by being keyed with jumps, and explore uses `sankey_h1..h9` instead.
 - `tissue_near`: the tissue manifest names it only to say it was not added (the story reads the five anchors instead); nothing is missing.
 

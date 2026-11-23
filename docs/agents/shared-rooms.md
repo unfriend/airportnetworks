@@ -2063,7 +2063,7 @@ reference, `packages/flock/src/engine/`):
   `const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';` (`XR.main`
   `pv && pm === 'shown'`, `XR.foot` `pv && pm !== 'hidden'`: panels per story; the cards' mode, not the labels') and
   `GL.world.visible = !land && !away;`.
-- The story lines that changed in v145 (the same in all sixteen, the design room and the studio, from `tools/lbi/engine/`):
+- The story lines that changed in v145 (the same in all sixteen, the design room and the studio, from `packages/lbi/src/engine/`):
   `sigFoot` (the foot panel's signature split from the main one, so a clock tick does not redraw the text panel); landing cards
   drawn at most two first draws a frame (`XR.landN`, `P.cap`) and drawn only while wanted (`P.want`; the menu's Story tab
   keeps the panels going while `HOST.collab.mirroring()`); text fades sending only the rows that moved (`panelFade`,

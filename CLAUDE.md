@@ -34,7 +34,7 @@ session and every agent and workflow it starts avoid them, and every agent promp
   `docs/agents/`, read on demand; `docs/history.md` says why rules are as they are.
 - New features document themselves in the matching `docs/agents/` file (and the tool's `SPEC.md` where one exists).
   `AGENTS.md` gets at most a line per feature and stays under 70 KB; this file stays short.
-- The story files are large (`stories/airports.js` is ~640 KB because of its embedded data). Search with Grep and read
+- The story files are large (`packages/airports/main.js` is ~700 KB because of its embedded data). Search with Grep and read
   line ranges; never read them whole. The same for the `docs/agents/` files.
 - Prefer small, exact edits. When a change touches the headset code, apply it to all sixteen stories: their XR, panel
   and landing-screen code is meant to stay identical apart from story-specific panes.
@@ -49,9 +49,10 @@ session and every agent and workflow it starts avoid them, and every agent promp
 - After any change to app files, bump `VERSION` in `sw.js`. After changing `sw.js` or how files load, run
   `tools/update.mjs`.
 - Releasing: after the `VERSION` bump, run `node tools/release.mjs` (it writes `version.json` and stamps the shell's
-  release into `index.html`; commit both; `--check` says whether they are current), and rewrite `whatsnew.json` by hand
+  release and `stories/list.js`'s fingerprint into `index.html`; commit both; `--check` says whether they are current), and rewrite `whatsnew.json` by hand
   for the release (developer mode's box: what is new, what to test, what is untested; `--check` fails while it names
-  another release). Running pages take a release from it. The list of stories is `stories/list.js`. After touching
+  another release). Running pages take a release from it. The stories are packages (`packages/order.json`, the index by
+  `node tools/packages/scan.mjs`); `stories/list.js` holds only the design room and the studio. After touching
   `HOST.live`, `HOST.swap`, `HOST.load`, the release script or the relay's `--watch`, run `node tools/live.mjs`; a swap
   in a headset and the update panel there are untested until tried on one.
 
@@ -64,8 +65,8 @@ session and every agent and workflow it starts avoid them, and every agent promp
 
 | Built file | Source | Build |
 | --- | --- | --- |
-| `stories/lbi.js`, `nmd.js`, `micro.js`, `topo.js`, `pass.js`, `design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
-| `packages/<key>/main.js` of a story moved into a package (`robots`, `qubits`, `mutation`, `flock`, `tutorial`, `endo`, `pet`, `ovary`, `soil`; more follow) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too) |
+| `stories/design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
+| `packages/<key>/main.js` of a built story (every story but airports, proteins and spatial, whose `main.js` is hand-written: edit it, then the scan) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too, and the readers of a shared source) |
 | `packages/index.json` | `packages/*/` and `packages/order.json` | `node tools/packages/scan.mjs` |
 | `lowpoly.js` | `tools/lowpoly/` | `node tools/lowpoly/build.mjs` |
 | `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |

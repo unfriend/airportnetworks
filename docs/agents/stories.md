@@ -2,22 +2,30 @@
 
 Read on demand; the rules every agent needs are in AGENTS.md.
 
-## Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil)
+## Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass)
 
 Moved by `tools/packages/move.mjs <key>` (`docs/packages-migration.md`): the sources are `packages/<key>/src/` (the
 same files; build with `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`), the built file
 `packages/<key>/main.js` (the same code: only the comment and narration lines naming the folders changed), the
-narration `packages/<key>/audio/narration.mp3` (`narrationFile()` through `HOST.pkgUrl`), the list entry
+narration `packages/<key>/audio/narration.mp3` (`narrationFile()` through `HOST.pkgUrl`; the pass story's German
+`narration-de.mp3` beside it, its `AUDIO` map's `de` through `HOST.pkgUrl` too), the list entry
 `packages/<key>/story.json` (its place: `packages/order.json`). Key, hash, miniature, hooks and `collab.state()` are
-unchanged. Shared sources stay in `tools/` (the lean route: no shared library yet): a moved build's `src()` reads a
-`'../<dir>/...'` source from `tools/<dir>/` (endo: `tools/nmd/sets/motor.js` and its data; pet: `tools/lbi/sets/body.js`,
-`tools/micro/sets/organs.js`; ovary: the body; soil: `tools/topo/sets/look.js`, `tools/lbi/sets/web.js`), and its
-harness loads them from `../../../tools/<dir>/`. A data generator or a data test in `src/` finds the app three folders
-up. The sections below give each story's old notes with the new paths.
+unchanged. Shared sources stay with their owners (the lean route: no shared library yet): a build reads another
+story's set from that story's `src/` by path, `'../../packages/<owner>/src/sets/<set>'` (endo: nmd's motor and data;
+pet: lbi's body, micro's organs; micro: lbi's body and tissue; ovary: the body; topo: the body and the organs; soil:
+topo's look, lbi's web), resolved through the moved build's `src()`; its harness loads them from
+`../../../packages/<owner>/src/`. A data generator or a data test in `src/` finds the app three folders up (four from
+`src/data/`). The pass story's build cuts the globe and the cell out of `packages/airports/main.js` and
+`packages/spatial/main.js` (`ORIGINALS`). The sections below give each story's old notes with the new paths.
+
+The three hand-written stories (airports, proteins, spatial) were wrapped in v187: `packages/<key>/main.js` is the old
+`stories/<key>.js` (the narration literal through `HOST.pkgUrl` and the comments naming it the only changes), with no
+`src/` and no build; edit it, then `node tools/packages/scan.mjs` (and rebuild pass after airports or spatial).
+`proteins.html` and `spatial.html` still redirect to `#proteins` and `#spatial`.
 
 ## Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026)
 
-The fourteen built stories each have their own engine files (`tools/<key>/engine/e1_head.js` ... `e7_app.js`), copied
+The fourteen built stories each have their own engine files (`packages/<key>/src/engine/e1_head.js` ... `e7_app.js`), copied
 from one story to the next and drifted by generation (lbi, nmd, endo, flock older; micro, ovary, qubits, mutation, topo,
 soil newest). What was the same, byte for byte, in two or more stories now lives once in `tools/engine/<the same file
 name>.js` (340 parts: a declaration with the comment block above it; a name with more than one shared version has the
@@ -75,13 +83,13 @@ lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.m
 - A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
   page shows amber (`XR_STEP_COL = ''`), and nmd measures a chip in the font of the one before (`FLOW_BOLD = false`).
 
-## The tour (`stories/lbi.js`) is built from sets
+## The tour (`packages/lbi/main.js`) is built from sets
 
-`stories/lbi.js` is generated: edit the sources in `tools/lbi/` and run
-`node tools/lbi/build.mjs`, never edit the built file by hand, and commit both
-(`node tools/lbi/build.mjs --check` tells you if they are out of step). The
+`packages/lbi/main.js` is generated: edit the sources in `packages/lbi/src/` and run
+`node packages/lbi/src/build.mjs`, never edit the built file by hand, and commit both
+(`node packages/lbi/src/build.mjs --check` tells you if they are out of step). The
 set contract (API, rules, performance budget, palette, shared facts) is
-`tools/lbi/SPEC.md`; each set has a manifest `tools/lbi/sets/<name>.md`.
+`packages/lbi/src/SPEC.md`; each set has a manifest `packages/lbi/src/sets/<name>.md`.
 
 The fourth story turns an institute presentation into a tour through ten 3D
 **sets** (one scene each: the interactome, a computer taken apart, the internet
@@ -109,17 +117,17 @@ faded in and out by the story; the camera flies between views.
   canvas twins) and a Proteins tab (search, partners and routes on the
   interactome's named proteins).
 
-## The muscle story (`stories/nmd.js`) is built the same way
+## The muscle story (`packages/nmd/main.js`) is built the same way
 
-`stories/nmd.js` is generated like the tour: edit `tools/nmd/` and run
-`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the shared kit (`tools/engine/kit.js`)
-(`tools/engine/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
+`packages/nmd/main.js` is generated like the tour: edit `packages/nmd/src/` and run
+`node packages/nmd/src/build.mjs` (`--check` as for the tour). It uses the shared kit (`tools/engine/kit.js`)
+(`tools/engine/kit.js`) and set contract (`packages/lbi/src/SPEC.md`); `packages/nmd/src/SPEC.md`
 describes its three sets: `tower` (the multiplex network: 71 layers, the hero
 of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
 and `hpc` (the supercomputer and the stress test).
 
-- The data is real: `tools/nmd/data/gen_data.mjs <folder>` reads the authors' files (not in the repository;
-  `ikerdata/` in its history) and writes `tools/nmd/sets/data.js` (the constant `NMD_DATA`,
+- The data is real: `packages/nmd/src/data/gen_data.mjs <folder>` reads the authors' files (not in the repository;
+  `ikerdata/` in its history) and writes `packages/nmd/src/sets/data.js` (the constant `NMD_DATA`,
   documented in its header), never edited by hand. It also computes the layer
   z-scores (degree-matched random sets) and the walk's visits on the protein
   layers, and names endotypes after their most typical GO process; these are
@@ -208,12 +216,12 @@ explore mode only; each with a manifest) and engine parts adapted from the endot
 contract.
 
 - The vision row (the opening; the owner's wish: more 3D, better colours): its network is the 14
-  organs as the microanatomy story's 3D models (`ORGAN3D`, `tools/micro/sets/organs.js`, included by the build; the bone
+  organs as the microanatomy story's 3D models (`ORGAN3D`, `packages/micro/src/sets/organs.js`, included by the build; the bone
   marrow a model of its own there, `marrow`, kept out of that story's 29), lit, each taking on its colour and turning
   slowly, spread in depth and joined by glowing tubes with light running along them, the models built in the load
   before the scanner's set (`SETS.scan.prep`, a slice a step); prognosis is three glass tubes filling with the story's
   cyan light and medication five amber capsule pills rising from a small base (no more neon orange, red and yellow).
-  Rebuild the PET story after changing `tools/micro/sets/organs.js` (and the microanatomy and tissue topology stories).
+  Rebuild the PET story after changing `packages/micro/src/sets/organs.js` (and the microanatomy and tissue topology stories).
 - The paper's networks the same way (no flat glyphs, the organs' names as labels; the same in explore mode): in the `organs` set, story and explore alike,
   every node is its organ's 3D model (the vision row's models, lit, in its colour, turning slowly, a soft glow behind;
   a hub's takes on orange-yellow), and the bars' feet, the slab's column heads and the panel's axes show small lighter
@@ -246,9 +254,9 @@ contract.
   halfway plays back from there. A flight of its own (a view) takes the camera from it; a control changed ends it. Open: the owner finds the text from the
   Network chapter on does not match the poster (the poster is needed to rewrite it; see HANDOVER.md).
 
-## The microanatomy story (`stories/micro.js`) is built the same way
+## The microanatomy story (`packages/micro/main.js`) is built the same way
 
-`stories/micro.js` is generated from `tools/micro/` (`node tools/micro/build.mjs`, `--check` as for the tour): the
+`packages/micro/main.js` is generated from `packages/micro/src/` (`node packages/micro/src/build.mjs`, `--check` as for the tour): the
 tour's kit, body and tissue sets (unchanged), small 3D models of the 29 organs (`sets/organs.js`, `ORGAN3D`: signed
 distance fields polygonised by surface nets, built between frames from the start, one organ after another, the one on
 show first; drawn as meshes on the body, the atlas's plates and the network's organ ring, and as pictures in the
@@ -257,11 +265,11 @@ section, drawn in its frame: tiles, their features as glowing blocks, a network 
 into a map where alike tiles gather, and the domains; `atlas`, the slide library of glass slides, in a lit rack, the
 atlas of sections as slabs in relief, the tile cloud, the volcano and the trajectories; `hier`, the network of organ
 architecture and the domain contacts; each with a manifest) and engine parts adapted from the PET story's.
-`tools/micro/SPEC.md` is the contract.
+`packages/micro/src/SPEC.md` is the contract.
 
-- The data: `tools/micro/data/gen_data.mjs <graphml>` reads Iva Buljan's network of organ architecture (the file stays
-  out of the repository) and writes `tools/micro/sets/data.js` (`MICRO_DATA`, documented in its header) with the
-  preprint's numbers (typed in) and `tools/micro/data/figures.json` (values read off the talk's figures). The slides,
+- The data: `packages/micro/src/data/gen_data.mjs <graphml>` reads Iva Buljan's network of organ architecture (the file stays
+  out of the repository) and writes `packages/micro/src/sets/data.js` (`MICRO_DATA`, documented in its header) with the
+  preprint's numbers (typed in) and `packages/micro/src/data/figures.json` (values read off the talk's figures). The slides,
   sections and tiles are drawn, never the GTEx images.
 - `tissue` and `slide` share one frame and are shown together.
 - In the Atlas chapter the atlas turns into the network (`atlas_net`, with `hier_grow` keyed at the same times, so each
@@ -388,13 +396,13 @@ with a manifest) and engine parts adapted from the qubits story's. `packages/mut
 - **British spelling** (colour, favour, tumour, centre, grey), English only. T stands for RNA's U, as on the poster. No
   patient data (the test is synthetic); the poster's pictures are never shown, its figures are redrawn in 3D.
 
-## The shape of tissue (`stories/topo.js`) is built the same way
+## The shape of tissue (`packages/topo/main.js`) is built the same way
 
-`stories/topo.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
+`packages/topo/main.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
 architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche) is generated from
-`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before
+`packages/topo/src/` (`node packages/topo/src/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before
 the sets (`TOPO_DATA`, the authors' numbers, `sets/data.js`, generated; `TDATA`, its decoders and look-ups,
-`sets/tdata.js`, checked with the data by `node tools/topo/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
+`sets/tdata.js`, checked with the data by `node packages/topo/src/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
 rings, balls and halos plus glass discs, glass triangles, ribbons, glass slides and cells drawn in H&E or as beads,
 `sets/look.js`), the tour's `body` set and the microanatomy story's organ models (`ORGAN3D`, only its liver; both
 unchanged), four sets (`slide`, the healthy tile round the poster's patch and the new slide's window drawn in H&E from
@@ -404,19 +412,19 @@ two groups and their cell types, and sketches of the next steps; `tower`, the po
 cells, the network with triangles, pieces joining and loops opening and closing, the tower of scales and its barcode;
 `cohort`, the 123 slides as a rack of glass slides with their curves, the main shapes, the space of scores, the
 classifier's wall, the held-out stacks and the weight for every radius on a column of radii; each with a manifest) and
-engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the contract.
+engine parts adapted from the mutation story's. `packages/topo/src/SPEC.md` is the contract.
 
 - The instance pools send only what changed: `upload` in
-  `tools/topo/sets/look.js` (and the same function in `packages/qubits/src/sets/look.js` and `packages/mutation/src/sets/look.js`; the
+  `packages/topo/src/sets/look.js` (and the same function in `packages/qubits/src/sets/look.js` and `packages/mutation/src/sets/look.js`; the
   soil story draws with this look's pools) compares a pool's used range, as 32-bit words, with a copy of what last went
   and sends the stretch from the first change to the last (a range set and not yet sent is merged in, since three.js
   sets its count back to -1 once it has gone), nothing when it is the same: a story paused or at rest uploads nothing,
   one moving sends what moves. The soil field's posts are written only when the netting moves.
 
 - **Every number is topocyte's** (the owner: "use the topocyte code for all calculations").
-  `tools/topo/data/gen_data.py` runs the authors' package topocyte and the poster's own figure scripts on the authors'
+  `packages/topo/src/data/gen_data.py` runs the authors' package topocyte and the poster's own figure scripts on the authors'
   GTEx liver cohort (123 slides, 66 healthy and 57 with cirrhosis, 30.8 million cells found by HistoPLUS, CC BY 4.0)
-  and writes `tools/topo/sets/data.js` (`TOPO_DATA`, documented in its header): the slides' curves, scores, classifiers
+  and writes `packages/topo/src/sets/data.js` (`TOPO_DATA`, documented in its header): the slides' curves, scores, classifiers
   and held-out results for pieces and loops, the shares of the gap by radius, the poster's patch with its complex,
   bars, joins and loops, a healthy tile round it and the new slide's window (6,716 cells, each with its own score and
   bars). topocyte is GPL-3: it is only run offline, and none of its code is copied into the app. The authors' files,
@@ -520,16 +528,16 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
 - **British spelling** (colour, fertiliser, centre, grey, neighbourhood), English only; plain words for a business
   audience, the technical layer in small print.
 
-## The pass story (`stories/pass.js`) is built the same way
+## The pass story (`packages/pass/main.js`) is built the same way
 
-`stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
-generated from `tools/pass/` (`node tools/pass/build.mjs`, `--check` as for the tour; `node tools/pass/test-sets.mjs`
+`packages/pass/main.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
+generated from `packages/pass/src/` (`node packages/pass/src/build.mjs`, `--check` as for the tour; `node packages/pass/src/test-sets.mjs`
 checks the sets without a browser): the shared kit (`tools/engine/kit.js`), the airports story's globe and the cell map story's cell, three sets
-and engine parts adapted from the qubits story's (the life-size parts from the flock's). `tools/pass/SPEC.md` is the
+and engine parts adapted from the qubits story's (the life-size parts from the flock's). `packages/pass/src/SPEC.md` is the
 contract.
 
 - **The globe and the cell are the originals, unchanged.** The build cuts whole sections and named declarations out of
-  `stories/airports.js` and `stories/spatial.js` (`ORIGINALS` in `build.mjs`), each inside a function of its own
+  `packages/airports/main.js` and `packages/spatial/main.js` (`ORIGINALS` in `build.mjs`), each inside a function of its own
   (`PASS_AIRPORTS`, `PASS_SPATIAL`), and the `globe` and `cell` sets wrap them: their own `buildScene`, data, shaders
   and look, driven from params as their stories drive them. One source of truth: **rebuild the pass story after any
   change to either original** (`--check` says when it is out of date; a marker that moved stops the build with its
@@ -544,7 +552,7 @@ contract.
   protein names (their roles are in German, `ROLE_DE`) and most city names stay as in their stories (open, see `docs/questions-for-authors.md`).
   Add a string in both languages, or the smoke test fails.
 - **The narration in two languages.** One recording per language, on one timeline (`NARRATION_SYNC`, `NARRATION_ENDS`
-  the later of the two): `audio/narration-pass.mp3` (English, Kokoro's `af_heart`) and `audio/narration-pass-de.mp3`
+  the later of the two): `packages/pass/audio/narration.mp3` (English, Kokoro's `af_heart`) and `packages/pass/audio/narration-de.mp3`
   (German, Piper's Thorsten voice), both made by `node tools/voice/narrate.mjs pass` from the text in each language
   (each stretch as long as the longer of the two lines needs). The story plays the language on show (`AUDIO` and
   `audioLang` in `engine/e7_app.js`, from `setLang`): switched, page or headset, the other file is loaded in place
@@ -848,10 +856,10 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
 
 These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word for word, beside the area they belong to.
 
-- `stories/lbi.js` is built from `tools/lbi/`: edit there and run
-  `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
-  (`node tools/nmd/build.mjs`; data from the authors' files, kept out of the repository, via
-  `node tools/nmd/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
+- `packages/lbi/main.js` is built from `packages/lbi/src/`: edit there and run
+  `node packages/lbi/src/build.mjs`. `packages/nmd/main.js` likewise from `packages/nmd/src/`
+  (`node packages/nmd/src/build.mjs`; data from the authors' files, kept out of the repository, via
+  `node packages/nmd/src/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
   `packages/flock/main.js` likewise from `packages/flock/src/` (`node packages/flock/src/build.mjs`),
   and `packages/robots/main.js` from `packages/robots/src/` (`node packages/robots/src/build.mjs`; a story package
   since v185).
@@ -860,18 +868,18 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
   `packages/endo/main.js` likewise from `packages/endo/src/` (`node packages/endo/src/build.mjs`; data
   from the authors' files via `packages/endo/src/data/gen_data.py`, which are not in the
-  repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.
+  repository); it includes `packages/nmd/src/sets/motor.js`, so rebuild it after changing that.
   `packages/pet/main.js` likewise from `packages/pet/src/` (`node packages/pet/src/build.mjs`; data from the paper's tables and the
   figures' readings in `packages/pet/src/data/figures.json` via `node packages/pet/src/data/gen_data.mjs`); it includes
-  `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js` (its opening network's 3D organs), so rebuild it after changing those. No patient data in it (the authors' VR viewer holds a
+  `packages/lbi/src/sets/body.js` and `packages/micro/src/sets/organs.js` (its opening network's 3D organs), so rebuild it after changing those. No patient data in it (the authors' VR viewer holds a
   patient's scan: never use its data).
-  `stories/micro.js` likewise from `tools/micro/` (`node tools/micro/build.mjs`; data from Iva Buljan's GraphML, kept out of
-  the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's
-  body and tissue sets (its organs are its own 3D models, `tools/micro/sets/organs.js`), so rebuild it after changing
+  `packages/micro/main.js` likewise from `packages/micro/src/` (`node packages/micro/src/build.mjs`; data from Iva Buljan's GraphML, kept out of
+  the repository, and the preprint's numbers via `node packages/micro/src/data/gen_data.mjs <graphml>`); it includes the tour's
+  body and tissue sets (its organs are its own 3D models, `packages/micro/src/sets/organs.js`), so rebuild it after changing
   those.
   `packages/ovary/main.js` likewise from `packages/ovary/src/` (`node packages/ovary/src/build.mjs`; data from the poster's numbers, typed in,
   and the figures' readings in `packages/ovary/src/data/figures.json` via `node packages/ovary/src/data/gen_data.mjs`); it includes
-  `tools/lbi/sets/body.js`, so rebuild it after changing that. Its neighbor network (and the network by kind) is
+  `packages/lbi/src/sets/body.js`, so rebuild it after changing that. Its neighbor network (and the network by kind) is
   illustrative and its count tags are read off the poster's lines (say so); no charts beyond the donors' histogram, and
   no GTEx image or picture from the poster in it. American spelling, as in the qubits story.
   `packages/qubits/main.js` likewise from `packages/qubits/src/` (`node packages/qubits/src/build.mjs`; its maths checked by
@@ -883,13 +891,13 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   `packages/mutation/src/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
   the authors' circuit and says so; never call the circuit "better" or "more accurate". No patient data and none of the
   poster's pictures (its figures are redrawn in 3D). British spelling.
-  `stories/topo.js` likewise from `tools/topo/` (`node tools/topo/build.mjs`; its data and decoders checked by
-  `node tools/topo/test-data.mjs`; data from the authors' files via `tools/topo/data/gen_data.py`, which runs their
+  `packages/topo/main.js` likewise from `packages/topo/src/` (`node packages/topo/src/build.mjs`; its data and decoders checked by
+  `node packages/topo/src/test-data.mjs`; data from the authors' files via `packages/topo/src/data/gen_data.py`, which runs their
   package topocyte (GPL-3, offline only, none of its code copied) and the poster's figure scripts; the files are not in
   the repository). Every number is topocyte's: never write science in the app (no persistence, functional PCA,
   classifier or score computed there), only look up `TOPO_DATA` through `TDATA`. No GTEx ids, donor details or images,
   and none of the poster's pictures (slides are numbered); "Cancer cell" stays (the cell classifier's label, the
-  author's wish). It includes `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js`, so rebuild it after changing
+  author's wish). It includes `packages/lbi/src/sets/body.js` and `packages/micro/src/sets/organs.js`, so rebuild it after changing
   those. British spelling.
   `packages/soil/main.js` likewise from `packages/soil/src/` (`node packages/soil/src/build.mjs`; its data, decoders and key numbers checked
   by `node packages/soil/src/test-data.mjs`; data from the authors' three CSVs via `packages/soil/src/data/gen_data.py` and the
@@ -899,11 +907,11 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   fertiliser and the plots, not the wheat line; rising together is not working together; strong indications, not yet
   proof) and the two N2O measurements as an open question. The network is ours, built for the story: never call a link
   an interaction or a hub a keystone. Kinds numbered, never named by their ids; no sequences, no pictures from the
-  slides, no e-mail addresses. It includes `tools/topo/sets/look.js` and `tools/lbi/sets/web.js`, so rebuild it after
+  slides, no e-mail addresses. It includes `packages/topo/src/sets/look.js` and `packages/lbi/src/sets/web.js`, so rebuild it after
   changing those. British spelling.
-  `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
-  `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
-  `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in
-  both (`STR` in `tools/pass/engine/e2_text.js`, the sets' own `setLang`), German plain and natural for a 12-year-old;
+  `packages/pass/main.js` likewise from `packages/pass/src/` (`node packages/pass/src/build.mjs`; its sets checked by
+  `node packages/pass/src/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `packages/airports/main.js` and
+  `packages/spatial/main.js` at build time, so rebuild it after changing either. It is in English and German: every word in
+  both (`STR` in `packages/pass/src/engine/e2_text.js`, the sets' own `setLang`), German plain and natural for a 12-year-old;
   the language is per device and never in `collab.state()`.
 

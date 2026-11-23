@@ -5,7 +5,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 ## How the shell and stories fit together
 
 - `HOST.list` comes from `stories/list.js` and the app's own story packages, in `packages/order.json`'s order (v185,
-  `docs/agents/packages.md`; always the same array, changed in
+  `docs/agents/packages.md`; since v187 every story is a package and `STORY_LIST` is empty, so the boot waits for the
+  index: 1.5 s, 4 s when the address names a key, then up to 30 s more while there is no card at all, and with none the
+  design room opens behind the Stories screen; `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
+  `tools/release.mjs`, so a browser's held copy never gives a new page an old list; always the same array, changed in
   place when the list is read again; `HOST.listRev` counts the changes), so a
   story's code may keep it (`XR_STORIES`). Nothing in a story writes the number
   of stories in: the title and Stories screen say it in words up to twenty
@@ -16,7 +19,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
   counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
   Stories screen, and Repeat all skips it (from the tutorial itself it goes on to the first story).
-- `HOST.start(key)` loads `stories/<key>.js` if needed (`HOST.load`: fetched as
+- `HOST.start(key)` loads the story's file if needed (`packages/<key>/main.js?v=<fp>`, or `stories/<key>.js` for the
+  design room and the studio; `HOST.load`: fetched as
   text, its fingerprint noted in `HOST.fp`, run as a script; a file that
   registers no story is refused), calls the old story's `dispose()`, removes
   every listener the old story added, then runs the new story's factory
@@ -159,7 +163,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   it. The voice: a chapter's last words often run on past its stop (the
   airports' recording by up to 2.4 s, so a plain pause cut them). A story with a
   recording lists where each chapter's words end in it (`NARRATION_ENDS`, seconds
-  by chapter key, measured from the file; `stories/airports.js` has one, independent
+  by chapter key, measured from the file; `packages/airports/main.js` has one, independent
   of `NARRATION_SYNC`, and the tour has one, written with its table by
   `tools/voice/narrate.mjs`, whose words always end before each stop): at a stop the narration plays on, on
   its own clock, to that point (`slideTail`, `slideSound`, which `audioSync`
@@ -1476,8 +1480,9 @@ the same path through their index, read again at every check: `docs/agents/packa
   fresh next time on the others; the list is read again (cards appear or change,
   no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `three.min.js`,
   `peerjs.min.js`, `output.js`) reloads the page with its place kept. `--build` also runs a
-  built story's `tools/<key>/build.mjs` when its sources change (the folders its
-  build names, `../lbi/` and the like, and the story files it cuts from; not
+  built story's build (`packages/<key>/src/build.mjs`, `tools/<key>/build.mjs` for the design room and the studio)
+  when its sources change (its own folder, the folders its build names, `tools/engine/`, another story's
+  `packages/<owner>/src/` whose shared set it reads, and the story files it cuts from; not
   `shots/`, `gen/`, `data/`), one build at a time, a moment after the last
   change; a failed build shows in the page's bar. A page served by a watching
   relay does not ask for `version.json`.

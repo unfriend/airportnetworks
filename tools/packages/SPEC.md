@@ -2,8 +2,8 @@
 
 The owner, 18 November 2026: colleagues and people the owner trusts may write their own stories; each is "all contained
 within a folder and independent from the rest of the app"; they come in through git (pull requests, or a fork they host
-themselves). Since v185 the app's own stories move into packages too, one by one (`docs/packages-migration.md`; the
-robot gang first): the same contract, plus `packages/order.json`, `icon` and `intro` below.
+themselves). Since v185 the app's own stories move into packages too (`docs/packages-migration.md`; the robot gang
+first, all sixteen by v187): the same contract, plus `packages/order.json`, `icon` and `intro` below.
 
 A package is code from a trusted person running with the app's full rights (it is not a sandbox). Only the folder in git
 (or on the host serving the app) is ever run: never anything from the relay's scenes, an upload or a link.
@@ -130,3 +130,7 @@ packages/<key>/src/build.mjs` writes `packages/<key>/main.js` from the app's kit
 parts (`tools/engine/`) and its own sets and story, as the built stories are made (`docs/agents/stories.md`). The built
 `main.js` holds everything it needs: the app's later changes to the engine reach a package only when its author builds it
 again. `packages/hello/` is the example (hidden: developer mode, or `#hello`).
+
+A hand-written package is allowed too: `main.js` written by hand, no `src/` (`src/` is optional; the checks are the
+same, on `main.js` itself). The app's airports, proteins and spatial stories are such packages (v187, wrapped as they
+were in `stories/`): edit `main.js`, then `node tools/packages/scan.mjs`.

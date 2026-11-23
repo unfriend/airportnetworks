@@ -144,7 +144,7 @@ controls.
   are the shared ones, unchanged (the headset arc and its title now make room for thirteen stories, in every story).
 - `organ` and `section` build between frames: the engine calls `idle(dt, ms)` while a set is hidden, by turns within
   its build budget (v136: about 1 ms a frame in a headset, on a page an eighth of the frame, 2 to 8 ms; `BUILD` in
-  `engine/e2_scene.js`, as in the muscle story's `tools/nmd/SPEC.md`), and a set on show builds 4 ms a frame in its
+  `engine/e2_scene.js`, as in the muscle story's `packages/nmd/src/SPEC.md`), and a set on show builds 4 ms a frame in its
   `update`; `sweep.mjs` and the smoke test call `finish()`. The organ, shown from the story's first second, builds
   during the load (`early(ms)`, a step of `LOAD` after its `buildSet`, 30 ms a slice behind the loading card).
 - The story (`e3_story.js`): `FACTS` and the text helpers read `OVARY_DATA` and `OVARY_TREND` (`KD` by kind, `KCOL` the

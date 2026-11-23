@@ -1323,7 +1323,7 @@ Server-Sent Events (`text/event-stream`, `Cache-Control: no-store`, `retry: 2000
 `fp` is a fingerprint of the file's text (index.html's `HOST.fingerprint`, the same in `tools/release.mjs`). A file is
 looked at 150 ms after its last change and told only when its text changed. With `--build`, a change to a `.js` file
 under `tools/<dir>/` runs the build of every story whose `build.mjs` names that folder (its own, and `../lbi/` and the
-like) or a story file it cuts from (the pass story from `stories/airports.js` and `stories/spatial.js`); files in
+like) or a story file it cuts from (the pass story from `packages/airports/main.js` and `packages/spatial/main.js`); files in
 `shots/`, `gen/` and `data/` are not sources. One build runs at a time, 300 ms after the last change; the story file it
 writes then goes out as `story`. Watching `tools/` needs Node 20 or newer on Linux (macOS and Windows: any). For
 development only: `--build` runs the build scripts of the folder it watches.

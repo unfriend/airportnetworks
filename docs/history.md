@@ -121,6 +121,12 @@ file, the detail file says what is current.
   never leave a missing file in `SHELL` (one fails the whole offline install); the smoke test's stories come from the
   list, and `tools/collab.mjs` leaves out the rounds of stories no longer listed. Removing one of our stories is now its
   entry in `stories/list.js`, its files, the design room's props, the steps that test it by name, and a release.
+- v185 to v187 (the owner, 23 November 2026: every story a story package "like the new ppicell"): the stories moved
+  into `packages/<key>/` one commit each (`tools/packages/move.mjs`), the three hand-written ones wrapped as they were
+  (v187), `STORY_LIST` left empty. v187's update test found a new page given the browser's old `stories/list.js` (ten
+  minutes on GitHub Pages; a reload's memory cache), which named stories that had moved: `index.html` now loads it as
+  `stories/list.js?v=<its fingerprint>`, stamped by `tools/release.mjs` like the shell's release. Shared sets stay with
+  their owners and are read by path (the lean route; a shared library later).
 
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 

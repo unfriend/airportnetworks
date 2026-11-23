@@ -37,7 +37,7 @@ Decisions (the owner's and the author's, 27 Oct 2026):
   (say so once).
 - No patient data (the test is synthetic). The poster's pictures are never shown; its figures are redrawn in 3D.
 
-**The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
+**The rules for sets are the tour's**: `packages/lbi/src/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences (as the qubits story's, `packages/qubits/src/SPEC.md`):
 - Set files live in `packages/mutation/src/sets/`; the harness is `packages/mutation/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
   cam=<view or six numbers>&anim=1`) and the screenshot tool `packages/mutation/src/shot.mjs` (run it from `packages/mutation/src`;

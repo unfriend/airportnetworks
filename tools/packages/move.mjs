@@ -16,6 +16,12 @@
 //      stories/list.js (packages/order.json keeps its place), .gitignore's and tools/design/props.json's paths
 //   5. the build run, and its main.js compared with the old built file: only the lines the move changes may differ
 //   6. node tools/packages/scan.mjs, node tools/design/build.mjs
+//   2b. the readers (v187): every other source folder whose build or harness reads this story's sources by path
+//      ('../<key>/sets/...') reads them from packages/<key>/src/ ('../../packages/<key>/src/...'), and is built again
+// A hand-written story (no tools/<key>/build.mjs: airports, proteins, spatial) is wrapped instead (v187): its file moved
+// as it is to packages/<key>/main.js (its own source: no src/, no build), its narration (the airports' audio/narration.mp3
+// too) to packages/<key>/audio/narration.mp3 through HOST.pkgUrl, steps 4 and 6 as above, and every source folder that
+// names stories/<key>.js (the pass story's ORIGINALS, the tour's data scripts) naming the new place, built again.
 // Then by hand: node tools/release.mjs (after the VERSION bump), node tools/narration.mjs <url>, the story's docs
 // (docs/agents/stories.md -> its entry says where it is now, layout.md, AGENTS.md's table), and the checks below.
 import fs from 'fs';

@@ -1,7 +1,7 @@
 # The qubits story: 3D sets, maths and engine spec
 
 The eleventh story of the app: `packages/qubits/main.js`, built from `packages/qubits/src/` like the microanatomy story is built from
-`tools/micro/`. It explains, step by step, how a large gene network is compressed onto a handful of qubits and how the
+`packages/micro/src/`. It explains, step by step, how a large gene network is compressed onto a handful of qubits and how the
 compressed network breaks down into simple building blocks (Pauli strings), after **Joel Hancock**'s brief for this
 visualization ("Prompt: visualize network compression and the Pauli decomposition", 21 Oct 2026; not in the
 repository), his figures (the Pauli strings on a cube; the 3-qubit condensation card) and his notes on the runs.
@@ -24,7 +24,7 @@ Decisions (the owner's and Joel's):
 - Conventions: H = K + c V + ρ R, K = I − A_c, R the exchange operator (always R, never SWAP); Pauli subscripts are
   qubit indices, q2 the most significant bit (the first bisection); signs solid +, dashed −; red +1, blue −1.
 
-**The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
+**The rules for sets are the tour's**: `packages/lbi/src/SPEC.md` from the top down to "Palette and look", and
 `tools/engine/kit.js`, with these differences:
 - Set files live in `packages/qubits/src/sets/`; the harness is `packages/qubits/src/harness.html` (the same query syntax; `cam=` a
   view by name or six numbers) and the screenshot tool `packages/qubits/src/shot.mjs` (run it from `packages/qubits/src`; `SHOTS=<dir>`

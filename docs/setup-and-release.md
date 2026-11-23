@@ -63,7 +63,7 @@ node packages/endo/src/build.mjs
 ```
 
 **Python for the tissue topology data.** You only need this when the authors send new data or topocyte changes. The
-script is `tools/topo/data/gen_data.py`; it runs the authors' package topocyte (GPL-3, run here only, none of its code
+script is `packages/topo/src/data/gen_data.py`; it runs the authors' package topocyte (GPL-3, run here only, none of its code
 goes into the app) and the poster's own figure scripts. Its header asks for:
 
 - Python 3.10 or newer
@@ -81,9 +81,9 @@ donor details, no images.
 ```sh
 python3 -m venv ~/venvs/topo && . ~/venvs/topo/bin/activate
 pip install numpy scipy anndata pandas scikit-learn gudhi h5py
-python -I tools/topo/data/gen_data.py cells.h5ad fig1/   # topocyte and topocyte_data importable; writes tools/topo/sets/data.js
-node tools/topo/test-data.mjs                            # the data and its decoders against the poster's numbers
-node tools/topo/build.mjs
+python -I packages/topo/src/data/gen_data.py cells.h5ad fig1/   # topocyte and topocyte_data importable; writes packages/topo/src/sets/data.js
+node packages/topo/src/test-data.mjs                            # the data and its decoders against the poster's numbers
+node packages/topo/src/build.mjs
 ```
 
 **Python for the soil story's data.** Only when the authors send new data. The script is `packages/soil/src/data/gen_data.py`
@@ -101,7 +101,7 @@ node packages/soil/src/test-data.mjs                                       # the
 node packages/soil/src/build.mjs
 ```
 
-The other data generators are Node scripts (each story's `tools/<key>/README.md` lists them). The microanatomy
+The other data generators are Node scripts (each story's `packages/<key>/src/README.md` lists them). The microanatomy
 generator also needs Iva Buljan's GraphML file, which is kept out of the repository.
 
 ## 2. Running it locally
@@ -155,7 +155,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | --- | --- | --- | --- | --- | --- |
 | Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every release to `main` (since 7 November 2026; not for `dev`) | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio` or `--only trackers`: for a builder's own steps; the release run is the whole test, with no `--only` |
-| Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
+| Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `packages/airports/audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
 | Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both; or `whatsnew.json` names another release: rewrite it (step 5c) |
@@ -168,10 +168,10 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | The trackers' solver | `node tools/studio/test-ik.mjs` | Node | after changing `ik.js` or the puppet in `tools/studio/test/make.mjs` | under a second | the solver no longer finds a Mixamo rig's parts or follows the walking test rig |
 | The picture reader | `node tools/studio/test-images.mjs` | Node | after changing `tools/studio/engine/images.js` or `tools/studio/test/pictures.mjs` | seconds | a TIFF, PSD or DDS no longer reads back as the pixels it was made from, or a broken file is no longer refused in words |
 | A model to GLB | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--shots <dir>]` | Playwright | not a routine test: to convert the owner's models in a batch, or to try the converter on real files after changing `tools/studio/engine/convert.js` | seconds a model | it says what did not come through (an animation, a skin, a texture) and writes nothing |
-| One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
-| A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
+| One set | `cd packages/<key>/src && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `packages/<key>/src/shots/` (git-ignored); page errors are printed |
+| A whole story | `cd packages/<key>/src && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
-Worked examples of `shot.mjs` and `sweep.mjs` are in [tools/lbi/README.md](../tools/lbi/README.md) ("Changing
+Worked examples of `shot.mjs` and `sweep.mjs` are in [packages/lbi/src/README.md](../packages/lbi/src/README.md) ("Changing
 something"). After changing a story's text, also run `node tools/voice/narrate.mjs <key>` (every story but the airports
 has a synthetic narration: it speaks the changed lines again and re-times the story from the recording; update its length
 in `stories/list.js` from what it prints; then `node tools/voice/check.mjs <key>`; see
@@ -204,11 +204,11 @@ is GitHub Pages' custom domain for `main`.
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
 2. **Edit the sources, never a built story.** Thirteen stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
-   micro, ovary, qubits, mutation, topo, soil, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
-   `stories/spatial.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
+   micro, ovary, qubits, mutation, topo, soil, pass, flock and robots (pass also takes its globe and cell from `packages/airports/main.js` and
+   `packages/spatial/main.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
    `tools/design/`) and the miniatures (`lowpoly.js` from `tools/lowpoly/`, which the design room's names come from:
    rebuild the design room after changing them), and the studio (`stories/studio.js` from `tools/studio/`, with three.js
-   r128's own add-ons from `tools/studio/vendor/`, never edited). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
+   r128's own add-ons from `tools/studio/vendor/`, never edited). `packages/airports/main.js`, `packages/proteins/main.js` and `packages/spatial/main.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
    stories. Some parts feed several stories:
@@ -217,13 +217,13 @@ is GitHub Pages' custom domain for `main`.
    | --- | --- |
    | `tools/engine/kit.js` | all thirteen built stories, the design room, the studio |
    | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js` (the studio's icon, `studio.stage`, too), the design room |
-   | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
-   | `tools/lbi/sets/tissue.js` | lbi, micro |
-   | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
+   | `packages/lbi/src/sets/body.js` | lbi, pet, micro, ovary, topo |
+   | `packages/lbi/src/sets/tissue.js` | lbi, micro |
+   | `packages/nmd/src/sets/motor.js`, `packages/nmd/src/sets/data.js` | nmd, endo |
    | `packages/pet/src/sets/icons.js` | pet |
-   | `tools/micro/sets/organs.js` | micro, topo |
-   | `tools/lbi/sets/web.js` | lbi, soil (its globe) |
-   | `tools/topo/sets/look.js` | topo, soil |
+   | `packages/micro/src/sets/organs.js` | micro, topo |
+   | `packages/lbi/src/sets/web.js` | lbi, soil (its globe) |
+   | `packages/topo/src/sets/look.js` | topo, soil |
 
    Rebuilding all of them takes a few seconds:
    `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design studio; do node tools/$k/build.mjs; done`

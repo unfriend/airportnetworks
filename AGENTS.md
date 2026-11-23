@@ -14,20 +14,20 @@ Quest Browser, WebXR).
 
 | Story | File | Network |
 | --- | --- | --- |
-| Network theory | `stories/airports.js` | 3,214 airports, 18,858 routes on a globe |
-| Network medicine | `stories/proteins.js` | 254 curated proteins, 375 interactions in a cell |
-| Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
-| LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
-| Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (the authors' real data, kept out of the repository), the motor unit, a supercomputer |
+| Network theory | `packages/airports/main.js` | 3,214 airports, 18,858 routes on a globe |
+| Network medicine | `packages/proteins/main.js` | 254 curated proteins, 375 interactions in a cell |
+| Spatial interactome | `packages/spatial/main.js` | 249 proteins in 13 compartments of a model cell |
+| LBI Network Medicine tour | `packages/lbi/main.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
+| Rare muscle diseases | `packages/nmd/main.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (the authors' real data, kept out of the repository), the motor unit, a supercomputer |
 | Disease endotypes | `packages/endo/main.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Whole-body PET | `packages/pet/main.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
-| Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
+| Tissue microanatomy | `packages/micro/main.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
 | Ovarian aging | `packages/ovary/main.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
 | Quantum network compression | `packages/qubits/main.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
 | Quantum phylogenetics | `packages/mutation/main.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
-| Tissue topology | `stories/topo.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
+| Tissue topology | `packages/topo/main.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
 | Soil microbes | `packages/soil/main.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
-| Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
+| Networks for everyone (outreach; English and German) | `packages/pass/main.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `packages/flock/main.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 | Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `packages/tutorial/main.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
@@ -51,10 +51,12 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 
 - `index.html` - the app shell: shared CSS and DOM and the `HOST` object; owns the single WebGL renderer and any XR
   session, loads and swaps stories (`docs/agents/shell.md`).
-- `stories/list.js` - the list of stories (`HOST.list`, in the Stories screen's order) and, at its end, `STORY_EXTRA`
-  (the design room, then the studio); `HOST.meta(key)` finds a key in either.
-- `stories/<key>.js` - one story each, `HOST.register('<key>', function (HOST) { ... })`, returning
-  `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` (optionally `lobby`, `sticks`).
+- `stories/list.js` - `STORY_LIST` (empty since v187: every story is a package; old shells read it) and `STORY_EXTRA`
+  (the design room, then the studio); `HOST.meta(key)` finds a key in either or in `HOST.packages`.
+- `packages/<key>/main.js` - one story each (v187: all sixteen), `HOST.register('<key>', function (HOST) { ... })`,
+  returning `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` (optionally `lobby`, `sticks`); built
+  from `packages/<key>/src/`, except airports, proteins and spatial, hand-written (`main.js` is the source, no `src/`).
+- `stories/design.js`, `stories/studio.js` - the two pages that are not stories, built from `tools/design/`, `tools/studio/`.
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins` / `#spatial`. No code there.
 - `lowpoly.js` - the miniatures (`LOWPOLY_MODELS`), generated by `tools/lowpoly/build.mjs`; never edit by hand.
 - `version.json` - the latest release, written by `tools/release.mjs`, never by hand, never cached.
@@ -62,7 +64,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   by `tools/release.mjs`.
 - `sw.js` - service worker: network first, checked each time; narration MP3s in their own cache
   (`networks-narration`); studio scenes and `examples/` passed through (`docs/agents/shell.md`).
-- `audio/` - optional narration MP3s (`narration.mp3` for the airports, `narration-<key>.mp3` for the others).
+- `audio/` - since v187 only `PUT-narration.mp3-HERE.txt` (the chapter timings); each story's narration is
+  `packages/<key>/audio/narration.mp3` (the pass story's German `narration-de.mp3` beside it).
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `LICENSE` (MIT, the code) and `NOTICE.md` (CC BY 4.0 for words, narrations, docs and icons; the data's and
   others' parts' own terms) - served with the app by the relay (`docs/data-and-permissions.md`, "Licence").
@@ -99,11 +102,10 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   outside the repository, see its `README.md`.
 - `tools/mol/` - protein models from the PDB (`build.py`, Python outside the repository: a surface with baked occlusion,
   a cartoon and balls at three levels each, `<name>.mol`); the engine's parts `MOLS molLoad ... molMesh` draw them.
-- `tools/<key>/` - the sources of each built story still in `stories/` (`lbi`, `nmd`, `micro`, `topo`, `pass`,
-  `design`), each with a `README.md` and most with a `SPEC.md` (`docs/agents/stories.md`); a moved story's are
-  `packages/<key>/src/` (`robots`, v185; `qubits`, `mutation`, `flock`, `tutorial`, `endo`, `pet`, `ovary`, `soil`, v186;
-  their builds read the shared sources where they are, in `tools/`); the tutorial's script is checked by
-  `node packages/tutorial/src/test-script.mjs`.
+- `packages/<key>/src/` - the sources of each built story (`robots`, v185; `qubits` ... `soil`, v186; `micro`, `topo`,
+  `nmd`, `lbi`, `pass`, v187), each with a `README.md` and most with a `SPEC.md` (`docs/agents/stories.md`); a shared
+  set is read from its owner's `src/` (`'../../packages/lbi/src/sets/body'`); the tutorial's script is checked by
+  `node packages/tutorial/src/test-script.mjs`. `tools/design/` the design room's.
 - `tools/studio/` - the sources of `stories/studio.js`: engine parts, sets, `vendor/` (never edited), the build,
   `scan.mjs`, `convert.mjs`, the test scenes, `r2sync.mjs`, `push.mjs`, `ik.js` (`docs/agents/studio.md`).
 - `basis/` - Basis Universal's KTX2 encoder and transcoder (v151, the studio's), copied unchanged (`basis/README.md`).
@@ -137,8 +139,8 @@ gets at most a line per feature and stays under 70 KB.
 
 ## The app in brief
 
-- `HOST.start(key)` loads `stories/<key>.js` (`HOST.load`), disposes the old story, removes every listener it added and
-  runs the new factory (`HOST.run`); `HOST.swap(key)` does the same in place, keeping its place. A VR/AR session
+- `HOST.start(key)` loads `packages/<key>/main.js` (`HOST.load`; the design room and the studio `stories/<key>.js`),
+  disposes the old story, removes every listener it added and runs the new factory (`HOST.run`); `HOST.swap(key)` does the same in place, keeping its place. A VR/AR session
   survives a change of story: the new story calls `xrAdopt()` to take over the session, `HOST.inputs` and `HOST.xrPose`.
 - A story builds in steps (`LOAD`, `HOST.progress`), tells its chapters in `CH` on story time, follows its narration
   (`NARRATION_SYNC`, `HOST.audio.narration`), and then opens explore mode (`X`, `render*` and `draw*` twins).
@@ -236,18 +238,20 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 ### Built files and data
 
 - Never edit a built file by hand: edit its sources and rebuild, and commit both (`--check` says when they are out of
-  step). Built: `stories/lbi.js`, `nmd.js`, `micro.js`, `topo.js`, `pass.js`, `design.js`, `studio.js` (each
-  `node tools/<key>/build.mjs`),
-  a moved story's `packages/<key>/main.js` (`node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`),
+  step). Built: `stories/design.js`, `studio.js` (each `node tools/<key>/build.mjs`), a built story's
+  `packages/<key>/main.js` (`node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`; airports, proteins
+  and spatial are hand-written: their `main.js` is the source),
   `lowpoly.js` (`node tools/lowpoly/build.mjs`), `examples/bliss-xp` (`node tools/studio/xp/make.mjs`),
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
-- Rebuild the dependants after a shared source changes: `tools/lbi/sets/body.js` (pet, micro, ovary, topo),
-  `tools/lbi/sets/tissue.js` (micro), `tools/micro/sets/organs.js` (pet, micro, topo), `tools/nmd/sets/motor.js`
-  (endo), `tools/topo/sets/look.js` and `tools/lbi/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the
-  studio), `tools/engine/*.js` (the shared engine parts: every built story but the studio, `node tools/engine/all.mjs`), `stories/airports.js` and `stories/spatial.js` (pass), `tools/design/props.json` or a miniature's name
-  (design).
+- Rebuild the dependants after a shared source changes (`node tools/engine/all.mjs` builds them all; the relay's
+  `--build` the readers of a changed `packages/<key>/src/` file): `packages/lbi/src/sets/body.js` (pet, micro, ovary,
+  topo), `packages/lbi/src/sets/tissue.js` (micro), `packages/micro/src/sets/organs.js` (pet, micro, topo),
+  `packages/nmd/src/sets/motor.js` and `sets/data.js` (endo), `packages/topo/src/sets/look.js` and
+  `packages/lbi/src/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the studio), `tools/engine/*.js`
+  (the shared engine parts: every built story but the studio), `packages/airports/main.js` and
+  `packages/spatial/main.js` (pass), `tools/design/props.json` or a miniature's name (design).
 - Never edit `tools/studio/vendor/` (three.js r128's own add-ons and meshoptimizer, pasted unchanged).
-- Generated data files (`tools/*/sets/data.js`) are never edited by hand; the authors' source files never go into the
+- Generated data files (`packages/*/src/sets/data.js`) are never edited by hand; the authors' source files never go into the
   repository, only derived numbers.
 - The owner's own scene files (models, textures, sounds, layouts) never go into the repository, not even as tests: they
   stay in the relay's `--scenes` folder or the git-ignored `tools/studio/test/local/`.
@@ -265,8 +269,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   numbers only as "in the authors' test". Qubits: example networks only, computed live by `QMATH`; the real run's
   numbers only as "in the real network".
 - The qubits and aging ovary stories use American spelling; every other story British. The pass story is in English
-  and German, every string in both; its language is per device; never change `stories/airports.js` or
-  `stories/spatial.js` for its sake.
+  and German, every string in both; its language is per device; never change `packages/airports/main.js` or
+  `packages/spatial/main.js` for its sake.
 - No 2D charts as chapters (the owner's rule); the ovary story draws no trend, comparison or score charts. In the ovary
   story one model fades out before the next comes in, and a set writes no depth while it fades (`fadeDepth`).
 
@@ -331,7 +335,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
   also add it to `SHELL` (story files and narrations excepted: `tools/release.mjs` writes those from `stories/list.js`
-  and `audio/`), and to `APP_FILES` (or `APP_DIRS`) in
+  and `audio/`; a package's files are its own, in `packages/`), and to `APP_FILES` (or `APP_DIRS`) in
   `relay/server.mjs`, or the relay serving the app answers 404 for it
   (`node relay/test.mjs` checks every file `SHELL` names).
 - When releasing (after bumping `VERSION`), run `node tools/release.mjs`: it
@@ -352,28 +356,17 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   about, and taken by itself at the next quiet moment (`HOST.reloadIfUpdated`:
   on the Stories screen, not in a headset); a story needing a newer shell is
   never swapped in. After changing `sw.js`, run `tools/update.mjs`.
-- Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt`.
-- After changing anything in `tools/nmd/` (or the authors' files: first
-  `node tools/nmd/data/gen_data.mjs <their folder>`), rebuild `stories/nmd.js` with
-  `node tools/nmd/build.mjs` (and bump `VERSION`).
-- After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
-  `VERSION`). Likewise `packages/endo/src/` and `packages/endo/main.js` (and after changing
-  `tools/nmd/sets/motor.js`, which the endotype story uses too), `packages/flock/src/` and
-  `packages/flock/main.js`, `packages/robots/src/` and `packages/robots/main.js` (then `node tools/packages/scan.mjs`), and `packages/pet/src/` and `packages/pet/main.js` (and after
-  changing `tools/lbi/sets/body.js` or `tools/micro/sets/organs.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
-  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `packages/ovary/src/` and
-  `packages/ovary/main.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
-  `node packages/ovary/src/data/gen_data.mjs` after changing its readings), and `packages/qubits/src/` and
-  `packages/qubits/main.js` (run `node packages/qubits/src/test-qmath.mjs` after changing its maths), and `packages/mutation/src/` and
-  `packages/mutation/main.js` (run `node packages/mutation/src/test-mmath.mjs` after changing its maths), and `tools/topo/` and
-  `stories/topo.js` (run `node tools/topo/test-data.mjs` after its data or decoders change; its data only from the
-  authors' files through `tools/topo/data/gen_data.py`; and after changing `tools/lbi/sets/body.js` or
-  `tools/micro/sets/organs.js`, which it uses), and `packages/soil/src/` and `packages/soil/main.js` (run
-  `node packages/soil/src/test-data.mjs` after its data or decoders change; its data only from the authors' files through
-  `packages/soil/src/data/gen_data.py`; and after changing `tools/topo/sets/look.js` or `tools/lbi/sets/web.js`, which it
-  uses), and `tools/pass/` and
-  `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
-  And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
+- Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt` (the narrations themselves are in
+  `packages/<key>/audio/` since v187).
+- After changing anything in a built story's `packages/<key>/src/`, rebuild it (`node packages/<key>/src/build.mjs`,
+  then `node tools/packages/scan.mjs`) and its readers ("Rebuild the dependants" above; `node tools/engine/all.mjs`
+  builds every one), and bump `VERSION`; after changing a hand-written `packages/<key>/main.js` (airports, proteins,
+  spatial), the scan (and the pass story's build for airports and spatial). Its data first where it has a generator
+  (`packages/nmd/src/data/gen_data.mjs <the authors' folder>`, `packages/ovary/src/data/gen_data.mjs`, the topo and soil
+  stories' `data/gen_data.py`, only from the authors' files), and its own test after its maths, data or sets
+  (`packages/qubits/src/test-qmath.mjs`, `mutation/src/test-mmath.mjs`, `topo/src/test-data.mjs`,
+  `soil/src/test-data.mjs`, `pass/src/test-sets.mjs`, `tutorial/src/test-script.mjs`).
+- Rebuild `stories/design.js` after changing `tools/design/` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
   `tris` exact: the harnesses mark a wrong count in red). And `tools/studio/` and `stories/studio.js` (also after
   changing `tools/engine/kit.js`; never edit `tools/studio/vendor/`, three.js r128's own files); after changing the test
@@ -426,7 +419,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/room-test.mjs` | after changing `room-test/` |
 | `node tools/perf.mjs [url] [--only words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` | measuring, not a test (exits 0; no GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`, so do not rename them) |
 | `tools/<story>/shot.mjs`, then `sweep.mjs` | a changed set: its harness first, then the story, then the smoke test |
-| `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `tools/topo/test-data.mjs`, `packages/soil/src/test-data.mjs`, `tools/pass/test-sets.mjs` | after changing that story's maths, data or sets |
+| `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `packages/topo/src/test-data.mjs`, `packages/soil/src/test-data.mjs`, `packages/pass/src/test-sets.mjs` | after changing that story's maths, data or sets |
 | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | after changing the test scene's maker (`node tools/studio/test/make.mjs` first) |
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
@@ -480,7 +473,7 @@ rounds and verification, all on the most expensive model. Next time:
   takes as it is taken: agents keep them in one folder outside the repository
   (e.g. `/tmp/<story>-shots/`), and the conversation that runs them watches that
   folder and posts each new picture to the chat.
-- **Keep sources small and in the repository.** Edit `tools/lbi/` sources, not
+- **Keep sources small and in the repository.** Edit `packages/lbi/src/` sources, not
   the 700 KB built file; keep generators and manifests so nothing has to be
   rediscovered.
 

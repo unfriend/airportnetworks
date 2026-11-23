@@ -1,6 +1,6 @@
 # Cell stress test (a story package)
 
-A test bed, not a story: the cell map story's model cell (`stories/spatial.js`), with its membrane, nucleus, ER,
+A test bed, not a story: the cell map story's model cell (`packages/spatial/main.js`), with its membrane, nucleus, ER,
 Golgi, mitochondria, small organelles and cytoskeleton drawn with the same shaders, filled with made-up proteins and a
 made-up database of links. It first answered "how many proteins and links can a headset show at 72 fps?" (about 20,000
 dots, about 2,000 links); now it tries out a method for putting an interactome back into the cell, on made-up data

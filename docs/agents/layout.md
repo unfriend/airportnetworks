@@ -39,7 +39,8 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `tools/release.mjs`, never by hand, never cached.
 - `whatsnew.json` - what is new in the latest release and what to test (developer mode's box, `HOST.dev`): written by
   hand at every release, never cached, not in `SHELL` ("Developer mode" below).
-- `stories/<key>.js` - one story each, wrapped in
+- `packages/<key>/main.js` (every story since v187; `stories/<key>.js` for the design room and the studio, and for
+  the stories before they moved) - one story each, wrapped in
   `HOST.register('<key>', function (HOST) { ... })`. Everything a story
   defines is local to that function. Each returns
   `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` to the shell (`collab`: its
@@ -204,14 +205,14 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   (the owner's choice, 29 October 2026): the tour first, the other fourteen in v109 (3 November 2026, after a pass over
   every story's text so that it reads as a person would say it). A story in two
   languages (the pass story) gets a recording per language on one timeline: English with `af_heart`, German with
-  Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `audio/narration-pass.mp3` and
-  `audio/narration-pass-de.mp3`.
+  Piper's Thorsten voice (`de_DE-thorsten-high`, the owner's choice), `packages/pass/audio/narration.mp3` and
+  `packages/pass/audio/narration-de.mp3`.
 - `tools/engine/` - the engine parts the fourteen built stories share (`e1_head.js` ... `e7_app.js`: each part a
   declaration, named in a story's engine file by a `//#use` line), `parts.mjs` (the builds' `expand`; run alone it
   lists who uses what), `all.mjs` (rebuilds, or `--check`s, every story that uses them) and three before/after
   comparisons for refactors, `same.mjs`, `xrsame.mjs`, `panelsame.mjs` (`docs/agents/testing.md`); see
   `docs/agents/stories.md`, "Shared engine parts".
-- `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
+- `packages/nmd/src/` - the sources of `packages/nmd/main.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/engine/kit.js`); see its
   `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its
   history as `ikerdata/`; a local copy there is ignored by git).
@@ -221,7 +222,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `packages/pet/src/` - the sources of `packages/pet/main.js` (data generator and the figures' readings, data block, organ
   icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/engine/kit.js`,
   the tour's body set and the microanatomy story's 3D organs); see its `README.md` and `SPEC.md`.
-- `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
+- `packages/micro/src/` - the sources of `packages/micro/main.js` (data generator, data block, small 3D organ models, sets, engine
   parts adapted from the PET story's, build script, set harness; it uses `tools/engine/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
 - `packages/ovary/src/` - the sources of `packages/ovary/main.js` (data generator and the figures' readings, data block, shared look,
@@ -233,7 +234,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `packages/mutation/src/` - the sources of `packages/mutation/main.js` (the maths `MMATH` and its test, the poster's numbers, the
   shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
   `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
-- `tools/topo/` - the sources of `stories/topo.js` (the data generator, which runs topocyte on the authors' files,
+- `packages/topo/src/` - the sources of `packages/topo/main.js` (the data generator, which runs topocyte on the authors' files,
   the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
   story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's body set and the microanatomy story's organ
   models); see its `README.md` and `SPEC.md`.
@@ -241,11 +242,11 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
   adapted from the tissue topology story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's `web` set
   and the tissue topology story's look); see its `README.md` and `SPEC.md`.
-- `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
-  story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;
+- `packages/pass/src/` - the sources of `packages/pass/main.js` (the build that cuts the airports story's globe and the cell map
+  story's cell out of `packages/airports/main.js` and `packages/spatial/main.js`, unchanged; three sets, `fish`, `globe` and `cell`;
   the story's words in two languages; engine parts adapted from the qubits and flock stories'; set checks, harness); see
   its `README.md` and `SPEC.md`.
-- `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
+- `packages/lbi/src/` - the sources of `packages/lbi/main.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 - `packages/flock/src/` - the sources of `packages/flock/main.js` (the flock set, engine parts
   adapted from the tour's, build script, set harness); see its `README.md`.
@@ -254,9 +255,12 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   parts adapted from the flock's, `build.mjs`, the set harness; its `README.md` and `SPEC.md`), moved from
   `tools/robots/` by `tools/packages/move.mjs`.
 - `packages/qubits/`, `mutation/`, `flock/`, `tutorial/`, `endo/`, `pet/`, `ovary/`, `soil/` - moved the same way in
-  v186 (each `story.json`, `main.js`, `audio/narration.mp3`, `README.md`, `src/`); the entries below give their
-  sources' contents. Their builds read shared sources where they are (`tools/lbi/`, `tools/micro/`, `tools/nmd/`,
-  `tools/topo/`).
+  v186, and `micro/`, `topo/`, `nmd/`, `lbi/`, `pass/` in v187 (each `story.json`, `main.js`, `audio/narration.mp3` (pass:
+  `narration-de.mp3` too), `README.md`, `src/`); the entries above and below give their sources' contents. A build reads
+  another story's shared set from that story's `src/` (`'../../packages/lbi/src/sets/body'`).
+- `packages/airports/`, `proteins/`, `spatial/` - the three hand-written stories, wrapped in v187: `story.json`, `main.js`
+  (the old `stories/<key>.js` as it was: its own source, no `src/`), `audio/narration.mp3` (the airports' the human
+  recording), `README.md`.
 - `packages/tutorial/src/` - the sources of `packages/tutorial/main.js` (v173: the guide's script `sets/script.js` and its Node
   check `test-script.mjs`, the guide set drawn by `bodies.js`, engine parts adapted from the flock's, build script, set
   harness that loads `ik.js` and `bodies.js`; shots in `shots/`, git-ignored); see its `README.md` and `SPEC.md`.

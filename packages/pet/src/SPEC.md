@@ -234,7 +234,7 @@ and match them), so the engine shows `body` and `organs` together, one over the 
   outlining organs slice by slice); as it passes each organ, the organ's shell appears: a smooth translucent surface
   in the organ's colour (fresnel rim, faint contour bands like a segmentation mask), fitted to where the body set
   puts that organ (signed distance fields polygonised once at load, as the muscle story's heart is: see `heart` in
-  `tools/nmd/sets/motor.js`; or smooth ellipsoids and tubes where that is enough). The 13 organs and the aorta: the
+  `packages/nmd/src/sets/motor.js`; or smooth ellipsoids and tubes where that is enough). The 13 organs and the aorta: the
   kidneys and lungs both sides, the adrenal glands as small caps on the kidneys, muscle = both gluteus maximus muscles
   (buttocks), marrow = the vertebral bodies L1 to L5, fat = a shell just under the skin of the belly and back between
   L1 and L5 (a band), the aorta from its arch down to where it splits.

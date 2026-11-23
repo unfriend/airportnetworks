@@ -1,9 +1,9 @@
 Networks, in sixteen stories - installable web app
-  1. Network theory, told with the world's airports  (stories/airports.js)
+  1. Network theory, told with the world's airports  (packages/airports/main.js)
   2. A glimpse into the future of network medicine: a 3D tour of the Ludwig
-     Boltzmann Institute for Network Medicine  (stories/lbi.js)
+     Boltzmann Institute for Network Medicine  (packages/lbi/main.js)
   3. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
-     network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
+     network, after Iker Núñez-Carpintero and Philipp Friedrich  (packages/nmd/main.js)
   4. Endotypes: one rare disease of the junction between nerve and muscle, 35
      genes and 12 hidden mechanisms, after the EndotypY poster by Chloé Bûcheron
      and colleagues  (packages/endo/main.js)
@@ -12,7 +12,7 @@ Networks, in sixteen stories - installable web app
      (packages/pet/main.js)
   6. Tissue and time: the small working units organs are built from, in 24,945
      slides, and how they change with age, after Iva Buljan and colleagues
-     (stories/micro.js)
+     (packages/micro/main.js)
   7. The aging ovary: what 255 ovaries show about aging, from the reserve of
      follicles to two deep-learning methods and the trends with age, after the
      poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro
@@ -27,17 +27,17 @@ Networks, in sixteen stories - installable web app
   10. The shape of tissue: where cells sit in slides of liver, read at every
      scale at once (persistent homology), and which scales tell cirrhosis from
      healthy tissue, down to every cell; after the poster by Simon Schindler,
-     André Rendeiro and Jörg Menche, on their data  (stories/topo.js)
+     André Rendeiro and Jörg Menche, on their data  (packages/topo/main.js)
   11. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
      a school of fish to the world's flights to a cell; for everyone, in
-     English and German  (stories/pass.js)
+     English and German  (packages/pass/main.js)
   12. Holding on to nitrogen: a wheat, its soil and the microbes in between;
      a wheat that slows the soil's microbes stays greener and leaks less
      nitrate in a field trial in Japan, while the crowd of microbes follows the
      fertiliser far more than the wheat; after the slides and field trial of
      Marina Montserrat Díez, Christa Schleper and colleagues  (packages/soil/main.js)
-  13. Network medicine, told with the proteins in a cell  (stories/proteins.js)
-  14. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
+  13. Network medicine, told with the proteins in a cell  (packages/proteins/main.js)
+  14. Spatial interactome, where proteins meet in a cell  (packages/spatial/main.js)
   15. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (packages/flock/main.js)
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
@@ -726,11 +726,9 @@ Install:
   install icon in the address bar.
 - iPhone/iPad Safari: Share > Add to Home Screen.
 
-Narration: put your recordings at audio/narration.mp3 (airports),
-audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
-(cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
-packages/endo/audio/narration.mp3, packages/pet/audio/narration.mp3, audio/narration-micro.mp3,
-packages/ovary/audio/narration.mp3, packages/qubits/audio/narration.mp3, packages/mutation/audio/narration.mp3, audio/narration-topo.mp3, packages/soil/audio/narration.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), packages/flock/audio/narration.mp3 and, for the robot gang (a story package), packages/robots/audio/narration.mp3 (the airports
+Narration: every story keeps its recording in its own folder,
+packages/<key>/audio/narration.mp3 (the pass story's German packages/pass/audio/narration-de.mp3
+beside it), listed in packages/index.json by node tools/packages/scan.mjs (the airports
 one is a human recording; every other story has a synthetic voice, made by tools/voice/: Kokoro's American af_heart,
 and for the pass story's German Piper's Thorsten); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
@@ -795,11 +793,11 @@ lines; 252 documented interactions join copies that meet (same compartment, or
 across a membrane they share). Places follow the Human Protein Atlas and
 UniProt. Seven "moves" (NF-kB, apoptosis, TFEB, GLUT4, NRF2, and the disease
 cases ALS and cystic fibrosis) switch copies on and off. The lists PROTEINS,
-LINKS, TOGETHER and MOVES sit at the top of stories/spatial.js and can be
+LINKS, TOGETHER and MOVES sit at the top of packages/spatial/main.js and can be
 edited; the cell model and protein positions are built when the page loads.
 Good for teaching, not research.
 
-Tour data (stories/lbi.js): mostly illustrative and built when the story
+Tour data (packages/lbi/main.js): mostly illustrative and built when the story
 loads. The interactome has about 9,100 proteins and 22,100 interactions, of which
 the 254 named proteins (in ten groups) are the curated set of the
 network-medicine story. The friendship globe uses the real positions of the
@@ -809,7 +807,7 @@ structure (13 of its proteins, two of them assembly helpers that leave;
 9 clinical categories, 19 clusters); the flows between them are illustrative,
 as are the disease modules, the patient, the organ network and the tissue.
 
-Muscle story data (stories/nmd.js): the authors' analysis files (kept out of the repository)
+Muscle story data (packages/nmd/main.js): the authors' analysis files (kept out of the repository)
 (no patient data): 13 disease groups of the 2024 Gene Table of Neuromuscular
 Disorders, their known genes, the genes the random walk added and their
 endotypes; 15,246 links among 1,182 genes in the 27 protein layers, and the
@@ -837,10 +835,10 @@ Typical organ uptakes and the synthetic cohort behind explore's matrix and
 scatter views are illustrative stand-ins. node packages/pet/src/data/gen_data.mjs
 writes packages/pet/src/sets/data.js.
 
-Microanatomy story data (stories/micro.js): the preprint by Buljan, Bago-Horvath
+Microanatomy story data (packages/micro/main.js): the preprint by Buljan, Bago-Horvath
 and Rendeiro (bioRxiv 2025, CC BY-NC), its poster and talk, and Iva Buljan's
 network of organ architecture (kept out of the repository; only the numbers
-are in tools/micro/sets/data.js, from node tools/micro/data/gen_data.mjs). The
+are in packages/micro/src/sets/data.js, from node packages/micro/src/data/gen_data.mjs). The
 slides and sections are drawn, not the GTEx images.
 
 Aging ovary story data (packages/ovary/main.js): the poster "Mapping the histological
@@ -870,14 +868,14 @@ The coupling computed live is our stand-in for their circuit, and says so. The
 test is synthetic (no patient data); the poster's figures are redrawn in 3D, its
 pictures never shown.
 
-The shape of tissue (stories/topo.js): after the poster "topocyte:
+The shape of tissue (packages/topo/main.js): after the poster "topocyte:
 scale-resolved topological phenotyping of tissue architecture across spatial
 modalities" by Simon Schindler, André Rendeiro and Jörg Menche, and the
 package's documentation (topocyte.lab.lbi-netmed.com). Every number is computed
 by the authors' package topocyte and the poster's own figure scripts on the
 authors' GTEx liver cohort (123 slides, 66 healthy and 57 with cirrhosis, 30.8
-million cells found by HistoPLUS, CC BY 4.0), by tools/topo/data/gen_data.py;
-the page only looks the numbers up (tools/topo/sets/data.js). The authors'
+million cells found by HistoPLUS, CC BY 4.0), by packages/topo/src/data/gen_data.py;
+the page only looks the numbers up (packages/topo/src/sets/data.js). The authors'
 files, slide ids, donor details and images are not in the repository: slides
 are numbered, and the tissue is drawn from the cells' positions and types.
 topocyte (GPL-3) is run offline only, none of its code is in the app. The cell
@@ -899,7 +897,7 @@ layout are illustrative, and the story says so. The authors' files are not in
 the repository (packages/soil/src/data/gen_data.py reads them); kinds of microbe are
 numbered, and none of the slides' pictures is shown.
 
-Pass it on (stories/pass.js): an outreach story of the Ludwig Boltzmann
+Pass it on (packages/pass/main.js): an outreach story of the Ludwig Boltzmann
 Institute for Network Medicine, in English and German (a switch, EN | DE, on the
 story panel and above the explore tabs; German when the device's language is,
 remembered on the device; #pass&lang=de in a link). The globe is the airports
@@ -933,7 +931,9 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the sixteen stories, the tutorial, the design room and the studio, and list.js: the list of them),
+Files: index.html (the app), packages/ (the sixteen stories and the tutorial, each a story package since v187: main.js,
+story.json, its narration in audio/, its sources in src/; order.json their order, index.json written by
+node tools/packages/scan.mjs), stories/ (the design room, the studio and list.js),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
@@ -941,20 +941,21 @@ shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound boa
 directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes; with --trackers it takes the PC's Vive trackers), tools/trackers/ (the trackers' bridge for SteamVR, a fake one for tests, and the plan), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
-tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
-tools/nmd/ (sources of the muscle story; node tools/nmd/build.mjs
-writes stories/nmd.js), packages/endo/src/ (sources of the endotype story; node
+packages/lbi/src/ (sources of the tour; node packages/lbi/src/build.mjs writes packages/lbi/main.js),
+packages/nmd/src/ (sources of the muscle story; node packages/nmd/src/build.mjs
+writes packages/nmd/main.js), packages/endo/src/ (sources of the endotype story; node
 packages/endo/src/build.mjs writes packages/endo/main.js), packages/pet/src/ (sources of the PET story; node
-packages/pet/src/build.mjs writes packages/pet/main.js), tools/micro/ (sources of the microanatomy story; node
-tools/micro/build.mjs writes stories/micro.js), packages/ovary/src/ (sources of the aging ovary story; node
+packages/pet/src/build.mjs writes packages/pet/main.js), packages/micro/src/ (sources of the microanatomy story; node
+packages/micro/src/build.mjs writes packages/micro/main.js), packages/ovary/src/ (sources of the aging ovary story; node
 packages/ovary/src/build.mjs writes packages/ovary/main.js), packages/qubits/src/ (sources of the qubits story; node
 packages/qubits/src/build.mjs writes packages/qubits/main.js), packages/mutation/src/ (sources of the mutation story;
-node packages/mutation/src/build.mjs writes packages/mutation/main.js), tools/topo/ (sources of the tissue topology
-story; node tools/topo/build.mjs writes stories/topo.js; its data from the authors' files, not in the repository),
+node packages/mutation/src/build.mjs writes packages/mutation/main.js), packages/topo/src/ (sources of the tissue topology
+story; node packages/topo/src/build.mjs writes packages/topo/main.js; its data from the authors' files, not in the repository),
 packages/soil/src/ (sources of the soil story; node packages/soil/src/build.mjs writes packages/soil/main.js; its data from the
 authors' files, not in the repository),
-tools/pass/ (sources of the pass story; node
-tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), packages/flock/src/ (sources of the flock; node packages/flock/src/build.mjs
+packages/pass/src/ (sources of the pass story; node
+packages/pass/src/build.mjs writes packages/pass/main.js from them and from the airports and cell map stories;
+packages/airports/, proteins/ and spatial/ are hand-written: main.js is their source), packages/flock/src/ (sources of the flock; node packages/flock/src/build.mjs
 writes packages/flock/main.js), packages/robots/src/ (sources of the robot gang,
 a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), packages/tutorial/src/ (sources of the tutorial; node
 packages/tutorial/src/build.mjs writes packages/tutorial/main.js, node packages/tutorial/src/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node

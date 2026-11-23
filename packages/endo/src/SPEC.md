@@ -8,7 +8,7 @@ Vienna) and the package itself (github.com/menchelab/EndotypY, MIT licence) into
 story with an explore mode, on desktop, phones and in VR/AR headsets (Meta Quest Browser). Be bold and beautiful,
 as in the tour and the muscle story. Card title: **Endotypes**; tagline "one disease, many mechanisms".
 
-**The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
+**The rules for sets are those of the tour**: read `packages/lbi/src/SPEC.md` from the top down to (and including)
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`, exports,
 labels, controls, camera views, performance budget, harness, palette), with these differences:
 

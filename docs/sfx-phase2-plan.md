@@ -10,8 +10,8 @@ sounds inside the sixteen stories and the design room ("nice sound effects to ev
 
 Sources read: `sfx.js` (whole), `index.html` (HOST.audio's `fx`, `speaking`, `zone`), `shared.js` (its `sfx()` helper,
 `HOST.sfx.listen` from `tick`), every built engine's `e3_story.js` timeline keys and chapters, the tour's and flock's
-`e5_xr.js`/`e7_app.js`, the hand-written three (`stories/airports.js`, `proteins.js`, `spatial.js`) by line ranges, the
-set manifests' anchors, `tools/audio.mjs`, `tools/sfx.html`, `tools/sfx-render.mjs`, `tools/pass/build.mjs`
+`e5_xr.js`/`e7_app.js`, the hand-written three (`packages/airports/main.js`, `proteins.js`, `spatial.js`) by line ranges, the
+set manifests' anchors, `tools/audio.mjs`, `tools/sfx.html`, `tools/sfx-render.mjs`, `packages/pass/src/build.mjs`
 (`ORIGINALS`), AGENTS.md and CLAUDE.md.
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -780,17 +780,17 @@ logs `whoosh` and `flutter` on every page. The robots: crumbs from one page log 
 2. Then the real recipes (section 2), the sound board, the renders (`--story`), the audio tests; render every new sound
    and post the files for the owner to listen to before the stories are done.
 
-**B, eight stories** (owns their sources): `stories/airports.js`, `proteins.js`, `spatial.js`, `tools/lbi/`,
-`tools/nmd/`, `tools/endo/`, `tools/pet/`, `tools/micro/` (engine parts only; no set changes, so nothing that other
+**B, eight stories** (owns their sources): `packages/airports/main.js`, `proteins.js`, `spatial.js`, `packages/lbi/src/`,
+`packages/nmd/src/`, `tools/endo/`, `tools/pet/`, `packages/micro/src/` (engine parts only; no set changes, so nothing that other
 stories include changes). Never edit the parts of `airports.js` and `spatial.js` that the pass story cuts
-(`ORIGINALS` in `tools/pass/build.mjs`: airports' lines from `const NET_B64=` to `// Narration timing` and from
+(`ORIGINALS` in `packages/pass/src/build.mjs`: airports' lines from `const NET_B64=` to `// Narration timing` and from
 `const COMM_NAMES` to the camera section's header; spatial's from `// Spatial interactome data` to its camera header,
 plus the named declarations listed there): the new lines go next to `slideStep` and in `buildStory`, which lie outside.
 
-**C, eight stories and the design room**: `tools/ovary/`, `tools/qubits/`, `tools/mutation/`, `tools/topo/`,
-`tools/soil/`, `tools/pass/`, `tools/flock/` (after A's reference lands there), `tools/robots/` (engine, and the one
+**C, eight stories and the design room**: `tools/ovary/`, `tools/qubits/`, `tools/mutation/`, `packages/topo/src/`,
+`tools/soil/`, `packages/pass/src/`, `tools/flock/` (after A's reference lands there), `tools/robots/` (engine, and the one
 `onBump` line in `sets/robots.js` and its manifest), `tools/design/`. After B finishes, run
-`node tools/pass/build.mjs --check` (it must still be current: B touched nothing the pass story takes).
+`node packages/pass/src/build.mjs --check` (it must still be current: B touched nothing the pass story takes).
 
 Shared rules for B and C: the block of 1.2 identical everywhere (`diff` against the reference), `sfxPos` identical in
 every built engine; cues next to the keys they belong to; run each build with `--check` afterwards; run

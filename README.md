@@ -243,10 +243,10 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   they share. Places follow the Human Protein Atlas and UniProt. Seven moves
   (NF-κB, apoptosis, TFEB, GLUT4, NRF2, and the disease cases ALS and cystic
   fibrosis) switch copies on and off. The lists `PROTEINS`, `LINKS`,
-  `TOGETHER` and `MOVES` at the top of `stories/spatial.js` can be edited; the
+  `TOGETHER` and `MOVES` at the top of `packages/spatial/main.js` can be edited; the
   cell model and the protein positions are built when the story loads.
 
-- **The tour** (`stories/lbi.js`), after the welcome talk of the Ludwig
+- **The tour** (`packages/lbi/main.js`), after the welcome talk of the Ludwig
   Boltzmann Institute for Network Medicine: most of it is illustrative and
   built when the story loads.
   - The interactome shows about 9,100 proteins and 22,100 interactions. 254 of
@@ -264,7 +264,7 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   - The disease modules, the patient for network propagation, the organ
     network, the stomach section and its embedding are illustrative too.
 
-- **Muscle and heart** (`stories/nmd.js`), after the ISMB 2026 talk "Deep
+- **Muscle and heart** (`packages/nmd/main.js`), after the ISMB 2026 talk "Deep
   integrative multiplex network-based analysis of rare neuromuscular
   disorders" (Iker Núñez-Carpintero, Philipp Friedrich, Julia Guthrie, Jörg
   Menche), on the authors' data (kept out of the repository; no patient data): the 13
@@ -274,7 +274,7 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   (IID), and, for the overlap of congenital myopathies and cardiomyopathies, the
   phenotype and co-expression layers. The other layers of the 71 show no links
   yet. Layer z-scores and the walk's visits are computed in this map on the
-  protein layers (`tools/nmd/data/gen_data.mjs`); endotype names are the most
+  protein layers (`packages/nmd/src/data/gen_data.mjs`); endotype names are the most
   typical GO process of their genes. The motor unit and the supercomputer are
   illustrative.
 
@@ -306,12 +306,12 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   illustrative. (The poster's one-scan network and its results were taken
   out: they did not match the poster.)
 
-- **Tissue and time** (`stories/micro.js`), after the preprint "Systematic mapping of human tissue microanatomy
+- **Tissue and time** (`packages/micro/main.js`), after the preprint "Systematic mapping of human tissue microanatomy
   reveals age-associated remodeling and resilience" (Iva Buljan, Zsuzsanna Bago-Horvath, André F. Rendeiro;
   bioRxiv 2025, doi 10.1101/2025.10.13.682110, CC BY-NC), its poster and talk, and Iva Buljan's network of organ
-  architecture (only the numbers the story needs are in the repository, `tools/micro/sets/data.js`, made by
-  `tools/micro/data/gen_data.mjs`). The slides, sections and tiles are drawn, not the GTEx images; values read off
-  the talk's figures are in `tools/micro/data/figures.json`, and stand-ins are said to be so.
+  architecture (only the numbers the story needs are in the repository, `packages/micro/src/sets/data.js`, made by
+  `packages/micro/src/data/gen_data.mjs`). The slides, sections and tiles are drawn, not the GTEx images; values read off
+  the talk's figures are in `packages/micro/src/data/figures.json`, and stand-ins are said to be so.
 
 - **The aging ovary** (`packages/ovary/main.js`), after the poster "Mapping the histological landscape of human ovarian aging"
   (Parijat Chakraborty, Samir Moustafa, André Rendeiro; LBI Network Medicine, CeMM, Faculty of Computer Science of the
@@ -337,14 +337,14 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   for their circuit, and says so. The test is synthetic: no patient data. The poster's pictures are not shown: its
   figures are redrawn in 3D.
 
-- **The shape of tissue** (`stories/topo.js`), after the poster "topocyte: scale-resolved topological phenotyping of
+- **The shape of tissue** (`packages/topo/main.js`), after the poster "topocyte: scale-resolved topological phenotyping of
   tissue architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann
   Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular
   Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter), and
   the package's documentation (topocyte.lab.lbi-netmed.com). Every number is computed by the authors' package topocyte
-  and the poster's own figure scripts, run by `tools/topo/data/gen_data.py` on the authors' GTEx liver cohort (123
+  and the poster's own figure scripts, run by `packages/topo/src/data/gen_data.py` on the authors' GTEx liver cohort (123
   slides, 66 healthy and 57 with cirrhosis, 30.8 million cells found by HistoPLUS, CC BY 4.0); the page only looks the
-  numbers up. Only the numbers are kept (`tools/topo/sets/data.js`): the authors' files, slide ids, donor details and
+  numbers up. Only the numbers are kept (`packages/topo/src/sets/data.js`): the authors' files, slide ids, donor details and
   images are not in the repository, the slides are numbered, and the tissue is drawn from the cells' positions and
   types. topocyte (GPL-3) is run offline only; none of its code is in the app. The cell types are the cell
   classifier's labels, not a pathologist's; the genes and proteins of the last chapter are sketches of the workflow,
@@ -362,7 +362,7 @@ from its words until it is narrated: `node tools/pace.mjs <url> --write <key>`.
   the chromosome and the field's layout are illustrative, and the story says so. Kinds of microbe are numbered, never
   named by their ids; none of the slides' pictures is shown. The wheat line after Subbarao et al., PNAS.
 
-- **Pass it on** (`stories/pass.js`), an outreach story of the Ludwig Boltzmann Institute for Network Medicine
+- **Pass it on** (`packages/pass/main.js`), an outreach story of the Ludwig Boltzmann Institute for Network Medicine
   (LBI-NetMed), in English and German. Its globe is the airports story's (OpenFlights.org routes, 2014 snapshot, Open
   Database License; Natural Earth coastlines) and its cell the cell map story's (Human Protein Atlas and UniProt
   places; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019),
@@ -397,9 +397,9 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `packages/endo/main.js`, `packages/pet/main.js`, `stories/micro.js`, `packages/ovary/main.js`, `packages/qubits/main.js`, `packages/mutation/main.js`, `stories/topo.js`, `packages/soil/main.js`, `stories/pass.js`, `packages/flock/main.js`, `packages/robots/main.js` | the sixteen stories (the robot gang a story package since v185, `packages/order.json` their order), with their data, explore modes and headset panels |
+| `packages/airports/main.js`, `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/lbi/main.js`, `packages/nmd/main.js`, `packages/endo/main.js`, `packages/pet/main.js`, `packages/micro/main.js`, `packages/ovary/main.js`, `packages/qubits/main.js`, `packages/mutation/main.js`, `packages/topo/main.js`, `packages/soil/main.js`, `packages/pass/main.js`, `packages/flock/main.js`, `packages/robots/main.js` | the sixteen stories, each a story package (since v187 every one; `packages/order.json` their order, `packages/index.json` the scan's index), with their data, explore modes and headset panels; each one's narration in `packages/<key>/audio/` |
 | `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
-| `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
+| `stories/list.js` | the design room and the studio (`STORY_EXTRA`); `STORY_LIST` is empty since every story became a package (v187) |
 | `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `docs/agents/shell.md`, "Hot reload and live updates") |
 | `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `docs/agents/shell.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
 | `proteins.html`, `spatial.html` | forward old links to the app |
@@ -420,20 +420,20 @@ The protein data is meant for teaching, not research.
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `docs/agents/testing.md`) |
 | `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current, and whether `whatsnew.json` names this release) |
 | `tools/live.mjs` | test of hot reload and live updates: a copy of the app changed as a release or an editor would, on a static host and through the relay's `--watch` |
-| `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
+| `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `packages/airports/audio/narration.mp3`) |
 | `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
 | `tools/pace.mjs` | paces the stories without a recording: writes their `NARRATION_SYNC` from the words on their panels (`--write`; serve the folder first) |
-| `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
-| `tools/nmd/` | sources of the muscle story (`node tools/nmd/data/gen_data.mjs <the authors' folder>`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
+| `packages/lbi/src/` | sources of the tour: its 3D sets, engine parts and build script (`node packages/lbi/src/build.mjs` writes `packages/lbi/main.js`) |
+| `packages/nmd/src/` | sources of the muscle story (`node packages/nmd/src/data/gen_data.mjs <the authors' folder>`, then `node packages/nmd/src/build.mjs` writes `packages/nmd/main.js`) |
 | `packages/endo/src/` | sources of the endotype story (`node packages/endo/src/build.mjs` writes `packages/endo/main.js`; data from `packages/endo/src/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `packages/pet/src/` | sources of the PET story (`node packages/pet/src/data/gen_data.mjs`, then `node packages/pet/src/build.mjs` writes `packages/pet/main.js`) |
-| `tools/micro/` | sources of the microanatomy story (`node tools/micro/build.mjs` writes `stories/micro.js`; data from `tools/micro/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
+| `packages/micro/src/` | sources of the microanatomy story (`node packages/micro/src/build.mjs` writes `packages/micro/main.js`; data from `packages/micro/src/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
 | `packages/ovary/src/` | sources of the aging ovary story (`node packages/ovary/src/data/gen_data.mjs`, then `node packages/ovary/src/build.mjs` writes `packages/ovary/main.js`) |
 | `packages/qubits/src/` | sources of the qubits story (`node packages/qubits/src/build.mjs` writes `packages/qubits/main.js`; `node packages/qubits/src/test-qmath.mjs` checks its maths) |
 | `packages/mutation/src/` | sources of the mutation story (`node packages/mutation/src/build.mjs` writes `packages/mutation/main.js`; `node packages/mutation/src/test-mmath.mjs` checks its maths) |
-| `tools/topo/` | sources of the tissue topology story (`node tools/topo/build.mjs` writes `stories/topo.js`; `node tools/topo/test-data.mjs` checks its data against the poster's numbers; data from `tools/topo/data/gen_data.py` and the authors' files, which are not in the repository) |
+| `packages/topo/src/` | sources of the tissue topology story (`node packages/topo/src/build.mjs` writes `packages/topo/main.js`; `node packages/topo/src/test-data.mjs` checks its data against the poster's numbers; data from `packages/topo/src/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `packages/soil/src/` | sources of the soil story (`node packages/soil/src/build.mjs` writes `packages/soil/main.js`; `node packages/soil/src/test-data.mjs` checks its data, decoders and key numbers; data from `packages/soil/src/data/gen_data.py` and the authors' files, which are not in the repository) |
-| `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
+| `packages/pass/src/` | sources of the pass story (`node packages/pass/src/build.mjs` writes `packages/pass/main.js`, cutting its globe and cell out of `packages/airports/main.js` and `packages/spatial/main.js`; `node packages/pass/src/test-sets.mjs` checks its sets) |
 | `packages/flock/src/` | sources of the flock (`node packages/flock/src/build.mjs` writes `packages/flock/main.js`) |
 | `packages/robots/src/` | sources of the robot gang, a story package (`node packages/robots/src/build.mjs` writes `packages/robots/main.js`) |
 | `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
@@ -456,17 +456,18 @@ npx http-server -p 8123 -c-1 .
 node tools/smoke.mjs http://127.0.0.1:8123/
 ```
 
-The tour (`stories/lbi.js`) is generated from `tools/lbi/`; edit the sources
-there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
-The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
-(see `tools/nmd/README.md`), the endotype story (`packages/endo/main.js`) from
+The tour (`packages/lbi/main.js`) is generated from `packages/lbi/src/`; edit the sources
+there and rebuild with `node packages/lbi/src/build.mjs` (see `packages/lbi/src/README.md`).
+The muscle story (`packages/nmd/main.js`) is generated the same way from `packages/nmd/src/`
+(see `packages/nmd/src/README.md`), the endotype story (`packages/endo/main.js`) from
 `packages/endo/src/`, the PET story (`packages/pet/main.js`) from `packages/pet/src/`, the
-microanatomy story (`stories/micro.js`) from `tools/micro/`, the aging ovary story (`packages/ovary/main.js`) from
+microanatomy story (`packages/micro/main.js`) from `packages/micro/src/`, the aging ovary story (`packages/ovary/main.js`) from
 `packages/ovary/src/`, the qubits story (`packages/qubits/main.js`) from
-`packages/qubits/src/`, the mutation story (`packages/mutation/main.js`) from `packages/mutation/src/`, the tissue topology story (`stories/topo.js`) from `tools/topo/`, the soil story (`packages/soil/main.js`) from `packages/soil/src/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
+`packages/qubits/src/`, the mutation story (`packages/mutation/main.js`) from `packages/mutation/src/`, the tissue topology story (`packages/topo/main.js`) from `packages/topo/src/`, the soil story (`packages/soil/main.js`) from `packages/soil/src/`, the pass story (`packages/pass/main.js`) from `packages/pass/src/` (with the airports' globe and the cell map's
 cell taken from their stories at build time), the flock
-(`packages/flock/main.js`) from `packages/flock/src/`, each with `node tools/<key>/build.mjs`, and the robot gang (a story package,
-`packages/robots/main.js`) from `packages/robots/src/` with `node packages/robots/src/build.mjs`
+(`packages/flock/main.js`) from `packages/flock/src/`, and the robot gang (`packages/robots/main.js`) from
+`packages/robots/src/`, each with `node packages/<key>/src/build.mjs` (then `node tools/packages/scan.mjs`); airports,
+proteins and spatial are hand-written (`packages/<key>/main.js` is the source)
 (`--check` says whether the built file is out of step).
 `AGENTS.md` also has advice on working economically with AI coding agents.
 

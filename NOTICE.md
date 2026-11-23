@@ -25,12 +25,12 @@ The data in the stories is not relicensed by this project. Each keeps its source
 
 | Data | Where | Terms |
 | --- | --- | --- |
-| OpenFlights airports and routes (2014) | `stories/airports.js`; reused in `stories/lbi.js` and `stories/pass.js` | Open Database License (ODbL): credit OpenFlights; the routes as used here are offered under the ODbL too |
-| Natural Earth coastlines | `stories/airports.js`, `stories/pass.js` | public domain |
+| OpenFlights airports and routes (2014) | `packages/airports/main.js`; reused in `packages/lbi/main.js` and `packages/pass/main.js` | Open Database License (ODbL): credit OpenFlights; the routes as used here are offered under the ODbL too |
+| Natural Earth coastlines | `packages/airports/main.js`, `packages/pass/main.js` | public domain |
 | Geist et al., Med 2025 (the PET story) | `packages/pet/src/`, `packages/pet/main.js` | CC BY 4.0: credit the authors |
-| Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025 (the microanatomy story) | `tools/micro/`, `stories/micro.js` | CC BY-NC: credit the authors; no commercial use |
-| HistoPLUS cells on GTEx slides (the tissue topology story) | `tools/topo/`, `stories/topo.js` | CC BY 4.0: credit the authors |
-| Protein locations and interactions (the proteins and cell map stories, the pass story's cell) | `stories/proteins.js`, `stories/spatial.js`, `stories/pass.js` | curated by hand from the literature, the Human Protein Atlas and UniProt; see their terms |
+| Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025 (the microanatomy story) | `packages/micro/src/`, `packages/micro/main.js` | CC BY-NC: credit the authors; no commercial use |
+| HistoPLUS cells on GTEx slides (the tissue topology story) | `packages/topo/src/`, `packages/topo/main.js` | CC BY 4.0: credit the authors |
+| Protein locations and interactions (the proteins and cell map stories, the pass story's cell) | `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/pass/main.js` | curated by hand from the literature, the Human Protein Atlas and UniProt; see their terms |
 | The authors' own data, figures and posters (the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology and soil stories and the tour) | `tools/<story>/`, `stories/<story>.js` | no licence: shown with the authors' permission, not for reuse; ask the authors |
 
 The authors' source files are not in the repository, only numbers derived from them.

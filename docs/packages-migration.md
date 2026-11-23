@@ -2,7 +2,8 @@
 
 The owner, 23 November 2026: every story becomes a story package "like the new ppicell"; the studio stays in the shell
 for now. This file is the plan: where things end up, what has to be built first, the order of the moves, the risks, the
-cost and the questions only the owner can answer. Nothing in it is done yet.
+cost and the questions only the owner can answer. Since v187 every story is a package; what is done and what is left
+are in "Status" below, which overrides the older sections.
 
 Checked in the code on 23 November 2026 (v184, `FORMAT` `networks-55`). Anything marked *to check* was not.
 
@@ -50,6 +51,46 @@ narrations still in `audio/`; `relay/test.mjs` asks for `packages/flock/main.js`
 topo (owners of `organs.js` and `look.js`: when they move, patch pet's, topo's and soil's `src()` and harness paths
 from `'../micro/'`/`'../topo/'` to `'../../packages/<key>/src/'`), nmd and lbi (owners of motor, body, tissue, web),
 then pass, then the three wrapped.
+
+Done in v187 (batch C and the wrap): micro, topo, nmd and lbi moved, then pass, then proteins, spatial and airports
+wrapped; every story is a package and `STORY_LIST` is empty. `move.mjs` gained:
+- **readers**: when a story whose sources others read moves, every other source folder whose `build.mjs` or
+  `harness.html` reads it by path follows (`'../micro/'` becomes `'../../packages/micro/src/'`, which resolves from
+  `tools/<dir>/` and through a moved build's `src()` alike; a moved harness's `'../../../tools/micro/'` becomes
+  `'../../../packages/micro/src/'`), its notes name the new place, and it is built again (micro: topo, pet, ovary; topo:
+  soil; nmd: endo; lbi: micro, pet, ovary, topo, soil). The relay's `buildMap` records the packages whose sources a
+  build names (`pkgs`), so a change in `packages/<key>/src/` rebuilds its readers too; `tools/engine/all.mjs` builds them
+  all. A subfolder's tool root goes one deeper (`data/gen_data.mjs`), a build with a `const src` of its own still gets
+  the shared-source `src()`, and a narration's other languages follow (`narration-pass-de.mp3` to
+  `packages/pass/audio/narration-de.mp3`, its `AUDIO.de` through `HOST.pkgUrl`).
+- **wrap**: a hand-written story (no `tools/<key>/build.mjs`) moves as it is to `packages/<key>/main.js` (no `src/`,
+  no build), its narration (the airports' `audio/narration.mp3` too) to `packages/<key>/audio/` through `HOST.pkgUrl`,
+  and every source folder naming `stories/<key>.js` (the pass story's `ORIGINALS`, the tour's `extract_*.mjs`) follows.
+  Each new `main.js` differs from its old file only in the three lines naming the narration.
+- The shell: the boot waits up to 30 s more for the index while it has no card (with none at all the design room opens),
+  and `index.html` loads `stories/list.js?v=<its fingerprint>` (stamped by `tools/release.mjs`): the update test showed a
+  new page given the browser's old list (ten-minute caching, a reload's memory cache), which named moved stories and
+  asked for `stories/airports.js` (404).
+- Tools: `tools/voice/narrate.mjs` finds a story's table and recordings through `tools/stories.mjs` (a wrapped package's
+  table is in its `main.js`); `tools/live.mjs` changes a story wherever it is (a package's `main.js`, then the scan) and
+  adds its live story and changes a card as a package; `tools/update.mjs` finds the airports file through
+  `tools/stories.mjs`, waits for the new worker before going offline and checks a package narration's byte ranges
+  offline; the relay test, `tools/sfx.html` and `tools/audio.mjs` name the airports recording in its package.
+
+What is left:
+- **The shared library (G3)**: shared sets still live with their owners (`packages/lbi/src/sets/body.js` ...), read by
+  path; moving them to `tools/lib/` (or a library package) is the next tidy-up, with `deps.mjs`.
+- **Rewrites with the unified look (R1 to R3)**: airports, proteins and spatial are wrapped, not rewritten; their
+  headset code is still their own (`docs/agents/shell.md`, "the hand-written three").
+- **Miniatures in packages (G5)**: every station miniature is still in `lowpoly.js` (`icon` names it); `mini.js` per
+  package and the design room reading them are not done.
+- **Cleanup (Z)**: `stories/` holds `list.js` (empty `STORY_LIST`, kept for old shells), `design.js` and `studio.js`;
+  `audio/` holds only `PUT-narration.mp3-HERE.txt` (the chapter timings; it could move to `docs/`); `sw.js`'s `NARR`
+  cache still holds the old `audio/` copies a device played (about 60 MB at most) until a release prunes them; the hidden
+  packages `hello`, `ppicell` and `cellstress` still name `tools/lbi/SPEC.md` and `stories/spatial.js` in comments
+  (theirs to rebuild; `hello`'s `main.js` was already out of date with its build before v187); a headset menu row for
+  *Take all stories*, the `packages order` and `take all` smoke blocks and `collab.mjs`'s per-story expressions for the
+  wrapped three (unchanged: they run in the page) are as v186 left them.
 
 Moving a built story (one commit each, or a batch; the tree clean):
 

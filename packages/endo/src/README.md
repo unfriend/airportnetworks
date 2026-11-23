@@ -18,7 +18,7 @@ node packages/endo/src/build.mjs --check                          # exits 1 if p
 | `sets/data.js` | the constant `ENDO_DATA` (generated; its header documents the fields) |
 | `sets/syn.js`, `sets/net.js`, `sets/tree.js` | the three 3D sets (the junction close up; the network, seeds and walk; matrix, tree and endotypes), each with a manifest `sets/<name>.md`; the story also uses `packages/nmd/src/sets/motor.js` |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the muscle story |
-| `SPEC.md` | what each set and the engine must do; read with `tools/lbi/SPEC.md` |
+| `SPEC.md` | what each set and the engine must do; read with `packages/lbi/src/SPEC.md` |
 | `build.mjs` | the assembler (it gives the motor set the muscle story's disease groups) |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone, its screenshots, and screenshots of the whole story (as in `packages/nmd/src/`) |
 

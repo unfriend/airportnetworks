@@ -1,13 +1,13 @@
 # The muscle story: 3D sets spec
 
 We are adding a fifth story to the web app in `/home/user/airportnetworks`: `packages/nmd/main.js`, built from
-`packages/nmd/src/` like the tour `stories/lbi.js` is built from `tools/lbi/`. It turns a conference talk (ISMB 2026,
+`packages/nmd/src/` like the tour `packages/lbi/main.js` is built from `packages/lbi/src/`. It turns a conference talk (ISMB 2026,
 "Deep integrative multiplex network-based analysis of rare neuromuscular disorders reveals overlapping multiscale
 endotypes involved in cardiac and skeletal muscle myopathies", Iker Núñez-Carpintero and Philipp Friedrich, with
 Julia Guthrie and Jörg Menche, LBI Network Medicine, Vienna) into a narrated, about seven-minute 3D story with an
 explore mode, on desktop, phones and in VR/AR headsets (Meta Quest Browser). Be bold and beautiful, as in the tour.
 
-**The rules for sets are those of the tour**: read `tools/lbi/SPEC.md` from the top down to (and including)
+**The rules for sets are those of the tour**: read `packages/lbi/src/SPEC.md` from the top down to (and including)
 "Palette and look", and `tools/engine/kit.js`. Everything there holds here (runtime, code style, pure `update`,
 exports, labels, controls, camera views, performance budget, harness, palette), with these differences:
 

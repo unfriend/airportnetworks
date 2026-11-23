@@ -57,7 +57,7 @@ the Atlas's reliability. Every number shown is computed from `PDATA` at load tim
   pick. Dots: every listed location (17,935) plus the copies the drawn links need; more than 20,000 is fine (the owner,
   22 November 2026: neither the frame rate nor reading suffers), so no dot is dropped.
 
-## The sets (each `src/sets/<name>.js`, the contract of `tools/lbi/SPEC.md`)
+## The sets (each `src/sets/<name>.js`, the contract of `packages/lbi/src/SPEC.md`)
 
 | Set | What it is | Built from |
 | --- | --- | --- |

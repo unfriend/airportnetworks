@@ -22,7 +22,7 @@ node packages/mutation/src/build.mjs --check  # exits 1 if out of date
 | `sets/look.js` | `MLOOK`: the story's lit, glowing instanced tubes, rings, balls, boxes and halos (from the qubits story's), plus letter tiles, arrowheads, qubit spheres and gears |
 | `sets/letters.js`, `sets/tree.js`, `sets/rule.js`, `sets/stem.js` | the 3D sets (the helix, the ancestor's copies and a letter's two qubits with their read-outs; the family tree in 3D, its machines and the species tree; the rule, the pyramid and its path, the compiler, the machine for one branch and its circuit; the RNA stem, the coupling, the count, and the fields of rebuilt ancestors), each with a manifest `sets/<name>.md`. `stem` is drawn in `tree`'s frame |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the qubits story's (its shared lines kept identical): the chapters and their text (`e3_story.js`, with `FACTS` from `MMATH` and `MUT_DATA`), explore's Letters, Rule, Tree, Stem and Scenes tabs (`e4_explore.js`, canvas twins in `e6_panels.js`) |
-| `SPEC.md` | what the sets, the maths and the engine must do (with the author's answers and the owner's rules); read with `tools/lbi/SPEC.md` |
+| `SPEC.md` | what the sets, the maths and the engine must do (with the author's answers and the owner's rules); read with `packages/lbi/src/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`cam=` a view by name or six numbers; `&with=<set>` adds a second set; the maths, data and look always loaded), its screenshots, and screenshots of the whole story (`SHOTS=<dir>` and `PORT=<port>` for both tools) |
 

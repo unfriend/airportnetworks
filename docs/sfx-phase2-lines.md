@@ -5,7 +5,7 @@
 > spans and beds below are history: a story that asks for them now hears nothing. docs/agents/shell.md ("Sound effects") is current.
 
 Written by builder A, 29 October 2026. The references are **the flock** (`tools/flock/engine/`, built engines) and **the
-airports** (`stories/airports.js`, hand-written). Copy the lines below **character for character**; only `sfxPos` of
+airports** (`packages/airports/main.js`, hand-written). Copy the lines below **character for character**; only `sfxPos` of
 the hand-written three, the cue calls, the explore action lines and `sfxLive` are each story's own. The plan
 (`PLAN.md` next to this file) has every story's cue table (section 3).
 

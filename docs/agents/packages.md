@@ -3,7 +3,8 @@
 A story in one folder, `packages/<key>/`, written by a colleague or someone the owner trusts and brought in through git
 (a pull request, or a fork they host themselves): the owner, 18 November 2026, "all contained within a folder and
 independent from the rest of the app". The contract is `tools/packages/SPEC.md`; this file says how the app keeps it.
-The app's own sixteen stories stay in `stories/<key>.js`; nothing here changes them.
+Since v187 the app's own sixteen stories are packages too (`packages/order.json` names them; `docs/packages-migration.md`);
+only the design room and the studio stay in `stories/`.
 
 A package is code from a trusted person running with the app's full rights: it is not a sandbox. Only the folder in git
 (or on the host that serves the app) is ever run, never anything from the relay's scenes, an upload or a link.
@@ -161,7 +162,22 @@ The plan and its decided route: `docs/packages-migration.md`. What is in place:
   `stories/list.js`, `.gitignore`'s and `props.json`'s paths; then it builds, compares the new `main.js` with the old
   built file (only the lines naming the narration or the folders may differ) and runs the scan and the design room's
   build. Then by hand: the `VERSION` bump and the release, `node tools/narration.mjs <url>`, the story's docs.
-- The robot gang (`packages/robots/`) moved first; the design room and the studio stay in the shell.
+- **Its readers** (v187): when a story whose sources others read moves (lbi: body, tissue, web; micro: organs; nmd:
+  motor and data; topo: look), every other source folder whose `build.mjs` or `harness.html` reads it by path follows:
+  `'../<key>/'` becomes `'../../packages/<key>/src/'` (from `tools/<dir>/` and, through a moved build's `src()`, from
+  `packages/<dir>/src/` alike), a moved harness's `'../../../tools/<key>/'` becomes `'../../../packages/<key>/src/'`, the
+  reader's notes name the new place, and the readers are built again. The relay's `--build` maps each build to the
+  packages whose sources it names (`packages/<key>/src/`), so a change there rebuilds its readers too;
+  `tools/engine/all.mjs` builds every one.
+- **Wrapping a hand-written story** (v187: airports, proteins, spatial): the same command, for a story with no
+  `tools/<key>/build.mjs`. Its file moves as it is to `packages/<key>/main.js` (it is its own source: no `src/`, no build),
+  its narration to `packages/<key>/audio/narration.mp3` (the airports' `audio/narration.mp3` too) and its
+  `HOST.audio.narration(...)` literal through `HOST.pkgUrl`; every source folder that names `stories/<key>.js` (the pass
+  story's `ORIGINALS`, the tour's data scripts) names the new place and is built again.
+- The robot gang (`packages/robots/`) moved first (v185), eight more in v186, the last eight in v187; the design room
+  and the studio stay in the shell. `stories/list.js`'s `STORY_LIST` is empty (old shells read the file); `index.html`
+  loads it as `stories/list.js?v=<its fingerprint>` (stamped by `tools/release.mjs`), so a browser's ten-minute copy never
+  gives a new page an old list naming stories that have moved.
 
 ## Writing one
 
@@ -239,7 +255,7 @@ four chapters (*Ring*, *Far*, *Shortcuts*, *Small world*), captions only, then e
 ### The cell stress test (`packages/cellstress/`)
 
 *Cell stress test* (kick *Measuring*, `list: "hidden"`, `needs` 178; from 21 November 2026): a test bed, not a story.
-The cell map's model cell (`stories/spatial.js`: its `CELL` numbers, organelle skins and `shellMaterial`, `nodeMaterial`
+The cell map's model cell (`packages/spatial/main.js`: its `CELL` numbers, organelle skins and `shellMaterial`, `nodeMaterial`
 and `routeMaterial` copied into `src/sets/cell.js`) with made-up proteins and a made-up database of links. Its first
 headset test (the owner): 20k dots fine, links heavy from 5k (inside the cell) and too much to read above about 2k;
 curved links not needed. Then cables between places were tried and removed (the owner: links between compartments

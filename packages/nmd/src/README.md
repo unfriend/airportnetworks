@@ -2,7 +2,7 @@
 
 "Hidden connections in rare diseases of nerves and muscles", after the ISMB 2026 talk by Iker Núñez-Carpintero
 and Philipp Friedrich (with Julia Guthrie and Jörg Menche, LBI Network Medicine), on their data (kept out of the repository since 3 November 2026; `ikerdata/` in its history).
-Built like the tour (`tools/lbi/`), with the shared kit (`tools/engine/kit.js`) and set contract. Never edit `packages/nmd/main.js` by hand.
+Built like the tour (`packages/lbi/src/`), with the shared kit (`tools/engine/kit.js`) and set contract. Never edit `packages/nmd/main.js` by hand.
 
 ```sh
 node packages/nmd/src/data/gen_data.mjs <folder>   # the authors' files -> sets/data.js (about a minute; only after the data changes)
@@ -16,7 +16,7 @@ node packages/nmd/src/build.mjs --check   # exits 1 if packages/nmd/main.js is o
 | `sets/data.js` | the constant `NMD_DATA` (generated; its header documents the fields) |
 | `sets/tower.js`, `sets/motor.js`, `sets/hpc.js` | the three 3D sets; each has a manifest `sets/<name>.md` |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the tour: chapters and text (`e3_story.js`), explore mode (`e4_explore.js`), headset code (`e5_xr.js`, shared with the other stories), headset panels (`e6_panels.js`), narration and frame loop (`e7_app.js`) |
-| `SPEC.md` | what each set must do; read with `tools/lbi/SPEC.md` |
+| `SPEC.md` | what each set must do; read with `packages/lbi/src/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs` | render one set alone, take screenshots (run `shot.mjs` from this folder; shots go to `shots/`, ignored by git) |
 | `sweep.mjs` | screenshots of the whole story at chosen story seconds, from one page load (`node sweep.mjs <prefix> "6,46,300"`) |

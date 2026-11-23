@@ -28,25 +28,26 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
-| Network theory: Airports | `airports` | `stories/airports.js` (hand-written) | recorded | real (OpenFlights routes) |
-| Network medicine: Proteins | `proteins` | `stories/proteins.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated proteins and interactions |
-| Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated, laid out at load time |
-| LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
-| Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files (kept out of the repository since 3 November 2026), some stand-ins |
+| Network theory: Airports | `airports` | `packages/airports/main.js` (hand-written) | recorded | real (OpenFlights routes) |
+| Network medicine: Proteins | `proteins` | `packages/proteins/main.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated proteins and interactions |
+| Spatial interactome: Cell map | `spatial` | `packages/spatial/main.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated, laid out at load time |
+| LBI Network Medicine: The future | `lbi` | `packages/lbi/src/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
+| Rare muscle diseases: Muscle and heart | `nmd` | `packages/nmd/src/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files (kept out of the repository since 3 November 2026), some stand-ins |
 | Disease endotypes: Endotypes | `endo` | `packages/endo/src/` (built) | synthetic (Kokoro, `af_heart`) | the authors' EndotypY run (kept out of the repository) |
 | Whole-body PET: One scan, one system | `pet` | `packages/pet/src/` (built) | synthetic (Kokoro, `af_heart`) | the paper's tables and figures, some stand-ins |
-| Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | synthetic (Kokoro, `af_heart`) | the preprint's numbers, Iva Buljan's network (kept out) |
+| Tissue microanatomy: Tissue and time | `micro` | `packages/micro/src/` (built) | synthetic (Kokoro, `af_heart`) | the preprint's numbers, Iva Buljan's network (kept out) |
 | Ovarian aging: The aging ovary | `ovary` | `packages/ovary/src/` (built) | synthetic (Kokoro, `af_heart`) | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
 | Quantum network compression: Three qubits | `qubits` | `packages/qubits/src/` (built) | synthetic (Kokoro, `af_heart`) | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
 | Quantum phylogenetics: The mutation machine | `mutation` | `packages/mutation/src/` (built) | synthetic (Kokoro, `af_heart`) | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
-| Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | synthetic (Kokoro, `af_heart`) | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
+| Tissue topology: The shape of tissue | `topo` | `packages/topo/src/` (built) | synthetic (Kokoro, `af_heart`) | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
 | Soil microbes: Holding on to nitrogen | `soil` | `packages/soil/src/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
-| Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
+| Networks for everyone: Pass it on | `pass` | `packages/pass/src/` (built; its globe and cell cut out of `packages/airports/main.js` and `packages/spatial/main.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `packages/flock/src/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `packages/robots/` (a story package, built from its `src/`) | synthetic (Kokoro, `af_heart`) | a live simulation |
 
-"Built" stories are generated: edit `tools/<key>/` and run `node tools/<key>/build.mjs` (`--check` says whether the
-built file is in step); never edit `stories/<key>.js` by hand. What is real and what is a stand-in, story by story, is
+"Built" stories are generated: edit `packages/<key>/src/` and run `node packages/<key>/src/build.mjs`, then `node
+tools/packages/scan.mjs` (`--check` says whether the built file is in step); never edit a built `packages/<key>/main.js`
+by hand (airports, proteins and spatial are hand-written: their `main.js` is the source). What is real and what is a stand-in, story by story, is
 in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
@@ -1701,7 +1702,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     the view that follows the head loosely. All in the shell, fed by a small caption hook in each of the stories
     (FORMAT networks-24). How they read and follow on a headset is untested.
   - *The PET story's text fixes* after the poster comparison (item 8 below; 6:33).
-  - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `audio/narration-lbi.mp3`,
+  - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `packages/lbi/audio/narration.mp3`,
     10:42); `node tools/voice/check.mjs lbi` checks the recording against the story.
 - **Released as networks-v97 (29 October 2026; FORMAT networks-25), tested headlessly only:** the loading bar, rooms
   on this network (with the relay's `--proxy <n>`), panels per story, the design room's part 2, follow a person, the
@@ -2229,10 +2230,10 @@ Before handing over (or making anything more public), someone has to decide thes
     topological phenotyping of tissue architecture across spatial modalities" (Simon Schindler, André Rendeiro, Jörg
     Menche), with the authors' GTEx liver cohort and their package topocyte, shared for this story, and their answers on
     the credit, the data, the local radius and three details (T1 to T4 in
-    [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `tools/topo/` (`SPEC.md`, `README.md`,
-    the sets' manifests). Its data is written by `tools/topo/data/gen_data.py` (Python: it runs topocyte and the poster's
+    [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `packages/topo/src/` (`SPEC.md`, `README.md`,
+    the sets' manifests). Its data is written by `packages/topo/src/data/gen_data.py` (Python: it runs topocyte and the poster's
     figure scripts on the authors' files, which stay out of the repository; see
-    [docs/setup-and-release.md](docs/setup-and-release.md)) and checked by `node tools/topo/test-data.mjs`.
+    [docs/setup-and-release.md](docs/setup-and-release.md)) and checked by `node packages/topo/src/test-data.mjs`.
     - **What it is** (about 8 minutes, 8 chapters, then explore): the tour's body with its liver lifted out, a slice of
       it falling flat as a slide of real cells drawn in H&E; other ways of measuring tissue, sketched, then only the
       cells' positions; the single scales other tools fix; balls growing round the poster's 110 cells until pieces join
@@ -2308,7 +2309,7 @@ Before handing over (or making anything more public), someone has to decide thes
   [docs/setup-and-release.md](docs/setup-and-release.md).
 - After any change to app files, bump `VERSION` in `sw.js`, or installed copies and headsets keep the old files.
   Bump `FORMAT` in `shared.js` when a story's shared state changes shape.
-- The story files are large (`stories/airports.js` is about 640 KB with its data): search them, never read them whole.
+- The story files are large (`packages/airports/main.js` is about 640 KB with its data): search them, never read them whole.
 - Headset behaviour can only be confirmed on a device: say so when reporting a change.
 
 ## Adding a seventeenth story
@@ -2317,9 +2318,13 @@ The sixteenth story (`soil`) is the most recent example (item 11 above; its inte
 below name); the fifteenth (`topo`) too: `git show --stat` on its commits shows every file it touched
 (the fourteenth, `mutation`, computes its numbers live; the thirteenth, `ovary`, is a data story typed in and read off
 figures; the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start
-from the closest existing story (`tools/topo/` for a story whose numbers come from the authors' own code run on their
-data, `packages/mutation/src/` or `packages/qubits/src/` for a story whose numbers are computed live, `tools/micro/` or
+from the closest existing story (`packages/topo/src/` for a story whose numbers come from the authors' own code run on their
+data, `packages/mutation/src/` or `packages/qubits/src/` for a story whose numbers are computed live, `packages/micro/src/` or
 `packages/ovary/src/` for a data story, `packages/flock/src/` for a live simulation).
+
+(Since v187 a new story is a story package: `docs/agents/packages.md` and `tools/packages/SPEC.md`; the steps below are
+the older way, still right in what they ask for, with `packages/<key>/src/` for `tools/<key>/`, `packages/<key>/main.js`
+for `stories/<key>.js`, `packages/<key>/story.json` and `packages/order.json` for the list entry, and the scan for `SHELL`.)
 
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
@@ -2373,8 +2378,9 @@ one review round); building the tour with the strongest model throughout took ab
 The Files table in [README.md](README.md) and [docs/agents/layout.md](docs/agents/layout.md) (summed up under "Layout" in [AGENTS.md](AGENTS.md)) list everything. In short:
 
 - The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `occlusion.js`, `sw.js`.
-- `stories/`: one file a story; all but `airports.js`, `proteins.js` and `spatial.js` are built from `tools/<key>/`.
-  `stories/list.js` is written by hand.
+- `packages/`: one folder a story (v187: all sixteen), `packages/<key>/main.js` built from `packages/<key>/src/` (airports,
+  proteins and spatial hand-written), its narration in `audio/`; `packages/order.json` (by hand) their order.
+- `stories/`: the design room and the studio (built from `tools/design/`, `tools/studio/`) and `list.js` (by hand).
 - `tools/`: each built story's sources and build; `tools/studio/` (the studio, its test scenes), `tools/trackers/`
   (the bridge and the fake), `tools/voice/` (the narrations), `tools/lowpoly/` (the miniatures); the test scripts.
 - `relay/`: the server (rooms, scenes, R2, trackers), its tests and Dockerfile.

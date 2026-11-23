@@ -29,10 +29,10 @@ covers the app's packages too.
   them. Every text file was already stored with LF, so no file's content changed; Git tells binary files apart as before.
   A checkout whose files are still CRLF (made before the rule) turns LF on a clean tree with `git rm --cached -r -q .`,
   then `git reset --hard` (two commands: Windows PowerShell 5.1 has no `&&`; untracked and ignored files are kept). The
-  Python data generators that write story data (`packages/endo/src`, `packages/soil/src`, `tools/topo` `data/gen_data.py`) open their
+  Python data generators that write story data (`packages/endo/src`, `packages/soil/src`, `packages/topo/src` `data/gen_data.py`) open their
   output with `newline='\n'`, so a run on Windows writes LF too.
 - **Checked on the Windows PC** when both were fixed: all 16 builds' `--check` and `tools/release.mjs --check` pass; the
-  four small tests pass (`tools/pass/test-sets.mjs` after `node tools/pass/build.mjs`, as its usage says); the data
+  four small tests pass (`packages/pass/src/test-sets.mjs` after `node packages/pass/src/build.mjs`, as its usage says); the data
   generators whose inputs are in the repository (lbi, ovary, pet) write their data files unchanged;
   `tools/studio/test/make.mjs` writes the same files (its listings differ only in their times); `relay/test.mjs` gives
   the results it gives without the fix, but `--watch` now passes (its 5 failures about a relay stopped by SIGTERM and
@@ -1293,7 +1293,9 @@ http://127.0.0.1:8123/ <out> --story <key>`) and report how it sounds as unheard
 ## `tools/live.mjs` (hot reload and live updates)
 
 After touching `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs` or the
-relay's `--watch`, run `node tools/live.mjs` (a few minutes; it copies the app to
+relay's `--watch`, run `node tools/live.mjs` (a few minutes; it changes a story wherever it is, `tools/stories.mjs`: a package's
+`main.js` and then its index again; once every story is a package its live story and its card change are packages
+too; it copies the app to
 a temporary folder and changes it there as a release or an editor would): a story
 added live (its card without a reload), a changed story not on show fetched fresh,
 the story on show swapped in place (explore state and view; at a slideshow stop
@@ -1314,7 +1316,11 @@ earlier version checked out next to this one:
 `git worktree add /tmp/old <earlier commit> && node tools/update.mjs /tmp/old .`
 It installs the old version, serves this one like GitHub Pages (ten-minute
 browser caching, ETags) and checks that the page and its stories are both new
-on the first visit after the update, on the next visit and offline.
+on the first visit after the update, on the next visit and offline. It finds the airports story's file through
+`tools/stories.mjs` (`stories/airports.js` in an older tree, `packages/airports/main.js` since v187), asks the browser for
+the new worker and waits until it is installed before going offline (it takes every package's `main.js`, about 13 MB),
+checks byte ranges of a package narration from the packages' cache offline (asked with `no-store`: the browser's own
+cache answers a range it cannot satisfy with the whole file), and says what the page shows when no story runs.
 
 ## `relay/test.mjs` and `tools/collab.mjs` (shared rooms)
 
@@ -2255,10 +2261,10 @@ for no depth, the GPU's done-by time per mode), the autosave and the report, and
 ## Set harnesses (`shot.mjs`, `sweep.mjs`, `test-data.mjs`)
 
 For the tour, test a changed set on its own in the set harness first
-(`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
-few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
-the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `packages/endo/src/`, the PET story in `packages/pet/src/`, the microanatomy story in `tools/micro/`, the ovary story in `packages/ovary/src/`, the qubits story in `packages/qubits/src/`, the mutation story in `packages/mutation/src/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `packages/soil/src/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `packages/robots/src/` and the tutorial in `packages/tutorial/src/` (also
+(`packages/lbi/src/shot.mjs`, much cheaper than the whole story), then the story at a
+few seconds (`packages/lbi/src/sweep.mjs`), then the smoke test. The muscle story has
+the same tools in `packages/nmd/src/` (`shot.mjs`, `sweep.mjs`), and so have the
+endotype story in `packages/endo/src/`, the PET story in `packages/pet/src/`, the microanatomy story in `packages/micro/src/`, the ovary story in `packages/ovary/src/`, the qubits story in `packages/qubits/src/`, the mutation story in `packages/mutation/src/`, the tissue topology story in `packages/topo/src/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `packages/soil/src/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `packages/pass/src/`, the robot gang in `packages/robots/src/` and the tutorial in `packages/tutorial/src/` (also
 `test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
 second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
 `mode=1` practice, `nofvt` the plain figure).

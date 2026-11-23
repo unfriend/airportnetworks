@@ -67,7 +67,7 @@ Serve the folder (`python3 -m http.server 8123`), then:
 node tools/voice/narrate.mjs lbi --lines        # what will be read, what is left out, and how it is said
 node tools/voice/narrate.mjs lbi --phonemes     # the same with espeak-ng's phonemes: check every doubtful word
 node tools/voice/narrate.mjs lbi --dry --out /tmp/try.mp3   # speak and lay out, write nothing into the app
-node tools/voice/narrate.mjs lbi                # write audio/narration-lbi.mp3 and the tables, rebuild the story
+node tools/voice/narrate.mjs lbi                # write packages/lbi/audio/narration.mp3 and the tables, rebuild the story
 ```
 
 Options: `--voice af_heart` (any Kokoro voice: `af_*` and `am_*` American, `bf_*` and `bm_*` British), `--speed 1`,
@@ -106,7 +106,7 @@ stops and a shared room's station clock are the same in either language:
 
 ```sh
 node tools/voice/narrate.mjs pass --phonemes             # both languages (--only de for one)
-node tools/voice/narrate.mjs pass                        # audio/narration-pass.mp3, audio/narration-pass-de.mp3, the tables
+node tools/voice/narrate.mjs pass                        # packages/pass/audio/narration.mp3, packages/pass/audio/narration-de.mp3, the tables
 node tools/voice/check.mjs pass --quick                  # English (the page's language in headless Chromium)
 node tools/voice/check.mjs pass --quick --lang de        # German
 ```
@@ -122,7 +122,7 @@ node tools/voice/check.mjs pass --quick --lang de        # German
 - `NARRATION_ENDS` is where each chapter's words end in the later of the two, so a slideshow stop waits for either.
 - Each language gets its own recording, levelled on its own, both as long as the later one needs: the first language's
   is `audio/narration-<key>.mp3`, another's `audio/narration-<key>-<lang>.mp3`. The story plays the one of the language
-  on show and changes it in place when the language is switched (`audioLang` in `tools/pass/engine/e7_app.js`); a
+  on show and changes it in place when the language is switched (`audioLang` in `packages/pass/src/engine/e7_app.js`); a
   missing file leaves that language silent, as before.
 
 ## What is read

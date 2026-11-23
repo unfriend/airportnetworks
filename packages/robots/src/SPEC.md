@@ -27,7 +27,7 @@ model; copy and adapt rather than invent):
 
 Shots go to `packages/robots/src/shots/` (git-ignored). Narration file (optional): `packages/robots/audio/narration.mp3`.
 
-## Runtime rules (as for every set; see `tools/lbi/SPEC.md` "Runtime and code rules")
+## Runtime rules (as for every set; see `packages/lbi/src/SPEC.md` "Runtime and code rules")
 
 - three.js r128 global `THREE`, no addons, no other libraries, no fetches, no modules. 2-space indent, single quotes,
   semicolons, compact helpers, short comments that say why. Plain British English, short sentences.
@@ -295,7 +295,7 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
   sub: 'vacuums in your room', aria, thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free
   play' }`. "six stories" → "seven stories" everywhere (title, meta, brand, picker heading, manifest, docs). The
   picker grid must look good with seven cards on wide, medium and narrow screens (check with screenshots).
-- Every story (`packages/airports/main.js`, `proteins.js`, `spatial.js` by hand; `tools/lbi`, `tools/nmd`, `packages/flock/src`,
+- Every story (`packages/airports/main.js`, `proteins.js`, `spatial.js` by hand; `packages/lbi/src`, `packages/nmd/src`, `packages/flock/src`,
   `tools/robots` engine sources then rebuild): `optionalFeatures: ['local-floor', 'hand-tracking', 'anchors',
   'plane-detection', 'mesh-detection']`; the headset Stories screen fits seven cards (cards 0.36 m wide, angle step
   about 0.31 rad at about 1.25 m, so neighbours do not overlap and the outer cards are within about 50°; check
