@@ -15,7 +15,7 @@
   "loading": "Placing 254 proteins and 375 interactions",
   "authors": "The app's authors",
   "life": false,
-  "list": "stories",
+  "list": "experiments",
   "icon": "proteins.cell",
   "needs": 185
 }

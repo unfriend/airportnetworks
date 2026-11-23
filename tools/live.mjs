@@ -119,15 +119,15 @@ try {
       // (every story a package: the new one is a package too, a copy of the flock's, added to the index)
       fs.mkdirSync(file('packages/flock2'), { recursive: true });
       write('packages/flock2/main.js', read('packages/flock/main.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';").split("HOST.pkgUrl('flock', ").join("HOST.pkgUrl('flock2', "));
-      write('packages/flock2/story.json', JSON.stringify({ ...JSON.parse(read('packages/flock/story.json')), key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock', brand: 'Second flock', sub: 'added live', len: 'Story 1:57' }, null, 2));
+      write('packages/flock2/story.json', JSON.stringify({ ...JSON.parse(read('packages/flock/story.json')), key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock', brand: 'Second flock', sub: 'added live', len: 'Story 1:57', list: 'stories' }, null, 2));   // (the main set: the flock's own is an experiment, v188)
       scan();
     }
     release();
     const [rev0, n0] = await page.evaluate(() => [HOST.listRev, HOST.list.length]);   // (the stories before, whatever their number)
     await page.evaluate(() => HOST.live.check('test'));
     const card = await until(page, n => !!document.querySelector('#picker [data-story="flock2"]') && HOST.list.length === n, n0 + 1, 8000);
-    const r = await page.evaluate(() => ({ mark: window.__mark, rev: HOST.listRev, title: document.getElementById('pickTitle').textContent, words: HOST.count(), cards: HOST.cur.peek('xrLandingCards(), XR.land.length') }));
-    report('a story added live: its card appears without a reload (page and headset Stories screens)', card && r.mark === 1 && r.rev > rev0 && r.title === `Networks, in ${r.words} stories` && !/\d/.test(r.words) && r.cards === n0 + 2, r);
+    const r = await page.evaluate(() => ({ mark: window.__mark, rev: HOST.listRev, title: document.getElementById('pickTitle').textContent, cards: HOST.cur.peek('xrLandingCards(), XR.land.length'), want: HOST.menu.cards().length + 1 }));
+    report('a story added live: its card appears without a reload (page and headset Stories screens)', card && r.mark === 1 && r.rev > rev0 && r.title === 'Network stories' && r.cards === r.want, r);   // (no count of stories in the title since v188)
     await page.evaluate(() => HOST.start('flock2'));
     report('... and it starts', await built(page, 'flock2'));
   }

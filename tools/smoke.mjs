@@ -1,4 +1,4 @@
-// Headless smoke test for the sixteen stories, the design room and the studio.
+// Headless smoke test for every story (the main set and the Experiments set), the design room and the studio.
 //   node tools/smoke.mjs [base-url] [--only <words>]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -62,7 +62,8 @@ await page.waitForTimeout(4000);
 // test one story by name are that story's own; a story's file is HOST.meta(k)'s: stories/<k>.js or packages/<k>/main.js),
 // and the pages that are not stories (STORY_EXTRA:
 // the design room, the studio), which keep the same hook lines as every story: each check of those lines covers both
-const STORY_KEYS = await page.evaluate(() => HOST.list.filter(s => !s.pkg || s.app).map(s => s.key));
+// (v188: the Experiments set's own stories too, HOST.stories; a card there is clicked after its set is opened, HOST.menu)
+const STORY_KEYS = await page.evaluate(() => HOST.stories().filter(s => !s.pkg || s.app).map(s => s.key));
 if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories (stories/list.js)'); process.exit(1); }
 const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
 await step('start screen is the landing page', async () => {
@@ -83,10 +84,10 @@ const SFX_PICK = {
 const LAND_CHECK = `{
   const ids = XR.land[0].regions.map(r => r.id).join();
   if (ids !== 'back') throw new Error('the Stories screen\\'s header has [' + ids + '] (only Back to the story)');
-  const n = HOST.list.length, per = Math.ceil(n / 2), cards = XR.land.slice(1), ch = P => P.mesh.geometry.parameters.height;
+  const L = HOST.menu.cards(), n = L.length, per = Math.ceil(n / 2), cards = XR.land.slice(1), ch = P => P.mesh.geometry.parameters.height;
   if (cards.length !== n || !XR.land.every(P => P.mesh.visible)) throw new Error('the Stories screen shows ' + cards.length + ' cards of ' + n + (XR.land.every(P => P.mesh.visible) ? '' : ' (hidden: ' + XR.land.map((P, k) => P.mesh.visible ? '' : k).filter(String).join() + ')'));
-  const wrong = cards.findIndex((P, k) => !P.sig().endsWith(HOST.list[k].key));
-  if (wrong >= 0) throw new Error('the Stories screen\\'s card ' + wrong + ' is not ' + HOST.list[wrong].key);
+  const wrong = cards.findIndex((P, k) => !P.sig().endsWith(L[k].key));
+  if (wrong >= 0) throw new Error('the Stories screen\\'s card ' + wrong + ' is not ' + L[wrong].key);
   const rows = [cards.slice(0, per), cards.slice(per)], y = R => R.map(P => P.mesh.position.y), x = R => R.map(P => P.mesh.position.x);
   for (const R of rows) {
     if (R.length && Math.max(...y(R)) - Math.min(...y(R)) > 1e-6) throw new Error('a row of the Stories screen is not level: ' + y(R));
@@ -102,7 +103,8 @@ const LAND_CHECK = `{
 // (the load step runs whenever its story's block does: --only tutorial once ran the tutorial's steps on the airports)
 for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
   await step(`load ${key}`, async () => {
-    await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
+    await page.evaluate(k => HOST.menu.open(HOST.menu.of(k)), key);
+    await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.evaluate(k => HOST.menu.open(HOST.menu.of(k)), key); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   }, true);
   await step(`${key}: scrub through the story`, () => page.evaluate(async () => {
@@ -1191,7 +1193,7 @@ if (runs('headset')) {
 // by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
 await step('design: not on the Stories screen; #design opens the table and all 49 miniatures are built', async () => {
   if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
-  if (await page.evaluate(() => HOST.list.some(s => s.key === 'design') || HOST.count() !== 'sixteen')) errors.push('design: the design room is in the list of stories');
+  if (await page.evaluate(() => HOST.stories().some(s => s.key === 'design') || /\d|sixteen/.test(document.getElementById('pickTitle').textContent))) errors.push('design: the design room is in the list of stories');
   await page.evaluate(() => HOST.start('design'));
   await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
@@ -1338,7 +1340,7 @@ if (runs('studio')) {
     await stp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&edit');
     await stp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
     if (await stp.$('#picker [data-story="studio"]')) errors.push('studio: it has a card on the Stories screen');
-    if (await stp.evaluate(() => HOST.list.some(s => s.key === 'studio') || !HOST.meta('studio') || HOST.count() !== 'sixteen' || !(self.STORY_EXTRA || []).some(s => s.key === 'studio'))) errors.push('studio: it is in the list of stories, or not in STORY_EXTRA');
+    if (await stp.evaluate(() => HOST.stories().some(s => s.key === 'studio') || !HOST.meta('studio') || !(self.STORY_EXTRA || []).some(s => s.key === 'studio'))) errors.push('studio: it is in the list of stories, or not in STORY_EXTRA');
     if (!await until('STUDIO.ready()', 120000)) { errors.push('studio: the test scene did not load: ' + JSON.stringify(await ss('STUDIO.state()')).slice(0, 600)); return; }
     const s = await ss('STUDIO.state()'), M = s.models, B = M['box.glb'], F = M['figure.fbx'];
     const bad = [];

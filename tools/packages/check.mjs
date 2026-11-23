@@ -39,7 +39,7 @@ const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.inc
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: may(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: may(str), page: may(full), brand: may(full), sub: may(str), aria: may(full), thing: may(full), loading: may(full),
-  authors: may(str), life: may(v => typeof v === 'boolean'), list: may(v => v === 'stories' || v === 'hidden'), needs: may(v => Number.isInteger(v) && v >= 1),
+  authors: may(str), life: may(v => typeof v === 'boolean'), list: may(v => ['stories', 'experiments', 'hidden'].includes(v)), needs: may(v => Number.isInteger(v) && v >= 1),
   icon: may(mini), intro: may(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];

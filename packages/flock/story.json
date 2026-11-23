@@ -15,7 +15,7 @@
   "loading": "Gathering the flock",
   "authors": "The app's authors",
   "life": true,
-  "list": "stories",
+  "list": "experiments",
   "icon": "flock.flock",
   "needs": 185
 }

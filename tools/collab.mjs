@@ -4287,7 +4287,9 @@ async function allRound() {
   // (frames on the pretend headset until fn is true there: a page drawing in software takes its time)
   const stepUntil = async (fn, arg, ms) => { const t0 = Date.now(); for (;;) { await frames(H, 300); if (await H.evaluate(fn, arg)) return true; if (Date.now() - t0 > ms) return false; } };
   // (the pretend session never presents, so the stories' own xrUpdate does not run: it is run here, and the panels drawn)
-  const redraw = () => H.evaluate(() => HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })'));
+  // (every panel drawn: the Stories screen's cards are drawn two new ones a frame, XR.landN, so each counts as a frame here;
+  // and the set of cards the story PK's card is in on show first, HOST.menu, v188: PICK_STORY is one of the Experiments)
+  const redraw = () => H.evaluate(k => (HOST.menu.open(HOST.menu.of(k)), HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { XR.landN = 0; P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); })')), PICK_STORY);
   // the first headset: aligned in the room, in AR, it moves the page's arc in front of its head, facing away from it
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id), hId = await H.evaluate(() => HOST.collab.id);
@@ -4318,7 +4320,10 @@ async function allRound() {
   await frames(H, 800);
   const ALs = await H.evaluate(() => HOST.collab.arc());
   const c1 = await H.evaluate(id => {
-    window.__xr.step(); HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    // (frames enough for every card: the Stories screen draws two new cards a frame and shows each once drawn, as a headset
+    // does over its first few frames; one frame showed two of them, drawn but not shown yet)
+    window.__xr.step();
+    for (let k = 0; k < 24 && (!k || !HOST.cur.peek('XR.land.every(P => P.mesh.visible)')); k++) HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
     const O = HOST.collab.overlay(), o = O.rings.get(id), cd = O.cards.get(id);
     return { mine: HOST.collab.mine(), cards: HOST.room.cards(), here: HOST.room.allHere(), away: HOST.room.away(), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'),
       land: HOST.cur.peek('XR.land.slice(1).every(P => P.mesh.visible)'), back: HOST.cur.peek('!!XR.land[0].regions.find(r => r.id === "back")'),
@@ -4331,7 +4336,9 @@ async function allRound() {
   if (shots) { fs.mkdirSync(shots, { recursive: true }); await headView(H, path.join(shots, 'all-1-arc.png'), HEAD.yaw, -0.08, [1280, 800]); }   // (the arc's cards, as the first headset sees them)
   // a card pressed on the headset (its landing card's region) picks that story for everyone at the arc: the pages too
   await redraw();
-  const press = await H.evaluate(k => { const i = HOST.list.findIndex(m => m.key === k) + 1, P = HOST.cur.peek('XR.land')[i], r = P && P.regions.find(r => r.id === 'card'); if (r) r.fn(); return !!r; }, PK);
+  await redraw();   // (its set opened: the arch built again, drawn whole)
+  // (the card of story k on the headset's arch: its place in the set on show, after the header)
+  const press = await H.evaluate(k => { const P = HOST.cur.peek('XR.land')[HOST.menu.cards().findIndex(m => m.key === k) + 1], r = P && P.regions.find(r => r.id === 'card'); if (r) r.fn(); return !!r; }, PK);
   await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AID, PK], 5000);
   const play0 = await A.evaluate(id => HOST.collab.val('st.' + id + '.play'), AID);
   let switched = false;
@@ -4446,7 +4453,8 @@ async function allRound() {
   await A.evaluate(() => HOST.cur.peek('APP.enterExplore()'));
   await sleep(800);
   await redraw();
-  await H.evaluate(k => { const i = HOST.list.findIndex(m => m.key === k) + 1, r = HOST.cur.peek('XR.land')[i].regions.find(r => r.id === 'card'); r.fn(); }, PK);
+  await redraw();
+  await H.evaluate(k => { const P = HOST.cur.peek('XR.land')[HOST.menu.cards().findIndex(m => m.key === k) + 1], r = P.regions.find(r => r.id === 'card'); r.fn(); }, PK);
   await until(A, ([id, k]) => (HOST.collab.station(id) || {}).story === k, [AID, PK], 5000);
   const live = () => frames(H, 5000);
   let run = live();
@@ -8615,6 +8623,13 @@ try {
   for (const a of arranged) for (const b of arranged) if (a !== b) closest = Math.min(closest, Math.hypot(a.x - b.x, a.z - b.z));
   check(`Arrange all: two rows (${Math.ceil(NST / 2)} + ${Math.floor(NST / 2)}), spots 2.4 m apart, the rows 2.6 m apart, all facing away from you`, spotsOk && closest > 2.2 - 1e-6,
     arranged.map(s => `${s.story} ${s.x},${s.z} ${s.yaw}`).join('; '));
+  // the Experiments set's stories (v188: proteins, the flock, the robots ...) are never placed by Arrange all: Add places
+  // them, in a third row here, for the rounds that walk to them (HEADSET_STORY, PICK_STORY)
+  const exps = await A.evaluate(keys => HOST.packages.experiments().map(m => m.key).filter(k => keys.includes(k)), Object.keys(STORIES));
+  check('Arrange all leaves the Experiments set out (every station a story of the main set)', arranged.every(s => keys.includes(s.story)) && !arranged.some(s => exps.includes(s.story)), JSON.stringify({ exps }));
+  await A.evaluate(ks => ks.forEach((k, i) => HOST.collab.add(k, { x: (i - (ks.length - 1) / 2) * 2.4, z: -6.4, yaw: 0 })), exps);
+  NST += exps.length;
+  for (const p of [A, B, C]) await until(p, n => HOST.collab.stations().length === n && !HOST.collab.internals().pending.size, NST, 10000);
   // a mistyped code (or an old link) makes no room: the page says so and stays out
   const E = await open('#stories');
   const bad = 'QQZ' === code ? 'QQY' : 'QQZ';

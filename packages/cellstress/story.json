@@ -11,6 +11,6 @@
   "thing": "cell",
   "authors": "The app's authors",
   "life": false,
-  "list": "hidden",
+  "list": "experiments",
   "needs": 178
 }

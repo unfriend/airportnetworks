@@ -24,7 +24,7 @@ packages/<key>/
 never a word the address already uses (`s`, `t`, `explore`, `tab`, `scene`, `view`, `panels`, `slides`, `repeat`,
 `anchor`, `labels`, `cards`, `free`, `subs`, `fps`, `body`, `hz`, `fov`, `scale`, `aq`, `walk`, `occl`, `sfx`, `voice`,
 `sound`, `focus`, `dev`, `soundcheck`, `output`, `visit`, `scenes`, `net`, `now`, `camera`, `debug`, `peer`, `relay`,
-`stories`, `all`, `lobby`). `node tools/packages/scan.mjs` reads this list from here.
+`stories`, `all`, `lobby`, `experiments`). `node tools/packages/scan.mjs` reads this list from here.
 
 ### story.json
 

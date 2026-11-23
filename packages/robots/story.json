@@ -15,7 +15,7 @@
   "loading": "Waking the robots",
   "authors": "The app's authors",
   "life": true,
-  "list": "stories",
+  "list": "experiments",
   "icon": "robots.robots",
   "needs": 185
 }

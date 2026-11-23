@@ -15,6 +15,7 @@
     "soil",
     "proteins",
     "spatial",
+    "ppicell",
     "flock",
     "robots",
     "tutorial"
@@ -40,11 +41,11 @@
       "list": "stories",
       "icon": "airports.globe",
       "needs": 185,
-      "fp": "41ba0e7700036fcd",
-      "bytes": 5271449,
+      "fp": "e2f3d6fa4f25e4ab",
+      "bytes": 5271611,
       "files": {
         "audio/narration.mp3": "5f4b1b8b4f230902",
-        "main.js": "3de84ab9ed360055",
+        "main.js": "846033e33c875f1f",
         "story.json": "edbc607289e15cf5"
       }
     },
@@ -68,11 +69,11 @@
       "list": "stories",
       "icon": "lbi.int",
       "needs": 185,
-      "fp": "f8f5659af0503dd7",
-      "bytes": 5937354,
+      "fp": "74bb0b729a6df271",
+      "bytes": 5937516,
       "files": {
         "audio/narration.mp3": "3845dddd3829424b",
-        "main.js": "f804d42bb2487776",
+        "main.js": "1f442122a73d6630",
         "story.json": "5a90bd8f03740d1f"
       }
     },
@@ -96,11 +97,11 @@
       "list": "stories",
       "icon": "nmd.tower",
       "needs": 185,
-      "fp": "b23bb211736f4e2f",
-      "bytes": 5186470,
+      "fp": "8089b98ca1866c2c",
+      "bytes": 5186632,
       "files": {
         "audio/narration.mp3": "2f06d429ae2161eb",
-        "main.js": "c63ebdc1f33230b0",
+        "main.js": "3d002a461720c5c3",
         "story.json": "c6463484eb7774f3"
       }
     },
@@ -124,11 +125,11 @@
       "list": "stories",
       "icon": "endo.syn",
       "needs": 185,
-      "fp": "2b428af7e8a49fed",
-      "bytes": 4719128,
+      "fp": "c0d168163850d940",
+      "bytes": 4719290,
       "files": {
         "audio/narration.mp3": "fb647e0514771dfa",
-        "main.js": "2260565181d29781",
+        "main.js": "22dbe3fe061bf6ff",
         "story.json": "51f7bdb1ce1da52c"
       }
     },
@@ -152,11 +153,11 @@
       "list": "stories",
       "icon": "pet.scan",
       "needs": 185,
-      "fp": "ebea262ff9fec963",
-      "bytes": 3629243,
+      "fp": "faef3876f704fc91",
+      "bytes": 3629405,
       "files": {
         "audio/narration.mp3": "cbd7cbd77e2046c6",
-        "main.js": "58a4becfa7f19b99",
+        "main.js": "db1a71c71cf36ad6",
         "story.json": "d5b35aa4b2ad13e5"
       }
     },
@@ -180,11 +181,11 @@
       "list": "stories",
       "icon": "micro.slide",
       "needs": 185,
-      "fp": "1b0c97237331b994",
-      "bytes": 4593677,
+      "fp": "b97d806422f84141",
+      "bytes": 4593839,
       "files": {
         "audio/narration.mp3": "5df9ca0443241bd0",
-        "main.js": "a16cb409e92688ee",
+        "main.js": "ecdc5a354c1e2e4e",
         "story.json": "ce9129720ce2a457"
       }
     },
@@ -208,11 +209,11 @@
       "list": "stories",
       "icon": "ovary.organ",
       "needs": 185,
-      "fp": "fddfd4e8e38109c4",
-      "bytes": 4173103,
+      "fp": "7ca3e4017fb7eb2a",
+      "bytes": 4173265,
       "files": {
         "audio/narration.mp3": "0ebe5ce62e30c0b1",
-        "main.js": "ae72d9e2a6eb5f96",
+        "main.js": "b03686d2d7d5c57c",
         "story.json": "903ba6839734a837"
       }
     },
@@ -236,11 +237,11 @@
       "list": "stories",
       "icon": "qubits.cube",
       "needs": 185,
-      "fp": "6180fb9674d0f854",
-      "bytes": 4625040,
+      "fp": "b6d9b6df2c1ab4a7",
+      "bytes": 4625202,
       "files": {
         "audio/narration.mp3": "d22fa71e0e837e63",
-        "main.js": "5a044003d1ed0b2c",
+        "main.js": "3f36ce3165d283d1",
         "story.json": "2b84b75a953d9772"
       }
     },
@@ -264,11 +265,11 @@
       "list": "stories",
       "icon": "mutation.tree",
       "needs": 185,
-      "fp": "67d0a371caef1091",
-      "bytes": 4521765,
+      "fp": "23354d8a0d07ddd3",
+      "bytes": 4521927,
       "files": {
         "audio/narration.mp3": "8a7cff9c7d058814",
-        "main.js": "2036f7cd75c985b3",
+        "main.js": "dcff3e014ea45962",
         "story.json": "a97e96b47c811c55"
       }
     },
@@ -292,11 +293,11 @@
       "list": "stories",
       "icon": "topo.tower",
       "needs": 185,
-      "fp": "fc82306f3f2e6805",
-      "bytes": 5737489,
+      "fp": "ae30f2b54ade6c03",
+      "bytes": 5737651,
       "files": {
         "audio/narration.mp3": "02f5bfd8471f8508",
-        "main.js": "678195e9b3bafb03",
+        "main.js": "c723932f48286313",
         "story.json": "5801850a487c0be9"
       }
     },
@@ -320,12 +321,12 @@
       "list": "stories",
       "icon": "pass.fish",
       "needs": 185,
-      "fp": "4343da98e6406e7d",
-      "bytes": 7514956,
+      "fp": "e0f828be7a804775",
+      "bytes": 7515118,
       "files": {
         "audio/narration-de.mp3": "1d3995bde9711a52",
         "audio/narration.mp3": "0c33c976e1f19b54",
-        "main.js": "95fc8cbc175797e8",
+        "main.js": "cb2747a153845200",
         "story.json": "ebaae9cee1c39d77"
       }
     },
@@ -349,11 +350,11 @@
       "list": "stories",
       "icon": "soil.soil",
       "needs": 185,
-      "fp": "67ffd33ae7b17077",
-      "bytes": 6270645,
+      "fp": "743ece92080d7fb0",
+      "bytes": 6270807,
       "files": {
         "audio/narration.mp3": "63ea6285de3f657a",
-        "main.js": "48a3629db3b5f32d",
+        "main.js": "21d81ecc92767dcf",
         "story.json": "23e8fb0dc8cd7b2c"
       }
     },
@@ -374,15 +375,15 @@
       "loading": "Placing 254 proteins and 375 interactions",
       "authors": "The app's authors",
       "life": false,
-      "list": "stories",
+      "list": "experiments",
       "icon": "proteins.cell",
       "needs": 185,
-      "fp": "d299c986b6bf6216",
-      "bytes": 3018154,
+      "fp": "ad6249788d4fdea0",
+      "bytes": 3018320,
       "files": {
         "audio/narration.mp3": "a415e6baa85b71bf",
-        "main.js": "d7498f1db08c1d89",
-        "story.json": "a274c0bae6dd332d"
+        "main.js": "1fe92f5278fecc9b",
+        "story.json": "d06e155530093f0d"
       }
     },
     {
@@ -405,142 +406,12 @@
       "list": "stories",
       "icon": "spatial.cell",
       "needs": 185,
-      "fp": "8ce186b6c197f450",
-      "bytes": 2991011,
+      "fp": "bdcfb64de7c5dcb9",
+      "bytes": 2991173,
       "files": {
         "audio/narration.mp3": "00886ba8d141ecf8",
-        "main.js": "c81b0e24baf66e8f",
+        "main.js": "13c6a464b4d46a32",
         "story.json": "cd12d8a66290c7c6"
-      }
-    },
-    {
-      "key": "flock",
-      "api": 1,
-      "version": "1.0.0",
-      "title": "Flock",
-      "kick": "Collective motion",
-      "col": "#9db4ff",
-      "desc": "200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.",
-      "len": "Story 1:36 · then on and on",
-      "page": "A flock of starlings, all around you",
-      "brand": "Flock",
-      "sub": "starlings at dusk",
-      "aria": "Interactive 3D flock of starlings flying around you at dusk",
-      "thing": "flock",
-      "loading": "Gathering the flock",
-      "authors": "The app's authors",
-      "life": true,
-      "list": "stories",
-      "icon": "flock.flock",
-      "needs": 185,
-      "fp": "61f0df09bca7df92",
-      "bytes": 997944,
-      "files": {
-        "audio/narration.mp3": "e8062c756dc05e94",
-        "main.js": "526f55fe192c0d03",
-        "story.json": "5c76877423d71e85"
-      }
-    },
-    {
-      "key": "robots",
-      "api": 1,
-      "version": "1.0.0",
-      "title": "Robot gang",
-      "kick": "Swarm robotics",
-      "col": "#c3e85a",
-      "desc": "A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.",
-      "len": "Story 1:49 · then free play",
-      "page": "A gang of robot vacuums in your room",
-      "brand": "Robot gang",
-      "sub": "vacuums in your room",
-      "aria": "Interactive 3D room with a gang of robot vacuums that follow you about",
-      "thing": "room",
-      "loading": "Waking the robots",
-      "authors": "The app's authors",
-      "life": true,
-      "list": "stories",
-      "icon": "robots.robots",
-      "needs": 185,
-      "fp": "98c60bcfc56598b8",
-      "bytes": 1208604,
-      "files": {
-        "audio/narration.mp3": "7b766e4d5f6856c9",
-        "main.js": "a6e28bce33b5c707",
-        "story.json": "598f723462e75b28"
-      }
-    },
-    {
-      "key": "tutorial",
-      "api": 1,
-      "version": "1.0.0",
-      "title": "Your guide",
-      "kick": "Introduction",
-      "col": "#e8eef8",
-      "desc": "A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.",
-      "len": "Story 3:35 · then practice",
-      "page": "Tutorial: a robot guide shows you round",
-      "brand": "Tutorial",
-      "sub": "a robot guide shows you round",
-      "aria": "Interactive 3D tutorial in which a robot guide shows how to use the app in a headset",
-      "thing": "guide",
-      "loading": "Booting the guide",
-      "authors": "The app's authors",
-      "life": true,
-      "list": "stories",
-      "icon": "tutorial.guide",
-      "intro": true,
-      "needs": 185,
-      "fp": "33b1895add864afe",
-      "bytes": 1983926,
-      "files": {
-        "audio/narration.mp3": "02d8cefbeb8a6a18",
-        "main.js": "f36c23096d4e85f3",
-        "story.json": "4c296f398e596340"
-      }
-    },
-    {
-      "key": "cellstress",
-      "api": 1,
-      "version": "0.1.0",
-      "title": "Cell stress test",
-      "kick": "Measuring",
-      "col": "#8cc8ff",
-      "desc": "The cell map's model cell filled with up to 20,000 made-up proteins and 80,000 links, to read a headset's frame rate at each size.",
-      "len": "Story 0:16",
-      "aria": "Interactive 3D test: the cell map's model cell with many made-up proteins and links",
-      "thing": "cell",
-      "authors": "The app's authors",
-      "life": false,
-      "list": "hidden",
-      "needs": 178,
-      "fp": "d8d4dd59a75fd302",
-      "bytes": 253521,
-      "files": {
-        "main.js": "ec63ca1a05092c2b",
-        "story.json": "3866482e779c36b3"
-      }
-    },
-    {
-      "key": "hello",
-      "api": 1,
-      "version": "1.0.0",
-      "title": "Six handshakes",
-      "kick": "Small worlds",
-      "col": "#8fd3ff",
-      "desc": "Sixty people in a ring, and how a few shortcuts bring everyone close: the example story package.",
-      "len": "Story 1:34",
-      "aria": "Interactive 3D story: Six handshakes, small-world networks",
-      "thing": "ring",
-      "authors": "The app's authors",
-      "life": false,
-      "list": "hidden",
-      "needs": 169,
-      "fp": "5a13f524b83ee502",
-      "bytes": 258853,
-      "files": {
-        "icon.png": "fb2e43f5422b9ad0",
-        "main.js": "4f2b614bdf744edc",
-        "story.json": "fc493a5726f580c3"
       }
     },
     {
@@ -551,18 +422,23 @@
       "kick": "Spatial interactome",
       "col": "#7fe0c4",
       "desc": "An interactome of 13,460 proteins put back into a cell: which of its links can happen where, and why it is so hard to tell.",
-      "len": "Story 12:32",
+      "len": "Story 12:32 · cell model",
+      "page": "Back into the cell: an interactome in a model cell",
+      "brand": "Back into the cell",
+      "sub": "an interactome in a model cell",
       "aria": "Interactive 3D story: an interactome put back into a model cell",
       "thing": "cell",
+      "loading": "Putting the proteins back into the cell",
       "authors": "Jörg Menche and colleagues (the interactome); the Human Protein Atlas (the locations); the app's authors",
       "life": false,
-      "list": "hidden",
+      "list": "stories",
+      "icon": "spatial.cell",
       "needs": 178,
-      "fp": "859e161687449ae1",
-      "bytes": 14378971,
+      "fp": "d22572227d494df4",
+      "bytes": 14379370,
       "files": {
         "audio/narration.mp3": "be03f44bdaf75d92",
-        "main.js": "6d399a72f8fb06b5",
+        "main.js": "13eb0a50329c9d01",
         "models/actin.mol": "0480e2bdb7510b92",
         "models/b2ar.mol": "797dba67cff0e8c5",
         "models/b2lig.mol": "7a30550ecf5cecd8",
@@ -592,7 +468,137 @@
         "models/tp53.mol": "bc2a746ffaee14c3",
         "models/tub.mol": "fade26a3876b8358",
         "models/ubq.mol": "c08acee7eced7cbc",
-        "story.json": "9fffacb5a145f740"
+        "story.json": "17a0a1d14f38429b"
+      }
+    },
+    {
+      "key": "flock",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Flock",
+      "kick": "Collective motion",
+      "col": "#9db4ff",
+      "desc": "200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.",
+      "len": "Story 1:36 · then on and on",
+      "page": "A flock of starlings, all around you",
+      "brand": "Flock",
+      "sub": "starlings at dusk",
+      "aria": "Interactive 3D flock of starlings flying around you at dusk",
+      "thing": "flock",
+      "loading": "Gathering the flock",
+      "authors": "The app's authors",
+      "life": true,
+      "list": "experiments",
+      "icon": "flock.flock",
+      "needs": 185,
+      "fp": "b5bc27fbd51ae57e",
+      "bytes": 998110,
+      "files": {
+        "audio/narration.mp3": "e8062c756dc05e94",
+        "main.js": "d28eee9971ee7538",
+        "story.json": "5975bb83008e7773"
+      }
+    },
+    {
+      "key": "robots",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Robot gang",
+      "kick": "Swarm robotics",
+      "col": "#c3e85a",
+      "desc": "A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.",
+      "len": "Story 1:49 · then free play",
+      "page": "A gang of robot vacuums in your room",
+      "brand": "Robot gang",
+      "sub": "vacuums in your room",
+      "aria": "Interactive 3D room with a gang of robot vacuums that follow you about",
+      "thing": "room",
+      "loading": "Waking the robots",
+      "authors": "The app's authors",
+      "life": true,
+      "list": "experiments",
+      "icon": "robots.robots",
+      "needs": 185,
+      "fp": "8ef23a9646b6ec0f",
+      "bytes": 1208770,
+      "files": {
+        "audio/narration.mp3": "7b766e4d5f6856c9",
+        "main.js": "bca462dae676057b",
+        "story.json": "a3424ebc73843e59"
+      }
+    },
+    {
+      "key": "tutorial",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Your guide",
+      "kick": "Introduction",
+      "col": "#e8eef8",
+      "desc": "A robot guide shows you how the app works in a headset: pointing, playing a story, exploring, the menu and shared rooms. Then a few tasks to practise.",
+      "len": "Story 3:35 · then practice",
+      "page": "Tutorial: a robot guide shows you round",
+      "brand": "Tutorial",
+      "sub": "a robot guide shows you round",
+      "aria": "Interactive 3D tutorial in which a robot guide shows how to use the app in a headset",
+      "thing": "guide",
+      "loading": "Booting the guide",
+      "authors": "The app's authors",
+      "life": true,
+      "list": "stories",
+      "icon": "tutorial.guide",
+      "intro": true,
+      "needs": 185,
+      "fp": "e125d674c111b7a8",
+      "bytes": 1984088,
+      "files": {
+        "audio/narration.mp3": "02d8cefbeb8a6a18",
+        "main.js": "dc4d36453d5d7561",
+        "story.json": "4c296f398e596340"
+      }
+    },
+    {
+      "key": "cellstress",
+      "api": 1,
+      "version": "0.1.0",
+      "title": "Cell stress test",
+      "kick": "Measuring",
+      "col": "#8cc8ff",
+      "desc": "The cell map's model cell filled with up to 20,000 made-up proteins and 80,000 links, to read a headset's frame rate at each size.",
+      "len": "Story 0:16",
+      "aria": "Interactive 3D test: the cell map's model cell with many made-up proteins and links",
+      "thing": "cell",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "experiments",
+      "needs": 178,
+      "fp": "9d1f27e39b387796",
+      "bytes": 253688,
+      "files": {
+        "main.js": "5057b8760376799d",
+        "story.json": "5952270193ab60e7"
+      }
+    },
+    {
+      "key": "hello",
+      "api": 1,
+      "version": "1.0.0",
+      "title": "Six handshakes",
+      "kick": "Small worlds",
+      "col": "#8fd3ff",
+      "desc": "Sixty people in a ring, and how a few shortcuts bring everyone close: the example story package.",
+      "len": "Story 1:34",
+      "aria": "Interactive 3D story: Six handshakes, small-world networks",
+      "thing": "ring",
+      "authors": "The app's authors",
+      "life": false,
+      "list": "experiments",
+      "needs": 169,
+      "fp": "b990c117b099014c",
+      "bytes": 259080,
+      "files": {
+        "icon.png": "fb2e43f5422b9ad0",
+        "main.js": "2711841a3c42b981",
+        "story.json": "f08b320fffed224b"
       }
     }
   ]

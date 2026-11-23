@@ -2345,7 +2345,8 @@
     // (the pages that are not stories after the stories, in their list's order: the design room's, the studio's; then the
     // All stories circles and the lobby)
     const extra = k => { const e = (self.STORY_EXTRA || []).findIndex(x => x && x.key === k); return e < 0 || e > 8 ? 0.9 : e / 10; };
-    const order = s => { if (s.kind) return HOST.list.length + (s.kind === ALL ? 1 : 2); const i = HOST.list.findIndex(x => x.key === s.story); return i < 0 ? HOST.list.length + extra(s.story) : i; };
+    // (the Experiments set's stories after the main set's: HOST.stories)
+    const SL = HOST.stories(), order = s => { if (s.kind) return SL.length + (s.kind === ALL ? 1 : 2); const i = SL.findIndex(x => x.key === s.story); return i < 0 ? SL.length + extra(s.story) : i; };
     out.sort((a, b) => order(a) - order(b) || a.id.localeCompare(b.id));
     C.st = out; C.stById = new Map(out.map(s => [s.id, s]));
     // a station that is missing for a moment (a relay restart: the room comes back empty, then refilled) stays
@@ -2466,7 +2467,7 @@
   // back to its cards
   function allPickAt(id, key) {
     const s = C.stById.get(id), cur = s && val('st.' + id);
-    if (!C.code || !s || s.kind !== ALL || !cur || (key !== ALL && !HOST.list.some(m => m.key === key))) return false;
+    if (!C.code || !s || s.kind !== ALL || !cur || (key !== ALL && !HOST.stories().some(m => m.key === key))) return false;
     const v = Object.assign({}, bare(cur), { story: key, kind: ALL, sync: s.sync === true }), next = Object.assign({}, s, { story: key });
     delete v.ts; delete v.h;
     const pairs = [['st.' + id, v]];
@@ -2482,7 +2483,7 @@
     const L = liveSt();
     // (the room only ever asks for the circle's own story, so L.story === key covers its switches: an older request that
     // never ran, C.going, must not turn a person's pick into this device's alone)
-    if (!L || L.kind !== ALL || L.story === key || (C.mine !== L.id && C.follow !== L.id) || !HOST.list.some(m => m.key === key)) return false;
+    if (!L || L.kind !== ALL || L.story === key || (C.mine !== L.id && C.follow !== L.id) || !HOST.stories().some(m => m.key === key)) return false;
     return allPickAt(L.id, key);
   }
   // the switch (Own stories, or With the room's circles): never refused by either lock. Turned off with a story running in
@@ -2691,7 +2692,7 @@
   };
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room, the studio: no
   // chapters) in explore mode, at its table or its scene
-  const startClock = story => ({ mode: !story || HOST.list.some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
+  const startClock = story => ({ mode: !story || HOST.stories().some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
   // where you are in the room and which way you face: a headset's head, a desktop's room origin
   function base() {
     if (R.aligned && R.headOK) return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw };
@@ -2898,8 +2899,8 @@
       pairs.push(['st.' + id, { story: m.key, x: r3(b.x + ahead * fx + side * rx), z: r3(b.z + ahead * fz + side * rz), yaw: r3(b.yaw) }]);
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
-    // (a second station of a story goes; one of a story this device does not know, of a page that is not a story, such
-    // as the design room's table or the studio, and the shell's own kinds, All stories and Back to the lobby, stay where
+    // (a second station of a story goes; one of a story this device does not know, of the Experiments set (v188: placed
+    // only by Add), of a page that is not a story, such as the design room's table or the studio, and the shell's own kinds, All stories and Back to the lobby, stay where
     // they are: never part of Arrange all)
     for (const s of C.st) if (!used.has(s.id) && !s.kind && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
     log('arrange', { stations: n });
@@ -2910,17 +2911,18 @@
       sfx('place', roomAt(v.x, 0.05, v.z), { delay: i * 0.07, gain: 0.7, force: true, pan: side * 0.5 });
     });
   }
-  // what Add offers (the page's picker, the headset's Add page): every story, then the pages that are not stories (the
+  // what Add offers (the page's picker, the headset's Add page): every story (the Experiments set's too, after the main
+  // set's: HOST.stories; never placed by Arrange all), then the pages that are not stories (the
   // design room's table, the studio), which only Add and the menu's Design room and Studio buttons place, never Arrange all
   // (and then the shell's own kinds: All stories and Back to the lobby)
   // (and after the studio its relay's scenes, one entry each: SCN, below)
   const addable = () => {
-    const ex = (self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)), st = meta(STUDIO);
+    const all = HOST.stories(), ex = (self.STORY_EXTRA || []).filter(m => m && m.key && !all.some(x => x.key === m.key)), st = meta(STUDIO);
     const sc = st && !st.unknown && ex.some(m => m.key === STUDIO) ? SCN.list.map(n => ({ key: STUDIO, scene: n, title: 'Studio: ' + n, kick: st.kick, col: st.col })) : [];
     const k = ex.findIndex(m => m.key === STUDIO) + 1;
-    return HOST.list.concat(ex.slice(0, k), sc, ex.slice(k), [KINDS.all, KINDS.lobby]);
+    return all.concat(ex.slice(0, k), sc, ex.slice(k), [KINDS.all, KINDS.lobby]);
   };
-  const addName = m => (HOST.list.includes(m) || m.kind || m.scene ? m.title : m.kick || m.title);
+  const addName = m => (HOST.stories().includes(m) || m.kind || m.scene ? m.title : m.kick || m.title);
   // an entry's value in the page's picker and its button's id in the headset's (add:<it>): a scene's 'scene:<name>'
   const addVal = m => (m.scene ? 'scene:' + m.scene : m.key);
   const addOne = (v, b) => (/^scene:/.test(v) ? addScene(v.slice(6), b) : add(v, b));
@@ -12482,7 +12484,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
         // its switch; its panels and lock are its session's)
         const m = Object.assign({}, meta(lookKey(s)), { title: stTitle(s) }), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you'), ss = sessOf(s), pm = stPanels(ss), sl = stLocked(ss), lob = s.kind === LOBBY_ST;
         const all = s.kind !== ALL ? '' : `<select class="pk" data-sh-pick="${s.id}" aria-label="The story at this All stories circle"><option value="all"${runs(s) ? '' : ' selected'}>Choosing a story</option>${
-          HOST.list.map(k => `<option value="${esc(k.key)}"${k.key === s.story ? ' selected' : ''}>${esc(k.title)}</option>`).join('')}</select>
+          HOST.stories().map(k => `<option value="${esc(k.key)}"${k.key === s.story ? ' selected' : ''}>${esc(k.title)}</option>`).join('')}</select>
           <button class="btn al${s.sync ? ' on' : ''}" type="button" data-sh="allsync:${s.id}" aria-pressed="${!!s.sync}" title="Own stories: this circle runs its own. With the room's circles: a story picked here joins the room's circle of that story, at the same moment">${s.sync ? 'With the room\'s circles' : 'Own stories'}</button>`;
         // (the room's arc: everyone's Stories screen, until another circle is added or Arrange all)
         return `<li class="${on ? 'on' : ''}"><i style="background:${m.col}"></i><b>${esc(m.title)}</b><span>${s.arc ? 'For everyone in the room until another circle is added · ' : ''}${esc(stationLine(s))}${who.length ? ' · ' + esc(who.join(', ')) : ''}</span>

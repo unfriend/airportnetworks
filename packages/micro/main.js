@@ -8190,7 +8190,7 @@ function xrLandingSetup() {
   GL.rig.add(XR.landGroup);
   // the header: the title, a hint and Back to the story (the sound, Sound check, Anchor, Exit, Recenter and Repeat are
   // in the shell's menu, which a stick's click opens)
-  const head = makePanel(1400, 236, 1.02, drawLandHead, () => 'h' + XR.inStory + xrCards() + HOST.anchor.status() + HOST.list.length);
+  const head = makePanel(1400, 236, 1.02, drawLandHead, () => 'h' + XR.inStory + xrCards() + HOST.anchor.status() + HOST.list.length + xrLandTitle());
   head.mesh.position.set(0, XR_LAND.head, -1.22);
   XR.landGroup.add(head.mesh); XR.land.push(head); XR.panels.push(head);
   xrLandingCards();
@@ -8199,15 +8199,19 @@ function xrLandingSetup() {
 // the stories (rounded up) in the upper row, in the list's order, the rest under them, a shorter row centred. In a row
 // neighbours stand 0.381 m apart and the outer ones at most 62° to the side (eight: 0.306 rad apart at 1.25 m), never
 // nearer than 1.25 m (a few stories stand closer together in angle). Built again when the shell's list of stories
-// changes while the app runs (HOST.listRev: a story added in a release gets its card)
+// changes while the app runs (HOST.listRev: a story added in a release gets its card, and the shell's other set of cards,
+// HOST.menu, v188: Experiments and back). The cards are the shell's set on show (a shell without HOST.menu: HOST.list)
+const xrLandList = () => (HOST.menu ? HOST.menu.cards() : HOST.list);
+// the Stories screen's title: the set on show, no count of stories (v188)
+const xrLandTitle = () => (HOST.menu ? HOST.menu.title() : 'Network stories');
 function xrLandingCards() {
   for (const P of XR.land.splice(1)) {
     XR.landGroup.remove(P.mesh); XR.panels.splice(XR.panels.indexOf(P), 1);
     P.tex.dispose(); P.mesh.geometry.dispose(); P.mesh.material.dispose();
   }
-  const n = HOST.list.length, per = Math.ceil(n / 2), d = Math.max(1.25, per > 1 ? 0.1905 / Math.sin(1.085 / (per - 1)) : 0), step = 2 * Math.asin(0.1905 / d);
+  const L = xrLandList(), n = L.length, per = Math.ceil(n / 2), d = Math.max(1.25, per > 1 ? 0.1905 / Math.sin(1.085 / (per - 1)) : 0), step = 2 * Math.asin(0.1905 / d);
   XR.landRev = HOST.listRev;
-  HOST.list.forEach((s, k) => {
+  L.forEach((s, k) => {
     const row = k < per ? 0 : 1, m = row ? n - per : per, a = (k - row * per - (m - 1) / 2) * step;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + (s.key === XR_HERE ? XR.inStory : '') + s.key);
     P.cap = true;   // (a card: shown once drawn, its first draw at most two a frame; panelTick)
@@ -8227,8 +8231,7 @@ function xrLandingClose() {
   if (APP.mode === 'story' && !xrRoomOnly()) APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][(HOST.count ? HOST.count() : HOST.list.length) - 1] || (HOST.count ? HOST.count() : HOST.list.length)} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(xrLandTitle(), 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -8245,7 +8248,7 @@ function drawLandCard(ctx, P, s) {
   const dy = 112 + fitTitle(ctx, s.title, 46, 112, P.w - 94, 72, 78, VC.ink, 700, 58, true) + 32;
   textBlock(ctx, s.desc, 48, dy, P.w - 96, 31, 45, VC.muted, 400, Math.min(7, Math.floor((P.h - 243 - dy) / 45) + 1));
   ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, s.len, P.w - 96), 48, P.h - 196);
-  const label = here && XR.inStory ? 'Resume' : 'Start';
+  const label = s.menu ? 'Open' : here && XR.inStory ? 'Resume' : 'Start';   // (a card of the shell's other set: HOST.go opens it)
   vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
   P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here && !xrCards() ? xrLandingClose() : HOST.go(s.key)) });
 }
@@ -8253,8 +8256,8 @@ function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
   y += textBlock(ctx, 'The same ideas, very different networks. Pick one; you stay in the headset view.', x, y, W, 25, 35, VC.muted) + 22;
   // fit the cards above the Back button (the list grew to four)
-  const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
-  for (const { key: k, kick, title, desc, col } of XR_STORIES) {
+  const L = xrLandList(), h = Math.min(210, Math.floor((P.h - 96 - y) / L.length) - 18);
+  for (const { key: k, kick, title, desc, col } of L) {
     const here = k === XR_HERE;
     vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here && !xrCards()) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     let yw = 0;   // the kicker stops short of 'You are here' beside it

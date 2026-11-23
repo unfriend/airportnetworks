@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Networks, in sixteen stories</title>
-<meta name="description" content="Network science in sixteen short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, the hidden mechanisms (endotypes) of one rare disease at the junction between nerve and muscle, the body's organs as a metabolic network seen by a PET scanner, how organs are built from small working units of tissue and how they change with age, how the ovary ages, seen in 255 tissue sections, how a gene network is shrunk to fit on a tiny quantum computer, how DNA changes letter by letter along a family tree, and how a quantum computer can model it, how the way cells sit in a slide of liver, read at every scale at once, tells cirrhosis from healthy tissue, how a wheat bred from a wild grass holds on to nitrogen and what the soil's microbes do meanwhile, how warnings, viruses and signals spread through a school of fish, the world's flights and a cell (in English and German), a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
+<title>Network stories</title>
+<meta name="description" content="Network science in short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, the hidden mechanisms (endotypes) of one rare disease at the junction between nerve and muscle, the body's organs as a metabolic network seen by a PET scanner, how organs are built from small working units of tissue and how they change with age, how the ovary ages, seen in 255 tissue sections, how a gene network is shrunk to fit on a tiny quantum computer, how DNA changes letter by letter along a family tree, and how a quantum computer can model it, how the way cells sit in a slide of liver, read at every scale at once, tells cirrhosis from healthy tissue, how a wheat bred from a wild grass holds on to nitrogen and what the soil's microbes do meanwhile, how warnings, viruses and signals spread through a school of fish, the world's flights and a cell (in English and German), a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Networks, in sixteen stories">
-<meta property="og:description" content="Network science in sixteen short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, the microanatomy of tissues and how it ages, how the ovary ages, a gene network on three qubits, DNA's changes as a quantum circuit, the shape of liver tissue at every scale, a wheat that holds on to nitrogen and the soil's microbes, how things spread from fish to flights to cells, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
+<meta property="og:title" content="Network stories">
+<meta property="og:description" content="Network science in short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, the microanatomy of tissues and how it ages, how the ovary ages, a gene network on three qubits, DNA's changes as a quantum circuit, the shape of liver tissue at every scale, a wheat that holds on to nitrogen and the soil's microbes, how things spread from fish to flights to cells, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -304,7 +304,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-/* rows of four, two, one; a last row that is not full is centred (sixteen stories: 4 + 4 + 4 + 4, or eight rows of 2) */
+/* rows of four, two, one; a last row that is not full is centred */
 #picker .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
 #picker .cards .card { flex: 0 0 calc((100% - 42px) / 4); }
 @media (min-width: 1021px) { #picker .wrap { max-width: 1180px; } }
@@ -324,6 +324,9 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .card .pk { float: right; width: 44px; height: 44px; margin: -4px -4px 8px 12px; border-radius: 8px; object-fit: cover; }
 #picker .card i.pk { display: block; opacity: 0.8; }
 #picker .card.hid { border-style: dashed; }
+#picker .card.menu { background: rgba(70, 217, 255, 0.07); }
+#picker .card.menu[data-story="experiments"] b::after { content: ' \2192'; color: #7f91a8; }
+#picker .card.menu[data-story="stories"] b::before { content: '\2190 '; color: #7f91a8; }
 #picker .card.old em { color: #ffb43b; }
 #picker .repeat { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 18px; }
 #picker .rep { font: inherit; font-size: 14px; color: #e7eef8; background: rgba(10, 19, 34, 0.88); cursor: pointer;
@@ -701,7 +704,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Networks<span>in sixteen stories</span></div>
+  <div class="brand">Networks<span>the stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <button class="btn" id="btnShared" type="button" data-open-shared aria-expanded="false" aria-controls="shared" title="Shared rooms: several headsets and screens see the same stories">Shared</button>
   <div class="spacer"></div>
@@ -753,7 +756,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
 </div>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in sixteen stories</h1>
+    <h1 id="pickTitle">Network stories</h1>
     <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
     <div class="repeat" role="group" aria-label="Repeat">
@@ -2855,8 +2858,9 @@ HOST.load = function (key, fresh) {
 // (the same HOST.register contract as stories/<key>.js) and its files, listed in packages/index.json by
 // tools/packages/scan.mjs. The index is read at start (the boot waits for it a moment at most: HOST.packages.ready) and
 // again with the list of stories (HOST.live); a missing or bad file means no packages, quietly. Each package becomes an
-// entry of HOST.list after the app's own (list: 'stories') or a hidden one (list: 'hidden': its address, HOST.go, and the
-// Stories screen in developer mode), with pkg, base, fp and iconUrl; HOST.meta finds both. One written for a newer Story
+// entry of HOST.list after the app's own (list: 'stories'), one of the Experiments screen (list: 'experiments', v188:
+// HOST.menu) or a hidden one (list: 'hidden': its address, HOST.go, and the Stories screen in developer mode), with pkg,
+// base, fp and iconUrl; HOST.meta finds both. One written for a newer Story
 // API (api above HOST.storyApi) or a newer shell (needs) is never loaded: its card says so. The index's order (packages/
 // order.json, v185: every one of the app's stories, moved into a package or not) sorts HOST.list, so a story keeps its
 // card's place when it moves; the packages it names are the app's own (app: true; icon names its stations' miniature,
@@ -2877,7 +2881,7 @@ HOST.packages = (function () {
     const m = { key: o.key, kick, title, col: COL.test(o.col) ? o.col : '#8fd3ff', desc: str(o.desc, ''),
       page: str(o.page, title + ': ' + kick), brand: str(o.brand, title), sub: str(o.sub, kick), aria: str(o.aria, 'Interactive 3D story: ' + title),
       thing: str(o.thing, 'scene'), loading: str(o.loading, 'Loading ' + title), len: old ? 'Needs a newer version of the app' : str(o.len, ''),
-      pkg: true, base: 'packages/' + o.key + '/', fp: o.fp, api: o.api, list: o.list === 'hidden' ? 'hidden' : 'stories', files };
+      pkg: true, base: 'packages/' + o.key + '/', fp: o.fp, api: o.api, list: o.list === 'hidden' || o.list === 'experiments' ? o.list : 'stories', files };
     if (o.life === true) m.life = true;
     if (o.intro === true) m.intro = true;
     if (typeof o.icon === 'string' && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(o.icon)) m.icon = o.icon;
@@ -2937,6 +2941,8 @@ HOST.packages = (function () {
     ready: ms => Promise.race([first.catch(() => false), new Promise(r => setTimeout(r, ms))]),
     get: key => P.all.find(m => m.key === key),
     all: () => P.all.slice(), hidden: () => P.all.filter(m => m.list === 'hidden'), listed, sort,
+    // (the Experiments screen's: list "experiments", in the index's order, v188; HOST.menu)
+    experiments: () => sort(P.all.filter(m => m.list === 'experiments')),
     // the fingerprint of the package as last run here (set by HOST.load)
     ran(key, fp) { if (fp !== undefined) P.ran[key] = fp; return P.ran[key]; },
     state: () => P,   // (for tests)
@@ -3416,8 +3422,12 @@ HOST.teardown = function () {
 };
 // a key's entry: one of the stories (HOST.list), or a page that is not one of them (self.STORY_EXTRA in
 // stories/list.js: the design room), started, loaded, swapped and titled the same way but not one of them (the Stories
-// screens, Arrange all, the count, Repeat's next story see only HOST.list; a shared room's station picker lists it last),
-// or a hidden story package (HOST.packages)
+// screens, Arrange all, Repeat's next story see only HOST.list; a shared room's station picker lists it last),
+// or a story package of the Experiments set or a hidden one (HOST.packages)
+// every story: the main set's (HOST.list) and the Experiments' (HOST.menu, v188). What a shared room may run as a story
+// (a station from Add, an All stories circle's pick, a story's clock); Arrange all, Repeat all and the main Stories
+// screen see only HOST.list
+HOST.stories = function () { const L = this.list; return L.concat(this.packages ? this.packages.experiments().filter(m => !L.some(x => x.key === m.key)) : []); };
 HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key) || (this.packages && this.packages.get(key)); };
 // place: a place to put back once the story is built (a swap, a reload: HOST.live)
 HOST.start = async function (key, keepHash, place) {
@@ -3431,6 +3441,7 @@ HOST.start = async function (key, keepHash, place) {
   // a story this device does not know (a shared room's station, from a newer copy of the app): it says so, and offers
   // the update (HOST.live)
   if (!meta) { if (key) this.live.missing(key); return; }
+  this.menu.follow(meta.key);   // (the Stories screen opens on this story's set of cards next time: HOST.menu)
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
   if (!this.live.allowed(meta.key)) return;   // it needs a newer shell: asked first (HOST.live)
   // a story package written for a newer app (its Story API or the shell it needs): never loaded, said on the bar
@@ -3525,7 +3536,45 @@ HOST.putPlace = function (P) {
   if (P.view != null && c.setView) try { c.setView(P.view); } catch (e) { /* no view to take */ }
 };
 // from the headset menu: change story after the click that asked for it has finished
-HOST.go = key => setTimeout(() => HOST.start(key), 0);
+HOST.go = key => setTimeout(() => (HOST.menu.is(key) ? HOST.menu.open(key) : HOST.start(key)), 0);   // (a card of HOST.menu: its screen)
+// The Stories screen's two sets of cards (v188; the owner, 23 November 2026: "add one card at the end called experiments
+// that opens another cards arch menu with the hidden and experimental things that are not in the main menu"), the same
+// on the page (HOST.cards) and in the headset (the card arch: cards(), built again as HOST.listRev changes): the main
+// one (HOST.list, then a card Experiments) and the Experiments one (the story packages with list "experiments" in their
+// story.json, then a card back to the main one). Which one shows is this device's (never in a room's state); a story
+// started from either brings its own set back the next time the Stories screen opens (follow). The two cards' keys,
+// experiments and stories, are words the address uses (#experiments opens the Stories screen on that set)
+HOST.menu = (function () {
+  const M = { at: 'main' };
+  const EXP = { key: 'experiments', menu: 'experiments', kick: 'More to explore', title: 'Experiments', col: '#c9a6ff',
+    desc: 'Stories in the making, short pieces and tests that are not in the main set. They work as the stories do.', len: 'Opens more cards' };
+  const BACK = { key: 'stories', menu: 'main', kick: 'Back', title: 'Network stories', col: '#46d9ff',
+    desc: 'Back to the main stories.', len: 'Opens the main cards' };
+  const exps = () => (HOST.packages ? HOST.packages.experiments() : []);
+  const which = key => (key === EXP.key || key === 'experiments' ? 'experiments' : 'main');
+  const api = {
+    get at() { return M.at; },
+    // a card of the menu itself (not a story)
+    is: key => key === EXP.key || key === BACK.key,
+    // the set a story's card is in
+    of: key => (exps().some(m => m.key === key) ? 'experiments' : 'main'),
+    // the cards of the set on show: stories, then the card to the other set (none to an empty Experiments set)
+    cards: () => (M.at === 'experiments' ? exps().concat([BACK]) : HOST.list.concat(exps().length ? [EXP] : [])),
+    title: () => (M.at === 'experiments' ? 'Experiments' : 'Network stories'),
+    // show the other set (a card's key or 'main' / 'experiments'): both Stories screens change at once
+    open(key) {
+      const w = key === 'main' ? 'main' : which(key);
+      if (w === M.at) return false;
+      M.at = w; HOST.listRev++;
+      if (HOST.cards) HOST.cards();
+      if (HOST.onStories || HOST.picking) HOST.setUrl(true); else HOST.chrome(false);
+      if (HOST.picking) setTimeout(() => { const c = document.querySelector('#picker .card'); if (c) c.focus(); }, 0);
+      return true;
+    },
+    follow(key) { api.open(api.of(key)); },
+  };
+  return api;
+})();
 // the address says where you are, so it can be shared: #stories on the Stories
 // screen (page or headset), #airports, #proteins or #spatial in a story; in a shared
 // room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL). It replaces the address, except
@@ -3533,19 +3582,22 @@ HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // 'back' (the Stories screen opened over such an entry: back to the one under it), HOST.hist
 HOST.setUrl = function (stories, how) {
   this.onStories = !!stories;   // (the Stories screen, page or headset: no story on show, for the menu's Panels row)
-  const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey + (this.arrange ? this.arrange.tail(this.curKey) : ''));
+  const h = (this.collab && this.collab.hash()) || (stories ? (this.menu.at === 'experiments' ? '#experiments' : '#stories') : '#' + this.curKey + (this.arrange ? this.arrange.tail(this.curKey) : ''));
   if (!(how && this.hist[how] && this.hist[how](h))) this.hist.replace(h);
   this.chrome(stories);
 };
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
-  const meta = this.meta(this.curKey), app = stories || !meta, n = this.count();
-  document.title = app ? `Networks, in ${n} stories` : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? `Networks<span>in ${n} stories</span>` : `${meta.brand}<span>${meta.sub}</span>`;
-  document.getElementById('pickTitle').textContent = `Networks, in ${n} stories`;
+  // (no count of stories anywhere: "just say network stories, no number needed", the owner, 23 November 2026)
+  const meta = this.meta(this.curKey), app = stories || !meta, exp = this.menu.at === 'experiments';
+  document.title = app ? this.menu.title() : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? `Networks<span>${exp ? 'experiments' : 'the stories'}</span>` : `${meta.brand}<span>${meta.sub}</span>`;
+  document.getElementById('pickTitle').textContent = this.menu.title();
+  document.querySelector('#picker .lede').textContent = exp ? 'Stories in the making, short pieces and tests. They work as the stories do; the last card goes back.'
+    : 'The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.';
 };
-// how many stories, in words up to twenty (the title, the Stories screen; the headsets' Stories screens say the same); an
-// entry with intro (the tutorial: an introduction, not one of the stories) is not counted
+// how many stories, in words up to twenty; an entry with intro (the tutorial) is not counted. Shown nowhere since v188 (no
+// count of stories): kept for story packages built before it, whose headset Stories screen still says it
 HOST.count = function () {
   const n = this.list.filter(s => !s.intro).length;
   return ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen',
@@ -4739,9 +4791,12 @@ HOST.cards = function () {
   const pic = s => (!s.pkg ? '' : s.iconUrl ? `<img class="pk" src="${esc(s.iconUrl)}" alt="" loading="lazy">` : `<i class="pk" style="background:${esc(s.col)}"></i>`);
   const card = s => (s.pkg && !s.app ? `<button class="card pkg${s.key === this.curKey ? ' here' : ''}${s.list === 'hidden' ? ' hid' : ''}${s.refused ? ' old' : ''}" type="button" data-story="${esc(s.key)}">
     ${pic(s)}<span class="k" style="color:${esc(s.col)}">${esc(s.kick)}</span><b>${esc(s.title)}</b><span class="d">${esc(s.desc)}</span><em>${esc(s.list === 'hidden' ? (s.len ? s.len + ' · ' : '') + 'hidden package' : s.len)}</em></button>`
-    : `<button class="card${s.key === this.curKey ? ' here' : ''}" type="button" data-story="${s.key}">
+    : `<button class="card${s.key === this.curKey ? ' here' : ''}${s.menu ? ' menu' : ''}" type="button" data-story="${s.key}">
     <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`);
-  box.innerHTML = this.list.concat(this.dev && this.dev.on() ? this.packages.hidden() : []).map(card).join('');
+  // (the set on show, HOST.menu: its last card opens the other; developer mode's hidden packages on the main one)
+  const exp = this.menu.at === 'experiments', cards = this.menu.cards(), dev = !exp && this.dev && this.dev.on() ? this.packages.hidden() : [];
+  box.innerHTML = (dev.length && cards.length && cards[cards.length - 1].menu ? cards.slice(0, -1).concat(dev, cards.slice(-1)) : cards.concat(dev)).map(card).join('');
+  box.closest('#picker').classList.toggle('exp', exp);
   if (had) { const c = box.querySelector(`[data-story="${had.dataset.story}"]`); if (c) c.focus(); }
 };
 // ------------------------------------------------------------------ a story's copy --
@@ -5567,6 +5622,7 @@ HOST.arrange = (function () {
     const c = ev.target.closest('[data-story]');
     if (!c) return;
     HOST.handheld.storyTap();   // (a phone or tablet: full screen, asked for within the tap)
+    if (HOST.menu.is(c.dataset.story)) { HOST.menu.open(c.dataset.story); return; }   // (Experiments, or back: the other set of cards)
     if (HOST.collab && HOST.collab.allPick && HOST.collab.allPick(c.dataset.story)) return;   // (following an All stories circle: its pick)
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
   });
@@ -5626,13 +5682,14 @@ HOST.arrange = (function () {
   HOST.packages.ready(appKeys.some(k => hp.has(k)) ? 0 : named ? 4000 : 1500).then(() => (HOST.list.length ? true : HOST.packages.ready(30000))).then(() => {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
-    const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
+    const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.experiments(), HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
     const first = HOST.list.find(s => !s.intro) || HOST.list[0];   // (not an introduction: the tutorial is built only when asked for)
     const key = (back && back.key) || keys.find(k => hp.has(k)) || (first ? first.key : 'design');
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
     HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
     // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
     HOST.start(key, true, back).then(() => {
+      if (hp.has('experiments') && !back) HOST.menu.open('experiments');   // (#experiments: the Stories screen on its Experiments set)
       if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
       HOST.live.restored(back);
       HOST.dev.boot();   // (developer mode: what is new, over the Stories screen or the story the link opened)

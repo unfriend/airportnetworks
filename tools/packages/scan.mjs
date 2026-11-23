@@ -53,7 +53,7 @@ const mini = v => str(v) && /^[a-z][a-z0-9-]*\.[a-z0-9-]+$/.test(v) && MINIS.inc
 const FIELDS = {
   key: str, api: v => Number.isInteger(v) && v >= 1, version: opt(str), title: full, kick: full, col: v => str(v) && COL.test(v), desc: full,
   len: opt(str), page: opt(full), brand: opt(full), sub: opt(str), aria: opt(full), thing: opt(full), loading: opt(full),
-  authors: opt(str), life: opt(v => typeof v === 'boolean'), list: opt(v => v === 'stories' || v === 'hidden'), needs: opt(v => Number.isInteger(v) && v >= 1),
+  authors: opt(str), life: opt(v => typeof v === 'boolean'), list: opt(v => ['stories', 'experiments', 'hidden'].includes(v)), needs: opt(v => Number.isInteger(v) && v >= 1),
   icon: opt(mini), intro: opt(v => v === true),
 };
 const NEED = ['key', 'api', 'title', 'kick', 'col', 'desc'];
@@ -112,7 +112,7 @@ entries.sort((a, b) => rank(a) - rank(b) || (a.key < b.key ? -1 : 1));
 for (const l of left) console.log(l);
 const text = JSON.stringify(order.length ? { api: API, order, packages: entries } : { api: API, packages: entries }, null, 2) + '\n';
 const had = (() => { try { return fs.readFileSync(out, 'utf8'); } catch (e) { return null; } })();
-const list = entries.map(e => e.key + (e.list === 'hidden' ? ' (hidden)' : '')).join(', ') || 'none';
+const list = entries.map(e => e.key + (e.list === 'hidden' || e.list === 'experiments' ? ` (${e.list})` : '')).join(', ') || 'none';
 if (check) {
   console.log(had === text ? `packages/index.json is current (${entries.length} packages: ${list})` : 'packages/index.json is out of date: run node tools/packages/scan.mjs');
   process.exit(had === text && !left.length ? 0 : 1);
