@@ -31,6 +31,41 @@ These decisions override the sections below where they differ.
   flock is collab's `HEADSET_STORY`) and `tools/packages/move.mjs` for the next moves. Then the built stories tail first
   in batches, the tutorial last of them, then the three wrapped, airports last; cleanup (Z) at the end.
 
+### Status (v185) and how the next stories move
+
+Done in the first slice (v185): `tools/stories.mjs` and the tools on it; `packages/order.json`, `icon`/`intro`/`bytes`,
+`HOST.list` in one order, the 1.5 s boot wait; `version.json`'s `packages`; the relay's `--watch`/`--build` of
+`packages/`; `tools/engine/all.mjs` over the app's packages; the worker's install of every listed `main.js` and *Take
+all stories* (page button; automatic on an installed app); the robot gang moved (`packages/robots/`). Not done: a
+headset menu row for *Take all stories* (an installed headset app takes them by itself), a `packages order` / `take all`
+smoke block, a package case in `tools/live.mjs`.
+
+Moving a built story (one commit each, or a batch; the tree clean):
+
+1. `node tools/packages/move.mjs <key> --dry`, then `node tools/packages/move.mjs <key>` (`--needs <n>`: the release
+   that moves it, default `VERSION` + 1). It stops (exit 1) when the new `main.js` differs from the old built file in
+   any line but those naming the narration or the folders, and notes any `audio/narration-<key>...` left in the engine
+   (the pass story's German: its `AUDIO` map's `de` entry, by hand to `HOST.pkgUrl('pass',
+   'audio/narration-de.mp3')`; the voice tools already write a package's languages there).
+2. Builds that read other stories' files keep working: shared sources (`'../lbi/sets/body.js'` ...) are read from
+   `tools/` by the patched build's `src()`; a build that reads `stories/<other>.js` (pass: airports, spatial) is
+   untouched. But a story whose sources others read (lbi: body, tissue, web; micro: organs; nmd: motor and data; topo:
+   look) must stay in `tools/` until the shared library (G3) exists, or the readers' paths change with it: move the
+   readers first (endo, pet, ovary, soil, then micro, topo), and lbi, nmd last of the built ones, each with its readers'
+   builds patched (`'../lbi/'` becomes `'../../packages/lbi/src/'` in their `src()`), or do G3 first.
+3. Checks: `node packages/<key>/src/build.mjs --check`, `node tools/engine/all.mjs --check`, `node tools/packages/scan.mjs
+   --check`, `node tools/packages/check.mjs packages/<key> --load`, the story's data test where it has one; then the
+   `VERSION` bump, `whatsnew.json`, `node tools/release.mjs`, `node tools/narration.mjs <url>`, the story's docs
+   (`docs/agents/stories.md`, `layout.md`, the AGENTS.md table, `README.txt`, `README.md`, `HANDOVER.md`).
+4. Before `main`: the smoke test, `node tools/collab.mjs --quick`, `node relay/test.mjs`, `tools/update.mjs` (it opens
+   the first moved story offline), `tools/live.mjs`, and `tools/audio.mjs` for a story it names (robots, lbi, soil).
+
+Batches: A (no shared sources used from them) qubits, mutation, flock (collab's `HEADSET_STORY`: run the whole collab
+suite), tutorial (`intro`, `needs`, `tools/tutorial/test-script.mjs`); B the readers endo, pet, ovary, soil, then
+micro and topo, then nmd and lbi (or G3 first); C pass (its `ORIGINALS` stay in `stories/` until the wrap); then the
+three hand-written stories wrapped (`git mv stories/<key>.js packages/<key>/main.js`, its narration literal through
+`HOST.pkgUrl`, `story.json` by hand, pass's `ORIGINALS` paths), airports last.
+
 ## 0. What is there now (the facts the plan rests on)
 
 - Packages work today (`docs/agents/packages.md`, `tools/packages/SPEC.md`): `packages/<key>/{story.json, main.js,
