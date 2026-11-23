@@ -1,7 +1,7 @@
 # The shape of tissue: 3D sets, data and engine spec
 
 The fifteenth story of the app: `stories/topo.js`, built from `tools/topo/` like the mutation story is built from
-`tools/mutation/`. It follows the poster **"topocyte: scale-resolved topological phenotyping of tissue architecture
+`packages/mutation/src/`. It follows the poster **"topocyte: scale-resolved topological phenotyping of tissue architecture
 across spatial modalities"** by **Simon Schindler, André Rendeiro and Jörg Menche** (Ludwig Boltzmann Institute for
 Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the
 Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter; all Vienna), shown at
@@ -45,7 +45,7 @@ Decisions (the owner's and the author's, 28 Oct 2026):
   for the filtration drawn upwards, "a network with triangles" for a simplicial complex.
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/engine/kit.js`, with these differences (as the mutation story's, `tools/mutation/SPEC.md`):
+`tools/engine/kit.js`, with these differences (as the mutation story's, `packages/mutation/src/SPEC.md`):
 - Set files live in `tools/topo/sets/`; the harness is `tools/topo/harness.html` (`?set=<name>&p=k:v,...&t=..&
   cam=<view or six numbers>&anim=1&with=<second set>`) and the screenshot tool `tools/topo/shot.mjs` (run it from
   `tools/topo`; `SHOTS=<dir>` and `PORT=<port>`). The harness loads `TOPO_DATA`, `TLOOK` (and the body set and
@@ -260,7 +260,7 @@ screen as the tour's tissue set does).
 
 ## The engine (`tools/topo/engine/`, adapted from the mutation story's)
 
-Copied from `tools/mutation/engine/` as a start. Rename everything: `HOST.register('topo', ...)`, the header comment
+Copied from `packages/mutation/src/engine/` as a start. Rename everything: `HOST.register('topo', ...)`, the header comment
 (the poster, its authors, the data), `audio/narration-topo.mp3`, `SET_ORDER = ['body', 'slide', 'map', 'tower',
 'cohort']`; remove the mutation story's own code (`MMATH`, `MUT_DATA`, its panes); `FACTS` from `TOPO_DATA` (every number
 the text shows: counts, shares, fve, accuracy, the snapshots, sizes, the cell's score, the runtime). Keep the shared lines

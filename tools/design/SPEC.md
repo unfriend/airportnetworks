@@ -1,6 +1,6 @@
 # The design room: contract
 
-What `stories/design.js` is and what it promises. The engine is the flock's (`tools/flock/engine/`), adapted; its
+What `stories/design.js` is and what it promises. The engine is the flock's (`packages/flock/src/engine/`), adapted; its
 shared-room, headset-setting and subtitle lines are the same as in every story.
 
 ## Not one of the stories

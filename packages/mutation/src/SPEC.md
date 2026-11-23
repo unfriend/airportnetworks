@@ -1,7 +1,7 @@
 # The mutation machine: 3D sets, maths and engine spec
 
 The fourteenth story of the app: `packages/mutation/main.js`, built from `packages/mutation/src/` like the qubits story is built from
-`tools/qubits/`. It follows the poster **"Converting Mutation into a Machinery: DNA Substitution Models as Quantum
+`packages/qubits/src/`. It follows the poster **"Converting Mutation into a Machinery: DNA Substitution Models as Quantum
 Circuits"** by **Enes Berk Sakalli** (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna) and
 **Arndt von Haeseler** (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and
 Medical University of Vienna); a draft of 26 Oct 2026, not in the repository. What it says is summed up below; nothing
@@ -38,7 +38,7 @@ Decisions (the owner's and the author's, 27 Oct 2026):
 - No patient data (the test is synthetic). The poster's pictures are never shown; its figures are redrawn in 3D.
 
 **The rules for sets are the tour's**: `tools/lbi/SPEC.md` from the top down to "Palette and look", and
-`tools/engine/kit.js`, with these differences (as the qubits story's, `tools/qubits/SPEC.md`):
+`tools/engine/kit.js`, with these differences (as the qubits story's, `packages/qubits/src/SPEC.md`):
 - Set files live in `packages/mutation/src/sets/`; the harness is `packages/mutation/src/harness.html` (`?set=<name>&p=k:v,...&t=..&
   cam=<view or six numbers>&anim=1`) and the screenshot tool `packages/mutation/src/shot.mjs` (run it from `packages/mutation/src`;
   `SHOTS=<dir>` and `PORT=<port>`). The harness loads `MMATH`, `MUT_DATA` and `MLOOK` before the set.
@@ -287,7 +287,7 @@ size.
 
 ## The engine (`packages/mutation/src/engine/`, adapted from the qubits story's)
 
-Copied from `tools/qubits/engine/` as a start. Rename everything: `HOST.register('mutation', ...)`, the header comment
+Copied from `packages/qubits/src/engine/` as a start. Rename everything: `HOST.register('mutation', ...)`, the header comment
 (the poster, its authors, example numbers), `packages/mutation/audio/narration.mp3`, `SET_ORDER = ['letters', 'tree', 'rule',
 'stem']`; remove the qubits story's own code (`QMATH`, `QUBITS_DATA`, its panes); `FACTS` from `MUT_DATA` and `MMATH`.
 Keep the shared lines identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing

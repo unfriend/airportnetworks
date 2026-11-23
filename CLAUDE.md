@@ -64,8 +64,8 @@ session and every agent and workflow it starts avoid them, and every agent promp
 
 | Built file | Source | Build |
 | --- | --- | --- |
-| `stories/lbi.js`, `nmd.js`, `endo.js`, `pet.js`, `micro.js`, `ovary.js`, `qubits.js`, `mutation.js`, `topo.js`, `soil.js`, `pass.js`, `flock.js`, `tutorial.js`, `design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
-| `packages/robots/main.js` (a story moved into a package; more follow) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too) |
+| `stories/lbi.js`, `nmd.js`, `micro.js`, `topo.js`, `pass.js`, `design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
+| `packages/<key>/main.js` of a story moved into a package (`robots`, `qubits`, `mutation`, `flock`, `tutorial`, `endo`, `pet`, `ovary`, `soil`; more follow) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too) |
 | `packages/index.json` | `packages/*/` and `packages/order.json` | `node tools/packages/scan.mjs` |
 | `lowpoly.js` | `tools/lowpoly/` | `node tools/lowpoly/build.mjs` |
 | `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |

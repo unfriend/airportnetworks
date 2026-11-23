@@ -1,7 +1,7 @@
 # The microanatomy story: 3D sets and engine spec
 
 We are adding a tenth story to the web app in `/home/user/airportnetworks`: `stories/micro.js`, built from
-`tools/micro/` like the PET story `stories/pet.js` is built from `tools/pet/`. It turns a preprint, a poster and a
+`tools/micro/` like the PET story `packages/pet/main.js` is built from `packages/pet/src/`. It turns a preprint, a poster and a
 talk into a narrated, about five-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser). Bold and beautiful, as the other stories.
 

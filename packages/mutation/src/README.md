@@ -4,7 +4,7 @@
 Substitution Models as Quantum Circuits" by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the
 University of Vienna) and Arndt von Haeseler (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs,
 University of Vienna and Medical University of Vienna), a draft of 26 Oct 2026, and Enes's answers to our questions.
-Built like the qubits story (`tools/qubits/`), with the shared kit (`tools/engine/kit.js`) and set contract. The numbers drawn are examples,
+Built like the qubits story (`packages/qubits/src/`), with the shared kit (`tools/engine/kit.js`) and set contract. The numbers drawn are examples,
 computed live (`MMATH`), as in the authors' own test; the poster's numbers (`MUT_DATA`) appear only where the story says
 "in the authors' test". British spelling, English only. Never edit `packages/mutation/main.js` by hand.
 

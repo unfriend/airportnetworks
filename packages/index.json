@@ -180,11 +180,11 @@
       "list": "stories",
       "icon": "soil.soil",
       "needs": 186,
-      "fp": "54a551459e7d1401",
-      "bytes": 6270638,
+      "fp": "bc7e67c6b8cc149c",
+      "bytes": 6270645,
       "files": {
         "audio/narration.mp3": "63ea6285de3f657a",
-        "main.js": "0ea825d0c6f067bf",
+        "main.js": "48a3629db3b5f32d",
         "story.json": "98e8f33f4f0f0b33"
       }
     },

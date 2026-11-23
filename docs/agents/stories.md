@@ -2,6 +2,19 @@
 
 Read on demand; the rules every agent needs are in AGENTS.md.
 
+## Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil)
+
+Moved by `tools/packages/move.mjs <key>` (`docs/packages-migration.md`): the sources are `packages/<key>/src/` (the
+same files; build with `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`), the built file
+`packages/<key>/main.js` (the same code: only the comment and narration lines naming the folders changed), the
+narration `packages/<key>/audio/narration.mp3` (`narrationFile()` through `HOST.pkgUrl`), the list entry
+`packages/<key>/story.json` (its place: `packages/order.json`). Key, hash, miniature, hooks and `collab.state()` are
+unchanged. Shared sources stay in `tools/` (the lean route: no shared library yet): a moved build's `src()` reads a
+`'../<dir>/...'` source from `tools/<dir>/` (endo: `tools/nmd/sets/motor.js` and its data; pet: `tools/lbi/sets/body.js`,
+`tools/micro/sets/organs.js`; ovary: the body; soil: `tools/topo/sets/look.js`, `tools/lbi/sets/web.js`), and its
+harness loads them from `../../../tools/<dir>/`. A data generator or a data test in `src/` finds the app three folders
+up. The sections below give each story's old notes with the new paths.
+
 ## Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026)
 
 The fourteen built stories each have their own engine files (`tools/<key>/engine/e1_head.js` ... `e7_app.js`), copied
@@ -163,17 +176,17 @@ and `hpc` (the supercomputer and the stress test).
   shaders (the tower, the network, the tree) do not export it, nor does the
   supercomputer (its aisle shot is inside it).
 
-## The endotype story (`stories/endo.js`) is built the same way
+## The endotype story (`packages/endo/`, a story package since v186) is built the same way
 
-`stories/endo.js` is generated from `tools/endo/` (`node tools/endo/build.mjs`, `--check` as for the tour):
+`packages/endo/main.js` is generated from `packages/endo/src/` (`node packages/endo/src/build.mjs`, `--check` as for the tour):
 the shared kit (`tools/engine/kit.js`), three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
 walkers; `tree`, the gene x term matrix, the tree and the endotypes; each with a manifest), the muscle story's
 `motor` set (the build gives it the muscle story's disease groups, all it reads of `NMD_DATA`) and engine parts
-adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
+adapted from the muscle story's. `packages/endo/src/SPEC.md` is the contract.
 
-- The data: `tools/endo/data/gen_data.py` (Python with EndotypY installed) reads the authors' saved run (their
+- The data: `packages/endo/src/data/gen_data.py` (Python with EndotypY installed) reads the authors' saved run (their
   protein network, the 35 seed genes, their 12 endotypes) and the Gene Table's CMS genes, and writes
-  `tools/endo/sets/data.js` (`ENDO_DATA`, documented in its header). The authors' files stay out of the
+  `packages/endo/src/sets/data.js` (`ENDO_DATA`, documented in its header). The authors' files stay out of the
   repository: only these numbers are kept. The endotypes are the authors'; the steps before them (seed groups,
   the walk, neighbourhoods, the annotation, the tree) are re-run with the package's defaults on the same network
   to show the method, and the tree is drawn to agree with their endotypes. The story says so (explore's Method
@@ -185,13 +198,13 @@ adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
 - The `net` and `tree` sets export `api()` (picking, gene names, focus); `net`'s walkers keep state between
   frames but follow paths planned from `t`, so seeking works.
 
-## The PET story (`stories/pet.js`) is built the same way
+## The PET story (`packages/pet/`, a story package since v186) is built the same way
 
-`stories/pet.js` is generated from `tools/pet/` (`node tools/pet/build.mjs`, `--check` as for the tour): the tour's
+`packages/pet/main.js` is generated from `packages/pet/src/` (`node packages/pet/src/build.mjs`, `--check` as for the tour): the tour's
 kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), three sets (`scan`, the PET/CT scanner, how
 PET sees and the vision row, its stages joined by flowing light; `organs`, segmentation, uptake, the cohort, the
 explainer and the paper's networks, drawn in the body set's frame; `liver`, an organ as a network of patches, in
-explore mode only; each with a manifest) and engine parts adapted from the endotype story's. `tools/pet/SPEC.md` is the
+explore mode only; each with a manifest) and engine parts adapted from the endotype story's. `packages/pet/src/SPEC.md` is the
 contract.
 
 - The vision row (the opening; the owner's wish: more 3D, better colours): its network is the 14
@@ -207,9 +220,9 @@ contract.
   copies (`ORGAN3D.lite`, made in `SETS.organs.prep`); about 35k triangles in two draw calls. `PET_ICONS` only draws
   the panes' pictures now (explore's Organs pane, HTML and the headset's canvas).
 
-- The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
+- The data: `packages/pet/src/data/gen_data.mjs` (Node) writes `packages/pet/src/sets/data.js` (`PET_DATA`, documented in its
   header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
-  `tools/pet/data/figures.json`: values read off its Figures 3 and 4 (each read twice independently and reconciled).
+  `packages/pet/src/data/figures.json`: values read off its Figures 3 and 4 (each read twice independently and reconciled).
   Stand-ins, said so in the story: typical organ uptakes and a synthetic cohort with Figure 2A's partial correlations
   (for explore's matrix and scatter views). The authors' VR viewer (with a patient's scan) is not used: no patient
   data.
@@ -256,10 +269,10 @@ architecture and the domain contacts; each with a manifest) and engine parts ada
   the sections to their tissues', their beads on to the tissue types' and the domains' (by name; the mapping is in
   `sets/atlas.md`). The network takes the atlas's turn at that hand-over (`MORPH` in `buildCamera`), so they meet exactly.
 
-## The aging ovary story (`stories/ovary.js`) is built the same way
+## The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way
 
-`stories/ovary.js` ("The aging ovary", after the poster "Mapping the histological landscape of human ovarian aging" by
-Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `tools/ovary/` (`node tools/ovary/build.mjs`,
+`packages/ovary/main.js` ("The aging ovary", after the poster "Mapping the histological landscape of human ovarian aging" by
+Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `packages/ovary/src/` (`node packages/ovary/src/build.mjs`,
 `--check` as for the tour): the shared kit (`tools/engine/kit.js`) and body set (unchanged), the data and a shared look pasted before the sets
 (`OVARY_DATA`, `sets/data.js`, and `OVARY_TREND`, the poster's lines looked up, with `OVARY_LOOK`, `sets/look.js`), three
 sets (`organ`, a cut-away ovary built by surface nets between frames, small in the body's pelvis at first, whose
@@ -270,10 +283,10 @@ five hubs by kind joined by bands (`section_lift`, `section_kinds`); `charts`, o
 histogram, the one graph, in passing: twenty towers of slides lying on the floor in a wide arc, age 20 on the
 left to 70 on the right, seen from a little above (a flat one was hard to see); each with a manifest) and
 engine parts adapted from the microanatomy story's.
-`tools/ovary/SPEC.md` is the contract.
+`packages/ovary/src/SPEC.md` is the contract.
 
-- The data: `tools/ovary/data/gen_data.mjs` writes `tools/ovary/sets/data.js` from the poster's numbers (typed in
-  exactly) and what the story uses of `tools/ovary/data/figures.json` (values read off its figures by two readers,
+- The data: `packages/ovary/src/data/gen_data.mjs` writes `packages/ovary/src/sets/data.js` from the poster's numbers (typed in
+  exactly) and what the story uses of `packages/ovary/src/data/figures.json` (values read off its figures by two readers,
   reconciled: the trend lines, the shares of donors with none, the comparison lines' slopes; the bands and axes read
   there are kept but unused). The story draws no trend, comparison or score charts (the owner's rule against 2D
   graphs; there is no Agree? chapter, no Charts scene in explore and no illustrative dots): the Age
@@ -303,16 +316,16 @@ engine parts adapted from the microanatomy story's.
 - **American spelling in this story too** (aging, color, gray, center, hematoxylin, neighbor), as the qubits story;
   English only.
 
-## The qubits story (`stories/qubits.js`) is built the same way
+## The qubits story (`packages/qubits/`, a story package since v186) is built the same way
 
-`stories/qubits.js` is generated from `tools/qubits/` (`node tools/qubits/build.mjs`, `--check` as for the tour): the
+`packages/qubits/main.js` is generated from `packages/qubits/src/` (`node packages/qubits/src/build.mjs`, `--check` as for the tour): the
 tour's kit, three shared parts pasted before the sets (`QMATH`, the maths, `sets/qmath.js`, checked by
-`node tools/qubits/test-qmath.mjs`; `QUBITS_DATA`, the real run's numbers typed in from Joel Hancock's brief,
+`node packages/qubits/src/test-qmath.mjs`; `QUBITS_DATA`, the real run's numbers typed in from Joel Hancock's brief,
 `sets/data.js`; `QLOOK`, the story's lit instanced tubes, rings, balls and halos, `sets/look.js`), three sets (`pairs`,
 the grid of pairs, the network as a map with two walkers and its valleys, the chip and the eight neighborhoods;
 `cube`, the cuts, the coarse operator A_c on a cube, the Pauli strings as small cubes, added up, and the toolbox;
 `chart`, the real run's residual by depth and the six-gate circuit; each with a manifest) and engine parts adapted
-from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
+from the microanatomy story's. `packages/qubits/src/SPEC.md` is the contract.
 
 - Example networks throughout (Joel Hancock's wish): no STRING data and no gene names; every number about them is
   computed live by `QMATH` (the cut, A_c, the Pauli weights, the algebras so(2L) and so(2L + 1), the residual, the
@@ -325,21 +338,21 @@ from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
 - Step params (never eased): `cube_net`, `cube_cut`, `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The
   cube builds its default network at load and the others when first asked for in explore (a short pause).
 - **American spelling in this story** (color, gray, neighborhood, normalized, center; the aging ovary story too), as the brief asks: keep
-  it in `tools/qubits/` and its card; the rest of the app stays British.
+  it in `packages/qubits/src/` and its card; the rest of the app stays British.
 
-## The mutation machine (`stories/mutation.js`) is built the same way
+## The mutation machine (`packages/mutation/`, a story package since v186) is built the same way
 
-`stories/mutation.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
-Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `tools/mutation/`
-(`node tools/mutation/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before the sets
-(`MMATH`, the maths, `sets/mmath.js`, checked by `node tools/mutation/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
+`packages/mutation/main.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
+Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `packages/mutation/src/`
+(`node packages/mutation/src/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted before the sets
+(`MMATH`, the maths, `sets/mmath.js`, checked by `node packages/mutation/src/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
 typed in, `sets/data.js`; `MLOOK`, the qubits story's lit instanced tubes, rings, balls, boxes and halos plus letter
 tiles, arrowheads, qubit spheres and gears, `sets/look.js`), four sets (`letters`, the DNA helix, the ancestor's eight
 letters and two copies with swaps, a letter's two qubits and their read-outs piling up; `tree`, the family tree in 3D,
 one machine (a gear) per branch and the poster's species tree; `rule`, a rule of change as balls and arrows, the pyramid
 of mixes and the path through it, the compiler, the machine for one branch and its circuit; `stem`, an RNA stem, a pair
 breaking, the coupling, the count of combinations and the fields of rebuilt ancestors, drawn in `tree`'s frame; each
-with a manifest) and engine parts adapted from the qubits story's. `tools/mutation/SPEC.md` is the contract.
+with a manifest) and engine parts adapted from the qubits story's. `packages/mutation/src/SPEC.md` is the contract.
 
 - Example numbers throughout, as in the authors' own test (the author: fine for a test of the method; a real result
   would estimate them from real sequences). Every number about the examples is computed live by `MMATH`: three
@@ -394,7 +407,7 @@ classifier's wall, the held-out stacks and the weight for every radius on a colu
 engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the contract.
 
 - The instance pools send only what changed: `upload` in
-  `tools/topo/sets/look.js` (and the same function in `tools/qubits/sets/look.js` and `tools/mutation/sets/look.js`; the
+  `tools/topo/sets/look.js` (and the same function in `packages/qubits/src/sets/look.js` and `packages/mutation/src/sets/look.js`; the
   soil story draws with this look's pools) compares a pool's used range, as 32-bit words, with a copy of what last went
   and sends the stretch from the first change to the last (a range set and not yet sent is merged in, since three.js
   sets its count back to -1 once it has gone), nothing when it is the same: a story paused or at rest uploads nothing,
@@ -439,15 +452,15 @@ engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the cont
 - **British spelling** (colour, centre, grey, haematoxylin, neighbourhood, tumour), English only. No patient data, no
   donor details, no GTEx ids or images, and never the poster's pictures.
 
-## The soil story (`stories/soil.js`) is built the same way
+## The soil story (`packages/soil/`, a story package since v186) is built the same way
 
-`stories/soil.js` ("Holding on to nitrogen", after the slides "Exploring the Effects of Biological Nitrification
+`packages/soil/main.js` ("Holding on to nitrogen", after the slides "Exploring the Effects of Biological Nitrification
 Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
 Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper,
 and their field trial's data; made for the Global Peter Drucker Forum in Vienna, a lay, business audience) is generated
-from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted
+from `packages/soil/src/` (`node packages/soil/src/build.mjs`, `--check` as for the tour): the shared kit (`tools/engine/kit.js`), three shared parts pasted
 before the sets (`SOIL_DATA`, the trial's numbers, `sets/data.js`, generated; `SDATA`, its decoders and look-ups,
-`sets/sdata.js`, checked with the data and the story's key numbers by `node tools/soil/test-data.mjs`; `SLOOK`, the
+`sets/sdata.js`, checked with the data and the story's key numbers by `node packages/soil/src/test-data.mjs`; `SLOOK`, the
 story's palette and colour rules, `sets/look.js`), the tissue topology story's look (`TLOOK`) and the tour's `web` set
 (only its globe), both unchanged, three sets (`soil`, the cut-away block of soil with its wheat: fertiliser, the
 nitrogen's flows, a magnified pore with the relay's microbes, the BNI halo round the roots, the wild grass and the piece
@@ -456,14 +469,14 @@ chlorophyll, nitrate under the plots, jars breathing N2O, the 119 cores stacking
 its plots; `net`, in `field`'s frame: the cloud of 20,000 kinds of microbe, the nitrifiers, the co-occurrence network
 pulled out of its core, the shuffle, the modules and the halves' own networks side by side; each with a manifest) and
 engine parts adapted from the tissue topology story's (with the hop from Vienna to Japan on the globe, `makeHop` in
-`engine/e2_scene.js`). `tools/soil/SPEC.md` is the contract, with the owner's decisions.
+`engine/e2_scene.js`). `packages/soil/src/SPEC.md` is the contract, with the owner's decisions.
 
-- **The data**: `tools/soil/data/gen_data.py` (Python with numpy, pandas, scipy and networkx,
-  `tools/soil/data/requirements.txt`; about five minutes) reads the authors' three CSVs (the 16S read counts of 100,116
+- **The data**: `packages/soil/src/data/gen_data.py` (Python with numpy, pandas, scipy and networkx,
+  `packages/soil/src/data/requirements.txt`; about five minutes) reads the authors' three CSVs (the 16S read counts of 100,116
   kinds in 119 samples, their taxonomy, the field metadata) from a folder given on the command line, builds the
-  co-occurrence network and writes `tools/soil/sets/data.js` (`SOIL_DATA`, about 425 KB, documented in its header), with
-  what the story uses of `tools/soil/data/figures.json` (the slides' charts read off by two readers and reconciled by
-  `tools/soil/data/reconcile.py`; the readers' files are not kept). The authors' files are not in the repository: only
+  co-occurrence network and writes `packages/soil/src/sets/data.js` (`SOIL_DATA`, about 425 KB, documented in its header), with
+  what the story uses of `packages/soil/src/data/figures.json` (the slides' charts read off by two readers and reconciled by
+  `packages/soil/src/data/reconcile.py`; the readers' files are not kept). The authors' files are not in the repository: only
   derived numbers go in, and `sets/data.js` is never edited by hand. `SDATA` only decodes and looks things up: the app
   computes nothing scientific. Permission: the authors, through the owner, with the rule that anything
   unknown is shown as illustrative and said so (`docs/data-and-permissions.md`).
@@ -476,7 +489,7 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
   in the pore, the halo, the chromosome, the field's plot layout (the real map is not known: four blocks of six in a
   seeded order), the wheat's look at each date (only its leaf colour is data), the hop's end (JIRCAS's home in Tsukuba:
   the site is not given) and explore's Nitrogen sketch ("a sketch, not data").
-- **The hedges** (the data's verdict, `tools/soil/README.md`): in the slides' measurements the BNI wheat stays greener
+- **The hedges** (the data's verdict, `packages/soil/src/README.md`): in the slides' measurements the BNI wheat stays greener
   and leaks less nitrate and N2O; the soil's microbes and their network follow the fertiliser and the field's plots, not
   the wheat line (2 of 3,384 common kinds differ by line; the two lines' own networks, 38,653 and 30,276 links, differ
   less than some random halves do, 158 to 27,758 apart); rising together is not working together; strong indications,
@@ -501,9 +514,9 @@ engine parts adapted from the tissue topology story's (with the hop from Vienna 
   0.6 to 0.8 with the counts at 0.5 and 0.55 in words, Shuffle, Split by wheat line, fertiliser or at random) and
   Scenes (Soil, Globe, Field, Microbes).
 - To rebuild the data (only with the authors' files, which are not in the repository):
-  `python -I tools/soil/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>`, then
-  `node tools/soil/test-data.mjs` and `node tools/soil/build.mjs`; the slides' readings again only through
-  `tools/soil/data/reconcile.py`.
+  `python -I packages/soil/src/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>`, then
+  `node packages/soil/src/test-data.mjs` and `node packages/soil/src/build.mjs`; the slides' readings again only through
+  `packages/soil/src/data/reconcile.py`.
 - **British spelling** (colour, fertiliser, centre, grey, neighbourhood), English only; plain words for a business
   audience, the technical layer in small print.
 
@@ -593,9 +606,9 @@ contract.
   within 0.3 m of where its owner had it 120 ms before. Untested on headsets: how four sharks and their tints look,
   and how others' sharks and the school feel at these rates over Wi-Fi.
 
-## The flock (`stories/flock.js`) is built the same way
+## The flock (`packages/flock/`, a story package since v186) is built the same way
 
-`stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
+`packages/flock/main.js` is generated from `packages/flock/src/` (`node packages/flock/src/build.mjs`,
 `--check` as for the tour): the shared kit (`tools/engine/kit.js`), one set (`sets/flock.js`, manifest
 `sets/flock.md`) and engine parts adapted from the tour's (no Proteins tab, no
 scene list).
@@ -738,12 +751,12 @@ is `packages/order.json`'s.
   together send all of it, as before (also in the set's harness, which has no `GL.renderer`). How the trail's 0.4 s
   steps look on a headset is untested.
 
-## The tutorial (`stories/tutorial.js`) is built the same way
+## The tutorial (`packages/tutorial/`, a story package since v186) is built the same way
 
-`stories/tutorial.js` is generated from `tools/tutorial/` (`node tools/tutorial/build.mjs`, `--check` as for the
+`packages/tutorial/main.js` is generated from `packages/tutorial/src/` (`node packages/tutorial/src/build.mjs`, `--check` as for the
 tour): the shared kit, the guide's script (`sets/script.js`: `GUIDE`, `SCRIPT`, `compileScript`, `evalGuide`; plain
 maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine parts adapted from the flock's.
-`tools/tutorial/SPEC.md` is the plan (v173); its Review notes say where the build differs.
+`packages/tutorial/src/SPEC.md` is the plan (v173); its Review notes say where the build differs.
 
 - An introduction, not one of the sixteen stories: first in `stories/list.js` with `intro: true` (the shell skips it for
   the default start, Repeat all and `HOST.count()`; `docs/agents/shell.md`), `needs: 173` (it needs `HOST.needBodies`
@@ -758,7 +771,7 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   chapter's start, so `narrate.mjs`'s retiming moves it with the words. `live` (the viewer's head and ray, the panel's
   buttons) only turns its head and aims the end's pointing. The solver's state is re-warmed after a jump (30
   solve-only steps over the second before); its `dt` is the clock's step, so a pause freezes it mid-step.
-- Rules (`node tools/tutorial/test-script.mjs`, a cheap check run on `dev` too): its head never nearer than 1.2 m to the
+- Rules (`node packages/tutorial/src/test-script.mjs`, a cheap check run on `dev` too): its head never nearer than 1.2 m to the
   viewer's start (x, z); walks at most 0.7 m/s at cruise and glides at least 1.6 m/s (story time) and 1.3 m/s (real
   time, with the built `NARRATION_SYNC`); no 0.3 s between 0.85 and 1.15 m/s; the head at most 1.02 x 1.62 m; every
   key inside its chapter; tags in order; at most 4 sound onsets in 3 s (a `seq` run aside); the network's degrees.
@@ -777,7 +790,7 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   cannot be done (a page: the last three; anchored: Recenter; the sticks where `HOST.xr.walkWhy()` refuses). The ticks
   are this device's own (`sessionStorage` `tutorialTicks`), never in `state()`. Task 6 counts the menu's Recenter (the
   story's `recenter` hook, wrapped) and the panel's (the edge of `XR.needRecenter`). The guide runs on practice's own
-  clock (an idle loop, reactions, a nudge after 15 s with nothing done; from v181 the guide is never quite still in story or practice: breathing, a weight shift, small head and hand drifts, arms swinging on a walk, softer turns: `gLife` in `tools/tutorial/sets/script.js`); the foot bar is practice's (Play and Pause, the
+  clock (an idle loop, reactions, a nudge after 15 s with nothing done; from v181 the guide is never quite still in story or practice: breathing, a weight shift, small head and hand drifts, arms swinging on a walk, softer turns: `gLife` in `packages/tutorial/src/sets/script.js`); the foot bar is practice's (Play and Pause, the
   marker arrows).
 - `collab.state()` is `{ net: 'badge' | 'grown', mk: -1..4, run: 0 | 1 }` (`mk` -1: at home); a signal is an effect
   (`sig`, `{ n }`). The guide is never sent: every device draws it from the station's clock.
@@ -839,35 +852,35 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
   (`node tools/nmd/build.mjs`; data from the authors' files, kept out of the repository, via
   `node tools/nmd/data/gen_data.mjs <folder>`). Never show patient or variant data in it.
-  `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
+  `packages/flock/main.js` likewise from `packages/flock/src/` (`node packages/flock/src/build.mjs`),
   and `packages/robots/main.js` from `packages/robots/src/` (`node packages/robots/src/build.mjs`; a story package
   since v185).
   `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
   (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
   `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
-  `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
-  from the authors' files via `tools/endo/data/gen_data.py`, which are not in the
+  `packages/endo/main.js` likewise from `packages/endo/src/` (`node packages/endo/src/build.mjs`; data
+  from the authors' files via `packages/endo/src/data/gen_data.py`, which are not in the
   repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.
-  `stories/pet.js` likewise from `tools/pet/` (`node tools/pet/build.mjs`; data from the paper's tables and the
-  figures' readings in `tools/pet/data/figures.json` via `node tools/pet/data/gen_data.mjs`); it includes
+  `packages/pet/main.js` likewise from `packages/pet/src/` (`node packages/pet/src/build.mjs`; data from the paper's tables and the
+  figures' readings in `packages/pet/src/data/figures.json` via `node packages/pet/src/data/gen_data.mjs`); it includes
   `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js` (its opening network's 3D organs), so rebuild it after changing those. No patient data in it (the authors' VR viewer holds a
   patient's scan: never use its data).
   `stories/micro.js` likewise from `tools/micro/` (`node tools/micro/build.mjs`; data from Iva Buljan's GraphML, kept out of
   the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's
   body and tissue sets (its organs are its own 3D models, `tools/micro/sets/organs.js`), so rebuild it after changing
   those.
-  `stories/ovary.js` likewise from `tools/ovary/` (`node tools/ovary/build.mjs`; data from the poster's numbers, typed in,
-  and the figures' readings in `tools/ovary/data/figures.json` via `node tools/ovary/data/gen_data.mjs`); it includes
+  `packages/ovary/main.js` likewise from `packages/ovary/src/` (`node packages/ovary/src/build.mjs`; data from the poster's numbers, typed in,
+  and the figures' readings in `packages/ovary/src/data/figures.json` via `node packages/ovary/src/data/gen_data.mjs`); it includes
   `tools/lbi/sets/body.js`, so rebuild it after changing that. Its neighbor network (and the network by kind) is
   illustrative and its count tags are read off the poster's lines (say so); no charts beyond the donors' histogram, and
   no GTEx image or picture from the poster in it. American spelling, as in the qubits story.
-  `stories/qubits.js` likewise from `tools/qubits/` (`node tools/qubits/build.mjs`; its maths checked by
-  `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
-  Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It and the aging ovary
+  `packages/qubits/main.js` likewise from `packages/qubits/src/` (`node packages/qubits/src/build.mjs`; its maths checked by
+  `node packages/qubits/src/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
+  Joel Hancock's brief in `packages/qubits/src/sets/data.js`, shown only as "in the real network"). It and the aging ovary
   story use American spelling (color, gray, neighborhood, aging), as asked; keep it so there and British everywhere else.
-  `stories/mutation.js` likewise from `tools/mutation/` (`node tools/mutation/build.mjs`; its maths checked by
-  `node tools/mutation/test-mmath.mjs`; example numbers only, computed live, and the poster's numbers typed in
-  `tools/mutation/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
+  `packages/mutation/main.js` likewise from `packages/mutation/src/` (`node packages/mutation/src/build.mjs`; its maths checked by
+  `node packages/mutation/src/test-mmath.mjs`; example numbers only, computed live, and the poster's numbers typed in
+  `packages/mutation/src/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
   the authors' circuit and says so; never call the circuit "better" or "more accurate". No patient data and none of the
   poster's pictures (its figures are redrawn in 3D). British spelling.
   `stories/topo.js` likewise from `tools/topo/` (`node tools/topo/build.mjs`; its data and decoders checked by
@@ -878,9 +891,9 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   and none of the poster's pictures (slides are numbered); "Cancer cell" stays (the cell classifier's label, the
   author's wish). It includes `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js`, so rebuild it after changing
   those. British spelling.
-  `stories/soil.js` likewise from `tools/soil/` (`node tools/soil/build.mjs`; its data, decoders and key numbers checked
-  by `node tools/soil/test-data.mjs`; data from the authors' three CSVs via `tools/soil/data/gen_data.py` and the
-  slides' readings via `tools/soil/data/reconcile.py`, none of those files in the repository). Look numbers up in
+  `packages/soil/main.js` likewise from `packages/soil/src/` (`node packages/soil/src/build.mjs`; its data, decoders and key numbers checked
+  by `node packages/soil/src/test-data.mjs`; data from the authors' three CSVs via `packages/soil/src/data/gen_data.py` and the
+  slides' readings via `packages/soil/src/data/reconcile.py`, none of those files in the repository). Look numbers up in
   `SOIL_DATA` through `SDATA`; compute nothing scientific in the app. Unknowns are illustrative and say so; keep its
   hedges (the BNI wheat greener and leaking less in the slides' measurements; the microbes and their network follow the
   fertiliser and the plots, not the wheat line; rising together is not working together; strong indications, not yet

@@ -23,7 +23,7 @@ paces it), then `test-script.mjs` again (it checks the speeds in real time with 
 | `engine/` | the flock's engine parts, adapted: one scene (practice), life size in a headset on the floor the session reports (else 1.6 m below your head), the viewer's head, ray and the panel's buttons told to the guide every frame (`tellGuide`), the narration hold (`HOLD`), practice's tasks, bar and shared state (`e4_explore.js`), a signal as an effect |
 | `build.mjs` | puts the shared kit, the script, the set and the engine parts together |
 | `test-script.mjs` | the script's checks in Node (a cheap check: run on `dev` too) |
-| `harness.html`, `shot.mjs`, `sweep.mjs` | the set on its own (`harness.html?set=guide&t=60&view=side`; `mode=1` practice, `nofvt` the plain figure, `eye=x,y,z` the viewer's head; it loads `ik.js` and `bodies.js` itself) and screenshots, as in `tools/flock` |
+| `harness.html`, `shot.mjs`, `sweep.mjs` | the set on its own (`harness.html?set=guide&t=60&view=side`; `mode=1` practice, `nofvt` the plain figure, `eye=x,y,z` the viewer's head; it loads `ik.js` and `bodies.js` itself) and screenshots, as in `packages/flock/src` |
 
 Serve the repository root (`python3 -m http.server 8123`, or another port with `PORT=<port>`) and run the tools from this
 folder (`node shot.mjs guide "t=9|t=39|t=95&view=net" <prefix>`, `node sweep.mjs <prefix> "4,9,39,60,95,117,155,172"`); shots go

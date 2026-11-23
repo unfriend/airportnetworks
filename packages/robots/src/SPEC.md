@@ -13,14 +13,14 @@ Never use the trademark "Roomba" in the app: say robot vacuums, robots, the gang
 
 ## Files and build
 
-Built like the flock (`tools/flock/`, read its `README.md`, `build.mjs`, `engine/` and `sets/flock.js` as the
+Built like the flock (`packages/flock/src/`, read its `README.md`, `build.mjs`, `engine/` and `sets/flock.js` as the
 model; copy and adapt rather than invent):
 
 | Path | What |
 | --- | --- |
 | `packages/robots/src/sets/robots.js` | the one set, key `robots` (`SETS.robots = function (K) {...}`) |
 | `packages/robots/src/sets/robots.md` | its manifest (params, anchors, labels, views, controls, API, numbers that were measured) |
-| `packages/robots/src/engine/e1_head.js` ... `e7_app.js` | engine parts, adapted from `tools/flock/engine/` |
+| `packages/robots/src/engine/e1_head.js` ... `e7_app.js` | engine parts, adapted from `packages/flock/src/engine/` |
 | `packages/robots/src/build.mjs` | like the flock's: kit + set + engine into `packages/robots/main.js`, `--check` |
 | `packages/robots/src/harness.html`, `shot.mjs`, `sweep.mjs`, `README.md` | set harness and screenshot tools, as the flock's |
 | `packages/robots/main.js` | generated; never edit by hand |
@@ -295,7 +295,7 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
   sub: 'vacuums in your room', aria, thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free
   play' }`. "six stories" → "seven stories" everywhere (title, meta, brand, picker heading, manifest, docs). The
   picker grid must look good with seven cards on wide, medium and narrow screens (check with screenshots).
-- Every story (`stories/airports.js`, `proteins.js`, `spatial.js` by hand; `tools/lbi`, `tools/nmd`, `tools/flock`,
+- Every story (`stories/airports.js`, `proteins.js`, `spatial.js` by hand; `tools/lbi`, `tools/nmd`, `packages/flock/src`,
   `tools/robots` engine sources then rebuild): `optionalFeatures: ['local-floor', 'hand-tracking', 'anchors',
   'plane-detection', 'mesh-detection']`; the headset Stories screen fits seven cards (cards 0.36 m wide, angle step
   about 0.31 rad at about 1.25 m, so neighbours do not overlap and the outer cards are within about 50°; check

@@ -75,7 +75,7 @@ Data kinds: **real** = the authors' or a public dataset; **figures** = numbers t
 - `topo/slide` and `topo/map` share the slide's frame (the window of 6,716 cells); `mutation/tree` and `mutation/stem` share the tree's frame; `micro/atlas` hands over to `micro/hier` (`atlas_net` with `hier_grow`, keyed at the same times).
 - `soil/net` is drawn in `soil/field`'s frame (the cloud and the network over the field, centred at (0, 1.3, 0)); the soil story also uses `lbi/web` unchanged, only its globe (with the engine's hop from Vienna to Japan). `soil/net` adapts the endotype story's `net` set, and `soil/field` the flock's swaying reeds (its wheat) and the ovary charts' stacking movement (its cores); the soil story pastes the topology story's look (`TLOOK`) unchanged.
 - `pass/globe` and `pass/cell` are the airports story's globe and the cell map story's cell, cut unchanged out of `stories/airports.js` and `stories/spatial.js` at build time by `tools/pass/build.mjs` (rebuild the pass story after changing either) and wrapped as sets (`tools/pass/sets/globe.js`, `cell.js`). `pass/fish` adapts the flock's simulation. The flock and the robots are life size (1 unit = 1 m); so are `pass/fish` and the PET scanner.
-- `tutorial/guide` is drawn by the people's bodies (`bodies.js`, a draw set of its own) and props of its own; its script, `tools/tutorial/sets/script.js`, is a shared part, not a prop.
+- `tutorial/guide` is drawn by the people's bodies (`bodies.js`, a draw set of its own) and props of its own; its script, `packages/tutorial/src/sets/script.js`, is a shared part, not a prop.
 - `tools/lbi/sets/demo.js` is a tiny example set (points on a sphere) used by the harness; no story uses it, so it is not listed.
 
 ## Stories not built from sets
@@ -604,7 +604,7 @@ Other exports: `streamMat`, `keepOut`, `still`, `towerCount`, `pointCount`, `nea
 
 One neuromuscular junction close up as a cut-away: a glass nerve bouton with vesicles, active zones, mitochondria and Schwann cell; the synaptic cleft with basement membrane, laminin, collagen IV and Q, acetylcholinesterase and agrin; the muscle side with six junctional folds, 1,677 acetylcholine receptors, MuSK/LRP4 and sodium channels; and the inside of the fibre with nuclei, ER, Golgi, myofibrils, desmin and plectin. Endotype clouds of genes can arrive and settle at their place.
 
-- **File:** `tools/endo/sets/syn.js`; manifest `tools/endo/sets/syn.md`.
+- **File:** `packages/endo/src/sets/syn.js`; manifest `packages/endo/src/sets/syn.md`.
 - **Belongs to:** the endo story.
 - **Frame:** Up (+y) is the nerve, down the muscle. Cut plane z = 0.34 facing +z. Axon reaches up and left to about (-2.9, 2.3); the fibre's surface spreads to x +-5 for the wide view.
 - **Size:** ~2.4 across (x -1.2 to 1.2); 1 micrometre ~ 0.5 units; small parts drawn bigger than life.
@@ -645,7 +645,7 @@ Other exports: `keepClear`, `showPlace`, `genePos`, `geneGroups`.
 
 The authors' protein network (18,306 proteins) as a deep glowing cloud: the 35 congenital-myasthenic seed genes, their neighbourhoods growing and merging as k rises, walkers doing a random walk with restart, the module of 393 genes pulling out of the cloud with endotype colours, and one gene's 184-gene neighbourhood.
 
-- **File:** `tools/endo/sets/net.js`; manifest `tools/endo/sets/net.md`.
+- **File:** `packages/endo/src/sets/net.js`; manifest `packages/endo/src/sets/net.md`.
 - **Belongs to:** the endo story.
 - **Frame:** Centred on the origin; 2,000 core genes near the middle, the other 16,306 in a shell from radius 1.8 to 2.4. The module layout is a drawing about 1.3 across.
 - **Size:** ~4.8 across (larger than the usual radius 1.1).
@@ -686,7 +686,7 @@ API (`set.api`): `names`, `setGene`, `geneIndex`, `pick`, `seeds`, `kValues`, `g
 
 From neighbourhoods to endotypes: the gene x term matrix (393 x 457) fills row by row, a dendrogram grows beside it, a test pulse runs down the tree (green check at kept splits, red cross inside an endotype), endotype colours run down the subtree, then genes fly into the poster's metagraph of translucent bubbles on a ring.
 
-- **File:** `tools/endo/sets/tree.js`; manifest `tools/endo/sets/tree.md`.
+- **File:** `packages/endo/src/sets/tree.js`; manifest `packages/endo/src/sets/tree.md`.
 - **Belongs to:** the endo story.
 - **Frame:** Centred on the origin; leaves at the rows, root at the far left, the tree curving towards you.
 - **Size:** not stated in the manifest (see views).
@@ -736,7 +736,7 @@ API (`set.api`): `setFocus`, `pick`, `focus`, `genePos`, `endoPos`, `genes`, `te
 
 A glossy PET/CT scanner (no brand, no text) with a patient on the couch, shown as a studio product shot. A plane cuts the housing away to show the detector ring of 4,608 crystals; positrons annihilate, pairs of 511 keV photons fly apart and lines of response join the struck crystals; the couch carries the patient through; the image builds up; finally the patient stands up and hands over to the body set.
 
-- **File:** `tools/pet/sets/scan.js`; manifest `tools/pet/sets/scan.md`.
+- **File:** `packages/pet/src/sets/scan.js`; manifest `packages/pet/src/sets/scan.md`.
 - **Belongs to:** the pet story; reuses lbi/body (an unchanged instance inside the patient).
 - **Frame:** 1 unit = 1 m. Origin at the centre of the bore; its axis is z; the couch comes out towards +z; floor at y = -1.05 (exported as floorY).
 - **Size:** gantry 2.02 wide, 2.1 tall; scanner life size.
@@ -780,7 +780,7 @@ Other exports: `floorY`, `riseTo`.
 
 Organs, uptake and the cohort network, drawn on the body: a scan plane segments 14 organs (translucent shells with outlines), 14 uptake bars to the body's right (aorta as the unit), a slab of 658 x 11 cells and the partial-correlation panel with 658 stand-in people, then the paper's networks (all scans, tracers, doses, disease) and lesion views.
 
-- **File:** `tools/pet/sets/organs.js`; manifest `tools/pet/sets/organs.md`.
+- **File:** `packages/pet/src/sets/organs.js`; manifest `packages/pet/src/sets/organs.md`.
 - **Belongs to:** the pet story; reuses lbi/body (drawn on it).
 - **Frame:** The body set's frame (feet y -0.95, 1.9 tall, faces +z, slimmed by XS = 0.9); always shown with body.
 - **Size:** body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13. Shown together with: `lbi/body` (same frame).
@@ -829,7 +829,7 @@ Other exports: `idle`, `finish`.
 
 An organ is a network too: a liver made of 3,000 small patches joined into a network (about 19,700 links) by the poster's rule, with its gallbladder and falciform ligament, patches coloured by a stand-in uptake and hubs picked out.
 
-- **File:** `tools/pet/sets/liver.js`; manifest `tools/pet/sets/liver.md`.
+- **File:** `packages/pet/src/sets/liver.js`; manifest `packages/pet/src/sets/liver.md`.
 - **Belongs to:** the pet story.
 - **Frame:** Seen from the front: x the patient's left, y up, z forward; centred on the origin by its bounding box.
 - **Size:** 1.65 wide, 0.99 tall, 0.77 deep (about 1 unit = 13 cm).
@@ -1023,7 +1023,7 @@ Other exports: `idle`, `finish`.
 
 A large cut-away ovary (almond-shaped, tunica albuginea, cortex and medulla) with antral follicles, scars (corpora albicantia), vessels and a corpus luteum, whose contents follow the poster's trend lines as it ages from 20 to 70. It is small in the body's pelvis at first and grows out of it. Say "drawn", never "to scale".
 
-- **File:** `tools/ovary/sets/organ.js`; manifest `tools/ovary/sets/organ.md`.
+- **File:** `packages/ovary/src/sets/organ.js`; manifest `packages/ovary/src/sets/organ.md`.
 - **Belongs to:** the ovary story; reuses lbi/body (small in its pelvis).
 - **Frame:** Centred on the origin; in the body, the same frame as the body set (the ovary sits in its pelvis before growing).
 - **Size:** ~1.9 long, 1.1 tall, 0.9 deep. Shown together with: `lbi/body` (same frame).
@@ -1068,7 +1068,7 @@ Other exports: `idle`, `finish`, `built`, `shown`.
 
 A drawn H&E section of an ovary with blood vessels, macrophages, corpora albicantia, follicles and cysts in relief; tiles, UNI2 features and a forest of decision trees that votes; SegFormer's masks with scores as tags; and an illustrative neighbor network that tips off the section and gathers into five hubs by kind joined by bands.
 
-- **File:** `tools/ovary/sets/section.js`; manifest `tools/ovary/sets/section.md`.
+- **File:** `packages/ovary/src/sets/section.js`; manifest `packages/ovary/src/sets/section.md`.
 - **Belongs to:** the ovary story.
 - **Frame:** Section A in the xy plane facing +z, centred on the origin; a second section for the pair view; the grove and hubs beside it.
 - **Size:** section ~1.9 x 1.5, 0.03 thick.
@@ -1121,7 +1121,7 @@ Other exports: `idle`, `finish`, `built`.
 
 Only the donors in 3D: 255 glass slides fly in, fan out in three arcs and stack into the poster's age histogram, one slide per donor. The story's one graph, shown in passing.
 
-- **File:** `tools/ovary/sets/charts.js`; manifest `tools/ovary/sets/charts.md`.
+- **File:** `packages/ovary/src/sets/charts.js`; manifest `packages/ovary/src/sets/charts.md`.
 - **Belongs to:** the ovary story.
 - **Frame:** Centred near the origin facing +z in front of a backdrop of ages and counts.
 - **Size:** not stated in the manifest (see views).
@@ -1150,7 +1150,7 @@ Own labels (1): "255 donorsGTEx, aged 20 to 70" at `histTop`.
 
 Why pairs: a grid of all pairs of genes grows; the example network as a city map with two walkers settling into valleys; a chip with three qubits; and the map folding into eight neighborhoods placed on a ring in Gray-code order with three-digit codes.
 
-- **File:** `tools/qubits/sets/pairs.js`; manifest `tools/qubits/sets/pairs.md`.
+- **File:** `packages/qubits/src/sets/pairs.js`; manifest `packages/qubits/src/sets/pairs.md`.
 - **Belongs to:** the qubits story.
 - **Frame:** Centred on the origin, flat map seen from above; neighborhoods on a ring in Gray order.
 - **Size:** not stated in the manifest (see views).
@@ -1191,7 +1191,7 @@ API (`set.api`): `genes`, `links`, `codes`, `hood`, `nmax`.
 
 The cuts and the coarse operator: the network is cut in two, four and eight and its genes fly to the corners of a cube; the coarse operator A_c lives on the cube; Pauli strings are small cubes with weights, added one by one as the error shrinks; the toolbox (so(6) or so(7)) keeps strings in the algebra bright and drops the rest.
 
-- **File:** `tools/qubits/sets/cube.js`; manifest `tools/qubits/sets/cube.md`.
+- **File:** `packages/qubits/src/sets/cube.js`; manifest `packages/qubits/src/sets/cube.md`.
 - **Belongs to:** the qubits story.
 - **Frame:** Centred on the origin; first cut left/right, second front/back, third top/bottom; 000 is top-front-left.
 - **Size:** not stated in the manifest (see views).
@@ -1237,7 +1237,7 @@ Other exports: `finish`.
 
 The real run's best residual by depth (our cuts against random ones, with the example network's own residuals live at 1 to 3 bits) and one Trotter step at 3 bits in so(7) as a circuit of six gates with its angles.
 
-- **File:** `tools/qubits/sets/chart.js`; manifest `tools/qubits/sets/chart.md`.
+- **File:** `packages/qubits/src/sets/chart.js`; manifest `packages/qubits/src/sets/chart.md`.
 - **Belongs to:** the qubits story.
 - **Frame:** Chart and circuit share the origin; show one at a time.
 - **Size:** not stated in the manifest (see views).
@@ -1275,7 +1275,7 @@ API (`set.api`): `residual`, `example`, `gates`.
 
 A text in four letters copied with swaps: a 24-pair DNA helix, eight letters peeling into tiles (ACGTTAGC), two copies with swaps flashing, then one letter opened into its two qubits, a mix of letters and read-outs spinning like a coin and piling into four heaps as tall as the chances.
 
-- **File:** `tools/mutation/sets/letters.js`; manifest `tools/mutation/sets/letters.md`.
+- **File:** `packages/mutation/src/sets/letters.js`; manifest `packages/mutation/src/sets/letters.md`.
 - **Belongs to:** the mutation story.
 - **Frame:** Centred on the origin; helix vertical; tiles in a row.
 - **Size:** not stated in the manifest (see views).
@@ -1320,7 +1320,7 @@ API (`set.api`): `READ_MAX`, `mix`, `counts`, `reads`, `chances`, `bloch`.
 
 A family tree in 3D (8 tips, 14 branches) that grows up from its root as a level of change rises (a branch rises by its length), every swap simulated, letters riding up each branch; a gear (machine) on every branch; and the poster's species tree. You walk round it and look up into it.
 
-- **File:** `tools/mutation/sets/tree.js`; manifest `tools/mutation/sets/tree.md`.
+- **File:** `packages/mutation/src/sets/tree.js`; manifest `packages/mutation/src/sets/tree.md`.
 - **Belongs to:** the mutation story.
 - **Frame:** Root at (0, -1, 0); tips on a ring round the vertical; the species tree in the same frame (stem set draws in it).
 - **Size:** tree ~2.06 units tall with letters, widest radius 1.18. Shown together with: `mutation/stem` (same frame).
@@ -1367,7 +1367,7 @@ API (`set.api`): `speeds`, `model`, `tree`, `species`, `highlight`, `branch`, `p
 
 The rule of change: four letter balls at the corners of a pyramid joined by rate arrows, the pyramid of mixes and a point gliding along its path, the compiler (a drum with a gear), the machine for one branch (copy the parent's letter, then turn it), its circuit and the turn blocks opening into their simple steps.
 
-- **File:** `tools/mutation/sets/rule.js`; manifest `tools/mutation/sets/rule.md`.
+- **File:** `packages/mutation/src/sets/rule.js`; manifest `packages/mutation/src/sets/rule.md`.
 - **Belongs to:** the mutation story.
 - **Frame:** Centred on the origin; A at the top, C front left, G back, T front right.
 - **Size:** pyramid x +-0.93, y -0.5 to 1.2; machine x -1.15 to 1.05.
@@ -1417,7 +1417,7 @@ API (`set.api`): `models`, `mix`, `longRun`, `rates`, `angles`, `turn`, `steps`,
 
 Letters that work together: an RNA strand folds into a stem of six pairs, one letter changes alone and its rung snaps, a coupling makes the pair change together, the count of combinations (16, 64, about a million) against qubits, then three fields of 2,000 rebuilt ancestors on the species tree.
 
-- **File:** `tools/mutation/sets/stem.js`; manifest `tools/mutation/sets/stem.md`.
+- **File:** `packages/mutation/src/sets/stem.js`; manifest `packages/mutation/src/sets/stem.md`.
 - **Belongs to:** the mutation story.
 - **Frame:** In the tree set's frame; chapter 6 at the origin with the tree hidden, chapter 7 at the species tree.
 - **Size:** stem ~radius 1; fields in front of the root. Shown together with: `mutation/tree` (same frame).
@@ -1651,7 +1651,7 @@ API (`set.api`): `n`, `healthy`, `cirrhosis`, `slide`, `fve`, `accuracy`, `confu
 
 A cut-away block of soil with a wheat plant (ears, leaves, fibrous roots and root hairs): fertiliser falls and dissolves into amber ammonium, flows of nitrogen climb the roots or pass through the relay (rose nitrite, blue nitrate washing out, lilac N2O rising); a magnified pore with the relay's microbes (archaea, ammonia-oxidising bacteria, nitrite oxidisers, comammox); the BNI halo round the roots, the wild grass and the piece of chromosome moving into the wheat; one marked atom followed from grain to leaf.
 
-- **File:** `tools/soil/sets/soil.js`; manifest `tools/soil/sets/soil.md`.
+- **File:** `packages/soil/src/sets/soil.js`; manifest `packages/soil/src/sets/soil.md`.
 - **Belongs to:** the soil story.
 - **Frame:** The block centred on the origin, its surface at y = 0: 1.2 wide (x), 0.8 deep (z), down to y = -0.7; the wheat at the origin, its awns up to about y = 0.83, its roots down to about -0.62; the wild grass beside it at x = -0.86.
 - **Size:** block 1.2 x 0.8 x 0.7; the plant to 0.83 above it.
@@ -1699,7 +1699,7 @@ API (`set.api`): `pick`, `guildAt`, `tracer`, `roots`.
 
 The trial's 24 plots in four blocks (two wheat lines, three regimes) under netting, the wheat growing over five dates with its leaves by each plot's measured chlorophyll, ammonium and nitrate under each plot from the data, jars on a bench breathing N2O as read off the slides, 119 soil cores lifting and stacking into the design, and a module of the network lighting the plots where it is strong.
 
-- **File:** `tools/soil/sets/field.js`; manifest `tools/soil/sets/field.md`.
+- **File:** `packages/soil/src/sets/field.js`; manifest `packages/soil/src/sets/field.md`.
 - **Belongs to:** the soil story; reuses flock/flock (its swaying reeds adapted as the wheat), ovary/charts (its stacking movement adapted for the cores).
 - **Frame:** The plots on the x-z plane at y = 0 (about 1.8 by 1.2), a soil slab under them to y = -0.25, the wheat up to about 0.3, the netting at 0.42, the jars on a bench at x = 1.3 and the stack of cores behind at z = -0.95 (up to 0.75); the net set draws over it, centred at (0, 1.3, 0).
 - **Size:** field ~1.8 x 1.2 (2.2 wide with the bench). Shown together with: `soil/net` (same frame).
@@ -1752,7 +1752,7 @@ API (`set.api`): `plotXZ`, `order`, `pick`, `plotAt`, `plot`, `jar`, `ppm`, `chl
 
 The soil's crowd of microbes as a deep cloud (20,000 kinds by phylum: the common ones in its core, the rare ones in a faint shell), the nitrifiers flaring in their guilds' colours, the co-occurrence network of 1,564 kinds and 22,348 links pulling out of the core, a shuffle dissolving every link, its 17 modules in colour, and the halves' own networks side by side (by wheat line, fertiliser or at random).
 
-- **File:** `tools/soil/sets/net.js`; manifest `tools/soil/sets/net.md`.
+- **File:** `packages/soil/src/sets/net.js`; manifest `packages/soil/src/sets/net.md`.
 - **Belongs to:** the soil story; reuses endo/net (adapted, not reused).
 - **Frame:** In the field set's frame: the cloud centred at (0, 1.3, 0), radius about 0.7; the network scaled to radius about 0.6; split copies at x -0.6 and 0.6 (three: -0.8, 0, 0.8).
 - **Size:** cloud radius ~0.7; network radius ~0.6. Shown together with: `soil/field` (same frame).
@@ -1929,7 +1929,7 @@ Other exports: `setLang`.
 
 Starlings at dusk all around you: 200 birds (50 to 400, a live simulation), each following its seven nearest neighbours, keeping its distance and fleeing a falcon with alarm passing between neighbours; sky, a lake, trees and reeds; the flock swoops round you every 88 s.
 
-- **File:** `tools/flock/sets/flock.js`; manifest `tools/flock/sets/flock.md`.
+- **File:** `packages/flock/src/sets/flock.js`; manifest `packages/flock/src/sets/flock.md`.
 - **Belongs to:** the flock story.
 - **Frame:** Life size: 1 unit = 1 m, the viewer at the origin, ground y = 0, the sun sets towards -z.
 - **Size:** life size; sky to the horizon, 2,600 reeds within 32 m.
@@ -2001,7 +2001,7 @@ Other exports: `setRoom`, `modelRoom`, `room`, `player`, `walkTo`, `crumbs`, `cr
 
 A robot guide (the people's street-armour figure, bodies.js, posed by ik.js, driven by a script) in your room, and the props it makes from its own body: a ray from its fist, a target, five floor markers from its spine, a ten-node network from its chest badge, a mini menu, an amber copy of itself, boot trails, a card; a dark floor with a grid fading out from 3 m (none in AR).
 
-- **File:** `tools/tutorial/sets/guide.js`; manifest `tools/tutorial/sets/guide.md`.
+- **File:** `packages/tutorial/src/sets/guide.js`; manifest `packages/tutorial/src/sets/guide.md`.
 - **Belongs to:** the tutorial; reuses the people's bodies (`bodies.js`, a draw set of its own: `HOST.bodies.set(2)`).
 - **Frame:** Life size: 1 unit = 1 m, the viewer's start at the origin, floor y = 0, ahead along -z; the guide stands at (0.35, -2.0).
 - **Size:** life size; the guide 1.75 m tall, its props within 2.5 m of the viewer.
@@ -2036,25 +2036,25 @@ These files in `tools/*/sets/` are pasted before the sets and are not props them
 
 - `tools/engine/kit.js`: the shared kit K (seeded random numbers, vector helpers, fading materials); every story pastes it before its sets
 - `tools/nmd/sets/data.js`: NMD_DATA, the muscle story's data block (generated by tools/nmd/data/gen_data.mjs); also read by the endotype story's build
-- `tools/endo/sets/data.js`: ENDO_DATA, the endotype story's data block (generated)
-- `tools/pet/sets/data.js`: PET_DATA, the PET story's data block (generated)
-- `tools/pet/sets/icons.js`: PET_ICONS, organ icons for the PET story's panels
+- `packages/endo/src/sets/data.js`: ENDO_DATA, the endotype story's data block (generated)
+- `packages/pet/src/sets/data.js`: PET_DATA, the PET story's data block (generated)
+- `packages/pet/src/sets/icons.js`: PET_ICONS, organ icons for the PET story's panels
 - `tools/micro/sets/data.js`: MICRO_DATA, the microanatomy story's data block (generated)
-- `tools/ovary/sets/data.js`: OVARY_DATA and OVARY_TREND, the poster's numbers (generated)
-- `tools/ovary/sets/look.js`: OVARY_LOOK, the ovary story's shared look
-- `tools/qubits/sets/qmath.js`: QMATH, the qubits story's maths
-- `tools/qubits/sets/data.js`: QUBITS_DATA, the real run's numbers
-- `tools/qubits/sets/look.js`: QLOOK, the qubits story's lit tubes, rings, balls and halos
-- `tools/mutation/sets/mmath.js`: MMATH, the mutation story's maths
-- `tools/mutation/sets/data.js`: MUT_DATA, the poster's numbers
-- `tools/mutation/sets/look.js`: MLOOK, the mutation story's shared look
+- `packages/ovary/src/sets/data.js`: OVARY_DATA and OVARY_TREND, the poster's numbers (generated)
+- `packages/ovary/src/sets/look.js`: OVARY_LOOK, the ovary story's shared look
+- `packages/qubits/src/sets/qmath.js`: QMATH, the qubits story's maths
+- `packages/qubits/src/sets/data.js`: QUBITS_DATA, the real run's numbers
+- `packages/qubits/src/sets/look.js`: QLOOK, the qubits story's lit tubes, rings, balls and halos
+- `packages/mutation/src/sets/mmath.js`: MMATH, the mutation story's maths
+- `packages/mutation/src/sets/data.js`: MUT_DATA, the poster's numbers
+- `packages/mutation/src/sets/look.js`: MLOOK, the mutation story's shared look
 - `tools/topo/sets/data.js`: TOPO_DATA, topocyte's numbers (generated)
 - `tools/topo/sets/tdata.js`: TDATA, the decoders and look-ups for TOPO_DATA
 - `tools/topo/sets/look.js`: TLOOK, the topology story's shared look
-- `tools/soil/sets/data.js`: SOIL_DATA, the soil story's field trial data (generated by tools/soil/data/gen_data.py)
-- `tools/soil/sets/sdata.js`: SDATA, the decoders and look-ups for SOIL_DATA
-- `tools/soil/sets/look.js`: SLOOK, the soil story's palette and colour rules
-- `tools/tutorial/sets/script.js`: GUIDE, SCRIPT and evalGuide: the tutorial guide's timeline as data and its evaluator (plain maths, tested in Node)
+- `packages/soil/src/sets/data.js`: SOIL_DATA, the soil story's field trial data (generated by packages/soil/src/data/gen_data.py)
+- `packages/soil/src/sets/sdata.js`: SDATA, the decoders and look-ups for SOIL_DATA
+- `packages/soil/src/sets/look.js`: SLOOK, the soil story's palette and colour rules
+- `packages/tutorial/src/sets/script.js`: GUIDE, SCRIPT and evalGuide: the tutorial guide's timeline as data and its evaluator (plain maths, tested in Node)
 - `tools/lbi/sets/demo.js`: a tiny example set (points on a sphere) for the set harness; no story uses it
 
 ## Where manifests disagree with the code

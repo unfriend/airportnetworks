@@ -1,6 +1,6 @@
 # The PET story and the poster
 
-How "One scan, one system" (`stories/pet.js`, built from `tools/pet/`) compares with the poster "Shaping a New Era in
+How "One scan, one system" (`packages/pet/main.js`, built from `packages/pet/src/`) compares with the poster "Shaping a New Era in
 Nuclear Medicine" (Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan
 Grünert, Marcus Hacker; Division of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine). Two
 independent comparisons, 29 October 2026, each against the poster itself and the paper it builds on (Geist et al., "The
@@ -57,4 +57,4 @@ ratio is taken; the formulas of Clearance, Heterogeneity and the index; which wa
 whether it is a position or a distance; what the dashed lines bound; means or medians and the spread; why 593 and 410
 scans against 630; what the p values test (all above 0.05, in 19 people); the follow-up results, which no panel shows.
 
-The poster's numbers, as group summaries, are in git: `git show b7053fb^:tools/pet/sets/data.js` (under `poster`).
+The poster's numbers, as group summaries, are in git: `git show b7053fb^:packages/pet/src/sets/data.js` (under `poster`).

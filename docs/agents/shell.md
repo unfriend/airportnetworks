@@ -993,7 +993,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     integrated, the narration -13 to -16. Whether they sound good, and how loud
     they are on a headset, can only be judged by ear.
   - Sounds inside the stories (phase 2; every story, the design room and the studio keep
-    the same lines, the flock's `tools/flock/engine/` and the airports' the
+    the same lines, the flock's `packages/flock/src/engine/` and the airports' the
     references): the story's cues are set beside its keys in `buildStory`,
     `sfxCue(t, name, set, at, o)` (story time; a set and one of its anchors, or
     for the hand-written three an item: an airport, a protein, a copy or an

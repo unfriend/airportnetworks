@@ -29,7 +29,7 @@ covers the app's packages too.
   them. Every text file was already stored with LF, so no file's content changed; Git tells binary files apart as before.
   A checkout whose files are still CRLF (made before the rule) turns LF on a clean tree with `git rm --cached -r -q .`,
   then `git reset --hard` (two commands: Windows PowerShell 5.1 has no `&&`; untracked and ignored files are kept). The
-  Python data generators that write story data (`tools/endo`, `tools/soil`, `tools/topo` `data/gen_data.py`) open their
+  Python data generators that write story data (`packages/endo/src`, `packages/soil/src`, `tools/topo` `data/gen_data.py`) open their
   output with `newline='\n'`, so a run on Windows writes LF too.
 - **Checked on the Windows PC** when both were fixed: all 16 builds' `--check` and `tools/release.mjs --check` pass; the
   four small tests pass (`tools/pass/test-sets.mjs` after `node tools/pass/build.mjs`, as its usage says); the data
@@ -2258,7 +2258,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `packages/robots/src/` and the tutorial in `tools/tutorial/` (also
+endotype story in `packages/endo/src/`, the PET story in `packages/pet/src/`, the microanatomy story in `tools/micro/`, the ovary story in `packages/ovary/src/`, the qubits story in `packages/qubits/src/`, the mutation story in `packages/mutation/src/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `packages/soil/src/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/`, the robot gang in `packages/robots/src/` and the tutorial in `packages/tutorial/src/` (also
 `test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
 second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
 `mode=1` practice, `nofvt` the plain figure).

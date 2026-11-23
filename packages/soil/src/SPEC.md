@@ -66,10 +66,10 @@ correlation across the samples), "modules" (groups that rise together), "the cro
   (`tools/topo/sets/look.js`, **unchanged**: lit instanced tubes, rings, balls, boxes, halos, cones, glass spheres, glass
   discs, ribbons, glass slides; read its header), then the tour's `web` set (`tools/lbi/sets/web.js`, **unchanged**: only
   its globe is used), then this story's sets: `soil`, `field`, `net`.
-- **Copied and adapted** (not included): the endotype story's `net` set (`tools/endo/sets/net.js`) as `sets/net.js`
-  (builder B); the flock's swaying reeds (`tools/flock/sets/flock.js`, "reeds and grass round where you stand": blades as
+- **Copied and adapted** (not included): the endotype story's `net` set (`packages/endo/src/sets/net.js`) as `sets/net.js`
+  (builder B); the flock's swaying reeds (`packages/flock/src/sets/flock.js`, "reeds and grass round where you stand": blades as
   triangles swaying in the vertex shader on `uTime`) as the field's wheat; the aging ovary story's stacking movement
-  (`tools/ovary/sets/charts.js`, `SLIDE_GL`: instanced items with two poses, a staggered smoothstep per item from one to
+  (`packages/ovary/src/sets/charts.js`, `SLIDE_GL`: instanced items with two poses, a staggered smoothstep per item from one to
   the other) for the soil cores. The stubs in `sets/` keep this contract already: replace their bodies.
 - Labels may have `text` as a function returning `[bold, rest]` (re-read while the label shows: the plots' values, the
   dates, the jars' ppm, a module's size). **Step params** (integers, never eased) are listed in each manifest and in the

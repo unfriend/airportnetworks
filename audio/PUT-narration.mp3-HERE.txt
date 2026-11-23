@@ -26,38 +26,38 @@ The muscle story (#nmd) has narration-nmd.mp3. Its chapters start at 0:00,
 0:24, 1:38, 2:13, 3:22, 4:23, 5:09, 6:01, 7:29 and 8:15, ending at 8:56; its
 tables are in tools/nmd/engine/e3_story.js (then rebuild).
 
-The endotype story (#endo) has narration-endo.mp3. Its chapters start at 0:00,
+The endotype story (#endo, a story package since v186) has packages/endo/audio/narration.mp3. Its chapters start at 0:00,
 0:27, 1:08, 1:55, 2:56, 3:50, 4:41, 5:28 and 7:04, ending at 7:42; its tables
-are in tools/endo/engine/e3_story.js (then rebuild).
+are in packages/endo/src/engine/e3_story.js (then rebuild).
 
-The PET story (#pet) has narration-pet.mp3. Its chapters start at 0:00, 0:31,
+The PET story (#pet, a story package since v186) has packages/pet/audio/narration.mp3. Its chapters start at 0:00, 0:31,
 1:39, 2:26, 3:09 and 4:02, ending at 6:03; its tables are in
-tools/pet/engine/e3_story.js (then rebuild).
+packages/pet/src/engine/e3_story.js (then rebuild).
 
 The microanatomy story (#micro) has narration-micro.mp3. Its chapters start at
 0:00, 0:35, 1:34, 2:23, 3:32, 4:28, 5:50, 6:38 and 7:19, ending at 8:06; its
 tables are in tools/micro/engine/e3_story.js (then rebuild).
 
-The aging ovary story (#ovary) has narration-ovary.mp3. Its chapters start at
+The aging ovary story (#ovary, a story package since v186) has packages/ovary/audio/narration.mp3. Its chapters start at
 0:00, 1:05, 1:58, 3:09, 4:50 and 6:43, ending at 7:48; its tables are in
-tools/ovary/engine/e3_story.js (then rebuild). Its words use American spelling
+packages/ovary/src/engine/e3_story.js (then rebuild). Its words use American spelling
 (as the qubits story's do).
 
-The qubits story (#qubits) has narration-qubits.mp3. Its chapters start at
+The qubits story (#qubits, a story package since v186) has packages/qubits/audio/narration.mp3. Its chapters start at
 0:00, 0:58, 1:50, 2:36, 3:46, 4:42, 6:15 and 8:08, ending at 8:54; its tables
-are in tools/qubits/engine/e3_story.js (then rebuild).
+are in packages/qubits/src/engine/e3_story.js (then rebuild).
 
-The mutation machine (#mutation) has narration-mutation.mp3. Its chapters
+The mutation machine (#mutation, a story package since v186) has packages/mutation/audio/narration.mp3. Its chapters
 start at 0:00, 0:41, 1:39, 2:44, 3:54, 5:09, 6:19 and 7:35, ending at 8:26;
-its tables are in tools/mutation/engine/e3_story.js (then rebuild).
+its tables are in packages/mutation/src/engine/e3_story.js (then rebuild).
 
 The shape of tissue (#topo) has narration-topo.mp3. Its chapters start at
 0:00, 0:45, 1:31, 2:51, 3:59, 5:11, 6:38 and 7:45, ending at 8:50; its tables
 are in tools/topo/engine/e3_story.js (then rebuild).
 
-The soil story, Holding on to nitrogen (#soil), has narration-soil.mp3. Its
+The soil story, Holding on to nitrogen (#soil), a story package since v186, has packages/soil/audio/narration.mp3. Its
 chapters start at 0:00, 0:51, 2:06, 3:21, 4:50, 6:45, 8:14 and 10:05, ending
-at 11:03; its tables are in tools/soil/engine/e3_story.js (then rebuild).
+at 11:03; its tables are in packages/soil/src/engine/e3_story.js (then rebuild).
 
 The network-medicine story (#proteins) has narration-proteins.mp3. Its
 chapters start at 0:00, 0:21, 0:50, 1:21, 1:49, 2:25, 3:20, 3:54, 4:34 and
@@ -67,9 +67,9 @@ The cell map story (#spatial) has narration-spatial.mp3. Its chapters start at
 0:00, 0:21, 0:59, 1:31, 2:10, 2:45, 3:25, 4:04, 4:40 and 5:19, ending at 5:41;
 its tables are in stories/spatial.js.
 
-The flock (#flock) has narration-flock.mp3. Its chapters start at 0:00, 0:23,
+The flock (#flock, a story package since v186) has packages/flock/audio/narration.mp3. Its chapters start at 0:00, 0:23,
 0:53 and 1:20, ending at 1:36 (after that the flock flies on in explore mode);
-its tables are in tools/flock/engine/e3_story.js (then rebuild).
+its tables are in packages/flock/src/engine/e3_story.js (then rebuild).
 
 The robot gang (#robots, a story package since v185) has its narration in its
 own folder, packages/robots/audio/narration.mp3. Its chapters start at 0:00,
@@ -77,10 +77,10 @@ own folder, packages/robots/audio/narration.mp3. Its chapters start at 0:00,
 explore mode); its tables are in packages/robots/src/engine/e3_story.js (then
 node packages/robots/src/build.mjs and node tools/packages/scan.mjs).
 
-The tutorial (#tutorial) has narration-tutorial.mp3 (Kokoro's af_heart, made by
+The tutorial (#tutorial, a story package since v186) has packages/tutorial/audio/narration.mp3 (Kokoro's af_heart, made by
 node tools/voice/narrate.mjs tutorial): its chapters start at 0:00, 0:27, 0:54, 1:23,
 1:52, 2:22, 2:41 and 3:11, ending at 3:35 (after that explore mode is practice); its
-tables are in tools/tutorial/engine/e3_story.js (then rebuild).
+tables are in packages/tutorial/src/engine/e3_story.js (then rebuild).
 
 The pass story (#pass) has narration-pass.mp3 (English, Kokoro's af_heart) and
 narration-pass-de.mp3 (German, Piper's Thorsten): one recording per language
@@ -116,14 +116,14 @@ The muscle story (#nmd) looks for narration-nmd.mp3. Its chapters start at
 change NARRATION_SYNC in tools/nmd/engine/e3_story.js (then rebuild) if your
 recording differs.
 
-The endotype story (#endo) looks for narration-endo.mp3. Its chapters start at
+The endotype story (#endo, a story package since v186) looks for packages/endo/audio/narration.mp3. Its chapters start at
 0:00, 0:22, 0:59, 1:47, 2:47, 3:42, 4:29, 5:20 and 6:33, ending at 7:12; change
-NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
+NARRATION_SYNC in packages/endo/src/engine/e3_story.js (then rebuild) if your
 recording differs.
 
-The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
+The PET story (#pet, a story package since v186) looks for packages/pet/audio/narration.mp3. Its chapters start at 0:00,
 0:28, 1:50, 2:41, 3:27 and 4:16, ending at 6:33; change
-NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your recording
+NARRATION_SYNC in packages/pet/src/engine/e3_story.js (then rebuild) if your recording
 differs.
 
 The microanatomy story (#micro) looks for narration-micro.mp3. Its chapters
@@ -131,19 +131,19 @@ start at 0:00, 0:29, 1:26, 2:06, 3:05, 3:58, 5:03, 5:47 and 6:43, ending at
 7:36; change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if
 your recording differs.
 
-The aging ovary story (#ovary) looks for narration-ovary.mp3. Its chapters
+The aging ovary story (#ovary, a story package since v186) looks for packages/ovary/audio/narration.mp3. Its chapters
 start at 0:00, 0:56, 1:41, 2:41, 4:01 and 5:32, ending at 7:04; change
-NARRATION_SYNC in tools/ovary/engine/e3_story.js (then rebuild) if your
+NARRATION_SYNC in packages/ovary/src/engine/e3_story.js (then rebuild) if your
 recording differs. Its words use American spelling (as the qubits story's do).
 
-The qubits story (#qubits) looks for narration-qubits.mp3. Its chapters start
+The qubits story (#qubits, a story package since v186) looks for packages/qubits/audio/narration.mp3. Its chapters start
 at 0:00, 0:51, 1:50, 2:32, 4:02, 5:02, 6:32 and 7:53, ending at 9:04; change
-NARRATION_SYNC in tools/qubits/engine/e3_story.js (then rebuild) if your
+NARRATION_SYNC in packages/qubits/src/engine/e3_story.js (then rebuild) if your
 recording differs.
 
-The mutation machine (#mutation) looks for narration-mutation.mp3. Its
+The mutation machine (#mutation, a story package since v186) looks for packages/mutation/audio/narration.mp3. Its
 chapters start at 0:00, 0:43, 1:50, 2:50, 3:49, 5:05, 6:11 and 7:26, ending at
-8:39; change NARRATION_SYNC in tools/mutation/engine/e3_story.js (then rebuild)
+8:39; change NARRATION_SYNC in packages/mutation/src/engine/e3_story.js (then rebuild)
 if your recording differs.
 
 The shape of tissue (#topo) looks for narration-topo.mp3. Its chapters start
@@ -151,9 +151,9 @@ at 0:00, 0:56, 1:40, 2:51, 3:55, 4:53, 5:54 and 6:54, ending at 8:07; change
 NARRATION_SYNC in tools/topo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
-The soil story, Holding on to nitrogen (#soil), looks for narration-soil.mp3.
+The soil story, Holding on to nitrogen (#soil), a story package since v186, looks for packages/soil/audio/narration.mp3.
 Its chapters start at 0:00, 0:52, 1:53, 2:48, 3:54, 5:17, 6:17 and 7:40,
-ending at 8:42; change NARRATION_SYNC in tools/soil/engine/e3_story.js (then
+ending at 8:42; change NARRATION_SYNC in packages/soil/src/engine/e3_story.js (then
 rebuild) if your recording differs.
 
 The pass story (#pass) looks for narration-pass.mp3 (English) and
@@ -166,9 +166,9 @@ Until then its chapters start at 0:00, 0:44, 1:53, 2:43, 4:18 and 5:46,
 ending at 6:53 (paced from the longer of its two languages). A recording in
 one language needs one in the other on the same timeline.
 
-The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
+The flock (#flock, a story package since v186) looks for packages/flock/audio/narration.mp3. Its chapters start at 0:00,
 0:24, 1:02 and 1:39, ending at 1:57 (after that the flock flies on in explore
-mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
+mode); change NARRATION_SYNC in packages/flock/src/engine/e3_story.js (then rebuild)
 if your recording differs.
 
 The robot gang (#robots) looks for packages/robots/audio/narration.mp3 (a

@@ -3,11 +3,11 @@
 The story's organs as small lit 3D models instead of flat line icons: one for each organ of `MICRO_DATA.organs`
 (adipose, adrenal gland, artery, bladder, brain, breast, cervix, colon, oesophagus, fallopian tube, heart, kidney,
 liver, lung, minor salivary gland, muscle, nerve, ovary, pancreas, pituitary, prostate, skin, small intestine, spleen,
-stomach, testis, thyroid, uterus, vagina). They replace the PET story's icons (`tools/pet/sets/icons.js`, which the PET
+stomach, testis, thyroid, uterus, vagina). They replace the PET story's icons (`packages/pet/src/sets/icons.js`, which the PET
 story keeps); an organ's model is found by its name (`idOf`), the only link between the data and the models.
 
 Since v104 the PET story uses them too, in its opening's vision row (the network of organs; see
-`tools/pet/sets/scan.md`), with one more model of its own: **the bone marrow** (`marrow`, in `extra`, not in `ids`):
+`packages/pet/src/sets/scan.md`), with one more model of its own: **the bone marrow** (`marrow`, in `extra`, not in `ids`):
 a short piece of a long bone (the knee end whole, two knuckles capped with bluish-white cartilage) cut through at the
 other end, where the red marrow, laced with pale spongy bone, shows inside a ring of hard bone, sunk a little into the
 cut (a smooth, shallow dish: a cup with walls thinner than the grid tore the surface); built along the bone's axis

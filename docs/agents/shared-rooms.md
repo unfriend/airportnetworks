@@ -1244,7 +1244,7 @@ The plan is `docs/shared-space-plan.md`.
     dropped, its rim and glow toned down: the self flag), on the room's floor in a room, else the reference space's. In VR
     only (in AR you see your own), never in camera mode or on the preview camera, never sent. A row on the menu's Settings
     tab under *Frame rate*; the page's Shared dialog has none (it holds only the room's settings for the headsets).
-  - A story's own figures (v173, the tutorial's guide; `tools/tutorial/SPEC.md` section B). `HOST.needBodies()`
+  - A story's own figures (v173, the tutorial's guide; `packages/tutorial/src/SPEC.md` section B). `HOST.needBodies()`
     (`shared.js`) loads `ik.js` and `bodies.js` on a page too: a promise of true once ready, false where bodies cannot be
     drawn or the load failed. `HOST.bodies.set(cap)` (1 to 8) makes a draw set of the story's own, `{ cap, attach(parent),
     begin(t), add(B, I), end(), dispose(), stats(), meshes() }`: its own texture, instance attributes and two materials
@@ -1966,7 +1966,7 @@ The plan is `docs/shared-space-plan.md`.
   shows, nothing syncs.
 
 The hooks every story keeps (all sixteen, the same lines; the flock is the
-reference, `tools/flock/engine/`):
+reference, `packages/flock/src/engine/`):
 
 - `collab: { APP, scene: () => (LOAD.done ? GL.scene : null), state, apply, view, setView, effect, hover, panel, place }`
   in its returned object (`scene()` is null until the story is all built, so the shell attaches to it, applies the

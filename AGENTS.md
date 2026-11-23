@@ -19,18 +19,18 @@ Quest Browser, WebXR).
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (the authors' real data, kept out of the repository), the motor unit, a supercomputer |
-| Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
-| Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
+| Disease endotypes | `packages/endo/main.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
+| Whole-body PET | `packages/pet/main.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
-| Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
-| Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
-| Quantum phylogenetics | `stories/mutation.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
+| Ovarian aging | `packages/ovary/main.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
+| Quantum network compression | `packages/qubits/main.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
+| Quantum phylogenetics | `packages/mutation/main.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
 | Tissue topology | `stories/topo.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
-| Soil microbes | `stories/soil.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
+| Soil microbes | `packages/soil/main.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
-| Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
+| Flock | `packages/flock/main.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
-| Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `stories/tutorial.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
+| Tutorial (an introduction, last in the list since v180, `intro: true`; v173) | `packages/tutorial/main.js` | a robot guide (the people's armour figure, `bodies.js`, driven by a script) shows how the app works in a headset, then seven practice tasks; its chest badge becomes a 10-node network |
 
 Besides the stories, two pages that are not stories (`STORY_EXTRA`, on no Stories screen): the design room
 (`stories/design.js`, `#design`: a table with a small model of every prop) and the studio (`stories/studio.js`,
@@ -99,9 +99,11 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   outside the repository, see its `README.md`.
 - `tools/mol/` - protein models from the PDB (`build.py`, Python outside the repository: a surface with baked occlusion,
   a cartoon and balls at three levels each, `<name>.mol`); the engine's parts `MOLS molLoad ... molMesh` draw them.
-- `tools/<key>/` - the sources of each built story (`lbi`, `nmd`, `endo`, `pet`, `micro`, `ovary`, `qubits`,
-  `mutation`, `topo`, `soil`, `pass`, `flock`, `robots`, `tutorial`, `design`), each with a `README.md` and most with a
-  `SPEC.md` (`docs/agents/stories.md`); the tutorial's script is checked by `node tools/tutorial/test-script.mjs`.
+- `tools/<key>/` - the sources of each built story still in `stories/` (`lbi`, `nmd`, `micro`, `topo`, `pass`,
+  `design`), each with a `README.md` and most with a `SPEC.md` (`docs/agents/stories.md`); a moved story's are
+  `packages/<key>/src/` (`robots`, v185; `qubits`, `mutation`, `flock`, `tutorial`, `endo`, `pet`, `ovary`, `soil`, v186;
+  their builds read the shared sources where they are, in `tools/`); the tutorial's script is checked by
+  `node packages/tutorial/src/test-script.mjs`.
 - `tools/studio/` - the sources of `stories/studio.js`: engine parts, sets, `vendor/` (never edited), the build,
   `scan.mjs`, `convert.mjs`, the test scenes, `r2sync.mjs`, `push.mjs`, `ik.js` (`docs/agents/studio.md`).
 - `basis/` - Basis Universal's KTX2 encoder and transcoder (v151, the studio's), copied unchanged (`basis/README.md`).
@@ -234,8 +236,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 ### Built files and data
 
 - Never edit a built file by hand: edit its sources and rebuild, and commit both (`--check` says when they are out of
-  step). Built: `stories/lbi.js`, `nmd.js`, `endo.js`, `pet.js`, `micro.js`, `ovary.js`, `qubits.js`, `mutation.js`,
-  `topo.js`, `soil.js`, `pass.js`, `flock.js`, `tutorial.js`, `design.js`, `studio.js` (each `node tools/<key>/build.mjs`),
+  step). Built: `stories/lbi.js`, `nmd.js`, `micro.js`, `topo.js`, `pass.js`, `design.js`, `studio.js` (each
+  `node tools/<key>/build.mjs`),
   a moved story's `packages/<key>/main.js` (`node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`),
   `lowpoly.js` (`node tools/lowpoly/build.mjs`), `examples/bliss-xp` (`node tools/studio/xp/make.mjs`),
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
@@ -355,20 +357,20 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `node tools/nmd/data/gen_data.mjs <their folder>`), rebuild `stories/nmd.js` with
   `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
-  `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing
-  `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
-  `stories/flock.js`, `packages/robots/src/` and `packages/robots/main.js` (then `node tools/packages/scan.mjs`), and `tools/pet/` and `stories/pet.js` (and after
+  `VERSION`). Likewise `packages/endo/src/` and `packages/endo/main.js` (and after changing
+  `tools/nmd/sets/motor.js`, which the endotype story uses too), `packages/flock/src/` and
+  `packages/flock/main.js`, `packages/robots/src/` and `packages/robots/main.js` (then `node tools/packages/scan.mjs`), and `packages/pet/src/` and `packages/pet/main.js` (and after
   changing `tools/lbi/sets/body.js` or `tools/micro/sets/organs.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
-  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `tools/ovary/` and
-  `stories/ovary.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
-  `node tools/ovary/data/gen_data.mjs` after changing its readings), and `tools/qubits/` and
-  `stories/qubits.js` (run `node tools/qubits/test-qmath.mjs` after changing its maths), and `tools/mutation/` and
-  `stories/mutation.js` (run `node tools/mutation/test-mmath.mjs` after changing its maths), and `tools/topo/` and
+  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `packages/ovary/src/` and
+  `packages/ovary/main.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
+  `node packages/ovary/src/data/gen_data.mjs` after changing its readings), and `packages/qubits/src/` and
+  `packages/qubits/main.js` (run `node packages/qubits/src/test-qmath.mjs` after changing its maths), and `packages/mutation/src/` and
+  `packages/mutation/main.js` (run `node packages/mutation/src/test-mmath.mjs` after changing its maths), and `tools/topo/` and
   `stories/topo.js` (run `node tools/topo/test-data.mjs` after its data or decoders change; its data only from the
   authors' files through `tools/topo/data/gen_data.py`; and after changing `tools/lbi/sets/body.js` or
-  `tools/micro/sets/organs.js`, which it uses), and `tools/soil/` and `stories/soil.js` (run
-  `node tools/soil/test-data.mjs` after its data or decoders change; its data only from the authors' files through
-  `tools/soil/data/gen_data.py`; and after changing `tools/topo/sets/look.js` or `tools/lbi/sets/web.js`, which it
+  `tools/micro/sets/organs.js`, which it uses), and `packages/soil/src/` and `packages/soil/main.js` (run
+  `node packages/soil/src/test-data.mjs` after its data or decoders change; its data only from the authors' files through
+  `packages/soil/src/data/gen_data.py`; and after changing `tools/topo/sets/look.js` or `tools/lbi/sets/web.js`, which it
   uses), and `tools/pass/` and
   `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
   And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
@@ -424,7 +426,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/room-test.mjs` | after changing `room-test/` |
 | `node tools/perf.mjs [url] [--only words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` | measuring, not a test (exits 0; no GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`, so do not rename them) |
 | `tools/<story>/shot.mjs`, then `sweep.mjs` | a changed set: its harness first, then the story, then the smoke test |
-| `node tools/qubits/test-qmath.mjs`, `tools/mutation/test-mmath.mjs`, `tools/topo/test-data.mjs`, `tools/soil/test-data.mjs`, `tools/pass/test-sets.mjs` | after changing that story's maths, data or sets |
+| `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `tools/topo/test-data.mjs`, `packages/soil/src/test-data.mjs`, `tools/pass/test-sets.mjs` | after changing that story's maths, data or sets |
 | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | after changing the test scene's maker (`node tools/studio/test/make.mjs` first) |
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |

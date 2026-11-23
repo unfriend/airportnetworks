@@ -40,6 +40,17 @@ all stories* (page button; automatic on an installed app); the robot gang moved 
 headset menu row for *Take all stories* (an installed headset app takes them by itself), a `packages order` / `take all`
 smoke block, a package case in `tools/live.mjs`.
 
+Done in v186 (batches A and B's readers): qubits, mutation, flock, tutorial, endo, pet, ovary and soil moved with
+`move.mjs` (each new `main.js` differs from the old built file only in comment and narration lines naming the folders).
+`move.mjs` now also rewrites `tools/<key>` named without a slash and a tool's root (`path.join(here, '../..')` in any
+`.mjs`). The readers' builds needed no patch: their `src()` reads `'../lbi/...'`, `'../micro/...'`, `'../nmd/...'`,
+`'../topo/...'` from `tools/`, where those sources stay. `tools/live.mjs` uses the flock as a package (its copy, its
+second flock, `--build` as `pkg:flock`; the list-touched case changes the airports card); `tools/update.mjs` plays
+narrations still in `audio/`; `relay/test.mjs` asks for `packages/flock/main.js`. Left for the next batches: micro and
+topo (owners of `organs.js` and `look.js`: when they move, patch pet's, topo's and soil's `src()` and harness paths
+from `'../micro/'`/`'../topo/'` to `'../../packages/<key>/src/'`), nmd and lbi (owners of motor, body, tissue, web),
+then pass, then the three wrapped.
+
 Moving a built story (one commit each, or a batch; the tree clean):
 
 1. `node tools/packages/move.mjs <key> --dry`, then `node tools/packages/move.mjs <key>` (`--needs <n>`: the release

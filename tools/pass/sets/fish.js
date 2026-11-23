@@ -1,4 +1,4 @@
-// A school of fish all around you, in deep blue water. A live simulation, after the flock's (tools/flock/sets/flock.js):
+// A school of fish all around you, in deep blue water. A live simulation, after the flock's (packages/flock/src/sets/flock.js):
 // each fish watches its nearest few neighbours (seven by default, one to twelve: fish_k) whatever the distance, swims
 // the way they swim, keeps a little apart and stays with them, and wanders a little of its own accord; nothing else
 // holds the school together, so with one neighbour each it falls apart and with seven it holds. Up to four sharks at

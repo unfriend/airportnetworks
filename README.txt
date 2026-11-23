@@ -6,24 +6,24 @@ Networks, in sixteen stories - installable web app
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
   4. Endotypes: one rare disease of the junction between nerve and muscle, 35
      genes and 12 hidden mechanisms, after the EndotypY poster by Chloé Bûcheron
-     and colleagues  (stories/endo.js)
+     and colleagues  (packages/endo/main.js)
   5. One scan, one system: a PET scanner, the body's organs and the network of
      their metabolism from 658 scans, after Barbara K Geist and colleagues
-     (stories/pet.js)
+     (packages/pet/main.js)
   6. Tissue and time: the small working units organs are built from, in 24,945
      slides, and how they change with age, after Iva Buljan and colleagues
      (stories/micro.js)
   7. The aging ovary: what 255 ovaries show about aging, from the reserve of
      follicles to two deep-learning methods and the trends with age, after the
      poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro
-     (stories/ovary.js)
+     (packages/ovary/main.js)
   8. Three qubits: how a gene network is shrunk to fit on a tiny quantum
      computer, and broken into building blocks it runs well, after Joel
-     Hancock's method and figures  (stories/qubits.js)
+     Hancock's method and figures  (packages/qubits/main.js)
   9. The mutation machine: how DNA changes letter by letter along a family
      tree, and how a rule for those changes becomes a quantum circuit, one
      machine per branch; after the poster by Enes Berk Sakalli and Arndt von
-     Haeseler  (stories/mutation.js)
+     Haeseler  (packages/mutation/main.js)
   10. The shape of tissue: where cells sit in slides of liver, read at every
      scale at once (persistent homology), and which scales tell cirrhosis from
      healthy tissue, down to every cell; after the poster by Simon Schindler,
@@ -35,16 +35,16 @@ Networks, in sixteen stories - installable web app
      a wheat that slows the soil's microbes stays greener and leaks less
      nitrate in a field trial in Japan, while the crowd of microbes follows the
      fertiliser far more than the wheat; after the slides and field trial of
-     Marina Montserrat Díez, Christa Schleper and colleagues  (stories/soil.js)
+     Marina Montserrat Díez, Christa Schleper and colleagues  (packages/soil/main.js)
   13. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   14. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
   15. Flock: 200 starlings at dusk flying all around you, each following its
-     seven nearest neighbours  (stories/flock.js)
+     seven nearest neighbours  (packages/flock/main.js)
   16. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (packages/robots/, a story package)
   And an introduction, Your guide: a robot guide shows you how the app works
-     in a headset, then a few tasks to practise (stories/tutorial.js; the last
+     in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      card on the Stories screen, not counted as a story)
 
 Story packages: more stories, each in a folder of its own (packages/<key>/,
@@ -729,8 +729,8 @@ Install:
 Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
-audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), audio/narration-flock.mp3 and, for the robot gang (a story package), packages/robots/audio/narration.mp3 (the airports
+packages/endo/audio/narration.mp3, packages/pet/audio/narration.mp3, audio/narration-micro.mp3,
+packages/ovary/audio/narration.mp3, packages/qubits/audio/narration.mp3, packages/mutation/audio/narration.mp3, audio/narration-topo.mp3, packages/soil/audio/narration.mp3, audio/narration-pass.mp3 (with audio/narration-pass-de.mp3 for its German), packages/flock/audio/narration.mp3 and, for the robot gang (a story package), packages/robots/audio/narration.mp3 (the airports
 one is a human recording; every other story has a synthetic voice, made by tools/voice/: Kokoro's American af_heart,
 and for the pass story's German Piper's Thorsten); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
@@ -819,23 +819,23 @@ visits are computed in this map on the protein layers; endotype names are the
 most typical GO process of their genes. The motor unit and the supercomputer
 are illustrative.
 
-Endotype story data (stories/endo.js): the authors' EndotypY run on congenital
+Endotype story data (packages/endo/main.js): the authors' EndotypY run on congenital
 myasthenic syndromes (no patient data): the 35 genes of the Gene Table of
 Neuromuscular Disorders, their protein network (18,306 proteins, 316,613
 links) and their 12 endotypes of 393 genes. Only the numbers the story needs
-are in the repository (tools/endo/sets/data.js), not the authors' files. The
+are in the repository (packages/endo/src/sets/data.js), not the authors' files. The
 steps before the endotypes (seed groups, the walk, neighbourhoods, the GO
 annotation, the tree) are re-run with the package's default settings to show
 the method; the tree is drawn to agree with the authors' endotypes. Endotype
 names follow their strongest COMPARTMENTS term. The synapse is illustrative.
 
-PET story data (stories/pet.js): the paper by Geist et al. (Med 6, 100881,
+PET story data (packages/pet/main.js): the paper by Geist et al. (Med 6, 100881,
 2025; CC BY 4.0) and the poster "Shaping a New Era in Nuclear Medicine". No
 patient data: the network of all 658 scans is printed in the paper (Figure 2A);
-the other networks are read off its figures (tools/pet/data/figures.json).
+the other networks are read off its figures (packages/pet/src/data/figures.json).
 Typical organ uptakes and the synthetic cohort behind explore's matrix and
-scatter views are illustrative stand-ins. node tools/pet/data/gen_data.mjs
-writes tools/pet/sets/data.js.
+scatter views are illustrative stand-ins. node packages/pet/src/data/gen_data.mjs
+writes packages/pet/src/sets/data.js.
 
 Microanatomy story data (stories/micro.js): the preprint by Buljan, Bago-Horvath
 and Rendeiro (bioRxiv 2025, CC BY-NC), its poster and talk, and Iva Buljan's
@@ -843,29 +843,29 @@ network of organ architecture (kept out of the repository; only the numbers
 are in tools/micro/sets/data.js, from node tools/micro/data/gen_data.mjs). The
 slides and sections are drawn, not the GTEx images.
 
-Aging ovary story data (stories/ovary.js): the poster "Mapping the histological
+Aging ovary story data (packages/ovary/main.js): the poster "Mapping the histological
 landscape of human ovarian aging" by Chakraborty, Moustafa and Rendeiro
-(public; data GTEx). Its numbers are typed in (tools/ovary/sets/data.js, from
-node tools/ovary/data/gen_data.mjs), values read off its figures are in
-tools/ovary/data/figures.json. Its neighbor network is illustrative, and the
+(public; data GTEx). Its numbers are typed in (packages/ovary/src/sets/data.js, from
+node packages/ovary/src/data/gen_data.mjs), values read off its figures are in
+packages/ovary/src/data/figures.json. Its neighbor network is illustrative, and the
 counts on the ovary are read off the poster's lines (approximate); the ovary,
 slides and sections are drawn, not GTEx images.
 
-Qubits story (stories/qubits.js): after Joel Hancock's method and figures
+Qubits story (packages/qubits/main.js): after Joel Hancock's method and figures
 (network compression onto qubits and the Pauli decomposition). The networks it
 shows are examples made up for the story and computed in the page (no STRING
 data, no gene names, no patient data); the real run's summary numbers (on
-STRING v12.5) are typed in from his brief (tools/qubits/sets/data.js) and shown
+STRING v12.5) are typed in from his brief (packages/qubits/src/sets/data.js) and shown
 only as "in the real network". The cut stands in for the authors' beam search,
 and the walkers' valleys are illustrative. This story alone uses American
 spelling, as its author asked.
 
-The mutation machine (stories/mutation.js): after the poster "Converting
+The mutation machine (packages/mutation/main.js): after the poster "Converting
 Mutation into a Machinery: DNA Substitution Models as Quantum Circuits" by Enes
 Berk Sakalli and Arndt von Haeseler (a draft) and the first author's answers to
 our questions. As in the authors' own test, the numbers drawn are examples,
-computed in the page (tools/mutation/sets/mmath.js); the poster's numbers are
-typed in (tools/mutation/sets/data.js) and shown only as "in the authors' test".
+computed in the page (packages/mutation/src/sets/mmath.js); the poster's numbers are
+typed in (packages/mutation/src/sets/data.js) and shown only as "in the authors' test".
 The coupling computed live is our stand-in for their circuit, and says so. The
 test is synthetic (no patient data); the poster's figures are redrawn in 3D, its
 pictures never shown.
@@ -884,7 +884,7 @@ topocyte (GPL-3) is run offline only, none of its code is in the app. The cell
 types are the cell classifier's labels; the genes and proteins of the last
 chapter are sketches of the workflow, not data.
 
-Holding on to nitrogen (stories/soil.js): after the slides "Exploring the
+Holding on to nitrogen (packages/soil/main.js): after the slides "Exploring the
 Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of
 a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
 Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina
@@ -896,7 +896,7 @@ network built for this story with a standard method: correlation, not
 interaction); day 70's chlorophyll, the jars' nitrous oxide and the qPCR counts
 are read off the slides; the soil block, its flows, the relay and the field's
 layout are illustrative, and the story says so. The authors' files are not in
-the repository (tools/soil/data/gen_data.py reads them); kinds of microbe are
+the repository (packages/soil/src/data/gen_data.py reads them); kinds of microbe are
 numbered, and none of the slides' pictures is shown.
 
 Pass it on (stories/pass.js): an outreach story of the Ludwig Boltzmann
@@ -909,12 +909,12 @@ stories when it is built. The fish are a live simulation, and the outbreak is a
 simple model on the real route network, not a forecast (every route counts the
 same, an airport stands for its city, no real disease's numbers).
 
-Flock (stories/flock.js): a live simulation, not data. Each bird follows its
+Flock (packages/flock/main.js): a live simulation, not data. Each bird follows its
 seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
 a falcon sets off a wave of alarm that passes from neighbour to neighbour. Sky, land and birds are illustrative.
 
-Your guide (stories/tutorial.js, the tutorial): a robot guide, the armour figure
+Your guide (packages/tutorial/main.js, the tutorial): a robot guide, the armour figure
 people have in a shared room, posed by code from a script; its moves and words
 were written by Claude. It stands about two metres in front of you on your floor
 and shows how to point, play a story, explore, open the menu, Recenter and share
@@ -943,21 +943,21 @@ AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless 
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ (sources of the muscle story; node tools/nmd/build.mjs
-writes stories/nmd.js), tools/endo/ (sources of the endotype story; node
-tools/endo/build.mjs writes stories/endo.js), tools/pet/ (sources of the PET story; node
-tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microanatomy story; node
-tools/micro/build.mjs writes stories/micro.js), tools/ovary/ (sources of the aging ovary story; node
-tools/ovary/build.mjs writes stories/ovary.js), tools/qubits/ (sources of the qubits story; node
-tools/qubits/build.mjs writes stories/qubits.js), tools/mutation/ (sources of the mutation story;
-node tools/mutation/build.mjs writes stories/mutation.js), tools/topo/ (sources of the tissue topology
+writes stories/nmd.js), packages/endo/src/ (sources of the endotype story; node
+packages/endo/src/build.mjs writes packages/endo/main.js), packages/pet/src/ (sources of the PET story; node
+packages/pet/src/build.mjs writes packages/pet/main.js), tools/micro/ (sources of the microanatomy story; node
+tools/micro/build.mjs writes stories/micro.js), packages/ovary/src/ (sources of the aging ovary story; node
+packages/ovary/src/build.mjs writes packages/ovary/main.js), packages/qubits/src/ (sources of the qubits story; node
+packages/qubits/src/build.mjs writes packages/qubits/main.js), packages/mutation/src/ (sources of the mutation story;
+node packages/mutation/src/build.mjs writes packages/mutation/main.js), tools/topo/ (sources of the tissue topology
 story; node tools/topo/build.mjs writes stories/topo.js; its data from the authors' files, not in the repository),
-tools/soil/ (sources of the soil story; node tools/soil/build.mjs writes stories/soil.js; its data from the
+packages/soil/src/ (sources of the soil story; node packages/soil/src/build.mjs writes packages/soil/main.js; its data from the
 authors' files, not in the repository),
 tools/pass/ (sources of the pass story; node
-tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
-writes stories/flock.js), packages/robots/src/ (sources of the robot gang,
-a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), tools/tutorial/ (sources of the tutorial; node
-tools/tutorial/build.mjs writes stories/tutorial.js, node tools/tutorial/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
+tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), packages/flock/src/ (sources of the flock; node packages/flock/src/build.mjs
+writes packages/flock/main.js), packages/robots/src/ (sources of the robot gang,
+a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), packages/tutorial/src/ (sources of the tutorial; node
+packages/tutorial/src/build.mjs writes packages/tutorial/main.js, node packages/tutorial/src/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
 writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
 lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a

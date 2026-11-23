@@ -3,7 +3,7 @@
 // 22,348 links pulling out of the core, a shuffle dissolving it, its modules in colour, and the two wheat lines' networks
 // side by side (and the three regimes', and a random split's). Drawn in the field set's frame, floating over the field.
 // Real numbers from SOIL_DATA (SDATA); the cloud's places and the network's layout are a drawing.
-// Adapted from the endotype story's net set (tools/endo/sets/net.js: the cloud with its core and shell, the glowing
+// Adapted from the endotype story's net set (packages/endo/src/sets/net.js: the cloud with its core and shell, the glowing
 // seeds, the module pulling out, the colours, the focus and picking), without its walkers, heat and k.
 SETS.net = function (K) {
   const { THREE, smooth, clamp, prog } = K;

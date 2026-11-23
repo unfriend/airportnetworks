@@ -22,7 +22,7 @@ illustration". The story is now six chapters, about six and a half minutes (6:33
 the parts taken out are in git history.
 
 We are adding a ninth story to the web app in `/home/user/airportnetworks`: `packages/pet/main.js`, built from `packages/pet/src/`
-like the endotype story `stories/endo.js` is built from `tools/endo/`. It turns a paper, a poster and a vision slide
+like the endotype story `packages/endo/main.js` is built from `packages/endo/src/`. It turns a paper, a poster and a vision slide
 into a narrated, about five-and-a-half-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser). Be bold and beautiful, as in the tour, the muscle story and the endotype story.
 

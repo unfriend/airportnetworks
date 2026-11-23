@@ -33,16 +33,16 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | synthetic (Kokoro, `af_heart`) | curated, laid out at load time |
 | LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
 | Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | synthetic (Kokoro, `af_heart`) | the authors' files (kept out of the repository since 3 November 2026), some stand-ins |
-| Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | synthetic (Kokoro, `af_heart`) | the authors' EndotypY run (kept out of the repository) |
-| Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | synthetic (Kokoro, `af_heart`) | the paper's tables and figures, some stand-ins |
+| Disease endotypes: Endotypes | `endo` | `packages/endo/src/` (built) | synthetic (Kokoro, `af_heart`) | the authors' EndotypY run (kept out of the repository) |
+| Whole-body PET: One scan, one system | `pet` | `packages/pet/src/` (built) | synthetic (Kokoro, `af_heart`) | the paper's tables and figures, some stand-ins |
 | Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | synthetic (Kokoro, `af_heart`) | the preprint's numbers, Iva Buljan's network (kept out) |
-| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | synthetic (Kokoro, `af_heart`) | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
-| Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | synthetic (Kokoro, `af_heart`) | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
-| Quantum phylogenetics: The mutation machine | `mutation` | `tools/mutation/` (built) | synthetic (Kokoro, `af_heart`) | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
+| Ovarian aging: The aging ovary | `ovary` | `packages/ovary/src/` (built) | synthetic (Kokoro, `af_heart`) | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
+| Quantum network compression: Three qubits | `qubits` | `packages/qubits/src/` (built) | synthetic (Kokoro, `af_heart`) | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
+| Quantum phylogenetics: The mutation machine | `mutation` | `packages/mutation/src/` (built) | synthetic (Kokoro, `af_heart`) | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
 | Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | synthetic (Kokoro, `af_heart`) | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
-| Soil microbes: Holding on to nitrogen | `soil` | `tools/soil/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
+| Soil microbes: Holding on to nitrogen | `soil` | `packages/soil/src/` (built) | synthetic (Kokoro, `af_heart`) | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
-| Collective motion: Flock | `flock` | `tools/flock/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
+| Collective motion: Flock | `flock` | `packages/flock/src/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `packages/robots/` (a story package, built from its `src/`) | synthetic (Kokoro, `af_heart`) | a live simulation |
 
 "Built" stories are generated: edit `tools/<key>/` and run `node tools/<key>/build.mjs` (`--check` says whether the
@@ -91,7 +91,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     `sharp text`, `talk` and the tutorial's steps), `node tools/studio/test-ik.mjs` (v164), `node tools/engine/same.mjs`
     against v167 (v168's shared engine), `node tools/packages/check.mjs packages/hello --load` (v169), `tools/collab.mjs
     --arr` and `--talk` (not in its main run, v170 and v178) and `--all` with 17 stations (v173),
-    `node tools/tutorial/test-script.mjs` (v173), `node relay/test.mjs --talk` (v178), and `tools/update.mjs` and
+    `node packages/tutorial/src/test-script.mjs` (v173), `node relay/test.mjs --talk` (v178), and `tools/update.mjs` and
     `tools/live.mjs` again (v171 writes `sw.js`'s lists from `stories/list.js`). The room's FORMAT is networks-55 since
     v172. Each release
     goes to `dev` with the cheap checks first. Timings to keep an eye on in the suites: the studio
@@ -172,11 +172,11 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     behind the scene with a hole; *for text*; *in front*; *off*), off by default then; `#sharp=`, `#sharpsize=full`.
     Built as v165 on a branch of its own and merged as v174.
 - **networks-v173 (20 November 2026; FORMAT networks-55, shell 173), on `dev` only: the tutorial, told by a robot
-    guide.** A new first story, the last card since v180 (`stories/tutorial.js` from `tools/tutorial/`, `intro: true`; `tools/tutorial/SPEC.md`):
+    guide.** A new first story, the last card since v180 (`packages/tutorial/main.js` from `packages/tutorial/src/`, `intro: true`; `packages/tutorial/src/SPEC.md`):
     the people's armour figure (`bodies.js`, which can now draw a story's own figures, with parts that light up, go dark
     or flash) shows how to point, press, use the menu, Recenter and a shared room in eight chapters, then seven practice
     tasks; a synthetic voice. Arrange all lays out 17 stations; every test page sets `tutorialHold` to off.
-    `node tools/tutorial/test-script.mjs`, smoke's tutorial steps. Untested: the guide's look, steps and comfort on a
+    `node packages/tutorial/src/test-script.mjs`, smoke's tutorial steps. Untested: the guide's look, steps and comfort on a
     headset, the AR floor read from the headset's planes; unheard.
 - **networks-v172 (20 November 2026; FORMAT networks-55, shell 172), on `dev` only: each circle walked into or asked
     first.** The headset menu's Circles tab has *This circle* under the room's switch and the Shared dialog a button in
@@ -1789,7 +1789,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   which shows the soil station as *A newer story* until it updates), tested headlessly only:** the sixteenth story,
   *Holding on to nitrogen* (`soil`), after the slides and field-trial data of Marina Montserrat Díez, Christa
   Schleper and colleagues (the authors' permission given through the owner, 29 October 2026; anything unknown
-  illustrative and labelled so). Its sources are in `tools/soil/` and its data sources in
+  illustrative and labelled so). Its sources are in `packages/soil/src/` and its data sources in
   [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
   room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"). Untested on a
   headset.
@@ -2209,8 +2209,8 @@ Before handing over (or making anything more public), someone has to decide thes
 9. **The fourteenth story: "The mutation machine" (built, October 2026).** From the poster "Converting Mutation into a
    Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk Sakalli, Arndt von Haeseler; a draft, its footer
    still has placeholders), with the first author's answers on the values, the turn and how to word the result (MM2 to
-   MM4 in [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `tools/mutation/` (`SPEC.md`,
-   `README.md`, the sets' manifests); its maths checked by `node tools/mutation/test-mmath.mjs`.
+   MM4 in [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `packages/mutation/src/` (`SPEC.md`,
+   `README.md`, the sets' manifests); its maths checked by `node packages/mutation/src/test-mmath.mjs`.
    - **What it is** (about 8.5 minutes, 8 chapters, then explore): a text in four letters copied with swaps; a family
      tree in 3D that grows up from its root, its branch lengths real lengths, so you walk round it and look up into it
      (letters ride up the branches, a swap flashes where it happens); a letter as two qubits and its read-outs; the rule
@@ -2254,10 +2254,10 @@ Before handing over (or making anything more public), someone has to decide thes
     University of Thessaly and Université Lyon 1. After the slides "Exploring the Effects of Biological Nitrification
     Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" and the field trial's data behind them,
     shown with the authors' permission given through the owner (29 October 2026; anything unknown illustrative and
-    labelled so). Sources in `tools/soil/` (`SPEC.md` with the owner's decisions, `README.md`, the sets' manifests). Its
-    data is written by `tools/soil/data/gen_data.py` from the authors' three CSVs (kept out of the repository; see
+    labelled so). Sources in `packages/soil/src/` (`SPEC.md` with the owner's decisions, `README.md`, the sets' manifests). Its
+    data is written by `packages/soil/src/data/gen_data.py` from the authors' three CSVs (kept out of the repository; see
     [docs/setup-and-release.md](docs/setup-and-release.md)), with the slides' charts read off by two readers
-    (`tools/soil/data/reconcile.py`), and checked by `node tools/soil/test-data.mjs`.
+    (`packages/soil/src/data/reconcile.py`), and checked by `node packages/soil/src/test-data.mjs`.
     - **What it is** (11:03 as narrated since v109, 8 chapters, then explore): a cut-away block of soil with a wheat plant, where less than half
       the fertiliser reaches the crop and the microbes' relay turns the rest into nitrate and nitrous oxide; a wheat
       given a piece of chromosome from a wild grass that slows the relay (BNI); the globe and the hop to the field trial
@@ -2318,8 +2318,8 @@ below name); the fifteenth (`topo`) too: `git show --stat` on its commits shows 
 (the fourteenth, `mutation`, computes its numbers live; the thirteenth, `ovary`, is a data story typed in and read off
 figures; the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start
 from the closest existing story (`tools/topo/` for a story whose numbers come from the authors' own code run on their
-data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are computed live, `tools/micro/` or
-`tools/ovary/` for a data story, `tools/flock/` for a live simulation).
+data, `packages/mutation/src/` or `packages/qubits/src/` for a story whose numbers are computed live, `tools/micro/` or
+`packages/ovary/src/` for a data story, `packages/flock/src/` for a live simulation).
 
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has

@@ -182,7 +182,7 @@ packages/<key>/src/build.mjs` (its `README.md` says each step). It holds:
 - `build.mjs`: finds the app's folder by walking up from its own (`fileURLToPath`, to the first folder holding
   `tools/engine/parts.mjs`; `--root <dir>` for a copy outside it), takes the key from `../story.json` (it must be the
   folder's name; the template itself, without one, says to copy it first), reads the kit (`tools/engine/kit.js`, its Node
-  export cut as `tools/flock/build.mjs` does), pastes the sets (`SET_FILES`, each one's Node export line `if (typeof
+  export cut as `packages/flock/src/build.mjs` does), pastes the sets (`SET_FILES`, each one's Node export line `if (typeof
   module !== 'undefined') module.exports = ...` cut, so a helper can be tested with `node`), expands the engine files'
   `//#use` lines with `tools/engine/parts.mjs`'s `expand`, puts the key where `e1_head.js` says `@@KEY@@`, and writes
   `../main.js`; `--check` exits 1 when `main.js` is not what it makes. It is not a `tools/<dir>/build.mjs`, so neither

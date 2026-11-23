@@ -44,7 +44,7 @@ So there is no `package.json` and no lock file, on purpose. `node_modules/` is g
 installed above. Never commit a `package.json` or a `package-lock.json`.
 
 **Python for the endotype data.** You only need this when the authors send a new run. The script is
-`tools/endo/data/gen_data.py`. Its header asks for:
+`packages/endo/src/data/gen_data.py`. Its header asks for:
 
 - Python 3.11 or newer
 - EndotypY (github.com/menchelab/EndotypY), installed without its dependencies (the script does not need its
@@ -58,8 +58,8 @@ repository: `run.pkl` and `seeds.xlsx` (ask the owner for them). Work in a virtu
 python3 -m venv ~/venvs/endo && . ~/venvs/endo/bin/activate
 pip install numpy pandas networkx scipy gseapy openpyxl
 pip install --no-deps git+https://github.com/menchelab/EndotypY
-python -I tools/endo/data/gen_data.py run.pkl seeds.xlsx   # a few minutes; writes tools/endo/sets/data.js
-node tools/endo/build.mjs
+python -I packages/endo/src/data/gen_data.py run.pkl seeds.xlsx   # a few minutes; writes packages/endo/src/sets/data.js
+node packages/endo/src/build.mjs
 ```
 
 **Python for the tissue topology data.** You only need this when the authors send new data or topocyte changes. The
@@ -86,19 +86,19 @@ node tools/topo/test-data.mjs                            # the data and its deco
 node tools/topo/build.mjs
 ```
 
-**Python for the soil story's data.** Only when the authors send new data. The script is `tools/soil/data/gen_data.py`
-(Python 3.10 or newer with numpy, pandas, scipy and networkx: `tools/soil/data/requirements.txt`); it reads the authors'
+**Python for the soil story's data.** Only when the authors send new data. The script is `packages/soil/src/data/gen_data.py`
+(Python 3.10 or newer with numpy, pandas, scipy and networkx: `packages/soil/src/data/requirements.txt`); it reads the authors'
 three CSVs (`Soil_ASVs.csv`, `ASV_Identifiers.csv`, `Field_Metadata.csv`, kept out of the repository: ask the owner for
 them) from a folder, builds the co-occurrence network and takes about five minutes. The slides' readings are
-reconciled by `tools/soil/data/reconcile.py` from two readers' files (not kept). Only the numbers go into the
+reconciled by `packages/soil/src/data/reconcile.py` from two readers' files (not kept). Only the numbers go into the
 repository: kinds numbered, no ASV ids or sequences, no pictures from the slides.
 
 ```sh
 python3 -m venv ~/venvs/soil && . ~/venvs/soil/bin/activate
-pip install -r tools/soil/data/requirements.txt
-python -I tools/soil/data/gen_data.py <folder with the three CSVs>   # writes tools/soil/sets/data.js
-node tools/soil/test-data.mjs                                       # the data, its decoders and the story's key numbers
-node tools/soil/build.mjs
+pip install -r packages/soil/src/data/requirements.txt
+python -I packages/soil/src/data/gen_data.py <folder with the three CSVs>   # writes packages/soil/src/sets/data.js
+node packages/soil/src/test-data.mjs                                       # the data, its decoders and the story's key numbers
+node packages/soil/src/build.mjs
 ```
 
 The other data generators are Node scripts (each story's `tools/<key>/README.md` lists them). The microanatomy
@@ -220,7 +220,7 @@ is GitHub Pages' custom domain for `main`.
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
-   | `tools/pet/sets/icons.js` | pet |
+   | `packages/pet/src/sets/icons.js` | pet |
    | `tools/micro/sets/organs.js` | micro, topo |
    | `tools/lbi/sets/web.js` | lbi, soil (its globe) |
    | `tools/topo/sets/look.js` | topo, soil |

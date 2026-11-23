@@ -22,15 +22,15 @@ Everything below is a plan: numbers are starting values to be tuned in the harne
 
 ### Files
 
-Built like the flock (`tools/flock/`: the simplest life-size story; copy its engine files and adapt, keep every shared
+Built like the flock (`packages/flock/src/`: the simplest life-size story; copy its engine files and adapt, keep every shared
 hook line identical). From the robots borrow only the floor read (`xrReadRoom`'s floor part) and the `data-xr` copy.
 
 | Path | What |
 | --- | --- |
 | `packages/tutorial/src/sets/script.js` | the guide's timeline as data plus its evaluator (`SCRIPT`, `evalGuide`): plain maths, no `THREE`, so a Node test can load it |
 | `packages/tutorial/src/sets/guide.js` | the one set, key `guide` (`SETS.guide = function (K) {...}`): the figure, its fallback, the props, the labels |
-| `packages/tutorial/src/sets/guide.md` | its manifest (params, anchors, labels, views, controls, API, measured numbers), as `tools/flock/sets/flock.md` |
-| `packages/tutorial/src/engine/e1_head.js` ... `e7_app.js` | from `tools/flock/engine/`, renamed: `HOST.register('tutorial', ...)`, `SET_ORDER = ['guide']`, `XR_HERE = 'tutorial'`, `XR_TITLE = 'Tutorial'`, `narrationFile = () => 'packages/tutorial/audio/narration.mp3'` |
+| `packages/tutorial/src/sets/guide.md` | its manifest (params, anchors, labels, views, controls, API, measured numbers), as `packages/flock/src/sets/flock.md` |
+| `packages/tutorial/src/engine/e1_head.js` ... `e7_app.js` | from `packages/flock/src/engine/`, renamed: `HOST.register('tutorial', ...)`, `SET_ORDER = ['guide']`, `XR_HERE = 'tutorial'`, `XR_TITLE = 'Tutorial'`, `narrationFile = () => 'packages/tutorial/audio/narration.mp3'` |
 | `packages/tutorial/src/build.mjs` | the flock's with `flock` -> `tutorial`, `SET_FILES = ['script', 'guide']`; keeps the string `'../engine/parts.mjs'` (so `tools/engine/all.mjs` and the relay's `--build` find it); `--check` |
 | `packages/tutorial/src/test-script.mjs` | the script's checks in Node (section C, "Checks"); a cheap check, run on `dev` too |
 | `packages/tutorial/src/harness.html`, `shot.mjs`, `sweep.mjs`, `README.md` | as the flock's; the harness loads `ik.js` and `bodies.js` itself (`?set=guide&t=60`) |

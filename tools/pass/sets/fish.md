@@ -1,6 +1,6 @@
 # `fish` - a school of fish all around you (sets/fish.js)
 
-New for this story, after the flock (`tools/flock/sets/flock.js`, whose simulation it adapts). Life size: 1 unit is 1 m,
+New for this story, after the flock (`packages/flock/src/sets/flock.js`, whose simulation it adapts). Life size: 1 unit is 1 m,
 the viewer floats at the origin with eyes at 1.6 m (`ME.head`), the seabed is 6.5 m below the origin, the surface 15 m
 above, the sun is up and a little towards -z. Like the flock, a live simulation: `update` depends on what came before,
 and seeking the story only changes the params.

@@ -5,7 +5,7 @@ microanatomy reveals age-associated remodeling and resilience" (Iva Buljan, Zsuz
 Rendeiro; bioRxiv 2025, doi 10.1101/2025.10.13.682110, CC BY-NC), the poster "Microanatomical organization of the
 human body and its changes with age" and the talk "Microanatomical principles of tissue organization and their change
 with age" (Iva Buljan, Rendeiro group; LBI for Network Medicine, CeMM, Medical University of Vienna). Built like the
-PET story (`tools/pet/`), with the shared kit (`tools/engine/kit.js`), set contract, body and tissue sets, and small 3D models of its organs.
+PET story (`packages/pet/src/`), with the shared kit (`tools/engine/kit.js`), set contract, body and tissue sets, and small 3D models of its organs.
 Everything is drawn as lit 3D objects in the other stories' look; the method is shown in the tour's visual language for
 its tissue (tiles joined to their neighbours on the tour's own section, messages along the links, the lift into a 3D
 map). Never edit `stories/micro.js` by hand.

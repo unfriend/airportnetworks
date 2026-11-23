@@ -215,29 +215,29 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   engine parts, build script, set harness; it uses `tools/engine/kit.js`); see its
   `README.md`. The authors' analysis files it reads are not in the repository (removed on 3 November 2026, in its
   history as `ikerdata/`; a local copy there is ignored by git).
-- `tools/endo/` - the sources of `stories/endo.js` (data generator, data block, sets,
+- `packages/endo/src/` - the sources of `packages/endo/main.js` (data generator, data block, sets,
   engine parts adapted from the muscle story's, build script, set harness; it uses
   `tools/engine/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
-- `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
+- `packages/pet/src/` - the sources of `packages/pet/main.js` (data generator and the figures' readings, data block, organ
   icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/engine/kit.js`,
   the tour's body set and the microanatomy story's 3D organs); see its `README.md` and `SPEC.md`.
 - `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
   parts adapted from the PET story's, build script, set harness; it uses `tools/engine/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
-- `tools/ovary/` - the sources of `stories/ovary.js` (data generator and the figures' readings, data block, shared look,
+- `packages/ovary/src/` - the sources of `packages/ovary/main.js` (data generator and the figures' readings, data block, shared look,
   sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses `tools/engine/kit.js` and the
   tour's body set); see its `README.md` and `SPEC.md`.
-- `tools/qubits/` - the sources of `stories/qubits.js` (the maths `QMATH` and its test, the real run's numbers, the
+- `packages/qubits/src/` - the sources of `packages/qubits/main.js` (the maths `QMATH` and its test, the real run's numbers, the
   shared look, sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses
   `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
-- `tools/mutation/` - the sources of `stories/mutation.js` (the maths `MMATH` and its test, the poster's numbers, the
+- `packages/mutation/src/` - the sources of `packages/mutation/main.js` (the maths `MMATH` and its test, the poster's numbers, the
   shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
   `tools/engine/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/topo/` - the sources of `stories/topo.js` (the data generator, which runs topocyte on the authors' files,
   the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
   story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's body set and the microanatomy story's organ
   models); see its `README.md` and `SPEC.md`.
-- `tools/soil/` - the sources of `stories/soil.js` (the data generator, which reads the authors' files, and the slides'
+- `packages/soil/src/` - the sources of `packages/soil/main.js` (the data generator, which reads the authors' files, and the slides'
   readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
   adapted from the tissue topology story's, build script, set harness; it uses `tools/engine/kit.js`, the tour's `web` set
   and the tissue topology story's look); see its `README.md` and `SPEC.md`.
@@ -247,13 +247,17 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   its `README.md` and `SPEC.md`.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
-- `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
+- `packages/flock/src/` - the sources of `packages/flock/main.js` (the flock set, engine parts
   adapted from the tour's, build script, set harness); see its `README.md`.
 - `packages/robots/` - the robot gang, the first of the app's stories moved into a story package (v185):
   `story.json`, `main.js` (built), `audio/narration.mp3`, `README.md`, and `src/` its sources (the robots set, engine
   parts adapted from the flock's, `build.mjs`, the set harness; its `README.md` and `SPEC.md`), moved from
   `tools/robots/` by `tools/packages/move.mjs`.
-- `tools/tutorial/` - the sources of `stories/tutorial.js` (v173: the guide's script `sets/script.js` and its Node
+- `packages/qubits/`, `mutation/`, `flock/`, `tutorial/`, `endo/`, `pet/`, `ovary/`, `soil/` - moved the same way in
+  v186 (each `story.json`, `main.js`, `audio/narration.mp3`, `README.md`, `src/`); the entries below give their
+  sources' contents. Their builds read shared sources where they are (`tools/lbi/`, `tools/micro/`, `tools/nmd/`,
+  `tools/topo/`).
+- `packages/tutorial/src/` - the sources of `packages/tutorial/main.js` (v173: the guide's script `sets/script.js` and its Node
   check `test-script.mjs`, the guide set drawn by `bodies.js`, engine parts adapted from the flock's, build script, set
   harness that loads `ik.js` and `bodies.js`; shots in `shots/`, git-ignored); see its `README.md` and `SPEC.md`.
 - `tools/design/` - the sources of `stories/design.js` (the design room: the props

@@ -6,7 +6,7 @@ Hunor Kertesz, Florian W. Kiefer, Oana C. Kulterer, Thomas Nakuz, Lukas Nics, Ev
 Chrysoula Vraka, Josef Yu, Stefan Grünert, Marcus Hacker; Med 6, 100881, 2025; CC BY 4.0), the poster "Shaping a New
 Era in Nuclear Medicine" (Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic,
 Stefan Grünert, Marcus Hacker; Medical University of Vienna and LBI for Network Medicine) and their vision slide "One
-Scan, One System". Built like the endotype story (`tools/endo/`), with the shared kit (`tools/engine/kit.js`), set contract and PET body set.
+Scan, One System". Built like the endotype story (`packages/endo/src/`), with the shared kit (`tools/engine/kit.js`), set contract and PET body set.
 Never edit `packages/pet/main.js` by hand.
 
 ```sh

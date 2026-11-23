@@ -2763,7 +2763,7 @@ const isThere = c => present(c, SCEN);
 return { PLACES, CONTACTS, MOVES, NET, A, CP, CELL, LAYOUT, POS, cpos, latLonOf, PLACE_COL, placeCss, travelCurve, linkCurve, GL, ORGS, ORG_OF_PLACE, buildScene, setHighlight, setFocus, SIG, SIG_A, SIG_DOT, TRV, travelPoint, setActors, present, proteinReach, placeStats, bestPath, reachInfo, partnersByPlace, placeName, placeShort, matches, findProtein, wherePlaces, SCEN, isThere, mulberry, v3 };
 };
 
-// A school of fish all around you, in deep blue water. A live simulation, after the flock's (tools/flock/sets/flock.js):
+// A school of fish all around you, in deep blue water. A live simulation, after the flock's (packages/flock/src/sets/flock.js):
 // each fish watches its nearest few neighbours (seven by default, one to twelve: fish_k) whatever the distance, swims
 // the way they swim, keeps a little apart and stays with them, and wanders a little of its own accord; nothing else
 // holds the school together, so with one neighbour each it falls apart and with seven it holds. Up to four sharks at
