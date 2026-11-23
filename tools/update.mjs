@@ -98,12 +98,15 @@ srv = await serve(newDir);
 for (const visit of ['first visit after the update', 'next visit']) {
   await page.reload();
   const v = await versions();
-  report(visit + ': page and stories are new', v && v.shell && v.story, JSON.stringify(v));
+  // (none: what the page shows instead, to say why)
+  const why = v ? '' : ' ' + JSON.stringify(await page.evaluate(() => typeof HOST === 'undefined' ? 'no HOST' : { key: HOST.curKey, cur: !!HOST.cur, list: HOST.list.length, picking: HOST.picking, href: location.href }).catch(e => String(e)));
+  report(visit + ': page and stories are new', v && v.shell && v.story, JSON.stringify(v) + why);
 }
 // the worker answers byte ranges from the cached narration (the app's in audio/ while there was one; since v187 every
 // narration is in its package, kept in the packages' cache once fetched whole, and answered from there offline: below)
 const rangesOf = u => page.evaluate(async u => {
-  const get = async h => { const r = await fetch(u, { headers: { Range: h } }); return [r.status, (await r.arrayBuffer()).byteLength]; };
+  // (no-store: the browser's own cache would answer a range it cannot satisfy with the whole file; the worker is asked)
+  const get = async h => { const r = await fetch(u, { headers: { Range: h }, cache: 'no-store' }); return [r.status, (await r.arrayBuffer()).byteLength]; };
   return { first: await get('bytes=0-99'), last: await get('bytes=-100'), beyond: await get('bytes=999999999-') };
 }, u);
 const rangesOk = r => r.first.join() === '206,100' && r.last.join() === '206,100' && r.beyond[0] === 416;
@@ -136,6 +139,14 @@ const unchanged = oldHeld.find(f => newAll.includes(f) && f !== changed && fs.re
 if (changed) report('narrations: one re-recorded since is held in its new form', await size(changed) === fs.statSync(path.join(newDir, 'audio', changed)).size, JSON.stringify({ changed, held: await size(changed), new: fs.statSync(path.join(newDir, 'audio', changed)).size }));
 else console.log('note no narration the older version held was re-recorded since: the refreshed copy is not checked here');
 if (unchanged) report('narrations: one unchanged is kept as it was', await size(unchanged) === fs.statSync(path.join(newDir, 'audio', unchanged)).size, JSON.stringify({ unchanged, held: await size(unchanged) }));
+// (the new worker installed first: it takes every listed package's main.js, about 13 MB since every story is a package,
+// which can outlast the two visits above; offline before it is active would test the older worker's copy)
+const NEWV = (/const VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(newDir, 'sw.js'), 'utf8')) || [])[1];
+// (the browser looks for a new worker as pages load, not always at once: asked here, as a later visit would)
+// (its cache is made as its install starts: it is done when nothing is installing or waiting any more)
+await page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r && r.update())).catch(() => {});
+const settled = v => page.evaluate(async v => { const r = await navigator.serviceWorker.getRegistration(); return !!r && !r.installing && !r.waiting && await caches.has(v); }, v).catch(() => false);
+for (let i = 0; i < 360 && !(await settled(NEWV)); i++) await wait(250);
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();
