@@ -1,20 +1,16 @@
 {
-  "version": "networks-v192",
+  "version": "networks-v193",
   "date": "2026-11-23",
   "new": [
-    "A tidy-up only: eight protein models Back into the cell no longer uses are gone, so taking all stories downloads about 0.9 MB less.",
-    "Everything else is as in the release before: The switch that sticks with its new script, voice track and protein structures."
+    "A fix for installed copies: a story that changed while the app was open is now kept for offline use too (before, it had no offline copy until the app was opened again).",
+    "Behind the scenes: a story's author can now publish a change to the test site with one command (tools/packages/publish.mjs), without a new app release."
   ],
   "test": [
-    "Play The switch that sticks on a headset from start to end: check each name and structure appears as it is said.",
-    "Watch p35 dock on CDK5 and let go again, and the cut in the calpain chapter.",
-    "Check the structures look smooth when you walk close, and the frame rate stays steady.",
-    "On a phone, check the panel always shows its heading and the timeline names do not overlap badly.",
-    "In a shared room, open the new scenes in explore on two devices and check both follow."
+    "On an installed copy (phone or headset), open The switch that sticks, then after its next change on the test site open it again online, go offline and reload: it should still open.",
+    "Everything else should look and behave as in the release before."
   ],
   "untested": [
-    "The structures and the close-up views in a real headset: only seen in pictures.",
-    "How the new voice sounds: it was checked for timing, not listened to.",
-    "How long the structures take to arrive on a slow network."
+    "The offline fix on a real headset and phone: only checked in a headless browser.",
+    "The publish command from Christiane's own computer (Windows or Mac) and her GitHub access."
   ]
 }

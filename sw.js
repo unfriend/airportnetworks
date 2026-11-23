@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v192';
+const VERSION = 'networks-v193';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './proteins.html', './spatial.html', './stories/list.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -225,8 +225,13 @@ self.addEventListener('fetch', e => {
         .then(hit => (hit ? rangeResponse(req, hit, key) : Response.error()))));
     } else {
       // kept under its whole address: the version (?v=<fp>) is part of it, so a slow network never gets an older file
-      // for a newer address; storing a version drops that file's others
-      const vkey = url.origin + url.pathname + url.search, hit = () => caches.open(PKG).then(c => c.match(vkey));
+      // for a newer address; storing a version drops that file's others. A fresh fetch (HOST.load's &fresh=<time>: a
+      // package changed while the page ran) is kept without its fresh, at the address an offline start asks for (v193:
+      // it was kept under its one-off address, and the package then had no copy offline), and is never answered from
+      // the cache while the network is slow
+      const bare = new URL(url.href), fresh = bare.searchParams.has('fresh');
+      bare.searchParams.delete('fresh');
+      const vkey = url.origin + url.pathname + bare.search, hit = () => caches.open(PKG).then(c => c.match(vkey));
       const net = fetch(req, { cache: 'no-cache' }).then(res => {
         if (res.ok) {
           const copy = res.clone();
@@ -238,7 +243,7 @@ self.addEventListener('fetch', e => {
         return res;
       });
       const safe = net.catch(() => hit().then(h => h || Response.error()));
-      e.respondWith(Promise.race([safe, new Promise(r => setTimeout(r, 4000)).then(hit).then(h => h || safe)]));
+      e.respondWith(fresh ? safe : Promise.race([safe, new Promise(r => setTimeout(r, 4000)).then(hit).then(h => h || safe)]));
     }
     return;
   }
