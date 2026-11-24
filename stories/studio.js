@@ -17050,7 +17050,28 @@ const LOOKS = (function () {
   // floor and sky, so in VR the stage shows where it stands and in AR the room) so what stands behind it is hidden; a
   // closed shape from its outside only (from inside it hides nothing), a plane both ways. The geometries are shared (unit
   // sized: a 1 m box, a ball and a cylinder 1 m across, a 1 m square upright, facing +z)
-  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1) };
+  // the VR goggles (v197, worn in a headset: e6z_goggles.js and the shell's flight.js): our own low-poly pair in the unit
+  // box, lenses to -z, the face's cushion and the strap's ends to +z; its body white in its vertex colours (it takes the
+  // shape's colour), the lenses, cushion and strap their own (multiplied by the colour as well)
+  function gogglesGeo() {
+    const P = [], N = [], C = [];
+    const add = (sz, at, col) => {
+      const g = new THREE.BoxGeometry(...sz).toNonIndexed(); g.translate(...at);
+      P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array);
+      for (let i = 0; i < g.attributes.position.count; i++) C.push(...col);
+      g.dispose();
+    };
+    add([1, 0.8, 0.55], [0, 0, -0.18], [1, 1, 1]);
+    for (const x of [-0.22, 0.22]) add([0.38, 0.46, 0.05], [x, 0.03, -0.475], [0.12, 0.42, 0.55]);
+    add([0.94, 0.7, 0.3], [0, -0.02, 0.245], [0.16, 0.17, 0.2]);
+    for (const x of [-0.475, 0.475]) add([0.05, 0.3, 0.2], [x, 0, 0.4], [0.16, 0.17, 0.2]);
+    add([0.6, 0.06, 0.4], [0, 0.42, -0.2], [0.37, 0.83, 1]);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1), goggles: gogglesGeo() };
   // its edges (v131: all that shows of one that hides things while editing): a box's twelve and a plane's outline (three.js
   // finds them), a ball's three great circles and a cylinder's two rims and four lines along it (it finds none on a ball
   // and only the rims on a cylinder)
@@ -17092,6 +17113,7 @@ const LOOKS = (function () {
           mesh.geometry = fill.geometry = SHAPE_GEO[kind] || box;
           line.geometry = shapeEdges(kind);
           lit.side = kind === 'plane' ? THREE.DoubleSide : THREE.FrontSide; hide.side = lit.side;
+          lit.vertexColors = kind === 'goggles';   // (the goggles' parts in their own colours: gogglesGeo)
           lit.needsUpdate = hide.needsUpdate = true;
         }
         if (r.colour !== col) {
@@ -17169,7 +17191,7 @@ const LOOKS = (function () {
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
   const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
   return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, warmTag, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
-    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
+    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane', 'goggles']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();
 
 
@@ -21907,7 +21929,7 @@ function norm(kind, x, id) {
     return lockOf(x, r);
   }
   if (kind === 'p') {
-    // a shape: cube, sphere, cylinder or plane, a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
+    // a shape: cube, sphere, cylinder, plane or goggles (v197), a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
     // kept but unused), its colour (#rrggbb, lower case) and its look: in its colour, or hiding what is behind it
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : null;
     if (!q || (has('size') && !sz) || (has('colour') && !(typeof x.colour === 'string' && /^#[0-9a-f]{6}$/i.test(x.colour)))) return null;
@@ -21981,7 +22003,10 @@ const FOLLOW_KINDS = ['o', 'p', 'e'];
 const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v', 'd'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
-const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
+// (v197: and the VR goggles, 18 by 9 by 10 cm, worn in a headset: e6z_goggles.js; the four primitives are SHAPE_PRIMS, what
+// a shape's card switches between)
+const SHAPE_PRIMS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_KINDS = SHAPE_PRIMS.concat(['goggles']);
+const SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01], goggles: [0.18, 0.09, 0.1] }, SHAPE_COL = '#c9d1dc';
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
@@ -24442,14 +24467,15 @@ Object.assign(ITEM_ACT, {
 // VR the stage), seen only as a see-through fill and its edges while editing. It moves, turns and sizes as the others do
 // (the page's arrows, the grips, both grips; a cube's corners stretch it per axis), and a cube can show or hide it, a
 // group hold it and a sound follow it
-const SHAPE_NAME = { cube: 'Box', sphere: 'Ball', cylinder: 'Cylinder', plane: 'Plane' };
-const SHAPE_WORD = { cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder', plane: 'Plane' };
+const SHAPE_NAME = { cube: 'Box', sphere: 'Ball', cylinder: 'Cylinder', plane: 'Plane', goggles: 'VR goggles' };
+const SHAPE_WORD = { cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder', plane: 'Plane', goggles: 'Goggles' };
 // the colours on its card (lower case, as a record keeps them)
 const SHAPE_COLS = [['#c9d1dc', 'Light grey'], ['#ffffff', 'White'], ['#5c6878', 'Dark grey'], ['#1b2230', 'Black'], ['#46d9ff', 'Cyan'], ['#3ee08f', 'Green'], ['#ffb43b', 'Amber'], ['#ff5a4b', 'Red'], ['#c08cff', 'Violet'], ['#8a5a3c', 'Brown']];
 function addShape(kind) {
   if (!canAdd('p') || !SHAPE_KINDS.includes(kind)) return '';
   const at = frontAt(), id = newId(), sz = SHAPE_SIZE[kind];
-  change(() => putItem(id, 'p', norm('p', { name: nameFor(SHAPE_NAME[kind]), shape: kind, p: [at[0], sz[1] / 2, at[1]], size: sz })));
+  // (the goggles at a table's height, 1 m up, where a hand finds them: e6z_goggles.js)
+  change(() => putItem(id, 'p', norm('p', { name: nameFor(SHAPE_NAME[kind]), shape: kind, p: [at[0], kind === 'goggles' ? 1 : sz[1] / 2, at[1]], size: sz })));
   select(id);
   sfxAct('place', 'world', null);
   return id;
@@ -24569,7 +24595,7 @@ function lockTop(it) {
 Object.assign(ITEM_ACT, {
   lock: it => { setRec(it.id, { locked: it.rec.locked ? undefined : true }); tcAttach(); },   // (locked: the page's arrows go at once)
   // a shape: its kind (its size kept), its colour and its look
-  shape: (it, v) => { if (it.kind === 'p' && SHAPE_KINDS.includes(v)) setRec(it.id, { shape: v }); },
+  shape: (it, v) => { if (it.kind === 'p' && SHAPE_PRIMS.includes(v) && it.rec.shape !== 'goggles') setRec(it.id, { shape: v }); },
   colour: (it, v) => { if (it.kind === 'p' && /^#[0-9a-f]{6}$/.test(v)) setRec(it.id, { colour: v }); },
   look: (it, v) => { if (it.kind === 'p' && (v === 'colour' || v === 'hide')) setRec(it.id, { look: v }); },
   // a shape's size: 10 cm more or less on one side (a cube's foot stays on its height), or every side by a factor (its
@@ -24642,7 +24668,9 @@ function hookCall(k, v) {
 function settingsStep() {
   const here = !!STU.scene && !GL.gone && !xrAway() && !XR.stories && !HOST.picking;
   // (hide: the station's id, so a walk into another studio circle asks again: the shell lets it lapse when the station changes)
-  const hide = here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = here ? OCC[STU.settings.real] : null;
+  // (the VR goggles' game drawn here, v197: the other circles hidden and nothing real hiding it; depth sensing runs on)
+  const gog = gogHide();
+  const hide = gog ? 'goggles' : here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = gog ? 'off' : here ? OCC[STU.settings.real] : null;
   if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', !!hide); }
   if (occ !== HOOK.occ) { HOOK.occ = occ; hookCall('occ', occ); }
 }
@@ -33158,6 +33186,74 @@ function gaitState(id) {
     time: it.action.time, dur: it.dur, idle: it.wIdleClip ? it.wIdleClip.name : '', idleTime: it.wIdle ? it.wIdle.time : 0,
     w: it.action.getEffectiveWeight(), wIdle: it.wIdle ? it.wIdle.getEffectiveWeight() : 0, flat: W.clip !== it.E.clips.find(c => c.name === it.rec.clip) };
 }
+// ================================================================================ THE VR GOGGLES (v197) ==
+// A shape of kind 'goggles' (e6_items.js, e6d_shapes.js; our own low-poly pair, looks.js gogglesGeo): placed, moved,
+// locked and grouped as any shape while editing. In a headset, with editing off, the grip takes them (the ray finds them
+// as it finds what anyone may move) and carries them here alone: nothing is written, nobody else sees them move. Brought
+// within the shell's WEAR.on of your head (flight.js, HOST.flight.WEAR) they go on: they are back where they stand at once
+// and the shell's game is drawn over everything for you alone (HOST.flight: the cell of Back into the cell). While it is
+// drawn the scene and the studio's panels are hidden for you (not unloaded), nothing of the studio is pointable, its sticks
+// move nothing, the other circles are hidden and nothing real hides the game (the shell's occlusion asked for 'off'; depth
+// sensing runs on). Taken off by the shell (the gesture, the menu's Goggles off, the session's end), or here: the goggles
+// gone from the scene, editing turned on, the studio gone. Wearing is this device's own: never in state() or the layout.
+const GOG_CARD = 'VR goggles: in a headset, with editing off, take them with the grip and bring them to your face to fly through the cell. Grip near your face and pull away to take them off. Each person\'s own.';
+const GOG_ADD = 'A pair of goggles to put on in a headset: they fly you through the cell of Back into the cell, a game for one, sitting or standing still.';
+const GOG = { asked: false, hid: false, last: '' };
+const isGoggles = it => !!(it && it.kind === 'p' && it.rec && it.rec.shape === 'goggles');
+// what a headset may put on here: goggles shown to you, editing off, the scene's own (a locked pair too: nothing moves)
+const wearable = it => isGoggles(it) && XR.on && !editOn() && !!STU.scene && !!it.shown && !it.notHere && !it.hid;
+// worn here, by this page
+const gogOn = () => !!(HOST.flight && HOST.flight.on && HOST.flight.on() && HOST.flight.owner() === 'studio');
+// the game drawn over the room now: the scene, its panels and pointing hidden
+const gogHide = () => gogOn() && !!HOST.flight.shown();
+// taken by the grip: the shell's game and its data fetched now, so they are ready at the face
+function gogTaken(it) {
+  if (HOST.flight) HOST.flight.prepare();
+  else if (HOST.flightLoad) HOST.flightLoad().then(F => { if (F) F.prepare(); });
+  plog('goggles taken', { id: it.id });
+}
+// carried (e8_xr.js carryItem, each frame): within the shell's reach of the head they go on
+const _gg = new THREE.Vector3();
+function gogCarry(c, it) {
+  const F = HOST.flight;
+  if (!F) return;
+  it.holder.getWorldPosition(_gg);
+  if (_gg.distanceTo(XR.head) > F.WEAR.on) return;
+  c.grab = null;
+  gogBack(it, true);
+  if (F.wear({ owner: 'studio', id: it.id })) { buzz(c, 0.6, 60); plog('goggles worn', { id: it.id }); }
+  if (!xrHeld()) endChange();
+}
+// let go (or put on): back where their record stands, for you as for everyone
+function gogBack(it, quiet) {
+  it.carry = false; it.carryR = 0; it.gl = null;
+  applyRec(it, it.rec, false);
+  if (!quiet) sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray());
+}
+// once a frame (e10_app.js, before the scene is drawn): the shell's module loaded once goggles are in the scene; taken off
+// when they go, when editing is turned on or the scene changes; a page's preview stepped (tests: HOST.flight.debug.page)
+function gogStep(dt) {
+  let any = false;
+  for (const it of STU.items.values()) if (isGoggles(it)) { any = true; break; }
+  if (any && !HOST.flight && !GOG.asked && HOST.flightLoad) { GOG.asked = true; HOST.flightLoad().then(F => { if (!F) GOG.asked = false; }); }
+  const F = HOST.flight;
+  if (!F || F.owner() !== 'studio') { if (!XR.on && GOG.hid) { GOG.hid = false; GL.world.visible = true; } return; }
+  if (gogOn() && !F.page()) {
+    const it = STU.items.get(F.id());
+    const why = !isGoggles(it) ? 'gone' : editOn() ? 'editing' : !STU.scene ? 'scene' : '';
+    if (why) F.off(why);
+  }
+  if (!XR.on) {
+    // (a page: the preview drawn from the page's camera; the scene hidden while it is drawn)
+    if (F.on() && F.page()) F.pageFrame(GL.camera, dt);
+    const hide = F.on() && F.shown();
+    if (hide !== GOG.hid) { GOG.hid = hide; GL.world.visible = !hide; }
+  }
+}
+function gogState() {
+  const F = HOST.flight;
+  return { loaded: !!F, on: gogOn(), hide: gogHide(), items: [...STU.items.values()].filter(isGoggles).map(it => ({ id: it.id, wearable: wearable(it), p: it.rec.p.slice(), size: it.rec.size.slice() })), flight: F ? F.state() : null };
+}
 
 // ================================================================ EXPLORE ==
 // Explore mode is the studio itself: the scene, and four panes (Scene, Add, Item, Items), each described once as a
@@ -33388,8 +33484,10 @@ function paneBlocks(tab) {
     B.push({ label: 'Sequence', row: [{ id: 'seqadd', label: 'Sequence', act: 'seqadd', dis: full('q') }] },
       { p: 'A timeline of events: play a clip, a sound, a recorded path or a motion on items, show or hide them, change a picture, start another sequence. It plays for everyone at the circle on the room\'s clock.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
-    B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
+    B.push({ label: 'Shapes', row: SHAPE_PRIMS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
+      { label: 'VR goggles', row: [{ id: 'shape:goggles', label: 'VR goggles', act: 'shape', v: 'goggles', dis: full('p') }] },
+      { p: GOG_ADD, c: 'faint' },
       { label: 'Empty', row: [{ id: 'empty', label: 'Empty', act: 'empty', dis: full('e') }] },
       { p: 'A point seen only while editing: a sound can follow it (a voice in mid-air), and it moves and groups as anything else.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
@@ -33638,7 +33736,7 @@ function itemBlocks(it, B, ed) {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
     B.push({ h: r.name, sub: 'Shape' + hiddenSub(it, it.shown) }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
-      { label: 'Shape', row: SHAPE_KINDS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) },
+      ...(r.shape === 'goggles' ? [{ p: GOG_CARD, c: 'faint' }] : [{ label: 'Shape', row: SHAPE_PRIMS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) }]),   // (the goggles stay goggles: e6z_goggles.js)
       { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
       { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
       { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
@@ -34277,7 +34375,7 @@ function rayPick(ray, o) {
 function visitPick(ray) {
   const L = [];
   for (const it of STU.items.values()) {
-    if (!(visitMove(it) || pressable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, and what can be pressed or pointed at, v146)
+    if (!(visitMove(it) || pressable(it) || wearable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, what can be pressed or pointed at, v146, and goggles to put on in a headset, v197)
     if (it.kind === 'o') { if (it.model) L.push(it.proxy); } else L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill);
   }
   const h = L.length ? ray.intersectObjects(L, false)[0] : null;
@@ -36610,6 +36708,12 @@ function tileFor(t) {
     x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.closePath(); x.fillStyle = g; x.fill();
     x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.fillStyle = rgb(1, 0.28); x.fill(); x.globalAlpha = 1;
     if (t.hide) { x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.stroke(); x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'goggles') {
+    // the VR goggles (v197): a body, two lenses and the strap's ends, seen from the front
+    x.globalAlpha = see; poly([[40, 92], [216, 92], [216, 176], [40, 176]], rgb(1), rgb(1, 0.45), 3, dash);
+    poly([[56, 104], [122, 104], [122, 164], [56, 164]], '#1f6b8c'); poly([[134, 104], [200, 104], [200, 164], [134, 164]], '#1f6b8c');
+    poly([[24, 120], [40, 120], [40, 148], [24, 148]], '#2a2c33'); poly([[216, 120], [232, 120], [232, 148], [216, 148]], '#2a2c33');
+    line([84, 86], [172, 86], '#5fd4ff', 6); x.globalAlpha = 1;
   } else if (t.k === 'plane') {
     const P = [iso(-1.15, -1.15, 0, 50, 130), iso(1.15, -1.15, 0, 50, 130), iso(1.15, 1.15, 0, 50, 130), iso(-1.15, 1.15, 0, 50, 130)], g = x.createLinearGradient(P[0][0], P[3][1], P[2][0], P[1][1]);
     g.addColorStop(0, rgb(1, 0.2)); g.addColorStop(1, rgb(0.6));
@@ -38455,13 +38559,16 @@ function xrGrab(c, on) {
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
-    if (!it || (!editOn() && !visitMove(it))) return;
+    if (!it || (!editOn() && !visitMove(it) && !wearable(it))) return;
     if (!editOn()) {
       // (without editing, v140: an item anyone may move, carried by this hand alone: no group, corner, sizing or selection,
-      // and no Undo step; its record written as it moves, for everyone)
+      // and no Undo step; its record written as it moves, for everyone. The VR goggles, v197: carried here alone, never
+      // written, back where they stand when let go or put on: wear, e6z_goggles.js)
+      const wear = wearable(it);
       poseRest(it); GL.world.updateMatrixWorld(true);
       c.grab = { target: 'item', id: it.id, q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(), o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()),
-        r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0, s0: it.holder.scale.clone(), rr: 0, kz: 1, sth: 0, vis: true };
+        r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0, s0: it.holder.scale.clone(), rr: 0, kz: 1, sth: 0, vis: true, wear };
+      if (wear) gogTaken(it);
       it.carry = true; it.gl = null;
       buzz(c, 0.4, 25); sfxAct('grab', 'world', c.grab.p0);
       return;
@@ -38545,6 +38652,7 @@ function xrLetGo(c) {
   // (recording its path: kept, its place as it was; e6f_path.js. Else where the hand left it)
   // (on the beat, v158: let go early it stays where it was let go until the recording's end downbeat, which writes it; e6w_loops.js)
   if (it && REC && REC.id === it.id && REC.beat && REC.by === 'beat') { it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  else if (it && G.wear) gogBack(it);   // (the goggles back where they stand: e6z_goggles.js)
   else if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
@@ -38613,7 +38721,9 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !(editOn() || (G.vis && visitMove(STU.items.get(G.id)))) || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
+  // (the goggles carried to put them on, v197: never moved for anyone, so neither lock holds them; e6z_goggles.js)
+  if (G.wear) { if (!wearable(STU.items.get(G.id))) { xrLetGo(c); return; } }
+  else if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !(editOn() || (G.vis && visitMove(STU.items.get(G.id)))) || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
@@ -38738,7 +38848,7 @@ function carryItem(c, dt) {
   }
   holdApply(it, G);
   if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
-  if (rec) recStep(); else carryWrite(it);   // (recording: nothing written until it is let go, its pose sampled now)
+  if (rec) recStep(); else if (G.wear) gogCarry(c, it); else carryWrite(it);   // (recording: nothing written until it is let go, its pose sampled now; the goggles never: e6z_goggles.js)
 }
 // a group in the hand: its pivot where the hand puts it, its members keeping their places about it; level, taking only a
 // yaw from the hand's turn while free moving is on; both hands size it about its pivot (a twentieth to twenty times) and
@@ -38865,7 +38975,7 @@ const shipFlying = () => !!(HOST.ships && HOST.ships.flying && HOST.ships.flying
 function stickMove(c, dt) {
   const gp = c.src && c.g.visible && c.src.gamepad;
   // (not while a path is recorded: moving the scene under the hand would go into the recorded path)
-  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || REC || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
+  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || REC || gogOn() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }   // (the VR goggles on: you stay where you sit)
   const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0, hand = c.src.handedness;
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);
@@ -38900,12 +39010,12 @@ function xrPoint(c, dt) {
   let hit = null, dist = 2.5;
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  const hs = gogHide() ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);   // (the VR goggles' game drawn: the studio's panels hidden, nothing of it pointable)
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
   if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point, menu: true }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
   else if (sh) { hit = sh; dist = sh.dist; }
-  else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
+  else if (xrAway() || gogHide()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
@@ -39024,12 +39134,12 @@ function xrUpdate(S) {
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
-    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
+    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden' && !gogHide();   // (the VR goggles' game drawn: no studio panel)
     XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
     XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
-  GL.world.visible = !land && !away;
+  GL.world.visible = !land && !away && !gogHide();   // (the VR goggles' game drawn here: the scene hidden for you, not unloaded)
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);
@@ -40268,6 +40378,7 @@ function frame(now, xrFrame) {
   itemsStep(dt, performance.now());
   trailStep();   // (the items' and hands' trails, from where they are drawn this frame: e6x_trails.js)
   cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
+  gogStep(dt);   // (the VR goggles: the shell's game loaded, taken off when they go, a page's preview; e6z_goggles.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
   exStep();   // (an example open here at a circle: back to the relay, the scene the room's; the examples' scenes on the relay seen; e7g_examples.js)
@@ -40401,6 +40512,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  goggles: () => gogState(),   // (the VR goggles here and the shell's game: e6z_goggles.js)
   live: () => ({ items: [...STU.items.values()].filter(isLive).map(it => it.id), claimer: LIVE.id, node: !!LIVE.node, pos: LIVE.lv ? [LIVE.lv.p.positionX ? LIVE.lv.p.positionX.value : 0, LIVE.lv.p.positionY ? LIVE.lv.p.positionY.value : 0, LIVE.lv.p.positionZ ? LIVE.lv.p.positionZ.value : 0] : null, gain: LIVE.lv ? LIVE.lv.gt : 0 }),   // (the room's live sound from a studio item: e6_items.js liveEmit)
   away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
@@ -40568,6 +40680,7 @@ return {
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
     try { grabEnd(); } catch (e) { /* not grabbed */ }   // (Walk view's grabbed mouse let go, its crosshair taken away: e7_explore.js)
     try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)
+    try { if (gogOn()) HOST.flight.off('studio'); } catch (e) { /* none */ }   // (the VR goggles taken off: e6z_goggles.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     for (const t of TIMERS) clearTimeout(t);

@@ -1539,7 +1539,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js.
 // packages/ holds the story packages, served deep as examples/ is: packages/<key>/<at most 4 folders>/<file>, and their
 // index; tools/packages/SPEC.md. Like every app folder it is only ever read here: no endpoint writes to it)
-const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
+const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js',
   'LICENSE', 'NOTICE.md']);   // (the project's licence and notices go with every copy of the app it serves)
 const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages']), APP_DEEP = new Set(['examples', 'packages']);
@@ -1625,7 +1625,7 @@ function fingerprint(s) {
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
-const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js', 'output.js', 'ik.js', 'bodies.js'];   // (output.js: the output page's, loaded on demand as peerjs.min.js is; ik.js and bodies.js: people's bodies, likewise, v164)
+const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js'];   // (output.js: the output page's, loaded on demand as peerjs.min.js is; ik.js and bodies.js: people's bodies, likewise, v164; flight.js: the VR goggles' game, v197)
 const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
 const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
 const MAX_WATCHERS = 200;

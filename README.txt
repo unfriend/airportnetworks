@@ -650,7 +650,16 @@ extra shield). In a shared room everyone in a headset sees every ship; the Share
 dialog's people list says who flies and what they destroyed. Click the right stick
 twice again to land. There is no edge (v139): the crystals, drones and
 pickups follow the flying ships about, only the floor and a 3 m ceiling hold a
-ship, and in AR it flies through real walls. Nothing of it is kept. My menu
+ship, and in AR it flies through real walls. Nothing of it is kept. VR goggles
+(v197): a studio scene may hold a pair (Add, VR goggles). In a headset, with
+editing off, take them with the grip and bring them to your face: you fly a little
+ship through the cell of Back into the cell, its real proteins in their places,
+drawn over the room for you alone. Right stick: turn, climb, dive; grip: brake;
+trigger: scan the protein in your sights, then fly to the green light to follow
+its link to a partner. Sit or stand still: moved more than about 40 cm from where
+you put them on, the game fades to the room and waits. Grip near your face and
+pull away (or the menu's Goggles off) to take them off; the spaceship waits
+meanwhile. My menu
 (this headset's own, never the room's): only me (the default) or my circle. With
 my circle, in a shared room the other headsets at your circle see your menu while
 it is open, as a picture where it floats with your name over it, so you can show
@@ -966,7 +975,7 @@ node tools/packages/scan.mjs), stories/ (the design room, the studio and list.js
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), ships.js (the spaceships), notes.js and notes/ (the developer notebook and its notes page), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
+shared.js (shared rooms), sfx.js (sound effects; tools/sfx.html is its sound board), occlusion.js (real-world occlusion in AR), ships.js (the spaceships), flight.js (the VR goggles' flight through the cell, loaded on demand by the studio), notes.js and notes/ (the developer notebook and its notes page), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
 directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server; with --scenes it also serves and saves the studio's scenes; with --trackers it takes the PC's Vive trackers), tools/trackers/ (the trackers' bridge for SteamVR, a fake one for tests, and the plan), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),

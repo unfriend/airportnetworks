@@ -13,14 +13,15 @@
 // VR the stage), seen only as a see-through fill and its edges while editing. It moves, turns and sizes as the others do
 // (the page's arrows, the grips, both grips; a cube's corners stretch it per axis), and a cube can show or hide it, a
 // group hold it and a sound follow it
-const SHAPE_NAME = { cube: 'Box', sphere: 'Ball', cylinder: 'Cylinder', plane: 'Plane' };
-const SHAPE_WORD = { cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder', plane: 'Plane' };
+const SHAPE_NAME = { cube: 'Box', sphere: 'Ball', cylinder: 'Cylinder', plane: 'Plane', goggles: 'VR goggles' };
+const SHAPE_WORD = { cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder', plane: 'Plane', goggles: 'Goggles' };
 // the colours on its card (lower case, as a record keeps them)
 const SHAPE_COLS = [['#c9d1dc', 'Light grey'], ['#ffffff', 'White'], ['#5c6878', 'Dark grey'], ['#1b2230', 'Black'], ['#46d9ff', 'Cyan'], ['#3ee08f', 'Green'], ['#ffb43b', 'Amber'], ['#ff5a4b', 'Red'], ['#c08cff', 'Violet'], ['#8a5a3c', 'Brown']];
 function addShape(kind) {
   if (!canAdd('p') || !SHAPE_KINDS.includes(kind)) return '';
   const at = frontAt(), id = newId(), sz = SHAPE_SIZE[kind];
-  change(() => putItem(id, 'p', norm('p', { name: nameFor(SHAPE_NAME[kind]), shape: kind, p: [at[0], sz[1] / 2, at[1]], size: sz })));
+  // (the goggles at a table's height, 1 m up, where a hand finds them: e6z_goggles.js)
+  change(() => putItem(id, 'p', norm('p', { name: nameFor(SHAPE_NAME[kind]), shape: kind, p: [at[0], kind === 'goggles' ? 1 : sz[1] / 2, at[1]], size: sz })));
   select(id);
   sfxAct('place', 'world', null);
   return id;
@@ -140,7 +141,7 @@ function lockTop(it) {
 Object.assign(ITEM_ACT, {
   lock: it => { setRec(it.id, { locked: it.rec.locked ? undefined : true }); tcAttach(); },   // (locked: the page's arrows go at once)
   // a shape: its kind (its size kept), its colour and its look
-  shape: (it, v) => { if (it.kind === 'p' && SHAPE_KINDS.includes(v)) setRec(it.id, { shape: v }); },
+  shape: (it, v) => { if (it.kind === 'p' && SHAPE_PRIMS.includes(v) && it.rec.shape !== 'goggles') setRec(it.id, { shape: v }); },
   colour: (it, v) => { if (it.kind === 'p' && /^#[0-9a-f]{6}$/.test(v)) setRec(it.id, { colour: v }); },
   look: (it, v) => { if (it.kind === 'p' && (v === 'colour' || v === 'hide')) setRec(it.id, { look: v }); },
   // a shape's size: 10 cm more or less on one side (a cube's foot stays on its height), or every side by a factor (its
@@ -213,7 +214,9 @@ function hookCall(k, v) {
 function settingsStep() {
   const here = !!STU.scene && !GL.gone && !xrAway() && !XR.stories && !HOST.picking;
   // (hide: the station's id, so a walk into another studio circle asks again: the shell lets it lapse when the station changes)
-  const hide = here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = here ? OCC[STU.settings.real] : null;
+  // (the VR goggles' game drawn here, v197: the other circles hidden and nothing real hiding it; depth sensing runs on)
+  const gog = gogHide();
+  const hide = gog ? 'goggles' : here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = gog ? 'off' : here ? OCC[STU.settings.real] : null;
   if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', !!hide); }
   if (occ !== HOOK.occ) { HOOK.occ = occ; hookCall('occ', occ); }
 }

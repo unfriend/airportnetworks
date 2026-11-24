@@ -371,13 +371,16 @@ function xrGrab(c, on) {
   if (XR.stories || h.menu || (h.kind === 'item' ? itemGripLocked() : HOST.anchor.locked(h.kind))) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind === 'item') {   // an item (editing), taken where it is: it keeps its offset from the hand; a cube's corner stretches it
     const it = STU.items.get(h.id);
-    if (!it || (!editOn() && !visitMove(it))) return;
+    if (!it || (!editOn() && !visitMove(it) && !wearable(it))) return;
     if (!editOn()) {
       // (without editing, v140: an item anyone may move, carried by this hand alone: no group, corner, sizing or selection,
-      // and no Undo step; its record written as it moves, for everyone)
+      // and no Undo step; its record written as it moves, for everyone. The VR goggles, v197: carried here alone, never
+      // written, back where they stand when let go or put on: wear, e6z_goggles.js)
+      const wear = wearable(it);
       poseRest(it); GL.world.updateMatrixWorld(true);
       c.grab = { target: 'item', id: it.id, q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(), o0: c.o.clone(), p0: it.holder.getWorldPosition(new THREE.Vector3()),
-        r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0, s0: it.holder.scale.clone(), rr: 0, kz: 1, sth: 0, vis: true };
+        r0: it.holder.getWorldQuaternion(new THREE.Quaternion()), reach: 1, at: 0, s0: it.holder.scale.clone(), rr: 0, kz: 1, sth: 0, vis: true, wear };
+      if (wear) gogTaken(it);
       it.carry = true; it.gl = null;
       buzz(c, 0.4, 25); sfxAct('grab', 'world', c.grab.p0);
       return;
@@ -461,6 +464,7 @@ function xrLetGo(c) {
   // (recording its path: kept, its place as it was; e6f_path.js. Else where the hand left it)
   // (on the beat, v158: let go early it stays where it was let go until the recording's end downbeat, which writes it; e6w_loops.js)
   if (it && REC && REC.id === it.id && REC.beat && REC.by === 'beat') { it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
+  else if (it && G.wear) gogBack(it);   // (the goggles back where they stand: e6z_goggles.js)
   else if (it) { if (REC && REC.id === it.id && REC.by === 'xr') recEnd(true); else carryWrite(it, true); it.carry = false; it.carryR = 0; sfxAct('drop', 'world', it.holder.getWorldPosition(new THREE.Vector3()).toArray()); }
   // (one Undo step for both hands: it ends once neither carries anything)
   if (!xrHeld()) endChange();
@@ -529,7 +533,9 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !(editOn() || (G.vis && visitMove(STU.items.get(G.id)))) || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
+  // (the goggles carried to put them on, v197: never moved for anyone, so neither lock holds them; e6z_goggles.js)
+  if (G.wear) { if (!wearable(STU.items.get(G.id))) { xrLetGo(c); return; } }
+  else if ((G.target === 'item' || G.target === 'corner' || G.target === 'group') ? itemGripLocked() || !(editOn() || (G.vis && visitMove(STU.items.get(G.id)))) || !!lockWhy(STU.items.get(G.id)) : HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { xrLetGo(c); return; }   // locked meanwhile (a shared room's story lock: Lock this story; the item locked in place)
   if (G.target === 'item') { carryItem(c, dt); return; }
   if (G.target === 'group') { carryGroup(c, dt); return; }
   if (G.target === 'corner') { stretchCube(c); return; }
@@ -654,7 +660,7 @@ function carryItem(c, dt) {
   }
   holdApply(it, G);
   if (it.kind === 'c') it.holder.rotation.set(0, new THREE.Euler().setFromQuaternion(it.holder.quaternion, 'YXZ').y, 0);
-  if (rec) recStep(); else carryWrite(it);   // (recording: nothing written until it is let go, its pose sampled now)
+  if (rec) recStep(); else if (G.wear) gogCarry(c, it); else carryWrite(it);   // (recording: nothing written until it is let go, its pose sampled now; the goggles never: e6z_goggles.js)
 }
 // a group in the hand: its pivot where the hand puts it, its members keeping their places about it; level, taking only a
 // yaw from the hand's turn while free moving is on; both hands size it about its pivot (a twentieth to twenty times) and
@@ -781,7 +787,7 @@ const shipFlying = () => !!(HOST.ships && HOST.ships.flying && HOST.ships.flying
 function stickMove(c, dt) {
   const gp = c.src && c.g.visible && c.src.gamepad;
   // (not while a path is recorded: moving the scene under the hand would go into the recorded path)
-  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || REC || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }
+  if (!XR.clear || XR.stories || xrAway() || !xrSelfMove() || REC || gogOn() || !gp || !gp.axes || gp.axes.length < 4) { c.moveArm = false; return false; }   // (the VR goggles on: you stay where you sit)
   const ax = +gp.axes[2] || 0, ay = +gp.axes[3] || 0, hand = c.src.handedness;
   if (hand === 'left') {
     const m = Math.hypot(ax, ay);
@@ -816,12 +822,12 @@ function xrPoint(c, dt) {
   let hit = null, dist = 2.5;
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  const hs = gogHide() ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);   // (the VR goggles' game drawn: the studio's panels hidden, nothing of it pointable)
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
   if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point, menu: true }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
   else if (sh) { hit = sh; dist = sh.dist; }
-  else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
+  else if (xrAway() || gogHide()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
@@ -940,12 +946,12 @@ function xrUpdate(S) {
     // clock stay, and its Story tab plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
     // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
     // neither
-    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
+    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden' && !gogHide();   // (the VR goggles' game drawn: no studio panel)
     XR.main.want = XR.main.mesh.visible = pv && pm === 'shown';   // (want: what xrUpdate shows; a panel it does not show is not drawn, panelTick)
     XR.foot.want = XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
-  GL.world.visible = !land && !away;
+  GL.world.visible = !land && !away && !gogHide();   // (the VR goggles' game drawn here: the scene hidden for you, not unloaded)
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);

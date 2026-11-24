@@ -350,6 +350,12 @@ function tileFor(t) {
     x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.closePath(); x.fillStyle = g; x.fill();
     x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.fillStyle = rgb(1, 0.28); x.fill(); x.globalAlpha = 1;
     if (t.hide) { x.setLineDash(dash); x.lineWidth = 3; x.strokeStyle = rgb(1, 0.45); x.beginPath(); x.ellipse(128, y0, rx, ry, 0, 0, 7); x.stroke(); x.beginPath(); x.moveTo(128 - rx, y0); x.lineTo(128 - rx, y1); x.ellipse(128, y1, rx, ry, 0, Math.PI, 0, true); x.lineTo(128 + rx, y0); x.stroke(); x.setLineDash([]); }
+  } else if (t.k === 'goggles') {
+    // the VR goggles (v197): a body, two lenses and the strap's ends, seen from the front
+    x.globalAlpha = see; poly([[40, 92], [216, 92], [216, 176], [40, 176]], rgb(1), rgb(1, 0.45), 3, dash);
+    poly([[56, 104], [122, 104], [122, 164], [56, 164]], '#1f6b8c'); poly([[134, 104], [200, 104], [200, 164], [134, 164]], '#1f6b8c');
+    poly([[24, 120], [40, 120], [40, 148], [24, 148]], '#2a2c33'); poly([[216, 120], [232, 120], [232, 148], [216, 148]], '#2a2c33');
+    line([84, 86], [172, 86], '#5fd4ff', 6); x.globalAlpha = 1;
   } else if (t.k === 'plane') {
     const P = [iso(-1.15, -1.15, 0, 50, 130), iso(1.15, -1.15, 0, 50, 130), iso(1.15, 1.15, 0, 50, 130), iso(-1.15, 1.15, 0, 50, 130)], g = x.createLinearGradient(P[0][0], P[3][1], P[2][0], P[1][1]);
     g.addColorStop(0, rgb(1, 0.2)); g.addColorStop(1, rgb(0.6));

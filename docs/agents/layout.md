@@ -99,6 +99,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `transcribe.py` (faster-whisper).
 - `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded by `index.html` after
   `occlusion.js` and before `shared.js`, which links itself in at its end (see "Spaceships" below).
+- `flight.js` - the VR goggles' game (`HOST.flight`, v197): a flight through the cell of *Back into the cell*, the
+  shell's own, loaded on demand by `HOST.flightLoad()` (the studio, for its goggles); "VR goggles" in
+  `docs/agents/shell.md`.
 - `bodies.js` - people's bodies (`HOST.bodies`, v164; "People's bodies" in `docs/agents/shared-rooms.md`): the mannequin
   'street armour' made in code, its poser (ik.js's `'head'` setup from a headset and two controllers, sized by a person's
   standing eye height) and an instanced draw of every body in one draw call (their glows in one more), each person's

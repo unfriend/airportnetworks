@@ -401,7 +401,28 @@ const LOOKS = (function () {
   // floor and sky, so in VR the stage shows where it stands and in AR the room) so what stands behind it is hidden; a
   // closed shape from its outside only (from inside it hides nothing), a plane both ways. The geometries are shared (unit
   // sized: a 1 m box, a ball and a cylinder 1 m across, a 1 m square upright, facing +z)
-  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1) };
+  // the VR goggles (v197, worn in a headset: e6z_goggles.js and the shell's flight.js): our own low-poly pair in the unit
+  // box, lenses to -z, the face's cushion and the strap's ends to +z; its body white in its vertex colours (it takes the
+  // shape's colour), the lenses, cushion and strap their own (multiplied by the colour as well)
+  function gogglesGeo() {
+    const P = [], N = [], C = [];
+    const add = (sz, at, col) => {
+      const g = new THREE.BoxGeometry(...sz).toNonIndexed(); g.translate(...at);
+      P.push(...g.attributes.position.array); N.push(...g.attributes.normal.array);
+      for (let i = 0; i < g.attributes.position.count; i++) C.push(...col);
+      g.dispose();
+    };
+    add([1, 0.8, 0.55], [0, 0, -0.18], [1, 1, 1]);
+    for (const x of [-0.22, 0.22]) add([0.38, 0.46, 0.05], [x, 0.03, -0.475], [0.12, 0.42, 0.55]);
+    add([0.94, 0.7, 0.3], [0, -0.02, 0.245], [0.16, 0.17, 0.2]);
+    for (const x of [-0.475, 0.475]) add([0.05, 0.3, 0.2], [x, 0, 0.4], [0.16, 0.17, 0.2]);
+    add([0.6, 0.06, 0.4], [0, 0.42, -0.2], [0.37, 0.83, 1]);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+  const SHAPE_GEO = { cube: box, sphere: new THREE.SphereGeometry(0.5, 40, 24), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 40, 1), plane: new THREE.PlaneGeometry(1, 1), goggles: gogglesGeo() };
   // its edges (v131: all that shows of one that hides things while editing): a box's twelve and a plane's outline (three.js
   // finds them), a ball's three great circles and a cylinder's two rims and four lines along it (it finds none on a ball
   // and only the rims on a cylinder)
@@ -443,6 +464,7 @@ const LOOKS = (function () {
           mesh.geometry = fill.geometry = SHAPE_GEO[kind] || box;
           line.geometry = shapeEdges(kind);
           lit.side = kind === 'plane' ? THREE.DoubleSide : THREE.FrontSide; hide.side = lit.side;
+          lit.vertexColors = kind === 'goggles';   // (the goggles' parts in their own colours: gogglesGeo)
           lit.needsUpdate = hide.needsUpdate = true;
         }
         if (r.colour !== col) {
@@ -520,5 +542,5 @@ const LOOKS = (function () {
   const HID_MAT = new THREE.LineBasicMaterial({ color: 0x7d8ca2 });
   const hidBox = () => { const l = batched(new THREE.LineSegments(edges, HID_MAT), 'line'); l.visible = false; l.renderOrder = 6; return l; };
   return { colOf, cube, speaker, cut, group, shape, empty, grey, tag, hidBox, warmTag, shapeTris, CUT_COL, CUT_LOOK, CUT_OFF, CUBE_EDGE, batch, batched, BT,
-    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
+    dispose() { if (BT.atlas) BT.atlas.tex.dispose(); BT.dash.clear(); box.dispose(); edges.dispose(); ball.dispose(); cone.dispose(); cutGeo.dash.dispose(); cutGeo.ticks.dispose(); cutGeo.ticksLit.dispose(); axGeo.dispose(); HID_MAT.dispose(); for (const k of ['sphere', 'cylinder', 'plane', 'goggles']) SHAPE_GEO[k].dispose(); for (const g of Object.values(SHAPE_EDGE)) g.dispose(); } };
 })();

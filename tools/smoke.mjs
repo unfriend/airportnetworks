@@ -16236,6 +16236,140 @@ if (runs('spaceship')) {
   });
   await sp.close();
 }
+
+// The VR goggles (v197; flight.js, HOST.flight, the shell's own game, and the studio's shape of kind 'goggles',
+// tools/studio/engine/e6z_goggles.js). In the studio's test scene: the Add pane adds a pair, its record and card; a pretend
+// VR headset (the session's frames handed to the shell's hook and the studio's xrBegin by hand, as the spaceship's steps
+// do) takes them with the grip and brings them to the face: on, the scene and the panels hidden, nothing written, the
+// goggles back in place, the spaceship refused; the grip pressed near the face and pulled away takes them off. Then the
+// game on a page (HOST.flight.debug.page: the page's camera as the head): the ppicell package's proteins, a scan, a link
+// followed, the bubble's fade and pause. SHOTS=<dir> saves pictures there. --only goggles
+if (runs('goggles')) {
+  const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  sp.on('pageerror', e => errors.push('goggles: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('goggles: ' + m.text()); });
+  const ss = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'goggles: ' + b)); };
+  const shot = async name => { if (process.env.SHOTS) await sp.screenshot({ path: process.env.SHOTS.replace(/\/?$/, '/') + name + '.png' }); };
+  await sp.goto(base + 'index.html#studio&scenes=tools/studio/test/scenes&scene=test&view=walk');
+  await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+  await sp.waitForFunction(() => HOST.cur.peek('STUDIO.ready()'), null, { timeout: 120000 }).catch(() => null);
+  await step('goggles: the Add pane\'s VR goggles (their record, card and tile); a pretend headset takes them with the grip and puts them on at the face (the scene and panels hidden, nothing written, back in place, the spaceship refused), the grip pulled from the face takes them off', async () => {
+    const out = [];
+    await ss('(STU.edit = true, X.tab = "add", renderPanes(), 0)');
+    const id = await ss(`addShape('goggles')`);
+    const r = await ss(`STU.items.get('${id}').rec`);
+    if (!r || r.shape !== 'goggles' || r.p[1] !== 1 || r.size.join() !== '0.18,0.09,0.1') out.push('the record: ' + JSON.stringify(r));
+    const card = await ss('(renderPanes(), document.querySelector("#stuPane") ? document.querySelector("#stuPane").textContent : document.body.textContent)');
+    if (!/take them with the grip and bring them to your face/.test(card)) out.push('the card does not say how to put them on');
+    if (await ss(`(norm('p', { shape: 'goggles', p: [0, 1, 0] }) || {}).shape`) !== 'goggles') out.push('a record of goggles is not kept');
+    await ss(`(() => { const g = STU.items.get('${id}').holder.getWorldPosition(new THREE.Vector3()); STU.edit = false; WALK.pos.set(g.x - 0.1, 1.6, g.z - 0.4); WALK.yaw = Math.PI + 0.22; WALK.pitch = -Math.atan2(1.6 - g.y, 0.42); GL.camera.fov = 50; GL.camera.updateProjectionMatrix(); })()`);
+    if (process.env.SHOTS) { const t = await sp.addStyleTag({ content: 'body > *:not(canvas):not(#gl){visibility:hidden !important}' }); await sp.waitForTimeout(1500); await shot('goggles-studio'); await t.evaluate(e => e.remove()); }
+    await sp.waitForFunction(() => !!HOST.flight, null, { timeout: 20000 }).catch(() => out.push('flight.js was not loaded for a scene with goggles'));
+    // a pretend VR session: the head at (0, 1.6, 0.6) facing -z, the right controller with a gamepad
+    await sp.evaluate(() => {
+      const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
+      const W = window.__g = { head: new V3(0, 1.6, 0.6), t: 1000, raf: [], real: new Map() };
+      const spc = name => ({ name });
+      const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [{ pulse() { return Promise.resolve(true); } }] });
+      W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: spc('Rray'), gripSpace: spc('Rgrip'), gamepad: pad() };
+      W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: spc('Lray'), gripSpace: spc('Lgrip'), gamepad: pad() };
+      const pose = (p, q) => ({ transform: { position: { x: p.x, y: p.y, z: p.z }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w } } });
+      W.frame = { getViewerPose: () => pose(W.head, new Q()), getPose: s => (W.real.has(s) ? pose(W.real.get(s), new Q()) : null) };
+      W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [W.L, W.R], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb) };
+      W.ref = {}; W.getRef = HOST.renderer.xr.getReferenceSpace; HOST.renderer.xr.getReferenceSpace = () => W.ref;
+      HOST.session = W.s; HOST.mode = 'immersive-vr';
+      HOST.cur.peek('(STU.edit = false, XR.session = window.__g.s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, 0)');
+      // the right hand at p (renderer space), its controller in the studio's XR.ctrls[1]
+      W.hand = p => { W.real.set(W.R.gripSpace, p.clone()); HOST.cur.peek(`(() => { const c = XR.ctrls[1]; c.src = window.__g.R; c.g.visible = true; c.g.matrix.makeTranslation(${p.x}, ${p.y}, ${p.z}); c.g.matrixWorld.copy(c.g.matrix); })()`); };
+      W.tick = n => { for (let i = 0; i < (n || 1); i++) { W.t += 1000 / 60; HOST.flight.frame(W.s, W.t, W.frame); HOST.cur.peek('(xrBegin(window.__g.frame, 1 / 60), xrUpdate(exploreStep(1 / 60, performance.now())), settingsStep(), gogStep(1 / 60))'); } };
+      W.tick(3);
+    });
+    const g0 = await ss(`STU.items.get('${id}').holder.getWorldPosition(new THREE.Vector3()).toArray()`);
+    // the grip on them where they stand
+    await sp.evaluate(([x, y, z]) => { window.__g.hand(new THREE.Vector3(x, y, z)); window.__g.tick(1); }, g0);
+    const wr = await ss(`wearable(STU.items.get('${id}'))`);
+    if (!wr) out.push('a pair shown with editing off is not wearable in a headset');
+    await ss(`(XR.ctrls[1].hover = { kind: 'item', id: '${id}' }, xrGrab(XR.ctrls[1], true), 0)`);
+    const gr = await ss('XR.ctrls[1].grab && XR.ctrls[1].grab.wear');
+    if (!gr) out.push('the grip did not take them to wear');
+    const rev0 = await ss('STU.rev');
+    // carried half way: not on yet, nothing written
+    await sp.evaluate(([x, y, z]) => { const g = window.__g; g.hand(new THREE.Vector3((x + 0) / 2, (y + 1.6) / 2, (z + 0.6) / 2)); g.tick(2); }, g0);
+    if (await sp.evaluate(() => HOST.flight.on())) out.push('on before they reached the face');
+    // at the face: on, the hand let go, the goggles back in place
+    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = true; g.hand(new THREE.Vector3(0.02, 1.58, 0.5)); g.tick(3); });
+    const s1 = await sp.evaluate(() => [HOST.flight.on(), HOST.flight.owner(), HOST.flight.shown()]);
+    if (!s1[0] || s1[1] !== 'studio') out.push('not on at the face: ' + JSON.stringify(s1));
+    const back = await ss(`STU.items.get('${id}').holder.getWorldPosition(new THREE.Vector3()).toArray()`);
+    if (Math.hypot(back[0] - g0[0], back[1] - g0[1], back[2] - g0[2]) > 1e-4) out.push('the goggles are not back where they stand');
+    if (await ss('STU.rev') !== rev0) out.push('wearing wrote the item (STU.rev changed)');
+    if (await ss('!!XR.ctrls[1].grab')) out.push('the hand still holds them');
+    const hid = await ss('[GL.world.visible, XR.main.mesh.visible, XR.foot.mesh.visible]');
+    if (hid.some(Boolean)) out.push('the scene or its panels still shown while the game is drawn: ' + hid);
+    if (!await sp.evaluate(() => /Not while you wear the VR goggles/.test(HOST.ships.whyNot()))) out.push('the spaceship is not refused while they are on');
+    if (!await sp.evaluate(() => HOST.flight.claims(window.__g.R))) out.push('the right controller is not the game\'s');
+    // the same grip still held, pulled away: nothing (it must be let go first)
+    await sp.evaluate(() => { const g = window.__g; g.hand(new THREE.Vector3(0.3, 1.2, 0.1)); g.tick(2); });
+    if (!await sp.evaluate(() => HOST.flight.on())) out.push('the grip that put them on took them off without being let go');
+    // let go, pressed again at the face, pulled away: off
+    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = false; g.tick(1); g.hand(new THREE.Vector3(0.05, 1.55, 0.5)); g.R.gamepad.buttons[1].pressed = true; g.tick(2); g.hand(new THREE.Vector3(0.35, 1.3, 0.2)); g.tick(2); g.R.gamepad.buttons[1].pressed = false; g.tick(2); });
+    const s2 = await sp.evaluate(() => HOST.flight.on());
+    if (s2) out.push('the grip pulled from the face did not take them off');
+    if (!await ss('GL.world.visible')) out.push('the scene not shown again once they are off');
+    await sp.evaluate(() => { const g = window.__g; HOST.cur.peek('xrEnded()'); HOST.session = null; HOST.renderer.xr.getReferenceSpace = g.getRef; });
+    bad(out);
+  });
+  await step('goggles: the game on a page (the preview): the ppicell package\'s proteins and links, a scan, a link followed, a few draw calls, the bubble\'s fade (0.3 to 0.5 m) and pause (0.4 m), off again', async () => {
+    const out = [];
+    await ss('(WALK.pos.set(0, 1.6, 4), WALK.yaw = 0, WALK.pitch = 0, GL.camera.fov = 85, GL.camera.updateProjectionMatrix(), 0)');
+    await sp.evaluate(() => HOST.flight.debug.page(true));
+    if (!await sp.waitForFunction(() => HOST.flight.state().data === 'ready' && HOST.flight.state().drawn && HOST.flight.state().drawn.prot > 0, null, { timeout: 60000 }).then(() => true, () => false)) { out.push('the cell did not load: ' + JSON.stringify(await sp.evaluate(() => HOST.flight.state()))); bad(out); return; }
+    const st = () => sp.evaluate(() => HOST.flight.state());
+    const s0 = await st(), pd = await sp.evaluate(() => fetch('packages/ppicell/src/sets/data.js').then(r => r.text()).then(t => { const J = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); const pl = Uint8Array.from(atob(J.pl), c => c.charCodeAt(0)); let n = 0; for (let i = 0; i < pl.length; i += 2) if (pl[i] | pl[i + 1]) n++; return n; }));
+    if (s0.world.N !== pd) out.push(`${s0.world.N} proteins drawn, the data places ${pd}`);
+    if (!s0.drawn.root || !s0.drawn.inScene) out.push('the game is not drawn in the scene');
+    await sp.addStyleTag({ content: 'body > *:not(canvas):not(#gl){visibility:hidden !important}' });
+    await sp.waitForTimeout(600); await shot('goggles-cell');
+    // a scan: the trigger on the protein in the sights
+    await sp.evaluate(() => HOST.flight.debug.input({ trig: false }));
+    await sp.waitForTimeout(200);
+    await sp.evaluate(() => HOST.flight.debug.input({ trig: true }));
+    await sp.waitForTimeout(400);
+    await sp.evaluate(() => HOST.flight.debug.input({ trig: false }));
+    await sp.waitForTimeout(400);
+    const s1 = await st();
+    if (!s1.game || s1.game.scanned !== 1 || s1.game.cur < 0 || s1.game.next < 0 || !s1.drawn.links || !s1.drawn.guide) out.push('the scan: ' + JSON.stringify([s1.game, s1.drawn]));
+    await shot('goggles-scan');
+    // flown to the next partner: the link followed
+    await sp.evaluate(() => { const s = HOST.flight.state(), P = HOST.flight.world().pos, n = s.game.next; HOST.flight.debug.place([P[n * 3], P[n * 3 + 1], P[n * 3 + 2] + 1.2], 0); });
+    await sp.waitForTimeout(400);
+    const s2 = await st();
+    if (s2.game.followed !== 1 || s2.game.cur !== s1.game.next) out.push('flying to the next partner did not follow the link: ' + JSON.stringify(s2.game));
+    await shot('goggles-follow');
+    const calls = await sp.evaluate(() => HOST.renderer.info.render.calls);
+    if (calls > 40) out.push(calls + ' draw calls');
+    // the bubble: faded half way at 0.4 m (and paused), gone at 0.6 m (the scene back), back at the seat
+    await sp.evaluate(() => HOST.flight.debug.head([0, 0, 0.45]));
+    await sp.waitForTimeout(400);
+    const b1 = await st(); await shot('goggles-bubble');
+    if (!(b1.fade > 0.05 && b1.fade < 0.5 && b1.paused)) out.push('0.45 m away: fade ' + b1.fade + ', paused ' + b1.paused);
+    const t1 = b1.game.t;
+    await sp.evaluate(() => HOST.flight.debug.head([0, 0, 0.6]));
+    await sp.waitForTimeout(400);
+    const b2 = await st();
+    if (b2.fade !== 0 || b2.game.t !== t1 || !await ss('GL.world.visible')) out.push('0.6 m away: fade ' + b2.fade + ', the clock ' + (b2.game.t - t1) + ' s on, the scene ' + await ss('GL.world.visible'));
+    await sp.evaluate(() => HOST.flight.debug.head(null));
+    await sp.waitForTimeout(400);
+    const b3 = await st();
+    if (b3.fade !== 1 || b3.paused || !(b3.game.t > t1)) out.push('back at the seat: ' + JSON.stringify([b3.fade, b3.paused]));
+    await sp.evaluate(() => HOST.flight.debug.page(false));
+    await sp.waitForTimeout(300);
+    if (await sp.evaluate(() => HOST.flight.on()) || !await ss('GL.world.visible')) out.push('not off again');
+    bad(out);
+  });
+  await sp.close();
+}
 // Real-world occlusion in AR (HOST.occlusion, occlusion.js) with a pretend AR headset (its frames driven by the test
 // through three.js r128's own WebXR path), its depth a real WebGL2 texture array made in the page, a new one each frame
 // (window depth with no far plane, 1 - 0.1 / metres, as a Quest 3 gives it; near on the left half of each eye, far on

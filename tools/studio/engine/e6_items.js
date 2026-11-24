@@ -151,7 +151,7 @@ function norm(kind, x, id) {
     return lockOf(x, r);
   }
   if (kind === 'p') {
-    // a shape: cube, sphere, cylinder or plane, a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
+    // a shape: cube, sphere, cylinder, plane or goggles (v197), a full turn, its size per axis (1 cm to 100 m, to the mm; a plane's z
     // kept but unused), its colour (#rrggbb, lower case) and its look: in its colour, or hiding what is behind it
     const q = has('q') ? quatOf(x.q) : [0, 0, 0, 1], sz = has('size') ? vecOf(x.size, 3, 1000) : null;
     if (!q || (has('size') && !sz) || (has('colour') && !(typeof x.colour === 'string' && /^#[0-9a-f]{6}$/i.test(x.colour)))) return null;
@@ -225,7 +225,10 @@ const FOLLOW_KINDS = ['o', 'p', 'e'];
 const SHOWS_KINDS = ['o', 's', 'p', 'e', 'v', 'd'];
 // shapes: the kinds, each's size when placed (a cube 50 cm, a ball 50 cm across, a cylinder 50 cm across and 1 m tall, a
 // plane 1 m square, upright), and the colour one starts in
-const SHAPE_KINDS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01] }, SHAPE_COL = '#c9d1dc';
+// (v197: and the VR goggles, 18 by 9 by 10 cm, worn in a headset: e6z_goggles.js; the four primitives are SHAPE_PRIMS, what
+// a shape's card switches between)
+const SHAPE_PRIMS = ['cube', 'sphere', 'cylinder', 'plane'], SHAPE_KINDS = SHAPE_PRIMS.concat(['goggles']);
+const SHAPE_SIZE = { cube: [0.5, 0.5, 0.5], sphere: [0.5, 0.5, 0.5], cylinder: [0.5, 1, 0.5], plane: [1, 1, 0.01], goggles: [0.18, 0.09, 0.1] }, SHAPE_COL = '#c9d1dc';
 
 // ------------------------------------------------------------ the items --
 const BOX1 = new THREE.BoxGeometry(1, 1, 1), HIDDEN = new THREE.MeshBasicMaterial({ visible: false });

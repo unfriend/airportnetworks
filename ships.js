@@ -342,6 +342,7 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
   // why the ship cannot fly here ('' it can): no immersive session, camera mode, a phone's AR, no controller in the right hand
   function whyNot() {
     if (!immersive()) return 'Only in VR or AR, with a controller in your right hand.';
+    if (HOST.flight && HOST.flight.on && HOST.flight.on()) return 'Not while you wear the VR goggles.';   // (flight.js, v197: their game has the right stick)
     if (L && L.camera && L.camera()) return 'Not in camera mode.';
     if (L && L.phone && L.phone()) return 'Not on a phone: it needs a headset\'s controllers.';
     const r = rightSrc();

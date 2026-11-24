@@ -252,6 +252,19 @@ nothing, the box staying in the hand (within 1 mm) and so 1.5 m through the scen
 you; two clicks back while carrying (*Sticks: the studio's*, nothing jumping), the right stick up pushing the box away
 again; Recenter taking the walk back (at the station the station's Recenter too); in AR two clicks saying *Not in AR*.
 
+### smoke: goggles
+
+Its *goggles* steps (`--only goggles`, a page of their own at 640 x 400, about a minute; `SHOTS=<dir>` saves pictures):
+the studio's test scene, the Add pane's VR goggles (their record at 1 m, the card's words, a record kept by `norm`),
+`flight.js` loaded for a scene with goggles; a pretend VR headset (its frames handed to `HOST.flight.frame` and the
+studio's `xrBegin` by hand) takes them with the grip (wearable with editing off), carried half way they are not on, at
+the face they go on (the hand let go, the goggles back where they stand, nothing written: `STU.rev` unchanged, the scene
+and the panels hidden, the spaceship refused, the right controller the game's); the grip that put them on, pulled away
+still held, does nothing; let go, pressed at the face and pulled away it takes them off (the scene back). Then the game
+on a page (`HOST.flight.debug.page`): as many proteins drawn as the ppicell data places, a scan (links and the guide
+drawn), flying to the next partner follows the link, at most 40 draw calls, the bubble (0.45 m: faded and paused; 0.6 m:
+gone, the clock stopped, the scene back; back at the seat: on again), off again.
+
 ### smoke: spaceship
 
 Its *spaceship* steps (`--only spaceship`, a page of their own, a few minutes; the stick moving steps' pretend VR

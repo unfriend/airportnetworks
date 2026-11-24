@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-55';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-56';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
   // tools/engine/SPEC.md); an older device would play the story as its own
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
@@ -39,6 +39,8 @@
   // (tools/output/SPEC.md, "v158")
   // networks-53 (v164): a studio object's anim may be 'move' (As it moves: its clip follows the distance it covers) with
   // an optional idle (the clip it stands with) and strideK; an older device would refuse the record (bad) or drop them
+  // networks-56 (v197): a studio shape's record may be shape: 'goggles' (the VR goggles, worn with flight.js); an older
+  // device would take the record as bad and drop it
   // networks-55 (v172): a circle's record (st.<id>) may carry ask: 'walk' or 'ask' (its own way in, beating the room's
   // look.ask); an older device would ignore it and write the record back without it
   // A format is compared by its number (networks-<n>; 0 for any other): a room on the relay moves on to a newer one, never
@@ -5082,7 +5084,9 @@
       // shared room the room places everything: there it can be turned off, not on), then the slideshow and Repeat for
       // every story (this headset's own)
       const rc = recenterRow(), b3 = (w - 32) / 3, an = !!(HOST.anchor && HOST.anchor.on);
-      button(S, 'exit', x, y, b3, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+      // (while the VR goggles are on, flight.js: Exit takes them off, the session stays)
+      const gogOn = !!(HOST.flight && HOST.flight.on && HOST.flight.on());
+      button(S, 'exit', x, y, b3, 60, gogOn ? 'Goggles off' : 'Exit', () => { if (gogOn) { HOST.flight.off('menu'); menuOpen(false, 'goggles'); } else if (HOST.session && HOST.session.end) HOST.session.end(); });
       button(S, 'recenter', x + b3 + 16, y, b3, 60, rc.label, rc.fn);
       if (HOST.anchor) button(S, 'set:anchor', x + 2 * (b3 + 16), y, b3, 60, an ? 'Anchor: on' : 'Anchor: off', an || !C.code ? () => HOST.anchor.set(!an) : null, { on: an });
       y += 76;
@@ -7699,10 +7703,12 @@
   function ray(i, o, d, near) {
     // the right controller while a spaceship flies (ships.js): the ship's, its ray drawn nowhere and pointing at nothing
     // (taken as the shell's at the controller itself, with nothing to press, as a camera's is), nor sent to the others
-    if (HOST.ships && HOST.ships.flying && HOST.ships.flying()) {
+    // (and while the VR goggles are on, flight.js: the right controller steers their game)
+    const gog = !!(HOST.flight && HOST.flight.on && HOST.flight.on());
+    if ((HOST.ships && HOST.ships.flying && HOST.ships.flying()) || gog) {
       let src = null;
       try { src = HOST.session ? HOST.session.inputSources[i] : null; } catch (e) { /* gone */ }
-      if (src && HOST.ships.claims(src)) { C.hov.set(i, null); return { kind: 'shell', point: o.clone(), dist: 0 }; }
+      if (src && ((HOST.ships && HOST.ships.claims && HOST.ships.claims(src)) || (gog && HOST.flight.claims(src)))) { C.hov.set(i, null); return { kind: 'shell', point: o.clone(), dist: 0 }; }
     }
     let h = C.rays.get(i);
     if (!h) C.rays.set(i, (h = { o: new THREE.Vector3(), d: new THREE.Vector3(), at: 0 }));
@@ -7849,7 +7855,8 @@
       const was = STK.get(src);
       STK.set(src, b);
       if (b && was === false) {
-        const ax = HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && !(HOST.ships.down && HOST.ships.down()) && HOST.ships.axes ? HOST.ships.axes(gp) : null;   // (flying, not down)
+        const steer = (HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && !(HOST.ships.down && HOST.ships.down())) || (HOST.flight && HOST.flight.claims && HOST.flight.claims(src));   // (flying, not down; or the VR goggles' game, flight.js)
+        const ax = steer && HOST.ships && HOST.ships.axes ? HOST.ships.axes(gp) : null;
         if (ax && Math.hypot(ax[0], ax[1]) >= SHIPCLK.mid) {
           if (t - SHIPCLK.logAt > 1000) { SHIPCLK.logAt = t; log('ship stick click ignored', { x: +ax[0].toFixed(2), y: +ax[1].toFixed(2) }); }
         } else clicks.push(src);
@@ -13895,10 +13902,13 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
   });
   // the spaceships (ships.js, loaded before this file) are linked in: the relay's clock and render time, who we are, the
   // room's frame (room coordinates -> the renderer's space, while a headset here is lined up), the effects' key, notices
-  if (HOST.ships && HOST.ships.link) HOST.ships.link({
+  const LINK = {
     now, rt: () => (C.code && RT.at ? RT.t : now() - SMOOTH.DELAY), id: () => C.id, name: () => C.name, colour: () => C.color, member: id => member(id) || null,
     code: () => C.code || '', room: () => !!(C.code && R.session && R.aligned), roomM: () => R.m,
     send: v => (C.code && !CAM.on ? fx(SHIP_KEY, v) : false), notice: (t, x, ms) => notice(t, x, ms), log: (e, o) => log(e, o),
     camera: () => CAM.on, phone: () => phoneDev(), changed: () => changed(),
-  });
+  };
+  if (HOST.ships && HOST.ships.link) HOST.ships.link(LINK);
+  // (the same link for the shell's modules loaded later, on demand: the VR goggles' flight.js, v197)
+  HOST.shellLink = LINK;
 })();

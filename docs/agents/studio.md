@@ -819,6 +819,24 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     the depth's precision against the room's occlusion), the empty's cross in a headset, the lock's buzz, the circles
     hidden at a studio's circle and the occlusion setting with the shell's real-world occlusion, the lobby hook as a
     headset walks into the lobby.
+- **VR goggles** (v197, FORMAT `networks-56`; `engine/e6z_goggles.js`, the shell's game in `flight.js`: "VR goggles" in
+  `docs/agents/shell.md`). A shape of kind `goggles` (`{ name, shape: 'goggles', p, q, size, colour, look, ... }`, the
+  shapes' record, limits and card; 18 by 9 by 10 cm; our own low-poly pair made in code, `looks.js` `gogglesGeo`, its
+  parts in their own vertex colours times the shape's colour), added from the Add pane's *VR goggles* row 1 m up in front
+  of you; its card says how to wear them instead of the *Shape* row (goggles stay goggles; the four primitives are
+  `SHAPE_PRIMS`). Placed, moved, sized, locked, grouped and pressed while editing as any shape (an older device took the
+  record as bad: hence the FORMAT). In a headset with editing off (`wearable`: shown to you, the scene's own; a locked
+  pair too, since nothing moves), the ray finds them as it finds what anyone may move, and the grip carries them in this
+  hand alone (`c.grab.wear`: never written, nobody else sees them move; their own lock does not refuse it, a shared room's grip lock at a locked story still does); within the
+  shell's `WEAR.on` (0.2 m) of the head they go on (`HOST.flight.wear({ owner: 'studio', id })`) and are back where they
+  stand at once (`gogBack`); let go anywhere else, back there too. While the game is drawn here (`gogHide`): the scene
+  (`GL.world`) and the studio's panels hidden for you, not unloaded; nothing of the studio pointable (`xrPoint`); its
+  sticks move nothing (`stickMove`); the shell told to hide the other circles and to apply no real-world occlusion
+  (`settingsStep`: `hideOthers(true)`, `occlusion.scene('off')`; back as they were once it is not drawn). Taken off here
+  when the goggles go from the scene, editing is turned on, or the studio goes (`dispose`); the rest is the shell's. A
+  scene with goggles loads `flight.js` (`gogStep`, once); a grip on them fetches the cell's data (`gogTaken`). Wearing is
+  each person's own: never in `state()` or `layout.json`. `STUDIO.goggles()`; `node tools/smoke.mjs --only goggles`.
+  Untested on a headset: the grab to the face, the gesture off, the game itself (see the shell's section).
 - **Behaviours** (the owner's rule: a behaviour reacts to one headset at a time, the nearest or the first to come
   close, shared alike on every headset; `tools/studio/SPEC.md`, "Behaviours"; `engine/e6g_behave.js`). An object, a shape or an empty may have a
   `behaviour` in its record, with only its kind's fields: `look` `{ who, range }` (its front, `+z` as placed, turns to the

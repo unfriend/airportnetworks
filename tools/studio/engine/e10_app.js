@@ -217,6 +217,7 @@ function frame(now, xrFrame) {
   itemsStep(dt, performance.now());
   trailStep();   // (the items' and hands' trails, from where they are drawn this frame: e6x_trails.js)
   cpkStep();   // (a colour picker's preview kept, its drag ended with its controller: e7h_colour.js)
+  gogStep(dt);   // (the VR goggles: the shell's game loaded, taken off when they go, a page's preview; e6z_goggles.js)
   settingsStep();   // (the scene's settings told to the shell: the other circles, the real world hiding it; e6d_shapes.js)
   svStep(now);   // (the lane view of a selected sequence on a page: e7h_seqview.js)
   exStep();   // (an example open here at a circle: back to the relay, the scene the room's; the examples' scenes on the relay seen; e7g_examples.js)
@@ -350,6 +351,7 @@ function initEnd() {
 // a pretend head, the last download
 const STUDIO = {
   download: '',
+  goggles: () => gogState(),   // (the VR goggles here and the shell's game: e6z_goggles.js)
   live: () => ({ items: [...STU.items.values()].filter(isLive).map(it => it.id), claimer: LIVE.id, node: !!LIVE.node, pos: LIVE.lv ? [LIVE.lv.p.positionX ? LIVE.lv.p.positionX.value : 0, LIVE.lv.p.positionY ? LIVE.lv.p.positionY.value : 0, LIVE.lv.p.positionZ ? LIVE.lv.p.positionZ.value : 0] : null, gain: LIVE.lv ? LIVE.lv.gt : 0 }),   // (the room's live sound from a studio item: e6_items.js liveEmit)
   away: o => { if (o) Object.assign(AWAY, o); return { stop: AWAY.stop, drop: AWAY.drop, free: AWAY.free, st: AWAY.st, freed: AWAY.freed, frees: AWAY.frees, wakes: AWAY.wakes, away: awayNow(), busy: awayBusy() }; },   // (the away timer: e6_items.js)
   scan: () => ({ ar: SCAN.ar, seen: SCAN.seen, src: SCAN.src, keep: SCAN.keep, busy: SCAN.busy, note: SCAN.note, noteC: SCAN.noteC, last: SCAN.last, bake: SCAN.bake || null, words: scanWords() }),   // (the room scan: e6p_scan.js)
@@ -517,6 +519,7 @@ return {
     try { vwClose(); } catch (e) { /* not open */ }   // (the viewer's overlay and what it made: e7f_viewer.js)
     try { grabEnd(); } catch (e) { /* not grabbed */ }   // (Walk view's grabbed mouse let go, its crosshair taken away: e7_explore.js)
     try { if (REC) { voiceEnd(REC); voiceDrop(REC); } } catch (e) { /* none */ }   // (a microphone recording with a movement let go: e6j_voice.js)
+    try { if (gogOn()) HOST.flight.off('studio'); } catch (e) { /* none */ }   // (the VR goggles taken off: e6z_goggles.js)
     GL.gone = true;
     LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     for (const t of TIMERS) clearTimeout(t);

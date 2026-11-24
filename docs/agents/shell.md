@@ -1424,6 +1424,75 @@ ships or look).
   frame cost with eight pilots and five drones (under 1 ms of script a frame is the aim), the sounds (unheard: rendered
   only, `node tools/sfx-render.mjs`).
 
+## VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197)
+
+The shell's own game behind the studio's VR goggles (a shape of kind `goggles`, `docs/agents/studio.md`), loaded on
+demand (`HOST.flightLoad()` in `index.html`: once, as the studio finds goggles in its scene; its `onload` a property,
+not a listener). The owner's decisions (24 November 2026): one player in a headset, sitting or standing still; the game
+drawn opaque over everything, in the same AR or VR session; the cell of *Back into the cell* with its real proteins.
+
+- **Wearing.** `wear({ owner, id })` (the studio calls it when its goggles come within `WEAR.on`, 0.2 m, of the head)
+  puts them on at the next frame, where the head is known: the anchor is the head's place and level turn then. Refused
+  in words (`whyNot`) outside an immersive session, in camera mode, on a phone or with no controller in the right hand.
+  `off(why)`: a grip (either hand) pressed within `WEAR.on` of the head and pulled past `WEAR.off` (0.4 m) with it held
+  (a grip held as they went on must be let go first; one pressed away from the face is the brake, never the gesture),
+  the menu's Settings *Exit*, which reads *Goggles off* while they are on and takes them off without ending the session
+  (`shared.js`), the session's end (`HOST.xr.watch`), a story change (`HOST.teardown` -> `detach`, before the story is
+  disposed: its view leaves the scene) and the owner (the studio: its goggles gone, editing on, the studio gone).
+  Wearing is this device's own: never in `state()` or `collab.state()`, nothing sent, no room key. `on()`, `owner()`,
+  `id()`, `shown()` (drawn now: the owner hides its scene, its panels and pointing, and asks the shell for no real-world
+  occlusion while it is: `HOST.occlusion.scene('off')`, which never pauses depth sensing), `fade()`, `paused()`.
+- **The bubble** (`BUBBLE`): in AR the headset shows no boundary, so the game is for sitting or standing still. The head's
+  distance along the floor from the anchor: from 0.3 m the game fades out to the room, at 0.5 m it is gone (the scene
+  back), past 0.4 m it waits (its clock stops; a notice, at most every 8 s); back at the seat it fades in and goes on. The
+  fade: the cover's alpha (in AR the passthrough shows through), the glows' colour, a fixed screen-door on the opaque
+  parts (they stay opaque and sorted).
+- **Controls** (the spaceship's stick: `HOST.ships.STICK`, its dead zone and curve). The right stick: right turns right
+  (at most `FLY.turn`, 50 degrees a second, eased), forward dives and back climbs (at most `FLY.climb`, 1.4 m/s); the
+  view stays level (no pitch, no roll, no loops: the spaceships' rule). Always forward at `FLY.cruise`, 2 m/s; the right
+  grip brakes to a stop. The right trigger scans. Nothing reads A or X (`buttons[4]`): the spaceship cannot launch while
+  they are on (`HOST.ships.whyNot`), and one flying lands as they go on. The right controller is the game's
+  (`HOST.inputsGuard.claim`, chained with the spaceship's claim; `HOST.collab.ray` answers for its ray as for a ship's;
+  a stick click while it steers counts only near the middle, as a ship's). Moving with the sticks rests while they are
+  on (`index.html`'s travel and the studio's own sticks); the left hand keeps the menu.
+- **The world** (`world()`, `rules.buildWorld`): the ppicell package's own data file, `packages/ppicell/src/sets/data.js`
+  (`PPI_DATA`, generated, derived numbers only), fetched as text and read as JSON (never run; never copied; the address
+  carries the package's fingerprint, which changes when its `main.js` is built from it, as `src/` is not in the index's
+  files). Every protein with a place (9,905 of the 13,460) at its main place (one dot each: a protein in several places is
+  drawn at its main one), its links to other placed proteins (100,603 pairs), how many links it has in this map. The
+  cell's layout is ours and fixed by a seed (`SEED`, a mulberry32 generator, no `Math.random`): a 40 m cell, the nucleus
+  and nucleolus, the ER round it, a Golgi of four cisternae, mitochondria, lysosomes, endosomes, peroxisomes, vesicles,
+  the cytoskeleton's fibres, the plasma membrane and the nuclear envelope (proteins in their own parts; the membranes and
+  bodies as faint dots too), and 40 drones (each swinging round a seeded middle by the game's clock).
+- **The rules** (`rules`: `newGame`, `step`, `aimAt`, `nextOf`, `dronePos`, `about`): a game is its clock, the ship, the
+  protein scanned last and its next partner, which have been seen and the score; `step(W, G, I, dt)` with an input
+  `{ turn, climb, brake, scan, aim }` and nothing else (deterministic: the same world, inputs and steps, the same game).
+  A scan takes the protein nearest the nose's line within `SCAN.cone` (7 degrees) and `reach` (32 m), one with a placed
+  partner first; the next partner is the nearest placed partner not seen yet, and flying within `SCAN.touch` (2.2 m) of
+  it follows the link. A drone within `DRONE.hit` (1.1 m) pushes the ship back (`Drones hit`). Events (`G.ev`) for the
+  view's sounds: `scan`, `follow`, `bump`, `end`.
+- **The view.** A cockpit round the head (a console with the screen, a canopy's frame with glowing strips, fixed to the
+  anchor while the cell moves round it), an inside-out sphere 300 m out as the cover (drawn first of the see-through
+  things, depth-tested, so other people's bodies and anything nearer stay in front: people in the room stay visible), the
+  proteins and the membranes' dots in one `Points` draw (additive, faded between 24 and 40 m), markers (the protein in the
+  sights, the one scanned, the next partner pulsing, the drones' eyes) in one more, the scanned protein's links (at most
+  120, made again only when it changes), a guide line to the next partner and an arrow on the console, the near drones
+  instanced, two name tags, the console's screen (a canvas redrawn only when its words change): about a dozen draw
+  calls, nothing allocated a frame, no post-processing. Words: the score, the protein, its place, *N links in this map ·
+  M to proteins with a place · K of them elsewhere in the cell*, the next partner and how far.
+- **Sounds** (`HOST.sfx.play`, through `HOST.audio.fx()`; nothing continuous): `enter` on, `close` off, `ping` a scan,
+  `link` a link followed, `bump` a drone, `notice` no partner left.
+- **Stage 2, not built** (a shuttle with a screen and a crew shared through the room): the world and rules are apart
+  from the view and the input, so a second view (a render target on the shuttle's screen) and room sharing (the game's
+  state, its clock and the crew's inputs through the room) can build on them; the aim is an input, so a scanner's station
+  can aim its own way.
+- For tests: `state()`, `line()`, `debug.page(on)` (worn on a page with the page's camera as the head: the studio's
+  `gogStep` steps it with `pageFrame`), `debug.input({ x, y, grip, trig })`, `debug.head([dx, dy, dz])` (the head shifted:
+  the bubble), `debug.place(p, yaw)`, `debug.visit(i)`, `debug.find(name)`. `node tools/smoke.mjs --only goggles`.
+- Untested on a headset: the grab to the face and the gesture off, the fade and pause at the bubble's edge, comfort
+  (the turn rate, the level view, the cockpit), the stick's feel, the frame rate with 15,800 points, the cover in AR,
+  other people's bodies in front of the game, how it sounds.
+
 ## A story's copy (arrangements, `HOST.arrange`, v170)
 
 The owner, 18 and 19 November 2026: "a copy button to copy them to the relay and then edit in case this is wanted";

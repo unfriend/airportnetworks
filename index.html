@@ -882,7 +882,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 196, id: '083f00f74fe99d9a', format: 'networks-55' },
+  shell: { n: 197, id: '49abdaa2f12f0e0f', format: 'networks-56' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2235,7 +2235,8 @@ Object.assign(HOST.xr, (function () {
     // (a page that moves you itself, the studio, starts from where you really stand: travel left by a story before it goes)
     if (page() && moved()) reset('the page on show moves you itself');
     make();
-    if (!walking() || self()) { W.was = false; return; }   // (off, or the page on show moves you itself)
+    // (the VR goggles on, flight.js: the sticks are the game's, and you stay where you sit)
+    if (!walking() || self() || (HOST.flight && HOST.flight.on && HOST.flight.on())) { W.was = false; return; }   // (off, or the page on show moves you itself)
     if (!W.was) { W.was = true; W.flick = new WeakMap(); }   // (a stick turns you once it has been back at rest)
     let vp = null;
     try { vp = f.getViewerPose(r); } catch (e) { /* not this frame */ }
@@ -2282,6 +2283,8 @@ Object.assign(HOST.xr, (function () {
     step(s, f, dt);
     // the spaceships (ships.js), once a frame with the frame dressed, before any callback draws it
     if (HOST.ships && HOST.ships.frame) HOST.ships.frame(s, t, f);
+    // the VR goggles' game (flight.js, loaded on demand), likewise
+    if (HOST.flight && HOST.flight.frame) HOST.flight.frame(s, t, f);
   }
   // the session's frames, seen first (its requestAnimationFrame on the session itself: three.js's loop and the shell's
   // own callbacks go through it), and its grips
@@ -2951,6 +2954,19 @@ HOST.packages = (function () {
 })();
 // a file of a package: packages/<key>/<path>?v=<its fingerprint> (plain, for a file the index does not list), so a
 // changed file is fetched anew and an unchanged one comes from the cache
+// The VR goggles' game (flight.js, v197; HOST.flight): loaded once, on demand, by a page that offers goggles (the studio);
+// a failed load is tried again next time. Its onload is a property, not a listener: nothing for a story change to take
+HOST.flightLoad = function () {
+  if (this.flight) return Promise.resolve(this.flight);
+  if (this.flightP) return this.flightP;
+  return (this.flightP = new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'flight.js'; s.async = true;
+    s.onload = () => res(HOST.flight || null);
+    s.onerror = () => { HOST.flightP = null; console.warn('flight.js did not load'); res(null); };
+    document.head.appendChild(s);
+  }));
+};
 HOST.pkgUrl = function (key, file) {
   const m = this.packages.get(key), f = String(file || '').replace(/^\.?\/+/, ''), fp = m && m.files[f];
   return 'packages/' + key + '/' + f + (fp ? '?v=' + fp : '');
@@ -3432,6 +3448,7 @@ HOST.teardown = function () {
     if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
     if (this.occlusion) this.occlusion.detach();   // (so does real-world occlusion's, and the story's own choice of it goes)
     if (this.ships) this.ships.detach();   // (and the spaceships': hung in the next story's scene, flying on)
+    if (this.flight) this.flight.detach();   // (and the VR goggles': taken off, their view out of the scene before it is disposed; flight.js)
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);

@@ -1,0 +1,21 @@
+{
+  "version": "networks-v197",
+  "date": "2026-11-24",
+  "new": [
+    "VR goggles in the studio: Add, VR goggles places a pair. In a headset, with editing off, take them with the grip and bring them to your face.",
+    "With them on you fly a ship through the cell of Back into the cell: its real proteins in their places, drawn over the room for you alone.",
+    "Right stick: turn, climb, dive. Grip: brake. Trigger: scan the protein in your sights, then fly to the green light to follow a link.",
+    "Move more than about 40 cm from where you put them on and the game fades to the room and waits. Grip near your face and pull away, or the menu's Goggles off, to take them off."
+  ],
+  "test": [
+    "In AR on a Quest: place the goggles in a studio scene, turn editing off, grab them and bring them to your face. Does the game cover the room? Are the goggles back on their spot afterwards?",
+    "Scan a protein, follow a few links, bump a drone. Is the turning comfortable? Is the console readable?",
+    "Lean and step away slowly: the fade between 30 and 50 cm, the pause, and coming back.",
+    "Take them off with the grip at your face, then with the menu's Goggles off. Try the spaceship while they are on: it should be refused.",
+    "With a second headset in the room: is the other person's body visible in front of the game?"
+  ],
+  "untested": [
+    "Everything a headset shows: the grab to the face, the take-off gesture, the fade and bubble, comfort, the stick's feel, the frame rate with about 16,000 points, the cover in AR. Only a pretend headset and a page were checked.",
+    "How the scan, link, bump and goggle sounds sound: unheard."
+  ]
+}

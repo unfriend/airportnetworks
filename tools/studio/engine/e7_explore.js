@@ -228,8 +228,10 @@ function paneBlocks(tab) {
     B.push({ label: 'Sequence', row: [{ id: 'seqadd', label: 'Sequence', act: 'seqadd', dis: full('q') }] },
       { p: 'A timeline of events: play a clip, a sound, a recorded path or a motion on items, show or hide them, change a picture, start another sequence. It plays for everyone at the circle on the room\'s clock.', c: 'faint' });
     // shapes and empties (e6d_shapes.js)
-    B.push({ label: 'Shapes', row: SHAPE_KINDS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
+    B.push({ label: 'Shapes', row: SHAPE_PRIMS.map(k => ({ id: 'shape:' + k, label: SHAPE_WORD[k], act: 'shape', v: k, dis: full('p') })) },
       { p: 'A plain shape in a colour, or one that hides things: invisible, it hides the scene behind it (in AR your room shows through it), as a real table or wall would.', c: 'faint' },
+      { label: 'VR goggles', row: [{ id: 'shape:goggles', label: 'VR goggles', act: 'shape', v: 'goggles', dis: full('p') }] },
+      { p: GOG_ADD, c: 'faint' },
       { label: 'Empty', row: [{ id: 'empty', label: 'Empty', act: 'empty', dis: full('e') }] },
       { p: 'A point seen only while editing: a sound can follow it (a voice in mid-air), and it moves and groups as anything else.', c: 'faint' });
     // a cut-out on the selected model (or the model of the selected cut-out)
@@ -478,7 +480,7 @@ function itemBlocks(it, B, ed) {
     // a shape (e6d_shapes.js): its kind, look and colour, its size per side or every side, its place
     const hides = r.look === 'hide';
     B.push({ h: r.name, sub: 'Shape' + hiddenSub(it, it.shown) }, { kv: [['Shape', SHAPE_WORD[r.shape]], ['Size', r.size.map(metres).join(' × ') + ' (x, height, z)'], ['Look', hides ? 'hides what is behind it' : 'in its colour']] },
-      { label: 'Shape', row: SHAPE_KINDS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) },
+      ...(r.shape === 'goggles' ? [{ p: GOG_CARD, c: 'faint' }] : [{ label: 'Shape', row: SHAPE_PRIMS.map(k => ({ id: 'pshape:' + k, label: SHAPE_WORD[k], act: 'i:shape', v: k, on: r.shape === k, dis })) }]),   // (the goggles stay goggles: e6z_goggles.js)
       { label: 'Look', row: [{ id: 'look:colour', label: 'Colour', act: 'i:look', v: 'colour', on: !hides, dis }, { id: 'look:hide', label: 'Hides things', act: 'i:look', v: 'hide', on: hides, dis }] },
       { p: hides ? 'Invisible: it hides the scene behind it (in AR your room shows through it; in VR the floor and sky). Seen only while editing, as a see-through fill.' : 'Drawn in its colour, lit as the objects are.', c: 'faint' },
       { label: 'Colour' + (hides ? ' (seen only while editing)' : ''), row: SHAPE_COLS.map(([c, n]) => ({ id: 'colour:' + c, label: n, act: 'i:colour', v: c, on: r.colour === c, sw: c, dis })) },
@@ -1117,7 +1119,7 @@ function rayPick(ray, o) {
 function visitPick(ray) {
   const L = [];
   for (const it of STU.items.values()) {
-    if (!(visitMove(it) || pressable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, and what can be pressed or pointed at, v146)
+    if (!(visitMove(it) || pressable(it) || wearable(it)) || !it.holder.visible || !it.shown || it.notHere) continue;   // (what anyone may move, v140, what can be pressed or pointed at, v146, and goggles to put on in a headset, v197)
     if (it.kind === 'o') { if (it.model) L.push(it.proxy); } else L.push(it.look.mesh.visible ? it.look.mesh : it.look.fill);
   }
   const h = L.length ? ray.intersectObjects(L, false)[0] : null;

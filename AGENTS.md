@@ -80,6 +80,8 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `notes.js`, `notes/`, `tools/notes/` - the developer notebook (`HOST.notes`), its notes page and tools; the headset
   menu's Debug tab reads them too (*Notes*, `shared.js`).
 - `ships.js` - the spaceships (`HOST.ships`).
+- `flight.js` - the VR goggles' game (`HOST.flight`, v197): the studio's goggles (a shape, `shape: 'goggles'`) put on in a
+  headset fly you through the ppicell story's cell, read from its own data; loaded on demand ("VR goggles", `docs/agents/shell.md`).
 - `bodies.js` - people's bodies in a room and My body (`HOST.bodies`: the mannequin, its poser, every body in one draw),
   loaded on demand after `ik.js` (`docs/agents/shared-rooms.md`, "People's bodies").
 - `ik.js` - the trackers' solver (`makeIK`): pasted into `stories/studio.js` (the puppet) and loaded for `bodies.js`.
@@ -414,7 +416,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `npx playwright install chromium`). WebGL runs in SwiftShader headlessly, so frame rates are low. A 404 for a missing
   narration MP3 is expected; any other console error fails it.
 - `--only <words>` runs the blocks whose names start with the words, for a builder's own steps; the release run is the
-  whole test. Blocks: `'packages order'`, `'take all'`, `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
+  whole test. Blocks: `'packages order'`, `'take all'`, `'away idle'`, `uploads`, `'stick moving'`, `spaceship`, `goggles`, `'frame rate'`, `'sharp text'`, `'developer mode'`,
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `talk`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
