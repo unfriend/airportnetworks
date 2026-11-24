@@ -10,7 +10,7 @@
 // scenes, cards in 3D, the circles' rings and icons. This headset's own setting (xrOccl, #occl=): 'depth' (the default
 // since v195: what the headset sees, people, hands, furniture), 'both' (with the room scan), 'room' or 'off'; a story may
 // ask for its own (scene(mode); the studio, for a scene that says so), cleared when the story changes. Smooth edges
-// (v195, xrOcclSmooth, #occlsmooth=, off by default): the depth blended between its texels. Its objects hang in the story's scene (its root is the renderer's reference space),
+// (v195, xrOcclSmooth, #occlsmooth=, on by default since v196): the depth blended between its texels. Its objects hang in the story's scene (its root is the renderer's reference space),
 // taken out before a story is disposed and hung in the next one's. Nothing of it is in a story's state or a room.
 // After a sleep (v131; the owner, 10 November 2026: "Occlusion stops working after longer sleep in quest 3s?"): what the
 // session gave is asked for again (renew: a new XRWebGLBinding, the depth's kind and reading decided afresh, its depth
@@ -35,9 +35,11 @@ HOST.occlusion = (function () {
   // first try at least this long after the last ask, each next one twice as long, at most cap tries after the session's
   // start, a sleep or the depth (the room) back steadily for calm; the depth's calls throwing on this many frames in a row
   const T0 = { wake: 10000, lost: 1500, room: 2000, every: 10000, cap: 6, throws: 30, calm: 10000 }, T = Object.assign({}, T0);
-  let own = 'depth', smooth = false;
+  let own = 'depth', smooth = true;
   try { const v = localStorage.getItem('xrOccl'); if (MODES.includes(v)) own = v; } catch (e) { /* storage blocked */ }
-  try { smooth = localStorage.getItem('xrOcclSmooth') === 'on'; } catch (e) { /* storage blocked */ }
+  // (Smooth edges on by default since v196; the owner, 24 November 2026: "my defaults would be Real world hides: yes,
+  // and Smooth edges on": a stored 'off' stays off, and nothing is written until a person chooses)
+  try { smooth = localStorage.getItem('xrOcclSmooth') !== 'off'; } catch (e) { /* storage blocked */ }
   const O = { over: null, root: null, quad: null, room: null, mats: {}, roomMat: null, warned: {}, lost: false, restored: 0 };
   let S = null;   // per session: what it was given, the depth this frame, the room's parts
   const msg = e => String((e && e.message) || e).slice(0, 160);
@@ -816,7 +818,7 @@ void main() {
     mode, own: () => own, next: m => NEXT[MODES.includes(m) ? m : own], over: () => O.over, say: m => SAY[m] || SAY.off, note: m => NOTE[m] || NOTE.off,
     // (written only when a person (or a link) chooses: a headset that never chose follows the default)
     set(m) { if (!MODES.includes(m)) return; own = m; try { localStorage.setItem('xrOccl', m); } catch (e) { /* storage blocked */ } },
-    // Smooth edges (v195): this headset's own, off by default (it costs four reads a pixel in place of one)
+    // Smooth edges (v195): this headset's own, on by default since v196 (it costs four reads a pixel in place of one)
     smooth: () => smooth,
     setSmooth(on) { smooth = !!on; try { localStorage.setItem('xrOcclSmooth', smooth ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
     // a story's own (the studio's scene: true is 'depth' since v195, as the default, 'both' only when asked by name;

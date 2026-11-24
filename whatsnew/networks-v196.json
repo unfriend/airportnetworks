@@ -1,0 +1,14 @@
+{
+  "version": "networks-v196",
+  "date": "2026-11-24",
+  "new": [
+    "Smooth edges is now on by default in AR, beside Real world hides: yes. A headset where you turned it off keeps it off."
+  ],
+  "test": [
+    "On a headset that never touched the switch: in AR the menu's Settings tab should say Smooth edges: on.",
+    "In a heavy story in AR, turn on the frame rate and compare Smooth edges on and off."
+  ],
+  "untested": [
+    "What Smooth edges costs on a Quest at 72 and at 120 Hz, and on a phone: only a pretend headset was checked."
+  ]
+}

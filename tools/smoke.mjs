@@ -16242,7 +16242,7 @@ if (runs('spaceship')) {
 // the right), and a pretend room scan (a wall 0.6 m ahead on the left). A magenta test plane 0.8 m ahead in the story's
 // scene, read back from the layer's own framebuffer: hidden where the real world is nearer, drawn where it is farther,
 // in both eyes; the room's wall hiding what stands behind it; the menu never hidden; the setting's default 'depth' (v195),
-// the menu's row going round, Smooth edges (v195: the depth blended along the fake's hard step, the same away from it), #occl=off, a story's own (cleared with the story), a story change in the session; the
+// the menu's row going round, Smooth edges (v195, on by default since v196: the depth blended along the fake's hard step, the same away from it; off the old shader), #occl=off, a story's own (cleared with the story), a story change in the session; the
 // session's request (depth sensing asked for in AR, the ladder: a TypeError naming 'unsigned-short' asked again without
 // it, another refusal without depth) and VR as ever; the new session line in every story. After a sleep (v131): a short
 // hide changing nothing, a long one with the depth dead until resumed, depth dying with no sleep, a binding from before
@@ -16409,11 +16409,11 @@ if (runs('occlusion')) {
     if (got !== want) errors.push(`occlusion: ${what}: the plane shows ${got} (left and right of each eye), not ${want}: ` + JSON.stringify(px));
   };
   const st = () => op.evaluate(() => HOST.occlusion.state());
-  await step('occlusion: on by default (the live depth, the room scan left out since v195), Smooth edges off, nothing stored', async () => {
+  await step('occlusion: on by default (the live depth, the room scan left out since v195), Smooth edges on (v196), nothing stored', async () => {
     await op.goto(base + 'index.html#airports&labels=hidden&cards=hidden');
     await ready('airports');
     const s0 = await op.evaluate(() => [HOST.occlusion.own(), HOST.occlusion.mode(), HOST.occlusion.over(), localStorage.getItem('xrOccl'), HOST.occlusion.smooth(), localStorage.getItem('xrOcclSmooth'), HOST.occlusion.say('depth')]);
-    if (s0.join() !== 'depth,depth,,,false,,yes') errors.push('occlusion: the default is ' + JSON.stringify(s0));
+    if (s0.join() !== 'depth,depth,,,true,,yes') errors.push('occlusion: the default is ' + JSON.stringify(s0));
   });
   await step('occlusion: AR asks for depth sensing (GPU first, unsigned-short first, the depth seen from the eye)', async () => {
     await op.evaluate(() => HOST.cur.peek('xrStart("immersive-ar")'));
@@ -16473,9 +16473,9 @@ if (runs('occlusion')) {
     if (seq.join() !== 'depth,both:both,room:room,off:off,depth:depth') errors.push('occlusion: the menu row went ' + seq.join());
     const says = await op.evaluate(() => ['depth', 'both', 'room', 'off'].map(m => HOST.occlusion.say(m)).join('|'));
     if (says !== 'yes|yes, with the room scan|room scan only|nothing') errors.push('occlusion: the row\'s words ' + says);
-    // Smooth edges' row, in AR beside it: off, on, off, kept on the headset
+    // Smooth edges' row, in AR beside it: on (the default since v196), off, on, kept on the headset
     const sm = await op.evaluate(() => { const out = []; for (let k = 0; k < 2; k++) { const r = HOST.collab.menuFind('occlsmooth'); out.push(r ? r.label || '' : 'none'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.smooth() + ':' + localStorage.getItem('xrOcclSmooth')); } return out; });
-    if (sm.join() !== 'Smooth edges: off,true:on,Smooth edges: on,false:off') errors.push('occlusion: the Smooth edges row went ' + sm.join());
+    if (sm.join() !== 'Smooth edges: on,false:off,Smooth edges: off,true:on') errors.push('occlusion: the Smooth edges row went ' + sm.join());
     await op.evaluate(() => HOST.collab.panelOpen(false));
   });
   // Smooth edges (v195): the fake's depth has a hard step at the middle of each eye (near on the left, far on the right). A
@@ -16705,12 +16705,12 @@ if (runs('occlusion')) {
     await op.evaluate(() => { window.__occl.o.cpu = false; HOST.occlusion.set('both'); return window.__occl.session.end(); });
   });
   // a link sets it; the session's ladder (a page of its own, no story's session)
-  await step('occlusion: #occl=off; the request\'s ladder (a TypeError naming unsigned-short, another refusal), VR as ever', async () => {
+  await step('occlusion: #occl=off; a stored Smooth edges off stays off (v196); the request\'s ladder (a TypeError naming unsigned-short, another refusal), VR as ever', async () => {
     await op.goto('about:blank');
     await op.goto(base + 'index.html#stories&occl=off');
     await op.waitForFunction(() => typeof HOST !== 'undefined' && HOST.occlusion, null, { timeout: 20000 });
-    const o = await op.evaluate(() => [HOST.occlusion.own(), localStorage.getItem('xrOccl')]);
-    if (o.join() !== 'off,off') errors.push('occlusion: #occl=off gave ' + o);
+    const o = await op.evaluate(() => [HOST.occlusion.own(), localStorage.getItem('xrOccl'), HOST.occlusion.smooth(), localStorage.getItem('xrOcclSmooth')]);
+    if (o.join() !== 'off,off,false,off') errors.push('occlusion: #occl=off (and Smooth edges stored off) gave ' + o);
     const r = await op.evaluate(async () => {
       const F = window.__occl, out = {};
       F.o.refuseUS = true;

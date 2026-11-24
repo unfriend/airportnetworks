@@ -440,7 +440,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       repository). Tests: `smoke.mjs --only 'sharp text'`.
   - Real-world occlusion: a sixth setting that is each headset's own, never the room's, *Real world hides: yes* (the
     default since v195: the live depth alone) / *yes, with the room scan* / *room scan only* / *nothing* on the menu's
-    Settings tab (under My menu), and beside it, only in AR, *Smooth edges: on / off* (v195, off by default, `xrOcclSmooth`,
+    Settings tab (under My menu), and beside it, only in AR, *Smooth edges: on / off* (v195, on by default since v196, `xrOcclSmooth`,
     `#occlsmooth=on|off`); see "Real-world occlusion" below.
   - Your menu shown to your circle: a seventh
     setting, each headset's own and never the room's (`MSH` in `shared.js`, `xrMenuShare` = `circle` in `localStorage`,
@@ -1098,9 +1098,11 @@ probe, `roomSync` and `shapeSig` it reuses.
   that says always (`'depth'`) or never; cleared when the story changes (`detach`, from `HOST.teardown`), and the menu's
   note says so while it holds.
 - **Smooth edges** (v195; the owner, 24 November 2026: "Occlusions have jagged edges, can we smooth them? Make that a
-  switch in case it costs lots of performance?"). `HOST.occlusion.smooth()`, `setSmooth(on)`: this headset's own, off by
-  default (`xrOcclSmooth` = `on`/`off` in `localStorage`, written only when chosen; `#occlsmooth=on|off` in a link), never
-  a room's or a story's, no `FORMAT` change. The menu's Settings row *Smooth edges: on / off* under *Real world hides*,
+  switch in case it costs lots of performance?"). `HOST.occlusion.smooth()`, `setSmooth(on)`: this headset's own, on by
+  default since v196 (the owner, 24 November 2026: "my defaults would be Real world hides: yes, and Smooth edges on";
+  off by default at v195) (`xrOcclSmooth` = `on`/`off` in `localStorage`, written only when chosen, so a headset that
+  never chose follows the default and a stored `off` stays off; `#occlsmooth=on|off` in a link), never a room's or a
+  story's, no `FORMAT` change. The menu's Settings row *Smooth edges: on / off* under *Real world hides*,
   only in AR, with the note *Softer edges; it costs a little. Turn off if the frame rate drops* (the phone's sheet: the
   same row). On, the depth pass reads four texels a pixel and blends them by hand (`FRAG_SMOOTH`: the session's texture
   may be an integer one that cannot be filtered, and it is read with `texelFetch`), each tap turned into metres first (a
@@ -1196,7 +1198,8 @@ probe, `roomSync` and `shapeSig` it reuses.
 - **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
   room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
   the floor), the cost with a big room scan and depth together in a heavy story, depth sensing left running while the setting is *nothing*,
-  the new default with a real room scan, Smooth edges' look (a hand before a story) and cost (at 120 Hz),
+  the new default with a real room scan, Smooth edges' look (a hand before a story) and cost (on by default since v196: at 72
+  and 120 Hz on a Quest, and on a phone),
   CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
   After a sleep, only a Quest 3 or 3S can show: whether `resumeDepthSensing` or a new binding brings the depth
   back after a real long sleep (or neither: leaving AR and entering again stays the proven remedy), whether the room's

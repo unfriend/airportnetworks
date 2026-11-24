@@ -5170,7 +5170,7 @@
       y += 76;
       // real-world occlusion in AR (occlusion.js): what real things hide (what the headset's depth sees, people, hands,
       // furniture, and with the room scan its walls and furniture too), each press the next; this headset's own, unless
-      // the story on show asks for its own (a studio scene). Then Smooth edges (v195, in AR only, off by default)
+      // the story on show asks for its own (a studio scene). Then Smooth edges (v195, in AR only, on by default since v196)
       if (HOST.occlusion && HOST.occlusion.set) {
         const O = HOST.occlusion, om = O.own(), nx = O.next(om), ov = O.over();
         button(S, 'occl', x, y, w, 60, 'Real world hides: ' + O.say(om), () => O.set(nx), { on: om !== 'off', tog: nx === 'off', px: 23 });

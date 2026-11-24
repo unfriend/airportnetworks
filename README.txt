@@ -662,9 +662,9 @@ hides (AR only, this headset's own, never the room's; #occl=both|room|depth|off 
 yes (the default since v195: what the headset's depth sees, people, hands, furniture,
 anything moving), yes, with the room scan (its walls and furniture too: run Space Setup on
 the Quest), room scan only, or nothing. Real things in front of a scene hide it as they
-would a real object. Smooth edges (AR only, beside it, off by default, this headset's own;
-#occlsmooth=on|off) softens the edges round real things at a small cost. The
-menu, the notices, the subtitles and whatever is set on top are never hidden; a studio
+would a real object. Smooth edges (AR only, beside it, on by default, this headset's own;
+#occlsmooth=on|off) softens the edges round real things at a small cost: turn it
+off if the frame rate drops. The menu, the notices, the subtitles and whatever is set on top are never hidden; a studio
 scene may ask for its own, until the next story. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
 under the panel, good with subtitles) or hidden (play and pause on the menu's

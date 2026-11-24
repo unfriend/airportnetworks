@@ -125,7 +125,8 @@ read back from the layer's framebuffer hidden where the real world is nearer and
 eyes, also the other way round, an eye without depth unoccluded, the real world 2 cm nearer not hiding it; the room's
 wall hiding what stands behind it, depth sensing never paused or resumed ; off; both; the menu never hidden; the default *yes* (`depth`, v195,
 nothing stored), the menu's row going round (*yes* -> *yes, with the room scan* -> *room scan only* -> *nothing*), kept,
-and its *Smooth edges* row (off, on, off, kept); Smooth edges (v195): a row of pixels across the fake depth's hard step
+and *Smooth edges* on by default (v196, nothing stored), its row (on, off, on, kept), a stored `off` kept off after a
+reload; Smooth edges (v195): a row of pixels across the fake depth's hard step
 (near on the left, far on the right, 5 pixels a texel) with the near side 0.3 m and the far side 4 m or 0.9 m: off, the
 edge on the texel's edge whatever the far side (as before v195, and the same row after turning it on and off again); on,
 the edge moving with the far side's depth (blended: 158 and 161 pixels against off's 160), within a texel of the hard
