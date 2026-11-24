@@ -614,11 +614,11 @@
       "icon": "tutorial.guide",
       "intro": true,
       "needs": 185,
-      "fp": "d668e804725c05ce",
-      "bytes": 2004551,
+      "fp": "8905789e3bd99103",
+      "bytes": 2005000,
       "files": {
         "audio/narration.mp3": "02d8cefbeb8a6a18",
-        "main.js": "dc4d36453d5d7561",
+        "main.js": "128faaa8b6215574",
         "minis.js": "072fb82351997e7f",
         "story.json": "c5911de2ba1a97bf"
       }

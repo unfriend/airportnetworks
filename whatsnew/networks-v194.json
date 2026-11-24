@@ -1,0 +1,16 @@
+{
+  "version": "networks-v194",
+  "date": "2026-11-24",
+  "new": [
+    "In AR, the glow round the lights of people's bodies and the tutorial's robot guide is now see-through light, not a black patch over the room (the same fix the spaceships had).",
+    "The tutorial's boot trails, network beads and pointing ray glow the same way in AR."
+  ],
+  "test": [
+    "In AR, open the tutorial: the glow on the robot's helmet stripe, chest emblem, shoulder rings, forearms and wrists should show the room through it, with no dark square round each light.",
+    "In AR in a shared room, with Bodies on: the same for other people's bodies, and for My body.",
+    "In VR and on a page the glows should look as before."
+  ],
+  "untested": [
+    "The glow in AR on a real headset: a headless browser cannot show passthrough; only the drawing's alpha was checked."
+  ]
+}

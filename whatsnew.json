@@ -1,16 +1,16 @@
 {
-  "version": "networks-v193",
-  "date": "2026-11-23",
+  "version": "networks-v194",
+  "date": "2026-11-24",
   "new": [
-    "A fix for installed copies: a story that changed while the app was open is now kept for offline use too (before, it had no offline copy until the app was opened again).",
-    "Behind the scenes: a story's author can now publish a change to the test site with one command (tools/packages/publish.mjs), without a new app release."
+    "In AR, the glow round the lights of people's bodies and the tutorial's robot guide is now see-through light, not a black patch over the room (the same fix the spaceships had).",
+    "The tutorial's boot trails, network beads and pointing ray glow the same way in AR."
   ],
   "test": [
-    "On an installed copy (phone or headset), open The switch that sticks, then after its next change on the test site open it again online, go offline and reload: it should still open.",
-    "Everything else should look and behave as in the release before."
+    "In AR, open the tutorial: the glow on the robot's helmet stripe, chest emblem, shoulder rings, forearms and wrists should show the room through it, with no dark square round each light.",
+    "In AR in a shared room, with Bodies on: the same for other people's bodies, and for My body.",
+    "In VR and on a page the glows should look as before."
   ],
   "untested": [
-    "The offline fix on a real headset and phone: only checked in a headless browser.",
-    "The publish command from Christiane's own computer (Windows or Mac) and her GitHub access."
+    "The glow in AR on a real headset: a headless browser cannot show passthrough; only the drawing's alpha was checked."
   ]
 }

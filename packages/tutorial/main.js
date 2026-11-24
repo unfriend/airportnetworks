@@ -790,6 +790,10 @@ SETS.guide = function (K) {
   const op = (m, x) => { m.opacity = m.userData.base * set.uA.value * clamp(x, 0, 1); };
   const add = (g, m, ro) => { const o = new THREE.Mesh(g, m); if (ro) o.renderOrder = ro; set.group.add(o); return o; };
   const CYAN = 0x46d9ff, PEARL = 0xe8eef8, AMBER = 0xffb347;
+  // additive light that leaves the layer's alpha alone (as bodies.js's halo and the ships' ADD): AdditiveBlending also adds
+  // alpha, so in AR a fading glow's whole shape went opaque over the passthrough, a black patch (the owner, 24 November 2026)
+  const ADD = { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
+    blendEquationAlpha: THREE.AddEquation, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor };
   // ------------------------------------------------------------------ the room: a dark floor with a grid fading out from 3 m (VR and the page)
   const floorMat = K.fade(set, new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uG: { value: 0 } }, transparent: true, depthWrite: false,
@@ -810,7 +814,7 @@ void main() {
   const shadows = [0, 1].map(() => { const m = add(new THREE.PlaneGeometry(0.75, 0.75), mat({ map: shTex, depthWrite: false }), -1); m.rotation.x = -Math.PI / 2; m.position.y = 0.003; return m; });
   // ------------------------------------------------------------------ the ray, its dot, the target
   const rayGeo = new THREE.CylinderGeometry(0.003, 0.003, 1, 8, 1, true); rayGeo.translate(0, 0.5, 0);
-  const rayMat = K.fade(set, new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uK: { value: 1 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  const rayMat = K.fade(set, new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uK: { value: 1 } }, transparent: true, depthWrite: false, ...ADD,
     vertexShader: 'varying float vY; void main() { vY = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uA, uK; varying float vY; void main() { gl_FragColor = vec4(0.27, 0.85, 1.0, (1.0 - smoothstep(0.7, 1.0, vY)) * 0.9 * uA * uK); }' }));
   const ray = add(rayGeo, rayMat, 5), dot = add(new THREE.SphereGeometry(0.006, 12, 8), mat({ color: CYAN }), 5);
@@ -830,7 +834,7 @@ void main() {
   const lineMat = K.fade(set, new THREE.LineBasicMaterial({ color: 0x6f8fb0, transparent: true }), 0.55), line = new THREE.LineSegments(lineGeo, lineMat);
   set.group.add(line);
   // ------------------------------------------------------------------ the network (from the badge): nodes, white cores, links, beads
-  const nodeMat = lam({ color: PEARL, emissive: 0x2a3a52 }), coreMat = mat({ color: 0xffffff }), linkMat = mat({ color: 0xbfd2ea }, 0.85), beadMat = mat({ color: 0xffffff, blending: THREE.AdditiveBlending, depthWrite: false });
+  const nodeMat = lam({ color: PEARL, emissive: 0x2a3a52 }), coreMat = mat({ color: 0xffffff }), linkMat = mat({ color: 0xbfd2ea }, 0.85), beadMat = mat(Object.assign({ color: 0xffffff, depthWrite: false }, ADD));
   const nodes = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), nodeMat, 10), cores = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), coreMat, 10);
   nodes.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(30).fill(1), 3);
   const linkG = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true); linkG.translate(0, 0.5, 0);
@@ -838,7 +842,7 @@ void main() {
   links.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(36).fill(1), 3);
   for (const m of [nodes, cores, links, beads]) { m.frustumCulled = false; set.group.add(m); }
   // ------------------------------------------------------------------ boot trails: six fading discs a boot
-  const trails = new THREE.InstancedMesh(new THREE.CircleGeometry(0.06, 16), mat({ color: PEARL, blending: THREE.AdditiveBlending, depthWrite: false }), 12);
+  const trails = new THREE.InstancedMesh(new THREE.CircleGeometry(0.06, 16), mat(Object.assign({ color: PEARL, depthWrite: false }, ADD)), 12);
   trails.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(36), 3); trails.frustumCulled = false; set.group.add(trails);
   // ------------------------------------------------------------------ holograms: the mini menu, the card, the narration hold's sign
   function holo(w, h, px) {

@@ -333,6 +333,13 @@ little bent for longer steps and a stance. Looking down bent the whole back in t
 your own feet out of your view): the chest now takes a tenth of the head's nod. Faster than a walk (the sticks), the feet
 glide under the hips instead of stepping frantically.
 
+The glows in AR (v194): the halo's draw used three.js's `AdditiveBlending` with its fragment's alpha 1, so each soft spot
+added its whole square to the layer's alpha and showed as an opaque patch over the passthrough, black where the light
+faded. The owner, 24 November 2026, in the tutorial in AR: "I think this should all be lights and maybe transparent ...
+And they are not see-through. They have like a black ... it's like a billboard around it." The fix is the ships' v134
+`ADD`: colour added, alpha kept (Zero, One), in `bodies.js`, so people's bodies, My body and the tutorial's guide all
+have it; the tutorial's own additive trails, beads and ray got the same (with the source alpha, which carries their fade).
+
 ### Talk (v178)
 
 The owner, 20 November 2026: "lets try open mic with mute row? yes talk only in relay rooms is ok for now", then "lets

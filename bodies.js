@@ -705,8 +705,13 @@ void main() {
     }
     S.geo[0].instanceCount = S.geo[1].instanceCount = 0;
     S.body = new T.Mesh(S.geo[0], new T.ShaderMaterial({ uniforms: S.uni, vertexShader: VERT, fragmentShader: FRAG }));
+    // (additive light that leaves the layer's alpha alone, as the ships' ADD, v134; the owner, 24 November 2026: "they are
+    // not see-through. They have like a black ... it's like a billboard around it"): HFRAG writes alpha 1, which
+    // AdditiveBlending also added, so each spot's whole square went opaque over the passthrough, black where its light
+    // fades. Colour added (One, One; HFRAG's colour already carries its fall-off), alpha kept (Zero, One); in VR as before
     S.halo = new T.Mesh(S.geo[1], new T.ShaderMaterial({ uniforms: S.uni, vertexShader: HVERT, fragmentShader: HFRAG,
-      transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide }));
+      transparent: true, depthWrite: false, side: T.DoubleSide, blending: T.CustomBlending, blendEquation: T.AddEquation,
+      blendSrc: T.OneFactor, blendDst: T.OneFactor, blendEquationAlpha: T.AddEquation, blendSrcAlpha: T.ZeroFactor, blendDstAlpha: T.OneFactor }));
     S.body.name = name; S.halo.name = name + ' halo';
     for (const m of [S.body, S.halo]) { m.frustumCulled = false; m.visible = false; m.matrixAutoUpdate = false; }
     S.halo.renderOrder = 2;

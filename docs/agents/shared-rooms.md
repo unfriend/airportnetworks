@@ -1235,7 +1235,9 @@ The plan is `docs/shared-space-plan.md`.
     frame and the bind pose folded in, then the figure's look, v173; sent whole each frame a body shows, 54 KB), an instance's row, colour, scan phase,
     self flag and floor height as attributes. The design's SHADING and HALO blocks are kept as they were; only the
     TRANSFORM block is the app's (the bone's matrix read from the texture). The glows (camera-facing soft spots along the
-    lights and the floor pools, additive, no depth written) are the second draw. The two meshes hang in the overlay root
+    lights and the floor pools, additive, no depth written) are the second draw; their blending adds the colour and keeps
+    the layer's alpha (v194, as the ships' `ADD`: three.js's `AdditiveBlending` added alpha too, a black square round each
+    glow over AR passthrough; `docs/history.md`, "People's bodies"). The two meshes hang in the overlay root
     (the reference space): others' bones go through the room's frame (`R.m`), yours not. Nothing is made a frame (V8 still
     boxes some numbers: about 1 to 2 KB a body a frame measured in Node); about 0.02 ms a person a frame to pose and write
     on the test machine. The renderer cannot read floats in a vertex shader (`capabilities.floatVertexTextures`, WebGL1
