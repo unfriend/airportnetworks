@@ -1,16 +1,19 @@
 {
-  "version": "networks-v194",
+  "version": "networks-v195",
   "date": "2026-11-24",
   "new": [
-    "In AR, the glow round the lights of people's bodies and the tutorial's robot guide is now see-through light, not a black patch over the room (the same fix the spaceships had).",
-    "The tutorial's boot trails, network beads and pointing ray glow the same way in AR."
+    "In AR the room scan no longer hides things by default: Real world hides now says yes (what the headset sees: people, hands, furniture), then yes, with the room scan, room scan only and nothing.",
+    "Smooth edges, a new switch beside it on the menu's Settings tab (AR only, off by default): softer edges round real things, at a small cost.",
+    "A studio scene set to Always now uses the headset's depth alone, without the room scan."
   ],
   "test": [
-    "In AR, open the tutorial: the glow on the robot's helmet stripe, chest emblem, shoulder rings, forearms and wrists should show the room through it, with no dark square round each light.",
-    "In AR in a shared room, with Bodies on: the same for other people's bodies, and for My body.",
-    "In VR and on a page the glows should look as before."
+    "In AR on a headset that has a room scan, without touching the setting: Real world hides should say yes, and the walls of the scan should no longer cut into a story.",
+    "Press Real world hides through all four values and back to yes: each should hide what its name says.",
+    "Hold a hand before a story with Smooth edges off, then on: the edge round the hand should go from steps to smooth.",
+    "Record a run (Debug tab) with Smooth edges on and another with it off, and compare the frame times."
   ],
   "untested": [
-    "The glow in AR on a real headset: a headless browser cannot show passthrough; only the drawing's alpha was checked."
+    "How the smooth edges look and what they cost on a real headset (at 120 Hz too): only a pretend headset's depth was checked.",
+    "The new default with a real room scan, and the phone's depth with Smooth edges on."
   ]
 }

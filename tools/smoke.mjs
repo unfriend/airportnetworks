@@ -6370,7 +6370,7 @@ if (runs('studio shapes')) {
     await hk(1);
     const s1 = await ss(`[JSON.stringify(STU.settings), UNDO.length - STUDIO.u2 + (UNDO.every(l => l.length === 1 && l[0].kind === 'set') ? 0 : 10), JSON.stringify(window.__hk), unsaved()]`);
     // (outside a room: no circles to hide; the real world: always)
-    if (s1[0] !== '{"others":"hidden","real":"always"}' || s1[1] !== 2 || s1[2] !== '[["occ","both"]]' || !s1[3]) out.push('the settings set outside a room: ' + JSON.stringify(s1));
+    if (s1[0] !== '{"others":"hidden","real":"always"}' || s1[1] !== 2 || s1[2] !== '[["occ","depth"]]' || !s1[3]) out.push('the settings set outside a room: ' + JSON.stringify(s1));
     // at a pretend station of the studio: the other circles hidden; away: both back; Never; the device's own
     await ss(`(STUDIO.live = HOST.collab.live, HOST.collab.live = () => ({ id: 'st9', story: 'studio' }), 0)`);
     await hk(2);
@@ -6381,7 +6381,7 @@ if (runs('studio shapes')) {
     await ss(`(setSetting('real:device'), setSetting('others:shown'), 0)`);
     await hk(8);
     const s2 = await ss(`JSON.stringify(window.__hk)`);
-    if (s2 !== '[["occ","both"],["hide",true],["hide",false],["occ",null],["hide",true],["occ","off"],["hide",false],["occ",null]]') out.push('the hooks at a station, away and back: ' + s2);
+    if (s2 !== '[["occ","depth"],["hide",true],["hide",false],["occ",null],["hide",true],["occ","off"],["hide",false],["occ",null]]') out.push('the hooks at a station, away and back: ' + s2);
     // Undo takes the settings back (one step each)
     await ss(`(undo(), 0)`); await hk(9);
     const s3 = await ss(`[JSON.stringify(STU.settings), JSON.stringify(window.__hk.slice(8))]`);
@@ -6483,7 +6483,7 @@ if (runs('studio shapes')) {
     await ss(`(openScene('textures', 'pick'), 0)`);
     await hk(2);
     const sc = await ss(`[JSON.stringify(STU.settings), JSON.stringify(window.__hk)]`);
-    if (sc[0] !== '{"others":"shown","real":"device"}' || sc[1] !== '[["occ","both"],["occ",null]]') bad(['another scene\'s settings and the hooks: ' + JSON.stringify(sc)]);
+    if (sc[0] !== '{"others":"shown","real":"device"}' || sc[1] !== '[["occ","depth"],["occ",null]]') bad(['another scene\'s settings and the hooks: ' + JSON.stringify(sc)]);
     await until(`STU.listing === 'ok'`, 30000);
     await ss(`(setSetting('real:never'), 0)`);
     await hk(3);
@@ -16241,8 +16241,8 @@ if (runs('spaceship')) {
 // (window depth with no far plane, 1 - 0.1 / metres, as a Quest 3 gives it; near on the left half of each eye, far on
 // the right), and a pretend room scan (a wall 0.6 m ahead on the left). A magenta test plane 0.8 m ahead in the story's
 // scene, read back from the layer's own framebuffer: hidden where the real world is nearer, drawn where it is farther,
-// in both eyes; the room's wall hiding what stands behind it; the menu never hidden; the setting's default 'both', the
-// menu's row going round, #occl=off, a story's own (cleared with the story), a story change in the session; the
+// in both eyes; the room's wall hiding what stands behind it; the menu never hidden; the setting's default 'depth' (v195),
+// the menu's row going round, Smooth edges (v195: the depth blended along the fake's hard step, the same away from it), #occl=off, a story's own (cleared with the story), a story change in the session; the
 // session's request (depth sensing asked for in AR, the ladder: a TypeError naming 'unsigned-short' asked again without
 // it, another refusal without depth) and VR as ever; the new session line in every story. After a sleep (v131): a short
 // hide changing nothing, a long one with the depth dead until resumed, depth dying with no sleep, a binding from before
@@ -16409,11 +16409,11 @@ if (runs('occlusion')) {
     if (got !== want) errors.push(`occlusion: ${what}: the plane shows ${got} (left and right of each eye), not ${want}: ` + JSON.stringify(px));
   };
   const st = () => op.evaluate(() => HOST.occlusion.state());
-  await step('occlusion: on by default (room and people)', async () => {
+  await step('occlusion: on by default (the live depth, the room scan left out since v195), Smooth edges off, nothing stored', async () => {
     await op.goto(base + 'index.html#airports&labels=hidden&cards=hidden');
     await ready('airports');
-    const s0 = await op.evaluate(() => [HOST.occlusion.own(), HOST.occlusion.mode(), HOST.occlusion.over(), localStorage.getItem('xrOccl')]);
-    if (s0.join() !== 'both,both,,') errors.push('occlusion: the default is ' + JSON.stringify(s0));
+    const s0 = await op.evaluate(() => [HOST.occlusion.own(), HOST.occlusion.mode(), HOST.occlusion.over(), localStorage.getItem('xrOccl'), HOST.occlusion.smooth(), localStorage.getItem('xrOcclSmooth'), HOST.occlusion.say('depth')]);
+    if (s0.join() !== 'depth,depth,,,false,,yes') errors.push('occlusion: the default is ' + JSON.stringify(s0));
   });
   await step('occlusion: AR asks for depth sensing (GPU first, unsigned-short first, the depth seen from the eye)', async () => {
     await op.evaluate(() => HOST.cur.peek('xrStart("immersive-ar")'));
@@ -16468,10 +16468,56 @@ if (runs('occlusion')) {
     const px = await op.evaluate(pts => window.__occl.look(pts, 2), [at.slice(0, 3), [0, 0.7, 0.62]]);
     if (!(px[0][3] > 200) || mag(px[0]) || at[3] !== false) errors.push('occlusion: the menu at ' + JSON.stringify(at) + ' drawn as ' + JSON.stringify(px[0]));
     if (mag(px[1])) errors.push('occlusion: the plane drawn with the real world nearer everywhere');
-    // its row: room and people -> room -> people -> nothing -> room and people, kept on the headset
-    const seq = await op.evaluate(() => { const out = [HOST.occlusion.own()]; for (let k = 0; k < 4; k++) { const r = HOST.collab.menuFind('occl'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.own() + ':' + localStorage.getItem('xrOccl')); } return out; });
-    if (seq.join() !== 'both,room:room,depth:depth,off:off,both:both') errors.push('occlusion: the menu row went ' + seq.join());
+    // its row (v195): yes -> yes, with the room scan -> room scan only -> nothing -> yes, kept on the headset; its words
+    const seq = await op.evaluate(() => { HOST.occlusion.set('depth'); window.__occl.step(1); const out = [HOST.occlusion.own()]; for (let k = 0; k < 4; k++) { const r = HOST.collab.menuFind('occl'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.own() + ':' + localStorage.getItem('xrOccl')); } return out; });
+    if (seq.join() !== 'depth,both:both,room:room,off:off,depth:depth') errors.push('occlusion: the menu row went ' + seq.join());
+    const says = await op.evaluate(() => ['depth', 'both', 'room', 'off'].map(m => HOST.occlusion.say(m)).join('|'));
+    if (says !== 'yes|yes, with the room scan|room scan only|nothing') errors.push('occlusion: the row\'s words ' + says);
+    // Smooth edges' row, in AR beside it: off, on, off, kept on the headset
+    const sm = await op.evaluate(() => { const out = []; for (let k = 0; k < 2; k++) { const r = HOST.collab.menuFind('occlsmooth'); out.push(r ? r.label || '' : 'none'); if (r && r.fn) r.fn(); window.__occl.step(1); out.push(HOST.occlusion.smooth() + ':' + localStorage.getItem('xrOcclSmooth')); } return out; });
+    if (sm.join() !== 'Smooth edges: off,true:on,Smooth edges: on,false:off') errors.push('occlusion: the Smooth edges row went ' + sm.join());
     await op.evaluate(() => HOST.collab.panelOpen(false));
+  });
+  // Smooth edges (v195): the fake's depth has a hard step at the middle of each eye (near on the left, far on the right). A
+  // row of pixels across it (each eye, at the test points' height) says where the plane (0.8 m, hidden where the real
+  // world is nearer than 0.76 m) starts to show. Off: at the texel's edge whatever the far side's depth (nearest, as
+  // before v195). On: the depth blended between the two texels, so the edge moves with the far side's depth (with 0.3 m
+  // and 4 m it falls 0.12 of the way between the texels' middles, with 0.3 m and 0.9 m 0.77 of the way: about 0.64 of a
+  // texel apart), within a texel of the hard edge, and every other pixel as off; a side with no depth (zero) is not
+  // blended (the nearest texel: the edge as off)
+  // (Smooth edges' helpers: a row of the layer's pixels at the test points' height, the plane's pixels as 1; the row with
+  // the mode at depth, smoothing on or off and the fake's near and far sides; each eye's edge, the first pixel showing the
+  // plane in that eye's half; the edge moving by at least 0.4 of a texel when the far side goes from 4 m to 0.9 m)
+  const row = () => op.evaluate(() => {
+    const F = window.__occl; F.step(3);
+    const gl = HOST.renderer.getContext(), L = F.session.renderState.baseLayer, W = L.framebufferWidth, H = L.framebufferHeight, prev = gl.getParameter(gl.FRAMEBUFFER_BINDING), px = new Uint8Array(W * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, L.framebuffer); gl.readPixels(0, Math.floor(0.62 * H), W, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); gl.bindFramebuffer(gl.FRAMEBUFFER, prev);
+    let s = ''; for (let i = 0; i < W; i++) s += px[i * 4] > 200 && px[i * 4 + 1] < 70 && px[i * 4 + 2] > 200 && px[i * 4 + 3] > 200 ? '1' : '0';
+    return s;
+  });
+  const at = async (sm, near, far) => { await op.evaluate(([sm, near, far]) => { HOST.occlusion.set('depth'); HOST.occlusion.setSmooth(sm); window.__occl.near = near; window.__occl.far = far; }, [sm, near, far]); const s = await row(); return { s, mat: (await st()).mat }; };
+  // each eye's edge: the first pixel showing the plane in that eye's half (the near side hides it), in pixels
+  const edges = s => [0, 1].map(e => s.slice(e * s.length / 2, (e + 1) * s.length / 2).indexOf('1'));
+  const blends = async () => { const a = edges((await at(true, 0.3, 4)).s), b = edges((await at(true, 0.3, 0.9)).s), o = edges((await at(false, 0.3, 4)).s); return { a, b, o, ok: [0, 1].every(e => b[e] - a[e] >= 2 && Math.abs(a[e] - o[e]) <= 6 && Math.abs(b[e] - o[e]) <= 6) }; };
+  await step('occlusion: Smooth edges: off as before; on, the depth blended across a hard step and the same away from it; no blend with a tap of no depth', async () => {
+    const off4 = await at(false, 0.3, 4), off9 = await at(false, 0.3, 0.9), on4 = await at(true, 0.3, 4), on9 = await at(true, 0.3, 0.9);
+    const offN = await at(false, 0.1, 0.5), onN = await at(true, 0.1, 0.5), back = await at(false, 0.3, 4);
+    const tex = off4.s.length / 2 / 64, E = { off4: edges(off4.s), off9: edges(off9.s), on4: edges(on4.s), on9: edges(on9.s) };
+    // the same as off outside a texel round the hard edge
+    const away = (a, b, ed) => { for (let i = 0; i < a.length; i++) { const e = i < a.length / 2 ? ed[0] : a.length / 2 + ed[1]; if (Math.abs(i - e) > tex + 1 && a[i] !== b[i]) return false; } return true; };
+    const why = [];
+    if (off4.mat !== 'nearest' || on4.mat !== 'smooth' || back.mat !== 'nearest') why.push('materials ' + [off4.mat, on4.mat, back.mat]);
+    if (E.off4.join() !== E.off9.join() || E.off4.some(e => e < 1)) why.push('off: the edge moved with the far side\'s depth (nearest)');
+    if (back.s !== off4.s) why.push('off again: not as before');
+    for (const e of [0, 1]) {
+      if (!(E.on9[e] - E.on4[e] >= Math.max(2, tex * 0.4))) why.push('eye ' + e + ': on, the edge did not move with the far side\'s depth (no blend)');
+      if (Math.abs(E.on4[e] - E.off4[e]) > tex + 1 || Math.abs(E.on9[e] - E.off4[e]) > tex + 1) why.push('eye ' + e + ': on, the edge more than a texel from the hard one');
+    }
+    if (!away(on4.s, off4.s, E.off4) || !away(on9.s, off9.s, E.off4)) why.push('on: pixels away from the step differ from off');
+    if (onN.s !== offN.s || offN.s.indexOf('1') < 0) why.push('a side with no depth: on differs from off (it must not be blended)');
+    if (process.env.OCCL_SMOOTH_SAY) console.log('smooth edges: ' + JSON.stringify({ tex, E }));
+    if (why.length) errors.push('occlusion: Smooth edges: ' + why.join('; ') + ' ' + JSON.stringify({ tex, E, off4: off4.s, on4: on4.s, on9: on9.s, offN: offN.s, onN: onN.s }));
+    await op.evaluate(() => { HOST.occlusion.setSmooth(false); window.__occl.near = 0.5; window.__occl.far = 4; });
   });
   // After a sleep (v131): the fake's session hidden and visible again, its depth dead until resumed, a binding made after
   // or never, its bindings made before throwing, its planes without a pose or given again, its textureType changed; the
@@ -16556,7 +16602,7 @@ if (runs('occlusion')) {
     await op.evaluate(() => window.__occl.runUntil(() => HOST.occlusion.state().gaveUp.depth, 45000));
     const s = await st(), line = await op.evaluate(() => HOST.occlusion.line());
     await op.evaluate(() => window.__occl.run(800));
-    const s2 = await st(), L = await logSince(n0), told = await op.evaluate(() => HOST.collab.notes().filter(x => x.title === 'People no longer hide things').length);
+    const s2 = await st(), L = await logSince(n0), told = await op.evaluate(() => HOST.collab.notes().filter(x => x.title === 'The real world no longer hides things').length);
     if (!s.gaveUp.depth || s.tries.depth !== 6 || !s.told || s2.renews !== s.renews || s2.tries.depth !== 6 || !/depth stopped \d+ s ago: leave AR and enter again/.test(line) || told !== 1
       || L.filter(e => e.ev === 'occlusion gave up').length !== 1 || L.filter(e => e.ev === 'occlusion renew').length !== 6)
       errors.push('occlusion: never back ' + JSON.stringify({ s, s2, line, told, L: L.map(e => e.ev + ':' + (e.why || e.what || '')) }));
@@ -16579,6 +16625,10 @@ if (runs('occlusion')) {
     if (s.redecides !== r0 + 1 || !s.depth.kind || s.depth.kind.arr !== false || !/^texture\|/.test(s.depth.shape) || !s.depth.decided || s.depth.used !== 'window' || s.depth.eyes.join() !== 'true,true'
       || !L.some(e => e.ev === 'occlusion renew' && e.why === 'shape' && /^texture-array\|/.test(e.from) && /^texture\|/.test(e.to)))
       errors.push('occlusion: a texture per eye ' + JSON.stringify({ s, L }));
+    // Smooth edges with a texture per eye (v195): blended as with the texture array
+    const bt = await blends();
+    if (!bt.ok) errors.push('occlusion: Smooth edges with a texture per eye: ' + JSON.stringify(bt));
+    await op.evaluate(() => { HOST.occlusion.setSmooth(false); const F = window.__occl; F.near = 0.5; F.far = 4; });
     await op.evaluate(() => { window.__occl.tt = 'texture-array'; });
     await shows('a texture array again', '0101', 4);
     const s2 = await st(), F = await fake();
@@ -16598,7 +16648,9 @@ if (runs('occlusion')) {
     if (s2.over !== null || s2.mode !== 'both' || !s2.inScene) errors.push('occlusion: after a story change ' + JSON.stringify(s2));
     await shows('the design room: the wall and people on the left', '0101');
     await op.evaluate(() => HOST.occlusion.scene(true));
-    if ((await st()).mode !== 'both') errors.push('occlusion: scene(true) is not room and people');
+    if ((await st()).mode !== 'depth') errors.push('occlusion: scene(true) is not the live depth alone (v195)');
+    await op.evaluate(() => HOST.occlusion.scene('both'));
+    if ((await st()).mode !== 'both') errors.push('occlusion: scene(\'both\') is not the depth and the room');
     await op.evaluate(() => HOST.occlusion.scene(null));
   });
   await step('occlusion: the session ends: nothing of it drawn on the page', async () => {
@@ -16646,6 +16698,10 @@ if (runs('occlusion')) {
     await shows('CPU depth, near on the left', '0101');
     const s = await st();
     if (!s.quad || s.depth.usage !== 'cpu-optimized' || s.depth.used !== 'metres') errors.push('occlusion: CPU depth state ' + JSON.stringify(s));
+    // Smooth edges with CPU depth (metres, v195): blended likewise
+    const bc = await blends();
+    if (!bc.ok) errors.push('occlusion: Smooth edges with CPU depth: ' + JSON.stringify(bc));
+    await op.evaluate(() => HOST.occlusion.setSmooth(false));
     await op.evaluate(() => { window.__occl.o.cpu = false; HOST.occlusion.set('both'); return window.__occl.session.end(); });
   });
   // a link sets it; the session's ladder (a page of its own, no story's session)
@@ -16802,23 +16858,23 @@ if (runs('phone ar')) {
     });
     if (!r.btn || !r.sheet || !r.row || !r.head || r.root || r.body || r.canvas) errors.push('phone ar: beforexrselect cancelled ' + JSON.stringify(r));
   });
-  await step('phone ar: the sheet\'s rows act as the headset menu\'s and show their state (Sound, Narration, Sound effects, Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides, Recenter)', async () => {
+  await step('phone ar: the sheet\'s rows act as the headset menu\'s and show their state (Sound, Narration, Sound effects, Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides, Smooth edges, Recenter)', async () => {
     const s = await ph(p);
     const ids = s.rows.map(r => r.id).join();
-    if (!s.open || !s.sheet || ids !== 'exit,recenter,sound,voice,sfx,subs,slides,fps,labels,cards,panels,occl,full') errors.push('phone ar: the sheet ' + JSON.stringify(s));
+    if (!s.open || !s.sheet || ids !== 'exit,recenter,sound,voice,sfx,subs,slides,fps,labels,cards,panels,occl,occlsmooth,full') errors.push('phone ar: the sheet ' + JSON.stringify(s));
     const big = await p.evaluate(() => [...document.querySelectorAll('#xrPhone .xp-sheet button')].filter(b => b.getBoundingClientRect().height < 44).map(b => b.textContent));
     if (big.length) errors.push('phone ar: buttons under 44 px tall: ' + big);
     // what HOST says, and what the row says (its text and aria-pressed)
     const HOSTSAYS = {
       sound: () => !HOST.audio.muted, voice: () => HOST.xr.voice(), sfx: () => HOST.sfx.on(), subs: () => HOST.xr.subs(), slides: () => !!HOST.slides.global(), fps: () => HOST.xr.fps(),
-      labels: () => HOST.xr.labels(), cards: () => HOST.xr.cards(), panels: () => HOST.panels.get('airports'), occl: () => HOST.occlusion.own() };
+      labels: () => HOST.xr.labels(), cards: () => HOST.xr.cards(), panels: () => HOST.panels.get('airports'), occl: () => HOST.occlusion.own(), occlsmooth: () => HOST.occlusion.smooth() };
     const read = id => p.evaluate(([id, f]) => { const v = (0, eval)('(' + f + ')')(); const r = HOST.collab.phone().rows.find(x => x.id === id); return { v, r }; }, [id, HOSTSAYS[id].toString()]);
     const SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' }, PS = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
     const words = { sound: v => 'Sound: ' + (v ? 'on' : 'off'), voice: v => 'Narration: ' + (v ? 'on' : 'off'), sfx: v => 'Sound effects: ' + (v ? 'on' : 'off'), subs: v => 'Subtitles: ' + (v ? 'on' : 'off'),
-      slides: v => 'Slideshow: ' + (v ? 'on' : 'off'), fps: v => 'Frame rate: ' + (v ? 'on' : 'off'), labels: v => 'Labels: ' + SAY[v], cards: v => 'Cards: ' + SAY[v], panels: v => 'Panels: ' + PS[v] };
+      slides: v => 'Slideshow: ' + (v ? 'on' : 'off'), fps: v => 'Frame rate: ' + (v ? 'on' : 'off'), labels: v => 'Labels: ' + SAY[v], cards: v => 'Cards: ' + SAY[v], panels: v => 'Panels: ' + PS[v], occlsmooth: v => 'Smooth edges: ' + (v ? 'on' : 'off') };
     const lit = { labels: v => v !== 'hidden', cards: v => v !== 'hidden', panels: v => v === 'shown', occl: v => v !== 'off' };
-    const NEXT = { labels: { face: 'fixed', fixed: 'hidden', hidden: 'face' }, cards: { fixed: 'face', face: 'hidden', hidden: 'fixed' }, panels: { shown: 'controls', controls: 'hidden', hidden: 'shown' }, occl: { both: 'room', room: 'depth', depth: 'off', off: 'both' } };
-    for (const id of ['sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl']) {
+    const NEXT = { labels: { face: 'fixed', fixed: 'hidden', hidden: 'face' }, cards: { fixed: 'face', face: 'hidden', hidden: 'fixed' }, panels: { shown: 'controls', controls: 'hidden', hidden: 'shown' }, occl: { depth: 'both', both: 'room', room: 'off', off: 'depth' } };
+    for (const id of ['sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl', 'occlsmooth']) {
       const a = await read(id);
       await press(p, id);
       const b = await read(id), want = NEXT[id] ? NEXT[id][a.v] : !a.v;
@@ -16830,7 +16886,7 @@ if (runs('phone ar')) {
     if (rc !== true) errors.push('phone ar: Recenter did not recentre (XR.needRecenter ' + rc + ')');
     // the headset menu's own rows say the same (the menu's Settings tab drawn with them)
     const m = await p.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); const ids = HOST.collab.menuIds(); HOST.collab.panelOpen(false); return ids; });
-    for (const id of ['exit', 'recenter', 'set:sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl']) if (!m.includes(id)) errors.push('phone ar: the headset menu has no ' + id + ' row');
+    for (const id of ['exit', 'recenter', 'set:sound', 'voice', 'sfx', 'subs', 'slides', 'fps', 'labels', 'cards', 'panels', 'occl', 'occlsmooth']) if (!m.includes(id)) errors.push('phone ar: the headset menu has no ' + id + ' row');
   });
   await step('phone ar: The full menu opens the 3D menu (the sheet closes), its row then says so and closes it; Close and the button close the sheet', async () => {
     const s0 = await ph(p);

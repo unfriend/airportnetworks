@@ -4606,6 +4606,8 @@
   // a room
   const showing = () => (HOST.session && HOST.panels && HOST.cur && HOST.curKey && !HOST.onStories && !away() ? HOST.curKey : '');
   const PANELS_SAY = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
+  // Smooth edges' note (real-world occlusion, v195: the menu's row and the phone's sheet)
+  const OCCL_SMOOTH_NOTE = 'Softer edges; it costs a little. Turn off if the frame rate drops';
   // the time for the menu's header (hours and minutes, as the watch showed them)
   const timeNow = () => { const d = new Date(); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
   // the story on show's two panels for the Story tab (its panels hook: { main, foot }, each with its canvas texture and
@@ -5166,16 +5168,21 @@
       button(S, 'menushare', x, y, bw, 60, MSH.on ? 'My menu: my circle' : 'My menu: only me', () => setMenuShare(!MSH.on), { on: MSH.on, px: 23 });
       note(!C.code ? 'In a shared room: shown to the people at your circle' : MSH.on ? menuShareSays() : 'Only you see it. This headset\'s own', y);
       y += 76;
-      // real-world occlusion in AR (occlusion.js): what real things hide (the room scan's walls and furniture, and people,
-      // hands and anything moving, from the headset's depth), each press the next; this headset's own, unless the story
-      // on show asks for its own (a studio scene)
+      // real-world occlusion in AR (occlusion.js): what real things hide (what the headset's depth sees, people, hands,
+      // furniture, and with the room scan its walls and furniture too), each press the next; this headset's own, unless
+      // the story on show asks for its own (a studio scene). Then Smooth edges (v195, in AR only, off by default)
       if (HOST.occlusion && HOST.occlusion.set) {
         const O = HOST.occlusion, om = O.own(), nx = O.next(om), ov = O.over();
         button(S, 'occl', x, y, w, 60, 'Real world hides: ' + O.say(om), () => O.set(nx), { on: om !== 'off', tog: nx === 'off', px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : !O.ar() ? 'Only in AR: real things in front of a scene hide it. This headset\'s own.' :
-          'Real things in front of a scene hide it, as in the room. This headset\'s own.', x + 4, y, w - 8, 28, 2) + 14;
+        y += wrapText(ctx, ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : (!O.ar() ? 'Only in AR. ' : '') + (O.note ? O.note(om) : '') + ' This headset\'s own.', x + 4, y, w - 8, 28, 2) + 14;
+        if (O.setSmooth && O.ar()) {
+          const so = O.smooth();
+          button(S, 'occlsmooth', x, y, bw, 60, 'Smooth edges: ' + (so ? 'on' : 'off'), () => O.setSmooth(!so), { on: so, px: 23 });
+          note(OCCL_SMOOTH_NOTE, y);
+          y += 76;
+        }
       }
       // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
       // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
@@ -12174,7 +12181,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       { wide: true, note: !pm ? 'No story on show' : C.code ? 'Panels for this circle; labels, cards, subtitles and sound effects for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only' });
     if (HOST.occlusion && HOST.occlusion.set) {
       const O = HOST.occlusion, om = O.own(), ov = O.over();
-      add('occl', 'Real world hides: ' + O.say(om), om !== 'off', () => O.set(O.next(om)), { wide: true, note: ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : 'Real things in front of a scene hide it, as in the room' });
+      add('occl', 'Real world hides: ' + O.say(om), om !== 'off', () => O.set(O.next(om)), { wide: true, note: ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : O.note ? O.note(om) : '' });
+      if (O.setSmooth) { const so = O.smooth(); add('occlsmooth', 'Smooth edges: ' + (so ? 'on' : 'off'), so, () => O.setSmooth(!so), { wide: true, note: OCCL_SMOOTH_NOTE }); }
     }
     add('full', PNL.open ? 'Close the full menu' : 'The full menu', PNL.open, () => { menuOpen(!PNL.open, 'phone'); if (PNL.open) PH.open = false; },
       { wide: true, note: 'Everything else, in front of you: tap its buttons on the screen' });

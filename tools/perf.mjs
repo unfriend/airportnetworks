@@ -498,12 +498,13 @@ await group(['shell:menu:story', 'shell:menu:settings', 'shell:menu:circles', 's
 });
 
 // ---- real-world occlusion in AR (the pretend depth texture and room planes of smoke.mjs's occlusion steps)
-await group(['shell:occlusion-both', 'shell:occlusion-off'], async () => {
+await group(['shell:occlusion-both', 'shell:occlusion-smooth', 'shell:occlusion-off'], async () => {
   const { page, close } = await open('occl');
   try {
     await gotoPage(page, 'airports&labels=hidden&cards=hidden', 'airports'); await session(page, 'immersive-ar', 20);
-    await page.evaluate(() => window.__occl.step(8));
+    await page.evaluate(() => { HOST.occlusion.set('both'); window.__occl.step(8); });   // (the default is the depth alone since v195: both asked for by name)
     await scene('shell:occlusion-both', async () => add('shell:occlusion-both', await meas(page, N), { note: 'AR, depth (people) and the pretend room planes, airports story', occ: await page.evaluate(() => { const s = HOST.occlusion.state(); return { mode: s.mode, parts: s.parts || null }; }) }));
+    await scene('shell:occlusion-smooth', async () => { await page.evaluate(() => { HOST.occlusion.set('depth'); HOST.occlusion.setSmooth(true); window.__occl.step(8); }); add('shell:occlusion-smooth', await meas(page, N), { note: 'AR, depth with Smooth edges (v195: four reads a pixel), same story' }); await page.evaluate(() => HOST.occlusion.setSmooth(false)); });
     await scene('shell:occlusion-off', async () => { await page.evaluate(() => HOST.occlusion.set('off')); await page.evaluate(() => window.__occl.step(8)); add('shell:occlusion-off', await meas(page, N), { note: 'AR, occlusion set to nothing (same story)' }); });
   } finally { await close(); }
 });

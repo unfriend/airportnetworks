@@ -438,9 +438,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       the scene is not covered by the real world's occlusion (a hand before the panel shows the panel): kept on in AR
       all the same (the owner, v177: "sharp text is also important in ar, it is ok that it does not hide in that case"). The lab: `webxr-user-studies/web/lab/layers.js` (not in this
       repository). Tests: `smoke.mjs --only 'sharp text'`.
-  - Real-world occlusion: a sixth setting that is each headset's own, never the room's, *Real world hides: room
-    and people* (the default) / *room* / *people* / *nothing* on the menu's Settings tab (under My menu), only in AR;
-    see "Real-world occlusion" below.
+  - Real-world occlusion: a sixth setting that is each headset's own, never the room's, *Real world hides: yes* (the
+    default since v195: the live depth alone) / *yes, with the room scan* / *room scan only* / *nothing* on the menu's
+    Settings tab (under My menu), and beside it, only in AR, *Smooth edges: on / off* (v195, off by default, `xrOcclSmooth`,
+    `#occlsmooth=on|off`); see "Real-world occlusion" below.
   - Your menu shown to your circle: a seventh
     setting, each headset's own and never the room's (`MSH` in `shared.js`, `xrMenuShare` = `circle` in `localStorage`,
     off by default; not in `HOST.xr.sig()`, no link option): the menu's *My menu: only me* / *My menu: my circle* row
@@ -700,7 +701,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       landscape, scrollable, buttons at least 48 px) with the menu's main rows, each calling what the headset menu's
       Settings row calls and showing its state (its words and `aria-pressed`): Exit AR, Recenter, Sound (this session's
       mute), Narration (this session's), Sound effects, Subtitles, Slideshow, Frame rate, Labels and Cards, Panels (the
-      story on show's), Real world hides, and *The full menu* (`menuOpen(true, 'phone')`: the shell's 3D menu in front of
+      story on show's), Real world hides, Smooth edges (v195), and *The full menu* (`menuOpen(true, 'phone')`: the shell's 3D menu in front of
       you for the rest, a tap on the screen pointing at it and pressing it; the row then says *Close the full menu*).
       Close, or the button again, closes the sheet; nothing new is stored. Without the overlay: two quick taps on the
       screen (a `screen` input source, each taken at its `selectend`, once the story has pointed its ray; within 0.4 s)
@@ -1081,13 +1082,40 @@ probe, `roomSync` and `shapeSig` it reuses.
   that does not know `'unsigned-short'`) asks again without it, any other refusal asks again without depth at all. With
   `extra.drop` (a phone's menu button) what `extra` asks for is dropped first, at once, depth kept (the person's or the
   browser's own refusal, `NotAllowedError` or `SecurityError`, is thrown at once then).
-- **The setting.** `HOST.occlusion.own()`, `set(m)`, `next(m)`, `mode()`: `'both'` (the default: room and people),
-  `'room'`, `'depth'` (people, hands, anything moving) or `'off'`; this headset's own (`xrOccl` in `localStorage`,
-  `#occl=both|room|depth|off` in a link), never a room's, never in `collab.state()` (no `FORMAT` change). The menu's
-  Settings row *Real world hides: room and people* -> *room* -> *people* -> *nothing* (each press the next) with a note.
-  A story may ask for its own (`HOST.occlusion.scene(mode)`, also `true` for `'both'` and `false` for `'off'`; `null`
-  gives the headset's own back): the studio, for a scene that says always or never; cleared when the story changes
-  (`detach`, from `HOST.teardown`), and the menu's note says so while it holds.
+- **The setting.** `HOST.occlusion.own()`, `set(m)`, `next(m)`, `mode()`, `say(m)`, `note(m)`: `'depth'` (the default
+  since v195: what the headset's depth sees, people, hands, furniture, anything moving), `'both'` (the depth and the room
+  scan), `'room'` (the room scan alone) or `'off'`; this headset's own (`xrOccl` in `localStorage`, written only when a
+  person presses the row or a link sets it, so a headset that never chose follows the default; `#occl=both|room|depth|off`
+  in a link), never a room's, never in `collab.state()` (no `FORMAT` change). The menu's Settings row *Real world hides:
+  yes* (`depth`) -> *yes, with the room scan* (`both`) -> *room scan only* (`room`) -> *nothing* (`off`), each press the
+  next, with a note under it (`note(m)`: *Real things in front of a scene hide it, as in the room.* / *Real things and the
+  room scan's walls and furniture hide a scene.* / *Only the room scan's walls and furniture hide a scene.* / *Nothing
+  real hides a scene.*, then *This headset's own.*; *Only in AR.* before it outside AR); the phone's sheet has the same
+  row and notes. Until v195 the default was `'both'` and the words *room and people* / *room* / *people* / *nothing*
+  (the owner, 24 November 2026: the room scan "does not really occlude well usually"; the keys stayed, so nothing was
+  migrated). A story may ask for its own (`HOST.occlusion.scene(mode)`, also `true` for `'depth'` (`'both'` until v195;
+  `'both'` by name still works) and `false` for `'off'`; `null` gives the headset's own back): the studio, for a scene
+  that says always (`'depth'`) or never; cleared when the story changes (`detach`, from `HOST.teardown`), and the menu's
+  note says so while it holds.
+- **Smooth edges** (v195; the owner, 24 November 2026: "Occlusions have jagged edges, can we smooth them? Make that a
+  switch in case it costs lots of performance?"). `HOST.occlusion.smooth()`, `setSmooth(on)`: this headset's own, off by
+  default (`xrOcclSmooth` = `on`/`off` in `localStorage`, written only when chosen; `#occlsmooth=on|off` in a link), never
+  a room's or a story's, no `FORMAT` change. The menu's Settings row *Smooth edges: on / off* under *Real world hides*,
+  only in AR, with the note *Softer edges; it costs a little. Turn off if the frame rate drops* (the phone's sheet: the
+  same row). On, the depth pass reads four texels a pixel and blends them by hand (`FRAG_SMOOTH`: the session's texture
+  may be an integer one that cannot be filtered, and it is read with `texelFetch`), each tap turned into metres first (a
+  window value is not linear: every reading, window with no far plane or a finite far, metres, the integer sampler, the
+  luminance-alpha pair, a texture array or a texture per eye, the phone's CPU depth in metres), mixed, then written as
+  `gl_FragDepth` as before; an edge between a near and a far thing then falls between texels by how far the scene is,
+  not on the texel's edge. **The zero-tap rule**: when any of the four taps has no depth (zero, or out of range), the
+  pixel takes the nearest texel, exactly as with smoothing off, so an edge against no depth never moves and no depth is
+  never blended into a real one. Off is the shader before v195, the same source (`FRAG_DEPTH`) and the same material;
+  on is its own material (`depthMaterial(kind, true)`, its key the kind's with `S`), compiled the first time it is used,
+  so the first frame after turning it on compiles one small shader. Its cost: four `texelFetch` and four conversions
+  for each pixel of each eye in place of one (untested on a headset: record a run log with it on and off). Nothing else
+  of the pass changes (`BIAS`, the probe, the room). `state()` carries `smooth` and `mat` (`'smooth'` or `'nearest'`: the
+  quad's material now), `sample()` `sm`, `line()` ` · smooth`, the notes page's context block `settings` `occlSmooth`.
+  Not built (the owner's design): dithering, smoothing over time, soft fades.
 - **Each frame.** `HOST.loading.wrap` wraps the story's frame function in `HOST.occlusion.wrap` (inside `HOST.perf`'s, so
   the read-out counts it): before the story draws, in an AR session with the story built (`collab.scene()`), its
   objects (`O.root`, a `THREE.Group` with `renderOrder` -1e9, so its group order puts them before everything of the
@@ -1128,7 +1156,8 @@ probe, `roomSync` and `shapeSig` it reuses.
     steadily for 10 s with no gap of a second (`steady`: so a long session's few hiccups, each brought back, never use up
     the cap; the gap since the last ask stays; the depth and the room each their own), and frames that stopped coming for over 5 s (the next story building) counting afresh. Past the sixth
     the Debug tab's *Real world* line says *depth stopped N s ago: leave AR and enter again* (or that the room scan
-    stopped), and one notice a session (*People no longer hide things*, *The room no longer hides things*, through
+    stopped), and one notice a session (*The real world no longer hides things*, *The room scan no longer hides things*
+    (until v195 *People ...* and *The room ...*), through
     `HOST.collab.notice`; none for depth that never came). Depth that comes back by itself is drawn again and the line
     plain again;
   - the depth's shape changing (its `textureType`, the session's `depthDataFormat`, whether it gives its own range, its
@@ -1139,8 +1168,8 @@ probe, `roomSync` and `shapeSig` it reuses.
   last one, ms since the last depth, how long it was hidden, the tries so far, the room's parts and those posed),
   `occlusion back` (the depth or the room back after it, and how long that took), `occlusion room` (the parts posed going
   to or from none), `occlusion steady` (back steadily, its tries started afresh: how many there were), `occlusion gave up`, and the shell's `webgl context lost` and `webgl context restored`. Every
-  alignment sample (`sample()` in `shared.js`, every 5 s in a room) carries `occl`: `{ m, u, f, k, r, a, n, v, ago, e,
-  pl, me, po, rn, rr }` (the mode, the depth's usage, format, kind and reading, `depthActive`, frames asked and with
+  alignment sample (`sample()` in `shared.js`, every 5 s in a room) carries `occl`: `{ m, sm, u, f, k, r, a, n, v, ago, e,
+  pl, me, po, rn, rr }` (the mode, Smooth edges (1 on), the depth's usage, format, kind and reading, `depthActive`, frames asked and with
   depth, ms since the last depth (-1 none yet), errors, planes, meshes, parts posed, renews of the depth and of the
   room). A lost WebGL context (`webglcontextlost` and `webglcontextrestored` on the renderer's canvas, listeners added in
   `makeRenderer` with `HOST.quiet`): nothing drawn while lost; restored, occlusion forgets its own GL objects (the probe's
@@ -1167,6 +1196,7 @@ probe, `roomSync` and `shapeSig` it reuses.
 - **Untested on a headset**: all of it on a real Quest in the app (the room test page proved the depth pass and the
   room there, not this code in the stories), how the 4 cm and 2 cm read (people's edges, hands near panels, things on
   the floor), the cost with a big room scan and depth together in a heavy story, depth sensing left running while the setting is *nothing*,
+  the new default with a real room scan, Smooth edges' look (a hand before a story) and cost (at 120 Hz),
   CPU depth on a phone (Android's Chrome), a browser that refuses depth sensing (the ladder), the studio's override.
   After a sleep, only a Quest 3 or 3S can show: whether `resumeDepthSensing` or a new binding brings the depth
   back after a real long sleep (or neither: leaving AR and entering again stays the proven remedy), whether the room's

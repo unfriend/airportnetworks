@@ -102,7 +102,7 @@ or Y does nothing (a hall of visitors at an event must never upload their voices
   state: the story's collab.state() (cut to 16 KB as JSON; for the studio its own),
   studio: for the studio, HOST.cur.peek('STUDIO.state()') reduced to { source, scene, edit, sel, items: count, unsaved } (guarded),
   room: { code, via, live, station: { id, story, title }, people, lineUp: lineUp() words, here } or null,
-  settings: { labels, cards, free, subs, sfx, voice, walk, fps, hz, occl, panels } (HOST.xr and HOST.panels as they are),
+  settings: { labels, cards, free, subs, sfx, voice, walk, fps, hz, occl, occlSmooth, panels } (HOST.xr and HOST.panels as they are),
   perf: HOST.perf.stats() and the frame rate now,
   log: the last 60 lines of window.__collabLog (as text, the relay's password stripped as the shell's log already does)
 }

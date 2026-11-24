@@ -319,7 +319,7 @@ HOST.notes = (function () {
     set('settings', () => {
       const x = HOST.xr || {}, o = {};
       for (const k of ['labels', 'cards', 'free', 'subs', 'sfx', 'voice', 'walk', 'fps', 'hz']) { try { if (typeof x[k] === 'function') o[k] = x[k](); } catch (e) { /* left out */ } }
-      try { if (HOST.occlusion) o.occl = HOST.occlusion.mode(); } catch (e) { /* left out */ }
+      try { if (HOST.occlusion) { o.occl = HOST.occlusion.mode(); if (HOST.occlusion.smooth) o.occlSmooth = HOST.occlusion.smooth(); } } catch (e) { /* left out */ }
       try { if (HOST.panels) o.panels = HOST.panels.get(HOST.curKey); } catch (e) { /* left out */ }
       return o;
     });

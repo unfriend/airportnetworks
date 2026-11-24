@@ -1692,7 +1692,8 @@ shell's), and each scene may set it.
 - **The shell told** (`settingsStep`, every frame, only when what it wants changes; guarded, an older shell has neither):
   `HOST.collab.hideOthers(true)` while this device is at this studio's station (`atStation()`) and the scene hides the
   other circles, `false` otherwise (away from its station, on the Stories screen, another scene, the setting changed);
-  `HOST.occlusion.scene('both')` (always) or `('off')` (never) while the scene shows here, `null` (as each headset has it)
+  `HOST.occlusion.scene('depth')` (always: the live depth alone since v195, as the shell's default, the room scan left
+  out; `'both'` until then) or `('off')` (never) while the scene shows here, `null` (as each headset has it)
   otherwise; `false` and `null` again as the studio goes (`dispose`). Told again at another studio circle (the station's
   id is part of what it wants: the shell lets it lapse when the station changes). The shell draws or hides the other
   stations' rings, cards and icons (hidden ones are not walked into either, but the lobby) and runs the occlusion.

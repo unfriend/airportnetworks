@@ -160,7 +160,7 @@ Object.assign(ITEM_ACT, {
 // - others: 'shown' | 'hidden': hidden, while this device is at this studio's circle the shell draws no other circle's
 //   ring, card or icon (HOST.collab.hideOthers(true); false again away from it, for another scene, on dispose)
 // - real: 'device' | 'always' | 'never': whether the real room hides the scene in AR (the shell's real-world occlusion,
-//   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('both') or never
+//   on by default for every headset): as each headset has it (HOST.occlusion.scene(null)), always ('depth' since v195) or never
 //   ('off'), while this scene shows here (null again otherwise, on dispose)
 // - hands: { len, w } (v158, e6x_trails.js): people's hand trails, written only when on (absent: off)
 // - grid: 'shown' | 'hidden' (v156; the owner: "add an option to hide the blue studio floor grid for a studio scene"):
@@ -203,7 +203,7 @@ function settingsBlocks(B, st) {
 }
 // the shell told what the scene wants, each time that changes (guarded: an older shell has neither hook)
 const HOOK = { hide: false, occ: null };
-const OCC = { device: null, always: 'both', never: 'off' };
+const OCC = { device: null, always: 'depth', never: 'off' };   // (always: the live depth alone since v195, as the shell's default; the room scan hid badly)
 function hookCall(k, v) {
   try {
     if (k === 'hide') { if (HOST.collab && HOST.collab.hideOthers) HOST.collab.hideOthers(v); }

@@ -804,7 +804,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     shows no editing look (v156; the owner: "looks like edit mode is on in the desktop cam view in a studio scene"):
     `editOn()` is false while `HOST.collab.cameraMode()`, whatever this device's Edit. The studio tells the shell each time what it wants changes (`settingsStep`, every frame,
     guarded: `HOST.collab.hideOthers(true)` while this device is at this studio's station with the other circles hidden,
-    `false` otherwise; `HOST.occlusion.scene(null | 'both' | 'off')` while the scene shows here, `null` otherwise), and both
+    `false` otherwise; `HOST.occlusion.scene(null | 'depth' | 'off')` while the scene shows here, `null` otherwise; *Always* is the live
+    depth alone since v195, as the shell's default, the room scan left out because it hid badly (the owner, 24 November
+    2026); `'both'` until then, and the shell still takes `'both'` when asked by name), and both
     back (`false`, `null`) as it goes (`dispose`); away from the station, on the Stories screen or for another scene (a
     new scene's settings) they are off. The shell draws or hides the circles and does the occlusion (the shell's lane:
     real-world occlusion is on by default for every headset in AR).

@@ -211,7 +211,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - In a headset no close view brings a `keepClear` set nearer than 0.35 m to the head; the life-size stories never move
   `GL.rig` and the grip moves only their panel (the pass story: the school's holder, `XR.lifeOff`).
 - The headset settings (labels, cards, free moving, subtitles, the two sound switches, panels, frame rate, refresh rate,
-  automatic quality, occlusion, moving with the sticks, menu sharing, my body, bodies, talk) are the shell's or the device's: never in a
+  automatic quality, occlusion and its smooth edges, moving with the sticks, menu sharing, my body, bodies, talk) are the shell's or the device's: never in a
   story's `state()` or `collab.state()`.
 - Real-world occlusion never pauses depth sensing in an AR session.
 

@@ -7,9 +7,10 @@
 // room drawn depth-only (3 ms for 31,299 triangles), built again only when its shape really changes.
 // Nothing is drawn in colour: things are only hidden. Never hidden: what is drawn over everything (the menu, the
 // notices, the subtitles, the frame-rate read-out, labels and cards set on top); hidden as real things would be: the
-// scenes, cards in 3D, the circles' rings and icons. This headset's own setting (xrOccl, #occl=): 'both' (the default),
-// 'room', 'depth' (people) or 'off'; a story may ask for its own (scene(mode); the studio, for a scene that says so),
-// cleared when the story changes. Its objects hang in the story's scene (its root is the renderer's reference space),
+// scenes, cards in 3D, the circles' rings and icons. This headset's own setting (xrOccl, #occl=): 'depth' (the default
+// since v195: what the headset sees, people, hands, furniture), 'both' (with the room scan), 'room' or 'off'; a story may
+// ask for its own (scene(mode); the studio, for a scene that says so), cleared when the story changes. Smooth edges
+// (v195, xrOcclSmooth, #occlsmooth=, off by default): the depth blended between its texels. Its objects hang in the story's scene (its root is the renderer's reference space),
 // taken out before a story is disposed and hung in the next one's. Nothing of it is in a story's state or a room.
 // After a sleep (v131; the owner, 10 November 2026: "Occlusion stops working after longer sleep in quest 3s?"): what the
 // session gave is asked for again (renew: a new XRWebGLBinding, the depth's kind and reading decided afresh, its depth
@@ -18,8 +19,13 @@
 // so the headsets' logs say what stopped and what came back.
 HOST.occlusion = (function () {
   'use strict';
-  const MODES = ['both', 'room', 'depth', 'off'], NEXT = { both: 'room', room: 'depth', depth: 'off', off: 'both' };
-  const SAY = { both: 'room and people', room: 'room', depth: 'people', off: 'nothing' };
+  // (v195; the owner, 24 November 2026: "if there is a room scan it does not really occlude well usually, so can we make
+  // that room scan not occlude by default?": the default is the live depth alone, and the words say what it is, the real
+  // world, not only people; the stored keys are as before, so nothing is migrated)
+  const MODES = ['both', 'room', 'depth', 'off'], NEXT = { depth: 'both', both: 'room', room: 'off', off: 'depth' };
+  const SAY = { depth: 'yes', both: 'yes, with the room scan', room: 'room scan only', off: 'nothing' };
+  const NOTE = { depth: 'Real things in front of a scene hide it, as in the room.', both: 'Real things and the room scan\'s walls and furniture hide a scene.',
+    room: 'Only the room scan\'s walls and furniture hide a scene.', off: 'Nothing real hides a scene.' };
   // how far behind a real surface a thing must be to be hidden (metres along the view): a robot's trail on the floor, a
   // line along a wall's foot or a model standing on the floor is not hidden by the surface it stands on (the depth is
   // noisier than the room scan)
@@ -29,8 +35,9 @@ HOST.occlusion = (function () {
   // first try at least this long after the last ask, each next one twice as long, at most cap tries after the session's
   // start, a sleep or the depth (the room) back steadily for calm; the depth's calls throwing on this many frames in a row
   const T0 = { wake: 10000, lost: 1500, room: 2000, every: 10000, cap: 6, throws: 30, calm: 10000 }, T = Object.assign({}, T0);
-  let own = 'both';
+  let own = 'depth', smooth = false;
   try { const v = localStorage.getItem('xrOccl'); if (MODES.includes(v)) own = v; } catch (e) { /* storage blocked */ }
+  try { smooth = localStorage.getItem('xrOcclSmooth') === 'on'; } catch (e) { /* storage blocked */ }
   const O = { over: null, root: null, quad: null, room: null, mats: {}, roomMat: null, warned: {}, lost: false, restored: 0 };
   let S = null;   // per session: what it was given, the depth this frame, the room's parts
   const msg = e => String((e && e.message) || e).slice(0, 160);
@@ -108,6 +115,64 @@ void main() {
   gl_FragDepth = clamp(c.z / c.w * 0.5 + 0.5, 0.0, 1.0);
   fragColor = vec4(0.0);
 }`;
+  // Smooth edges (v195; the owner, 24 November 2026: "Occlusions have jagged edges, can we smooth them? Make that a
+  // switch in case it costs lots of performance?"): the same pass, but the depth blended between its four nearest texels
+  // (by hand: the session's texture may be an integer one, which cannot be filtered, and it is read with texelFetch),
+  // each tap turned into metres first (a window value is not linear), so an edge between a near and a far thing falls
+  // between texels by how far the scene is. A tap with no depth (zero, or out of range) would drag its neighbours: then
+  // the pixel takes the nearest texel, as without smoothing (so the edge against no depth stays as it was)
+  const FRAG_SMOOTH = `
+uniform float uScale, uWin, uNear, uFar, uInf, uBias;
+uniform mat4 uM;
+uniform mat4 projectionMatrix;
+vec2 texOf(vec2 uv) { return uWin > 0.5 ? uv : (uM * vec4(uv.x, 1.0 - uv.y, 0.0, 1.0)).xy; }
+float toMetres(float raw) {
+  if (uWin > 0.5) {
+    if (!(raw > 0.0 && raw < 1.0)) return -1.0;
+    if (uInf > 0.5) return uNear / (1.0 - raw);
+    float z = raw * 2.0 - 1.0;
+    return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+  }
+  float m = raw * uScale;
+  return m > 0.0 && m < 1000.0 ? m : -1.0;
+}
+ivec2 depthSize() {
+#ifdef ARR
+  return textureSize(uDepth, 0).xy;
+#else
+  return textureSize(uDepth, 0);
+#endif
+}
+float rawTexel(ivec2 p) {
+#ifdef ARR
+  vec4 v = vec4(texelFetch(uDepth, ivec3(p, int(uLayer + 0.5)), 0));
+#else
+  vec4 v = vec4(texelFetch(uDepth, p, 0));
+#endif
+#ifdef LA
+  return v.r * 255.0 + v.a * 65280.0;
+#else
+  return v.r;
+#endif
+}
+float metresAt(vec2 uv) {
+  vec2 d = texOf(uv);
+  if (d.x < 0.0 || d.y < 0.0 || d.x > 1.0 || d.y > 1.0) return -1.0;
+  ivec2 sz = depthSize(), hi = sz - 1;
+  vec2 f = d * vec2(sz) - 0.5, w = fract(f);
+  ivec2 p = ivec2(floor(f));
+  float a = toMetres(rawTexel(clamp(p, ivec2(0), hi))), b = toMetres(rawTexel(clamp(p + ivec2(1, 0), ivec2(0), hi)));
+  float c = toMetres(rawTexel(clamp(p + ivec2(0, 1), ivec2(0), hi))), e = toMetres(rawTexel(clamp(p + ivec2(1, 1), ivec2(0), hi)));
+  if (min(min(a, b), min(c, e)) <= 0.0) return toMetres(rawAt(d));
+  return mix(mix(a, b, w.x), mix(c, e, w.x), w.y);
+}
+void main() {
+  float m = metresAt(vUv);
+  if (m <= 0.0) discard;
+  vec4 c = projectionMatrix * vec4(0.0, 0.0, -(m + uBias), 1.0);
+  gl_FragDepth = clamp(c.z / c.w * 0.5 + 0.5, 0.0, 1.0);
+  fragColor = vec4(0.0);
+}`;
   // the probe: the raw value of a 16 x 16 grid over the depth, its float's four bytes as a pixel (exact)
   const FRAG_PROBE = `
 void main() {
@@ -146,13 +211,15 @@ void main() {
       O.root.add(O.quad, O.room);
     } finally { HOST.quiet = q; }
   }
-  function depthMaterial(k) {
-    const key = kindKey(k);
+  // (sm: Smooth edges, its own material, made the first time it is used; without it the material and its shader are
+  // exactly those before v195)
+  function depthMaterial(k, sm) {
+    const key = kindKey(k) + (sm ? 'S' : '');
     if (O.mats[key]) return O.mats[key];
     const q = HOST.quiet;
     HOST.quiet = true;
     try {
-      const m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: defs(k) + FRAG_HEAD + FRAG_DEPTH,
+      const m = new THREE.ShaderMaterial({ glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: defs(k) + FRAG_HEAD + (sm ? FRAG_SMOOTH : FRAG_DEPTH),
         uniforms: { uDepth: { value: null }, uLayer: { value: 0 }, uScale: { value: 1 }, uWin: { value: 0 }, uNear: { value: 0.1 }, uFar: { value: 1000 },
           uInf: { value: 0 }, uBias: { value: BIAS.depth }, uM: { value: new THREE.Matrix4() } },
         depthTest: true, depthWrite: true, colorWrite: false });
@@ -270,9 +337,9 @@ void main() {
         S.told = true;
         const n = HOST.collab && HOST.collab.notice;
         try {
-          if (n) n(room ? 'The room no longer hides things' : 'People no longer hide things', room
+          if (n) n(room ? 'The room scan no longer hides things' : 'The real world no longer hides things', room
             ? 'The headset stopped placing its room scan. Leave AR and enter it again to bring it back.'
-            : 'The headset stopped giving its depth (people, hands). Leave AR and enter it again to bring it back.', 12000);
+            : 'The headset stopped giving its depth (what it sees in front of it). Leave AR and enter it again to bring it back.', 12000);
         } catch (e) { /* no notice */ }
       }
       return;
@@ -688,7 +755,7 @@ void main() {
     if (wantD && S.views) {
       try { d = depthStep(f); } catch (e) { warn('the depth', e); d = false; }
     }
-    if (d) O.quad.material = depthMaterial(S.D.kind);
+    if (d) O.quad.material = depthMaterial(S.D.kind, smooth);
     O.quad.visible = d;
     if (wantR) {
       try { rm = roomStep(f, ref); } catch (e) { warn('the room', e); }
@@ -746,12 +813,16 @@ void main() {
   return {
     MODES, SAY,
     // the mode in use (a story's own, else this headset's), this headset's own, the next after one, and the story's
-    mode, own: () => own, next: m => NEXT[MODES.includes(m) ? m : own], over: () => O.over, say: m => SAY[m] || SAY.off,
+    mode, own: () => own, next: m => NEXT[MODES.includes(m) ? m : own], over: () => O.over, say: m => SAY[m] || SAY.off, note: m => NOTE[m] || NOTE.off,
+    // (written only when a person (or a link) chooses: a headset that never chose follows the default)
     set(m) { if (!MODES.includes(m)) return; own = m; try { localStorage.setItem('xrOccl', m); } catch (e) { /* storage blocked */ } },
-    // a story's own (the studio's scene: true is 'both', false 'off', null this headset's own again); cleared when the
-    // story changes (detach)
-    scene(m) { O.over = m === true ? 'both' : m === false ? 'off' : MODES.includes(m) ? m : null; return O.over; },
-    sig: () => mode() + (O.over ? '!' : '') + (ar() ? 'a' : '') + (S && (S.td.gave || S.tr.gave) ? 'x' : ''),
+    // Smooth edges (v195): this headset's own, off by default (it costs four reads a pixel in place of one)
+    smooth: () => smooth,
+    setSmooth(on) { smooth = !!on; try { localStorage.setItem('xrOcclSmooth', smooth ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
+    // a story's own (the studio's scene: true is 'depth' since v195, as the default, 'both' only when asked by name;
+    // false 'off', null this headset's own again); cleared when the story changes (detach)
+    scene(m) { O.over = m === true ? 'depth' : m === false ? 'off' : MODES.includes(m) ? m : null; return O.over; },
+    sig: () => mode() + (O.over ? '!' : '') + (ar() ? 'a' : '') + (smooth ? 's' : '') + (S && (S.td.gave || S.tr.gave) ? 'x' : ''),
     ar, wrap,
     // the shell, before a story is disposed: out of its scene (hung in the next one's on its first frame) and its own
     // choice forgotten
@@ -776,13 +847,13 @@ void main() {
       if (S.tr.gave) return what + ' · the room scan stopped: leave AR and enter again';
       const dp = !Q.enabled ? 'no depth' : E ? 'depth ' + (E.cpu ? 'CPU' : 'GPU') + ', ' + (D.used || '?')
         : !(m === 'both' || m === 'depth') ? 'depth not used' : S.everDepth && S.missSince && t - S.missSince > 1000 ? 'depth stopped ' + ago + ' s ago, asked again ' + S.td.n : 'depth waiting';
-      return what + ' · ' + dp + ' · room ' + (S.planes.size + S.meshes.size) + (S.renews + S.roomRenews ? ' · renewed ' + (S.renews + S.roomRenews) : '');
+      return what + ' · ' + dp + (smooth ? ' · smooth' : '') + ' · room ' + (S.planes.size + S.meshes.size) + (S.renews + S.roomRenews ? ' · renewed ' + (S.renews + S.roomRenews) : '');
     },
     // for the headset's alignment samples (shared.js, every 5 s in a room): short keys
     sample() {
       if (!S) return null;
       const Q = S.depth, D = S.D;
-      return { m: mode(), u: Q.usage || '', f: Q.format || '', k: D && D.kind ? kindKey(D.kind) : '', r: D ? D.used : '', a: depthActive(), n: S.frames, v: S.valid,
+      return { m: mode(), sm: smooth ? 1 : 0, u: Q.usage || '', f: Q.format || '', k: D && D.kind ? kindKey(D.kind) : '', r: D ? D.used : '', a: depthActive(), n: S.frames, v: S.valid,
         ago: S.lastDepthAt ? Math.round(performance.now() - S.lastDepthAt) : -1, e: Q.errors, pl: S.planes.size, me: S.meshes.size, po: S.posed, rn: S.renews, rr: S.roomRenews };
     },
     // for tests: the times above shortened ({ wake, lost, room, every, cap, throws, calm }, in ms; null the defaults again)
@@ -794,7 +865,7 @@ void main() {
     // for tests: what is set and drawn now
     state() {
       const D = S && S.D;
-      return { mode: mode(), own, over: O.over, ar: ar(), session: !!S, root: !!(O.root && O.root.visible && O.root.parent), inScene: !!(O.root && O.root.parent && O.root.parent === storyScene()),
+      return { mode: mode(), own, smooth, mat: O.quad && O.quad.material && O.quad.material.fragmentShader ? (O.quad.material.fragmentShader.includes('toMetres') ? 'smooth' : 'nearest') : '', over: O.over, ar: ar(), session: !!S, root: !!(O.root && O.root.visible && O.root.parent), inScene: !!(O.root && O.root.parent && O.root.parent === storyScene()),
         quad: !!(O.quad && O.quad.visible), roomShown: !!(O.room && O.room.visible), lost: O.lost, restored: O.restored,
         gl: { vao: !!O.vao, probe: !!O.probeFb, progs: O.progs ? Object.keys(O.progs).length : 0 },
         depth: S ? Object.assign({}, S.depth, { kind: D && D.kind, shape: D ? D.shape : '', used: D ? D.used : '', eyes: D ? D.eyes.map(E => !!E) : [], frames: S.frames, valid: S.valid, decided: S.decided, probe: S.probe, probeN: S.probeN }) : null,

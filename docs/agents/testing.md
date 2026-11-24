@@ -123,8 +123,14 @@ real-world occlusion (a pretend AR headset driven through three.js r128's own We
 texture array made in the page each frame, window depth with no far plane, and a pretend room scan; a magenta test plane
 read back from the layer's framebuffer hidden where the real world is nearer and drawn where it is farther, in both
 eyes, also the other way round, an eye without depth unoccluded, the real world 2 cm nearer not hiding it; the room's
-wall hiding what stands behind it, depth sensing never paused or resumed ; off; both; the menu never hidden; the default *room and people*
-and the menu's row going round, kept; a story's own cleared by a story change and the objects hung in the next story's
+wall hiding what stands behind it, depth sensing never paused or resumed ; off; both; the menu never hidden; the default *yes* (`depth`, v195,
+nothing stored), the menu's row going round (*yes* -> *yes, with the room scan* -> *room scan only* -> *nothing*), kept,
+and its *Smooth edges* row (off, on, off, kept); Smooth edges (v195): a row of pixels across the fake depth's hard step
+(near on the left, far on the right, 5 pixels a texel) with the near side 0.3 m and the far side 4 m or 0.9 m: off, the
+edge on the texel's edge whatever the far side (as before v195, and the same row after turning it on and off again); on,
+the edge moving with the far side's depth (blended: 158 and 161 pixels against off's 160), within a texel of the hard
+edge, every other pixel as off; a side with no depth (zero) not blended (on and off alike), and the blend again with a
+texture per eye and with CPU depth; `scene(true)` the depth alone and `scene('both')` both; a story's own cleared by a story change and the objects hung in the next story's
 scene; nothing drawn after the session ends; CPU depth; `#occl=off`; `HOST.xr.request`'s ladder (a TypeError naming
 `'unsigned-short'`, another refusal) and VR as ever; the session line in every story; after a sleep, the fake's
 session hidden and visible again (its `visibilityState` and events), its depth dead until `resumeDepthSensing`, a
@@ -349,7 +355,7 @@ asking for `dom-overlay` once with `#xrPhone` as its root, depth sensing still a
 the window's top right corner (52 px, a 50 % radius, an icon, *Menu*), the root letting the middle of the screen
 through; `beforexrselect` cancelled on the button, the sheet, a row and the sheet's heading, not on the root, the page or
 the canvas; the sheet's thirteen rows in order, none under 44 px tall, each toggle (Sound, Narration, Sound effects,
-Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides) changing what `HOST` says to what the headset
+Subtitles, Slideshow, Frame rate, Labels, Cards, Panels, Real world hides, Smooth edges) changing what `HOST` says to what the headset
 menu's row would and its words and `aria-pressed` saying so, Recenter asking the story to recentre, and the headset
 menu's Settings tab having each of those rows; The full menu opening the 3D menu (logged as by `phone`, the sheet
 closed), its row then *Close the full menu* and closing it, Close and the button closing the sheet; the notice *The

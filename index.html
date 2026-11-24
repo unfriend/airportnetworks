@@ -882,7 +882,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 194, id: 'ddb80e056b604bba', format: 'networks-55' },
+  shell: { n: 195, id: '3eb5b4e07c946b2f', format: 'networks-55' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -5692,6 +5692,7 @@ HOST.arrange = (function () {
   if (hp.has('sharpsize')) HOST.xr.setSharpSize(hp.get('sharpsize'));   // (its layers' sizes as half extents, or full ones: #sharpsize=full)
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
+  if (hp.has('occlsmooth') && HOST.occlusion && HOST.occlusion.setSmooth) HOST.occlusion.setSmooth(hp.get('occlsmooth') !== 'off');   // (its Smooth edges, v195: likewise)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('voice')) HOST.xr.setVoiceOwn(hp.get('voice') !== 'off');   // (both this device's own: the page's and a headset session's)
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)
