@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Studio tour: the generator</title>
+<!-- The studio tour's generator page (tools/studio/tour/make.mjs opens it in headless Chromium): three.js r128, its own
+     glTF exporter and loader, the Bliss XP room's kit (tools/studio/xp/kit.js, shared, not copied) and the tour's parts.
+     Each part is built, written as a GLB, read back, checked and pictured (XP.make). -->
+<script src="../../../three.min.js"></script>
+<script src="../vendor/GLTFExporter.js"></script>
+<script src="../vendor/GLTFLoader.js"></script>
+<script src="../xp/kit.js"></script>
+<script>
+  // (the exporter writes an opaque picture as a JPEG at the browser's own quality, 0.92; the tour's are mostly text on
+  // flat colour, which 0.62 keeps sharp at a quarter of the bytes; the vendored exporter itself is never edited)
+  const toBlob0 = HTMLCanvasElement.prototype.toBlob;
+  HTMLCanvasElement.prototype.toBlob = function (cb, type, q) { return toBlob0.call(this, cb, type, q === undefined && type === 'image/jpeg' ? 0.62 : q); };
+</script>
+<script src="parts.js"></script>
+<script>XP.ready = XP.fonts().then(() => true);</script>

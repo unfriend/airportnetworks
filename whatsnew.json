@@ -1,23 +1,22 @@
 {
-  "version": "networks-v198",
+  "version": "networks-v199",
   "date": "2026-11-24",
   "new": [
-    "VR goggles in the studio: Add, VR goggles places a pair. In a headset, with editing off, take them with the grip and bring them to your face.",
-    "With them on you fly a ship through the cell of Back into the cell: its real proteins in their places, drawn over the room for you alone.",
-    "Right stick: turn, climb, dive. Grip: brake. Trigger: scan the protein in your sights, then fly to the green light to follow a link.",
-    "Move more than about 40 cm from where you put them on and the game fades to the room and waits. Grip near your face and pull away, or the menu's Goggles off, to take them off.",
-    "Safer goggles: if the headset loses track of you the game fades to the room and waits, and a recentre takes the goggles off."
+    "A studio tour: in the studio's Scene pane, Examples, open studio-tour. A hall with a stand for each thing the studio does, each working, with a sign saying what it is and what to do there.",
+    "The basics first (models, textures, shapes, cut-outs...), then what reacts to you (trigger cubes, presses, sequences, sounds, screens), then what moves (motions, behaviours, paths, trails).",
+    "At the end a shuttle for four: walk in and sit down, and for you the hall gives way to another world. The VR goggles are on its shelf, and a panel waits for the game screen.",
+    "VR goggles in the studio (v197, v198): take them with the grip and bring them to your face to fly a ship through the cell of Back into the cell. Grip near your face and pull away, or the menu's Goggles off, to take them off."
   ],
   "test": [
-    "In AR on a Quest: place the goggles in a studio scene, turn editing off, grab them and bring them to your face. Does the game cover the room? Are the goggles back on their spot afterwards?",
-    "Scan a protein, follow a few links, bump a drone. Is the turning comfortable? Is the console readable? The grip that brought the goggles should not brake until you let it go.",
-    "Lean and step away slowly: the fade between 30 and 50 cm, the pause, and coming back. Cover the headset's cameras: the game should fade and wait.",
-    "With the goggles on, hold the Meta button to recentre: they should come off with a notice.",
-    "Take them off with the grip at your face, then with the menu's Goggles off. Try the spaceship while they are on: it should be refused.",
-    "With a second headset in the room: is the other person's body visible in front of the game?"
+    "In a headset, open the studio tour and walk the hall with the sticks. Are the signs readable from where you stand? Is anything too close or in the way?",
+    "Step onto the pads, press the buttons, carry the red ball into the basket, and let the robot follow you. Does each stand do what its sign says?",
+    "Sit in the shuttle: does the other world replace the hall through the windows and the door, and come back as you step out? With two headsets, only the one inside should see it.",
+    "Take the goggles from the shuttle's shelf and bring them to your face; take them off again. Are they back on the shelf?",
+    "In AR: the purple poster should go to your nearest real wall, the orange box show instead of the blue ball."
   ],
   "untested": [
-    "Everything a headset shows: the grab to the face, the take-off gesture, the fade and bubble, tracking loss, a real recentre, comfort, the stick's feel, the frame rate with about 16,000 points, the cover in AR. Only a pretend headset and a page were checked.",
-    "How the scan, link, bump and goggle sounds sound: unheard."
+    "Everything a headset shows in the tour: the walk's length (about 35 m), the signs at reading distance, the pads, presses and grips, the shuttle's world as you sit, the goggles from its shelf, the poster on a real wall in AR. Only a page in Walk view was checked.",
+    "How the tour's sounds sound (bell, music box, buzz, notes, tunes, whoosh): unheard.",
+    "The goggles' game itself (v197, v198): the grab to the face, the take-off gesture, the fade and bubble, comfort and frame rate on a Quest."
   ]
 }

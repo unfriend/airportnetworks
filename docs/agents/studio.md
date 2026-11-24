@@ -1302,7 +1302,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   the app's root holds scene folders and their listings exactly as `tools/studio/scan.mjs` writes them
   (`examples/index.json` and `examples/<name>/files.json`; `&examples=<a relative folder>` picks another, `'examples'` by
   default: the tests point it at `tools/studio/test/examples/`, whose `tiny` scene `tools/studio/test/make.mjs` writes). The
-  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`). The Scene pane lists them, page and headset (*Examples
+  first is `bliss-xp`, the XP room (`tools/studio/xp/make.mjs`); then `dub-techno` (`tools/studio/dub/make.mjs`) and
+  `studio-tour`, a stand for each feature (v199, `tools/studio/tour/make.mjs`). The Scene pane lists them, page and headset (*Examples
   (they come with the app)*): *Open* (the scene from that folder, read only, as `&scenes=examples&scene=<name>` opens it;
   editing works on this device, *Download layout.json* keeps it; *Back to your scenes* returns to where scenes came from
   before) and, with a relay that takes uploads (page and headset), *Copy to the relay* (a free scene name, the
@@ -1390,6 +1391,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   music, balloons burst, Clippy waves and dances, cards and pages can be picked up and crumpled in the bin, all by the studio's
   presses, hovers and sequences ("Things to press" and "What anyone can pick up" in `tools/studio/xp/README.md`; every
   interaction listed per component in `COMPONENTS.md`). The room stays our own drawings and sounds, and is still never edited by hand.
+- **The studio tour (example scene)** (v199; `tools/studio/tour/README.md`). `examples/studio-tour/`, made by
+  `node tools/studio/tour/make.mjs` (`--check`; never edit it by hand; headless Chromium as the XP room's generator, whose
+  `kit.js` it loads): a hall down -z from where you start with a stand for each thing the studio does, each with the thing
+  working and a sign (its name as the studio's UI shows it, a sentence on what it does, what to do here), two boards at
+  the entrance (*Studio tour*, and *Also in the studio*: uploads, Fewer triangles, the room scan, trackers, live sound, the
+  output page's streams and loops, editing itself), and 26 stands in a teaching order (the basics, what reacts, what
+  moves); a cube's stand has a locked pad on the floor where its cube stands. At the end a shuttle (one object, `shtl01`,
+  and the group *Shuttle*) whose cabin is a personal trigger cube: inside it the hall goes and a world round the shuttle
+  comes (a dome drawn from inside, 4.8 m round, no stand within it), with the VR goggles on a shelf and a blank panel for
+  the game screen to come. All our own and seeded; about 1.75 MB, 11,000 triangles and 72 draws of models as placed plus
+  66 shapes. No studio code changed for it. `node tools/smoke.mjs --only 'studio tour'`. Untested on a headset: the walk
+  itself (its length, about 35 m, with the sticks), the signs' reading distance, the shuttle's cube and world as you sit
+  inside, the goggles taken from its shelf, the sounds' levels (unheard).
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded

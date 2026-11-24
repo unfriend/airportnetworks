@@ -114,8 +114,9 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `tools/studio/` - the sources of `stories/studio.js`: engine parts, sets, `vendor/` (never edited), the build,
   `scan.mjs`, `convert.mjs`, the test scenes, `r2sync.mjs`, `push.mjs`, `ik.js` (`docs/agents/studio.md`).
 - `basis/` - Basis Universal's KTX2 encoder and transcoder (v151, the studio's), copied unchanged (`basis/README.md`).
-- `tools/studio/xp/` - the Bliss XP room's generator; `examples/` - example scenes that ship with the app
-  (`examples/bliss-xp` generated, never edited by hand).
+- `tools/studio/xp/` - the Bliss XP room's generator; `tools/studio/tour/` - the studio tour's (v199: a stand for each
+  feature, a shuttle with the VR goggles); `examples/` - example scenes that ship with the app (all generated, never
+  edited by hand).
 - `tools/lowpoly/` - the miniatures' kits (`kit-a.js`, `kit-b.js`), the shell's own (`shell.js`), harnesses (`load.js`)
   and `build.mjs` (writes `lowpoly.js` and every `packages/<key>/minis.js` from its `src/minis.js`; each miniature under
   1,200 triangles, `tris` exact; `tools/packages/SPEC.md`, "Miniatures").
@@ -257,7 +258,7 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   step). Built: `stories/design.js`, `studio.js` (each `node tools/<key>/build.mjs`), a built story's
   `packages/<key>/main.js` (`node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs`; airports, proteins
   and spatial are hand-written: their `main.js` is the source),
-  `lowpoly.js` and `packages/<key>/minis.js` (`node tools/lowpoly/build.mjs`), `examples/bliss-xp` (`node tools/studio/xp/make.mjs`),
+  `lowpoly.js` and `packages/<key>/minis.js` (`node tools/lowpoly/build.mjs`), `examples/bliss-xp` (`node tools/studio/xp/make.mjs`), `examples/studio-tour` (`node tools/studio/tour/make.mjs`),
   `docs/narration.md` (`tools/narration.mjs`), `version.json` (`tools/release.mjs`).
 - Rebuild the dependants after a shared source changes (`node tools/engine/all.mjs` builds them all; the relay's
   `--build` the readers of a changed `packages/<key>/src/` file): `packages/lbi/src/sets/body.js` (pet, micro, ovary,
@@ -420,7 +421,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `'update the room'`, `'phone ar'`, `'controllers after standby'`, `trackers`, `bodies`, `'auto quality'`, `'focus mode'`,
   `phones`, `tablets`, `iPhone`, `design`, `talk`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
-  walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp).
+  walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp, tour).
 - Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off` and `collabAskDefault` to `walk` unless its
   round asks otherwise: keep that when adding a round.
 
@@ -440,6 +441,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node packages/qubits/src/test-qmath.mjs`, `packages/mutation/src/test-mmath.mjs`, `packages/topo/src/test-data.mjs`, `packages/soil/src/test-data.mjs`, `packages/cdk5/src/test-data.mjs`, `packages/pass/src/test-sets.mjs` | after changing that story's maths, data or sets |
 | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | after changing the test scene's maker (`node tools/studio/test/make.mjs` first) |
 | `node tools/studio/xp/make.mjs --check` | after changing `tools/studio/xp/` |
+| `node tools/studio/tour/make.mjs --check` | after changing `tools/studio/tour/` or `tools/studio/xp/kit.js` |
 | `node tools/studio/convert.mjs <model> [out.glb] [--max-texture N] [--no-weld] [--keep 0.2] [--no-fill] [--textures dir] [--texture a=b] [--shots dir]` | the converter and its test on real files |
 | `node tools/studio/test-images.mjs` | after changing `tools/studio/engine/images.js` or `test/pictures.mjs` |
 | `node tools/packages/check.mjs packages/<key> --load` | after changing a package or `tools/packages/template/` (build it first: `node packages/<key>/src/build.mjs`) |

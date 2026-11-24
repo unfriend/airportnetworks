@@ -224,6 +224,11 @@ its circle) moves every item there again, for everyone (one Undo step).
   Start opens its menu, the player plays music, balloons burst, Clippy dances.
   Stand in the middle of the room facing a wall and Recenter before it starts
   (#studio&scenes=examples&scene=bliss-xp opens it directly).
+- The studio tour (Examples, studio-tour): a hall with a stand for each thing
+  the studio does, each working with a sign saying what it is and what to do,
+  and at the end a shuttle: sit inside and the hall gives way to another world;
+  the VR goggles are on its shelf
+  (#studio&scenes=examples&scene=studio-tour opens it directly).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

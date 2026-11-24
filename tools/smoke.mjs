@@ -16,6 +16,7 @@
 // --only 'sharp text': the story's panels as WebXR quad layers (on by default in Quest Browser, v176), on a pretend Quest with pretend layers, v174;
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
+// --only 'studio tour': the studio tour, an example scene with a stand for each thing the studio does, v199;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
 // --only 'studio sequences': timelines of events on items (kind q), shared on the room's clock, v146;
 // --only 'studio press': an object's or shape's reactions to a press and to being pointed at, shared by a stamp, v146;
@@ -13184,6 +13185,89 @@ if (runs('studio xp')) {
     if (r[0] || !r[1] || !r[2] || !r[3] || !r[4] || !r[5] || !st[0] || !st[1] || !st[2]) errors.push('studio xp: a visitor: editing off, the start button and Clippy pressable, the card and the page movable, the press taken, the menu shown: ' + J([r, st]));
   });
   await xa.close(); await xb.close();
+}
+// The studio tour (v199), the studio's third example scene: examples/studio-tour/, made by tools/studio/tour/make.mjs,
+// opened read only from the folder (#studio&scenes=examples&scene=studio-tour). Every model of its listing loads with no
+// console error, under its budgets (10,000 triangles a model, 60,000 as placed, pictures at most 1,024 px), with the
+// clips its layout names; every sound decodes (mono, 11,025 Hz); the layout is read with no bad items and every record of
+// every kind as the studio's own rules give it back; it uses what each stand shows; and the shuttle's cabin cube, walked
+// into in Walk view, shows the world outside it and hides the hall, and gives them back as you walk out.
+if (runs('studio tour')) {
+  const tp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  tp.on('pageerror', e => errors.push('studio tour: ' + (e.stack || e.message)));
+  tp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio tour: ' + m.text()); });
+  const ss = s => tp.evaluate(s => HOST.cur.peek(s), s);
+  const until = (src, ms) => tp.waitForFunction(src => HOST.cur.peek(src), src, { timeout: ms || 20000 }).then(() => true, () => false);
+  const bad = list => { if (list.length) errors.push(...list.map(b => 'studio tour: ' + b)); };
+  let opened = false, layout = null;
+  await step('studio tour: every model of the studio tour loads, under its budgets, with its clips; every sound decodes', async () => {
+    await tp.goto(base + 'index.html#studio&scenes=examples&scene=studio-tour');
+    await tp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    if (!await until(`STU.listing === 'ok' && STU.scene === 'studio-tour' && STU.files.length > 0`, 60000)) { errors.push('studio tour: the example scene was not listed: ' + await ss('STU.note')); return; }
+    if (!await until(`STUDIO.ready()`, 180000)) { errors.push('studio tour: the models did not all load within 3 minutes'); return; }
+    opened = true;
+    layout = await tp.evaluate(async () => (await fetch('examples/studio-tour/layout.json')).json());
+    const r = await ss(`(() => {
+      const out = [], tris = {};
+      for (const it of STU.items.values()) {
+        if (it.kind !== 'o') continue;
+        const E = it.E;
+        if (!E || E.state === 'failed' || !it.model) { out.push(it.rec.file + ' did not load: ' + (E && E.err)); continue; }
+        tris[it.rec.file] = E.info.tris;
+        if (E.info.tris > 10000) out.push(it.rec.file + ' has ' + E.info.tris + ' triangles (at most 10,000)');
+        E.root.traverse(n => { for (const m of [].concat(n.material || [])) for (const k of ['map', 'emissiveMap', 'normalMap']) { const im = m[k] && m[k].image; if (im && Math.max(im.width, im.height) > 1024) out.push(it.rec.file + ': a picture of ' + im.width + ' x ' + im.height + ' px'); } });
+      }
+      return { out, tris, clips: Object.fromEntries([...LIB].map(([p, E]) => [p, (E.clips || []).map(c => c.name)])) };
+    })()`);
+    const room = layout.objects.reduce((s, o) => s + (r.tris[o.file] || 0), 0);
+    if (room > 60000) r.out.push(`the scene has ${room} triangles as placed (at most 60,000)`);
+    for (const o of layout.objects) for (const c of [o.clip, o.idle].filter(Boolean)) if (!(r.clips[o.file] || []).includes(c)) r.out.push(`${o.id}: ${o.file} has no clip ${c}`);
+    for (const c of layout.cubes) for (const e of c.plays || []) if (e.what === 'clip') { const t = layout.objects.find(o => o.id === e.on); if (!t || !(r.clips[t.file] || []).includes(e.clip)) r.out.push(`${c.id}: starts ${e.clip} on ${e.on}, which has no such clip`); }
+    const snd = await tp.evaluate(async () => {
+      const files = HOST.cur.peek(`STU.files.filter(f => f.kind === 'audio').map(f => f.path)`), out = [];
+      if (files.length < 8) out.push('only ' + files.length + ' sounds in the listing');
+      for (const p of files) {
+        try { const b = await (await fetch('examples/studio-tour/' + p)).arrayBuffer(), a = await new OfflineAudioContext(1, 11025, 11025).decodeAudioData(b); if (!(a.duration > 0.05) || a.numberOfChannels !== 1 || a.sampleRate !== 11025) out.push(p + ': ' + a.duration + ' s, ' + a.numberOfChannels + ' channels, ' + a.sampleRate + ' Hz'); } catch (e) { out.push(p + ' did not decode: ' + e.message); }
+      }
+      return out;
+    });
+    console.log(`     (${Object.keys(r.tris).length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
+    bad(r.out.concat(snd));
+  });
+  await step('studio tour: the layout is read with no bad items, every record of every kind as the studio\'s own rules give it back, and it shows what its stands say', async () => {
+    if (!opened) { errors.push('studio tour: the scene did not open'); return; }
+    const r = await ss(`({ bad: STU.bad, tex: STU.badTex, play: STU.badPlay, seq: STU.badSeq })`);
+    if (r.bad || r.tex || r.play || r.seq) errors.push('studio tour: the layout was read with bad parts: ' + JSON.stringify(r));
+    const diff = await ss(`(() => { const L = ${JSON.stringify(layout)}, out = [];
+      const cmp = (kind, x) => { const r = Object.assign({}, x); delete r.id; const n = norm(kind, r, x.id);
+        if (!n) { out.push(x.id + ' is bad'); return; }
+        for (const k of new Set([...Object.keys(n), ...Object.keys(r)])) if (JSON.stringify(n[k]) !== JSON.stringify(r[k])) out.push(x.id + '.' + k + ': ' + JSON.stringify(r[k]).slice(0, 120) + ' read as ' + JSON.stringify(n[k]).slice(0, 120)); };
+      for (const [k, list] of [['o', L.objects], ['c', L.cubes], ['s', L.sounds], ['x', L.cuts], ['g', L.groups], ['p', L.shapes], ['e', L.empties], ['q', L.sequences], ['v', L.screens], ['d', L.paintings]]) for (const x of list || []) { cmp(k, x); if (!STU.items.has(x.id)) out.push(x.id + ' not placed'); }
+      if (JSON.stringify(STU.settings) !== JSON.stringify(L.settings)) out.push('settings read as ' + JSON.stringify(STU.settings));
+      return out; })()`);
+    bad(diff);
+    // (what the stands show: the record kinds and fields the signs speak of)
+    const L = layout, has = (list, f) => (list || []).some(f), beh = k => [...L.objects, ...L.shapes].some(x => x.behaviour && x.behaviour.kind === k);
+    const want = { tint: has(L.objects, o => o.tint && o.bright), faces: has(L.objects, o => o.faces === 'both'), hide: has(L.shapes, s => s.look === 'hide'), group: (L.groups || []).length >= 2,
+      empty: (L.empties || []).length > 0, lock: has(L.shapes, s => s.locked && s.name === 'Locked box'), cut: (L.cuts || []).length > 0, wall: beh('wall'), look: beh('look'), follow: beh('follow'), avoid: beh('avoid'), item: beh('item'),
+      ar: has(L.shapes, s => s.shows === 'ar'), vr: has(L.shapes, s => s.shows === 'vr'), paint: (L.paintings || []).length > 0, all: has(L.cubes, c => c.all), plays: has(L.cubes, c => c.plays), tex: has(L.cubes, c => c.tex),
+      key: has(L.cubes, c => c.key), grab: has(L.shapes, s => s.grab), switch: has(L.shapes, s => s.press && s.press.do.some(e => L.cubes.some(c => c.id === e.on))), follows: has(L.sounds, s => s.on),
+      press: has(L.shapes, s => s.press && s.press.hover), seq: (L.sequences || []).length > 0, screen: (L.screens || []).length > 0, send: has(L.cubes, c => c.send), move: has(L.objects, o => o.anim === 'move' && o.path),
+      motions: ['spin', 'wobble', 'bob', 'pulse', 'orbit', 'sway'].every(k => has(L.shapes, s => s.motion && s.motion.kind === k)), trail: has(L.shapes, s => s.trail), goggles: has(L.shapes, s => s.shape === 'goggles') };
+    const missing = Object.keys(want).filter(k => !want[k]);
+    if (missing.length) errors.push('studio tour: the layout does not show ' + missing.join(', '));
+    const ex = await ss(`(STUDIO.examples().list || []).join()`);
+    if (!ex.split(',').includes('studio-tour')) errors.push('studio tour: not in the Scene pane\'s examples: ' + ex);
+  });
+  await step('studio tour: the shuttle\'s cabin cube (Walk view inside it) shows the world outside and hides the hall, and gives them back outside', async () => {
+    if (!opened) { errors.push('studio tour: the scene did not open'); return; }
+    const at = async (x, z) => { await ss(`(setView('walk'), WALK.pos.set(${x}, 1.6, ${z}), WALK.to = null, 0)`); await tp.waitForTimeout(1200); return ss(`[STU.items.get('cbn027').inside, STU.items.get('elsew1').shown, STU.items.get('hall01').shown]`); };
+    const inside = await at(0, -32.6), outside = await at(0, -29.5);
+    if (JSON.stringify(inside) !== '[true,true,false]' || JSON.stringify(outside) !== '[false,false,true]') errors.push(`studio tour: the cabin cube, inside [in, world, hall] ${JSON.stringify(inside)}, outside ${JSON.stringify(outside)}`);
+    const g = await ss(`STUDIO.goggles()`);
+    if (!g || g.on || g.items.length !== 1 || !g.loaded) errors.push('studio tour: the goggles\' state: ' + JSON.stringify(g));
+  });
+  await tp.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {

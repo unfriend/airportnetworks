@@ -1,0 +1,22 @@
+{
+  "version": "networks-v199",
+  "date": "2026-11-24",
+  "new": [
+    "A studio tour: in the studio's Scene pane, Examples, open studio-tour. A hall with a stand for each thing the studio does, each working, with a sign saying what it is and what to do there.",
+    "The basics first (models, textures, shapes, cut-outs...), then what reacts to you (trigger cubes, presses, sequences, sounds, screens), then what moves (motions, behaviours, paths, trails).",
+    "At the end a shuttle for four: walk in and sit down, and for you the hall gives way to another world. The VR goggles are on its shelf, and a panel waits for the game screen.",
+    "VR goggles in the studio (v197, v198): take them with the grip and bring them to your face to fly a ship through the cell of Back into the cell. Grip near your face and pull away, or the menu's Goggles off, to take them off."
+  ],
+  "test": [
+    "In a headset, open the studio tour and walk the hall with the sticks. Are the signs readable from where you stand? Is anything too close or in the way?",
+    "Step onto the pads, press the buttons, carry the red ball into the basket, and let the robot follow you. Does each stand do what its sign says?",
+    "Sit in the shuttle: does the other world replace the hall through the windows and the door, and come back as you step out? With two headsets, only the one inside should see it.",
+    "Take the goggles from the shuttle's shelf and bring them to your face; take them off again. Are they back on the shelf?",
+    "In AR: the purple poster should go to your nearest real wall, the orange box show instead of the blue ball."
+  ],
+  "untested": [
+    "Everything a headset shows in the tour: the walk's length (about 35 m), the signs at reading distance, the pads, presses and grips, the shuttle's world as you sit, the goggles from its shelf, the poster on a real wall in AR. Only a page in Walk view was checked.",
+    "How the tour's sounds sound (bell, music box, buzz, notes, tunes, whoosh): unheard.",
+    "The goggles' game itself (v197, v198): the grab to the face, the take-off gesture, the fade and bubble, comfort and frame rate on a Quest."
+  ]
+}

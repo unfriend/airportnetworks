@@ -1200,6 +1200,18 @@ pretend walls of a 3 x 3.5 m room (`STUDIO.walls`, an AR session pretended, `STU
 what rides on it inside the room, the anchors against a wall, failing when they have not settled within 48 s. After changing `tools/studio/xp/`, run
 `node tools/studio/xp/make.mjs` and its `--check`.
 
+### smoke: studio tour
+
+Its *studio tour* steps (`--only 'studio tour'`, about a minute) open the studio tour read only from `examples/`
+(`#studio&scenes=examples&scene=studio-tour`): every model loaded with no console error, each under 10,000 triangles and
+the scene under 60,000 as placed, every picture at most 1,024 px, the clips (and idle clips) its layout names there;
+every sound decoded (mono, 11,025 Hz); its layout read with no bad items, every record of every kind (objects, cubes,
+sounds, cut-outs, groups, shapes, empties, sequences, screens, paintings) as the studio's own `norm` gives it back, its
+settings, the fields each stand shows used, the Scene pane's Examples listing it; and in Walk view the shuttle's cabin
+cube active inside it, the world outside shown and the hall hidden, and the other way round outside, the goggles there and
+`flight.js` loaded. After changing `tools/studio/tour/` (or `tools/studio/xp/kit.js`, which it loads), run
+`node tools/studio/tour/make.mjs` and its `--check`.
+
 ### smoke: bodies
 
 `--only bodies` (v164): people's bodies (`bodies.js`, "People's bodies" in `docs/agents/shared-rooms.md`) with a
