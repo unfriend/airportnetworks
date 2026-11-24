@@ -582,7 +582,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   left for moving with the sticks, a new ship after 5 s, seen by everyone, practice targets "yes totally, maybe some ships
   that also fly around"; then "leave the drifting targets and the drones in when more join so players can also coop
   against them, also add some addons like additional boost and faster shooting for some times and reinforced shields
-  pickups that spawn from time to time". Laser tag across the room, discussed first, went to the Deferred list (item 7).
+  pickups that spawn from time to time". Laser tag across the room, discussed first, was dropped (the owner, 24 November 2026: too inaccurate).
   Built in one lane (a workflow, about 2.7M tokens: a builder, two Sonnet reviews, a verify and a fix round; two medium
   findings confirmed and fixed, with nine lows).
   - `ships.js` (`HOST.ships`, "Spaceships" in `docs/agents/shell.md`), a shell file loaded after `occlusion.js` and before
@@ -2034,19 +2034,6 @@ Before handing over (or making anything more public), someone has to decide thes
      navigation (`navigator.xr`'s `sessiongranted`), keeping today's *Enter VR to continue* as the fallback; whether a
      reload counts as such a navigation can only be found on a Quest. Swapping the shell's own code without a reload is
      not realistic (`shared.js` holds the room, the alignment and the session's state in one closure).
-   - **Laser tag across the whole room (maybe later; the owner, 10 November 2026: "lets not do this for now and put it
-     on the maybe later list").** The design as discussed: a layer over the whole room, apart from the circles. Each
-     headset has its own *Play laser tag* switch (only players shoot or are hit; others see nothing of it), and the room
-     has *Start a round for everyone* (as narration for everyone: each can still leave, the lobby takes you out). The
-     hitbox is estimated from the head: a head sphere and a chest capsule turning after the head, drawn as a glowing vest
-     and headband in each player's colour, hands never hit, a few cm of slack for the alignment between headsets. A hit
-     is decided by the person shot: the shot (start, direction, the relay's time) goes out and their own headset tests it
-     against where it really was then, from its own history, so only the alignment counts, not the network's delay. A
-     shield held on the free hand's grip (an energy bar draining while up), real cover from the room scan (a beam stops
-     at the first real surface), 3 s out after a hit. While playing the trigger fires (the menu and panels still pressed)
-     and the grip shields (A/X the other choice). AR only for people in one room (no VR in the room: they cannot see the
-     others); VR headsets elsewhere join as their avatars. Score keys one per person, written by its owner; a new
-     `FORMAT`. Open: opt-in or forced, the fire button, shield kind, real cover, free play, timed rounds or lives.
    - **Lining up without tape: "Line up with someone" (left as it is for now; the owner, 16 November 2026: "Can we get a
      quick sync mode for conferences etc where we wont scan the room, for example just have two people high five each
      other twice while pressing a button, something like that… ( or we do a tutorial where to start they have to put
