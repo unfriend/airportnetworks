@@ -123,6 +123,52 @@ It stops at the first problem and says what it is. The usual ones:
 - *"the release step ..."* or *"the release check failed"*: the app itself has unfinished changes of the maintainer's.
   Not your doing: ask the maintainer.
 
+## On your own fork
+
+The way for colleagues who write a story of their own (the owner, 24 November 2026: "they fork it ... and i pull it on
+once it is ready"). You need no right to push to the app's repository: you work on your own copy on GitHub, show it at
+your own address, and the maintainer takes your story over when you say it is ready. Not yet tried by anyone from start
+to finish: tell the maintainer where it goes wrong.
+
+1. **Fork** https://github.com/unfriend/airportnetworks on GitHub (*Fork*, top right). **Untick "Copy the `main` branch
+   only"**: you need the branch `dev`. `main` is the released app and can be many versions behind; a story started
+   there does not fit the app as it is now.
+2. **Clone your fork** and work on `dev`, as above, with your own address:
+
+   ```sh
+   git clone https://github.com/<you>/airportnetworks.git
+   cd airportnetworks
+   git switch dev
+   git remote add upstream https://github.com/unfriend/airportnetworks.git
+   ```
+
+3. **A new story** starts from the template: `tools/packages/SPEC.md` says how (`tools/packages/template/` is a
+   package's `src/`; `packages/hello/` is a finished small example). An existing one is in `packages/<key>/`.
+4. **Publish as this page says** (`node tools/packages/publish.mjs <key> "<what changed>"`). On a fork it sends to your
+   own `dev`, not to the app's.
+5. **Your own address.** In your fork on GitHub: *Settings*, *Pages*, *Deploy from a branch*, branch `dev`, folder `/`.
+   A few minutes later your copy is at `https://<you>.github.io/airportnetworks/#<key>`, on a computer, a phone and a
+   headset. Shared rooms there are untested (your copy has no relay of its own).
+6. **Keep up with the app**, every week or so and always before you say it is ready, so your story runs on the app as
+   it is now:
+
+   ```sh
+   git fetch upstream dev
+   git merge upstream/dev
+   ```
+
+   If git reports a conflict only in generated files (`packages/index.json`, `version.json`), take the app's copy
+   (`git checkout --theirs <file>`, `git add <file>`, `git commit`) and run the publish command again: it writes them
+   anew. A conflict anywhere else means you changed something outside your story: ask the maintainer.
+7. **When it is ready**, tell the maintainer your fork's address and your story's key (or open a pull request from your
+   `dev` to the app's `dev`). The maintainer takes your `packages/<key>/` folder only: changes outside it are left
+   behind, so keep to "What not to touch" above.
+
+The maintainer's side: `git fetch https://github.com/<them>/airportnetworks.git dev`, then
+`git checkout FETCH_HEAD -- packages/<key>` on `dev`, a line for a new key in `packages/order.json`, and
+`node tools/packages/publish.mjs <key> "<what changed>"`, which builds it against the app as it is now, checks it and
+puts it on the test site. It goes to the main site with the next release, as every story does.
+
 ## If you use Claude Code
 
 This repository's `.claude/settings.json` lets Claude Code run every command and edit every file without asking you
