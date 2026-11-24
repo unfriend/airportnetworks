@@ -1444,13 +1444,19 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   occlusion while it is: `HOST.occlusion.scene('off')`, which never pauses depth sensing), `fade()`, `paused()`.
 - **The bubble** (`BUBBLE`): in AR the headset shows no boundary, so the game is for sitting or standing still. The head's
   distance along the floor from the anchor: from 0.3 m the game fades out to the room, at 0.5 m it is gone (the scene
-  back), past 0.4 m it waits (its clock stops; a notice, at most every 8 s); back at the seat it fades in and goes on. The
+  back), past 0.4 m it waits (its clock stops; a notice, at most every 8 s); back at the seat it fades in and goes on.
+  It fails safe (v198): no head pose for `BUBBLE.lost` (300 ms) counts as outside it (faded out and paused, a notice that
+  the headset lost track), a distance that is not a number as far away; and any move of the origin takes them off
+  (`recentred`, a notice that the seat was lost; no re-anchoring): the reference space's `reset` (a listener added with
+  `HOST.quiet` set as they go on, removed as they come off) and `shared.js`'s `floorReset` and `originMoved` (a recentre,
+  a jump of the origin, the room's frame lost). The menu's Recenter moves the scene, not the viewer's pose, so it leaves
+  the seat as it is. The
   fade: the cover's alpha (in AR the passthrough shows through), the glows' colour, a fixed screen-door on the opaque
   parts (they stay opaque and sorted).
 - **Controls** (the spaceship's stick: `HOST.ships.STICK`, its dead zone and curve). The right stick: right turns right
   (at most `FLY.turn`, 50 degrees a second, eased), forward dives and back climbs (at most `FLY.climb`, 1.4 m/s); the
   view stays level (no pitch, no roll, no loops: the spaceships' rule). Always forward at `FLY.cruise`, 2 m/s; the right
-  grip brakes to a stop. The right trigger scans. Nothing reads A or X (`buttons[4]`): the spaceship cannot launch while
+  grip brakes to a stop (not the grip that carried them to the face, until it is let go: v198). The right trigger scans. Nothing reads A or X (`buttons[4]`): the spaceship cannot launch while
   they are on (`HOST.ships.whyNot`), and one flying lands as they go on. The right controller is the game's
   (`HOST.inputsGuard.claim`, chained with the spaceship's claim; `HOST.collab.ray` answers for its ray as for a ship's;
   a stick click while it steers counts only near the middle, as a ship's). Moving with the sticks rests while they are
@@ -1478,7 +1484,8 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   sights, the one scanned, the next partner pulsing, the drones' eyes) in one more, the scanned protein's links (at most
   120, made again only when it changes), a guide line to the next partner and an arrow on the console, the near drones
   instanced, two name tags, the console's screen (a canvas redrawn only when its words change): about a dozen draw
-  calls, nothing allocated a frame, no post-processing. Words: the score, the protein, its place, *N links in this map ·
+  calls, nothing allocated a frame (v198: the console's words made only when its numbers change, compared one by one;
+  the markers' colours made once; the tags redrawn only when their protein changes), no post-processing. Words: the score, the protein, its place, *N links in this map ·
   M to proteins with a place · K of them elsewhere in the cell*, the next partner and how far.
 - **Sounds** (`HOST.sfx.play`, through `HOST.audio.fx()`; nothing continuous): `enter` on, `close` off, `ping` a scan,
   `link` a link followed, `bump` a drone, `notice` no partner left.
@@ -1488,7 +1495,7 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   can aim its own way.
 - For tests: `state()`, `line()`, `debug.page(on)` (worn on a page with the page's camera as the head: the studio's
   `gogStep` steps it with `pageFrame`), `debug.input({ x, y, grip, trig })`, `debug.head([dx, dy, dz])` (the head shifted:
-  the bubble), `debug.place(p, yaw)`, `debug.visit(i)`, `debug.find(name)`. `node tools/smoke.mjs --only goggles`.
+  the bubble), `debug.lost(on)` (the head's pose lost), `debug.place(p, yaw)`, `debug.visit(i)`, `debug.find(name)`. `node tools/smoke.mjs --only goggles`.
 - Untested on a headset: the grab to the face and the gesture off, the fade and pause at the bubble's edge, comfort
   (the turn rate, the level view, the cockpit), the stick's feel, the frame rate with 15,800 points, the cover in AR,
   other people's bodies in front of the game, how it sounds.

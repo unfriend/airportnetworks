@@ -829,7 +829,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pair too, since nothing moves), the ray finds them as it finds what anyone may move, and the grip carries them in this
   hand alone (`c.grab.wear`: never written, nobody else sees them move; their own lock does not refuse it, a shared room's grip lock at a locked story still does); within the
   shell's `WEAR.on` (0.2 m) of the head they go on (`HOST.flight.wear({ owner: 'studio', id })`) and are back where they
-  stand at once (`gogBack`); let go anywhere else, back there too. While the game is drawn here (`gogHide`): the scene
+  stand at once (`gogBack`); let go anywhere else, back there too. Refused by the shell (camera mode, a phone, no right controller: `whyNot`, asked first, v198) they stay in the hand, said once a carry. While the game is drawn here (`gogHide`): the scene
   (`GL.world`) and the studio's panels hidden for you, not unloaded; nothing of the studio pointable (`xrPoint`); its
   sticks move nothing (`stickMove`); the shell told to hide the other circles and to apply no real-world occlusion
   (`settingsStep`: `hideOthers(true)`, `occlusion.scene('off')`; back as they were once it is not drawn). Taken off here

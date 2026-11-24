@@ -23,7 +23,9 @@ HOST.flight = (function () {
   // the safety bubble (m along the floor from where they went on): from fade0 the game fades out to the room, at fade1 it
   // is gone; past pause it waits (its clock stops) until you come back. In AR the headset shows no boundary: the game is
   // for sitting or standing still
-  const BUBBLE = { fade0: 0.3, fade1: 0.5, pause: 0.4 };
+  const BUBBLE = { fade0: 0.3, fade1: 0.5, pause: 0.4, lost: 300 };
+  // (v198, failing safe: no head pose for lost ms counts as outside the bubble, faded out and paused; a head that is not a
+  // number counts as far away; a recentre or any move of the origin takes them off, since the seat is no longer known)
   // the stick (the spaceship's: a dead zone, then the push's share to a power), and the ship: always forward at cruise m/s
   // (the right grip brakes it to a stop), turning at most turn deg/s about the vertical, climbing or diving at most climb
   // m/s; the view stays level (no pitch, no roll, no loops: the owner's rule for the spaceships). Pushed right turns right,
@@ -453,7 +455,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       gg.setAttribute('aColor', new THREE.Float32BufferAttribute([0.15, 0.6, 0.3, 0.45, 1, 0.62], 3));
       V.guide = new THREE.LineSegments(gg, lineMat()); V.guide.frustumCulled = false; V.guide.renderOrder = 2; V.guide.visible = false;
       V.drones = new THREE.InstancedMesh(droneGeo(), lit, MAXDR); V.drones.instanceMatrix.setUsage(THREE.DynamicDrawUsage); V.drones.frustumCulled = false; V.drones.count = 0;
-      for (let k = 0; k < 2; k++) { const T = canvasPlane(1, 0.25, 512, 128); T.mesh.visible = false; T.mesh.renderOrder = 5; V.tags.push(T); }
+      for (let k = 0; k < 2; k++) { const T = canvasPlane(1, 0.25, 512, 128); T.i = -1; T.mesh.visible = false; T.mesh.renderOrder = 5; V.tags.push(T); }
       V.world.add(V.marks, V.links, V.guide, V.drones, ...V.tags.map(T => T.mesh));
       V.root.add(V.cover, V.cockpit, V.dash.mesh, V.arrow, V.reticle, V.world);
       V.made = true;
@@ -486,7 +488,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
   // S: worn here (on), by which page (owner) and its goggles (id), the anchor where they went on (in the renderer's space:
   // the head's place and its level turn), the fade and pause of the bubble, the game (G) and this frame's input (I)
   const S = { on: false, want: '', owner: '', id: '', page: false, a: new V3(), ayaw: 0, aq: new Q4(), fade: 0, away: 0, paused: false, G: null, I: { turn: 0, climb: 0, brake: 0, scan: false, aim: -1 },
-    trigWas: true, grips: new Map(), t: 0, sess: null, aimed: -1, saidPause: 0 };
+    trigWas: true, grips: new Map(), t: 0, sess: null, aimed: -1, saidPause: 0, poseAt: 0, ref: null };
   const HEAD = { ok: false, p: new V3(), q: new Q4() };
   const CTRL = { ok: false, p: new V3(), sx: 0, sy: 0, grip: 0, trig: false };
   const immersive = () => !!HOST.session && (HOST.mode === 'immersive-vr' || HOST.mode === 'immersive-ar');
@@ -521,7 +523,8 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     S.on = true; S.want = '';
     S.a.copy(HEAD.p); const e = new THREE.Euler().setFromQuaternion(HEAD.q, 'YXZ');
     S.ayaw = e.y; S.aq.setFromAxisAngle(new V3(0, 1, 0), S.ayaw);
-    S.fade = 1; S.away = 0; S.paused = false; S.trigWas = true; S.grips.clear(); S.aimed = -1; S.saidPause = 0;
+    S.fade = 1; S.away = 0; S.paused = false; S.trigWas = true; S.grips.clear(); S.aimed = -1; S.saidPause = 0; S.poseAt = S.t;
+    refWatch(true);
     // a grip held now (the hand that brought them) must be let go before it can take them off
     let list = [];
     try { list = HOST.session ? HOST.session.inputSources : []; } catch (e) { /* gone */ }
@@ -538,9 +541,32 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     if (!S.on && !S.want) return false;
     const was = S.on;
     S.on = false; S.want = ''; S.fade = 0;
+    refWatch(false);
     if (V.made) V.root.visible = false;
     if (was) { log('goggles off', { why: why || '' }); if (!quiet) { play('close'); say('VR goggles off', 'The room is back. The goggles are where they were.', 3000); } }
     changed();
+    return true;
+  }
+  // the reference space's reset (a recentre) while they are on: off (listener added with HOST.quiet set, so a story change
+  // keeps it; removed as they come off)
+  function onReset() { if (S.on && !S.page) recentred('reset'); }
+  function refWatch(on) {
+    if (S.ref) { try { S.ref.removeEventListener('reset', onReset); } catch (e) { /* gone */ } S.ref = null; }
+    if (!on || S.page) return;
+    let r = null;
+    try { r = HOST.renderer ? HOST.renderer.xr.getReferenceSpace() : null; } catch (e) { r = null; }
+    if (!r || typeof r.addEventListener !== 'function') return;
+    const q = HOST.quiet;
+    HOST.quiet = true;
+    try { r.addEventListener('reset', onReset); S.ref = r; } catch (e) { /* none */ } finally { HOST.quiet = q; }
+  }
+  // the origin moved (the reference space's reset, the shell's originMoved and floorReset in shared.js): the seat is lost
+  function recentred(why) {
+    if (!S.on || S.page) return false;
+    off('recentre', true);
+    play('close');
+    say('VR goggles off', 'The headset moved its origin (a recentre?), so your seat was lost. Put them on again.', 4000);
+    log('goggles recentre', { why: why || '' });
     return true;
   }
   function play(name, at) {
@@ -551,19 +577,20 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
   // ---------------------------------------------------------------------------------------------- each frame
   const _v = new V3(), _v2 = new V3(), _q = new Q4(), _q2 = new Q4(), _m = new M4(), _m2 = new M4(), _c = new THREE.Color(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
   const _d3b = [0, 0, -1], _dr = new Float64Array(3);
-  const DBG = { in: null, head: new V3(), shift: false };
+  const DBG = { in: null, head: new V3(), shift: false, lost: false };
   const shape = a => { a = Number.isFinite(a) ? clamp(a, -1, 1) : 0; const m = Math.abs(a); return m > STICK.dz ? Math.sign(a) * Math.pow((m - STICK.dz) / (1 - STICK.dz), STICK.expo) : 0; };
   function sense(f, ref) {
     HEAD.ok = false; CTRL.ok = false; CTRL.sx = CTRL.sy = CTRL.grip = 0; CTRL.trig = false;
     let vp = null;
     try { vp = f.getViewerPose(ref); } catch (e) { /* not this frame */ }
-    if (vp) { const p = vp.transform.position, o = vp.transform.orientation; HEAD.p.set(p.x, p.y, p.z); HEAD.q.set(o.x, o.y, o.z, o.w); HEAD.ok = true; }
+    if (vp && !DBG.lost) { const p = vp.transform.position, o = vp.transform.orientation; HEAD.p.set(p.x, p.y, p.z); HEAD.q.set(o.x, o.y, o.z, o.w); HEAD.ok = true; S.poseAt = S.t; }
     if (DBG.shift) HEAD.p.add(DBG.head);
     const src = rightSrc();
     if (src) {
       const gp = src.gamepad, b = gp.buttons || [], a = gp.axes || [], i = a.length >= 4 ? 2 : 0;
       CTRL.sx = +a[i] || 0; CTRL.sy = +a[i + 1] || 0;
-      CTRL.grip = b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;
+      const gs = S.grips.get(src);
+      CTRL.grip = gs && gs.fresh ? 0 : b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;   // (the grip that carried them to the face brakes only once let go)
       CTRL.trig = !!(b[0] && (b[0].pressed || b[0].value > 0.5));
       CTRL.ok = true;
     }
@@ -599,14 +626,15 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
   }
   // the bubble: how far the head is along the floor from where they went on; the fade and the pause from it
   function bubble() {
-    if (!HEAD.ok) return;
-    S.away = Math.hypot(HEAD.p.x - S.a.x, HEAD.p.z - S.a.z);
-    S.fade = 1 - smooth(BUBBLE.fade0, BUBBLE.fade1, S.away);
+    if (!HEAD.ok) { if (S.t - S.poseAt < BUBBLE.lost) return; S.away = Infinity; }   // (tracking lost: outside the bubble)
+    else S.away = Math.hypot(HEAD.p.x - S.a.x, HEAD.p.z - S.a.z);
+    if (!Number.isFinite(S.away)) S.away = Infinity;   // (not a number: far away)
+    S.fade = S.away === Infinity ? 0 : 1 - smooth(BUBBLE.fade0, BUBBLE.fade1, S.away);
     const p = S.away > BUBBLE.pause;
     if (p !== S.paused) {
       S.paused = p;
-      log('goggles bubble', { paused: p, away: Math.round(S.away * 100) / 100 });
-      if (p && S.t - S.saidPause > 8000 && !S.page) { S.saidPause = S.t; say('VR goggles: paused', 'You moved away from your seat. Step back to carry on.', 3500); }
+      log('goggles bubble', { paused: p, away: Number.isFinite(S.away) ? Math.round(S.away * 100) / 100 : -1 });
+      if (p && S.t - S.saidPause > 8000 && !S.page) { S.saidPause = S.t; say('VR goggles: paused', HEAD.ok ? 'You moved away from your seat. Step back to carry on.' : 'The headset lost track of where you are. It carries on once it knows again.', 3500); }
     }
   }
   // the story's scene (built), where the view hangs
@@ -619,7 +647,8 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     if (D.W && !S.G) S.G = newGame(D.W);
     if (D.W && S.G && !S.paused) {
       step(D.W, S.G, inputOf(), dt);
-      for (const ev of S.G.ev) {
+      for (let k = 0; k < S.G.ev.length; k++) {
+        const ev = S.G.ev[k];
         log('goggles ' + ev, { cur: S.G.cur >= 0 ? D.W.sym[D.W.ids[S.G.cur]] : '', score: [S.G.scanned, S.G.followed, S.G.bumps] });
         play(ev === 'scan' ? 'ping' : ev === 'follow' ? 'link' : ev === 'bump' ? 'bump' : 'notice', HEAD.ok ? [HEAD.p.x, HEAD.p.y, HEAD.p.z] : null);
       }
@@ -647,16 +676,17 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     // (the page's camera is where they are worn: the anchor follows it, so only a test's shift of the head leaves the seat)
     if (S.on) { S.a.copy(HEAD.p); _e.setFromQuaternion(HEAD.q, 'YXZ'); S.ayaw = _e.y; S.aq.setFromAxisAngle(_v.set(0, 1, 0), S.ayaw); }
     if (DBG.shift) HEAD.p.add(DBG.head);
-    HEAD.ok = true;
     S.t += (dt || 0) * 1000;
+    HEAD.ok = !DBG.lost || !S.on;   // (a test's lost pose)
+    if (HEAD.ok) S.poseAt = S.t;
     run(dt || 0);
   }
   // a name tag over a protein, turned to the head
-  function tagDraw(T, i, col, line2) {
-    const sig = i + '|' + line2;
-    if (T.sig !== sig) {
-      T.sig = sig;
-      const c = T.cv.getContext('2d'), W = D.W;
+  // (redrawn only when its protein changes: next, the next partner's tag)
+  function tagDraw(T, i, next) {
+    if (T.i !== i) {
+      T.i = i;
+      const c = T.cv.getContext('2d'), W = D.W, col = next ? '#6dff9e' : COL[W.place[i]], line2 = (next ? 'Next · ' : '') + W.places[W.place[i]];
       c.fillStyle = '#081018'; c.fillRect(0, 0, 512, 128);
       c.fillStyle = col; c.fillRect(0, 0, 10, 128);
       c.textBaseline = 'middle'; c.fillStyle = '#eef6ff'; c.font = '700 56px B612, system-ui, sans-serif'; c.fillText(W.sym[W.ids[i]], 28, 46);
@@ -671,6 +701,15 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     // (the world group's turn is the ship's yaw and the anchor's: the tag's own turn is the head's in the world's frame)
     T.mesh.quaternion.copy(_q2).multiply(HEAD.q);
     T.mesh.visible = true;
+  }
+  // a marker (a glow) at x, y, z in one of the colours made once (MC), its size and brightness; MK.n counts this frame's
+  const MC = { aim: new THREE.Color('#ffffff'), cur: new THREE.Color('#ffc861'), next: new THREE.Color('#6dff9e'), eye: new THREE.Color('#ff3030') };
+  const MK = { n: 0, P: null, C: null, S: null }, MKEYS = ['position', 'aColor', 'aSize'];
+  function mark(x, y, z, col, sz, k) {
+    const n = MK.n;
+    if (n >= MAXM) return;
+    MK.P[n * 3] = x; MK.P[n * 3 + 1] = y; MK.P[n * 3 + 2] = z;
+    MK.C[n * 3] = col.r * k; MK.C[n * 3 + 1] = col.g * k; MK.C[n * 3 + 2] = col.b * k; MK.S[n] = sz; MK.n = n + 1;
   }
   function draw() {
     const sc = storyScene();
@@ -691,13 +730,12 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     // (the inverse of the world's turn in the renderer's space, for things turned to the head)
     _q2.setFromAxisAngle(_v.set(0, 1, 0), G.yaw - S.ayaw);
     // the markers: the protein in the sights, the one scanned, the next partner (pulsing), the drones' eyes
-    let nm = 0;
-    const pa = V.marks.geometry.attributes, PP = pa.position.array, PC = pa.aColor.array, PS = pa.aSize.array, P = W.pos;
-    const mark = (x, y, z, col, sz, k) => { if (nm >= MAXM) return; PP[nm * 3] = x; PP[nm * 3 + 1] = y; PP[nm * 3 + 2] = z; _c.set(col).multiplyScalar(k || 1); PC[nm * 3] = _c.r; PC[nm * 3 + 1] = _c.g; PC[nm * 3 + 2] = _c.b; PS[nm++] = sz; };
+    const pa = V.marks.geometry.attributes, P = W.pos;
+    MK.n = 0; MK.P = pa.position.array; MK.C = pa.aColor.array; MK.S = pa.aSize.array;
     const ai = S.I.aim, pulse = 0.75 + 0.25 * Math.sin(S.t / 180);
-    if (ai >= 0 && ai !== G.cur) mark(P[ai * 3], P[ai * 3 + 1], P[ai * 3 + 2], '#ffffff', 1.0, 0.7);
-    if (G.cur >= 0) mark(P[G.cur * 3], P[G.cur * 3 + 1], P[G.cur * 3 + 2], '#ffc861', 0.9);
-    if (G.next >= 0) mark(P[G.next * 3], P[G.next * 3 + 1], P[G.next * 3 + 2], '#6dff9e', 1.6 * pulse);
+    if (ai >= 0 && ai !== G.cur) mark(P[ai * 3], P[ai * 3 + 1], P[ai * 3 + 2], MC.aim, 1.0, 0.7);
+    if (G.cur >= 0) mark(P[G.cur * 3], P[G.cur * 3 + 1], P[G.cur * 3 + 2], MC.cur, 0.9, 1);
+    if (G.next >= 0) mark(P[G.next * 3], P[G.next * 3 + 1], P[G.next * 3 + 2], MC.next, 1.6 * pulse, 1);
     // the drones near the ship: instanced, facing where they swing
     let nd = 0;
     for (let k = 0; k < W.drones.length && nd < MAXDR; k++) {
@@ -706,12 +744,13 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       const d = W.drones[k], vx = DRONE.amp * d.w[0] * Math.cos(d.w[0] * G.t + d.ph[0]), vz = DRONE.amp * d.w[2] * Math.cos(d.w[2] * G.t + d.ph[2]);
       _q.setFromAxisAngle(_v.set(0, 1, 0), Math.atan2(-vx, -vz));
       _m.compose(_v2.set(_dr[0], _dr[1], _dr[2]), _q, _v.set(1, 1, 1)); V.drones.setMatrixAt(nd++, _m);
-      _v.set(0, 0.02, -0.3).applyQuaternion(_q); mark(_dr[0] + _v.x, _dr[1] + _v.y, _dr[2] + _v.z, '#ff3030', 0.45);
+      _v.set(0, 0.02, -0.3).applyQuaternion(_q); mark(_dr[0] + _v.x, _dr[1] + _v.y, _dr[2] + _v.z, MC.eye, 0.45, 1);
     }
     V.drones.count = nd;
     if (nd) { const a = V.drones.instanceMatrix; a.updateRange.offset = 0; a.updateRange.count = nd * 16; a.needsUpdate = true; }
+    const nm = MK.n;
     V.marks.geometry.setDrawRange(0, nm);
-    if (nm) for (const k of ['position', 'aColor', 'aSize']) { const a = pa[k]; a.updateRange.offset = 0; a.updateRange.count = nm * a.itemSize; a.needsUpdate = true; }
+    if (nm) for (let j = 0; j < MKEYS.length; j++) { const a = pa[MKEYS[j]]; a.updateRange.offset = 0; a.updateRange.count = nm * a.itemSize; a.needsUpdate = true; }
     // the scanned protein's links (made again only when it changes), coloured by where the partner is
     if (V.linksFor !== G.cur) {
       V.linksFor = G.cur;
@@ -740,18 +779,24 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     // the tags: the scanned protein and the next partner
     const T0 = V.tags[0], T1 = V.tags[1];
     T0.mesh.visible = T1.mesh.visible = false;
-    if (G.cur >= 0) { tagDraw(T0, G.cur, COL[W.place[G.cur]], W.places[W.place[G.cur]]); placeTag(T0, G.cur, 0); }
-    if (G.next >= 0) { tagDraw(T1, G.next, '#6dff9e', 'Next · ' + W.places[W.place[G.next]]); placeTag(T1, G.next, 1); }
+    if (G.cur >= 0) { tagDraw(T0, G.cur, false); placeTag(T0, G.cur, 0); }
+    if (G.next >= 0) { tagDraw(T1, G.next, true); placeTag(T1, G.next, 1); }
     dashDraw();
   }
   // the console's screen: the score, the protein scanned, the next partner (redrawn only when what it says changes)
+  // (v198: what it says changes only with these numbers, compared one by one; the words made only then: nothing a frame)
+  const DS = { st: '', sc: -1, fo: -1, bu: -1, pa: false, cur: -2, next: -2, dn: -1 };
   function dashDraw() {
-    const W = D.W, G = S.G, T = V.dash;
+    const W = D.W, G = S.G, T = V.dash, ok = !!(W && G);
+    const dn = ok && G.next >= 0 ? Math.round(Math.hypot(W.pos[G.next * 3] - G.p[0], W.pos[G.next * 3 + 1] - G.p[1], W.pos[G.next * 3 + 2] - G.p[2])) : -1;
+    const st = ok ? 'ok' : D.state;
+    if (DS.st === st && (!ok || (DS.sc === G.scanned && DS.fo === G.followed && DS.bu === G.bumps && DS.pa === S.paused && DS.cur === G.cur && DS.next === G.next && DS.dn === dn))) return;
+    DS.st = st; DS.dn = dn; DS.pa = S.paused;
+    if (ok) { DS.sc = G.scanned; DS.fo = G.followed; DS.bu = G.bumps; DS.cur = G.cur; DS.next = G.next; }
     let lines;
-    if (!W || !G) lines = ['VR goggles', D.state === 'failed' ? 'The cell did not load.' : 'Loading the cell…', D.state === 'failed' ? 'Take the goggles off and on to try again.' : 'Proteins and their places, from Back into the cell.', ''];
+    if (!ok) lines = ['VR goggles', D.state === 'failed' ? 'The cell did not load.' : 'Loading the cell…', D.state === 'failed' ? 'Take the goggles off and on to try again.' : 'Proteins and their places, from Back into the cell.', ''];
     else {
       const a = about(W, G.cur), nx = G.next >= 0 ? about(W, G.next) : null;
-      const dn = nx ? Math.round(Math.hypot(W.pos[G.next * 3] - G.p[0], W.pos[G.next * 3 + 1] - G.p[1], W.pos[G.next * 3 + 2] - G.p[2])) : 0;
       lines = [
         'Scanned ' + G.scanned + '   Links followed ' + G.followed + '   Drones hit ' + G.bumps + (S.paused ? '   PAUSED' : ''),
         a ? a.name + ' · ' + a.place : 'Point the nose at a protein and pull the trigger to scan it.',
@@ -759,9 +804,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
         nx ? 'Next: ' + nx.name + ' in ' + nx.place + ', ' + dn + ' m. Fly to the green light.' : a ? 'No partner left to visit from here: scan another protein.' : W.N.toLocaleString('en-GB') + ' proteins with a place in this map. Fly into the cell.',
       ];
     }
-    const sig = lines.join('|');
-    if (sig === T.sig) return;
-    T.sig = sig;
+    T.sig = lines.join('|');
     const c = T.cv.getContext('2d');
     c.fillStyle = '#071019'; c.fillRect(0, 0, 768, 300);
     c.fillStyle = '#5fd4ff'; c.fillRect(0, 0, 768, 6);
@@ -789,7 +832,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     WEAR, BUBBLE, FLY, CELL, SCAN, DRONE, SEE, STICK, DATA,
     // the world and the rules, apart from the view (stage 2: another view and the room's sharing build on these)
     world: () => D.W, rules: { newGame, step, aimAt, nextOf, dronePos, about, buildWorld },
-    prepare, wear, off, whyNot, claims, detach,
+    prepare, wear, off, whyNot, claims, detach, recentred,
     on: () => S.on || S.want === 'on', owner: () => S.owner, id: () => S.id, page: () => S.page,
     // drawn over the room now (the owner hides its scene and asks the shell for no real-world occlusion while it is)
     shown: () => S.on && S.fade > 0.002, fade: () => (S.on ? S.fade : 0), paused: () => S.paused,
@@ -802,13 +845,15 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       return { on: S.on, want: S.want, owner: S.owner, id: S.id, page: S.page, fade: S.fade, away: S.away, paused: S.paused, data: D.state, err: D.err,
         world: D.W ? { N: D.W.N, links: D.W.nb.length / 2, drones: D.W.drones.length, dots: D.dots ? D.dots.length / 4 : 0 } : null,
         game: G ? { t: G.t, p: G.p.slice(), yaw: G.yaw, v: G.v, cur: G.cur, next: G.next, curName: G.cur >= 0 ? D.W.sym[D.W.ids[G.cur]] : '', nextName: G.next >= 0 ? D.W.sym[D.W.ids[G.next]] : '', scanned: G.scanned, followed: G.followed, bumps: G.bumps } : null,
-        aim: S.I.aim, drawn: V.made ? { root: V.root.visible, inScene: !!(V.root.parent && V.root.parent === storyScene()), prot: V.prot ? V.prot.geometry.attributes.position.count : 0, marks: V.marks.geometry.drawRange.count, links: V.links.geometry.drawRange.count / 2, drones: V.drones.count, guide: V.guide.visible, dash: V.dash.sig } : null };
+        aim: S.I.aim, grip: CTRL.grip, drawn: V.made ? { root: V.root.visible, inScene: !!(V.root.parent && V.root.parent === storyScene()), prot: V.prot ? V.prot.geometry.attributes.position.count : 0, marks: V.marks.geometry.drawRange.count, links: V.links.geometry.drawRange.count / 2, drones: V.drones.count, guide: V.guide.visible, dash: V.dash.sig } : null };
     },
     debug: {
       // a page's preview: worn with the page's camera as the head (no headset)
       page(on) { if (on) return wear({ owner: (HOST.curKey || 'page'), id: 'page', page: true }); return off('test', true); },
       input(o) { DBG.in = o || null; },
       head(off3) { if (off3) { DBG.head.fromArray(off3); DBG.shift = true; } else { DBG.head.set(0, 0, 0); DBG.shift = false; } },
+    // the headset's pose lost (true) or back (false)
+    lost(on) { DBG.lost = !!on; },
       place(p, yaw) { if (!S.G) return false; if (p) for (let j = 0; j < 3; j++) S.G.p[j] = p[j]; if (Number.isFinite(yaw)) S.G.yaw = yaw; return true; },
       visit(i) { if (!S.G || !D.W) return false; visit(D.W, S.G, i); return true; },
       find(name) { const W = D.W; if (!W) return -1; const p = W.sym.indexOf(String(name).toUpperCase()); return p < 0 ? -1 : W.ids.indexOf(p); },

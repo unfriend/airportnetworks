@@ -8782,6 +8782,7 @@
     const sp = ev && (ev.referenceSpace || ev.target);
     if (sp && sp !== R.floor) return;   // an older space of ours
     const tr = ev && ev.transform;
+    flightRecentred('reset');
     eyeWant('reset');
     // without a transform the origin may have moved (a recentre): anchors and the shared space put things right,
     // a calibration without anchors is asked again
@@ -8827,8 +8828,11 @@
     const a = 2 * Math.acos(Math.min(1, Math.abs(q[0] * P.q[0] + q[1] * P.q[1] + q[2] * P.q[2] + q[3] * P.q[3]))), dt = (t - P.t) / 1000;
     if (dist3(p, P.p) / dt > 6 || a / dt > 20) originMoved('jump');   // 6 m/s, or 1150 degrees a second
   }
+  // (the VR goggles, flight.js, v198: their seat is in the old coordinates, so a move of the origin takes them off)
+  function flightRecentred(why) { try { if (HOST.flight && HOST.flight.recentred) HOST.flight.recentred(why); } catch (e) { /* none */ } }
   function originMoved(why) {
     log('origin moved', { why, src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
+    flightRecentred(why);
     R.recAt = 0; R.cmp = null;
     if (R.calib) {   // a mark taken before the move is somewhere else now
       R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate');

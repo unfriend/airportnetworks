@@ -72,7 +72,7 @@ if (!LISTTAG.test(index)) fail('index.html does not load stories/list.js as <scr
 const shellText = [
   index.replace(STAMP, 'shell: {},').replace(LISTTAG, '<script src="stories/list.js"></script>').replace(/^<(title>|meta (name="(description|twitter:[^"]*)"|property="og:[^"]*"))[^\n]*$/gm, ''),
   read('shared.js'), read('three.min.js'), read('peerjs.min.js'), read('output.js'), read('sfx.js'), read('occlusion.js'), read('ships.js'), read('notes.js'),
-  read('ik.js'), read('bodies.js'),
+  read('ik.js'), read('bodies.js'), read('flight.js'),
 ].join('\n\u0000\n');
 const id = fingerprint(shellText);
 

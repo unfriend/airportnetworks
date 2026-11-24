@@ -260,10 +260,13 @@ the studio's test scene, the Add pane's VR goggles (their record at 1 m, the car
 studio's `xrBegin` by hand) takes them with the grip (wearable with editing off), carried half way they are not on, at
 the face they go on (the hand let go, the goggles back where they stand, nothing written: `STU.rev` unchanged, the scene
 and the panels hidden, the spaceship refused, the right controller the game's); the grip that put them on, pulled away
-still held, does nothing; let go, pressed at the face and pulled away it takes them off (the scene back). Then the game
+still held, does nothing (and does not brake, v198); let go, pressed at the face and pulled away it takes them off (the
+scene back); on again (one `reset` listener on the reference space), the reference space's `reset` takes them off with a
+notice and the listener goes (v198). Then the game
 on a page (`HOST.flight.debug.page`): as many proteins drawn as the ppicell data places, a scan (links and the guide
 drawn), flying to the next partner follows the link, at most 40 draw calls, the bubble (0.45 m: faded and paused; 0.6 m:
-gone, the clock stopped, the scene back; back at the seat: on again), off again.
+gone, the clock stopped, the scene back; back at the seat: on again), the head's pose lost (`debug.lost`: faded out and
+paused within a second, back again when it returns, v198), off again.
 
 ### smoke: spaceship
 

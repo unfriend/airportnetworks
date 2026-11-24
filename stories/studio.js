@@ -33219,6 +33219,9 @@ function gogCarry(c, it) {
   if (!F) return;
   it.holder.getWorldPosition(_gg);
   if (_gg.distanceTo(XR.head) > F.WEAR.on) return;
+  // (v198: refused here, camera mode, a phone or no right controller: they stay in the hand, said once a carry)
+  const why = F.whyNot();
+  if (why) { if (!c.grab.said) { c.grab.said = true; F.wear({ owner: 'studio', id: it.id }); } return; }
   c.grab = null;
   gogBack(it, true);
   if (F.wear({ owner: 'studio', id: it.id })) { buzz(c, 0.6, 60); plog('goggles worn', { id: it.id }); }

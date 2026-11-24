@@ -16277,7 +16277,7 @@ if (runs('goggles')) {
       const pose = (p, q) => ({ transform: { position: { x: p.x, y: p.y, z: p.z }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w } } });
       W.frame = { getViewerPose: () => pose(W.head, new Q()), getPose: s => (W.real.has(s) ? pose(W.real.get(s), new Q()) : null) };
       W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [W.L, W.R], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb) };
-      W.ref = {}; W.getRef = HOST.renderer.xr.getReferenceSpace; HOST.renderer.xr.getReferenceSpace = () => W.ref;
+      W.ref = { ls: [], addEventListener(t, fn) { if (t === 'reset') this.ls.push(fn); }, removeEventListener(t, fn) { this.ls = this.ls.filter(f => f !== fn); } }; W.getRef = HOST.renderer.xr.getReferenceSpace; HOST.renderer.xr.getReferenceSpace = () => W.ref;
       HOST.session = W.s; HOST.mode = 'immersive-vr';
       HOST.cur.peek('(STU.edit = false, XR.session = window.__g.s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, 0)');
       // the right hand at p (renderer space), its controller in the studio's XR.ctrls[1]
@@ -16309,6 +16309,7 @@ if (runs('goggles')) {
     if (hid.some(Boolean)) out.push('the scene or its panels still shown while the game is drawn: ' + hid);
     if (!await sp.evaluate(() => /Not while you wear the VR goggles/.test(HOST.ships.whyNot()))) out.push('the spaceship is not refused while they are on');
     if (!await sp.evaluate(() => HOST.flight.claims(window.__g.R))) out.push('the right controller is not the game\'s');
+    if (await sp.evaluate(() => HOST.flight.state().grip) !== 0) out.push('the grip that carried them brakes before it is let go');
     // the same grip still held, pulled away: nothing (it must be let go first)
     await sp.evaluate(() => { const g = window.__g; g.hand(new THREE.Vector3(0.3, 1.2, 0.1)); g.tick(2); });
     if (!await sp.evaluate(() => HOST.flight.on())) out.push('the grip that put them on took them off without being let go');
@@ -16317,6 +16318,13 @@ if (runs('goggles')) {
     const s2 = await sp.evaluate(() => HOST.flight.on());
     if (s2) out.push('the grip pulled from the face did not take them off');
     if (!await ss('GL.world.visible')) out.push('the scene not shown again once they are off');
+    // (v198) on again, then the reference space's reset (a recentre): off, and the listener gone
+    await sp.evaluate(([x, y, z, id]) => { const g = window.__g; g.hand(new THREE.Vector3(x, y, z)); g.tick(1); HOST.cur.peek("(XR.ctrls[1].hover = { kind: 'item', id: '" + id + "' }, xrGrab(XR.ctrls[1], true), 0)"); g.hand(new THREE.Vector3(0.02, 1.58, 0.5)); g.tick(3); }, [...g0, id]);
+    const on3 = await sp.evaluate(() => [HOST.flight.on(), window.__g.ref.ls.length]);
+    if (!on3[0] || on3[1] !== 1) out.push('on again with one reset listener: ' + JSON.stringify(on3));
+    await sp.evaluate(() => { const g = window.__g; for (const fn of g.ref.ls.slice()) fn({ type: 'reset' }); g.tick(2); });
+    const rc = await sp.evaluate(() => [HOST.flight.on(), window.__g.ref.ls.length, (HOST.collab.notes().slice(-1)[0] || {}).text || '']);
+    if (rc[0] || rc[1] !== 0 || !/origin/.test(rc[2])) out.push('a recentre did not take them off (on, listeners, notice): ' + JSON.stringify(rc));
     await sp.evaluate(() => { const g = window.__g; HOST.cur.peek('xrEnded()'); HOST.session = null; HOST.renderer.xr.getReferenceSpace = g.getRef; });
     bad(out);
   });
@@ -16363,6 +16371,15 @@ if (runs('goggles')) {
     await sp.waitForTimeout(400);
     const b3 = await st();
     if (b3.fade !== 1 || b3.paused || !(b3.game.t > t1)) out.push('back at the seat: ' + JSON.stringify([b3.fade, b3.paused]));
+    // (v198) the headset's pose lost: after 0.3 s faded out and paused; back, on again
+    await sp.evaluate(() => HOST.flight.debug.lost(true));
+    await sp.waitForTimeout(700);
+    const l1 = await st();
+    if (l1.fade !== 0 || !l1.paused) out.push('no pose: fade ' + l1.fade + ', paused ' + l1.paused);
+    await sp.evaluate(() => HOST.flight.debug.lost(false));
+    await sp.waitForTimeout(400);
+    const l2 = await st();
+    if (l2.fade !== 1 || l2.paused) out.push('the pose back: fade ' + l2.fade + ', paused ' + l2.paused);
     await sp.evaluate(() => HOST.flight.debug.page(false));
     await sp.waitForTimeout(300);
     if (await sp.evaluate(() => HOST.flight.on()) || !await ss('GL.world.visible')) out.push('not off again');
