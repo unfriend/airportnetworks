@@ -2012,6 +2012,32 @@ Before handing over (or making anything more public), someone has to decide thes
      itself, the room's state ended as `{ scene, settings }` with no items in five of eight runs, written by the headset
      that walked in first, so every device showed an empty scene. A plain circle whose scene is picked on a page did not
      show it.
+   - **Performance: what a review found (maybe later; the owner, 24 November 2026: "the performance is fine in the
+     headset atm but still good to know").** Measured with `node tools/perf.mjs --only story: --frames 60` at v193 (the
+     pretend Quest, software drawing: counts and script time, no GPU time; both eyes together). Fine already: 20 to 76
+     draw calls a frame in every story, script 0.2 to 2.6 ms a frame, hardly any textures in the stories and the
+     studio's compressed (KTX2). Left, none of it started:
+     - *Triangle spikes in a few chapters* (most scenes are 50,000 to 220,000): endo at 25 % 689,000, ppicell at 25 %
+       524,000, micro at 50 % 496,000 and at 25 % 310,000, pet at 25 % 424,000. The ppicell one is known:
+       `packages/ppicell/src/sets/sites.js` pins its protein models to their finest level (`lod: 0`, 18,000 to 48,000
+       triangles each) though they are 0.09 to 0.12 units wide; `molMesh`'s own `'auto'` would do. The endo, pet and
+       micro ones are not traced to a set yet.
+     - *Memory made each frame* (garbage collection pauses, which a headset shows as dropped frames): ovary 0.9 to 1.7
+       MB a frame while its story plays, endo 0.6 to 0.8 MB, micro about 0.6 MB; the other stories 0.03 to 0.15 MB.
+       Ovary also sends 80 to 127 KB of texture a frame. The causes are not traced.
+     - *Overdraw* (not measurable here, probably the real cost on a Quest): the kit's glowing points and lines are all
+       additive and see-through, points up to 160 px wide; the spatial, proteins and pass cells nest several
+       see-through shells that fill the view close up, each a sphere of 128 by 80 segments (about 20,000 triangles;
+       half the segments would not be seen). Automatic quality covers it; a run log from a headset (*Record a run*)
+       would say which chapters drop frames.
+     - *Labels*: each headset label is its own sprite, texture and draw; an atlas would batch them, a small gain at
+       these draw counts.
+     - *Downloads*: the airports narration is 160 kbit/s mono (4.6 MB), every other 64 kbit/s (about 2.7 MB saved by
+       encoding it again); the relay does not gzip the `.mol` protein models (8.4 MB, about 28 % smaller gzipped);
+       every page start loads about 2.3 MB of script before any story, of which `shared.js` (1 MB) could load later
+       for people in no room (a risky change to the shell).
+     - Not worth doing: merging more draws, compressing the stories' textures, or moving on from three.js r128 for
+       multiview.
    - **glTF round trips: Blender and Unity (nice to have; the owner, 16 November 2026: "note all of this down as nice to
      have for later").** Export a studio scene as one GLB (each item a node with its studio record in `extras`), edit it in
      Blender, import it back by id; Unity scenes through UnityGLTF and the same import. `layout.json` keeps its own names
