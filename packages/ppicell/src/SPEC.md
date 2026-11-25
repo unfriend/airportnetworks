@@ -175,10 +175,93 @@ in living cells), the kinds compared, the two readings, the proteins without a p
   as such, never hidden.
 - **The data**: the interactome's and the Atlas's source files stay outside the repository and are not on a cloud
   machine, so the new step reads `src/sets/data.js` as it stands and adds to it (`src/data/gen_sides.py`: derived
-  classes and complex memberships only, no sequences). Its test joins `src/data/test-data.mjs`.
+  classes and complex memberships only, no sequences). Its own test is `src/data/test-sides.mjs`.
 - **The narration** is rewritten for the chapters it touches (3, 5, 6 and a line for complexes); the voice is synthetic,
   so `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell` run where Kokoro is (not on a cloud machine): until
   then the recording says the old words.
+
+### Stage A, the data (done, 25 November 2026)
+
+`src/data/gen_sides.py <folder>` (`--fetch <folder>` downloads the inputs, `--check`, `--report [--carry] [symbols]`
+prints the numbers below) writes `src/sets/sides.js` (`PPI_SIDES`, 327 KB) from `src/sets/data.js` and three public
+files: UniProtKB/Swiss-Prot release 2026_04 (4 November 2026; reviewed human entries, 20,429; the fields named in the
+script, no sequences), the EBI Complex Portal's curated human complexes (release 2026-11-20, `complextab/9606.tsv`, 2,533
+complexes) and NCBI Gene's human table (25 November 2026: `data.js` keeps symbols, so the gene numbers are found again
+from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it over `PDATA` and judges with sides;
+`node src/data/test-sides.mjs` recomputes every count below in JavaScript. Not yet in `build.mjs` (stage B).
+
+- **Mapping**: 13,202 of the 13,460 proteins have a reviewed UniProt entry (13,074 by gene number, 126 by symbol, 2 by a
+  synonym). 4,010 proteins have a place with a membrane (4,359 such protein-places of the 17,935).
+- **The classes** (per protein and place, only the eight places with a membrane): 0 not in UniProt, 1 side not told,
+  2 inside the space, 3 on the membrane on the cytosol's side, 4 on its far side, 5 through it once, 6 through it
+  several times, 7 secreted (the plasma membrane's outside); a layer (mitochondria: outer membrane, the gap, inner
+  membrane, matrix; nuclear envelope: outer, inner, the pore, between its membranes), the evidence and a basis. The
+  rules, in order, are the script's docstring: spans (Single-pass, Multi-pass, TRANSMEM features), GPI anchors, a side
+  word on the location (*Peripheral membrane protein; Cytoplasmic side* and so on), a cytosolic lipid anchor
+  (palmitoyl, myristoyl, farnesyl, geranylgeranyl, without a signal peptide), the location's own term (a lumen, the
+  matrix, the gap, *Secreted*, *Cell surface*), then the protein's signals (a signal peptide without a span: inside the
+  lumen, or secreted; a transit peptide and a bare *Mitochondrion*: the matrix; no signal at all: the cytosol's side,
+  the textbook rule, marked as our inference).
+- **Basis**: *named* where a UniProt location names the Atlas's place (no side carried from one organelle to another:
+  the owner's brief); *carried* where only the protein's own topology says it (spans, GPI, a signal peptide, lipid
+  anchors, or no signal), in the ER, Golgi, lysosomes, endosomes, plasma membrane and nuclear envelope only (never the
+  mitochondria or peroxisomes, whose import needs no visible signal). Both are in the file; `PSIDES.judge(i, generous,
+  carry)` takes either: **a choice for the owner** (carried settles far more; it rests on one textbook rule).
+- **Counts** (protein-places, named; carried in brackets): known 1,994 (+1,862 = 3,856 of 4,359): inside 298 (+140),
+  cytosol's side 649 (+1,331), far side 60 (+4), through once 513 (+233), several times 413 (+143), secreted 61 (+11);
+  side not told 152; not in UniProt 2,213 named only, 351 with carried. Evidence of the known ones (named): experimental 505,
+  curated 673, predicted 374, our no-signal rule 442 (carried: 105, 56, 426, 1,275). By place, named / carried known of
+  all: plasma membrane 1,071 / 826 of 1,927; Golgi 239 / 647 of 888; ER 224 / 221 of 446; mitochondria 395 / 0 of 838
+  (317 not in UniProt, 126 not told); nuclear envelope 43 / 151 of 209; lysosomes 4 / 13 of 17; endosomes 9 / 4 of 13;
+  peroxisomes 9 / 0 of 21.
+- **Mitochondria**: matrix 236 (the term or a transit peptide), the gap 17 (CYCS, AIFM1, COX17, NDUFA8), inner
+  membrane 99 (spanning 63: SLC25A4, COX4I1, TIMM23; on its gap side 8: CHCHD3, TIMM9/10/13; on its matrix side 28),
+  outer membrane 43 (spanning 38: TOMM20, TOMM40, BCL2, MAVS, FIS1; on the cytosol's side 5: TOMM34).
+- **New space and gates**: 9, the mitochondria's intermembrane space; gates cytosol to gap and gap to matrix. A class
+  reaches: inside or far side the place's lumen (outside for the plasma membrane; the gap or the matrix by layer;
+  between the nuclear membranes the ER lumen), cytosol's side the cytosol (the nucleoplasm for the inner nuclear
+  membrane, the gap for the inner mitochondrial one; both for the pore), through both. Classes 0 and 1 (and carried
+  ones unless asked) keep today's two readings.
+- **The verdicts** (99,479 contact links judged; possible, through a gate, impossible): today strict 81,131 / 15,390 /
+  2,958, generous 88,456 / 11,023 / 0. With sides, named: strict 82,566 / 15,024 / 1,889, generous 86,225 / 12,583 /
+  671. With carried too: strict 83,847 / 14,445 / 1,187, generous 85,792 / 12,821 / 866. Of the 8,736 links whose
+  verdict today depends on the reading, the sides settle 4,560 (52 %) named, 6,499 (74 %) carried. Of today's 2,958
+  strictly impossible: named 586 now possible in both, 429 gate in both, 573 impossible in both, 1,370 still open;
+  carried 1,115, 678, 738, 427 open. The sides also make links worse than today's strict reading (312 named, 300
+  carried: a protein on an organelle's cytosol side no longer shares its lumen), and the generous reading loses its 0:
+  671 named, 866 carried impossible in both readings (the most connected: GRB2 with secreted APOH and HTRA1; spliceosome
+  proteins SF3B1, SF3B3, DHX9 with the inner membrane's carriers SLC25A3, SLC25A5 and HSPD1 in the matrix).
+- **By kind** (impossible, strict today, then with sides named strict / generous, carried strict / generous): binary
+  5.0 % to 2.5 / 0.8, 1.6 / 1.2; literature 3.2 % to 2.2 / 0.8, 1.4 / 1.0; signalling 3.3 % to 2.3 / 0.5, 1.3 / 1.0;
+  kinase 2.0 % to 1.7 / 0.0, 0.2 / 0.0; complexes 0.7 % to 0.6 / 0.4, 0.4 / 0.4. Named, the strict order of the kinds
+  stays; carried, kinase falls to last.
+- **By place** (impossible links with an end there, today strict, then named strict / generous): Golgi 1,548 to 742 / 44
+  (carried 180 / 175), nucleoplasm 1,969 to 1,372 / 588, mitochondria 1,080 to 880 / 493 (carried 800 / 502), cytosol 833
+  to 475 / 57, ER 504 to 269 / 77, plasma membrane 412 to 266 / 102 (carried 144 / 140), nuclear envelope 81 to 27 / 2.
+- **The examples**: ADRB2 through the plasma membrane seven times (experimental); EGFR through the plasma membrane and
+  the Golgi's once; GRB2, TP53, STAT3, RELA and KRAS have no membrane place in the Atlas (their verdicts move only through
+  their partners: of GRB2's 59 links open today 9 settle possible and 17 through a gate, and 2 possible today become
+  impossible, APOH and HTRA1, both secreted; of RELA's 25, 4 possible and 10 through a gate); SRC and FYN on the plasma membrane's
+  cytosol side (lipid anchors); PLAUR, CD48, GPC1 on its far side (GPI); TGFB1, THBS1 secreted; CALR, P4HB, HSP90B1
+  inside the ER; GOLGA2 on the Golgi's cytosol side; LMNB1 on the inner nuclear membrane's nucleoplasm side; KPNB1 on the
+  nuclear envelope (our rule). The Atlas lists HSPA5 (BiP, the ER's own chaperone) only in the cytosol.
+- **Complexes**: 2,126 of the 2,533 have two members or more in the map (930 of two, 487 of three, 309 of four, 400 of
+  five or more; 10,900 links of the map fall inside one). Their positions (named, strict; generous in
+  brackets): inside a space 1,276 (1,384), on a face 59 (48), spanning 132 (107), cannot meet 272 (200), fewer than two
+  placed 387. With carried: 1,243, 96, 157, 243, 387. Inside: the mitochondrial ribosome (matrix), Mediator, RNA
+  polymerases, SAGA (nucleoplasm), the exocyst, ESCRT-III (cytosol). On a face: COPI and COPII coats, TRAPP, AP-2, the
+  Golgi's GRASP65 with GM130 (cytosol), TIM9-TIM10 (the gap). Spanning: complexes I and IV across the inner membrane
+  (gap and matrix), ATP synthase, complex III, TIM23, TOM40, the nuclear pore, oligosaccharyltransferase, gamma-secretase,
+  the nicotinic acetylcholine receptor, the T cell receptor. Cannot meet: in 222 of the 272 a single member is out; the
+  60S and 40S ribosomal subunits (RPL27 listed in the nucleus, RPL41 and RPS13 in the ER), the 26S and 20S proteasomes
+  (most subunits listed in the nucleoplasm, PSMA5, PSMC2 in the cytosol), the spliceosome's stages (SNRPD2 in the
+  cytosol), the dystrophin complex, the Na/K ATPase (FXYD2 in the mitochondria). Links inside complexes: today strict
+  7,394 / 316 / 25 (3,165 not judged), named 7,375 / 338 / 22, generous 7,476 / 257 / 2.
+- **Doubts**: the no-signal rule (442 named, 1,275 carried) is textbook but has exceptions (proteins secreted without a
+  signal: UniProt says *Secreted* for some, and those win); a span's both sides are counted even when one side is a few
+  amino acids; a protein's sides are taken per place but a link is judged per protein (as today); UniProt's location is
+  per protein, not per isoform; *Cell projection*, *Cell junction* and *Cytoplasm, cell cortex* count as the plasma
+  membrane; *Endoplasmic reticulum-Golgi intermediate compartment* as both; the Complex Portal licence is to confirm.
 
 ## Your own network (planned for after "Membrane sides and complexes"; the owner, 25 November 2026)
 

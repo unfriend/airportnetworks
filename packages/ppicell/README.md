@@ -16,6 +16,18 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
     licence (as far as we know CC BY-SA: the places in `src/sets/data.js` then carry it; to confirm), with credit to
     the Human Protein Atlas.
   - the gene numbers to symbols and Ensembl ids: NCBI Gene (public domain).
+- Membrane sides and complexes (derived classes and memberships only, in `src/sets/sides.js`, written by
+  `src/data/gen_sides.py` from `src/sets/data.js` and three public files; decoded by `src/sets/psides.js`; the rules and
+  counts are `src/SPEC.md`, "Membrane sides and complexes"):
+  - which side of a membrane each protein sits on, and each protein's reviewed accession: UniProtKB/Swiss-Prot release
+    2026_04 (its subcellular locations, membrane spans, topological domains, lipidation, signal and transit peptides),
+    licensed CC BY 4.0 (rest.uniprot.org/help/license); credit: The UniProt Consortium, UniProt: the Universal Protein
+    Knowledgebase in 2025, Nucleic Acids Research 53, D609 (2025).
+  - the complexes: the EBI Complex Portal (www.ebi.ac.uk/complexportal), curated human complexes, release 2026-11-20
+    (names, Complex Portal accessions and members). Its licence is to confirm (we believe CC0 or CC BY 4.0; neither
+    the download folder nor the pages we could fetch state it); credit: Meldal et al., Complex Portal 2022: new
+    curation frontiers, Nucleic Acids Research 50, D578 (2022).
+  - the gene numbers again from the symbols: NCBI Gene (public domain).
 - The crowd (chapter 2): real proteins each simplified to a few balls, from `src/data/gen_structs.py <folder>` (writes
   `src/sets/structs.js`; the PDB, public domain), drawn as sphere impostors.
 - Shapes: the proteins drawn (GRB2, TP53, STAT3, the lenses', the receptor, JAK2, p300) are entries of the
@@ -36,6 +48,9 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
 python3 -I packages/ppicell/src/data/gen_data.py <folder with the three files>   # writes src/sets/data.js (--check)
 ~/molenv/bin/python tools/mol/build.py packages/ppicell/src/models.json packages/ppicell/models   # the protein models (--check)
 node packages/ppicell/src/data/test-data.mjs                                     # the decoder agrees with the generator
+python3 -I packages/ppicell/src/data/gen_sides.py --fetch <folder>               # downloads UniProt, the Complex Portal, NCBI Gene
+python3 -I packages/ppicell/src/data/gen_sides.py <folder>                       # writes src/sets/sides.js (--check)
+node packages/ppicell/src/data/test-sides.mjs                                    # PSIDES agrees with gen_sides.py
 node packages/ppicell/src/build.mjs                                              # writes main.js
 node tools/packages/scan.mjs
 node tools/packages/check.mjs packages/ppicell --load
