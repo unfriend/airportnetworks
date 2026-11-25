@@ -11,6 +11,9 @@
 // the performer, else HOST.collab.body(by), their presence's head and hands), or none (trackers only). Whatever part has a
 // device follows it; ik.js works out the rest (the hips under the head, the spine, natural elbows and knees, feet that step
 // by themselves, hands that hang). Records lined up before v201 ('full', 'feet') are worn as they were.
+// Mirror the visitor (v204; the owner, 25 November 2026, at the tracker guide's end: "a third robot here that is controlled
+// just with a headset and controllers or hands so that everyone can really try this"): puppet.mirror (m) makes it each
+// headset's own mirror, no lining up: MIRROR below.
 // The object's record gains puppet: { on, rig: 'any' (or an older 'full' | 'feet'), by, map: { slot: <a tracker's id, or
 // '@head', '@l', '@r' for the performer's own headset> }, cal: { slot: [x, y, z, qx, qy, qz, qw] }, s, floor }, kept only
 // when set: which device drives which part, each part's offset from its device to its bone found at the lining up, the
@@ -79,6 +82,8 @@ function normPuppet(x) {
   }
   if (has('s')) { if (!(fin(x.s) && x.s > 0)) return null; r.s = +Math.min(1e4, Math.max(1e-4, x.s)).toPrecision(4); }
   if (has('floor')) { if (!fin(x.floor) || Math.abs(x.floor) > 1000) return null; r.floor = nz(r4(x.floor)); }
+  // (v204) the visitor's mirror: how far in front of it (m) the visitor stands, the mirror's plane half way
+  if (has('mirror')) { if (!fin(x.mirror) || x.mirror < 0.5 || x.mirror > 10) return null; r.mirror = Math.round(x.mirror * 100) / 100; }
   return r;
 }
 // lined up: every part its way of wearing needs has a tracker and an offset
@@ -160,6 +165,8 @@ function pupClock() {
 // in place of its animation (itemsStep): on and lined up, its bones solved from the trackers (true: its own clip off); else
 // false, and its clip plays as ever
 function pupStep(it, now, dt) {
+  if (it.rec.puppet && it.rec.puppet.mirror) return mirStep(it, dt);   // (the visitor's mirror: MIRROR)
+  if (it.mir) mirOff(it);
   // (lining up: it stands at rest, in its T-pose, for the performer to copy; its clip off)
   if (PUP.line && PUP.line.id === it.id && it.rec.puppet && pupRig(it) && it.rig.ok) {
     if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; it.tl = null; it.pupOn = true; }
@@ -334,6 +341,248 @@ function pupLook() {
 }
 const it0 = L => (STU.items.get(L.id) || { rec: {} }).rec.puppet || {};
 
+// ================================================================ MIRROR ==
+// (v204) Mirror the visitor (tools/trackers/SPEC.md, "The mirror"): an object whose record has puppet.mirror (m) is each
+// headset's own mirror. In a headset it copies its wearer at once, with no Edit and no lining up, visiting too: the
+// headset, each controller's grip (or a tracked hand's wrist) and, at a station, the room's trackers near the body, each
+// reflected in a plane half way between where it stands and the spot puppet.mirror m in front of it (a true mirror image:
+// your left hand drives its right hand, which is on your left as you face it), then solved by ik.js's 'any'. No T-pose:
+// the headset's and the hands' offsets are the ones people's bodies use (bodies.js: the headset at the eyes, the grips in
+// the fists of its T-pose); a tracker's is taken from the pose it has when the set of devices changes (match, posed: each
+// tied to the part it is nearest to; one too far from every part ignored; a part a headset or hand drives keeps it). Sized
+// to the wearer's eye height as bodies.js sizes people, its feet on the scene's floor. A puck with a tag at each device
+// that drives it, in its mirrored place. This device's own: nothing of it is sent, saved or in state(), and its record
+// never changes (its model's root is scaled, its bones solved). With no headset it plays its own clip.
+const MIR = { want: false, g: [null, null], hand: [false, false], fake: null, own: { head: null, l: null, r: null, hand: null }, D: [1.2, 1.6, 2, 2.5] };
+const MIR_EYE = { dt: 0.5, n: 60, p: 0.9, lo: 1.0, hi: 2.05, tau: 1 };   // (as bodies.js's EYE: a high percentile of the head's height over 30 s)
+// (as bodies.js: the headset ahead of the eyes, the fist's middle from the wrist, at the mannequin's size, its eyes 1.62 m
+// up; WebXR's grip in a T-pose, palms down; a headset looking along +z)
+const MIR_K = { eye: 1.62, ahead: 0.08, fist: [0.055, -0.015, 0] };
+const mirBasis = (x, y, z) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...x), new THREE.Vector3(...y), new THREE.Vector3(...z)));
+const MIR_GRIP = { l: mirBasis([0, -1, 0], [-1, 0, 0], [0, 0, -1]), r: mirBasis([0, 1, 0], [1, 0, 0], [0, 0, -1]) };
+const MIR_EYEQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+const MIR_BODY = { head: '@head', rhand: '@l', lhand: '@r' };   // (the part each of your own devices drives: mirrored)
+const MIR_SWAP = s => (s[0] === 'l' ? 'r' + s.slice(1) : s[0] === 'r' ? 'l' + s.slice(1) : s);
+const MIR_COL = { dev: '#3ee08f', trk: '#ffb547' };
+// from the shell's frame (xrBegin): this headset's grips, or a tracked hand's grip or wrist, as the reference space has
+// them (read only while a mirror asked for them the frame before)
+function mirGrips(frame, ref) {
+  MIR.g[0] = MIR.g[1] = null;
+  if (!MIR.want || !frame || !ref) return;
+  MIR.want = false;
+  let src = [];
+  try { src = (XR.session && XR.session.inputSources) || []; } catch (e) { src = []; }
+  for (let i = 0; i < src.length; i++) {
+    const x = src[i], k = !x ? -1 : x.handedness === 'left' ? 0 : x.handedness === 'right' ? 1 : -1;
+    if (k < 0) continue;
+    let p = null;
+    try { p = x.gripSpace ? frame.getPose(x.gripSpace, ref) : x.hand && frame.getJointPose ? frame.getJointPose(x.hand.get('wrist'), ref) : null; } catch (e) { p = null; }
+    if (!p) continue;
+    const P = p.transform.position, Q = p.transform.orientation;
+    MIR.g[k] = [P.x, P.y, P.z, Q.x, Q.y, Q.z, Q.w]; MIR.hand[k] = !!x.hand;
+  }
+}
+// your own head and hands now, in the scene's frame (seven numbers each; a hand not seen null), or null with no headset.
+// MIR.fake (the tests: { head, l, r, hand }, already in the scene's frame) in their place
+const _mrP = new THREE.Vector3(), _mrQ = new THREE.Quaternion(), _mrQ2 = new THREE.Quaternion(), _mrV = new THREE.Vector3();
+function mirOwn(W) {
+  MIR.want = true;
+  if (MIR.fake) return MIR.fake;
+  let on = false;
+  try { on = !!(XR.on && GL.renderer.xr.isPresenting); } catch (e) { on = false; }
+  if (!on) return null;
+  const O = MIR.own, iq = _mrQ2.copy(W.q).invert();
+  const into = (P, Q, out) => { P.sub(W.p).applyQuaternion(iq).divideScalar(W.s.x); Q.premultiply(iq); out = out || []; P.toArray(out); Q.toArray(out, 3); return out; };
+  O.head = into(_mrP.copy(XR.head), _mrQ.copy(XR.headQ), O.head);
+  for (let k = 0; k < 2; k++) {
+    const g = MIR.g[k], key = k ? 'r' : 'l';
+    O[key] = g ? into(_mrP.fromArray(g), _mrQ.fromArray(g, 3), O[key + 'b'] || (O[key + 'b'] = [])) : null;
+  }
+  O.hand = MIR.hand;
+  return O;
+}
+// the mirror's plane in the scene's frame (MIR_S: the reflection; MIR_F its normal, MIR_C a point on it): half way between where it
+// stands and the spot puppet.mirror m in front of it
+const MIR_S = new THREE.Matrix4(), MIR_L = new THREE.Matrix4().makeScale(-1, 1, 1), MIR_F = new THREE.Vector3(), MIR_C = new THREE.Vector3(), _mrM = new THREE.Matrix4();
+function mirPlane(it) {
+  MIR_F.set(0, 0, 1).applyQuaternion(_mrQ.fromArray(it.rec.q)); MIR_F.y = 0;
+  if (MIR_F.lengthSq() < 1e-8) MIR_F.set(0, 0, 1);
+  MIR_F.normalize();
+  MIR_C.fromArray(it.rec.p).addScaledVector(MIR_F, it.rec.puppet.mirror / 2);
+  const x = MIR_F.x, z = MIR_F.z;
+  MIR_S.set(1 - 2 * x * x, 0, -2 * x * z, 0, 0, 1, 0, 0, -2 * x * z, 0, 1 - 2 * z * z, 0, 0, 0, 0, 1);
+}
+// a pose (seven numbers, the scene's frame) reflected: out.s (the scene's frame: the pucks) and out.p, out.q (the world:
+// the solver's). Its turn reflected and made a turn again by flipping its own x (S M L): a left grip's frame becomes a
+// right grip's, a headset looking at the mirror one looking back
+function mirPose(a, W, out) {
+  _mrP.fromArray(a); _mrQ.fromArray(a, 3).normalize();
+  _mrP.addScaledVector(MIR_F, -2 * _mrV.copy(_mrP).sub(MIR_C).dot(MIR_F));
+  _mrM.makeRotationFromQuaternion(_mrQ).premultiply(MIR_S).multiply(MIR_L);
+  _mrQ.setFromRotationMatrix(_mrM);
+  out.s = out.s || []; _mrP.toArray(out.s); _mrQ.toArray(out.s, 3);
+  _mrP.multiplyScalar(W.s.x).applyQuaternion(W.q).add(W.p); _mrQ.premultiply(W.q);
+  out.p = _mrP.toArray(out.p || []); out.q = _mrQ.toArray(out.q || []);
+  return out;
+}
+// a mirror's start: the offsets of the headset and hands from the character at rest, as if a person stood in it in its
+// T-pose (bodies.js's), its eye height and its root's scale as loaded; null when it cannot be (its eyes not above the floor)
+function mirNew(it, rig) {
+  pupRest(it);
+  const W = pupW(), par = rig.bones.hips.parent, Fq = new THREE.Quaternion();
+  if (par) { par.updateWorldMatrix(true, false); par.getWorldQuaternion(Fq); }
+  // (the character's own axes in the world: Mixamo's faces +z with its left at +x, as ik.js finds them)
+  const R = mirBasis(rig.left.clone().applyQuaternion(Fq).toArray(), rig.up.clone().applyQuaternion(Fq).toArray(), rig.fwd.clone().applyQuaternion(Fq).toArray());
+  const eye = IK.restPose(rig, 'eye').p, eye0 = (eye.y - W.p.y) / W.s.x, u = eye0 / MIR_K.eye;
+  if (!(eye0 > 0.3)) return null;
+  const tg = { hmd: { p: eye.clone().add(new THREE.Vector3(0, 0, MIR_K.ahead * u * W.s.x).applyQuaternion(R)).toArray(), q: R.clone().multiply(MIR_EYEQ).toArray() } };
+  for (const s of ['l', 'r']) {
+    const w = IK.restPose(rig, s + 'hand').p, sg = s === 'l' ? 1 : -1;
+    tg[s] = { p: w.clone().add(new THREE.Vector3(MIR_K.fist[0] * sg, MIR_K.fist[1], MIR_K.fist[2]).multiplyScalar(u * W.s.x).applyQuaternion(R)).toArray(), q: R.clone().multiply(MIR_GRIP[s]).toArray() };
+  }
+  const c = IK.calibrate(rig, tg, { head: 'hmd', lhand: 'l', rhand: 'r' }, 'any', { floor: W.p.y, scale: false });
+  if (!c.ok) return null;
+  const r0 = it.model.rest.find(([n]) => n === it.model.o);
+  return { model: it.model, cal0: c.cal, eye0, s0: r0 ? r0[3].clone() : it.model.o.scale.clone(), k: 1, eye: { ring: [], at: MIR_EYE.dt, want: 0, now: 0 },
+    st: {}, key: '', n: 0, tmap: {}, tcal: {}, hp: null, T: {}, C: { ok: true, setup: 'any', map: {}, cal: {}, floor: 0 }, list: [] };
+}
+// the eye height (the scene's): a high percentile of the head's height over the last 30 s, eased
+function mirEye(M, y, dt) {
+  const E = M.eye;
+  E.at += dt;
+  if (E.at >= MIR_EYE.dt) {
+    E.at = 0; E.ring.push(y); if (E.ring.length > MIR_EYE.n) E.ring.shift();
+    const s = E.ring.slice().sort((a, b) => a - b);
+    E.want = Math.min(MIR_EYE.hi, Math.max(MIR_EYE.lo, s[Math.floor(MIR_EYE.p * (s.length - 1))]));
+  }
+  E.now = E.now ? E.now + (E.want - E.now) * (dt > 0 ? 1 - Math.exp(-dt / MIR_EYE.tau) : 1) : E.want;
+  return E.now;
+}
+const mirOK = a => Array.isArray(a) && a.length === 7 && a.every(fin) && Math.hypot(a[3], a[4], a[5], a[6]) > 1e-6;
+// every frame in place of its animation (pupStep): with a headset its bones solved from your mirrored devices (true: its
+// own clip off); else false, and its clip plays
+function mirStep(it, dt) {
+  const W = pupW(), own = mirOwn(W), rig = own && mirOK(own.head) && it.model ? pupRig(it) : null;
+  if (!rig || !rig.ok) { if (it.mir) mirOff(it); it.pupWhy = rig ? rig.why : ''; return false; }
+  if (it.mir && it.mir.model !== it.model) mirOff(it);
+  if (!it.mir) {
+    const M = mirNew(it, rig);
+    if (!M) { it.pupWhy = 'Its eyes are not above the floor: stand it on the floor.'; return false; }
+    if (it.mixer) it.mixer.stopAllAction();
+    it.action = null; it.animKey = ''; it.tl = null; it.pupOn = true; it.pupWhy = ''; it.mir = M;
+  }
+  const M = it.mir;
+  if (motionsPaused()) return true;   // (Pause: it holds the pose it shows)
+  mirPlane(it);
+  // (a jump, the sticks or a new place: the feet planted again under it)
+  const hp = _mrV.fromArray(own.head);
+  if (M.hp && M.hp.distanceTo(hp) > 1) M.st = {};
+  (M.hp || (M.hp = new THREE.Vector3())).copy(hp);
+  // its size: its eyes at your eye height
+  M.k = mirEye(M, own.head[1], dt) / M.eye0;
+  it.model.o.scale.copy(M.s0).multiplyScalar(M.k);
+  // the devices, reflected: yours, and the room's trackers here (at a station)
+  const T = M.T, seen = [];
+  for (const id in T) T[id].on = false;
+  const put = (id, a) => { mirPose(a, W, T[id] || (T[id] = {})).on = true; seen.push(id); };
+  put('@head', own.head);
+  if (mirOK(own.l)) put('@l', own.l);
+  if (mirOK(own.r)) put('@r', own.r);
+  for (const x of TRK.at.values()) if (x.k === 't' && x.ok && x.p) put(x.id, x.p.concat(x.q));
+  const D = {};
+  for (const id of seen) D[id] = T[id];
+  // a new set of devices: the trackers tied to the parts they are nearest to as it stands now (once it has stood a moment)
+  const key = seen.slice().sort().join();
+  if (key !== M.key && M.n > 5) {
+    M.key = key; M.tmap = {}; M.tcal = {};
+    const m = IK.match(rig, D, { floor: W.p.y, posed: true }), taken = new Set(PUP_SLOTS.filter(s => MIR_BODY[s] && D[MIR_BODY[s]]));
+    for (const sl in m.map || {}) {
+      const id = m.map[sl];
+      if (PUP_BODY.test(id) || taken.has(sl)) continue;
+      const b = rig.bones[sl === 'chest' ? rig.chest : PUP_PART[sl]], t = D[id], bp = new THREE.Vector3(), bq = new THREE.Quaternion();
+      b.matrixWorld.decompose(bp, bq, _pS);
+      const iq = new THREE.Quaternion().fromArray(t.q).invert(), off = bp.sub(_mrP.fromArray(t.p)).applyQuaternion(iq).divideScalar(M.k);
+      bq.premultiply(iq).normalize();
+      M.tmap[sl] = id; M.tcal[sl] = [off.x, off.y, off.z, bq.x, bq.y, bq.z, bq.w];
+    }
+  }
+  // its parts this frame: each with a device now, its offset at this size; the rest worked out
+  const C = M.C;
+  for (const s in C.map) delete C.map[s];
+  for (const s of PUP_SLOTS) {
+    const id = MIR_BODY[s] && D[MIR_BODY[s]] ? MIR_BODY[s] : M.tmap[s] && D[M.tmap[s]] ? M.tmap[s] : '';
+    if (!id) { delete C.cal[s]; continue; }
+    const c0 = id[0] === '@' ? M.cal0[s] : M.tcal[s], c = C.cal[s] || (C.cal[s] = [0, 0, 0, 0, 0, 0, 1]);
+    for (let j = 0; j < 7; j++) c[j] = j < 3 ? c0[j] * M.k : c0[j];
+    C.map[s] = id;
+  }
+  C.floor = W.p.y;
+  const r = IK.solve(rig, C, D, dt, M.st);
+  it.pupWhy = r.ok ? '' : r.why;
+  if (!r.ok) rig.toRest();
+  M.n++; M.hand = own.hand || [false, false];
+  mirPucks(it, M, D);
+  return true;
+}
+// the pucks: one at each device that drives a part, where the mirror sees it, with a tag naming it (yours: your headset,
+// your left controller or hand ...; a tracker by the part it is on, on you). Opaque, never hit by the pointer
+const MIR_PUCK = { geo: null, mat: {} };
+function mirPucks(it, M, D) {
+  let G = it.mirG;
+  if (!G) {
+    G = it.mirG = { g: new THREE.Group(), p: [], t: [] };
+    G.g.matrixAutoUpdate = false; G.g.name = 'mirror pucks';
+    it.holder.add(G.g);
+    if (!MIR_PUCK.geo) { MIR_PUCK.geo = new THREE.CylinderGeometry(0.038, 0.038, 0.022, 20); for (const k in MIR_COL) MIR_PUCK.mat[k] = new THREE.MeshStandardMaterial({ color: MIR_COL[k], roughness: 0.5, metalness: 0.1 }); }
+  }
+  // (the group in the scene's frame: the pucks' places are the scene's)
+  GL.items.updateWorldMatrix(true, false); it.holder.updateWorldMatrix(true, false);
+  G.g.matrix.copy(it.holder.matrixWorld).invert().multiply(GL.items.matrixWorld);
+  G.g.matrixWorldNeedsUpdate = true; G.g.visible = true;
+  const L = M.list; L.length = 0;
+  for (const s of PUP_SLOTS) {
+    const id = M.C.map[s];
+    if (!id) continue;
+    const word = id === '@head' ? 'Headset' : id === '@l' ? (M.hand[0] ? 'Left hand' : 'Left controller') : id === '@r' ? (M.hand[1] ? 'Right hand' : 'Right controller') : PUP_WORD[MIR_SWAP(s)] + ' tracker';
+    L.push({ slot: s, id, word, at: D[id].s });
+  }
+  L.forEach((x, i) => {
+    let P = G.p[i], tg = G.t[i];
+    if (!P) {
+      P = G.p[i] = new THREE.Mesh(MIR_PUCK.geo, MIR_PUCK.mat.dev); P.raycast = () => {}; G.g.add(P);
+      tg = G.t[i] = LOOKS.tag(30); tg.raycast = () => {}; G.g.add(tg);
+    }
+    P.material = MIR_PUCK.mat[x.id[0] === '@' ? 'dev' : 'trk'];
+    P.position.fromArray(x.at); P.quaternion.fromArray(x.at, 3); P.visible = true;
+    tg.userData.set(x.word, MIR_COL[x.id[0] === '@' ? 'dev' : 'trk'], 0.06);
+    tg.position.fromArray(x.at); tg.position.y += 0.05; tg.visible = true;
+  });
+  for (let i = L.length; i < G.p.length; i++) G.p[i].visible = G.t[i].visible = false;
+}
+// a mirror no more (no headset, its record changed, its model again): its clip again, from its rest pose, the pucks hidden
+function mirOff(it) {
+  it.mir = null;
+  if (it.mirG) it.mirG.g.visible = false;
+  if (it.model) pupOff(it); else it.pupOn = false;
+}
+// the item gone: its pucks' tags given back
+function mirDrop(it) {
+  if (!it.mirG) return;
+  for (const t of it.mirG.t) t.userData.drop();
+  if (it.mirG.g.parent) it.mirG.g.parent.remove(it.mirG.g);
+  it.mirG = null; it.mir = null;
+}
+// (for tests and the console, STUDIO.mirror: where it is, its size, which device drives which part, the pucks' words and
+// places, and its hands' and head's places in the scene's frame)
+function mirState(id) {
+  const it = STU.items.get(id), M = it && it.mir;
+  if (!it) return null;
+  const at = b => { if (!it.rig || !it.rig.ok || !it.rig.bones[b]) return null; const v = it.rig.bones[b].getWorldPosition(new THREE.Vector3()); return GL.items.worldToLocal(v).toArray().map(n => Math.round(n * 1e4) / 1e4); };
+  return { rec: it.rec.puppet || null, on: !!M, why: it.pupWhy || '', clip: !!it.action, k: M ? M.k : 0, eye: M ? M.eye.now : 0, map: M ? Object.assign({}, M.C.map) : {},
+    pucks: M ? M.list.map(x => ({ word: x.word, slot: x.slot, at: x.at.slice(0, 3) })) : [], shown: !!(it.mirG && it.mirG.g.visible),
+    bones: M ? { head: at('head'), lhand: at('lhand'), rhand: at('rhand'), hips: at('hips'), lfoot: at('lfoot'), rfoot: at('rfoot') } : null };
+}
+
 // ---------------------------------------------------------------- takes --
 function takeStart(it) {
   const P = it.rec.puppet;
@@ -404,8 +653,17 @@ function puppetBlocks(it, B, dis, mv) {
     return;
   }
   if (!P) {
-    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:any', label: 'Wear it with trackers', act: 'i:pwear', v: 'any', dis }] },
-      { p: 'A performer moves it live, for everyone here, with any mix of devices: trackers (up to 11: head, chest, hips, hands, elbows, knees, feet), a headset, its controllers or tracked hands. Then line it up with the performer.', c: 'faint' });
+    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:any', label: 'Wear it with trackers', act: 'i:pwear', v: 'any', dis }, { id: 'pmirror:on', label: 'Mirror the visitor', act: 'i:pmirror', v: '1.6', dis }] },
+      { p: 'Worn: a performer moves it live, for everyone here, with any mix of devices: trackers (up to 11: head, chest, hips, hands, elbows, knees, feet), a headset, its controllers or tracked hands. Then line it up with the performer. Mirror: in a headset it copies whoever wears it, like a mirror, with no lining up; each person sees their own.', c: 'faint' });
+    return;
+  }
+  if (P.mirror) {
+    const M = it.mir;
+    B.push({ label: 'Mirror the visitor', row: [{ id: 'pmirror:off', label: 'Stop mirroring', act: 'i:pmirror', v: 'off', dis }] },
+      { label: 'You stand', row: MIR.D.map(d => ({ id: 'pmirror:' + d, label: `${d} m in front`, act: 'i:pmirror', v: String(d), on: P.mirror === d, dis })) },
+      { kv: [['Now', M ? `mirroring you: ${M.list.map(x => x.word).join(', ')}` : 'its own animation (no headset here)'], ['Size', M ? `your eyes ${M.eye.now.toFixed(2)} m up, ${M.k.toFixed(2)} times its own` : 'as placed']] },
+      { p: 'In a headset it stands opposite you and copies you at once, like a mirror: your left hand moves the hand on your left. It sees your headset, your controllers or bare hands, and the room\'s trackers near your body where there are any (a puck and a tag at each); whatever it cannot see it works out. Each person sees their own: nothing of it is sent or saved. Without a headset it plays its own animation.', c: 'faint' });
+    if (it.pupWhy) B.push({ p: it.pupWhy, c: 'amber' });
     return;
   }
   const ready = pupReady(P), L = PUP.line && PUP.line.id === it.id ? PUP.line : null, T = PUP.take && PUP.take.id === it.id ? PUP.take : null, pn = performance.now();
@@ -474,6 +732,16 @@ Object.assign(ITEM_ACT, {
     const P = it.rec.puppet, rig = pupRig(it);
     if (v !== 'any' || P || !rig || !rig.ok) return;
     setRec(it.id, { puppet: { on: false, rig: 'any', by: pupByDefault() || undefined } });
+  },
+  // (v204) the visitor's mirror: on (how far in front of it you stand, m) or off
+  pmirror: (it, v) => {
+    if (it.kind !== 'o') return;
+    if (PUP.line && PUP.line.id === it.id) pupEnd(it);
+    const P = it.rec.puppet, d = +v;
+    if (v === 'off') { if (P && P.mirror) setRec(it.id, { puppet: undefined }); return; }
+    const rig = pupRig(it);
+    if (!MIR.D.includes(d) || !rig || !rig.ok || (P && !P.mirror) || (P && P.mirror === d)) return;
+    setRec(it.id, { puppet: { on: false, rig: 'any', mirror: d } });
   },
   pupon: (it, v) => { const P = it.rec.puppet, on = v === 'on'; if (P && (!on || pupReady(P)) && P.on !== on) setRec(it.id, { puppet: Object.assign({}, P, { on }) }); },
   // where a headset comes from ('none': trackers only): the trackers' parts kept, the rest lined up again

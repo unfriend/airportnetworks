@@ -1,23 +1,20 @@
 {
-  "version": "networks-v203",
+  "version": "networks-v204",
   "date": "2026-11-25",
   "new": [
-    "Studio tour: every table and plinth now holds what stands on it (the vases, bowls, cups, buttons, the music box, the shelf of motions), the Sequences stand's block is gone (each light on a post), the easel's front legs splay outwards and the keyboard faces the pad.",
-    "Studio tour and tracker guide: no more flickering floor strips. The strips are laid side by side, never one over another, and sit higher above the stage's floor; the shuttle's floor no longer flickers along its foot.",
-    "Screens: the player's bar and card stay still as you move your head (their pictures are now smoothed for distance).",
-    "VR goggles: no auto drive. Each grip is a throttle (one squeezed: half speed, both: full speed; let go and you coast to a stop) and either stick steers.",
-    "The shuttle has its game screen: everyone at the studio circle sees who is flying, what they scanned, the links they followed and where to next.",
-    "From v202, v201 and v200, not yet tried: sharp text in VR, the smooth turn, a studio character worn with any mix of devices, the tracker guide."
+    "Tracker guide: a mirror robot at the end, beside the one you line up. In a headset stand on its pad and face it: it copies you at once, like a mirror, at your size, with no Edit and no lining up (visiting too).",
+    "It shows what it sees of you: a puck and a tag at your headset, each controller or bare hand, and the room's trackers near your body. Everyone sees their own mirror; nothing of it is sent or saved.",
+    "Studio: any Mixamo character can be a mirror (its card: Mirror the visitor, and how far in front you stand).",
+    "From v203, v202, v201 and v200, not yet tried: the tour's tables and floor strips, the screens' bar, the goggles' throttles and the shuttle's screen; sharp text in VR and the smooth turn; a character worn with any mix of devices; the tracker guide."
   ],
   "test": [
-    "Studio tour in VR: walk the hall. Do all the tables fit, and is any floor strip still flickering (the band ends, by the shuttle)?",
-    "Screens stand: press play and point at the bar. Any shimmer left?",
-    "Put on the goggles: fly with the grips (one, then both) and steer with either stick. Is the speed right? Can you still open the menu with the left trigger?",
-    "With a second headset or a laptop at the same studio circle: does the shuttle's screen show the flight?",
-    "v202: is VR text as sharp as AR now? Turn smoothly with the right stick. v201 and v200: a character worn with a few mixes; the tracker guide's signs."
+    "Tracker guide, at the end: stand on the mirror's pad, face it, lift one hand, then the other. Does the hand on the same side rise? Step towards it and back, crouch, turn. Is it your size?",
+    "Put the controllers down: do the pucks say Left hand and Right hand, and do the hands follow your wrists?",
+    "With trackers on in a room: wear one on each foot. Do their pucks appear and the feet follow?",
+    "v203: the tour's tables and floor strips, the screens' bar, the goggles' throttles, the shuttle's screen from a second device. v202: sharp VR text, smooth turn. v201 and v200: a character worn with a few mixes."
   ],
   "untested": [
-    "All of this on a headset: the flicker fix (depth precision can only be judged there), the bar's shimmer, the throttles' feel, the left grip held back from the menu and the circles while flying, the screen seen from another device in a real room.",
-    "Tracked hands cannot wear the goggles (controllers are needed, as before). v202's sharp text in VR and smooth turn; v201 and v200 with real trackers."
+    "All of the mirror on a headset: how your grips and wrists are read, its size, its feet stepping, the pucks' places, trackers near you. Checked here only with a pretend headset.",
+    "v203's flicker fix, the bar's shimmer, the throttles' feel and the shuttle's screen; v202's sharp text and smooth turn; v201 and v200 with real trackers."
   ]
 }

@@ -23,7 +23,8 @@
 //                       Munkres); a device further than LIMIT (0.22 of the character's eye height) from every part left
 //                       out ('far'); of two nearest one part within TWICE (0.1) of each other only the nearer tied ('twice',
 //                       a controller and a wrist tracker) -> { ok, why (nothing seen, nothing near, nothing at the head or
-//                       hips), map, d: { slot: m }, out: [{ id, why, slot, by }], at: { slot: [x, y, z] } }
+//                       hips), map, d: { slot: m }, out: [{ id, why, slot, by }], at: { slot: [x, y, z] } }; o.posed (v204):
+//                       against the character as it is posed now instead of its T-pose (the studio's mirror)
 //   fit(rig, targets, o)     (v201) no headset: the size and the move along the floor that put the character where the
 //                       performer stands (the highest device tried as its eyes, chest and hips; settled by the parts' mean
 //                       miss; sized at the end as calibrate sizes 'any'), then match there -> match's, and k (times its
@@ -326,13 +327,25 @@ function makeIK(THREE) {
         : !m.map.head && !m.map.hips ? 'Nothing is near its head or its hips: wear the headset, or a tracker on the head or on a belt.' : '';
     return Object.assign({ ok: !why, why, map: m.map, d: m.d, out: m.out, at }, extra || {});
   }
+  // (v204) the parts' points as the character stands posed now (its bones' world places; the head's at its eyes), for a
+  // match against a pose the solver gave (the studio's mirror: no T-pose)
+  function slotsPosed(rig) {
+    const out = {}, iq = Q().copy(rig.rq.head).invert(), eye = V().copy(rig.eye).sub(rig.rp.head).applyQuaternion(iq);
+    rig.root.updateWorldMatrix(true, true);
+    for (const sl of SLOTS) {
+      const b = rig.bones[sl === 'chest' ? rig.chest : SLOT_BONE[sl]];
+      out[sl] = sl === 'head' ? eye.clone().applyMatrix4(b.matrixWorld) : V().setFromMatrixPosition(b.matrixWorld);
+    }
+    return out;
+  }
   // match(rig, targets, o): the performer standing in the character (stepped into it), every device tied where it is
+  // (o.posed, v204: against the character as it is posed now, not its T-pose)
   function match(rig, targets, o) {
     o = o || {};
     if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
     rig.root.updateWorldMatrix(true, false);
     const C = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
-    const P = slotsAt(slotRest(rig, C), C, 1, V()), H = P.head.y - floor;
+    const P = o.posed ? slotsPosed(rig) : slotsAt(slotRest(rig, C), C, 1, V()), H = P.head.y - floor;
     if (!(H > 0.05)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above the floor: stand it on the floor.' };
     return judged(matchAt(pts, P, H), pts, P);
   }

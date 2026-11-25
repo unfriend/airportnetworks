@@ -13331,8 +13331,43 @@ if (runs('studio guide')) {
     if (room > 60000) r.out.push(`${room} triangles as placed`);
     for (const o of layout.objects) if (o.clip && !(r.clips[o.file] || []).includes(o.clip)) r.out.push(`${o.id}: ${o.file} has no clip ${o.clip}`);
     for (const id of ['try001']) { const o = layout.objects.find(x => x.id === id); if (!o || !o.puppet || o.puppet.on || o.puppet.by || o.puppet.rig !== 'any') r.out.push(id + ': its wearing is not ready: ' + JSON.stringify(o && o.puppet)); }
+    { const o = layout.objects.find(x => x.id === 'mir008'); if (!o || !o.puppet || o.puppet.mirror !== 1.6 || o.puppet.on) r.out.push('mir008: not a mirror: ' + JSON.stringify(o && o.puppet)); }
     console.log(`     (${Object.keys(r.tris).length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
     if (r.out.length) errors.push(...r.out.map(b => 'studio guide: ' + b));
+  });
+  // (v204) the mirror at the guide's end: a pretend headset (STUDIO.mirrorFake, the scene's frame) on its pad facing it
+  await step('studio guide: the mirror (visiting): no headset, its clip; a pretend headset on its pad: it copies the head and hands mirrored (your left hand drives its right, on your left), steps towards you, a puck and tag at each device, tracked hands named; state() and the records unchanged; its clip again after', async () => {
+    const out = [], M = () => ss('STUDIO.mirror("mir008")'), wait = ms => gp.waitForTimeout(ms);
+    const m0 = await M();
+    if (!m0 || !m0.rec || m0.rec.mirror !== 1.6 || m0.on || !m0.clip) out.push('without a headset: ' + JSON.stringify(m0 && { rec: m0.rec, on: m0.on, clip: m0.clip }));
+    const recs = () => ss('JSON.stringify([...STU.items.values()].map(i => i.rec))'), st = () => gp.evaluate(() => JSON.stringify(HOST.cur.collab.state()));
+    const r0 = await recs(), s0 = await st();
+    // (on the pad, 1.6 m in front of it, facing it (-z), eyes 1.7 m up; the left hand raised high)
+    const fake = (z, ly, ry, hand) => ({ head: [1.2, 1.7, z, 0, 0, 0, 1], l: [0.85, ly, z - 0.25, 0, 0, 0, 1], r: [1.5, ry, z - 0.15, 0, 0, 0, 1], hand: [hand, hand] });
+    await ss(`STUDIO.mirrorFake(${JSON.stringify(fake(-13.4, 2.0, 1.0, false))})`); await wait(2000);
+    const a = await M();
+    const B = a.bones || {}, near = (p, q, d) => p && q && Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < d;
+    if (!a.on || a.clip) out.push('not mirroring: ' + JSON.stringify({ on: a.on, clip: a.clip, why: a.why }));
+    else {
+      if (a.map.head !== '@head' || a.map.rhand !== '@l' || a.map.lhand !== '@r') out.push('not mirrored left to right: ' + JSON.stringify(a.map));
+      if (!near(B.rhand, [0.85, 2.0, -14.75], 0.15) || !(B.rhand[1] > B.head[1])) out.push('its right hand is not up where your left hand shows: ' + JSON.stringify(B.rhand));
+      if (!near(B.lhand, [1.5, 1.0, -14.85], 0.15)) out.push('its left hand is not at your right hand\'s image: ' + JSON.stringify(B.lhand));
+      if (Math.abs(a.eye - 1.7) > 0.01) out.push('not sized to your eyes: ' + a.eye);
+      const words = a.pucks.map(x => x.word).sort().join();
+      if (words !== 'Headset,Left controller,Right controller' || !a.shown) out.push('its pucks: ' + words + (a.shown ? '' : ' (not shown)'));
+    }
+    await ss(`STUDIO.mirrorFake(${JSON.stringify(fake(-14.0, 1.0, 2.0, true))})`); await wait(2000);
+    const b = await M();
+    if (!b.on || !b.bones || !(b.bones.hips[2] - B.hips[2] > 0.5)) out.push('stepping 0.6 m towards it, it did not step towards you: ' + JSON.stringify([B.hips, b.bones && b.bones.hips]));
+    if (b.bones && !(b.bones.lhand[1] > b.bones.head[1] && b.bones.rhand[1] < 1.3)) out.push('the right hand raised, its left hand not up: ' + JSON.stringify(b.bones));
+    if (b.pucks.map(x => x.word).sort().join() !== 'Headset,Left hand,Right hand') out.push('tracked hands not named: ' + b.pucks.map(x => x.word).join());
+    if (await recs() !== r0) out.push('a record changed while it mirrored');
+    if (await st() !== s0) out.push('state() changed while it mirrored');
+    await ss('STUDIO.mirrorFake(null)'); await wait(600);
+    const c = await M();
+    if (c.on || !c.clip || c.shown) out.push('the headset gone, not its clip again: ' + JSON.stringify({ on: c.on, clip: c.clip, shown: c.shown }));
+    console.log(`     (the mirror: its right hand ${JSON.stringify(B.rhand)} for your left reflected at [0.85, 2, -14.75]; stepped ${b.bones ? (b.bones.hips[2] - B.hips[2]).toFixed(2) : '?'} m)`);
+    if (out.length) errors.push(...out.map(x => 'studio guide: ' + x));
   });
   await gp.close();
 }

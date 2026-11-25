@@ -24,14 +24,17 @@
     {"id":"rb0006","name":"Robot 6: Headset and tracked hands","file":"models/robot.glb","p":[2.4,0,-12],"q":[0,-0.7071,0,0.7071],"s":1.0009,"light":"lit","clip":"Headset and hands","anim":"loop","start":"always","locked":true},
     {"id":"pk0006","name":"Pucks 6: Headset and tracked hands","file":"models/pucks-6-headset-and-hands.glb","p":[2.4,0,-12],"q":[0,-0.7071,0,0.7071],"s":1,"light":"lit","clip":"Headset and hands","anim":"loop","start":"always","locked":true},
     {"id":"sg0006","name":"Sign 6: Headset and tracked hands","file":"signs/06-headset-and-tracked-hands.glb","p":[2.9,0,-10.75],"q":[0,-0.5,0,0.866],"s":1,"light":"lit","clip":"","anim":"loop","start":"always","locked":true},
-    {"id":"try001","name":"Try: any mix of devices","file":"models/robot.glb","p":[0,0,-14.6],"q":[0,0,0,1],"s":1.0204,"light":"lit","clip":"Idle","anim":"loop","start":"always","puppet":{"on":false,"rig":"any"}},
-    {"id":"sgn007","name":"Sign 7: Try it yourself","file":"signs/07-try-it-yourself.glb","p":[-1.5,0,-14.4],"q":[0,0.4332,0,0.9013],"s":1,"light":"lit","clip":"","anim":"loop","start":"always","locked":true}
+    {"id":"try001","name":"Try: any mix of devices","file":"models/robot.glb","p":[-1.1,0,-14.6],"q":[0,0,0,1],"s":1.0204,"light":"lit","clip":"Idle","anim":"loop","start":"always","puppet":{"on":false,"rig":"any"}},
+    {"id":"sgn007","name":"Sign 7: Try it yourself","file":"signs/07-try-it-yourself.glb","p":[-2.6,0,-14.2],"q":[0,0.4332,0,0.9013],"s":1,"light":"lit","clip":"","anim":"loop","start":"always","locked":true},
+    {"id":"mir008","name":"Your mirror","file":"models/robot.glb","p":[1.2,0,-15],"q":[0,0,0,1],"s":1.0204,"light":"lit","clip":"Idle","anim":"loop","start":"always","puppet":{"on":false,"rig":"any","mirror":1.6},"locked":true},
+    {"id":"sgn008","name":"Sign 8: Your mirror","file":"signs/08-your-mirror.glb","p":[2.6,0,-14.6],"q":[0,-0.4332,0,0.9013],"s":1,"light":"lit","clip":"","anim":"loop","start":"always","locked":true}
   ],
   "cubes": [],
   "sounds": [],
   "cuts": [],
   "groups": [
-    {"id":"gtry07","name":"Try it yourself","items":["try001","dsc07a","sgn007"]}
+    {"id":"gtry07","name":"Try it yourself","items":["try001","dsc07a","sgn007"]},
+    {"id":"gmir08","name":"Your mirror","items":["mir008","dsc08a","sgn008","mrs008"]}
   ],
   "shapes": [
     {"id":"flr001","name":"Floor (left)","shape":"plane","p":[-2.25,0.012,-7.2],"q":[-0.7071,0,0,0.7071],"size":[3.5,18.4,0.01],"colour":"#252d3a","look":"colour","locked":true},
@@ -44,7 +47,9 @@
     {"id":"ds0004","name":"Disc 4","shape":"cylinder","p":[2.4,0.02,-8.6],"q":[0,-0.7071,0,0.7071],"size":[1.6,0.04,1.6],"colour":"#3d4b60","look":"colour","locked":true},
     {"id":"ds0005","name":"Disc 5","shape":"cylinder","p":[-2.4,0.02,-10.7],"q":[0,0.7071,0,0.7071],"size":[2,0.04,2],"colour":"#3d4b60","look":"colour","locked":true},
     {"id":"ds0006","name":"Disc 6","shape":"cylinder","p":[2.4,0.02,-12],"q":[0,-0.7071,0,0.7071],"size":[1.6,0.04,1.6],"colour":"#3d4b60","look":"colour","locked":true},
-    {"id":"dsc07a","name":"Disc: try it","shape":"cylinder","p":[0,0.02,-14.6],"q":[0,0,0,1],"size":[1.2,0.04,1.2],"colour":"#ffd34d","look":"colour","locked":true}
+    {"id":"dsc07a","name":"Disc: try it","shape":"cylinder","p":[-1.1,0.02,-14.6],"q":[0,0,0,1],"size":[1.2,0.04,1.2],"colour":"#ffd34d","look":"colour","locked":true},
+    {"id":"mrs008","name":"Pad: stand here for your mirror","shape":"plane","p":[1.2,0.024,-13.4],"q":[-0.7071,0,0,0.7071],"size":[0.8,0.8,0.01],"colour":"#178f86","look":"colour","locked":true},
+    {"id":"dsc08a","name":"Disc: your mirror","shape":"cylinder","p":[1.2,0.02,-15],"q":[0,0,0,1],"size":[1.2,0.04,1.2],"colour":"#ffd34d","look":"colour","locked":true}
   ],
   "empties": [],
   "sequences": [],

@@ -284,6 +284,45 @@ What the shell does with it:
   (through the converter, as Convert to GLB: the old file kept under `originals/`, every object of that file switched,
   a new picture), with a relay that takes uploads; else downloaded. The clip then plays as any other.
 
+## The mirror (v204)
+
+The owner, 25 November 2026, in VR at the tracker guide's end: "add a third robot here that is controlled just with a
+headset and controllers or hands so that everyone can really try this"; decided since: a mirror, and "also show where the
+robot sees your trackers".
+
+- A record: an object's `puppet` `{ on: false, rig: 'any', mirror: <m> }` (`mirror` 0.5 to 10, kept to the centimetre:
+  how far in front of the character the visitor stands; the mirror's plane half way). Older records stay valid; with
+  `mirror` set, `on`, `by`, `map` and `cal` are not used. The card: *Mirror the visitor* beside *Wear it with trackers*
+  (a rigged object worn by nobody), then *You stand* 1.2 / 1.6 / 2 / 2.5 m in front, *Stop mirroring* (each one change,
+  one Undo step, with editing on as ever).
+- Each headset's own: every frame, in a headset (visiting or not, Edit or not, at a station or not), it copies the
+  device's wearer. Nothing of it is sent, saved or in `state()`; its record never changes; its holder never moves (its
+  model's root is scaled, its bones solved, as the puppet's are, in `pupStep`'s place: `mirStep`). On a page, or when the
+  headset is taken off, it plays its own clip again.
+- The devices: this headset's viewer pose, each controller's grip (`gripSpace`) or a tracked hand's grip, else its wrist
+  joint (read in the studio's `xrBegin`, `mirGrips`, only while a mirror asks), and at a station the room's trackers
+  (`TRK.at`, kind `t`, seen now). Each is reflected in the plane, its turn too: the reflection S times its turn times its
+  own x flipped (S M L), so a left grip's frame becomes a right grip's and a headset facing the mirror one facing back. A
+  true mirror image, not a turn: your left hand drives its right hand, which is on your left as you face it.
+- Its offsets need no T-pose: the headset's and hands' are those people's bodies use (`bodies.js`: the headset at its eyes
+  and 8 cm ahead, the grips in the fists of its T-pose, palms down), made once on the character at rest by
+  `IK.calibrate` (`'any'`, no scale). A tracker's is taken when the set of devices changes (after its first few frames):
+  `IK.match` with `posed: true` against the character as it is solved then (from the headset and hands), each tracker its
+  offset to the bone it is tied to at that moment. A tracker too far from every part (`match`'s `far`) is ignored; a part
+  the headset or a hand drives keeps it. Whatever has no device is worked out (`'any'`: the hips under the head, hanging
+  hands, stepped feet).
+- Sized to the wearer's eye height as `bodies.js` sizes people (a high percentile of the head's height over the last 30 s,
+  1.0 to 2.05 m, eased over a second), its feet on the scene's floor; a jump of the head over a metre plants the feet again.
+- The pucks: an opaque puck (a disc 7.6 cm across) and a tag at each device that drives a part, where the mirror sees it
+  (reflected), green for yours (*Headset*, *Left controller* or *Left hand*, *Right ...*), amber for a tracker named by the
+  part it is on, on you (*Left foot tracker*). The tags are the studio's opaque tags; neither is hit by the pointer. A part
+  that is worked out has none.
+- Assumptions (untested on a headset): the grip and wrist frames as WebXR defines them, mirrored by flipping their x; a
+  tracker's offset is only as good as the pose the headset and hands give at the moment it is tied.
+- For tests: `STUDIO.mirror(id)` (on, its size, which device drives which part, the pucks' words and places, its head,
+  hands, hips and feet in the scene's frame) and `STUDIO.mirrorFake({ head, l, r, hand })` (seven numbers each in the
+  scene's frame; `null` ends it), a pretend headset.
+
 ## The solver (`ik.js`)
 
 Built in v125 as phase 3's groundwork: `ik.js`, a plain module like `convert.js` and `images.js`
@@ -309,7 +348,8 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   tracker); the rest are tied all together, one to one, the least total distance (Kuhn and Munkres), a device left out
   rather than tied further than `LIMIT`. Ids are sorted first, so the order they come in never matters. Refused in words:
   nothing seen, nothing near, nothing at the head or hips (the map still given, for the card). Returns the parts' points
-  (`at`) for the lines.
+  (`at`) for the lines. `o.posed` (v204, the mirror): the parts' points where the character's bones are posed now (the
+  head's at its eyes), not its T-pose.
 - `fit(rig, targets, o)` (v201): no headset: the character facing its own way, the highest device is tried as its eyes,
   its chest and its hips (a size each, kept when its eyes would be 1.0 to 2.2 m up); at each size it is moved along the
   floor (the devices' middle under its hips, then four times by the tied parts' mean miss) and matched; the least cost

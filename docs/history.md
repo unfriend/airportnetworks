@@ -778,6 +778,15 @@ narration heard from out of the circle, the locks and the People toggle in use.
   comes to the performer (`fit`). The tracker guide's T-pose stand, its spoken lines and its try-it robot (one now, not
   two) were changed to match. No FORMAT bump: no room key or `state()` changed shape.
 
+### The mirror (v204)
+- The owner, 25 November 2026, in VR at the tracker guide's end: "add a third robot here that is controlled just with a
+  headset and controllers or hands so that everyone can really try this"; decided since: a mirror, and "also show where
+  the robot sees your trackers". The robot that is lined up by hand needs Edit, a relay with trackers and not visiting;
+  the mirror needs only a headset. It is a studio feature (`puppet.mirror`, *Mirror the visitor*), each headset's own
+  like a trigger cube's reveal: nothing sent, saved or in `state()`. A true mirror image (reflected, not turned), so your
+  left hand moves the hand on your left. Trackers near the body are tied by `match` against the pose the headset and hands
+  give (no T-pose). No FORMAT bump: no room key or `state()` changed shape (the record's new field is optional).
+
 ### The studio tour and the VR goggles after the owner's headset notes (v203)
 - The owner, 25 November 2026, walking the tour on v199 in a Quest 3. "The cube the vases stand on is not larger ... left
   and right are actually mid-air"; "lots of tables are too small ... check the table sizes and make them right sized":

@@ -424,6 +424,21 @@ function fitFrom(names, at, from) {
   ok(!IK.match(PR, {}, {}).ok && /Nothing is seen/.test(IK.match(PR, {}, {}).why) && /Nothing is seen/.test(IK.fit(PR, {}, {}).why), 'match and fit: nothing seen, said in words');
   placeRig({}, PR);
 }
+// ---- (v204) match against the pose as it stands (the studio's mirror, o.posed): the arms hanging 70 degrees down, a
+// tracker at each hand and foot where the posed figure has them, the headset at its eyes: all tied; against the T-pose the
+// hands' are too far
+{
+  truthAt(0); PR.toRest(); placeRig({}, PR);
+  const fw = new THREE.Vector3(0, 0, 1);
+  for (const [b, a] of [['larm', 1.22], ['rarm', -1.22]]) { const B = PR.bones[b], w = world(B).q, pq = world(B.parent).q; B.quaternion.copy(pq.invert().multiply(new THREE.Quaternion().setFromAxisAngle(fw, a).multiply(w))); PR.root.updateMatrixWorld(true); }
+  const at = b => ({ p: world(PR.bones[b]).p.toArray(), q: [0, 0, 0, 1] }), eye = IK.restPose(PR, 'eye').p.toArray();
+  const T = { 'LHR-MIRLH1': at('lhand'), 'LHR-MIRRH1': at('rhand'), 'LHR-MIRLF1': at('lfoot'), 'LHR-MIRRF1': at('rfoot'), '@head': { p: eye, q: [0, 0, 0, 1] } };
+  const mp = IK.match(PR, T, { floor: 0, posed: true }), mr = IK.match(PR, T, { floor: 0 });
+  ok(mp.ok && mp.map.lhand === 'LHR-MIRLH1' && mp.map.rhand === 'LHR-MIRRH1' && mp.map.lfoot === 'LHR-MIRLF1' && mp.map.rfoot === 'LHR-MIRRF1' && mp.map.head === '@head' && !mp.out.length,
+    'match, posed (v204): the arms hanging, every device tied where the posed figure has it', JSON.stringify(mp.map));
+  ok(!mr.map.lhand && !mr.map.rhand && mr.out.filter(x => x.why === 'far').length === 2, 'match against the T-pose: the hanging hands\' trackers too far', JSON.stringify(mr.out));
+  PR.toRest(); placeRig({}, PR);
+}
 // ---- 'any': the same devices solve as the old setups did, number for number; a hand with nothing on it hangs; any mix
 {
   const same = (a, b) => a.locals.length === b.locals.length && a.locals.every((l, i) => l.every((v, k) => v === b.locals[i][k]));

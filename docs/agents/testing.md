@@ -1231,6 +1231,11 @@ under 10,000 triangles, the scene under 60,000 as placed, the clips its layout n
 items, the robot to try worn by nobody with its wearing ready (`rig: 'any'`, v201), and the robot a Mixamo rig to `IK.rigOf`. After
 changing `tools/studio/tracker-guide/` (or what it loads: the tour's `parts.js`, `ik.js`, `bodies.js`), run
 `node tools/studio/tracker-guide/make.mjs` and its `--check`.
+A second step (v204): the mirror (`mir008`) with no headset plays its clip; with a pretend headset
+(`STUDIO.mirrorFake`, the scene's frame) on its pad facing it, the left hand raised, its right hand rises where your left
+hand's image is (within 15 cm), it is sized to the eyes (1.7 m), its pucks read *Headset*, *Left controller*, *Right
+controller*; 0.6 m nearer with the other hand raised and tracked hands, it steps 0.6 m towards you, its left hand up, the
+pucks *Left hand*, *Right hand*; `collab.state()` and every record unchanged; the headset gone, its clip again.
 
 ### smoke: bodies
 
@@ -2411,7 +2416,8 @@ trackers with the character 1.2 m away and the performer 1.08 times its size, th
 and feet, a headset and controllers, a headset with a belt and feet, two devices at each hand, a poor stance, a tracker
 far off, nothing at the head or hips, nothing seen) and `'any'` (the same pose as `'full'`, `'feet'` and `'head'` number
 for number; hanging hands; the hips and feet alone; a headset, belt and feet; one foot's tracker; refused without head or
-hips); and since v164, for people's bodies, a headset alone on
+hips); since v204 (69 checks) `match` with `posed` (the arms hanging: every device tied where the posed figure has it;
+against the T-pose the hands' too far); and since v164, for people's bodies, a headset alone on
 this rig with straight legs at rest: the head bobbing 2.5 cm over its height at rest and swaying (no steps, both feet
 planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the back upright, the hips under the head:
 before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it

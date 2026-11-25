@@ -170,6 +170,8 @@ gets at most a line per feature and stays under 70 KB.
   room as stations but never by Arrange all.
 - A studio character worn with trackers (v201, `rig: 'any'`): any mix of trackers, a headset and controllers, each tied to
   the bone it is nearest to (`ik.js` `match`, `fit`), shown as lines before it is taken (`tools/trackers/SPEC.md`).
+- *Mirror the visitor* (v204, `puppet.mirror`): a studio character each headset sees as its own mirror, from its head, hands
+  and nearby trackers, with a puck at each; nothing sent or saved (`tools/trackers/SPEC.md`, "The mirror").
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
 - A story's copy on the relay (v170, `HOST.arrange`): *Copy to relay* (developer mode), `#<key>&arr=<name>[&edit]`, the
   editor drawer, a station's `st.<id>.arr`; the contract `tools/engine/SPEC.md`, the shell's side `docs/agents/shell.md`.

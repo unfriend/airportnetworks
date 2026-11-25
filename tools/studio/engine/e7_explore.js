@@ -333,10 +333,10 @@ function itemCard(it, C) {
   const lists = SEQ_SHOW.includes(it.kind), inP = lists ? pkOf(it.id) : '', inG = !!GP && it.kind !== 'x' && groupOf(it.id) === GP;
   const ticks = id => (selCube && id !== selCube.id ? [['show', selCube.rec.show.includes(id)], ['hide', selCube.rec.hide.includes(id)]] : null);
   const card = { id: 'sel:' + it.id, item: true, label: (inP || inG ? '✓ ' : '') + r.name, title: tagName(r) + ' · ' + KIND_NAME[it.kind], act: GP ? 'gtog' : P && lists && it.id !== P.id ? 'link' : 'sel', v: it.id,
-    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && r.puppet.on)), ticks: lists ? ticks(it.id) : null };
+    on: it.id === STU.sel || !!inP || inG, sel: it.id === STU.sel, pk: inP || (inG ? 'in' : ''), lock: !!r.locked, moves: !!(r.motion || r.path || r.behaviour || r.trk || (r.puppet && (r.puppet.on || r.puppet.mirror))), ticks: lists ? ticks(it.id) : null };
   // (the faint line: what moves it, as the rows said before the cards, then whether it is hidden for you)
   const moving = [r.motion && MOTION[r.motion.kind] ? MOTION[r.motion.kind].does : '', recording(it) ? 'recording' : r.path ? 'recorded path' : '', r.behaviour ? BEH_DOES[r.behaviour.kind] || '' : '',
-    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : '', (r.press && r.press.send) || r.send ? 'sends' : ''];
+    r.trk ? 'follows a tracker' : '', r.puppet && r.puppet.mirror ? 'mirrors the visitor' : r.puppet && r.puppet.on ? 'worn with trackers' : '', it.tgM ? 'started by a cube' : '', r.press ? 'pressable' : '', (r.press && r.press.send) || r.send ? 'sends' : ''];
   const state = moving.concat((it.kind === 's' ? it.heard : it.shown) || it.kind === 'c' || it.kind === 'x' ? '' : it.notHere ? (r.shows === 'ar' ? 'only in AR' : 'only in VR') : 'hidden for you');
   if (it.kind === 'o') {
     const E = it.E, info = E && E.info, f = STU.fileMap.get(r.file), g = C.stands(r.file);

@@ -1,0 +1,20 @@
+{
+  "version": "networks-v204",
+  "date": "2026-11-25",
+  "new": [
+    "Tracker guide: a mirror robot at the end, beside the one you line up. In a headset stand on its pad and face it: it copies you at once, like a mirror, at your size, with no Edit and no lining up (visiting too).",
+    "It shows what it sees of you: a puck and a tag at your headset, each controller or bare hand, and the room's trackers near your body. Everyone sees their own mirror; nothing of it is sent or saved.",
+    "Studio: any Mixamo character can be a mirror (its card: Mirror the visitor, and how far in front you stand).",
+    "From v203, v202, v201 and v200, not yet tried: the tour's tables and floor strips, the screens' bar, the goggles' throttles and the shuttle's screen; sharp text in VR and the smooth turn; a character worn with any mix of devices; the tracker guide."
+  ],
+  "test": [
+    "Tracker guide, at the end: stand on the mirror's pad, face it, lift one hand, then the other. Does the hand on the same side rise? Step towards it and back, crouch, turn. Is it your size?",
+    "Put the controllers down: do the pucks say Left hand and Right hand, and do the hands follow your wrists?",
+    "With trackers on in a room: wear one on each foot. Do their pucks appear and the feet follow?",
+    "v203: the tour's tables and floor strips, the screens' bar, the goggles' throttles, the shuttle's screen from a second device. v202: sharp VR text, smooth turn. v201 and v200: a character worn with a few mixes."
+  ],
+  "untested": [
+    "All of the mirror on a headset: how your grips and wrists are read, its size, its feet stepping, the pucks' places, trackers near you. Checked here only with a pretend headset.",
+    "v203's flicker fix, the bar's shimmer, the throttles' feel and the shuttle's screen; v202's sharp text and smooth turn; v201 and v200 with real trackers."
+  ]
+}

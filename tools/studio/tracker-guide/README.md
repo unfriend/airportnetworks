@@ -66,3 +66,9 @@ headset and tracked hands; at the end *Try it yourself*: one robot whose wearing
 nobody yet; since v201 one way of wearing takes any mix of devices, so one robot is enough): with trackers on the relay,
 open the scene from *Examples* (not visiting), turn on Edit, select it, *Line up with the performer*. A headset alone is
 one of the mixes now; it is also how people's bodies show in a shared room, and *My body* (the settings) shows your own.
+Beside it (v204), *Your mirror* (`mir008`, sign 8, spoken line 8): a robot whose record has `puppet` `{ mirror: 1.6 }`
+(the studio's *Mirror the visitor*, `tools/trackers/SPEC.md`, "The mirror"). It needs nothing but a headset, visiting
+too: stand on the pad 1.6 m in front of it and face it, and it copies you like a mirror, at your size, with a puck and a
+tag at each device it sees (the headset, the controllers or bare hands, and the room's trackers near you). Each person
+sees their own; on a page it plays its *Idle* clip. The try-it robot moved left (x -1.1) and the mirror stands on the
+right (x 1.2), 0.4 m further on.

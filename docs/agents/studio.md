@@ -1436,7 +1436,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   the robot wears no headset) and a countdown; then a line from each puck to the part it is tied to, each lit in `match`'s
   order, gone as the character starts to follow (`ln_<id>` bones in the pucks model). The robot to try carries `puppet`
   `{ rig: 'any' }` (worn by nobody; one is enough since v201, any mix being one way to wear it): *Line up with the
-  performer* on its card, with editing on (not with `&visit`, which the Experiments card's link uses). The spoken lines
+  performer* on its card, with editing on (not with `&visit`, which the Experiments card's link uses). Beside it (v204) the
+  mirror (`mir008`, `puppet.mirror` 1.6: you stand on the pad 1.6 m in front of it) needs nothing but a headset, visiting
+  too; its sign 8 and spoken line 8. The spoken lines
   (`script.json`) are sounds only once `voice.mjs` has rendered them (Kokoro, `af_heart`): a pad and a personal cube per
   stand plays its line, a press on its sign (`who: 'own'`) again. About 2.8 MB without the voice; 31,000 triangles and 41
   draws of models as placed. The head's puck on the front of the head (the owner); the knee's on the thigh, 80 % of the way
@@ -1520,7 +1522,16 @@ and the stream plays everywhere at the shell's level. Never fetched or decoded (
   (`convertFile` with `take`: with a relay that takes uploads into `models/`, the old one kept under `originals/` when it
   was there already, else every object of the file switched to the new one, a new picture; else downloaded). It plays as
   any clip.
-- For tests: `STUDIO.trk(id)`, `STUDIO.puppet(id)`; `pupClock` (a function the tests replace).
+- **Mirror the visitor** (v204, `engine/e6l_puppet.js`, MIRROR): `puppet` `{ on: false, rig: 'any', mirror: <m> }` makes a
+  rigged object each headset's own mirror: in a headset (visiting too, no Edit, no lining up) it copies the wearer
+  reflected in a plane half way between it and the spot `mirror` m in front of it (your left hand drives its right),
+  from the headset, the grips or tracked wrists and, at a station, the room's trackers near the body (tied by
+  `IK.match` `posed`), solved by `'any'` and sized to the wearer's eye height, with an opaque puck and a tag at each device
+  that drives it. Nothing of it is sent, saved or in `state()`; its record and holder never change; on a page it plays its
+  clip. The card: *Mirror the visitor* (beside *Wear it with trackers*), *You stand* 1.2 to 2.5 m in front, *Stop
+  mirroring*. The contract: `tools/trackers/SPEC.md`, "The mirror".
+- For tests: `STUDIO.trk(id)`, `STUDIO.puppet(id)`, `STUDIO.mirror(id)` and `STUDIO.mirrorFake({ head, l, r, hand })` (a
+  pretend headset in the scene's frame); `pupClock` (a function the tests replace).
 - Untested on devices: everything with real trackers, SteamVR and the Index, a Quest's head and hands through
   `HOST.collab.body` (the turns of its hands), how a character looks worn, how a performer's trackers stay on, the lining
   up's placement in practice (a few cm where the trackers' own offsets do not average out, which turns with the

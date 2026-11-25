@@ -902,6 +902,7 @@ function xrBegin(frame, dt) {
   if (pose) {
     const p = pose.transform.position, q = pose.transform.orientation;
     XR.head.set(p.x, p.y, p.z); XR.headQ.set(q.x, q.y, q.z, q.w);
+    mirGrips(frame, ref);   // (your grips or wrists, for a mirror: e6l_puppet.js)
     if (XR.needRecenter) { if (!HOST.anchor.held()) xrRecenter(); XR.needRecenter = false; } // an anchored place stays put
     // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
     // (asked only once the headset has a pose, so a new anchor goes where things really are)

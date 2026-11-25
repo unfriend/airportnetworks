@@ -318,7 +318,7 @@ function removeItem(id) {
   const it = STU.items.get(id);
   if (!it) return;
   STU.items.delete(id); STU.rev++;
-  if (it.kind === 'o') { dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
+  if (it.kind === 'o') { mirDrop(it); dropModel(it); libRelease(it.E, id); it.grey.group.parent && it.grey.group.parent.remove(it.grey.group); it.grey.drop(); }
   else { if (it.kind === 'v') screenDrop(it); if (it.kind === 'd') paintDrop(it); it.look.drop(); for (const k of ['deco', 'ring', 'link']) if (it.look[k]) GL.edit.remove(it.look[k]); }
   if (it.kind === 's') emitStop(it, true);
   if (it.tick) { GL.edit.remove(it.tick); it.tick.userData.drop(); }
@@ -987,6 +987,7 @@ function itemsStep(dt, now) {
         it.holder.visible = it.hid || it.a > 0.002;
         // (hidden for you, its animation holds where it is, as when not editing)
         if (it.holder.visible && !it.hid && !pupStep(it, now, dt)) animStep(it, now, clockS, dt);   // (worn with trackers: its bones solved instead, e6l_puppet.js)
+        if (it.mirG) it.mirG.g.visible = !!it.mir && !it.hid;   // (a mirror's pucks, e6l_puppet.js: gone with it)
       } else it.holder.visible = it.hidBox.visible = false;   // (no model: the grey box says it; an outline from the one dropped would linger)
       greyStep(it);
       modelTag(it, editing);

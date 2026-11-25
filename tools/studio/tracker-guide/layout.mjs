@@ -45,13 +45,18 @@ export function signs(voice) {
     ...STANDS.map(([n, title, what, here]) => ({ part: 'sign-' + n, file: `signs/${String(n).padStart(2, '0')}-${SLUG(title)}.glb`, section: 'guide', n, title, what, here, w: 1.1, h: 0.95, size: 29, mid: 1.5 })),
     { part: 'sign-0', file: 'signs/00-welcome.glb', section: 'board', title: 'Tracker guide', w: 1.2, h: 1.0, px: 768, size: 30, mid: 1.5,
       what: ['A tracker is a small puck that knows where it is in the room. Strap a few to your body and a character moves as you move.',
-        'Six stands, from the fullest way to wear them to the lightest, then a robot to try. The tutorial\'s robot stands in for you; every move it makes is worked out from the pucks by the app\'s own solver.'],
+        'Six stands, from the fullest way to wear them to the lightest, then two robots to try. The tutorial\'s robot stands in for you; every move it makes is worked out from the pucks by the app\'s own solver.'],
       here: 'Start at stand 1, on your left.' + hear },
     { part: 'sign-7', file: 'signs/07-try-it-yourself.glb', section: 'try', n: 7, title: 'Try it yourself', w: 1.2, h: 1.15, px: 768, size: 27, mid: 1.55,
       what: ['In a shared room whose relay has trackers switched on, at the studio\'s circle, open this scene from the Scene pane\'s Examples (the Tracker guide card only visits). Turn on Edit and select the robot.',
         'Put on whatever you have: trackers, a headset, controllers. Step into the robot, face its way, and choose Line up with the performer.',
         'With only a headset you can also switch on My body in the settings (VR), and look down.'],
       here: 'Until someone lines up with it, it stands still.' },
+    { part: 'sign-8', file: 'signs/08-your-mirror.glb', section: 'try', n: 8, title: 'Your mirror', w: 1.2, h: 1.15, px: 768, size: 27, mid: 1.55,
+      what: ['This one needs nothing but you: no Edit, no lining up. In a headset, stand on the pad and face it. It copies you like a mirror, at your size: lift a hand, and it lifts the hand on the same side.',
+        'The small pucks show what it can see of you: your headset, and your controllers or your bare hands. Trackers near your body, where the room has them, get pucks too. Everything else it works out.',
+        'Everyone sees their own mirror; nothing of it is sent or saved.'],
+      here: 'On a page it stands still: put a headset on.' + hear },
   ];
 }
 
@@ -129,12 +134,23 @@ export function makeLayout(parts, files, about) {
   }
 
   // ---- try it yourself: one robot with its wearing ready for any mix of devices (v201; nobody's yet: Line up with the
-  // performer on its card)
-  const v7 = speak(7, [0, 1.6, END], [0, 0, END + 1.6], [1.6, 1.0]);
-  obj('try001', 'Try: any mix of devices', 'robot', [0, 0, END], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'any' } });
-  shape('dsc07a', 'Disc: try it', 'cylinder', [0, 0.02, END], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });
-  obj('sgn007', 'Sign 7: Try it yourself', 'sign-7', [-1.5, 0, END + 0.2], Math.atan2(1.5, 1.2), Object.assign({ locked: true }, v7 ? { press: said(v7) } : {}));
+  // performer on its card), on the left
+  const TX = -1.1;
+  const v7 = speak(7, [TX, 1.6, END], [TX, 0, END + 1.6], [1.6, 1.0]);
+  obj('try001', 'Try: any mix of devices', 'robot', [TX, 0, END], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'any' } });
+  shape('dsc07a', 'Disc: try it', 'cylinder', [TX, 0.02, END], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });
+  obj('sgn007', 'Sign 7: Try it yourself', 'sign-7', [-2.6, 0, END + 0.4], Math.atan2(1.5, 1.2), Object.assign({ locked: true }, v7 ? { press: said(v7) } : {}));
   groups.push({ id: 'gtry07', name: 'Try it yourself', items: ['try001', 'dsc07a', 'sgn007'] });
+
+  // ---- your mirror (v204), on the right: a robot that copies whoever wears a headset (puppet.mirror: you stand MD m in
+  // front of it, on the pad; each person's own, nothing sent), facing you as you come
+  const MX = 1.2, MZ = END - 0.4, MD = 1.6;
+  const v8 = speak(8, [MX, 1.6, MZ], [MX, 0, MZ + MD], [0.8, 0.8]);
+  if (!v8) shape('mrs008', 'Pad: stand here for your mirror', 'plane', [MX, PAD_Y, MZ + MD], [0.8, 0.8, 0.01], '#178f86', { q: FLAT, locked: true });
+  obj('mir008', 'Your mirror', 'robot', [MX, 0, MZ], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'any', mirror: MD }, locked: true });
+  shape('dsc08a', 'Disc: your mirror', 'cylinder', [MX, 0.02, MZ], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });
+  obj('sgn008', 'Sign 8: Your mirror', 'sign-8', [2.6, 0, MZ + 0.4], Math.atan2(-1.5, 1.2), Object.assign({ locked: true }, v8 ? { press: said(v8) } : {}));
+  groups.push({ id: 'gmir08', name: 'Your mirror', items: ['mir008', 'dsc08a', 'sgn008'].concat(v8 ? [] : ['mrs008']) });
 
   // ---- checks
   const ids = new Set(), all = [objects, cubes, sounds, shapes, groups].flat();
